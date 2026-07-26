@@ -7387,6 +7387,275 @@
         "title": "NumericRange",
         "type": "object"
       },
+      "ObjectiveDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "incumbent": {
+            "$ref": "#/components/schemas/ObjectiveIncumbent",
+            "default": {
+              "source": "none"
+            }
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "objective_id": {
+            "minLength": 1,
+            "title": "Objective Id",
+            "type": "string"
+          },
+          "optimization_kind": {
+            "enum": [
+              "single_objective",
+              "constrained_single_objective",
+              "pareto_multi_objective",
+              "legacy_screening"
+            ],
+            "title": "Optimization Kind",
+            "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "objective-definition/v1",
+            "default": "objective-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "minLength": 1,
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectiveTerm"
+            },
+            "minItems": 1,
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "objective_id",
+          "name",
+          "task_id",
+          "task_contract_digest",
+          "optimization_kind",
+          "terms"
+        ],
+        "title": "ObjectiveDefinition",
+        "type": "object"
+      },
+      "ObjectiveDefinitionRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_provenance": {
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "updated_revision"
+            ],
+            "title": "Binding Provenance",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "objective_definition": {
+            "$ref": "#/components/schemas/ObjectiveDefinition"
+          },
+          "objective_definition_digest": {
+            "title": "Objective Definition Digest",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "objective_definition",
+          "objective_definition_digest",
+          "binding_provenance",
+          "created_at"
+        ],
+        "title": "ObjectiveDefinitionRevision",
+        "type": "object"
+      },
+      "ObjectiveIncumbent": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "candidate_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Revision"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Id"
+          },
+          "source": {
+            "default": "none",
+            "enum": [
+              "none",
+              "observed_best",
+              "candidate_revision",
+              "prediction_snapshot",
+              "project_decision"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "ObjectiveIncumbent",
+        "type": "object"
+      },
+      "ObjectiveTerm": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "maximize",
+                  "minimize",
+                  "at_least",
+                  "at_most",
+                  "between",
+                  "target"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower"
+          },
+          "normalization_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output_key": {
+            "minLength": 1,
+            "title": "Output Key",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "primary_objective",
+              "hard_outcome_constraint",
+              "soft_preference",
+              "reporting_only"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "output_key",
+          "unit",
+          "role"
+        ],
+        "title": "ObjectiveTerm",
+        "type": "object"
+      },
       "ObservationGroup": {
         "properties": {
           "count": {
@@ -8734,6 +9003,40 @@
             "title": "Notes",
             "type": "string"
           },
+          "objective_binding_provenance": {
+            "default": "unbound_legacy",
+            "enum": [
+              "explicit",
+              "generated_default",
+              "inherited_predecessor",
+              "updated_revision",
+              "none_configured",
+              "unbound_legacy"
+            ],
+            "title": "Objective Binding Provenance",
+            "type": "string"
+          },
+          "objective_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectiveDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
           "predecessor_project_id": {
             "anyOf": [
               {
@@ -8963,6 +9266,34 @@
             "default": "",
             "title": "Notes",
             "type": "string"
+          },
+          "objective_binding_provenance": {
+            "anyOf": [
+              {
+                "enum": [
+                  "explicit",
+                  "generated_default",
+                  "inherited_predecessor",
+                  "updated_revision",
+                  "none_configured"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Binding Provenance"
+          },
+          "objective_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectiveDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "predecessor_project_id": {
             "anyOf": [
@@ -9401,6 +9732,17 @@
             "default": "",
             "title": "Notes",
             "type": "string"
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
           },
           "predecessor_project_id": {
             "anyOf": [
@@ -10711,6 +11053,16 @@
           "base_inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
           },
+          "objective_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectiveDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "samples": {
             "default": 64,
             "maximum": 128.0,
@@ -10821,6 +11173,36 @@
           "model_provenance": {
             "$ref": "#/components/schemas/ModelMetadata"
           },
+          "objective_binding_provenance": {
+            "default": "legacy_screening",
+            "enum": [
+              "explicit",
+              "legacy_screening"
+            ],
+            "title": "Objective Binding Provenance",
+            "type": "string"
+          },
+          "objective_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectiveDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
           "points": {
             "items": {
               "$ref": "#/components/schemas/ScreeningPoint"
@@ -10906,7 +11288,8 @@
               "screening-run/v1",
               "screening-run/v2",
               "screening-run/v3",
-              "screening-run/v4"
+              "screening-run/v4",
+              "screening-run/v5"
             ],
             "title": "Schema Version",
             "type": "string"
@@ -17854,6 +18237,79 @@
           }
         },
         "summary": "Model Training Data"
+      }
+    },
+    "/api/projects/{project_id}/objectives": {
+      "get": {
+        "operationId": "listProjectObjectiveRevisions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ObjectiveDefinitionRevision"
+                  },
+                  "title": "Response Listprojectobjectiverevisions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "List Project Objective Revisions"
       }
     },
     "/api/projects/{project_id}/quality": {

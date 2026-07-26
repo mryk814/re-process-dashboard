@@ -79,6 +79,30 @@ def test_project_design_space_migration_is_additive_and_idempotent(tmp_path) -> 
     } <= columns
     assert legacy == (None, None, "unbound_legacy")
     assert marker == ("immutable-project-design-space-v1",)
+    with sqlite3.connect(database) as conn:
+        objective_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(projects)")
+        }
+        legacy_objective = conn.execute(
+            "SELECT objective_definition_json,objective_definition_digest,"
+            "objective_binding_provenance FROM projects WHERE id='default'"
+        ).fetchone()
+        objective_marker = conn.execute(
+            "SELECT checksum FROM schema_migrations "
+            "WHERE id='project-objective-definition-v1'"
+        ).fetchone()
+        objective_revisions_table = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name='project_objective_revisions'"
+        ).fetchone()
+    assert {
+        "objective_definition_json",
+        "objective_definition_digest",
+        "objective_binding_provenance",
+    } <= objective_columns
+    assert legacy_objective == (None, None, "unbound_legacy")
+    assert objective_marker == ("immutable-project-objective-definition-v1",)
+    assert objective_revisions_table == ("project_objective_revisions",)
 
 
 def test_project_crud_preserves_default_and_isolates_candidates_and_screening(client) -> None:
@@ -90,6 +114,10 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert project["design_space"]["revision"] == 1
     assert project["design_space_digest"].startswith("sha256:")
     assert project["design_space_binding_provenance"] == "generated_default"
+    assert project["objective_definition"]["revision"] == 1
+    assert project["objective_definition"]["terms"][0]["output_key"] == "TS"
+    assert project["objective_definition_digest"].startswith("sha256:")
+    assert project["objective_binding_provenance"] == "generated_default"
     assert {item["id"] for item in client.get("/api/projects").json()} >= {"default", project["id"]}
     assert client.get(f"/api/projects/{project['id']}").json()["name"] == "新規プロジェクト"
 
@@ -104,6 +132,34 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert client.get(f"/api/projects/{project['id']}").json()["design_space_digest"] == project["design_space_digest"]
     assert client.get("/api/projects/default").json()["name"] == default["name"]
     assert client.get("/api/projects/missing").status_code == 404
+
+    revised_payload = {**changed, "target_values": {"YS": 400}}
+    revised = client.put(
+        f"/api/projects/{project['id']}",
+        json=revised_payload,
+    )
+    assert revised.status_code == 200, revised.text
+    assert revised.json()["objective_definition"]["revision"] == 2
+    assert revised.json()["objective_definition_digest"] != project["objective_definition_digest"]
+    assert revised.json()["objective_binding_provenance"] == "updated_revision"
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        revisions = conn.execute(
+            "SELECT revision,objective_digest FROM project_objective_revisions "
+            "WHERE project_id=? ORDER BY revision",
+            (project["id"],),
+        ).fetchall()
+    assert [item[0] for item in revisions] == [1, 2]
+    objective_history = client.get(
+        f"/api/projects/{project['id']}/objectives"
+    )
+    assert objective_history.status_code == 200
+    assert [
+        item["objective_definition"]["revision"]
+        for item in objective_history.json()
+    ] == [1, 2]
+    assert {
+        item["objective_definition_digest"] for item in objective_history.json()
+    } == {item[1] for item in revisions}
 
     candidate = client.post(f"/api/projects/{project['id']}/candidates", json=_candidate("P2候補"))
     assert candidate.status_code == 201
@@ -124,6 +180,48 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert run.status_code == 201
     assert run.json()["project_design_space_digest"] == project["design_space_digest"]
     assert run.json()["project_design_space_binding_provenance"] == "generated_default"
+    assert run.json()["schema_version"] == "screening-run/v5"
+    assert run.json()["objective_definition_digest"].startswith("sha256:")
+    assert run.json()["objective_binding_provenance"] == "legacy_screening"
+    assert (
+        run.json()["objective_definition"]["optimization_kind"]
+        == "constrained_single_objective"
+    )
+    explicit_objective = run.json()["objective_definition"]
+    explicit_objective["objective_id"] = "screening-objective-explicit"
+    explicit_objective["incumbent"] = {
+        "source": "candidate_revision",
+        "candidate_id": candidate_id,
+        "candidate_revision": candidate.json()["revision"],
+    }
+    explicit_run = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={**screening_body, "objective_definition": explicit_objective},
+    )
+    assert explicit_run.status_code == 201, explicit_run.text
+    assert explicit_run.json()["objective_binding_provenance"] == "explicit"
+    assert (
+        explicit_run.json()["objective_definition"]["incumbent"]["candidate_revision"]
+        == candidate.json()["revision"]
+    )
+
+    wrong_unit = {
+        **explicit_objective,
+        "objective_id": "screening-objective-wrong-unit",
+        "terms": [
+            {
+                **term,
+                "unit": "not-MPa" if term["output_key"] == "TS" else term["unit"],
+            }
+            for term in explicit_objective["terms"]
+        ],
+    }
+    rejected_objective = client.post(
+        f"/api/screening?project_id={project['id']}",
+        json={**screening_body, "objective_definition": wrong_unit},
+    )
+    assert rejected_objective.status_code == 422
+    assert "単位" in rejected_objective.json()["message"]
     assert set(run.json()["points"][0]["predictions"]) == {"TS", "YS", "EL", "lambda"}
     assert "YS" in run.json()["points"][0]["secondary_goal_evaluations"]
     run_id = run.json()["id"]
@@ -134,7 +232,10 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     duplicate = client.post(f"/api/screening/{run_id}/candidates?project_id={project['id']}", json={"point_indices": [0]})
     assert duplicate.status_code == 201
     assert duplicate.json() == {"candidates": [], "skipped_point_indices": [0]}
-    assert [item["id"] for item in client.get(f"/api/screening?project_id={project['id']}").json()] == [run_id]
+    assert {
+        item["id"]
+        for item in client.get(f"/api/screening?project_id={project['id']}").json()
+    } == {run_id, explicit_run.json()["id"]}
     assert client.get("/api/screening").json() == []
     assert client.get(f"/api/screening/{run_id}").status_code == 404
     assert client.post("/api/screening", json=screening_body).status_code == 404
@@ -182,6 +283,14 @@ def test_project_design_space_narrows_screening_and_is_immutable(client) -> None
     assert continued.json()["design_space_digest"] == project["design_space_digest"]
     assert (
         continued.json()["design_space_binding_provenance"]
+        == "inherited_predecessor"
+    )
+    assert (
+        continued.json()["objective_definition_digest"]
+        == project["objective_definition_digest"]
+    )
+    assert (
+        continued.json()["objective_binding_provenance"]
         == "inherited_predecessor"
     )
 

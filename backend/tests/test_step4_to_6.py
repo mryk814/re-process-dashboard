@@ -95,6 +95,9 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     legacy["secondary_targets"] = {}
     legacy.pop("target_goal")
     legacy.pop("secondary_goals")
+    legacy.pop("objective_definition")
+    legacy.pop("objective_definition_digest")
+    legacy.pop("objective_binding_provenance")
     legacy["score_contract"] = {
         **legacy["score_contract"],
         "version": "screening-score/v2",
@@ -102,6 +105,7 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     restored_legacy = ScreeningRunResponse.model_validate(legacy)
     assert restored_legacy.schema_version == "screening-run/v3"
     assert restored_legacy.__dict__["target_value"] == 500
+    assert restored_legacy.objective_definition is None
 
 
 def test_screening_request_rejects_removed_scalar_goal_fields(client) -> None:
@@ -176,6 +180,8 @@ def test_screening_without_target_uses_support_distance_contract(client) -> None
     assert response.status_code == 201
     result = response.json()
     assert result["score_contract"]["fallback"] == "support_distance"
+    assert result["objective_definition"]["optimization_kind"] == "legacy_screening"
+    assert result["objective_definition"]["terms"][0]["role"] == "reporting_only"
     assert all(point["score"] == point["support"]["distance"] for point in result["points"])
 
 
@@ -191,7 +197,7 @@ def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(clie
 
     assert response.status_code == 201, response.text
     run = response.json()
-    assert run["schema_version"] == "screening-run/v4"
+    assert run["schema_version"] == "screening-run/v5"
     assert run["target_goal"] == {"direction": "between", "lower": 450.0, "upper": 550.0}
     assert run["secondary_goals"] == {
         "YS": {"direction": "at_least", "lower": 300.0, "upper": None},
@@ -205,21 +211,15 @@ def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(clie
     assert restored["secondary_goals"] == run["secondary_goals"]
 
 
-def test_screening_opposite_direction_keeps_rule_but_does_not_invert_probability(client) -> None:
+def test_screening_rejects_objective_direction_opposite_to_task_contract(client) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     payload = _screening_body(candidate)
     payload["target_goal"] = {"direction": "at_most", "upper": 650}
 
     response = client.post("/api/screening", json=payload)
 
-    assert response.status_code == 201, response.text
-    run = response.json()
-    assert run["score_contract"]["direction"] == "at_most"
-    assert run["score_contract"]["probability_available"] is False
-    assert all(point["prediction"]["goal_direction"] == "at_most" for point in run["points"])
-    assert all(point["prediction"]["goal_value"] == 650 for point in run["points"])
-    assert all(point["prediction"]["goal_probability"] is None for point in run["points"])
-    assert all(point["goal_evaluation"]["method"] == "directional_shortfall" for point in run["points"])
+    assert response.status_code == 422
+    assert "Objectiveの方向" in response.json()["message"]
 
 
 def test_lineage_candidate_actuals_and_snapshot_restore(client) -> None:

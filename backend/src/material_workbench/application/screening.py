@@ -25,6 +25,7 @@ from material_workbench.contracts.design_space_contracts import (
     NumericDomain,
 )
 from material_workbench.contracts.task_contracts import NumericRange
+from material_workbench.contracts.objective_contracts import objective_from_screening
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import CandidateLimitError, Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
@@ -182,6 +183,48 @@ class ScreeningService:
         unknown_secondary = sorted((set(payload.secondary_goals) - set(outputs)) | ({payload.target} & set(payload.secondary_goals)))
         if unknown_secondary:
             raise ScreeningValidationError(f"副条件の特性を確認してください: {', '.join(unknown_secondary)}")
+        derived_objective = objective_from_screening(
+            task=definition,
+            task_contract_digest=project.task_contract_digest,
+            target=payload.target,
+            target_goal=payload.target_goal,
+            secondary_goals=payload.secondary_goals,
+        )
+        objective = payload.objective_definition or derived_objective
+        objective_provenance = (
+            "explicit" if payload.objective_definition is not None else "legacy_screening"
+        )
+        try:
+            objective.validate_against(definition, contract.runtime_capability)
+        except ValueError as exc:
+            raise ScreeningValidationError(str(exc)) from exc
+        if payload.objective_definition is not None and (
+            objective.optimization_kind != derived_objective.optimization_kind
+            or objective.terms != derived_objective.terms
+        ):
+            raise ScreeningValidationError(
+                "Objective Definitionと範囲探索の主目標・副条件が一致しません"
+            )
+        incumbent = objective.incumbent
+        if incumbent.source == "candidate_revision":
+            if self.store.get_candidate_revision(
+                incumbent.candidate_id or "",
+                incumbent.candidate_revision or 0,
+                project_id,
+            ) is None:
+                raise ScreeningValidationError("Objectiveのincumbent候補revisionが見つかりません")
+        elif incumbent.source == "prediction_snapshot":
+            snapshot = self.store.get_snapshot(incumbent.snapshot_id or "")
+            if (
+                snapshot is None
+                or snapshot["candidate_id"] != incumbent.candidate_id
+                or self.store.get_candidate(incumbent.candidate_id or "", project_id) is None
+            ):
+                raise ScreeningValidationError("Objectiveのincumbent snapshotが見つかりません")
+        elif incumbent.source == "project_decision" and (
+            not project.decision_candidate_id or not project.decision_snapshot_id
+        ):
+            raise ScreeningValidationError("Projectに採用済みincumbentがありません")
         configured_goals = dict(payload.secondary_goals)
         if payload.target_goal is not None:
             configured_goals[payload.target] = payload.target_goal
@@ -218,6 +261,10 @@ class ScreeningService:
         result["project_design_space_binding_provenance"] = (
             project.design_space_binding_provenance
         )
+        result["objective_definition"] = objective.model_dump(mode="json")
+        result["objective_definition_digest"] = objective.digest
+        result["objective_binding_provenance"] = objective_provenance
+        result["schema_version"] = "screening-run/v5"
         result["proposal_strategy"] = {
             "id": "latin_hypercube_v1",
             "version": "1.0.0",

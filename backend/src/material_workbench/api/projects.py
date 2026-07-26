@@ -13,6 +13,7 @@ from ..application.projects import (
     ProjectValidationError,
 )
 from material_workbench.contracts.schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
+from material_workbench.contracts.objective_contracts import ObjectiveDefinitionRevision
 from material_workbench.persistence.store import (
     ProjectGroupConflictError,
     ProjectHasDerivedCandidatesError,
@@ -69,6 +70,22 @@ def create_project(payload: ProjectCreateInput, service: ProjectServiceDependenc
 def get_project(project_id: str, service: ProjectServiceDependency) -> Project:
     try:
         return service.require(project_id)
+    except ProjectNotFoundError as exc:
+        raise _not_found(exc) from exc
+
+
+@router.get(
+    "/api/projects/{project_id}/objectives",
+    response_model=list[ObjectiveDefinitionRevision],
+    responses=PROJECT_API_ERRORS,
+    operation_id="listProjectObjectiveRevisions",
+)
+def list_project_objective_revisions(
+    project_id: str,
+    service: ProjectServiceDependency,
+) -> list[ObjectiveDefinitionRevision]:
+    try:
+        return service.objective_revisions(project_id)
     except ProjectNotFoundError as exc:
         raise _not_found(exc) from exc
 
