@@ -11,7 +11,7 @@ import tempfile
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Sequence, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from material_workbench.contracts.series_contracts import SeriesFeatureContract
@@ -499,6 +499,16 @@ def validate_predictive_summary(
 
 class LoadedPredictor(Protocol):
     def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary: ...
+
+
+@runtime_checkable
+class LoadedBatchPredictor(Protocol):
+    def predict_batch(
+        self,
+        values: Sequence[dict[str, float]],
+        *,
+        seed: int = 0,
+    ) -> list[PredictiveSummary]: ...
 
 
 class Adapter(Protocol):

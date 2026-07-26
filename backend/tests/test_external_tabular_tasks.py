@@ -11,6 +11,8 @@ from material_workbench.contracts.schemas import Candidate
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.data.profile_document import supported_task_ids
 from material_workbench.persistence.store import Store
+import material_workbench.modeling.observation_regression as observation_module
+import material_workbench.modeling.tabular_regression as tabular_module
 
 
 EXTERNAL_TASKS = (
@@ -219,6 +221,66 @@ def test_battery_similarity_deduplicates_cells(resources) -> None:
     similar = runtime.similarity(_candidate("battery-degradation-v1"))
     assert len(similar) == 4
     assert len({item["parent_key"] for item in similar}) == 4
+
+
+def test_lightgbm_native_batch_preserves_order_and_scalar_semantics(
+    resources,
+) -> None:
+    runtime = resources.task_registry.runtime_for("battery-degradation-v1")
+    candidates = []
+    for index, cycle in enumerate((1.0, 250.0, 900.0), start=1):
+        candidate = _candidate("battery-degradation-v1")
+        candidate.id = f"battery-batch-{index}"
+        candidate.inputs.process["cycle_index"] = cycle
+        candidates.append(candidate)
+
+    assert runtime.supports_batch_prediction is True
+    batch = runtime.predict_batch(candidates)
+    scalar = [runtime.predict(candidate) for candidate in candidates]
+
+    assert [item["candidate_id"] for item in batch] == [
+        candidate.id for candidate in candidates
+    ]
+    for batch_item, scalar_item in zip(batch, scalar, strict=True):
+        assert batch_item["predictions"] == scalar_item["predictions"]
+        assert batch_item["canonical_input"] == scalar_item["canonical_input"]
+        assert batch_item["support"] == scalar_item["support"]
+        assert batch_item["warnings"] == scalar_item["warnings"]
+        assert batch_item["similar"] == []
+
+
+def test_non_batch_tabular_runtime_does_not_claim_native_batch(resources) -> None:
+    runtime = resources.task_registry.runtime_for("mpea-room-tensile-v1")
+
+    assert runtime.supports_batch_prediction is False
+
+
+def test_runtime_predictions_do_not_reload_task_documents(
+    resources,
+    monkeypatch,
+) -> None:
+    def fail_reload():
+        raise AssertionError("Task document was reloaded during prediction")
+
+    tabular = resources.task_registry.runtime_for("mpea-room-tensile-v1")
+    observation = resources.task_registry.runtime_for(
+        "welding-stage-c-properties-v1"
+    )
+    monkeypatch.setattr(
+        tabular_module,
+        "load_task_definitions",
+        fail_reload,
+    )
+    monkeypatch.setattr(
+        observation_module,
+        "load_task_contracts",
+        fail_reload,
+    )
+
+    assert tabular.predict_core(_candidate("mpea-room-tensile-v1"))
+    assert observation.predict_core(
+        _candidate("welding-stage-c-properties-v1")
+    )
 
 
 def test_secom_prediction_is_a_calibrated_binary_probability(resources) -> None:

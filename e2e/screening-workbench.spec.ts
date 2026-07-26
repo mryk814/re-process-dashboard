@@ -85,3 +85,108 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
   expect(Object.keys(body.points[0].predictions)).toEqual(["TS"]);
   await expect(page.getByLabel("X軸")).toHaveValue("process.soaking_temperature_c");
 });
+
+test("bounded simplex display agrees with the persisted proposal evidence", async ({ page, request }) => {
+  const project = await createProject(request, "mpea-hardness-process-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+
+  await page.getByLabel("候補の提案方法").selectOption("bounded_simplex_goal_v1");
+  const rows = page.locator(".variable-table tbody tr");
+  await rows.nth(0).getByRole("combobox").first().selectOption("composition.Ni");
+  await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
+  await rows.nth(0).locator("input").nth(0).fill("20");
+  await rows.nth(0).locator("input").nth(1).fill("50");
+  await rows.nth(1).getByRole("combobox").first().selectOption("composition.Co");
+  await rows.nth(1).getByRole("combobox").nth(1).selectOption("range");
+  await rows.nth(1).locator("input").nth(0).fill("20");
+  await rows.nth(1).locator("input").nth(1).fill("50");
+  await page.getByLabel("実験バッチを提案").check();
+  await page.locator(".screening-batch-settings > summary > small").click();
+  await page.getByLabel("バッチ選抜").selectOption("ranked_top_k_v1");
+
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await page.getByRole("button", { name: "探索を実行" }).click();
+  const response = await runResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const run = await response.json() as {
+    id: string;
+    seed: number;
+    model_provenance: Record<string, unknown>;
+    proposal_strategy: {
+      generator_id: string;
+      generator_version: string;
+      distance_id: string;
+      distance_version: string;
+    };
+    proposal_diagnostics: { coverage_by_path: Record<string, unknown> };
+    batch_proposal: { distance_id: string };
+  };
+
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
+    "Bounded simplex・目標基準（組成向け）",
+  );
+  await page.getByText("条件と除外理由").click();
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
+    "組成bounded CLR-RMS + 入力群均等",
+  );
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
+    "生成coverage: composition.Ni",
+  );
+
+  const persistedResponse = await request.get(
+    `${api}/api/screening/${run.id}?project_id=${project.id}`,
+  );
+  expect(persistedResponse.status(), await persistedResponse.text()).toBe(200);
+  const persisted = await persistedResponse.json() as typeof run;
+  expect(persisted.seed).toBe(run.seed);
+  expect(persisted.model_provenance).toEqual(run.model_provenance);
+  expect(run.proposal_strategy).toEqual(persisted.proposal_strategy);
+  expect(run.batch_proposal).toEqual(persisted.batch_proposal);
+  expect(run.proposal_strategy).toMatchObject({
+    generator_id: "bounded_simplex_hit_and_run",
+    generator_version: "1.0.0",
+    distance_id: "group_weighted_bounded_clr_rms",
+    distance_version: "1.0.0",
+  });
+  expect(run.batch_proposal.distance_id).toBe("group_weighted_bounded_clr_rms");
+  expect(Object.keys(run.proposal_diagnostics.coverage_by_path)).toEqual(
+    expect.arrayContaining(["composition.Ni", "composition.Co"]),
+  );
+});
+
+test("a late proposal response cannot replace a newer run", async ({ page, request }) => {
+  const project = await createProject(request, "hot-rolled-properties-v1");
+  let requestCount = 0;
+  await page.route("**/api/screening?project_id=*", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    requestCount += 1;
+    const current = requestCount;
+    const response = await route.fetch();
+    if (current === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    await route.fulfill({ response });
+  });
+  await page.goto(`/?view=explore&project=${project.id}`);
+  const rows = page.locator(".variable-table tbody tr");
+  await rows.nth(0).getByRole("combobox").first().selectOption("process.soaking_temperature_c");
+  await rows.nth(0).getByRole("combobox").nth(1).selectOption("range");
+  await rows.nth(0).locator("input").nth(0).fill("1170");
+  await rows.nth(0).locator("input").nth(1).fill("1190");
+
+  await page.getByLabel("乱数seed").fill("101");
+  await page.getByRole("button", { name: "探索を実行" }).click();
+  await page.getByLabel("乱数seed").fill("202");
+  await page.getByRole("button", { name: "探索を実行" }).click();
+
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
+  await page.waitForTimeout(900);
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
+  expect(requestCount).toBe(2);
+});
