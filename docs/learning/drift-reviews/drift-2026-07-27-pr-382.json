@@ -132,8 +132,8 @@
     "focused_tests": "Active Package history tests passed 9 with 5 known warnings; task inventory and history checks passed.",
     "api_check": "PR #382 does not change public API contracts.",
     "code_reference_check": "Validated 28 documents and 775 structured code references after the final update.",
-    "html_build": "The clean integrated site build passed for 42 documents with 325 exact code links in 55.06 seconds.",
-    "pdf_build": "The clean Reader build passed in 24.67 seconds: 358 A4 pages, 13,206,636 bytes, SHA-256 63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046c.",
+    "html_build": "The final integrated site build passed for 42 documents with 325 exact code links in 56.38 seconds.",
+    "pdf_build": "The final Reader build passed in 26.61 seconds: 358 A4 pages, 13,206,925 bytes, SHA-256 03d0197ca64756f1a70858472efa1b8d56e855b3a952df6a4e5aa9966ba4be9d.",
     "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
   },
   "reviewer_note": "The chapter now distinguishes a valid null previous state from a direct edit that destroyed reversible activation history. It does not claim git history is available in every packaged environment."

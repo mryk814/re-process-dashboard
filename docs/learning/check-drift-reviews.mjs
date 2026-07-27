@@ -169,6 +169,17 @@ for (const file of files) {
     }
   }
 
+  if (["resolved", "reviewed-no-change"].includes(record.status)) {
+    for (const [key, value] of Object.entries(record.verification)) {
+      assert(
+        typeof value === "string" &&
+          value.length > 10 &&
+          !/\b(?:pending|todo|tbd)\b/i.test(value),
+        `${file}: verification '${key}' is pending.`,
+      );
+    }
+  }
+
   if (record.status === "resolved") {
     assert(record.new_verified_commit, `${file}: resolved record needs new_verified_commit.`);
     assert(
@@ -199,14 +210,6 @@ for (const file of files) {
       ),
       `${file}: resolved record contains an unresolved claim.`,
     );
-    for (const [key, value] of Object.entries(record.verification)) {
-      assert(
-        typeof value === "string" &&
-          value.length > 10 &&
-          !/\b(?:pending|todo|tbd)\b/i.test(value),
-        `${file}: verification '${key}' is pending.`,
-      );
-    }
   }
 }
 
