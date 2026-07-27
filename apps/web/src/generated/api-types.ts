@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/ai-review/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ai Review Availability */
+        get: operations["ai_review_availability_api_ai_review_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/canonical-series/{revision_id}/feature-preview": {
         parameters: {
             query?: never;
@@ -571,6 +588,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/ai-review-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ai Review Runs */
+        get: operations["list_ai_review_runs_api_projects__project_id__ai_review_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/ai-review-runs/{review_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ai Review Run */
+        get: operations["get_ai_review_run_api_projects__project_id__ai_review_runs__review_run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/ai-review-runs/{review_run_id}/dispositions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ai Review Dispositions */
+        get: operations["list_ai_review_dispositions_api_projects__project_id__ai_review_runs__review_run_id__dispositions_get"];
+        put?: never;
+        /** Record Ai Review Disposition */
+        post: operations["record_ai_review_disposition_api_projects__project_id__ai_review_runs__review_run_id__dispositions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/batch-selectors": {
         parameters: {
             query?: never;
@@ -672,6 +741,23 @@ export interface paths {
         post?: never;
         /** Delete Actual */
         delete: operations["delete_actual_api_projects__project_id__candidates__candidate_id__actuals__actual_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/candidates/{candidate_id}/ai-review-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Ai Candidate Review */
+        post: operations["run_ai_candidate_review_api_projects__project_id__candidates__candidate_id__ai_review_runs_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2046,6 +2132,232 @@ export interface components {
             std: number;
             /** Unit */
             unit: string;
+        };
+        /** AiActorIdentity */
+        AiActorIdentity: {
+            /** Actor Id */
+            actor_id: string;
+            /**
+             * Actor Kind
+             * @default ai_agent
+             * @constant
+             */
+            actor_kind: "ai_agent";
+            /** Agent Definition Id */
+            agent_definition_id: string;
+            /** Capabilities */
+            capabilities: string[];
+            /** Model Id */
+            model_id: string;
+            /** Model Provider */
+            model_provider: string;
+            /** Policy Version */
+            policy_version: string;
+            /** Toolset Version */
+            toolset_version: string;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /** AiReviewAvailability */
+        AiReviewAvailability: {
+            actor?: components["schemas"]["AiActorIdentity"] | null;
+            /**
+             * Allowed Read Tools
+             * @default []
+             */
+            allowed_read_tools: string[];
+            /**
+             * Allowed Write Tools
+             * @default []
+             */
+            allowed_write_tools: string[];
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** AiReviewDisposition */
+        AiReviewDisposition: {
+            /** Actor Id */
+            actor_id: string;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "accepted" | "partially_accepted" | "rejected" | "deferred" | "superseded";
+            /** Disposition Id */
+            disposition_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Review Run Id */
+            review_run_id: string;
+        };
+        /** AiReviewDispositionInput */
+        AiReviewDispositionInput: {
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "accepted" | "partially_accepted" | "rejected" | "deferred" | "superseded";
+            /** Reason */
+            reason: string;
+        };
+        /** AiReviewEvidenceReference */
+        AiReviewEvidenceReference: {
+            /** Field Path */
+            field_path: string;
+            /** Observed Value Digest */
+            observed_value_digest: string;
+            /** Resource Id */
+            resource_id: string;
+            /**
+             * Resource Kind
+             * @enum {string}
+             */
+            resource_kind: "project" | "candidate_revision" | "predictive_snapshot" | "decision_activity_run" | "actual_measurement" | "objective_definition" | "design_space" | "task_capability" | "model_package";
+            /** Revision */
+            revision?: number | null;
+            /** Run Id */
+            run_id?: string | null;
+        };
+        /** AiReviewFinding */
+        AiReviewFinding: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "objective_fit" | "support" | "uncertainty" | "constraint" | "missing_evidence" | "next_action";
+            /** Claim */
+            claim: string;
+            /**
+             * Confidence Kind
+             * @default none
+             * @enum {string}
+             */
+            confidence_kind: "none" | "human_readable_heuristic";
+            /** Confidence Level */
+            confidence_level?: ("low" | "medium" | "high") | null;
+            /** Evidence Refs */
+            evidence_refs: components["schemas"]["AiReviewEvidenceReference"][];
+            /** Finding Id */
+            finding_id: string;
+            /** Reasoning Summary */
+            reasoning_summary: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "caution" | "important";
+            /**
+             * Suggested Action
+             * @enum {string}
+             */
+            suggested_action: "inspect_evidence" | "run_decision_activity" | "collect_measurement" | "review_candidate";
+            /** Uncertainty Note */
+            uncertainty_note: string;
+        };
+        /** AiReviewProvenance */
+        AiReviewProvenance: {
+            actor: components["schemas"]["AiActorIdentity"];
+            /** Input Snapshot Digest */
+            input_snapshot_digest: string;
+            /**
+             * Prompt Template Version
+             * @default candidate-decision-review-prompt/v1
+             * @constant
+             */
+            prompt_template_version: "candidate-decision-review-prompt/v1";
+            /**
+             * Review Task Id
+             * @default candidate-decision-review-v1
+             * @constant
+             */
+            review_task_id: "candidate-decision-review-v1";
+            /** Reviewed Candidate Revision */
+            reviewed_candidate_revision: number;
+            /** Sampling Settings */
+            sampling_settings: {
+                [key: string]: string | number | boolean | null;
+            };
+        };
+        /** AiReviewRun */
+        AiReviewRun: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Failure Reason */
+            failure_reason?: string | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["AiReviewFinding"][];
+            /**
+             * Limitations
+             * @default []
+             */
+            limitations: string[];
+            /** Project Id */
+            project_id: string;
+            provenance: components["schemas"]["AiReviewProvenance"];
+            /** Review Run Id */
+            review_run_id: string;
+            /**
+             * Reviewed Resource Refs
+             * @default []
+             */
+            reviewed_resource_refs: components["schemas"]["AiReviewEvidenceReference"][];
+            /**
+             * Schema Version
+             * @default ai-review-run/v1
+             * @constant
+             */
+            schema_version: "ai-review-run/v1";
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "running" | "completed" | "partial" | "invalid" | "failed";
+            /**
+             * Suggested Actions
+             * @default []
+             */
+            suggested_actions: components["schemas"]["AiReviewSuggestedAction"][];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /** AiReviewRunRequest */
+        AiReviewRunRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** AiReviewSuggestedAction */
+        AiReviewSuggestedAction: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "inspect_evidence" | "run_decision_activity" | "collect_measurement" | "review_candidate";
+            /** Rationale */
+            rationale: string;
         };
         /** ApiError */
         ApiError: {
@@ -9024,6 +9336,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ai_review_availability_api_ai_review_availability_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     preview_series_features_api_canonical_series__revision_id__feature_preview_post: {
         parameters: {
             query?: never;
@@ -10399,6 +10740,250 @@ export interface operations {
             };
         };
     };
+    list_ai_review_runs_api_projects__project_id__ai_review_runs_get: {
+        parameters: {
+            query?: {
+                candidate_id?: string | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewRun"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_ai_review_run_api_projects__project_id__ai_review_runs__review_run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                review_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_ai_review_dispositions_api_projects__project_id__ai_review_runs__review_run_id__dispositions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                review_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewDisposition"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    record_ai_review_disposition_api_projects__project_id__ai_review_runs__review_run_id__dispositions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Development attribution identifier supplied by the trusted local application boundary. This header is not authentication. */
+                "X-Workbench-Human-Actor": string;
+            };
+            path: {
+                project_id: string;
+                review_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiReviewDispositionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewDisposition"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_batch_selectors_api_projects__project_id__batch_selectors_get: {
         parameters: {
             query: {
@@ -10914,6 +11499,69 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    run_ai_candidate_review_api_projects__project_id__candidates__candidate_id__ai_review_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiReviewRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiReviewRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

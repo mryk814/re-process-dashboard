@@ -50,8 +50,13 @@ from material_workbench.contracts.schemas import (
     LineageNodeReview,
     LineageNodeReviewInput,
 )
+from material_workbench.contracts.ai_review_contracts import (
+    AiReviewDisposition,
+    AiReviewRun,
+)
 from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
 from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
+from material_workbench.persistence.ai_review_migration import migrate_ai_reviews
 from material_workbench.persistence.project_design_space_migration import (
     migrate_project_design_spaces,
 )
@@ -215,6 +220,7 @@ class Store:
         migrate_candidate_revisions(self.path)
         migrate_lineage_reviews(self.path)
         migrate_decision_activity_runs(self.path)
+        migrate_ai_reviews(self.path)
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)
         migrate_project_starter_identity(self.path)
@@ -2257,6 +2263,160 @@ class Store:
         with self._connect() as conn:
             rows = conn.execute(query, parameters).fetchall()
         return [self._decision_activity_run(row) for row in rows]
+
+    @staticmethod
+    def _ai_review_run(row: sqlite3.Row) -> AiReviewRun:
+        return AiReviewRun.model_validate_json(row["payload"])
+
+    def create_ai_review_run(self, run: AiReviewRun) -> AiReviewRun:
+        if run.state != "running":
+            raise ValueError("new AI review run must start in running state")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT revision FROM candidates WHERE id=? AND project_id=?",
+                (run.candidate_id, run.project_id),
+            ).fetchone()
+            if candidate is None:
+                raise ProjectNotFoundError(run.project_id)
+            if int(candidate["revision"]) != run.provenance.reviewed_candidate_revision:
+                raise CandidateRevisionConflictError(
+                    self.get_candidate(run.candidate_id, run.project_id)  # type: ignore[arg-type]
+                )
+            conn.execute(
+                "INSERT INTO ai_review_runs("
+                "review_run_id,project_id,candidate_id,candidate_revision,state,"
+                "payload,started_at,completed_at) VALUES (?,?,?,?,?,?,?,NULL)",
+                (
+                    run.review_run_id,
+                    run.project_id,
+                    run.candidate_id,
+                    run.provenance.reviewed_candidate_revision,
+                    run.state,
+                    run.model_dump_json(),
+                    run.started_at.isoformat(),
+                ),
+            )
+        return run
+
+    def finalize_ai_review_run(self, run: AiReviewRun) -> AiReviewRun:
+        if run.state == "running" or run.completed_at is None:
+            raise ValueError("AI review finalization requires a terminal run")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT state,project_id,candidate_id,candidate_revision,payload "
+                "FROM ai_review_runs WHERE review_run_id=?",
+                (run.review_run_id,),
+            ).fetchone()
+            if row is None:
+                raise StoreDataIntegrityError("AI Review Runが見つかりません")
+            if row["state"] != "running":
+                raise StoreDataIntegrityError("確定済みAI Review Runは変更できません")
+            existing = AiReviewRun.model_validate_json(row["payload"])
+            terminal_fields = {
+                "state",
+                "completed_at",
+                "findings",
+                "summary",
+                "suggested_actions",
+                "limitations",
+                "failure_reason",
+            }
+            existing_envelope = existing.model_dump(
+                mode="json", exclude=terminal_fields
+            )
+            submitted_envelope = run.model_dump(
+                mode="json", exclude=terminal_fields
+            )
+            if submitted_envelope != existing_envelope:
+                raise StoreDataIntegrityError(
+                    "AI Review Runのimmutable envelopeが変わっています"
+                )
+            if (
+                row["project_id"] != run.project_id
+                or row["candidate_id"] != run.candidate_id
+                or int(row["candidate_revision"])
+                != run.provenance.reviewed_candidate_revision
+            ):
+                raise StoreDataIntegrityError("AI Review Runのidentityが変わっています")
+            updated = conn.execute(
+                "UPDATE ai_review_runs SET state=?,payload=?,completed_at=? "
+                "WHERE review_run_id=? AND state='running'",
+                (
+                    run.state,
+                    run.model_dump_json(),
+                    run.completed_at.isoformat(),
+                    run.review_run_id,
+                ),
+            )
+            if updated.rowcount != 1:
+                raise StoreDataIntegrityError("AI Review Runを確定できませんでした")
+        return run
+
+    def get_ai_review_run(
+        self, project_id: str, review_run_id: str
+    ) -> AiReviewRun | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload FROM ai_review_runs "
+                "WHERE project_id=? AND review_run_id=?",
+                (project_id, review_run_id),
+            ).fetchone()
+        return self._ai_review_run(row) if row else None
+
+    def list_ai_review_runs(
+        self, project_id: str, candidate_id: str | None = None
+    ) -> list[AiReviewRun]:
+        query = "SELECT payload FROM ai_review_runs WHERE project_id=?"
+        parameters: tuple[str, ...] = (project_id,)
+        if candidate_id is not None:
+            query += " AND candidate_id=?"
+            parameters = (project_id, candidate_id)
+        query += " ORDER BY started_at DESC"
+        with self._connect() as conn:
+            rows = conn.execute(query, parameters).fetchall()
+        return [self._ai_review_run(row) for row in rows]
+
+    def append_ai_review_disposition(
+        self, disposition: AiReviewDisposition
+    ) -> AiReviewDisposition:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            run = conn.execute(
+                "SELECT state,project_id FROM ai_review_runs WHERE review_run_id=?",
+                (disposition.review_run_id,),
+            ).fetchone()
+            if run is None or run["project_id"] != disposition.project_id:
+                raise StoreDataIntegrityError("AI Review Runが見つかりません")
+            if run["state"] == "running":
+                raise StoreDataIntegrityError("実行中のAI Reviewへ判断を記録できません")
+            conn.execute(
+                "INSERT INTO ai_review_dispositions("
+                "disposition_id,review_run_id,project_id,payload,recorded_at"
+                ") VALUES (?,?,?,?,?)",
+                (
+                    disposition.disposition_id,
+                    disposition.review_run_id,
+                    disposition.project_id,
+                    disposition.model_dump_json(),
+                    disposition.recorded_at.isoformat(),
+                ),
+            )
+        return disposition
+
+    def list_ai_review_dispositions(
+        self, project_id: str, review_run_id: str
+    ) -> list[AiReviewDisposition]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload FROM ai_review_dispositions "
+                "WHERE project_id=? AND review_run_id=? ORDER BY recorded_at",
+                (project_id, review_run_id),
+            ).fetchall()
+        return [
+            AiReviewDisposition.model_validate_json(row["payload"]) for row in rows
+        ]
 
     @staticmethod
     def _actual(row: sqlite3.Row) -> ActualMeasurement:

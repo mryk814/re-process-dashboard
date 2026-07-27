@@ -31,6 +31,8 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "chain_analysis_variant_records",
         "chain_distribution_runs",
         "chain_snapshot_records",
+        "ai_review_dispositions",
+        "ai_review_runs",
         "decision_activity_runs",
         "screening_runs",
         "lineage_node_reviews",
