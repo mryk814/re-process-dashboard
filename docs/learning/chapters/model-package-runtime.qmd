@@ -1,5 +1,4 @@
 ---
-title: "学習結果を安全にRuntimeへ渡す"
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160

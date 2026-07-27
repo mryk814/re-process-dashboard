@@ -1,5 +1,4 @@
 ---
-title: "予測の広がりと学習dataの裏付けを分ける"
 chapter_id: "prediction-calibration-support"
 level: intermediate
 estimated_minutes: 150

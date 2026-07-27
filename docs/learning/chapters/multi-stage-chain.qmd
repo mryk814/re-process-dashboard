@@ -1,5 +1,4 @@
 ---
-title: "複数Stageを証拠付きdataflowとして接続する"
 chapter_id: "multi-stage-chain"
 level: advanced
 estimated_minutes: 240

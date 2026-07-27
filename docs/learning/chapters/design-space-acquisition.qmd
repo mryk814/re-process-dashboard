@@ -1,5 +1,4 @@
 ---
-title: "探索条件から実験batchまでを分ける"
 level: advanced
 estimated_minutes: 210
 verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
@@ -744,17 +743,15 @@ Counterfactual Activityは、現在のcandidateから変更可能な入力を動
 
 現mainの処理は、次の対応で読めます。
 
-| 概念 | contractまたはfield | 計算するsymbol | 確認するtest | 現在の差分 |
-|---|---|---|---|---|
-| Design Space | `DesignSpaceDefinition` | `validate_candidate_in_design_space` | `test_proposal_strategies.py`、Design Space関連test | 明示した制約だけを保証 |
-| Objective | `ObjectiveDefinition` | `build_objective_execution_plan` | Objective contract関連test | soft preference、Pareto、純粋max/minは未実行 |
-| Generator | `generator_id`、version、seed | `generate_candidates` | `test_sobol_is_seeded_bounded_and_reproducible` | LHS、Sobol、bounded simplexだけ |
-| UCBまたはLCB | `upper_confidence_bound` | `acquisition_value` | `test_ucb_and_expected_improvement_rank_promising_uncertain_points` | normal mean/stdが必要 |
-| EI | `expected_improvement`、incumbent evidence | `acquisition_value` | `test_expected_improvement_margin_changes_maximize_and_minimize_scores` | $\sigma>0$とincumbentが必要 |
-| PI | 未登録 | 該当なし | 該当なし | 教材上の比較だけ |
-| greedy batch | `greedy_value_diversity_v1` | `select_experiment_batch` | `test_diversity_selector_includes_a_different_region` | heuristic、joint posteriorなし |
-| joint q-acquisition | `joint_q_acquisition_v1` | availability gateだけ | `test_batch_selector_registry_does_not_claim_joint_methods_without_capability` | production無効、joint sampleなし |
-| UI | proposal strategy、selector、pool、選択理由 | `ScreeningPage` | screening E2EとAPI test | UIは有効なstrategyだけを選択可能にする |
+- **Design Space** — contractは`DesignSpaceDefinition`、計算は`validate_candidate_in_design_space`です。`test_proposal_strategies.py`とDesign Space関連testが、明示した制約だけを保証することを確認します。
+- **Objective** — contractは`ObjectiveDefinition`、計算は`build_objective_execution_plan`です。Objective contract関連testが対象で、soft preference、Pareto、純粋max/minは未実行です。
+- **Generator** — `generator_id`、version、seedを`generate_candidates`へ渡します。`test_sobol_is_seeded_bounded_and_reproducible`が再現性を確認し、現行の選択肢はLHS、Sobol、bounded simplexです。
+- **UCBまたはLCB** — `upper_confidence_bound`を`acquisition_value`で計算します。`test_ucb_and_expected_improvement_rank_promising_uncertain_points`が順位を確認し、normal mean/stdを前提とします。
+- **EI** — `expected_improvement`とincumbent evidenceを`acquisition_value`へ渡します。`test_expected_improvement_margin_changes_maximize_and_minimize_scores`が目的方向を確認し、$\sigma>0$とincumbentを必要とします。
+- **PI** — production registryには未登録で、教材上の比較だけです。
+- **greedy batch** — `greedy_value_diversity_v1`を`select_experiment_batch`で計算します。`test_diversity_selector_includes_a_different_region`が多様性を確認しますが、heuristicでありjoint posteriorは使いません。
+- **joint q-acquisition** — `joint_q_acquisition_v1`はavailability gateだけを持ちます。`test_batch_selector_registry_does_not_claim_joint_methods_without_capability`が、joint sampleのないproductionでは無効になることを確認します。
+- **UI** — `ScreeningPage`がproposal strategy、selector、pool、選択理由を扱います。screening E2EとAPI testが、有効なstrategyだけを選択可能にすることを確認します。
 
 {{< code-ref acquisition-strategy-registry symbol=strategy_availability >}}は、output kind、mean、standard deviation、sample、joint sample、incumbent、Objective方向を検査します。
 

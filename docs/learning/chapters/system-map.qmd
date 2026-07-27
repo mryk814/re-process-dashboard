@@ -1,5 +1,4 @@
 ---
-title: "一つの保存操作からシステム全体を読む"
 level: beginner
 estimated_minutes: 55
 verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"

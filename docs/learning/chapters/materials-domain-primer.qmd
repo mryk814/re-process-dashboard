@@ -1,5 +1,4 @@
 ---
-title: "材料dataを候補判断へ渡す前に分ける"
 chapter_id: "materials-domain-primer"
 level: intermediate
 estimated_minutes: 180
@@ -338,6 +337,8 @@ group splitも判断時点だけでは防げないleakageを止めます。
 ```{mermaid}
 %%| label: fig-heat-history-representations
 %%| fig-cap: "熱履歴の四表現と、工程意図からmodel入力までの境界"
+%%| fig-width: 6.2
+%%| fig-align: center
 flowchart LR
   P["1. semantic process program<br/>ramp, hold, cool"]
   R["2. raw sensor trace<br/>timestamp, reading, missing"]

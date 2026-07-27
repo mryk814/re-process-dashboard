@@ -1,5 +1,4 @@
 ---
-title: "Local Appの信頼境界を検証する"
 chapter_id: "security-trust-boundaries"
 level: intermediate
 estimated_minutes: 170
@@ -178,6 +177,8 @@ controlを境界へ結び付けて初めて、過剰な期待を避けられま�
 ## 信頼境界の全体像
 
 ```{mermaid}
+%%| fig-width: 6.2
+%%| fig-align: center
 flowchart LR
   F["外部file / bundle / source"] --> V["Backend validation"]
   V --> D["SQLite / managed resources"]

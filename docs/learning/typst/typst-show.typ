@@ -67,6 +67,7 @@ $endif$
 $if(toc-depth)$
   outline-depth: $toc-depth$,
 $endif$
+  outline-small-depth: 1,
 $if(lof)$
 $if(crossref.lof-title)$
   list-of-figure-title: "$crossref.lof-title$",
