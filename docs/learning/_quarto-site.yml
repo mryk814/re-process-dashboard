@@ -23,6 +23,7 @@ book:
     - part: "編集と保守のガイド"
       chapters:
         - foundations.qmd
+        - edition-1.qmd
         - math-style-guide.qmd
         - writer-persona.md
         - code-map.qmd

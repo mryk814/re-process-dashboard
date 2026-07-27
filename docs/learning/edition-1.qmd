@@ -1,0 +1,93 @@
+# Edition 1を受け入れる
+
+Edition 1は、章数ではなく、読者が実装上の判断を自力で進められる範囲で定義します。
+
+このページは完成条件の正本です。
+Issueのopenまたはclosed状態はGitHubを正本とし、ここでは状態を複製しません。
+
+## 九つのPartと成果物
+
+| Part | 読者が答えられる問い | Reader成果物 | 対応Issue |
+|---|---|---|---|
+| I システムを読む | request、state、artifact、evidenceはどこを通るか | 型付き契約の章、code map | #291 |
+| II 型と契約 | 型変更をPythonからReactまでどう通すか | 型付き契約の章、契約Lab | #292 |
+| III データと再現性 | Sourceを学習証拠へ昇格する条件は何か | Source lifecycle章、Data Lab | #293 |
+| IV 永続化と証拠 | revision、digest、migration、archive、restoreをどう分けるか | 永続化4章、対応Lab | #292 |
+| V モデルと不確かさ | 予測分布、support、入力ばらつきをどう区別するか | 予測数理章、Decision Safety章 | #294、#305、#307 |
+| VI 探索と意思決定 | Design Spaceからbatch proposalまでの責務はどう分かれるか | 探索数理章、Chain章 | #294、#306 |
+| VII UIとDesktop | 非同期state、deep link、degraded modeをどこで守るか | Frontend／Desktop章、browser Lab | #295 |
+| VIII 検証と運用 | failure modeに対してどのtestを置くか | 検証章、isolated Lab | #296、#301 |
+| IX ケーススタディ | 採用と不採用の判断をどの証拠で説明するか | 最低2件のケース | #297 |
+
+Security、材料domain、性能設計は一つのPartへ押し込めません。
+それぞれ #304、#303、#308の横断章として、関係するPartから参照します。
+
+## Reader章の受入条件
+
+Readerへ入れる章は、次をすべて満たします。
+
+- 対象読者、到達点、非scopeがある
+- `chapter_id`と概念の前提関係がある
+- 現mainで確認した`verified_commit`と構造化`code_references`がある
+- 実装事実、設計判断、教材上の解釈、将来案を区別する
+- 演習に安定したID、成功条件、解答、よくある不十分な回答がある
+- Further Readingが本文の論証を外部資料へ逃がしていない
+- focused testと失敗時の確認先がある
+- 複眼review recordにblocking findingがない
+
+数理を扱う章には、[数理執筆規約](math-style-guide.qmd)の条件を追加します。
+式は仮定、記号と単位、手計算例、実装対応、破綻条件を持たなければなりません。
+
+## 本全体の受入条件
+
+Edition 1をmainへ公開する前に、次を確認します。
+
+1. 九つのPartがReader成果物または明示的な非scopeへ対応している。
+2. 章の前提概念とReaderの順序が一致している。
+3. 最低2件の実装ケーススタディがあり、成功例と不採用または失敗例を含む。
+4. 最低2種類のreader profileでtask testを記録している。
+5. 教材固有checkとrepository共通のpytest、typecheck、buildが成功する。
+6. 統合HTMLとReader PDFをclean buildする。
+7. Reader PDFの全ページで日本語、式、code、表、図、改ページを目視する。
+8. 生成物のSHA-256、ページ数、検証commit、検証日時を受入記録へ残す。
+9. `learning/textbook`からmainへのPull Requestをreviewしてmergeする。
+
+GitHub Actionsが利用できない期間は、job failureを成功扱いに置き換えません。
+local command、終了code、件数、artifact hash、visual reviewをcommitへ結び、Actions未実行を制約として残します。
+
+## 増章の優先順位
+
+新しい章は、次の順で採否を決めます。
+
+1. 誤った科学判断または証拠破壊を防ぐ。
+2. 複数の既存章が前提としている概念を導入する。
+3. Readerが実装変更を完遂するための空白を埋める。
+4. production defectまたは採否判断を再利用できるケースにする。
+5. framework APIの説明だけなら追加しない。
+
+同じ問いへ答える章は増やしません。
+既存章へ吸収できない理由がある場合だけ、新しいReader章を作ります。
+
+## 受入記録
+
+受入記録には、最低限次を残します。
+
+```yaml
+edition: 1
+verified_commit: "<full commit sha>"
+reader_pages: 0
+reader_sha256: "<sha256>"
+site_build_seconds: 0
+reader_build_seconds: 0
+checks:
+  textbook: pending
+  pytest: pending
+  typecheck: pending
+  build: pending
+  visual_review: pending
+constraints:
+  - "GitHub Actions monthly limit"
+```
+
+実測前の値を見込み値で埋めません。
+検証していない欄は`pending`のまま受入不可とします。
