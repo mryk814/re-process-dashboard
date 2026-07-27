@@ -30,7 +30,7 @@ export function ActivityRunHistory({
         className={selected ? "active" : ""}
         aria-current={selected ? "true" : undefined}
         aria-label={`${index === 0 ? "最新結果" : `保存履歴 ${index}`}、${new Date(run.created_at).toLocaleString("ja-JP")}`}
-        onClick={() => onSelectRun(index === 0 ? null : run.id)}
+        onClick={() => onSelectRun(run.id)}
         key={run.id}
       >{visibleLabel}</button>;
     })}

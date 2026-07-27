@@ -73,7 +73,7 @@ test("run selection lives in the panel so every activity shares one link", async
     assert.match(content, /<ActivityRunHistory.+onSelectRun=\{onSelectRun\}/);
   }
   const evidence = await source("../src/features/workbench/decisionActivities/ActivityRunEvidence.tsx");
-  assert.match(evidence, /onSelectRun\(index === 0 \? null : run\.id\)/);
+  assert.match(evidence, /onSelectRun\(run\.id\)/);
 });
 
 test("developer tab and guide form a restorable location", async () => {

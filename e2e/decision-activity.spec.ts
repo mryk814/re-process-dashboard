@@ -94,6 +94,49 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await expect(page.locator(".activity-result")).toHaveCount(0);
 });
 
+test("a delayed activity response cannot overwrite the newly selected candidate", async ({ page, request }) => {
+  const candidatesResponse = await request.get(`${apiBaseUrl}/api/projects/default/candidates`);
+  expect(candidatesResponse.status(), await candidatesResponse.text()).toBe(200);
+  const candidates = await candidatesResponse.json() as Array<{ id: string; name: string }>;
+  const baseCandidate = candidates.find((candidate) => candidate.name === "基準候補");
+  expect(baseCandidate).toBeTruthy();
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+
+  let releaseOldResponses!: () => void;
+  const oldResponsesReleased = new Promise<void>((resolve) => {
+    releaseOldResponses = resolve;
+  });
+  let delayedRequests = 0;
+  let bothOldRequestsStarted!: () => void;
+  const oldRequestsStarted = new Promise<void>((resolve) => {
+    bothOldRequestsStarted = resolve;
+  });
+
+  await page.route("**/api/projects/default/decision-activit**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("candidate_id") === baseCandidate!.id) {
+      delayedRequests += 1;
+      if (delayedRequests === 2) bothOldRequestsStarted();
+      const response = await route.fetch();
+      await oldResponsesReleased;
+      await route.fulfill({ response });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await oldRequestsStarted;
+  await page.getByRole("button", { name: "高強度案を選択" }).click();
+  await expect(page.getByText("選択中: 高強度案")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  releaseOldResponses();
+
+  await expect(page.getByText("選択中: 高強度案")).toBeVisible();
+  await expect(page.locator(".decision-activity-panel")).not.toContainText("基準候補");
+});
+
 test("goal-less robustness explains the prerequisite and offers sensitivity-only analysis", async ({ page, request }) => {
   const binding = await resolveProjectBinding(request, "annealed-properties-v1");
   const projectResponse = await request.post(`${apiBaseUrl}/api/projects`, {

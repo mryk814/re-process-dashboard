@@ -204,8 +204,10 @@ export function RobustnessActivityView({
           <div><dt>モデル不確実性</dt><dd>{outputNumber(summary.target, summary.model_uncertainty.lower)}–{outputNumber(summary.target, summary.model_uncertainty.upper)} {summary.unit}</dd></div>
           <div>
             <dt>{worstObservedLabel(summary.goal_achievement_rate)}</dt>
-            <dd>{outputNumber(summary.target, summary.worst_observed)} {summary.unit}</dd>
-            <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
+            <dd>
+              {outputNumber(summary.target, summary.worst_observed)} {summary.unit}
+              <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
+            </dd>
           </div>
         </dl>
       </article>)}</div>

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { expectNoBlockingAxeViolations, expectNoUndersizedText } from "./axe";
-import { apiBaseUrl, createProjectWithBinding } from "./helpers";
+import { apiBaseUrl, createProjectWithBinding, starterCandidate } from "./helpers";
 
 type Surface = {
   name: string;
@@ -143,4 +143,53 @@ test("候補が空の状態をアクセシビリティ検査できる", async ({
   await expect(page.getByRole("heading", { name: "候補を表示できません" })).toBeVisible();
   await expect(page.getByRole("button", { name: "最初の候補を作る" })).toBeVisible();
   await expectNoBlockingAxeViolations(page, "候補が空の状態");
+});
+
+test("Decision Activityの保存結果とnot-foundをアクセシビリティ検査できる", async ({
+  page,
+}) => {
+  await page.goto("/?view=candidates&project=default");
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
+  if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
+  await page.getByRole("spinbutton", { name: "サンプル数" }).fill("8");
+  await page.getByRole("button", { name: /公差内を解析|ばらつきを解析/ }).click();
+  const history = page.getByRole("navigation", { name: "保存済みロバストネス解析" });
+  await expect(history).toBeVisible();
+  await history.getByRole("button").first().focus();
+  await page.keyboard.press("Enter");
+  await expect(history.getByRole("button").first()).toHaveAttribute("aria-current", "true");
+  await page.getByText("この結果の再現情報").click();
+  await expect(page.getByText("Model Package", { exact: true })).toBeVisible();
+  await expectNoBlockingAxeViolations(page, "Decision Activity保存結果");
+
+  const unknown = new URL(page.url());
+  unknown.searchParams.set("activity_run", "activity-does-not-exist");
+  await page.goto(unknown.toString());
+  await expect(page.getByRole("alert")).toContainText("この候補では見つかりません");
+  await expectNoBlockingAxeViolations(page, "Decision Activity not-found");
+});
+
+test("利用できないDecision Activityをアクセシビリティ検査できる", async ({
+  page,
+  request,
+}) => {
+  const project = await createProjectWithBinding(
+    request,
+    "annealed-properties-v1",
+    `axe unavailable activity ${Date.now()}`,
+  );
+  const starter = await starterCandidate(request, "annealed-properties-v1");
+  const candidate = await request.post(`${apiBaseUrl}/api/projects/${project.id}/candidates`, {
+    data: { ...starter, name: "唯一候補" },
+  });
+  expect(candidate.status(), await candidate.text()).toBe(201);
+
+  await page.goto(`/?view=candidates&project=${project.id}`);
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await page.getByRole("navigation", { name: "検討アクティビティの選択" })
+    .getByRole("button", { name: "候補差分の要因分解" }).click();
+  await expect(page.getByText("現在は利用できません")).toBeVisible();
+  await expectNoBlockingAxeViolations(page, "Decision Activity unavailable");
 });
