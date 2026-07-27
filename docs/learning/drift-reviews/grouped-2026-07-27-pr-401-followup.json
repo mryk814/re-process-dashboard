@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-27-pr-401-followup",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "e2cf67477d1a88d39b963046c878d2a9e64ae111",
+  "reviewed_against": "2bf8216159ef717a2ed4c53b78acd48150e2fad1",
+  "pull_requests": [
+    {
+      "number": 401,
+      "merge_commit": "2bf8216159ef717a2ed4c53b78acd48150e2fad1",
+      "classification": "no_content_impact",
+      "reason": "Playwright now gives each default run a UUID-named database and removes the database in global teardown. The textbook's fresh-server and isolated-database claim remains true, while the implementation is less vulnerable to PID reuse and leaves less test residue.",
+      "changed_paths": [
+        "AGENTS.md",
+        "README.md",
+        "docs/README.md",
+        "docs/app-charter.md",
+        "docs/decision-activities.md",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/model-package-runtime.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/chapters/verification-operations.qmd",
+        "docs/learning/check-drift-reviews.mjs",
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd",
+        "docs/learning/concepts/concepts.json",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-392.json",
+        "docs/learning/drift-reviews/grouped-2026-07-27-post-cutoff.json",
+        "docs/learning/glossary.qmd",
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/manifest.json",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "docs/learning/labs/toy-weighted-mean.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd",
+        "docs/learning/labs/trace-workspace-restore.qmd",
+        "e2e/global-teardown.ts",
+        "package.json",
+        "playwright.config.ts",
+        "scripts/check-doc-links.mjs"
+      ],
+      "referenced_paths": [
+        "playwright.config.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "playwright-fresh-database-isolation",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "reason": "The default lane still starts a fresh server against a database unique to that run. UUID naming and owned-database cleanup strengthen the same isolation boundary without changing the learner-facing verification rule."
+    }
+  ],
+  "verification": {
+    "path_coverage": "The PR #401 first-parent merge diff contains 38 paths and all are recorded; the one current structured-reference intersection is playwright.config.ts.",
+    "current_main_drift": "Chapter and figure drift checks pass against 2bf8216159ef717a2ed4c53b78acd48150e2fad1.",
+    "focused_evidence": "Main drift negative tests cover chapter drift, figure drift, unreferenced changes, and unsafe path rejection."
+  },
+  "reviewer_note": "This retrospective record advances the implementation review from PR #399 through PR #401 without rewriting the Edition 1 acceptance snapshot."
+}

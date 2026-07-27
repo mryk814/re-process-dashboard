@@ -132,7 +132,7 @@ backendは緑の管理資源をresource inventoryの`bundle_digest`で決まるc
 もし緑のDBでAPIを起動できなければ、青のDBをactive pathへ戻します。
 利用者が見ていた正本を捨ててから復元を試す順序にはなっていません。
 
-![Workspace復元の状態遷移](../figures/workspace-restore-state.svg){fig-alt="現Workspaceからprepare、commit、API health確認、finalizeへ進み、失敗時はrollbackして元Workspaceへ戻る。" width="100%"}
+![Workspace復元の状態遷移](../figures/workspace-restore-state.svg){fig-alt="現Workspaceからprepare、commit、API health確認、finalizeへ進む。失敗時はrollbackし、旧DBがあれば元Workspaceへ戻し、旧DBがなければDBなしの状態へ戻す。" width="100%"}
 
 この流れで問いになるのは、「fileを置き換えたか」ではありません。
 新しいWorkspaceをアプリが実際に開けるところまで確認したかです。

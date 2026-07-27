@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" role="img" aria-labelledby="title desc">
   <title id="title">Workspace復元の状態遷移</title>
-  <desc id="desc">現Workspaceからprepare、commit、API health確認、finalizeへ進み、失敗時はrollbackして元Workspaceへ戻る。</desc>
+  <desc id="desc">現Workspaceからprepare、commit、API health確認、finalizeへ進む。失敗時はrollbackし、旧DBがあれば元Workspaceへ戻し、旧DBがなければDBなしの状態へ戻す。</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
       <path d="M0,0 L0,6 L9,3 z" fill="#476582"/>
@@ -40,9 +40,10 @@
   <text class="failure" x="249" y="357">cancelなら青のまま</text>
   <rect class="current" x="536" y="326" width="176" height="76"/>
   <text class="label" x="624" y="357">Rolled back</text>
-  <text class="sub" x="624" y="381">青DBをactiveへ戻す</text>
+  <text class="sub" x="624" y="378">旧DBへ復帰</text>
+  <text class="sub" x="624" y="396">またはDBなしへ戻す</text>
   <path class="rollback" d="M624 254 V322"/>
   <text class="failure" x="714" y="292">起動または確認に失敗</text>
   <path class="arrow" d="M532 364 H124 V254"/>
-  <text class="edge" x="324" y="386">青でAPI再起動</text>
+  <text class="edge" x="324" y="386">旧DBがある場合だけAPI再起動</text>
 </svg>

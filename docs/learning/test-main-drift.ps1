@@ -46,6 +46,36 @@ code_references:
 "@ | Set-Content -LiteralPath (Join-Path $testRoot "fixture.qmd") -Encoding ASCII
 }
 
+function Write-TestFigureRegistry {
+    param(
+        [Parameter(Mandatory = $true)][string]$VerifiedCommit,
+        [Parameter(Mandatory = $true)][string]$Reference
+    )
+    $figureRoot = Join-Path $testRoot "figures"
+    New-Item -ItemType Directory -Force -Path $figureRoot | Out-Null
+    @{
+        schema_version = 1
+        figures = @(
+            @{
+                id = "drift-fixture"
+                verified_commit = $VerifiedCommit
+                drift_refs = @($Reference)
+            }
+        )
+    } |
+        ConvertTo-Json -Depth 5 |
+        Set-Content -LiteralPath (
+            Join-Path $figureRoot "registry.json"
+        ) -Encoding ASCII
+}
+
+function Remove-TestFigureRegistry {
+    $figureRoot = Join-Path $testRoot "figures"
+    if (Test-Path -LiteralPath $figureRoot) {
+        Remove-Item -LiteralPath $figureRoot -Recurse -Force
+    }
+}
+
 function Invoke-DriftCheck {
     param(
         [Parameter(Mandatory = $true)][int]$ExpectedExitCode,
@@ -85,6 +115,21 @@ try {
     Write-TestChapter -VerifiedCommit $prMerge -Reference $changedReference
     Invoke-DriftCheck -ExpectedExitCode 0 -ExpectedText "No referenced implementation drift"
 
+    Write-TestChapter -VerifiedCommit $prMerge -Reference $unchangedReference
+    Write-TestFigureRegistry `
+        -VerifiedCommit $prParent `
+        -Reference $changedReference
+    Invoke-DriftCheck `
+        -ExpectedExitCode 2 `
+        -ExpectedText "Figure implementation drift: drift-fixture"
+    Remove-TestFigureRegistry
+
+    Write-TestFigureRegistry `
+        -VerifiedCommit $prParent `
+        -Reference "../outside.ts"
+    Invoke-DriftCheck -ExpectedExitCode 1 -ExpectedText "Invalid code reference path"
+    Remove-TestFigureRegistry
+
     Write-TestChapter -VerifiedCommit $prParent -Reference "../outside.ts"
     Invoke-DriftCheck -ExpectedExitCode 1 -ExpectedText "Invalid code reference path"
 
@@ -94,7 +139,7 @@ try {
     Write-Host (
         "Main drift tests passed: PR #283 reference detected, " +
         "unreferenced change ignored, reviewed commit clean, " +
-        "unsafe paths rejected."
+        "figure drift detected, unsafe paths rejected."
     )
 } finally {
     if (Test-Path -LiteralPath $testRoot) {

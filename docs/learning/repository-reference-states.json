@@ -1,0 +1,51 @@
+{
+  "schema_version": "learning-repository-reference-states/v1",
+  "repository": "mryk814/re-process-dashboard",
+  "verified_at": "2026-07-27T10:25:00Z",
+  "references": [
+    {
+      "kind": "issue",
+      "number": 279,
+      "mode": "historical",
+      "state": "closed",
+      "url": "https://github.com/mryk814/re-process-dashboard/issues/279",
+      "documents": [
+        "docs/learning/evaluation.qmd",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/learning-paths/frontend-desktop.qmd"
+      ]
+    },
+    {
+      "kind": "issue",
+      "number": 280,
+      "mode": "historical",
+      "state": "closed",
+      "url": "https://github.com/mryk814/re-process-dashboard/issues/280",
+      "documents": [
+        "docs/learning/evaluation.qmd",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/learning-paths/frontend-desktop.qmd"
+      ]
+    },
+    {
+      "kind": "issue",
+      "number": 335,
+      "mode": "current",
+      "state": "open",
+      "url": "https://github.com/mryk814/re-process-dashboard/issues/335",
+      "documents": [
+        "docs/learning/evaluation.qmd"
+      ]
+    },
+    {
+      "kind": "pull_request",
+      "number": 401,
+      "mode": "historical",
+      "state": "merged",
+      "url": "https://github.com/mryk814/re-process-dashboard/pull/401",
+      "documents": [
+        "docs/learning/evaluation.qmd"
+      ]
+    }
+  ]
+}

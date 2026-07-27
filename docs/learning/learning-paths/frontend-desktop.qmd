@@ -40,8 +40,8 @@
 ## 確認コマンド
 
 2026年7月27日にmain commit `b8ef18a` で再実行したPlaywrightは、3件のうち2件が成功しました。
-残る1件は比較候補labelの追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) で、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
-Issue #279が閉じるまでは、2 passed、1 known failureが現行の期待結果です。
+この実測時点で残った1件は比較候補labelの追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) で、調査用の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+Issue #279とIssue #280は現在closedであり、2 passed、1 known failureは過去の検証記録であって現行の期待結果ではありません。
 
 ```powershell
 npm run api:check

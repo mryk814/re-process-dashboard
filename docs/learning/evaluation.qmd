@@ -75,6 +75,10 @@ Edition 1はcommit `cfe53e5a3d9e71fd6368fae848e231411883075b`で`accepted`です
 | PDFの内容境界 | 設計基準、書き手のペルソナ、コードマップ、学習ルート、組版手順、評価記録、参考文献の編集方針と保守用Route 5、Route 6がPDF本文と目次にないことを確認 |
 | clean build | 統合HTMLを33.00秒、学習者向けPDFを13.34秒で生成。概念checkerを含む教材固有checkとtool解決を合わせて68.6秒で完了 |
 | visual review | 最終PDFの全172ページを9枚のcontact sheetへ画像化し、日本語、脚注、数式、表、code、SVG図、header、footer、概念表、用語集、page transitionを確認。概念表と用語集に欠落、重なり、page外へのはみ出しがないことを確認 |
+| Lab setup規模 | 8 Labの文書、共通manifest、fixture、実行scriptを合計216,544 bytesとして実測。repository checkoutと依存packageは含めない |
+| Lab再現性 | guided 7件はmachine setup commandがないため実行再現性を未分類とした。実行可能なtoy-weighted-meanはfresh cycleを2回実行し、1,289.34 msと1,251.09 ms、同一result hashを確認 |
+| Figure保守 | 8図の`drift_refs`をmain drift検査へ接続し、参照実装の変更を終了code 2、不正pathを終了code 1として検出するnegative self-testを追加。初回実装時間は記録がなく遡及推定しない |
+| Repository参照 | [Issue #335](https://github.com/mryk814/re-process-dashboard/issues/335) は2026-07-27T10:25:00Z時点のcurrent stateをopenとして記録。[PR #401](https://github.com/mryk814/re-process-dashboard/pull/401) はmergedのhistorical recordとして記録 |
 
 ## 更新トリガ
 
