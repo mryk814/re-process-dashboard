@@ -2,6 +2,7 @@ export { WorkbenchEmptyState, WorkbenchPage } from "./WorkbenchPage";
 export { useWorkbenchPrediction } from "./useWorkbenchPrediction";
 export { useWorkbenchSession } from "./useWorkbenchSession";
 export { apiStartupWaitText } from "./apiStartupWait";
+export { readStartupDiagnostic, type StartupDiagnostic } from "./startupDiagnostic";
 export { workbenchInferenceKey, workbenchRequestKey, type WorkbenchIdentity } from "./workbenchIdentity";
 export { BlendEditorPanel } from "./BlendEditorPanel";
 export { ChainWorkbenchPage } from "./ChainWorkbenchPage";

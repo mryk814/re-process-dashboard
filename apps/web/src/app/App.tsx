@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession } from "../features/workbench";
+import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import { ProjectHub } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
@@ -56,19 +56,26 @@ function StartupBanner({ startedAt }: { startedAt: number }) {
   </div>;
 }
 
-function ConnectionBanner({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+function ConnectionBanner({ retrying, onRetry, diagnostic }: { retrying: boolean; onRetry: () => void; diagnostic: StartupDiagnostic | null }) {
   return <div className="connection-banner" role="alert">
     <div>
-      <strong>APIへ接続できません</strong>
-      <span>
-        自動再試行の時間内に接続できませんでした。保存済みのデータは変更されていません。
-        ローカルAPIが起動していないか、保存データと構成が不整合で起動を止めています。
-      </span>
-      <span className="connection-banner-steps">
-        起動ログ（Desktop版は <code>logs/material-workbench-api.log</code>、開発時は <code>npm run dev</code> のapi出力）に
-        <code>WORKBENCH_STARTUP_ERROR</code> があれば構成の不整合です。復旧手順は
-        <code>docs/decisions/startup-failure-boundaries.md</code> にあります。
-      </span>
+      <strong>{diagnostic ? "Workspaceの互換性検査で起動を停止しました" : "APIへ接続できません"}</strong>
+      {diagnostic ? <>
+        <span>保存済みデータを変更しないため、APIは起動していません。次の診断内容を解決してから再試行してください。</span>
+        <div className="startup-diagnostic-list">
+          {diagnostic.report.findings.map((finding, index) => <dl key={`${finding.stage}-${finding.resource_id}-${index}`} className="startup-diagnostic-finding">
+            <div><dt>stage</dt><dd>{finding.stage}</dd></div>
+            <div><dt>resource_id</dt><dd>{finding.resource_id}</dd></div>
+            <div><dt>cause</dt><dd>{finding.cause}</dd></div>
+            <div><dt>impact</dt><dd>{finding.impact}</dd></div>
+            <div><dt>recovery_hint</dt><dd>{finding.recovery_hint}</dd></div>
+          </dl>)}
+        </div>
+        <span className="connection-banner-steps">起動ログ: <code>{diagnostic.log_path}</code><br />復旧手順: <code>{diagnostic.recovery_route}</code></span>
+      </> : <>
+        <span>自動再試行の時間内に接続できませんでした。保存済みのデータは変更されていません。ローカルAPIが起動していない可能性があります。</span>
+        <span className="connection-banner-steps">起動ログ（Desktop版は <code>logs/material-workbench-api.log</code>、開発時は <code>npm run dev</code> のapi出力）を確認してください。</span>
+      </>}
     </div>
     <button type="button" className="outline-button" disabled={retrying} onClick={onRetry}>{retrying ? "再試行中…" : "再試行"}</button>
   </div>;
@@ -302,7 +309,7 @@ function App() {
       <main>
         {apiState === "starting" && session.apiStartedWaitingAt !== null
           && <StartupBanner startedAt={session.apiStartedWaitingAt} />}
-        {apiState === "offline" && <ConnectionBanner retrying={retrying} onRetry={() => {
+        {apiState === "offline" && <ConnectionBanner diagnostic={session.startupDiagnostic} retrying={retrying} onRetry={() => {
           setRetrying(true);
           void session.retryOpenWorkspace().finally(() => setRetrying(false));
         }} />}

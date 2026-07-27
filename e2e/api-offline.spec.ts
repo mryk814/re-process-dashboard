@@ -14,8 +14,13 @@ test("API断を明示し、変更を止め、再試行で同じ画面へ復帰�
 
   await page.goto("/?view=project&project=default");
 
-  const connection = page.locator(".connection-banner");
-  await expect(connection).toBeVisible();
+  await expect(page.getByRole("status").filter({
+    hasText: "ローカルAPIの起動を待っています",
+  })).toBeVisible();
+  await expect(page.getByText(/最大 20秒/)).toBeVisible();
+
+  const connection = page.locator(".connection-banner[role='alert']");
+  await expect(connection).toBeVisible({ timeout: 25_000 });
   await expect(page.getByText("API 未接続", { exact: true })).toBeVisible();
   await expect(page.getByText("プレビュー更新中", { exact: true })).toHaveCount(0);
   await expect(

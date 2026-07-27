@@ -542,6 +542,11 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
 .connection-banner.starting strong { color: #1f4c8f; }
 .connection-banner.starting span { color: #46566c; }
 .connection-banner-steps code { font-size: 11px; }
+.startup-diagnostic-list { display: grid; gap: 8px; margin-top: 8px; }
+.startup-diagnostic-finding { display: grid; gap: 3px; margin: 0; padding: 8px; border: 1px solid #e4b7b7; border-radius: 5px; background: #fff; }
+.startup-diagnostic-finding div { display: grid; grid-template-columns: minmax(100px, .2fr) 1fr; gap: 8px; }
+.startup-diagnostic-finding dt { color: #8a2d2d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; }
+.startup-diagnostic-finding dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 660px) {
   .connection-banner { flex-direction: column; align-items: stretch; margin: 10px; }
 }
