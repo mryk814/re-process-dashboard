@@ -11,6 +11,7 @@ import {
   compatibleTaskIdsForDataset,
   datasetDisplayName,
   modelPackageDisplayName,
+  projectDatasetChoices,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel, type RuntimeOperations, type TaskDefinitionContract } from "../candidates";
@@ -435,7 +436,53 @@ export function ProjectHub({
   const datasetByView = useMemo(() => new Map(
     (creationOptions?.datasets ?? []).flatMap((dataset) => (dataset.dataset_views ?? []).map((view) => [view.id, dataset] as const)),
   ), [creationOptions]);
+  const chainDatasetPresentation = useMemo(() => {
+    const labelsByView = new Map<string, Set<string>>();
+    const revisionById = new Map<string, ApiChainTemplate["revisions"][number]>();
+    for (const template of chainTemplates) {
+      for (const revision of template.revisions) {
+        revisionById.set(`${revision.chain_id}:r${revision.revision}`, revision);
+        for (const stage of revision.stages) {
+          if (!stage.dataset_view_revision_id) continue;
+          const labels = labelsByView.get(stage.dataset_view_revision_id) ?? new Set<string>();
+          labels.add(`${template.definition.label}（Chain）`);
+          labelsByView.set(stage.dataset_view_revision_id, labels);
+        }
+      }
+    }
+    const viewIdsByProject = new Map<string, string[]>();
+    for (const item of projects) {
+      const identity = item.scientific_identity;
+      if (identity.identity_kind !== "chain") continue;
+      const revision = revisionById.get(identity.chain_revision_id);
+      if (!revision) continue;
+      viewIdsByProject.set(item.id, [...new Set(revision.stages.flatMap(
+        (stage) => stage.dataset_view_revision_id ? [stage.dataset_view_revision_id] : [],
+      ))]);
+    }
+    return {
+      labelsByViewId: new Map([...labelsByView].map(([viewId, labels]) => [viewId, [...labels]])),
+      viewIdsByProjectId: viewIdsByProject,
+    };
+  }, [chainTemplates, projects]);
+  const datasetChoices = useMemo(() => projectDatasetChoices({
+    datasets: creationOptions?.datasets ?? [],
+    views: creationOptions?.dataset_views ?? [],
+    projects,
+    taskLabels,
+    chainLabelsByViewId: chainDatasetPresentation.labelsByViewId,
+    datasetViewIdsByProjectId: chainDatasetPresentation.viewIdsByProjectId,
+  }), [chainDatasetPresentation, creationOptions, projects, taskLabels]);
+  const usedDatasetChoices = datasetChoices.filter((choice) => choice.group === "used");
+  const unusedDatasetChoices = datasetChoices.filter((choice) => choice.group === "unused");
   const selectedDataset = datasetByView.get(newDatasetViewId);
+  const selectedDatasetChoice = datasetChoices.find((choice) => choice.id === newDatasetViewId);
+  const selectedDatasetProjectSummary = selectedDatasetChoice?.projectNames.length
+    ? `利用中: ${selectedDatasetChoice.projectNames.slice(0, 3).join("、")}${selectedDatasetChoice.projectNames.length > 3 ? `、ほか${selectedDatasetChoice.projectNames.length - 3}件` : ""}`
+    : "このDatasetを使うProjectはありません";
+  const selectedDatasetEvidence = selectedDataset
+    ? `${selectedDatasetProjectSummary} · ${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}`
+    : "DatasetとProfileを選択";
   const availableTaskIds = creationOptions
     ? compatibleTaskIdsForDataset(selectedDataset, creationOptions)
     : [];
@@ -1050,7 +1097,7 @@ export function ProjectHub({
         </div>
         <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
-          <label><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{(creationOptions?.dataset_views ?? []).filter((item) => item.kind === "single").map((view) => <option key={view.id} value={view.id}>{view.name} · {datasetByView.get(view.id)?.profile_revision.name}</option>)}</select></label>
+          <label className="project-dataset-choice"><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{usedDatasetChoices.length > 0 && <optgroup label="利用中のデータ">{usedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}{unusedDatasetChoices.length > 0 && <optgroup label="未使用のデータ">{unusedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}</select><small aria-hidden="true">利用中のProject数が多い順。同数なら新しい登録順。</small></label>
           <label><b aria-hidden="true">2</b><span>予測構成</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? `task:${copyTaskId ?? ""}` : newChainId ? `chain:${newChainId}` : newTaskId ? `task:${newTaskId}` : ""} onChange={(event) => { const [kind, id] = event.target.value.split(":", 2); setNewTaskId(kind === "task" ? id : ""); setNewModelPackageRefId(""); setNewChainId(kind === "chain" ? id : ""); setNewChainRevisionId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={`task:${item.definition.task_definition.id}`}>{item.definition.task_definition.label}（単一Task）</option>)}{availableChains.map((item) => <option key={item.definition.chain_id} value={`chain:${item.definition.chain_id}`}>{item.definition.label}（Chain）</option>)}</select></label>
           <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select>}</label>
           <fieldset className="project-group-choice">
@@ -1068,7 +1115,7 @@ export function ProjectHub({
         {selectedPackage && !newChainId && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
         <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
           <header><strong>作成後に固定される内容</strong><span>{newChainId ? "Chain Revisionと各StageのPackage・Dataset・Profileは後から変わりません" : "Dataset・Prediction Task・Model Packageは後から変更できません"}</span></header>
-          <div><span>参照Dataset</span><strong>{selectedDataset ? datasetDisplayName(selectedDataset) : "選択してください"}</strong><small>{selectedDataset ? `${selectedDataset.profile_revision.name} · r${selectedDataset.profile_revision.revision}` : "DatasetとProfileを選択"}</small></div>
+          <div><span>参照Dataset</span><strong>{selectedDatasetChoice ? `${selectedDatasetChoice.purposeLabel} — ${selectedDatasetChoice.sourceLabel}` : "選択してください"}</strong><small title={selectedDatasetChoice?.projectNames.join("、") || undefined}>{selectedDatasetEvidence}</small></div>
           <div><span>{newChainId ? "Chain Template" : "Prediction Task"}</span><strong>{newChainId ? selectedChain?.definition.label ?? "選択してください" : taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>{newChainId ? "再利用可能なStageをbindingで接続" : "Projectの予測目的"}</small></div>
           <div><span>{newChainId ? "Chain Revision" : "Model Package"}</span><strong>{newChainId ? selectedChainRevision ? `r${selectedChainRevision.revision}` : "選択してください" : selectedPackage ? modelPackageDisplayName(selectedPackage) : "選択してください"}</strong><small>{newChainId ? selectedChainRevision ? selectedChainRevision.stages.map((stage) => `${stage.stage_id}:${stage.package_manifest_digest.slice(7, 15)}`).join(" · ") : "Revisionを選択してください" : `学習元: ${selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}`}</small></div>
         </section>
