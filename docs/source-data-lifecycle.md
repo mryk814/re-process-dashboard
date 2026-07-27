@@ -143,6 +143,8 @@ target cohortやsplitを後付けしてv2として再解釈せず、新しい学
 - `GET /api/data-lifecycle`
 - `POST /api/data-lifecycle/connectors`
 - `GET /api/data-lifecycle/connectors/{id}`
+- `GET /api/data-lifecycle/raw-snapshots/{id}/rows?offset=&limit=`
+- `GET /api/data-lifecycle/curation-runs/{id}/rows?offset=&limit=&status=&reasoned_only=`
 - `POST /api/data-lifecycle/connectors/{id}/fetch`
 - `POST /api/data-lifecycle/recipes`
 - `POST /api/data-lifecycle/raw-snapshots/{id}/curation-runs`
@@ -151,6 +153,17 @@ target cohortやsplitを後付けしてv2として再解釈せず、新しい学
 
 データライブラリの「Source更新」で、Raw差分、品質件数、理由付き隔離row、承認actor、Training Snapshotまでを一つのstage railで確認する。
 取得操作で画面の他のDatasetやPackageを更新しない。
+Connector detailはrowを含まないsummaryで、SQLite側で対象Connectorへ絞ってから
+小さなprojectionだけをdecodeする。Raw／Curation rowは選択された版について
+最大200件ずつ遅延取得し、source orderまたは`raw_row_index,row_key`の安定順、
+親resource ID、固定digest、総件数を各pageへ残す。Canonicalのrow key集合と
+Trainingのsplit assignmentも初期summaryへ展開しない。
+SQLiteのrow indexはlogical position、CAS byte range、選択行のSHA-256を保持し、
+resource manifestはCAS SHA-256、row数、status／理由行件数を固定する。
+offset位置から対象行だけをseekし、完全性とtotalはmanifest 1行で確認する。
+Curationはstatus別／理由行positionも持つため、承認画面は先頭pageの内容に
+依存せず隔離行を直接取得し、監査表示はwarning／quarantined／blockedを含む
+理由付き行だけを別pageで取得する。
 対象ConnectorのCAS payloadが欠損・改ざんされている場合、詳細APIはresource IDと
 固定error codeを含む503を返す。無関係Connectorの一覧・詳細は引き続き参照できる。
 

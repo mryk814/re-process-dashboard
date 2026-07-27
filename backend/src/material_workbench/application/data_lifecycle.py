@@ -3,11 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
     CanonicalDatasetRevision,
-    ConnectorLifecycleDetail,
+    ConnectorLifecycleSummary,
+    CurationRunRowPage,
     CurationRecipe,
     CurationRecipeCreateInput,
     CurationRun,
@@ -15,6 +17,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     DatasetApprovalInput,
     FetchAttempt,
     RawSourceSnapshot,
+    RawSnapshotRowPage,
     SourceConnector,
     SourceConnectorCreateInput,
     SourceFetchRequest,
@@ -56,8 +59,34 @@ class DataLifecycleService:
     def list_connectors(self) -> tuple[SourceConnector, ...]:
         return self.repository.list_connectors()
 
-    def detail(self, connector_id: str) -> ConnectorLifecycleDetail:
+    def detail(self, connector_id: str) -> ConnectorLifecycleSummary:
         return self.repository.detail(connector_id)
+
+    def raw_row_page(
+        self, snapshot_id: str, *, offset: int, limit: int
+    ) -> RawSnapshotRowPage:
+        return self.repository.raw_row_page(
+            snapshot_id, offset=offset, limit=limit
+        )
+
+    def curation_row_page(
+        self,
+        run_id: str,
+        *,
+        offset: int,
+        limit: int,
+        status: Literal[
+            "accepted", "warning", "quarantined", "blocked"
+        ] | None = None,
+        reasoned_only: bool = False,
+    ) -> CurationRunRowPage:
+        return self.repository.curation_row_page(
+            run_id,
+            offset=offset,
+            limit=limit,
+            status=status,
+            reasoned_only=reasoned_only,
+        )
 
     def fetch(
         self,

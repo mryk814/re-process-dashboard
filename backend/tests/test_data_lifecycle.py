@@ -543,7 +543,9 @@ def test_approval_and_training_snapshot_are_explicit_separate_actions(
     )
     assert training.included_row_keys == ("A", "E")
     assert training.row_count == 2
-    assert service.detail(connector.id).training_snapshots == (training,)
+    training_summary = service.detail(connector.id).training_snapshots
+    assert tuple(item.id for item in training_summary) == (training.id,)
+    assert training_summary[0].row_count == training.row_count
 
 
 def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
@@ -843,6 +845,16 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     detail = client.get(
         f"/api/data-lifecycle/connectors/{connector['id']}"
     ).json()
+    assert all("rows" not in item for item in detail["raw_snapshots"])
+    assert all("rows" not in item for item in detail["curation_runs"])
+    page = client.get(
+        f"/api/data-lifecycle/curation-runs/{run['id']}/rows",
+        params={"offset": 0, "limit": 1},
+    )
+    assert page.status_code == 200
+    assert page.json()["curation_digest"] == run["curation_digest"]
+    assert page.json()["limit"] == 1
+    assert len(page.json()["rows"]) == 1
     assert detail["training_snapshots"] == []
 
     training_response = client.post(
@@ -915,8 +927,12 @@ def test_api_isolates_a_tampered_row_payload_to_its_connector(client) -> None:
     unavailable = client.get(
         f"/api/data-lifecycle/connectors/{first['id']}"
     )
-    assert unavailable.status_code == 503
-    assert unavailable.json() == {
+    assert unavailable.status_code == 200
+    unavailable_rows = client.get(
+        f"/api/data-lifecycle/raw-snapshots/{snapshot_id}/rows"
+    )
+    assert unavailable_rows.status_code == 503
+    assert unavailable_rows.json() == {
         "code": "lifecycle_payload_unavailable",
         "resource_kind": "raw_source_snapshot",
         "resource_id": snapshot_id,

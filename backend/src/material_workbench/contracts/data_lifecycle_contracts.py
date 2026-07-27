@@ -699,13 +699,114 @@ class ApprovedTrainingSnapshot(ContractModel):
         return self
 
 
-class ConnectorLifecycleDetail(ContractModel):
+class RawSourceSnapshotSummary(ContractModel):
+    id: str
+    connector_id: str
+    object_version: str
+    captured_at: datetime
+    content_sha256: str
+    source_byte_count: int | None = None
+    row_count: int
+    previous_snapshot_id: str | None = None
+    diff: RawSnapshotDiff
+    snapshot_digest: str
+
+
+class CurationRunSummary(ContractModel):
+    id: str
+    raw_snapshot_id: str
+    raw_snapshot_digest: str
+    recipe_id: str
+    recipe_digest: str
+    profile_revision_id: str
+    profile_digest: str
+    row_count: Annotated[int, Field(ge=0)]
+    quality: QualitySummary
+    quality_delta: QualityDelta
+    curation_digest: str
+    created_at: datetime
+
+
+class CanonicalDatasetRevisionSummary(ContractModel):
+    id: str
+    curation_run_id: str
+    curation_digest: str
+    dataset_digest: str
+    actor: str
+    reason: str
+    approved_row_count: Annotated[int, Field(ge=0)]
+    excluded_row_count: Annotated[int, Field(ge=0)]
+    override_count: Annotated[int, Field(ge=0)]
+    approved_at: datetime
+
+
+class TrainingTargetCohortSummary(ContractModel):
+    target_key: str
+    target_field: str
+    row_count: Annotated[int, Field(ge=0)]
+    cohort_digest: str
+    split_digest: str
+    split_group_count: Annotated[int, Field(ge=0)]
+
+
+class ApprovedTrainingSnapshotSummary(ContractModel):
+    schema_version: Literal[
+        "approved-training-snapshot/v1",
+        "approved-training-snapshot/v2",
+    ]
+    id: str
+    canonical_dataset_revision_id: str
+    dataset_digest: str
+    row_count: Annotated[int, Field(ge=0)]
+    actor: str
+    purpose: str
+    target_cohorts: tuple[TrainingTargetCohortSummary, ...] = ()
+    split: TrainingSplitDefinition | None = None
+    snapshot_digest: str
+    created_at: datetime
+
+
+class ConnectorLifecycleSummary(ContractModel):
     connector: SourceConnector
     attempts: tuple[FetchAttempt, ...] = ()
-    raw_snapshots: tuple[RawSourceSnapshot, ...] = ()
-    curation_runs: tuple[CurationRun, ...] = ()
-    canonical_revisions: tuple[CanonicalDatasetRevision, ...] = ()
-    training_snapshots: tuple[ApprovedTrainingSnapshot, ...] = ()
+    raw_snapshots: tuple[RawSourceSnapshotSummary, ...] = ()
+    curation_runs: tuple[CurationRunSummary, ...] = ()
+    canonical_revisions: tuple[CanonicalDatasetRevisionSummary, ...] = ()
+    training_snapshots: tuple[ApprovedTrainingSnapshotSummary, ...] = ()
+
+
+class RawSnapshotRowPage(ContractModel):
+    resource_id: str
+    connector_id: str
+    snapshot_digest: str
+    offset: Annotated[int, Field(ge=0)]
+    limit: Annotated[int, Field(ge=1, le=200)]
+    total: Annotated[int, Field(ge=0)]
+    has_more: bool
+    stable_sort: Literal["source_order"] = "source_order"
+    rows: tuple[JsonRecord, ...] = ()
+
+
+class CurationRunRowPage(ContractModel):
+    resource_id: str
+    connector_id: str
+    raw_snapshot_id: str
+    raw_snapshot_digest: str
+    curation_digest: str
+    offset: Annotated[int, Field(ge=0)]
+    limit: Annotated[int, Field(ge=1, le=200)]
+    total: Annotated[int, Field(ge=0)]
+    has_more: bool
+    stable_sort: Literal["raw_row_index,row_key"] = "raw_row_index,row_key"
+    status_filter: Literal[
+        "accepted", "warning", "quarantined", "blocked"
+    ] | None = None
+    reasoned_only: bool = False
+    rows: tuple[CuratedRow, ...] = ()
+
+
+# Kept as a source-compatible Python alias; the HTTP contract is the summary.
+ConnectorLifecycleDetail = ConnectorLifecycleSummary
 
 
 class DataLifecycleActor(ContractModel):

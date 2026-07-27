@@ -50,7 +50,7 @@ def test_benchmark_runs_the_complete_production_lifecycle(tmp_path) -> None:
     assert result["quality"]["accepted"] == 25
     assert result["database"]["lifecycle_payload_increment_bytes"] > 0
     assert result["database"]["journal_mode"] == "delete"
-    assert result["detail_payload_bytes"] > result["fixture"]["utf8_bytes"]
+    assert result["detail_payload_bytes"] < result["fixture"]["utf8_bytes"]
 
 
 def test_history_probe_exposes_global_filtering_without_changing_target_counts(

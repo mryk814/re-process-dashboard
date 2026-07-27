@@ -1,22 +1,30 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel
 
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
+    ApprovedTrainingSnapshotSummary,
     CanonicalDatasetRevision,
-    ConnectorLifecycleDetail,
+    CanonicalDatasetRevisionSummary,
+    ConnectorLifecycleSummary,
+    CurationRunRowPage,
+    CurationRunSummary,
+    CuratedRow,
     CurationRecipe,
     CurationRecipeCreateInput,
     CurationRun,
     FetchAttempt,
     RawSourceSnapshot,
+    RawSnapshotRowPage,
+    RawSourceSnapshotSummary,
     SourceConnector,
     SourceConnectorCreateInput,
     TrainingSnapshotCreateInput,
@@ -31,6 +39,15 @@ from material_workbench.persistence.data_lifecycle_payload_storage import (
 )
 from material_workbench.persistence.row_payload_store import RowPayloadStore
 from material_workbench.persistence.row_payload_store import RowPayloadReference
+from material_workbench.persistence.data_lifecycle_row_index import (
+    rebuild_row_index,
+)
+from material_workbench.persistence.data_lifecycle_summaries import (
+    summarize_canonical,
+    summarize_curation,
+    summarize_raw,
+    summarize_training,
+)
 
 
 class LifecycleResourceNotFoundError(LookupError):
@@ -142,8 +159,8 @@ class DataLifecycleRepository:
             conn.execute(
                 "INSERT INTO raw_source_snapshots("
                 "id,connector_id,content_sha256,selection_digest,snapshot_digest,"
-                "payload,captured_at,row_payload_sha256,row_payload_bytes,row_count"
-                ") VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "payload,captured_at,row_payload_sha256,row_payload_bytes,row_count,"
+                "summary_payload) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     snapshot.id,
                     snapshot.connector_id,
@@ -155,7 +172,15 @@ class DataLifecycleRepository:
                     reference.sha256,
                     reference.size_bytes,
                     reference.row_count,
+                    summarize_raw(snapshot).model_dump_json(),
                 ),
+            )
+            rebuild_row_index(
+                conn,
+                self.row_payloads,
+                resource_kind="raw_source_snapshot",
+                resource_id=snapshot.id,
+                reference=reference,
             )
         return snapshot, False
 
@@ -255,8 +280,8 @@ class DataLifecycleRepository:
                 "INSERT INTO source_curation_runs("
                 "id,raw_snapshot_id,recipe_id,profile_digest,curation_digest,"
                 "payload,created_at,row_payload_sha256,row_payload_bytes,row_count,"
-                "quality_payload"
-                ") VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "quality_payload,summary_payload"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     run.id,
                     run.raw_snapshot_id,
@@ -269,7 +294,15 @@ class DataLifecycleRepository:
                     reference.size_bytes,
                     reference.row_count,
                     run.quality.model_dump_json(),
+                    summarize_curation(run).model_dump_json(),
                 ),
+            )
+            rebuild_row_index(
+                conn,
+                self.row_payloads,
+                resource_kind="curation_run",
+                resource_id=run.id,
+                reference=reference,
             )
         return run
 
@@ -336,14 +369,15 @@ class DataLifecycleRepository:
                 return CanonicalDatasetRevision.model_validate_json(row["payload"])
             conn.execute(
                 "INSERT INTO canonical_dataset_approvals("
-                "id,curation_run_id,dataset_digest,payload,approved_at"
-                ") VALUES (?,?,?,?,?)",
+                "id,curation_run_id,dataset_digest,payload,approved_at,summary_payload"
+                ") VALUES (?,?,?,?,?,?)",
                 (
                     revision.id,
                     revision.curation_run_id,
                     revision.dataset_digest,
                     revision.model_dump_json(),
                     revision.approved_at.isoformat(),
+                    summarize_canonical(revision).model_dump_json(),
                 ),
             )
         return revision
@@ -420,14 +454,15 @@ class DataLifecycleRepository:
                 return ApprovedTrainingSnapshot.model_validate_json(row["payload"])
             conn.execute(
                 "INSERT INTO approved_training_snapshots("
-                "id,canonical_dataset_revision_id,snapshot_digest,payload,created_at"
-                ") VALUES (?,?,?,?,?)",
+                "id,canonical_dataset_revision_id,snapshot_digest,payload,created_at,"
+                "summary_payload) VALUES (?,?,?,?,?,?)",
                 (
                     snapshot.id,
                     snapshot.canonical_dataset_revision_id,
                     snapshot.snapshot_digest,
                     snapshot.model_dump_json(),
                     snapshot.created_at.isoformat(),
+                    summarize_training(snapshot).model_dump_json(),
                 ),
             )
         return snapshot
@@ -449,20 +484,24 @@ class DataLifecycleRepository:
             "Training Snapshot",
         )
 
-    def detail(self, connector_id: str) -> ConnectorLifecycleDetail:
+    def detail(self, connector_id: str) -> ConnectorLifecycleSummary:
         connector = self.get_connector(connector_id)
-        raw = self.list_raw_snapshots(connector_id)
         with self._connect() as conn:
+            raw_rows = conn.execute(
+                "SELECT id,summary_payload FROM raw_source_snapshots "
+                "WHERE connector_id=? ORDER BY captured_at,id",
+                (connector_id,),
+            ).fetchall()
             run_rows = conn.execute(
-                "SELECT run.id,run.payload,run.row_payload_sha256,"
-                "run.row_payload_bytes,run.row_count "
+                "SELECT run.id,run.summary_payload "
                 "FROM source_curation_runs run "
                 "JOIN raw_source_snapshots raw ON raw.id=run.raw_snapshot_id "
                 "WHERE raw.connector_id=? ORDER BY run.created_at,run.id",
                 (connector_id,),
             ).fetchall()
             revision_rows = conn.execute(
-                "SELECT revision.payload FROM canonical_dataset_approvals revision "
+                "SELECT revision.id,revision.summary_payload "
+                "FROM canonical_dataset_approvals revision "
                 "JOIN source_curation_runs run ON run.id=revision.curation_run_id "
                 "JOIN raw_source_snapshots raw ON raw.id=run.raw_snapshot_id "
                 "WHERE raw.connector_id=? "
@@ -470,7 +509,8 @@ class DataLifecycleRepository:
                 (connector_id,),
             ).fetchall()
             training_rows = conn.execute(
-                "SELECT training.payload FROM approved_training_snapshots training "
+                "SELECT training.id,training.summary_payload "
+                "FROM approved_training_snapshots training "
                 "JOIN canonical_dataset_approvals revision "
                 "ON revision.id=training.canonical_dataset_revision_id "
                 "JOIN source_curation_runs run ON run.id=revision.curation_run_id "
@@ -479,18 +519,34 @@ class DataLifecycleRepository:
                 "ORDER BY training.created_at,training.id",
                 (connector_id,),
             ).fetchall()
+        for row in (*raw_rows, *run_rows, *revision_rows, *training_rows):
+            if row["summary_payload"] is None:
+                raise LifecyclePayloadUnavailableError(
+                    "lifecycle_summary",
+                    str(row["id"]),
+                    "summary projection is unavailable",
+                )
+        raw = tuple(
+            RawSourceSnapshotSummary.model_validate_json(row["summary_payload"])
+            for row in raw_rows
+        )
         runs = tuple(
-            self._hydrate_curation_row(row) for row in run_rows
+            CurationRunSummary.model_validate_json(row["summary_payload"])
+            for row in run_rows
         )
         revisions = tuple(
-            CanonicalDatasetRevision.model_validate_json(row["payload"])
+            CanonicalDatasetRevisionSummary.model_validate_json(
+                row["summary_payload"]
+            )
             for row in revision_rows
         )
         training = tuple(
-            ApprovedTrainingSnapshot.model_validate_json(row["payload"])
+            ApprovedTrainingSnapshotSummary.model_validate_json(
+                row["summary_payload"]
+            )
             for row in training_rows
         )
-        return ConnectorLifecycleDetail(
+        return ConnectorLifecycleSummary(
             connector=connector,
             attempts=self.list_attempts(connector_id),
             raw_snapshots=raw,
@@ -498,6 +554,330 @@ class DataLifecycleRepository:
             canonical_revisions=revisions,
             training_snapshots=training,
         )
+
+    def raw_row_page(
+        self,
+        snapshot_id: str,
+        *,
+        offset: int,
+        limit: int,
+    ) -> RawSnapshotRowPage:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT raw.id,raw.connector_id,raw.snapshot_digest,"
+                "raw.row_payload_sha256,raw.row_payload_bytes,raw.row_count,"
+                "manifest.schema_version AS index_schema_version,"
+                "manifest.payload_sha256 AS index_payload_sha256,"
+                "manifest.row_count AS index_row_count "
+                "FROM raw_source_snapshots raw "
+                "LEFT JOIN data_lifecycle_row_index_manifests manifest "
+                "ON manifest.resource_kind='raw_source_snapshot' "
+                "AND manifest.resource_id=raw.id "
+                "WHERE raw.id=?",
+                (snapshot_id,),
+            ).fetchone()
+            index_rows = (
+                ()
+                if row is None
+                else conn.execute(
+                    "SELECT ordinal,sort_ordinal AS page_ordinal,"
+                    "byte_offset,byte_length,line_sha256 "
+                    "FROM data_lifecycle_row_index "
+                    "WHERE resource_kind='raw_source_snapshot' "
+                    "AND resource_id=? AND sort_ordinal>=? "
+                    "ORDER BY sort_ordinal LIMIT ?",
+                    (snapshot_id, offset, limit),
+                ).fetchall()
+            )
+        if row is None:
+            raise LifecycleResourceNotFoundError("Raw Snapshotが見つかりません")
+        reference = self._indexed_reference(row, "raw-json-record/v1")
+        if reference is None:
+            raise LifecyclePayloadUnavailableError(
+                "raw_source_snapshot",
+                snapshot_id,
+                "payload reference is unavailable",
+            )
+        if (
+            row["index_schema_version"] != "lifecycle-row-seek-index/v1"
+            or row["index_payload_sha256"] != reference.sha256
+            or row["index_row_count"] != reference.row_count
+        ):
+            raise self._index_unavailable(
+                "raw_source_snapshot",
+                snapshot_id,
+                "row payload index manifest does not match its CAS reference",
+            )
+        expected_page_count = min(
+            limit, max(0, reference.row_count - offset)
+        )
+        if len(index_rows) != expected_page_count:
+            raise self._index_unavailable(
+                "raw_source_snapshot",
+                snapshot_id,
+                "row payload page index is incomplete",
+            )
+        try:
+            page_positions = [
+                int(index["page_ordinal"]) for index in index_rows
+            ]
+        except (TypeError, ValueError):
+            page_positions = []
+        if page_positions != list(range(offset, offset + expected_page_count)):
+            raise self._index_unavailable(
+                "raw_source_snapshot",
+                snapshot_id,
+                "row payload page positions are not contiguous",
+            )
+        if any(
+            int(index["ordinal"]) != int(index["page_ordinal"])
+            for index in index_rows
+        ):
+            raise self._index_unavailable(
+                "raw_source_snapshot",
+                snapshot_id,
+                "row payload source order does not match its index",
+            )
+        try:
+            rows = self.row_payloads.read_ranges(
+                reference,
+                (
+                    (
+                        int(index["byte_offset"]),
+                        int(index["byte_length"]),
+                        str(index["line_sha256"]),
+                    )
+                    for index in index_rows
+                ),
+            )
+        except Exception as exc:
+            if isinstance(exc, LifecyclePayloadUnavailableError):
+                raise
+            error = LifecyclePayloadUnavailableError(
+                "raw_source_snapshot", snapshot_id, str(exc)
+            )
+            self._record_payload_finding(error)
+            raise error from exc
+        return RawSnapshotRowPage(
+            resource_id=snapshot_id,
+            connector_id=str(row["connector_id"]),
+            snapshot_digest=str(row["snapshot_digest"]),
+            offset=offset,
+            limit=limit,
+            total=reference.row_count,
+            has_more=offset + len(rows) < reference.row_count,
+            rows=rows,
+        )
+
+    def curation_row_page(
+        self,
+        run_id: str,
+        *,
+        offset: int,
+        limit: int,
+        status: Literal[
+            "accepted", "warning", "quarantined", "blocked"
+        ] | None = None,
+        reasoned_only: bool = False,
+    ) -> CurationRunRowPage:
+        if status is not None and reasoned_only:
+            raise ValueError("status and reasoned_only cannot be combined")
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT run.id,raw.connector_id,run.raw_snapshot_id,"
+                "run.curation_digest,raw.snapshot_digest AS raw_snapshot_digest,"
+                "run.row_payload_sha256,run.row_payload_bytes,run.row_count,"
+                "manifest.schema_version AS index_schema_version,"
+                "manifest.payload_sha256 AS index_payload_sha256,"
+                "manifest.row_count AS index_row_count,"
+                "manifest.accepted_count,manifest.warning_count,"
+                "manifest.quarantined_count,manifest.blocked_count,"
+                "manifest.reasoned_count "
+                "FROM source_curation_runs run "
+                "JOIN raw_source_snapshots raw ON raw.id=run.raw_snapshot_id "
+                "LEFT JOIN data_lifecycle_row_index_manifests manifest "
+                "ON manifest.resource_kind='curation_run' "
+                "AND manifest.resource_id=run.id "
+                "WHERE run.id=?",
+                (run_id,),
+            ).fetchone()
+            total = 0
+            if row is not None:
+                if reasoned_only:
+                    total = int(row["reasoned_count"] or 0)
+                elif status is not None:
+                    total = int(row[f"{status}_count"] or 0)
+                else:
+                    total = int(row["index_row_count"] or 0)
+            expected_page_count = min(limit, max(0, total - offset))
+            include_previous = 0 < offset <= total
+            query_offset = offset - 1 if include_previous else offset
+            indexed_page_count = expected_page_count + int(include_previous)
+            status_clause = " AND status=?" if status is not None else ""
+            parameters: tuple[object, ...] = (
+                (run_id, status) if status is not None else (run_id,)
+            )
+            page_clause = (
+                " AND reason_ordinal>=? ORDER BY reason_ordinal LIMIT ?"
+                if reasoned_only
+                else (
+                    " AND status_ordinal>=? "
+                    "ORDER BY status_ordinal LIMIT ?"
+                    if status is not None
+                    else " AND sort_ordinal>=? "
+                    "ORDER BY sort_ordinal LIMIT ?"
+                )
+            )
+            page_ordinal = (
+                "reason_ordinal"
+                if reasoned_only
+                else "status_ordinal" if status is not None else "sort_ordinal"
+            )
+            index_rows = (
+                ()
+                if row is None
+                else conn.execute(
+                    f"SELECT ordinal,{page_ordinal} AS page_ordinal,"
+                    "byte_offset,byte_length,line_sha256,status,"
+                    "raw_row_index,row_key,reason_codes "
+                    "FROM data_lifecycle_row_index "
+                    "WHERE resource_kind='curation_run' AND resource_id=?"
+                    + status_clause
+                    + page_clause,
+                    (*parameters, query_offset, indexed_page_count),
+                ).fetchall()
+            )
+        if row is None:
+            raise LifecycleResourceNotFoundError("Curation Runが見つかりません")
+        reference = self._indexed_reference(row, "curated-row/v1")
+        if reference is None:
+            raise LifecyclePayloadUnavailableError(
+                "curation_run", run_id, "payload reference is unavailable"
+            )
+        if (
+            row["index_schema_version"] != "lifecycle-row-seek-index/v1"
+            or row["index_payload_sha256"] != reference.sha256
+            or row["index_row_count"] != reference.row_count
+        ):
+            raise self._index_unavailable(
+                "curation_run",
+                run_id,
+                "row payload index manifest does not match its CAS reference",
+            )
+        if len(index_rows) != indexed_page_count:
+            raise self._index_unavailable(
+                "curation_run", run_id, "row payload page index is incomplete"
+            )
+        try:
+            page_positions = [
+                int(index["page_ordinal"]) for index in index_rows
+            ]
+        except (TypeError, ValueError):
+            page_positions = []
+        if page_positions != list(
+            range(query_offset, query_offset + indexed_page_count)
+        ):
+            raise self._index_unavailable(
+                "curation_run",
+                run_id,
+                "row payload page positions are not contiguous",
+            )
+        try:
+            payload_rows = self.row_payloads.read_ranges(
+                reference,
+                (
+                    (
+                        int(index["byte_offset"]),
+                        int(index["byte_length"]),
+                        str(index["line_sha256"]),
+                    )
+                    for index in index_rows
+                ),
+            )
+            indexed_rows = tuple(
+                CuratedRow.model_validate(item) for item in payload_rows
+            )
+        except Exception as exc:
+            if isinstance(exc, LifecyclePayloadUnavailableError):
+                raise
+            error = LifecyclePayloadUnavailableError(
+                "curation_run", run_id, str(exc)
+            )
+            self._record_payload_finding(error)
+            raise error from exc
+        try:
+            metadata_matches = all(
+                row_item.status == index["status"]
+                and row_item.raw_row_index == index["raw_row_index"]
+                and row_item.row_key == index["row_key"]
+                and list(row_item.reason_codes)
+                == json.loads(index["reason_codes"])
+                for row_item, index in zip(indexed_rows, index_rows)
+            )
+        except (TypeError, json.JSONDecodeError):
+            metadata_matches = False
+        filter_matches = (
+            all(row_item.status == status for row_item in indexed_rows)
+            if status is not None
+            else True
+        )
+        reason_filter_matches = (
+            all(row_item.reason_codes for row_item in indexed_rows)
+            if reasoned_only
+            else True
+        )
+        if not (
+            metadata_matches and filter_matches and reason_filter_matches
+        ):
+            raise self._index_unavailable(
+                "curation_run",
+                run_id,
+                "row payload page metadata does not match its index",
+            )
+        stable_keys = [
+            (
+                row_item.raw_row_index,
+                row_item.row_key,
+                int(index["ordinal"]),
+            )
+            for row_item, index in zip(indexed_rows, index_rows)
+        ]
+        if any(
+            left >= right
+            for left, right in zip(stable_keys, stable_keys[1:])
+        ):
+            raise self._index_unavailable(
+                "curation_run",
+                run_id,
+                "row payload stable sort does not match its index",
+            )
+        rows = indexed_rows[1:] if include_previous else indexed_rows
+        return CurationRunRowPage(
+            resource_id=run_id,
+            connector_id=str(row["connector_id"]),
+            raw_snapshot_id=str(row["raw_snapshot_id"]),
+            raw_snapshot_digest=str(row["raw_snapshot_digest"]),
+            curation_digest=str(row["curation_digest"]),
+            offset=offset,
+            limit=limit,
+            total=total,
+            has_more=offset + len(rows) < total,
+            status_filter=status,
+            reasoned_only=reasoned_only,
+            rows=rows,
+        )
+
+    def _index_unavailable(
+        self,
+        resource_kind: str,
+        resource_id: str,
+        reason: str,
+    ) -> LifecyclePayloadUnavailableError:
+        error = LifecyclePayloadUnavailableError(
+            resource_kind, resource_id, reason
+        )
+        self._record_payload_finding(error)
+        return error
 
     def _record_payload_finding(
         self,

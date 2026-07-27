@@ -5,7 +5,7 @@ import json
 import os
 import stat
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -100,12 +100,95 @@ class RowPayloadStore:
     def read(self, reference: RowPayloadReference) -> tuple[dict[str, Any], ...]:
         return self._scan(reference, collect=True)
 
-    def _scan(
+    def read_page(
         self,
         reference: RowPayloadReference,
         *,
-        collect: bool,
+        offset: int,
+        limit: int,
     ) -> tuple[dict[str, Any], ...]:
+        if offset < 0 or limit < 1:
+            raise ValueError("row payload page is invalid")
+        return self._scan(
+            reference,
+            collect=True,
+            offset=offset,
+            limit=limit,
+        )
+
+    def iter_verified_lines(
+        self,
+        reference: RowPayloadReference,
+    ) -> Iterator[tuple[int, bytes]]:
+        """Yield byte offsets and canonical lines while verifying the whole object."""
+
+        path = self._validated_path(reference)
+        digest = hashlib.sha256()
+        observed_count = 0
+        try:
+            with path.open("rb") as source:
+                while raw_line := source.readline():
+                    offset = source.tell() - len(raw_line)
+                    observed_count += 1
+                    digest.update(raw_line)
+                    if not raw_line.endswith(b"\n"):
+                        raise RowPayloadError(
+                            "row payload line is not LF terminated"
+                        )
+                    yield offset, raw_line
+            if digest.hexdigest() != reference.sha256:
+                raise RowPayloadError(
+                    "row payload digest does not match its reference"
+                )
+            if observed_count != reference.row_count:
+                raise RowPayloadError(
+                    "row payload count does not match its reference"
+                )
+        except OSError as exc:
+            raise RowPayloadError("row payload file is unavailable") from exc
+
+    def read_ranges(
+        self,
+        reference: RowPayloadReference,
+        ranges: Iterable[tuple[int, int, str]],
+    ) -> tuple[dict[str, Any], ...]:
+        """Read and authenticate only indexed lines from a verified CAS object."""
+
+        path = self._validated_path(reference)
+        rows: list[dict[str, Any]] = []
+        try:
+            with path.open("rb") as source:
+                for offset, length, expected_digest in ranges:
+                    if offset < 0 or length < 1 or offset + length > reference.size_bytes:
+                        raise RowPayloadError("row payload index range is invalid")
+                    source.seek(offset)
+                    raw_line = source.read(length)
+                    if len(raw_line) != length:
+                        raise RowPayloadError("row payload indexed line is truncated")
+                    if hashlib.sha256(raw_line).hexdigest() != expected_digest:
+                        raise RowPayloadError(
+                            "row payload indexed line digest does not match"
+                        )
+                    if not raw_line.endswith(b"\n"):
+                        raise RowPayloadError(
+                            "row payload indexed line is not LF terminated"
+                        )
+                    try:
+                        parsed = json.loads(raw_line)
+                    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                        raise RowPayloadError(
+                            "row payload indexed line contains invalid JSON"
+                        ) from exc
+                    if not isinstance(parsed, dict):
+                        raise RowPayloadError(
+                            "row payload indexed record is not an object"
+                        )
+                    rows.append(parsed)
+        except OSError as exc:
+            raise RowPayloadError("row payload file is unavailable") from exc
+        return tuple(rows)
+
+    def _validated_path(self, reference: RowPayloadReference) -> Path:
         path = self.path_for(reference)
         try:
             root = self.root.resolve(strict=True)
@@ -116,7 +199,24 @@ class RowPayloadStore:
             if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
                 raise RowPayloadError("row payload is not a regular file")
             if metadata.st_size != reference.size_bytes:
-                raise RowPayloadError("row payload size does not match its reference")
+                raise RowPayloadError(
+                    "row payload size does not match its reference"
+                )
+            return path
+        except OSError as exc:
+            raise RowPayloadError("row payload file is unavailable") from exc
+
+    def _scan(
+        self,
+        reference: RowPayloadReference,
+        *,
+        collect: bool,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        path = self.path_for(reference)
+        try:
+            path = self._validated_path(reference)
             digest = hashlib.sha256()
             rows: list[dict[str, Any]] = []
             observed_count = 0
@@ -126,14 +226,24 @@ class RowPayloadStore:
                     digest.update(raw_line)
                     if not raw_line.endswith(b"\n"):
                         raise RowPayloadError("row payload line is not LF terminated")
-                    try:
-                        parsed = json.loads(raw_line)
-                    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                        raise RowPayloadError("row payload contains invalid JSON") from exc
-                    if not isinstance(parsed, dict):
-                        raise RowPayloadError("row payload record is not an object")
-                    if collect:
-                        rows.append(parsed)
+                    selected = (
+                        collect
+                        and observed_count > offset
+                        and (limit is None or len(rows) < limit)
+                    )
+                    if not collect or selected:
+                        try:
+                            parsed = json.loads(raw_line)
+                        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                            raise RowPayloadError(
+                                "row payload contains invalid JSON"
+                            ) from exc
+                        if not isinstance(parsed, dict):
+                            raise RowPayloadError(
+                                "row payload record is not an object"
+                            )
+                        if selected:
+                            rows.append(parsed)
             if digest.hexdigest() != reference.sha256:
                 raise RowPayloadError("row payload digest does not match its reference")
             if observed_count != reference.row_count:

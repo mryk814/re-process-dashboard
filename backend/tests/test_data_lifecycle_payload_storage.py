@@ -375,9 +375,12 @@ def test_tampered_payload_is_scoped_to_its_connector(tmp_path) -> None:
     assert reference.sha256 == digest
     row_store.path_for(reference).write_bytes(b'{"tampered":true}\n')
 
+    assert service.detail(first_connector.id).raw_snapshots[0].id == first.id
     with pytest.raises(LifecyclePayloadUnavailableError):
-        service.detail(first_connector.id)
-    assert service.detail(second_connector.id).raw_snapshots == (second,)
+        service.raw_row_page(first.id, offset=0, limit=50)
+    assert tuple(
+        item.id for item in service.detail(second_connector.id).raw_snapshots
+    ) == (second.id,)
     Store(database)
     with sqlite3.connect(database) as connection:
         finding = connection.execute(
@@ -585,8 +588,9 @@ def test_legacy_inline_v1_bundle_migrates_with_semantic_identity(tmp_path) -> No
     restored = DataLifecycleService(target_database)
     assert restored.repository.get_raw_snapshot(raw.id) == raw
     assert restored.repository.get_curation_run(run.id) == run
+    assert restored.detail(broken_connector.id).raw_snapshots[0].id == broken_raw.id
     with pytest.raises(LifecyclePayloadUnavailableError):
-        restored.detail(broken_connector.id)
+        restored.raw_row_page(broken_raw.id, offset=0, limit=50)
     broken_digest = hashlib.sha256(broken_inline.encode("utf-8")).hexdigest()
     assert (
         target_database.parent

@@ -82,7 +82,9 @@ export type ApiCanonicalSeriesRevision = components["schemas"]["CanonicalSeriesR
 export type ApiSeriesFeaturePreview = components["schemas"]["SeriesFeaturePreview"];
 export type ApiSeriesFeatureContract = components["schemas"]["SeriesFeatureContract"];
 export type ApiDataLifecycleCatalog = components["schemas"]["DataLifecycleCatalog"];
-export type ApiConnectorLifecycleDetail = components["schemas"]["ConnectorLifecycleDetail"];
+export type ApiConnectorLifecycleDetail = components["schemas"]["ConnectorLifecycleSummary"];
+export type ApiRawSnapshotRowPage = components["schemas"]["RawSnapshotRowPage"];
+export type ApiCurationRunRowPage = components["schemas"]["CurationRunRowPage"];
 export type ApiSourceConnectorInput = components["schemas"]["SourceConnectorCreateInput"];
 export type ApiSourceFetchRequest = components["schemas"]["SourceFetchRequest"];
 export type ApiCurationRecipeInput = components["schemas"]["CurationRecipeCreateInput"];
@@ -116,6 +118,28 @@ export const workbenchApi = {
       params: { path: { connector_id: connectorId } },
       signal,
     }), "Source Connectorの履歴を取得できませんでした。");
+  },
+  async rawSnapshotRows(snapshotId: string, offset = 0, limit = 50, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/data-lifecycle/raw-snapshots/{snapshot_id}/rows", {
+      params: { path: { snapshot_id: snapshotId }, query: { offset, limit } },
+      signal,
+    }), "Raw Snapshotの行を取得できませんでした。");
+  },
+  async curationRunRows(
+    runId: string,
+    offset = 0,
+    limit = 50,
+    signal?: AbortSignal,
+    status?: "accepted" | "warning" | "quarantined" | "blocked",
+    reasonedOnly = false,
+  ) {
+    return requireData(await apiClient.GET("/api/data-lifecycle/curation-runs/{run_id}/rows", {
+      params: {
+        path: { run_id: runId },
+        query: { offset, limit, status, reasoned_only: reasonedOnly },
+      },
+      signal,
+    }), "品質判定の行を取得できませんでした。");
   },
   async fetchSourceConnector(connectorId: string, body: ApiSourceFetchRequest, credential = "") {
     return requireData(await apiClient.POST("/api/data-lifecycle/connectors/{connector_id}/fetch", {

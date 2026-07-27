@@ -59,6 +59,8 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "curation_recipes",
         "data_assets",
         "data_lifecycle_payload_findings",
+        "data_lifecycle_row_index",
+        "data_lifecycle_row_index_manifests",
         "dataset_profile_revisions",
         "dataset_revisions",
         "dataset_view_members",

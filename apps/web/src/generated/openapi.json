@@ -571,6 +571,84 @@
         "title": "ApprovedTrainingSnapshot",
         "type": "object"
       },
+      "ApprovedTrainingSnapshotSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "canonical_dataset_revision_id": {
+            "title": "Canonical Dataset Revision Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_digest": {
+            "title": "Dataset Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "enum": [
+              "approved-training-snapshot/v1",
+              "approved-training-snapshot/v2"
+            ],
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSplitDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_cohorts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TrainingTargetCohortSummary"
+            },
+            "title": "Target Cohorts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "canonical_dataset_revision_id",
+          "dataset_digest",
+          "row_count",
+          "actor",
+          "purpose",
+          "snapshot_digest",
+          "created_at"
+        ],
+        "title": "ApprovedTrainingSnapshotSummary",
+        "type": "object"
+      },
       "BatchCandidatePoolEvidence": {
         "additionalProperties": false,
         "properties": {
@@ -2687,6 +2765,69 @@
           "approved_at"
         ],
         "title": "CanonicalDatasetRevision",
+        "type": "object"
+      },
+      "CanonicalDatasetRevisionSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "approved_row_count": {
+            "minimum": 0.0,
+            "title": "Approved Row Count",
+            "type": "integer"
+          },
+          "curation_digest": {
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "curation_run_id": {
+            "title": "Curation Run Id",
+            "type": "string"
+          },
+          "dataset_digest": {
+            "title": "Dataset Digest",
+            "type": "string"
+          },
+          "excluded_row_count": {
+            "minimum": 0.0,
+            "title": "Excluded Row Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "override_count": {
+            "minimum": 0.0,
+            "title": "Override Count",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "curation_run_id",
+          "curation_digest",
+          "dataset_digest",
+          "actor",
+          "reason",
+          "approved_row_count",
+          "excluded_row_count",
+          "override_count",
+          "approved_at"
+        ],
+        "title": "CanonicalDatasetRevisionSummary",
         "type": "object"
       },
       "CanonicalSeriesPoint": {
@@ -4926,7 +5067,7 @@
         "title": "ConnectedObservation",
         "type": "object"
       },
-      "ConnectorLifecycleDetail": {
+      "ConnectorLifecycleSummary": {
         "additionalProperties": false,
         "properties": {
           "attempts": {
@@ -4940,7 +5081,7 @@
           "canonical_revisions": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/CanonicalDatasetRevision"
+              "$ref": "#/components/schemas/CanonicalDatasetRevisionSummary"
             },
             "title": "Canonical Revisions",
             "type": "array"
@@ -4951,7 +5092,7 @@
           "curation_runs": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/CurationRun"
+              "$ref": "#/components/schemas/CurationRunSummary"
             },
             "title": "Curation Runs",
             "type": "array"
@@ -4959,7 +5100,7 @@
           "raw_snapshots": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/RawSourceSnapshot"
+              "$ref": "#/components/schemas/RawSourceSnapshotSummary"
             },
             "title": "Raw Snapshots",
             "type": "array"
@@ -4967,7 +5108,7 @@
           "training_snapshots": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/ApprovedTrainingSnapshot"
+              "$ref": "#/components/schemas/ApprovedTrainingSnapshotSummary"
             },
             "title": "Training Snapshots",
             "type": "array"
@@ -4976,7 +5117,7 @@
         "required": [
           "connector"
         ],
-        "title": "ConnectorLifecycleDetail",
+        "title": "ConnectorLifecycleSummary",
         "type": "object"
       },
       "ConnectorSchedule": {
@@ -5845,6 +5986,169 @@
           "profile_digest"
         ],
         "title": "CurationRunCreateInput",
+        "type": "object"
+      },
+      "CurationRunRowPage": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_id": {
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "curation_digest": {
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "limit": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "raw_snapshot_digest": {
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "raw_snapshot_id": {
+            "title": "Raw Snapshot Id",
+            "type": "string"
+          },
+          "reasoned_only": {
+            "default": false,
+            "title": "Reasoned Only",
+            "type": "boolean"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CuratedRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "stable_sort": {
+            "const": "raw_row_index,row_key",
+            "default": "raw_row_index,row_key",
+            "title": "Stable Sort",
+            "type": "string"
+          },
+          "status_filter": {
+            "anyOf": [
+              {
+                "enum": [
+                  "accepted",
+                  "warning",
+                  "quarantined",
+                  "blocked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Filter"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "resource_id",
+          "connector_id",
+          "raw_snapshot_id",
+          "raw_snapshot_digest",
+          "curation_digest",
+          "offset",
+          "limit",
+          "total",
+          "has_more"
+        ],
+        "title": "CurationRunRowPage",
+        "type": "object"
+      },
+      "CurationRunSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curation_digest": {
+            "title": "Curation Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_revision_id": {
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualitySummary"
+          },
+          "quality_delta": {
+            "$ref": "#/components/schemas/QualityDelta"
+          },
+          "raw_snapshot_digest": {
+            "title": "Raw Snapshot Digest",
+            "type": "string"
+          },
+          "raw_snapshot_id": {
+            "title": "Raw Snapshot Id",
+            "type": "string"
+          },
+          "recipe_digest": {
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "raw_snapshot_id",
+          "raw_snapshot_digest",
+          "recipe_id",
+          "recipe_digest",
+          "profile_revision_id",
+          "profile_digest",
+          "row_count",
+          "quality",
+          "quality_delta",
+          "curation_digest",
+          "created_at"
+        ],
+        "title": "CurationRunSummary",
         "type": "object"
       },
       "CurveFamilyResponse": {
@@ -13774,58 +14078,34 @@
         "title": "RawSnapshotDiff",
         "type": "object"
       },
-      "RawSourceSnapshot": {
+      "RawSnapshotRowPage": {
         "additionalProperties": false,
         "properties": {
-          "captured_at": {
-            "format": "date-time",
-            "title": "Captured At",
-            "type": "string"
-          },
-          "connector_configuration_digest": {
-            "minLength": 1,
-            "title": "Connector Configuration Digest",
-            "type": "string"
-          },
           "connector_id": {
-            "minLength": 1,
             "title": "Connector Id",
             "type": "string"
           },
-          "content_sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Content Sha256",
-            "type": "string"
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
           },
-          "diff": {
-            "$ref": "#/components/schemas/RawSnapshotDiff"
-          },
-          "id": {
-            "minLength": 1,
-            "title": "Id",
-            "type": "string"
-          },
-          "object_version": {
-            "title": "Object Version",
-            "type": "string"
-          },
-          "previous_snapshot_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previous Snapshot Id"
-          },
-          "row_count": {
-            "minimum": 0.0,
-            "title": "Row Count",
+          "limit": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Limit",
             "type": "integer"
           },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
           "rows": {
+            "default": [],
             "items": {
               "additionalProperties": true,
               "type": "object"
@@ -13833,67 +14113,32 @@
             "title": "Rows",
             "type": "array"
           },
-          "schema_version": {
-            "default": "raw-source-snapshot/v2",
-            "enum": [
-              "raw-source-snapshot/v1",
-              "raw-source-snapshot/v2"
-            ],
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "selection_digest": {
-            "minLength": 1,
-            "title": "Selection Digest",
-            "type": "string"
-          },
           "snapshot_digest": {
-            "minLength": 1,
             "title": "Snapshot Digest",
             "type": "string"
           },
-          "source_byte_count": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Byte Count"
-          },
-          "source_locator": {
-            "minLength": 1,
-            "title": "Source Locator",
+          "stable_sort": {
+            "const": "source_order",
+            "default": "source_order",
+            "title": "Stable Sort",
             "type": "string"
           },
-          "trigger_kind": {
-            "enum": [
-              "manual",
-              "scheduled"
-            ],
-            "title": "Trigger Kind",
-            "type": "string"
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
-          "id",
+          "resource_id",
           "connector_id",
-          "connector_configuration_digest",
-          "source_locator",
-          "selection_digest",
-          "object_version",
-          "trigger_kind",
-          "captured_at",
-          "content_sha256",
-          "row_count",
-          "rows",
-          "diff",
-          "snapshot_digest"
+          "snapshot_digest",
+          "offset",
+          "limit",
+          "total",
+          "has_more"
         ],
-        "title": "RawSourceSnapshot",
+        "title": "RawSnapshotRowPage",
         "type": "object"
       },
       "RawSourceSnapshotReceipt": {
@@ -13966,6 +14211,77 @@
           "snapshot_digest"
         ],
         "title": "RawSourceSnapshotReceipt",
+        "type": "object"
+      },
+      "RawSourceSnapshotSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "connector_id": {
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "content_sha256": {
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/RawSnapshotDiff"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "object_version": {
+            "title": "Object Version",
+            "type": "string"
+          },
+          "previous_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Snapshot Id"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "snapshot_digest": {
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "source_byte_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Byte Count"
+          }
+        },
+        "required": [
+          "id",
+          "connector_id",
+          "object_version",
+          "captured_at",
+          "content_sha256",
+          "row_count",
+          "diff",
+          "snapshot_digest"
+        ],
+        "title": "RawSourceSnapshotSummary",
         "type": "object"
       },
       "RelationalConstraint": {
@@ -18090,6 +18406,47 @@
         "title": "TrainingTargetCohort",
         "type": "object"
       },
+      "TrainingTargetCohortSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort_digest": {
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "split_digest": {
+            "title": "Split Digest",
+            "type": "string"
+          },
+          "split_group_count": {
+            "minimum": 0.0,
+            "title": "Split Group Count",
+            "type": "integer"
+          },
+          "target_field": {
+            "title": "Target Field",
+            "type": "string"
+          },
+          "target_key": {
+            "title": "Target Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "target_field",
+          "row_count",
+          "cohort_digest",
+          "split_digest",
+          "split_group_count"
+        ],
+        "title": "TrainingTargetCohortSummary",
+        "type": "object"
+      },
       "TrainingTargetDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -18768,7 +19125,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConnectorLifecycleDetail"
+                  "$ref": "#/components/schemas/ConnectorLifecycleSummary"
                 }
               }
             },
@@ -18886,6 +19243,100 @@
         "summary": "Approve Curation Run"
       }
     },
+    "/api/data-lifecycle/curation-runs/{run_id}/rows": {
+      "get": {
+        "operationId": "curation_run_rows_api_data_lifecycle_curation_runs__run_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "accepted",
+                    "warning",
+                    "quarantined",
+                    "blocked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reasoned_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Reasoned Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurationRunRowPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Curation Run Rows"
+      }
+    },
     "/api/data-lifecycle/raw-snapshots/{snapshot_id}/curation-runs": {
       "post": {
         "operationId": "create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post",
@@ -18933,6 +19384,68 @@
           }
         },
         "summary": "Create Curation Run"
+      }
+    },
+    "/api/data-lifecycle/raw-snapshots/{snapshot_id}/rows": {
+      "get": {
+        "operationId": "raw_snapshot_rows_api_data_lifecycle_raw_snapshots__snapshot_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawSnapshotRowPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raw Snapshot Rows"
       }
     },
     "/api/data-lifecycle/recipes": {
