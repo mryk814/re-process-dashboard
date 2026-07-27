@@ -81,6 +81,7 @@ export function CounterfactualActivityView({
   }
 
   return <>
+    <p className="activity-question">{availability.definition.question}</p>
     <section className="activity-settings">
       <div className="panel-title">
         <h3>変更案の探索</h3>

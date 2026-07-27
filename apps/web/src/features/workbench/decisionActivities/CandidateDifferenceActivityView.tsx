@@ -68,6 +68,7 @@ export function CandidateDifferenceActivityView({
   const changeLabels = new Map((result?.input_changes ?? []).map((item) => [item.path, item.label]));
 
   return <>
+    <p className="activity-question">{availability.definition.question}</p>
     <section className="activity-settings">
       <div className="panel-title"><h3>比較する候補</h3><span>この候補との予測差を分解します</span></div>
       <div className="activity-run-settings">
