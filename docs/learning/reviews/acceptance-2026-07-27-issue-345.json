@@ -13,7 +13,7 @@
     ],
     "scope": "Training Snapshot v2が固定するtarget別cohortとgroup split、Model Packageが固定するFeature Pipeline、legacy v1の非再解釈を受け入れる。"
   },
-  "reviewed_against": "abe8f3054de09cf20dfe18565f247a2d897657fd",
+  "reviewed_against": "dce97fd4a2278e27e74b04a8f09ceeb577859e7b",
   "status": "accepted_with_nonblocking_followups",
   "roles": [
     {
@@ -25,9 +25,11 @@
         "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
         "backend/src/material_workbench/domain/data_lifecycle.py",
         "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
-        "backend/tests/test_data_lifecycle.py"
+        "backend/tests/test_data_lifecycle.py",
+        "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "e2e/source-lifecycle.spec.ts"
       ],
-      "notes": "新規作成はv2へ完全置換され、v1は保存済みartifactを別の意味へ読み替えず旧digestのまま読む。"
+      "notes": "新規作成はv2へ完全置換され、v1は保存済みartifactを別の意味へ読み替えず旧digestのまま読む。統合後UIでv2のtarget cohort、split digest、groupからfoldへの割当を履歴から再確認した。"
     },
     {
       "role": "pedagogy",
