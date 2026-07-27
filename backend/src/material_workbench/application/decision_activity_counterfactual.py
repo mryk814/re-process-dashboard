@@ -244,10 +244,10 @@ def _evaluate_term(
     term: ObjectiveTerm,
     value: float,
     base_value: float,
-) -> tuple[bool, float]:
+) -> tuple[bool, float, float | None]:
     scale = _scale(term)
     if term.role == "reporting_only":
-        return True, 0.0
+        return True, 0.0, None
     if term.direction == "at_least":
         assert term.lower is not None
         gap = max(term.lower - value, 0.0)
@@ -263,14 +263,14 @@ def _evaluate_term(
         gap = max(abs(value - term.target) - tolerance, 0.0)
     elif term.direction == "maximize":
         achieved = value > base_value + NUMERIC_TOLERANCE
-        return achieved, 0.0 if achieved else NUMERIC_TOLERANCE / scale
+        return achieved, 0.0 if achieved else NUMERIC_TOLERANCE / scale, None
     elif term.direction == "minimize":
         achieved = value < base_value - NUMERIC_TOLERANCE
-        return achieved, 0.0 if achieved else NUMERIC_TOLERANCE / scale
+        return achieved, 0.0 if achieved else NUMERIC_TOLERANCE / scale, None
     else:
         gap = 0.0
     normalized = gap / scale
-    return normalized <= NUMERIC_TOLERANCE, normalized
+    return normalized <= NUMERIC_TOLERANCE, normalized, gap
 
 
 def _candidate_pool(
@@ -394,21 +394,27 @@ def _evaluate_candidate(
             raise DecisionActivityValidationError(
                 f"Objectiveの特性を予測できません: {term.output_key}"
             )
-        achieved, shortfall = _evaluate_term(term, prediction.value, base.value)
+        achieved, normalized_shortfall, shortfall = _evaluate_term(
+            term,
+            prediction.value,
+            base.value,
+        )
         evaluations.append(
             CounterfactualTargetEvaluation(
                 target=term.output_key,
                 unit=term.unit,
                 predicted_value=prediction.value,
+                prediction=prediction,
                 achieved=achieved,
-                normalized_shortfall=shortfall,
+                normalized_shortfall=normalized_shortfall,
+                shortfall=shortfall,
                 role=term.role,
             )
         )
         if term.role in {"primary_objective", "hard_outcome_constraint"}:
-            blocking += shortfall
+            blocking += normalized_shortfall
         elif term.role == "soft_preference":
-            preference += shortfall * float(term.weight or 1.0)
+            preference += normalized_shortfall * float(term.weight or 1.0)
     return _Evaluated(
         candidate=candidate,
         predictions=predictions,

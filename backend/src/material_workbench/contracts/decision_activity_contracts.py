@@ -6,6 +6,7 @@ registry entry; it must not require a branch inside an existing activity.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -257,14 +258,41 @@ class CounterfactualTargetEvaluation(ContractModel):
     target: str
     unit: str
     predicted_value: float
+    prediction: Annotated[
+        Prediction | None,
+        Field(description="判定時に固定したcanonical Prediction。旧Runでは未記録。"),
+    ] = None
     achieved: bool
     normalized_shortfall: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    shortfall: Annotated[
+        float | None,
+        Field(
+            ge=0,
+            allow_inf_nan=False,
+            description="閾値からの不足量（unitと同じ実単位）。比較目標では未定義。",
+        ),
+    ] = None
     role: Literal[
         "primary_objective",
         "hard_outcome_constraint",
         "soft_preference",
         "reporting_only",
     ]
+
+    @model_validator(mode="after")
+    def canonical_prediction_matches_summary(self) -> "CounterfactualTargetEvaluation":
+        if self.prediction is None:
+            return self
+        if self.prediction.unit != self.unit:
+            raise ValueError("予測の単位が目標評価と一致しません")
+        if not math.isclose(
+            self.prediction.value,
+            self.predicted_value,
+            rel_tol=1e-12,
+            abs_tol=1e-12,
+        ):
+            raise ValueError("予測値が目標評価の要約値と一致しません")
+        return self
 
 
 class CounterfactualProposal(ContractModel):
@@ -390,7 +418,7 @@ CANDIDATE_DIFFERENCE_ACTIVITY = DecisionActivityDefinition(
 
 COUNTERFACTUAL_ACTIVITY = DecisionActivityDefinition(
     activity_id="counterfactual-target-reach-v1",
-    version="1.0.0",
+    version="1.1.0",
     label="目標へ届く最小変更",
     question="現在候補を実行可能な範囲で最小限どう変えれば目標へ近づくか",
     required_operations=("preview",),

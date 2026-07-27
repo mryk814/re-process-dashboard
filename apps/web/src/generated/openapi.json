@@ -5356,6 +5356,17 @@
             "title": "Predicted Value",
             "type": "number"
           },
+          "prediction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Prediction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "判定時に固定したcanonical Prediction。旧Runでは未記録。"
+          },
           "role": {
             "enum": [
               "primary_objective",
@@ -5365,6 +5376,19 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "shortfall": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "閾値からの不足量（unitと同じ実単位）。比較目標では未定義。",
+            "title": "Shortfall"
           },
           "target": {
             "title": "Target",
