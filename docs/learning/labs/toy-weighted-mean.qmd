@@ -1,0 +1,89 @@
+---
+chapter_id: "toy-weighted-mean"
+level: beginner
+estimated_minutes: 20
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+code_references:
+  - path: "docs/learning/AGENTS.md"
+    role: "docs"
+
+prerequisite_concepts:
+  - "byte-digest"
+introduced_concepts: []
+reinforced_concepts: []
+future_concepts: []
+historical_concepts: []
+---
+
+# 四つの測定重みから平均を確かめる {#sec-lab-toy-weighted-mean}
+
+このLabは三つの測定値と四つ分の測定重みから、重み付き平均を計算します。
+値は合成fixtureであり、production modelの評価値ではありません。
+
+## 到達点
+
+読者は入力を手計算してからscriptを実行し、exact outputとprotected path fingerprintを別々に確認します。
+実行中に作るfileは`artifacts/learning-labs/toy-weighted-mean/`だけです。
+
+## 手計算
+
+fixtureは次の三行を持ちます。
+
+| ID | 値（MPa） | 重み |
+|---|---:|---:|
+| M-01 | 10 | 1 |
+| M-02 | 20 | 2 |
+| M-03 | 40 | 1 |
+
+重み合計は$1+2+1=4$です。
+重み付き和は$10 \times 1 + 20 \times 2 + 40 \times 1=90$です。
+したがって、重み付き平均は$90/4=22.5\ \mathrm{MPa}$になります。
+
+## 実行
+
+repository rootで次を順番に実行します。
+
+```powershell
+node docs/learning/labs/scripts/toy-weighted-mean.mjs setup
+node docs/learning/labs/scripts/toy-weighted-mean.mjs run
+node docs/learning/labs/scripts/toy-weighted-mean.mjs verify
+```
+
+`setup`は専用output directoryを作り、production pathのfingerprintを記録します。
+`run`はfixtureを読み、`result.json`だけを書きます。
+`verify`は件数、重み合計、重み付き和、平均、fingerprintを検査します。
+
+成功時は次の内容を含む一行が表示されます。
+
+```text
+Verified 3 measurements: total weight 4, weighted mean 22.5 MPa.
+```
+
+## 結果を読む
+
+`result.json`の数値が合うことと、sandbox境界を守ったことは別の判定です。
+数値検査が成功してもprotected fingerprintが変わればLabは失敗します。
+
+このfingerprintはLab開始前後の差を検出しますが、OS権限によってwriteを事前阻止する仕組みではありません。
+scriptはそれとは別に、書込み先をallow-listへ解決してからfileを作ります。
+
+## Reset
+
+結果を確認した後、repository rootで次を実行します。
+
+```powershell
+node docs/learning/labs/scripts/toy-weighted-mean.mjs reset
+```
+
+resetは`artifacts/learning-labs/toy-weighted-mean/`だけを削除します。
+削除に失敗した場合は非zeroで終了し、失敗を無視しません。
+
+## 成功条件
+
+- 手計算と`result.json`がともに22.5 MPaになる
+- `verify`が終了code 0になる
+- protected fingerprintがsetup前後で一致する
+- `git status --short -- data/source data models apps/web/src/generated`にLab由来の変更がない
+
+失敗時は`artifacts/learning-labs/toy-weighted-mean/sandbox.json`と`result.json`を確認します。
+計算結果が違う場合はfixtureの`expected`、境界違反の場合は`labs/manifest.json`の`writes`と`protected_paths`を確認します。

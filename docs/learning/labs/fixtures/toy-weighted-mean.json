@@ -1,0 +1,29 @@
+{
+  "schema_version": "toy-weighted-mean/v1",
+  "value_unit": "MPa",
+  "weight_unit": "replicate",
+  "measurements": [
+    {
+      "id": "M-01",
+      "value": 10,
+      "weight": 1
+    },
+    {
+      "id": "M-02",
+      "value": 20,
+      "weight": 2
+    },
+    {
+      "id": "M-03",
+      "value": 40,
+      "weight": 1
+    }
+  ],
+  "expected": {
+    "count": 3,
+    "total_weight": 4,
+    "weighted_sum": 90,
+    "weighted_mean": 22.5,
+    "absolute_tolerance": 0
+  }
+}

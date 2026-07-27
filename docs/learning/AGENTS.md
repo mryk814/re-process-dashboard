@@ -200,6 +200,8 @@ node docs/learning/test-concept-order.mjs
 node docs/learning/check-concept-order.mjs
 node docs/learning/test-figures.mjs
 node docs/learning/check-figures.mjs
+node docs/learning/test-labs.mjs
+node docs/learning/check-labs.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```

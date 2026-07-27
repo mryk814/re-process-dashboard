@@ -18,6 +18,8 @@ $conceptOrderCheck = Join-Path $learningRoot "check-concept-order.mjs"
 $conceptOrderTest = Join-Path $learningRoot "test-concept-order.mjs"
 $figureCheck = Join-Path $learningRoot "check-figures.mjs"
 $figureTest = Join-Path $learningRoot "test-figures.mjs"
+$labCheck = Join-Path $learningRoot "check-labs.mjs"
+$labTest = Join-Path $learningRoot "test-labs.mjs"
 $toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
 $toolLock = Join-Path $learningRoot "tools.lock.json"
 
@@ -34,6 +36,8 @@ foreach ($profilePath in @(
     $conceptOrderTest,
     $figureCheck,
     $figureTest,
+    $labCheck,
+    $labTest,
     $toolLibrary,
     $toolLock
 )) {
@@ -162,6 +166,14 @@ if ($LASTEXITCODE -ne 0) {
 node $figureCheck
 if ($LASTEXITCODE -ne 0) {
     throw "Figure validation failed with exit code $LASTEXITCODE."
+}
+node $labTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Lab fixture tests failed with exit code $LASTEXITCODE."
+}
+node $labCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Lab validation failed with exit code $LASTEXITCODE."
 }
 node $codeReferenceCheck --write-manifest
 if ($LASTEXITCODE -ne 0) {

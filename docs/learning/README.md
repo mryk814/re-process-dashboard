@@ -81,6 +81,8 @@ node docs/learning/test-concept-order.mjs
 node docs/learning/check-concept-order.mjs
 node docs/learning/test-figures.mjs
 node docs/learning/check-figures.mjs
+node docs/learning/test-labs.mjs
+node docs/learning/check-labs.mjs
 ```
 
 リポジトリ全体の完了判定では、ルートの `AGENTS.md` に従ってfull test、typecheck、buildも実行します。

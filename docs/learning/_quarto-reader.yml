@@ -38,6 +38,7 @@ book:
     - part: "Part VIII　検証と運用"
       chapters:
         - chapters/verification-operations.qmd
+        - labs/toy-weighted-mean.qmd
     - concept-map.qmd
     - glossary.qmd
     - references.qmd
