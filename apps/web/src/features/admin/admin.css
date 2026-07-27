@@ -84,6 +84,15 @@
 .developer-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .developer-guide-card h3 { margin: 13px 0 5px; font-size: 12px; }
 .developer-guide-card ul { margin: 0; padding-left: 18px; color: #526176; font-size: 12px; line-height: 1.6; }
+.developer-guide-workflow { margin-top: 13px; }
+.developer-guide-workflow ol { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.developer-guide-workflow li { display: grid; grid-template-columns: minmax(120px, .45fr) minmax(180px, 1fr); gap: 3px 12px; border: 1px solid #d8e0ea; border-radius: 4px; padding: 9px 10px; }
+.developer-guide-workflow strong { color: #29445f; font-size: 11px; }
+.developer-guide-workflow span { color: #526176; font-size: 11px; }
+.developer-guide-workflow li div { display: flex; flex-wrap: wrap; grid-column: 1 / -1; gap: 4px 8px; }
+.developer-guide-workflow code { color: #5f6f82; font-size: 10px; overflow-wrap: anywhere; }
+.developer-guide-warnings { margin-top: 12px; border: 1px solid #ead6a5; border-radius: 4px; background: #fff9eb; padding: 8px 10px; }
+.developer-guide-warnings h3 { margin-top: 0; color: #765717; }
 .developer-review { padding: 8px 10px; background: #fff7e6; color: #765717; font-size: 12px; }
 .developer-open-profile { margin-top: 4px; }
 .developer-command { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; border: 1px solid #d8e0ea; border-radius: 4px; background: #f8fafc; padding: 6px 7px 6px 10px; }
@@ -116,7 +125,8 @@
   .developer-overview-list > details > summary { grid-template-columns: auto minmax(0, 1fr) auto; }
   .developer-overview-list summary > small,
   .developer-overview-list summary > code { grid-column: 2 / -1; }
-  .developer-overview-list dl, .developer-guide-grid { grid-template-columns: 1fr; }
+  .developer-overview-list dl, .developer-guide-grid, .developer-guide-workflow li { grid-template-columns: 1fr; }
+  .developer-guide-workflow li div { grid-column: 1; }
   .admin-availability-diagnostic dl { grid-template-columns: 1fr; }
   .admin-availability-diagnostic dl > div { border-right: 0; border-bottom: 1px solid #ead9af; }
   .admin-availability-diagnostic dl > div:last-child { border-bottom: 0; }
