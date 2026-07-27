@@ -179,6 +179,7 @@ export function ProjectHub({
   const [archiving, setArchiving] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
   const [restoringProjectId, setRestoringProjectId] = useState("");
+  const [restoringCandidateId, setRestoringCandidateId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
@@ -944,6 +945,21 @@ export function ProjectHub({
     setRestoringProjectId("");
   }
 
+  async function restoreArchivedCandidate(candidateId: string) {
+    if (restoringCandidateId) return;
+    setRestoringCandidateId(candidateId);
+    setError("");
+    try {
+      const restored = await workbenchApi.restoreCandidate(activeProjectId, candidateId);
+      onRestore(fromApiCandidate(restored));
+      await reloadHistory(undefined, activeProjectId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "候補を復元できませんでした。");
+    } finally {
+      setRestoringCandidateId("");
+    }
+  }
+
   const renderProjectListItem = (item: ApiProject) => (
     <button
       type="button"
@@ -1199,7 +1215,14 @@ export function ProjectHub({
               || chainVariants.length > 0
               || chainDistributionRuns.length > 0;
             return <article className="project-history-card" key={item.candidate.id}>
-              <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={taskUnavailable || Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
+              <header>
+                <div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div>
+                {item.candidate.archived_at
+                  ? <button className="outline-button" disabled={taskUnavailable || offline || Boolean(restoringCandidateId)} onClick={() => void restoreArchivedCandidate(item.candidate.id)}>
+                    {restoringCandidateId === item.candidate.id ? "復元中…" : "候補へ戻す"}
+                  </button>
+                  : <button className="outline-button" disabled={taskUnavailable} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button>}
+              </header>
               <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span className={item.candidate.provenance?.source_kind === "lineage" ? "history-origin reference-data" : "history-origin"}>{item.candidate.provenance?.source_kind === "lineage" && <b>参照データ由来</b>}{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
               {chainIdentity
                 ? <>

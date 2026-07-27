@@ -10,6 +10,7 @@ import { assessOutputValues } from "../../shared/outputPresentation";
 import { supportStatusLabel } from "../../shared/supportPresentation";
 import { hasValidTargetGoal, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import { buildCandidateDecisionSummary } from "./decisionSummary";
+import { candidateRemovalConfirmationText } from "./candidateRemovalPresentation";
 
 const saveLabels: Record<CandidateSaveState, string> = {
   idle: "",
@@ -313,6 +314,7 @@ export function ComparisonTable({
   loadingRemainingPreviews: boolean;
   onLoadRemainingPreviews: () => void;
 }) {
+  const [pendingDeleteCandidateId, setPendingDeleteCandidateId] = useState("");
   const fieldVaries = (path: string) => new Set(candidates.map((candidate) => JSON.stringify(getCandidateInputValue(candidate.raw.inputs, path) ?? null))).size > 1;
   const inputGroups = orderedInputGroups(taskDefinition)
     .filter((group) => group.key !== "heat_pattern")
@@ -640,11 +642,22 @@ export function ComparisonTable({
                 const saved = editableSaved && (savedRevisionsByCandidate[candidate.id]?.includes(candidate.raw.revision) ?? false);
                 const historyPending = snapshotHistoryState !== "ready";
                 const deleteBlocked = candidates.length <= 1 || decisionCandidateId === candidate.id;
-                return <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th><td><div className="candidate-row-actions">
-                  <CandidateAddButton compact className="candidate-row-icon-button" aria-label={`${candidate.label}を複製`} title="この候補を複製" onClick={(event) => { event.stopPropagation(); onCopy(candidate.id); }} />
-                  <button type="button" className="candidate-row-icon-button candidate-row-delete-button" aria-label={`${candidate.label}を削除`} title={decisionCandidateId === candidate.id ? "採用判断を解除してから削除してください" : "この候補を削除"} disabled={deleteBlocked} onClick={(event) => { event.stopPropagation(); onDelete(candidate.id); }}><RowActionIcon name="trash" /></button>
-                  <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name={saved ? "check" : "save"} /></button>
-                </div></td></tr>;
+                const confirmingDelete = pendingDeleteCandidateId === candidate.id;
+                return <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th><td>
+                  {confirmingDelete
+                    ? <div className="candidate-delete-confirmation" role="group" aria-label={`${candidate.label}を一覧から外す確認`} onClick={(event) => event.stopPropagation()}>
+                      <span>{candidateRemovalConfirmationText(candidate.label)}</span>
+                      <div>
+                        <button type="button" className="danger-button" onClick={() => { setPendingDeleteCandidateId(""); onDelete(candidate.id); }}>一覧から外す</button>
+                        <button type="button" className="outline-button" onClick={() => setPendingDeleteCandidateId("")}>キャンセル</button>
+                      </div>
+                    </div>
+                    : <div className="candidate-row-actions">
+                      <CandidateAddButton compact className="candidate-row-icon-button" aria-label={`${candidate.label}を複製`} title="この候補を複製" onClick={(event) => { event.stopPropagation(); onCopy(candidate.id); }} />
+                      <button type="button" className="candidate-row-icon-button candidate-row-delete-button" aria-label={`${candidate.label}を一覧から外す`} title={decisionCandidateId === candidate.id ? "採用判断を解除してから一覧から外してください" : "この候補を一覧から外す"} disabled={deleteBlocked} onClick={(event) => { event.stopPropagation(); setPendingDeleteCandidateId(candidate.id); }}><RowActionIcon name="trash" /></button>
+                      <button type="button" className={`candidate-row-save-button${saved ? " saved" : ""}`} aria-label={`${candidate.label}の詳細予測を${saved ? "保存済み" : snapshotHistoryState === "loading" ? "確認中" : snapshotHistoryState === "error" ? "履歴確認失敗" : "保存"}`} title={!detailedPredictionAvailable ? "このタスクでは詳細予測を利用できません" : snapshotHistoryState === "loading" ? "保存履歴を確認しています" : snapshotHistoryState === "error" ? "保存履歴を確認できませんでした" : saved ? "現在の編集版は保存済みです" : !editableSaved ? "入力の保存完了後に実行できます" : "詳細予測を保存"} disabled={!detailedPredictionAvailable || historyPending || !editableSaved || saving || saved} onClick={(event) => { event.stopPropagation(); onSave(candidate); }}><RowActionIcon name={saved ? "check" : "save"} /></button>
+                    </div>}
+                </td></tr>;
               })}</tbody>
             </table>
           </div>

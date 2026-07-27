@@ -406,7 +406,8 @@ test("copied candidate keeps its source even after the source is deleted", async
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.getByRole("button", { name: `${sourceName}を一覧から外す`, exact: true }).click();
+  await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   // A copy references its source, so deleting the source archives it instead of
   // removing it. The copy must never end up unable to name where it came from.
   await expect(page.getByRole("button", { name: `${sourceName}を選択`, exact: true })).toHaveCount(0);
@@ -434,7 +435,8 @@ test("archived copy source remains navigable", async ({ page, request }) => {
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.getByRole("button", { name: `${sourceName}を一覧から外す`, exact: true }).click();
+  await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   await page.goto(`/?view=candidates&project=${projectId}&candidate=${copiedId}`);
   await expect(page.locator(".candidate-origin")).not.toContainText("削除済みか参照できません");
   await page.getByRole("button", { name: "作成元へ戻る" }).click();

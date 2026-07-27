@@ -441,6 +441,11 @@ export const workbenchApi = {
     requireSuccess(await apiClient.DELETE("/api/projects/{project_id}/candidates/{candidate_id}", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision } } }), "候補を一覧から外せませんでした。");
     inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
   },
+  async restoreCandidate(projectId: string, candidateId: string) {
+    const restored = requireData(await apiClient.POST("/api/projects/{project_id}/candidates/{candidate_id}/restore", { params: { path: { project_id: projectId, candidate_id: candidateId } } }), "候補を復元できませんでした。");
+    inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
+    return restored;
+  },
   async previewCandidate(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, signal?: AbortSignal) {
     return inferenceRequestCache.get(
       inferenceRequestKey(projectId, candidateId, inputIdentity, "preview"),

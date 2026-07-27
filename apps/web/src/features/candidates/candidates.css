@@ -226,6 +226,10 @@
 .comparison-action-table tbody tr:hover td { background: #f5f9ff; }
 .comparison-action-table .selected-row td { background: #e7f1ff; border-bottom-color: #9fc2eb; }
 .candidate-row-actions { display: flex; align-items: center; justify-content: center; gap: 3px; }
+.candidate-delete-confirmation { display: grid; gap: 6px; min-width: 230px; max-width: 320px; padding: 7px; color: #5f3029; background: #fff7f5; border: 1px solid #dfb8b0; border-radius: 7px; text-align: left; }
+.candidate-delete-confirmation span { font-size: 11px; line-height: 1.45; }
+.candidate-delete-confirmation div { display: flex; gap: 6px; }
+.candidate-delete-confirmation button { min-height: 28px; padding: 4px 8px; font-size: 11px; }
 .candidate-row-icon-button,
 .candidate-row-save-button { height: 27px; min-height: 27px; border-radius: 4px; font-size: 0.625rem; font-weight: 700; }
 .candidate-row-icon-button { width: 27px; padding: 0; }

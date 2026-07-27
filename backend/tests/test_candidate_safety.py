@@ -189,7 +189,7 @@ def test_referenced_candidate_is_archived_and_only_history_paths_can_use_it(clie
     assert response.json()["code"] == "candidate_archived"
 
 
-def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted(client) -> None:
+def test_candidate_removal_always_archives_and_can_be_restored(client) -> None:
     referenced = _create_candidate(client, "screening基準")
     run = client.post(
         "/api/screening",
@@ -215,9 +215,21 @@ def test_screening_reference_archives_but_unreferenced_candidate_is_hard_deleted
     assert client.delete(
         f"/api/projects/default/candidates/{disposable['id']}?expected_revision={disposable['revision']}"
     ).status_code == 204
-    assert client.get(
+    archived_disposable = client.get(
         f"/api/projects/default/candidates/{disposable['id']}?include_archived=true"
-    ).status_code == 404
+    )
+    assert archived_disposable.status_code == 200
+    assert archived_disposable.json()["archived_at"] is not None
+
+    restored = client.post(
+        f"/api/projects/default/candidates/{disposable['id']}/restore"
+    )
+    assert restored.status_code == 200
+    assert restored.json()["archived_at"] is None
+    assert restored.json()["revision"] == disposable["revision"] + 2
+    assert disposable["id"] in {
+        item["id"] for item in client.get("/api/projects/default/candidates").json()
+    }
 
 
 def test_domain_error_codes_and_openapi_contract_are_distinct(client) -> None:
@@ -245,7 +257,7 @@ def test_domain_error_codes_and_openapi_contract_are_distinct(client) -> None:
     assert update_responses["409"]["content"]["application/json"]["schema"]["$ref"].endswith("/ApiError")
 
 
-def test_corrupt_screening_reference_has_data_integrity_error(client) -> None:
+def test_candidate_archive_does_not_parse_unrelated_screening_history(client) -> None:
     candidate = _create_candidate(client, "不正履歴の基準")
     with sqlite3.connect(client.app.state.store.path) as conn:
         conn.execute(
@@ -257,5 +269,9 @@ def test_corrupt_screening_reference_has_data_integrity_error(client) -> None:
         f"/api/projects/default/candidates/{candidate['id']}?expected_revision={candidate['revision']}"
     )
 
-    assert response.status_code == 409
-    assert response.json()["code"] == "data_integrity_error"
+    assert response.status_code == 204
+    archived = client.get(
+        f"/api/projects/default/candidates/{candidate['id']}?include_archived=true"
+    )
+    assert archived.status_code == 200
+    assert archived.json()["archived_at"] is not None

@@ -257,3 +257,20 @@ def delete_candidate(project_id: str, candidate_id: str, expected_revision: int,
     except CANDIDATE_APPLICATION_ERRORS as exc:
         raise_candidate_http_error(exc)
     return Response(status_code=204)
+
+
+@router.post(
+    "/api/projects/{project_id}/candidates/{candidate_id}/restore",
+    response_model=Candidate,
+    responses=PROJECT_API_ERRORS,
+    operation_id="restoreCandidate",
+)
+def restore_candidate(
+    project_id: str,
+    candidate_id: str,
+    service: CandidateServiceDependency,
+) -> Candidate:
+    try:
+        return service.restore(project_id, candidate_id)
+    except CANDIDATE_APPLICATION_ERRORS as exc:
+        raise_candidate_http_error(exc)
