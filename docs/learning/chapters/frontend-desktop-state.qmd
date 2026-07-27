@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "14fcea289d7cb26509c62b335336b9480073c239"
+verified_commit: "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"
@@ -72,6 +72,16 @@ code_references:
     role: "frontend"
     symbols:
       - "ProjectHub"
+  - path: "apps/web/src/features/projects/projectSettingsState.ts"
+    id: "frontend-state-group-selection-state"
+    role: "contract"
+    symbols:
+      - "projectGroupMembershipState"
+  - path: "apps/web/src/features/projects/activeChainContext.ts"
+    id: "frontend-state-active-chain"
+    role: "contract"
+    symbols:
+      - "resolveActiveChainContext"
   - path: "apps/web/tests/projectGroupMembership.test.mjs"
     id: "frontend-state-group-selection-test"
     role: "test"
@@ -119,6 +129,9 @@ code_references:
     role: "test"
   - path: "e2e/degraded-task.spec.ts"
     id: "frontend-state-degraded-e2e"
+    role: "test"
+  - path: "e2e/chain-degraded.spec.ts"
+    id: "frontend-state-chain-degraded-e2e"
     role: "test"
 
 prerequisite_concepts:
@@ -211,7 +224,8 @@ Project Series一覧はserver stateですが、設定panelで利用者が選ん�
 
 {{< code-ref frontend-state-group-selection symbol=ProjectHub >}}は、panelを開いた時と実際の所属が変わった時だけ選択を初期化します。
 一覧の到着では初期化しません。
-この依存境界は{{< code-ref frontend-state-group-selection-test >}}でsource contractとして固定しています。
+選択値から「未選択」「所属解除」「別groupへの移動」を導く規則は、{{< code-ref frontend-state-group-selection-state symbol=projectGroupMembershipState >}}へ分離しています。
+この依存境界は{{< code-ref frontend-state-group-selection-test >}}で振る舞いとして固定しています。
 現行browser testは通常の所属解除を確認しますが、一覧の意図的な遅延までは注入していません。
 
 ## server stateとdraft stateを分ける
@@ -489,10 +503,14 @@ optional subsystemの失敗でアプリ全体を止めると、障害調査に�
 
 fatalとdegradedの境界は、証拠を安全に読めるか、誤った新規計算を許すかで決めます。
 
+Chain Projectでは、template一覧、固定Revision、subsystem availabilityの三つが揃うまで実行可否を決められません。
+{{< code-ref frontend-state-active-chain symbol=resolveActiveChainContext >}}は、この途中状態を`loading`や`unresolved`として区別し、availability取得失敗を`error`として閉じます。
+{{< code-ref frontend-state-chain-degraded-e2e >}}は、確認中と取得失敗のどちらでもChain APIを先に呼ばず、保存済みのProject概要だけを残すfail-closedを確認します。
+
 ## Electronのprocess境界を描く
 
 ```{mermaid}
-flowchart LR
+flowchart TB
   U["利用者"] --> R["Renderer<br/>React"]
   R -->|"限定bridge"| P["Preload<br/>contextBridge"]
   P -->|"allow-list IPC"| M["Electron Main"]
