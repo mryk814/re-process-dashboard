@@ -13,7 +13,10 @@ if str(BACKEND_SRC) not in sys.path:
 
 from material_workbench.modeling.active_package_history import (  # noqa: E402
     check_active_package_history,
+    classify_rollback_target,
+    current_task_input_contract_digests,
     rollback_target_note,
+    rollback_target_reason,
 )
 from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
@@ -108,7 +111,19 @@ def rollback_package(task_id: str, source: Path, config: Path) -> dict[str, Any]
                 else "; activeの切替は npm run model:activate を通す（JSONを直接編集するとpreviousが記録されない）"
             )
         )
-    previous = (config.resolve().parent / selection.previous).resolve(strict=True)
+    models_root = config.resolve().parent
+    status = classify_rollback_target(
+        task_id,
+        selection.previous,
+        models_root=models_root,
+        contract_digests=current_task_input_contract_digests(),
+    )
+    if status != "available":
+        raise PackageContractError(
+            f"previous active package {selection.previous} cannot be activated for task {task_id}"
+            f" — {rollback_target_reason(status)}"
+        )
+    previous = (models_root / selection.previous).resolve(strict=True)
     report = verify_model_package(previous, task_id=task_id, source=_task_source(task_id, source))
     updated = rollback_active_package(task_id, config_path=config)
     current = updated.tasks[task_id]

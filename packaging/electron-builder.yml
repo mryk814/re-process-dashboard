@@ -80,8 +80,8 @@ extraResources:
     to: models/packages/mpea-hardness-ridge-v1
   - from: models/packages/welding-stage-c-ridge-v1
     to: models/packages/welding-stage-c-ridge-v1
-  - from: models/packages/welding-consumable-stage-b-ridge-v1
-    to: models/packages/welding-consumable-stage-b-ridge-v1
+  - from: models/packages/welding-consumable-stage-b-ridge-v2
+    to: models/packages/welding-consumable-stage-b-ridge-v2
 win:
   icon: packaging/icons/icon.ico
   target:

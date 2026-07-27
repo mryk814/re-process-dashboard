@@ -101,11 +101,11 @@
         "profile_path": "backend/src/material_workbench/data/welding-stage-b-profile-v1.json"
       },
       "active_package": {
-        "path": "packages/welding-consumable-stage-b-ridge-v1",
-        "previous": null,
-        "package_id": "welding-consumable-stage-b-ridge-v1",
+        "path": "packages/welding-consumable-stage-b-ridge-v2",
+        "previous": "packages/welding-consumable-stage-b-ridge-v1",
+        "package_id": "welding-consumable-stage-b-ridge-v2",
         "version": "1.0.0",
-        "manifest_sha256": "670f57fad186c409cb12bf50af47169c57f3b902d37518698b39b09aff1a3380",
+        "manifest_sha256": "570e2902e33aa3530b1127e40bab7783c78e2ad94895fc79f085b325da10af8c",
         "runtime_types": [
           "builtin.linear.v1"
         ]

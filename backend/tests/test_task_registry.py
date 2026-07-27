@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -292,3 +293,26 @@ def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) 
         "task_id", "candidate_id", "mode", "predictions", "support", "warnings", "model_meta",
         "model_support", "canonical_input", "similar", "heat_pattern", "response_curve",
     }
+
+
+def test_task_definition_labels_are_reader_facing_not_internal_identifiers() -> None:
+    """UIはこのlabelをそのまま出す。pathやsnake_caseの内部名を露出させない。"""
+
+    internal: list[str] = []
+    for path in sorted(SOURCE_ROOT.glob("*.json")):
+        definition = json.loads(path.read_text(encoding="utf-8"))["task_definition"]
+        labelled = [
+            (field["path"], field["label"])
+            for group in definition["input_groups"]
+            for field in group["fields"]
+        ] + [(output["key"], output["label"]) for output in definition["outputs"]]
+        for identifier, label in labelled:
+            # 元素記号や単位付きの短い表記（C、Si、TS）は読み手向けの正当なlabel。
+            # 全小文字ASCIIの識別子だけを内部名として弾く。
+            looks_internal = (
+                label == identifier
+                or re.fullmatch(r"[a-z][a-z0-9]*(_[a-z0-9]+)*", label) is not None
+            )
+            if looks_internal:
+                internal.append(f"{path.name}: {identifier} -> {label}")
+    assert internal == []

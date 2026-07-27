@@ -10,6 +10,7 @@ if __package__ in {None, ""}:
 from material_workbench.modeling.chain_evaluation_builder import (
     build_chain_evaluation,
 )
+from material_workbench.modeling.model_lifecycle import resolve_configured_package
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,18 +45,15 @@ def main() -> int:
         / "material_workbench"
         / "data"
         / "welding-stage-b-profile-v1.json",
+        # Stage AはTaskを持たない決定論的transformのPackageなので、パスで指す。
+        # Stage B・Cは使用中Packageから解決する。パスを直接書くと、切替のたびに
+        # 評価成果物だけが古いPackageを指したままになる。
         stage_a_package=ROOT
         / "models"
         / "packages"
         / "welding-stage-a-deterministic-v1",
-        stage_b_package=ROOT
-        / "models"
-        / "packages"
-        / "welding-consumable-stage-b-ridge-v1",
-        stage_c_package=ROOT
-        / "models"
-        / "packages"
-        / "welding-stage-c-ridge-v1",
+        stage_b_package=resolve_configured_package("welding-consumable-stage-b-v1"),
+        stage_c_package=resolve_configured_package("welding-stage-c-properties-v1"),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

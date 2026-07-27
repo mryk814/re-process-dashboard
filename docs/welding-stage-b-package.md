@@ -48,11 +48,22 @@ Stage BのTask、feature pipeline、Packageはその31軸だけを読み、
 
 ## 再生成と確認
 
+登録済みPackageは不変です。TaskDefinitionの契約が変わったときは、新しい
+ディレクトリへ作り直して `model:activate` で切り替えます（`<new>` は
+`welding-consumable-stage-b-ridge-v2` のような新しい版名）。
+
 ```powershell
-$env:PYTHONPATH = "backend/src"
-uv run python backend/scripts/build_welding_stage_b_assets.py --replace
-uv run python backend/scripts/model_workflow.py verify --task welding-consumable-stage-b-v1 --package models/packages/welding-consumable-stage-b-ridge-v1
+npm run model:build -- --task welding-consumable-stage-b-v1 --output models/packages/<new>
+npm run model:activate -- --task welding-consumable-stage-b-v1 --package models/packages/<new>
+npm run task:inventory
+npm run models:build:welding-chain-evaluation
 ```
+
+Package IDはディレクトリ名から取ります。Chainのsampling能力は
+`modeling/stage_sampling.py` の許可リストが (package_id, manifest SHA-256) で
+固定しているため、**新しい版を作ったらここへレビュー済みとして追記する**まで
+Stage Bの不確かさ伝播は無効のままになります。Chainの評価成果物
+（`models/evaluations/`）も使用中Packageから作り直します。
 
 Developer Centerの「学習View」では、Stage Bを選ぶとtargetごとの
 利用行数・欠測理由・施工group数と観測行を確認できます。

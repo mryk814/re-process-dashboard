@@ -15,6 +15,7 @@ from material_workbench.contracts.chain_evaluation_contracts import (
 from material_workbench.modeling.chain_evaluation_builder import (
     build_chain_evaluation,
 )
+from material_workbench.modeling.model_lifecycle import resolve_configured_package
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,11 +32,12 @@ def _build() -> ChainEvaluationReport:
         source=SOURCE,
         stage_b_profile=ROOT
         / "backend/src/material_workbench/data/welding-stage-b-profile-v1.json",
+        # Stage AはTaskを持たない決定論的transformなのでパスで指す。
+        # Stage B・Cは、成果物と同じく使用中Packageから解決する。
         stage_a_package=ROOT
         / "models/packages/welding-stage-a-deterministic-v1",
-        stage_b_package=ROOT
-        / "models/packages/welding-consumable-stage-b-ridge-v1",
-        stage_c_package=ROOT / "models/packages/welding-stage-c-ridge-v1",
+        stage_b_package=resolve_configured_package("welding-consumable-stage-b-v1"),
+        stage_c_package=resolve_configured_package("welding-stage-c-properties-v1"),
     )
 
 

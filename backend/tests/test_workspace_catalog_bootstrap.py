@@ -69,7 +69,7 @@ EXPECTED_MODEL_PACKAGES = {
     ("mpea-room-tensile-v1", "mpea-room-tensile-ridge-v1"),
     ("secom-yield-risk-v1", "secom-yield-lightgbm-calibrated-v1"),
     ("wear-curve-v1", "wear-curve-ridge-external-v1"),
-    ("welding-consumable-stage-b-v1", "welding-consumable-stage-b-ridge-v1"),
+    ("welding-consumable-stage-b-v1", "welding-consumable-stage-b-ridge-v2"),
     ("welding-stage-c-properties-v1", "welding-stage-c-ridge-v1"),
 }
 
