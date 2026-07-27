@@ -25,6 +25,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceConnectorCreateInput,
     SourceFetchRequest,
     SourceFetchResult,
+    RawSourceSnapshotReceipt,
     TrainingSnapshotCreateInput,
     TrainingSnapshotCreateRequest,
 )
@@ -108,13 +109,33 @@ def fetch_source(
         Header(alias="X-Source-Credential", include_in_schema=False),
     ] = None,
 ) -> SourceFetchResult:
-    # The connector adapter receives a one-request credential boundary. The
-    # current JSON object adapter does not need it, and it is never passed to a
-    # persisted application contract.
-    del source_credential
     try:
-        snapshot, attempt = service.fetch(connector_id, payload)
-        return SourceFetchResult(snapshot=snapshot, attempt=attempt)
+        snapshot, attempt = service.fetch(
+            connector_id,
+            payload,
+            source_credential=source_credential,
+        )
+        return SourceFetchResult(
+            snapshot=RawSourceSnapshotReceipt.model_validate(
+                {
+                    **snapshot.model_dump(
+                        include={
+                            "id",
+                            "connector_id",
+                            "object_version",
+                            "captured_at",
+                            "content_sha256",
+                            "source_byte_count",
+                            "row_count",
+                            "diff",
+                            "snapshot_digest",
+                        }
+                    ),
+                    "schema_version": "raw-source-snapshot-receipt/v1",
+                }
+            ),
+            attempt=attempt,
+        )
     except SourceFetchFailedError as exc:
         raise HTTPException(
             422,

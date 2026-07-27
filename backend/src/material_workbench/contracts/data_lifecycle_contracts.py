@@ -113,9 +113,28 @@ class SourceConnector(SourceConnectorCreateInput):
 class SourceFetchRequest(ContractModel):
     schema_version: Literal["source-fetch-request/v1"] = "source-fetch-request/v1"
     trigger_kind: Literal["manual", "scheduled"] = "manual"
-    object_content: Annotated[str, Field(min_length=1, max_length=5_000_000)]
-    object_version: Annotated[str, Field(min_length=1, max_length=200)]
+    ingress: Literal["inline", "source_locator"] = "inline"
+    object_content: Annotated[
+        str | None,
+        Field(min_length=1, max_length=5_000_000),
+    ] = None
+    object_version: Annotated[str | None, Field(min_length=1, max_length=200)] = None
     retry_of: str | None = None
+    expected_content_sha256: Annotated[
+        str | None,
+        Field(pattern=r"^[0-9a-f]{64}$"),
+    ] = None
+    expected_row_count: Annotated[int | None, Field(ge=0)] = None
+
+    @model_validator(mode="after")
+    def content_matches_ingress(self) -> "SourceFetchRequest":
+        if self.ingress == "inline" and self.object_content is None:
+            raise ValueError("inline取得にはobject contentが必要です")
+        if self.ingress == "inline" and self.object_version is None:
+            raise ValueError("inline取得にはobject versionが必要です")
+        if self.ingress == "source_locator" and self.object_content is not None:
+            raise ValueError("locator取得ではobject contentをrequestへ含められません")
+        return self
 
 
 class RawSnapshotDiff(ContractModel):
@@ -128,7 +147,10 @@ class RawSnapshotDiff(ContractModel):
 
 
 class RawSourceSnapshot(ContractModel):
-    schema_version: Literal["raw-source-snapshot/v1"] = "raw-source-snapshot/v1"
+    schema_version: Literal[
+        "raw-source-snapshot/v1",
+        "raw-source-snapshot/v2",
+    ] = "raw-source-snapshot/v2"
     id: Annotated[str, Field(min_length=1)]
     connector_id: Annotated[str, Field(min_length=1)]
     connector_configuration_digest: Annotated[str, Field(min_length=1)]
@@ -138,6 +160,7 @@ class RawSourceSnapshot(ContractModel):
     trigger_kind: Literal["manual", "scheduled"]
     captured_at: datetime
     content_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    source_byte_count: Annotated[int | None, Field(ge=1)] = None
     row_count: Annotated[int, Field(ge=0)]
     rows: tuple[JsonRecord, ...]
     previous_snapshot_id: str | None = None
@@ -148,18 +171,24 @@ class RawSourceSnapshot(ContractModel):
     def snapshot_is_self_consistent(self) -> "RawSourceSnapshot":
         if self.row_count != len(self.rows):
             raise ValueError("Raw Snapshotのrow countがpayloadと一致しません")
-        expected = semantic_digest(
-            {
-                "connector_id": self.connector_id,
-                "connector_configuration_digest": self.connector_configuration_digest,
-                "source_locator": self.source_locator,
-                "selection_digest": self.selection_digest,
-                "object_version": self.object_version,
-                "trigger_kind": self.trigger_kind,
-                "content_sha256": self.content_sha256,
-                "rows": self.rows,
-            }
-        )
+        if self.schema_version == "raw-source-snapshot/v1":
+            if self.source_byte_count is not None:
+                raise ValueError("Raw Snapshot v1へsource byte countを後付けできません")
+        elif self.source_byte_count is None:
+            raise ValueError("Raw Snapshot v2にはsource byte countが必要です")
+        identity = {
+            "connector_id": self.connector_id,
+            "connector_configuration_digest": self.connector_configuration_digest,
+            "source_locator": self.source_locator,
+            "selection_digest": self.selection_digest,
+            "object_version": self.object_version,
+            "trigger_kind": self.trigger_kind,
+            "content_sha256": self.content_sha256,
+            "rows": self.rows,
+        }
+        if self.schema_version == "raw-source-snapshot/v2":
+            identity["source_byte_count"] = self.source_byte_count
+        expected = semantic_digest(identity)
         if expected != self.snapshot_digest:
             raise ValueError("Raw Snapshot digestが内容と一致しません")
         return self
@@ -174,6 +203,8 @@ class FetchAttempt(ContractModel):
     status: Literal["succeeded", "failed"]
     error_code: Literal[
         "invalid_object",
+        "source_unavailable",
+        "source_integrity_mismatch",
         "scheduled_trigger_not_allowed",
         "connector_not_found",
     ] | None = None
@@ -186,8 +217,23 @@ class FetchAttempt(ContractModel):
 
 
 class SourceFetchResult(ContractModel):
-    snapshot: RawSourceSnapshot
+    snapshot: "RawSourceSnapshotReceipt"
     attempt: FetchAttempt
+
+
+class RawSourceSnapshotReceipt(ContractModel):
+    schema_version: Literal["raw-source-snapshot-receipt/v1"] = (
+        "raw-source-snapshot-receipt/v1"
+    )
+    id: Annotated[str, Field(min_length=1)]
+    connector_id: Annotated[str, Field(min_length=1)]
+    object_version: str
+    captured_at: datetime
+    content_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    source_byte_count: Annotated[int | None, Field(ge=1)] = None
+    row_count: Annotated[int, Field(ge=0)]
+    diff: RawSnapshotDiff
+    snapshot_digest: Annotated[str, Field(min_length=1)]
 
 
 class TrimStringsStep(ContractModel):

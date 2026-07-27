@@ -4914,7 +4914,7 @@ export interface components {
             /** Connector Id */
             connector_id: string;
             /** Error Code */
-            error_code?: ("invalid_object" | "scheduled_trigger_not_allowed" | "connector_not_found") | null;
+            error_code?: ("invalid_object" | "source_unavailable" | "source_integrity_mismatch" | "scheduled_trigger_not_allowed" | "connector_not_found") | null;
             /**
              * Error Message
              * @default
@@ -7126,14 +7126,16 @@ export interface components {
             }[];
             /**
              * Schema Version
-             * @default raw-source-snapshot/v1
-             * @constant
+             * @default raw-source-snapshot/v2
+             * @enum {string}
              */
-            schema_version: "raw-source-snapshot/v1";
+            schema_version: "raw-source-snapshot/v1" | "raw-source-snapshot/v2";
             /** Selection Digest */
             selection_digest: string;
             /** Snapshot Digest */
             snapshot_digest: string;
+            /** Source Byte Count */
+            source_byte_count?: number | null;
             /** Source Locator */
             source_locator: string;
             /**
@@ -7141,6 +7143,35 @@ export interface components {
              * @enum {string}
              */
             trigger_kind: "manual" | "scheduled";
+        };
+        /** RawSourceSnapshotReceipt */
+        RawSourceSnapshotReceipt: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Connector Id */
+            connector_id: string;
+            /** Content Sha256 */
+            content_sha256: string;
+            diff: components["schemas"]["RawSnapshotDiff"];
+            /** Id */
+            id: string;
+            /** Object Version */
+            object_version: string;
+            /** Row Count */
+            row_count: number;
+            /**
+             * Schema Version
+             * @default raw-source-snapshot-receipt/v1
+             * @constant
+             */
+            schema_version: "raw-source-snapshot-receipt/v1";
+            /** Snapshot Digest */
+            snapshot_digest: string;
+            /** Source Byte Count */
+            source_byte_count?: number | null;
         };
         /** RelationalConstraint */
         RelationalConstraint: {
@@ -8157,10 +8188,20 @@ export interface components {
         };
         /** SourceFetchRequest */
         SourceFetchRequest: {
+            /** Expected Content Sha256 */
+            expected_content_sha256?: string | null;
+            /** Expected Row Count */
+            expected_row_count?: number | null;
+            /**
+             * Ingress
+             * @default inline
+             * @enum {string}
+             */
+            ingress: "inline" | "source_locator";
             /** Object Content */
-            object_content: string;
+            object_content?: string | null;
             /** Object Version */
-            object_version: string;
+            object_version?: string | null;
             /** Retry Of */
             retry_of?: string | null;
             /**
@@ -8179,7 +8220,7 @@ export interface components {
         /** SourceFetchResult */
         SourceFetchResult: {
             attempt: components["schemas"]["FetchAttempt"];
-            snapshot: components["schemas"]["RawSourceSnapshot"];
+            snapshot: components["schemas"]["RawSourceSnapshotReceipt"];
         };
         /** SourceLifecycleIdentity */
         SourceLifecycleIdentity: {

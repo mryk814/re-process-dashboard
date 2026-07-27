@@ -8054,6 +8054,8 @@
               {
                 "enum": [
                   "invalid_object",
+                  "source_unavailable",
+                  "source_integrity_mismatch",
                   "scheduled_trigger_not_allowed",
                   "connector_not_found"
                 ],
@@ -13832,8 +13834,11 @@
             "type": "array"
           },
           "schema_version": {
-            "const": "raw-source-snapshot/v1",
-            "default": "raw-source-snapshot/v1",
+            "default": "raw-source-snapshot/v2",
+            "enum": [
+              "raw-source-snapshot/v1",
+              "raw-source-snapshot/v2"
+            ],
             "title": "Schema Version",
             "type": "string"
           },
@@ -13846,6 +13851,18 @@
             "minLength": 1,
             "title": "Snapshot Digest",
             "type": "string"
+          },
+          "source_byte_count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Byte Count"
           },
           "source_locator": {
             "minLength": 1,
@@ -13877,6 +13894,78 @@
           "snapshot_digest"
         ],
         "title": "RawSourceSnapshot",
+        "type": "object"
+      },
+      "RawSourceSnapshotReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "connector_id": {
+            "minLength": 1,
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/RawSnapshotDiff"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "object_version": {
+            "title": "Object Version",
+            "type": "string"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "raw-source-snapshot-receipt/v1",
+            "default": "raw-source-snapshot-receipt/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "minLength": 1,
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "source_byte_count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Byte Count"
+          }
+        },
+        "required": [
+          "id",
+          "connector_id",
+          "object_version",
+          "captured_at",
+          "content_sha256",
+          "row_count",
+          "diff",
+          "snapshot_digest"
+        ],
+        "title": "RawSourceSnapshotReceipt",
         "type": "object"
       },
       "RelationalConstraint": {
@@ -16583,17 +16672,64 @@
       "SourceFetchRequest": {
         "additionalProperties": false,
         "properties": {
-          "object_content": {
-            "maxLength": 5000000,
-            "minLength": 1,
-            "title": "Object Content",
+          "expected_content_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Content Sha256"
+          },
+          "expected_row_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Row Count"
+          },
+          "ingress": {
+            "default": "inline",
+            "enum": [
+              "inline",
+              "source_locator"
+            ],
+            "title": "Ingress",
             "type": "string"
           },
+          "object_content": {
+            "anyOf": [
+              {
+                "maxLength": 5000000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Content"
+          },
           "object_version": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Object Version",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Version"
           },
           "retry_of": {
             "anyOf": [
@@ -16622,10 +16758,6 @@
             "type": "string"
           }
         },
-        "required": [
-          "object_content",
-          "object_version"
-        ],
         "title": "SourceFetchRequest",
         "type": "object"
       },
@@ -16636,7 +16768,7 @@
             "$ref": "#/components/schemas/FetchAttempt"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/RawSourceSnapshot"
+            "$ref": "#/components/schemas/RawSourceSnapshotReceipt"
           }
         },
         "required": [
