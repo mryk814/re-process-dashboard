@@ -669,6 +669,11 @@
   font-size: 10px;
 }
 
+.screening-reproducibility code {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
 .screening-proposal-summary details {
   position: relative;
 }

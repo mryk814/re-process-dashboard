@@ -1425,6 +1425,7 @@ export function ScreeningPage({
         <>
           <ScreeningProposalSummary
             result={result}
+            targetLabel={outputs.find((output) => output.key === result.target)?.label}
             showAnotherSample={screeningMode !== "batch"}
             batchSaveCount={newBatchPointIndices.length}
             onSaveBatch={() => { void persistBatch(); }}

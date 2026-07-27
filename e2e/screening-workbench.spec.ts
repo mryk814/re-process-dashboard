@@ -218,13 +218,17 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   expect(run.purpose).toBe("experiment_batch");
   expect(run.source_run_id).toBe(goalRun.id);
 
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
-    "Bounded simplex・目標基準（組成向け）",
+  const proposalSummary = page.getByRole("region", { name: "探索条件と提案診断" });
+  await expect(proposalSummary.locator(".screening-proposal-headline")).toContainText(
+    "硬さの有望点から実験バッチを選定",
   );
-  await page.getByText("条件と除外理由").click();
+  await expect(proposalSummary.locator(".screening-proposal-headline")).not.toContainText(/seed|digest|bounded_simplex/);
+  await page.getByText("判断根拠").click();
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
     "組成bounded CLR-RMS + 入力群均等",
   );
+  await page.getByText("再現情報").click();
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("bounded_simplex_goal_v1");
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("生成coverage:");
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("composition.Ni");
 
@@ -279,6 +283,7 @@ test("a late proposal response cannot replace a newer run", async ({ page, reque
   await page.getByLabel("乱数seed").fill("202");
   await runScreening(page);
 
+  await page.getByText("再現情報").click();
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
   await page.waitForTimeout(900);
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
