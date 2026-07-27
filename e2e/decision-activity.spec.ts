@@ -48,6 +48,52 @@ test("robustness activity distinguishes a higher average candidate from a steadi
   await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
 });
 
+test("activity run deep links follow same-candidate history and reject an unknown run", async ({ page }) => {
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+
+  await runRobustness(page);
+  await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
+  await page.getByRole("navigation", { name: "保存済みロバストネス解析" })
+    .getByRole("button").first().click();
+  const runAUrl = page.url();
+
+  await page.getByRole("navigation", { name: "検討アクティビティの選択" })
+    .getByRole("button", { name: "ロバストネス／公差解析" }).click();
+  await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
+  await page.getByRole("spinbutton", { name: "サンプル数" }).fill("128");
+  await page.getByRole("button", { name: /公差内を解析|ばらつきを解析/ }).click();
+  await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
+  await page.getByRole("navigation", { name: "保存済みロバストネス解析" })
+    .getByRole("button").first().click();
+  const runBUrl = page.url();
+  expect(runBUrl).not.toBe(runAUrl);
+
+  await page.goto(runAUrl);
+  await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
+  await page.evaluate((url) => {
+    window.history.pushState({}, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, runBUrl);
+  await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
+
+  await page.goBack();
+  await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
+  await page.goForward();
+  await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
+
+  const unknownUrl = new URL(page.url());
+  unknownUrl.searchParams.set("activity_run", "activity-does-not-exist");
+  await page.evaluate((url) => {
+    window.history.pushState({}, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, unknownUrl.toString());
+  await expect(page.getByRole("alert")).toContainText("この候補では見つかりません");
+  await expect(page.locator(".activity-result")).toHaveCount(0);
+});
+
 test("goal-less robustness explains the prerequisite and offers sensitivity-only analysis", async ({ page, request }) => {
   const binding = await resolveProjectBinding(request, "annealed-properties-v1");
   const projectResponse = await request.post(`${apiBaseUrl}/api/projects`, {

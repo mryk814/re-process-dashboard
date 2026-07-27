@@ -56,8 +56,10 @@ export function DecisionActivityPanel({
   const [selectedId, setSelectedId] = useState(requestedActivityId ?? "");
   const [activeRunId, setActiveRunId] = useState<string | null>(requestedRunId ?? null);
   const [loading, setLoading] = useState(true);
+  const [loadedIdentity, setLoadedIdentity] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const [locationError, setLocationError] = useState("");
 
   useEffect(() => {
     requestControllerRef.current?.abort();
@@ -67,6 +69,7 @@ export function DecisionActivityPanel({
   useEffect(() => {
     const controller = new AbortController();
     const requestedIdentity = identity;
+    setLoadedIdentity("");
     setLoading(true);
     setError("");
     Promise.all([
@@ -76,20 +79,7 @@ export function DecisionActivityPanel({
       if (!acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) return;
       setActivities(items);
       setRuns(savedRuns);
-      // A shared run identifies its own activity; the id in the link is a hint.
-      const requestedRun = requestedRunId
-        ? savedRuns.find((run) => run.id === requestedRunId)
-        : undefined;
-      const preferred = requestedRun?.definition.activity_id ?? requestedActivityId;
-      setSelectedId((current) => {
-        const wanted = preferred && items.some((item) => item.definition.activity_id === preferred)
-          ? preferred
-          : items.some((item) => item.definition.activity_id === current)
-            ? current
-            : items[0]?.definition.activity_id ?? "";
-        return wanted;
-      });
-      if (requestedRunId && !requestedRun) setActiveRunId(null);
+      setLoadedIdentity(requestedIdentity);
     }).catch((cause: unknown) => {
       if (controller.signal.aborted || !acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) return;
       setError(cause instanceof Error ? cause.message : "検討アクティビティを取得できませんでした。");
@@ -102,9 +92,46 @@ export function DecisionActivityPanel({
   useEffect(() => () => requestControllerRef.current?.abort(), [identity]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (loadedIdentity !== identity) return;
+    const requestedRun = requestedRunId
+      ? runs.find((run) => run.id === requestedRunId)
+      : undefined;
+    const requestedActivityExists = requestedActivityId
+      ? activities.some((item) => item.definition.activity_id === requestedActivityId)
+      : false;
+
+    if (requestedRunId && !requestedRun) {
+      setSelectedId(requestedActivityExists ? requestedActivityId! : activities[0]?.definition.activity_id ?? "");
+      setActiveRunId(null);
+      setLocationError(`保存済みRun「${requestedRunId}」は、この候補では見つかりません。URLまたは候補を確認してください。`);
+      return;
+    }
+    if (requestedRun) {
+      setSelectedId(requestedRun.definition.activity_id);
+      setActiveRunId(requestedRun.id);
+      setLocationError("");
+      return;
+    }
+    if (requestedActivityId && !requestedActivityExists) {
+      setSelectedId(activities[0]?.definition.activity_id ?? "");
+      setActiveRunId(null);
+      setLocationError(`検討アクティビティ「${requestedActivityId}」は、この候補では利用できません。URLを確認してください。`);
+      return;
+    }
+    setSelectedId((current) => (
+      requestedActivityId
+      ?? (activities.some((item) => item.definition.activity_id === current)
+        ? current
+        : activities[0]?.definition.activity_id ?? "")
+    ));
+    setActiveRunId(null);
+    setLocationError("");
+  }, [activities, identity, loadedIdentity, requestedActivityId, requestedRunId, runs]);
+
+  useEffect(() => {
+    if (!selectedId || locationError) return;
     onStateChange(selectedId, activeRunId ?? undefined);
-  }, [selectedId, activeRunId]);
+  }, [selectedId, activeRunId, locationError]);
 
   const selected = activities.find((item) => item.definition.activity_id === selectedId) ?? null;
   const View = selected ? decisionActivityView(selected.definition.activity_id) : null;
@@ -157,6 +184,7 @@ export function DecisionActivityPanel({
         onClick={() => {
           setSelectedId(item.definition.activity_id);
           setActiveRunId(null);
+          setLocationError("");
         }}
       >{item.definition.label}</button>)}
     </nav>}
@@ -164,10 +192,11 @@ export function DecisionActivityPanel({
       <div className="activity-unavailable"><strong>現在は利用できません</strong>{selected.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
     ) : null}
     {error && <p className="panel-error" role="alert">{error}</p>}
+    {locationError && <p className="panel-error" role="alert">{locationError}</p>}
     {!loading && selected && !View && <p className="empty-evidence">
       この検討アクティビティの表示はこの版では未対応です。
     </p>}
-    {selected && View && <View
+    {selected && View && !locationError && <View
       projectId={projectId}
       candidate={candidate}
       candidates={candidates}

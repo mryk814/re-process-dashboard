@@ -49,11 +49,21 @@ test("a candidate made by an activity navigates back to that run", async () => {
 
 test("the panel resolves a requested run to the activity that owns it", async () => {
   const panel = await source("../src/features/workbench/DecisionActivityPanel.tsx");
-  assert.match(panel, /savedRuns\.find\(\(run\) => run\.id === requestedRunId\)/);
-  assert.match(panel, /requestedRun\?\.definition\.activity_id \?\? requestedActivityId/);
+  assert.match(panel, /runs\.find\(\(run\) => run\.id === requestedRunId\)/);
+  assert.match(panel, /setSelectedId\(requestedRun\.definition\.activity_id\)/);
+  assert.match(panel, /setActiveRunId\(requestedRun\.id\)/);
+  assert.match(panel, /\[activities, identity, loadedIdentity, requestedActivityId, requestedRunId, runs\]/);
   assert.match(panel, /onStateChange\(selectedId, activeRunId \?\? undefined\)/);
   // Switching activity must not keep a run that belongs to another activity.
   assert.match(panel, /setSelectedId\(item\.definition\.activity_id\);\s*\n\s*setActiveRunId\(null\);/);
+});
+
+test("an unknown run is reported instead of falling back to another result", async () => {
+  const panel = await source("../src/features/workbench/DecisionActivityPanel.tsx");
+  assert.match(panel, /requestedRunId && !requestedRun/);
+  assert.match(panel, /保存済みRun.+この候補では見つかりません/);
+  assert.match(panel, /selected && View && !locationError/);
+  assert.match(panel, /if \(!selectedId \|\| locationError\) return/);
 });
 
 test("run selection lives in the panel so every activity shares one link", async () => {
