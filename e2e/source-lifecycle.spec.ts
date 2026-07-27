@@ -167,6 +167,18 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(historySection.locator(".source-stage-rail li").nth(2)).toContainText("2版");
   await expect(historySection.locator(".source-stage-rail li").nth(3)).toContainText("2版");
 
+  await historySection.locator(".source-stage-rail li").nth(3).getByRole("button").click();
+  const trainingHistory = historySection.locator(".source-history");
+  await expect(trainingHistory).toContainText("approved-training-snapshot/v2");
+  await expect(trainingHistory).toContainText("分割group field");
+  await expect(trainingHistory).toContainText("id");
+  await expect(trainingHistory).toContainText("target · 2行");
+  await trainingHistory.getByText("target · 2行").click();
+  await expect(trainingHistory).toContainText("A-01");
+  await expect(trainingHistory).toContainText("A-04");
+  await expect(trainingHistory).toContainText("cohort digest");
+  await expect(trainingHistory).toContainText("split digest");
+
   await historySection.locator(".source-stage-rail li").nth(2).getByRole("button").click();
   const approvalHistory = historySection.locator(".source-history");
   await expect(approvalHistory.locator(".source-history-list").getByRole("button")).toHaveCount(2);

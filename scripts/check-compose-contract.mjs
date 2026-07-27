@@ -139,5 +139,18 @@ for (const key of [
 }
 assert(!readFileSync(composePath, "utf8").includes("data/source"), "Compose must not mount the read-only source data.");
 assert(!readFileSync(composePath, "utf8").includes("models/packages"), "Compose must not mount Model Packages.");
+const integrationRunner = readFileSync(
+  resolve(repositoryRoot, "scripts", "run-compose-integration.mjs"),
+  "utf8",
+);
+assert(
+  integrationRunner.includes('"--project-name"')
+  && integrationRunner.includes("material-workbench-test-${process.pid}"),
+  "Integration profile must use a process-isolated Compose project.",
+);
+assert(
+  !integrationRunner.includes('"--volumes"'),
+  "Ephemeral test cleanup must not target persistent infra volumes.",
+);
 
 console.log(`Compose contract passed: ${required.length} services, persistent infra and ephemeral test profiles.`);

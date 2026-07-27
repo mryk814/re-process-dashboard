@@ -108,7 +108,8 @@ docker compose --profile infra down --volumes
 
 `test` profileはPostgreSQLとobject storageのdata directoryをtmpfsへ置きます。
 migrationは8 tableを作成したことを検査し、object smokeはput、get、digest一致を検査します。
-runnerは成功時も失敗時も`down --volumes`を実行します。
+runnerはprocessごとに独立したCompose project名を使い、成功時も失敗時もそのtest projectだけを`down --remove-orphans`します。
+test dataはtmpfsなので、開発用infraのserviceや永続volumeには触れません。
 
 ```powershell
 npm run compose:test

@@ -3,9 +3,17 @@ import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
+const projectName = `material-workbench-test-${process.pid}`;
 
 function compose(args, stdio = "inherit") {
-  return spawnSync("docker", ["compose", "--profile", "test", ...args], {
+  return spawnSync("docker", [
+    "compose",
+    "--project-name",
+    projectName,
+    "--profile",
+    "test",
+    ...args,
+  ], {
     cwd: repositoryRoot,
     stdio,
   });
@@ -23,7 +31,7 @@ try {
   ]);
   status = result.status ?? 1;
 } finally {
-  const cleanup = compose(["down", "--volumes", "--remove-orphans"]);
+  const cleanup = compose(["down", "--remove-orphans"]);
   if (cleanup.status !== 0 && status === 0) status = cleanup.status ?? 1;
 }
 

@@ -5,6 +5,10 @@ import {
   type ApiDataLibraryDataset,
   type ApiDataLifecycleCatalog,
 } from "../../shared/api/workbench-api";
+import {
+  collectTrainingTargetFields,
+  trainingRecipeIdForRevision,
+} from "./trainingSnapshotPresentation";
 
 const shortDigest = (value: string) => value.replace("sha256:", "").slice(0, 12);
 const formatTimestamp = (value: string) => new Date(value).toLocaleString("ja-JP");
@@ -197,9 +201,16 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
   const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
   const selectedTraining = detail?.training_snapshots.find((item) => item.id === selectedVersionId);
-  const latestRecipe = catalog?.recipes.find((item) => item.id === latestRun?.recipe_id);
-  const trainingTargetFields = latestRecipe?.steps
-    .find((step) => step.kind === "target_eligibility_v1")?.fields ?? [];
+  const trainingRecipeId = trainingRecipeIdForRevision(
+    latestRevision?.curation_run_id,
+    detail?.curation_runs ?? [],
+  );
+  const trainingRecipe = catalog?.recipes.find(
+    (item) => item.id === trainingRecipeId,
+  );
+  const trainingTargetFields = collectTrainingTargetFields(
+    trainingRecipe?.steps ?? [],
+  );
   const resolvedTrainingGroupField = trainingGroupField.trim()
     || detail?.connector.selection.primary_key
     || "";
@@ -414,7 +425,14 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             </>}
             {selectedTraining && <>
               <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
-              <dl><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div></dl>
+              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
+              {selectedTraining.target_cohorts.length
+                ? <div className="source-history-cohorts"><strong>target別cohortとsplit</strong>{selectedTraining.target_cohorts.map((cohort) => <details key={cohort.target_key}>
+                  <summary>{cohort.target_field} · {cohort.row_keys.length}行</summary>
+                  <dl><div><dt>cohort digest</dt><dd><code>{shortDigest(cohort.cohort_digest)}</code></dd></div><div><dt>split digest</dt><dd><code>{shortDigest(cohort.split_digest)}</code></dd></div></dl>
+                  <ul>{cohort.split_assignments.map((assignment) => <li key={assignment.group_key}><code>{assignment.group_key}</code><span>fold {assignment.fold}</span></li>)}</ul>
+                </details>)}</div>
+                : <p>旧契約のため、target別cohortとsplit割当は記録されていません。</p>}
             </>}
           </div>
         </section>}
