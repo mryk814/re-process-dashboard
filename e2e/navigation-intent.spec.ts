@@ -26,7 +26,7 @@ async function processLineageProject(request: APIRequestContext) {
       request,
       "annealed-properties-v1",
       `工程データ系譜E2E ${Date.now()}`,
-      "annealed-gp-stable-ard-process-v1",
+      { datasetFilename: "material_workbench_process_v1.xlsx" },
     );
     processProjectId = project.id;
   }

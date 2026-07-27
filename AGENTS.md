@@ -28,7 +28,22 @@ npm run build
 `backend/` から `pytest` を実行すると `ModuleNotFoundError: No module named 'backend'`
 と複数の失敗が出るが、これは cwd 違いであって実際の失敗ではない。
 
-E2Eは Playwright。ポートは環境変数で移せる。
+E2Eは Playwright。UIを変えたときは、`verify:full` にPlaywrightが入っていないので
+merge前に別途流す。ポートは環境変数で移せる。
+
+既定の `npx playwright test` は `e2e/` 全体を対象にするが、専用configを持つ
+`chain-degraded.spec.ts` だけは除外している（`playwright.chain-degraded.config.ts`の
+fixtureとportが要る）。専用runnerは次の3つ。
+
+```powershell
+npm run test:e2e:degraded-task     # degraded-task.spec.ts
+npm run test:e2e:failure-states    # api-offline / accessibility-smoke
+npx playwright test --config playwright.chain-degraded.config.ts
+```
+
+Projectのbindingはspecから固定Package IDで指すのではなく、`resolveProjectBinding`へ
+`{ datasetFilename }` を渡す。Packageは不変で契約や学習データが変わるたび新しいIDになるため、
+IDを直接書くとその改版で落ちる。
 
 ```powershell
 npx playwright test
