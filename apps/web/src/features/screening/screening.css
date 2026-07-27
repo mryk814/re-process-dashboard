@@ -125,7 +125,7 @@
   background: #f7faff;
 }
 
-.screening-batch-source span { color: #5f6f82; font-size: 9px; }
+.screening-batch-source span { color: #5f6f82; font-size: 10px; }
 .screening-batch-source b { color: #294969; font-size: 11px; }
 
 .screening-advanced-settings {
@@ -358,7 +358,7 @@
 .screening-base-input-table th small {
   display: block;
   color: #5f6f82;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 400;
 }
 
@@ -401,7 +401,7 @@
 
 .screening-heat-horizontal tbody th small {
   color: #7a8899;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 400;
 }
 
@@ -812,7 +812,7 @@
 
 .screening-selection-summary dt {
   color: #526276;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -826,7 +826,7 @@
 
 .screening-selection-summary small {
   color: #758398;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .screening-action-bar .screening-capacity-warning {
@@ -973,7 +973,7 @@
 
 .screening-result-context small {
   color: #748296;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .screening-result-context b {
@@ -1025,7 +1025,7 @@
   display: block;
   margin-top: 2px;
   color: #6e7d90;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 400;
 }
 
@@ -1118,4 +1118,4 @@
   .explore-page .project-empty-state { align-items: stretch; flex-direction: column; }
 }
 .screen-map-grid line { stroke: #e6ecf3; stroke-width: 1; }
-.screen-map-grid text { fill: #708095; font-size: 9px; }
+.screen-map-grid text { fill: #708095; font-size: 10px; }

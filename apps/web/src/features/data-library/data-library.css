@@ -98,7 +98,7 @@
 .series-mini-chart circle { fill: #fff; stroke: #c87438; stroke-width: 1.5; }
 .series-mini-chart.canonical .series-line { stroke: #2267b2; }
 .series-mini-chart.canonical circle { stroke: #2267b2; }
-.series-mini-chart text { fill: #748397; font-size: 9px; }
+.series-mini-chart text { fill: #748397; font-size: 10px; }
 .series-chart-empty { display: grid; min-height: 130px; place-items: center; border: 1px dashed #cbd6e2; border-radius: 5px; color: #5f6f82; font-size: 11px; }
 .series-point-table { min-width: 0; color: #526276; font-size: 11px; }
 .series-point-table > summary { cursor: pointer; font-weight: 700; }
@@ -153,7 +153,7 @@
 .source-stage-rail li { display: flex; align-items: center; gap: 6px; min-width: 0; border-top: 2px solid #dbe3ec; padding: 7px 5px; color: #748397; font-size: 10px; }
 .source-stage-rail li b { display: grid; width: 19px; height: 19px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #e8edf2; }
 .source-stage-rail li span { display: grid; min-width: 0; }
-.source-stage-rail li small { overflow: hidden; font-size: 9px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.source-stage-rail li small { overflow: hidden; font-size: 10px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .source-stage-rail li.complete { border-color: #4d997a; color: #2f6e56; font-weight: 700; }
 .source-stage-rail li.complete b { background: #dff1e9; }
 .source-stage-rail li.current { border-color: #2267b2; color: #174f98; font-weight: 700; }
@@ -170,11 +170,11 @@
 .source-snapshot-summary span { color: #5f6f82; font-size: 10px; text-transform: uppercase; }
 .source-snapshot-summary dl { display: flex; gap: 12px; margin: 0; }
 .source-snapshot-summary dl div { display: flex; align-items: baseline; gap: 3px; }
-.source-snapshot-summary dt { color: #5f6f82; font-size: 9px; }
+.source-snapshot-summary dt { color: #5f6f82; font-size: 10px; }
 .source-snapshot-summary dd { margin: 0; color: #385570; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .source-quality-summary { display: grid; grid-template-columns: repeat(4, minmax(70px, .2fr)) minmax(190px, 1fr); gap: 6px; }
 .source-quality-summary > div { display: grid; gap: 2px; border: 1px solid #dce3eb; border-radius: 4px; background: #fff; padding: 6px 8px; }
-.source-quality-summary > div span { color: #5f6f82; font-size: 9px; }
+.source-quality-summary > div span { color: #5f6f82; font-size: 10px; }
 .source-quality-summary > div strong { color: #34516d; font-size: 16px; font-variant-numeric: tabular-nums; }
 .source-quality-summary details { border: 1px solid #e2d4b4; border-radius: 4px; background: #fffaf0; padding: 6px 8px; color: #725a28; font-size: 10px; }
 .source-quality-summary details summary { cursor: pointer; font-weight: 700; }
@@ -191,7 +191,7 @@
 .source-override-panel > div > label:first-child { display: flex; align-items: center; gap: 5px; }
 .source-override-panel input[type="text"], .source-override-panel input:not([type]) { min-width: 0; border: 1px solid #d7c69f; border-radius: 4px; background: #fff; padding: 6px 7px; color: #5f4b24; font: inherit; }
 .source-actor { display: grid; min-width: 0; gap: 2px; color: #63758b; }
-.source-actor span, .source-actor small { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.source-actor span, .source-actor small { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .source-actor strong { color: #354a62; font-size: 11px; }
 .source-training-ready { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 7px; border: 1px solid #72aa91; border-radius: 5px; background: #ecf8f2; padding: 8px 10px; color: #315f57; font-size: 11px; }
 .source-training-ready small { grid-column: 1 / -1; color: #527365; }
