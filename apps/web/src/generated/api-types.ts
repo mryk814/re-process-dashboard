@@ -2202,11 +2202,13 @@ export interface components {
              * @enum {string}
              */
             pending_policy: "avoid" | "penalize" | "allow";
-            /** @default {
+            /**
+             * @default {
              *       "cost_rules": [],
              *       "default_candidate_cost": 1,
              *       "setup_change_penalty": 0
-             *     } */
+             *     }
+             */
             resources: components["schemas"]["BatchResourceConstraint"];
             /**
              * Schema Version
@@ -5634,9 +5636,11 @@ export interface components {
         };
         /** ObjectiveDefinition */
         ObjectiveDefinition: {
-            /** @default {
+            /**
+             * @default {
              *       "source": "none"
-             *     } */
+             *     }
+             */
             incumbent: components["schemas"]["ObjectiveIncumbent"];
             /** Name */
             name: string;
@@ -7206,14 +7210,17 @@ export interface components {
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
-            /** @default {
+            /**
+             * @default {
              *       "candidate_excel_export": false,
              *       "candidate_excel_import": false,
              *       "project_creation": true,
              *       "sparse_blend": false
-             *     } */
+             *     }
+             */
             application: components["schemas"]["ApplicationCapability"];
-            /** @default {
+            /**
+             * @default {
              *       "expected_locator": "",
              *       "message": "",
              *       "recovery_hint": "",
@@ -7221,7 +7228,8 @@ export interface components {
              *       "schema_version": "task-availability/v1",
              *       "stage": "ready",
              *       "status": "available"
-             *     } */
+             *     }
+             */
             availability: components["schemas"]["TaskAvailability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
@@ -7631,13 +7639,15 @@ export interface components {
             base_inputs: components["schemas"]["CandidateInputs"];
             batch_definition?: components["schemas"]["BatchProposalDefinition"] | null;
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
-            /** @default {
+            /**
+             * @default {
              *       "exploration_parameter": 2,
              *       "fallback_policy": "reject",
              *       "pool_multiplier": 4,
              *       "strategy_id": "latin_hypercube_v1",
              *       "support_policy": "supported_first"
-             *     } */
+             *     }
+             */
             proposal: components["schemas"]["ProposalStrategyRequest"];
             /**
              * Purpose
