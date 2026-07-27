@@ -2,7 +2,7 @@
 chapter_id: "trace-workspace-restore"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
     role: "contract"
@@ -48,6 +48,7 @@ historical_concepts: []
 次の資源を、`.mdwb`へ入るもの、参照情報だけが入るもの、入らないものへ分類してください。
 
 - SQLite Backup APIで作った`workbench.db`
+- Raw Snapshot／Curation Runが参照するcontent-addressed row payload
 - managed Data Assetのworkbook
 - 存在し、Dataset Profileの相対path宣言から解決できる観察画像
 - DBへ登録されたModel Package本体
@@ -56,7 +57,7 @@ historical_concepts: []
 - DBへ登録していない`data/source/`の元Excel
 - migration IDとchecksum
 
-対応する[演習1の解答](#answer-workspace-01)は、八つを分類してから確認します。
+対応する[演習1の解答](#answer-workspace-01)は、九つを分類してから確認します。
 
 ### 成功条件
 
@@ -68,6 +69,7 @@ historical_concepts: []
 | 資源 | 分類 | 理由 |
 |---|---|---|
 | DB snapshot | 入る | 判断履歴と固定参照の正本 |
+| lifecycle row payload | 入る | DB参照とCAS digestを組にしてRaw／Curation rowを復元する |
 | managed workbook | 入る | 別user dataでもData Assetを解決する |
 | 解決可能な相対参照画像 | 入る | Profileが宣言した判断証拠を保つ |
 | Model Package本体 | 入る | 復元先の元配置へ依存しない |

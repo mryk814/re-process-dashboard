@@ -1,7 +1,7 @@
 ---
 level: beginner
 estimated_minutes: 55
-verified_commit: "77a7320bc201cb9a8cf860c6787cc4cca2203116"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "apps/web/src/shared/api/client.ts"
     id: "system-map-web-client"
@@ -116,7 +116,8 @@ PythonまたはTypeScriptのどちらか一方を読めれば始められます�
 | React renderer | 入力を表示し、requestを組み立てる | 選択中のProject、編集中の値、通信状態 |
 | Electron main process | windowとPython processを起動し、Desktop固有操作を仲介する | sidecarのport、起動token、window |
 | Python sidecar | HTTP requestを検証し、application処理を呼ぶ | Task registry、Store、実行中のcache |
-| SQLite | transactionが確定したrowを保持する | Project、Candidate revision、Snapshot、Run |
+| SQLite | transactionが確定したmetadataと小さなpayloadを保持する | Project、Candidate revision、Snapshot、Run、CAS参照 |
+| Workspace CAS | 大きな不変row payloadをcontent digestで保持する | Raw SnapshotとCuration Runのcanonical NDJSON |
 
 「画面に見えている値」と「SQLiteへ保存済みの値」は同じstateではありません。
 入力中の値はrendererを閉じれば失われますが、commit済みのCandidate revisionはprocessを再起動しても残ります。
@@ -392,6 +393,7 @@ SHA-256はbyte列の比較に使えますが、署名者のidentityを含みま�
 
 現行構成はReact、Electron、FastAPI、SQLiteを別processまたは別層へ分けています。
 この分離には起動、通信、型生成の手間がありますが、rendererへfilesystem権限を渡さず、Pythonのmodel runtimeとSQLite transactionをbackendへ閉じ込められます。
+大きなSource lifecycle rowはSQLiteへ埋め込まずWorkspace CASへ分離しますが、identityと参照整合性はStore／Repositoryが閉じ込めます。
 
 すべてをElectron main processへ集める案ならprocess間通信は減ります。
 しかし、Pythonの科学計算資産を直接使えず、Desktop固有権限とdomain処理が同じ境界へ集まります。
@@ -399,6 +401,9 @@ SHA-256はbyte列の比較に使えますが、署名者のidentityを含みま�
 反対に、FastAPIを共有serverとして公開する案なら複数PCから接続できます。
 しかし、現行の起動token、local file、single-user SQLiteという前提ではaccount認証、権限、同時更新、配備を扱えません。
 現在の境界はlocal applicationの条件に対する選択です。
+
+`shared-state-and-bounded-actors.qmd`で扱うPostgreSQL／object storage Shared Labは、この既定構成を自動置換するものではありません。
+AI Review routerもlocal Storeへ追加された独立surfaceであり、正式なremote identity統合を意味しません。
 
 ## 現mainで再確認する
 

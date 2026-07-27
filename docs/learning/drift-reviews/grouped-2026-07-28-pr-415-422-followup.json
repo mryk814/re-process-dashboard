@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-28-pr-415-422-followup",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "4194c42192044937103cf8c31ff54b17815f67f1",
+  "reviewed_against": "339b40651caef156bf63523d9eab13c003546a3f",
+  "pull_requests": [
+    {
+      "number": 415,
+      "merge_commit": "44c866caba90454af7af26475d591fc9b8486651",
+      "classification": "editorial_update",
+      "reason": "The local main acceptance matrix updated current labels, E2E navigation, legacy migration evidence, and packaged smoke without changing the textbook's Decision Activity or restore state contracts.",
+      "changed_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/features/admin/DeveloperAdminPage.tsx",
+        "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+        "apps/web/tests/activityRunNavigation.test.mjs",
+        "backend/tests/test_legacy_workspace_acceptance.py",
+        "docs/reports/main-acceptance-2026-07-27.json",
+        "docs/reports/main-acceptance-2026-07-27.md",
+        "docs/windows-distribution.md",
+        "e2e/accessibility-smoke.spec.ts",
+        "e2e/annealing-time-basis.spec.ts",
+        "e2e/decision-activity.spec.ts",
+        "e2e/decision-navigation.spec.ts",
+        "e2e/degraded-task.spec.ts",
+        "e2e/navigation-intent.spec.ts",
+        "e2e/project-hub.spec.ts",
+        "e2e/responsive-navigation.spec.ts",
+        "e2e/screening-workbench.spec.ts",
+        "e2e/shared-workbench.spec.ts",
+        "package.json",
+        "scripts/run-main-acceptance.ps1",
+        "scripts/smoke-packaged.mjs",
+        "scripts/smoke-windows-delivery.ps1"
+      ],
+      "referenced_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+        "apps/web/tests/activityRunNavigation.test.mjs",
+        "e2e/accessibility-smoke.spec.ts",
+        "e2e/decision-activity.spec.ts",
+        "e2e/degraded-task.spec.ts",
+        "e2e/project-hub.spec.ts",
+        "e2e/screening-workbench.spec.ts",
+        "scripts/smoke-packaged.mjs",
+        "scripts/smoke-windows-delivery.ps1"
+      ]
+    },
+    {
+      "number": 416,
+      "merge_commit": "c0065dc3dee42238093ce791daa11faf5e97c1ec",
+      "classification": "conceptual_update",
+      "reason": "Source acquisition gained a bounded local-file locator path, compact receipt, source byte identity, and integrity expectations, changing the documented ingress and credential boundary.",
+      "changed_paths": [
+        "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/data_lifecycle.py",
+        "backend/src/material_workbench/application/data_lifecycle.py",
+        "backend/src/material_workbench/application/source_ingress.py",
+        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/material_workbench/domain/data_lifecycle.py",
+        "backend/tests/test_data_lifecycle.py",
+        "docs/source-data-lifecycle.md"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/data_lifecycle.py",
+        "backend/src/material_workbench/application/data_lifecycle.py",
+        "backend/src/material_workbench/application/source_ingress.py",
+        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/material_workbench/domain/data_lifecycle.py",
+        "backend/tests/test_data_lifecycle.py",
+        "docs/source-data-lifecycle.md"
+      ]
+    },
+    {
+      "number": 422,
+      "merge_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "classification": "conceptual_update",
+      "reason": "The Shared Workbench and bounded AI Review experiment added independent PostgreSQL, object storage, Actor, and AI evidence surfaces while preserving local SQLite as the default application mode.",
+      "changed_paths": [
+        ".env.example",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/ai_reviews.py",
+        "backend/src/material_workbench/api/dependencies.py",
+        "backend/src/material_workbench/app.py",
+        "backend/src/material_workbench/application/ai_review_provider.py",
+        "backend/src/material_workbench/application/ai_review_tools.py",
+        "backend/src/material_workbench/application/ai_reviews.py",
+        "backend/src/material_workbench/contracts/ai_review_contracts.py",
+        "backend/src/material_workbench/persistence/ai_review_migration.py",
+        "backend/src/material_workbench/persistence/project_persistence_inventory.py",
+        "backend/src/material_workbench/persistence/store.py",
+        "backend/src/material_workbench/shared_lab/__init__.py",
+        "backend/src/material_workbench/shared_lab/app.py",
+        "backend/src/material_workbench/shared_lab/config.py",
+        "backend/src/material_workbench/shared_lab/contracts.py",
+        "backend/src/material_workbench/shared_lab/repository.py",
+        "backend/src/material_workbench/shared_lab/service.py",
+        "backend/tests/integration/test_shared_lab_integration.py",
+        "backend/tests/test_ai_reviews.py",
+        "compose.yaml",
+        "docs/README.md",
+        "docs/docker-compose-development.md",
+        "docs/learning/_quarto-reader.yml",
+        "docs/learning/_quarto-site.yml",
+        "docs/learning/chapters/shared-state-and-bounded-actors.qmd",
+        "docs/learning/reviews/acceptance-2026-07-28-issue-346.json",
+        "docs/reports/ai-actor-review-v1-2026-07-28.md",
+        "docs/reports/cloud-spike-aws-snowflake-2026-07-28.md",
+        "docs/reports/shared-workbench-lab-v1-2026-07-28.md",
+        "infrastructure/compose/migrations/002_shared_workbench_lab.sql",
+        "package.json",
+        "pyproject.toml",
+        "scripts/check-compose-contract.mjs",
+        "scripts/run-shared-lab-integration.mjs",
+        "uv.lock"
+      ],
+      "referenced_paths": [
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/ai_reviews.py",
+        "backend/src/material_workbench/app.py",
+        "backend/src/material_workbench/application/ai_review_tools.py",
+        "backend/src/material_workbench/application/ai_reviews.py",
+        "backend/src/material_workbench/contracts/ai_review_contracts.py",
+        "backend/src/material_workbench/persistence/store.py",
+        "backend/src/material_workbench/shared_lab/contracts.py",
+        "backend/src/material_workbench/shared_lab/repository.py",
+        "backend/src/material_workbench/shared_lab/service.py",
+        "backend/tests/integration/test_shared_lab_integration.py",
+        "backend/tests/test_ai_reviews.py",
+        "docs/reports/cloud-spike-aws-snowflake-2026-07-28.md"
+      ]
+    }
+  ],
+  "squash_pull_requests": [
+    {
+      "number": 417,
+      "commit": "bf0ecd9576258cd26d80334c7fe65a9055631f57",
+      "classification": "conceptual_update",
+      "reason": "Raw and Curation row bodies moved from inline SQLite payloads to verified content-addressed NDJSON, and Workspace bundle v2 now carries and restores those payloads."
+    },
+    {
+      "number": 418,
+      "commit": "2f02f202f11dd9f93985e9a1c7dc358e624dbbc2",
+      "classification": "conceptual_update",
+      "reason": "Connector detail became a row-free summary and bounded row pages gained stable identity, ordering, filtering, integrity checks, and late-row audit coverage."
+    },
+    {
+      "number": 419,
+      "commit": "e968131f9fb7fa24f3bda086ca3ef5bbc271ecb7",
+      "classification": "no_content_impact",
+      "reason": "Compose startup orchestration changed its wait strategy for one-shot jobs, while the accepted Shared Lab chapter cites the final startup and teardown evidence rather than the interim command shape."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "source-locator-ingress-and-receipt",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd"
+      ],
+      "reason": "The chapters now distinguish locator acquisition from inline fixtures, document chunk and integrity checks, and describe the credential boundary of the actual local adapter."
+    },
+    {
+      "claim_id": "lifecycle-row-payload-and-bundle-v2",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/labs/trace-workspace-restore.qmd"
+      ],
+      "reason": "The updated text identifies SQLite metadata versus CAS row bodies, bundle v2 inventory validation, legacy inline migration, scoped corruption, and rollback of only newly installed payloads."
+    },
+    {
+      "claim_id": "lifecycle-summary-and-bounded-pages",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd"
+      ],
+      "reason": "The chapter now explains that initial detail is row-free and that selected Raw, Curation, override, and reason rows are fetched as identity-bound pages instead of decoding all rows."
+    },
+    {
+      "claim_id": "local-default-versus-shared-experiment",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/shared-state-and-bounded-actors.qmd"
+      ],
+      "reason": "The system map now directs readers to the experiment without treating PostgreSQL, object storage, or AI Review as a replacement for the local-first default."
+    },
+    {
+      "claim_id": "unaffected-referenced-contracts-and-figures",
+      "classification": "no_content_impact",
+      "action": "updated",
+      "documents": [
+        "docs/learning/code-map.qmd",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/chapters/verification-operations.qmd",
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd"
+      ],
+      "reason": "Direct diff review found additive tables, routers, current labels, and broader acceptance coverage but no changed invariant in these chapters; their structured references and figures were advanced after checking current symbols and tests."
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #415, #416, and #422 exactly cover first-parent merges; squash PR #417 through #419 are explicitly recorded with their implementation commits and semantic decisions.",
+    "current_main_drift": "All changed structured references and all figure drift references were reviewed against origin/main commit 339b40651caef156bf63523d9eab13c003546a3f.",
+    "focused_evidence": "The reviewed changes include locator, payload migration, pagination, Workspace bundle, AI Review, Shared Lab, E2E, compose, and packaged acceptance tests.",
+    "scope_boundary": "No AWS, Snowflake, real LLM provider, authenticated Human Actor, or automatic replacement of the local SQLite application is claimed."
+  },
+  "reviewer_note": "This retrospective review distinguishes substantive Source and Workspace contract changes from additive acceptance and experiment surfaces. Conceptual text was updated before verified commits and figure commits were advanced."
+}

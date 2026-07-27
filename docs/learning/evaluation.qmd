@@ -112,6 +112,12 @@ Edition 1はcommit `cfe53e5a3d9e71fd6368fae848e231411883075b`で`accepted`です
 すべてのPRへ教材更新を必須にしません。
 上の参照先へ変更があるPRで、教材影響をreviewerが判断します。
 
+## Edition 2の外部観測
+
+実読者、実支援技術、材料domain reviewer、security reviewerの観測手順は、[Edition 2の実観測protocol](evaluations/edition-2/protocol.qmd)で管理します。
+未実施laneを代理評価で埋めず、`not_run`または`awaiting_external_review`として記録します。
+protocolと空templateの追加だけでは、Issue #387の完了条件を満たしません。
+
 ## 一章を更新する手順
 
 1. `code_references`のpathが存在するか確認する。

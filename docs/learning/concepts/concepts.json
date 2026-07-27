@@ -2,7 +2,7 @@
   "$schema": "./concept.schema.json",
   "schema_version": 1,
   "repository": "mryk814/re-process-dashboard",
-  "verified_commit": "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2",
+  "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
   "categories": [
     {
       "id": "identity-evidence",
@@ -49,6 +49,11 @@
       "id": "source-to-training-evidence",
       "title": "Source更新を学習から切り離す",
       "path": "chapters/source-to-training-evidence.qmd"
+    },
+    {
+      "id": "materials-domain-primer",
+      "title": "材料dataを候補判断へ渡す前に分ける",
+      "path": "chapters/materials-domain-primer.qmd"
     },
     {
       "id": "trace-source-evidence",
@@ -544,6 +549,318 @@
         }
       ],
       "common_misconceptions": []
+    },
+    {
+      "id": "composition-basis",
+      "term_ja": "組成basis",
+      "term_en": "composition basis",
+      "aliases": [
+        "mass basis",
+        "amount basis"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "組成割合の分子と分母がどの量と材料entityを基準にするかを固定する契約で、mass%、at%、whole wire、deposited metalなどを区別します。",
+      "anti_definitions": [
+        "百分率の列名またはunit文字列だけではありません。"
+      ],
+      "not_same_as": [
+        "canonical-input"
+      ],
+      "prerequisites": [
+        "dataset-profile"
+      ],
+      "related": [
+        "design-space"
+      ],
+      "math_connections": [
+        "mass fractionとamount fractionは成分ごとのmolar massを介して変換し、各basis上の合計制約を持ちます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "50 mass%をunit表示だけ変えて50 at%として扱うことはできません。"
+      ]
+    },
+    {
+      "id": "nominal-measured-value",
+      "term_ja": "nominal値とmeasured値",
+      "term_en": "nominal and measured value",
+      "aliases": [
+        "design value and observed value"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "配合やsetpointとして意図した値と、分析またはsensorで観測した値を、判断時点とprovenanceを保った別の事実として扱う区別です。",
+      "anti_definitions": [
+        "measured値でnominal値を上書きして最新化する規則ではありません。"
+      ],
+      "not_same_as": [
+        "canonical-input"
+      ],
+      "prerequisites": [
+        "provenance"
+      ],
+      "related": [
+        "snapshot",
+        "leakage"
+      ],
+      "math_connections": [
+        "両者の差は測定誤差だけでなく製造偏差も含み得るため、同じrandom variableとして自動統合しません"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "measured値が常にすべての予測Taskで優先されるわけではありません。"
+      ]
+    },
+    {
+      "id": "heat-program",
+      "term_ja": "熱工程program",
+      "term_en": "heat program",
+      "aliases": [
+        "semantic process program"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "ramp、hold、cool、reheatなど、実行したい熱工程の順序と意図を表すsemanticな工程契約です。",
+      "anti_definitions": [
+        "sensorが実際に記録した時系列そのものではありません。"
+      ],
+      "not_same_as": [
+        "raw-sensor-trace"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "canonical-series"
+      ],
+      "math_connections": [
+        "順序と区間を持つため、温度scalarの順不同集合へ一般には還元できません"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "programが同じなら実測温度履歴も同一になるとは限りません。"
+      ]
+    },
+    {
+      "id": "raw-sensor-trace",
+      "term_ja": "raw sensor trace",
+      "term_en": "raw sensor trace",
+      "aliases": [
+        "raw series asset"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "sensorが記録した時刻と測定値を、欠測、取得順、元単位、取得provenanceとともに保持する一次系列です。",
+      "anti_definitions": [
+        "時刻順へ並べ直して重複を解消したcanonical seriesではありません。"
+      ],
+      "not_same_as": [
+        "heat-program",
+        "canonical-series"
+      ],
+      "prerequisites": [
+        "provenance"
+      ],
+      "related": [
+        "feature-representation"
+      ],
+      "math_connections": [
+        "不規則なsampling intervalとmissing segmentを持ち得る観測列です"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "rawという語は値が誤りという意味ではなく、正規化前の証拠であることを示します。"
+      ]
+    },
+    {
+      "id": "canonical-series",
+      "term_ja": "canonical series",
+      "term_en": "canonical series",
+      "aliases": [
+        "canonical series revision"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "raw traceへ版付きnormalization recipeを適用し、単位、時刻軸、順序、重複規則を固定した再現可能な系列revisionです。",
+      "anti_definitions": [
+        "元のraw traceを置換または削除する保存形式ではありません。"
+      ],
+      "not_same_as": [
+        "raw-sensor-trace",
+        "feature-representation"
+      ],
+      "prerequisites": [
+        "raw-sensor-trace"
+      ],
+      "related": [
+        "semantic-digest"
+      ],
+      "math_connections": [
+        "normalization後の時刻と値の順序を固定し、後続変換の入力identityにします"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/domain/series_curation.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": [
+        "canonicalであることは欠測がなく物理的に正しいことを保証しません。"
+      ]
+    },
+    {
+      "id": "feature-representation",
+      "term_ja": "特徴表現",
+      "term_en": "feature representation",
+      "aliases": [
+        "series feature vector"
+      ],
+      "category": "model",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "canonical seriesをresampling、区間要約、統計量などで、modelが受け取る固定shapeへ変換した版付き表現です。",
+      "anti_definitions": [
+        "canonical seriesに含まれる全情報を保存する可逆表現ではありません。"
+      ],
+      "not_same_as": [
+        "canonical-series",
+        "feature-pipeline"
+      ],
+      "prerequisites": [
+        "canonical-series"
+      ],
+      "related": [
+        "model-package"
+      ],
+      "math_connections": [
+        "resamplingまたは要約は情報を落とし得るため、変換parameterと出力順序を固定します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/domain/series_curation.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": [
+        "Feature Pipeline全体ではなく、系列に対するその出力表現を指します。"
+      ]
+    },
+    {
+      "id": "plausibility",
+      "term_ja": "値の妥当範囲",
+      "term_en": "plausibility",
+      "aliases": [
+        "plausibility range"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "観測値または予測出力がTaskで宣言した広い確認範囲から外れていないかを警告する判定です。",
+      "anti_definitions": [
+        "学習行への採否、モデルsupport、製造可能性を一括して決めるvalidityではありません。"
+      ],
+      "not_same_as": [
+        "target-eligibility",
+        "support",
+        "feasibility"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "actionable-warning"
+      ],
+      "math_connections": [
+        "quantityとunitを固定した下限・上限との比較ですが、普遍的な物理限界とは限りません"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "範囲外の値を自動clipまたは削除してよいという指示ではありません。"
+      ]
+    },
+    {
+      "id": "feasibility",
+      "term_ja": "実行可能性",
+      "term_en": "feasibility",
+      "aliases": [
+        "candidate feasibility"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "CandidateがDesign Space、組成合計、上下限、関係制約、明示された設備条件を満たすかを判定する性質です。",
+      "anti_definitions": [
+        "現実の設備、供給、安全、規格を記述なしに保証する判定ではありません。"
+      ],
+      "not_same_as": [
+        "plausibility",
+        "support"
+      ],
+      "prerequisites": [
+        "design-space"
+      ],
+      "related": [
+        "hard-constraint"
+      ],
+      "math_connections": [
+        "明示されたvariable domainとconstraintが定めるfeasible setへの所属として表します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/design_space_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "allowed range内であることだけではjoint constraintまたは設備条件を満たしません。"
+      ]
     },
     {
       "id": "dataset-profile",

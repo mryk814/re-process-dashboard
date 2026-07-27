@@ -1,5 +1,5 @@
 ---
-verified_commit: "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "apps/web/src/app/navigation.ts"
     role: "frontend"
@@ -59,6 +59,8 @@ code_references:
     role: "contract"
   - path: "backend/src/material_workbench/contracts/schemas.py"
     role: "contract"
+  - path: "backend/src/material_workbench/contracts/series_contracts.py"
+    role: "contract"
   - path: "backend/src/material_workbench/contracts/subsystem_availability.py"
     role: "contract"
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
@@ -78,6 +80,8 @@ code_references:
   - path: "backend/src/material_workbench/domain/proposal_acquisition.py"
     role: "domain"
   - path: "backend/src/material_workbench/domain/proposal_generation.py"
+    role: "domain"
+  - path: "backend/src/material_workbench/domain/series_curation.py"
     role: "domain"
   - path: "backend/src/material_workbench/execution/inference_work_graph.py"
     role: "domain"
@@ -133,6 +137,7 @@ code_references:
 | [演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd) | [Application Service](glossary.qmd#concept-application-service)、[契約](glossary.qmd#concept-contract)、[判別可能union](glossary.qmd#concept-discriminated-union)、[生成成果物](glossary.qmd#concept-generated-artifact) | なし | [契約test](glossary.qmd#concept-contract-test)、[検討Activity](glossary.qmd#concept-decision-activity)、[型付きerror](glossary.qmd#concept-typed-error) |
 | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) | [予測要約](glossary.qmd#concept-predictive-summary)、[学習dataによる裏付け](glossary.qmd#concept-support)、[Objective Definition](glossary.qmd#concept-objective-definition)、[検討Activity](glossary.qmd#concept-decision-activity) | [判断面](glossary.qmd#concept-decision-surface)、[証拠状態](glossary.qmd#concept-evidence-state)、[行動可能な警告](glossary.qmd#concept-actionable-warning)、[明示的採用境界](glossary.qmd#concept-explicit-adoption) | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[条件変更案](glossary.qmd#concept-counterfactual)、[探索目的](glossary.qmd#concept-screening-purpose)、[外挿](glossary.qmd#concept-extrapolation) |
 | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) | [契約](glossary.qmd#concept-contract)、[来歴](glossary.qmd#concept-provenance) | [Active Package](glossary.qmd#concept-active-package)、[正規入力](glossary.qmd#concept-canonical-input)、[Curation Recipe](glossary.qmd#concept-curation-recipe)、[Dataset Profile](glossary.qmd#concept-dataset-profile)、[Feature Pipeline](glossary.qmd#concept-feature-pipeline)、[データ漏洩](glossary.qmd#concept-leakage)、[Model Package](glossary.qmd#concept-model-package)、[隔離](glossary.qmd#concept-quarantine)、[Raw Source Snapshot](glossary.qmd#concept-raw-source-snapshot)、[分割group](glossary.qmd#concept-split-group)、[目的変数利用可否](glossary.qmd#concept-target-eligibility)、[学習cohort](glossary.qmd#concept-training-cohort)、[Training Snapshot](glossary.qmd#concept-training-snapshot) | [Application Service](glossary.qmd#concept-application-service)、[byte digest](glossary.qmd#concept-byte-digest)、[Repository](glossary.qmd#concept-repository)、[意味表現digest](glossary.qmd#concept-semantic-digest) |
+| [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) | [正規入力](glossary.qmd#concept-canonical-input)、[Dataset Profile](glossary.qmd#concept-dataset-profile)、[Feature Pipeline](glossary.qmd#concept-feature-pipeline) | [組成basis](glossary.qmd#concept-composition-basis)、[nominal値とmeasured値](glossary.qmd#concept-nominal-measured-value)、[熱工程program](glossary.qmd#concept-heat-program)、[raw sensor trace](glossary.qmd#concept-raw-sensor-trace)、[canonical series](glossary.qmd#concept-canonical-series)、[特徴表現](glossary.qmd#concept-feature-representation)、[値の妥当範囲](glossary.qmd#concept-plausibility)、[実行可能性](glossary.qmd#concept-feasibility)、[目的変数利用可否](glossary.qmd#concept-target-eligibility)、[データ漏洩](glossary.qmd#concept-leakage) | [学習dataによる裏付け](glossary.qmd#concept-support)、[Project Design Space](glossary.qmd#concept-design-space)、[学習cohort](glossary.qmd#concept-training-cohort)、[来歴](glossary.qmd#concept-provenance) |
 | [演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd) | [Curation Recipe](glossary.qmd#concept-curation-recipe)、[Dataset Profile](glossary.qmd#concept-dataset-profile)、[来歴](glossary.qmd#concept-provenance)、[目的変数利用可否](glossary.qmd#concept-target-eligibility)、[Training Snapshot](glossary.qmd#concept-training-snapshot) | なし | [隔離](glossary.qmd#concept-quarantine)、[Repository](glossary.qmd#concept-repository)、[学習cohort](glossary.qmd#concept-training-cohort) |
 | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) | [契約](glossary.qmd#concept-contract)、[来歴](glossary.qmd#concept-provenance) | [編集中state](glossary.qmd#concept-draft-state)、[不変な判断証拠](glossary.qmd#concept-immutable-evidence)、[論理identity](glossary.qmd#concept-logical-identity)、[楽観的並行制御](glossary.qmd#concept-optimistic-concurrency)、[request連番](glossary.qmd#concept-request-sequence)、[リビジョン](glossary.qmd#concept-revision)、[意味表現digest](glossary.qmd#concept-semantic-digest)、[server state](glossary.qmd#concept-server-state)、[スナップショット](glossary.qmd#concept-snapshot)、[古い応答](glossary.qmd#concept-stale-response) | [byte digest](glossary.qmd#concept-byte-digest) |
 | [演習：二つの順番と遅いresponseを判定する](labs/trace-revision-conflict.qmd) | [楽観的並行制御](glossary.qmd#concept-optimistic-concurrency)、[request連番](glossary.qmd#concept-request-sequence)、[リビジョン](glossary.qmd#concept-revision)、[意味表現digest](glossary.qmd#concept-semantic-digest) | なし | [編集中state](glossary.qmd#concept-draft-state)、[server state](glossary.qmd#concept-server-state)、[古い応答](glossary.qmd#concept-stale-response) |
@@ -167,6 +172,14 @@ code_references:
 | [server state](glossary.qmd#concept-server-state) | [request連番](glossary.qmd#concept-request-sequence) | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
 | [byte digest](glossary.qmd#concept-byte-digest) | [Raw Source Snapshot](glossary.qmd#concept-raw-source-snapshot) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
 | [Dataset Profile](glossary.qmd#concept-dataset-profile) | [正規入力](glossary.qmd#concept-canonical-input) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
+| [Dataset Profile](glossary.qmd#concept-dataset-profile) | [組成basis](glossary.qmd#concept-composition-basis) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [来歴](glossary.qmd#concept-provenance) | [nominal値とmeasured値](glossary.qmd#concept-nominal-measured-value) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [契約](glossary.qmd#concept-contract) | [熱工程program](glossary.qmd#concept-heat-program) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [来歴](glossary.qmd#concept-provenance) | [raw sensor trace](glossary.qmd#concept-raw-sensor-trace) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [raw sensor trace](glossary.qmd#concept-raw-sensor-trace) | [canonical series](glossary.qmd#concept-canonical-series) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [canonical series](glossary.qmd#concept-canonical-series) | [特徴表現](glossary.qmd#concept-feature-representation) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [契約](glossary.qmd#concept-contract) | [値の妥当範囲](glossary.qmd#concept-plausibility) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
+| [Project Design Space](glossary.qmd#concept-design-space) | [実行可能性](glossary.qmd#concept-feasibility) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
 | [契約](glossary.qmd#concept-contract) | [Dataset Profile](glossary.qmd#concept-dataset-profile) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
 | [Raw Source Snapshot](glossary.qmd#concept-raw-source-snapshot) | [Curation Recipe](glossary.qmd#concept-curation-recipe) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
 | [Curation Recipe](glossary.qmd#concept-curation-recipe) | [目的変数利用可否](glossary.qmd#concept-target-eligibility) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
@@ -188,7 +201,7 @@ code_references:
 | [Feature Pipeline](glossary.qmd#concept-feature-pipeline) | [学習dataによる裏付け](glossary.qmd#concept-support) | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
 | [学習dataによる裏付け](glossary.qmd#concept-support) | [外挿](glossary.qmd#concept-extrapolation) | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
 | [Model Package](glossary.qmd#concept-model-package) | [Active Package](glossary.qmd#concept-active-package) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
-| [正規入力](glossary.qmd#concept-canonical-input) | [Project Design Space](glossary.qmd#concept-design-space) | 未配置 |
+| [正規入力](glossary.qmd#concept-canonical-input) | [Project Design Space](glossary.qmd#concept-design-space) | [材料dataを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) |
 | [Project Design Space](glossary.qmd#concept-design-space) | [Objective Definition](glossary.qmd#concept-objective-definition) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 | [Project Design Space](glossary.qmd#concept-design-space) | [候補生成器](glossary.qmd#concept-candidate-generator) | 未配置 |
 | [Registry](glossary.qmd#concept-registry) | [候補生成器](glossary.qmd#concept-candidate-generator) | 未配置 |
@@ -280,6 +293,25 @@ code_references:
 | [Raw Source Snapshot](glossary.qmd#concept-raw-source-snapshot) | 同じではない | [Training Snapshot](glossary.qmd#concept-training-snapshot) |
 | [正規入力](glossary.qmd#concept-canonical-input) | 関連する | [Project Design Space](glossary.qmd#concept-design-space) |
 | [正規入力](glossary.qmd#concept-canonical-input) | 同じではない | [Feature Pipeline](glossary.qmd#concept-feature-pipeline) |
+| [組成basis](glossary.qmd#concept-composition-basis) | 関連する | [Project Design Space](glossary.qmd#concept-design-space) |
+| [組成basis](glossary.qmd#concept-composition-basis) | 同じではない | [正規入力](glossary.qmd#concept-canonical-input) |
+| [nominal値とmeasured値](glossary.qmd#concept-nominal-measured-value) | 関連する | [スナップショット](glossary.qmd#concept-snapshot) |
+| [nominal値とmeasured値](glossary.qmd#concept-nominal-measured-value) | 関連する | [データ漏洩](glossary.qmd#concept-leakage) |
+| [nominal値とmeasured値](glossary.qmd#concept-nominal-measured-value) | 同じではない | [正規入力](glossary.qmd#concept-canonical-input) |
+| [熱工程program](glossary.qmd#concept-heat-program) | 関連する | [canonical series](glossary.qmd#concept-canonical-series) |
+| [熱工程program](glossary.qmd#concept-heat-program) | 同じではない | [raw sensor trace](glossary.qmd#concept-raw-sensor-trace) |
+| [raw sensor trace](glossary.qmd#concept-raw-sensor-trace) | 関連する | [特徴表現](glossary.qmd#concept-feature-representation) |
+| [raw sensor trace](glossary.qmd#concept-raw-sensor-trace) | 同じではない | [canonical series](glossary.qmd#concept-canonical-series) |
+| [canonical series](glossary.qmd#concept-canonical-series) | 関連する | [意味表現digest](glossary.qmd#concept-semantic-digest) |
+| [canonical series](glossary.qmd#concept-canonical-series) | 同じではない | [特徴表現](glossary.qmd#concept-feature-representation) |
+| [特徴表現](glossary.qmd#concept-feature-representation) | 関連する | [Model Package](glossary.qmd#concept-model-package) |
+| [特徴表現](glossary.qmd#concept-feature-representation) | 同じではない | [Feature Pipeline](glossary.qmd#concept-feature-pipeline) |
+| [値の妥当範囲](glossary.qmd#concept-plausibility) | 関連する | [行動可能な警告](glossary.qmd#concept-actionable-warning) |
+| [値の妥当範囲](glossary.qmd#concept-plausibility) | 同じではない | [目的変数利用可否](glossary.qmd#concept-target-eligibility) |
+| [値の妥当範囲](glossary.qmd#concept-plausibility) | 同じではない | [学習dataによる裏付け](glossary.qmd#concept-support) |
+| [値の妥当範囲](glossary.qmd#concept-plausibility) | 同じではない | [実行可能性](glossary.qmd#concept-feasibility) |
+| [実行可能性](glossary.qmd#concept-feasibility) | 関連する | [必須制約](glossary.qmd#concept-hard-constraint) |
+| [実行可能性](glossary.qmd#concept-feasibility) | 同じではない | [学習dataによる裏付け](glossary.qmd#concept-support) |
 | [Dataset Profile](glossary.qmd#concept-dataset-profile) | 関連する | [正規入力](glossary.qmd#concept-canonical-input) |
 | [Dataset Profile](glossary.qmd#concept-dataset-profile) | 同じではない | [Feature Pipeline](glossary.qmd#concept-feature-pipeline) |
 | [Curation Recipe](glossary.qmd#concept-curation-recipe) | 関連する | [隔離](glossary.qmd#concept-quarantine) |
@@ -393,7 +425,7 @@ code_references:
 
 | 状態 | 件数 | 読み方 |
 |---|---:|---|
-| 現行 | 71 | verified commitの実装または契約へリンクする |
+| 現行 | 79 | verified commitの実装または契約へリンクする |
 | 将来候補 | 2 | 未実装の候補として読み、現行機能へ格上げしない |
 | 履歴 | 1 | 過去の案または不採用判断として読む |
 

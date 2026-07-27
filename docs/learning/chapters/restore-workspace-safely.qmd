@@ -2,7 +2,7 @@
 chapter_id: "restore-workspace-safely"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "docs/workspace-backup.md"
     role: "docs"
@@ -14,6 +14,12 @@ code_references:
     role: "build"
   - path: "backend/tests/test_workspace_bundle.py"
     role: "test"
+  - path: "backend/tests/test_data_lifecycle_payload_storage.py"
+    id: "workspace-row-payload-test"
+    role: "test"
+    symbols:
+      - "test_workspace_bundle_includes_and_verifies_row_payload_files"
+      - "test_interrupted_restore_removes_newly_installed_row_payloads"
   - path: "backend/tests/test_windows_packaging_contract.py"
     role: "test"
   - path: "apps/desktop/src/main.ts"
@@ -80,7 +86,7 @@ PCを移行するため、動作中の`workbench.db`をコピーしたとしま�
 DBだけを移すと、ProjectやPrediction Snapshotの行は残っていても、その判断を再現する入力とモデルを解決できません。
 
 逆に、Data Libraryだけをコピーしても、どのProjectがどのrevisionとdigestを固定したかは戻りません。
-このアプリのWorkspaceは、一つのSQLite fileではなく、**整合したDB snapshotと、そのDBが参照する管理資源の組**です。
+このアプリのWorkspaceは、一つのSQLite fileではなく、**整合したDB snapshotと、そのDBが参照する管理資源・row payloadの組**です。
 
 Issue [#252](https://github.com/mryk814/re-process-dashboard/issues/252) は、次の六つを同じ復旧対象に置きました。
 
@@ -155,13 +161,15 @@ SQLite Online Backup APIは、動作中のdatabaseから整合したsnapshotを�
 
 ## manifestは移送物と検証証拠を結ぶ
 
-`WorkspaceBundleManifest`は`workspace-bundle/v1`というschema versionを持ちます。
+`WorkspaceBundleManifest`の現行schemaは`workspace-bundle/v2`です。
+旧`workspace-bundle/v1`はstagingでの互換読込だけを残し、inline rowをCASへ移した前後のsemantic identityを検証します。
 主な内容は次のとおりです。
 
 | field | 固定するもの |
 |---|---|
 | `database` | bundle内DBのpath、SHA-256、byte数 |
 | `data_library_files` | 同梱fileごとのpath、SHA-256、byte数 |
+| `row_payload_files` | Raw Snapshot／Curation Runが参照するCAS fileのpath、SHA-256、byte数 |
 | `schema_migrations` | 適用済みmigration ID、checksum、適用時刻 |
 | `model_package_references` | Package参照、Task、manifest digest、archive状態 |
 | `bundled_resources` | Data Asset／Model Packageとbundle内rootの対応 |
@@ -170,6 +178,7 @@ SQLite Online Backup APIは、動作中のdatabaseから整合したsnapshotを�
 
 一つのbundle entryを検査するだけでは、全体の整合を確認できません。
 manifestが「何が入っているはずか」を列挙し、展開処理が実際のentry集合と完全一致するかを確認します。
+DB内のrow payload参照についても、manifestに列挙したCAS fileとの欠損・余剰・digest不一致をDB切替前に拒否します。
 
 `WorkspaceBundleFile`のSHA-256はfileの破損や取り違えを検出します。
 一方、manifestとfileを同時に作り直せる相手まで識別する署名ではありません。
@@ -244,10 +253,11 @@ prepareの順序は次のとおりです。
 3. DB内のmigration一覧がmanifestと一致するか確認する。
 4. unknown migrationとchecksum違いを拒否する。
 5. allow-list済みmigrationだけをstaging DBへ適用する。
-6. staging用locatorへ参照を書き換える。
-7. Projectが固定するDataset、Package、Chain、Transformを診断する。
-8. SQLite integrity、foreign key、table evidenceを再計算する。
-9. `state.json`へ`prepared`状態とstaged DB digestを保存する。
+6. 旧inline lifecycle rowをCASへ移し、row payload参照とfile inventoryを検証する。
+7. staging用locatorへ参照を書き換える。
+8. Projectが固定するDataset、Package、Chain、Transformを診断する。
+9. SQLite integrity、foreign key、table evidenceを再計算する。
+10. `state.json`へ`prepared`状態とstaged DB digestを保存する。
 
 既知の旧schemaは、現Workspaceではなくstaging DBでmigrationします。
 migration後も、正規化対象を除くtable evidenceがbundle作成時と同じかを確認します。
@@ -265,11 +275,12 @@ active Workspaceへ切り替える前のstaging検証を終えた状態であり
 `commit_workspace_restore()`は、tokenの形式、state、expiry、staged DB digestを再確認します。
 prepare後にstagingが変更されていれば、active Workspaceへ触れる前に止まります。
 
-次にData AssetとModel PackageをData Libraryへ配置します。
+次にData AssetとModel PackageをData Libraryへ、lifecycle row payloadをWorkspace CASへ配置します。
 最終pathは`by-digest/data-assets/<bundle_digest>`または`by-digest/model-packages/<bundle_digest>`です。
 
 同じdigestのresourceがすでにあれば再利用します。
 新規resourceは一時directoryへcopyしてから`os.replace()`で公開し、staging DBのlocatorを新しい絶対pathへ更新します。
+row payloadも既存CAS fileは再利用し、このcommitで新規配置したfileだけをjournalへ記録します。
 
 locator更新後もtable evidenceを再計算します。
 pathだけを正規化する設計なので、判断証拠のdigestが変わればcommitを止めます。
@@ -282,6 +293,7 @@ DB切替の直前に、journalを`committing`へ更新します。
 
 二回目が失敗した場合は、rollback DBをactive pathへ戻し、このcommitで新規配置したresourceを削除します。
 `test_commit_switch_failure_preserves_database_and_data_library`は二回目の`os.replace()`へ故障を注入し、DB digestとData Libraryのfile一覧が実行前と同じことを確認します。
+{{< code-ref workspace-row-payload-test symbol=test_interrupted_restore_removes_newly_installed_row_payloads >}}は、途中停止後も新規row payloadだけを回収し、以前から存在するCAS fileを削除しないことを確認します。
 
 ここで「Workspace全体を一つのfilesystem transactionで切り替える」と説明してはいけません。
 DBはrenameで切り替えますが、複数resourceの配置にはcleanupという補償処理を使います。
@@ -364,6 +376,7 @@ local file dialog、sidecar停止、DB切替、process再起動を担うElectron
 - **`commit_switch_failure_preserves`**：DB最終切替失敗時に、現DBとData Libraryを原状維持することを確認する。
 - **`known_older_schema_is_migrated`**：既知の旧schemaが、stagingで現schemaへ到達することを確認する。
 - **`expanded_bundle_cannot_fit`**：空き容量不足を、展開前に拒否することを確認する。
+- **`workspace_bundle_includes_and_verifies_row_payload_files`**：DB参照とCAS inventoryの欠損、余剰、改ざんを切替前に拒否する。
 - **`extreme_compression_ratio`**：ZIP bomb候補を、展開前に拒否することを確認する。
 - **`unsafe_archive_paths`**：path traversalを、staging外へ書く前に拒否することを確認する。
 - **presentation test**：rendererとpreloadのglobal UI、説明、IPC引数を確認する。

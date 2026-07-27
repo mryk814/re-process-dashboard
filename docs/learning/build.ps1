@@ -13,6 +13,8 @@ $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 $codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
 $driftReviewCheck = Join-Path $learningRoot "check-drift-reviews.mjs"
 $reviewCheck = Join-Path $learningRoot "reviews\check-reviews.mjs"
+$edition2ObservationCheck = Join-Path $learningRoot "evaluations\edition-2\check-observations.mjs"
+$edition2ObservationTest = Join-Path $learningRoot "evaluations\edition-2\test-observations.mjs"
 $conceptTest = Join-Path $learningRoot "test-concepts.mjs"
 $conceptOrderCheck = Join-Path $learningRoot "check-concept-order.mjs"
 $conceptOrderTest = Join-Path $learningRoot "test-concept-order.mjs"
@@ -31,6 +33,8 @@ foreach ($profilePath in @(
     $codeReferenceCheck,
     $driftReviewCheck,
     $reviewCheck,
+    $edition2ObservationCheck,
+    $edition2ObservationTest,
     $conceptTest,
     $conceptOrderCheck,
     $conceptOrderTest,
@@ -135,6 +139,7 @@ $maintenanceOnlyChapters = @(
     "tooling.qmd",
     "drift-reviews/index.qmd",
     "reviews/index.qmd",
+    "evaluations/edition-2/protocol.qmd",
     "evaluation.qmd"
 )
 foreach ($chapter in $requiredReaderChapters) {
@@ -189,6 +194,14 @@ if ($LASTEXITCODE -ne 0) {
 node $reviewCheck
 if ($LASTEXITCODE -ne 0) {
     throw "Acceptance review validation failed with exit code $LASTEXITCODE."
+}
+node $edition2ObservationTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Edition 2 observation fixture tests failed with exit code $LASTEXITCODE."
+}
+node $edition2ObservationCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Edition 2 observation validation failed with exit code $LASTEXITCODE."
 }
 
 Push-Location $learningRoot
@@ -250,6 +263,7 @@ $expectedSearchHrefs = @(
     "writer-persona.html"
     "drift-reviews/index.html"
     "reviews/index.html"
+    "evaluations/edition-2/protocol.html"
     "evaluation.html"
 ) | Sort-Object -Unique
 foreach ($expectedHref in $expectedSearchHrefs) {

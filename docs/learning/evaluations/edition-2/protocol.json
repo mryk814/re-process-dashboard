@@ -1,0 +1,132 @@
+{
+  "schema_version": "learning-edition-2-protocol/v1",
+  "source_issue": 387,
+  "real_reader_tasks": [
+    {
+      "task_id": "reader-code-trace",
+      "title": "教材から現行実装へ移動する",
+      "start": "教材の索引を開き、対象コードをまだ開いていない状態",
+      "instruction": "保存済み予測が最新モデルで自動再計算されないことを担保する実装とテストを特定する。",
+      "stop": "実装とテストのrepository相対pathを一つ以上ずつ提示し、保存済みSnapshotの不変条件を説明した時点",
+      "success_criteria": [
+        "教材の参照から現行実装へ移動できる",
+        "実装とテストを区別できる",
+        "保存済みSnapshotを最新モデルで更新しない理由を説明できる"
+      ],
+      "required_measurements": [
+        "duration_seconds",
+        "completed",
+        "errors",
+        "confusion_points",
+        "backtracking_count",
+        "consulted_pages",
+        "confidence"
+      ]
+    },
+    {
+      "task_id": "reader-decision-boundary",
+      "title": "予測と実測の判断境界を説明する",
+      "start": "教材の索引を開き、対象章を指定していない状態",
+      "instruction": "候補比較で予測値、実測値、不確かさ、支持範囲を混同しない表示と保存の境界を説明する。",
+      "stop": "四つの概念を区別し、判断時点で確認するページを提示した時点",
+      "success_criteria": [
+        "予測値と実測値を区別できる",
+        "不確かさと支持範囲を別の判断材料として説明できる",
+        "根拠にしたHTMLまたはPDFの場所を示せる"
+      ],
+      "required_measurements": [
+        "duration_seconds",
+        "completed",
+        "errors",
+        "confusion_points",
+        "backtracking_count",
+        "consulted_pages",
+        "confidence"
+      ]
+    }
+  ],
+  "assistive_technology_matrix": [
+    {
+      "check_id": "reading-order",
+      "procedure": "見出し、本文、図の説明、脚注の読み順を実支援技術で確認する。"
+    },
+    {
+      "check_id": "math-pronunciation",
+      "procedure": "代表的な式の記号、添字、条件が理解可能に発音されるか確認する。"
+    },
+    {
+      "check_id": "table-navigation",
+      "procedure": "行見出しと列見出しを保ったまま代表表を移動できるか確認する。"
+    },
+    {
+      "check_id": "keyboard",
+      "procedure": "検索、目次、リンク、解答開閉をkeyboardだけで操作する。"
+    },
+    {
+      "check_id": "zoom-200",
+      "procedure": "200% zoomで本文、表、コード、navigationの欠落と重なりを確認する。"
+    }
+  ],
+  "materials_review_packet": [
+    {
+      "topic": "units",
+      "questions": [
+        "quantityとunitを区別しているか。",
+        "変換できないunitや測定条件を暗黙に同一視していないか。"
+      ],
+      "reflection_target": "Issue #303とTask契約、dataset profile、curation recipe"
+    },
+    {
+      "topic": "composition-basis",
+      "questions": [
+        "mass%とat%のbasisを省略していないか。",
+        "zero、not reported、below detectionを区別しているか。"
+      ],
+      "reflection_target": "Issue #303とcomposition contract"
+    },
+    {
+      "topic": "process-vocabulary",
+      "questions": [
+        "program、setpoint、sensor trace、feature表現を区別しているか。",
+        "工程順序と任意stageを列集合へ潰していないか。"
+      ],
+      "reflection_target": "Issue #303とprocess profile"
+    },
+    {
+      "topic": "measurement-vocabulary",
+      "questions": [
+        "測定値に試験条件、方向、試験片、反復の文脈があるか。",
+        "nominal値とmeasured値の優先規則をTaskごとに固定しているか。"
+      ],
+      "reflection_target": "Issue #303とmeasurement contract"
+    }
+  ],
+  "security_review_packet": [
+    {
+      "topic": "threat",
+      "questions": ["教材が想定するasset、actor、trust boundary、failure modeは明示されているか。"]
+    },
+    {
+      "topic": "control",
+      "questions": ["各controlが防ぐfailureと、防げないfailureを区別しているか。"]
+    },
+    {
+      "topic": "residual-risk",
+      "questions": ["検証後も残るriskと、その受容主体を明示しているか。"]
+    },
+    {
+      "topic": "recovery",
+      "questions": ["検出後の停止、隔離、rollback、証拠保全の順序を説明しているか。"]
+    }
+  ],
+  "privacy": {
+    "allowed_identity_fields": ["pseudonym", "role"],
+    "forbidden_identity_fields": [
+      "name",
+      "email",
+      "phone",
+      "organization",
+      "employee_id"
+    ]
+  }
+}

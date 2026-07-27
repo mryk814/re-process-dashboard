@@ -1,0 +1,75 @@
+# Edition 2の実観測protocol
+
+## この記録が扱う証拠
+
+Edition 2では、実読者、実支援技術、材料domain reviewer、security reviewerによる観測を記録します。
+AIが想定profileを代理した結果、自動accessibility検査、browserの構造検査は事前確認に使えますが、外部参加者の観測には数えません。
+
+空の記録は[`template.json`](template.json)から作ります。
+記録形式は[`observation.schema.json`](observation.schema.json)、taskとreview項目の正本は[`protocol.json`](protocol.json)です。
+
+## Artifactを固定する
+
+観測を始める前に、Edition番号、commit、HTMLのSHA-256、PDFのSHA-256を固定します。
+HTMLとPDFはrepository相対pathも記録し、checkerが実fileからSHA-256を再計算します。
+commitはcheckerがGit object databaseに存在するcommitか確認します。
+同じtaskでもartifactが異なれば結果を同じ母集団へ混ぜません。
+
+participantとreviewerから収集するidentityは仮名とroleだけです。
+氏名、連絡先、所属、社員番号は記録しません。
+
+## 実読者task
+
+二つのtaskは、実装を探す能力と判断境界を説明する能力を別々に観測します。
+
+1. **教材から現行実装へ移動する**：保存済み予測を自動再計算しない実装とtestを探し、Snapshotの不変条件を説明します。
+2. **予測と実測の判断境界を説明する**：予測値、実測値、不確かさ、支持範囲を区別し、根拠にしたpageを示します。
+
+観測者は開始条件と停止条件を先に読み上げます。
+所要時間、完了、誤答、混乱点、戻り読み回数、参照page、自己評価confidenceをtaskごとに記録します。
+参加者を評価するための試験には使いません。
+
+## 支援技術matrix
+
+実支援技術で読み順、数式発音、table navigation、keyboard操作、200% zoomを確認します。
+OS、browserまたはreader、支援技術名、versionを記録します。
+自動検査の結果は実機観測欄へ転記せず、別の事前確認として扱います。
+
+## 材料domain review packet
+
+材料domain reviewerはunit、composition basis、工程語彙、測定語彙を確認します。
+reviewerがTask固有の物理範囲や変換規則を確定しない場合、その未確定状態を残します。
+findingは[Issue #303](https://github.com/mryk814/re-process-dashboard/issues/303)とTask契約、dataset profile、curation recipeの反映先へ接続します。
+
+## Security review packet
+
+security reviewerはthreat、control、residual risk、recoveryを分けて確認します。
+findingにはseverity、根拠、disposition、追跡先を記録します。
+findingがない場合も、reviewerが確認した範囲をnote findingとして残します。
+
+## Record filename
+
+空templateは`template.json`のまま保持します。
+実観測recordは`record-YYYY-MM-DD-short-label.json`として、このprotocolと同じdirectory直下へ保存します。
+checkerは規約外のJSONとsubdirectory内のJSONを拒否するため、観測recordを無言で検査対象外にできません。
+
+## Editionを混同しない
+
+Edition 1の誤りは`E1-ERR-NNN`として記録します。
+実観測から提案するEdition 2変更は`E2-CHG-NNN`とし、根拠となる`E2-F-NNN`へ接続します。
+Edition 2の改善提案をEdition 1で確認済みだった事実へ書き換えません。
+
+## 検証と完了境界
+
+次のcommandは形式、task数、review項目、個人情報field、代理評価の混入を検査します。
+checkerは`observation.schema.json`をrecordへ実際に適用します。
+外部validatorへ依存せず、schemaで使用するDraft 2020-12 keywordを実装し、未対応keywordがschemaへ追加された場合は失敗します。
+
+```powershell
+node docs/learning/evaluations/edition-2/test-observations.mjs
+node docs/learning/evaluations/edition-2/check-observations.mjs
+```
+
+`awaiting_external_review`または`not_run`を含むrecordは、未実施を正しく表す記録です。
+そのrecordは[Issue #387](https://github.com/mryk814/re-process-dashboard/issues/387)の完了証拠ではありません。
+四つのlaneが実施済みとなり、findingと変更を反映した後にだけIssue #387の完了条件を再評価します。
