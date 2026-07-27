@@ -735,6 +735,100 @@ def test_project_group_move_keeps_nonempty_source_and_rejects_unavailable_target
     assert client.get(f"/api/project-series/{source_group['id']}").status_code == 200
 
 
+def test_project_leaves_a_group_and_returns_to_another_one(client) -> None:
+    first_group = client.post(
+        "/api/project-series",
+        json={"name": "最初のグループ", "description": ""},
+    ).json()
+    second_group = client.post(
+        "/api/project-series",
+        json={"name": "次のグループ", "description": ""},
+    ).json()
+    predecessor = client.post("/api/projects", json=_project(client, "続き元")).json()
+    project = client.post(
+        "/api/projects",
+        json={
+            **_project(client, "所属解除"),
+            "predecessor_project_id": predecessor["id"],
+            "continuation_reason": "同じ目的で続ける",
+        },
+    ).json()
+    assert project["project_series_id"] is None
+
+    grouped = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": first_group["id"], "expected_project_series_id": None},
+    )
+    assert grouped.status_code == 200, grouped.text
+    assert grouped.json()["project_series_id"] == first_group["id"]
+
+    ungrouped = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": None, "expected_project_series_id": first_group["id"]},
+    )
+    assert ungrouped.status_code == 200, ungrouped.text
+    assert ungrouped.json()["project_series_id"] is None
+    assert ungrouped.json()["predecessor_project_id"] == predecessor["id"]
+    assert ungrouped.json()["continuation_reason"] == "同じ目的で続ける"
+    # 最後の1件が抜けたグループは、archiveと同じ扱いで一覧から閉じる。
+    assert client.get(f"/api/project-series/{first_group['id']}").status_code == 404
+
+    regrouped = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": second_group["id"], "expected_project_series_id": None},
+    )
+    assert regrouped.status_code == 200, regrouped.text
+    assert regrouped.json()["project_series_id"] == second_group["id"]
+    assert client.get(f"/api/projects/{project['id']}").json()["project_series_id"] == second_group["id"]
+
+
+def test_ungrouping_keeps_conflict_detection_and_rejects_an_empty_group_id(client) -> None:
+    group = client.post(
+        "/api/project-series",
+        json={"name": "所属解除の競合", "description": ""},
+    ).json()
+    project = client.post(
+        "/api/projects",
+        json={**_project(client, "競合確認"), "project_series_id": group["id"]},
+    ).json()
+    client.post(
+        "/api/projects",
+        json={**_project(client, "残留"), "project_series_id": group["id"]},
+    ).raise_for_status()
+
+    stale = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": None, "expected_project_series_id": None},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "project_group_conflict"
+    assert client.get(f"/api/projects/{project['id']}").json()["project_series_id"] == group["id"]
+
+    # 空文字は「未選択」であって所属解除ではない。nullだけを解除として受け取る。
+    rejected = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": "", "expected_project_series_id": group["id"]},
+    )
+    assert rejected.status_code == 422
+    assert client.get(f"/api/projects/{project['id']}").json()["project_series_id"] == group["id"]
+
+    ungrouped = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": None, "expected_project_series_id": group["id"]},
+    )
+    assert ungrouped.status_code == 200, ungrouped.text
+    assert ungrouped.json()["project_series_id"] is None
+    # 残留Projectがあるグループは閉じない。
+    assert client.get(f"/api/project-series/{group['id']}").status_code == 200
+
+    repeated = client.put(
+        f"/api/projects/{project['id']}/group",
+        json={"project_series_id": None, "expected_project_series_id": None},
+    )
+    assert repeated.status_code == 200
+    assert repeated.json()["project_series_id"] is None
+
+
 def test_screening_accepts_hot_rolling_process_fields_from_task_definition(client) -> None:
     base = client.get("/api/projects/hot-rolling-default/candidates").json()[0]
     response = client.post(

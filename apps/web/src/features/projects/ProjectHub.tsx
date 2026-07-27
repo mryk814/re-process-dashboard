@@ -92,6 +92,8 @@ function unresolvedReferenceLabel(kind: string, identifier: string | null | unde
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
 const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
+// 所属変更のselectでは、未選択（空文字）と「グループなしへ移動」を別の値で持つ。
+const ungroupedMembershipValue = "__ungrouped__";
 type ChainStage = ApiChainSnapshot["stages"][number];
 type ChainOutputDefinition = ChainStage["output_definitions"][number];
 type ChainPrediction = {
@@ -507,6 +509,9 @@ export function ProjectHub({
     ? projects.filter((item) => item.project_series_id === project.project_series_id).length
     : 0;
   const showActiveSeriesMembership = Boolean(fixedSeries && fixedSeriesProjectCount > 1);
+  const membershipTargetSeriesId = groupMembershipId === ungroupedMembershipValue ? null : groupMembershipId;
+  const membershipChanged = Boolean(groupMembershipId) && membershipTargetSeriesId !== (project?.project_series_id ?? null);
+  const membershipEmptiesFixedSeries = membershipChanged && Boolean(fixedSeries) && fixedSeriesProjectCount === 1;
   const activeProjectSeries = useMemo(() => {
     const usedSeriesIds = new Set(projects.map((item) => item.project_series_id).filter(Boolean));
     return (creationOptions?.project_series ?? []).filter((item) => usedSeriesIds.has(item.id));
@@ -531,11 +536,13 @@ export function ProjectHub({
     }
   }, [fixedSeries?.id, fixedSeries?.name, project?.project_series_id, settingsOpen]);
   useEffect(() => {
-    if (groupSettingsOpen) {
-      setSeriesName(fixedSeries?.name ?? "");
-      setGroupMembershipId(project?.project_series_id ?? "");
-    }
-  }, [fixedSeries?.id, fixedSeries?.name, groupSettingsOpen, project?.project_series_id]);
+    if (groupSettingsOpen) setSeriesName(fixedSeries?.name ?? "");
+  }, [fixedSeries?.id, fixedSeries?.name, groupSettingsOpen]);
+  useEffect(() => {
+    // 所属の選択は、パネルを開いた時と実際の所属が変わった時だけ初期化する。
+    // グループ一覧が遅れて届いたときに、利用者が選んだ値へ戻さないため。
+    if (groupSettingsOpen) setGroupMembershipId(project?.project_series_id ?? "");
+  }, [groupSettingsOpen, project?.project_series_id]);
   const projectGroups = useMemo(() => {
     const series = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, item]));
     const groups = new Map((creationOptions?.project_series ?? []).map((item) => [
@@ -651,15 +658,16 @@ export function ProjectHub({
   }
 
   async function moveProjectToGroup() {
-    if (!project || !groupMembershipId || groupMembershipId === project.project_series_id) return;
+    if (!project || !membershipChanged) return;
     const requestProjectId = project.id;
     try {
       const moved = await workbenchApi.moveProjectToGroup(requestProjectId, {
-        project_series_id: groupMembershipId,
+        project_series_id: membershipTargetSeriesId,
         expected_project_series_id: project.project_series_id ?? null,
       });
       if (activeProjectRef.current !== requestProjectId) return;
       setProject(moved);
+      setGroupMembershipId(moved.project_series_id ?? "");
       onProjectChanged(moved);
       setError("");
       try {
@@ -1139,7 +1147,7 @@ export function ProjectHub({
             <small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</small>
           </div>}
           {(showActiveSeriesMembership || groupSettingsOpen) && <>
-            <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}><option value="">選択してください</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!groupMembershipId || groupMembershipId === project.project_series_id} onClick={() => void moveProjectToGroup()}>このプロジェクトを移動</button><small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。候補・判断履歴・続き元は変わりません。</small></div>
+            <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}><option value="">選択してください</option>{project.project_series_id && <option value={ungroupedMembershipValue}>グループなし</option>}{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!membershipChanged} onClick={() => void moveProjectToGroup()}>{membershipTargetSeriesId === null ? "このプロジェクトをグループから外す" : "このプロジェクトを移動"}</button><small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。候補・判断履歴・続き元は変わりません。</small>{membershipEmptiesFixedSeries && <small className="warning-note">外すとグループ「{fixedSeries?.name}」は所属プロジェクトが無くなり、一覧から閉じられます。グループ名を選び直せば戻せます。</small>}</div>
             {fixedSeries && <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>}
           </>}
           <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>

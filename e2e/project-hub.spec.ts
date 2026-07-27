@@ -92,6 +92,43 @@ test("a one-project series stays out of the overview until grouping is requested
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
+test("a project can leave its group and become ungrouped again", async ({ page }) => {
+  const groupName = `解除するグループ ${Date.now()}`;
+  const createdResponse = await createProjectFromDefault(
+    page,
+    `所属解除 ${Date.now()}`,
+    { name: groupName, description: "" },
+  );
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string; project_series_id: string };
+  expect(created.project_series_id).not.toBeNull();
+  await page.goto(`/?view=project&project=${created.id}`);
+
+  await expect(page.locator(".api-state")).toHaveCount(0);
+  await page.getByRole("button", { name: "設定を編集" }).click();
+  const groupEntry = page.locator(".project-settings-panel").getByRole("button", { name: "ほかの検討とまとめる" });
+  await expect(groupEntry).toBeVisible();
+  await groupEntry.click();
+  const membership = page.locator(".group-membership-setting");
+  const select = membership.getByRole("combobox", { name: "所属グループ" });
+  await expect(membership.getByRole("button", { name: "このプロジェクトを移動" })).toBeDisabled();
+
+  await select.selectOption({ label: "グループなし" });
+  await expect(membership.locator(".warning-note")).toContainText(groupName);
+  const leave = membership.getByRole("button", { name: "このプロジェクトをグループから外す" });
+  await expect(leave).toBeEnabled();
+  await leave.click();
+
+  await expect(membership.getByRole("option", { name: "グループなし" })).toHaveCount(0);
+  await expect(page.locator(".panel-error")).toHaveCount(0);
+  const after = await (await page.request.get(`${apiBaseUrl}/api/projects/${created.id}`)).json() as {
+    project_series_id: string | null;
+  };
+  expect(after.project_series_id).toBeNull();
+
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
+});
+
 test("new project creation can be cancelled or left by selecting an existing project", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   const createPanel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });

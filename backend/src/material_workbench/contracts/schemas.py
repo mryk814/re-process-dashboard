@@ -508,7 +508,9 @@ class ProjectDecisionInput(BaseModel):
 
 
 class ProjectGroupMoveInput(BaseModel):
-    project_series_id: Annotated[str, Field(min_length=1)]
+    # null は「グループなしへ移動」を表す明示的な操作値。空文字は未選択との
+    # 取り違えを防ぐために受け付けない。
+    project_series_id: Annotated[str, Field(min_length=1)] | None
     expected_project_series_id: str | None
 
 

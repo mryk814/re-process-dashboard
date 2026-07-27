@@ -173,6 +173,17 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
         )
         assert project_change.status_code == 503
 
+        # 検討グループの所属はmetadataだが、他のProject更新と同じ可用性方針に揃える。
+        # 所属解除も同じ経路を通る。
+        group_change = degraded.put(
+            f"/api/projects/{broken_project['id']}/group",
+            json={
+                "project_series_id": None,
+                "expected_project_series_id": broken_project["project_series_id"],
+            },
+        )
+        assert group_change.status_code == 503
+
         creation_options = degraded.get("/api/project-creation-options").json()
         assert BROKEN_TASK_ID not in {
             package["task_id"] for package in creation_options["model_packages"]
