@@ -1,0 +1,101 @@
+{
+  "$schema": "./observation.schema.json",
+  "schema_version": "learning-edition-2-observation/v1",
+  "record_id": "edition-2-observation-2099-01-01-replace-me",
+  "source_issue": 387,
+  "artifact": {
+    "edition": 2,
+    "commit": null,
+    "html_path": null,
+    "html_sha256": null,
+    "pdf_path": null,
+    "pdf_sha256": null
+  },
+  "overall_status": "awaiting_external_review",
+  "lanes": [
+    {
+      "kind": "real_reader",
+      "status": "awaiting_external_review",
+      "proxy": false,
+      "participants": [],
+      "task_observations": [],
+      "findings": []
+    },
+    {
+      "kind": "assistive_technology",
+      "status": "not_run",
+      "proxy": false,
+      "operator": null,
+      "environment": null,
+      "matrix": [
+        {
+          "check_id": "reading-order",
+          "result": "not_run",
+          "observation": null,
+          "evidence": []
+        },
+        {
+          "check_id": "math-pronunciation",
+          "result": "not_run",
+          "observation": null,
+          "evidence": []
+        },
+        {
+          "check_id": "table-navigation",
+          "result": "not_run",
+          "observation": null,
+          "evidence": []
+        },
+        {
+          "check_id": "keyboard",
+          "result": "not_run",
+          "observation": null,
+          "evidence": []
+        },
+        {
+          "check_id": "zoom-200",
+          "result": "not_run",
+          "observation": null,
+          "evidence": []
+        }
+      ],
+      "findings": []
+    },
+    {
+      "kind": "materials_domain",
+      "status": "awaiting_external_review",
+      "proxy": false,
+      "reviewer": null,
+      "linked_issue": 303,
+      "issue_303_reflection": null,
+      "review_results": [
+        {"topic": "units", "result": "not_run", "observation": null},
+        {"topic": "composition-basis", "result": "not_run", "observation": null},
+        {"topic": "process-vocabulary", "result": "not_run", "observation": null},
+        {"topic": "measurement-vocabulary", "result": "not_run", "observation": null}
+      ],
+      "findings": []
+    },
+    {
+      "kind": "security",
+      "status": "awaiting_external_review",
+      "proxy": false,
+      "reviewer": null,
+      "review_results": [
+        {"topic": "threat", "result": "not_run", "observation": null},
+        {"topic": "control", "result": "not_run", "observation": null},
+        {"topic": "residual-risk", "result": "not_run", "observation": null},
+        {"topic": "recovery", "result": "not_run", "observation": null}
+      ],
+      "findings": []
+    }
+  ],
+  "edition_changes": {
+    "edition_1_errata": [],
+    "edition_2_change_proposals": []
+  },
+  "limitations": [
+    "これは記録用の空templateであり、実読者、支援技術、材料domain、security専門reviewの完了証拠ではない。",
+    "Issue #387は外部参加者による観測が揃うまでopenのままにする。"
+  ]
+}

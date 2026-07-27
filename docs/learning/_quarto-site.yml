@@ -63,6 +63,7 @@ book:
         - tooling.qmd
         - drift-reviews/index.qmd
         - reviews/index.qmd
+        - evaluations/edition-2/protocol.qmd
         - evaluation.qmd
     - concept-map.qmd
     - glossary.qmd

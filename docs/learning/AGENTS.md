@@ -195,6 +195,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise
 node docs/learning/check-code-references.mjs
 node docs/learning/check-drift-reviews.mjs
 node docs/learning/reviews/check-reviews.mjs
+node docs/learning/evaluations/edition-2/test-observations.mjs
+node docs/learning/evaluations/edition-2/check-observations.mjs
 node docs/learning/test-concepts.mjs
 node docs/learning/test-concept-order.mjs
 node docs/learning/check-concept-order.mjs
