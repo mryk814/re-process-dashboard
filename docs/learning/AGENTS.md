@@ -196,6 +196,10 @@ node docs/learning/check-code-references.mjs
 node docs/learning/check-drift-reviews.mjs
 node docs/learning/reviews/check-reviews.mjs
 node docs/learning/test-concepts.mjs
+node docs/learning/test-concept-order.mjs
+node docs/learning/check-concept-order.mjs
+node docs/learning/test-figures.mjs
+node docs/learning/check-figures.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```

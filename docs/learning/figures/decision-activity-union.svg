@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="650" viewBox="0 0 1120 650" role="img" aria-labelledby="title desc">
+  <title id="title">Decision Activity parameterとresultの判別可能union</title>
+  <desc id="desc">左のparameter unionと右のresult unionをschema_versionでそれぞれ判別する。parameter用とresult用の識別子は別であり、未知の識別子はREJECTとなる。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#365d84"/>
+    </marker>
+    <style>
+      .heading { font: 700 22px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #17324d; text-anchor: middle; }
+      .label { font: 700 17px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #24384c; text-anchor: middle; }
+      .body { font: 15px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #334c61; text-anchor: middle; }
+      .code { font: 14px "Cascadia Mono", Consolas, monospace; fill: #274865; text-anchor: middle; }
+      .union { fill: #edf4fa; stroke: #365d84; stroke-width: 2.5; }
+      .variant { fill: #ffffff; stroke: #6c8296; stroke-width: 2; }
+      .link { fill: none; stroke: #365d84; stroke-width: 2.5; marker-end: url(#arrow); }
+      .reject { fill: #fff3f1; stroke: #b94436; stroke-width: 3; stroke-dasharray: 8 6; }
+      .reject-text { font: 800 18px "Cascadia Mono", Consolas, monospace; fill: #842e25; text-anchor: middle; }
+      .divider { stroke: #b9c8d6; stroke-width: 2; stroke-dasharray: 6 7; }
+    </style>
+  </defs>
+  <rect width="1120" height="650" fill="#ffffff"/>
+  <text x="280" y="42" class="heading">Parameters union</text>
+  <text x="840" y="42" class="heading">Result union</text>
+  <line x1="560" y1="22" x2="560" y2="625" class="divider"/>
+
+  <rect x="105" y="70" width="350" height="88" rx="14" class="union"/>
+  <text x="280" y="103" class="label">DecisionActivityParameters</text>
+  <text x="280" y="132" class="code">discriminator: schema_version</text>
+
+  <rect x="40" y="226" width="300" height="72" rx="10" class="variant"/>
+  <text x="190" y="253" class="label">RobustnessParameters</text>
+  <text x="190" y="278" class="code">robustness-parameters/v1</text>
+  <rect x="40" y="326" width="300" height="72" rx="10" class="variant"/>
+  <text x="190" y="353" class="label">CandidateDifferenceParameters</text>
+  <text x="190" y="378" class="code">candidate-difference-parameters/v1</text>
+  <rect x="40" y="426" width="300" height="72" rx="10" class="variant"/>
+  <text x="190" y="453" class="label">CounterfactualParameters</text>
+  <text x="190" y="478" class="code">counterfactual-parameters/v1</text>
+  <path d="M280 158 V190 H20 V262 H36" class="link"/>
+  <path d="M280 158 V190 H20 V362 H36" class="link"/>
+  <path d="M280 158 V190 H20 V462 H36" class="link"/>
+
+  <rect x="665" y="70" width="350" height="88" rx="14" class="union"/>
+  <text x="840" y="103" class="label">DecisionActivityResult</text>
+  <text x="840" y="132" class="code">discriminator: schema_version</text>
+
+  <rect x="780" y="226" width="300" height="72" rx="10" class="variant"/>
+  <text x="930" y="253" class="label">RobustnessSummary</text>
+  <text x="930" y="278" class="code">robustness-summary/v1</text>
+  <rect x="780" y="326" width="300" height="72" rx="10" class="variant"/>
+  <text x="930" y="353" class="label">CandidateDifferenceSummary</text>
+  <text x="930" y="378" class="code">candidate-difference-summary/v1</text>
+  <rect x="780" y="426" width="300" height="72" rx="10" class="variant"/>
+  <text x="930" y="453" class="label">CounterfactualSummary</text>
+  <text x="930" y="478" class="code">counterfactual-summary/v1</text>
+  <path d="M840 158 V190 H1100 V262 H1084" class="link"/>
+  <path d="M840 158 V190 H1100 V362 H1084" class="link"/>
+  <path d="M840 158 V190 H1100 V462 H1084" class="link"/>
+
+  <rect x="320" y="535" width="480" height="90" rx="10" class="reject"/>
+  <text x="560" y="563" class="reject-text">REJECT</text>
+  <text x="560" y="590" class="body">未知のschema_version</text>
+  <text x="560" y="613" class="body">parameter／result識別子の取り違え</text>
+  <path d="M455 114 H500 V531" class="link"/>
+  <path d="M665 114 H620 V531" class="link"/>
+</svg>

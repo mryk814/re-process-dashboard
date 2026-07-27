@@ -5,13 +5,18 @@ book:
   output-file: "material-decision-workbench-site"
   chapters:
     - index.qmd
-    - part: "学習者向け教材"
+    - part: "Part I　システムと契約"
       chapters:
+        - chapters/system-map.qmd
         - chapters/contract-through-stack.qmd
         - labs/extend-contract.qmd
-        - chapters/decision-safety.qmd
+    - part: "Part II　データと材料"
+      chapters:
         - chapters/source-to-training-evidence.qmd
         - labs/trace-source-evidence.qmd
+        - chapters/materials-domain-primer.qmd
+    - part: "Part III　永続化と復旧"
+      chapters:
         - chapters/revision-and-digest.qmd
         - labs/trace-revision-conflict.qmd
         - chapters/trust-a-migrated-database.qmd
@@ -20,6 +25,12 @@ book:
         - labs/trace-project-lifecycle.qmd
         - chapters/restore-workspace-safely.qmd
         - labs/trace-workspace-restore.qmd
+    - part: "Part IV　予測と探索"
+      chapters:
+        - chapters/model-package-runtime.qmd
+        - chapters/prediction-calibration-support.qmd
+        - chapters/design-space-acquisition.qmd
+        - chapters/decision-safety.qmd
     - part: "編集と保守のガイド"
       chapters:
         - foundations.qmd

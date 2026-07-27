@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="650" viewBox="0 0 1120 650" role="img" aria-labelledby="title desc">
+  <title id="title">Candidate切替後に届いたstale responseを破棄する時系列</title>
+  <desc id="desc">Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが到着してもProject、Candidate、revision、request sequenceのidentityが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信を止める試みでありidentity checkを置き換えない。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#365d84"/>
+    </marker>
+    <marker id="reject-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#b94436"/>
+    </marker>
+    <style>
+      .lane { font: 700 19px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #17324d; text-anchor: middle; }
+      .label { font: 700 16px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #24384c; text-anchor: middle; }
+      .body { font: 14px "Yu Gothic", "Noto Sans JP", sans-serif; fill: #425b6b; text-anchor: middle; }
+      .code { font: 13px "Cascadia Mono", Consolas, monospace; fill: #274865; text-anchor: middle; }
+      .lifeline { stroke: #b9c8d6; stroke-width: 2; }
+      .request { fill: none; stroke: #365d84; stroke-width: 2.5; marker-end: url(#arrow); }
+      .response { fill: none; stroke: #365d84; stroke-width: 2.5; marker-end: url(#arrow); }
+      .best-effort { fill: none; stroke: #6c8296; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .reject-line { fill: none; stroke: #b94436; stroke-width: 3; stroke-dasharray: 8 6; marker-end: url(#reject-arrow); }
+      .identity { fill: #edf4fa; stroke: #365d84; stroke-width: 2; }
+      .stale { fill: #fff3f1; stroke: #b94436; stroke-width: 3; stroke-dasharray: 8 6; }
+      .stale-text { font: 800 18px "Cascadia Mono", Consolas, monospace; fill: #842e25; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect width="1120" height="650" fill="#ffffff"/>
+  <text x="125" y="42" class="lane">利用者</text>
+  <text x="430" y="42" class="lane">React state</text>
+  <text x="800" y="42" class="lane">FastAPI</text>
+  <text x="1010" y="42" class="lane">identity gate</text>
+  <line x1="125" y1="60" x2="125" y2="610" class="lifeline"/>
+  <line x1="430" y1="60" x2="430" y2="610" class="lifeline"/>
+  <line x1="800" y1="60" x2="800" y2="610" class="lifeline"/>
+  <line x1="1010" y1="60" x2="1010" y2="610" class="lifeline"/>
+
+  <rect x="275" y="78" width="310" height="72" rx="10" class="identity"/>
+  <text x="430" y="105" class="label">Candidate Aを表示</text>
+  <text x="430" y="130" class="code">project=P1, candidate=A, revision=7</text>
+  <path d="M445 178 H785" class="request"/>
+  <text x="615" y="168" class="code">request sequence=41</text>
+  <text x="615" y="198" class="body">A r7で計算開始</text>
+
+  <path d="M140 258 H415" class="request"/>
+  <text x="277" y="247" class="label">Candidate Bを選択</text>
+  <rect x="230" y="278" width="400" height="72" rx="10" class="identity"/>
+  <text x="430" y="305" class="label">現在値をBへ更新</text>
+  <text x="430" y="330" class="code">project=P1, candidate=B, revision=3, sequence=42</text>
+  <path d="M445 372 H785" class="best-effort"/>
+  <text x="615" y="362" class="body">AbortControllerでAの通信停止を試みる</text>
+
+  <path d="M785 438 H445" class="response"/>
+  <text x="615" y="424" class="label">A r7のresponseが到着</text>
+  <text x="615" y="458" class="code">response identity=P1/A/7/41</text>
+  <path d="M445 486 H995" class="request"/>
+  <text x="720" y="476" class="body">現在値P1/B/3/42と全identityを比較</text>
+
+  <rect x="845" y="515" width="250" height="82" rx="10" class="stale"/>
+  <text x="970" y="545" class="stale-text">STALE / REJECT</text>
+  <text x="970" y="570" class="body">Bのpanelへ反映しない</text>
+  <text x="970" y="590" class="body">保存済みB stateを維持</text>
+  <path d="M995 486 V511" class="reject-line"/>
+
+  <text x="345" y="625" class="body">Abortが間に合わなくても、response到着時のidentity gateが誤反映を止める</text>
+</svg>

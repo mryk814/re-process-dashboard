@@ -8,20 +8,32 @@ $learningRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildRoot = Join-Path $learningRoot "_build"
 $siteProfile = Join-Path $learningRoot "_quarto-site.yml"
 $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
+$referenceCheck = Join-Path $learningRoot "check-references.ps1"
 $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 $codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
 $driftReviewCheck = Join-Path $learningRoot "check-drift-reviews.mjs"
+$reviewCheck = Join-Path $learningRoot "reviews\check-reviews.mjs"
 $conceptTest = Join-Path $learningRoot "test-concepts.mjs"
+$conceptOrderCheck = Join-Path $learningRoot "check-concept-order.mjs"
+$conceptOrderTest = Join-Path $learningRoot "test-concept-order.mjs"
+$figureCheck = Join-Path $learningRoot "check-figures.mjs"
+$figureTest = Join-Path $learningRoot "test-figures.mjs"
 $toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
 $toolLock = Join-Path $learningRoot "tools.lock.json"
 
 foreach ($profilePath in @(
     $siteProfile,
     $readerProfile,
+    $referenceCheck,
     $exerciseCheck,
     $codeReferenceCheck,
     $driftReviewCheck,
+    $reviewCheck,
     $conceptTest,
+    $conceptOrderCheck,
+    $conceptOrderTest,
+    $figureCheck,
+    $figureTest,
     $toolLibrary,
     $toolLock
 )) {
@@ -88,15 +100,23 @@ try {
 
 $readerConfig = Get-Content -LiteralPath $readerProfile -Raw -Encoding UTF8
 $requiredReaderChapters = @(
+    "chapters/system-map.qmd",
     "chapters/contract-through-stack.qmd",
     "chapters/source-to-training-evidence.qmd",
+    "chapters/materials-domain-primer.qmd",
     "chapters/revision-and-digest.qmd",
     "chapters/trust-a-migrated-database.qmd",
     "chapters/separate-archive-from-purge.qmd",
-    "chapters/restore-workspace-safely.qmd"
+    "chapters/restore-workspace-safely.qmd",
+    "chapters/model-package-runtime.qmd",
+    "chapters/prediction-calibration-support.qmd",
+    "chapters/design-space-acquisition.qmd",
+    "chapters/decision-safety.qmd"
 )
 $maintenanceOnlyChapters = @(
     "foundations.qmd",
+    "edition-1.qmd",
+    "math-style-guide.qmd",
     "writer-persona.md",
     "code-map.qmd",
     "learning-paths/backend.qmd",
@@ -104,6 +124,7 @@ $maintenanceOnlyChapters = @(
     "learning-paths/ml-data.qmd",
     "tooling.qmd",
     "drift-reviews/index.qmd",
+    "reviews/index.qmd",
     "evaluation.qmd"
 )
 foreach ($chapter in $requiredReaderChapters) {
@@ -117,10 +138,27 @@ foreach ($chapter in $maintenanceOnlyChapters) {
     }
 }
 
+& $referenceCheck
 & $exerciseCheck
 node $conceptTest
 if ($LASTEXITCODE -ne 0) {
     throw "Concept validation failed with exit code $LASTEXITCODE."
+}
+node $conceptOrderTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Concept order fixture tests failed with exit code $LASTEXITCODE."
+}
+node $conceptOrderCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Concept order validation failed with exit code $LASTEXITCODE."
+}
+node $figureTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Figure fixture tests failed with exit code $LASTEXITCODE."
+}
+node $figureCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Figure validation failed with exit code $LASTEXITCODE."
 }
 node $codeReferenceCheck --write-manifest
 if ($LASTEXITCODE -ne 0) {
@@ -129,6 +167,10 @@ if ($LASTEXITCODE -ne 0) {
 node $driftReviewCheck
 if ($LASTEXITCODE -ne 0) {
     throw "Drift review validation failed with exit code $LASTEXITCODE."
+}
+node $reviewCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Acceptance review validation failed with exit code $LASTEXITCODE."
 }
 
 Push-Location $learningRoot

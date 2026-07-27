@@ -160,6 +160,8 @@ React form
 resultも同じ考え方で分けます。
 parameterとresultが別の識別子を持つため、requestとresponseを同じ型だと誤認しません。
 
+![Decision Activityのparameterとresultをschema_versionで分ける二つのunion](../figures/decision-activity-union.svg){fig-alt="DecisionActivityParametersは三つのparameter契約を、DecisionActivityResultは対応する三つのsummary契約を、それぞれschema_versionで判別する。parameter用とresult用の識別子を取り違えたpayloadと未知の識別子はREJECTとなる。" width="100%"}
+
 ::: {.callout-important title="DESIGN DECISION"}
 `schema_version`は画面表示用のlabelではありません。
 保存済みpayloadの復元と、Python、OpenAPI、TypeScriptの型選択に使う契約上の識別子です。
@@ -616,6 +618,8 @@ Robustness viewだけは、目標がない間は前提説明を出し、利用�
 `DecisionActivityPanel`は、Project ID、Candidate ID、Candidate revisionからrequest identityを作ります。
 request開始時のidentityと現在のidentityが一致する場合だけ、responseをstateへ反映します。
 候補切替時には実行中requestもabortします。
+
+![Candidate切替後に届いたstale responseをidentity不一致で破棄する時系列](../figures/stale-response-timeline.svg){fig-alt="Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが届いてもProject、Candidate、revision、request sequenceが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信停止を試みるが、response到着時のidentity checkを置き換えない。" width="100%"}
 
 型はpayloadのshapeを守ります。
 request identityはpayloadが現在の画面文脈に属することを守ります。

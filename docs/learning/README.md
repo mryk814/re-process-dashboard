@@ -77,6 +77,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise
 node docs/learning/check-drift-reviews.mjs
 node docs/learning/reviews/check-reviews.mjs
 node docs/learning/test-concepts.mjs
+node docs/learning/test-concept-order.mjs
+node docs/learning/check-concept-order.mjs
+node docs/learning/test-figures.mjs
+node docs/learning/check-figures.mjs
 ```
 
 リポジトリ全体の完了判定では、ルートの `AGENTS.md` に従ってfull test、typecheck、buildも実行します。
@@ -86,8 +90,10 @@ node docs/learning/test-concepts.mjs
 1. 章のfront matterにある `verified_commit` と `code_references` を確認する。
 2. 章の概念欄と `concepts/concepts.json` を同じ変更で更新する。
 3. `node docs/learning/check-concepts.mjs --write`で用語集と概念表を再生成する。
-4. 参照先の契約や期待出力が変わった場合は、本文と演習を同じPRで直す。
-5. 実装事実、設計意図、教材上の解釈、将来案を混ぜない。
+4. `node docs/learning/check-concept-order.mjs`でreaderとsiteの読順が前提概念を満たすことを確認する。
+5. 図を追加または更新した場合は`figures/registry.json`と章のaltを同じ変更で更新する。
+6. 参照先の契約や期待出力が変わった場合は、本文と演習を同じPRで直す。
+7. 実装事実、設計意図、教材上の解釈、将来案を混ぜない。
 6. コード全文を転載せず、判断に必要な短い断片と正本へのリンクを置く。
 7. HTMLとPDFを生成し、コード折返し、表、callout、相互参照を確認する。
 8. 維持コストがproduction開発を圧迫する場合は、章を増やす前に [`evaluation.qmd`](evaluation.qmd) の判断を更新する。
