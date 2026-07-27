@@ -708,9 +708,9 @@ plausibilityはoutput、eligibilityは学習row、supportはcandidateと参照da
 
 ## Further Reading
 
-- [IUPAC Gold Book: mass fraction](https://goldbook.iupac.org/terms/view/M03722) は、mass fractionを成分質量と混合物全質量の比として定義します。
-- [IUPAC Gold Book: mass percent](https://goldbook.iupac.org/terms/view/15375) は、mass percentを百分率で表したmass fractionとして整理します。
-- [IUPAC Gold Book: amount of substance](https://goldbook.iupac.org/terms/view/A00297) は、at%変換で使う物質量の基礎定義を確認する入口です。
+- IUPAC Gold Bookのmass fraction項目 [@iupac-mass-fraction] は、成分質量と混合物全質量の比を確認する一次参照です。
+- IUPAC Gold Bookのmass percent項目 [@iupac-mass-percent] は、百分率表記と量そのものを混同しないために使います。
+- IUPAC Gold Bookのamount of substance項目 [@iupac-amount-of-substance] は、at%変換で使う物質量の基礎定義を確認する入口です。
 - `docs/feature-engineering.md` は、このrepoで組成と熱履歴をfeatureへ変換する現行契約を説明します。
 - `docs/variable-length-series.md` は、raw series、canonical series、feature representationの保存境界を説明します。
 - `docs/model-package-contract.md` は、plausibility rangeとpreferred display rangeを削除条件から分ける方針を説明します。

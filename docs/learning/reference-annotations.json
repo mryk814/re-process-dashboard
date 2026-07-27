@@ -1370,6 +1370,90 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "iupac-mass-fraction",
+      "roles": [
+        "standard",
+        "prerequisite"
+      ],
+      "level": "beginner",
+      "source_tier": "official-handbook",
+      "language": "en",
+      "license": "IUPAC terms; no reuse assumed",
+      "related_concepts": [
+        "composition-basis",
+        "mass-fraction"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/materials-domain-primer.qmd"
+      ],
+      "recommended_sections": [
+        "Definition",
+        "Source"
+      ],
+      "why_read": "組成値のbasisを固定し、mass fractionと百分率表記を分離する基礎定義として参照する。",
+      "reading_question": "この列は無次元の比か、百分率で表した値か。",
+      "caution": "標準用語の定義だけでは、個別Datasetの測定法または分析誤差は決まらない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "iupac-mass-percent",
+      "roles": [
+        "standard",
+        "caution"
+      ],
+      "level": "beginner",
+      "source_tier": "official-handbook",
+      "language": "en",
+      "license": "IUPAC terms; no reuse assumed",
+      "related_concepts": [
+        "composition-basis",
+        "mass-percent"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/materials-domain-primer.qmd"
+      ],
+      "recommended_sections": [
+        "Definition",
+        "Source"
+      ],
+      "why_read": "量と百分率表記を混同せず、変換時に100倍または100分の1の誤りを入れないために参照する。",
+      "reading_question": "入力値20は0.20という比を表すのか、20 percentを表すのか。",
+      "caution": "用語の非推奨指定と、既存データ列名を即時変更すべきかどうかは別問題である。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "iupac-amount-of-substance",
+      "roles": [
+        "standard",
+        "prerequisite"
+      ],
+      "level": "beginner",
+      "source_tier": "official-handbook",
+      "language": "en",
+      "license": "IUPAC terms; no reuse assumed",
+      "related_concepts": [
+        "composition-basis",
+        "amount-fraction"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/materials-domain-primer.qmd"
+      ],
+      "recommended_sections": [
+        "Definition",
+        "Source"
+      ],
+      "why_read": "mass basisからamount basisへ変換するときの分子量換算が、何を数えているかを固定する。",
+      "reading_question": "at percentへ変換した後の分母は、質量ではなく何の総和か。",
+      "caution": "基礎量の定義は、対象材料が単相または均一であることを保証しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }
