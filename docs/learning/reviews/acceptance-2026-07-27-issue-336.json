@@ -19,7 +19,7 @@
     ],
     "scope": "既存の章別recordで未coverageだった契約、Source evidence、性能、実行境界、数値例、実装ケースをEdition 1の横断読者taskとして受け入れる。"
   },
-  "reviewed_against": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "reviewed_against": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
   "status": "accepted_with_nonblocking_followups",
   "roles": [
     {
@@ -155,11 +155,12 @@
       "npm run build",
       "npx playwright test e2e/decision-activity.spec.ts",
       "$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/project-hub.spec.ts --grep \"leave its group\"",
+      "$env:PLAYWRIGHT_API_PORT=9002; $env:PLAYWRIGHT_WEB_PORT=5322; npx playwright test e2e/navigation-intent.spec.ts",
       "npm run dev:doctor -- --json",
       "npm run model:status"
     ],
     "result": "passed"
   },
   "issue_close_recommendation": "ready",
-  "reviewer_note": "未coverageだった全Reader対象をrecordへ含めた。content commit cb691ef3048a6a7acb26436e86d009a0ce9d7fffをmain a7628a0e9a7d30cf9262e53a27e430d4379475baへ照合し、clean HTML／PDF、repository三gate、fresh-server Decision Activity E2E 5件、Project所属解除E2E 1件、model operation check、358ページ全page目視と変更page再目視、SHA-256 95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2のartifact固定まで完了した。"
+  "reviewer_note": "未coverageだった全Reader対象をrecordへ含めた。content commit 15ae3fa18bfaa5c9e157bb879f570b611c87cb80をmain ec0df39a4f003e978591a4f771b36c16f0f142d8へ照合し、clean HTML／PDF、repository三gate、fresh-server Decision Activity E2E 5件、Project所属解除E2E 1件、navigation E2E 16件、model operation check、358ページ全page目視と変更page再目視、SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004のartifact固定まで完了した。"
 }

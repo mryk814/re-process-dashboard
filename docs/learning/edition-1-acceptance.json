@@ -1,16 +1,16 @@
 {
   "edition": 1,
   "status": "accepted",
-  "verified_commit": "cb691ef3048a6a7acb26436e86d009a0ce9d7fff",
-  "base_main_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
-  "accepted_at": "2026-07-27T15:39:26+09:00",
+  "verified_commit": "15ae3fa18bfaa5c9e157bb879f570b611c87cb80",
+  "base_main_commit": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "accepted_at": "2026-07-27T15:51:07+09:00",
   "artifacts": {
     "reader_pdf": {
       "path": "docs/learning/_build/reader/material-decision-workbench-reader.pdf",
       "pages": 358,
       "page_size": "A4",
-      "bytes": 13259912,
-      "sha256": "95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2"
+      "bytes": 13266549,
+      "sha256": "7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004"
     },
     "integrated_site": {
       "path": "docs/learning/_build/site/index.html",
@@ -32,16 +32,16 @@
     "bibliography_entries": 57,
     "annotated_references": 57,
     "code_reference_documents": 28,
-    "code_reference_records": 787,
-    "verified_html_code_links": 331,
-    "drift_review_records": 16,
+    "code_reference_records": 789,
+    "verified_html_code_links": 332,
+    "drift_review_records": 17,
     "acceptance_review_records": 6
   },
   "build": {
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
     "result": "passed",
-    "site_seconds": 52.48,
-    "reader_seconds": 24.29
+    "site_seconds": 52.76,
+    "reader_seconds": 24.81
   },
   "checks": {
     "textbook": {
@@ -76,6 +76,13 @@
       "result": "passed",
       "passed": 1,
       "seconds": 21.3,
+      "server": "fresh isolated API and Web servers"
+    },
+    "navigation_e2e": {
+      "command": "$env:PLAYWRIGHT_API_PORT=9002; $env:PLAYWRIGHT_WEB_PORT=5322; npx playwright test e2e/navigation-intent.spec.ts",
+      "result": "passed",
+      "passed": 16,
+      "seconds": 44.4,
       "server": "fresh isolated API and Web servers"
     },
     "model_operations": {
@@ -134,6 +141,12 @@
       "pull_request": 388,
       "result": "merged",
       "summary": "Project Series membership can return to ungrouped without deleting evidence or continuation identity"
+    },
+    {
+      "issue": 389,
+      "pull_request": 391,
+      "result": "merged",
+      "summary": "Default Playwright collection owns compatible fixtures while specialized degraded tests remain in their dedicated lane"
     }
   ],
   "known_followups": [
@@ -176,6 +189,10 @@
     {
       "issue": 387,
       "reason": "Real-reader, assistive-technology, materials-domain, and specialist security review evidence will inform Edition 2."
+    },
+    {
+      "issue": 390,
+      "reason": "Chain Project model-package endpoints with an empty task_id remain a separately tracked application defect."
     }
   ],
   "constraints": [
