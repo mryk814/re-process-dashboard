@@ -79,7 +79,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.getByLabel("JSONデータ")).toHaveValue("");
   await section.locator(".source-validation-mode").getByText("検証モード：JSONを直接入力").click();
   await expect(section.locator(".source-stage-rail")).toContainText("1版");
-  await expect(section.locator(".source-stage-rail")).toContainText("未実行");
+  await expect(section.locator(".source-stage-rail")).toContainText("0版");
 
   await section.getByRole("button", { name: "品質判定を実行" }).click();
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
@@ -124,4 +124,65 @@ test("source refresh stays separate from approval, training and activation", asy
 
   const optionsAfter = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   expect(optionsAfter.model_packages).toEqual(optionsBefore.model_packages);
+
+  const secondFetch = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}/fetch`, {
+    data: {
+      schema_version: "source-fetch-request/v1",
+      trigger_kind: "manual",
+      object_content: JSON.stringify([
+        { id: "A-01", value: "12.8", target: "98.4" },
+        { id: "A-04", value: "16.2", target: "99.0" },
+      ]),
+      object_version: "e2e-etag-2",
+      retry_of: null,
+    },
+  });
+  expect(secondFetch.ok()).toBeTruthy();
+  const secondRaw = (await secondFetch.json()).snapshot;
+  const secondCurationResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/raw-snapshots/${secondRaw.id}/curation-runs`,
+    {
+      data: {
+        recipe_resource_id: (await recipeResponse.json()).id,
+        profile_revision_id: profile.id,
+        profile_digest: profile.profile_digest,
+      },
+    },
+  );
+  expect(secondCurationResponse.ok()).toBeTruthy();
+  const secondRun = await secondCurationResponse.json();
+  const secondApprovalResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/curation-runs/${secondRun.id}/approve`,
+    { data: { reason: "定期更新として承認", overrides: [] } },
+  );
+  expect(secondApprovalResponse.ok()).toBeTruthy();
+  const secondApproval = await secondApprovalResponse.json();
+  const secondTrainingResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/canonical-dataset-revisions/${secondApproval.id}/training-snapshots`,
+    { data: { purpose: "更新版の再評価", selection_policy: null } },
+  );
+  expect(secondTrainingResponse.ok()).toBeTruthy();
+
+  await page.reload();
+  const historySection = page.locator(".source-lifecycle-section");
+  await expect(historySection).toBeVisible();
+  await expect(historySection.locator(".source-stage-rail li").nth(0)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(1)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(2)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(3)).toContainText("2版");
+
+  await historySection.locator(".source-stage-rail li").nth(2).getByRole("button").click();
+  const approvalHistory = historySection.locator(".source-history");
+  await expect(approvalHistory.locator(".source-history-list").getByRole("button")).toHaveCount(2);
+  await approvalHistory.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" }).click();
+  await expect(approvalHistory).toContainText("既知の測定限界として採用");
+  await expect(approvalHistory).toContainText("CHECK-02");
+  await expect(approvalHistory).toContainText("測定担当者に確認済み");
+  await expect.poll(() => new URL(page.url()).searchParams.get("stage")).toBe("approval");
+  await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(approvedRevision.id);
+
+  const auditUrl = page.url();
+  await page.goto(auditUrl);
+  await expect(page.locator(".source-history")).toContainText("既知の測定限界として採用");
+  await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
 });

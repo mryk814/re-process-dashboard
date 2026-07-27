@@ -46,7 +46,10 @@ export function DataLibraryPage({
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
-  const [activeTab, setActiveTab] = useState<"browse" | "update">("browse");
+  const [activeTab, setActiveTab] = useState<"browse" | "update">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") === "update" || params.has("connector") || params.has("stage") ? "update" : "browse";
+  });
   const taskLabel = useTaskLabels();
 
   const load = () => {
@@ -69,6 +72,17 @@ export function DataLibraryPage({
       .finally(() => setLoading(false));
   };
   useEffect(() => { void load(); }, []);
+
+  const selectTab = (tab: "browse" | "update") => {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    if (tab === "update") {
+      url.searchParams.set("tab", "update");
+    } else {
+      for (const key of ["tab", "connector", "stage", "revision"]) url.searchParams.delete(key);
+    }
+    window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  };
 
   const comparisonSets = options?.dataset_views.filter((view) => view.kind === "cohort_comparison") ?? [];
   const filteredDatasets = useMemo(
@@ -205,8 +219,8 @@ export function DataLibraryPage({
         </div>}
       </div>
       <nav className="data-library-tabs" aria-label="データライブラリの表示" role="tablist">
-        <button type="button" role="tab" aria-selected={activeTab === "browse"} className={activeTab === "browse" ? "active" : ""} onClick={() => setActiveTab("browse")}>閲覧</button>
-        <button type="button" role="tab" aria-selected={activeTab === "update"} className={activeTab === "update" ? "active" : ""} onClick={() => setActiveTab("update")}>データ更新</button>
+        <button type="button" role="tab" aria-selected={activeTab === "browse"} className={activeTab === "browse" ? "active" : ""} onClick={() => selectTab("browse")}>閲覧</button>
+        <button type="button" role="tab" aria-selected={activeTab === "update"} className={activeTab === "update" ? "active" : ""} onClick={() => selectTab("update")}>データ更新</button>
       </nav>
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">

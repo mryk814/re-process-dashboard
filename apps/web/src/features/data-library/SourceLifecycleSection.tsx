@@ -7,7 +7,31 @@ import {
 } from "../../shared/api/workbench-api";
 
 const shortDigest = (value: string) => value.replace("sha256:", "").slice(0, 12);
+const formatTimestamp = (value: string) => new Date(value).toLocaleString("ja-JP");
 const splitFields = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
+type LifecycleStage = "raw" | "curation" | "approval" | "training";
+const lifecycleStages = new Set<LifecycleStage>(["raw", "curation", "approval", "training"]);
+
+function initialLifecycleLink(): {
+  connector: string;
+  stage: LifecycleStage | "";
+  revision: string;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const stage = params.get("stage");
+  return {
+    connector: params.get("connector") ?? "",
+    stage: stage && lifecycleStages.has(stage as LifecycleStage) ? stage as LifecycleStage : "",
+    revision: params.get("revision") ?? "",
+  };
+}
+
+function lifecycleDigest(item: object): string {
+  if ("snapshot_digest" in item && typeof item.snapshot_digest === "string") return item.snapshot_digest;
+  if ("curation_digest" in item && typeof item.curation_digest === "string") return item.curation_digest;
+  if ("dataset_digest" in item && typeof item.dataset_digest === "string") return item.dataset_digest;
+  return "";
+}
 const reasonLabels = {
   missing_required: "必須項目がありません",
   invalid_number: "数値として解釈できません",
@@ -18,8 +42,11 @@ const reasonLabels = {
 } as const;
 
 export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryDataset[] }) {
+  const initialLink = useMemo(initialLifecycleLink, []);
   const [catalog, setCatalog] = useState<ApiDataLifecycleCatalog | null>(null);
   const [selectedId, setSelectedId] = useState("");
+  const [selectedStage, setSelectedStage] = useState<LifecycleStage | "">(initialLink.stage);
+  const [selectedVersionId, setSelectedVersionId] = useState(initialLink.revision);
   const [detail, setDetail] = useState<ApiConnectorLifecycleDetail | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -71,8 +98,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   }, []);
 
   useEffect(() => {
-    refreshCatalog().catch((cause) => setError(cause instanceof Error ? cause.message : "データ更新履歴を取得できませんでした。"));
-  }, [refreshCatalog]);
+    refreshCatalog(initialLink.connector).catch((cause) => setError(cause instanceof Error ? cause.message : "データ更新履歴を取得できませんでした。"));
+  }, [initialLink.connector, refreshCatalog]);
 
   useEffect(() => {
     setOverrideRowKeys([]);
@@ -81,6 +108,33 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     setTrainingPurpose("");
     refreshDetail(selectedId).catch((cause) => setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。"));
   }, [refreshDetail, selectedId]);
+
+  useEffect(() => {
+    if (!detail || !selectedStage) return;
+    const versions = selectedStage === "raw"
+      ? detail.raw_snapshots
+      : selectedStage === "curation"
+        ? detail.curation_runs
+        : selectedStage === "approval"
+          ? detail.canonical_revisions
+          : detail.training_snapshots;
+    if (!versions.some((item) => item.id === selectedVersionId)) {
+      setSelectedVersionId(versions.at(-1)?.id ?? "");
+    }
+  }, [detail, selectedStage, selectedVersionId]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "data-library");
+    url.searchParams.set("tab", "update");
+    if (selectedId) url.searchParams.set("connector", selectedId);
+    else url.searchParams.delete("connector");
+    if (selectedStage) url.searchParams.set("stage", selectedStage);
+    else url.searchParams.delete("stage");
+    if (selectedVersionId) url.searchParams.set("revision", selectedVersionId);
+    else url.searchParams.delete("revision");
+    window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  }, [selectedId, selectedStage, selectedVersionId]);
 
   useEffect(() => {
     if (!profileId && profiles[0]) setProfileId(profiles[0].id);
@@ -103,6 +157,10 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const latestRun = detail?.curation_runs.at(-1);
   const latestRevision = detail?.canonical_revisions.at(-1);
   const latestTraining = detail?.training_snapshots.at(-1);
+  const selectedRaw = detail?.raw_snapshots.find((item) => item.id === selectedVersionId);
+  const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
+  const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
+  const selectedTraining = detail?.training_snapshots.find((item) => item.id === selectedVersionId);
   const selectedProfile = profiles.find((item) => item.id === profileId);
   const currentActor = catalog?.current_actor;
   const overrideCandidates = latestRun?.rows.filter((row) => row.status === "quarantined") ?? [];
@@ -112,6 +170,19 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
 
   const actorLabel = (actor: string) => actor === currentActor?.id ? currentActor.label : actor;
   const reasonLabel = (reason: keyof typeof reasonLabels) => reasonLabels[reason];
+
+  const selectStage = (stage: LifecycleStage) => {
+    if (!detail) return;
+    const versions = stage === "raw"
+      ? detail.raw_snapshots
+      : stage === "curation"
+        ? detail.curation_runs
+        : stage === "approval"
+          ? detail.canonical_revisions
+          : detail.training_snapshots;
+    setSelectedStage(stage);
+    setSelectedVersionId(versions.at(-1)?.id ?? "");
+  };
 
   async function createConnector() {
     await act("connector", async () => {
@@ -247,11 +318,54 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
       {detail ? <div className="source-lifecycle-detail">
         <header><div><strong>{detail.connector.name}</strong><span>{detail.connector.source_locator}</span></div><code>{shortDigest(detail.connector.configuration_digest)}</code></header>
         <ol className="source-stage-rail" aria-label="データ更新の信頼境界">
-          <li className={latestRaw ? "complete" : "current"}><b>1</b><span>取得スナップショット<small>{detail.raw_snapshots.length}版</small></span></li>
-          <li className={latestRun ? "complete" : latestRaw ? "current" : ""}><b>2</b><span>品質判定<small>{latestRun ? `${latestRun.quality.quarantined}件隔離` : "未実行"}</small></span></li>
-          <li className={latestRevision ? "complete" : latestRun ? "current" : ""}><b>3</b><span>承認<small>{latestRevision ? actorLabel(latestRevision.actor) : "未承認"}</small></span></li>
-          <li className={latestTraining ? "complete" : latestRevision ? "current" : ""}><b>4</b><span>学習用スナップショット<small>{latestTraining ? `${latestTraining.row_count}行` : "未作成"}</small></span></li>
+          <li className={`${latestRaw ? "complete" : "current"} ${selectedStage === "raw" ? "selected" : ""}`}><button type="button" aria-pressed={selectedStage === "raw"} onClick={() => selectStage("raw")}><b>1</b><span>取得スナップショット<small>{detail.raw_snapshots.length}版</small></span></button></li>
+          <li className={`${latestRun ? "complete" : latestRaw ? "current" : ""} ${selectedStage === "curation" ? "selected" : ""}`}><button type="button" aria-pressed={selectedStage === "curation"} onClick={() => selectStage("curation")}><b>2</b><span>品質判定<small>{detail.curation_runs.length}版</small></span></button></li>
+          <li className={`${latestRevision ? "complete" : latestRun ? "current" : ""} ${selectedStage === "approval" ? "selected" : ""}`}><button type="button" aria-pressed={selectedStage === "approval"} onClick={() => selectStage("approval")}><b>3</b><span>承認<small>{detail.canonical_revisions.length}版</small></span></button></li>
+          <li className={`${latestTraining ? "complete" : latestRevision ? "current" : ""} ${selectedStage === "training" ? "selected" : ""}`}><button type="button" aria-pressed={selectedStage === "training"} onClick={() => selectStage("training")}><b>4</b><span>学習用スナップショット<small>{detail.training_snapshots.length}版</small></span></button></li>
         </ol>
+        {selectedStage && <section className="source-history" aria-label="データ更新の版履歴">
+          <div className="source-history-list">
+            <strong>{selectedStage === "raw" ? "取得" : selectedStage === "curation" ? "品質判定" : selectedStage === "approval" ? "承認" : "学習用"}の版</strong>
+            {(selectedStage === "raw"
+              ? detail.raw_snapshots
+              : selectedStage === "curation"
+                ? detail.curation_runs
+                : selectedStage === "approval"
+                  ? detail.canonical_revisions
+                  : detail.training_snapshots
+            ).map((item, index, versions) => {
+              const timestamp = "captured_at" in item ? item.captured_at : "approved_at" in item ? item.approved_at : item.created_at;
+              const digest = lifecycleDigest(item);
+              return <button type="button" key={item.id} className={item.id === selectedVersionId ? "active" : ""} aria-pressed={item.id === selectedVersionId} onClick={() => setSelectedVersionId(item.id)}>
+                <span>v{index + 1}{index === versions.length - 1 && " · 最新"}</span>
+                <time dateTime={timestamp}>{formatTimestamp(timestamp)}</time>
+                <code>{shortDigest(digest)}</code>
+              </button>;
+            }).reverse()}
+            {(selectedStage === "raw" ? detail.raw_snapshots : selectedStage === "curation" ? detail.curation_runs : selectedStage === "approval" ? detail.canonical_revisions : detail.training_snapshots).length === 0 && <span>この段階の版はありません。</span>}
+          </div>
+          <div className="source-history-detail">
+            {selectedRaw && <>
+              <header><strong>取得スナップショット v{detail.raw_snapshots.indexOf(selectedRaw) + 1}</strong><code>{shortDigest(selectedRaw.snapshot_digest)}</code></header>
+              <dl><div><dt>取得日時</dt><dd>{formatTimestamp(selectedRaw.captured_at)}</dd></div><div><dt>Source版</dt><dd>{selectedRaw.object_version}</dd></div><div><dt>行数</dt><dd>{selectedRaw.row_count}</dd></div><div><dt>差分</dt><dd>追加 +{selectedRaw.diff.added_rows} / 変更 {selectedRaw.diff.changed_rows} / 消失 -{selectedRaw.diff.removed_rows}</dd></div></dl>
+            </>}
+            {selectedRun && <>
+              <header><strong>品質判定 v{detail.curation_runs.indexOf(selectedRun) + 1}</strong><code>{shortDigest(selectedRun.curation_digest)}</code></header>
+              <div className="source-history-quality"><span>採用 <b>{selectedRun.quality.accepted}</b></span><span>注意 <b>{selectedRun.quality.warning}</b></span><span>隔離 <b>{selectedRun.quality.quarantined}</b></span><span>停止 <b>{selectedRun.quality.blocked}</b></span></div>
+              <p className="source-quality-meaning"><b>隔離</b>は該当行を除いて次へ進めます。<b>停止</b>は入力として成立せず、その行を承認候補にしません。</p>
+              <div className="source-history-rows">{selectedRun.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止" : row.status === "quarantined" ? "隔離" : row.status === "warning" ? "注意" : "採用"} · {row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span></p>)}</div>
+            </>}
+            {selectedRevision && <>
+              <header><strong>承認 v{detail.canonical_revisions.indexOf(selectedRevision) + 1}</strong><code>{shortDigest(selectedRevision.dataset_digest)}</code></header>
+              <dl><div><dt>承認日時</dt><dd>{formatTimestamp(selectedRevision.approved_at)}</dd></div><div><dt>承認者</dt><dd>{actorLabel(selectedRevision.actor)}</dd></div><div><dt>承認理由</dt><dd>{selectedRevision.reason || "理由の記録なし"}</dd></div><div><dt>採用 / 除外</dt><dd>{selectedRevision.approved_row_keys.length} / {selectedRevision.excluded_row_keys.length}行</dd></div></dl>
+              <div className="source-history-overrides"><strong>上書き根拠</strong>{selectedRevision.overrides.length ? selectedRevision.overrides.map((override) => <p key={override.row_key}><b>{override.row_key}</b><span>{override.reason}</span></p>) : <span>上書きなし</span>}</div>
+            </>}
+            {selectedTraining && <>
+              <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
+              <dl><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div></dl>
+            </>}
+          </div>
+        </section>}
         <details className="source-action-panel source-validation-mode">
           <summary>検証モード：JSONを直接入力</summary>
           <p>接続確認用です。入力内容と認証情報は初期表示せず、認証情報は保存しません。</p>

@@ -34,11 +34,16 @@ export type NavigationIntent = Readonly<{
   developerTabError?: string;
   developerGuideId?: string;
   projectSettings?: "targets";
+  dataLibraryTab?: "update";
+  sourceConnectorId?: string;
+  sourceStage?: "raw" | "curation" | "approval" | "training";
+  sourceRevisionId?: string;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
 const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", "task", "model"]);
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
+const SOURCE_STAGES = new Set(["raw", "curation", "approval", "training"]);
 
 export function isLegacyQualityAdminNavigation(search = window.location.search): boolean {
   const params = new URLSearchParams(search);
@@ -76,6 +81,12 @@ export function readNavigationIntent(
     developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
     developerGuideId: params.get("developer_guide") || undefined,
     projectSettings: params.get("project_settings") === "targets" ? "targets" : undefined,
+    dataLibraryTab: params.get("tab") === "update" ? "update" : undefined,
+    sourceConnectorId: params.get("connector") || undefined,
+    sourceStage: SOURCE_STAGES.has(params.get("stage") ?? "")
+      ? params.get("stage") as NavigationIntent["sourceStage"]
+      : undefined,
+    sourceRevisionId: params.get("revision") || undefined,
   });
 }
 
@@ -98,6 +109,10 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.adminSection === "developer" && intent.developerTab) params.set("developer_tab", intent.developerTab);
   if (intent.adminSection === "developer" && intent.developerGuideId) params.set("developer_guide", intent.developerGuideId);
   if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
+  if (intent.view === "data-library" && intent.dataLibraryTab) params.set("tab", intent.dataLibraryTab);
+  if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
+  if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
+  if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 
@@ -124,5 +139,9 @@ export function withView(
     developerTabError: undefined,
     developerGuideId: view === "settings" && current.adminSection === "developer" ? current.developerGuideId : undefined,
     projectSettings: view === "project" ? current.projectSettings : undefined,
+    dataLibraryTab: view === "data-library" ? current.dataLibraryTab : undefined,
+    sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,
+    sourceStage: view === "data-library" ? current.sourceStage : undefined,
+    sourceRevisionId: view === "data-library" ? current.sourceRevisionId : undefined,
   });
 }
