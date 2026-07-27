@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runWorkspaceRestoreTransaction } from "./workspaceRestoreTransaction";
 
 const API_HOST = "127.0.0.1";
 // A first packaged launch creates and migrates the local workspace database,
@@ -654,13 +655,37 @@ async function commitPreparedRestore(): Promise<WorkspaceOperationResult> {
   const pending = preparedRestore;
   if (!pending) throw new Error("検証済みのWorkspaceバックアップがありません。");
   const restartPort = apiPort ?? await findAvailablePort();
-  let committed = false;
-  await stopSidecar();
   try {
-    await runMaintenance(["commit", "--restore-token", pending.token]);
-    committed = true;
-    await startSidecarOnPort(restartPort);
-    await runMaintenance(["finalize", "--restore-token", pending.token]);
+    await runWorkspaceRestoreTransaction(pending.token, restartPort, {
+      stopSidecar,
+      commit: async (token) => {
+        await runMaintenance(["commit", "--restore-token", token]);
+      },
+      startAndVerifyHealth: startSidecarOnPort,
+      finalize: async (token) => {
+        await runMaintenance(["finalize", "--restore-token", token]);
+      },
+      rollback: async (token) => {
+        await runMaintenance(["rollback", "--restore-token", token]);
+      },
+      cancel: async (token) => {
+        await runMaintenance(["cancel", "--restore-token", token]);
+      },
+      rollbackFailed: (rollbackError) => {
+        const detail = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        relaunchForWorkspaceRecovery(
+          "Workspaceの自動切戻しを完了できません",
+          `復元後の起動確認と元Workspaceへの切戻しに失敗しました。アプリを終了し、診断ログを確認してください。\n${detail}`,
+        );
+      },
+      restartFailed: (restartError) => {
+        const detail = restartError instanceof Error ? restartError.message : String(restartError);
+        relaunchForWorkspaceRecovery(
+          "WorkspaceのAPIを再起動できません",
+          `現在のWorkspaceは維持しました。復旧モードで再起動します。\n${detail}`,
+        );
+      },
+    });
     preparedRestore = undefined;
     workspaceNotice = {
       tone: "success",
@@ -669,31 +694,7 @@ async function commitPreparedRestore(): Promise<WorkspaceOperationResult> {
     mainWindow?.webContents.reload();
     return { status: "restored", summary: pending.summary };
   } catch (error) {
-    await stopSidecar();
-    if (committed) {
-      try {
-        await runMaintenance(["rollback", "--restore-token", pending.token]);
-        committed = false;
-      } catch (rollbackError) {
-        const detail = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-        relaunchForWorkspaceRecovery(
-          "Workspaceの自動切戻しを完了できません",
-          `復元後の起動確認と元Workspaceへの切戻しに失敗しました。アプリを終了し、診断ログを確認してください。\n${detail}`,
-        );
-      }
-    } else {
-      await cancelPreparedRestore();
-    }
     preparedRestore = undefined;
-    try {
-      await startSidecarOnPort(restartPort);
-    } catch (restartError) {
-      const detail = restartError instanceof Error ? restartError.message : String(restartError);
-      relaunchForWorkspaceRecovery(
-        "WorkspaceのAPIを再起動できません",
-        `現在のWorkspaceは維持しました。復旧モードで再起動します。\n${detail}`,
-      );
-    }
     workspaceNotice = {
       tone: "error",
       message: "Workspaceを復元できなかったため、元の内容へ戻しました。",

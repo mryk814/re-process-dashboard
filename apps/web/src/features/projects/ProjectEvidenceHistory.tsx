@@ -17,7 +17,7 @@ export function ProjectEvidenceHistory({
   onRetry: () => void;
   children: ReactNode;
 }) {
-  return <section className="project-history-section">
+  return <section id="project-candidate-history" className="project-history-section">
     <div className="panel-title"><h3>候補と判断履歴</h3><span>{subtitle}</span></div>
     {error ? <div className="project-history-error" role="alert">
       <p>候補と判断履歴を取得できませんでした。保存済みのデータは失われていません。</p>

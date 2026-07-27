@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workbenchApi, type ApiProjectHistory } from "../../shared/api/workbench-api";
+import { isCurrentProjectHistoryRequest } from "./projectHistoryRequest";
 
 export function useProjectHistory(projectId: string) {
   const [history, setHistory] = useState<ApiProjectHistory | null>(null);
@@ -9,15 +10,24 @@ export function useProjectHistory(projectId: string) {
 
   const reload = useCallback(async (signal?: AbortSignal, expectedProjectId = projectId) => {
     const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
-    if (!signal?.aborted && projectIdRef.current === expectedProjectId) {
+    if (isCurrentProjectHistoryRequest(
+      expectedProjectId,
+      projectIdRef.current,
+      signal?.aborted,
+    )) {
       setHistory(loaded);
       setState("ready");
     }
   }, [projectId]);
 
   const retry = useCallback(() => {
+    const expectedProjectId = projectIdRef.current;
     setState("loading");
-    void reload().catch(() => setState("error"));
+    void reload(undefined, expectedProjectId).catch(() => {
+      if (isCurrentProjectHistoryRequest(expectedProjectId, projectIdRef.current)) {
+        setState("error");
+      }
+    });
   }, [reload]);
 
   useEffect(() => {
@@ -25,7 +35,13 @@ export function useProjectHistory(projectId: string) {
     setHistory(null);
     setState("loading");
     void reload(controller.signal).catch(() => {
-      if (!controller.signal.aborted) setState("error");
+      if (isCurrentProjectHistoryRequest(
+        projectId,
+        projectIdRef.current,
+        controller.signal.aborted,
+      )) {
+        setState("error");
+      }
     });
     return () => controller.abort();
   }, [projectId, reload]);

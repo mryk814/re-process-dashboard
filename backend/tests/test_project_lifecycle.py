@@ -41,6 +41,9 @@ def test_project_persistence_inventory_covers_schema_and_archive_guards(
     for table in PROJECT_PERSISTENCE.candidate_tables:
         for operation in ("insert", "update", "delete"):
             assert f"guard_archived_{table}_{operation}" in triggers
+    for table in PROJECT_PERSISTENCE.scope_tables:
+        for operation in ("insert", "update", "delete"):
+            assert f"guard_archived_{table}_{operation}" in triggers
 
     assert PROJECT_PERSISTENCE.external_reference_scans == (
         ("candidate_revisions", "payload"),
@@ -146,6 +149,21 @@ def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:
             "SELECT COUNT(*) FROM chain_execution_claims WHERE scope_id=?",
             (scope_id,),
         ).fetchone()[0] == 0
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "INSERT INTO chain_execution_claims VALUES (?,?,?,?)",
+                (scope_id, "late-claim", 1, now),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "UPDATE chain_execution_state SET request_id=? WHERE scope_id=?",
+                ("late-state", scope_id),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
+            connection.execute(
+                "DELETE FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            )
 
     active_purge = client.post(f"/api/projects/{project['id']}/restore")
     assert active_purge.status_code == 200

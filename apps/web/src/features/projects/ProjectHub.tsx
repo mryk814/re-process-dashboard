@@ -53,6 +53,7 @@ type Props = {
   currentPreviews: Record<string, ApiPreview>;
   taskAvailability?: ResolvedTaskDefinition["availability"];
   subsystemAvailability: ApiSubsystemAvailability[];
+  subsystemAvailabilityLoaded: boolean;
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
@@ -162,6 +163,7 @@ export function ProjectHub({
   currentPreviews,
   taskAvailability,
   subsystemAvailability,
+  subsystemAvailabilityLoaded,
   offline,
   requestedSnapshotId,
   requestedDatasetViewId,
@@ -294,6 +296,7 @@ export function ProjectHub({
 
   useEffect(() => {
     const controller = new AbortController();
+    setError("");
     setSelectedSnapshot(null);
     setSelectedChainSnapshot(null);
     setModelPackage(null);
@@ -327,7 +330,10 @@ export function ProjectHub({
             }
           }),
         );
-        if (chainEvaluationSubsystem?.status !== "unavailable") {
+        if (
+          subsystemAvailabilityLoaded
+          && chainEvaluationSubsystem?.status === "available"
+        ) {
           requests.push(
             workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
               if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
@@ -354,6 +360,7 @@ export function ProjectHub({
     activeProjectId,
     chainIdentity?.chain_revision_id,
     chainEvaluationSubsystem?.status,
+    subsystemAvailabilityLoaded,
     identityProject?.id,
     taskUnavailable,
     offline,

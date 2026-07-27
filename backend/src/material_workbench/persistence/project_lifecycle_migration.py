@@ -161,18 +161,34 @@ def install_project_archive_write_guards(database: str | Path) -> None:
                 ")"
                 ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
             )
-        connection.execute(
-            "CREATE TRIGGER IF NOT EXISTS guard_archived_chain_state_delete "
-            "BEFORE DELETE ON chain_execution_state "
-            "WHEN EXISTS ("
-            "SELECT 1 FROM projects "
-            "WHERE id=json_extract(OLD.execution_json,'$.project_id') "
-            "AND archived_at IS NOT NULL"
-            ") AND NOT EXISTS ("
-            "SELECT 1 FROM project_purge_authorizations "
-            "WHERE project_id=json_extract(OLD.execution_json,'$.project_id')"
-            ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
-        )
+        for table in PROJECT_PERSISTENCE.scope_tables:
+            for operation in ("INSERT", "UPDATE"):
+                trigger = f"guard_archived_{table}_{operation.lower()}"
+                connection.execute(
+                    f"CREATE TRIGGER IF NOT EXISTS {trigger} "
+                    f"BEFORE {operation} ON {table} "
+                    "WHEN EXISTS ("
+                    "SELECT 1 FROM projects "
+                    "WHERE id=substr("
+                    "NEW.scope_id,1,instr(NEW.scope_id,':')-1"
+                    ") AND archived_at IS NOT NULL"
+                    ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
+                )
+            connection.execute(
+                f"CREATE TRIGGER IF NOT EXISTS guard_archived_{table}_delete "
+                f"BEFORE DELETE ON {table} "
+                "WHEN EXISTS ("
+                "SELECT 1 FROM projects "
+                "WHERE id=substr("
+                "OLD.scope_id,1,instr(OLD.scope_id,':')-1"
+                ") AND archived_at IS NOT NULL"
+                ") AND NOT EXISTS ("
+                "SELECT 1 FROM project_purge_authorizations "
+                "WHERE project_id=substr("
+                "OLD.scope_id,1,instr(OLD.scope_id,':')-1"
+                ")"
+                ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
+            )
         connection.commit()
     except Exception:
         connection.rollback()

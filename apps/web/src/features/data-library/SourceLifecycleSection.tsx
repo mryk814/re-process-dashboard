@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   workbenchApi,
   type ApiConnectorLifecycleDetail,
@@ -67,6 +67,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [trainingPurpose, setTrainingPurpose] = useState("");
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   const profiles = useMemo(() => {
     const seen = new Set<string>();
@@ -89,12 +91,18 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     setRecipeId((current) => next.recipes.some((item) => item.id === current) ? current : next.recipes.at(-1)?.id ?? "");
   }, []);
 
-  const refreshDetail = useCallback(async (connectorId: string) => {
+  const refreshDetail = useCallback(async (
+    connectorId: string,
+    signal?: AbortSignal,
+  ) => {
     if (!connectorId) {
       setDetail(null);
       return;
     }
-    setDetail(await workbenchApi.sourceConnectorDetail(connectorId));
+    const loaded = await workbenchApi.sourceConnectorDetail(connectorId, signal);
+    if (!signal?.aborted && selectedIdRef.current === connectorId) {
+      setDetail(loaded);
+    }
   }, []);
 
   useEffect(() => {
@@ -102,11 +110,18 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   }, [initialLink.connector, refreshCatalog]);
 
   useEffect(() => {
+    const controller = new AbortController();
     setOverrideRowKeys([]);
     setOverrideReasons({});
     setApprovalReason("");
     setTrainingPurpose("");
-    refreshDetail(selectedId).catch((cause) => setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。"));
+    setDetail(null);
+    refreshDetail(selectedId, controller.signal).catch((cause) => {
+      if (!controller.signal.aborted && selectedIdRef.current === selectedId) {
+        setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。");
+      }
+    });
+    return () => controller.abort();
   }, [refreshDetail, selectedId]);
 
   useEffect(() => {
@@ -158,6 +173,22 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const latestRun = detail?.curation_runs.at(-1);
   const latestRevision = detail?.canonical_revisions.at(-1);
   const latestTraining = detail?.training_snapshots.at(-1);
+  const latestRawNeedsCuration = Boolean(
+    latestRaw
+    && !detail?.curation_runs.some((item) => item.raw_snapshot_id === latestRaw.id),
+  );
+  const latestRunNeedsApproval = Boolean(
+    latestRun
+    && !detail?.canonical_revisions.some(
+      (item) => item.curation_run_id === latestRun.id,
+    ),
+  );
+  const latestRevisionNeedsTraining = Boolean(
+    latestRevision
+    && !detail?.training_snapshots.some(
+      (item) => item.canonical_dataset_revision_id === latestRevision.id,
+    ),
+  );
   const selectedRaw = detail?.raw_snapshots.find((item) => item.id === selectedVersionId);
   const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
   const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
@@ -381,7 +412,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
           <div><span>最新の取得版</span><strong>{latestRaw.row_count}行</strong><code>{shortDigest(latestRaw.snapshot_digest)}</code></div>
           <dl><div><dt>追加</dt><dd>+{latestRaw.diff.added_rows}</dd></div><div><dt>変更</dt><dd>{latestRaw.diff.changed_rows}</dd></div><div><dt>消失</dt><dd>-{latestRaw.diff.removed_rows}</dd></div></dl>
         </div>}
-        <details className="source-action-panel" open={Boolean(latestRaw && !latestRun)}>
+        <details className="source-action-panel" open={latestRawNeedsCuration}>
           <summary>品質判定レシピとデータセットプロファイル</summary>
           <div className="source-action-grid">
             <label>品質判定レシピ<select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}><option value="">選択</option>{catalog?.recipes.map((recipe) => <option value={recipe.id} key={recipe.id}>{recipe.name} v{recipe.version}</option>)}</select></label>
@@ -404,7 +435,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
           <details><summary>理由付きの行</summary>{latestRun.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span><em>{row.target_eligible ? "目的変数として利用可" : "目的変数として利用不可"}</em></p>)}</details>
           {latestRun.quality_delta.comparable && <p className="source-quality-delta">前回比　採用 {latestRun.quality_delta.accepted_delta >= 0 ? "+" : ""}{latestRun.quality_delta.accepted_delta} / 注意 {latestRun.quality_delta.warning_delta >= 0 ? "+" : ""}{latestRun.quality_delta.warning_delta} / 隔離 {latestRun.quality_delta.quarantined_delta >= 0 ? "+" : ""}{latestRun.quality_delta.quarantined_delta}</p>}
         </div>}
-        {latestRun && !latestRevision && <div className="source-approval-block">
+        {latestRunNeedsApproval && latestRun && <div className="source-approval-block">
           {overrideCandidates.length > 0 && <details className="source-override-panel">
             <summary>判定を上書きして採用する行を選ぶ</summary>
             <p>上書きする場合は、行ごとの根拠と全体の承認理由が必須です。</p>
@@ -419,7 +450,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             <button className="primary-button" type="button" disabled={approvalBlocked} onClick={() => void approve()}>{overrideRowKeys.length > 0 ? "上書きを含めて承認" : latestRun.quality.quarantined ? "隔離行を除いて承認" : "正規データセットを承認"}</button>
           </div>
         </div>}
-        {latestRevision && !latestTraining && <div className="source-approval-action">
+        {latestRevisionNeedsTraining && latestRevision && <div className="source-approval-action">
           <div className="source-actor"><span>記録される主体</span><strong>{currentActor?.label ?? "確認中…"}</strong><small>{currentActor?.id}</small></div>
           <label>用途<input value={trainingPurpose} onChange={(event) => setTrainingPurpose(event.target.value)} placeholder="例: 再学習候補の比較" /></label>
           <button className="primary-button" type="button" disabled={busy === "training"} onClick={() => void createTraining()}>学習用スナップショットを作成</button>

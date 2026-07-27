@@ -138,30 +138,13 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(secondFetch.ok()).toBeTruthy();
-  const secondRaw = (await secondFetch.json()).snapshot;
-  const secondCurationResponse = await request.post(
-    `${apiBaseUrl}/api/data-lifecycle/raw-snapshots/${secondRaw.id}/curation-runs`,
-    {
-      data: {
-        recipe_resource_id: (await recipeResponse.json()).id,
-        profile_revision_id: profile.id,
-        profile_digest: profile.profile_digest,
-      },
-    },
-  );
-  expect(secondCurationResponse.ok()).toBeTruthy();
-  const secondRun = await secondCurationResponse.json();
-  const secondApprovalResponse = await request.post(
-    `${apiBaseUrl}/api/data-lifecycle/curation-runs/${secondRun.id}/approve`,
-    { data: { reason: "定期更新として承認", overrides: [] } },
-  );
-  expect(secondApprovalResponse.ok()).toBeTruthy();
-  const secondApproval = await secondApprovalResponse.json();
-  const secondTrainingResponse = await request.post(
-    `${apiBaseUrl}/api/data-lifecycle/canonical-dataset-revisions/${secondApproval.id}/training-snapshots`,
-    { data: { purpose: "更新版の再評価", selection_policy: null } },
-  );
-  expect(secondTrainingResponse.ok()).toBeTruthy();
+  await page.reload();
+  const repeatedSection = page.locator(".source-lifecycle-section");
+  await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
+  await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
+  await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
+  await repeatedSection.getByLabel("用途").fill("更新版の再評価");
+  await repeatedSection.getByRole("button", { name: "学習用スナップショットを作成" }).click();
 
   await page.reload();
   const historySection = page.locator(".source-lifecycle-section");
@@ -185,4 +168,41 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.goto(auditUrl);
   await expect(page.locator(".source-history")).toContainText("既知の測定限界として採用");
   await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("late connector detail cannot replace the selected connector", async ({ page, request }) => {
+  const createConnector = async (name: string) => {
+    const response = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
+      data: {
+        schema_version: "source-connector/v1",
+        name,
+        connector_type: "object_storage_json_v1",
+        source_locator: `s3://e2e-bucket/${name}.json`,
+        selection: {
+          schema_version: "object-selection/v1",
+          format: "json_array",
+          primary_key: "id",
+          included_fields: [],
+        },
+        trigger_policy: "manual_only",
+        schedule: null,
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const slow = await createConnector(`遅い接続先-${Date.now()}`);
+  const selected = await createConnector(`選択接続先-${Date.now()}`);
+  await page.route(`**/api/data-lifecycle/connectors/${slow.id}`, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
+  await page.getByRole("button", { name: new RegExp(selected.name) }).click();
+  const detailHeader = page.locator(".source-lifecycle-detail > header");
+  await expect(detailHeader).toContainText(selected.name);
+  await page.waitForTimeout(700);
+  await expect(detailHeader).toContainText(selected.name);
+  await expect(detailHeader).not.toContainText(slow.name);
 });

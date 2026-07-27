@@ -13,6 +13,7 @@ from material_workbench.contracts.task_contracts import DataExplorerCapability
 from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.contracts.schemas import ProjectInput
+from material_workbench.persistence.demo_seed import initialize_demo_projects
 from material_workbench.task_modules import DataDescriptor, registered_task_modules
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
@@ -262,6 +263,81 @@ def test_annealing_starter_candidates_exclude_undeclared_dataset_fields(
     for candidate in candidates:
         assert "Ca" not in candidate.inputs.composition
         registry.validate_candidate(task_id, candidate)
+
+
+def test_untouched_legacy_annealing_starters_upgrade_in_existing_workspace(
+    client,
+) -> None:
+    task_id = "annealed-properties-v1"
+    registry = client.app.state.task_registry
+    module = registered_task_modules()[task_id]
+    starter = module.starter_project
+    assert starter is not None
+    assert starter.legacy_candidate_factory is not None
+    runtime = registry.runtime_for(task_id)
+    definition = registry.contract_for(task_id).task_definition
+    store = client.app.state.store
+    existing = store.list_candidates(starter.project_id)
+    legacy = starter.legacy_candidate_factory(runtime, definition)
+    for candidate, payload in zip(existing, legacy, strict=True):
+        store.update_candidate(
+            candidate.id,
+            starter.project_id,
+            payload,
+            candidate.revision,
+        )
+
+    initialize_demo_projects(
+        store,
+        {task_id: module},
+        {task_id: runtime},
+        registry,
+        seed_candidates=False,
+    )
+
+    upgraded = store.list_candidates(starter.project_id)
+    expected = starter.candidate_factory(runtime, definition)
+    assert [candidate.id for candidate in upgraded] == [
+        candidate.id for candidate in existing
+    ]
+    assert [
+        candidate.inputs.model_dump(mode="json") for candidate in upgraded
+    ] == [candidate.inputs.model_dump(mode="json") for candidate in expected]
+    assert all(candidate.revision == 3 for candidate in upgraded)
+
+
+def test_edited_legacy_annealing_starters_are_not_rewritten(client) -> None:
+    task_id = "annealed-properties-v1"
+    registry = client.app.state.task_registry
+    module = registered_task_modules()[task_id]
+    starter = module.starter_project
+    assert starter is not None
+    assert starter.legacy_candidate_factory is not None
+    runtime = registry.runtime_for(task_id)
+    definition = registry.contract_for(task_id).task_definition
+    store = client.app.state.store
+    existing = store.list_candidates(starter.project_id)
+    legacy = starter.legacy_candidate_factory(runtime, definition)
+    legacy[0] = legacy[0].model_copy(update={"name": "利用者が編集した候補"})
+    for candidate, payload in zip(existing, legacy, strict=True):
+        store.update_candidate(
+            candidate.id,
+            starter.project_id,
+            payload,
+            candidate.revision,
+        )
+
+    initialize_demo_projects(
+        store,
+        {task_id: module},
+        {task_id: runtime},
+        registry,
+        seed_candidates=False,
+    )
+
+    preserved = store.list_candidates(starter.project_id)
+    assert preserved[0].name == "利用者が編集した候補"
+    assert all(candidate.revision == 2 for candidate in preserved)
 
 
 @pytest.mark.parametrize("task_id", TASK_IDS)

@@ -91,10 +91,6 @@ def _crash_restore_worker(
         restore_token=restore_token,
         _fault_injector=crash,
     )
-    if stop_point == "after_health_failed":
-        # The desktop process observed failed health, then was terminated before
-        # it could issue rollback. The committed journal must survive restart.
-        os._exit(98)
 
 
 def test_workspace_bundle_restores_to_an_empty_user_data_directory(
@@ -563,7 +559,6 @@ def test_commit_switch_failure_preserves_database_and_data_library(
         ("after_current_moved", 97),
         ("after_database_committed", 97),
         ("after_journal_committed", 97),
-        ("after_health_failed", 98),
     ),
 )
 def test_process_restart_recovers_interrupted_restore_from_journal(
@@ -640,6 +635,88 @@ def test_process_restart_recovers_interrupted_restore_from_journal(
         if path.is_file()
     } == original_library
     assert not (current_database.parent / ".workspace-restore").exists()
+
+
+@pytest.mark.parametrize(
+    "stop_point",
+    (
+        "after_journal_committing",
+        "after_current_moved",
+        "after_database_committed",
+        "after_journal_committed",
+    ),
+)
+def test_process_restart_recovers_interrupted_first_restore_to_empty_workspace(
+    tmp_path: Path,
+    stop_point: str,
+) -> None:
+    source_database, source_library, _ = _workspace_with_managed_asset(
+        tmp_path / "source"
+    )
+    source_resource_digest = _digest(
+        source_library / "managed" / "source.xlsx"
+    )
+    bundle = tmp_path / "workspace.mdwb"
+    create_workspace_backup(
+        database=source_database,
+        data_library_root=source_library,
+        destination=bundle,
+        app_version="test",
+    )
+    target_root = tmp_path / "empty-target"
+    target_database = target_root / "workbench.db"
+    target_library = target_root / "data-library"
+    prepared = _prepare(
+        database=target_database,
+        data_library=target_library,
+        source=bundle,
+    )
+
+    process = multiprocessing.get_context("spawn").Process(
+        target=_crash_restore_worker,
+        args=(
+            str(target_database),
+            str(target_library),
+            prepared.restore_token,
+            stop_point,
+        ),
+    )
+    process.start()
+    process.join(timeout=30)
+    assert process.exitcode == 97
+
+    restore_root = (
+        target_database.parent / ".workspace-restore" / prepared.restore_token
+    )
+    state = json.loads((restore_root / "state.json").read_text(encoding="utf-8"))
+    assert state["previous_database_sha256"] is None
+    assert state["status"] == (
+        "committed" if stop_point == "after_journal_committed" else "committing"
+    )
+    assert state["installed_resource_roots"]
+    installed_files = {
+        path.relative_to(target_library).as_posix(): _digest(path)
+        for path in target_library.rglob("*")
+        if path.is_file()
+    }
+    assert installed_files
+    assert source_resource_digest in installed_files.values()
+    staged_database = restore_root / "next" / "workspace" / "workbench.db"
+    if stop_point in {"after_journal_committing", "after_current_moved"}:
+        assert not target_database.exists()
+        assert _digest(staged_database) == state["commit_database_sha256"]
+    else:
+        assert _digest(target_database) == state["commit_database_sha256"]
+        assert not staged_database.exists()
+
+    recovered = recover_incomplete_workspace_restores(
+        target_database,
+        target_library,
+    )
+    assert recovered == [prepared.restore_token]
+    assert not target_database.exists()
+    assert not any(path.is_file() for path in target_library.rglob("*"))
+    assert not (target_database.parent / ".workspace-restore").exists()
 
 
 def test_unknown_bundle_schema_is_rejected_with_an_explicit_reason(

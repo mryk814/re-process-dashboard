@@ -1334,13 +1334,15 @@ class Store:
             if project_row is None:
                 return None
             if project_row["archived_at"] is None:
-                conn.execute(
-                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
-                    (now, now, project_id),
-                )
+                # Revoke in-flight Chain claims while the Project is still writable;
+                # archive guards reject every subsequent scope-table mutation.
                 conn.execute(
                     "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
                     (f"{project_id}:%",),
+                )
+                conn.execute(
+                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
+                    (now, now, project_id),
                 )
                 series_id = project_row["project_series_id"]
                 if series_id:

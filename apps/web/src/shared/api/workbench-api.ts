@@ -111,9 +111,10 @@ export const workbenchApi = {
   async createSourceConnector(body: ApiSourceConnectorInput) {
     return requireData(await apiClient.POST("/api/data-lifecycle/connectors", { body }), "Source Connectorを登録できませんでした。");
   },
-  async sourceConnectorDetail(connectorId: string) {
+  async sourceConnectorDetail(connectorId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/data-lifecycle/connectors/{connector_id}", {
       params: { path: { connector_id: connectorId } },
+      signal,
     }), "Source Connectorの履歴を取得できませんでした。");
   },
   async fetchSourceConnector(connectorId: string, body: ApiSourceFetchRequest, credential = "") {

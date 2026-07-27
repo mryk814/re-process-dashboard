@@ -198,6 +198,10 @@ class StarterProject:
         list[CandidateInput],
     ]
     seed_on_upgrade: bool = False
+    legacy_candidate_factory: Callable[
+        [PredictionRuntime, TaskDefinition],
+        list[CandidateInput],
+    ] | None = None
 
 
 @dataclass(frozen=True)
@@ -286,6 +290,51 @@ def _annealed_starter_candidates(
         )
         for row, label in zip(selected, labels, strict=True)
         if (candidate := candidate_from_observation(row)) is not None
+    ]
+
+
+def _legacy_annealed_starter_candidates(
+    runtime: PredictionRuntime,
+    task_definition: TaskDefinition,
+) -> list[CandidateInput]:
+    """Exact pre-supported-starter payloads, used only to identify untouched demo data."""
+
+    composition = _declared_composition_medians(
+        runtime.data.medians, task_definition
+    )
+    reference_line_speed = 103.0
+    reference_times = (0.0, 280.0, 340.0, 650.0)
+    variants = (
+        ("基準候補", 1.00, 810.0, 103.0),
+        ("高強度案", 1.16, 830.0, 96.0),
+        ("延性重視案", 0.88, 790.0, 112.0),
+    )
+    return [
+        CandidateInput(
+            name=name,
+            inputs={
+                "composition": {
+                    **composition,
+                    "C": round(composition["C"] * carbon_factor, 5),
+                },
+                "process": {"ls_mpm": line_speed},
+                "categorical": {},
+                "heat_pattern": [
+                    {
+                        "time_s": round(
+                            time_s * reference_line_speed / line_speed, 6
+                        ),
+                        "temperature_c": temperature_c,
+                    }
+                    for time_s, temperature_c in zip(
+                        reference_times,
+                        (25.0, peak - 10.0, peak, 120.0),
+                        strict=True,
+                    )
+                ],
+            },
+        )
+        for name, carbon_factor, peak, line_speed in variants
     ]
 
 
@@ -679,7 +728,13 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         model_builder=_build_annealed,
         application=ApplicationCapability(candidate_excel_import=True, candidate_excel_export=True),
         data_explorer=_EXPLORER,
-        starter_project=StarterProject("default", "焼鈍条件の候補検討", _annealed_starter_candidates),
+        starter_project=StarterProject(
+            "default",
+            "焼鈍条件の候補検討",
+            _annealed_starter_candidates,
+            seed_on_upgrade=True,
+            legacy_candidate_factory=_legacy_annealed_starter_candidates,
+        ),
         response_curve=_annealed_response_curve,
     ),
     HOT_ROLLING_TASK_ID: TaskModule(

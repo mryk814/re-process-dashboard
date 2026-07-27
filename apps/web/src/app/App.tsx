@@ -138,6 +138,7 @@ function App() {
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
+  const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
   const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
@@ -296,10 +297,17 @@ function App() {
   useEffect(() => {
     if (apiState === "offline") return;
     let active = true;
+    setSubsystemAvailabilityLoaded(false);
     void workbenchApi.listSubsystemAvailability().then((items) => {
-      if (active) setSubsystemAvailability(items);
+      if (active) {
+        setSubsystemAvailability(items);
+        setSubsystemAvailabilityLoaded(true);
+      }
     }).catch(() => {
-      if (active) setSubsystemAvailability([]);
+      if (active) {
+        setSubsystemAvailability([]);
+        setSubsystemAvailabilityLoaded(true);
+      }
     });
     void workbenchApi.listChainTemplates().then((items) => {
       if (active) setChainTemplates(items);
@@ -422,6 +430,7 @@ function App() {
             currentPreviews={prediction.previewsByCandidate}
             taskAvailability={taskAvailability}
             subsystemAvailability={subsystemAvailability}
+            subsystemAvailabilityLoaded={subsystemAvailabilityLoaded}
             offline={apiState === "offline"}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);

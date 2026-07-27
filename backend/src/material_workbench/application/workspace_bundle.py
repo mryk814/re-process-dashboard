@@ -1403,8 +1403,11 @@ def commit_workspace_restore(
         if database.exists():
             os.replace(database, rollback_database)
             moved_current = True
-            if _fault_injector is not None:
-                _fault_injector("after_current_moved")
+        if _fault_injector is not None:
+            # This checkpoint means that the previous-database move phase has
+            # completed.  On a first restore there is no database to move, but
+            # a process can still stop at the same transaction boundary.
+            _fault_injector("after_current_moved")
         os.replace(staged_database, database)
         installed_next = True
         if _fault_injector is not None:
@@ -1528,6 +1531,22 @@ def recover_incomplete_workspace_restores(
                 if database.exists():
                     os.replace(database, failed_database)
                 os.replace(rollback_database, database)
+                _cleanup_installed_resources(
+                    library_root,
+                    state.get("installed_resource_roots"),
+                )
+                recovered.append(str(state.get("token", root.name)))
+                shutil.rmtree(root, ignore_errors=True)
+            elif state.get("previous_database_sha256") is None and (
+                not database.exists()
+                or _file_digest(database) == state.get("commit_database_sha256")
+            ):
+                # A first restore has no rollback database.  Depending on the
+                # stop point, the imported database is either not installed yet
+                # or is the active database.  Returning to the pre-transaction
+                # state therefore means an empty Workspace.
+                if database.exists():
+                    database.unlink()
                 _cleanup_installed_resources(
                     library_root,
                     state.get("installed_resource_roots"),
