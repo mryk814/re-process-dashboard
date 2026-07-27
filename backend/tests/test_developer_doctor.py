@@ -5,8 +5,16 @@ from shutil import copyfile
 
 from openpyxl import load_workbook
 
-from material_workbench.developer_experience.diagnostics import compare_task_sets, run_developer_doctor
+from material_workbench.developer_experience.diagnostics import (
+    active_package_history_check,
+    compare_task_sets,
+    run_developer_doctor,
+)
 from material_workbench.developer_experience.source_inspection import inspect_source_against_profiles
+from material_workbench.modeling.active_package_history import (
+    ActivePackageChange,
+    ActivePackageHistoryReport,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +24,37 @@ def test_compare_task_sets_reports_mismatch() -> None:
     check = compare_task_sets({"definition": {"a", "b"}, "module": {"a"}})
     assert check.severity == "error"
     assert check.details["definition"] == ["a", "b"]
+
+
+def test_active_package_history_success_does_not_claim_every_switch_used_activate() -> None:
+    check = active_package_history_check(ActivePackageHistoryReport(available=True))
+
+    assert check.severity == "ok"
+    assert check.summary == "rollback可能な直前Packageとpreviousの履歴が一致しています。"
+    assert "すべて model:activate" not in check.summary
+
+
+def test_active_package_history_explains_accepted_null_previous() -> None:
+    accepted = ActivePackageChange(
+        task_id="example-task",
+        revision="abc123",
+        replaced="packages/old",
+        active="packages/current",
+        recorded_previous=None,
+        rollback_target="contract-mismatch",
+        reason="入力契約が現在のTaskDefinitionと異なる版です。",
+    )
+
+    check = active_package_history_check(
+        ActivePackageHistoryReport(available=True, accepted=(accepted,)),
+    )
+
+    assert check.severity == "ok"
+    assert check.summary == (
+        "rollback可能な直前Packageとpreviousは一致しています。"
+        "rollback不能な旧版1件のprevious=nullは理由付きで受理しました。"
+    )
+    assert check.details["accepted"][0]["rollback_target"] == "contract-mismatch"
 
 
 def test_doctor_report_has_stable_json_contract() -> None:
