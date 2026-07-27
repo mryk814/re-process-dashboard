@@ -2,35 +2,19 @@ import { useEffect, useState } from "react";
 import {
   workbenchApi,
   type ApiChangeGuideEntry,
-  type ApiDeveloperCommand,
   type ApiDeveloperOverview,
   type ApiRuntimeDiagnostics,
 } from "../../shared/api/workbench-api";
+import { ChangeGuideCard, CopyCommand } from "./ChangeGuideCard";
 import { ObservationTrainingInspector } from "./ObservationTrainingInspector";
 
 type ControlTab = "overview" | "training" | "guide" | "diagnostics";
 type OverviewStatus = "" | "ok" | "warning" | "error";
 
-const riskLabel = {
-  safe: "比較的安全",
-  review: "ガイドとレビューが必要",
-  specialist: "専門的レビューが必要",
-} as const;
-
 function ShortDigest({ value }: { value?: string | null }) {
   if (!value) return <span>—</span>;
   const normalized = value.replace(/^sha256:/, "");
   return <details className="developer-digest"><summary>{normalized.slice(0, 10)}…</summary><code>{value}</code></details>;
-}
-
-function CopyCommand({ command }: { command: ApiDeveloperCommand }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(command.display_text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  };
-  return <div className="developer-command"><code>{command.display_text}</code><small>{command.platform}</small><button type="button" onClick={() => void copy()}>{copied ? "コピー済み" : "コピー"}</button></div>;
 }
 
 export function filterDeveloperOverviewItems(
@@ -151,19 +135,7 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
           {guide.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
-      {selected && <article className={`developer-guide-card risk-${selected.risk}`}>
-        <div className="developer-risk">{riskLabel[selected.risk]}</div>
-        <div className="developer-guide-grid">
-          <section><h3>主に変更する</h3><ul>{selected.changes.map((item) => <li key={item}>{item}</li>)}</ul></section>
-          <section><h3>原則変更しない</h3><ul>{selected.unchanged.map((item) => <li key={item}>{item}</li>)}</ul></section>
-          <section><h3>必要な成果物</h3><ul>{selected.artifacts.length ? selected.artifacts.map((item) => <li key={item}>{item}</li>) : <li>分類後に決定</li>}</ul></section>
-          <section><h3>関連文書</h3><ul>{selected.documents.map((item) => <li key={item}><code>{item}</code></li>)}</ul></section>
-        </div>
-        {selected.human_review && <p className="developer-review">人の判断: {selected.human_review}</p>}
-        {(selected.id === "new-excel" || selected.id === "workbook-shape") && <button type="button" className="primary-button developer-open-profile" onClick={onOpenProfileWorkbench}>Profile WorkbenchでExcelを確認</button>}
-        <h3>推奨コマンド</h3>
-        {selected.commands.map((command) => <CopyCommand command={command} key={command.display_text} />)}
-      </article>}
+      {selected && <ChangeGuideCard entry={selected} onOpenProfileWorkbench={onOpenProfileWorkbench} />}
     </section>}
 
     {tab === "diagnostics" && <section className="developer-section diagnostics-section">

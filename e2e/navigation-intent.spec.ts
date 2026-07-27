@@ -106,6 +106,33 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
 
+test("developer guide separates new and existing Decision Activity workflows", async ({ page }, testInfo) => {
+  await page.goto("/?view=settings&project=default&admin=developer");
+  await page.getByRole("button", { name: "変更ガイド" }).click();
+
+  const intent = page.getByLabel("何を変更したいですか？");
+  await intent.selectOption("decision-activity-new");
+  const workflow = page.getByRole("region", { name: "実装順序" });
+  await expect(workflow.getByRole("listitem")).toHaveCount(7);
+  await expect(workflow.getByRole("listitem").first()).toContainText("1. Python contract");
+  await expect(workflow.getByRole("listitem").last()).toContainText("7. Contract / UI / E2E test");
+  await expect(page.getByRole("complementary", { name: "変更時の注意" })).toContainText(
+    "直接編集せず",
+  );
+  await expect(page.locator(".developer-guide-card")).toContainText(
+    "docs/learning/chapters/contract-through-stack.qmd",
+  );
+
+  await intent.selectOption("decision-activity-change");
+  await expect(page.locator(".developer-guide-card")).toContainText(
+    "保存済みRunは変更後のhandlerで自動再計算せず",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("decision-activity-change-guide.png"),
+    fullPage: true,
+  });
+});
+
 test("developer diagnostics shows runtime checks without repository tooling", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer");
   await page.getByRole("button", { name: "診断" }).click();

@@ -99,6 +99,213 @@ CHANGE_GUIDE = (
         human_review="新Taskか既存Taskのversion更新かを人が判断します。",
     ),
     ChangeGuideEntry(
+        id="decision-activity-new",
+        label="新しいDecision Activityを追加したい",
+        risk="specialist",
+        changes=[
+            "parameter / result contract",
+            "Activity registry",
+            "application service / handler",
+            "FastAPI route",
+            "React Activity View",
+            "contract / UI / E2E test",
+        ],
+        unchanged=["TaskDefinition", "既存Activity contract", "保存済みActivity Run"],
+        artifacts=["新しいActivity version", "OpenAPI", "generated API types", "frontend build"],
+        steps=[
+            {
+                "label": "1. Python contract",
+                "paths": [
+                    "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+                ],
+                "outcome": "parameterとresultを別々のschema_versionを持つ型として定義する",
+            },
+            {
+                "label": "2. Registry",
+                "paths": [
+                    "backend/src/material_workbench/application/decision_activity_registry.py",
+                ],
+                "outcome": "Activity definitionと利用条件を一つのregistryへ登録する",
+            },
+            {
+                "label": "3. Application",
+                "paths": [
+                    "backend/src/material_workbench/application/decision_activities.py",
+                ],
+                "outcome": "handler、provenance、immutable Runの保存を実装する",
+            },
+            {
+                "label": "4. API",
+                "paths": [
+                    "backend/src/material_workbench/api/decision_activities.py",
+                ],
+                "outcome": "共通routeから型付きrequestとresponseを公開する",
+            },
+            {
+                "label": "5. Generated contract",
+                "paths": [
+                    "apps/web/src/generated/openapi.json",
+                    "apps/web/src/generated/api-types.ts",
+                ],
+                "outcome": "api:generateでOpenAPIとTypeScript型を再生成する",
+            },
+            {
+                "label": "6. React View",
+                "paths": [
+                    "apps/web/src/features/workbench/decisionActivities/registry.ts",
+                    "apps/web/src/features/workbench/decisionActivities/",
+                    "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+                ],
+                "outcome": "resultのdiscriminatorに対応する表示と操作を登録する",
+            },
+            {
+                "label": "7. Contract / UI / E2E test",
+                "paths": [
+                    "backend/tests/test_decision_activities.py",
+                    "backend/tests/test_openapi_contract.py",
+                    "apps/web/tests/activityRunNavigation.test.mjs",
+                    "e2e/decision-activity.spec.ts",
+                ],
+                "outcome": "契約、保存identity、画面遷移、利用者経路を順に検証する",
+            },
+        ],
+        warnings=[
+            "apps/web/src/generated/openapi.jsonとapi-types.tsは直接編集せず、npm run api:generateで再生成します。",
+            "既存Activityの型を流用せず、新しいparameterとresultのschema_versionを定義します。",
+        ],
+        commands=[
+            command("npm", ["run", "api:generate"]),
+            command(
+                "npm",
+                [
+                    "run",
+                    "verify:focused",
+                    "--",
+                    "backend/tests/test_decision_activities.py",
+                    "backend/tests/test_openapi_contract.py",
+                ],
+            ),
+            command(
+                "node",
+                ["--test", "apps/web/tests/activityRunNavigation.test.mjs"],
+            ),
+            command(
+                "npx",
+                ["playwright", "test", "e2e/decision-activity.spec.ts"],
+            ),
+            command("npm", ["run", "build"]),
+        ],
+        documents=[
+            "docs/decision-activities.md",
+            "docs/learning/chapters/contract-through-stack.qmd",
+            "docs/developer-start-here.md",
+        ],
+        human_review="新しいActivityか既存Activityの拡張か、保存済みRunと意味を共有できるかを人が判断します。",
+    ),
+    ChangeGuideEntry(
+        id="decision-activity-change",
+        label="既存Decision Activityを変更したい",
+        risk="review",
+        changes=[
+            "対象Activityのparameter / result contract",
+            "Activity definition / handler",
+            "FastAPI contract",
+            "React Activity View",
+            "既存Runの互換性test",
+        ],
+        unchanged=["無関係なActivity", "TaskDefinition", "保存済みActivity Runの内容"],
+        artifacts=["互換性を保てない場合は新しいActivity version", "OpenAPI", "generated API types"],
+        steps=[
+            {
+                "label": "1. Python contract",
+                "paths": [
+                    "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+                ],
+                "outcome": "shapeまたは意味が変わる場合はschema_versionを分ける",
+            },
+            {
+                "label": "2. Registry",
+                "paths": [
+                    "backend/src/material_workbench/application/decision_activity_registry.py",
+                ],
+                "outcome": "availability、既定parameter、表示metadataを更新する",
+            },
+            {
+                "label": "3. Application",
+                "paths": [
+                    "backend/src/material_workbench/application/decision_activities.py",
+                ],
+                "outcome": "handlerとprovenanceを更新し、保存済みRunを自動再計算しない",
+            },
+            {
+                "label": "4. API",
+                "paths": [
+                    "backend/src/material_workbench/api/decision_activities.py",
+                ],
+                "outcome": "errorとresponseの契約変更をOpenAPIへ反映する",
+            },
+            {
+                "label": "5. Generated contract",
+                "paths": [
+                    "apps/web/src/generated/openapi.json",
+                    "apps/web/src/generated/api-types.ts",
+                ],
+                "outcome": "api:generateでOpenAPIとTypeScript型を再生成する",
+            },
+            {
+                "label": "6. React View",
+                "paths": [
+                    "apps/web/src/features/workbench/decisionActivities/registry.ts",
+                    "apps/web/src/features/workbench/decisionActivities/",
+                    "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+                ],
+                "outcome": "変更後のparameterとresultをdiscriminatorで描画する",
+            },
+            {
+                "label": "7. Contract / UI / E2E test",
+                "paths": [
+                    "backend/tests/test_decision_activities.py",
+                    "backend/tests/test_openapi_contract.py",
+                    "apps/web/tests/activityRunNavigation.test.mjs",
+                    "e2e/decision-activity.spec.ts",
+                ],
+                "outcome": "旧Run読込、現行契約、stale response、主要画面経路を検証する",
+            },
+        ],
+        warnings=[
+            "apps/web/src/generated/openapi.jsonとapi-types.tsは直接編集せず、npm run api:generateで再生成します。",
+            "保存済みRunは変更後のhandlerで自動再計算せず、作成時のprovenanceと結果を保持します。",
+        ],
+        commands=[
+            command("npm", ["run", "api:generate"]),
+            command(
+                "npm",
+                [
+                    "run",
+                    "verify:focused",
+                    "--",
+                    "backend/tests/test_decision_activities.py",
+                    "backend/tests/test_openapi_contract.py",
+                ],
+            ),
+            command(
+                "node",
+                ["--test", "apps/web/tests/activityRunNavigation.test.mjs"],
+            ),
+            command(
+                "npx",
+                ["playwright", "test", "e2e/decision-activity.spec.ts"],
+            ),
+            command("npm", ["run", "build"]),
+        ],
+        documents=[
+            "docs/decision-activities.md",
+            "docs/learning/chapters/contract-through-stack.qmd",
+            "docs/developer-start-here.md",
+        ],
+        human_review="parameterまたはresultの意味が変わる場合は、既存versionの上書きではなく新versionとして扱います。",
+    ),
+    ChangeGuideEntry(
         id="presentation",
         label="表示だけ変えたい",
         risk="safe",
