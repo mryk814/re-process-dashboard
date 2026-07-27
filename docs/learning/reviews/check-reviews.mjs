@@ -2,7 +2,23 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { parseChapterOrder } from "../check-concept-order.mjs";
+
 const reviewRoot = path.resolve("docs/learning/reviews");
+const learningRoot = path.dirname(reviewRoot);
+const readerConfigPath = path.join(learningRoot, "_quarto-reader.yml");
+const readerExclusions = new Set([
+  "index.qmd",
+  "concept-map.qmd",
+  "glossary.qmd",
+  "references.qmd",
+]);
+const readerTargets = parseChapterOrder(
+  fs.readFileSync(readerConfigPath, "utf8"),
+  "_quarto-reader.yml",
+)
+  .filter((chapterPath) => !readerExclusions.has(chapterPath))
+  .map((chapterPath) => `docs/learning/${chapterPath}`);
 const schema = JSON.parse(
   fs.readFileSync(path.join(reviewRoot, "review-record.schema.json"), "utf8"),
 );
@@ -18,6 +34,7 @@ const allowedStatuses = new Set(schema.properties.status.enum);
 const allowedResults = new Set(["pass", "pass_with_followup", "fail"]);
 const errors = [];
 const seenReviewIds = new Set();
+const acceptedChapterPaths = new Set();
 
 function requireText(value, location) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -55,6 +72,11 @@ for (const fileName of records) {
     }
     if (!fs.existsSync(path.resolve(chapterPath))) {
       errors.push(`${prefix}: chapter path does not exist: ${chapterPath}`);
+    }
+  }
+  if (record.status !== "changes_required") {
+    for (const chapterPath of chapterPaths) {
+      acceptedChapterPaths.add(chapterPath);
     }
   }
 
@@ -160,6 +182,12 @@ for (const fileName of records) {
 
 if (records.length < 2) {
   errors.push("At least two acceptance review records are required.");
+}
+
+for (const readerTarget of readerTargets) {
+  if (!acceptedChapterPaths.has(readerTarget)) {
+    errors.push(`Reader review coverage missing: ${readerTarget}`);
+  }
 }
 
 if (errors.length > 0) {
