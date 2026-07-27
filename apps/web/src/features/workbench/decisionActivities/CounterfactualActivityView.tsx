@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { workbenchApi, type ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 import { SupportBadge } from "../../../shared/ui/SupportBadge";
 import { formatTaskNumber } from "../../../shared/taskPresentation";
+import { presentCounterfactualTarget } from "./counterfactualPresentation";
 import type { DecisionActivityViewProps } from "./types";
 
 /** Change distance is a normalised L1 value, not a task output. */
@@ -80,6 +81,7 @@ export function CounterfactualActivityView({
   }
 
   return <>
+    <p className="activity-question">{availability.definition.question}</p>
     <section className="activity-settings">
       <div className="panel-title">
         <h3>変更案の探索</h3>
@@ -124,7 +126,12 @@ export function CounterfactualActivityView({
       {result.proposals.map((proposal) => <article className="counterfactual-proposal" key={proposal.proposal_id}>
         <header>
           <span><b>案 {proposal.rank}</b><small>変更量 {distanceFormat.format(proposal.change_distance)} / {proposal.changed_field_count}項目</small></span>
-          <SupportBadge status={proposal.support.status} message={proposal.support.message} />
+          <span className="counterfactual-proposal-status">
+            <strong className={proposal.meets_objective ? "achieved" : "not-achieved"}>
+              {proposal.meets_objective ? "✓ 点予測で目標条件を満たす" : "✕ 点予測で必須目標を満たさない"}
+            </strong>
+            <SupportBadge status={proposal.support.status} message={proposal.support.message} />
+          </span>
         </header>
         <div className="counterfactual-changes">
           {proposal.changes.map((change) => <div key={change.path}>
@@ -133,9 +140,23 @@ export function CounterfactualActivityView({
           </div>)}
         </div>
         <div className="counterfactual-targets">
-          {proposal.target_evaluations.map((target) => <span key={target.target} className={target.achieved ? "achieved" : ""}>
-            {outputLabels.get(target.target) ?? target.target} <b>{outputNumber(target.target, target.predicted_value)} {target.unit}</b>
-          </span>)}
+          {proposal.target_evaluations.map((target) => {
+            const label = outputLabels.get(target.target) ?? target.target;
+            const presentation = presentCounterfactualTarget(
+              target,
+              label,
+              (value) => outputNumber(target.target, value),
+            );
+            return <span
+              key={target.target}
+              className={target.role === "reporting_only" ? "reporting" : target.achieved ? "achieved" : "not-achieved"}
+              aria-label={presentation.accessibleName}
+            >
+              <span>{label} <b>{presentation.pointKind} {presentation.point}</b></span>
+              <strong>{presentation.state}</strong>
+              <small>{presentation.hasInterval ? `予測区間 ${presentation.interval}` : presentation.interval}</small>
+            </span>;
+          })}
         </div>
         {proposal.warnings.map((warning) => <small className="proposal-warning" key={warning}>{warning}</small>)}
         <button type="button" className="outline-button" disabled={savingId !== "" || savedIds.has(proposal.proposal_id) || !proposalById.has(proposal.proposal_id)} onClick={() => void promote(proposal.proposal_id)}>

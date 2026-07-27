@@ -3902,11 +3902,18 @@ export interface components {
             normalized_shortfall: number;
             /** Predicted Value */
             predicted_value: number;
+            /** @description 判定時に固定したcanonical Prediction。旧Runでは未記録。 */
+            prediction?: components["schemas"]["Prediction"] | null;
             /**
              * Role
              * @enum {string}
              */
             role: "primary_objective" | "hard_outcome_constraint" | "soft_preference" | "reporting_only";
+            /**
+             * Shortfall
+             * @description 閾値からの不足量（unitと同じ実単位）。比較目標では未定義。
+             */
+            shortfall?: number | null;
             /** Target */
             target: string;
             /** Unit */

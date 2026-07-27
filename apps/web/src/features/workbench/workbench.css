@@ -965,12 +965,20 @@
 .counterfactual-proposal > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .counterfactual-proposal > header > span:first-child { display: flex; gap: 8px; align-items: baseline; }
 .counterfactual-proposal > header small { color: #65758a; }
+.counterfactual-proposal-status { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 5px; }
+.counterfactual-proposal-status > strong { border: 1px solid currentColor; border-radius: 999px; padding: 3px 7px; font-size: 10px; }
+.counterfactual-proposal-status > strong.achieved { color: #176d52; }
+.counterfactual-proposal-status > strong.not-achieved { color: #9c2f2f; }
 .counterfactual-changes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 5px 12px; }
 .counterfactual-changes > div { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #e7ebf0; padding-top: 5px; color: #536277; font-size: 11px; }
 .counterfactual-changes b { color: #20344b; font-variant-numeric: tabular-nums; }
 .counterfactual-targets { display: flex; flex-wrap: wrap; gap: 5px; }
-.counterfactual-targets span { border-radius: 999px; background: #f1f4f8; padding: 4px 8px; color: #59697c; font-size: 10px; }
-.counterfactual-targets span.achieved { background: #eaf7f1; color: #176d52; }
+.counterfactual-targets > span { display: grid; grid-template-columns: auto auto; gap: 2px 8px; border: 1px solid #c5cfda; border-radius: 6px; background: #f1f4f8; padding: 5px 8px; color: #59697c; font-size: 10px; }
+.counterfactual-targets > span.achieved { border-color: #77b39f; background: #eaf7f1; color: #176d52; }
+.counterfactual-targets > span.not-achieved { border-color: #d8a4a4; background: #fff1f1; color: #9c2f2f; }
+.counterfactual-targets > span.reporting { border-style: dashed; }
+.counterfactual-targets > span > strong { text-align: right; }
+.counterfactual-targets > span > small { grid-column: 1 / -1; color: #536277; font-variant-numeric: tabular-nums; }
 .counterfactual-proposal .outline-button { justify-self: end; }
 .proposal-warning { color: #8a641b; }
 

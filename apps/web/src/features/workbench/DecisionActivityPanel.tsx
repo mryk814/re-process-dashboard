@@ -160,10 +160,6 @@ export function DecisionActivityPanel({
         }}
       >{item.definition.label}</button>)}
     </nav>}
-    {selected && !(
-      selected.definition.activity_id === "robustness-analysis-v1"
-      && Object.keys(targetValues).length === 0
-    ) && <p className="activity-question">{selected.definition.question}</p>}
     {loading ? <p className="empty-evidence">利用条件を確認しています。</p> : selected && !selected.available ? (
       <div className="activity-unavailable"><strong>現在は利用できません</strong>{selected.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
     ) : null}
