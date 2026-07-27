@@ -194,10 +194,14 @@ class StarterProject:
     project_id: str
     name: str
     candidate_factory: Callable[
-        [dict[str, float], TaskDefinition],
+        [PredictionRuntime, TaskDefinition],
         list[CandidateInput],
     ]
     seed_on_upgrade: bool = False
+    legacy_candidate_factory: Callable[
+        [PredictionRuntime, TaskDefinition],
+        list[CandidateInput],
+    ] | None = None
 
 
 @dataclass(frozen=True)
@@ -239,10 +243,65 @@ def _declared_composition_medians(
 
 
 def _annealed_starter_candidates(
-    medians: dict[str, float],
+    runtime: PredictionRuntime,
     task_definition: TaskDefinition,
 ) -> list[CandidateInput]:
-    composition = _declared_composition_medians(medians, task_definition)
+    from material_workbench.modeling.feature_pipeline import (
+        candidate_from_observation,
+    )
+
+    declared_composition = set(
+        _declared_composition_medians(runtime.data.medians, task_definition)
+    )
+    by_parent: dict[str, dict[str, Any]] = {}
+    for row in runtime.data.observations:
+        if row.get("eligible") and candidate_from_observation(row) is not None:
+            by_parent.setdefault(str(row["parent_key"]), row)
+    comparable = sorted(
+        (
+            row
+            for row in by_parent.values()
+            if isinstance(row.get("outputs", {}).get("TS[MPa]"), (int, float))
+        ),
+        key=lambda row: float(row["outputs"]["TS[MPa]"]),
+    )
+    if len(comparable) < 3:
+        raise ValueError("焼鈍条件の初期候補には、引張強さを持つ独立条件が3件以上必要です")
+    selected = (
+        comparable[(len(comparable) - 1) // 2],
+        comparable[-1],
+        comparable[0],
+    )
+    labels = ("基準候補", "高強度案", "延性重視案")
+    return [
+        candidate.model_copy(
+            update={
+                "name": label,
+                "inputs": candidate.inputs.model_copy(
+                    update={
+                        "composition": {
+                            key: value
+                            for key, value in candidate.inputs.composition.items()
+                            if key in declared_composition
+                        }
+                    }
+                ),
+            }
+        )
+        for row, label in zip(selected, labels, strict=True)
+        if (candidate := candidate_from_observation(row)) is not None
+    ]
+
+
+def _legacy_annealed_starter_candidates(
+    runtime: PredictionRuntime,
+    task_definition: TaskDefinition,
+) -> list[CandidateInput]:
+    """Exact pre-supported-starter payloads, used only to identify untouched demo data."""
+
+    composition = _declared_composition_medians(
+        runtime.data.medians, task_definition
+    )
     reference_line_speed = 103.0
     reference_times = (0.0, 280.0, 340.0, 650.0)
     variants = (
@@ -254,12 +313,17 @@ def _annealed_starter_candidates(
         CandidateInput(
             name=name,
             inputs={
-                "composition": {**composition, "C": round(composition["C"] * carbon_factor, 5)},
+                "composition": {
+                    **composition,
+                    "C": round(composition["C"] * carbon_factor, 5),
+                },
                 "process": {"ls_mpm": line_speed},
                 "categorical": {},
                 "heat_pattern": [
                     {
-                        "time_s": round(time_s * reference_line_speed / line_speed, 6),
+                        "time_s": round(
+                            time_s * reference_line_speed / line_speed, 6
+                        ),
                         "temperature_c": temperature_c,
                     }
                     for time_s, temperature_c in zip(
@@ -275,10 +339,10 @@ def _annealed_starter_candidates(
 
 
 def _hot_rolling_starter_candidates(
-    medians: dict[str, float],
+    runtime: PredictionRuntime,
     task_definition: TaskDefinition,
 ) -> list[CandidateInput]:
-    composition = _declared_composition_medians(medians, task_definition)
+    composition = _declared_composition_medians(runtime.data.medians, task_definition)
     variants = (
         ("基準熱延", 1170, 900, 34, 3.4, 1160, 30),
         ("高温保持", 1200, 910, 36, 3.2, 1180, 42),
@@ -542,14 +606,10 @@ def _curve_family(
 
 def _tabular_starter(task_id: str, name: str) -> StarterProject:
     def candidates(
-        _medians: dict[str, float],
+        runtime: PredictionRuntime,
         _task_definition: TaskDefinition,
     ) -> list[CandidateInput]:
-        from material_workbench.modeling.tabular_regression import load_tabular_data
-
-        module = TASK_MODULES[task_id]
-        source = resolve_task_source(task_id)
-        data = load_tabular_data(source, _TABULAR_PROFILES[task_id])
+        data = runtime.data
         eligible = [row for row in data.observations if row["eligible"]]
         from material_workbench.modeling.tabular_regression import candidate_from_observation
 
@@ -594,7 +654,7 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
 
 
 def _welding_stage_c_starter(
-    medians: dict[str, float],
+    runtime: PredictionRuntime,
     _task_definition: TaskDefinition,
 ) -> list[CandidateInput]:
     from material_workbench.modeling.observation_regression import (
@@ -603,26 +663,20 @@ def _welding_stage_c_starter(
     )
 
     return stage_c_starter_candidates(
-        medians, resolve_spec(observation_declaration(WELDING_STAGE_C_TASK_ID))
+        runtime.data.medians,
+        resolve_spec(observation_declaration(WELDING_STAGE_C_TASK_ID)),
     )
 
 
 def _welding_stage_b_starter(
-    _medians: dict[str, float],
+    runtime: PredictionRuntime,
     _task_definition: TaskDefinition,
 ) -> list[CandidateInput]:
-    from material_workbench.data.stage_b_training import (
-        build_stage_b_training_data,
-        load_stage_b_profile,
-    )
     from material_workbench.modeling.tabular_regression import (
         candidate_from_observation,
     )
 
-    data = build_stage_b_training_data(
-        resolve_task_source(WELDING_STAGE_B_TASK_ID),
-        load_stage_b_profile(_WELDING_STAGE_B_PROFILE),
-    ).data
+    data = runtime.data
     rows = [row for row in data.observations if row["eligible"]]
     selected = [rows[len(rows) // 4], rows[len(rows) // 2], rows[len(rows) * 3 // 4]]
     return [
@@ -674,7 +728,13 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         model_builder=_build_annealed,
         application=ApplicationCapability(candidate_excel_import=True, candidate_excel_export=True),
         data_explorer=_EXPLORER,
-        starter_project=StarterProject("default", "焼鈍条件の候補検討", _annealed_starter_candidates),
+        starter_project=StarterProject(
+            "default",
+            "焼鈍条件の候補検討",
+            _annealed_starter_candidates,
+            seed_on_upgrade=True,
+            legacy_candidate_factory=_legacy_annealed_starter_candidates,
+        ),
         response_curve=_annealed_response_curve,
     ),
     HOT_ROLLING_TASK_ID: TaskModule(

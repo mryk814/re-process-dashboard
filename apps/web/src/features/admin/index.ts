@@ -1,2 +1,3 @@
-export { DeveloperAdminPage, InputRangeSettingsPage } from "./DeveloperAdminPage";
-export type { AdminSection } from "./DeveloperAdminPage";
+export { ProjectScopedSettings } from "./DeveloperAdminPage";
+export type { ProjectSettingsSection } from "./DeveloperAdminPage";
+export { WorkspaceAdminPage } from "./WorkspaceAdminPage";

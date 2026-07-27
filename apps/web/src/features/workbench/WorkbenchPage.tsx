@@ -34,6 +34,7 @@ import { BlendComparisonPanel } from "./BlendComparisonPanel";
 import { BlendOptimizationPanel } from "./BlendOptimizationPanel";
 import { BlendEditorPanel } from "./BlendEditorPanel";
 import { HeatPattern } from "./HeatPatternPanel";
+import { activityToggleLabel, type CandidateSection } from "../../shared/projectActionQuestions";
 import {
   CurveFamilyPanel,
   LiveResponseCurves,
@@ -119,6 +120,7 @@ type WorkbenchProps = {
   onConfigureSupport: () => void;
   activityId?: string;
   activityRunId?: string;
+  candidateSection?: CandidateSection;
   onActivityStateChange: (activityId?: string, activityRunId?: string) => void;
   previewAvailable: boolean;
   pendingPreviewCount: number;
@@ -175,6 +177,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onConfigureSupport,
     activityId,
     activityRunId,
+    candidateSection,
     onActivityStateChange,
     previewAvailable,
     pendingPreviewCount,
@@ -191,11 +194,16 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
+  const actualMeasurementRef = useRef<HTMLDivElement>(null);
   const effectiveInspectorWidth = clampLayoutValue(inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
   useEffect(() => {
     if (candidates.length <= 5) setComparisonExpanded(false);
   }, [candidates.length]);
+  useEffect(() => {
+    if (candidateSection !== "actuals" || !operations?.actual_measurement) return;
+    actualMeasurementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [candidateSection, operations?.actual_measurement, selected.id]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => {
@@ -274,7 +282,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
                 return;
               }
               setActivityOpen(true);
-            }}>{activityPanelOpen ? "アクティビティを閉じる" : "検討アクティビティ"}</button>
+            }}>{activityToggleLabel(activityId, activityPanelOpen)}</button>
             <div className="comparison-data-actions">
               <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
               <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
@@ -332,13 +340,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
           candidate={selected.raw}
           onCandidateCreated={onOptimizedCandidate}
         />
-        {taskDefinition && operations?.actual_measurement && <ActualMeasurementPanel
-          projectId={projectId}
-          candidate={selected}
-          taskDefinition={taskDefinition}
-          displayDecimalOverrides={project?.display_decimals}
-          ready={["idle", "saved"].includes(saveState)}
-        />}
+        {taskDefinition && operations?.actual_measurement && <div ref={actualMeasurementRef} id="candidate-actuals">
+          <ActualMeasurementPanel
+            projectId={projectId}
+            candidate={selected}
+            taskDefinition={taskDefinition}
+            displayDecimalOverrides={project?.display_decimals}
+            ready={["idle", "saved"].includes(saveState)}
+          />
+        </div>}
         {taskDefinition?.curve_axis_path && operations?.response_curve ? (
           <CurveFamilyPanel
             projectId={projectId}

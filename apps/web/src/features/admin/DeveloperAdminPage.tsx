@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { numericTaskInputs, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
-import { LiveDataQualityPage, type QualityFilters } from "../quality";
-import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
+import { workbenchApi, type ApiModelPackage, type ApiProject } from "../../shared/api/workbench-api";
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
 import { suggestedInputRange } from "./inputRangeDefaults";
 import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
-export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
+export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";
+export type ProjectSettingsSection = "ranges" | "display" | "task";
 type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 function number(value: number, digits = 0) {
@@ -79,10 +79,6 @@ export function DeveloperAdminPage({
   developerGuideId,
   onSectionChange,
   onDeveloperLocationChange,
-  qualityFilters,
-  onQualityFiltersChange,
-  onOpenLineage,
-  onOpenQualityIssues,
   onProjectChanged,
   onOpenProfileWorkbench,
 }: {
@@ -97,10 +93,6 @@ export function DeveloperAdminPage({
   developerGuideId?: string;
   onSectionChange: (section: AdminSection) => void;
   onDeveloperLocationChange: (tab: DeveloperTab, guideId?: string) => void;
-  qualityFilters: QualityFilters;
-  onQualityFiltersChange: (filters: QualityFilters) => void;
-  onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
-  onOpenQualityIssues: (filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
   onOpenProfileWorkbench: () => void;
 }) {
@@ -118,17 +110,15 @@ export function DeveloperAdminPage({
     return () => controller.abort();
   }, [project?.id, readOnly, section]);
   useEffect(() => setSection(initialSection ?? "developer"), [initialSection]);
-  const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
   const allSections: Array<{ id: AdminSection; label: string }> = [
     { id: "developer", label: "開発者ガイド" },
-    { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
     { id: "display", label: "表示桁数" },
     { id: "task", label: "予測タスク定義" },
     { id: "model", label: "モデルと実行環境" },
   ];
-  const sections = allSections.filter((item) => item.id !== "quality" || qualityAvailable);
-  const visibleSection: AdminSection = section === "quality" && resolvedTaskDefinition && !qualityAvailable ? "task" : section;
+  const sections = allSections;
+  const visibleSection = section;
   return <div className="admin-workspace">
     <aside className="admin-navigation">
       <span className="overline">開発・管理</span><h2>検証と構成</h2><p>{readOnly ? "利用停止中の構成を読み取り専用で確認します。" : "通常の候補検討では使わない管理情報です。"}</p>
@@ -160,9 +150,6 @@ export function DeveloperAdminPage({
         initialGuideId={developerGuideId}
         onLocationChange={onDeveloperLocationChange}
       />}
-      {visibleSection === "quality" && (project?.id
-        ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} onOpenIssueList={onOpenQualityIssues} showReferenceScenarios mode="summary" />
-        : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
       {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
       {visibleSection === "task" && <div className="page-panel admin-contract-page">
@@ -311,4 +298,53 @@ export function InputRangeSettingsPage({ project, taskDefinition, readOnly = fal
       return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
     })}</tbody></table>
   </div>;
+}
+
+export function ProjectScopedSettings({
+  project,
+  taskDefinition,
+  resolvedTaskDefinition,
+  readOnly = false,
+  initialSection = "ranges",
+  onSectionChange,
+  onProjectChanged,
+}: {
+  project: ApiProject | undefined;
+  taskDefinition: TaskDefinitionContract | null;
+  resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  readOnly?: boolean;
+  initialSection?: ProjectSettingsSection;
+  onSectionChange: (section: ProjectSettingsSection) => void;
+  onProjectChanged: (project: ApiProject) => void;
+}) {
+  const [section, setSection] = useState<ProjectSettingsSection>(initialSection);
+  useEffect(() => setSection(initialSection), [initialSection]);
+  const select = (next: ProjectSettingsSection) => {
+    setSection(next);
+    onSectionChange(next);
+  };
+  return <section className="project-scientific-settings" aria-label="このProjectの科学設定">
+    <div className="page-intro">
+      <div>
+        <span className="overline">このPROJECT</span>
+        <h3>入力・表示・Task設定</h3>
+        <p>現在のProjectだけに適用する設定です。workspace内のほかのProjectは変更しません。</p>
+      </div>
+    </div>
+    <nav className="developer-tabs" aria-label="Project設定メニュー">
+      <button type="button" className={section === "ranges" ? "active" : ""} onClick={() => select("ranges")}>入力範囲</button>
+      <button type="button" className={section === "display" ? "active" : ""} onClick={() => select("display")}>表示桁数</button>
+      <button type="button" className={section === "task" ? "active" : ""} onClick={() => select("task")}>予測タスク定義</button>
+    </nav>
+    {section === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
+    {section === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
+    {section === "task" && <div className="page-panel admin-contract-page">
+      <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
+      {taskDefinition ? <>
+        {taskDefinition.input_groups.map((group) => <section key={group.key}><h3>{group.label}</h3><table className="quality-table"><thead><tr><th>項目</th><th>単位</th><th>入力</th><th>標準範囲</th></tr></thead><tbody>{group.fields.map((field) => <tr key={field.path}><th>{field.label}</th><td>{field.unit ?? "—"}</td><td>{field.editable ? "編集可" : "固定"}</td><td>{field.default_range ? `${rangeNumber(field.default_range.min)}–${rangeNumber(field.default_range.max)}` : field.choices.join(" / ") || "—"}</td></tr>)}</tbody></table></section>)}
+        <section><h3>予測特性</h3><div className="admin-output-list">{taskDefinition.outputs.map((output) => <span key={output.key}><b>{output.label}</b>{output.unit} · {output.goal_direction === "at_most" ? "小さい側を目標" : output.goal_direction === "at_least" ? "大きい側を目標" : "方向なし"}</span>)}</div></section>
+        <details className="technical-contract"><summary>技術契約を表示</summary><code>{resolvedTaskDefinition?.task_definition.id}</code><span>{resolvedTaskDefinition?.task_definition.schema_version}</span><span>{resolvedTaskDefinition?.runtime_capability.model_package_schema_version}</span></details>
+      </> : <p className="empty-evidence">予測タスク定義を読み込んでいます。</p>}
+    </div>}
+  </section>;
 }

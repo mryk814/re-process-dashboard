@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
-import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
+import { isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
-import { ProjectHub } from "../features/projects";
+import { chainAvailability, chainStagePath, ProjectHub, resolveFixedChain } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
-import { DeveloperAdminPage } from "../features/admin";
+import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
 import {
   workbenchApi,
+  type ApiChainTemplate,
   type ApiSubsystemAvailability,
 } from "../shared/api/workbench-api";
 
@@ -24,7 +25,6 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
-  { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
 
 function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
@@ -50,12 +50,12 @@ function DataExploreUnavailable() {
   </div>;
 }
 
-function ChainModeUnavailablePanel({ onOpenCandidates }: { onOpenCandidates: () => void }) {
+function ChainModeUnavailablePanel({ onOpenCandidates, stagePath }: { onOpenCandidates: () => void; stagePath: string }) {
   return <div className="page-panel task-unavailable-panel" role="status">
     <span className="overline">CHAIN PROJECT</span>
     <h2>この画面はChainプロジェクトでは利用できません</h2>
     <p>Chainは固定したRevisionの段を順に実行するため、単一Task向けの範囲探索・データ探索・開発管理は使いません。</p>
-    <p>配合と工程条件の編集、A → B → Cの実行、段別の実測照合は候補作業面で行います。</p>
+    <p>条件の編集、{stagePath}の実行、段別の実測照合は候補作業面で行います。</p>
     <button type="button" className="primary-button" onClick={onOpenCandidates}>Chain候補を開く</button>
   </div>;
 }
@@ -138,6 +138,8 @@ function App() {
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
+  const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
+  const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
   const navigationRef = useRef(navigation);
@@ -194,29 +196,36 @@ function App() {
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
   const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
-  const chainSubsystem = subsystemAvailability.find(
-    (item) => item.kind === "chain"
-      && item.resource_id === "welding-consumable-a-b-c-v1",
+  const chainIdentity = activeProject?.scientific_identity?.identity_kind === "chain"
+    ? activeProject.scientific_identity
+    : null;
+  const activeChainRevision = resolveFixedChain(chainIdentity, chainTemplates).revision;
+  const activeChainId = activeChainRevision?.chain_id;
+  const activeChainAvailability = chainAvailability(
+    subsystemAvailability,
+    activeChainId,
+    "chain",
   );
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
     && !chainProject
     && tab !== "project"
-    && tab !== "settings"
+    && tab !== "workspace"
     && tab !== "data-library"
     && tab !== "profile-workbench";
   // Chain projects have no single-task contract, so these views cannot answer
   // anything. They stay reachable by deep link, and must explain themselves
   // instead of failing inside a single-task surface.
   const chainScopedTab = chainProject
-    && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "settings");
+    && (tab === "explore" || tab === "lineage" || tab === "quality");
   const dataExplorer = taskUnavailable ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "settings"))
+    (!chainProject && (!taskUnavailable || item.id === "project"))
       || (chainProject && item.id === "candidates")
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -251,6 +260,9 @@ function App() {
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
+      if (isLegacyQualityAdminNavigation()) {
+        window.history.replaceState({}, "", navigationUrl(intent));
+      }
       navigationRef.current = intent;
       setNavigation(intent);
       rememberNavigation(intent);
@@ -264,7 +276,8 @@ function App() {
   useEffect(() => {
     const current = navigationRef.current;
     rememberNavigation(current);
-    if (!new URLSearchParams(window.location.search).has("view")) {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("view") || params.get("view") === "settings") {
       window.history.replaceState({}, "", navigationUrl(current));
     }
   }, []);
@@ -284,10 +297,22 @@ function App() {
   useEffect(() => {
     if (apiState === "offline") return;
     let active = true;
+    setSubsystemAvailabilityLoaded(false);
     void workbenchApi.listSubsystemAvailability().then((items) => {
-      if (active) setSubsystemAvailability(items);
+      if (active) {
+        setSubsystemAvailability(items);
+        setSubsystemAvailabilityLoaded(true);
+      }
     }).catch(() => {
-      if (active) setSubsystemAvailability([]);
+      if (active) {
+        setSubsystemAvailability([]);
+        setSubsystemAvailabilityLoaded(true);
+      }
+    });
+    void workbenchApi.listChainTemplates().then((items) => {
+      if (active) setChainTemplates(items);
+    }).catch(() => {
+      if (active) setChainTemplates([]);
     });
     return () => { active = false; };
   }, [apiState]);
@@ -306,7 +331,7 @@ function App() {
             className="nav-button"
             aria-label="プロジェクト"
             data-short-label="Project"
-            aria-current={!dataLibraryMode ? "page" : undefined}
+            aria-current={!workspaceLevelMode ? "page" : undefined}
             onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
             <HomeNavIcon icon="project" />
@@ -326,12 +351,11 @@ function App() {
           <button
             ref={workspaceButtonRef}
             type="button"
-            className={workspaceDialogOpen ? "nav-button active" : "nav-button"}
+            className={tab === "workspace" ? "nav-button active" : "nav-button"}
             aria-label="ワークスペース"
             data-short-label="保管"
-            aria-haspopup="dialog"
-            aria-expanded={workspaceDialogOpen}
-            onClick={() => setWorkspaceDialogOpen(true)}
+            aria-current={tab === "workspace" ? "page" : undefined}
+            onClick={() => navigate({ view: "workspace", adminSection: "developer" })}
           >
             <HomeNavIcon icon="workspace" />
             <span className="nav-label-full">ワークスペース</span>
@@ -345,7 +369,7 @@ function App() {
           setRetrying(true);
           void session.retryOpenWorkspace().finally(() => setRetrying(false));
         }} />}
-        {!dataLibraryMode && <div className="context-bar">
+        {!workspaceLevelMode && <div className="context-bar">
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
@@ -406,6 +430,7 @@ function App() {
             currentPreviews={prediction.previewsByCandidate}
             taskAvailability={taskAvailability}
             subsystemAvailability={subsystemAvailability}
+            subsystemAvailabilityLoaded={subsystemAvailabilityLoaded}
             offline={apiState === "offline"}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
@@ -416,9 +441,15 @@ function App() {
               navigate({ view: "project", projectId }, true);
               void session.loadProject(projectId);
             }}
-            onNavigate={(view, candidateId) => {
-              navigate({ view, projectId: activeProjectId, candidateId }, true);
-              if (candidateId) selectCandidate(candidateId, true);
+            onNavigate={(view, candidateId, options) => {
+              navigate({
+                view,
+                projectId: activeProjectId,
+                candidateId,
+                activityId: options?.activityId,
+                candidateSection: options?.candidateSection,
+              }, true);
+              if (candidateId) session.selectCandidate(candidateId, false);
             }}
             onSnapshotNavigate={(snapshotId) => navigate({ view: "project", projectId: activeProjectId, snapshotId }, true)}
             onRestore={(candidate) => {
@@ -427,6 +458,21 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedSettingsSection={navigation.projectSettings}
+            renderScientificSettings={(project, handleProjectChanged) => <ProjectScopedSettings
+              project={project}
+              taskDefinition={taskDefinition}
+              resolvedTaskDefinition={resolvedTaskDefinition}
+              readOnly={taskUnavailable}
+              initialSection={navigation.projectSettings === "display" || navigation.projectSettings === "task"
+                ? navigation.projectSettings
+                : "ranges"}
+              onSectionChange={(projectSettings) => navigate({
+                view: "project",
+                projectId: activeProjectId,
+                projectSettings,
+              }, true)}
+              onProjectChanged={handleProjectChanged}
+            />}
             onCreationIntentConsumed={() => setRequestedDatasetViewId(undefined)}
           />
         )}
@@ -443,9 +489,9 @@ function App() {
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}
             onOpenSettings={() => navigate({
-              view: "settings",
+              view: "project",
               projectId: activeProjectId,
-              adminSection: "developer",
+              projectSettings: "task",
             })}
           />
         )}
@@ -454,70 +500,31 @@ function App() {
             view: "candidates",
             projectId: activeProjectId,
             candidateId: selectedId || undefined,
-          })} />
+          })} stagePath={chainStagePath(activeChainRevision)} />
         )}
-        {tab === "settings" && !chainProject && (
-          <DeveloperAdminPage
-            project={activeProject}
-            taskDefinition={taskDefinition}
-            resolvedTaskDefinition={resolvedTaskDefinition}
-            readOnly={taskUnavailable}
-            availability={taskAvailability}
-            initialSection={navigation.adminSection}
+        {tab === "workspace" && (
+          <WorkspaceAdminPage
             developerTab={navigation.developerTab}
             developerTabError={navigation.developerTabError}
             developerGuideId={navigation.developerGuideId}
             onDeveloperLocationChange={(developerTab, developerGuideId) => navigate({
               ...navigationRef.current,
-              view: "settings",
-              projectId: activeProjectId,
+              view: "workspace",
               adminSection: "developer",
               developerTab,
               developerGuideId,
             })}
-            onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
-            qualityFilters={{
-              issueId: navigation.qualityIssueId,
-              type: navigation.qualityType,
-              sheet: navigation.qualitySheet,
-              key: navigation.qualityKey,
-            }}
-            onQualityFiltersChange={(filters) => navigate({
-              ...navigationRef.current,
-              view: "settings",
-              projectId: activeProjectId,
-              qualityIssueId: filters.issueId,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            }, true)}
-            onOpenLineage={(issue, filters) => navigate({
-              view: "lineage",
-              projectId: activeProjectId,
-              entityKey: issue.focus_entity_key ?? undefined,
-              qualityIssueId: issue.issue_id,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            })}
-            onProjectChanged={(project) => {
-              void session.refreshAdminProject(project);
-            }}
             onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
-            onOpenQualityIssues={(filters) => navigate({
-              view: "quality",
-              projectId: activeProjectId,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            })}
+            onOpenStorage={() => setWorkspaceDialogOpen(true)}
           />
         )}
         {tab === "candidates" && chainProject && (
           <ChainWorkbenchPage
             projectId={activeProjectId}
             initialCandidateId={navigation.candidateId}
-            unavailable={chainSubsystem?.status === "unavailable" ? chainSubsystem : undefined}
+            unavailable={activeChainAvailability?.status === "unavailable"
+              ? activeChainAvailability
+              : undefined}
             displayDecimalOverrides={activeProject?.display_decimals}
             onCandidateSelected={(candidateId) => navigate({
               view: "candidates",
@@ -584,6 +591,7 @@ function App() {
               }}
               activityId={navigation.activityId}
               activityRunId={navigation.activityRunId}
+              candidateSection={navigation.candidateSection}
               onActivityStateChange={(activityId, activityRunId) => navigate({
                 ...navigationRef.current,
                 view: "candidates",
@@ -591,6 +599,7 @@ function App() {
                 candidateId: selectedId || undefined,
                 activityId,
                 activityRunId,
+                candidateSection: undefined,
               }, true)}
               onConfigureGoals={() => navigate({
                 view: "project",
@@ -602,9 +611,9 @@ function App() {
               loadingRemainingPreviews={session.loadingRemainingPreviews}
               onLoadRemainingPreviews={() => void session.loadRemainingPreviews()}
               onConfigureSupport={() => navigate({
-                view: "settings",
+                view: "project",
                 projectId: activeProjectId,
-                adminSection: "ranges",
+                projectSettings: "ranges",
               })}
             />
           ) : (
@@ -645,6 +654,7 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
+            showReferenceScenarios
             />
           </div>
         ) : <DataExploreUnavailable />)}

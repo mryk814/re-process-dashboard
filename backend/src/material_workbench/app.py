@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 from fastapi import FastAPI
 
@@ -132,6 +132,8 @@ def _record_optional_failure(
     subsystem_id: str,
     kind: SubsystemKind,
     resource_id: str,
+    owner_kind: Literal["chain", "transform"] | None = None,
+    owner_resource_id: str | None = None,
     stage: str,
     label: str,
     impact: str,
@@ -150,6 +152,8 @@ def _record_optional_failure(
         subsystem_id=subsystem_id,
         kind=kind,
         resource_id=resource_id,
+        owner_kind=owner_kind,
+        owner_resource_id=owner_resource_id,
         stage=stage,
         cause=f"{type(exc).__name__}: {str(exc).splitlines()[0]}",
         message=f"{label}を利用できません。",
@@ -359,6 +363,8 @@ def create_app(
                 subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
                 kind="deterministic_transform",
                 resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                owner_kind="transform",
+                owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
                 stage="deterministic_transforms",
             )
         except DeterministicTransformCatalogUnavailableError as exc:
@@ -367,6 +373,8 @@ def create_app(
                 subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
                 kind="deterministic_transform",
                 resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                owner_kind="transform",
+                owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
                 stage="deterministic_transforms",
                 label="溶接材料の決定論的Transform",
                 impact="このTransformを使う配合編集とChain実行を停止します。ほかの予測Taskと保存済み証跡は利用できます。",
@@ -383,6 +391,8 @@ def create_app(
                 subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
                 kind="chain",
                 resource_id=WELDING_CHAIN_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                 stage="chain_catalog",
                 cause=f"dependency_unavailable: {WELDING_TRANSFORM_SUBSYSTEM_ID}",
                 message="溶接材料Chainを利用できません。",
@@ -405,6 +415,8 @@ def create_app(
                     subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
                     kind="chain",
                     resource_id=WELDING_CHAIN_RESOURCE_ID,
+                    owner_kind="chain",
+                    owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                     stage="chain_catalog",
                 )
             except WeldingChainBootstrapError as exc:
@@ -413,6 +425,8 @@ def create_app(
                     subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
                     kind="chain",
                     resource_id=WELDING_CHAIN_RESOURCE_ID,
+                    owner_kind="chain",
+                    owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                     stage="chain_catalog",
                     label="溶接材料Chain",
                     impact="このChainの候補編集と実行を停止します。保存済みProject・Run・SnapshotはProject概要から参照できます。",
@@ -432,6 +446,8 @@ def create_app(
                 subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
                 kind="chain_evaluation",
                 resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                 stage="chain_evaluation",
             )
         except (OSError, ValueError) as exc:
@@ -440,6 +456,8 @@ def create_app(
                 subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
                 kind="chain_evaluation",
                 resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                 stage="chain_evaluation",
                 label="溶接材料Chainの評価成果物",
                 impact="段単体／通し評価だけを停止します。Chain候補、実行、保存済み証跡とほかのTaskは利用できます。",

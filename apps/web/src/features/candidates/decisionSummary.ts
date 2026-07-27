@@ -13,6 +13,7 @@ type DecisionPreview = Readonly<{
 export type CandidateDecisionSummary = Readonly<{
   loadedCandidateCount: number;
   supportCounts: Readonly<Record<DecisionSupportStatus, number>>;
+  uniformSupportStatus: DecisionSupportStatus | null;
   assessableOutputKeys: readonly string[];
   overlappingOutputKeys: readonly string[];
 }>;
@@ -76,6 +77,9 @@ export function buildCandidateDecisionSummary({
   return {
     loadedCandidateCount: loaded.length,
     supportCounts,
+    uniformSupportStatus: candidateIds.length > 0 && loaded.length === candidateIds.length
+      ? (Object.entries(supportCounts).find(([, count]) => count === candidateIds.length)?.[0] as DecisionSupportStatus | undefined) ?? null
+      : null,
     assessableOutputKeys,
     overlappingOutputKeys,
   };

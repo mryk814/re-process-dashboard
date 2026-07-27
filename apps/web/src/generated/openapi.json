@@ -11840,6 +11840,11 @@
             ],
             "title": "Scientific Identity"
           },
+          "starter": {
+            "default": false,
+            "title": "Starter",
+            "type": "boolean"
+          },
           "target_values": {
             "additionalProperties": {
               "anyOf": [
@@ -17035,6 +17040,32 @@
             "default": "",
             "title": "Message",
             "type": "string"
+          },
+          "owner_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "chain",
+                  "transform"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Kind"
+          },
+          "owner_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Resource Id"
           },
           "recovery_hint": {
             "default": "",

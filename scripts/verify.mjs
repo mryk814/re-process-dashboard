@@ -35,6 +35,7 @@ if (mode === "focused") {
   const baseRef = process.env.VERIFY_BASE_REF || "origin/main";
   run("full pytest", "uv", ["run", "--extra", "dev", "python", "-m", "pytest"]);
   runNpm("web unit tests", ["run", "test", "-w", "apps/web"]);
+  runNpm("desktop unit tests", ["run", "test", "-w", "apps/desktop"]);
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
   runNpm("application build", ["run", "build"]);
   runNpm("failure-state E2E", ["run", "test:e2e:failure-states"]);

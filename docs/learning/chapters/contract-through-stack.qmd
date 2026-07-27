@@ -2,7 +2,7 @@
 chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
+verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"
@@ -635,6 +635,8 @@ Robustness viewだけは、目標がない間は前提説明を出し、利用�
 
 保存済みRunの選択は、固有viewではなく共通shellが所有します。
 `DecisionActivityPanel`は`activeRunId`と`onSelectRun`を各viewへ渡し、Activityを切り替えた場合は別ActivityのRunを引き継がないよう選択を消します。
+各viewは共通の履歴navigationと「この結果の再現情報」を使い、Runの作成日時、Candidate revision、Task contract、Model Package、Feature pipeline、Training Snapshot、入力digestを同じ読む順序で表示します。
+この表示は新しいprovenanceを計算する経路ではなく、immutable Runに保存された値を監査可能な形へ展開する経路です。
 
 選択中ActivityとRun IDは、`apps/web/src/app/navigation.ts`を通してlocationへ含めます。
 共有URLから開いた場合、shellはRun IDを保存済みRunへ照合し、そのRun自身が持つ`activity_id`を優先します。^[URLのActivity IDは入口を早く決めるhintです。Runと矛盾する場合は、保存済みRunが持つdefinitionを正とするため、別Activityの表示へ誤って復元しません。]
@@ -655,6 +657,8 @@ URLが存在しないRunを指す場合は、別Runへfallbackせずalertを表�
 `DecisionActivityPanel`は、Project ID、Candidate ID、Candidate revisionからrequest identityを作ります。
 request開始時のidentityと現在のidentityが一致する場合だけ、responseをstateへ反映します。
 候補切替時には実行中requestもabortします。
+さらに、Activity一覧と保存済みRunを読み終えたidentityが現在値と一致するまでresult viewを表示しません。
+古いCandidateのRun一覧が一瞬残ることも、遅い実行responseと同じidentity境界で拒否します。
 
 ![Candidate切替後に届いたstale responseをidentity不一致で破棄する時系列](../figures/stale-response-timeline.svg){fig-alt="Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが届いてもProject、Candidate、revision、request sequenceが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信停止を試みるが、response到着時のidentity checkを置き換えない。" width="100%"}
 
@@ -757,8 +761,8 @@ UIまで変更した場合は、隔離DBを使う既定設定で次も実行し�
 
 ::: {.callout-warning title="現mainの既知E2E failure"}
 2026年7月27日にmerge済みHEAD `f93af87` で再実行し、3件中2件が成功しました。
-失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
-Issue #279が閉じるまでは、2 passed、1 known failureを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
+この実測時点の失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、調査用の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+Issue #279とIssue #280は現在closedであり、2 passed、1 known failureは過去の検証記録であって現行の期待結果ではありません。
 :::
 
 ```powershell

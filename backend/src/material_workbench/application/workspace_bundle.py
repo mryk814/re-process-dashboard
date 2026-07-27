@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+from typing import Callable
 from uuid import uuid4
 
 from openpyxl import load_workbook
@@ -1347,6 +1348,7 @@ def commit_workspace_restore(
     database: Path,
     data_library_root: Path,
     restore_token: str,
+    _fault_injector: Callable[[str], None] | None = None,
 ) -> WorkspaceRestoreCommitResult:
     root = _restore_root(database, restore_token)
     state = _read_state(root)
@@ -1393,17 +1395,28 @@ def commit_workspace_restore(
     )
     state["installed_resource_roots"] = list(installed_resources)
     _write_state(root, state)
+    if _fault_injector is not None:
+        _fault_injector("after_journal_committing")
     moved_current = False
     installed_next = False
     try:
         if database.exists():
             os.replace(database, rollback_database)
             moved_current = True
+        if _fault_injector is not None:
+            # This checkpoint means that the previous-database move phase has
+            # completed.  On a first restore there is no database to move, but
+            # a process can still stop at the same transaction boundary.
+            _fault_injector("after_current_moved")
         os.replace(staged_database, database)
         installed_next = True
+        if _fault_injector is not None:
+            _fault_injector("after_database_committed")
         state["status"] = "committed"
         state["committed_at"] = datetime.now(UTC).isoformat()
         _write_state(root, state)
+        if _fault_injector is not None:
+            _fault_injector("after_journal_committed")
     except Exception as exc:
         if installed_next and database.exists():
             failed = root / "failed-workbench.db"
@@ -1518,6 +1531,36 @@ def recover_incomplete_workspace_restores(
                 if database.exists():
                     os.replace(database, failed_database)
                 os.replace(rollback_database, database)
+                _cleanup_installed_resources(
+                    library_root,
+                    state.get("installed_resource_roots"),
+                )
+                recovered.append(str(state.get("token", root.name)))
+                shutil.rmtree(root, ignore_errors=True)
+            elif state.get("previous_database_sha256") is None and (
+                not database.exists()
+                or _file_digest(database) == state.get("commit_database_sha256")
+            ):
+                # A first restore has no rollback database.  Depending on the
+                # stop point, the imported database is either not installed yet
+                # or is the active database.  Returning to the pre-transaction
+                # state therefore means an empty Workspace.
+                if database.exists():
+                    database.unlink()
+                _cleanup_installed_resources(
+                    library_root,
+                    state.get("installed_resource_roots"),
+                )
+                recovered.append(str(state.get("token", root.name)))
+                shutil.rmtree(root, ignore_errors=True)
+            elif (
+                state.get("status") == "committing"
+                and state.get("previous_database_sha256") is not None
+                and database.exists()
+                and _file_digest(database) == state.get("previous_database_sha256")
+            ):
+                # The process stopped after journaling but before moving the
+                # current DB. The original Workspace is already active.
                 _cleanup_installed_resources(
                     library_root,
                     state.get("installed_resource_roots"),

@@ -279,7 +279,9 @@ def _copy_project_with_target(client, target: float):
 def test_counterfactual_run_pins_evidence_and_promotes_only_the_selected_proposal(
     client,
 ) -> None:
-    project, candidate = _copy_project_with_target(client, 635)
+    # The starter now comes from an observed, supported training condition.
+    # 550 MPa keeps this fixed exercise reachable within its pinned Design Space.
+    project, candidate = _copy_project_with_target(client, 550)
     url = (
         f"/api/projects/{project['id']}/candidates/{candidate['id']}"
         "/decision-activities/counterfactual-target-reach-v1/runs"

@@ -2,7 +2,7 @@
 chapter_id: "restore-workspace-safely"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
+verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
 code_references:
   - path: "docs/workspace-backup.md"
     role: "docs"
@@ -132,7 +132,7 @@ backendは緑の管理資源をresource inventoryの`bundle_digest`で決まるc
 もし緑のDBでAPIを起動できなければ、青のDBをactive pathへ戻します。
 利用者が見ていた正本を捨ててから復元を試す順序にはなっていません。
 
-![Workspace復元の状態遷移](../figures/workspace-restore-state.svg){fig-alt="現Workspaceからprepare、commit、API health確認、finalizeへ進み、失敗時はrollbackして元Workspaceへ戻る。" width="100%"}
+![Workspace復元の状態遷移](../figures/workspace-restore-state.svg){fig-alt="現Workspaceからprepare、commit、API health確認、finalizeへ進む。失敗時はrollbackし、旧DBがあれば元Workspaceへ戻し、旧DBがなければDBなしの状態へ戻す。" width="100%"}
 
 この流れで問いになるのは、「fileを置き換えたか」ではありません。
 新しいWorkspaceをアプリが実際に開けるところまで確認したかです。
@@ -450,8 +450,11 @@ commit後もrollback DBを残し、APIが実際に開けることを確認して
 DBへData Assetとして登録されたfileのbytesはbundleへ含まれますが、復元先ではData Libraryのmanaged resourceとして配置します。
 DBに登録されていない元Sourceまでdirectory単位で退避する機能ではありません。
 
-rollbackと起動時recoveryは実装されていますが、現行の自動testはcommit後のhealth失敗やprocess強制終了を直接故障注入していません。
-packaged smokeも正常restore、改ざん拒否、再起動を確認しますが、rollback分岐までは実動確認しません。
+起動時recoveryの自動testは、journalを`committing`へ書いた直後、新DBをactive pathへ移した直後、`committed`を書いた直後、health失敗を観測した後で、別processを強制終了します。
+次のprocessはdisk上のjournalと旧DB・新DBのdigestだけを読み、元Workspaceをactiveへ戻し、staging DB、rollback DB、途中配置したmanaged resourceを片付けます。
+これによりPython process境界のrollbackは再現できますが、OSの電源断やinstallerを使った強制終了そのものを再現した試験ではありません。
+
+packaged smokeは正常restore、改ざん拒否、再起動を確認しますが、rollback分岐までは実動確認しません。
 
 prepareしたtokenと確認内容はElectron main processのmemoryにも保持します。
 rendererだけがreloadすると確認画面は失われますが、期限内のstagingはdisk上に残るため、操作性と回収可能性は同じ問題ではありません。

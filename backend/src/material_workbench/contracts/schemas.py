@@ -516,6 +516,7 @@ class ProjectGroupMoveInput(BaseModel):
 
 class Project(ProjectInput):
     id: str
+    starter: bool = False
     scientific_identity: ProjectScientificIdentity
     dataset_view_revision_id: str | None = None
     task_contract_digest: str = ""

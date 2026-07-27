@@ -202,6 +202,9 @@ node docs/learning/test-figures.mjs
 node docs/learning/check-figures.mjs
 node docs/learning/test-labs.mjs
 node docs/learning/check-labs.mjs
+node docs/learning/check-lab-reproducibility.mjs
+node docs/learning/test-repository-reference-states.mjs
+node docs/learning/check-repository-reference-states.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```
@@ -213,6 +216,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 ```
 
 参照する実装経路のfocused testと生成型checkも実行する。
+
+## IssueとPull Requestの状態
+
+現在の状態を本文の根拠にするときは`repository-reference-states.json`へ`mode: current`、観測state、`verified_at`、参照文書を記録する。
+過去の実測や判断を説明する参照は`mode: historical`とし、GitHub側の現在値へ自動で書き換えない。
+networkが使える更新時は`node docs/learning/check-repository-reference-states.mjs --online`でcurrent参照を照合する。
+offline検査は最後の観測stateと日時だけを検証し、現在値を確認したとは扱わない。
 型付き契約の章では次を使う。
 
 ```powershell

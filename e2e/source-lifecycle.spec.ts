@@ -79,7 +79,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.getByLabel("JSONデータ")).toHaveValue("");
   await section.locator(".source-validation-mode").getByText("検証モード：JSONを直接入力").click();
   await expect(section.locator(".source-stage-rail")).toContainText("1版");
-  await expect(section.locator(".source-stage-rail")).toContainText("未実行");
+  await expect(section.locator(".source-stage-rail")).toContainText("0版");
 
   await section.getByRole("button", { name: "品質判定を実行" }).click();
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
@@ -124,4 +124,85 @@ test("source refresh stays separate from approval, training and activation", asy
 
   const optionsAfter = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   expect(optionsAfter.model_packages).toEqual(optionsBefore.model_packages);
+
+  const secondFetch = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}/fetch`, {
+    data: {
+      schema_version: "source-fetch-request/v1",
+      trigger_kind: "manual",
+      object_content: JSON.stringify([
+        { id: "A-01", value: "12.8", target: "98.4" },
+        { id: "A-04", value: "16.2", target: "99.0" },
+      ]),
+      object_version: "e2e-etag-2",
+      retry_of: null,
+    },
+  });
+  expect(secondFetch.ok()).toBeTruthy();
+  await page.reload();
+  const repeatedSection = page.locator(".source-lifecycle-section");
+  await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
+  await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
+  await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
+  await repeatedSection.getByLabel("用途").fill("更新版の再評価");
+  await repeatedSection.getByRole("button", { name: "学習用スナップショットを作成" }).click();
+
+  await page.reload();
+  const historySection = page.locator(".source-lifecycle-section");
+  await expect(historySection).toBeVisible();
+  await expect(historySection.locator(".source-stage-rail li").nth(0)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(1)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(2)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(3)).toContainText("2版");
+
+  await historySection.locator(".source-stage-rail li").nth(2).getByRole("button").click();
+  const approvalHistory = historySection.locator(".source-history");
+  await expect(approvalHistory.locator(".source-history-list").getByRole("button")).toHaveCount(2);
+  await approvalHistory.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" }).click();
+  await expect(approvalHistory).toContainText("既知の測定限界として採用");
+  await expect(approvalHistory).toContainText("CHECK-02");
+  await expect(approvalHistory).toContainText("測定担当者に確認済み");
+  await expect.poll(() => new URL(page.url()).searchParams.get("stage")).toBe("approval");
+  await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(approvedRevision.id);
+
+  const auditUrl = page.url();
+  await page.goto(auditUrl);
+  await expect(page.locator(".source-history")).toContainText("既知の測定限界として採用");
+  await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("late connector detail cannot replace the selected connector", async ({ page, request }) => {
+  const createConnector = async (name: string) => {
+    const response = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
+      data: {
+        schema_version: "source-connector/v1",
+        name,
+        connector_type: "object_storage_json_v1",
+        source_locator: `s3://e2e-bucket/${name}.json`,
+        selection: {
+          schema_version: "object-selection/v1",
+          format: "json_array",
+          primary_key: "id",
+          included_fields: [],
+        },
+        trigger_policy: "manual_only",
+        schedule: null,
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  };
+  const slow = await createConnector(`遅い接続先-${Date.now()}`);
+  const selected = await createConnector(`選択接続先-${Date.now()}`);
+  await page.route(`**/api/data-lifecycle/connectors/${slow.id}`, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
+
+  await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
+  await page.getByRole("button", { name: new RegExp(selected.name) }).click();
+  const detailHeader = page.locator(".source-lifecycle-detail > header");
+  await expect(detailHeader).toContainText(selected.name);
+  await page.waitForTimeout(700);
+  await expect(detailHeader).toContainText(selected.name);
+  await expect(detailHeader).not.toContainText(slow.name);
 });

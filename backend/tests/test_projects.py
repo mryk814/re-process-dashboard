@@ -104,13 +104,25 @@ def test_project_design_space_migration_is_additive_and_idempotent(tmp_path) -> 
     assert legacy_objective == (None, None, "unbound_legacy")
     assert objective_marker == ("immutable-project-objective-definition-v1",)
     assert objective_revisions_table == ("project_objective_revisions",)
+    with sqlite3.connect(database) as conn:
+        starter_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(projects)")
+        }
+        starter_marker = conn.execute(
+            "SELECT checksum FROM schema_migrations "
+            "WHERE id='project-starter-identity-v1'"
+        ).fetchone()
+    assert "is_starter" in starter_columns
+    assert starter_marker == ("explicit-project-starter-identity-v1",)
 
 
 def test_project_crud_preserves_default_and_isolates_candidates_and_screening(client) -> None:
     default = client.get("/api/projects/default").json()
+    assert default["starter"] is True
     created = client.post("/api/projects", json=_project(client, "新規プロジェクト"))
     assert created.status_code == 201
     project = created.json()
+    assert project["starter"] is False
     assert project["id"] != "default"
     assert project["design_space"]["revision"] == 1
     assert project["design_space_digest"].startswith("sha256:")

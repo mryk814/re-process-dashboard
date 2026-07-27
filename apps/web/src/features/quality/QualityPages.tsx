@@ -53,7 +53,7 @@ export function DataExploreNavigation({
     <div><span className="overline">データ探索</span><strong>実績のつながりと問題を同じ文脈で確認</strong></div>
     <nav aria-label="データ探索">
       {lineageAvailable && <button className={active === "lineage" ? "active" : ""} onClick={() => onNavigate("lineage")}>実績・工程を探す</button>}
-      {qualityAvailable && <button className={active === "quality" ? "active" : ""} onClick={() => onNavigate("quality")}>問題から探す</button>}
+      {qualityAvailable && <button className={active === "quality" ? "active" : ""} onClick={() => onNavigate("quality")}>データ品質</button>}
     </nav>
   </div>;
 }
@@ -63,17 +63,13 @@ export function LiveDataQualityPage({
   filters,
   onFiltersChange,
   onOpenLineage,
-  onOpenIssueList,
   showReferenceScenarios = false,
-  mode = "issues",
 }: {
   projectId: string;
   filters: QualityFilters;
   onFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
-  onOpenIssueList?: (filters: QualityFilters) => void;
   showReferenceScenarios?: boolean;
-  mode?: "issues" | "summary";
 }) {
   const [data, setData] = useState<ApiQuality | null>(null);
   const [error, setError] = useState(false);
@@ -139,13 +135,12 @@ export function LiveDataQualityPage({
     <div className="page-panel quality-page">
       <div className="page-intro">
         <div>
-          <h2>{mode === "summary" ? "データ品質集計" : "問題から探す"}</h2>
+          <h2>データ品質</h2>
           <p>元データを変更せず、関係・値域・分布から実際の問題を検出します。</p>
         </div>
-        {mode === "summary" && <div className="quality-summary-actions">
-          {data && data.detected_total > 0 && onOpenIssueList && <button className="primary-button" onClick={() => onOpenIssueList(filters)}>問題一覧で確認</button>}
+        <div className="quality-summary-actions">
           <button className="outline-button" onClick={() => void exportCsv()}>検出結果をCSV出力</button>
-        </div>}
+        </div>
       </div>
       {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
       {copyError && <p className="empty-evidence" role="alert">{copyError}</p>}
@@ -161,7 +156,7 @@ export function LiveDataQualityPage({
             <small>{data.dataset.source_path}</small>
             <small>{data.dataset.profile_path}</small>
           </details>
-          {mode === "summary" && <div className="quality-summary">
+          <div className="quality-summary">
             <button type="button" className={!filters.type ? "active" : ""} onClick={() => updateFilters({ type: undefined })}>
               <b>{data.detected_total}</b>件を実検出
             </button>
@@ -170,12 +165,8 @@ export function LiveDataQualityPage({
                 <b>{count}</b>{labels[type as DetectedIssue["issue_type"]] ?? type}
               </button>
             ))}
-          </div>}
-          {mode === "summary" && data.detected_total === 0 && <div className="quality-empty-state">
-            <strong>現在の検出ルールでは問題は見つかりませんでした</strong>
-            <p>未実行ではありません。参照データやProfileを更新した場合は、もう一度この集計を確認してください。</p>
-          </div>}
-          {mode === "issues" && <>
+          </div>
+          <>
             <div className="quality-filters" aria-label="検出結果フィルタ">
               <label>種別<select value={filters.type ?? ""} onChange={(event) => updateFilters({ type: event.target.value || undefined })}>
                 <option value="">すべて</option>
@@ -221,7 +212,7 @@ export function LiveDataQualityPage({
             </div> : data.detected_total === 0
               ? <div className="quality-empty-state"><strong>問題は検出されませんでした</strong><p>検出は完了しています。元データやProfileが変わったときに再確認してください。</p></div>
               : <div className="quality-empty-state filtered"><strong>絞り込みに一致する問題はありません</strong><p>{data.detected_total.toLocaleString("ja-JP")}件の検出結果は残っています。</p><button type="button" className="outline-button" onClick={clearFilters}>すべての問題を表示</button></div>}
-          </>}
+          </>
           {showReferenceScenarios && <details className="reference-scenarios">
             <summary>Excelに用意された確認用シナリオ（{data.reference_scenarios.length}件）</summary>
             <p>ここは検出結果ではなく、アプリの気づきを検証するために元データへ用意された参照ケースです。</p>

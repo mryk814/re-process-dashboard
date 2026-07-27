@@ -73,7 +73,7 @@ test("dataset import stays in the global data library context", async ({ page })
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
 
   await page.goto("/?view=settings&project=default&admin=profile");
-  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).not.toContainText("Profile Workbench");
+  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
 });
 
@@ -167,7 +167,7 @@ test("developer diagnostics shows runtime checks without repository tooling", as
   // The diagnostics run against every registered runtime, which takes longer than
   // the default expect timeout.
   await expect(page.locator(".doctor-summary")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("Projectの固定参照")).toBeVisible();
+  await expect(page.getByText("Projectの固定参照", { exact: true })).toBeVisible();
   await expect(page.getByText("API／sidecar状態")).toBeVisible();
   await expect(page.getByText(/npm|uv|OpenAPI check/)).toHaveCount(0);
 });
@@ -193,7 +193,7 @@ test("quality finding opens the selected lineage node and returns with filters",
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(`/?view=quality&project=${project}`);
-  await expect(page.getByRole("heading", { name: "問題から探す" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
 
   await page.getByLabel("種別").selectOption("duplicate_key");
@@ -223,10 +223,6 @@ test("quality finding opens the selected lineage node and returns with filters",
   await page.locator(".quality-focus-row").getByRole("button", { name: "キーをコピー" }).click();
   await expect(page.getByRole("alert")).toContainText("クリップボード権限を確認してください");
 
-  await page.getByRole("button", { name: "開発・管理", exact: true }).click();
-  await page.getByRole("navigation", { name: "開発・管理メニュー" })
-    .getByRole("button", { name: "データ品質集計" }).click();
-  await expect(page.getByRole("heading", { name: "データ品質集計" })).toBeVisible();
   const beforeDownloadUrl = page.url();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "検出結果をCSV出力" }).click();

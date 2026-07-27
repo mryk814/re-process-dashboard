@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
+verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
@@ -251,7 +251,8 @@ Projectを作るE2Eは、immutableなModel Package IDを固定するとPackage�
 共有Projectの状態と、server起動時にbindしたDataset revisionが次の実行へ残るためです。
 
 API停止testでは通信を中断し、停止理由が画面へ出ること、mutation操作が無効になること、retry後も同じsurfaceへ戻ることを確認します。
-accessibility smokeは選んだ主要surfaceの自動検査であり、keyboard操作、読み順、専門語の理解しやすさを全面的に保証しません。
+accessibility smokeは主要surfaceごとにaxeのWCAG 2 A、AA ruleを実行し、impactがseriousまたはcriticalの違反を拒否します。
+これに計算済み文字sizeと選択操作の検査を重ねますが、読み順、専門語の理解しやすさ、支援技術との組合せを全面的に保証しません。
 
 毎回すべてのE2Eを回す必要はありません。
 反復中は変更した失敗モードに近いspecを選び、完了時にはfresh serverとfresh DBで所定のgateを通します。
@@ -277,6 +278,8 @@ fixtureにはschema versionだけでなく、保持すべき候補、revision、
 Windows delivery smokeはfolder ZIPとsilent installerを別々に展開し、uninstall後に実行可能fileが消え、利用者DBが残ることまで確認します。
 
 `npm run package:windows`はbuild、sidecar生成、installer生成、resource検査、packaged smokeを連結します。
+既定では前回の`release`を先に削除し、検証後は展開directoryを残しません。
+過去artifactを混ぜずに配布物を作ることと、生成後のinstallerとfolder ZIPをsmokeすることを同じcommandへ置いています。
 既存artifactだけを再検証する場合は`npm run smoke:packaged`を使います。
 このsmokeが成功しても、全Windows構成や全予測結果の科学的妥当性までは保証しません。
 

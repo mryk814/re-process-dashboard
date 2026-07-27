@@ -19,6 +19,7 @@ test("a saved activity run is part of the location", async () => {
     "?view=candidates&project=p1&candidate=c1&activity=robustness-analysis-v1&activity_run=activity-abc",
   );
   const intent = readNavigationIntent();
+  assert.equal(intent.view, "candidates");
   assert.equal(intent.activityId, "robustness-analysis-v1");
   assert.equal(intent.activityRunId, "activity-abc");
   const url = navigationUrl(intent);
@@ -81,11 +82,12 @@ test("developer tab and guide form a restorable location", async () => {
     "?view=settings&project=p1&admin=developer&developer_tab=guide&developer_guide=decision-activity-new",
   );
   const intent = readNavigationIntent();
+  assert.equal(intent.view, "workspace");
   assert.equal(intent.developerTab, "guide");
   assert.equal(intent.developerGuideId, "decision-activity-new");
   assert.match(navigationUrl(intent), /developer_tab=guide/);
   assert.match(navigationUrl(intent), /developer_guide=decision-activity-new/);
-  assert.equal(withView(intent, "settings").developerGuideId, "decision-activity-new");
+  assert.equal(withView(intent, "workspace").developerGuideId, "decision-activity-new");
   assert.equal(withView(intent, "candidates").developerGuideId, undefined);
 });
 
@@ -96,6 +98,22 @@ test("an unknown developer tab is reported instead of silently selected", async 
   const intent = readNavigationIntent();
   assert.equal(intent.developerTab, undefined);
   assert.equal(intent.developerTabError, "missing");
+});
+
+test("legacy admin links resolve to their new scope without retaining the settings route", async () => {
+  const workspace = await navigationModule("?view=settings&project=p1&admin=developer");
+  assert.equal(workspace.readNavigationIntent().view, "workspace");
+
+  const model = await navigationModule("?view=settings&project=p1&admin=model");
+  assert.equal(model.readNavigationIntent().view, "workspace");
+  assert.equal(model.readNavigationIntent().developerTab, "diagnostics");
+
+  const ranges = await navigationModule("?view=settings&project=p1&admin=ranges");
+  assert.equal(ranges.readNavigationIntent().view, "project");
+  assert.equal(ranges.readNavigationIntent().projectSettings, "ranges");
+
+  const quality = await navigationModule("?view=settings&project=p1&admin=quality");
+  assert.equal(quality.readNavigationIntent().view, "quality");
 });
 
 test("all saved activity runs and their provenance stay reachable", async () => {

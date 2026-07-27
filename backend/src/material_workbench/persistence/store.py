@@ -18,6 +18,9 @@ from material_workbench.persistence.project_lifecycle_migration import (
     migrate_project_lifecycle,
     remove_project_archive_write_guards,
 )
+from material_workbench.persistence.project_persistence_inventory import (
+    PROJECT_PERSISTENCE,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainProjectIdentity,
@@ -58,6 +61,9 @@ from material_workbench.contracts.objective_contracts import (
 )
 from material_workbench.persistence.project_objective_migration import (
     migrate_project_objectives,
+)
+from material_workbench.persistence.project_starter_migration import (
+    migrate_project_starter_identity,
 )
 from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
 from material_workbench.persistence.series_asset_migration import migrate_series_assets
@@ -205,6 +211,7 @@ class Store:
         migrate_decision_activity_runs(self.path)
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)
+        migrate_project_starter_identity(self.path)
         migrate_series_assets(self.path)
         migrate_data_lifecycle(self.path)
         install_project_archive_write_guards(self.path)
@@ -788,6 +795,7 @@ class Store:
             project_series_id=row["project_series_id"],
             predecessor_project_id=row["predecessor_project_id"],
             continuation_reason=row["continuation_reason"],
+            starter=bool(row["is_starter"]),
             design_space=(
                 json.loads(row["design_space_json"])
                 if row["design_space_json"]
@@ -1120,16 +1128,29 @@ class Store:
             )
         return payload.project_series_id
 
-    def ensure_project(self, project_id: str, payload: ProjectInput) -> Project:
+    def ensure_project(
+        self,
+        project_id: str,
+        payload: ProjectInput,
+        *,
+        starter: bool = False,
+    ) -> Project:
         existing = self.get_project(project_id)
         if existing is not None:
             if existing.task_id != payload.task_id:
                 raise ValueError(f"reserved project {project_id} belongs to another task")
+            if starter and not existing.starter:
+                with self._connect() as conn:
+                    conn.execute(
+                        "UPDATE projects SET is_starter=1 WHERE id=?",
+                        (project_id,),
+                    )
+                return self.get_project(project_id)  # type: ignore[return-value]
             return existing
         now = _now()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, response_curve_points, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, scientific_identity_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO projects(id, name, description, purpose, task_id, target_values, input_ranges, response_curve_ranges, response_curve_points, heat_stage_positions_m, display_decimals, notes, decision_candidate_id, decision_snapshot_id, decision_note, scientific_identity_json, is_starter, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     project_id,
                     payload.name,
@@ -1162,6 +1183,7 @@ class Store:
                         task_id=payload.task_id,
                         binding_provenance="unbound_legacy",
                     ).model_dump_json(),
+                    int(starter),
                     now,
                     now,
                 ),
@@ -1312,13 +1334,15 @@ class Store:
             if project_row is None:
                 return None
             if project_row["archived_at"] is None:
-                conn.execute(
-                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
-                    (now, now, project_id),
-                )
+                # Revoke in-flight Chain claims while the Project is still writable;
+                # archive guards reject every subsequent scope-table mutation.
                 conn.execute(
                     "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
                     (f"{project_id}:%",),
+                )
+                conn.execute(
+                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
+                    (now, now, project_id),
                 )
                 series_id = project_row["project_series_id"]
                 if series_id:
@@ -1451,41 +1475,23 @@ class Store:
             )
             if candidate_ids:
                 placeholders = ",".join("?" for _ in candidate_ids)
-                conn.execute(f"DELETE FROM actual_measurements WHERE candidate_id IN ({placeholders})", candidate_ids)
-                conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
-            conn.execute(
-                "DELETE FROM chain_analysis_variant_records WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_distribution_runs WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_snapshot_records WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
-                (f"{project_id}:%",),
-            )
-            conn.execute(
-                "DELETE FROM chain_execution_state WHERE scope_id LIKE ?",
-                (f"{project_id}:%",),
-            )
-            conn.execute("DELETE FROM decision_activity_runs WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
-            conn.execute(
-                "DELETE FROM project_objective_revisions WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM candidate_revisions WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+                for table in PROJECT_PERSISTENCE.candidate_tables:
+                    conn.execute(
+                        f"DELETE FROM {table} "
+                        f"WHERE candidate_id IN ({placeholders})",
+                        candidate_ids,
+                    )
+            for table in PROJECT_PERSISTENCE.scope_tables:
+                conn.execute(
+                    f"DELETE FROM {table} WHERE scope_id LIKE ?",
+                    (f"{project_id}:%",),
+                )
+            for table in PROJECT_PERSISTENCE.direct_tables:
+                column = "id" if table == "projects" else "project_id"
+                conn.execute(
+                    f"DELETE FROM {table} WHERE {column}=?",
+                    (project_id,),
+                )
             conn.execute(
                 "DELETE FROM project_purge_authorizations WHERE project_id=?",
                 (project_id,),

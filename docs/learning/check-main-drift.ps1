@@ -136,6 +136,61 @@ try {
         }
     }
 
+    $figureRegistryPath = Join-Path $LearningRoot "figures\registry.json"
+    if (Test-Path -LiteralPath $figureRegistryPath) {
+        $figureRegistry = [System.IO.File]::ReadAllText(
+            $figureRegistryPath,
+            [System.Text.Encoding]::UTF8
+        ) | ConvertFrom-Json
+        foreach ($figure in $figureRegistry.figures) {
+            $verifiedCommit = [string]$figure.verified_commit
+            git cat-file -e "$verifiedCommit^{commit}"
+            if ($LASTEXITCODE -ne 0) {
+                throw (
+                    "Unknown verified_commit for figure {0}: {1}" -f `
+                        $figure.id, $verifiedCommit
+                )
+            }
+            if (-not $figure.drift_refs -or $figure.drift_refs.Count -eq 0) {
+                throw "No drift_refs for figure $($figure.id)"
+            }
+
+            $changed = [System.Collections.Generic.List[string]]::new()
+            foreach ($reference in $figure.drift_refs) {
+                Assert-RepositoryRelativePath `
+                    -Reference $reference `
+                    -ChapterPath "figure $($figure.id)"
+                $literalPathspec = ":(literal)$reference"
+                $diff = git diff `
+                    --name-status `
+                    "$verifiedCommit..$Against" `
+                    -- `
+                    $literalPathspec
+                if ($LASTEXITCODE -ne 0) {
+                    throw (
+                        "git diff failed for figure {0}: {1}" -f `
+                            $figure.id, $reference
+                    )
+                }
+                if ($diff) {
+                    $changed.AddRange([string[]]$diff)
+                }
+            }
+
+            if ($changed.Count -gt 0) {
+                $driftFound = $true
+                Write-Host ""
+                Write-Host (
+                    "Figure implementation drift: {0}" -f $figure.id
+                ) -ForegroundColor Yellow
+                Write-Host "Verified at: $verifiedCommit"
+                $changed |
+                    Sort-Object -Unique |
+                    ForEach-Object { Write-Host "  $_" }
+            }
+        }
+    }
+
     if ($driftFound) {
         Write-Host ""
         Write-Host "Review the changed references before updating verified_commit." -ForegroundColor Yellow

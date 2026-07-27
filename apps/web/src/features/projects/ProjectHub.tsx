@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
@@ -24,15 +24,24 @@ import {
   type ApiModelPackage,
   type ApiPreview,
   type ApiProject,
-  type ApiProjectHistory,
   type ApiProjectCreationOptions,
   type ApiSnapshot,
   type ApiSubsystemAvailability,
   type ApiTaskCatalogItem,
   type ApiTaskDefinition,
 } from "../../shared/api/workbench-api";
+import {
+  chainAvailability,
+  chainStagePath,
+  projectOperationDisabled,
+  resolveFixedChain,
+} from "./chainProjectMetadata";
 import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
+import { candidateQuestionActions, candidateQuestionState, type CandidateSection } from "../../shared/projectActionQuestions";
+import { ProjectEvidenceHistory } from "./ProjectEvidenceHistory";
+import { ProjectCreationPanel } from "./ProjectCreationPanel";
+import { useProjectHistory } from "./useProjectHistory";
 
 type Props = {
   projects: ApiProject[];
@@ -44,16 +53,25 @@ type Props = {
   currentPreviews: Record<string, ApiPreview>;
   taskAvailability?: ResolvedTaskDefinition["availability"];
   subsystemAvailability: ApiSubsystemAvailability[];
+  subsystemAvailabilityLoaded: boolean;
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
-  requestedSettingsSection?: "targets";
+  requestedSettingsSection?: "targets" | "ranges" | "display" | "task";
+  renderScientificSettings?: (
+    project: ApiProject,
+    onProjectChanged: (project: ApiProject) => void,
+  ) => ReactNode;
   onProjectChanged: (project: ApiProject) => void;
   onProjectArchived: (projectId: string) => Promise<boolean>;
   onProjectRestored: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
-  onNavigate: (view: "candidates" | "lineage" | "explore" | "settings", candidateId?: string) => void;
+  onNavigate: (
+    view: "candidates" | "lineage" | "explore" | "data-library",
+    candidateId?: string,
+    options?: { activityId?: string; candidateSection?: CandidateSection },
+  ) => void;
   onSnapshotNavigate: (snapshotId?: string) => void;
   onCreationIntentConsumed: () => void;
 };
@@ -145,10 +163,12 @@ export function ProjectHub({
   currentPreviews,
   taskAvailability,
   subsystemAvailability,
+  subsystemAvailabilityLoaded,
   offline,
   requestedSnapshotId,
   requestedDatasetViewId,
   requestedSettingsSection,
+  renderScientificSettings,
   onProjectChanged,
   onProjectArchived,
   onProjectRestored,
@@ -159,7 +179,6 @@ export function ProjectHub({
   onCreationIntentConsumed,
 }: Props) {
   const [project, setProject] = useState<ApiProject | null>(null);
-  const [history, setHistory] = useState<ApiProjectHistory | null>(null);
   const [catalog, setCatalog] = useState<ApiTaskCatalogItem[]>([]);
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [creationOptions, setCreationOptions] = useState<ApiProjectCreationOptions | null>(null);
@@ -174,7 +193,6 @@ export function ProjectHub({
   const [selectedChainSnapshot, setSelectedChainSnapshot] =
     useState<ApiChainSnapshot | null>(null);
   const [error, setError] = useState("");
-  const [historyState, setHistoryState] = useState<"loading" | "ready" | "error">("loading");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -182,6 +200,8 @@ export function ProjectHub({
   const [restoringProjectId, setRestoringProjectId] = useState("");
   const [restoringCandidateId, setRestoringCandidateId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [creationError, setCreationError] = useState("");
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
   const [newTaskId, setNewTaskId] = useState("");
@@ -206,29 +226,31 @@ export function ProjectHub({
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
   activeProjectRef.current = activeProjectId;
+  const {
+    history,
+    state: historyState,
+    reload: reloadHistory,
+    retry: retryHistory,
+  } = useProjectHistory(activeProjectId);
   const taskUnavailable = taskAvailability?.status === "unavailable";
-  const chainSubsystem = subsystemAvailability.find(
-    (item) => item.kind === "chain"
-      && item.resource_id === "welding-consumable-a-b-c-v1",
-  );
-  const chainEvaluationSubsystem = subsystemAvailability.find(
-    (item) => item.kind === "chain_evaluation"
-      && item.subsystem_id === "chain_evaluation:welding-consumable-a-b-c-v1",
-  );
   const identityProject = project?.id === activeProjectId
     ? project
     : projects.find((item) => item.id === activeProjectId);
   const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
     ? identityProject.scientific_identity
     : null;
-  const fixedChain = chainIdentity
-    ? chainTemplates.find((item) => item.revisions.some(
-      (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity.chain_revision_id,
-    ))
-    : undefined;
-  const fixedChainRevision = fixedChain?.revisions.find(
-    (revision) => `${revision.chain_id}:r${revision.revision}` === chainIdentity?.chain_revision_id,
+  const { template: fixedChain, revision: fixedChainRevision } = resolveFixedChain(
+    chainIdentity,
+    chainTemplates,
   );
+  const fixedChainId = fixedChainRevision?.chain_id;
+  const chainSubsystem = chainAvailability(subsystemAvailability, fixedChainId, "chain");
+  const chainEvaluationSubsystem = chainAvailability(
+    subsystemAvailability,
+    fixedChainId,
+    "chain_evaluation",
+  );
+  const fixedStagePath = chainStagePath(fixedChainRevision);
   const effectiveTaskDefinition = taskDefinition
     ?? chainTaskDefinition?.task_definition
     ?? null;
@@ -248,20 +270,6 @@ export function ProjectHub({
     )
     : formatNumber(value);
   const chainExecutionPending = false;
-
-  const reloadHistory = async (signal?: AbortSignal, expectedProjectId = activeProjectId) => {
-    const loaded = await workbenchApi.projectHistory(expectedProjectId, signal);
-    if (!signal?.aborted && activeProjectRef.current === expectedProjectId) {
-      setHistory(loaded);
-      setHistoryState("ready");
-    }
-  };
-
-  // A history that cannot be fetched is not a history that is still loading.
-  const retryHistory = () => {
-    setHistoryState("loading");
-    reloadHistory().catch(() => setHistoryState("error"));
-  };
 
   useEffect(() => {
     const selected = projects.find((item) => item.id === activeProjectId) ?? null;
@@ -288,16 +296,12 @@ export function ProjectHub({
 
   useEffect(() => {
     const controller = new AbortController();
-    setHistory(null);
-    setHistoryState("loading");
+    setError("");
     setSelectedSnapshot(null);
     setSelectedChainSnapshot(null);
     setModelPackage(null);
     setChainEvaluation(null);
     setChainTaskDefinition(null);
-    void reloadHistory(controller.signal).catch(() => {
-      if (!controller.signal.aborted) setHistoryState("error");
-    });
     const requests = [
       workbenchApi.listTaskDefinitions().then((items) => {
         if (!controller.signal.aborted) {
@@ -326,7 +330,10 @@ export function ProjectHub({
             }
           }),
         );
-        if (chainEvaluationSubsystem?.status !== "unavailable") {
+        if (
+          subsystemAvailabilityLoaded
+          && chainEvaluationSubsystem?.status === "available"
+        ) {
           requests.push(
             workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
               if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
@@ -353,6 +360,7 @@ export function ProjectHub({
     activeProjectId,
     chainIdentity?.chain_revision_id,
     chainEvaluationSubsystem?.status,
+    subsystemAvailabilityLoaded,
     identityProject?.id,
     taskUnavailable,
     offline,
@@ -424,6 +432,13 @@ export function ProjectHub({
   ]);
 
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
+  const actionCandidateId = candidate && activeCandidates.some(
+    (item) => item.candidate.id === candidate.id,
+  )
+    ? candidate.id
+    : activeCandidates[0]?.candidate.id;
+  const actionBlocked = Boolean(taskUnavailable || chainExecutionPending || offline);
+  const questionState = candidateQuestionState(actionCandidateId, actionBlocked);
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(
     () => new Map(
@@ -627,7 +642,10 @@ export function ProjectHub({
   };
 
   useEffect(() => {
-    if (requestedSettingsSection === "targets") focusTargetSettings();
+    if (requestedSettingsSection) {
+      setSettingsOpen(true);
+      if (requestedSettingsSection === "targets") focusTargetSettings();
+    }
   }, [activeProjectId, requestedSettingsSection]);
 
   async function saveProject() {
@@ -693,12 +711,14 @@ export function ProjectHub({
     const taskId = createMode === "copy" ? copyTaskId : newTaskId;
     const creatingChain = createMode === "empty" && Boolean(newChainId);
     const trimmedSeriesName = newProjectSeriesName.trim();
-    if (!newProjectName.trim() || !newDatasetViewId) return setError("Datasetとプロジェクト名を確認してください。");
-    if (creatingChain && !selectedChainRevision) return setError("Chain TemplateとRevisionを確認してください。");
-    if (!creatingChain && (!taskId || !newModelPackageRefId)) return setError("予測タスクとModel Packageを確認してください。");
-    if (createMode === "copy" && !candidate) return setError("コピーする現在候補がありません。");
-    if (newProjectGroupChoice === "existing" && !newProjectSeriesId) return setError("追加する検討グループを選択してください。");
-    if (newProjectGroupChoice === "new" && !trimmedSeriesName) return setError("新しい検討グループ名を入力してください。");
+    if (!newProjectName.trim() || !newDatasetViewId) return setCreationError("Datasetとプロジェクト名を確認してください。");
+    if (creatingChain && !selectedChainRevision) return setCreationError("Chain TemplateとRevisionを確認してください。");
+    if (!creatingChain && (!taskId || !newModelPackageRefId)) return setCreationError("予測タスクとModel Packageを確認してください。");
+    if (createMode === "copy" && !candidate) return setCreationError("コピーする現在候補がありません。");
+    if (newProjectGroupChoice === "existing" && !newProjectSeriesId) return setCreationError("追加する検討グループを選択してください。");
+    if (newProjectGroupChoice === "new" && !trimmedSeriesName) return setCreationError("新しい検討グループ名を入力してください。");
+    setCreating(true);
+    setCreationError("");
     try {
       const initialCandidate = createMode === "copy" && candidate ? {
         ...toApiCandidate(candidate),
@@ -743,7 +763,9 @@ export function ProjectHub({
       resetCreateProjectForm();
       onSwitch(created.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "新しいプロジェクトを作成できませんでした。");
+      setCreationError(cause instanceof Error ? cause.message : "新しいプロジェクトを作成できませんでした。");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -848,6 +870,8 @@ export function ProjectHub({
   };
 
   const resetCreateProjectForm = () => {
+    setCreationError("");
+    setCreating(false);
     setCreateMode("empty");
     setNewProjectName("");
     setNewTaskId("");
@@ -909,7 +933,7 @@ export function ProjectHub({
       return;
     }
     if (!project.dataset_view_revision_id || !project.model_package_ref_id) {
-      setError("このプロジェクトは固定参照が不足しているため、続きとして作成できません。開発・管理で参照状態を確認してください。");
+      setError("このプロジェクトは固定参照が不足しているため、続きとして作成できません。ワークスペースで参照状態を確認してください。");
       return;
     }
     focusCreationFormRef.current = true;
@@ -970,7 +994,7 @@ export function ProjectHub({
       aria-current={item.id === activeProjectId ? "page" : undefined}
       onClick={() => switchProject(item.id)}
     >
-      <strong>{item.name}</strong>
+      <span className="project-list-name"><strong>{item.name}</strong>{item.starter && <b>同梱サンプル</b>}</span>
       <small>{(() => {
         const itemIdentity = item.scientific_identity;
         if (itemIdentity?.identity_kind === "chain") {
@@ -1042,7 +1066,7 @@ export function ProjectHub({
         <div className="page-intro project-hub-header">
           <div>
             <span className="overline">PROJECT OVERVIEW</span>
-            <h2>{project?.name ?? "プロジェクト"}</h2>
+            <h2>{project?.name ?? "プロジェクト"}{project?.starter && <span className="starter-project-badge">同梱サンプル</span>}</h2>
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
@@ -1050,6 +1074,10 @@ export function ProjectHub({
             <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
           </div>
         </div>
+      {project?.starter && <section className="starter-project-notice" aria-label="同梱サンプルの案内">
+        <div><strong>これは動作確認用の同梱サンプルです</strong><span>自分のExcelから始めるときは、データを登録して新しいプロジェクトを作成します。</span></div>
+        <button type="button" className="outline-button" onClick={() => onNavigate("data-library")}>自分のデータで始める</button>
+      </section>}
       {taskUnavailable && <section className="task-unavailable-banner" role="status">
         <strong>この予測タスクは一時的に利用できません</strong>
         <span>{taskAvailability.message}</span>
@@ -1057,7 +1085,7 @@ export function ProjectHub({
       </section>}
       {chainIdentity && <section className="task-unavailable-banner chain-ready-banner" role="status">
         <strong>Chain Revisionを固定したプロジェクトです</strong>
-        <span>A → B → Cの段別鮮度と中間実測を、候補作業面で確認できます。</span>
+        <span>{fixedStagePath}の段別鮮度と中間実測を、候補作業面で確認できます。</span>
         <small>このモードでは範囲探索とデータ探索を利用できません。下の「次の作業」から候補作業面へ進みます。</small>
       </section>}
       {chainIdentity && chainSubsystem?.status === "unavailable" && (
@@ -1071,7 +1099,7 @@ export function ProjectHub({
       {error && <p className="panel-error" role="alert">{error}</p>}
       {project && (chainIdentity
         ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
-          <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>A → B → C</small></div>
+          <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>{fixedStagePath}</small></div>
           <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>
           <div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・データセット・プロファイルを版の中に固定</small></div>
           {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
@@ -1116,11 +1144,12 @@ export function ProjectHub({
       </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "グループなし"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
-      {createOpen && <section className="project-create-panel" aria-label="新規プロジェクトの開始方法">
-        <div className="panel-title project-create-heading">
-          <div><h3>新しいプロジェクト</h3><span>開始方法を選んでから作成します</span></div>
-          <button type="button" className="outline-button" onClick={closeCreateProject}>作成をやめる</button>
-        </div>
+      <ProjectCreationPanel
+        open={createOpen}
+        loading={creating}
+        error={creationError}
+        onClose={closeCreateProject}
+      >
         <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
         <div className="project-binding-flow">
           <label className="project-dataset-choice"><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{usedDatasetChoices.length > 0 && <optgroup label="利用中のデータ">{usedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}{unusedDatasetChoices.length > 0 && <optgroup label="未使用のデータ">{unusedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}</select><small aria-hidden="true">利用中のProject数が多い順。同数なら新しい登録順。</small></label>
@@ -1151,8 +1180,8 @@ export function ProjectHub({
           <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
           <label><input type="radio" checked={createMode === "copy"} disabled={Boolean(newChainId) || taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); setNewChainId(""); setNewChainRevisionId(""); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{newChainId ? "Chain Projectは空から開始します" : taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
         </div>
-        <button className="primary-button" disabled={!newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId) || (newProjectGroupChoice === "existing" && !newProjectSeriesId) || (newProjectGroupChoice === "new" && !newProjectSeriesName.trim())} onClick={() => void createProject()}>固定してプロジェクトを作成</button>
-      </section>}
+        <button className="primary-button" disabled={creating || !newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId) || (newProjectGroupChoice === "existing" && !newProjectSeriesId) || (newProjectGroupChoice === "new" && !newProjectSeriesName.trim())} onClick={() => void createProject()}>{creating ? "作成中…" : "固定してプロジェクトを作成"}</button>
+      </ProjectCreationPanel>
 
       {settingsOpen && project && <section className="project-settings-panel">
         <div className="project-form">
@@ -1187,27 +1216,50 @@ export function ProjectHub({
           <label>メモ<textarea value={project.notes} onChange={(event) => setProject({ ...project, notes: event.target.value })} /></label>
         </div>
         <button className="primary-button" disabled={!project.name.trim() || invalidTargetRange} onClick={() => void saveProject()}>設定を保存</button>
+        {!chainIdentity && renderScientificSettings?.(project, (nextProject) => {
+            setProject(nextProject);
+            onProjectChanged(nextProject);
+          })}
       </section>}
 
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         {chainIdentity
           ? <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>配合と工程条件を編集し、A → B → Cを実行して固定します</span></button>
+            <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainSubsystem?.status === "unavailable" })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
           </div>
-          : <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+          : <div className="project-action-groups">
+            {project?.starter && <button className="project-action-card sample-start" onClick={() => onNavigate("data-library")}><strong>自分のデータで新しいプロジェクトを作る</strong><span>Excelを登録し、予測タスクとモデルを選んで始める</span></button>}
+            <section><h4>候補を作る</h4><div className="project-action-grid">
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
+              <button className="project-action-card" disabled={actionBlocked || !supportsLineageCandidate} onClick={() => onNavigate("lineage")}><strong>過去データから候補を探す</strong><span>{supportsLineageCandidate ? "既存の条件と問題から出発する" : "この予測タスクでは利用できません"}</span></button>
+            </div></section>
+            <section><h4>候補を確かめる</h4><div className="project-action-grid">
+              {candidateQuestionActions.map((item) => <button
+                type="button"
+                className="project-action-card"
+                key={item.activityId}
+                disabled={questionState.disabled}
+                onClick={() => onNavigate("candidates", actionCandidateId, { activityId: item.activityId })}
+              ><strong>{item.title}</strong><span>{questionState.reason ?? item.description}</span></button>)}
+            </div></section>
+            <section><h4>結果を残す</h4><div className="project-action-grid">
+              <button type="button" className="project-action-card" disabled={questionState.disabled || !operations?.actual_measurement} onClick={() => onNavigate("candidates", actionCandidateId, { candidateSection: "actuals" })}><strong>実測を記録する</strong><span>{questionState.reason ?? (operations?.actual_measurement ? "選択候補の予測と実測を結び付ける" : "この予測タスクでは利用できません")}</span></button>
+              <button type="button" className="project-action-card" onClick={() => document.getElementById("project-candidate-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}><strong>判断履歴を見る</strong><span>固定した予測・実測・採用理由を時系列で確認する</span></button>
+            </div></section>
           </div>}
       </section>
 
-      <section className="project-history-section">
-        <div className="panel-title"><h3>候補と判断履歴</h3><span>{chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}</span></div>
-        {historyState === "error" ? <div className="project-history-error" role="alert">
-          <p>候補と判断履歴を取得できませんでした。保存済みのデータは失われていません。</p>
-          <button type="button" className="outline-button" onClick={retryHistory}>履歴を再取得</button>
-        </div> : !history ? <p className="empty-evidence">履歴を読み込んでいます。</p> : !history.candidates.length ? <div className="project-empty-state"><p>{supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}</p></div> : <div className="project-history-list">
+      <ProjectEvidenceHistory
+        subtitle={chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}
+        loading={historyState === "loading"}
+        error={historyState === "error"}
+        empty={Boolean(history && !history.candidates.length)}
+        emptyMessage={supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}
+        onRetry={retryHistory}
+      >
+        {history && <div className="project-history-list">
           {history.candidates.map((item) => {
             const preview = currentPreviews[item.candidate.id];
             const chainSnapshots = item.chain_snapshots ?? [];
@@ -1304,7 +1356,7 @@ export function ProjectHub({
             </article>;
           })}
         </div>}
-      </section>
+      </ProjectEvidenceHistory>
 
       {selectedSnapshot?.payload.prediction && <section className="snapshot-detail project-snapshot-detail">
         <div className="panel-title"><h3>固定した予測の詳細</h3><button className="outline-button" onClick={() => { setSelectedSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>
