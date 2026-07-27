@@ -9,8 +9,19 @@
 
 Edition 1の最新受入は、[Edition 1を受け入れる](edition-1.qmd)の条件に従います。
 
-現時点では新しいReader章を編集中のため、Edition 1は`pending`です。
-過去の成功件数、ページ数、build時間を現在の受入証拠として使いません。
+Edition 1はcommit `cfe53e5a3d9e71fd6368fae848e231411883075b`で`accepted`です。
+実測値の正本は [`edition-1-acceptance.json`](edition-1-acceptance.json) です。
+
+| 項目 | 最新受入値 |
+|---|---|
+| Reader | 358ページ、A4、13,171,063 bytes |
+| SHA-256 | `5213826fc1377dd95ca7a125d28bd6a19b0e80f23d40a5d76a0981d8e5f79091` |
+| 教材構造 | 9 Part、26 learning units、99演習、117解答block、18章末check |
+| 証拠 | 759 code reference、13 drift review、6 acceptance review |
+| repository gate | pytest 857 passed／3 skipped／58 known warnings、typecheck成功、build成功 |
+| clean build | HTML 55.98秒、Reader PDF 25.53秒 |
+| visual review | 358ページ全件を前半・後半に分けて目視し、異常0件 |
+| 制約 | GitHub Actionsは月間制限中。local command、artifact identity、全page目視を受入証拠にした |
 
 ## 過去の検証スナップショット
 

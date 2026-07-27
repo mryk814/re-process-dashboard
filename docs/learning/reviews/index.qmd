@@ -32,6 +32,7 @@ node docs/learning/reviews/check-reviews.mjs
 - [Issue #295 Frontend／Desktop／Security](acceptance-2026-07-27-issue-295.json)
 - [Issue #296 System／Chain／Verification](acceptance-2026-07-27-issue-296.json)
 - [Issue #307 Decision Safety／UX](acceptance-2026-07-27-issue-307.json)
+- [Issue #336 Edition 1横断受入](acceptance-2026-07-27-issue-336.json)
 
 このindexは編集者向けです。
 学習者向けPDFへacceptance recordを含めません。

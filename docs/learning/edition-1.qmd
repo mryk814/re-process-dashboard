@@ -91,3 +91,5 @@ constraints:
 
 実測前の値を見込み値で埋めません。
 検証していない欄は`pending`のまま受入不可とします。
+
+Edition 1の実測済み記録は [`edition-1-acceptance.json`](edition-1-acceptance.json) です。

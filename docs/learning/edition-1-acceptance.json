@@ -1,0 +1,143 @@
+{
+  "edition": 1,
+  "status": "accepted",
+  "verified_commit": "cfe53e5a3d9e71fd6368fae848e231411883075b",
+  "base_main_commit": "8328575defc4d456e0bafd03830e6cb1caa0ae96",
+  "accepted_at": "2026-07-27T14:36:05+09:00",
+  "artifacts": {
+    "reader_pdf": {
+      "path": "docs/learning/_build/reader/material-decision-workbench-reader.pdf",
+      "pages": 358,
+      "page_size": "A4",
+      "bytes": 13171063,
+      "sha256": "5213826fc1377dd95ca7a125d28bd6a19b0e80f23d40a5d76a0981d8e5f79091"
+    },
+    "integrated_site": {
+      "path": "docs/learning/_build/site/index.html",
+      "documents": 42,
+      "reader_learning_units": 26
+    }
+  },
+  "content_inventory": {
+    "parts": 9,
+    "reader_documents": 30,
+    "exercises": 99,
+    "solution_blocks": 117,
+    "chapter_checks": 18,
+    "concepts": 74,
+    "concept_prerequisite_edges": 97,
+    "anti_definitions": 72,
+    "registered_figures": 8,
+    "registered_labs": 8,
+    "bibliography_entries": 57,
+    "annotated_references": 57,
+    "code_reference_documents": 28,
+    "code_reference_records": 759,
+    "verified_html_code_links": 319,
+    "drift_review_records": 13,
+    "acceptance_review_records": 6
+  },
+  "build": {
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
+    "result": "passed",
+    "site_seconds": 55.98,
+    "reader_seconds": 25.53
+  },
+  "checks": {
+    "textbook": {
+      "result": "passed",
+      "evidence": "reference, exercise, concept, concept-order, figure, Lab, code-reference, drift-review, acceptance-review, HTML, PDF, disclosure, and exact-link gates passed"
+    },
+    "pytest": {
+      "command": "uv run python -m pytest",
+      "result": "passed",
+      "passed": 857,
+      "skipped": 3,
+      "warnings": 58,
+      "seconds": 212.85
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "result": "passed"
+    },
+    "build": {
+      "command": "npm run build",
+      "result": "passed"
+    },
+    "visual_review": {
+      "result": "passed",
+      "ranges": [
+        "pages 1-180",
+        "pages 181-358"
+      ],
+      "criteria": [
+        "Japanese and Latin fonts",
+        "mathematics",
+        "tables and code",
+        "figures and captions",
+        "Part and chapter openings",
+        "page breaks and expected recto blanks",
+        "overflow, overlap, and cutoff"
+      ],
+      "findings_fixed": [
+        "duplicate chapter titles and blank pages",
+        "Part title and outline overlap",
+        "two clipped Mermaid diagrams",
+        "two unreadable wide tables",
+        "one orphaned Further Reading bullet"
+      ]
+    }
+  },
+  "application_improvements": [
+    {
+      "issue": 337,
+      "pull_request": 340,
+      "result": "merged",
+      "summary": "same-Candidate Decision Activity Run navigation follows history and rejects unknown Runs"
+    },
+    {
+      "issue": 343,
+      "pull_request": 381,
+      "result": "merged",
+      "summary": "Developer Control Center exposes the ordered Decision Activity change path"
+    }
+  ],
+  "known_followups": [
+    {
+      "issue": 303,
+      "reason": "The materials-domain review remains a documented proxy review until the user performs a direct domain reading."
+    },
+    {
+      "issue": 335,
+      "reason": "GitHub Issue and Pull Request live-state drift automation remains open."
+    },
+    {
+      "issue": 338,
+      "reason": "Workspace restore process-interruption fault injection remains an application follow-up."
+    },
+    {
+      "issue": 339,
+      "reason": "Project lifecycle inventory completeness remains an application follow-up."
+    },
+    {
+      "issue": 341,
+      "reason": "Decision Activity race and open-panel accessibility browser coverage remains an application follow-up."
+    },
+    {
+      "issue": 342,
+      "reason": "Saved Run provenance and complete-history UI remains an application follow-up."
+    },
+    {
+      "issue": 344,
+      "reason": "Developer Control Center tab and guide deep links remain an application follow-up."
+    },
+    {
+      "issue": 345,
+      "reason": "Training Snapshot target cohort, split, and feature-definition boundary remains an application follow-up."
+    }
+  ],
+  "constraints": [
+    "GitHub Actions could not be used because the repository account reached its monthly limit.",
+    "Local commands, exact counts, artifact identity, and full-page visual review are the Edition 1 acceptance evidence."
+  ]
+}
