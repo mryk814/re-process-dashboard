@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  formatAllowedRange,
   formatTaskNumber,
   orderedTaskEntries,
   orderedTaskItems,
@@ -42,4 +43,34 @@ test("task default and project override resolve one stable numeric presentation"
 test("TaskDefinition is the unit source and dimensionless unit is not shown", () => {
   assert.equal(taskOutputUnit(definition, "TS"), "MPa");
   assert.equal(taskOutputUnit(definition, "risk"), "");
+});
+
+test("allowed range is shown at the input's decimals with its unit, never as a raw float", () => {
+  const heatInput = {
+    unit: "kJ/mm",
+    display_decimals: 2,
+    allowed_range: { min: 0.6316999999999999, max: 2.1593 },
+  };
+  assert.equal(formatAllowedRange(heatInput), "0.64〜2.15 kJ/mm");
+  assert.doesNotMatch(formatAllowedRange(heatInput), /\d\.\d{3,}/);
+  assert.equal(
+    formatAllowedRange({ unit: "V", display_decimals: 1, allowed_range: { min: 23.295, max: 34.87499999999999 } }),
+    "23.3〜34.8 V",
+  );
+});
+
+test("allowed range rounds inward so a displayed bound is never rejected on entry", () => {
+  const range = { min: 0.6316999999999999, max: 2.1593 };
+  const shown = formatAllowedRange({ unit: "", display_decimals: 2, allowed_range: range });
+  const [low, high] = shown.split("〜").map(Number);
+  assert.ok(low >= range.min, `${low} must stay inside ${range.min}`);
+  assert.ok(high <= range.max, `${high} must stay inside ${range.max}`);
+});
+
+test("a range narrower than one display step keeps its exact bounds instead of inverting", () => {
+  assert.equal(
+    formatAllowedRange({ unit: "mm", display_decimals: 0, allowed_range: { min: 1.2, max: 1.4 } }),
+    "1.2〜1.4 mm",
+  );
+  assert.equal(formatAllowedRange({ unit: "mm", display_decimals: 2, allowed_range: null }), "");
 });
