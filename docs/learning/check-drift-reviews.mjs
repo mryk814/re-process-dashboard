@@ -213,4 +213,65 @@ for (const file of files) {
   }
 }
 
-console.log(`Drift review validation passed: ${files.length} record(s).`);
+const groupedFiles = readdirSync(reviewRoot)
+  .filter((name) => /^grouped-\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.json$/.test(name))
+  .sort();
+
+for (const file of groupedFiles) {
+  const record = JSON.parse(readFileSync(join(reviewRoot, file), "utf8"));
+  assert(record.schema_version === 1, `${file}: unsupported schema_version.`);
+  assert(record.review_id === file.replace(/\.json$/, ""), `${file}: review_id must match filename.`);
+  assert(record.status === "resolved", `${file}: grouped review must be resolved.`);
+  assert(record.recorded_after_the_fact === true, `${file}: grouped review must identify retrospective recording.`);
+  assertCommit(record.base_commit, `${file}: base_commit`);
+  assertCommit(record.reviewed_against, `${file}: reviewed_against`);
+  assertAncestor(record.base_commit, record.reviewed_against, `${file}: review range`);
+  assert(Array.isArray(record.pull_requests) && record.pull_requests.length > 0, `${file}: pull_requests must not be empty.`);
+
+  const pullRequestNumbers = record.pull_requests.map((pullRequest) => pullRequest.number);
+  assertUnique(pullRequestNumbers, `${file}: pull request numbers`);
+  for (const pullRequest of record.pull_requests) {
+    assert(Number.isInteger(pullRequest.number) && pullRequest.number > 0, `${file}: invalid pull request number.`);
+    assertCommit(pullRequest.merge_commit, `${file}: PR #${pullRequest.number} merge_commit`);
+    assertAncestor(record.base_commit, pullRequest.merge_commit, `${file}: PR #${pullRequest.number} range`);
+    assertAncestor(pullRequest.merge_commit, record.reviewed_against, `${file}: PR #${pullRequest.number} range`);
+    assert(classifications.has(pullRequest.classification), `${file}: invalid PR #${pullRequest.number} classification.`);
+    assert(typeof pullRequest.reason === "string" && pullRequest.reason.length > 20, `${file}: PR #${pullRequest.number} reason is too weak.`);
+
+    const changedPaths = git([
+      "diff",
+      "--name-only",
+      `${pullRequest.merge_commit}^1`,
+      pullRequest.merge_commit,
+    ]).split(/\r?\n/).filter(Boolean).sort();
+    const recordedPaths = [...pullRequest.changed_paths].sort();
+    assertUnique(recordedPaths, `${file}: PR #${pullRequest.number} changed_paths`);
+    assert(
+      JSON.stringify(changedPaths) === JSON.stringify(recordedPaths),
+      `${file}: PR #${pullRequest.number} paths differ from the first-parent merge diff.`,
+    );
+    const changedPathSet = new Set(changedPaths);
+    assertUnique(pullRequest.referenced_paths, `${file}: PR #${pullRequest.number} referenced_paths`);
+    for (const path of pullRequest.referenced_paths) {
+      assert(changedPathSet.has(path), `${file}: PR #${pullRequest.number} referenced path was not changed: ${path}`);
+    }
+  }
+
+  assert(Array.isArray(record.claim_assessments) && record.claim_assessments.length > 0, `${file}: claim_assessments must not be empty.`);
+  const claimIds = record.claim_assessments.map((claim) => claim.claim_id);
+  assertUnique(claimIds, `${file}: claim_assessments`);
+  for (const claim of record.claim_assessments) {
+    assert(classifications.has(claim.classification), `${file}: invalid classification for ${claim.claim_id}.`);
+    assert(actions.has(claim.action), `${file}: invalid action for ${claim.claim_id}.`);
+    assert(typeof claim.reason === "string" && claim.reason.length > 20, `${file}: claim reason is too weak for ${claim.claim_id}.`);
+    assert(Array.isArray(claim.documents) && claim.documents.length > 0, `${file}: ${claim.claim_id} has no documents.`);
+    for (const path of claim.documents) repositoryFile(path, `${file}: ${claim.claim_id}`);
+  }
+  for (const [key, value] of Object.entries(record.verification)) {
+    assert(typeof value === "string" && value.length > 10, `${file}: verification '${key}' is too weak.`);
+  }
+}
+
+console.log(
+  `Drift review validation passed: ${files.length} PR record(s), ${groupedFiles.length} grouped record(s).`,
+);

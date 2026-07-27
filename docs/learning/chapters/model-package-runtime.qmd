@@ -2,7 +2,7 @@
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160
-verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
+verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
@@ -513,6 +513,12 @@ activate後は、processを再起動して新Packageを読み込みます。
 
 そのため、`null`を一律に失敗させず、rollback targetの存在、Task、contract digestを確認します。
 
+契約移行で置き換えた旧Packageが`previous`に残る場合、その参照は切替履歴として保持します。
+
+ただし、現行Taskの入力契約と一致しないPackageはrollback候補ではありません。
+
+履歴の正しさと、現在rollbackできることを同じ判定へ潰さないためです。
+
 {{< code-ref ml-engineering-active-package-history-test symbol=test_active_pointer_moved_without_recording_previous_is_reported >}}は直接編集相当のdriftを検出し、{{< code-ref ml-engineering-active-package-history-test symbol=test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated >}}は戻せない旧版を誤ってrollback候補にしないことを確認します。
 
 `package_status`、`task:inventory:check`、developer diagnosticsはこの履歴検査を利用します。
@@ -528,6 +534,8 @@ git履歴を読めない配布環境では「未検査」と報告し、履歴�
 ## rollbackも検証してから切り替える
 
 {{< code-ref ml-engineering-workflow symbol="rollback_package" >}}は、`previous`のPackageを先にverifyします。
+
+存在、Task identity、入力契約のいずれかが現行Taskと合わない場合は、active参照を変える前に拒否します。
 
 検証成功後、{{< code-ref ml-engineering-lifecycle symbol="rollback_active_package" >}}が`active`と`previous`を入れ替えます。
 

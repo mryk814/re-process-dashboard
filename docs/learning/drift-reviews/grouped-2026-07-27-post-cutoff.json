@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-27-post-cutoff",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "24866add9259eb261c8d34365e6b8de86ace287e",
+  "reviewed_against": "e2cf67477d1a88d39b963046c878d2a9e64ae111",
+  "pull_requests": [
+    {
+      "number": 394,
+      "merge_commit": "da81bdca86b78563a0e8f7726e9645385d4e8cfd",
+      "classification": "no_content_impact",
+      "reason": "The developer overview response and generated OpenAPI types were repaired for Chain Projects. Existing system, contract, concept, and Lab claims remain valid because the API boundary and single-task versus Chain distinction did not change.",
+      "changed_paths": [
+        "apps/web/src/features/admin/DeveloperControlCenter.tsx",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/developer.py",
+        "backend/src/material_workbench/developer_experience/schemas.py",
+        "backend/tests/test_developer_api.py"
+      ],
+      "referenced_paths": [
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json"
+      ]
+    },
+    {
+      "number": 396,
+      "merge_commit": "795ec0f3a76590c417c77d495f8837b3eb386819",
+      "classification": "conceptual_update",
+      "reason": "Stage B moved to a new immutable Package after input labels changed, active Package history began retaining contract-superseded previous references as non-rollback history, and Chain evidence now resolves the configured Package. The model lifecycle chapter now separates historical previous from an activatable rollback target; other affected chapters keep their Package identity and Chain evidence claims.",
+      "changed_paths": [
+        "backend/scripts/build_welding_chain_evaluation.py",
+        "backend/scripts/build_welding_stage_b_assets.py",
+        "backend/scripts/model_workflow.py",
+        "backend/src/material_workbench/modeling/active_package_history.py",
+        "backend/src/material_workbench/modeling/stage_sampling.py",
+        "backend/src/material_workbench/tasks/task_definitions/welding-consumable-stage-b-v1.json",
+        "backend/tests/test_active_package_history.py",
+        "backend/tests/test_chain_evaluation.py",
+        "backend/tests/test_chain_execution.py",
+        "backend/tests/test_stage_b_training.py",
+        "backend/tests/test_task_registry.py",
+        "backend/tests/test_workspace_catalog_bootstrap.py",
+        "docs/task-inventory.json",
+        "docs/welding-stage-b-package.md",
+        "e2e/chain-input-contract.spec.ts",
+        "models/active-packages.json",
+        "models/evaluations/welding-consumable-a-b-c-v1.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/feature-pipeline/pipeline.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/manifest.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Al.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/B.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/C.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Cr.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Cu.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Mn.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Mo.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/N.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Nb.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Ni.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/O.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/P.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/S.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Si.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/Ti.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/model-artifacts/V.npz",
+        "models/packages/welding-consumable-stage-b-ridge-v2/reference/training_stats.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/reports/quality-report.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/smoke/expected.json",
+        "models/packages/welding-consumable-stage-b-ridge-v2/smoke/input.json",
+        "packaging/electron-builder.yml"
+      ],
+      "referenced_paths": [
+        "backend/scripts/model_workflow.py",
+        "backend/src/material_workbench/modeling/active_package_history.py",
+        "backend/src/material_workbench/tasks/task_definitions/welding-consumable-stage-b-v1.json",
+        "backend/tests/test_active_package_history.py",
+        "backend/tests/test_chain_evaluation.py",
+        "backend/tests/test_chain_execution.py",
+        "docs/welding-stage-b-package.md",
+        "e2e/chain-input-contract.spec.ts",
+        "models/evaluations/welding-consumable-a-b-c-v1.json"
+      ]
+    },
+    {
+      "number": 397,
+      "merge_commit": "59d172dc50c903a4572005a59b9b9cd000bf413f",
+      "classification": "no_content_impact",
+      "reason": "The Chain UI now distinguishes not computed, unsupported, point-only, and interval states. The multi-stage chapter already treats point prediction, model uncertainty, and propagation capability as separate evidence, and none of the changed files was a structured code reference at the prior cutoff.",
+      "changed_paths": [
+        "apps/web/src/features/workbench/ChainUncertaintyPanel.tsx",
+        "apps/web/src/features/workbench/ChainWorkbenchPage.tsx",
+        "apps/web/src/features/workbench/chain-workbench.css",
+        "apps/web/src/features/workbench/chainUncertaintyState.ts",
+        "apps/web/tests/chainUncertaintyState.test.mjs",
+        "e2e/chain-output-presentation.spec.ts"
+      ],
+      "referenced_paths": []
+    },
+    {
+      "number": 398,
+      "merge_commit": "c04dba0501e8726b37af8609dd73098a6cc8e5d1",
+      "classification": "conceptual_update",
+      "reason": "The UI adopted a computed font-size floor and added browser evidence for inherited and SVG-scaled text. The verification chapter now states the 10px text and 9px SVG exception floors and explains why computed values are inspected.",
+      "changed_paths": [
+        "apps/web/src/features/admin/admin.css",
+        "apps/web/src/features/candidates/candidates.css",
+        "apps/web/src/features/data-library/data-library.css",
+        "apps/web/src/features/lineage/lineage.css",
+        "apps/web/src/features/projects/projects.css",
+        "apps/web/src/features/screening/screening.css",
+        "apps/web/src/features/workbench/ResponseCurvePanels.tsx",
+        "apps/web/src/features/workbench/chain-workbench.css",
+        "apps/web/src/features/workbench/workbench.css",
+        "apps/web/src/styles.css",
+        "apps/web/tests/minimumFontSize.test.mjs",
+        "docs/design-system.md",
+        "e2e/accessibility-smoke.spec.ts"
+      ],
+      "referenced_paths": [
+        "e2e/accessibility-smoke.spec.ts"
+      ]
+    },
+    {
+      "number": 399,
+      "merge_commit": "e2cf67477d1a88d39b963046c878d2a9e64ae111",
+      "classification": "conceptual_update",
+      "reason": "Developer workspaces became branch-isolated, startup gained a read-only preflight and maintenance path, and rollback now restores a missing-original-DB state. The workspace restore and system map chapters now cover the changed recovery and health boundaries; migration-only Store changes do not alter lifecycle, digest, archive, or source evidence claims.",
+      "changed_paths": [
+        ".gitignore",
+        "AGENTS.md",
+        "README.md",
+        "apps/web/src/features/workspace/WorkspaceManagerDialog.tsx",
+        "apps/web/src/shared/api/workbench-api.ts",
+        "apps/web/src/styles.css",
+        "apps/web/tests/chainWorkbenchPresentation.test.mjs",
+        "backend/scripts/seed_review_workspace.py",
+        "backend/scripts/workspace_check.py",
+        "backend/scripts/workspace_maintenance.py",
+        "backend/src/material_workbench/api/catalog.py",
+        "backend/src/material_workbench/app.py",
+        "backend/src/material_workbench/application/workspace_bundle.py",
+        "backend/src/material_workbench/developer_experience/workspace_maintenance.py",
+        "backend/src/material_workbench/developer_experience/workspace_preflight.py",
+        "backend/src/material_workbench/persistence/store.py",
+        "backend/src/material_workbench/persistence/workspace_catalog.py",
+        "backend/src/material_workbench/persistence/workspace_maintenance_migration.py",
+        "backend/tests/test_launch_token.py",
+        "backend/tests/test_review_workspace_seed.py",
+        "backend/tests/test_workspace_maintenance.py",
+        "backend/tests/test_workspace_preflight.py",
+        "docs/decisions/startup-failure-boundaries.md",
+        "docs/workspace-backup.md",
+        "package.json",
+        "scripts/dev-launcher.mjs",
+        "scripts/dev-workspace.mjs",
+        "scripts/workspace-check.mjs",
+        "scripts/workspace-maintenance.mjs",
+        "scripts/workspace-seed.mjs"
+      ],
+      "referenced_paths": [
+        "AGENTS.md",
+        "apps/web/src/features/workspace/WorkspaceManagerDialog.tsx",
+        "apps/web/src/shared/api/workbench-api.ts",
+        "backend/src/material_workbench/app.py",
+        "backend/src/material_workbench/application/workspace_bundle.py",
+        "backend/src/material_workbench/persistence/store.py",
+        "backend/tests/test_launch_token.py",
+        "docs/workspace-backup.md"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "package-history-versus-rollback",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/model-package-runtime.qmd"
+      ],
+      "reason": "A contract-superseded previous Package is valid history but cannot be activated under the current Task input contract."
+    },
+    {
+      "claim_id": "workspace-recovery-and-identity",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/chapters/system-map.qmd"
+      ],
+      "reason": "Rollback must restore an original no-database state when no old DB existed, and health now exposes operational Workspace identity without replacing Project identity."
+    },
+    {
+      "claim_id": "failure-state-accessibility-floor",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "reason": "The failure-state lane now includes computed minimum font-size evidence that is stronger than checking CSS declarations alone."
+    },
+    {
+      "claim_id": "unchanged-referenced-contracts",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "docs/learning/labs/toy-weighted-mean.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd",
+        "docs/learning/labs/trace-workspace-restore.qmd"
+      ],
+      "reason": "The reviewed diffs changed generated fields, active Package evidence, presentation wording, accessibility evidence, or migration registration without changing the claims, exercises, or commands in these documents."
+    }
+  ],
+  "verification": {
+    "path_coverage": "The five first-parent merge diffs contain 95 paths, all listed under their pull request; 20 structured-reference intersections are named separately.",
+    "current_main_drift": "No referenced implementation drift remained against e2cf67477d1a88d39b963046c878d2a9e64ae111.",
+    "code_references": "Validated 28 documents and 794 structured code references.",
+    "focused_evidence": "Task presentation unit tests passed 6 and fresh-server Chain input E2E passed 1.",
+    "book_build": "Clean HTML and Reader PDF builds passed; the 358-page Reader was rendered and visually inspected."
+  },
+  "reviewer_note": "Edition 1 acceptance remains historical. This record advances only the post-cutoff implementation review through PR #399."
+}

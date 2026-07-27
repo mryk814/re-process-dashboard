@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-392",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 392,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/392",
+    "merge_commit": "24866add9259eb261c8d34365e6b8de86ace287e"
+  },
+  "reviewed_against": "24866add9259eb261c8d34365e6b8de86ace287e",
+  "previous_verified_commit": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "new_verified_commit": "24866add9259eb261c8d34365e6b8de86ace287e",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/workbench/ChainWorkbenchPage.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["chain-range-presentation"],
+      "action": "updated",
+      "reason": "The Chain editor now formats visible range guidance separately while retaining the exact Task Definition bounds for validation and HTML input attributes."
+    },
+    {
+      "path": "apps/web/src/shared/taskPresentation.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["chain-range-presentation"],
+      "action": "updated",
+      "reason": "The new formatter rounds the lower bound upward and upper bound downward at display precision, with an exact-bound fallback for intervals narrower than one display step."
+    },
+    {
+      "path": "apps/web/tests/taskPresentation.test.mjs",
+      "semantic_impact": "none",
+      "material_impact": ["code-link"],
+      "affected_claims": ["chain-range-presentation"],
+      "action": "updated",
+      "reason": "The unit evidence fixes raw-float suppression, inward rounding, and the narrow-interval fallback without changing the domain contract."
+    },
+    {
+      "path": "e2e/chain-input-contract.spec.ts",
+      "semantic_impact": "none",
+      "material_impact": ["code-link"],
+      "affected_claims": ["chain-range-presentation"],
+      "action": "updated",
+      "reason": "The browser evidence confirms that exact raw bounds remain on the input while visible guidance follows the declared display precision."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "chain-range-presentation",
+      "statement": "Task Definition allowed_range remains the exact validation and input-attribute boundary, while display_decimals controls only reader-facing range presentation.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text", "code-link"],
+      "action": "updated",
+      "reason": "Without this distinction, a learner could treat a rounded label as a changed scientific domain or reproduce binary floating-point noise in the interface.",
+      "evidence": [
+        {
+          "path": "apps/web/src/features/workbench/ChainWorkbenchPage.tsx",
+          "symbol": "min={definition.allowed_range!.min}"
+        },
+        {
+          "path": "apps/web/src/shared/taskPresentation.ts",
+          "symbol": "formatAllowedRange"
+        },
+        {
+          "path": "apps/web/tests/taskPresentation.test.mjs",
+          "symbol": "allowed range rounds inward so a displayed bound is never rejected on entry"
+        },
+        {
+          "path": "e2e/chain-input-contract.spec.ts",
+          "symbol": "Chain candidate editor exposes and persists every external input from its contract"
+        }
+      ],
+      "verification": [
+        "Run node apps/web/tests/taskPresentation.test.mjs.",
+        "Run npx playwright test e2e/chain-input-contract.spec.ts with fresh servers.",
+        "Validate structured code references and the current-main drift review."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The PR first-parent diff and the record both contain the same four Chain range presentation paths.",
+    "focused_tests": "The task presentation suite passed 6 tests and the fresh-server Chain input E2E passed 1 test.",
+    "api_check": "The change preserves the existing Task Definition allowed_range and display_decimals contract without changing the application API.",
+    "code_reference_check": "Validated 28 documents and 794 structured code references; current-main drift detection found no referenced implementation drift.",
+    "html_build": "The clean integrated site build passed for 42 documents with 336 exact code links in 55.31 seconds.",
+    "pdf_build": "The clean Reader build passed in 23.39 seconds: 358 A4 pages, 13,294,446 bytes, SHA-256 0fc8a891a32589ca0985282771d02f0deeabfd688bed6d757872ed7d31c46deb.",
+    "visual_review": "All 358 pages were rendered at 72 dpi and inspected in 15 contact sheets; updated pages 47, 138, 156-157, and 246 were also inspected individually with no overflow, overlap, cutoff, broken glyph, table, code-link, or page-break defect."
+  },
+  "reviewer_note": "The display label is not a second validation range; exact raw bounds remain authoritative even when the label is rounded inward."
+}
