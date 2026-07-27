@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-326",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 326,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/326",
+    "merge_commit": "3d2fa76b0771888f0d200d36b8d740b82225cc99"
+  },
+  "reviewed_against": "3d2fa76b0771888f0d200d36b8d740b82225cc99",
+  "previous_verified_commit": "84f641f918bb214c5b82686d117b0da83e73e22b",
+  "new_verified_commit": "3d2fa76b0771888f0d200d36b8d740b82225cc99",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+      "semantic_impact": "wording-only",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["decision-first-screening-summary"],
+      "action": "updated",
+      "reason": "The page supplies the task output label so the summary can lead with the scientific target rather than an internal key."
+    },
+    {
+      "path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["decision-first-screening-summary", "preserved-reproducibility-evidence"],
+      "action": "updated",
+      "reason": "The default reading order now leads with decision intent and counts, while reproduction identifiers and evidence summaries remain reachable in progressive disclosure."
+    },
+    {
+      "path": "apps/web/src/features/screening/screening.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["decision-first-screening-summary"],
+      "action": "no-change",
+      "reason": "The style change supports the summary headline without creating a new evidence or interaction boundary."
+    },
+    {
+      "path": "apps/web/tests/screeningProposalSummary.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command"],
+      "affected_claims": ["decision-first-screening-summary", "preserved-reproducibility-evidence"],
+      "action": "updated",
+      "reason": "Presentation tests enforce the Japanese judgment headline, nested reproducibility data, neutral legacy wording, and collapsed batch detail."
+    },
+    {
+      "path": "apps/web/tests/screeningVariableRange.test.mjs",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["decision-first-screening-summary"],
+      "action": "no-change",
+      "reason": "The source assertion follows the three-mode wording but does not change the Design Space range claim."
+    },
+    {
+      "path": "e2e/screening-workbench.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command", "code-link"],
+      "affected_claims": ["decision-first-screening-summary", "preserved-reproducibility-evidence"],
+      "action": "updated",
+      "reason": "The E2E proves that decision context is visible first and that strategy, seed, digest, and coverage remain reachable under reproducibility details."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "decision-first-screening-summary",
+      "statement": "A Screening result presents the judgment purpose and candidate counts before implementation strategy names, raw reasons, or identifiers.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The code map previously described the evidence flow but not the deliberate reading order between a decision summary and audit details.",
+      "evidence": [
+        {"path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx", "symbol": "screening-proposal-headline"},
+        {"path": "apps/web/tests/screeningProposalSummary.test.mjs", "symbol": "Japanese decision summary"},
+        {"path": "e2e/screening-workbench.spec.ts", "symbol": "screening-proposal-headline"}
+      ],
+      "verification": [
+        "Run the Screening proposal-summary unit tests and the fresh Screening E2E.",
+        "Inspect the updated code map section in the integrated HTML."
+      ]
+    },
+    {
+      "claim_id": "preserved-reproducibility-evidence",
+      "statement": "Moving seed, strategy, digest, raw reason labels, and batch summaries out of the default view preserves their audit path and leaves the saved evidence contract unchanged.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text", "test-command"],
+      "action": "updated",
+      "reason": "The distinction prevents decision-first copy from being misread as deletion or translation of the underlying machine evidence.",
+      "evidence": [
+        {"path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx", "symbol": "screening-reproducibility"},
+        {"path": "apps/web/tests/screeningProposalSummary.test.mjs", "symbol": "sha256:1234567890abcdef"},
+        {"path": "e2e/screening-workbench.spec.ts", "symbol": "再現情報"}
+      ],
+      "verification": [
+        "Run the proposal-summary test and open reproducibility details in the Screening E2E."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "After verified commit updates, the detector reported no origin/main-only commits and no referenced implementation drift.",
+    "focused_tests": "Screening presentation tests passed: 11 passed. Fresh-server Screening E2E passed: 5 passed.",
+    "api_check": "PR #326 changed no API contract. npm run api:check, npm run typecheck, and npm run build passed for the combined merge.",
+    "code_reference_check": "Code references passed for 14 documents and 217 records. Concepts passed with 70 concepts, 90 prerequisite edges, and 68 anti-definitions. All 7 drift records passed validation.",
+    "html_build": "The clean integrated HTML profile built 25 documents in 32.07 seconds, with 61 closed exercise disclosures and 25 verified code links.",
+    "pdf_build": "The clean reader profile built 16 documents and 176 pages in 10.61 seconds.",
+    "visual_review": "The changed contract section passed a real-browser review. All 176 reader pages passed visual review across 9 contact sheets."
+  },
+  "reviewer_note": "PR #326 changes reading order, not the saved evidence contract. The textbook records both the decision-first default and the preserved route back to complete reproduction identifiers."
+}

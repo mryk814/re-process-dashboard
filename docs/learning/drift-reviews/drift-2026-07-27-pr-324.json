@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-324",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 324,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/324",
+    "merge_commit": "f6db14229e0c400b1f17f71624eb3e4c14a91b27"
+  },
+  "reviewed_against": "f6db14229e0c400b1f17f71624eb3e4c14a91b27",
+  "previous_verified_commit": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9",
+  "new_verified_commit": "f6db14229e0c400b1f17f71624eb3e4c14a91b27",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["screening-purpose-contract", "batch-evidence-lineage", "legacy-run-compatibility"],
+      "action": "updated",
+      "reason": "The page now maps three user questions to distinct request purposes and requires a pinned opportunity-search Run before building a batch."
+    },
+    {
+      "path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "updated",
+      "reason": "The proposal summary now presents evidence according to the selected question instead of treating every Screening Run as one goal search."
+    },
+    {
+      "path": "apps/web/src/features/screening/ScreeningRepresentativeTable.tsx",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "no-change",
+      "reason": "Representative-row labels changed with the mode presentation but do not alter the contract or evidence-lineage claims."
+    },
+    {
+      "path": "apps/web/src/features/screening/screening.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "no-change",
+      "reason": "The stylesheet supports the three-mode layout without adding a separately teachable behavior or boundary."
+    },
+    {
+      "path": "apps/web/src/generated/api-types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["code-link"],
+      "affected_claims": ["screening-purpose-contract", "shared-contract-routes"],
+      "action": "updated",
+      "reason": "Generated types expose purpose and source_run_id, while the unrelated contract exercises retain their existing field and union assumptions."
+    },
+    {
+      "path": "apps/web/src/generated/openapi.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract", "shared-contract-routes"],
+      "action": "no-change",
+      "reason": "OpenAPI gained the v7 Screening shape without changing the Decision Activity union or migration examples taught elsewhere."
+    },
+    {
+      "path": "backend/src/material_workbench/application/screening.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["screening-purpose-contract", "batch-evidence-lineage", "legacy-run-compatibility"],
+      "action": "updated",
+      "reason": "The service assigns question-specific scoring evidence and builds a batch from the selected points of a validated saved goal-search Run."
+    },
+    {
+      "path": "backend/src/material_workbench/contracts/schemas.py",
+      "semantic_impact": "contract-breaking",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["screening-purpose-contract", "batch-evidence-lineage", "shared-contract-routes"],
+      "action": "updated",
+      "reason": "New requests require purpose and enforce distinct combinations of goals, source_run_id, support policy, and batch definition."
+    },
+    {
+      "path": "backend/src/material_workbench/domain/services.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "no-change",
+      "reason": "Domain scoring now supports the question-specific evidence selected by the application service, with no separate glossary boundary."
+    },
+    {
+      "path": "backend/tests/test_batch_proposal.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command"],
+      "affected_claims": ["batch-evidence-lineage"],
+      "action": "updated",
+      "reason": "Batch tests now prove selection from the selected points of the pinned saved Run rather than independently regenerated candidates."
+    },
+    {
+      "path": "backend/tests/test_candidate_safety.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["shared-contract-routes"],
+      "action": "no-change",
+      "reason": "Fixtures provide the new request purpose but Candidate revision and digest safety assertions remain unchanged."
+    },
+    {
+      "path": "backend/tests/test_external_tabular_tasks.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["shared-contract-routes"],
+      "action": "no-change",
+      "reason": "External-task fixtures now identify a goal search, while the task-adapter claim itself is unchanged."
+    },
+    {
+      "path": "backend/tests/test_hot_rolling.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["shared-contract-routes"],
+      "action": "no-change",
+      "reason": "The hot-rolling fixture supplies purpose without changing its task-specific contract expectations."
+    },
+    {
+      "path": "backend/tests/test_objective_execution.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["shared-contract-routes"],
+      "action": "no-change",
+      "reason": "Objective execution fixtures opt into goal search, but Objective Definition semantics tested by the lesson are unchanged."
+    },
+    {
+      "path": "backend/tests/test_projects.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract", "shared-contract-routes"],
+      "action": "no-change",
+      "reason": "Project tests cover purpose-aware saved Runs without altering archive, restore, purge, or shared-definition ownership."
+    },
+    {
+      "path": "backend/tests/test_proposal_geometry.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command"],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "updated",
+      "reason": "Geometry tests distinguish support-distance mapping from objective-ranked opportunity search across the same Design Space."
+    },
+    {
+      "path": "backend/tests/test_proposal_strategies.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "no-change",
+      "reason": "Strategy tests supply the required purpose while the registered strategy behavior remains unchanged."
+    },
+    {
+      "path": "backend/tests/test_step4_to_6.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["shared-contract-routes"],
+      "action": "no-change",
+      "reason": "The end-to-end backend fixture names a goal search without changing the previously taught identity and evidence boundaries."
+    },
+    {
+      "path": "docs/curation-and-proposal-architecture.md",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["screening-purpose-contract", "batch-evidence-lineage"],
+      "action": "updated",
+      "reason": "The architecture source now defines the three questions and makes the saved goal-search Run the batch evidence source."
+    },
+    {
+      "path": "docs/current-system-baseline.md",
+      "semantic_impact": "wording-only",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["screening-purpose-contract"],
+      "action": "updated",
+      "reason": "The baseline names the three current modes and therefore supports the new current concept rather than a future capability."
+    },
+    {
+      "path": "e2e/screening-workbench.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command", "code-link"],
+      "affected_claims": ["screening-purpose-contract", "batch-evidence-lineage", "legacy-run-compatibility"],
+      "action": "updated",
+      "reason": "The E2E test fixes the visible questions, source_run_id request, evidence reuse, and reopening behavior for an old purpose-less Run."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "screening-purpose-contract",
+      "statement": "A Screening Run fixes one of three judgment questions, and each question permits a different evidence and request shape.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The textbook had concepts for Objective, acquisition, and batch selection but no concept for the question that constrains their composition.",
+      "evidence": [
+        {"path": "backend/src/material_workbench/contracts/schemas.py", "symbol": "class ScreeningRequest"},
+        {"path": "backend/src/material_workbench/application/screening.py", "symbol": "class ScreeningService"},
+        {"path": "apps/web/src/features/screening/ScreeningPage.tsx", "symbol": "ScreeningPage"},
+        {"path": "e2e/screening-workbench.spec.ts", "symbol": "source_run_id"}
+      ],
+      "verification": [
+        "Run the focused Screening backend tests and e2e/screening-workbench.spec.ts.",
+        "Run concept and code-reference validation after generating the glossary and concept map."
+      ]
+    },
+    {
+      "claim_id": "batch-evidence-lineage",
+      "statement": "An experiment batch selects from the pinned selected points of a saved goal-search Run and reuses its strategy, incumbent, and objective evidence.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The previous Screening concept did not state where the application service obtains its ranked shortlist and decision evidence.",
+      "evidence": [
+        {"path": "backend/src/material_workbench/application/screening.py", "symbol": "_select_batch_from_saved_run"},
+        {"path": "backend/tests/test_batch_proposal.py", "symbol": "source_run_id"},
+        {"path": "docs/curation-and-proposal-architecture.md", "symbol": "source_run_id"}
+      ],
+      "verification": [
+        "Run backend/tests/test_batch_proposal.py and the Screening E2E.",
+        "Review the generated glossary entry for Batch Selector."
+      ]
+    },
+    {
+      "claim_id": "legacy-run-compatibility",
+      "statement": "A saved goal-oriented Screening Run without purpose remains readable as an opportunity search, while new v7 Runs record purpose explicitly.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text"],
+      "action": "updated",
+      "reason": "The compatibility behavior matters for interpreting old evidence but belongs near the current concept rather than in the main definition.",
+      "evidence": [
+        {"path": "apps/web/src/features/screening/ScreeningPage.tsx", "symbol": "modeFromRun"},
+        {"path": "e2e/screening-workbench.spec.ts", "symbol": "purpose-less legacy goal run"}
+      ],
+      "verification": [
+        "Run the legacy goal Run case in e2e/screening-workbench.spec.ts."
+      ]
+    },
+    {
+      "claim_id": "shared-contract-routes",
+      "statement": "Candidate identity, migration trust, Project lifecycle, and the contract-extension lab keep their existing boundaries after shared fixtures and schemas change.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The shared files changed for Screening purpose, but revision comparison, migration validation, lifecycle ownership, and the lab union remain valid.",
+      "evidence": [
+        {"path": "docs/learning/chapters/revision-and-digest.qmd", "symbol": null},
+        {"path": "docs/learning/chapters/trust-a-migrated-database.qmd", "symbol": null},
+        {"path": "docs/learning/chapters/separate-archive-from-purge.qmd", "symbol": null},
+        {"path": "docs/learning/labs/extend-contract.qmd", "symbol": null}
+      ],
+      "verification": [
+        "Run the exercise checker and the focused shared-contract tests named by the affected chapters."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "After verified commit updates, the detector reported no origin/main-only commits and no referenced implementation drift.",
+    "focused_tests": "Focused Screening backend tests passed: 116 passed. Screening presentation tests passed: 11 passed. Fresh-server Screening E2E passed: 5 passed.",
+    "api_check": "npm run api:check, npm run typecheck, and npm run build passed for the combined merge.",
+    "code_reference_check": "Code references passed for 14 documents and 217 records. Concepts passed with 70 concepts, 90 prerequisite edges, and 68 anti-definitions. All 7 drift records passed validation.",
+    "html_build": "The clean integrated HTML profile built 25 documents in 32.07 seconds, with 61 closed exercise disclosures and 25 verified code links.",
+    "pdf_build": "The clean reader profile built 16 documents and 176 pages in 10.61 seconds.",
+    "visual_review": "The changed contract section passed a real-browser review. All 176 reader pages passed visual review across 9 contact sheets."
+  },
+  "reviewer_note": "PR #324 was reviewed as a change to the judgment question and evidence flow, not merely a three-tab UI redesign. The legacy_screening provenance token used internally by design-space mapping is kept distinct from the historical saved Objective format."
+}

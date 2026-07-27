@@ -1,9 +1,19 @@
 ---
-verified_commit: "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
+verified_commit: "985e77682d175203fe5ccb4a6688729a8077088f"
 code_references:
   - path: "apps/web/src/app/navigation.ts"
     role: "frontend"
   - path: "apps/web/src/features/candidates/useCandidateEditor.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/screening/ScreeningPage.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/screening/ScreeningProposalSummary.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx"
     role: "frontend"
   - path: "apps/web/src/features/workbench/decisionActivityState.ts"
     role: "frontend"
@@ -83,6 +93,8 @@ code_references:
     role: "persistence"
   - path: "backend/tests/test_candidate_migration.py"
     role: "test"
+  - path: "backend/tests/test_counterfactual_activity.py"
+    role: "test"
   - path: "backend/tests/test_decision_activities.py"
     role: "test"
   - path: "backend/tests/test_openapi_contract.py"
@@ -90,6 +102,8 @@ code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
   - path: "e2e/decision-activity.spec.ts"
+    role: "test"
+  - path: "e2e/screening-workbench.spec.ts"
     role: "test"
   - path: "scripts/smoke-packaged.mjs"
     role: "build"
@@ -173,6 +187,7 @@ code_references:
 | [Registry](glossary.qmd#concept-registry) | [候補生成器](glossary.qmd#concept-candidate-generator) | 未配置 |
 | [Objective Definition](glossary.qmd#concept-objective-definition) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
 | [予測要約](glossary.qmd#concept-predictive-summary) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
+| [Project Design Space](glossary.qmd#concept-design-space) | [探索目的](glossary.qmd#concept-screening-purpose) | 未配置 |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | [batch選択器](glossary.qmd#concept-batch-selector) | 未配置 |
 | [Objective Definition](glossary.qmd#concept-objective-definition) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
 | [スナップショット](glossary.qmd#concept-snapshot) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
@@ -288,6 +303,12 @@ code_references:
 | [候補生成器](glossary.qmd#concept-candidate-generator) | 同じではない | [batch選択器](glossary.qmd#concept-batch-selector) |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | 関連する | [現時点の基準候補](glossary.qmd#concept-incumbent) |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | 同じではない | [batch選択器](glossary.qmd#concept-batch-selector) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [Objective Definition](glossary.qmd#concept-objective-definition) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [batch選択器](glossary.qmd#concept-batch-selector) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [現時点の基準候補](glossary.qmd#concept-incumbent) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [スナップショット](glossary.qmd#concept-snapshot) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 同じではない | [Objective Definition](glossary.qmd#concept-objective-definition) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 同じではない | [batch選択器](glossary.qmd#concept-batch-selector) |
 | [batch選択器](glossary.qmd#concept-batch-selector) | 関連する | [必須制約](glossary.qmd#concept-hard-constraint) |
 | [現時点の基準候補](glossary.qmd#concept-incumbent) | 同じではない | [Objective Definition](glossary.qmd#concept-objective-definition) |
 | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness) | 同じではない | [較正](glossary.qmd#concept-calibration) |
@@ -345,7 +366,7 @@ code_references:
 
 | 状態 | 件数 | 読み方 |
 |---|---:|---|
-| 現行 | 66 | verified commitの実装または契約へリンクする |
+| 現行 | 67 | verified commitの実装または契約へリンクする |
 | 将来候補 | 2 | 未実装の候補として読み、現行機能へ格上げしない |
 | 履歴 | 1 | 過去の案または不採用判断として読む |
 

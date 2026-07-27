@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-325",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 325,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/325",
+    "merge_commit": "84f641f918bb214c5b82686d117b0da83e73e22b"
+  },
+  "reviewed_against": "84f641f918bb214c5b82686d117b0da83e73e22b",
+  "previous_verified_commit": "f6db14229e0c400b1f17f71624eb3e4c14a91b27",
+  "new_verified_commit": "84f641f918bb214c5b82686d117b0da83e73e22b",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["goal-less-robustness"],
+      "action": "updated",
+      "reason": "The shared shell now lets the Robustness view own its prerequisite question when no Project targets are configured."
+    },
+    {
+      "path": "apps/web/src/features/workbench/WorkbenchPage.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["goal-less-robustness"],
+      "action": "updated",
+      "reason": "Workbench passes the current targets and existing objective-settings navigation into the typed Activity view."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["goal-less-robustness", "immutable-goal-less-result"],
+      "action": "updated",
+      "reason": "The view separates target-achievement analysis from sensitivity-only analysis and labels a null achievement rate as not calculated."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["goal-less-robustness"],
+      "action": "no-change",
+      "reason": "Typed view props carry target values and the configuration callback without changing the Python-to-TypeScript result union."
+    },
+    {
+      "path": "apps/web/src/features/workbench/workbench.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["goal-less-robustness"],
+      "action": "no-change",
+      "reason": "Styles support the prerequisite choice and goal-less mode without creating a separate behavior claim."
+    },
+    {
+      "path": "e2e/decision-activity.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command", "code-link"],
+      "affected_claims": ["goal-less-robustness", "immutable-goal-less-result"],
+      "action": "updated",
+      "reason": "The E2E fixes both branches, the null-rate explanation, and navigation to Project target settings."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "goal-less-robustness",
+      "statement": "A Project without goals must choose between configuring targets and running input-variation sensitivity without an achievement-rate claim.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The chapter already distinguished null from zero, but it did not explain that the UI separates two valid questions with different prerequisites.",
+      "evidence": [
+        {"path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx", "symbol": "sensitivityOnlyConfirmed"},
+        {"path": "apps/web/src/features/workbench/WorkbenchPage.tsx", "symbol": "onConfigureGoals"},
+        {"path": "e2e/decision-activity.spec.ts", "symbol": "goal-less robustness"}
+      ],
+      "verification": [
+        "Run the goal-less robustness E2E on a fresh server.",
+        "Review the contract chapter and generated Robustness glossary entry."
+      ]
+    },
+    {
+      "claim_id": "immutable-goal-less-result",
+      "statement": "A saved robustness result with a null goal achievement rate remains explicitly uncalculated and is not filled from later Project settings.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text"],
+      "action": "updated",
+      "reason": "The implementation labels the result by its execution-time prerequisite, which extends the chapter's existing null-versus-zero claim.",
+      "evidence": [
+        {"path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx", "symbol": "この解析の実行時"},
+        {"path": "e2e/decision-activity.spec.ts", "symbol": "達成率は算出していません"}
+      ],
+      "verification": [
+        "Run the goal-less robustness E2E and inspect the saved-result wording."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "After verified commit updates, the detector reported no origin/main-only commits and no referenced implementation drift.",
+    "focused_tests": "The fresh-server goal-less Robustness E2E passed: 1 passed. The combined fresh-server Robustness and counterfactual run passed: 2 passed.",
+    "api_check": "PR #325 changed no API contract. npm run api:check, npm run typecheck, and npm run build passed for the combined merge.",
+    "code_reference_check": "Code references passed for 14 documents and 217 records. Concepts passed with 70 concepts, 90 prerequisite edges, and 68 anti-definitions. All 7 drift records passed validation.",
+    "html_build": "The clean integrated HTML profile built 25 documents in 32.07 seconds, with 61 closed exercise disclosures and 25 verified code links.",
+    "pdf_build": "The clean reader profile built 16 documents and 176 pages in 10.61 seconds.",
+    "visual_review": "The changed contract section and goal-less explanation passed a real-browser review. All 176 reader pages passed visual review across 9 contact sheets."
+  },
+  "reviewer_note": "PR #325 was reviewed as a prerequisite and evidence-interpretation change. It does not make Project goals mandatory for sensitivity analysis and does not redefine a missing achievement rate as zero."
+}

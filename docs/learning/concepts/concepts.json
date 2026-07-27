@@ -2,7 +2,7 @@
   "$schema": "./concept.schema.json",
   "schema_version": 1,
   "repository": "mryk814/re-process-dashboard",
-  "verified_commit": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9",
+  "verified_commit": "985e77682d175203fe5ccb4a6688729a8077088f",
   "categories": [
     {
       "id": "identity-evidence",
@@ -1281,6 +1281,63 @@
       "common_misconceptions": []
     },
     {
+      "id": "screening-purpose",
+      "term_ja": "探索目的",
+      "term_en": "Screening purpose",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Screening Runが答える問いを、「領域を見る」「有望候補を探す」「保存済み探索から実験batchを組む」の三つに固定する契約です。",
+      "anti_definitions": [
+        "同じ計算結果を見せ分けるだけの画面tabではありません。",
+        "領域を見るRunは、目標最適化の成否を答えるRunではありません。",
+        "実験batchを組むRunは、元の有望候補Runと独立に候補を再生成するRunではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition",
+        "batch-selector"
+      ],
+      "prerequisites": [
+        "design-space"
+      ],
+      "related": [
+        "objective-definition",
+        "batch-selector",
+        "incumbent",
+        "snapshot"
+      ],
+      "math_connections": [
+        "問いごとに、support distance、Objective score、集合選択へ使える証拠を分けます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/application/screening.py",
+          "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "e2e/screening-workbench.spec.ts",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "実験batchは、保存した有望候補Runの選抜済みpoints、strategy、incumbent、Objective証拠を引き継いで選びます。"
+      ]
+    },
+    {
       "id": "batch-selector",
       "term_ja": "batch選択器",
       "term_en": "Batch Selector",
@@ -1289,9 +1346,10 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "acquisition順位済み候補からcontrol、cost、quota、setup、多様性を考慮して実験集合を選ぶ処理です。",
+      "definition": "acquisition順位済みのshortlistから、control、cost、quota、setup、多様性を考慮して実験集合を選ぶ処理です。",
       "anti_definitions": [
-        "acquisition score上位を無条件に先頭から取る処理ではありません。"
+        "acquisition score上位を無条件に先頭から取る処理ではありません。",
+        "候補の生成、保存Runの検証、Objective証拠の解決まで担う処理ではありません。"
       ],
       "not_same_as": [
         "candidate-generator",
@@ -1301,7 +1359,8 @@
         "acquisition-function"
       ],
       "related": [
-        "hard-constraint"
+        "hard-constraint",
+        "screening-purpose"
       ],
       "math_connections": [
         "候補単独のvalueと集合全体のdiversityやresource制約を分けます"
@@ -1361,9 +1420,10 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Candidate入力をTolerance Profileに従って変動させ、目標失敗率、worst value、critical inputを計算するDecision Activityです。",
+      "definition": "Candidate入力をTolerance Profileに従って変動させ、入力ばらつき、worst value、critical inputを計算し、Projectに目標がある特性だけ目標達成率も計算するDecision Activityです。",
       "anti_definitions": [
-        "モデルparameterの不確かさだけを評価する指標ではありません。"
+        "モデルparameterの不確かさだけを評価する指標ではありません。",
+        "目標未設定時の未計算を、達成率0または解析失敗とみなすものではありません。"
       ],
       "not_same_as": [
         "calibration"
@@ -1382,6 +1442,14 @@
         {
           "path": "backend/src/material_workbench/application/decision_activity_robustness.py",
           "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "e2e/decision-activity.spec.ts",
+          "role": "test"
         }
       ],
       "common_misconceptions": []
@@ -1397,10 +1465,12 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Design Space内で変更量を正規化し、Objectiveを満たす候補または満たせない理由を探索するDecision Activityです。",
+      "definition": "Design Space内で変更量を正規化し、Objectiveを点予測で満たす候補または満たせない理由を探索し、各案のcanonical Predictionを固定して、利用可能な予測区間を点判定と分けて示すDecision Activityです。",
       "anti_definitions": [
         "因果介入や達成保証を自動的に意味しません。",
-        "Design Space外の自由な変更ではありません。"
+        "Design Space外の自由な変更ではありません。",
+        "「達成」は点予測による判定であり、予測区間全体が目標を満たす保証ではありません。",
+        "Predictionに区間情報がない場合へ、区間を補うものではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -1419,6 +1489,18 @@
         {
           "path": "backend/src/material_workbench/application/decision_activity_counterfactual.py",
           "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts",
+          "role": "frontend"
+        },
+        {
+          "path": "backend/tests/test_counterfactual_activity.py",
+          "role": "test"
         }
       ],
       "common_misconceptions": []
@@ -1561,13 +1643,11 @@
       "id": "legacy-screening-objective",
       "term_ja": "旧Screening Objective",
       "term_en": "legacy screening objective",
-      "aliases": [
-        "legacy_screening"
-      ],
+      "aliases": [],
       "category": "decision",
       "scope": "subsystem",
       "status": "historical",
-      "status_note": "互換読込と履歴のためcontractには残りますが、新規ProjectのObjective設計として使う概念ではありません。",
+      "status_note": "互換読込と履歴のためcontractには残りますが、新規ProjectのObjective設計として使う概念ではありません。現行ScreeningのObjective provenance値`legacy_screening`は、領域を見るRunの内部表現にも使われるため、この旧保存形式の別名とは扱いません。",
       "definition": "現在のObjective Definitionへ移行する前に、Screening専用fieldで判断目標を表していた保存形式です。",
       "anti_definitions": [
         "新規実装で選ぶ標準Objective kindではありません。"

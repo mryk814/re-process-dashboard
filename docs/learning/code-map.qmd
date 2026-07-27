@@ -1,5 +1,5 @@
 ---
-verified_commit: "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
+verified_commit: "985e77682d175203fe5ccb4a6688729a8077088f"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "code-map-activity-contract"
@@ -35,6 +35,30 @@ code_references:
     role: "test"
   - path: "e2e/decision-activity.spec.ts"
     id: "code-map-activity-e2e"
+    role: "test"
+  - path: "backend/src/material_workbench/contracts/schemas.py"
+    id: "code-map-screening-contract"
+    role: "contract"
+    symbols:
+      - "ScreeningRequest"
+      - "ScreeningRunResponse"
+  - path: "backend/src/material_workbench/application/screening.py"
+    id: "code-map-screening-service"
+    role: "application"
+    symbols:
+      - "ScreeningService"
+  - path: "apps/web/src/features/screening/ScreeningPage.tsx"
+    id: "code-map-screening-page"
+    role: "frontend"
+    symbols:
+      - "ScreeningPage"
+  - path: "apps/web/src/features/screening/ScreeningProposalSummary.tsx"
+    id: "code-map-screening-summary"
+    role: "frontend"
+    symbols:
+      - "ScreeningProposalSummary"
+  - path: "e2e/screening-workbench.spec.ts"
+    id: "code-map-screening-e2e"
     role: "test"
 ---
 
@@ -201,6 +225,26 @@ code_references:
 - **Application**：design space validationとmigration
 - **UI**：range設定、探索、counterfactual
 - **Testと文書**：`backend/tests/test_design_space_contracts.py`、`docs/project-design-space.md`
+
+### Screening purpose
+
+Screening画面で最初に選ぶのは、表示形式ではなく、Runが答える問いです。
+{{< code-ref code-map-screening-contract symbol=ScreeningRequest >}}は、`design_space_map`、`goal_search`、`experiment_batch`ごとに、目標、元Run、batch定義の許される組合せを分けます。
+{{< code-ref code-map-screening-service symbol=ScreeningService >}}は、領域を見るRunにはsupport distance、有望候補RunにはObjective実行、実験batchには保存済み有望候補Runの選抜済みpointsと判断証拠を使います。
+
+- **UI**：{{< code-ref code-map-screening-page symbol=ScreeningPage >}}の「領域を見る」「有望候補を探す」「実験バッチを組む」
+- **保存境界**：実験batchは`source_run_id`で元の有望候補Runを固定し、その時点の選抜済みpoints、strategy、incumbent、Objective証拠を引き継ぐ
+- **互換境界**：purposeを持たない旧Runは、保存内容から従来の有望候補探索として開く
+- **Test**：{{< code-ref code-map-screening-e2e >}}が、三つの問いと保存済みRun間の接続を画面から検査する
+
+{{< code-ref code-map-screening-summary symbol=ScreeningProposalSummary >}}は、既定表示で判断目的と候補件数を先に示し、strategy、seed、digestは閉じた「再現情報」へ分けます。
+これは再現情報を捨てる省略ではなく、判断に使う要約と監査に使う識別子の読む順番を固定する分離です。[^screening-summary-order]
+
+`design_space_map`で内部的に構築されるObjective表現は、目標最適化を行った証拠ではありません。[^screening-purpose-provenance]
+
+[^screening-purpose-provenance]: 現行実装はこの内部表現のprovenanceへ`legacy_screening`を記録します。これは旧Screening Objectiveを新規Projectの目標として採用したという意味ではなく、目標なしの地図作成を既存の実行基盤へ通す来歴情報です。
+
+[^screening-summary-order]: 除外理由やbatch内訳も日本語の判断語で読み始められます。元のreason、strategy ID、完全なdigestは削除せず、詳細またはtitle属性に残るため、画面から実装と保存証拠へ戻れます。
 
 ### Source lifecycle
 
