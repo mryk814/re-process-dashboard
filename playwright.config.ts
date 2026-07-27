@@ -27,7 +27,7 @@ export default defineConfig({
   // chain-degraded.spec.ts needs the broken evaluation fixtures and ports of
   // playwright.chain-degraded.config.ts. Running it here only produces a
   // connection error against a server this config never starts.
-  testIgnore: ["chain-degraded.spec.ts"],
+  testIgnore: ["chain-degraded.spec.ts", "startup-diagnostic.spec.ts"],
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,

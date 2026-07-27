@@ -11,6 +11,7 @@ import {
   compatibleTaskIdsForDataset,
   datasetDisplayName,
   modelPackageDisplayName,
+  modelPackageDisplayNames,
   projectDatasetChoices,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
@@ -179,6 +180,7 @@ export function ProjectHub({
   const [archiving, setArchiving] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
   const [restoringProjectId, setRestoringProjectId] = useState("");
+  const [restoringCandidateId, setRestoringCandidateId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
@@ -491,6 +493,7 @@ export function ProjectHub({
   const availablePackages = creationOptions
     ? compatiblePackagesForDatasetTask(selectedDataset, newTaskId, creationOptions)
     : [];
+  const availablePackageNames = modelPackageDisplayNames(availablePackages);
   const availableChains = chainTemplates.filter((item) => item.revisions.some(
     (revision) => revision.stages.some(
       (stage) => stage.dataset_view_revision_id === newDatasetViewId,
@@ -944,6 +947,21 @@ export function ProjectHub({
     setRestoringProjectId("");
   }
 
+  async function restoreArchivedCandidate(candidateId: string) {
+    if (restoringCandidateId) return;
+    setRestoringCandidateId(candidateId);
+    setError("");
+    try {
+      const restored = await workbenchApi.restoreCandidate(activeProjectId, candidateId);
+      onRestore(fromApiCandidate(restored));
+      await reloadHistory(undefined, activeProjectId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "候補を復元できませんでした。");
+    } finally {
+      setRestoringCandidateId("");
+    }
+  }
+
   const renderProjectListItem = (item: ApiProject) => (
     <button
       type="button"
@@ -1107,7 +1125,7 @@ export function ProjectHub({
         <div className="project-binding-flow">
           <label className="project-dataset-choice"><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{usedDatasetChoices.length > 0 && <optgroup label="利用中のデータ">{usedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}{unusedDatasetChoices.length > 0 && <optgroup label="未使用のデータ">{unusedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}</select><small aria-hidden="true">利用中のProject数が多い順。同数なら新しい登録順。</small></label>
           <label><b aria-hidden="true">2</b><span>予測構成</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? `task:${copyTaskId ?? ""}` : newChainId ? `chain:${newChainId}` : newTaskId ? `task:${newTaskId}` : ""} onChange={(event) => { const [kind, id] = event.target.value.split(":", 2); setNewTaskId(kind === "task" ? id : ""); setNewModelPackageRefId(""); setNewChainId(kind === "chain" ? id : ""); setNewChainRevisionId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={`task:${item.definition.task_definition.id}`}>{item.definition.task_definition.label}（単一Task）</option>)}{availableChains.map((item) => <option key={item.definition.chain_id} value={`chain:${item.definition.chain_id}`}>{item.definition.label}（Chain）</option>)}</select></label>
-          <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{modelPackageDisplayName(item)}</option>)}</select>}</label>
+          <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{availablePackageNames.get(item.id)}</option>)}</select>}</label>
           <fieldset className="project-group-choice">
             <legend><b aria-hidden="true">4</b><span>検討グループ</span></legend>
             <p>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</p>
@@ -1199,7 +1217,14 @@ export function ProjectHub({
               || chainVariants.length > 0
               || chainDistributionRuns.length > 0;
             return <article className="project-history-card" key={item.candidate.id}>
-              <header><div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div><button className="outline-button" disabled={taskUnavailable || Boolean(item.candidate.archived_at)} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button></header>
+              <header>
+                <div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div>
+                {item.candidate.archived_at
+                  ? <button className="outline-button" disabled={taskUnavailable || offline || Boolean(restoringCandidateId)} onClick={() => void restoreArchivedCandidate(item.candidate.id)}>
+                    {restoringCandidateId === item.candidate.id ? "復元中…" : "候補へ戻す"}
+                  </button>
+                  : <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button>}
+              </header>
               <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span className={item.candidate.provenance?.source_kind === "lineage" ? "history-origin reference-data" : "history-origin"}>{item.candidate.provenance?.source_kind === "lineage" && <b>参照データ由来</b>}{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
               {chainIdentity
                 ? <>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, useWorkbenchSession } from "../features/workbench";
+import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import { ProjectHub } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
@@ -17,6 +17,7 @@ import {
 } from "../shared/api/workbench-api";
 
 type Tab = WorkbenchView;
+type HomeNavigationIcon = "project" | "data" | "workspace";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
@@ -25,6 +26,23 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
+
+function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
+  if (icon === "project") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3 4.5h5l1.4 1.7H17v9.3H3z" />
+    </svg>;
+  }
+  if (icon === "data") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <ellipse cx="10" cy="4.5" rx="6.5" ry="2.5" />
+      <path d="M3.5 4.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5M3.5 9.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5" />
+    </svg>;
+  }
+  return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M3.5 6.5h13v10h-13zM6 3.5h8v3H6zM7 10h6M7 13h6" />
+  </svg>;
+}
 
 function DataExploreUnavailable() {
   return <div className="page-panel">
@@ -42,11 +60,40 @@ function ChainModeUnavailablePanel({ onOpenCandidates }: { onOpenCandidates: () 
   </div>;
 }
 
-function ConnectionBanner({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+function StartupBanner({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - startedAt);
+  useEffect(() => {
+    const timer = window.setInterval(() => setElapsed(Date.now() - startedAt), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  return <div className="connection-banner starting" role="status">
+    <div>
+      <strong>{apiStartupWaitText(elapsed)}</strong>
+      <span>ExcelとModel Packageの読み込みが終わるまで自動で再試行します。操作は不要です。</span>
+    </div>
+  </div>;
+}
+
+function ConnectionBanner({ retrying, onRetry, diagnostic }: { retrying: boolean; onRetry: () => void; diagnostic: StartupDiagnostic | null }) {
   return <div className="connection-banner" role="alert">
     <div>
-      <strong>APIへ接続できません</strong>
-      <span>ローカルAPIが起動していない、または保存データと構成が不整合の可能性があります。保存済みのデータは変更されていません。</span>
+      <strong>{diagnostic ? "Workspaceの互換性検査で起動を停止しました" : "APIへ接続できません"}</strong>
+      {diagnostic ? <>
+        <span>保存済みデータを変更しないため、APIは起動していません。次の診断内容を解決してから再試行してください。</span>
+        <div className="startup-diagnostic-list">
+          {diagnostic.report.findings.map((finding, index) => <dl key={`${finding.stage}-${finding.resource_id}-${index}`} className="startup-diagnostic-finding">
+            <div><dt>stage</dt><dd>{finding.stage}</dd></div>
+            <div><dt>resource_id</dt><dd>{finding.resource_id}</dd></div>
+            <div><dt>cause</dt><dd>{finding.cause}</dd></div>
+            <div><dt>impact</dt><dd>{finding.impact}</dd></div>
+            <div><dt>recovery_hint</dt><dd>{finding.recovery_hint}</dd></div>
+          </dl>)}
+        </div>
+        <span className="connection-banner-steps">起動ログ: <code>{diagnostic.log_path}</code><br />復旧手順: <code>{diagnostic.recovery_route}</code></span>
+      </> : <>
+        <span>自動再試行の時間内に接続できませんでした。保存済みのデータは変更されていません。ローカルAPIが起動していない可能性があります。</span>
+        <span className="connection-banner-steps">起動ログ（Desktop版は <code>logs/material-workbench-api.log</code>、開発時は <code>npm run dev</code> のapi出力）を確認してください。</span>
+      </>}
     </div>
     <button type="button" className="outline-button" disabled={retrying} onClick={onRetry}>{retrying ? "再試行中…" : "再試行"}</button>
   </div>;
@@ -249,36 +296,52 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">Material Decision Workbench</div>
+        <div className="brand" aria-label="Material Decision Workbench">
+          <span className="brand-full">Material Decision Workbench</span>
+          <span className="brand-short" aria-hidden="true">MDW</span>
+        </div>
         <nav aria-label="ホーム">
           <button
+            type="button"
             className="nav-button"
+            aria-label="プロジェクト"
+            data-short-label="Project"
             aria-current={!dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
-            プロジェクト
+            <HomeNavIcon icon="project" />
+            <span className="nav-label-full">プロジェクト</span>
           </button>
           <button
+            type="button"
             className={dataLibraryMode ? "nav-button active" : "nav-button"}
+            aria-label="データライブラリ"
+            data-short-label="Data"
             aria-current={dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "data-library" })}
           >
-            データライブラリ
+            <HomeNavIcon icon="data" />
+            <span className="nav-label-full">データライブラリ</span>
           </button>
           <button
             ref={workspaceButtonRef}
             type="button"
             className={workspaceDialogOpen ? "nav-button active" : "nav-button"}
+            aria-label="ワークスペース"
+            data-short-label="保管"
             aria-haspopup="dialog"
             aria-expanded={workspaceDialogOpen}
             onClick={() => setWorkspaceDialogOpen(true)}
           >
-            ワークスペース
+            <HomeNavIcon icon="workspace" />
+            <span className="nav-label-full">ワークスペース</span>
           </button>
         </nav>
       </header>
       <main>
-        {apiState === "offline" && <ConnectionBanner retrying={retrying} onRetry={() => {
+        {apiState === "starting" && session.apiStartedWaitingAt !== null
+          && <StartupBanner startedAt={session.apiStartedWaitingAt} />}
+        {apiState === "offline" && <ConnectionBanner diagnostic={session.startupDiagnostic} retrying={retrying} onRetry={() => {
           setRetrying(true);
           void session.retryOpenWorkspace().finally(() => setRetrying(false));
         }} />}
@@ -301,7 +364,9 @@ function App() {
               )}
               {apiState !== "ready" && (
                 <span className={`api-state ${apiState}`}>
-                  {apiState === "loading" ? "プレビュー更新中" : "API 未接続"}
+                  {apiState === "loading"
+                    ? "プレビュー更新中"
+                    : apiState === "starting" ? "API 起動待ち" : "API 未接続"}
                 </span>
               )}
               {tab === "candidates" && selected && (
@@ -399,6 +464,17 @@ function App() {
             readOnly={taskUnavailable}
             availability={taskAvailability}
             initialSection={navigation.adminSection}
+            developerTab={navigation.developerTab}
+            developerTabError={navigation.developerTabError}
+            developerGuideId={navigation.developerGuideId}
+            onDeveloperLocationChange={(developerTab, developerGuideId) => navigate({
+              ...navigationRef.current,
+              view: "settings",
+              projectId: activeProjectId,
+              adminSection: "developer",
+              developerTab,
+              developerGuideId,
+            })}
             onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
             qualityFilters={{
               issueId: navigation.qualityIssueId,

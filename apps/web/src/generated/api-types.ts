@@ -797,6 +797,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Candidate */
+        post: operations["restoreCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/revisions/{revision}": {
         parameters: {
             query?: never;
@@ -2185,11 +2202,13 @@ export interface components {
              * @enum {string}
              */
             pending_policy: "avoid" | "penalize" | "allow";
-            /** @default {
+            /**
+             * @default {
              *       "cost_rules": [],
              *       "default_candidate_cost": 1,
              *       "setup_change_penalty": 0
-             *     } */
+             *     }
+             */
             resources: components["schemas"]["BatchResourceConstraint"];
             /**
              * Schema Version
@@ -5617,9 +5636,11 @@ export interface components {
         };
         /** ObjectiveDefinition */
         ObjectiveDefinition: {
-            /** @default {
+            /**
+             * @default {
              *       "source": "none"
-             *     } */
+             *     }
+             */
             incumbent: components["schemas"]["ObjectiveIncumbent"];
             /** Name */
             name: string;
@@ -7189,14 +7210,17 @@ export interface components {
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
-            /** @default {
+            /**
+             * @default {
              *       "candidate_excel_export": false,
              *       "candidate_excel_import": false,
              *       "project_creation": true,
              *       "sparse_blend": false
-             *     } */
+             *     }
+             */
             application: components["schemas"]["ApplicationCapability"];
-            /** @default {
+            /**
+             * @default {
              *       "expected_locator": "",
              *       "message": "",
              *       "recovery_hint": "",
@@ -7204,7 +7228,8 @@ export interface components {
              *       "schema_version": "task-availability/v1",
              *       "stage": "ready",
              *       "status": "available"
-             *     } */
+             *     }
+             */
             availability: components["schemas"]["TaskAvailability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
@@ -7614,13 +7639,15 @@ export interface components {
             base_inputs: components["schemas"]["CandidateInputs"];
             batch_definition?: components["schemas"]["BatchProposalDefinition"] | null;
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
-            /** @default {
+            /**
+             * @default {
              *       "exploration_parameter": 2,
              *       "fallback_policy": "reject",
              *       "pool_multiplier": 4,
              *       "strategy_id": "latin_hypercube_v1",
              *       "support_policy": "supported_first"
-             *     } */
+             *     }
+             */
             proposal: components["schemas"]["ProposalStrategyRequest"];
             /**
              * Purpose
@@ -11042,6 +11069,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResponseCurveResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    restoreCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
                 };
             };
             /** @description Not Found */

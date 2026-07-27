@@ -64,6 +64,9 @@ export function DecisionActivityPanel({
   useEffect(() => {
     requestControllerRef.current?.abort();
     setRunning(false);
+    setActivities([]);
+    setRuns([]);
+    setActiveRunId(null);
   }, [identity]);
 
   useEffect(() => {
@@ -196,7 +199,7 @@ export function DecisionActivityPanel({
     {!loading && selected && !View && <p className="empty-evidence">
       この検討アクティビティの表示はこの版では未対応です。
     </p>}
-    {selected && View && !locationError && <View
+    {loadedIdentity === identity && selected && View && !locationError && <View
       projectId={projectId}
       candidate={candidate}
       candidates={candidates}

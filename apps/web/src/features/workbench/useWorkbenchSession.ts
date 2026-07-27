@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { CandidateProvenance } from "../../shared/candidateProvenance";
 import type { WorkspaceNotice, WorkspaceNoticeKind } from "../../shared/workspaceNotice";
 import { ApiClientError } from "../../shared/api/client";
+import { apiStartupRetryDelayMs, shouldKeepWaitingForApi } from "./apiStartupWait";
+import { readStartupDiagnostic, type StartupDiagnostic } from "./startupDiagnostic";
 import { candidateInferencePrefix, candidateInputIdentity, inferenceRequestCache } from "../../shared/api/inferenceRequestCache";
 import {
   workbenchApi,
@@ -48,7 +50,9 @@ export function useWorkbenchSession({
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const deletingCandidateIds = useRef(new Set<string>());
-  const [apiState, setApiState] = useState<"ready" | "loading" | "offline">("loading");
+  const [apiState, setApiState] = useState<"ready" | "loading" | "starting" | "offline">("loading");
+  const [apiStartedWaitingAt, setApiStartedWaitingAt] = useState<number | null>(null);
+  const [startupDiagnostic, setStartupDiagnostic] = useState<StartupDiagnostic | null>(null);
   const [notice, setNotice] = useState<WorkspaceNotice | null>(null);
   const noticeSequence = useRef(0);
   function notify(kind: WorkspaceNoticeKind, message: string) {
@@ -302,8 +306,18 @@ export function useWorkbenchSession({
   }
 
   async function openWorkspace(cancelled = () => false) {
+    const startedAt = Date.now();
+    for (let attempt = 1; ; attempt += 1) {
       try {
         setLoadError(null);
+        const startupFailure = await readStartupDiagnostic();
+        if (cancelled()) return;
+        if (startupFailure) {
+          setApiStartedWaitingAt(null);
+          setStartupDiagnostic(startupFailure);
+          setApiState("offline");
+          return;
+        }
         const available = await workbenchApi.listProjects();
         const requested = initialLocation.current.requestedProjectId;
         const remembered = window.localStorage.getItem("material-workbench-project");
@@ -315,17 +329,42 @@ export function useWorkbenchSession({
         if (cancelled()) return;
         projectsRef.current = available;
         setProjects(available);
+        setApiStartedWaitingAt(null);
+        setStartupDiagnostic(null);
         await loadProject(
           projectId,
           initialLocation.current.requestedProjectId === projectId
             ? initialLocation.current.requestedCandidateId
             : undefined,
         );
+        return;
       } catch (error) {
         if (cancelled()) return;
+        const diagnostic = await readStartupDiagnostic();
+        if (cancelled()) return;
+        if (diagnostic) {
+          setApiStartedWaitingAt(null);
+          setStartupDiagnostic(diagnostic);
+          setApiState("offline");
+          setLoadError(null);
+          return;
+        }
+        const elapsed = Date.now() - startedAt;
+        // 起動待ちのうちは自動で再試行し、経過時間を出す。手動再試行を求めない。
+        if (shouldKeepWaitingForApi(error, elapsed)) {
+          setApiState("starting");
+          setApiStartedWaitingAt(startedAt);
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, apiStartupRetryDelayMs(attempt));
+          });
+          if (cancelled()) return;
+          continue;
+        }
         setApiState("offline");
         setLoadError(`APIから候補を読み込めませんでした（${error instanceof Error ? error.message : "不明なエラー"}）。`);
+        return;
       }
+    }
   }
 
   // The shell offers one retry for a workspace that could not be opened.
@@ -707,6 +746,8 @@ export function useWorkbenchSession({
     addCandidateFromLineage,
     addHeatPoint,
     apiState,
+    apiStartedWaitingAt,
+    startupDiagnostic,
     brokenOriginCandidateId,
     candidates,
     copyCandidate,

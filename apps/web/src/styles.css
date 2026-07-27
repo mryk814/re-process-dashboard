@@ -60,10 +60,15 @@ select:focus-visible,
   align-items: center;
   white-space: nowrap;
 }
+.brand-short,
+.home-nav-icon {
+  display: none;
+}
 .topbar nav {
   display: flex;
   align-items: stretch;
   gap: 3px;
+  min-width: 0;
 }
 .nav-button {
   position: relative;
@@ -537,6 +542,16 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
 .connection-banner strong { color: #7c2d22; font-size: 13px; }
 .connection-banner span { color: #7a5f5a; font-size: 11px; }
 .connection-banner .outline-button { flex: 0 0 auto; min-height: 32px; font-size: 12px; }
+/* 起動待ちは異常ではない。赤ではなく待機の配色にする。 */
+.connection-banner.starting { border-color: #b8cbe6; border-left-color: #2f6fd0; background: #f3f8ff; }
+.connection-banner.starting strong { color: #1f4c8f; }
+.connection-banner.starting span { color: #46566c; }
+.connection-banner-steps code { font-size: 11px; }
+.startup-diagnostic-list { display: grid; gap: 8px; margin-top: 8px; }
+.startup-diagnostic-finding { display: grid; gap: 3px; margin: 0; padding: 8px; border: 1px solid #e4b7b7; border-radius: 5px; background: #fff; }
+.startup-diagnostic-finding div { display: grid; grid-template-columns: minmax(100px, .2fr) 1fr; gap: 8px; }
+.startup-diagnostic-finding dt { color: #8a2d2d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 700; }
+.startup-diagnostic-finding dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 660px) {
   .connection-banner { flex-direction: column; align-items: stretch; margin: 10px; }
 }
@@ -620,9 +635,6 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   }
 }
 @media (max-width: 980px) {
-  .topbar {
-    overflow: auto;
-  }
   .brand {
     font-size: 16px;
   }
@@ -642,13 +654,54 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
     padding: 0 9px;
     gap: 8px;
   }
+  .brand {
+    flex: 0 0 auto;
+  }
+  .brand-full {
+    display: none;
+  }
+  .brand-short {
+    display: inline;
+  }
   .topbar nav {
-    overflow-x: auto;
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
   }
   .nav-button {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    overflow: hidden;
     font-size: 13px;
     white-space: nowrap;
-    padding: 0 7px;
+    padding: 0 5px;
+  }
+  .nav-label-full {
+    display: none;
+  }
+  .home-nav-icon {
+    display: block;
+  }
+  .nav-button::after {
+    content: attr(data-short-label);
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .home-nav-icon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   .context-bar {
     min-width: 0;

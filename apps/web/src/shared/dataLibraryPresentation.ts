@@ -160,18 +160,47 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
   const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter((item): item is string => typeof item === "string"));
   const architectureIds = new Set(records.map((item) => item.architecture_id).filter((item): item is string => typeof item === "string"));
-  if (records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")) {
-    return "異分散GP（試験・個々値）";
+  const family = records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")
+    ? "異分散GP（試験・個々値）"
+    : records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")
+      ? "階層線形モデル（試験・個々値）"
+      : [...architectureIds].some((item) => item.toLowerCase().includes("lightgbm"))
+        ? "LightGBM"
+        : records.some((item) => asRecord(item.config)?.kernel === "ARD-RBF")
+          ? "GP（安定ARD）"
+          : runtimeTypes.has("builtin.exact_gp.v1")
+            ? "GP"
+            : runtimeTypes.has("builtin.posterior_linear.v1")
+              ? "Bayes線形回帰"
+              : runtimeTypes.has("builtin.linear.v1")
+                ? "線形回帰"
+                : modelPackage.package_id;
+  const version = typeof manifest?.package_version === "string"
+    ? manifest.package_version.replace(/^v/i, "")
+    : "";
+  return version ? `${family} · v${version}` : family;
+}
+
+export function modelPackageDisplayNames(
+  modelPackages: ApiModelPackageRef[],
+): Map<string, string> {
+  const baseNames = new Map(
+    modelPackages.map((modelPackage) => [
+      modelPackage.id,
+      modelPackageDisplayName(modelPackage),
+    ]),
+  );
+  const counts = new Map<string, number>();
+  for (const name of baseNames.values()) {
+    counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  if (records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")) {
-    return "階層線形モデル（試験・個々値）";
-  }
-  if ([...architectureIds].some((item) => item.toLowerCase().includes("lightgbm"))) return "LightGBM";
-  if (records.some((item) => asRecord(item.config)?.kernel === "ARD-RBF")) return "GP（安定ARD）";
-  if (runtimeTypes.has("builtin.exact_gp.v1")) return "GP";
-  if (runtimeTypes.has("builtin.posterior_linear.v1")) return "Bayes線形回帰";
-  if (runtimeTypes.has("builtin.linear.v1")) return "線形回帰";
-  return modelPackage.package_id;
+  return new Map(modelPackages.map((modelPackage) => {
+    const base = baseNames.get(modelPackage.id) ?? modelPackage.package_id;
+    return [
+      modelPackage.id,
+      counts.get(base) === 1 ? base : `${base} · ${modelPackage.package_id}`,
+    ];
+  }));
 }
 
 export type ModelPackageDecisionSummary = {

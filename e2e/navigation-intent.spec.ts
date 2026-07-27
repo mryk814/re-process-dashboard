@@ -133,6 +133,32 @@ test("developer guide separates new and existing Decision Activity workflows", a
   });
 });
 
+test("developer guide deep link survives reload and browser history", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=decision-activity-new");
+  const intent = page.getByLabel("何を変更したいですか？");
+  await expect(intent).toHaveValue("decision-activity-new");
+  await expect(page.getByRole("link", { name: /contract-through-stack\.qmd/ })).toHaveAttribute(
+    "href",
+    /github\.com\/mryk814\/re-process-dashboard\/blob\/main\//,
+  );
+
+  await intent.selectOption("decision-activity-change");
+  await expect(page).toHaveURL(/developer_guide=decision-activity-change/);
+  await page.reload();
+  await expect(intent).toHaveValue("decision-activity-change");
+  await page.goBack();
+  await expect(intent).toHaveValue("decision-activity-new");
+  await page.goForward();
+  await expect(intent).toHaveValue("decision-activity-change");
+});
+
+test("unknown developer locations are explicit", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=missing");
+  await expect(page.getByRole("alert")).toContainText("missing");
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=missing");
+  await expect(page.getByRole("alert")).toContainText("missing");
+});
+
 test("developer diagnostics shows runtime checks without repository tooling", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer");
   await page.getByRole("button", { name: "診断" }).click();
@@ -406,7 +432,8 @@ test("copied candidate keeps its source even after the source is deleted", async
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.getByRole("button", { name: `${sourceName}を一覧から外す`, exact: true }).click();
+  await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   // A copy references its source, so deleting the source archives it instead of
   // removing it. The copy must never end up unable to name where it came from.
   await expect(page.getByRole("button", { name: `${sourceName}を選択`, exact: true })).toHaveCount(0);
@@ -434,7 +461,8 @@ test("archived copy source remains navigable", async ({ page, request }) => {
 
   await page.getByRole("button", { name: "作成元へ戻る" }).click();
   await expect(page).toHaveURL(new RegExp(`candidate=${sourceId}`));
-  await page.getByRole("button", { name: `${sourceName}を削除`, exact: true }).click();
+  await page.getByRole("button", { name: `${sourceName}を一覧から外す`, exact: true }).click();
+  await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   await page.goto(`/?view=candidates&project=${projectId}&candidate=${copiedId}`);
   await expect(page.locator(".candidate-origin")).not.toContainText("削除済みか参照できません");
   await page.getByRole("button", { name: "作成元へ戻る" }).click();

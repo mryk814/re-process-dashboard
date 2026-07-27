@@ -38,6 +38,19 @@ run(
   },
 );
 run(
+  "Workspace startup diagnostic without API",
+  process.execPath,
+  [
+    playwrightCli,
+    "test",
+    "--config",
+    "playwright.startup-diagnostic.config.ts",
+  ],
+  {
+    PLAYWRIGHT_WEB_PORT: "5453",
+  },
+);
+run(
   "Task unavailable",
   process.execPath,
   [join(root, "scripts", "run-degraded-task-e2e.mjs")],

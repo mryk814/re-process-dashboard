@@ -11,6 +11,7 @@ export const WORKBENCH_VIEWS = [
 
 export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
 export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
+export type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 export type NavigationIntent = Readonly<{
   view: WorkbenchView;
@@ -26,11 +27,15 @@ export type NavigationIntent = Readonly<{
   activityRunId?: string;
   snapshotId?: string;
   adminSection?: AdminSection;
+  developerTab?: DeveloperTab;
+  developerTabError?: string;
+  developerGuideId?: string;
   projectSettings?: "targets";
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
 const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "quality", "ranges", "display", "task", "model"]);
+const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
 
 export function readNavigationIntent(
   search = window.location.search,
@@ -38,6 +43,7 @@ export function readNavigationIntent(
   const params = new URLSearchParams(search);
   const requestedView = params.get("view") ?? "candidates";
   const adminSection = params.get("admin");
+  const developerTab = params.get("developer_tab");
   return Object.freeze({
     view: VIEW_SET.has(requestedView)
       ? (requestedView as WorkbenchView)
@@ -54,6 +60,9 @@ export function readNavigationIntent(
     activityRunId: params.get("activity_run") || undefined,
     snapshotId: params.get("snapshot") || undefined,
     adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
+    developerTab: developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
+    developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
+    developerGuideId: params.get("developer_guide") || undefined,
     projectSettings: params.get("project_settings") === "targets" ? "targets" : undefined,
   });
 }
@@ -73,6 +82,8 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   if (intent.adminSection) params.set("admin", intent.adminSection);
+  if (intent.adminSection === "developer" && intent.developerTab) params.set("developer_tab", intent.developerTab);
+  if (intent.adminSection === "developer" && intent.developerGuideId) params.set("developer_guide", intent.developerGuideId);
   if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
@@ -95,6 +106,9 @@ export function withView(
     activityRunId: view === "candidates" ? current.activityRunId : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "settings" ? current.adminSection : undefined,
+    developerTab: view === "settings" && current.adminSection === "developer" ? current.developerTab : undefined,
+    developerTabError: undefined,
+    developerGuideId: view === "settings" && current.adminSection === "developer" ? current.developerGuideId : undefined,
     projectSettings: view === "project" ? current.projectSettings : undefined,
   });
 }

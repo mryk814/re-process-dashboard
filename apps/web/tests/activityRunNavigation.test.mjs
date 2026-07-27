@@ -70,8 +70,46 @@ test("run selection lives in the panel so every activity shares one link", async
   for (const view of ["RobustnessActivityView", "CounterfactualActivityView", "CandidateDifferenceActivityView"]) {
     const content = await source(`../src/features/workbench/decisionActivities/${view}.tsx`);
     assert.doesNotMatch(content, /useState<string \| null>\(null\)/, `${view} still owns run selection`);
-    assert.match(content, /onSelectRun\(run\.id\)/);
+    assert.match(content, /<ActivityRunHistory.+onSelectRun=\{onSelectRun\}/);
   }
+  const evidence = await source("../src/features/workbench/decisionActivities/ActivityRunEvidence.tsx");
+  assert.match(evidence, /onSelectRun\(run\.id\)/);
+});
+
+test("developer tab and guide form a restorable location", async () => {
+  const { readNavigationIntent, navigationUrl, withView } = await navigationModule(
+    "?view=settings&project=p1&admin=developer&developer_tab=guide&developer_guide=decision-activity-new",
+  );
+  const intent = readNavigationIntent();
+  assert.equal(intent.developerTab, "guide");
+  assert.equal(intent.developerGuideId, "decision-activity-new");
+  assert.match(navigationUrl(intent), /developer_tab=guide/);
+  assert.match(navigationUrl(intent), /developer_guide=decision-activity-new/);
+  assert.equal(withView(intent, "settings").developerGuideId, "decision-activity-new");
+  assert.equal(withView(intent, "candidates").developerGuideId, undefined);
+});
+
+test("an unknown developer tab is reported instead of silently selected", async () => {
+  const { readNavigationIntent } = await navigationModule(
+    "?view=settings&project=p1&admin=developer&developer_tab=missing",
+  );
+  const intent = readNavigationIntent();
+  assert.equal(intent.developerTab, undefined);
+  assert.equal(intent.developerTabError, "missing");
+});
+
+test("all saved activity runs and their provenance stay reachable", async () => {
+  const evidence = await source("../src/features/workbench/decisionActivities/ActivityRunEvidence.tsx");
+  assert.match(evidence, /runs\.map\(/);
+  assert.doesNotMatch(evidence, /runs\.slice\(/);
+  assert.match(evidence, /aria-current=/);
+  assert.match(evidence, /この結果の再現情報/);
+  assert.match(evidence, /Model Package/);
+  assert.match(evidence, /Feature pipeline/);
+  assert.match(evidence, /Training Snapshot digest/);
+  assert.match(evidence, /Canonical Dataset digest/);
+  assert.doesNotMatch(evidence, /slice\(0,\s*12\)/);
+  assert.match(evidence, /記録なし/);
 });
 
 test("a shared link opens the activity panel without a second click", async () => {

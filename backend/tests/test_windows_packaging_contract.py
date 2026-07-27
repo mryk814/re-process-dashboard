@@ -179,6 +179,29 @@ def test_packaged_resources_include_chain_evaluation_artifact() -> None:
     assert artifact in package_script
 
 
+def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
+    package_script = (ROOT / "scripts" / "package-windows.ps1").read_text(
+        encoding="utf-8"
+    )
+    clean_script = (ROOT / "scripts" / "clean-generated.ps1").read_text(
+        encoding="utf-8"
+    )
+    package_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert "[switch]$KeepPrevious" in package_script
+    assert 'clean-generated.ps1") -ReleaseOnly' in package_script
+    assert "if (-not $KeepPrevious)" in package_script
+    assert '"release", "dist", "build", "output", "test-results", ".playwright-cli"' in clean_script
+    assert '"data", "models"' in clean_script
+    assert "StartsWith($repositoryPrefix" in clean_script
+    assert "win-unpacked" in package_script
+    assert "$portableRoot" in package_script
+    assert package_json["scripts"]["clean"].endswith("scripts/clean-generated.ps1")
+    assert package_json["scripts"]["clean:dry-run"].endswith(
+        "scripts/clean-generated.ps1 -DryRun"
+    )
+
+
 def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
     packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
         encoding="utf-8"
@@ -189,6 +212,15 @@ def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
     assert 'method: "POST"' in packaged_smoke
     assert "stageA.outputs.length, 31" in packaged_smoke
     assert "powder_blend_cost_yen_per_kg_core > 0" in packaged_smoke
+
+
+def test_packaged_smoke_uses_the_server_owned_lifecycle_actor() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert "packaged lifecycle probe" in packaged_smoke
+    assert 'actor: "packaged-smoke"' not in packaged_smoke
 
 
 def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -> None:

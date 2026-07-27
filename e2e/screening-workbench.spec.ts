@@ -31,13 +31,15 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.getByRole("heading", { name: "範囲探索" })).toBeVisible();
   const modes = page.locator(".screening-mode-options");
   await expect(modes.getByRole("button", { name: /領域を見る/ })).toBeVisible();
-  await expect(modes.getByRole("button", { name: /有望候補を探す/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(modes.getByRole("button", { name: /領域を見る/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
   await expect(modes.getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
   await expect(page.locator(".screening-advanced-settings")).not.toHaveAttribute("open", "");
   await expect(page.getByLabel("乱数seed")).not.toBeVisible();
   await expect(page.locator("optgroup[label='成分']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍条件']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍履歴'] option[value='heat_pattern.1.temperature_c']")).toHaveCount(2);
+  await modes.getByRole("button", { name: /有望候補を探す/ }).click();
 
   await page.getByRole("button", { name: "変数を追加" }).click();
   const rows = page.locator(".variable-table tbody tr");
@@ -50,6 +52,11 @@ test("annealed screening keeps draft separate and batches multiple points into s
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await runScreening(page);
   expect((await runResponse).status()).toBe(201);
+  const savedRun = page.locator(".saved-runs button.active");
+  await expect(savedRun).not.toContainText(/model |space |objective |strategy /);
+  await page.locator(".screening-run-reproducibility > summary").click();
+  await expect(page.locator(".screening-run-reproducibility")).toContainText("Model Package");
+  await expect(page.locator(".screening-run-reproducibility")).toContainText("Design Space");
   await expect(page.locator(".screening-hidden-variables")).toContainText("Mn");
   await expect(page.getByLabel("X軸")).toBeVisible();
   await expect(page.getByLabel("Y軸")).toBeVisible();

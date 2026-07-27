@@ -57,6 +57,7 @@
 - [decisions/data-library-project-references.md](decisions/data-library-project-references.md) — Dataset、Task、Package、Project参照境界の採用理由
 - [decisions/multistage-chain-architecture.md](decisions/multistage-chain-architecture.md) — 溶接材料A→B→Cを最初の縦切りにしたChain設計判断
 - [benchmarks/](benchmarks/) — 計測条件に依存する性能記録。現行値としては使わない
+- [reports/npm-dependency-audit-2026-07-27.md](reports/npm-dependency-audit-2026-07-27.md) — npm advisoryの到達性、受容条件、再確認条件
 
 ## 更新規則
 

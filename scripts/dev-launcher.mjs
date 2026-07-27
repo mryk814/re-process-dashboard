@@ -68,22 +68,40 @@ if (preflight.error) {
   process.stderr.write(`workspace preflightを実行できません: ${preflight.error.message}\n`);
   process.exit(1);
 }
-if (preflight.status !== 0) process.exit(preflight.status ?? 1);
-if (process.argv.includes("--preflight-only")) process.exit(0);
+if (process.argv.includes("--preflight-only")) process.exit(preflight.status ?? 1);
+let startupDiagnostic;
+if (preflight.status !== 0) {
+  try {
+    const report = JSON.parse(preflight.stdout.trim());
+    startupDiagnostic = JSON.stringify({
+      schema_version: "startup-diagnostic/v1",
+      source: "workspace_preflight",
+      log_path: "npm run dev の workspace preflight 出力",
+      recovery_route: "docs/decisions/startup-failure-boundaries.md",
+      report,
+    });
+  } catch {
+    process.stderr.write("workspace preflightの診断JSONをWeb UIへ渡せませんでした。\n");
+    process.exit(preflight.status ?? 1);
+  }
+}
 
 const { default: concurrently } = await import("concurrently");
 const { result } = concurrently(
   [
-    {
+    ...(startupDiagnostic ? [] : [{
       name: "api",
       command: `uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort} --reload`,
       env: childEnvironment,
       prefixColor: "blue",
-    },
+    }]),
     {
       name: "web",
       command: "npm run dev -w apps/web",
-      env: childEnvironment,
+      env: {
+        ...childEnvironment,
+        ...(startupDiagnostic ? { WORKBENCH_STARTUP_DIAGNOSTIC: startupDiagnostic } : {}),
+      },
       prefixColor: "cyan",
     },
   ],

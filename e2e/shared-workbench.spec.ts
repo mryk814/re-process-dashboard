@@ -145,9 +145,22 @@ for (const task of tasks) {
     const disposableId = ((await createdDisposableResponse.json()) as { id: string }).id;
     await expect(page).toHaveURL(new RegExp(`candidate=${disposableId}`));
     const disposableName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+    await page.getByRole("button", { name: `${disposableName}を一覧から外す`, exact: true }).click();
+    await expect(page.getByRole("group", { name: `${disposableName}を一覧から外す確認` })).toContainText("後でプロジェクト概要から復元できます");
+    await page.getByRole("button", { name: "キャンセル", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: `${disposableName}の候補名` })).toBeVisible();
+
     const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes(`/candidates/${disposableId}`));
-    await page.getByRole("button", { name: `${disposableName}を削除`, exact: true }).click();
+    await page.getByRole("button", { name: `${disposableName}を一覧から外す`, exact: true }).click();
+    await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
     expect((await deleteResponse).status()).toBe(204);
+
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要", exact: true }).click();
+    const restoreResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${disposableId}/restore`));
+    await page.getByRole("article").filter({ hasText: disposableName }).getByRole("button", { name: "候補へ戻す" }).click();
+    expect((await restoreResponse).status()).toBe(200);
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "候補", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: `${disposableName}の候補名` })).toBeVisible();
 
     await page.getByRole("textbox", { name: `${editedName}の候補名` }).click();
     await expect(page).toHaveURL(new RegExp(`candidate=${keptCandidateId}`));

@@ -5,6 +5,7 @@ import { supportStatusLabel } from "../../../shared/supportPresentation";
 import { signedDifference } from "../actualMeasurementPresentation";
 import { candidateDifferenceOptions } from "./candidateDifferenceOptions";
 import type { DecisionActivityViewProps } from "./types";
+import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
 
 const signedFormat = new Intl.NumberFormat("ja-JP", {
   maximumFractionDigits: 4,
@@ -100,10 +101,7 @@ export function CandidateDifferenceActivityView({
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
     </section>
 
-    {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済み候補差分">
-      <span>保存済み</span>
-      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => onSelectRun(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
-    </nav>}
+    <ActivityRunHistory label="保存済み候補差分" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-meta">
@@ -111,6 +109,7 @@ export function CandidateDifferenceActivityView({
         <span>比較 {candidateLabels.get(result.comparison_candidate_id) ?? result.comparison_candidate_id} 編集版 {result.comparison_candidate_revision}</span>
         <span>相違した入力 {result.changed_input_count}件</span>
       </div>
+      <ActivityRunProvenance run={activeRun} />
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong><b>差 {signedDifference(summary.difference, (value) => outputNumber(summary.target, value))} {summary.unit}</b></header>
         <dl>

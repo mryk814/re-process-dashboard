@@ -8,7 +8,7 @@ import {
 import { ChangeGuideCard, CopyCommand } from "./ChangeGuideCard";
 import { ObservationTrainingInspector } from "./ObservationTrainingInspector";
 
-type ControlTab = "overview" | "training" | "guide" | "diagnostics";
+type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 type OverviewStatus = "" | "ok" | "warning" | "error";
 
 function ShortDigest({ value }: { value?: string | null }) {
@@ -40,12 +40,24 @@ export function filterDeveloperOverviewItems(
   });
 }
 
-export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfileWorkbench: () => void }) {
-  const [tab, setTab] = useState<ControlTab>("overview");
+export function DeveloperControlCenter({
+  onOpenProfileWorkbench,
+  initialTab,
+  invalidTabId,
+  initialGuideId,
+  onLocationChange,
+}: {
+  onOpenProfileWorkbench: () => void;
+  initialTab?: DeveloperTab;
+  invalidTabId?: string;
+  initialGuideId?: string;
+  onLocationChange: (tab: DeveloperTab, guideId?: string) => void;
+}) {
+  const [tab, setTab] = useState<DeveloperTab>(initialTab ?? "overview");
   const [overview, setOverview] = useState<ApiDeveloperOverview | null>(null);
   const [guide, setGuide] = useState<ApiChangeGuideEntry[]>([]);
   const [doctor, setDoctor] = useState<ApiRuntimeDiagnostics | null>(null);
-  const [selectedGuide, setSelectedGuide] = useState("");
+  const [selectedGuide, setSelectedGuide] = useState(initialGuideId ?? "");
   const [error, setError] = useState("");
   const [diagnosing, setDiagnosing] = useState(false);
   const [overviewQuery, setOverviewQuery] = useState("");
@@ -59,11 +71,15 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
         if (!live) return;
         setOverview(nextOverview);
         setGuide(nextGuide);
-        setSelectedGuide(nextGuide[0]?.id ?? "");
+        setSelectedGuide((current) => current || nextGuide[0]?.id || "");
       })
       .catch((cause) => { if (live) setError(cause instanceof Error ? cause.message : "Developer情報を取得できませんでした。"); });
     return () => { live = false; };
   }, []);
+  useEffect(() => setTab(initialTab ?? "overview"), [initialTab]);
+  useEffect(() => {
+    if (initialGuideId) setSelectedGuide(initialGuideId);
+  }, [initialGuideId]);
 
   const runDiagnostics = async () => {
     setDiagnosing(true);
@@ -79,6 +95,7 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
   useEffect(() => { if (tab === "diagnostics" && doctor === null && !diagnosing) void runDiagnostics(); }, [tab]);
 
   const selected = guide.find((item) => item.id === selectedGuide);
+  const unknownGuide = tab === "guide" && Boolean(initialGuideId) && guide.length > 0 && !selected;
   // Chain Projectには単一Taskが無い。空のtask_idを選択肢に出さない。
   const overviewTasks = [...new Set(overview?.items.map((item) => item.task_id).filter(Boolean) ?? [])].sort();
   const filteredOverviewItems = overview
@@ -94,9 +111,13 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
         ["training", "学習View"],
         ["guide", "変更ガイド"],
         ["diagnostics", "診断"],
-      ] as const).map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
+      ] as const).map(([id, label]) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => {
+        setTab(id);
+        onLocationChange(id, id === "guide" ? selectedGuide || undefined : undefined);
+      }}>{label}</button>)}
     </nav>
     {error && <p className="panel-error">{error}</p>}
+    {invalidTabId && <p className="panel-error" role="alert">指定されたDeveloper tab「{invalidTabId}」は見つからないため、概要を表示しています。</p>}
 
     {tab === "overview" && <section className="developer-section">
       <ol className="developer-flow" aria-label="データから実行までの接続段階">
@@ -133,10 +154,15 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
 
     {tab === "guide" && <section className="developer-section change-guide">
       <label>何を変更したいですか？
-        <select value={selectedGuide} onChange={(event) => setSelectedGuide(event.target.value)}>
+        <select value={selected?.id ?? ""} onChange={(event) => {
+          setSelectedGuide(event.target.value);
+          onLocationChange("guide", event.target.value);
+        }}>
+          {unknownGuide && <option value="">不明なガイド: {initialGuideId}</option>}
           {guide.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
+      {unknownGuide && <p className="panel-error" role="alert">指定された変更ガイド「{initialGuideId}」は見つかりません。上の一覧から選び直してください。</p>}
       {selected && <ChangeGuideCard entry={selected} onOpenProfileWorkbench={onOpenProfileWorkbench} />}
     </section>}
 

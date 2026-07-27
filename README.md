@@ -63,6 +63,13 @@ npm run dev:desktop
 自己完結型のユーザー単位installerとフォルダZIPは `npm run package:windows` で生成します。
 Pythonやuvを必要としない配布物、保存先、削除方法、配布版のスモーク確認は [Windows配布](docs/windows-distribution.md) を参照してください。
 
+`npm run package:windows` は既定で前回の `release/` を消してから生成し、検証後は
+installerとフォルダZIPだけを残します。比較のため以前の生成物を残す場合だけ
+`powershell -File scripts/package-windows.ps1 -KeepPrevious` を使います。
+すべての生成物を掃除する前には `npm run clean:dry-run` で対象を確認でき、
+`npm run clean` は `release/`、`dist/`、`build/`、`output/`、テスト生成物だけを
+削除します。`data/` と `models/` は対象にしません。
+
 ## 確認
 
 実装中は変更箇所のテストと型だけを確認します。

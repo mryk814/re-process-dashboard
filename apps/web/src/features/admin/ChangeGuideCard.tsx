@@ -7,6 +7,12 @@ const riskLabel = {
   specialist: "専門的レビューが必要",
 } as const;
 
+function repositoryDocumentUrl(path: string): string | null {
+  const normalized = path.replaceAll("\\", "/").replace(/^\.?\//, "");
+  if (!normalized || normalized.includes("..") || !/^[A-Za-z0-9._/-]+$/.test(normalized)) return null;
+  return `https://github.com/mryk814/re-process-dashboard/blob/main/${normalized.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export function CopyCommand({ command }: { command: ApiDeveloperCommand }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -30,7 +36,12 @@ export function ChangeGuideCard({
       <section><h3>主に変更する</h3><ul>{entry.changes.map((item) => <li key={item}>{item}</li>)}</ul></section>
       <section><h3>原則変更しない</h3><ul>{entry.unchanged.map((item) => <li key={item}>{item}</li>)}</ul></section>
       <section><h3>必要な成果物</h3><ul>{entry.artifacts.length ? entry.artifacts.map((item) => <li key={item}>{item}</li>) : <li>分類後に決定</li>}</ul></section>
-      <section><h3>関連文書</h3><ul>{entry.documents.map((item) => <li key={item}><code>{item}</code></li>)}</ul></section>
+      <section><h3>関連文書</h3><ul>{entry.documents.map((item) => {
+        const href = repositoryDocumentUrl(item);
+        return <li key={item}>{href
+          ? <a href={href} target="_blank" rel="noreferrer"><code>{item}</code></a>
+          : <code>{item}</code>}</li>;
+      })}</ul></section>
     </div>
     {entry.steps.length > 0 && <section className="developer-guide-workflow" aria-label="実装順序">
       <h3>実装順序</h3>

@@ -100,7 +100,8 @@ test("candidate row actions target their own row", async ({ page, request }) => 
   await expect(page.getByRole("button", { name: `${first.name}の詳細予測を保存済み` })).toBeDisabled();
 
   const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && new URL(response.url()).pathname.endsWith(`/candidates/${first.id}`));
-  await page.getByRole("button", { name: `${first.name}を削除` }).click();
+  await page.getByRole("button", { name: `${first.name}を一覧から外す` }).click();
+  await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   expect((await deleteResponse).status()).toBe(204);
   await expect(page).toHaveURL(new RegExp(`candidate=${second.id}`));
 });

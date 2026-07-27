@@ -39,6 +39,10 @@ resource id 単位で `unavailable` として記録する。別 Task と共通�
 - 隔離された操作 API は `503 subsystem_unavailable` と同じ構造を返す。
 - UI は対象画面だけを利用不可にし、原因、影響範囲、復旧方法を表示する。
 - 保存済み証跡の読取 API は実行 service に依存させない。
+- 開発ランチャーのread-only preflightが起動停止を選んだ場合は、FastAPIを起動せず
+  Viteだけを起動する。Web UIはAPIとは別の
+  `/__workbench/startup-diagnostic.json` から `stage`、`resource_id`、`cause`、
+  `impact`、`recovery_hint` を読み、起動ログとこの復旧手順への導線を表示する。
 
 ## 回帰テスト
 
@@ -53,7 +57,7 @@ API断、Task利用停止、workspace catalog不整合は
 
 ## workspace catalog不整合からの復旧
 
-Desktopの起動エラーまたはAPIログに
+Desktopの起動エラー、開発ランチャーのWeb診断面、またはAPIログに
 `WORKBENCH_STARTUP_ERROR` と `"stage":"catalog"` が出た場合は、次の順で扱う。
 
 1. アプリを終了し、現在のWorkspace全体を別の場所へ退避する。

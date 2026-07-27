@@ -4,6 +4,7 @@ import {
   compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
   modelPackageDisplayName,
+  modelPackageDisplayNames,
   projectDatasetChoices,
 } from "../src/shared/dataLibraryPresentation.ts";
 
@@ -70,6 +71,35 @@ test("uses model-family names instead of Package ids", () => {
       predictors: [{ runtime_type: "builtin.linear.v1", architecture_id: "linear_v1" }],
     },
   }), "線形回帰");
+});
+
+test("shows Package versions and disambiguates repeated family/version labels", () => {
+  const packages = [
+    {
+      id: "package-a",
+      package_id: "annealed-gp-production",
+      manifest_json: {
+        package_version: "2.1.0",
+        predictors: [{ runtime_type: "builtin.exact_gp.v1", config: { kernel: "ARD-RBF" } }],
+      },
+    },
+    {
+      id: "package-b",
+      package_id: "annealed-gp-tutorial",
+      manifest_json: {
+        package_version: "2.1.0",
+        predictors: [{ runtime_type: "builtin.exact_gp.v1", config: { kernel: "ARD-RBF" } }],
+      },
+    },
+  ];
+  assert.equal(modelPackageDisplayName(packages[0]), "GP（安定ARD） · v2.1.0");
+  assert.deepEqual(
+    [...modelPackageDisplayNames(packages).values()],
+    [
+      "GP（安定ARD） · v2.1.0 · annealed-gp-production",
+      "GP（安定ARD） · v2.1.0 · annealed-gp-tutorial",
+    ],
+  );
 });
 
 const datasetChoiceFixture = (viewId, filename, tasks = ["annealed"]) => ({

@@ -3,6 +3,7 @@ import { getCandidateInputValue, numericTaskInputs } from "../../candidates";
 import { formatTaskNumber } from "../../../shared/taskPresentation";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 import type { DecisionActivityViewProps } from "./types";
+import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
 
 const percentFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
 const EXTRAPOLATION_NOTICE_RATE = 0.2;
@@ -183,13 +184,11 @@ export function RobustnessActivityView({
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
     </section>}
 
-    {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済みロバストネス解析">
-      <span>保存済み</span>
-      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => onSelectRun(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
-    </nav>}
+    <ActivityRunHistory label="保存済みロバストネス解析" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-meta"><span>編集版 {activeRun.provenance.candidate_revision}</span><span>{result.accepted_samples}/{result.requested_samples}件を評価</span></div>
+      <ActivityRunProvenance run={activeRun} />
       {result.extrapolated_rate >= EXTRAPOLATION_NOTICE_RATE && <div className="activity-extrapolation-notice" role="status">
         <strong>{result.extrapolated_rate >= 1
           ? "この解析は、すべてのサンプルがモデルの学習範囲外です"
@@ -205,8 +204,10 @@ export function RobustnessActivityView({
           <div><dt>モデル不確実性</dt><dd>{outputNumber(summary.target, summary.model_uncertainty.lower)}–{outputNumber(summary.target, summary.model_uncertainty.upper)} {summary.unit}</dd></div>
           <div>
             <dt>{worstObservedLabel(summary.goal_achievement_rate)}</dt>
-            <dd>{outputNumber(summary.target, summary.worst_observed)} {summary.unit}</dd>
-            <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
+            <dd>
+              {outputNumber(summary.target, summary.worst_observed)} {summary.unit}
+              <small>{worstObservedBasis(summary.goal_achievement_rate, goalDirections.get(summary.target))}</small>
+            </dd>
           </div>
         </dl>
       </article>)}</div>

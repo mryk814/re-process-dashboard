@@ -4,6 +4,7 @@ import { SupportBadge } from "../../../shared/ui/SupportBadge";
 import { formatTaskNumber } from "../../../shared/taskPresentation";
 import { presentCounterfactualTarget } from "./counterfactualPresentation";
 import type { DecisionActivityViewProps } from "./types";
+import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
 
 /** Change distance is a normalised L1 value, not a task output. */
 const distanceFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 3 });
@@ -105,10 +106,7 @@ export function CounterfactualActivityView({
       {!ready && <small>候補の入力を保存すると実行できます。</small>}
     </section>
 
-    {runs.length > 0 && <nav className="activity-run-history" aria-label="保存済み目標到達案">
-      <span>保存済み</span>
-      {runs.slice(0, 5).map((run) => <button type="button" className={activeRun?.id === run.id ? "active" : ""} onClick={() => onSelectRun(run.id)} key={run.id}>{new Date(run.created_at).toLocaleString("ja-JP")}</button>)}
-    </nav>}
+    <ActivityRunHistory label="保存済み目標到達案" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
     {saveError && <p className="panel-error" role="alert">{saveError}</p>}
     {activeRun && result && <section className="activity-result">
@@ -117,6 +115,7 @@ export function CounterfactualActivityView({
         <span>{result.evaluated_count}条件を評価</span>
         <span>変更量＝正規化L1</span>
       </div>
+      <ActivityRunProvenance run={activeRun} />
       {result.status === "infeasible" && <div className="activity-unavailable">
         <strong>現在の範囲では目標へ届く案を確認できませんでした</strong>
         {result.infeasibility.map((item) => <span key={item.target}>

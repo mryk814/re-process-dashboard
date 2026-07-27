@@ -186,6 +186,14 @@ class CandidateService:
         if not self.store.delete_candidate(candidate_id, project_id, expected_revision):
             raise CandidateNotFoundError(candidate_id)
 
+    def restore(self, project_id: str, candidate_id: str) -> Candidate:
+        project = self._require_single_project(project_id)
+        self.registry.require_available(project.task_id)
+        candidate = self.store.restore_candidate(candidate_id, project_id)
+        if candidate is None:
+            raise CandidateNotFoundError(candidate_id)
+        return candidate
+
     def at_revision(self, project_id: str, candidate_id: str, expected_revision: int) -> Candidate:
         current = self.get(project_id, candidate_id)
         if current.revision != expected_revision:
