@@ -7,6 +7,7 @@
 .series-name-setting, .group-membership-setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 5px 8px; }
 .series-name-setting label, .group-membership-setting label { min-width: 0; }
 .series-name-setting small, .group-membership-setting small { grid-column: 1 / -1; color: #526276; font-size: 11px; font-weight: 400; }
+.group-membership-setting small.warning-note { color: #8a4e06; font-weight: 600; }
 .project-group-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .project-group-entry small { color: #526276; font-size: 11px; }
 .project-hub .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

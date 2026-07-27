@@ -12232,9 +12232,16 @@
             "title": "Expected Project Series Id"
           },
           "project_series_id": {
-            "minLength": 1,
-            "title": "Project Series Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Series Id"
           }
         },
         "required": [
