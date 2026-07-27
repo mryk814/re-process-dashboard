@@ -2,7 +2,7 @@
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160
-verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
@@ -32,6 +32,18 @@ code_references:
       - "VerifiedModelPackage"
       - "AdapterRegistry"
       - "ModelPackageLoader"
+  - path: "backend/src/material_workbench/modeling/active_package_history.py"
+    id: "ml-engineering-active-package-history"
+    role: "application"
+    symbols:
+      - "ActivePackageHistoryReport"
+      - "check_active_package_history"
+      - "rollback_target_note"
+  - path: "backend/src/material_workbench/developer_experience/diagnostics.py"
+    id: "ml-engineering-active-package-diagnostics"
+    role: "application"
+    symbols:
+      - "active_package_history_check"
   - path: "backend/src/material_workbench/modeling/model_package_verify.py"
     id: "ml-engineering-package-verify"
     role: "application"
@@ -79,6 +91,20 @@ code_references:
       - "test_failed_staged_build_preserves_existing_package"
       - "test_staged_build_cannot_replace_a_checked_in_package"
       - "test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity"
+  - path: "backend/tests/test_active_package_history.py"
+    id: "ml-engineering-active-package-history-test"
+    role: "test"
+    symbols:
+      - "test_active_pointer_moved_without_recording_previous_is_reported"
+      - "test_recording_previous_through_the_contract_leaves_no_drift"
+      - "test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated"
+      - "test_rollback_restores_the_previous_package_after_an_activate"
+  - path: "backend/tests/test_developer_doctor.py"
+    id: "ml-engineering-active-package-diagnostics-test"
+    role: "test"
+    symbols:
+      - "test_active_package_history_success_does_not_claim_every_switch_used_activate"
+      - "test_active_package_history_explains_accepted_null_previous"
   - path: "docs/model-package-contract.md"
     id: "ml-engineering-package-doc"
     role: "docs"
@@ -473,6 +499,32 @@ activate後は、processを再起動して新Packageを読み込みます。
 
 起動済みprocessが保持するruntimeを、設定fileの書換えだけで入れ替えたと考えてはいけません。
 
+### active設定を直接編集しない
+
+`models/active-packages.json`の`active`だけを手編集すると、直前の参照を`previous`へ移す契約を通りません。
+
+新Packageを読み込めても、rollback時の戻し先が未記録または古い参照のまま置き去りになり、採用操作の可逆性が失われます。
+
+{{< code-ref ml-engineering-active-package-history symbol=check_active_package_history >}}は、git履歴で最後に置き換えられたPackageと現在の`previous`を比較します。
+
+置き換えられたPackageが現在も存在し、同じTaskと入力契約でactivate可能なのに`previous`が一致しなければ、直接編集によるdriftとして報告します。
+
+一方、最初の切替前、旧Packageの削除、別Task、入力契約の不一致では`previous: null`が正当な場合があります。
+
+そのため、`null`を一律に失敗させず、rollback targetの存在、Task、contract digestを確認します。
+
+{{< code-ref ml-engineering-active-package-history-test symbol=test_active_pointer_moved_without_recording_previous_is_reported >}}は直接編集相当のdriftを検出し、{{< code-ref ml-engineering-active-package-history-test symbol=test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated >}}は戻せない旧版を誤ってrollback候補にしないことを確認します。
+
+`package_status`、`task:inventory:check`、developer diagnosticsはこの履歴検査を利用します。
+
+{{< code-ref ml-engineering-active-package-diagnostics symbol=active_package_history_check >}}は、rollback可能な直前Packageと`previous`の一致と、rollback不能な旧版を理由付きで受理した状態を分けて表示します。
+
+greenでも「すべての切替が`model:activate`経由だった」とは断定しません。
+
+{{< code-ref ml-engineering-active-package-diagnostics-test symbol=test_active_package_history_explains_accepted_null_previous >}}は、この成功表示とaccepted detailsを固定します。
+
+git履歴を読めない配布環境では「未検査」と報告し、履歴が正しいと推測しません。
+
 ## rollbackも検証してから切り替える
 
 {{< code-ref ml-engineering-workflow symbol="rollback_package" >}}は、`previous`のPackageを先にverifyします。
@@ -704,6 +756,7 @@ verify成功は契約互換性を示すだけなので、active参照はOのま�
 ### 成功条件
 
 - build、verify、review、activate、restart、status確認の順序を示している
+- `active-packages.json`を直接編集せず、`previous`を契約経由で記録する
 - rollbackが旧Packageへの参照交換であると説明している
 - 保存済みSnapshotを再計算しないことへ触れている
 
@@ -716,6 +769,8 @@ verify成功は契約互換性を示すだけなので、active参照はOのま�
 候補をinactiveのままverifyし、qualityと運用条件をreviewし、採用時だけactivateします。
 
 activateは再verify後に`active`を候補へ、`previous`を旧Packageへ更新します。
+
+`active-packages.json`を直接編集せず、`model:activate`を通します。
 
 その後processを再起動し、statusと代表予測を確認します。
 
@@ -734,6 +789,8 @@ activateは再verify後に`active`を候補へ、`previous`を旧Packageへ更�
 「backupを取って上書きする」は、Package identityとartifact内容の不変性を壊します。
 
 「activate後にverifyすればよい」は、未検証候補を利用者へ露出します。
+
+「JSONの`active`だけ変えれば同じ」は、`previous`を失い、後のrollbackを壊します。
 
 :::
 

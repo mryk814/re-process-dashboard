@@ -100,7 +100,8 @@
             "pedagogy",
             "accessibility",
             "statistics",
-            "domain"
+            "domain",
+            "security"
           ]
         },
         "reviewer": {"type": "string", "minLength": 1},

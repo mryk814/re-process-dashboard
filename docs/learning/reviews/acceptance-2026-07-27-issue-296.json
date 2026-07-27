@@ -124,7 +124,7 @@
       ],
       "requires_textbook_change": false,
       "disposition": "accepted_documented_limitation",
-      "tracking": "Issue #302"
+      "tracking": "Issue #387"
     },
     {
       "finding_id": "F-002",
@@ -137,7 +137,7 @@
       ],
       "requires_textbook_change": false,
       "disposition": "accepted_documented_limitation",
-      "tracking": "Issue #302"
+      "tracking": "Issue #387"
     }
   ],
   "verification": {

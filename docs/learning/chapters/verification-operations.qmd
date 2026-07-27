@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
@@ -72,6 +72,11 @@ code_references:
   - path: "scripts/verify.mjs"
     id: "verification-gate"
     role: "build"
+  - path: "backend/scripts/task_inventory.py"
+    id: "verification-task-inventory"
+    role: "build"
+    symbols:
+      - "main"
   - path: "scripts/run-failure-state-e2e.mjs"
     role: "build"
   - path: "scripts/package-windows.ps1"
@@ -272,6 +277,10 @@ uv run python -m pytest
 npm run typecheck
 npm run build
 ```
+
+`npm run typecheck`の前段にある{{< code-ref verification-task-inventory symbol=main label="Task inventory検査" >}}は、生成inventoryだけでなく、rollback可能な直前Packageと`previous`の履歴不整合も拒否します。
+
+したがって、typecheckの失敗をTypeScript compilerだけの問題と決め付けません。
 
 {{< code-ref verification-gate label=verify.mjs >}} の`focused` modeは、選んだpytest pathとtypecheckを実行します。
 `full` modeは全pytest、web unit test、typecheck、build、failure-state E2E、diff検査を順に実行します。

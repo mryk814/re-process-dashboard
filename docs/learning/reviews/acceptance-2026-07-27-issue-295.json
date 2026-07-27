@@ -61,6 +61,20 @@
       "notes": "統計式を扱う章ではない。review対象は数値の意味を壊すUI state raceと欠損表現の境界である。"
     },
     {
+      "role": "security",
+      "reviewer": "Codex security-review proxy",
+      "method": "Local API、Electron renderer／preload／main、Model Package、Workspace bundle、credential、path、sizeの各境界について、asset、actor、entry point、threat、control、residual risk、evidence、recoveryが対応しているかを敵対的に確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "backend/tests/test_model_packages.py",
+        "backend/tests/test_workspace_bundle.py",
+        "e2e/api-offline.spec.ts"
+      ],
+      "notes": "data-only loading、allow-list、path／size／digest、token、Origin、IPC、credential非保存、fail-closedとdegradedの境界はtestへ接続する。penetration testまたは専門家による実packaged app reviewではないため、Issue #387で実reviewを追跡する。"
+    },
+    {
       "role": "domain",
       "reviewer": "Codex materials-domain review proxy",
       "method": "候補、Project、Run、Actual Snapshot、Packageのidentityがnavigationと保存をまたいで入れ替わらず、材料判断の出所を追えるかを確認した。",
@@ -125,7 +139,7 @@
       ],
       "requires_textbook_change": false,
       "disposition": "accepted_documented_limitation",
-      "tracking": "Issue #302"
+      "tracking": "Issue #387"
     },
     {
       "finding_id": "F-002",
@@ -137,7 +151,7 @@
       ],
       "requires_textbook_change": false,
       "disposition": "accepted_documented_limitation",
-      "tracking": "Issue #302 and Issue #304"
+      "tracking": "Issue #387"
     },
     {
       "finding_id": "F-003",
@@ -148,7 +162,7 @@
       ],
       "requires_textbook_change": false,
       "disposition": "no_change",
-      "tracking": "Issue #302"
+      "tracking": "Issue #387"
     }
   ],
   "verification": {

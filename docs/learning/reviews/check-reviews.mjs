@@ -113,6 +113,11 @@ for (const fileName of records) {
       }
     }
   }
+  if (chapterPaths.includes("docs/learning/chapters/security-trust-boundaries.qmd")) {
+    if (!roleNames.has("security")) {
+      errors.push(`${prefix}: security trust-boundary review requires role security`);
+    }
+  }
 
   const readerTasks = record.reader_task_tests ?? [];
   if (readerTasks.length < 2) {

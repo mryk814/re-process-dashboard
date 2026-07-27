@@ -93,3 +93,21 @@ constraints:
 検証していない欄は`pending`のまま受入不可とします。
 
 Edition 1の実測済み記録は [`edition-1-acceptance.json`](edition-1-acceptance.json) です。
+
+## Errataと次Editionを分ける
+
+公開後に誤りが見つかった場合は、GitHub Issueへ次を記録します。
+
+- 影響するEdition、検証commit、章、sectionまたはexercise ID
+- 誤った記述と訂正内容
+- scientific decision、実装変更、演習完遂へ与えるseverity
+- 教材だけの誤りか、application defectも伴うか
+- 修正commitと、修正版artifactのpage数・SHA-256
+
+誤植や事実誤認の訂正はEdition 1 errataとして扱い、元の受入記録を上書きしません。
+
+学習目標、章構成、contractの読み方を変える変更はEdition 2候補として別Issueへ送り、再度clean buildと受入を行います。
+
+application defectを見つけた場合は教材Issueへ埋めず、production Issueを別に作って相互linkします。
+
+読者task、支援技術、domain／security専門reviewから得る次Editionの改善は [Issue #387](https://github.com/mryk814/re-process-dashboard/issues/387) で追跡します。
