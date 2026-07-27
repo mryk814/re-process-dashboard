@@ -18,28 +18,59 @@
 
 ## 先行教材から採用した構成
 
-事前調査では、四つの先行例を比較しました。
+事前調査では、五つの先行例を比較しました。
 
 | 先行例 | 観察した構成 | この教材で採用する点 |
 |---|---|---|
 | Diátaxis | tutorial、how-to、reference、explanationを読者の必要ごとに分ける | 章の学習進行とコードマップの参照機能を分ける |
-| The Rust Programming Language | concept章とproject章を分け、project章で既出概念を統合する | 試作章を一つの変更経路を追うproject章にする |
+| The Rust Programming Language | concept章とproject章を分け、project章で既出概念を統合する | 本編を一つの変更経路を追うproject章にする |
 | Django Tutorial | 小さな実例を動かし、前提、期待結果、失敗時の手掛かりを近くに置く | コマンドの直後に観察点と失敗条件を書く |
 | Google Technical Writing | scope、非scope、読者、到達状態を先に固定する | 冒頭で読者と読了後の行動を明示する |
 | GitHub Docs | clarityとmeaningを文法的な統一より優先し、calloutを絞る | calloutを事実区分と危険箇所だけに使う |
 
 Diátaxisは、tutorialを学習志向、referenceを作業中に素早く引く情報として区別します [@diataxis]。
-そこで、試作章は順番に読むlessonとし、ファイル一覧は@sec-code-mapへ分離しました。
+そこで、本編は順番に読むlessonとし、ファイル一覧は[教材用コードマップ](code-map.qmd)へ分離しました。
 
 The Rust Programming Languageはconcept章とproject章を明示的に分けています [@rustbook]。
 この教材では大規模な概念章を先に増やさず、型、API、画面、テストを一つの題材で接続するproject章を先に置きます。
 必要な概念は、読者がコードで遭遇する直前に短く説明します。
 
 Django Tutorialは、最小のアプリを先に動かし、前提versionと期待する結果を明示します [@djangotutorial]。
-試作章でも、最初に追跡対象と成功条件を示し、最後に実リポジトリのテストを実行します。
+各本編でも、最初に追跡対象と成功条件を示し、最後に実リポジトリのtestを実行します。
 
 GitHub Docsはcalloutを連続させず、節に一つを目安にする方針を示しています [@github-style]。
 本教材の視覚ラベルも、本文の流れを切る価値がある箇所だけに使います。
+
+## 学習者の本と保守情報を分ける
+
+本文を読み進める開発者と、教材を現mainへ追従させる編集者は、同じ情報を同じ順番では使いません。
+学習者が最初に必要とするのは本編と演習であり、編集者が必要とするのは設計基準、書き手の声、コードマップ、組版手順、評価記録です。
+
+Quartoのprofileは、共通設定を保ったままchapter listを切り替える仕組みを提供します [@quarto-profiles]。
+そこで、QMDを複製せず、統合HTML用の`site` profileと学習者向けPDF用の`reader` profileを分けます。
+共通の`_quarto.yml`へchapter listを置かないのは、profileごとのlistが意図せず結合される余地をなくすためです。
+
+統合HTMLは、学習者向け教材と編集と保守のガイドを二つのpartとして収録します。
+Quartoのbook検索は生成したsiteの内容をローカル索引へまとめるため、検索対象は両partです [@quarto-search]。
+一方、学習者向けPDFの目次には本編、演習、用語集、参考文献だけを置きます。
+
+この分離は、保守情報を隠すためのものではありません。
+読む順番と作業中に引く情報を分け、必要になった時点で統合HTMLから探せるようにする設計です。
+
+## 演習を解く時間と答え合わせを分ける
+
+問題の直後に完成した表や判断理由が見えていると、読者は自分の予測を固定する前に答えを読めます。
+一方、解答を別fileへ退避するだけでは、どこへ移ったのかを探す負担が増えます。
+
+そこで、各演習は問題、成功条件、任意のヒントを常に表示し、解答例、理由、不十分な回答を一つの解答blockへまとめます。
+問題側には対応する解答IDへのlinkを置きます。
+
+統合HTMLでは、Lua filterが解答blockをnativeの`details`要素へ変換します [@quarto-filters]。
+`details`は`open`属性がなければsummaryだけを表示し、利用者の操作で追加情報を開閉するdisclosureです [@whatwg-details]。^[複数の解答を同時に比較できるよう、排他的なgroupを作る`name`属性は付けません。]
+この構造はJavaScriptへ依存せず、summaryの「解答例を見る」だけを最初に示します。
+
+学習者向けPDFでは、同じfilterが解答blockを問題の位置から取り除き、用語集の前に独立した「演習解答」章を作ります。
+解答本文をHTML用とPDF用に複製せず、配置だけを媒体に合わせて変えます。
 
 ## 一章のtemplate
 
@@ -48,7 +79,7 @@ GitHub Docsはcalloutを連続させず、節に一つを目安にする方針�
 1. **問題**：実装変更で何が壊れうるかを具体的に置く
 2. **一般概念**：他のプロジェクトでも使える考え方を導入する
 3. **実装を読む**：contractからtestまで、責務の境界を追う
-4. **小さな演習**：変更前に影響範囲を予測し、focused testで確かめる
+4. **小さな演習**：変更前に影響範囲を予測し、回答を固定してから解答とfocused testで確かめる
 5. **設計を振り返る**：採用理由、代替案、現在の限界を分ける
 
 この順序はすべての文書へ強制しません。
@@ -90,3 +121,24 @@ GitHub Docsはcalloutを連続させず、節に一つを目安にする方針�
 
 コード断片は論点に必要な行だけを掲載し、関数全体を複製しません。
 省略した断片には元pathと識別子を付け、読者が現行実装へ移れるようにします。
+
+本文から実装証拠へ移る参照は、branch名ではなく、章が検証したfull commit SHAへ固定します。^[GitHubは、branchを含むfile URLはbranchの更新に応じて内容が変わり、commit IDを含むpermalinkは特定版を指し続けると説明しています。Quartoのcustom shortcodeはmetadataを受け取りPandoc ASTを返せるため、この教材ではURLを本文へ複製せず、構造化したcode referenceからHTMLとPDFの表現を生成します。[GitHubのpermalink公式文書](https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files)と[Quartoのshortcode公式文書](https://quarto.org/docs/extensions/shortcodes.html)を参照してください。]
+pathとsymbolは正本metadataへ置き、line番号は固定情報として保存せず、検証したblobから導出します。
+Pythonのsymbolは標準`ast`、TypeScriptとTSXのsymbolはTypeScript Compiler APIでtop-level宣言だけを確認します。^[初期検査をtop-levelへ限定するのは、完全なlanguage serverを教材buildへ持ち込まず、本文が根拠として指すclass、function、定数、componentの消失を検出するためです。[Python `ast`公式文書](https://docs.python.org/3/library/ast.html)と[TypeScript Compiler API公式案内](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API)を参照してください。]
+
+## 引用と参考文献の規則
+
+外部資料は、公式documentation、仕様書と標準、original research paper、公式repositoryとmaintainer discussion、専門書、組織のtechnical reportの順に探します。
+QiitaとZennは、教材の技術的根拠として使用しません。
+十分な一次情報を確認できない場合は、二次記事で穴を埋めず、未確認であることを明記します。
+
+一般概念の定義、数理式の出典、歴史上の主張、標準要件、実証結果にはcitationを置きます。
+現行repoの実装、supported Runtime、画面、test behaviorは、外部資料ではなくcurrent code、test、生成物を根拠にします。
+
+引用は要約を基本とし、短い定義を引用する場合も出典を示します。
+書籍本文と図表を教材へ転載せず、必要な図は独自に再構成して着想元を示します。
+licenseを確認できない画像は使用しません。
+
+中核参考文献には、role、難易度、language、license、関連概念、repo経路、推奨section、読む理由、読書問い、適用上の注意、open access状態、edition確認状態を記録します。
+書誌情報は `docs/learning/references.bib`、機械検査する注釈metadataは `docs/learning/reference-annotations.json` で管理します。
+読者向けの選び方と読書順は[読む目的から選ぶ参考文献](references.qmd)にまとめます。

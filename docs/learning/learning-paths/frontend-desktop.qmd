@@ -11,6 +11,7 @@
 - Activity共通shellとActivity固有view registryの境界
 - candidate revisionとrequest identityがstale responseを防ぐ方法
 - Electron rendererとPython sidecarの信頼境界
+- native dialog、maintenance process、sidecar再起動がWorkspace復元を分担する方法
 
 ## 前提
 
@@ -30,13 +31,17 @@
 | 6 | `decisionActivityState.ts` | 選択候補が変わった後の応答をどう捨てるか | 20分 |
 | 7 | `e2e/decision-activity.spec.ts` | 利用者の操作と保存結果をどう検証するか | 30分 |
 | 8 | `docs/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
-| 9 | @sec-contract-stack と @sec-lab-contract | Python契約まで戻って変更を設計する | 90分 |
+| 9 | [型付き契約の章](../chapters/contract-through-stack.qmd)と[演習](../labs/extend-contract.qmd) | Python契約まで戻って変更を設計する | 90分 |
+| 10 | [予測と判断のあいだの章](../chapters/decision-safety.qmd) | 未計算、support、不確実性、警告、提案を別の判断材料として表示する | 150分 |
+| 11 | [revisionとdigestの章](../chapters/revision-and-digest.qmd)と[演習](../labs/trace-revision-conflict.qmd) | 保存queueと遅いresponseを別の順序で判定する | 240分 |
+| 12 | [SQLite migrationの章](../chapters/trust-a-migrated-database.qmd) | sidecarがrequest受付前にDBを信用する条件 | 120分 |
+| 13 | [Workspace restoreの章](../chapters/restore-workspace-safely.qmd)と[演習](../labs/trace-workspace-restore.qmd) | rendererへpathと復元tokenを渡さず、API起動後に確定する方法 | 150分 |
 
 ## 確認コマンド
 
-検証commitでは、Playwright 3件のうち1件が成功し、既知の2件が失敗します。
-比較候補labelの追従漏れは [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279)、デモ候補の未宣言`Ca`は [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) で追跡します。
-両Issueが閉じるまでは、1 passed、2 known failuresが現行の期待結果です。
+2026年7月27日にmain commit `b8ef18a` で再実行したPlaywrightは、3件のうち2件が成功しました。
+残る1件は比較候補labelの追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) で、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+Issue #279が閉じるまでは、2 passed、1 known failureが現行の期待結果です。
 
 ```powershell
 npm run api:check
@@ -50,7 +55,7 @@ PlaywrightはAPIとWebを起動するため、focusedな反復では時間がか
 ## desktopへ進む
 
 Electronはbookの主題ではありません。
-次の順に境界だけを確認します。
+Workspace restoreを除く一般的な起動経路は、次の順に境界を確認します。
 
 1. `apps/desktop/src/main.ts` でrendererとsidecarの起動責務を確認する
 2. `docs/app-charter.md` でlaunch tokenとloopback境界を確認する
@@ -58,3 +63,6 @@ Electronはbookの主題ではありません。
 4. `backend/tests/test_windows_packaging_contract.py` で配布契約を確認する
 
 React componentからfilesystemやPython processを直接操作する設計へ寄せないことが、この経路の確認点です。
+
+backup、restore、起動失敗時の復旧を変更する場合は、[Workspace restoreの章](../chapters/restore-workspace-safely.qmd)へ進みます。
+そこではrenderer、Electron main process、短命maintenance process、長時間稼働sidecarの四者を分けます。

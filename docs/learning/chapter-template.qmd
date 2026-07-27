@@ -4,10 +4,22 @@ level: beginner
 estimated_minutes: 45
 verified_commit: "<full commit sha>"
 code_references:
-  - "path/to/contract.py"
-  - "path/to/test.py"
-concepts:
-  - "concept name"
+  - path: "path/to/contract.py"
+    id: "chapter-contract"
+    role: "contract"
+    symbols:
+      - "ContractName"
+  - path: "path/to/test.py"
+    role: "test"
+
+chapter_id: "unit-id"
+prerequisite_concepts:
+  - "concept-id"
+introduced_concepts:
+  - "concept-id"
+reinforced_concepts: []
+future_concepts: []
+historical_concepts: []
 ---
 
 # 章タイトル
@@ -32,9 +44,29 @@ concepts:
 本文の理解に必要な説明は本文へ置く。
 流れを止める補足、例外、来歴、関連する実務知識は脚注へ置く。^[脚注を削っても章の論証と手順が成立するかを確認する。成立しなければ、その情報は本文へ戻す。]
 
+## 数理を扱う場合
+
+数理を扱わない章では、この節を削除する。
+数理を扱う章では、編集時に [`math-style-guide.qmd`](math-style-guide.qmd) の順序と [`数理レビューchecklist`](math-style-guide.qmd#sec-math-review-checklist) を使う。
+この編集指示は完成原稿へ残さない。
+
+1. 式が答える問い
+2. 仮定
+3. 記号、意味、型、単位の表
+4. Definition、Assumption、Approximation、Estimator、Algorithm、Implementationの区別
+5. 式
+6. 手計算できる数値例
+7. contract、code、testとの対応
+8. 破綻条件
+9. 代替または停止条件
+
 ## 実装を読む
 
 次の順を基本とし、存在しない層を無理に作らない。
+
+本文から検証済みコードを指す場合は、metadataに登録したidを `{{{< code-ref chapter-contract >}}}` で参照する。
+symbolへ移る場合は `{{{< code-ref chapter-contract symbol=ContractName >}}}` と書く。
+GitHub URLやline番号を本文へ手書きしない。
 
 1. contract
 2. application service
@@ -51,10 +83,34 @@ concepts:
 - `INTERPRETATION`：教材上の読み方
 - `FUTURE`：未実装の候補
 
-## 演習
+## 演習1：変更前に結果を予測する {#exercise-unit-01}
 
-作業、成功条件、観察点、失敗時の確認先を書く。
-解答はすぐ下へ置かず、節末または別のlabへ置く。
+作業と観察点を書く。
+解答を開かなくても、問題と成功条件を理解できるようにする。
+
+### 成功条件
+
+提出物、判定境界、失敗時の確認先を書く。
+
+### ヒント
+
+ヒントは任意とし、答えそのものを含めない。
+
+[演習1の解答](#answer-unit-01)は、回答を固定してから開く。
+
+::: {#answer-unit-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+唯一解でない場合は、採用する前提を先に書く。
+
+#### 解答の理由
+
+境界、trade-off、testとの対応を書く。
+
+#### よくある不十分な回答
+
+不足する条件と、その回答が成立する限定条件を書く。
+:::
 
 ## 設計を振り返る
 
@@ -63,3 +119,9 @@ concepts:
 ## 検証
 
 実行場所とcommandを示し、変動しやすい件数を固定的な仕様として書かない。
+
+## Further Reading
+
+章を完走した読者が考え方を一般化するための資料を二件から四件へ絞る。
+各資料には、推奨sectionの見出し、読む理由、現行repoへ適用するときの注意を一文ずつ添える。
+本文の理解に必須の前提、結論、危険、手順をここへ退避しない。

@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-381",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 381,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/381",
+    "merge_commit": "8328575defc4d456e0bafd03830e6cb1caa0ae96"
+  },
+  "reviewed_against": "8328575defc4d456e0bafd03830e6cb1caa0ae96",
+  "previous_verified_commit": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/admin/ChangeGuideCard.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The new admin-only guide links to existing implementation boundaries and textbook chapters without changing their contracts or behavior."
+    },
+    {
+      "path": "apps/web/src/features/admin/DeveloperControlCenter.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The control center now renders the typed guide, but no learner-facing chapter makes a claim about this admin layout."
+    },
+    {
+      "path": "apps/web/src/features/admin/admin.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "Presentation changes are confined to the admin guide and do not alter textbook figures or interaction claims."
+    },
+    {
+      "path": "apps/web/src/generated/api-types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The generated types add the guide payload only; existing contract examples remain valid."
+    },
+    {
+      "path": "apps/web/src/generated/openapi.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The OpenAPI addition describes the admin guide and does not change APIs referenced by the reader chapters."
+    },
+    {
+      "path": "apps/web/tests/changeGuideCard.test.mjs",
+      "semantic_impact": "none",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "This is new source-contract evidence for the admin guide and is not a replacement for a textbook test command."
+    },
+    {
+      "path": "backend/src/material_workbench/developer_experience/change_guide.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The registry points developers to the already documented Python-to-React path; it does not redefine that path."
+    },
+    {
+      "path": "backend/src/material_workbench/developer_experience/schemas.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The new schema belongs to developer tooling and leaves reader chapter contracts unchanged."
+    },
+    {
+      "path": "backend/tests/test_developer_api.py",
+      "semantic_impact": "none",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The test fixes guide ordering and warnings without invalidating an exercise or solution."
+    },
+    {
+      "path": "e2e/navigation-intent.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["admin-decision-activity-change-guide"],
+      "action": "no-change",
+      "reason": "The new browser path verifies the admin guide; current reader navigation and application workflow claims are unaffected."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "admin-decision-activity-change-guide",
+      "statement": "The developer control center exposes the ordered Decision Activity implementation path while the textbook remains the detailed explanation of those boundaries.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #381 adds a second route into existing material rather than changing the material's implementation facts, exercises, figures, or verification commands.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/developer_experience/change_guide.py",
+          "symbol": "CHANGE_GUIDE"
+        },
+        {
+          "path": "apps/web/src/features/admin/ChangeGuideCard.tsx",
+          "symbol": "ChangeGuideCard"
+        },
+        {
+          "path": "e2e/navigation-intent.spec.ts",
+          "symbol": "developer guide separates new and existing Decision Activity workflows"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_developer_api.py",
+        "node --test apps/web/tests/changeGuideCard.test.mjs",
+        "npx playwright test e2e/navigation-intent.spec.ts",
+        "npm run typecheck",
+        "npm run build"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "No reader chapter references the ten changed PR #381 paths; the PR diff was still recorded explicitly.",
+    "focused_tests": "Backend focused tests passed 15, frontend focused tests passed 8, and fresh-server Playwright passed 1 before merge.",
+    "api_check": "Generated OpenAPI and TypeScript contracts matched the Python schema.",
+    "code_reference_check": "Validated 28 documents and 789 structured code references after the final update.",
+    "html_build": "The final integrated site build passed for 42 documents with 332 exact code links in 52.76 seconds.",
+    "pdf_build": "The final Reader build passed in 24.81 seconds: 358 A4 pages, 13,266,549 bytes, SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004.",
+    "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
+  },
+  "reviewer_note": "GitHub Actions remained queued because of the monthly limit. Local backend, frontend, browser, typecheck, build, generated-contract, and referenced-path evidence was used for PR #381."
+}

@@ -2,30 +2,26 @@ project:
   type: book
   output-dir: _build
 
+profile:
+  group:
+    - [site, reader]
+
 book:
-  title: "Material Decision Workbench 実装を読む"
-  subtitle: "型付き契約をPythonからReactまで通す"
+  title: "Material Decision Workbench 教材"
+  subtitle: "科学的意味と判断証拠を、データ・モデル・探索・UIへ通す"
   author: "Material Decision Workbench contributors"
-  output-file: "material-decision-workbench-learning"
   date: last-modified
-  chapters:
-    - index.qmd
-    - foundations.qmd
-    - code-map.qmd
-    - learning-paths/backend.qmd
-    - learning-paths/frontend-desktop.qmd
-    - learning-paths/ml-data.qmd
-    - chapters/contract-through-stack.qmd
-    - labs/extend-contract.qmd
-    - tooling.qmd
-    - evaluation.qmd
-    - glossary.qmd
-    - references.qmd
+  search:
+    location: sidebar
+    type: overlay
 
 bibliography: references.bib
 lang: ja
 number-depth: 2
 toc-depth: 3
+filters:
+  - code-reference
+  - filters/exercise-solutions.lua
 
 format:
   html:
@@ -37,6 +33,9 @@ format:
     link-external-newwindow: true
     search: true
   typst:
+    template-partials:
+      - typst/typst-show.typ
+    page-numbering: false
     papersize: a4
     fontsize: 10.5pt
     margin:

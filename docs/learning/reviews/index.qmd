@@ -1,0 +1,38 @@
+---
+title: "章のacceptance review"
+---
+
+# 章のacceptance review
+
+このディレクトリは、章を完成と判断する前の複眼reviewを記録します。
+
+`drift-reviews/`はmain変更による教材影響をclaim単位で判断します。
+こちらは章全体について、実装との一致、学習順序、accessibility、必要な専門分野、読者taskの成立を判断します。
+
+## 記録の原則
+
+- `reviewed_against`へ確認したmain commitをfull SHAで残す。
+- implementation、pedagogy、accessibilityを全章で明示する。
+- 数理章ではstatistics、材料判断へ接続する章ではdomainを追加する。
+- reader task testが代理評価なら、`proxy: true`と限界を隠さない。
+- findingは本文修正の要否、disposition、追跡先を分ける。
+- production側のfollow-upは教材acceptanceと混ぜず、blockingかどうかを明示する。
+
+schemaの正本は [`review-record.schema.json`](review-record.schema.json) です。
+新しい記録は [`template.json`](template.json) から作り、次で検証します。
+
+```powershell
+node docs/learning/reviews/check-reviews.mjs
+```
+
+## Acceptance records
+
+- [Issue #292 Software／Persistence](acceptance-2026-07-27-issue-292.json)
+- [Issue #294 Materials／Model／Prediction／Acquisition](acceptance-2026-07-27-issue-294.json)
+- [Issue #295 Frontend／Desktop／Security](acceptance-2026-07-27-issue-295.json)
+- [Issue #296 System／Chain／Verification](acceptance-2026-07-27-issue-296.json)
+- [Issue #307 Decision Safety／UX](acceptance-2026-07-27-issue-307.json)
+- [Issue #336 Edition 1横断受入](acceptance-2026-07-27-issue-336.json)
+
+このindexは編集者向けです。
+学習者向けPDFへacceptance recordを含めません。

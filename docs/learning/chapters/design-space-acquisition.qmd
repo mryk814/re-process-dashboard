@@ -1,0 +1,1190 @@
+---
+level: advanced
+estimated_minutes: 210
+verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+code_references:
+  - path: "backend/src/material_workbench/contracts/design_space_contracts.py"
+    id: "acquisition-design-space-contract"
+    role: "contract"
+    symbols:
+      - "DesignSpaceDefinition"
+      - "CompositionTotalConstraint"
+  - path: "backend/src/material_workbench/contracts/objective_contracts.py"
+    id: "acquisition-objective-contract"
+    role: "contract"
+    symbols:
+      - "ObjectiveDefinition"
+      - "ObjectiveTerm"
+  - path: "backend/src/material_workbench/application/objective_execution.py"
+    id: "acquisition-objective-execution"
+    role: "application"
+    symbols:
+      - "build_objective_execution_plan"
+  - path: "backend/src/material_workbench/domain/proposal_generation.py"
+    id: "acquisition-generator"
+    role: "domain"
+    symbols:
+      - "generate_candidates"
+      - "bounded_simplex_compatibility"
+      - "_sample_bounded_simplex_points"
+  - path: "backend/src/material_workbench/domain/design_space_validation.py"
+    id: "acquisition-design-space-validation"
+    role: "domain"
+    symbols:
+      - "validate_candidate_in_design_space"
+  - path: "backend/src/material_workbench/domain/proposal_acquisition.py"
+    id: "acquisition-evaluator"
+    role: "domain"
+    symbols:
+      - "predictive_standard_deviation"
+      - "acquisition_value"
+  - path: "backend/src/material_workbench/application/proposal_strategy_registry.py"
+    id: "acquisition-strategy-registry"
+    role: "application"
+    symbols:
+      - "strategy_availability"
+      - "resolve_strategy"
+  - path: "backend/src/material_workbench/application/batch_selector_registry.py"
+    id: "acquisition-selector-registry"
+    role: "application"
+    symbols:
+      - "batch_selector_availability"
+      - "require_batch_selector"
+  - path: "backend/src/material_workbench/domain/batch_selector.py"
+    id: "acquisition-batch-selector"
+    role: "domain"
+    symbols:
+      - "select_experiment_batch"
+  - path: "backend/src/material_workbench/application/decision_activity_counterfactual.py"
+    id: "acquisition-counterfactual"
+    role: "application"
+    symbols:
+      - "compute"
+  - path: "backend/tests/test_proposal_strategies.py"
+    id: "acquisition-strategy-test"
+    role: "test"
+  - path: "backend/tests/test_batch_proposal.py"
+    id: "acquisition-batch-test"
+    role: "test"
+  - path: "apps/web/src/features/screening/ScreeningPage.tsx"
+    id: "acquisition-screening-ui"
+    role: "frontend"
+
+chapter_id: "design-space-acquisition"
+prerequisite_concepts:
+  - "canonical-input"
+  - "registry"
+  - "predictive-summary"
+  - "snapshot"
+introduced_concepts:
+  - "design-space"
+  - "objective-definition"
+  - "candidate-generator"
+  - "acquisition-function"
+  - "batch-selector"
+  - "incumbent"
+  - "hard-constraint"
+reinforced_concepts:
+  - "counterfactual"
+  - "runtime-capability"
+  - "support"
+  - "proposal-adoption-boundary"
+future_concepts:
+  - "soft-preference"
+  - "pareto-front"
+historical_concepts: []
+---
+
+# 探索条件から実験batchまでを分ける {#sec-design-space-acquisition}
+
+## 対象読者と到達点
+
+対象読者は、予測modelを候補探索へ接続する開発者と、探索結果から実験条件を選ぶ研究者です。
+
+読者は、点予測と予測標準偏差の意味、正規分布の累積分布関数、制約付き最適化の基本形を知っているものとします。
+
+読了後は、次の五つを別の契約として説明できます。
+
+1. **Design Space**：作ってよい入力の集合
+2. **Objective Definition**：出力をどの向きで評価するかという判断基準
+3. **Candidate Generator**：Design Spaceから評価点を作る方法
+4. **Acquisition Evaluator**：各評価点へ次に調べる価値を与える方法
+5. **Batch Selector**：個別の価値と実験全体の条件を使ってbatchを作る方法
+
+読者は、Expected Improvement（EI）、UpperまたはLower Confidence Bound（UCBまたはLCB）、Probability of Improvement（PI）の仮定とedge caseを手計算できます。
+
+さらに、組成simplex、heat program、batch greedy選抜、joint q-acquisition、counterfactual proposalを、現行実装と未対応範囲へ対応付けられます。
+
+## 非scope
+
+この章は、Gaussian Processのposterior導出、Bayesian optimizationの収束証明、多目的Pareto最適化の実装、任意DAG上の実験計画を扱いません。
+
+UCB、EI、PIを「どれが常に優れるか」という順位へしません。
+
+選択は、予測表現、目的、実験budget、同時実験の相関、support、実験資源に依存するからです。
+
+この章の数値例は、正規予測分布を仮定します。
+
+現行runtimeが返すquantileだけから正規分布を仮定できない場合、その例をproduction計算へそのまま移すことはできません。
+
+## 一つのscoreへ畳み込む前に五つへ分ける
+
+候補探索を「予測値が高い順に並べる処理」と考えると、作れない条件、目標の向き、未観測領域、batch内の重複が同じ順位へ押し込まれます。
+
+この混同は、scoreの式を複雑にしても解けません。
+
+異なる問いを一つの関数が同時に答えようとしているからです。
+
+五つの境界は次の順に働きます。
+
+```text
+Design Space
+  → Candidate Generator
+  → model prediction
+  → Objective + Acquisition Evaluator
+  → feasible ranked pool
+  → Batch Selector
+  → explicit adoption
+```
+
+Design Spaceは入力の実行可能性を扱います。
+
+Objectiveは出力に対する判断を扱います。
+
+Generatorは入力点を作りますが、その点が有望かどうかを判断しません。
+
+Acquisitionは予測分布を一つの探索価値へ写しますが、設備切替やreplicate quotaを扱いません。
+
+Selectorはpoolからbatchを作りますが、選んだ条件を実験実施へ自動承認しません。
+
+したがって、acquisition scoreは物性値でも、成功確率でも、実験効用の総額でもありません。
+
+## Design Spaceは入力集合を固定する
+
+Projectが探索できる入力vectorを$\mathbf{x}$とし、実行可能な集合を$\mathcal{X}$とします。
+
+Design Spaceは、$\mathbf{x} \in \mathcal{X}$を判定するための不変な定義です。
+
+現行contractは、固定値、数値range、離散値、category、条件付き固定、関係制約、組成合計、heat patternを別fieldで持ちます。
+
+{{< code-ref acquisition-design-space-contract symbol=DesignSpaceDefinition >}}は、その定義へrevisionとTask contract digestも保存します。
+
+同じProjectでrangeを変更した場合、以前のRunが新しいrangeで再解釈されないようにするためです。
+
+### 数値boxだけでは表せない条件
+
+独立なrangeだけなら、Design Spaceを直方体として書けます。
+
+$$
+\mathcal{X}_{\mathrm{box}}
+:=
+\left\{
+\mathbf{x} \in \mathbb{R}^{d}
+\mid
+\ell_j \le x_j \le u_j,\quad j=1,\ldots,d
+\right\}.
+$$
+
+この式はDefinitionです。
+
+$\ell_j$と$u_j$はfeature $j$の下限と上限で、$x_j$と同じ単位を持ちます。
+
+しかし、組成とheat programは、各軸を独立に動かすだけでは実行可能性を守れません。
+
+### 組成はbounded simplex上にある
+
+組成componentのfractionを$w_j$、合計を$c$とします。
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| $D$ | 組成component数 | integer | $1$ |
+| $w_j$ | component $j$の組成 | scalar | mass%またはat% |
+| $\ell_j$ | component $j$の下限 | scalar | $w_j$と同じ |
+| $u_j$ | component $j$の上限 | scalar | $w_j$と同じ |
+| $c$ | 組成合計 | scalar | $w_j$と同じ |
+
+**Definition**
+
+$$
+\mathcal{X}_{\mathrm{composition}}
+:=
+\left\{
+\mathbf{w}
+\mid
+\ell_j \le w_j \le u_j,\quad
+\sum_{j=1}^{D} w_j = c
+\right\}.
+$$
+
+mass%で$c=100$なら、C、Cr、Ni、Feをそれぞれ独立に0から100まで動かすことはできません。
+
+四成分のうち三成分を決めれば、balance成分は残差で決まります。
+
+**Identity**
+
+$$
+w_{\mathrm{balance}}
+=
+c-\sum_{j \ne \mathrm{balance}} w_j.
+$$
+
+この残差がbalance成分の上下限を外れる場合、入力は合計100でもDesign Space外です。
+
+{{< code-ref acquisition-generator symbol=_sample_bounded_simplex_points >}}は、合計を保つ部分空間でhit-and-runを行います。
+
+各stepの方向vectorから平均を引くため、方向成分の和は0になります。
+
+その機構によって、移動前後の組成合計を変えずにbox境界内を進みます。
+
+ただし、現行bounded simplex generatorは、balance成分を持つ組成合計制約が1件で、balance以外に連続rangeが2項目以上ある場合だけ利用できます。
+
+条件付きで固定される組成component、複数simplex、離散組成は未対応です。
+
+### Heat programは点の列として検査する
+
+heat programを、時刻と温度の列として書きます。
+
+$$
+\mathbf{h}
+:=
+\left(
+(t_1,T_1),\ldots,(t_L,T_L)
+\right).
+$$
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| $L$ | heat patternの点数 | integer | $1$ |
+| $t_\ell$ | 点$\ell$の経過時間 | scalar | $\mathrm{s}$ |
+| $T_\ell$ | 点$\ell$の温度 | scalar | $^\circ\mathrm{C}$ |
+
+現行Generatorは、`heat_pattern.2.temperature_c`のような既存点のpathをrangeまたは離散値から更新できます。
+
+固定heat patternを持つDesign Spaceでは、点数と各点の値が一致しなければなりません。
+
+しかし、「時刻が単調増加する」「昇温速度が設備上限以下である」「保持区間を最低時間確保する」といった物理条件は、rangeを置くだけでは得られません。
+
+Task contractまたは関係制約がその条件を表さない限り、Generatorが暗黙に補いません。
+
+この境界は「range内なら製造可能」を意味しません。
+
+Design Spaceは、明示した入力制約だけを保証します。
+
+## Objectiveは出力の向きと役割を固定する
+
+Design Spaceが入力を決めても、どの出力を良いとするかは決まりません。
+
+出力$Y_k$ごとに、role、direction、threshold、unitを持つ定義が必要です。
+
+{{< code-ref acquisition-objective-contract symbol=ObjectiveTerm >}}は、主目的、hard outcome constraint、soft preference、reporting onlyを区別します。
+
+主目的が一つで、制約をすべて最小化形式へ揃える場合、問題は次のように書けます。
+
+$$
+\begin{aligned}
+\underset{\mathbf{x} \in \mathcal{X}}{\operatorname{minimize}}
+&\quad f(\mathbf{x}) \\
+\operatorname{subject\ to}
+&\quad c_r(\mathbf{x}) \le 0,\quad r=1,\ldots,R.
+\end{aligned}
+$$
+
+最大化したい物性$g(\mathbf{x})$をこの形式へ入れる場合は、$f(\mathbf{x})=-g(\mathbf{x})$と符号を反転します。
+
+符号反転は表示labelの変更ではありません。
+
+incumbent、improvement、acquisition scoreの向きも同じ規約へ揃える必要があります。
+
+### 現行Objective実行の範囲
+
+Objective contractは`maximize`、`minimize`、`at_least`、`at_most`、`between`を表現できます。
+
+一方、{{< code-ref acquisition-objective-execution symbol=build_objective_execution_plan >}}がproduction proposal engineへ渡せるのは、単一主目的の`at_least`または`at_most`と、hard outcome constraintです。
+
+`between`はgoal basedな順位には使えますが、UCBまたはEIの単方向主目的には使えません。
+
+純粋な`maximize`または`minimize`、soft preference、Pareto multi-objectiveは、contractへ保存できても現行proposal engineでは実行できません。
+
+「contractで表現できる」を「productionで探索できる」と読み替えないことが必要です。
+
+## Generatorは評価点を作る
+
+Generatorの出力は、Design Space内で評価する候補poolです。
+
+Generatorはmodel predictionを見ず、Objectiveも見ません。
+
+現行allow-listには、Latin hypercube、scramble付きSobol、bounded simplex hit-and-runがあります。
+
+{{< code-ref acquisition-generator symbol=generate_candidates >}}はseed、generator ID、versionを受け取り、同じ入力から同じpoolを再現します。
+
+### Latin hypercubeとSobol
+
+Latin hypercubeは、各軸をcount個の層へ分け、各層から一つずつ点を取ります。
+
+各軸の周辺分布を広く覆いやすい一方、軸間の組合せがDesign Spaceの形に適するとは限りません。
+
+Sobol列は低discrepancy列を使い、box内の空間充填を狙います。
+
+現行実装は、必要点数以上の最小の2の冪まで生成し、先頭count点を使います。
+
+どちらも「有望な点」を直接生成しません。
+
+poolを作った後、predictionとacquisitionが価値を与えます。
+
+### 生成と検証を分ける
+
+Generatorがrangeから値を作っても、最終candidateはDesign Space validationを通る必要があります。
+
+条件付き固定、関係制約、composition total、fixed heat patternが別にあるためです。
+
+{{< code-ref acquisition-design-space-validation symbol=validate_candidate_in_design_space >}}は、candidateが固定されたDesign Spaceを満たすか検査します。
+
+検査に失敗した点は、scoreを下げて残すのではなく、評価poolから除外します。
+
+実行不能な入力と、予測上あまり有望でない入力を同じscoreで比較しないためです。
+
+## Acquisitionは次に調べる価値を与える
+
+Candidate Generatorが作った点$\mathbf{x}$に対し、modelが次の正規予測分布を返すと仮定します。
+
+**Assumption**
+
+$$
+Y(\mathbf{x}) \mid \mathcal{D}
+\sim
+\mathcal{N}
+\left(
+\mu(\mathbf{x}),
+\sigma^2(\mathbf{x})
+\right).
+$$
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| $Y(\mathbf{x})$ | 入力$\mathbf{x}$での未観測出力 | random variable | target unit |
+| $\mu(\mathbf{x})$ | predictive mean | scalar | target unit |
+| $\sigma(\mathbf{x})$ | predictive standard deviation | scalar | target unit |
+| $y^\star$ | incumbent value | scalar | target unit |
+| $\xi$ | improvement margin | scalar | target unit |
+| $\kappa$ | confidence multiplier | scalar | $1$ |
+| $\Phi$ | 標準正規分布のCDF | function | $1$ |
+| $\phi$ | 標準正規分布のdensity | function | $1$ |
+
+この仮定では、$\sigma(\mathbf{x})>0$とします。
+
+$\sigma=0$のedge caseは、各式の近くで扱います。
+
+### UCBとLCB
+
+最大化では、平均と予測標準偏差を足したUpper Confidence Boundを使えます。
+
+**Definition**
+
+$$
+\operatorname{UCB}_{\kappa}(\mathbf{x})
+:=
+\mu(\mathbf{x})
++
+\kappa\sigma(\mathbf{x}).
+$$
+
+最小化では、Lower Confidence Boundを使います。
+
+**Definition**
+
+$$
+\operatorname{LCB}_{\kappa}(\mathbf{x})
+:=
+\mu(\mathbf{x})
+-
+\kappa\sigma(\mathbf{x}).
+$$
+
+$\kappa$を大きくすると、未確かな点を選びやすくなります。
+
+しかし、$\mu \pm \kappa\sigma$を「信頼区間」と表示するには、coverageとmodel仮定が別に必要です。
+
+現行UIのparameter roleは`confidence_multiplier`ですが、指定した$\kappa$が頻度論的coverageを保証するとは主張しません。
+
+{{< code-ref acquisition-evaluator symbol=acquisition_value >}}は、内部のrank scoreを小さいほど良い向きへ統一します。
+
+最大化ではUCBの負値を、最小化ではLCBを返します。
+
+表示するboundと内部sort scoreを同じ値だと考えると、符号を二度反転する危険があります。
+
+### PI
+
+最大化で、incumbentをmargin $\xi$以上改善する確率を考えます。
+
+まず、平均上のimprovementを定義します。
+
+**Definition**
+
+$$
+\Delta_{\max}(\mathbf{x})
+:=
+\mu(\mathbf{x})-y^\star-\xi.
+$$
+
+最小化では向きを反転します。
+
+**Definition**
+
+$$
+\Delta_{\min}(\mathbf{x})
+:=
+y^\star-\mu(\mathbf{x})-\xi.
+$$
+
+どちらも$\Delta(\mathbf{x})$と書くと、Probability of Improvementは次です。
+
+**Identity under the normal assumption**
+
+$$
+\operatorname{PI}(\mathbf{x})
+=
+\Pr(I(\mathbf{x})>0\mid\mathcal{D})
+=
+\Phi
+\left(
+\frac{\Delta(\mathbf{x})}{\sigma(\mathbf{x})}
+\right).
+$$
+
+PIは改善量の大きさを区別しません。
+
+1 MPa改善する確率0.8と、50 MPa改善する確率0.8は同じscoreになります。
+
+その性質を理解せずにPIを使うと、小さな改善を高確率で得る点へ集中する場合があります。
+
+現行proposal strategy registryはPIをproduction strategyとして登録していません。
+
+この章ではEIとの違いを明らかにする比較対象として扱います。
+
+### EI
+
+改善量を0で切ったrandom variableを定義します。
+
+最大化では次です。
+
+**Definition**
+
+$$
+I_{\max}(\mathbf{x})
+:=
+\max
+\left(
+Y(\mathbf{x})-y^\star-\xi,
+0
+\right).
+$$
+
+最小化では次です。
+
+**Definition**
+
+$$
+I_{\min}(\mathbf{x})
+:=
+\max
+\left(
+y^\star-Y(\mathbf{x})-\xi,
+0
+\right).
+$$
+
+EIは、その期待値です。
+
+**Identity under the normal assumption**
+
+$$
+\operatorname{EI}(\mathbf{x})
+=
+\Delta(\mathbf{x})\Phi(z)
++
+\sigma(\mathbf{x})\phi(z),
+\qquad
+z
+=
+\frac{\Delta(\mathbf{x})}{\sigma(\mathbf{x})}.
+$$
+
+第一項は平均上の改善を、第二項は予測分布の広がりから生じる改善可能性を表します。
+
+EIの単位はtargetと同じです。
+
+PIは確率なので単位1です。
+
+二つを同じ数値軸で比較しません。
+
+{{< code-ref acquisition-evaluator symbol=acquisition_value >}}は、この正規式を使い、最大化と最小化の$\Delta$を分けます。
+
+さらに、返したEIへ負号を付け、小さいrank scoreほど良いという内部規約へ合わせます。
+
+### $\sigma=0$とincumbent不在
+
+$\sigma=0$では$z$を計算できません。
+
+理論上のEIの極限は$\max(\Delta,0)$です。
+
+PIの極限は、$\Delta>0$なら1、$\Delta<0$なら0となり、$\Delta=0$では採用する不等号の定義に依存します。
+
+現行実装は、正のuncertainty componentも正のinterval幅も得られないpredictionを拒否します。
+
+極限値を暗黙に補いません。
+
+EIにはincumbentの値とsourceも必要です。
+
+現行contractは、request override、Candidate revision、Prediction Snapshot、Project decision、Project actualsなど、incumbentの由来を別の証拠として保存します。
+
+同じ数値でもsourceが違えば、再現するために必要な参照が違うからです。
+
+### 正規近似が使えない場合
+
+現行UCBとEIは、連続outputのpredictive meanとstandard deviationを`normal_mean_std`として解釈できる場合だけ利用できます。
+
+medianとstandard deviationの組合せは、normal mean/stdとして扱いません。
+
+非負連続量も、正規分布が負値へ質量を置くため、現行registryは正規近似strategyを有効にしません。
+
+posterior sampleがあるなら、sample based EIやThompson Samplingが代替になります。
+
+しかし、現行Thompson strategyはproduction無効です。
+
+「sample fieldがcontractにある」を「現在選べる」と読み替えないことが必要です。
+
+## 数値例でUCB、PI、EIを分ける
+
+### 最大化と最小化のbound
+
+候補Aの予測平均を$510\ \mathrm{MPa}$、予測標準偏差を$2\ \mathrm{MPa}$とします。
+
+候補Bは$507\ \mathrm{MPa}$と$5\ \mathrm{MPa}$です。
+
+$\kappa=2$で引張強さを最大化する場合、次の値になります。
+
+$$
+\begin{aligned}
+\operatorname{UCB}(A)
+&=
+510+2\times2
+=
+514\ \mathrm{MPa},\\
+\operatorname{UCB}(B)
+&=
+507+2\times5
+=
+517\ \mathrm{MPa}.
+\end{aligned}
+$$
+
+UCBでは候補Bを先に評価します。
+
+平均は低くても、不確かさを含めた上側の値が高いからです。
+
+同じ二候補で値を最小化する場合、LCBは次です。
+
+$$
+\begin{aligned}
+\operatorname{LCB}(A)
+&=
+510-2\times2
+=
+506\ \mathrm{MPa},\\
+\operatorname{LCB}(B)
+&=
+507-2\times5
+=
+497\ \mathrm{MPa}.
+\end{aligned}
+$$
+
+最小化でも候補Bが先になりますが、比較しているのは上側ではなく下側です。
+
+### PIとEIは同じ問いへ答えない
+
+最大化で$y^\star=510\ \mathrm{MPa}$、$\xi=1\ \mathrm{MPa}$とします。
+
+候補Cの$\mu=513\ \mathrm{MPa}$、$\sigma=2\ \mathrm{MPa}$なら、$\Delta=2\ \mathrm{MPa}$、$z=1$です。
+
+標準正規分布の表から$\Phi(1)\approx0.8413$、$\phi(1)\approx0.2420$を使います。
+
+$$
+\operatorname{PI}(C)
+\approx
+0.8413.
+$$
+
+$$
+\begin{aligned}
+\operatorname{EI}(C)
+&\approx
+2\times0.8413
++
+2\times0.2420\\
+&=
+2.1666\ \mathrm{MPa}.
+\end{aligned}
+$$
+
+PIはmarginを超える確率を返します。
+
+EIは改善量の期待値を返します。
+
+0.8413と$2.1666\ \mathrm{MPa}$を大小比較しても意味はありません。
+
+## Batch Selectorはpool全体を選ぶ
+
+Acquisitionが各点へ価値を付けても、上位$B$点をそのまま実験すると近接条件へ集中する場合があります。
+
+Batch Selectorは、個別pointのscoreとbatch全体の条件を分けて扱います。
+
+現行allow-listでproduction有効なのは、ranked top-kとgreedy value-diversityです。
+
+cluster representative、local penalization、Batch Thompson、joint q-acquisitionは登録されていますが無効です。
+
+{{< code-ref acquisition-selector-registry symbol=batch_selector_availability >}}は、production flagとRuntime Capabilityを使って利用可否を返します。
+
+### 現行greedy selector
+
+候補poolのacquisition順位を$r_b$、順位対象数を$N$とします。
+
+現行実装は、順位価値を次で計算します。
+
+**Implementation**
+
+$$
+v_b
+:=
+1-\frac{r_b}{\max(1,N-1)}.
+$$
+
+最上位は$v_b=1$、最下位は$v_b=0$です。
+
+すでに選択した集合を$\mathcal{B}$とし、候補$\mathbf{x}_b$から選択済み候補への最小distanceを$d_b(\mathcal{B})$とします。
+
+pending penaltyを$p_b$、resource penaltyを$c_b$、diversity weightを$\lambda$とすると、現行greedy scoreは次です。
+
+**Implementation**
+
+$$
+g_b
+:=
+v_b
++
+\lambda d_b(\mathcal{B})
+-
+p_b
+-
+c_b.
+$$
+
+各stepで、hard feasibility、quota、重複、resource上限を満たす候補のうち、$g_b$が最大の点を一つ追加します。
+
+{{< code-ref acquisition-batch-selector symbol=select_experiment_batch >}}は、同点ならpool indexが小さい候補を選び、選択理由と各componentを保存します。
+
+この方法は決定論的に再現できますが、greedyに候補を一つずつ固定します。
+
+後の選択を含む全組合せの最適性は保証しません。
+
+### joint q-acquisition
+
+batchを集合$\mathcal{B}$として同時に評価する考え方では、個別EIの和ではなく、joint predictive distributionの下でbatch全体の改善を評価します。
+
+最大化のq-EIは、概念上次のように書けます。
+
+**Definition**
+
+$$
+q\operatorname{EI}(\mathcal{B})
+:=
+\mathbb{E}
+\left[
+\max
+\left(
+\max_{\mathbf{x}\in\mathcal{B}}Y(\mathbf{x})
+-y^\star-\xi,
+0
+\right)
+\middle|
+\mathcal{D}
+\right].
+$$
+
+候補間のposterior correlationを使うため、同じ領域へ近接する二点の重複価値をjointに評価できます。
+
+一方、計算にはjoint sampleまたはjoint covarianceが必要です。
+
+現行Runtime Capabilityは`joint_samples=false`であり、joint q-acquisition selectorもproduction無効です。
+
+現在のgreedy diversityを「q-EIの近似」とは呼びません。
+
+acquisition順位とdomain distanceを足すheuristicであり、joint posteriorの期待改善を積分していないからです。
+
+## Counterfactual proposalは因果効果ではない
+
+Counterfactual Activityは、現在のcandidateから変更可能な入力を動かし、目標へ届く予測案を探します。
+
+この操作は、「もし入力を変更したらmodel predictionがどう変わるか」というmodel上の比較です。
+
+「その入力を介入すれば、実測結果が同じ量だけ変化する」という因果効果ではありません。
+
+現行実装は、Design Space幅で正規化したL1距離を変更量として使い、TaskとDesign Spaceの制約を満たす案だけを返します。
+
+{{< code-ref acquisition-counterfactual symbol=compute >}}は、変更field、予測target、達成状態、不確かさ、infeasibility理由を保存します。
+
+この証拠から分かるのは、固定modelと固定Design Spaceの下で見つかった予測上の代替案です。
+
+交絡、工程順序の未観測差、測定protocol、model misspecificationは、その距離だけでは解決しません。
+
+したがって、counterfactual proposalはCandidate化と実験採用の前に、人間がdomain feasibilityと証拠を確認します。
+
+## 現行実装を端から追う
+
+現mainの処理は、次の対応で読めます。
+
+- **Design Space** — contractは`DesignSpaceDefinition`、計算は`validate_candidate_in_design_space`です。`test_proposal_strategies.py`とDesign Space関連testが、明示した制約だけを保証することを確認します。
+- **Objective** — contractは`ObjectiveDefinition`、計算は`build_objective_execution_plan`です。Objective contract関連testが対象で、soft preference、Pareto、純粋max/minは未実行です。
+- **Generator** — `generator_id`、version、seedを`generate_candidates`へ渡します。`test_sobol_is_seeded_bounded_and_reproducible`が再現性を確認し、現行の選択肢はLHS、Sobol、bounded simplexです。
+- **UCBまたはLCB** — `upper_confidence_bound`を`acquisition_value`で計算します。`test_ucb_and_expected_improvement_rank_promising_uncertain_points`が順位を確認し、normal mean/stdを前提とします。
+- **EI** — `expected_improvement`とincumbent evidenceを`acquisition_value`へ渡します。`test_expected_improvement_margin_changes_maximize_and_minimize_scores`が目的方向を確認し、$\sigma>0$とincumbentを必要とします。
+- **PI** — production registryには未登録で、教材上の比較だけです。
+- **greedy batch** — `greedy_value_diversity_v1`を`select_experiment_batch`で計算します。`test_diversity_selector_includes_a_different_region`が多様性を確認しますが、heuristicでありjoint posteriorは使いません。
+- **joint q-acquisition** — `joint_q_acquisition_v1`はavailability gateだけを持ちます。`test_batch_selector_registry_does_not_claim_joint_methods_without_capability`が、joint sampleのないproductionでは無効になることを確認します。
+- **UI** — `ScreeningPage`がproposal strategy、selector、pool、選択理由を扱います。screening E2EとAPI testが、有効なstrategyだけを選択可能にすることを確認します。
+
+{{< code-ref acquisition-strategy-registry symbol=strategy_availability >}}は、output kind、mean、standard deviation、sample、joint sample、incumbent、Objective方向を検査します。
+
+利用できないstrategyを黙って隠すだけではなく、理由を返します。
+
+fallback policyを指定した場合、現行実装は実際に使ったdeterministic strategyとfallback元をRunへ保存します。
+
+requested strategyだけを履歴へ残すと、同じRunを再現できないからです。
+
+{{< code-ref acquisition-screening-ui >}}は、strategy、pool size、batch selector、diversity parameterを操作面へ出します。
+
+ただし、UIで選べるparameterが増えても、利用者が数理仮定を確認したことまでは保証しません。
+
+## 数値演習
+
+### 演習1：目的の向きと内部scoreを追う {#exercise-acquisition-01}
+
+二候補のpredictionを考えます。
+
+| 候補 | $\mu$ | $\sigma$ |
+|---|---:|---:|
+| A | $92\ \mathrm{J}$ | $3\ \mathrm{J}$ |
+| B | $95\ \mathrm{J}$ | $1\ \mathrm{J}$ |
+
+$\kappa=2$とします。
+
+次の三点を計算してください。
+
+1. Charpy energyを最大化する場合のUCB
+2. energy lossを最小化する量だと解釈した場合のLCB
+3. 現行`acquisition_value`がsort用に返すscoreの符号
+
+#### 成功条件
+
+- 最大化と最小化でboundの向きを変える
+- boundと内部scoreを区別する
+- 単位を$\mathrm{J}$で示す
+
+[演習1の解答](#answer-acquisition-01)
+
+::: {#answer-acquisition-01 .exercise-solution data-label="演習1の解答"}
+
+#### 解答例
+
+最大化のUCBは次です。
+
+$$
+\operatorname{UCB}(A)=92+2\times3=98\ \mathrm{J},
+$$
+
+$$
+\operatorname{UCB}(B)=95+2\times1=97\ \mathrm{J}.
+$$
+
+Aが先です。
+
+最小化のLCBは次です。
+
+$$
+\operatorname{LCB}(A)=92-2\times3=86\ \mathrm{J},
+$$
+
+$$
+\operatorname{LCB}(B)=95-2\times1=93\ \mathrm{J}.
+$$
+
+この数値を損失として最小化するならAが先です。
+
+現行sort scoreは小さいほど上位です。
+
+最大化ではAが$-98$、Bが$-97$です。
+
+最小化ではAが$86$、Bが$93$です。
+
+#### 解答の理由
+
+UCBとLCBは、同じ$\kappa$でも目的の向きによって使う側が違います。
+
+現行実装はsort規約を小さいほど良い向きへ揃えるため、最大化boundだけ負号を付けます。
+
+#### よくある不十分な回答
+
+最大化でもLCBを使う回答は、予測分布の下側を高くする別の保守的目的へ変えています。
+
+UCB値だけを書き、内部scoreの負号を書かない回答では、code上の順位を再現できません。
+:::
+
+### 演習2：PIとEIを手計算する {#exercise-acquisition-02}
+
+引張強さを最大化します。
+
+$y^\star=510\ \mathrm{MPa}$、$\xi=1\ \mathrm{MPa}$です。
+
+候補Cは$\mu=513\ \mathrm{MPa}$、$\sigma=2\ \mathrm{MPa}$です。
+
+$\Phi(1)=0.8413$、$\phi(1)=0.2420$を使い、PIとEIを計算してください。
+
+続いて、PIだけでは失われる情報を一つ説明してください。
+
+#### 成功条件
+
+- $\Delta=2\ \mathrm{MPa}$と$z=1$を示す
+- PIを単位1、EIを$\mathrm{MPa}$で示す
+- PIとEIを同じ数値scaleとして比較しない
+
+[演習2の解答](#answer-acquisition-02)
+
+::: {#answer-acquisition-02 .exercise-solution data-label="演習2の解答"}
+
+#### 解答例
+
+$$
+\Delta
+=
+513-510-1
+=
+2\ \mathrm{MPa},
+$$
+
+$$
+z
+=
+\frac{2}{2}
+=
+1.
+$$
+
+したがって、PIは次です。
+
+$$
+\operatorname{PI}(C)
+=
+\Phi(1)
+\approx
+0.8413.
+$$
+
+EIは次です。
+
+$$
+\begin{aligned}
+\operatorname{EI}(C)
+&\approx
+2\times0.8413
++
+2\times0.2420\\
+&=
+2.1666\ \mathrm{MPa}.
+\end{aligned}
+$$
+
+PIはmarginを超える改善量の大きさを区別しません。
+
+#### 解答の理由
+
+PIはevent probabilityで、EIは非負の改善量の期待値です。
+
+出力の意味と単位が違います。
+
+#### よくある不十分な回答
+
+PIを84.13 MPaと書く回答は、確率へtarget unitを付けています。
+
+EIを216.66%と書く回答は、期待改善量を確率へ読み替えています。
+:::
+
+### 演習3：bounded simplexの実行可能性を判定する {#exercise-acquisition-03}
+
+組成合計を100 mass%とします。
+
+固定成分はMn 1.5 mass%です。
+
+可変成分のrangeは、Cが0.1から0.3 mass%、Crが10から20 mass%、Niが5から15 mass%です。
+
+Feをbalance成分とし、Feのrangeを63から83 mass%とします。
+
+次の三条件について、Fe残差を計算し、Design Space内か判定してください。
+
+1. C 0.2、Cr 15、Ni 10
+2. C 0.3、Cr 20、Ni 15
+3. C 0.1、Cr 10、Ni 5
+
+#### 成功条件
+
+- Mnを残差計算へ含める
+- 合計100 mass%だけでなくFe rangeも検査する
+- 実行不能な点をscoreで救済しない
+
+[演習3の解答](#answer-acquisition-03)
+
+::: {#answer-acquisition-03 .exercise-solution data-label="演習3の解答"}
+
+#### 解答例
+
+条件1のFeは次です。
+
+$$
+100-(1.5+0.2+15+10)
+=
+73.3\ \mathrm{mass\%}.
+$$
+
+Fe range内なので実行可能です。
+
+条件2のFeは次です。
+
+$$
+100-(1.5+0.3+20+15)
+=
+63.2\ \mathrm{mass\%}.
+$$
+
+Fe range内なので実行可能です。
+
+条件3のFeは次です。
+
+$$
+100-(1.5+0.1+10+5)
+=
+83.4\ \mathrm{mass\%}.
+$$
+
+合計は100 mass%になりますが、Fe上限83 mass%を超えるためDesign Space外です。
+
+#### 解答の理由
+
+simplex equalityと各componentのbox境界は、両方を満たす必要があります。
+
+balance残差を計算するだけでは、balance componentのrangeを保証できません。
+
+#### よくある不十分な回答
+
+三条件すべて合計100になるため実行可能とする回答は、Fe rangeを見ていません。
+
+条件3を低scoreで残す回答も、input feasibilityとacquisition valueを混同しています。
+:::
+
+### 演習4：greedy batchの二手目を選ぶ {#exercise-acquisition-04}
+
+候補poolは4点で、最初の候補Aはすでに選択済みです。
+
+次の候補BとCから二手目を選びます。
+
+| 候補 | acquisition rank $r_b$ | Aまでのdistance $d_b$ |
+|---|---:|---:|
+| B | 1 | 0.10 |
+| C | 2 | 0.60 |
+
+$N=4$、$\lambda=1.5$、pending penaltyとresource penaltyは0です。
+
+現行greedy scoreを計算し、選ぶ候補を示してください。
+
+続いて、この結果がjoint q-acquisitionの最適解を保証しない理由を説明してください。
+
+#### 成功条件
+
+- 順位価値を$1-r_b/(N-1)$で計算する
+- diversity componentへ$\lambda$を掛ける
+- greedy distanceとjoint posteriorを区別する
+
+[演習4の解答](#answer-acquisition-04)
+
+::: {#answer-acquisition-04 .exercise-solution data-label="演習4の解答"}
+
+#### 解答例
+
+Bの順位価値は次です。
+
+$$
+v_B
+=
+1-\frac{1}{3}
+\approx
+0.6667.
+$$
+
+したがって、greedy scoreは次です。
+
+$$
+g_B
+\approx
+0.6667+1.5\times0.10
+=
+0.8167.
+$$
+
+Cの順位価値は次です。
+
+$$
+v_C
+=
+1-\frac{2}{3}
+\approx
+0.3333.
+$$
+
+greedy scoreは次です。
+
+$$
+g_C
+\approx
+0.3333+1.5\times0.60
+=
+1.2333.
+$$
+
+Cを選びます。
+
+この計算は、acquisition順位とdomain distanceを足しています。
+
+BとCのjoint predictive distributionや、Aを含むbatch全体の期待改善を積分していないため、q-EIの最適解を保証しません。
+
+#### 解答の理由
+
+diversity weightが大きいため、個別順位の差よりAからの距離が効きます。
+
+このheuristicは再現可能ですが、joint posterior correlationを表す量ではありません。
+
+#### よくある不十分な回答
+
+Bのacquisition rankが上なので無条件にBを選ぶ回答は、selectorが追加したdiversityを無視しています。
+
+Cをq-EIで選んだと説明する回答は、計算していないjoint expectationを主張しています。
+:::
+
+## 設計を振り返る
+
+五つの境界は、algorithm名を増やすための構造ではありません。
+
+入力の実行可能性、出力の判断、空間の被覆、予測下の探索価値、実験batchの条件を、それぞれ変更できるようにします。
+
+この分離によって、たとえばGeneratorをLatin hypercubeからSobolへ変えても、Objectiveの意味は変わりません。
+
+Selectorをtop-kからgreedy diversityへ変えても、保存済みacquisition poolを再解釈せず、別のBatch Proposal Runとして比較できます。
+
+現行実装の成立している境界は次です。
+
+- Design SpaceとObjectiveをimmutable revisionとしてProjectへ固定する
+- generator ID、version、parameter、seedを保存する
+- UCBまたはLCBとEIをnormal mean/std Capabilityへ限定する
+- incumbentの値だけでなくsourceを保存する
+- acquisition componentと内部scoreを保存する
+- batchの選択理由、除外理由、quota、resource、pending参照を保存する
+- 利用できないjoint methodをCapability gateで拒否する
+- proposal、Candidate化、Project decisionを別のwriteにする
+
+現在の限界は次です。
+
+- PIは未実装
+- pure maximizeまたはminimize Objectiveをproduction proposal engineへ変換できない
+- soft preferenceとPareto multi-objectiveを実行できない
+- bounded simplexは一つのbalance付き連続組成制約へ限定される
+- heat programの工程物理をDesign Spaceが自動推論しない
+- UCBとEIはnormal mean/std表現へ限定される
+- Thompson Samplingとuncertainty samplingはproduction無効
+- greedy batchはjoint posteriorを使わない
+- joint q-acquisitionはproduction無効で、現行runtimeにjoint sampleがない
+- counterfactual proposalは因果効果を推定しない
+
+この限界は、未完成の一覧ではありません。
+
+保存contractが表せる範囲、Runtime Capabilityが供給する範囲、productionで有効なalgorithmを区別するための境界です。
+
+## 章末チェック {#exercise-acquisition-chapter-check}
+
+1. Design SpaceとObjectiveが答える問いを一つずつ書いてください。
+2. GeneratorとAcquisitionを同じstrategy IDの中でも分けて保存する理由を説明してください。
+3. 最大化のUCBと最小化のLCBを書き、$\kappa$の単位を示してください。
+4. PIとEIの出力単位と、PIが失う改善情報を説明してください。
+5. EIにincumbent sourceが必要な理由を説明してください。
+6. 組成合計を満たすだけではbounded simplexの点が実行可能とは限らない理由を説明してください。
+7. heat programのrangeだけでは製造可能性を保証できない例を一つ挙げてください。
+8. greedy value-diversityとjoint q-acquisitionの計算上の違いを説明してください。
+9. counterfactual proposalを因果効果と呼べない理由を説明してください。
+10. contractへ存在するがproductionで利用できない方法を二つ挙げ、そのgateを示してください。
+
+[章末チェックの解答](#answer-acquisition-chapter-check)
+
+::: {#answer-acquisition-chapter-check .exercise-solution data-label="章末チェックの解答"}
+
+#### 解答例
+
+1. Design Spaceは「どの入力を作ってよいか」、Objectiveは「どの出力をどの向きと役割で評価するか」へ答えます。
+2. Generatorは評価点を作り、Acquisitionはpredictionから探索価値を計算するため、片方を変えてももう片方の意味を保つ必要があります。
+3. 最大化は$\mu+\kappa\sigma$、最小化は$\mu-\kappa\sigma$で、$\kappa$の単位は1です。
+4. PIは単位1の確率、EIはtarget unitの期待改善量で、PIは改善量の大きさを区別しません。
+5. incumbentの値を再現するだけでなく、観測値、Snapshot、Candidate revisionのどの証拠から選んだかを固定する必要があるからです。
+6. balance残差がcomponent rangeを外れる場合や、別の関係制約に違反する場合があるからです。
+7. 各点の時刻range内でも、点の時刻順が逆転する場合、明示的な単調性制約なしには製造可能と判定できません。
+8. greedyは個別順位とdomain distanceを順次足し、joint q-acquisitionはbatchのjoint predictive distributionで期待改善を計算します。
+9. model prediction上の入力置換を比較しており、交絡を調整した介入効果を同定していないからです。
+10. PI、joint q-acquisition、Batch Thompsonなどが該当し、strategyまたはselector registryのproduction flagとRuntime Capability gateが利用を拒否します。
+
+#### 解答の理由
+
+十問は、入力集合、判断基準、生成、個別価値、batch価値、因果解釈という別の境界を確認します。
+
+algorithm名だけを答えるのではなく、必要なcontractとCapabilityへ戻ることが到達点です。
+
+#### よくある不十分な回答
+
+「Bayesian optimizationが全部決める」とする回答は、Design Space、Objective、Generator、Selector、人間のadoptionを区別していません。
+
+「不確かさが大きい点を選ぶ」とする回答も、UCB、EI、PI、greedy diversity、q-EIのどの計算を指すか不足しています。
+:::
+
+## 検証
+
+repository rootで次を実行します。
+
+```powershell
+uv run python -m pytest `
+  backend/tests/test_proposal_strategies.py `
+  backend/tests/test_batch_proposal.py
+
+npm run api:check
+node docs/learning/check-code-references.mjs
+uv run python docs/learning/check-python-symbols.py
+```
+
+成功条件は、Proposal StrategyとBatch Selectorのfocused testが通り、生成API型とcode referenceが現mainへ一致することです。
+
+この章をbookへ接続した後は、clean HTMLとPDFを生成し、長い数式、記号表、解答block、内部linkを確認します。
+
+PDFでは、UCB、EI、q-EIの式が本文幅からはみ出さず、添字と太字vectorを150%拡大で区別できることも確認します。
+
+## Further Reading
+
+- Roman Garnett, *Bayesian Optimization* [@garnett-bayesian-optimization]：surrogate model、acquisition、parallel evaluationを一つの体系として読む。
+- Donald R. Jones、Matthias Schonlau、William J. Welch, “Efficient Global Optimization of Expensive Black-Box Functions” [@jones-schonlau-welch-1998]：Expected ImprovementとEGOの原論文として、incumbentと改善の定義を確認する。
+- Niranjan Srinivas、Andreas Krause、Sham M. Kakade、Matthias Seeger, “Gaussian Process Optimization in the Bandit Setting” [@srinivas-gp-ucb]：GP-UCBの仮定とregret解析を確認し、任意の$\kappa$をconfidence保証と呼べない理由を読む。
+- Samuel Daulton、Maximilian Balandat、Eytan Bakshy, “Differentiable Expected Hypervolume Improvement for Parallel Multi-Objective Bayesian Optimization” [@daulton-qehvi-2020]：joint batch acquisitionとMonte Carlo estimatorの例として読む。
+
+これらの文献は、現行実装がすべての手法を実装済みであることを示しません。
+
+一般理論と、この章で`Implementation`と明記した現mainの計算を分けて読みます。

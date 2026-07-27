@@ -73,6 +73,16 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 - 敵対的レビューによって実装の穴をつぶす
 - UIの細かい部分はユーザーが実際にさわってFBします
 
+### 教材review
+
+`docs/learning/`の章を完成扱いにする前に、`docs/learning/reviews/`へ観点別の記録を残す。
+
+- 全章でimplementation、pedagogy、accessibilityを確認する。
+- 数理章はstatistics、材料判断へ接続する章はdomain、trust boundaryを扱う章はsecurityを追加する。
+- Level A（Editorial）は誤字・link・組版、Level B（Technical）はcode path・挙動・test、Level C（Conceptual）はarchitecture・統計・domain・教育、Level D（Adversarial）は誤読・edge case・unsafe shortcut・隠れた仮定を扱う。数理と安全境界はLevel Dまで確認する。
+- AIは用語、定義、code reference、cross-reference、曖昧さ、演習整合、敵対的質問の候補を出せるが、実装意図、統計・domainの妥当性、severity、実読者の理解を単独で承認しない。
+- 代理reader taskは`proxy: true`と限界を記録し、実読者・支援技術・専門reviewの未実施を隠さない。
+
 ## 原則
 
 1. このリポジトリで扱うデータは指示がない限りどれもデモ用に作った合成データです、過度に精度を求める価値はなく、形式やUI上の見え方といった、アプリケーションを扱う際の問題点を探すために仮として使っている点に留意してください。

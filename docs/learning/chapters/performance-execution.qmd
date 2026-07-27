@@ -1,0 +1,585 @@
+---
+chapter_id: "performance-execution"
+level: advanced
+estimated_minutes: 110
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
+code_references:
+  - path: "backend/src/material_workbench/execution/inference_work_graph.py"
+    id: "performance-work-graph"
+    role: "application"
+    symbols:
+      - "semantic_digest"
+      - "InferenceKey"
+      - "InferenceWorkGraph"
+  - path: "backend/src/material_workbench/application/inference.py"
+    id: "performance-inference-service"
+    role: "application"
+    symbols:
+      - "InferenceService"
+  - path: "backend/tests/test_inference_work_graph.py"
+    id: "performance-work-graph-tests"
+    role: "test"
+    symbols:
+      - "test_work_graph_coalesces_identical_in_flight_work_and_reports_operation_stats"
+      - "test_lru_never_evicts_in_flight_identity_and_returns_to_bound_after_completion"
+      - "test_failed_computation_is_not_cached_and_still_records_total_duration"
+      - "test_non_inference_edit_reuses_preview_and_one_candidate_change_keeps_other_cache"
+      - "test_slow_curve_does_not_block_interactive_preview"
+  - path: "apps/web/src/shared/api/inferenceRequestCache.ts"
+    id: "performance-request-cache"
+    role: "frontend"
+    symbols:
+      - "InferenceRequestCache"
+      - "inferenceRequestKey"
+      - "candidateInputIdentity"
+      - "mergePreviewEntryIfCurrent"
+  - path: "apps/web/tests/inferenceRequestCache.test.mjs"
+    role: "test"
+  - path: "apps/web/src/features/workbench/inferenceSurfaceState.ts"
+    id: "performance-surface-state"
+    role: "frontend"
+    symbols:
+      - "InferenceSurfaceState"
+      - "requestInferenceSurface"
+      - "resolveInferenceSurface"
+      - "rejectInferenceSurface"
+      - "inferenceSurfaceStatus"
+  - path: "apps/web/tests/inferenceSurfaceState.test.mjs"
+    role: "test"
+  - path: "backend/src/material_workbench/application/chain_execution.py"
+    id: "performance-chain-execution"
+    role: "application"
+    symbols:
+      - "ChainExecutionService"
+  - path: "backend/src/material_workbench/persistence/store.py"
+    role: "persistence"
+    symbols:
+      - "Store"
+  - path: "backend/tests/test_chain_execution.py"
+    id: "performance-chain-tests"
+    role: "test"
+    symbols:
+      - "test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation"
+      - "test_failure_retains_previous_downstream_result_and_marks_freshness"
+      - "test_debounce_discards_an_older_request_without_overwriting_latest"
+      - "test_candidate_update_invalidates_an_inflight_older_revision"
+  - path: "e2e/chain-input-contract.spec.ts"
+    role: "test"
+  - path: "apps/web/src/features/workbench/boundedPreviewLoader.ts"
+    id: "performance-bounded-loader"
+    role: "frontend"
+    symbols:
+      - "loadSelectedFirstBounded"
+  - path: "apps/web/tests/boundedPreviewLoader.test.mjs"
+    role: "test"
+  - path: "backend/src/material_workbench/domain/services.py"
+    id: "performance-pool-evaluator"
+    role: "domain"
+    symbols:
+      - "_evaluate_proposal_pool"
+  - path: "backend/tests/test_proposal_pool_inference.py"
+    role: "test"
+    symbols:
+      - "test_pool_evaluator_preserves_scalar_order_and_adds_support"
+      - "test_pool_evaluator_rejects_invalid_batch_contract"
+  - path: "backend/scripts/benchmark_proposal_pool.py"
+    id: "performance-pool-benchmark"
+    role: "build"
+    symbols:
+      - "main"
+
+prerequisite_concepts:
+  - "canonical-input"
+  - "semantic-digest"
+  - "stale-response"
+  - "domain-invariant"
+introduced_concepts:
+  - "semantic-cache-key"
+  - "request-coalescing"
+  - "bounded-concurrency"
+  - "durable-memo"
+  - "performance-budget"
+reinforced_concepts:
+  - "batch-prediction"
+  - "dependency-graph"
+  - "failure-retention"
+  - "identity"
+  - "partial-recomputation"
+  - "stale-response"
+future_concepts: []
+historical_concepts: []
+---
+
+# 計算の意味を守る性能設計 {#sec-performance-execution}
+
+## 対象読者と到達点
+
+この章は、推論処理を速くしたいが、cacheと並列化が結果の正しさへ与える影響を整理したい開発者を対象にします。
+
+読了後は、次のことができる状態を目指します。
+
+- 操作とデータ規模を固定して性能を計測する
+- 同じ意味の計算だけが一致するcache keyを設計する
+- cache hitとrequest coalescingを区別する
+- dependency graphから再計算範囲を求める
+- batch predictionとbounded concurrencyを使い分ける
+- 新しい計算の失敗時に、以前の結果とfreshnessを保つ
+
+分散cache、cloud autoscaling、GPU kernelの最適化は対象外です。
+まず単一processの境界を正しく保ち、計測で遅いと分かった経路だけを変えます。
+
+## 性能budgetは計測条件と組にする
+
+操作の速さを議論するには、何を何件処理したかを固定する必要があります。
+**性能budget**とは、操作、データ規模、実行条件、許容時間を一組にした判断基準です。
+
+| 操作 | 固定する規模 | 分けて記録する条件 |
+|---|---|---|
+| input preview | candidate数と入力field数 | 初回と同一入力の再表示 |
+| detailed prediction | target数 | cold cacheとwarm cache |
+| response curve | point数とlevel数 | 単独実行とpreview同時実行 |
+| screening pool | pool size \(M\) とtarget数 \(T\) | scalarとnative batch |
+| robustness run | sample数 \(N\) | seed、runtime、thread設定 |
+| Chain update | stage数 \(S\) と変更field | 全再計算と部分再計算 |
+| Data Library load | row数とasset数 | 初回読込とOS cache後 |
+
+絶対時間だけを恒久仕様にすると、PC、build形態、データ規模の違いを不具合と誤認します。
+記録にはcommit、Windowsとruntimeの版、data revision、coldまたはwarm、反復回数を含めます。
+
+平均値だけでは、一部の操作が長く待たされる症状を隠します。
+十分な反復数がある場合はp50とp95を記録し、sampleが少ない場合は個々の値も残します。
+
+## semantic cache key
+
+二つのrequestが同じ結果を持つ条件は、画面上の同じ候補を指すことではありません。
+計算の意味を変える入力と実装版がすべて同じであることです。
+この同値関係を表すkeyを**semantic cache key**と呼びます。
+
+{{< code-ref performance-work-graph label=inference_work_graph.py >}} の`InferenceKey`は、次の要素を持ちます。
+
+```text
+task_id
+runtime_type
+canonical_input_digest
+package_digest
+pipeline_digest
+support_digest
+operation
+operation_parameters_digest
+```
+
+候補名とUIの選択状態は計算結果を変えないため、keyへ入りません。
+候補名の変更で再計算するとfalse missが増えます。
+
+一方、package、pipeline、supportのdigestを外すとfalse hitが起きます。
+たとえば同じ入力でも、新しいmodel Packageの予測を求めたrequestが旧Packageの結果を受け取ります。
+これは高速化ではなく、異なる計算の取り違えです。
+
+{{< code-ref performance-inference-service label=inference.py >}} は、候補をtask契約で検証してcanonical inputを作り、operationが利用する版だけをkeyへ加えます。
+たとえばsupportを使わないoperationへ無関係なsupport digestを入れると、安全性は増えず不要なmissだけが増えます。
+
+## canonicalizationがhitの正しさを決める
+
+同じ意味のinputから同じdigestを作る処理を**canonicalization**と呼びます。
+backendの`semantic_digest`はobject keyをsortし、NaNを拒否し、空白に依存しないJSONをSHA-256へ渡します。
+frontendの`candidateInputIdentity`もobject keyを再帰的にsortします。
+
+canonicalizationでは次を決めます。
+
+- field順は意味を持つか
+- series順は意味を持つか
+- `1`と`1.0`を同値とするか
+- 単位をどこで統一するか
+- 省略値と明示defaultを同値とするか
+- missingとゼロを区別するか
+
+object field順の違いでdigestが変わればfalse missになります。
+逆に、時間順を持つseriesをsortしてしまえば、異なる熱履歴が同じdigestになるfalse hitを起こします。
+契約検証と単位変換を済ませたcanonical inputからdigestを作ることで、この判断を一箇所へ寄せます。
+
+## cache hitとrequest coalescing
+
+完了済みの結果を再利用するのが**cache hit**です。
+同じkeyで進行中の計算を一つのFutureまたはPromiseへまとめるのが**request coalescing**です。
+
+```text
+request A  -> owner compute -> shared result
+request B  -> same Future  -> shared result
+request C  -> same Future  -> shared result
+```
+
+backendの`InferenceWorkGraph`では、最初のrequestをmissとcomputationsへ数えます。
+進行中Futureへ参加したrequestはhitにもcoalescedにも数えます。
+したがって、次のhit rateだけでは完了済みcacheの効果と同時requestの集約を分けられません。
+
+\[
+\mathrm{hit\_rate} =
+\frac{\mathrm{hits}}{\mathrm{hits}+\mathrm{misses}}
+\]
+
+diagnosticsではhits、misses、coalesced、computationsを別々に読みます。
+この実装で完了済み結果の再利用数を知りたい場合は、`hits - coalesced`も併記します。
+
+{{< code-ref performance-request-cache label=inferenceRequestCache.ts >}} はfrontendでも同じkeyのPromiseを共有します。
+一人のcallerが画面遷移でabortしても、subscriberが残っていればupstream requestは継続します。
+全subscriberが離れたときだけ共有requestをabortします。
+
+## in-flight workをevictしない
+
+`InferenceWorkGraph`はentry数を上限とするLRUです。
+**LRU**は、最後に使われてから最も時間が経った完了entryを先に除く方針です。
+
+進行中entryまで上限に合わせてevictすると、同じkeyの次requestが新しいowner計算を始めます。
+その結果、coalescingの前提が崩れ、重い計算を二重に走らせます。
+
+この実装は進行中entryしかない間だけ一時的な上限超過を許し、ownerの完了時に再度trimします。
+{{< code-ref performance-work-graph-tests label=test_inference_work_graph.py >}} は`max_entries=1`で遅い計算を保持し、同じkeyのcompute回数が一回のままであることを確認します。
+
+entry数だけを上限にしても、memory使用量は一定になりません。
+小さなpreviewと大きなcurve resultを同じ一entryとして数えるためです。
+実測でmemoryが問題になった場合は、result bytes、copyのcost、operation別上限を計測してから方針を変えます。
+
+## 失敗した計算をcacheしない
+
+owner計算が失敗したとき、同じFutureを待つcallerは同じ例外を受け取ります。
+そのentryをcacheへ残すと、一時的な障害が解消しても次requestが永久に同じ失敗を受け取ります。
+
+backendはFutureへ例外を設定してwaiterへ伝えたあと、同じentryであることを確認してmapから削除します。
+frontendもrejected Promiseを削除します。
+次のrequestはmissとなり、新しい計算を開始できます。
+
+ただし、以前に成功した表示結果まで消す必要はありません。
+計算cacheのentryと、利用者が比較中の表示dataは別の状態だからです。
+
+## cache identityと表示freshness
+
+**cache identity**は計算を再利用できるかを決めます。
+**表示identity**は画面上のdataが現在の入力に対応するかを決めます。
+
+{{< code-ref performance-surface-state label=inferenceSurfaceState.ts >}} は、表示中の`currentIdentity`と要求中の`requestedIdentity`を分けます。
+新しい入力のrequest中も以前のdataを保持し、identityが違うため`stale`と判定します。
+新しいrequestが失敗しても以前のdataを残し、statusを`error`にします。
+
+遅れて返ったresponseは`requestSequence`とidentityの両方が現在のrequestに一致するときだけ採用します。
+cache hitでresponseが速く返っても、このfreshness checkを省略できません。
+cacheの正しさとresponse到着順は別の問題です。
+
+frontendのrequest keyにはproject IDとcandidate IDも入ります。
+これはbackendのsemantic equalityとは役割が違い、候補単位のinvalidationと画面上のrequest所有者を区別するためです。
+
+## process-local cacheとdurable memo
+
+`InferenceWorkGraph`はprocess-localであり、再起動すると消えます。
+これは速度のためのcacheで、結果の証拠ではありません。
+
+Chainのstage結果はSQLiteの**durable memo**へ保存されます。
+{{< code-ref performance-chain-execution label=chain_execution.py >}} のmemo keyは、stage ID、contract digest、Package manifest digest、canonical input digestから作られます。
+同じstage計算を再起動後にも再利用できます。
+
+保存済みChain snapshotはさらに別の役割を持ちます。
+snapshotは判断の証拠としてidentityと結果を固定する不変artifactであり、eviction可能な速度cacheとして扱いません。
+
+| 保存先 | 寿命 | 主目的 | 失敗時の扱い |
+|---|---|---|---|
+| `InferenceWorkGraph` | process終了まで | 同一推論の再利用 | failed entryを削除 |
+| frontend request cache | page session | HTTP requestの共有 | rejected entryを削除 |
+| Chain stage memo | SQLite workspace | restart後のstage再利用 | 完了結果だけ保存 |
+| Chain snapshot | 利用者が保持する期間 | 判断根拠の固定 | 自動再計算しない |
+
+## dependency graphによる部分再計算
+
+複数stageの計算では、変更したfieldから到達できるstageだけが無効になります。
+この関係を表すのが**dependency graph**です。
+
+Chain AからB、BからCへ値を渡す構成を考えます。
+Aの外部入力が変わればA、B、Cを再計算します。
+Cだけが読む外部入力を変えた場合は、AとBのinput digestが変わらないため、Cだけを再計算します。
+
+{{< code-ref performance-chain-tests label=test_chain_execution.py >}} は、初回のcache hitが`[false, false, false]`であり、Cだけの入力変更後は`[true, true, false]`になることを確認します。
+上流入力の変更後は全stageがmissになります。
+
+部分再計算はstage番号を手書きで分岐する機能ではありません。
+bindingからcanonical inputを組み立て、そのdigestが変わったstageと下流をstaleにすることで決まります。
+このため、新しいbindingを追加しても同じ規則を適用できます。
+
+## failure時に以前の結果を保持する
+
+再計算中または失敗時に以前の結果を消すと、利用者は何と何を比較していたかを失います。
+一方、以前の結果を最新として表示すると、古い判断を現在の入力へ誤用します。
+
+Chainは失敗したstageの以前のresultと`result_input_digest`を保持し、新しい`requested_input_digest`と区別します。
+失敗stageを`failed`、未計算の下流を`stale`にします。
+画面は値を残しながら、現在の入力に対する結果ではないことを示せます。
+
+候補revisionが計算中に変わった場合は、古い実行が最後に保存できないようgenerationとcompare and swapで拒否します。
+性能改善によって古いresponseの採用条件を緩めることはできません。
+
+## bounded concurrency
+
+全件を`Promise.all`へ渡すと、件数と同じ数の処理が同時に始まります。
+同時実行数を最大 \(k\) に制限する方法を**bounded concurrency**と呼びます。
+
+{{< code-ref performance-bounded-loader label=boundedPreviewLoader.ts >}} は、選択中candidateを先に読み、その後のbackground previewを既定二workerで処理します。
+利用者が見ている結果の待ち時間を優先しながら、残りのfan-outを制限します。
+
+\(k\)はCPU core数だけでは決まりません。
+CPU-bound Python、I/O待ち、native library自身のthread数、resultのmemory量、cancel時のcostを計測します。
+native libraryが内部で全coreを使う場合、外側のworkerを増やすとoversubscriptionで遅くなることがあります。
+
+安定したqueueでは、平均in-flight work \(L\)、到着率 \(\lambda\)、平均滞在時間 \(W\) の間に次の関係があります。
+
+\[
+L = \lambda W
+\]
+
+これはLittleの法則です。
+到着率が処理能力を超え続ける状態には、そのまま適用できません。
+queue depthが増え続ける場合はworker追加だけでなく、入力頻度、debounce、明示実行への変更も検討します。
+
+## batch predictionとの使い分け
+
+**batch prediction**は複数candidateを一つのruntime callへ渡し、特徴量変換やmodel呼出しをまとめます。
+bounded concurrencyは複数の独立callを最大 \(k\) 件ずつ進めます。
+
+{{< code-ref performance-pool-evaluator label=services.py >}} はruntimeがnative batchを提供するときに`predict_batch`を使い、未対応runtimeではscalar pathへ戻ります。
+batch結果の件数とcandidate順が入力と一致しなければ拒否します。
+高速でも結果の対応関係を壊す実装は採用しません。
+
+pool sizeを \(M\)、一件の固定overheadを \(c\) とすると、scalar pathはoverheadだけでおおむね \(O(Mc)\) を持ちます。
+batchは固定overheadをまとめられますが、memory使用量と最大batch sizeが制約になります。
+
+並列化可能な割合を \(P\)、並列度を \(N\) とした理想上限はAmdahlの法則で表せます。
+
+\[
+S(N) = \frac{1}{(1-P)+P/N}
+\]
+
+\(P=0.8\)、\(N=4\)でもspeedupは2.5倍です。
+実際にはschedule、serialization、memory contentionのoverheadが加わるため、この値を下回ります。
+
+## 自動previewと明示実行
+
+入力の一文字ごとに重い計算を始めると、利用者が必要としない中間状態がqueueを埋めます。
+短い編集のまとまりを待ってから実行するのが**debounce**です。
+
+軽いpreviewは入力停止後に自動更新すると比較の流れを保てます。
+screeningやrobustnessのようにcostが大きく、条件の確定が必要な処理は明示的な実行操作へ分けます。
+自動か明示かは処理時間だけでなく、利用者が途中入力を結果として扱うかで決めます。
+
+debounceは古い処理を正しい結果へ変える仕組みではありません。
+待機中に新しいrequestが来た場合は旧requestをsupersededにし、すでに始まった処理のresponseもidentityとgenerationで拒否します。
+{{< code-ref performance-chain-tests label=Chain debounce test >}} は、古いrequestが新しい結果を上書きしないことを確認します。
+
+## 計測してから最適化する
+
+{{< code-ref performance-pool-benchmark label=benchmark_proposal_pool.py >}} は同じcandidate集合に対し、full scalar、proposal用scalar、native batchのmedianを分けて測ります。
+native batch対応runtimeでは少数sampleでscalar結果との同値性も確認します。
+
+benchmarkは次の組を分けます。
+
+1. process起動直後のcold run
+2. 同じsemantic keyを使うwarm run
+3. cacheを無効にした計算時間
+4. callerから見たqueue待ち込みの総時間
+5. scalar、batch、bounded concurrency
+
+cacheを温めた結果だけを報告すると、初回利用の遅さを隠します。
+逆にcold runだけでは、通常操作で繰り返し得られる再利用効果を捨てます。
+両方を同じcommit、同じdata、同じ反復条件で記録します。
+
+diagnosticsの分母も固定します。
+`hit_rate`の分母はhitsとmisses、rejection rateの分母は生成pool数、p95のsampleは対象operationだけにします。
+異なるoperationや異なるpool sizeを混ぜた平均から最適化箇所を決めません。
+
+## 演習
+
+### 演習1: semantic keyの欠落を調べる {#exercise-performance-01}
+
+予測cache keyから`package_digest`を外したとします。
+旧Packageで一度計算したあと、同じ入力のまま新Packageへ切り替える手順を作り、起きるfalse hitと検出するassertionを書いてください。
+
+### 成功条件
+
+- 候補名変更によるfalse missと区別している
+- 旧結果と新Package identityの不一致を示している
+- correctnessを守る修正をkeyへ置いている
+
+[解答例](#answer-performance-01)
+
+### 演習2: request coalescing Lab {#exercise-performance-02}
+
+同じkeyのrequestを同時に10件開始するtoy testを設計してください。
+owner計算をgateで保留し、compute回数、10件の結果、hits、misses、coalescedをassertしてください。
+続けてownerを失敗させ、再試行が新しい計算を始めることを確認してください。
+
+### 成功条件
+
+- 10件が同じ進行中Futureを待つ
+- 期待するmetricの実数を示している
+- failed Futureをcacheから除く理由を検証している
+
+[解答例](#answer-performance-02)
+
+### 演習3: Chainの再計算範囲を求める {#exercise-performance-03}
+
+Chain `A -> B -> C`があり、外部field `x`はAへ、`z`はCへ入るとします。
+`z`だけを変更した場合と`x`を変更した場合について、各stageのfreshnessとcache hitを求めてください。
+Cの再計算が失敗した場合に保持する値とdigestも示してください。
+
+### 成功条件
+
+- bindingから下流到達範囲を求めている
+- `z`変更と`x`変更の違いを示している
+- failure時のresult identityを最新入力と混同していない
+
+[解答例](#answer-performance-03)
+
+### 演習4: concurrencyとbenchmarkを選ぶ {#exercise-performance-04}
+
+screening 2048点を処理するruntimeについて、scalar一件ずつ、`Promise.all`、bounded concurrency、native batchを比較する計測計画を書いてください。
+CPU、memory、結果順、coldまたはwarmの条件を含めてください。
+
+### 成功条件
+
+- \(k\)を固定値の思いつきで決めていない
+- native batchの件数と順序の契約を検証している
+- coldとwarmを分け、p50またはp95の分母を明記している
+
+[解答例](#answer-performance-04)
+
+## 章末チェック {#exercise-performance-chapter-check}
+
+次の主張が正しいかを判定し、誤りなら修正してください。
+
+1. candidate名が変わればcacheを無効にする
+2. coalesced requestは完了済みcache hitと同じmetricだけでよい
+3. LRU上限を守るため進行中Futureもevictする
+4. 再計算失敗時は以前の結果を消す
+5. native batchが速ければ結果順の確認は不要である
+
+### 成功条件
+
+- 五つすべてを判定している
+- identity、freshness、failure保持の境界を説明している
+- 少なくとも一つを現行実装のcode referenceへ結びつけている
+
+[解答例](#answer-performance-chapter-check)
+
+## 演習の解答とrubric
+
+::: {#answer-performance-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+旧Package digest `p1`で入力`i1`を計算し、結果`r1`をcacheします。
+active Packageを`p2`へ切り替え、同じ`i1`を要求します。
+keyにPackage digestがなければhitして`r1`が返るため、responseのprovenanceが`p2`でないことをassertします。
+修正では、Packageを使うoperationのkeyへ`p2`を含めます。
+
+候補名だけを変更した場合はcanonical inputもPackageも変わらないため、同じ結果を再利用します。
+
+#### 解答の理由
+
+Packageは計算の意味を変えますが、候補名は表示だけを変えます。
+両方を無効化条件へ入れると、前者はcorrectness、後者は不要なmissという別の結果になります。
+
+#### よくある不十分な回答
+
+「何か変更されたら全cacheを消す」だけでは、正しいkeyを説明できません。
+結果値だけを比較し、どのPackageで作ったかを確認しないtestも不十分です。
+:::
+
+::: {#answer-performance-02 .exercise-solution data-label="演習2の解答"}
+#### 解答例
+
+最初のrequestでowner計算を始め、gateで停止します。
+残り9件を同じkeyで開始してからgateを開き、10件が同じ値を返し、compute回数が1であることを確認します。
+metricは`misses=1`、`hits=9`、`coalesced=9`、`computations=1`です。
+
+次のcaseではownerが`RuntimeError`を投げ、10件が同じ失敗を受け取ることを確認します。
+その後に同じkeyを再要求し、compute回数が増えて成功することを確認します。
+
+#### 解答の理由
+
+gateが同時requestの順序をtest自身で固定します。
+失敗entryの削除まで確認することで、一時障害後のretryを保証します。
+
+#### よくある不十分な回答
+
+短い`sleep`だけで同時実行を期待すると、owner完了後のhitになる可能性があります。
+結果だけを確認し、compute回数とmetricを見ないtestは二重計算を検出できません。
+:::
+
+::: {#answer-performance-03 .exercise-solution data-label="演習3の解答"}
+#### 解答例
+
+`z`変更ではAとBのcanonical input digestが変わらないため、AとBは`latest`のまま再利用し、Cだけを再計算します。
+実行結果のcache hitは`[true, true, false]`です。
+
+`x`変更ではAが変わり、その出力を読むBとCも変わるため、三stageを再計算し、cache hitは`[false, false, false]`です。
+
+Cが失敗した場合は以前のC resultと`result_input_digest`を保持します。
+新しい`requested_input_digest`とは一致しないため、Cを`failed`として表示し、以前の値を最新とは扱いません。
+
+#### 解答の理由
+
+再計算範囲は変更fieldの名前ではなくbindingによる到達可能性とcanonical input digestで決まります。
+保持する二つのdigestが、表示値と現在入力のずれを表します。
+
+#### よくある不十分な回答
+
+どの変更でも全stageを再計算する回答は部分再計算になっていません。
+以前の値を残すだけで`latest`と表示する回答はfreshnessを壊します。
+:::
+
+::: {#answer-performance-04 .exercise-solution data-label="演習4の解答"}
+#### 解答例
+
+同じ2048点と同じPackageを固定し、process起動直後のcold runと同一条件のwarm runを分けます。
+scalar、全件同時、\(k=1,2,4\)のbounded concurrency、native batchを比較し、総時間、p50、p95、peak memory、CPU使用率を記録します。
+native libraryのthread数も固定します。
+
+native batchはscalarと同じ件数、candidate順、予測summaryを返すことを少数sampleで先に確認します。
+各条件を複数回実行し、失敗件数とcancel後のin-flight数も記録します。
+
+#### 解答の理由
+
+外側の並列度とnative library内部のthreadは互いに資源を奪うため、CPU数だけから\(k\)を決められません。
+性能値の前にbatchの意味がscalarと一致することを固定します。
+
+#### よくある不十分な回答
+
+一回の平均時間だけを比較すると、cache、起動cost、外れ値を区別できません。
+最速条件だけを選び、memoryと結果順を確認しない計画はcorrectnessを保証しません。
+:::
+
+::: {#answer-performance-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+1. 誤りです。
+候補名は計算を変えないため、canonical inputが同じならcacheを再利用します。
+2. 誤りです。
+現行metricではcoalescedもhitへ含まれるため、coalescedを別に報告します。
+3. 誤りです。
+進行中Futureをevictすると同じ計算が重複するため、完了entryだけをevictします。
+4. 誤りです。
+以前の結果とそのidentityを保持し、現在入力とは異なる`stale`または`error`として示します。
+5. 誤りです。
+件数と順序が変わればcandidateと予測の対応が壊れるため、batch契約として拒否します。
+
+#### 解答の理由
+
+{{< code-ref performance-work-graph label=InferenceWorkGraph >}} はsemantic key、coalescing、完了entryだけのLRUを実装します。
+{{< code-ref performance-surface-state label=inferenceSurfaceState >}} は表示dataを残したままfreshnessを分けます。
+
+#### よくある不十分な回答
+
+すべてを「速ければよい」で判断すると、古い結果、二重計算、candidate順の崩れを見逃します。
+cache identityと表示identityを一つのrevision番号だけで説明する回答も不十分です。
+:::
+
+## Further Reading
+
+- Pythonの`concurrent.futures` [@python-concurrent-futures] は、Future、Executor、bounded worker、cancelの一般契約を確認する入口です。
+- MDNの`AbortController` [@mdn-abort-controller] は、通信の中断とresponse identityの採否判定を分けるために参照します。
+- [Node.js: Understanding process.nextTick](https://nodejs.org/en/learn/asynchronous-work/understanding-processnexttick)
+- SQLiteのtransaction仕様 [@sqlite-transactions] は、cacheと永続memoを分ける基準です。

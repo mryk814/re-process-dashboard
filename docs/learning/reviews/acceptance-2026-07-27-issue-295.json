@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-295",
+  "issue": {
+    "number": 295,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/295",
+    "title": "[Learning] React非同期状態・stale response・deep link・Electron sidecarをFrontend／Desktop編として教材化する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/frontend-desktop-state.qmd",
+      "docs/learning/chapters/security-trust-boundaries.qmd"
+    ],
+    "scope": "React非同期状態、stale response、deep link、Electron sidecar、Package／archive／API／IPC／credentialのtrust boundaryを、画面状態と権限境界を横断する教材として受け入れる。"
+  },
+  "reviewed_against": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "request identity、abort、partial state、deep link、Electron sidecar起動と、Package、archive、local API、workspace、credentialの境界をcode referenceと失敗例で照合した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd"
+      ],
+      "notes": "非同期raceとsecurity boundaryを別問題として切らず、古い応答や外部入力が現在の判断状態へ混入する経路として読める。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "状態の分類、競合の再現、navigation、desktop境界、trust boundary、adversarial確認の順序と演習の到達点を評価した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd"
+      ],
+      "notes": "抽象的なsecurity用語から始めず、古いresponse、壊れたbundle、偽装path、credential露出という具体的な失敗へ接続している。実読者の理解確認は未実施である。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "loading、partial、stale、failed、selected、focusedの違いが色やhoverだけに依存せず、keyboard、focus、zoom、読み上げ順でも操作と判断を保てるかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "e2e/accessibility-smoke.spec.ts"
+      ],
+      "notes": "accessibilityを見た目の準拠でなく、正しい候補と警告へ到達するための状態契約として扱う。実スクリーンリーダー利用者による確認は未実施である。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "staleまたはpartialなresponseが最新の予測・不確かさ・supportとして表示されないこと、未計算と0が混同されないことを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd"
+      ],
+      "notes": "統計式を扱う章ではない。review対象は数値の意味を壊すUI state raceと欠損表現の境界である。"
+    },
+    {
+      "role": "security",
+      "reviewer": "Codex security-review proxy",
+      "method": "Local API、Electron renderer／preload／main、Model Package、Workspace bundle、credential、path、sizeの各境界について、asset、actor、entry point、threat、control、residual risk、evidence、recoveryが対応しているかを敵対的に確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "backend/tests/test_model_packages.py",
+        "backend/tests/test_workspace_bundle.py",
+        "e2e/api-offline.spec.ts"
+      ],
+      "notes": "data-only loading、allow-list、path／size／digest、token、Origin、IPC、credential非保存、fail-closedとdegradedの境界はtestへ接続する。penetration testまたは専門家による実packaged app reviewではないため、Issue #387で実reviewを追跡する。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "候補、Project、Run、Actual Snapshot、Packageのidentityがnavigationと保存をまたいで入れ替わらず、材料判断の出所を追えるかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd"
+      ],
+      "notes": "画面遷移とtrust boundaryが材料判断のprovenanceを失わないことを確認した。実研究者によるdesktop操作taskは未実施である。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "Reactの非同期処理を初めて保守するfrontend初心者",
+      "proxy": true,
+      "starting_context": "useEffectとfetchは使えるが、request identity、stale response、deep link復元、partial stateの設計経験はない。",
+      "task": "候補Aの取得中に候補Bへ移動し、Aの応答が後から返る状況を再現して、画面へBだけを残す状態遷移とtestを設計する。",
+      "success_criteria": [
+        "abortだけを完全なrace対策と説明しない",
+        "request identityまたは同等のcommit条件を持つ",
+        "loading、partial、failed、staleを分ける",
+        "URLと選択状態の復元規則を説明する",
+        "focusとscroll位置を不要に失わない"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "frontend章からraceの時系列とcommit条件を説明できる。",
+        "deep linkと画面内stateの責務を分けられる。",
+        "accessibilityの観点を状態遷移testへ含められる。"
+      ],
+      "limitations": "代理評価であり、実初心者がbugを再現して修正する作業型reader testではない。"
+    },
+    {
+      "profile": "隣接分野からdesktop配布とsecurity reviewへ参加するengineer",
+      "proxy": true,
+      "starting_context": "Web APIとOS権限の一般知識はあるが、このアプリのPackage、bundle、local API、Electron sidecar、workspace保存境界を知らない。",
+      "task": "外部から受け取ったmodel packageとbundleをdesktop appへ取り込む場合のtrust boundary、拒否条件、credential取扱い、adversarial testを列挙する。",
+      "success_criteria": [
+        "拡張子だけで安全と判断しない",
+        "archive traversalと展開後pathを検証する",
+        "Package内codeを実行しない",
+        "local APIを無条件にtrustedと扱わない",
+        "secretをlog、URL、保存snapshotへ残さない",
+        "安全を保証できない範囲を明記する"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "security章から入力境界ごとの検証と拒否条件を列挙できる。",
+        "frontend章からsidecar失敗を画面状態へ翻訳できる。",
+        "正常系smokeだけではadversarial inputの安全性を示せないと説明できる。"
+      ],
+      "limitations": "代理評価であり、実packaged appへの攻撃試験、OS credential store、支援技術を使った警告確認は未実施である。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "実frontend初心者、desktop engineer、支援技術利用者によるtask testは未実施である。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-295.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #387"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "minor",
+      "summary": "packaged Electronでのattack exercise、credential store、スクリーンリーダー、keyboardのみ、200% zoomはこの記録では未検証である。",
+      "evidence": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #387"
+    },
+    {
+      "finding_id": "F-003",
+      "severity": "note",
+      "summary": "章は境界とadversarial確認を説明するが、製品全体のsecurityまたはaccessibility適合を保証しない。",
+      "evidence": [
+        "docs/learning/chapters/security-trust-boundaries.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "no_change",
+      "tracking": "Issue #387"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "node docs/learning/check-code-references.mjs",
+      "git diff --check -- docs/learning/reviews/acceptance-2026-07-27-issue-295.json"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready_after_local_build",
+  "reviewer_note": "Issue #302の複眼reviewとして二章をまとめた。securityの保証ではなく、境界、拒否、未保証範囲を追跡する受入記録である。"
+}

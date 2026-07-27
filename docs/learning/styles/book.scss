@@ -50,3 +50,48 @@ table {
   font-weight: 700;
   letter-spacing: 0.04em;
 }
+
+details.exercise-solution {
+  margin: 1.25rem 0 1.75rem;
+  border: 1px solid #b8c6d8;
+  border-radius: 4px;
+  background: #f8fbff;
+}
+
+details.exercise-solution > summary {
+  padding: 0.75rem 1rem;
+  color: #174f94;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+details.exercise-solution > summary:focus-visible {
+  outline: 3px solid #f0a12a;
+  outline-offset: 3px;
+}
+
+details.exercise-solution[open] > summary {
+  border-bottom: 1px solid #d8e0ea;
+}
+
+.exercise-solution__body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+@media print {
+  details.exercise-solution::details-content {
+    content-visibility: visible;
+  }
+
+  details.exercise-solution > .exercise-solution__body {
+    display: block !important;
+  }
+
+  details.exercise-solution > summary {
+    border-bottom: 1px solid #d8e0ea;
+  }
+
+  details.exercise-solution > summary::marker {
+    content: "";
+  }
+}

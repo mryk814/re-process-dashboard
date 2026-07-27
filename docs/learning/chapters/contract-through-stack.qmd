@@ -1,33 +1,96 @@
 ---
-title: "型付き契約をPythonからReactまで通す"
+chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "c3b9c14e6246c77854de7b8294e56584cb039534"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
-  - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
-  - "backend/src/material_workbench/application/decision_activity_registry.py"
-  - "backend/src/material_workbench/application/decision_activities.py"
-  - "backend/src/material_workbench/api/decision_activities.py"
-  - "backend/scripts/export_openapi.py"
-  - "apps/web/src/generated/openapi.json"
-  - "apps/web/src/generated/api-types.ts"
-  - "apps/web/src/shared/api/workbench-api.ts"
-  - "apps/web/src/app/navigation.ts"
-  - "apps/web/src/features/workbench/DecisionActivityPanel.tsx"
-  - "apps/web/src/features/workbench/WorkbenchPage.tsx"
-  - "apps/web/src/features/workbench/decisionActivities/registry.ts"
-  - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
-  - "apps/web/tests/activityRunNavigation.test.mjs"
-  - "backend/tests/test_decision_activities.py"
-  - "backend/tests/test_openapi_contract.py"
-  - "e2e/decision-activity.spec.ts"
-concepts:
-  - "discriminated union"
-  - "contract as source of truth"
-  - "application service"
-  - "generated client"
+  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    id: "contract-stack-contract"
+    role: "contract"
+    symbols:
+      - "CandidateDifferenceParameters"
+      - "CounterfactualTargetEvaluation"
+      - "DecisionActivityRunRequest"
+  - path: "backend/src/material_workbench/application/decision_activity_registry.py"
+    role: "application"
+  - path: "backend/src/material_workbench/application/decision_activities.py"
+    role: "application"
+  - path: "backend/src/material_workbench/api/decision_activities.py"
+    role: "api"
+  - path: "backend/scripts/export_openapi.py"
+    role: "build"
+  - path: "apps/web/src/generated/openapi.json"
+    role: "generated"
+  - path: "apps/web/src/generated/api-types.ts"
+    role: "generated"
+  - path: "apps/web/src/shared/api/workbench-api.ts"
+    role: "api"
+  - path: "apps/web/src/app/navigation.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/DecisionActivityPanel.tsx"
+    id: "contract-stack-panel"
+    role: "frontend"
+    symbols:
+      - "DecisionActivityPanel"
+  - path: "apps/web/src/features/workbench/WorkbenchPage.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/registry.ts"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx"
+    id: "contract-stack-counterfactual-view"
+    role: "frontend"
+    symbols:
+      - "CounterfactualActivityView"
+  - path: "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts"
+    id: "contract-stack-counterfactual-presentation"
+    role: "frontend"
+    symbols:
+      - "presentCounterfactualTarget"
+  - path: "apps/web/src/features/workbench/actualMeasurementPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/src/shared/taskPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/src/shared/supportPresentation.ts"
+    role: "frontend"
+  - path: "apps/web/tests/activityRunNavigation.test.mjs"
+    role: "test"
+  - path: "backend/tests/test_decision_activities.py"
+    role: "test"
+  - path: "backend/tests/test_openapi_contract.py"
+    role: "test"
+  - path: "e2e/decision-activity.spec.ts"
+    role: "test"
+
+prerequisite_concepts:
+  - "contract"
+introduced_concepts:
+  - "application-service"
+  - "contract-test"
+  - "decision-activity"
+  - "discriminated-union"
+  - "generated-artifact"
+  - "registry"
+  - "typed-error"
+reinforced_concepts:
+  - "calibration"
+  - "counterfactual"
+  - "end-to-end-test"
+  - "extrapolation"
+  - "integration-test"
+  - "navigation-state"
+  - "predictive-summary"
   - "provenance"
-  - "stale response"
+  - "robustness"
+  - "runtime-capability"
+  - "stale-response"
+  - "support"
+future_concepts:
+  - "pareto-front"
+  - "soft-preference"
+historical_concepts:
+  - "legacy-screening-objective"
 ---
 
 # 型付き契約をPythonからReactまで通す {#sec-contract-stack}
@@ -76,6 +139,7 @@ React form
 
 この問題は「同じfieldを何度も書く」ことだけではありません。
 各層が別の責務を持つため、変更の意味をどの境界まで通すかを決める問題です。
+境界の数ではなく、interfaceが隠す複雑さでmoduleを評価する見方は、Ousterhoutの*Modules Should Be Deep*と比較できます [@ousterhout-philosophy]。
 
 ## 判別可能なunion
 
@@ -96,6 +160,8 @@ React form
 resultも同じ考え方で分けます。
 parameterとresultが別の識別子を持つため、requestとresponseを同じ型だと誤認しません。
 
+![Decision Activityのparameterとresultをschema_versionで分ける二つのunion](../figures/decision-activity-union.svg){fig-alt="DecisionActivityParametersは三つのparameter契約を、DecisionActivityResultは対応する三つのsummary契約を、それぞれschema_versionで判別する。parameter用とresult用の識別子を取り違えたpayloadと未知の識別子はREJECTとなる。" width="100%"}
+
 ::: {.callout-important title="DESIGN DECISION"}
 `schema_version`は画面表示用のlabelではありません。
 保存済みpayloadの復元と、Python、OpenAPI、TypeScriptの型選択に使う契約上の識別子です。
@@ -106,7 +172,7 @@ parameterとresultが別の識別子を持つため、requestとresponseを同�
 
 ### parameter model
 
-正本は `backend/src/material_workbench/contracts/decision_activity_contracts.py` です。
+正本は {{< code-ref contract-stack-contract label=decision_activity_contracts.py >}} です。
 候補差分のparameter modelは、比較対象の候補IDとrevisionを要求します。
 
 ```python
@@ -163,7 +229,7 @@ assert response.status_code == 422
 ```
 
 このtestはdefault値の存在を否定していません。
-Pythonコードが`CandidateDifferenceParameters(...)`を直接生成する場合にはdefaultを使えます。
+Pythonコードが{{< code-ref contract-stack-contract symbol=CandidateDifferenceParameters >}}を直接生成する場合にはdefaultを使えます。
 外部payloadをunionとして受ける場合は、種類を明示させるという境界を固定しています。
 
 ### result model
@@ -274,7 +340,7 @@ model単体の検証と、実行文脈を必要とするpreconditionが混ざり
 `backend/tests/test_decision_activities.py` は、自己比較、同一入力、別Activityのparameterを送る場合を個別に検証します。
 失敗理由を分けることで、単なる422だけでなく、どの境界が拒否したかを確認できます。
 
-## provenanceが結果の出所を閉じる
+## provenanceが結果の出所を閉じる {#sec-contract-provenance}
 
 候補差分の数値だけを保存しても、後から同じ判断を説明できません。
 候補、モデル、特徴量、Activityのいずれかが変われば、同じ入力に見えても結果の意味が変わるためです。
@@ -327,9 +393,11 @@ def run_decision_activity(
 
 routerはHTTP path、status、dependency、error変換を担当します。
 候補差分の計算やSQLiteへの保存は担当しません。
+この分担はService Layerの語彙で比較できますが [@fowler-poeaa]、現行実装がpatternの完成例だとはみなしません。
 
 FastAPIはfunction signatureとPydantic modelからOpenAPI schemaを生成します。
-`DecisionActivityRunRequest.parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
+request bodyからvalidationとAPI documentへ情報が渡る基本経路は、FastAPI公式tutorialでも確認できます [@fastapi-request-body]。
+{{< code-ref contract-stack-contract symbol=DecisionActivityRunRequest >}}の`parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
 
 このOpenAPIはruntimeから毎回frontendへ直接配信して終わりではありません。
 `backend/scripts/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてversion controlします。
@@ -437,7 +505,7 @@ wrapperはPydantic contractを再定義しません。
 
 ### 共通shell
 
-`apps/web/src/features/workbench/DecisionActivityPanel.tsx`は、Activityに共通する状態を所有します。
+{{< code-ref contract-stack-panel label=DecisionActivityPanel.tsx >}}の{{< code-ref contract-stack-panel symbol=DecisionActivityPanel >}}は、Activityに共通する状態を所有します。
 
 - 利用可能なActivityの取得
 - 保存済みRunの取得
@@ -489,6 +557,48 @@ function differenceResult(run: ApiDecisionActivityRun) {
 この条件の後では、TypeScriptが`input_changes`、`contributions`、`target_summaries`の存在を認識します。
 `as CandidateDifferenceSummary`で強制castする必要はありません。
 
+### 数値と適用範囲をTaskの言葉へ変える
+
+候補差分の出力値は、view固有の固定桁数で表示しません。
+`DecisionActivityPanel`はTask DefinitionとProjectの`display_decimals` overrideを固有viewへ渡します。
+`CandidateDifferenceActivityView`は`formatTaskNumber()`を使い、目的変数ごとの桁数で予測値、差、寄与、区間を表示します。
+
+入力値の差分は、出力値とは別に最大4桁の汎用formatを使います。
+入力fieldと出力targetは、同じ数値でも表示契約の正本が異なるためです。
+
+support statusも`"supported"`を直接表示しません。
+`supportStatusLabel()`を通し、「範囲内」「要確認」「外挿」という判断に使える表示へ変えます。
+型付きcontractが状態の集合を固定し、presentation helperが利用者向けの語と桁数を固定します。
+
+### 点予測の達成と予測区間を分ける
+
+条件変更案では、`achieved`だけを見ると「この変更で目標達成が保証された」と誤読できます。
+現行contractの`CounterfactualTargetEvaluation`は、判定に使った`predicted_value`に加えて、canonical `prediction`を保存します。
+閾値または範囲を指定する`at_least`、`at_most`、`between`、`target`では実単位の`shortfall`も保存します。
+値を報告するだけの`reporting_only`と、他候補との比較で決まる`maximize`、`minimize`では、単独候補の不足量を定義しません。
+`achieved`は点予測による判定であり、予測区間全体が目標条件を満たすという判定ではありません。
+
+{{< code-ref contract-stack-counterfactual-presentation symbol=presentCounterfactualTarget >}}は、点予測、達成または未達、利用可能な予測区間を別の表示要素へ分けます。
+Predictionに区間情報がない場合は、「区間情報なし」と明示します。
+binary targetの不足量はパーセントポイント、ordinal targetはカテゴリ差、連続量は特性の実単位で表します。
+{{< code-ref contract-stack-counterfactual-view symbol=CounterfactualActivityView >}}は案全体にも「点予測で目標条件を満たす」と明記し、支持範囲のbadgeと達成判定を同じ意味に見せません。
+
+旧versionの保存済みRunにはcanonical `prediction`と`shortfall`がありません。
+画面は要約値を点予測へ格上げせず、「旧記録の要約値」「区間情報なし」と表示します。[^counterfactual-v11]
+
+[^counterfactual-v11]:
+    Activity versionは`1.1.0`へ進み、semantic cache identityも旧`1.0.0`と分かれます。
+    旧Runを読めることと、新しい証拠を持つRunを同一視することは別です。
+
+### 判断質問の責務境界
+
+共通の`DecisionActivityPanel`は、Activity一覧、保存済みRun、request identity、実行lifecycleを扱います。
+一方、質問文と前提確認は各Activity viewが扱います。
+目標なしRobustnessのように、Project設定によって「目標達成率」と「入力ばらつき」の問いを切り替える処理を共通shellへ置くと、shellが固有Activity IDを知ることになります。
+
+現行実装は、各viewが`availability.definition.question`を表示します。
+Robustness viewだけは、目標がない間は前提説明を出し、利用者が感度だけを見ると確認した後に感度の問いへ切り替えます。
+
 ### 保存済みRunをURLへ接続する
 
 保存済みRunの選択は、固有viewではなく共通shellが所有します。
@@ -497,8 +607,13 @@ function differenceResult(run: ApiDecisionActivityRun) {
 選択中ActivityとRun IDは、`apps/web/src/app/navigation.ts`を通してlocationへ含めます。
 共有URLから開いた場合、shellはRun IDを保存済みRunへ照合し、そのRun自身が持つ`activity_id`を優先します。^[URLのActivity IDは入口を早く決めるhintです。Runと矛盾する場合は、保存済みRunが持つdefinitionを正とするため、別Activityの表示へ誤って復元しません。]
 
+同じCandidate内でブラウザの戻る、進む、または`pushState`によりRun IDだけが変わった場合も、読込済みRun一覧から選択を同期し直します。
+URLが存在しないRunを指す場合は、別Runへfallbackせずalertを表示し、結果viewを隠します。
+これにより「開けた」という見かけの成功と、URLが指した証拠を復元できたことを分けます。
+
 この状態を共通shellへ持ち上げることで、ロバストネス、候補差分、最小変更が同じ共有linkの契約を使います。
-`apps/web/tests/activityRunNavigation.test.mjs`は、locationへのRun ID保持、候補の作成元Runへの帰還、各viewが選択stateを重複所有しないことを確認します。
+`apps/web/tests/activityRunNavigation.test.mjs`は、locationへのRun ID保持、候補の作成元Runへの帰還、Run変更時の再同期、未知Runの拒否、各viewが選択stateを重複所有しないことを確認します。
+`e2e/decision-activity.spec.ts`は、同じCandidateの二つの保存Runをブラウザ履歴で往復し、各Runの結果が入れ替わらないことを確認します。
 
 ### stale response
 
@@ -509,6 +624,8 @@ function differenceResult(run: ApiDecisionActivityRun) {
 request開始時のidentityと現在のidentityが一致する場合だけ、responseをstateへ反映します。
 候補切替時には実行中requestもabortします。
 
+![Candidate切替後に届いたstale responseをidentity不一致で破棄する時系列](../figures/stale-response-timeline.svg){fig-alt="Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが届いてもProject、Candidate、revision、request sequenceが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信停止を試みるが、response到着時のidentity checkを置き換えない。" width="100%"}
+
 型はpayloadのshapeを守ります。
 request identityはpayloadが現在の画面文脈に属することを守ります。
 二つは別の安全策です。
@@ -517,19 +634,7 @@ request identityはpayloadが現在の画面文脈に属することを守りま
 
 候補差分を一度実行するときの流れを、値と責務で追います。
 
-```mermaid
-flowchart TD
-    A["React view<br/>schema_versionと比較候補revision"] --> B["openapi-fetch<br/>生成されたrequest型"]
-    B --> C["FastAPI route<br/>HTTP境界"]
-    C --> D["Pydantic union<br/>discriminatorでmodel選択"]
-    D --> E["Application service<br/>ProjectとCandidateを解決"]
-    E --> F["Activity handler<br/>差分と寄与を計算"]
-    F --> G["DecisionActivityRun<br/>provenanceとresultを固定"]
-    G --> H["SQLite<br/>immutable Run"]
-    G --> I["FastAPI response"]
-    I --> J["TypeScript union<br/>schema_versionでnarrowing"]
-    J --> K["React result view<br/>差、残差、warning"]
-```
+![Decision ActivityのrequestとresponseがPythonからReactまで進む流れ](../figures/decision-activity-contract-flow.svg){fig-alt="React requestからAPI client、FastAPI、Pydantic、application service、Activity handler、保存済みRunを経て、TypeScript unionとReact result viewへ戻る。" width="100%"}
 
 1. 利用者が「差分を分解」を押す。
 2. React viewは比較候補IDとrevisionをparameterへ入れる。
@@ -619,10 +724,9 @@ npm run api:check
 UIまで変更した場合は、隔離DBを使う既定設定で次も実行します。
 
 ::: {.callout-warning title="現mainの既知E2E failure"}
-検証commitでは、3件中1件が成功し、2件が既知の理由で失敗します。
-候補差分はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279)、ロバストネスは未宣言`Ca`を持つデモ候補 [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) です。
-Issue #274はdocs-only scopeのため分離しました。
-両Issueが閉じるまでは、1 passed、2 known failuresを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
+2026年7月27日にmerge済みHEAD `f93af87` で再実行し、3件中2件が成功しました。
+失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、open中の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+Issue #279が閉じるまでは、2 passed、1 known failureを現行の期待結果とし、失敗を教材変更の退行と誤認しません。
 :::
 
 ```powershell
@@ -655,6 +759,17 @@ Network panelのresponseを確認し、次にhandlerがresultを組み立てる�
 たとえばgoalを設定していないProjectでは、目標達成率を計算できません。
 この場合は0を補うと意味が変わります。
 画面は未計算と0を分けて表示する必要があります。
+
+現行のRobustness Activityは、ここで処理全体を失敗させません。
+画面はまず、目標達成率にはProjectの目標値が必要だと説明し、目標設定へ移る経路と、目標なしで入力ばらつきだけを見る経路を分けます。
+後者では入力ばらつき、モデル支持範囲、worst valueを確認できますが、`goal_achievement_rate`は未計算のままです。
+
+この分岐は、同じ計算を説明文だけ変えて見せるものではありません。
+「目標にどの程度届くか」と「入力が揺れたとき予測がどの程度動くか」は、必要な前提が異なる二つの判断質問です。[^goal-less-robustness]
+
+[^goal-less-robustness]:
+    保存済みRunを後から開いたときも、画面は現在のProject設定から達成率を補いません。
+    結果が`null`なら「この解析の実行時に目標が未設定だったため未計算」と表示し、証拠を実行時点の意味のまま読みます。
 
 ### APIが422を返す場合
 
@@ -829,6 +944,7 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 - E2Eは代表的な操作を確認し、全Activityの全error状態を網羅しない
 - source inspection testは構造退行を検出するが、識別子の書き方に依存する
 - 保存済みschemaの長期migration方針は、Activity versionを増やす変更ごとに判断が必要
+- Task Definitionは表示桁数を固定するが、統計値の意味を画面へ自動生成しない
 
 これらは「型があるから完全に安全」という説明を退けます。
 型はshapeと一部の組合せを守り、業務precondition、科学的妥当性、画面文脈、長期migrationは別の境界で扱います。
@@ -848,4 +964,11 @@ field名、required、literal、union、endpoint bodyの機械的な同期を担
 9. RunへPackage digestとFeature Pipeline digestを残す理由は何か。
 10. E2Eが数値をすべて固定せず、表示上の区別を確認する理由は何か。
 
-解答と変更演習は@sec-lab-contractにあります。
+[章末チェックの解答](../labs/extend-contract.qmd#answer-contract-chapter-check)を確認してから、同じページの変更演習へ進みます。
+
+## Further Reading
+
+- OpenAPI Specificationの*Schema Object*と*Discriminator Object* [@openapi-311]：PythonからTypeScriptへ運べるshapeを確認します。科学的な表示文脈まで運べるとは解釈しません。
+- Pydanticの*Discriminated Unions* [@pydantic-unions]：variant選択を明示fieldへ固定する方法を読みます。Project ownershipのようなDB依存条件は対象外です。
+- TypeScript Handbookの*Discriminated unions* [@typescript-narrowing]：生成unionをfrontendでnarrowingする経路を確認します。時間的にstaleなresponseの検出は別問題です。
+- PercivalとGregoryの*Repository Pattern*と*Service Layer* [@cosmic-python]：境界の比較語彙を得ます。現行`Store`をpatternどおりに分割する処方箋にはしません。

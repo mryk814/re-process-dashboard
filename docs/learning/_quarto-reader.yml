@@ -1,0 +1,54 @@
+solution-placement: answer-chapter
+
+book:
+  title: "Material Decision Workbench 実装を読む"
+  output-file: "material-decision-workbench-reader"
+  chapters:
+    - index.qmd
+    - part: "システムを読む"
+      chapters:
+        - chapters/system-map.qmd
+    - part: "型と契約"
+      chapters:
+        - chapters/contract-through-stack.qmd
+        - labs/extend-contract.qmd
+    - part: "データと再現性"
+      chapters:
+        - chapters/source-to-training-evidence.qmd
+        - labs/trace-source-evidence.qmd
+        - chapters/materials-domain-primer.qmd
+    - part: "永続化と証拠"
+      chapters:
+        - chapters/revision-and-digest.qmd
+        - labs/trace-revision-conflict.qmd
+        - chapters/trust-a-migrated-database.qmd
+        - labs/break-and-repair-migration.qmd
+        - chapters/separate-archive-from-purge.qmd
+        - labs/trace-project-lifecycle.qmd
+        - chapters/restore-workspace-safely.qmd
+        - labs/trace-workspace-restore.qmd
+    - part: "モデルと不確かさ"
+      chapters:
+        - chapters/model-package-runtime.qmd
+        - chapters/prediction-calibration-support.qmd
+    - part: "探索と意思決定"
+      chapters:
+        - chapters/design-space-acquisition.qmd
+        - chapters/multi-stage-chain.qmd
+        - chapters/decision-safety.qmd
+    - part: "UIとDesktop"
+      chapters:
+        - chapters/frontend-desktop-state.qmd
+        - chapters/performance-execution.qmd
+    - part: "検証と運用"
+      chapters:
+        - chapters/security-trust-boundaries.qmd
+        - chapters/verification-operations.qmd
+        - labs/runtime-boundary-drills.qmd
+        - labs/toy-weighted-mean.qmd
+    - part: "ケーススタディ"
+      chapters:
+        - chapters/implementation-case-studies.qmd
+    - concept-map.qmd
+    - glossary.qmd
+    - references.qmd

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" role="img" aria-labelledby="title desc">
+  <title id="title">Workspace復元の状態遷移</title>
+  <desc id="desc">現Workspaceからprepare、commit、API health確認、finalizeへ進み、失敗時はrollbackして元Workspaceへ戻る。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#476582"/>
+    </marker>
+    <style>
+      .current { fill: #eef7ff; stroke: #2979b8; stroke-width: 2.5; rx: 12; }
+      .candidate { fill: #fff8e8; stroke: #9b6a19; stroke-width: 2.5; rx: 12; }
+      .done { fill: #eff9f1; stroke: #3f8550; stroke-width: 2.5; rx: 12; }
+      .label { font: 700 17px sans-serif; fill: #172b3a; text-anchor: middle; }
+      .sub { font: 13px sans-serif; fill: #425b6b; text-anchor: middle; }
+      .arrow { fill: none; stroke: #476582; stroke-width: 2.5; marker-end: url(#arrow); }
+      .rollback { fill: none; stroke: #b34a3c; stroke-width: 2.5; marker-end: url(#arrow); }
+      .edge { font: 13px sans-serif; fill: #425b6b; text-anchor: middle; }
+      .failure { font: 13px sans-serif; fill: #9d352b; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect class="current" x="36" y="160" width="176" height="90"/>
+  <text class="label" x="124" y="195">Current</text>
+  <text class="sub" x="124" y="222">青Workspaceがactive</text>
+  <rect class="candidate" x="286" y="160" width="176" height="90"/>
+  <text class="label" x="374" y="195">Prepared</text>
+  <text class="sub" x="374" y="222">緑を展開して検証</text>
+  <rect class="candidate" x="536" y="160" width="176" height="90"/>
+  <text class="label" x="624" y="195">Committed</text>
+  <text class="sub" x="624" y="222">DBを緑へ切替</text>
+  <rect class="done" x="786" y="160" width="158" height="90"/>
+  <text class="label" x="865" y="195">Finalized</text>
+  <text class="sub" x="865" y="216">health確認後に</text>
+  <text class="sub" x="865" y="235">青DBを破棄</text>
+  <path class="arrow" d="M212 205 H282"/>
+  <text class="edge" x="249" y="190">prepare</text>
+  <path class="arrow" d="M462 205 H532"/>
+  <text class="edge" x="499" y="190">API停止後にcommit</text>
+  <path class="arrow" d="M712 205 H782"/>
+  <text class="edge" x="749" y="177">緑でAPI health成功</text>
+  <path class="rollback" d="M374 254 C374 344 124 344 124 254"/>
+  <text class="failure" x="249" y="357">cancelなら青のまま</text>
+  <rect class="current" x="536" y="326" width="176" height="76"/>
+  <text class="label" x="624" y="357">Rolled back</text>
+  <text class="sub" x="624" y="381">青DBをactiveへ戻す</text>
+  <path class="rollback" d="M624 254 V322"/>
+  <text class="failure" x="714" y="292">起動または確認に失敗</text>
+  <path class="arrow" d="M532 364 H124 V254"/>
+  <text class="edge" x="324" y="386">青でAPI再起動</text>
+</svg>

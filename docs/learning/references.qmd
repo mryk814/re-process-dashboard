@@ -1,6 +1,566 @@
-# 参考文献 {.unnumbered}
+# 読む目的から選ぶ参考文献 {.unnumbered}
 
-この教材の構成と文章規則は、次の一次資料を調査して決めました。
+参考文献は、本文の主張を権威で飾るための一覧ではありません。
+ここでは、いま追っている実装上の問いから、読む箇所と適用限界を選びます。
+
+このページは、本文で出会った問いから、次に読む資料を選ぶ入口です。
+学習者向けPDFでは、実装を読むRoute 1からRoute 4だけを示します。
+
+::: {.content-visible when-profile="site"}
+## 引用、脚注、Further Readingの分担
+
+本文のcitationは、一般概念の定義、数理、歴史上の主張、標準要件、実証結果を支えます。
+現行repoの挙動は、外部文献ではなくcurrent code、test、生成物を根拠にします。
+
+脚注は、直近の主張の誤読を防ぐ限定、用語の来歴、一次資料への細い導線を置く場所です。
+脚注を読まなくても、前提、結論、危険、操作手順が残らなければなりません。
+
+章末のFurther Readingは、章を完走した読者が考え方を一般化するための任意経路です。
+本文の理解に必須の情報を章末へ退避せず、一章あたり二件から四件へ絞ります。
+
+## 情報源を選ぶ順序
+
+技術的な根拠は、次の順を基本にします。
+
+1. 公式documentation
+2. 仕様書、標準、RFC
+3. original research paper
+4. 公式repository、Issue、maintainer discussion
+5. 定評ある専門書
+6. 信頼できる組織のtechnical report
+7. 実務上の補助資料
+
+QiitaとZennは、教材の技術的根拠として使用しません。
+十分な一次情報を確認できない場合は、二次記事で空白を埋めず、未確認であることを残します。
+
+定義の短い引用にも出典を示し、長文転載は避けます。
+書籍本文と図表を教材へ複製せず、必要な図は独自に再構成して着想元を示します。
+licenseを確認できない画像は使用しません。
+
+## 台帳へ加える条件
+
+一件の文献は、次の四条件を満たしてから中核台帳へ加えます。
+
+1. 現行章、演習、編集規則のいずれかへ接続する
+2. 推奨するsectionを見出し名で特定する
+3. 読みながら考える問いを一つ持つ
+4. 現行repoへ適用するときの限界を一つ持つ
+
+有名であることだけでは採用理由になりません。
+対応する章がまだない分野の文献は、章の具体的な問いができるまで候補に留めます。
+たとえばGaussian processやBayesian optimizationの中核文献は、数理と実装を接続する章と同時に加えます。
+書名だけを先に並べると、何を読めばよいかではなく「いつか読む本」の棚になるためです。
+:::
+
+## Route 1：型付き契約を端から変更する
+
+このrouteは、Pydantic contractからOpenAPI、生成TypeScript型、React stateまでを一つの変更として追います。
+
+読書問いは、「各境界は何を機械的に伝え、何を伝えないか」です。
+
+### Moduleが隠す複雑さを測る
+
+**Ousterhout, *A Philosophy of Software Design* [@ousterhout-philosophy]**
+
+- 役割：primary explanation、alternative view
+- 推奨箇所：*The Nature of Complexity*、*Modules Should Be Deep*、*Decide What Matters*
+- 読む理由：境界の数ではなく、interfaceが隠す複雑さでmoduleの価値を評価します。
+- 注意：短いmethodや細かなlayerを常に否定する規則にはしません。
+
+### Pythonでserviceとrepositoryを比較する
+
+**PercivalとGregory, *Architecture Patterns with Python* [@cosmic-python]**
+
+- 役割：primary explanation、implementation reference
+- 推奨箇所：*Repository Pattern*、*Our First Use Case: Flask API and Service Layer*、*Unit of Work Pattern*
+- 読む理由：domain、service、repositoryを分ける利点とtest seamをPythonの実例で確認します。
+- 注意：event-drivenな複数serviceを扱う完成形を、local monolithの目標にはしません。
+
+**Fowler, *Patterns of Enterprise Application Architecture* [@fowler-poeaa]**
+
+- 役割：primary explanation、historical context
+- 推奨箇所：*Service Layer*、*Repository*、*Data Mapper*
+- 読む理由：application境界とdata source境界に名前を付け、現行の責務配置を比較します。
+- 注意：pattern名を付けることと、現行`Store`を分割すべきことは同義ではありません。
+
+### Schemaが運べる情報を確認する
+
+**OpenAPI Specification 3.1.1 [@openapi-311]**
+
+- 役割：standard
+- 推奨箇所：*OpenAPI Description*、*Schema Object*、*Discriminator Object*
+- 読む理由：API descriptionが生成toolへ伝えられる情報の範囲を確認します。
+- 注意：現行artifactとtoolのversionを確認せず、仕様の全機能を利用可能とみなしません。
+
+**Pydantic documentation, *Unions* [@pydantic-unions]**
+
+- 役割：implementation reference
+- 推奨箇所：*Discriminated Unions*
+- 読む理由：variant選択を試行順に任せず、明示fieldでvalidation経路を決めます。
+- 注意：DBにあるProject ownershipやrevisionの存在は、Pydanticだけでは検証できません。
+
+**FastAPI documentation, *Request Body* [@fastapi-request-body]**
+
+- 役割：implementation reference
+- 推奨箇所：*Request Body*、*Results*、*Automatic docs*
+- 読む理由：Pydantic modelからrequest validationとOpenAPI生成へ情報が渡る基本経路を確認します。
+- 注意：tutorialのendpoint構成を、serviceとpersistenceの責務分担の根拠にはしません。
+
+### Browser側でvariantとstateを分ける
+
+**TypeScript Handbook, *Narrowing* [@typescript-narrowing]**
+
+- 役割：implementation reference
+- 推奨箇所：*Discriminated unions*、*The never type*
+- 読む理由：生成されたunionをdiscriminatorで絞り、variant固有fieldへ到達します。
+- 注意：compile-time narrowingは、responseがcurrent requestに属するという時間的identityを保証しません。
+
+**React, *Choosing the State Structure* [@react-state-structure]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*Principles for structuring state*、*Avoid contradictions in state*、*Avoid duplication in state*
+- 読む理由：server state、local draft、derived displayの重複と矛盾を減らします。
+- 注意：state形状を整理しても、stale responseの順序制御とbackend conflict contractは別に必要です。
+
+## Route 2：データの証拠とidentityを追う
+
+このrouteは、RawからTraining Snapshotまでの証拠と、revision、digest、transactionの役割を結びます。
+
+読書問いは、「同じ結果を再現するために固定すべきものと、正しさを判断するために別途確認すべきものは何か」です。
+
+### 研究の再現性をcodeの外へ広げる
+
+**The Turing Way Community, *The Turing Way* [@turing-way]**
+
+- 役割：primary explanation、alternative view
+- 推奨箇所：*Guide for Reproducible Research*、*Guide for Project Design*
+- 読む理由：再現可能性をdata、environment、collaborationの実務へ広げます。
+- 注意：同じ結果を再現できることは、その結果の科学的な正しさを保証しません。
+
+**Irvingほか, *Research Software Engineering with Python* [@rse-python]**
+
+- 役割：prerequisite、implementation reference
+- 推奨箇所：*Version Control*、*Testing Software*、*Research Data Management*
+- 読む理由：研究codeを変更可能かつ検証可能に保つ基礎作業を補います。
+- 注意：実務経験がある読者は、基礎toolingを通読せず必要なsectionだけ参照します。
+
+### 正本、派生物、変更の時間を分ける
+
+**KleppmannとRiccomini, *Designing Data-Intensive Applications*, 2nd ed. [@kleppmann-ddia2]**
+
+- 役割：deep dive、alternative view
+- 推奨箇所：*Data Models and Query Languages*、*Encoding and Evolution*、*Transactions*
+- 読む理由：正本と派生物、schema evolution、lost updateを広いdata systemの文脈へ一般化します。
+- 注意：single-user local SQLiteへreplicationやconsensusの設計を先回りして導入しません。
+
+**RFC 8785, *JSON Canonicalization Scheme* [@rfc8785]**
+
+- 役割：standard、alternative view
+- 推奨箇所：*Introduction*、*JSON Canonicalization Scheme*
+- 読む理由：cross-languageのcanonical JSONと、repo内semantic digestの範囲を比較します。
+- 注意：現行`semantic_digest()`はRFC 8785準拠を保証しません。
+
+**Fowler, *Optimistic Offline Lock* [@fowler-optimistic-lock]**
+
+- 役割：primary explanation、historical context
+- 推奨箇所：*Optimistic Offline Lock*
+- 読む理由：読取時点からcommitまでの間に起きた別更新を検出する意図を読みます。
+- 注意：SQLiteのlock modeそのものを説明した文書ではありません。
+
+### SQLiteのwrite境界を読む
+
+**SQLite, *UPDATE* [@sqlite-update]**
+
+- 役割：implementation reference
+- 推奨箇所：*UPDATE*
+- 読む理由：revisionを条件へ含む一つのUPDATEが、読取とwriteの窓をどう閉じるか確認します。
+- 注意：SQLがatomicでも、条件へ含めるidentityの意味は別に設計します。
+
+**SQLite, *Transaction* [@sqlite-transactions]**
+
+- 役割：primary explanation、implementation reference
+- 推奨箇所：*Deferred, Immediate, and Exclusive Transactions*
+- 読む理由：`BEGIN IMMEDIATE`がwrite競合をいつ表面化させるか確認します。
+- 注意：atomic commitは、JSON内provenanceの意味上の正しさを保証しません。
+
+## Route 3：migrationとProject lifecycleを守る
+
+このrouteは、schema変更、foreign key、trigger、logical purge、media sanitizationを同じ「削除」に潰さず読み分けます。
+
+読書問いは、「databaseが宣言的に守る条件と、applicationが意味を読んで守る条件はどこで分かれるか」です。
+
+### Schemaと参照を変える
+
+**SQLite, *ALTER TABLE* [@sqlite-alter-table]**
+
+- 役割：implementation reference
+- 推奨箇所：*ALTER TABLE*、*Making Other Kinds Of Table Schema Changes*
+- 読む理由：直接変更できるschema操作と、table再構築が必要な変更を分けます。
+- 注意：DDL成功と、migration marker、checksum、実体検査の成功は別です。
+
+**SQLite, *Foreign Key Support* [@sqlite-foreign-keys]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*Enabling Foreign Key Support*、*Required and Suggested Database Indexes*
+- 読む理由：宣言的な参照整合性が守るrow関係と、connection policyを確認します。
+- 注意：`foreign_key_check`が空でも、JSON内部などschemaへ宣言されていない関係は検査されません。
+
+**SQLite, *CREATE TRIGGER* [@sqlite-create-trigger]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*CREATE TRIGGER*、*Cautions On The Use Of BEFORE triggers*
+- 読む理由：archive済みProjectへのwriteをDB境界で拒否するguardを確認します。
+- 注意：triggerはhard-codedなtableとoperationにだけ働きます。
+
+### Applicationのpurgeとmediaの消去を分ける
+
+**SQLite, *VACUUM* [@sqlite-vacuum]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*VACUUM*、*How VACUUM works*
+- 読む理由：row削除とdatabase fileの再構築を分けます。
+- 注意：backup、export、filesystem snapshotなど別copyは処理しません。
+
+**NIST SP 800-88 Rev. 2 [@nist-sp800-88r2]**
+
+- 役割：standard、caution
+- 推奨箇所：*Information Sanitization and Disposal Decisions*、*Sanitization Methods*
+- 読む理由：application内のlogical purgeと、storage mediaのsanitizationを別要件として扱います。
+- 注意：local SQLiteの通常削除手順を直接規定する文書ではありません。
+
+## Route 4：Workspaceの復元境界を検証する
+
+このrouteは、SQLiteだけをcopyする操作から離れ、bundle、path、staging、rollback、health checkを一つの復元手順として読みます。
+
+読書問いは、「各段階の成功が、次の段階の何をまだ保証しないか」です。
+
+**SQLite, *Backup API* [@sqlite-backup]**
+
+- 役割：implementation reference、primary explanation
+- 推奨箇所：*SQLite Backup API*、*Typical Usage of the Backup API*
+- 読む理由：稼働中databaseの整合したsnapshotを、単純file copyと区別します。
+- 注意：database backupだけでは、Data Libraryとmanifestを含むWorkspace全体になりません。
+
+**Python, *zipfile* [@python-zipfile]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*Decompression pitfalls*、*ZipFile.extractall*
+- 読む理由：archive member名を信用した展開が復元先の外へ書く条件を確認します。
+- 注意：path検査だけでbundleのdigest、schema、rollbackまで保証したことにはなりません。
+
+**Adkinsほか, *Building Secure and Reliable Systems* [@google-bsrs]**
+
+- 役割：deep dive、alternative view
+- 推奨箇所：*Design for Understandability*、*Recovery from Failure*
+- 読む理由：securityとreliabilityをsystem invariantと復旧経路へ組み込む視点を得ます。
+- 注意：Google規模の組織processとdistributed controlをlocal desktop appへそのまま持ち込みません。
+
+::: {.content-visible when-profile="site"}
+## Route 5：実行結果を検証可能な教材にする
+
+このrouteは、commandの直後へ成功条件を置き、HTMLとPDFの両方で参照と見た目を確認する編集作業を扱います。
+
+読書問いは、「toolが成功したという事実と、読者へ意味が届いたという判断をどう分けるか」です。
+
+**Django, *Writing your first Django app* [@djangotutorial]**
+
+- 役割：alternative view、implementation reference
+- 推奨箇所：*Writing your first Django app, part 1*
+- 読む理由：前提version、command、期待結果、次の観察を近接させるtutorialの型を見ます。
+- 注意：新規アプリを組み立てるtutorialと、既存実装を横断する本教材では出発点が異なります。
+
+**GitHub Docs style guide [@github-style]**
+
+- 役割：standard
+- 推奨箇所：*Alerts*、*Writing style*
+- 読む理由：注意喚起を増やしすぎず、意味の明瞭さを優先します。
+- 注意：Web help向けの規則だけでは、PDFの紙面密度を判断できません。
+
+**Quarto, *Book Structure* [@quarto-books]**
+
+- 役割：implementation reference
+- 推奨箇所：*Book Structure*、*Parts and Chapters*
+- 読む理由：章順、章の正本、生成先をbook構造へ対応させます。
+- 注意：Quartoは章間の前提関係が妥当かを自動検証しません。
+
+**Quarto, *Book Cross References* [@quarto-crossrefs]**
+
+- 役割：implementation reference
+- 推奨箇所：*Book Cross References*
+- 読む理由：HTMLとPDFで同じ参照先へ到達できるようにします。
+- 注意：参照が解決しても、改ページや長い表の視覚的破綻は目視検査が必要です。
+
+**Quarto, *Creating Filters* [@quarto-filters]**
+
+- 役割：implementation reference
+- 推奨箇所：*Activating Filters*、*Filter Extensions*
+- 読む理由：一つの解答blockをHTMLとPDFで別の配置へ変換します。
+- 注意：filterは問題、成功条件、解答の意味上の欠落を補いません。
+
+**WHATWG, *The details element* [@whatwg-details]**
+
+- 役割：standard
+- 推奨箇所：*The details element*、*The summary element*
+- 読む理由：JavaScriptなしで開閉できるdisclosureの構造と初期状態を確認します。
+- 注意：native要素を使っても、focus表示と印刷結果は実ブラウザで確認します。
+
+**Quarto, *Project Profiles* [@quarto-profiles]**
+
+- 役割：implementation reference
+- 推奨箇所：*Profile Configuration*、*Profile Groups*
+- 読む理由：共通QMDを複製せず、統合HTMLと学習者向けPDFの目次を切り替えます。
+- 注意：存在しないprofile名が警告なしで無視されるため、build前にprofile fileの存在を検査します。
+
+**Quarto, *Website Search* [@quarto-search]**
+
+- 役割：implementation reference
+- 推奨箇所：*Overview*、*Search Appearance*
+- 読む理由：統合HTMLの両partを一つのローカル索引から探せることを確認します。
+- 注意：検索範囲は生成したsite内であり、別siteや未生成sourceまで横断しません。
+
+## Route 6：教材を共同研究者の声で保守する
+
+このrouteは、読者の必要を先に置き、概念とproject、本文とreference、主線と脚注を分ける編集者向けの経路です。
+
+読書問いは、「この説明は、読者が次の変更を一人で行うために必要か」です。
+
+**Diátaxis [@diataxis]**
+
+- 役割：primary explanation
+- 推奨箇所：*The Diátaxis map*、*Tutorials*、*Reference*
+- 読む理由：学習の順路と、作業中に引く一覧を別の文書へ分けます。
+- 注意：四分類を各ページへ機械的に当てはめません。
+
+**W3C, *SKOS Reference* [@w3c-skos-reference]**
+
+- 役割：standard
+- 推奨箇所：*The skos:Concept Class*、*Lexical Labels*、*Semantic Relations*
+- 読む理由：概念、表示label、概念どうしの関係を分ける基準を確認します。
+- 注意：RDFを導入せず、分離の原則だけを小さなJSON schemaへ借ります。
+
+**W3C, *SKOS Primer* [@w3c-skos-primer]**
+
+- 役割：primary explanation
+- 推奨箇所：*Concepts*、*Concept Schemes*、*Semantic Relationships*
+- 読む理由：直接の階層関係と、関連があるだけの関係を小さな例から区別します。
+- 注意：SKOSの`broader`を教材の前提関係と同一視しません。
+
+**Google developer documentation style guide, *Word list* [@google-dev-word-list]**
+
+- 役割：standard
+- 推奨箇所：*Word list*、*Abbreviations*
+- 読む理由：preferred labelと検索用aliasを分け、同じ対象を一貫した語で指します。
+- 注意：英語向けの個別表記を日本語へ機械的に移植しません。
+
+**Google developer documentation style guide, *Lists* [@google-dev-lists]**
+
+- 役割：standard
+- 推奨箇所：*Description lists*、*Introductory sentences for lists*
+- 読む理由：用語entryの項目順をそろえ、状態、前提、誤解、実装参照を比較しやすくします。
+- 注意：referenceへ本文の説明や手順を詰め込みません。
+
+**The Rust Programming Language [@rustbook]**
+
+- 役割：alternative view
+- 推奨箇所：*Introduction*、*Writing a Guessing Game*
+- 読む理由：概念章とproject章の分担を見ます。
+- 注意：言語入門書の段階構成を、既存業務アプリの読解へそのまま移植しません。
+
+**Google Technical Writing, *Documents* [@google-documents]**
+
+- 役割：standard
+- 推奨箇所：*Audience*、*Scope*
+- 読む理由：読者が必要とする知識と、すでに持つ知識の差からscopeを決めます。
+- 注意：短い文書向けの原則は、書籍の長い論証へ目的を保って調整します。
+
+**Google Technical Writing, *Active voice vs. passive voice* [@google-active]**
+
+- 役割：standard
+- 推奨箇所：*Active voice vs. passive voice*
+- 読む理由：処理主体と動作を示し、変更箇所を追える文へ直します。
+- 注意：受動態を禁止せず、行為者が重要な箇所で曖昧さを減らします。
+
+## Route 7：予測を判断へ格上げしない
+
+このrouteは、model output、support、不確実性、警告、提案を、同じscoreまたは同じ注意表示へ潰さずに設計する読者向けです。
+
+読書問いは、「この証拠を、この候補、この条件、この時点の判断へ使ってよいか」です。
+
+**NIST, *AI Risk Management Framework 1.0* [@nist-ai-rmf-1]**
+
+- 役割：standard、caution
+- 推奨箇所：*Framing Risk*、*AI RMF Core*、Appendix C
+- 読む理由：出力の用途、knowledge limit、人間の監督、停止経路をcontext of useへ固定します。
+- 注意：組織向けframeworkであり、現行UIの適合認証または安全性認証ではありません。
+
+**W3C, *WCAG 2.2* [@w3c-wcag22]**
+
+- 役割：standard
+- 推奨箇所：SC 1.4.1、SC 1.4.10、SC 3.3.1、SC 4.1.3
+- 読む理由：候補、証拠状態、警告、完了を色またはhoverだけへ隠さない検査へ接続します。
+- 注意：WCAG適合は、統計的妥当性または意思決定の正しさを保証しません。
+
+**Parasuraman and Manzey, “Complacency and Bias in Human Use of Automation” [@parasuraman-manzey-2010]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*Results*、*Application*
+- 読む理由：明示操作を設けても、注意配分とautomation biasが残る条件を確認します。
+- 注意：複数領域のreview結果を、材料候補比較の効果量へ直接移しません。
+
+**Kale, Kay, and Hullman, “Visual Reasoning Strategies for Effect Size Judgments and Decisions” [@kale-kay-hullman-2021]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*Introduction*、*Results*、*Discussion*
+- 読む理由：点推定と区間を併記しても、表示によって判断時の重みが変わることを確認します。
+- 注意：実験taskで有効だったvisual encodingを、現行のtarget、cost、constraintへ評価なしで移植しません。
+
+## Route 8：探索価値とbatch選択を分ける
+
+このrouteは、Design Space、Objective、Generator、Acquisition、Selectorを分け、式の仮定を実装境界へ戻す読者向けです。
+
+読書問いは、「このscoreは何を期待し、どの条件では比較できないか」です。
+
+**Garnett, *Bayesian Optimization* [@garnett-bayesian-optimization]**
+
+- 役割：primary explanation、deep dive
+- 推奨箇所：*Decision Policies*、*Parallel and Batch Bayesian Optimization*
+- 読む理由：surrogate、acquisition、policyを別の対象として扱う一般理論を、現行registry境界と比較します。
+- 注意：一般手法を、Runtime Capabilityとproduction gateの確認なしに利用可能機能とみなしません。
+
+**Jones, Schonlau, and Welch, “Efficient Global Optimization of Expensive Black-Box Functions” [@jones-schonlau-welch-1998]**
+
+- 役割：primary explanation、historical context
+- 推奨箇所：*Expected Improvement*、*The EGO Algorithm*
+- 読む理由：EIの改善量とincumbentの定義を確認し、確率だけを返すPIとの差を固定します。
+- 注意：正規Kriging表現を、quantileだけを返すruntimeへ自動適用しません。
+
+**Srinivasほか, “Gaussian Process Optimization in the Bandit Setting” [@srinivas-gp-ucb]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*The GP-UCB Algorithm*、*Regret Bounds*
+- 読む理由：UCB係数とregret保証が成立する仮定を確認します。
+- 注意：論文の保証を、現行の有限poolまたは任意の$\kappa$へ移しません。
+
+**Daulton, Balandat, and Bakshy, “Differentiable Expected Hypervolume Improvement” [@daulton-qehvi-2020]**
+
+- 役割：alternative view、deep dive
+- 推奨箇所：*Parallel Expected Hypervolume Improvement*、*Monte Carlo Estimator*
+- 読む理由：joint batch acquisitionが、個別scoreを順に選ぶgreedy法と異なる計算対象を持つ例として読みます。
+- 注意：multi-objective qEHVIを、現行single-objective selectorの実装説明に使いません。
+
+## Route 9：材料組成のbasisを固定する
+
+このrouteは、組成列の値を読む前にmass basisとamount basisを分け、比と百分率表記を固定する読者向けです。
+
+読書問いは、「この数値は何を分子と分母に取り、どのscaleで記録されているか」です。
+
+**IUPAC Gold Book, “Mass Fraction” [@iupac-mass-fraction]**
+
+- 役割：standard、prerequisite
+- 推奨箇所：*Definition*、*Source*
+- 読む理由：mass fractionの分子と分母を固定し、列名だけでbasisを推定しないために使います。
+- 注意：標準用語の定義だけでは、個別Datasetの測定法または分析誤差は決まりません。
+
+**IUPAC Gold Book, “Mass Percent” [@iupac-mass-percent]**
+
+- 役割：standard、caution
+- 推奨箇所：*Definition*、*Source*
+- 読む理由：比と百分率表記を分け、100倍または100分の1の変換ミスを防ぎます。
+- 注意：既存データの列名を変更する判断と、標準用語の推奨状態は分けて扱います。
+
+**IUPAC Gold Book, “Amount of Substance” [@iupac-amount-of-substance]**
+
+- 役割：standard、prerequisite
+- 推奨箇所：*Definition*、*Source*
+- 読む理由：at%への換算で、質量ではなく物質量の比を作っていることを確認します。
+- 注意：基礎量の定義は、材料の相状態または均一性を保証しません。
+
+## Route 10：複数Stageの依存と誤差を追う
+
+このrouteは、Chainをmodel呼出しの列ではなく、明示依存、評価grain、不確かさ伝播を持つdataflowとして読む読者向けです。
+
+読書問いは、「どの入力と証拠が変わると、どのStageから結果を作り直すべきか」です。
+
+**Bazel Authors, “Concepts and Terminology” [@bazel-build-reference]**
+
+- 役割：alternative view、implementation reference
+- 推奨箇所：*Targets*、*Build dependency graph*
+- 読む理由：宣言された依存からDAGを作る別領域の例を、Chain bindingと比較します。
+- 注意：現行Chainをbuild systemまたは汎用schedulerとはみなしません。
+
+**scikit-learn Developers, “Cross-Validation” [@scikit-learn-cross-validation]**
+
+- 役割：primary explanation、implementation reference
+- 推奨箇所：*Cross-validation iterators for grouped data*
+- 読む理由：同じgroupをtrainとtestへまたがせない評価設計を確認します。
+- 注意：一般説明だけでTask固有のgroup grainを決めません。
+
+**JCGM, *Propagation of Distributions Using a Monte Carlo Method* [@jcgm-101-2008]**
+
+- 役割：standard、deep dive
+- 推奨箇所：*Principles of the method*、*Propagation of distributions*
+- 読む理由：入力分布をmodelへ通して出力分布を得る一般原則を確認します。
+- 注意：現行runtimeの独立近似とoutput boundsはTaskごとに別reviewします。
+
+## Route 11：検証の証拠範囲を組み立てる
+
+このrouteは、速い局所testと実際の境界を通るtestを組み合わせ、成功が何を保証しないかまで記録する読者向けです。
+
+読書問いは、「このtestが緑でも、まだ壊れている可能性がある境界はどこか」です。
+
+**pytest Contributors, “pytest.approx” [@pytest-approx]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*pytest.approx*、*Tolerances*
+- 読む理由：浮動小数点比較の絶対許容差と相対許容差を明示します。
+- 注意：default値をdomain上の受入基準として流用しません。
+
+**Microsoft, “Playwright Best Practices and Test Isolation” [@playwright-testing]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*Test user-visible behavior*、*Make tests as isolated as possible*
+- 読む理由：利用者が観測する挙動と、test間で共有しない状態境界を確認します。
+- 注意：browser test成功だけで数値、migration、配布artifactを保証しません。
+
+**SQLite, “Transaction” [@sqlite-transactions]**
+
+- 役割：implementation reference、standard
+- 推奨箇所：transaction control、response to errors
+- 読む理由：migration失敗時に変更を一まとまりでrollbackする基礎仕様を確認します。
+- 注意：transactionを使うだけで、migration後のdomain invariantが正しいとは限りません。
+
+## Route 12：意味を壊さず計算を速くする
+
+このrouteは、cache、coalescing、cancel、bounded concurrencyを、identityとfreshnessの契約から設計する読者向けです。
+
+読書問いは、「速くなった経路が、同じ入力と同じ結果の対応を保っているか」です。
+
+**Python Software Foundation, “concurrent.futures” [@python-concurrent-futures]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*Executor Objects*、*ThreadPoolExecutor*
+- 読む理由：Future、worker数、cancelと完了の一般契約を確認します。
+- 注意：default worker数を推論Taskの最適値として採用しません。
+
+**Mozilla Contributors, “AbortController” [@mdn-abort-controller]**
+
+- 役割：implementation reference、caution
+- 推奨箇所：*AbortController*、*Instance methods*
+- 読む理由：通信中断とresponse採否のidentity checkを分けます。
+- 注意：abortだけでstale responseを防げるとはみなしません。
+
+**SQLite, “Transaction” [@sqlite-transactions]**
+
+- 役割：implementation reference、standard
+- 推奨箇所：transaction control、response to errors
+- 読む理由：process-local cacheと永続memoまたはSnapshotの境界を比較します。
+- 注意：transactionはcache identityの正しさを保証しません。
+:::
+
+## 書誌情報
+
+次の一覧はBibTeXから生成されます。
+各entryのrole、推奨箇所、読書問い、適用限界は上のrouteと注釈台帳を参照してください。
 
 ::: {#refs}
 :::

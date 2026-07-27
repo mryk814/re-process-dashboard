@@ -1,0 +1,206 @@
+{
+  "edition": 1,
+  "status": "accepted",
+  "verified_commit": "15ae3fa18bfaa5c9e157bb879f570b611c87cb80",
+  "base_main_commit": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "accepted_at": "2026-07-27T15:51:07+09:00",
+  "artifacts": {
+    "reader_pdf": {
+      "path": "docs/learning/_build/reader/material-decision-workbench-reader.pdf",
+      "pages": 358,
+      "page_size": "A4",
+      "bytes": 13266549,
+      "sha256": "7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004"
+    },
+    "integrated_site": {
+      "path": "docs/learning/_build/site/index.html",
+      "documents": 42,
+      "reader_learning_units": 26
+    }
+  },
+  "content_inventory": {
+    "parts": 9,
+    "reader_documents": 30,
+    "exercises": 99,
+    "solution_blocks": 117,
+    "chapter_checks": 18,
+    "concepts": 74,
+    "concept_prerequisite_edges": 97,
+    "anti_definitions": 72,
+    "registered_figures": 8,
+    "registered_labs": 8,
+    "bibliography_entries": 57,
+    "annotated_references": 57,
+    "code_reference_documents": 28,
+    "code_reference_records": 789,
+    "verified_html_code_links": 332,
+    "drift_review_records": 17,
+    "acceptance_review_records": 6
+  },
+  "build": {
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
+    "result": "passed",
+    "site_seconds": 52.76,
+    "reader_seconds": 24.81
+  },
+  "checks": {
+    "textbook": {
+      "result": "passed",
+      "evidence": "reference, exercise, concept, concept-order, figure, Lab, code-reference, drift-review, acceptance-review, HTML, PDF, disclosure, and exact-link gates passed"
+    },
+    "pytest": {
+      "command": "uv run python -m pytest",
+      "result": "passed",
+      "passed": 870,
+      "skipped": 3,
+      "warnings": 58,
+      "seconds": 193.62
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "result": "passed"
+    },
+    "build": {
+      "command": "npm run build",
+      "result": "passed"
+    },
+    "decision_activity_e2e": {
+      "command": "npx playwright test e2e/decision-activity.spec.ts",
+      "result": "passed",
+      "passed": 5,
+      "seconds": 35.7,
+      "server": "fresh isolated API and Web servers"
+    },
+    "project_ungroup_e2e": {
+      "command": "$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/project-hub.spec.ts --grep \"leave its group\"",
+      "result": "passed",
+      "passed": 1,
+      "seconds": 21.3,
+      "server": "fresh isolated API and Web servers"
+    },
+    "navigation_e2e": {
+      "command": "$env:PLAYWRIGHT_API_PORT=9002; $env:PLAYWRIGHT_WEB_PORT=5322; npx playwright test e2e/navigation-intent.spec.ts",
+      "result": "passed",
+      "passed": 16,
+      "seconds": 44.4,
+      "server": "fresh isolated API and Web servers"
+    },
+    "model_operations": {
+      "commands": [
+        "npm run dev:doctor -- --json",
+        "npm run model:status"
+      ],
+      "result": "passed",
+      "evidence": "history drift and broken previous references were empty; four null previous states were accepted with explicit reasons"
+    },
+    "visual_review": {
+      "result": "passed",
+      "ranges": [
+        "pages 1-180",
+        "pages 181-358"
+      ],
+      "criteria": [
+        "Japanese and Latin fonts",
+        "mathematics",
+        "tables and code",
+        "figures and captions",
+        "Part and chapter openings",
+        "page breaks and expected recto blanks",
+        "overflow, overlap, and cutoff"
+      ],
+      "findings_fixed": [
+        "duplicate chapter titles and blank pages",
+        "Part title and outline overlap",
+        "two clipped Mermaid diagrams",
+        "two unreadable wide tables",
+        "one orphaned Further Reading bullet"
+      ]
+    }
+  },
+  "application_improvements": [
+    {
+      "issue": 337,
+      "pull_request": 340,
+      "result": "merged",
+      "summary": "same-Candidate Decision Activity Run navigation follows history and rejects unknown Runs"
+    },
+    {
+      "issue": 343,
+      "pull_request": 381,
+      "result": "merged",
+      "summary": "Developer Control Center exposes the ordered Decision Activity change path"
+    },
+    {
+      "issue": 385,
+      "pull_request": 386,
+      "result": "merged",
+      "summary": "Developer Doctor distinguishes exact rollback history agreement from accepted null previous states"
+    },
+    {
+      "issue": 372,
+      "pull_request": 388,
+      "result": "merged",
+      "summary": "Project Series membership can return to ungrouped without deleting evidence or continuation identity"
+    },
+    {
+      "issue": 389,
+      "pull_request": 391,
+      "result": "merged",
+      "summary": "Default Playwright collection owns compatible fixtures while specialized degraded tests remain in their dedicated lane"
+    }
+  ],
+  "known_followups": [
+    {
+      "issue": 301,
+      "reason": "Edition 1 includes eight isolated Labs, but total Lab setup size and runtime still require an explicit reproducibility measurement."
+    },
+    {
+      "issue": 303,
+      "reason": "The materials-domain review remains a documented proxy review until the user performs a direct domain reading."
+    },
+    {
+      "issue": 335,
+      "reason": "GitHub Issue and Pull Request live-state drift automation remains open."
+    },
+    {
+      "issue": 338,
+      "reason": "Workspace restore process-interruption fault injection remains an application follow-up."
+    },
+    {
+      "issue": 339,
+      "reason": "Project lifecycle inventory completeness remains an application follow-up."
+    },
+    {
+      "issue": 341,
+      "reason": "Decision Activity race and open-panel accessibility browser coverage remains an application follow-up."
+    },
+    {
+      "issue": 342,
+      "reason": "Saved Run provenance and complete-history UI remains an application follow-up."
+    },
+    {
+      "issue": 344,
+      "reason": "Developer Control Center tab and guide deep links remain an application follow-up."
+    },
+    {
+      "issue": 345,
+      "reason": "Training Snapshot target cohort, split, and feature-definition boundary remains an application follow-up."
+    },
+    {
+      "issue": 387,
+      "reason": "Real-reader, assistive-technology, materials-domain, and specialist security review evidence will inform Edition 2."
+    },
+    {
+      "issue": 390,
+      "reason": "Chain Project model-package endpoints with an empty task_id remain a separately tracked application defect."
+    },
+    {
+      "issue": 393,
+      "reason": "PR #392 landed after the Edition 1 acceptance cutoff; its Chain input range presentation drift is queued for the next grouped textbook maintenance batch."
+    }
+  ],
+  "constraints": [
+    "GitHub Actions could not be used because the repository account reached its monthly limit.",
+    "Local commands, exact counts, artifact identity, and full-page visual review are the Edition 1 acceptance evidence."
+  ]
+}

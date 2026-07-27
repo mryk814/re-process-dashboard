@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="600" viewBox="0 0 1120 600" role="img" aria-labelledby="title desc">
+  <title id="title">migrationを信用できる状態と停止すべき矛盾</title>
+  <desc id="desc">未適用状態から同じtransaction内でschema、backfill、markerを作り確認済み状態へ進む。markerと実体の不一致、checksum不一致、data invariant違反は矛盾として起動を停止する。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#335a6f"/>
+    </marker>
+    <style>
+      .title { font: 700 24px system-ui, sans-serif; fill: #17313f; }
+      .label { font: 700 18px system-ui, sans-serif; fill: #17313f; }
+      .body { font: 15px system-ui, sans-serif; fill: #294653; }
+      .small { font: 14px system-ui, sans-serif; fill: #48626e; }
+      .ok { fill: #e7f4ec; stroke: #4f8763; stroke-width: 2; }
+      .work { fill: #e9f2f7; stroke: #4c788f; stroke-width: 2; }
+      .bad { fill: #fff0ed; stroke: #b65c4e; stroke-width: 2; }
+      .arrow { stroke: #335a6f; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #b65c4e; stroke-width: 2.5; stroke-dasharray: 8 7; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1120" height="600" fill="#fbfaf7"/>
+  <text x="54" y="48" class="title">記録と実体が一致して、はじめて「適用済み」になる</text>
+
+  <rect x="55" y="105" rx="16" ry="16" width="250" height="142" class="work"/>
+  <text x="80" y="140" class="label">未適用</text>
+  <text x="80" y="176" class="body">marker なし</text>
+  <text x="80" y="202" class="body">migration実体 なし</text>
+  <text x="80" y="228" class="small">適用できる前提</text>
+
+  <rect x="430" y="92" rx="16" ry="16" width="260" height="170" class="work"/>
+  <text x="455" y="127" class="label">一つのwrite transaction</text>
+  <text x="455" y="163" class="body">1. schemaを追加</text>
+  <text x="455" y="190" class="body">2. 既存dataをbackfill</text>
+  <text x="455" y="217" class="body">3. markerを追加</text>
+  <text x="455" y="244" class="small">失敗なら全変更をrollback</text>
+
+  <rect x="815" y="105" rx="16" ry="16" width="250" height="142" class="ok"/>
+  <text x="840" y="140" class="label">確認済み</text>
+  <text x="840" y="176" class="body">markerとchecksum一致</text>
+  <text x="840" y="202" class="body">schemaとdata一致</text>
+  <text x="840" y="228" class="small">起動を続ける</text>
+
+  <path d="M305 176 L420 176" class="arrow"/>
+  <text x="330" y="157" class="small">BEGIN IMMEDIATE</text>
+  <path d="M690 176 L805 176" class="arrow"/>
+  <text x="725" y="157" class="small">COMMIT</text>
+
+  <rect x="180" y="370" rx="16" ry="16" width="760" height="160" class="bad"/>
+  <text x="210" y="407" class="label">矛盾した状態は自動修復せず停止する</text>
+  <text x="210" y="445" class="body">markerあり、tableまたはcolumnなし</text>
+  <text x="210" y="474" class="body">markerなし、migration由来の実体あり</text>
+  <text x="570" y="445" class="body">checksum不一致</text>
+  <text x="570" y="474" class="body">schemaはあるがdata invariant違反</text>
+  <text x="210" y="508" class="small">来歴と現在状態を調べ、別のrepair方針を選ぶ</text>
+
+  <path d="M180 247 C180 300 270 315 350 360" class="dash"/>
+  <path d="M560 262 L560 360" class="dash"/>
+  <path d="M940 247 C940 300 850 315 770 360" class="dash"/>
+</svg>

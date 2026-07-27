@@ -21,37 +21,97 @@
 | mdBook | 検索可能 | 標準では主用途でない | Web向け | binaryは単純 | PDFを別pipelineにすると二重保守 |
 | Pandoc単独 | 単一HTMLは可能 | engine次第 | 設定可能 | command設計を自前で持つ | book navigationと検索を自作しない |
 
-Quarto Bookは、chapter listを`_quarto.yml`へ置き、HTMLとPDFまたはTypstを同じ章構造から生成できます [@quarto-books]。
+Quarto Bookは、一つの原稿群からHTMLとPDFまたはTypstを生成できます [@quarto-books]。
+Project Profileを使うと、共通設定を保ちながら出力ごとにchapter listを切り替えられます [@quarto-profiles]。
 章をまたぐcross referenceも同じsource上で解決できます [@quarto-crossrefs]。
 
 PDF engineにはTypstを採用しました。
 LaTeXより優れていると一般化したためではありません。
-この試作の日本語本文、表、短いcode block、Mermaid図をA4へ出す範囲で、導入するruntimeをQuartoとTypstの二つに限定できたためです。
+この試作の日本語本文、表、短いcode block、version管理したSVG図をA4へ出す範囲で、導入するruntimeをQuartoとTypstの二つに限定できたためです。
+
+Quarto HTMLはMermaidを図へ変換できますが、現行のTypst PDF経路ではMermaid sourceがcode blockとして残りました。
+処理経路の三図はSVGを正本にし、HTMLとPDFへ同じ図と代替textを渡します。
+
+Typstのbook formatは各章を奇数ページから始めます。
+`typst/typst-show.typ`は、そのために生じるrecto調整ページだけrunning headerとpage numberを隠し、本文ページの案内は残します。
 
 ## 固定version
 
-試作の検証versionは次です。
+組版toolは、`tools.lock.json`に記録した次の版を使います。
 
 | Tool | Version |
 |---|---:|
 | Quarto | 1.10.18 |
 | Typst | 0.15.1 |
 
-`docs/learning/build.ps1`は、commandが見つからない場合やversionが違う場合に、黙って別toolへfallbackしません。
-必要なtool、version、取得先を示して停止します。
+lock fileは、versionだけではなく、公式release assetのURL、file size、SHA-256、archive内の実行file pathを一つの取得identityとして記録します。
+bootstrapはarchiveのsizeとSHA-256が一致するまで展開しません。[^checksum-boundary]
+展開後も実行fileの存在とversionを確認し、検証がすべて終わったstaging directoryだけをcacheの最終pathへ切り替えます。
+
+[^checksum-boundary]: SHA-256の固定は、転送中の破損やlock後の意図しない差替えを検出します。Quartoでは公式checksum fileとGitHub release asset digest、TypstではGitHub release asset digestを一次情報として照合しました。GitHubもrelease assetのdigestによる整合性確認を案内していますが、今回のdigestは供給者から独立した署名ではありません。([GitHub Docs](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity))
+
+`build.ps1`はPATH上の同名commandを探さず、検証済みcacheの絶対pathを解決します。
+QuartoがPDF生成に使うTypstも`QUARTO_TYPST`で同じ固定版へ向け、実際のrenderer versionをbuild前に確認します。[^quarto-typst]
+versionが違う場合やcacheが未完成の場合は、別toolへfallbackせずに停止します。
+HTMLまたはPDFのrenderが非zeroで終わった場合も、その時点でbuildを失敗させます。
+
+[^quarto-typst]: Quartoの`quarto typst` commandは、Quartoに埋め込まれたTypstを実行します。Quarto 1.10.18の内蔵版も0.15.1ですが、PATH上のTypstを確認するだけでは実際のPDF rendererを証明できません。([Quarto Typst CLI](https://quarto.org/docs/cli/typst.html))
 
 versionを固定した理由は、PDFのpage count、font fallback、code wrappingがtool更新で変わりうるためです。
-将来versionを上げる場合は、HTML検索とPDFのvisual checkをやり直します。
+将来versionを上げる場合は、checksumの一次情報を再確認し、空のcacheからHTML検索とPDFのvisual checkまでやり直します。
+
+## portable bootstrap
+
+リポジトリ直下から次を実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/scripts/bootstrap-book-tools.ps1
+```
+
+既定のtool rootは`$env:LOCALAPPDATA\material-workbench-book-tools`です。
+`MATERIAL_WORKBENCH_BOOK_TOOLS`環境変数で変更でき、`-ToolRoot`を明示した場合はその値を優先します。
+どの経路でもsystemへinstallせず、永続的なPATHを変更しません。
+空白を含むrootは検証対象ですが、Quarto 1.10.18ではWindows上の非ASCII pathに既知の実行上の制約があります。[^quarto-nonascii-path]
+
+[^quarto-nonascii-path]: 非ASCII文字を含む隔離rootでは、Quarto同梱Luaがmodule pathを誤ってdecodeし、`modules/astshortcode`を見つけられない事象を再現しました。このerrorが出る環境では、たとえば`Join-Path $env:PUBLIC "material-workbench-book-tools"`のようなASCIIだけのrootをbootstrapとbuildの双方へ明示します。bootstrap自体の取得、hash検証、展開は非ASCII pathでも成功しますが、Quarto 1.10.18のrenderまでは保証しません。
+
+検証済みの展開cacheがあれば、networkへ接続せずに再利用します。
+展開cacheがなくても検証済みarchiveが残っていれば、`-Offline`で再展開できます。
+どちらもない場合、`-Offline`は必要なtool、version、SHA-256、期待するarchive pathを示して停止します。
+
+onlineの`-Force`は、同じrelease assetをもう一度取得し、archiveと新しいstagingを検証します。
+既存の正常cacheは同じSHA-256 identityなので置き換えず、再検証に成功したstagingを破棄して利用中のdirectoryを保ちます。
+展開やversion確認が失敗しても前のcacheは残り、buildとの間に実行fileを入れ替える競合を作りません。
+同時に二つのbootstrapが同じrootを使った場合は、後から来たprocessを明示的に停止し、partial downloadや共有stagingを正常cacheとして扱いません。
 
 ## build command
 
-リポジトリ直下から実行します。
+bootstrap後に、リポジトリ直下から実行します。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 ```
 
-生成物は`docs/learning/_build/`へ出し、`.gitignore`で除外します。
+custom rootを使う場合は、bootstrapとbuildの双方へ同じ`-ToolRoot`を渡します。
+buildは現在のprocessでだけ`QUARTO_TYPST`を設定し、終了時に元の値へ戻します。
+
+`check-references.ps1`は、repo path、BibTeX citekey、注釈台帳、本文citation、章末Further Readingをnetworkなしで検査します。
+実行成功は、URLが現在到達可能であることや、publisherの公式性をnetwork越しに証明しません。
+
+URLを再確認する場合だけ、次の明示commandを実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File docs/learning/check-reference-urls.ps1
+```
+
+この検査は各URLへHEADを送り、serverがHEADを受け付けない場合はGETへ切り替えます。
+外部networkの一時的な失敗をbook buildの失敗へしないため、通常のbuild gateには含めません。
+
+統合HTMLは`docs/learning/_build/site/`へ出します。
+学習者向けPDFは`docs/learning/_build/reader/material-decision-workbench-reader.pdf`へ出します。
+生成物を置く`docs/learning/_build/`は`.gitignore`で除外します。
 HTMLとPDFは配布時の確認物であり、手編集する正本ではありません。
 
 ## 採用しなかった範囲
@@ -63,14 +123,41 @@ EPUBは生成しません。
 試作ではpath存在確認、`verified_commit`、focused test、OpenAPI check、手動visual reviewを組み合わせます。
 class名や本文の意味まで自動判定する仕組みは、誤検出と保守コストを測ってから検討します。
 
+## 出力を分ける仕組み
+
+`_quarto-site.yml`は、学習者向け教材と編集と保守のガイドを二つのpartとしてHTMLへ収録します。
+検索索引は両方を対象とするため、読み始める入口と保守中に引く資料を一つのsiteから探せます。
+
+`_quarto-reader.yml`は、本編、演習、用語集、参考文献だけをPDFへ収録します。
+設計基準、書き手のペルソナ、コードマップ、学習ルート、組版手順、評価記録は読者用PDFの目次へ入れません。
+本文QMDを複製せず、二つのprofileから同じファイルを参照します。
+
 ## spikeの実測
 
-Windows上のclean buildは、cold側の計測で41.1秒、最終再実行で18.7秒でした。
-同じQuarto原稿から検索indexを持つHTMLと51ページのPDFを生成し、試作章はtitle pageを含めて16ページになりました。
+Windows上のclean buildでは、統合HTMLの23文書を22.83秒、学習者向けPDFの15文書を7.38秒で生成しました。
+`build.ps1`全体の実測は31.1秒でした。
+PDFは140ページであり、全ページを画像化して本文、脚注、数式、表、code、SVG図、header、footer、page transitionを確認しました。
+HTMLでは、表紙から本編へ一回の操作で移動できることと、書き手のペルソナを検索できることを実ブラウザで確認しました。
+
+## 演習解答の媒体変換
+
+原稿では、解答を`.exercise-solution` classと一意なanswer IDを持つfenced divへ一度だけ書きます。
+QuartoはLua filterをPandoc ASTへ適用できるため、`filters/exercise-solutions.lua`がこのblockの配置を変えます [@quarto-filters]。
+
+`site` profileは`solution-placement: inline-disclosure`を指定します。
+HTMLでは、filterがanswer IDを持つnativeの`details`要素を作り、`summary`を「解答例を見る」に固定します。
+WHATWGの標準では、`open`属性がない`details`は追加情報を隠し、利用者の要求で開閉します [@whatwg-details]。
+
+`reader` profileは`solution-placement: answer-chapter`を指定します。
+Typstでは、filterが各labの解答blockを集め、用語集の前へ「演習解答」章として挿入します。
+profileと出力形式の組合せが契約と違う場合、filterは解答を黙って欠落させずbuildを失敗させます。
+
+HTMLのCSSはkeyboard focusを色とoutlineで示します。
+印刷時は閉じた解答本文も表示する規則を持ちますが、browserのprint結果と学習者向けPDFは別々に確認します。
 
 比較候補の確認結果は次です。
 
-- **Quarto + Typst**：固定版binaryを一時領域から実行し、HTMLとPDFの両方を生成できた
+- **Quarto + Typst**：固定版binaryを一時領域から実行し、version管理したSVGを含むHTMLとPDFの両方を生成できた
 - **Quarto + LaTeX**：TeX engineを環境へ追加する必要があり、今回の原稿で得る追加価値より依存増加が大きいためbuild対象から外した
 - **Typst単独**：固定版binaryの起動は確認したが、同じ原稿から検索可能なHTMLを作る条件を満たさない
 - **mdBook**：環境に未導入であり、標準の主対象がWeb bookであるため、PDF用の第二pipelineを持つ案として不採用にした

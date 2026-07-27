@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-391",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 391,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/391",
+    "merge_commit": "ec0df39a4f003e978591a4f771b36c16f0f142d8"
+  },
+  "reviewed_against": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "previous_verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "new_verified_commit": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "AGENTS.md",
+      "semantic_impact": "wording-only",
+      "material_impact": ["test-command"],
+      "affected_claims": ["playwright-lane-ownership"],
+      "action": "updated",
+      "reason": "The repository instructions now distinguish the default Playwright lane from specs that own a dedicated configuration."
+    },
+    {
+      "path": "e2e/decision-navigation.spec.ts",
+      "semantic_impact": "none",
+      "material_impact": [],
+      "affected_claims": ["playwright-lane-ownership"],
+      "action": "no-change",
+      "reason": "The top-level navigation expectation follows the current Workspace entry without changing the verification chapter's locator guidance."
+    },
+    {
+      "path": "e2e/helpers.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["immutable-package-e2e-binding"],
+      "action": "updated",
+      "reason": "Project-creation helpers now select a compatible immutable Package through stable Dataset identity instead of pinning a revision-specific Package ID."
+    },
+    {
+      "path": "e2e/navigation-intent.spec.ts",
+      "semantic_impact": "none",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["immutable-package-e2e-binding"],
+      "action": "updated",
+      "reason": "The process-lineage spec now states the Dataset fixture it requires and lets the helper resolve the compatible Package."
+    },
+    {
+      "path": "e2e/project-hub.spec.ts",
+      "semantic_impact": "none",
+      "material_impact": [],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "no-change",
+      "reason": "The assertion no longer depends on Project order and does not change the ungroup lifecycle behavior or evidence claims."
+    },
+    {
+      "path": "playwright.config.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "affected_claims": ["playwright-lane-ownership"],
+      "action": "updated",
+      "reason": "The default lane explicitly excludes a spec that requires its own broken-runtime servers and dedicated configuration."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "playwright-lane-ownership",
+      "statement": "A default browser gate must only collect specs whose required servers, fixtures, ports, and cleanup are owned by that configuration; specialized failure-state specs run in their dedicated lane.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The verification chapter now explains why testIgnore is configuration ownership rather than evidence suppression.",
+      "evidence": [
+        {
+          "path": "playwright.config.ts",
+          "symbol": "testIgnore"
+        },
+        {
+          "path": "AGENTS.md",
+          "symbol": "chain-degraded.spec.ts"
+        }
+      ],
+      "verification": [
+        "Review playwright.config.ts against the dedicated chain-degraded configuration and repository instructions.",
+        "Run focused fresh-server specs in the lane that owns their required servers."
+      ]
+    },
+    {
+      "claim_id": "immutable-package-e2e-binding",
+      "statement": "An E2E that needs concrete Dataset keys selects a stable Dataset fixture and resolves a current compatible immutable Package rather than pinning a Package ID that changes on revision.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link"],
+      "action": "updated",
+      "reason": "The helper now exposes the scientific fixture intent and prints usable Dataset to Package pairs when no compatible binding exists.",
+      "evidence": [
+        {
+          "path": "e2e/helpers.ts",
+          "symbol": "resolveProjectBinding"
+        },
+        {
+          "path": "e2e/navigation-intent.spec.ts",
+          "symbol": "material_workbench_process_v1.xlsx"
+        }
+      ],
+      "verification": [
+        "Run the navigation-intent spec on fresh servers.",
+        "Review the helper failure message for available Dataset and Package pairs."
+      ]
+    },
+    {
+      "claim_id": "project-series-membership-removal",
+      "statement": "The Project ungroup browser evidence is unchanged when an unrelated order-dependent Dataset assertion is made stable.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #391 changes a later Project Hub assertion and leaves the focused ungroup test body untouched.",
+      "evidence": [
+        {
+          "path": "e2e/project-hub.spec.ts",
+          "symbol": "a project can leave its group and become ungrouped again"
+        }
+      ],
+      "verification": [
+        "Review the PR #391 diff against the focused ungroup test."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector found the verification chapter's Playwright config and the Project lifecycle chapter's focused browser evidence.",
+    "focused_tests": "The fresh isolated-server navigation-intent suite passed 16 in 44.4 seconds, including both developer-guide paths and Dataset-bound lineage paths.",
+    "api_check": "PR #391 changes test configuration and helpers without changing the application API contract.",
+    "code_reference_check": "Validated 28 documents and 789 structured code references; current-main drift detection found no referenced implementation drift.",
+    "html_build": "The final integrated site build passed for 42 documents with 332 exact code links in 52.76 seconds.",
+    "pdf_build": "The final Reader build passed in 24.81 seconds: 358 A4 pages, 13,266,549 bytes, SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004.",
+    "visual_review": "Pages 245-246 containing the reflowed Playwright lane guidance were inspected at readable resolution with no overflow, overlap, cutoff, table, code-link, or page-break defects."
+  },
+  "reviewer_note": "The record does not claim the default browser suite is fully green while the developer-guide failure remains separately tracked in Issue #390."
+}

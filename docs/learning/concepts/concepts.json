@@ -1,0 +1,2722 @@
+{
+  "$schema": "./concept.schema.json",
+  "schema_version": 1,
+  "repository": "mryk814/re-process-dashboard",
+  "verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "categories": [
+    {
+      "id": "identity-evidence",
+      "title": "IdentityとEvidence"
+    },
+    {
+      "id": "data",
+      "title": "Data"
+    },
+    {
+      "id": "model",
+      "title": "Model"
+    },
+    {
+      "id": "decision",
+      "title": "Decision"
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture"
+    },
+    {
+      "id": "ui-testing",
+      "title": "UIとTesting"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "contract-through-stack",
+      "title": "型付き契約をPythonからReactまで通す",
+      "path": "chapters/contract-through-stack.qmd"
+    },
+    {
+      "id": "extend-contract",
+      "title": "演習：契約変更の影響範囲を予測する",
+      "path": "labs/extend-contract.qmd"
+    },
+    {
+      "id": "decision-safety",
+      "title": "予測と判断のあいだを設計する",
+      "path": "chapters/decision-safety.qmd"
+    },
+    {
+      "id": "source-to-training-evidence",
+      "title": "Source更新を学習から切り離す",
+      "path": "chapters/source-to-training-evidence.qmd"
+    },
+    {
+      "id": "trace-source-evidence",
+      "title": "演習：行が学習対象になるまでを追跡する",
+      "path": "labs/trace-source-evidence.qmd"
+    },
+    {
+      "id": "revision-and-digest",
+      "title": "順番と内容を別々に識別する",
+      "path": "chapters/revision-and-digest.qmd"
+    },
+    {
+      "id": "trace-revision-conflict",
+      "title": "演習：二つの順番と遅いresponseを判定する",
+      "path": "labs/trace-revision-conflict.qmd"
+    },
+    {
+      "id": "trust-a-migrated-database",
+      "title": "過去のDBを現在の契約で信用する",
+      "path": "chapters/trust-a-migrated-database.qmd"
+    },
+    {
+      "id": "break-and-repair-migration",
+      "title": "演習：migrationの矛盾を再現して診断する",
+      "path": "labs/break-and-repair-migration.qmd"
+    },
+    {
+      "id": "separate-archive-from-purge",
+      "title": "一覧から外すことと証拠を消すことを分ける",
+      "path": "chapters/separate-archive-from-purge.qmd"
+    },
+    {
+      "id": "trace-project-lifecycle",
+      "title": "演習：Projectの証拠を残したまま作業を終える",
+      "path": "labs/trace-project-lifecycle.qmd"
+    },
+    {
+      "id": "restore-workspace-safely",
+      "title": "Workspaceを切り替える前に復元を確かめる",
+      "path": "chapters/restore-workspace-safely.qmd"
+    },
+    {
+      "id": "trace-workspace-restore",
+      "title": "演習：復元途中のWorkspaceを診断する",
+      "path": "labs/trace-workspace-restore.qmd"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "logical-identity",
+      "term_ja": "論理identity",
+      "term_en": "logical identity",
+      "aliases": [
+        "logical ID"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "変更版をまたいで同じ継続対象を指す識別子で、Candidateでは`id`が担います。",
+      "anti_definitions": [
+        "内容が同じであることを示すdigestではありません。"
+      ],
+      "not_same_as": [
+        "semantic-digest",
+        "revision"
+      ],
+      "prerequisites": [],
+      "related": [
+        "snapshot"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "revision",
+      "term_ja": "リビジョン",
+      "term_en": "revision",
+      "aliases": [
+        "Candidate revision"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "同じ論理対象について受理された変更の順番で、Candidateでは保存競合の検出と過去版参照に使います。",
+      "anti_definitions": [
+        "内容が同じであることを示すhashではありません。"
+      ],
+      "not_same_as": [
+        "logical-identity",
+        "semantic-digest"
+      ],
+      "prerequisites": [
+        "logical-identity"
+      ],
+      "related": [
+        "optimistic-concurrency"
+      ],
+      "math_connections": [
+        "単調増加する整数として順序だけを表し、距離や内容差を表しません"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "revision値が大きいほど内容が良い、という尺度ではありません。"
+      ]
+    },
+    {
+      "id": "semantic-digest",
+      "term_ja": "意味表現digest",
+      "term_en": "semantic digest",
+      "aliases": [
+        "content identity"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "callerが契約で選んだfieldを決定的に正規化して計算する内容identityです。",
+      "anti_definitions": [
+        "科学的意味の同値性を自動証明する値ではありません。"
+      ],
+      "not_same_as": [
+        "byte-digest",
+        "revision"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "binding-provenance"
+      ],
+      "math_connections": [
+        "同じcanonical byte列へ同じhash関数を適用したときに同じ値になります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/execution/inference_work_graph.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": [
+        "pathや表示名を含めるかはhash関数ではなくcallerの契約が決めます。"
+      ]
+    },
+    {
+      "id": "byte-digest",
+      "term_ja": "byte digest",
+      "term_en": "byte digest",
+      "aliases": [
+        "SHA-256"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Sourceまたはartifactの実際のbyte列へSHA-256を適用し、破損と取り違えを検出する値です。",
+      "anti_definitions": [
+        "artifact提供者の真正性を認証する署名ではありません。"
+      ],
+      "not_same_as": [
+        "semantic-digest"
+      ],
+      "prerequisites": [],
+      "related": [
+        "workspace-bundle"
+      ],
+      "math_connections": [
+        "入力byte列が一bitでも変われば別値になることを期待する暗号学的hashです"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "immutable-evidence",
+      "term_ja": "不変な判断証拠",
+      "term_en": "immutable evidence",
+      "aliases": [
+        "saved evidence"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "保存後に最新状態で上書きせず、実行時の入力identity、契約、結果を一組として残すSnapshotやRunです。",
+      "anti_definitions": [
+        "最新Packageで自動再計算されるcacheではありません。"
+      ],
+      "not_same_as": [
+        "server-state"
+      ],
+      "prerequisites": [
+        "snapshot",
+        "provenance"
+      ],
+      "related": [
+        "project-archive"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "role": "persistence"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "snapshot",
+      "term_ja": "スナップショット",
+      "term_en": "snapshot",
+      "aliases": [
+        "Prediction Snapshot"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "特定Candidate revisionに対する予測とモデルidentityを固定し、後のPackage変更でも再計算しない保存recordです。",
+      "anti_definitions": [
+        "現在の入力を再評価する一時cacheではありません。"
+      ],
+      "not_same_as": [
+        "server-state"
+      ],
+      "prerequisites": [
+        "revision",
+        "provenance"
+      ],
+      "related": [
+        "training-snapshot"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "provenance",
+      "term_ja": "来歴",
+      "term_en": "provenance",
+      "aliases": [
+        "lineage"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "結果を作ったTask、Candidate revision、Model Package、Feature Pipeline、学習データを再特定する情報です。",
+      "anti_definitions": [
+        "結果が科学的に正しいことの保証ではありません。"
+      ],
+      "not_same_as": [
+        "calibration"
+      ],
+      "prerequisites": [],
+      "related": [
+        "immutable-evidence"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "binding-provenance",
+      "term_ja": "結び付け来歴",
+      "term_en": "binding provenance",
+      "aliases": [],
+      "category": "identity-evidence",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "RunがProjectのどのDesign SpaceまたはObjective revisionとdigestを使ったかを実行時に固定する情報です。",
+      "anti_definitions": [],
+      "not_same_as": [
+        "provenance"
+      ],
+      "prerequisites": [
+        "revision",
+        "semantic-digest"
+      ],
+      "related": [
+        "objective-definition"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/proposal_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [
+        "現在のProject設定を読むだけでは、過去Runが使った設定を再現できません。"
+      ]
+    },
+    {
+      "id": "optimistic-concurrency",
+      "term_ja": "楽観的並行制御",
+      "term_en": "optimistic concurrency",
+      "aliases": [
+        "compare-and-swap"
+      ],
+      "category": "identity-evidence",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "編集中にlockを保持せず、保存時に`expected_revision`とcurrent revisionを同一UPDATE内で比較してlost updateを拒否する方式です。",
+      "anti_definitions": [
+        "複数利用者の編集を自動mergeする方式ではありません。"
+      ],
+      "not_same_as": [
+        "request-sequence"
+      ],
+      "prerequisites": [
+        "revision"
+      ],
+      "related": [
+        "typed-error"
+      ],
+      "math_connections": [
+        "更新条件をcurrent revisionとexpected revisionの等値比較として表します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "role": "persistence"
+        }
+      ],
+      "common_misconceptions": [],
+      "ui_mapping": {
+        "general": "楽観的並行制御",
+        "internal": "expected_revision / CandidateRevisionConflictError",
+        "ui": "別の操作で更新されています"
+      }
+    },
+    {
+      "id": "stale-response",
+      "term_ja": "古い応答",
+      "term_en": "stale response",
+      "aliases": [
+        "stale result"
+      ],
+      "category": "identity-evidence",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "応答到着時にProject、Candidate、revision、operation identityが現在の画面文脈と一致しないため破棄すべき応答です。",
+      "anti_definitions": [
+        "HTTPとして失敗した応答だけを指す語ではありません。"
+      ],
+      "not_same_as": [
+        "typed-error"
+      ],
+      "prerequisites": [
+        "revision",
+        "server-state"
+      ],
+      "related": [
+        "request-sequence"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/workbench/decisionActivityState.ts",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "request-sequence",
+      "term_ja": "request連番",
+      "term_en": "request sequence",
+      "aliases": [
+        "request generation"
+      ],
+      "category": "identity-evidence",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "同じ画面identityで開始したrequestを順番に区別し、先に始めたresponseが後の結果を上書きしないようにするfrontend内の連番です。",
+      "anti_definitions": [],
+      "not_same_as": [
+        "revision",
+        "optimistic-concurrency"
+      ],
+      "prerequisites": [
+        "server-state"
+      ],
+      "related": [
+        "stale-response"
+      ],
+      "math_connections": [
+        "開始順の単調増加整数として比較します"
+      ],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/workbench/inferenceSurfaceState.ts",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "raw-source-snapshot",
+      "term_ja": "Raw Source Snapshot",
+      "term_en": "Raw Source Snapshot",
+      "aliases": [
+        "raw snapshot"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Connectorから取得した選択済みraw record、source byte hash、locator、差分summaryを変更せず固定する取得成果物です。",
+      "anti_definitions": [
+        "品質確認を終えたCanonical Datasetではありません。"
+      ],
+      "not_same_as": [
+        "training-snapshot"
+      ],
+      "prerequisites": [
+        "byte-digest"
+      ],
+      "related": [
+        "curation-recipe"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "canonical-input",
+      "term_ja": "正規入力",
+      "term_en": "canonical input",
+      "aliases": [
+        "canonical candidate input"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "source固有の列名、単位、表現をTaskが解釈できるfieldと単位へ変換した候補入力です。",
+      "anti_definitions": [
+        "source workbookの列名をそのまま共通語にしたものではありません。"
+      ],
+      "not_same_as": [
+        "feature-pipeline"
+      ],
+      "prerequisites": [
+        "dataset-profile"
+      ],
+      "related": [
+        "design-space"
+      ],
+      "math_connections": [
+        "単位変換は量の次元とscaleを保つ必要があります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "dataset-profile",
+      "term_ja": "Dataset Profile",
+      "term_en": "Dataset Profile",
+      "aliases": [
+        "input profile"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "sourceのsheet、列、entity、relation、observation、単位をcanonicalな意味へ対応付ける版付き解釈です。",
+      "anti_definitions": [
+        "モデル入力を作るFeature Pipelineではありません。"
+      ],
+      "not_same_as": [
+        "feature-pipeline"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "canonical-input"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/data/dataset_profile.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "curation-recipe",
+      "term_ja": "Curation Recipe",
+      "term_en": "Curation Recipe",
+      "aliases": [],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Raw Snapshotへ適用するallow-list済みtrim、数値変換、必須field、filterを順序付きで固定する版付き処理列です。",
+      "anti_definitions": [
+        "学習時に任意Python式を実行するpluginではありません。"
+      ],
+      "not_same_as": [
+        "feature-pipeline"
+      ],
+      "prerequisites": [
+        "raw-source-snapshot"
+      ],
+      "related": [
+        "quarantine"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "target-eligibility",
+      "term_ja": "目的変数利用可否",
+      "term_en": "target eligibility",
+      "aliases": [],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "source行を消さず、各targetの学習行として利用できるかを理由とともに持つ判定です。",
+      "anti_definitions": [
+        "row全体の品質を一つの真偽値へ潰す判定ではありません。"
+      ],
+      "not_same_as": [
+        "quarantine"
+      ],
+      "prerequisites": [
+        "curation-recipe"
+      ],
+      "related": [
+        "training-cohort"
+      ],
+      "math_connections": [
+        "targetごとにindicatorを持つため、cohortの分母が変わります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [],
+      "ui_mapping": {
+        "general": "目的変数利用可否",
+        "internal": "target_eligible: boolean",
+        "ui": "目的変数として利用可／目的変数として利用不可"
+      }
+    },
+    {
+      "id": "split-group",
+      "term_ja": "分割group",
+      "term_en": "split group",
+      "aliases": [
+        "group split"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "同じ親実験に属する観測をtrainとholdoutへ跨がせないため、分割単位を共有させるkeyです。",
+      "anti_definitions": [
+        "画面表示のための任意group labelではありません。"
+      ],
+      "not_same_as": [
+        "training-cohort"
+      ],
+      "prerequisites": [
+        "dataset-profile"
+      ],
+      "related": [
+        "leakage"
+      ],
+      "math_connections": [
+        "独立性を観測rowではなく親実験groupへ置く分割です"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/data/observation_profile.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "leakage",
+      "term_ja": "データ漏洩",
+      "term_en": "data leakage",
+      "aliases": [
+        "group leakage"
+      ],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "同じ親実験由来の情報が学習側と評価側へ跨がり、未観測データへの性能より楽観的な評価を作る状態です。",
+      "anti_definitions": [
+        "機密情報が外部へ流出するsecurity incidentだけを指す語ではありません。"
+      ],
+      "not_same_as": [
+        "trust-boundary"
+      ],
+      "prerequisites": [
+        "split-group"
+      ],
+      "related": [
+        "calibration"
+      ],
+      "math_connections": [
+        "holdout errorの推定対象と標本の独立性を壊します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/chain_evaluation_builder.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "quarantine",
+      "term_ja": "隔離",
+      "term_en": "quarantine",
+      "aliases": [],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "数値変換不能や必須欠損など意味を一意に決められないrowを、理由付きで保持しつつ通常承認から除外する品質状態です。",
+      "anti_definitions": [
+        "正常な評価用holdoutを置く場所ではありません。"
+      ],
+      "not_same_as": [
+        "target-eligibility"
+      ],
+      "prerequisites": [
+        "curation-recipe"
+      ],
+      "related": [
+        "training-snapshot"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/domain/data_lifecycle.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "training-snapshot",
+      "term_ja": "Training Snapshot",
+      "term_en": "Training Snapshot",
+      "aliases": [],
+      "category": "data",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "明示承認済みCanonical Datasetから、versioned selection policyとtarget eligibilityで学習行を固定する不変成果物です。",
+      "anti_definitions": [
+        "再学習またはactive Package切替の命令ではありません。"
+      ],
+      "not_same_as": [
+        "raw-source-snapshot",
+        "model-package"
+      ],
+      "prerequisites": [
+        "target-eligibility",
+        "quarantine"
+      ],
+      "related": [
+        "training-cohort"
+      ],
+      "math_connections": [
+        "学習標本数とtarget別cohortを固定します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "training-cohort",
+      "term_ja": "学習cohort",
+      "term_en": "training cohort",
+      "aliases": [
+        "target cohort"
+      ],
+      "category": "data",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "一つの目的変数の学習へ使う観測集合で、探索可能なDataset全体やProject参照dataとは一致しない場合があります。",
+      "anti_definitions": [
+        "Datasetに存在する全rowの別名ではありません。"
+      ],
+      "not_same_as": [
+        "training-snapshot"
+      ],
+      "prerequisites": [
+        "training-snapshot"
+      ],
+      "related": [
+        "target-eligibility"
+      ],
+      "math_connections": [
+        "targetごとの標本集合と分母を定めます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/training_snapshot_adapter.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "feature-pipeline",
+      "term_ja": "Feature Pipeline",
+      "term_en": "Feature Pipeline",
+      "aliases": [
+        "feature transformation"
+      ],
+      "category": "model",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "canonical inputを、JSONで宣言したallow-list済み変換によって順序固定のモデル特徴量へ変える版付き処理です。",
+      "anti_definitions": [
+        "source列名をcanonical meaningへ対応付けるDataset Profileではありません。"
+      ],
+      "not_same_as": [
+        "dataset-profile"
+      ],
+      "prerequisites": [
+        "canonical-input"
+      ],
+      "related": [
+        "model-package"
+      ],
+      "math_connections": [
+        "特徴量の順序と変換parameterを固定します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/feature_pipeline.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "model-package",
+      "term_ja": "Model Package",
+      "term_en": "Model Package",
+      "aliases": [
+        "model artifact package"
+      ],
+      "category": "model",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "manifest、data-onlyな学習済みartifact、Feature Pipeline、学習来歴、smoke例を一つにした検証可能な成果物です。",
+      "anti_definitions": [
+        "任意Pythonコードを実行するpluginではありません。"
+      ],
+      "not_same_as": [
+        "training-snapshot",
+        "runtime-adapter"
+      ],
+      "prerequisites": [
+        "feature-pipeline",
+        "training-snapshot"
+      ],
+      "related": [
+        "active-package"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "runtime-adapter",
+      "term_ja": "Runtime adapter",
+      "term_en": "Runtime adapter",
+      "aliases": [],
+      "category": "model",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Packageの`runtime_type`をallow-listで解決し、安全なartifactから予測要約を計算するアプリ本体側実装です。",
+      "anti_definitions": [
+        "Package内から動的importする任意codeではありません。"
+      ],
+      "not_same_as": [
+        "model-package"
+      ],
+      "prerequisites": [
+        "model-package",
+        "adapter"
+      ],
+      "related": [
+        "runtime-capability"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/runtime.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "runtime-capability",
+      "term_ja": "Runtime Capability",
+      "term_en": "Runtime Capability",
+      "aliases": [
+        "prediction capability"
+      ],
+      "category": "model",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "targetごとにpoint、quantile、標準偏差、sample、達成確率のうち何を返せるかを明示する機械可読契約です。",
+      "anti_definitions": [
+        "宣言されていない表現を近似生成してよいという許可ではありません。"
+      ],
+      "not_same_as": [
+        "predictive-summary"
+      ],
+      "prerequisites": [
+        "runtime-adapter"
+      ],
+      "related": [
+        "predictive-summary"
+      ],
+      "math_connections": [
+        "利用可能な統計量の集合を契約として表します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "predictive-summary",
+      "term_ja": "予測要約",
+      "term_en": "Predictive Summary",
+      "aliases": [
+        "prediction summary"
+      ],
+      "category": "model",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "runtime固有出力をtarget、単位、代表値、quantile、分布情報へ揃える内部共通表現です。",
+      "anti_definitions": [
+        "一つのconfidence scoreへ不確かさを潰した値ではありません。"
+      ],
+      "not_same_as": [
+        "runtime-capability",
+        "support"
+      ],
+      "prerequisites": [
+        "runtime-capability"
+      ],
+      "related": [
+        "calibration"
+      ],
+      "math_connections": [
+        "期待値、median、quantile、sampleを同義にせず別fieldとして扱います"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "calibration",
+      "term_ja": "較正",
+      "term_en": "calibration",
+      "aliases": [
+        "coverage calibration"
+      ],
+      "category": "model",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Chain評価などのholdoutで、予測区間の名目被覆率と実測被覆率のずれを評価する性質です。",
+      "anti_definitions": [
+        "一つのcoverage値だけでモデル全体の妥当性を保証する判定ではありません。"
+      ],
+      "not_same_as": [
+        "provenance",
+        "support"
+      ],
+      "prerequisites": [
+        "predictive-summary",
+        "split-group"
+      ],
+      "related": [
+        "leakage"
+      ],
+      "math_connections": [
+        "名目確率と経験被覆率の差をcohortごとに評価します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/chain_evaluation_builder.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": [
+        "現行では全runtime共通のresponse fieldではなく、評価subsystemで使う概念です。"
+      ]
+    },
+    {
+      "id": "support",
+      "term_ja": "学習dataによる裏付け",
+      "term_en": "support",
+      "aliases": [
+        "training support"
+      ],
+      "category": "model",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "候補が学習入力範囲や近傍観測からどの程度外れているかを示す距離と警告の要約です。",
+      "anti_definitions": [
+        "予測が正しい確率ではありません。",
+        "confidence levelやモデル不確実性そのものではありません。"
+      ],
+      "not_same_as": [
+        "predictive-summary",
+        "calibration"
+      ],
+      "prerequisites": [
+        "feature-pipeline"
+      ],
+      "related": [
+        "extrapolation"
+      ],
+      "math_connections": [
+        "正規化距離の分母と学習範囲を明示する必要があります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [],
+      "ui_mapping": {
+        "general": "学習dataによる裏付け",
+        "internal": "support.status: supported | caution | extrapolated",
+        "ui": "範囲内／要確認／外挿"
+      }
+    },
+    {
+      "id": "extrapolation",
+      "term_ja": "外挿",
+      "term_en": "extrapolation",
+      "aliases": [
+        "out-of-support prediction"
+      ],
+      "category": "model",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "候補入力が学習時に観測した範囲またはadapter固有のsupport境界を外れた状態です。",
+      "anti_definitions": [
+        "予測値が必ず誤りであるという判定ではありません。"
+      ],
+      "not_same_as": [
+        "support"
+      ],
+      "prerequisites": [
+        "support"
+      ],
+      "related": [
+        "robustness"
+      ],
+      "math_connections": [
+        "距離または範囲判定の定義がsubsystemごとに異なります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activity_robustness.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": [
+        "repo全体で一つの統一距離を使う契約ではありません。"
+      ]
+    },
+    {
+      "id": "active-package",
+      "term_ja": "Active Package",
+      "term_en": "active Package",
+      "aliases": [
+        "active model"
+      ],
+      "category": "model",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Taskごとに通常推論へ使う検証済みPackageを`models/active-packages.json`で明示選択した状態です。",
+      "anti_definitions": [
+        "Training Snapshot作成時に自動で切り替わる最新モデルではありません。"
+      ],
+      "not_same_as": [
+        "model-package"
+      ],
+      "prerequisites": [
+        "model-package"
+      ],
+      "related": [
+        "immutable-evidence"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/modeling/model_lifecycle.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "design-space",
+      "term_ja": "Project Design Space",
+      "term_en": "Project Design Space",
+      "aliases": [
+        "Design Space"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Project内でCandidateが取り得る数値域、category、条件付き有効化、組成合計制約を版付きで定義する契約です。",
+      "anti_definitions": [
+        "画面requestごとに自由入力する一時rangeではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition"
+      ],
+      "prerequisites": [
+        "canonical-input"
+      ],
+      "related": [
+        "candidate-generator"
+      ],
+      "math_connections": [
+        "feasible setとしてvariable domainとconstraintを定めます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/design_space_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "objective-definition",
+      "term_ja": "Objective Definition",
+      "term_en": "Objective Definition",
+      "aliases": [
+        "objective"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "主目的、方向、target、必須制約、incumbentなど判断目標の意味を版付きで固定するProject契約です。",
+      "anti_definitions": [
+        "モデルが学習したtarget一覧の別名ではありません。"
+      ],
+      "not_same_as": [
+        "design-space"
+      ],
+      "prerequisites": [
+        "design-space"
+      ],
+      "related": [
+        "hard-constraint",
+        "soft-preference"
+      ],
+      "math_connections": [
+        "maximizeとminimizeの方向、feasibility、基準値を固定します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "candidate-generator",
+      "term_ja": "候補生成器",
+      "term_en": "Candidate Generator",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Design Space内の点をLatin hypercube、Sobol、bounded simplexなど登録済み方式で決定的に生成する処理です。",
+      "anti_definitions": [
+        "予測scoreで候補を順位付けする獲得関数ではありません。"
+      ],
+      "not_same_as": [
+        "acquisition-function",
+        "batch-selector"
+      ],
+      "prerequisites": [
+        "design-space",
+        "registry"
+      ],
+      "related": [
+        "acquisition-function"
+      ],
+      "math_connections": [
+        "feasible setから有限個の評価点を生成します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/domain/proposal_generation.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "acquisition-function",
+      "term_ja": "獲得関数",
+      "term_en": "Acquisition Function",
+      "aliases": [
+        "acquisition"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "予測要約とObjectiveからgoal achievement、UCB、expected improvementの評価値を計算する登録済み関数です。",
+      "anti_definitions": [
+        "Candidateを生成するDesign Space samplerではありません。"
+      ],
+      "not_same_as": [
+        "candidate-generator",
+        "batch-selector"
+      ],
+      "prerequisites": [
+        "objective-definition",
+        "predictive-summary"
+      ],
+      "related": [
+        "incumbent"
+      ],
+      "math_connections": [
+        "期待改善量または上側信頼境界など、Objectiveに対応したscalar scoreを計算します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/domain/proposal_acquisition.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "screening-purpose",
+      "term_ja": "探索目的",
+      "term_en": "Screening purpose",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Screening Runが答える問いを、「領域を見る」「有望候補を探す」「保存済み探索から実験batchを組む」の三つに固定する契約です。",
+      "anti_definitions": [
+        "同じ計算結果を見せ分けるだけの画面tabではありません。",
+        "領域を見るRunは、目標最適化の成否を答えるRunではありません。",
+        "実験batchを組むRunは、元の有望候補Runと独立に候補を再生成するRunではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition",
+        "batch-selector"
+      ],
+      "prerequisites": [
+        "design-space"
+      ],
+      "related": [
+        "objective-definition",
+        "batch-selector",
+        "incumbent",
+        "snapshot"
+      ],
+      "math_connections": [
+        "問いごとに、support distance、Objective score、集合選択へ使える証拠を分けます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/application/screening.py",
+          "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningPage.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "e2e/screening-workbench.spec.ts",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "実験batchは、保存した有望候補Runの選抜済みpoints、strategy、incumbent、Objective証拠を引き継いで選びます。"
+      ]
+    },
+    {
+      "id": "batch-selector",
+      "term_ja": "batch選択器",
+      "term_en": "Batch Selector",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "acquisition順位済みのshortlistから、control、cost、quota、setup、多様性を考慮して実験集合を選ぶ処理です。",
+      "anti_definitions": [
+        "acquisition score上位を無条件に先頭から取る処理ではありません。",
+        "候補の生成、保存Runの検証、Objective証拠の解決まで担う処理ではありません。"
+      ],
+      "not_same_as": [
+        "candidate-generator",
+        "acquisition-function"
+      ],
+      "prerequisites": [
+        "acquisition-function"
+      ],
+      "related": [
+        "hard-constraint",
+        "screening-purpose"
+      ],
+      "math_connections": [
+        "候補単独のvalueと集合全体のdiversityやresource制約を分けます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/domain/batch_selector.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "incumbent",
+      "term_ja": "現時点の基準候補",
+      "term_en": "incumbent",
+      "aliases": [
+        "current best"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "observed best、保存Prediction Snapshot、Project decisionのいずれを使うか明示的に解決したObjective比較の基準です。",
+      "anti_definitions": [
+        "常にtraining data内の最大実測値を使う固定値ではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition"
+      ],
+      "prerequisites": [
+        "objective-definition",
+        "snapshot"
+      ],
+      "related": [
+        "acquisition-function"
+      ],
+      "math_connections": [
+        "expected improvementでは改善量の基準値になります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/screening.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "robustness",
+      "term_ja": "入力ばらつきに対する頑健性",
+      "term_en": "robustness",
+      "aliases": [
+        "Robustness Activity"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Candidate入力をTolerance Profileに従って変動させ、入力ばらつき、worst value、critical inputを計算し、Projectに目標がある特性だけ目標達成率も計算するDecision Activityです。",
+      "anti_definitions": [
+        "モデルparameterの不確かさだけを評価する指標ではありません。",
+        "目標未設定時の未計算を、達成率0または解析失敗とみなすものではありません。"
+      ],
+      "not_same_as": [
+        "calibration"
+      ],
+      "prerequisites": [
+        "design-space",
+        "predictive-summary"
+      ],
+      "related": [
+        "extrapolation"
+      ],
+      "math_connections": [
+        "入力分布からMonte Carlo sampleを作り、失敗率と分位点を推定します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activity_robustness.py",
+          "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "e2e/decision-activity.spec.ts",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "counterfactual",
+      "term_ja": "条件変更案",
+      "term_en": "counterfactual",
+      "aliases": [
+        "Counterfactual Activity"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Design Space内で変更量を正規化し、Objectiveを点予測で満たす候補または満たせない理由を探索し、各案のcanonical Predictionを固定して、利用可能な予測区間を点判定と分けて示すDecision Activityです。",
+      "anti_definitions": [
+        "因果介入や達成保証を自動的に意味しません。",
+        "Design Space外の自由な変更ではありません。",
+        "「達成」は点予測による判定であり、予測区間全体が目標を満たす保証ではありません。",
+        "Predictionに区間情報がない場合へ、区間を補うものではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition"
+      ],
+      "prerequisites": [
+        "design-space",
+        "objective-definition"
+      ],
+      "related": [
+        "robustness"
+      ],
+      "math_connections": [
+        "変更量をvariable rangeで正規化し、制約付き探索として扱います"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activity_counterfactual.py",
+          "role": "application"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts",
+          "role": "frontend"
+        },
+        {
+          "path": "backend/tests/test_counterfactual_activity.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "hard-constraint",
+      "term_ja": "必須制約",
+      "term_en": "hard constraint",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "主目的とは別に満たす必要があり、proposal実行時にfeasibilityを判定するObjective termです。",
+      "anti_definitions": [
+        "違反してもweight次第で採用できるsoft preferenceではありません。"
+      ],
+      "not_same_as": [
+        "soft-preference"
+      ],
+      "prerequisites": [
+        "objective-definition"
+      ],
+      "related": [
+        "batch-selector"
+      ],
+      "math_connections": [
+        "不等式または許容集合としてfeasibilityを定めます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "soft-preference",
+      "term_ja": "選好条件",
+      "term_en": "soft preference",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "future",
+      "status_note": "Objective contractと一部Decision Activityには表現がありますが、通常Proposal engineはsoft preferenceを含むObjectiveの実行をまだ受理しません。",
+      "definition": "違反を即座に不適格とせず、候補比較のpenaltyまたは優先度へ反映する条件です。",
+      "anti_definitions": [
+        "満たさなければ候補を必ず除外する必須制約ではありません。"
+      ],
+      "not_same_as": [
+        "hard-constraint"
+      ],
+      "prerequisites": [
+        "objective-definition"
+      ],
+      "related": [],
+      "math_connections": [
+        "penaltyまたはutility termとして目的へ加える候補です"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "pareto-front",
+      "term_ja": "Pareto前線",
+      "term_en": "Pareto front",
+      "aliases": [
+        "non-dominated set"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "future",
+      "status_note": "現行は`pareto_multi_objective`契約を保存できますが、proposal実行planはこのkindを明示的に拒否します。",
+      "definition": "複数目的で、ほかの候補から全目的について劣らず少なくとも一目的で勝るという支配を受けない候補集合です。",
+      "anti_definitions": [
+        "重み付き和で最大の一点を言い換えたものではありません。"
+      ],
+      "not_same_as": [
+        "incumbent"
+      ],
+      "prerequisites": [
+        "objective-definition"
+      ],
+      "related": [
+        "batch-selector"
+      ],
+      "math_connections": [
+        "多目的dominance relationから非支配集合を定義します"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/objective_execution.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "decision-activity",
+      "term_ja": "検討Activity",
+      "term_en": "Decision Activity",
+      "aliases": [
+        "decision support activity"
+      ],
+      "category": "decision",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "保存済みCandidateと予測証拠を入力に、差分、頑健性、条件変更案など一つの判断質問へ答える型付き計算です。",
+      "anti_definitions": [
+        "CandidateやProjectを自動採用する意思決定主体ではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition"
+      ],
+      "prerequisites": [
+        "contract",
+        "snapshot"
+      ],
+      "related": [
+        "robustness",
+        "counterfactual"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "legacy-screening-objective",
+      "term_ja": "旧Screening Objective",
+      "term_en": "legacy screening objective",
+      "aliases": [],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "historical",
+      "status_note": "互換読込と履歴のためcontractには残りますが、新規ProjectのObjective設計として使う概念ではありません。現行ScreeningのObjective provenance値`legacy_screening`は、領域を見るRunの内部表現にも使われるため、この旧保存形式の別名とは扱いません。",
+      "definition": "現在のObjective Definitionへ移行する前に、Screening専用fieldで判断目標を表していた保存形式です。",
+      "anti_definitions": [
+        "新規実装で選ぶ標準Objective kindではありません。"
+      ],
+      "not_same_as": [
+        "objective-definition"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "contract",
+      "term_ja": "契約",
+      "term_en": "contract",
+      "aliases": [
+        "typed contract"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "request、response、保存payload、Taskが満たすshape、意味、versionをPydantic modelなどで固定した約束です。",
+      "anti_definitions": [
+        "field名と型だけを並べたschemaではありません。"
+      ],
+      "not_same_as": [
+        "domain-invariant"
+      ],
+      "prerequisites": [],
+      "related": [
+        "generated-artifact"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "domain-invariant",
+      "term_ja": "domain不変条件",
+      "term_en": "domain invariant",
+      "aliases": [
+        "business invariant"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "CandidateがDesign Space内にあることなど、保存手段やHTTPから独立して受理後に必ず成立させる条件です。",
+      "anti_definitions": [
+        "Pydanticのshape validationだけで保証できる条件とは限りません。"
+      ],
+      "not_same_as": [
+        "contract"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "integration-test"
+      ],
+      "math_connections": [
+        "許容集合または状態遷移の前後条件として表せます"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/domain/design_space_validation.py",
+          "role": "domain"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "application-service",
+      "term_ja": "Application Service",
+      "term_en": "application service",
+      "aliases": [
+        "use-case service"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "APIから業務操作を受け、domain処理、runtime、repositoryを協調させるuse case単位の層です。",
+      "anti_definitions": [
+        "HTTP parameterをそのままSQLへ渡す薄いwrapperではありません。"
+      ],
+      "not_same_as": [
+        "repository"
+      ],
+      "prerequisites": [
+        "contract",
+        "domain-invariant"
+      ],
+      "related": [
+        "adapter"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activities.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "repository",
+      "term_ja": "Repository",
+      "term_en": "repository",
+      "aliases": [
+        "persistence repository"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Data LifecycleやSeriesなどの保存、取得、transaction境界をSQLite表現へ閉じ込める永続化componentです。",
+      "anti_definitions": [
+        "Git repositoryの意味ではありません。"
+      ],
+      "not_same_as": [
+        "application-service"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "migration-smoke"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+          "role": "persistence"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "adapter",
+      "term_ja": "adapter",
+      "term_en": "adapter",
+      "aliases": [
+        "typed adapter"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "外部形式またはTask固有形式を、application coreが扱う既知の契約へ変換するallow-list済み境界実装です。",
+      "anti_definitions": [
+        "任意codeを発見して実行する汎用plugin loaderではありません。"
+      ],
+      "not_same_as": [
+        "registry"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "runtime-adapter"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/training_snapshot_adapter.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "registry",
+      "term_ja": "Registry",
+      "term_en": "registry",
+      "aliases": [
+        "allow-list registry"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Activity、Task、runtime、proposal strategyなど、実行を許す実装をIDから引く固定allow-listです。",
+      "anti_definitions": [
+        "filesystem上のmoduleを自動探索して読み込む仕組みではありません。"
+      ],
+      "not_same_as": [
+        "adapter"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "degraded-mode"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activity_registry.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "generated-artifact",
+      "term_ja": "生成成果物",
+      "term_en": "generated artifact",
+      "aliases": [
+        "generated client"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Pydantic正本からexportしたOpenAPIとTypeScript型など、手編集せず再生成してdrift検査するfileです。",
+      "anti_definitions": [
+        "正本contractとは独立に修正するsource fileではありません。"
+      ],
+      "not_same_as": [
+        "contract"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "contract-test"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "apps/web/src/generated/api-types.ts",
+          "role": "generated"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "degraded-mode",
+      "term_ja": "縮退mode",
+      "term_en": "degraded mode",
+      "aliases": [
+        "task-local degradation"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "一部Taskまたはoptional subsystemの契約違反を隔離し、健全なTaskとread-only evidenceを利用可能なまま起動する状態です。",
+      "anti_definitions": [
+        "壊れたTaskを正常として扱うfallbackではありません。"
+      ],
+      "not_same_as": [
+        "typed-error"
+      ],
+      "prerequisites": [
+        "registry"
+      ],
+      "related": [
+        "trust-boundary"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "trust-boundary",
+      "term_ja": "信頼境界",
+      "term_en": "trust boundary",
+      "aliases": [
+        "archive trust boundary"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "renderer、loopback API、外部Source、Package、restore archiveの間で、入力を再検証して権限や信頼を持ち越さない境目です。",
+      "anti_definitions": [
+        "一度digestが一致すれば以後の全入力を信用できるという境界ではありません。"
+      ],
+      "not_same_as": [
+        "leakage"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "workspace-bundle"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/api/security.py",
+          "role": "api"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "discriminated-union",
+      "term_ja": "判別可能union",
+      "term_en": "discriminated union",
+      "aliases": [
+        "tagged union"
+      ],
+      "category": "architecture",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "固定fieldの値によって複数modelから一つを選び、variant固有fieldを型として絞り込めるunionです。",
+      "anti_definitions": [
+        "optional fieldを一つの巨大modelへ積み上げたshapeではありません。"
+      ],
+      "not_same_as": [
+        "typed-error"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "generated-artifact"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "project-archive",
+      "term_ja": "Project archive",
+      "term_en": "Project archive",
+      "aliases": [
+        "archive"
+      ],
+      "category": "architecture",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Projectと判断証拠を保持したまま通常一覧とwrite経路から外し、実行中claimを失効させる可逆なlifecycle遷移です。",
+      "anti_definitions": [
+        "Project-owned evidenceをDELETEする操作ではありません。"
+      ],
+      "not_same_as": [
+        "explicit-purge"
+      ],
+      "prerequisites": [
+        "immutable-evidence",
+        "write-guard"
+      ],
+      "related": [
+        "ownership-boundary"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/projects.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "explicit-purge",
+      "term_ja": "明示purge",
+      "term_en": "explicit purge",
+      "aliases": [
+        "purge"
+      ],
+      "category": "architecture",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "archive済みProjectの所有範囲と外部参照を検査した後、Project-owned evidenceを物理DELETEする不可逆なapplication操作です。",
+      "anti_definitions": [
+        "backup媒体上の残存byteまで消すsanitizationではありません。"
+      ],
+      "not_same_as": [
+        "project-archive"
+      ],
+      "prerequisites": [
+        "project-archive",
+        "ownership-boundary"
+      ],
+      "related": [
+        "trust-boundary"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "role": "persistence"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "ownership-boundary",
+      "term_ja": "所有境界",
+      "term_en": "ownership boundary",
+      "aliases": [
+        "Project ownership"
+      ],
+      "category": "architecture",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "一つのProjectと同じ寿命で削除するrecordと、ほかのProjectも参照するshared artifactを分ける境界です。",
+      "anti_definitions": [
+        "foreign keyの向きだけから自動的に決まる境界ではありません。"
+      ],
+      "not_same_as": [
+        "trust-boundary"
+      ],
+      "prerequisites": [
+        "repository",
+        "provenance"
+      ],
+      "related": [
+        "explicit-purge"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "docs/decisions/sqlite-project-lifecycle-policy.md",
+          "role": "docs"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "write-guard",
+      "term_ja": "write guard",
+      "term_en": "write guard",
+      "aliases": [
+        "generation guard"
+      ],
+      "category": "architecture",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Project状態と実行generationをcommit直前に照合し、archive後の古いwriterが証拠を追加することを拒否する検査です。",
+      "anti_definitions": [
+        "画面buttonを無効化するだけのclient側制御ではありません。"
+      ],
+      "not_same_as": [
+        "optimistic-concurrency"
+      ],
+      "prerequisites": [
+        "logical-identity",
+        "repository"
+      ],
+      "related": [
+        "project-archive"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "role": "persistence"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "server-state",
+      "term_ja": "server state",
+      "term_en": "server state",
+      "aliases": [],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "Project、Task、Candidate、revision、operationからidentityを作り、APIが正本として返すWorkbenchの確定状態です。",
+      "anti_definitions": [
+        "未保存の入力fieldを含むdraft stateではありません。"
+      ],
+      "not_same_as": [
+        "draft-state",
+        "navigation-state"
+      ],
+      "prerequisites": [
+        "revision"
+      ],
+      "related": [
+        "stale-response"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/workbench/workbenchIdentity.ts",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "draft-state",
+      "term_ja": "編集中state",
+      "term_en": "draft state",
+      "aliases": [
+        "draft input"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "保存済みCandidateとは分けて保持し、previewへ渡す前に構造参照をserver側で解決する未確定入力です。",
+      "anti_definitions": [
+        "保存済みCandidate revisionの別表示ではありません。"
+      ],
+      "not_same_as": [
+        "server-state"
+      ],
+      "prerequisites": [
+        "server-state"
+      ],
+      "related": [
+        "optimistic-concurrency"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/candidates/useCandidateEditor.ts",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "navigation-state",
+      "term_ja": "navigation state",
+      "term_en": "navigation state",
+      "aliases": [
+        "deep-link state"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "選択Project、Candidate、Activity、保存Runなど、URLと画面復元に必要な位置情報です。",
+      "anti_definitions": [
+        "Candidateの編集内容そのものを保存するdomain stateではありません。"
+      ],
+      "not_same_as": [
+        "server-state"
+      ],
+      "prerequisites": [
+        "server-state"
+      ],
+      "related": [
+        "immutable-evidence"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "apps/web/src/app/navigation.ts",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "typed-error",
+      "term_ja": "型付きerror",
+      "term_en": "typed error",
+      "aliases": [
+        "API error contract"
+      ],
+      "category": "ui-testing",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "HTTP statusだけでなく固定code、message、field errors、current Candidateなどを構造化して返す失敗契約です。",
+      "anti_definitions": [
+        "日本語messageの文字列一致をclient契約にする仕組みではありません。"
+      ],
+      "not_same_as": [
+        "stale-response"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "optimistic-concurrency"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": [],
+      "ui_mapping": {
+        "general": "型付きerror",
+        "internal": "ApiError.code / field_errors",
+        "ui": "操作を続けるための理由と回復手段"
+      }
+    },
+    {
+      "id": "contract-test",
+      "term_ja": "契約test",
+      "term_en": "contract test",
+      "aliases": [],
+      "category": "ui-testing",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "Pydantic、OpenAPI、Package、Task間のshapeと意味の一致を境界単位で検査するtestです。",
+      "anti_definitions": [
+        "利用者操作全体を通すE2E testの別名ではありません。"
+      ],
+      "not_same_as": [
+        "integration-test",
+        "end-to-end-test"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "generated-artifact"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/tests/test_openapi_contract.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "integration-test",
+      "term_ja": "統合test",
+      "term_en": "integration test",
+      "aliases": [],
+      "category": "ui-testing",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "service、SQLite、migration、APIなど複数層を実際につなぎ、不変条件と保存結果を検査するtestです。",
+      "anti_definitions": [
+        "browser操作を必ず含むtestではありません。"
+      ],
+      "not_same_as": [
+        "contract-test",
+        "end-to-end-test"
+      ],
+      "prerequisites": [
+        "application-service",
+        "repository"
+      ],
+      "related": [
+        "domain-invariant"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/tests/test_decision_activities.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "end-to-end-test",
+      "term_ja": "E2E test",
+      "term_en": "end-to-end test",
+      "aliases": [
+        "Playwright test"
+      ],
+      "category": "ui-testing",
+      "scope": "repo-wide",
+      "status": "current",
+      "status_note": null,
+      "definition": "隔離DBでAPIとWebを起動し、利用者操作から保存結果までをPlaywrightで確認するtestです。",
+      "anti_definitions": [
+        "全domain invariantを網羅的に保証するtestではありません。"
+      ],
+      "not_same_as": [
+        "integration-test",
+        "packaged-smoke"
+      ],
+      "prerequisites": [
+        "integration-test"
+      ],
+      "related": [
+        "navigation-state"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "e2e/decision-activity.spec.ts",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "migration-smoke",
+      "term_ja": "migration smoke",
+      "term_en": "migration smoke",
+      "aliases": [
+        "migration acceptance"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "旧schemaのfixtureを実際に開き、migration、marker、checksum、参照整合、再起動後の読出しを一続きで確認する検証です。",
+      "anti_definitions": [
+        "新規の空DBだけでtableが作れることを確かめるtestではありません。"
+      ],
+      "not_same_as": [
+        "packaged-smoke"
+      ],
+      "prerequisites": [
+        "integration-test",
+        "repository"
+      ],
+      "related": [
+        "staged-restore"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/tests/test_candidate_migration.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "packaged-smoke",
+      "term_ja": "配布物smoke",
+      "term_en": "packaged smoke",
+      "aliases": [
+        "delivery smoke"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "実Windows配布物でnative dialog、sidecarまたはmaintenance process、改ざん拒否、復元後再起動を確認するacceptance testです。",
+      "anti_definitions": [
+        "unit testや故障注入testの代替ではありません。"
+      ],
+      "not_same_as": [
+        "end-to-end-test",
+        "migration-smoke"
+      ],
+      "prerequisites": [
+        "trust-boundary",
+        "end-to-end-test"
+      ],
+      "related": [
+        "workspace-bundle"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "scripts/smoke-packaged.mjs",
+          "role": "build"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "workspace-bundle",
+      "term_ja": "Workspace bundle",
+      "term_en": "Workspace bundle",
+      "aliases": [
+        "mdwb archive"
+      ],
+      "category": "ui-testing",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "整合したSQLite snapshot、管理対象Data Asset、Model Package、migration、table evidenceを一つにしたversion付き`.mdwb` archiveです。",
+      "anti_definitions": [
+        "任意directoryをそのままzipにしたbackupではありません。"
+      ],
+      "not_same_as": [
+        "staged-restore"
+      ],
+      "prerequisites": [
+        "snapshot",
+        "byte-digest"
+      ],
+      "related": [
+        "trust-boundary"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/workspace_bundle_contracts.py",
+          "role": "contract"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "staged-restore",
+      "term_ja": "段階的restore",
+      "term_en": "staged restore",
+      "aliases": [
+        "prepare restore"
+      ],
+      "category": "ui-testing",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "active Workspaceへ触れる前に、別directoryで展開、migration、digest、参照を検証した復元候補です。",
+      "anti_definitions": [
+        "archiveを現Workspaceへ直接上書き展開する操作ではありません。"
+      ],
+      "not_same_as": [
+        "workspace-bundle"
+      ],
+      "prerequisites": [
+        "workspace-bundle",
+        "migration-smoke"
+      ],
+      "related": [
+        "recovery-journal"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/workspace_bundle.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "recovery-journal",
+      "term_ja": "復旧journal",
+      "term_en": "recovery journal",
+      "aliases": [],
+      "category": "ui-testing",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "Workspace復元のprepare、commit、rollbackに必要な途中状態をprocess終了後も識別する短命な記録です。",
+      "anti_definitions": [
+        "Projectの長期判断履歴を保存するledgerではありません。"
+      ],
+      "not_same_as": [
+        "immutable-evidence"
+      ],
+      "prerequisites": [
+        "staged-restore"
+      ],
+      "related": [
+        "packaged-smoke"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/workspace_bundle.py",
+          "role": "application"
+        }
+      ],
+      "common_misconceptions": []
+    },
+    {
+      "id": "decision-surface",
+      "term_ja": "判断面",
+      "term_en": "Decision Surface",
+      "aliases": [
+        "decision evidence surface"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "候補の入力、予測、区間、目標達成、support、制約、robustness、provenance、実測を、意味を潰さず判断時点へ対応付ける読取り可能なまとまりです。",
+      "anti_definitions": [
+        "すべての判断材料を一つのscoreへ畳み込むdashboardではありません。",
+        "九つのwidgetを常時表示するlayout規則ではありません。"
+      ],
+      "not_same_as": [
+        "predictive-summary"
+      ],
+      "prerequisites": [
+        "predictive-summary",
+        "support",
+        "objective-definition"
+      ],
+      "related": [
+        "decision-activity",
+        "robustness",
+        "counterfactual"
+      ],
+      "math_connections": [
+        "判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します。"
+      ],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "docs/decisions/calibrated-decision-support.md",
+          "role": "docs"
+        }
+      ],
+      "common_misconceptions": [
+        "点予測が最も高い候補を、そのまま最良の判断とは呼べません。"
+      ]
+    },
+    {
+      "id": "evidence-state",
+      "term_ja": "証拠状態",
+      "term_en": "Evidence State",
+      "aliases": [
+        "evidence availability state"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "値または証拠が現在ない理由と、その状態で許される判断および次の行動を対応付ける分類です。",
+      "anti_definitions": [
+        "空欄や横線を一律に値なしと呼ぶ表示規則ではありません。"
+      ],
+      "not_same_as": [
+        "stale-response"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "stale-response",
+        "decision-surface"
+      ],
+      "math_connections": [
+        "数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です。"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "role": "contract"
+        },
+        {
+          "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": [
+        "未計算は計算失敗ではありません。",
+        "利用不可の依存先へ同じ再試行を促しても復旧しない場合があります。"
+      ]
+    },
+    {
+      "id": "actionable-warning",
+      "term_ja": "行動可能な警告",
+      "term_en": "actionable warning",
+      "aliases": [
+        "cause impact next action"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "原因、判断への影響、利用者が実行できる次の行動を分け、どの結論を止めるかまで示す警告です。",
+      "anti_definitions": [
+        "注意してくださいとだけ伝えるpersistent alertではありません。"
+      ],
+      "not_same_as": [
+        "evidence-state"
+      ],
+      "prerequisites": [
+        "evidence-state"
+      ],
+      "related": [
+        "decision-surface"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "role": "contract"
+        },
+        {
+          "path": "apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": [
+        "警告を増やすだけでは、重要な警告の選択性は上がりません。"
+      ]
+    },
+    {
+      "id": "explicit-adoption",
+      "term_ja": "明示的採用境界",
+      "term_en": "Explicit Adoption Boundary",
+      "aliases": [
+        "proposal adoption boundary"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "algorithmが保存したproposalを、利用者が別のwriteでCandidateへ変換し、さらに固定証拠と理由を伴う別操作で判断として保存する境界です。",
+      "anti_definitions": [
+        "proposal生成後に最上位案を自動採用する処理ではありません。",
+        "確認dialogを一つ挟むだけの見た目上の区切りではありません。"
+      ],
+      "not_same_as": [
+        "decision-activity"
+      ],
+      "prerequisites": [
+        "decision-activity",
+        "snapshot"
+      ],
+      "related": [
+        "counterfactual",
+        "immutable-evidence",
+        "decision-surface"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activities.py",
+          "role": "application"
+        },
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/tests/test_counterfactual_activity.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "Candidate化とProject decision保存は同じ採用操作ではありません。"
+      ]
+    }
+  ]
+}

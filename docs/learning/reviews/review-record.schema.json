@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://material-workbench.local/schemas/learning-review-record.schema.json",
+  "title": "Learning chapter acceptance review record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "issue",
+    "chapter",
+    "reviewed_against",
+    "status",
+    "roles",
+    "reader_task_tests",
+    "findings",
+    "verification",
+    "issue_close_recommendation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^acceptance-[0-9]{4}-[0-9]{2}-[0-9]{2}-issue-[0-9]+$"
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "url", "title"],
+      "properties": {
+        "number": {"type": "integer", "minimum": 1},
+        "url": {"type": "string", "pattern": "^https://github\\.com/"},
+        "title": {"type": "string", "minLength": 1}
+      }
+    },
+    "chapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "scope"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^docs/learning/"}
+        },
+        "scope": {"type": "string", "minLength": 1}
+      }
+    },
+    "reviewed_against": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "enum": ["accepted", "accepted_with_nonblocking_followups", "changes_required"]
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {"$ref": "#/$defs/roleReview"}
+    },
+    "reader_task_tests": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/readerTaskTest"}
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands", "result"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "result": {"enum": ["passed", "failed", "pending"]}
+      }
+    },
+    "issue_close_recommendation": {
+      "enum": ["ready", "ready_after_local_build", "not_ready"]
+    },
+    "reviewer_note": {"type": "string"}
+  },
+  "$defs": {
+    "roleReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "reviewer", "method", "result", "evidence", "notes"],
+      "properties": {
+        "role": {
+          "enum": [
+            "implementation",
+            "pedagogy",
+            "accessibility",
+            "statistics",
+            "domain",
+            "security"
+          ]
+        },
+        "reviewer": {"type": "string", "minLength": 1},
+        "method": {"type": "string", "minLength": 1},
+        "result": {"enum": ["pass", "pass_with_followup", "fail"]},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "notes": {"type": "string", "minLength": 1}
+      }
+    },
+    "readerTaskTest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "proxy",
+        "starting_context",
+        "task",
+        "success_criteria",
+        "result",
+        "observations",
+        "limitations"
+      ],
+      "properties": {
+        "profile": {"type": "string", "minLength": 1},
+        "proxy": {"const": true},
+        "starting_context": {"type": "string", "minLength": 1},
+        "task": {"type": "string", "minLength": 1},
+        "success_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "result": {"enum": ["pass", "pass_with_followup", "fail"]},
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "limitations": {"type": "string", "minLength": 1}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "severity",
+        "summary",
+        "evidence",
+        "requires_textbook_change",
+        "disposition",
+        "tracking"
+      ],
+      "properties": {
+        "finding_id": {"type": "string", "pattern": "^F-[0-9]{3}$"},
+        "severity": {"enum": ["blocking", "major", "minor", "note"]},
+        "summary": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "requires_textbook_change": {"type": "boolean"},
+        "disposition": {
+          "enum": [
+            "fixed_in_review",
+            "accepted_documented_limitation",
+            "followup_issue_required",
+            "no_change"
+          ]
+        },
+        "tracking": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+solution-placement: inline-disclosure
+
+book:
+  title: "Material Decision Workbench 教材"
+  output-file: "material-decision-workbench-site"
+  chapters:
+    - index.qmd
+    - part: "Part I　システムを読む"
+      chapters:
+        - chapters/system-map.qmd
+    - part: "Part II　型と契約"
+      chapters:
+        - chapters/contract-through-stack.qmd
+        - labs/extend-contract.qmd
+    - part: "Part III　データと再現性"
+      chapters:
+        - chapters/source-to-training-evidence.qmd
+        - labs/trace-source-evidence.qmd
+        - chapters/materials-domain-primer.qmd
+    - part: "Part IV　永続化と証拠"
+      chapters:
+        - chapters/revision-and-digest.qmd
+        - labs/trace-revision-conflict.qmd
+        - chapters/trust-a-migrated-database.qmd
+        - labs/break-and-repair-migration.qmd
+        - chapters/separate-archive-from-purge.qmd
+        - labs/trace-project-lifecycle.qmd
+        - chapters/restore-workspace-safely.qmd
+        - labs/trace-workspace-restore.qmd
+    - part: "Part V　モデルと不確かさ"
+      chapters:
+        - chapters/model-package-runtime.qmd
+        - chapters/prediction-calibration-support.qmd
+    - part: "Part VI　探索と意思決定"
+      chapters:
+        - chapters/design-space-acquisition.qmd
+        - chapters/multi-stage-chain.qmd
+        - chapters/decision-safety.qmd
+    - part: "Part VII　UIとDesktop"
+      chapters:
+        - chapters/frontend-desktop-state.qmd
+        - chapters/performance-execution.qmd
+    - part: "Part VIII　検証と運用"
+      chapters:
+        - chapters/security-trust-boundaries.qmd
+        - chapters/verification-operations.qmd
+        - labs/runtime-boundary-drills.qmd
+        - labs/toy-weighted-mean.qmd
+    - part: "Part IX　ケーススタディ"
+      chapters:
+        - chapters/implementation-case-studies.qmd
+    - part: "編集と保守のガイド"
+      chapters:
+        - foundations.qmd
+        - edition-1.qmd
+        - math-style-guide.qmd
+        - writer-persona.md
+        - code-map.qmd
+        - learning-paths/backend.qmd
+        - learning-paths/frontend-desktop.qmd
+        - learning-paths/ml-data.qmd
+        - tooling.qmd
+        - drift-reviews/index.qmd
+        - reviews/index.qmd
+        - evaluation.qmd
+    - concept-map.qmd
+    - glossary.qmd
+    - references.qmd

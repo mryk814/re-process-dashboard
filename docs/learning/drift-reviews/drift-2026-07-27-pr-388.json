@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-388",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 388,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/388",
+    "merge_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
+  },
+  "reviewed_against": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "previous_verified_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
+  "new_verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/src/material_workbench/contracts/schemas.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link", "exercise"],
+      "affected_claims": ["project-series-membership-removal", "generated-contract-currentness"],
+      "action": "updated",
+      "reason": "ProjectGroupMoveInput now uses null as the explicit ungroup operation while continuing to reject the empty selection value."
+    },
+    {
+      "path": "backend/src/material_workbench/persistence/store.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link", "exercise"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "Membership removal preserves Project evidence and continuation, keeps compare-and-swap conflict detection, and archives only a newly empty Series."
+    },
+    {
+      "path": "apps/web/src/features/projects/ProjectHub.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The Project settings UI separates the unselected placeholder from the explicit ungroup choice and warns before emptying a Series."
+    },
+    {
+      "path": "apps/web/src/features/projects/projects.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "no-change",
+      "reason": "The warning presentation style does not change the chapter's grouping, evidence, or lifecycle semantics."
+    },
+    {
+      "path": "apps/web/src/generated/api-types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["code-link"],
+      "affected_claims": ["generated-contract-currentness"],
+      "action": "updated",
+      "reason": "The generated TypeScript contract now exposes the nullable group target and requires current verified links."
+    },
+    {
+      "path": "apps/web/src/generated/openapi.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["code-link"],
+      "affected_claims": ["generated-contract-currentness"],
+      "action": "updated",
+      "reason": "The tracked OpenAPI schema changed with ProjectGroupMoveInput while preserving the documented generation boundary."
+    },
+    {
+      "path": "backend/tests/test_projects.py",
+      "semantic_impact": "none",
+      "material_impact": ["code-link", "exercise", "test-command"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The tests fix ungroup and regroup behavior, conflict detection, empty-value rejection, Series archive, and continuation preservation."
+    },
+    {
+      "path": "backend/tests/test_degraded_startup.py",
+      "semantic_impact": "none",
+      "material_impact": ["test-command"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The test fixes the current constraint that Project metadata membership changes share the Task runtime availability gate."
+    },
+    {
+      "path": "apps/web/tests/projectGroupMembership.test.mjs",
+      "semantic_impact": "none",
+      "material_impact": ["test-command"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The source-contract tests fix explicit selection, null request mapping, disabled state, late-list stability, and the empty-Series warning."
+    },
+    {
+      "path": "e2e/project-hub.spec.ts",
+      "semantic_impact": "none",
+      "material_impact": ["code-link", "test-command"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The browser test proves that a grouped Project becomes ungrouped through the actual settings workflow."
+    },
+    {
+      "path": "docs/decisions/sqlite-project-lifecycle-policy.md",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link", "exercise"],
+      "affected_claims": ["project-series-membership-removal"],
+      "action": "updated",
+      "reason": "The lifecycle policy now separates membership metadata from Project evidence, archive, purge, and continuation identity."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "project-series-membership-removal",
+      "statement": "Removing a Project from a Series changes optional grouping metadata without archiving the Project, deleting evidence, or severing predecessor and continuation relations.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "exercise", "test-command"],
+      "action": "updated",
+      "reason": "The lifecycle chapter and Lab previously described optional membership only during archive and purge; they now cover the reversible none to A to none to B operation and its conflict boundary.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "symbol": "ProjectGroupMoveInput"
+        },
+        {
+          "path": "backend/src/material_workbench/persistence/store.py",
+          "symbol": "move_project_to_group"
+        },
+        {
+          "path": "backend/tests/test_projects.py",
+          "symbol": "test_project_leaves_a_group_and_returns_to_another_one"
+        },
+        {
+          "path": "e2e/project-hub.spec.ts",
+          "symbol": "a project can leave its group and become ungrouped again"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_projects.py backend/tests/test_degraded_startup.py",
+        "node --test apps/web/tests/projectGroupMembership.test.mjs",
+        "PLAYWRIGHT_API_PORT=9001 and PLAYWRIGHT_WEB_PORT=5321 with the focused project-hub Playwright test",
+        "npm run api:check"
+      ]
+    },
+    {
+      "claim_id": "generated-contract-currentness",
+      "statement": "General contract, system, concept, revision, persistence, safety, and performance chapters link to the generated and persistence implementation at the reviewed main cutoff.",
+      "classification": "editorial_update",
+      "material_impact": ["code-link"],
+      "action": "updated",
+      "reason": "PR #388 changes referenced shared files without invalidating those chapters' claims, so their verified commit advances after a claim-level no-change review.",
+      "evidence": [
+        {
+          "path": "apps/web/src/generated/api-types.ts",
+          "symbol": "ProjectGroupMoveInput"
+        },
+        {
+          "path": "apps/web/src/generated/openapi.json",
+          "symbol": "ProjectGroupMoveInput"
+        },
+        {
+          "path": "docs/decisions/sqlite-project-lifecycle-policy.md",
+          "symbol": "検討グループの所属変更"
+        }
+      ],
+      "verification": [
+        "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1 -Against origin/main",
+        "node docs/learning/check-code-references.mjs"
+      ]
+    },
+    {
+      "claim_id": "project-group-selection-ownership",
+      "statement": "A late server-owned option list must not reinitialize a user-owned membership selection when the actual membership has not changed.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link"],
+      "action": "updated",
+      "reason": "PR #388 fixes an effect dependency that confused correct late server state with permission to overwrite selection state.",
+      "evidence": [
+        {
+          "path": "apps/web/src/features/projects/ProjectHub.tsx",
+          "symbol": "setGroupMembershipId"
+        },
+        {
+          "path": "apps/web/tests/projectGroupMembership.test.mjs",
+          "symbol": "a late group list does not overwrite the membership the user just picked"
+        }
+      ],
+      "verification": [
+        "node --test apps/web/tests/projectGroupMembership.test.mjs",
+        "Review the frontend state chapter's explicit limitation that the Playwright test does not inject a delayed group-list response."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector found thirteen reader or maintenance documents that reference generated contracts, Project storage, or lifecycle policy changed by PR #388.",
+    "focused_tests": "Backend Project and degraded-startup suites passed 23 with 15 known warnings; frontend membership tests passed 6; a fresh isolated-port browser run passed 1 in 21.3 seconds.",
+    "api_check": "Generated OpenAPI and TypeScript contracts matched the Python schema after PR #388.",
+    "code_reference_check": "Validated 28 documents and 789 structured code references; current-main drift detection found no referenced implementation drift.",
+    "html_build": "The final integrated site build passed for 42 documents with 332 exact code links in 52.76 seconds.",
+    "pdf_build": "The final Reader build passed in 24.81 seconds: 358 A4 pages, 13,266,549 bytes, SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004.",
+    "visual_review": "The complete prior Edition 1 visual acceptance remains valid, with focused reinspection of pages changed by PR #388 recorded before merge."
+  },
+  "reviewer_note": "The update treats Series membership as reversible grouping metadata and does not broaden the claim to Project archive, purge, or continuation changes."
+}

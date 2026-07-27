@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-328",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 328,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/328",
+    "merge_commit": "cfaf347319c75d40f6d62776822713fb644ffb2d"
+  },
+  "reviewed_against": "cfaf347319c75d40f6d62776822713fb644ffb2d",
+  "previous_verified_commit": "3d2fa76b0771888f0d200d36b8d740b82225cc99",
+  "new_verified_commit": "cfaf347319c75d40f6d62776822713fb644ffb2d",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result"],
+      "action": "updated",
+      "reason": "The view now separates point-prediction achievement, per-target state, available prediction intervals, and support evidence, and names missing interval information."
+    },
+    {
+      "path": "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result"],
+      "action": "updated",
+      "reason": "A semantic presenter names binary shortfall as percentage points, ordinal shortfall as category distance, and old values as summaries."
+    },
+    {
+      "path": "apps/web/src/features/workbench/workbench.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["counterfactual-uncertainty"],
+      "action": "no-change",
+      "reason": "Styles distinguish achieved and not-achieved states without adding a separate scientific or contract claim."
+    },
+    {
+      "path": "apps/web/src/generated/api-types.ts",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["counterfactual-uncertainty", "shared-decision-contract"],
+      "action": "updated",
+      "reason": "Generated types expose optional canonical Prediction and shortfall while preserving the existing discriminated result union."
+    },
+    {
+      "path": "apps/web/src/generated/openapi.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["counterfactual-uncertainty", "shared-decision-contract"],
+      "action": "updated",
+      "reason": "OpenAPI carries the optional evidence fields and validation descriptions without changing unrelated Activity request shapes."
+    },
+    {
+      "path": "apps/web/tests/counterfactualPresentation.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result"],
+      "action": "updated",
+      "reason": "Presentation tests fix units for binary and ordinal shortfall and prevent old summary values from being relabeled as canonical predictions."
+    },
+    {
+      "path": "backend/src/material_workbench/application/decision_activity_counterfactual.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty"],
+      "action": "updated",
+      "reason": "The handler stores the canonical Prediction used for each judgment, stores real-unit shortfall for threshold, range, and exact-target goals, and leaves it undefined for reporting-only and comparative goals."
+    },
+    {
+      "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result", "shared-decision-contract"],
+      "action": "updated",
+      "reason": "Counterfactual target evidence gains optional Prediction and shortfall fields, a consistency validator, and Activity version 1.1.0."
+    },
+    {
+      "path": "backend/tests/test_counterfactual_activity.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result"],
+      "action": "updated",
+      "reason": "Tests pin canonical prediction consistency, v1.1 semantic identity, v1.0 restoration, and promotion from an old saved Run."
+    },
+    {
+      "path": "docs/decision-activities.md",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["counterfactual-uncertainty", "legacy-counterfactual-result"],
+      "action": "updated",
+      "reason": "The design source distinguishes point-estimate judgment, visible uncertainty, and the absence of interval evidence in old Runs."
+    },
+    {
+      "path": "e2e/decision-activity.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": ["test-command", "code-link"],
+      "affected_claims": ["counterfactual-uncertainty"],
+      "action": "updated",
+      "reason": "For the tested proposal with interval evidence, the E2E verifies visible point-prediction achievement, target state, prediction interval, and an equivalent accessible name."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "counterfactual-uncertainty",
+      "statement": "A counterfactual proposal fixes the canonical Prediction used for each target judgment, displays available prediction intervals separately from point-prediction achievement, and names the absence of interval evidence.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The prior concept described constrained search but did not delimit achievement as a point-estimate judgment or retain its uncertainty evidence.",
+      "evidence": [
+        {"path": "backend/src/material_workbench/contracts/decision_activity_contracts.py", "symbol": "CounterfactualTargetEvaluation"},
+        {"path": "backend/src/material_workbench/application/decision_activity_counterfactual.py", "symbol": "_evaluate_candidate"},
+        {"path": "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts", "symbol": "presentCounterfactualTarget"},
+        {"path": "backend/tests/test_counterfactual_activity.py", "symbol": "test_counterfactual_finds_the_known_minimal_change_and_is_deterministic"}
+      ],
+      "verification": [
+        "Run backend/tests/test_counterfactual_activity.py and the counterfactual presentation unit tests.",
+        "Run the focused counterfactual E2E on a fresh server."
+      ]
+    },
+    {
+      "claim_id": "legacy-counterfactual-result",
+      "statement": "A v1.0 counterfactual Run remains readable without interval evidence, and its old scalar is labeled as a saved summary rather than a canonical point prediction.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "Optional fields preserve compatibility, while the v1.1 Activity version prevents new evidence and old summaries from sharing one semantic cache identity.",
+      "evidence": [
+        {"path": "backend/tests/test_counterfactual_activity.py", "symbol": "reads_legacy_results_without_interval"},
+        {"path": "apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts", "symbol": "旧記録の要約値"},
+        {"path": "docs/decision-activities.md", "symbol": "旧Run"}
+      ],
+      "verification": [
+        "Run the legacy restoration backend test and the legacy presentation unit test."
+      ]
+    },
+    {
+      "claim_id": "shared-decision-contract",
+      "statement": "The Decision Activity request union, shared execution lifecycle, and contract-extension lab retain their existing boundaries after optional counterfactual result evidence is added.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The result variant gains compatible optional fields, while parameter discriminators, shared service responsibilities, and the lab exercises remain valid.",
+      "evidence": [
+        {"path": "docs/learning/chapters/contract-through-stack.qmd", "symbol": null},
+        {"path": "docs/learning/labs/extend-contract.qmd", "symbol": null},
+        {"path": "backend/src/material_workbench/contracts/decision_activity_contracts.py", "symbol": "DecisionActivityRunRequest"}
+      ],
+      "verification": [
+        "Run API generation checks, code-reference validation, and the exercise solution checker."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "After verified commit updates, the detector reported no origin/main-only commits and no referenced implementation drift.",
+    "focused_tests": "Focused counterfactual backend and contract tests passed: 28 passed. Counterfactual presentation tests passed: 3 passed. The fresh-server counterfactual E2E passed within a combined 2-test run.",
+    "api_check": "npm run api:check, npm run typecheck, and npm run build passed for the combined merge.",
+    "code_reference_check": "Code references passed for 14 documents and 217 records. Concepts passed with 70 concepts, 90 prerequisite edges, and 68 anti-definitions. All 7 drift records passed validation.",
+    "html_build": "The clean integrated HTML profile built 25 documents in 32.07 seconds, with 61 closed exercise disclosures and 25 verified code links.",
+    "pdf_build": "The clean reader profile built 16 documents and 176 pages in 10.61 seconds.",
+    "visual_review": "The point-prediction, optional interval, and conditional shortfall section passed a real-browser review. All 176 reader pages passed visual review across 9 contact sheets."
+  },
+  "reviewer_note": "The review treats achieved as a point-prediction judgment, not as a guarantee over the predictive interval. Backward-readable v1.0 Runs remain semantically distinct from v1.1 Runs."
+}

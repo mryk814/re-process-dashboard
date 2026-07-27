@@ -1,0 +1,644 @@
+---
+chapter_id: "implementation-case-studies"
+level: advanced
+estimated_minutes: 150
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+code_references:
+  - path: "backend/src/material_workbench/modeling/model_packages.py"
+    id: "case-study-package-loader"
+    role: "contract"
+    symbols:
+      - "VerifiedModelPackage"
+      - "AdapterRegistry"
+      - "ModelPackageLoader"
+  - path: "backend/tests/test_model_packages.py"
+    id: "case-study-package-tests"
+    role: "test"
+    symbols:
+      - "test_verified_package_consumes_an_immutable_artifact_snapshot"
+      - "test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields"
+      - "test_superseded_model_package_manifests_remain_byte_immutable"
+      - "test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization"
+  - path: "docs/decisions/shared-multi-output.md"
+    id: "case-study-multi-output-decision"
+    role: "docs"
+  - path: "docs/reports/shared-multi-output-gp-evaluation.md"
+    id: "case-study-multi-output-report"
+    role: "docs"
+  - path: "backend/scripts/evaluate_shared_multioutput_gp.py"
+    id: "case-study-multi-output-evaluator"
+    role: "application"
+  - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
+    id: "case-study-chain-adapters"
+    role: "application"
+    symbols:
+      - "ChainCandidateAdapter"
+      - "ScalarChainAdapter"
+      - "SparseBlendChainAdapter"
+      - "candidate_adapter_for"
+  - path: "backend/src/material_workbench/application/chain_execution.py"
+    id: "case-study-chain-core"
+    role: "application"
+    symbols:
+      - "ChainExecutionCoordinator"
+      - "ChainExecutionService"
+  - path: "backend/tests/test_chain_candidate_adapters.py"
+    id: "case-study-chain-tests"
+    role: "test"
+    symbols:
+      - "test_adapter_is_selected_from_the_declared_stage_shape"
+      - "test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace"
+      - "test_core_prepare_candidate_delegates_shape_validation_to_the_adapter"
+  - path: "backend/src/material_workbench/domain/data_lifecycle.py"
+    id: "case-study-data-approval"
+    role: "domain"
+    symbols:
+      - "approve_curation_run"
+      - "build_training_snapshot"
+  - path: "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+    id: "case-study-data-repository"
+    role: "persistence"
+    symbols:
+      - "DataLifecycleRepository"
+  - path: "backend/tests/test_data_lifecycle.py"
+    id: "case-study-data-tests"
+    role: "test"
+    symbols:
+      - "test_multiple_raw_snapshots_are_immutable_and_have_keyed_diff"
+      - "test_curation_keeps_quarantine_reasons_and_quality_delta"
+      - "test_approval_and_training_snapshot_are_explicit_separate_actions"
+      - "test_api_tracks_digests_without_exposing_unapproved_data_to_projects"
+  - path: "apps/web/src/features/candidates/CandidateUi.tsx"
+    id: "case-study-uncomputed-ui"
+    role: "frontend"
+  - path: "apps/web/tests/taskDrivenCandidateUi.test.mjs"
+    id: "case-study-uncomputed-ui-test"
+    role: "test"
+prerequisite_concepts:
+  - "contract"
+  - "provenance"
+  - "immutable-evidence"
+  - "model-package"
+  - "runtime-adapter"
+  - "training-snapshot"
+reinforced_concepts:
+  - "trust-boundary"
+  - "calibration"
+  - "application-service"
+  - "quarantine"
+  - "stale-response"
+introduced_concepts: []
+future_concepts: []
+historical_concepts: []
+---
+
+# 実装判断を証拠から再構成する {#sec-implementation-case-studies}
+
+## 対象読者と到達点
+
+設計変更の理由をIssue、commit、現在のcode、testから検証したい開発者が対象です。
+
+読者はcontract、provenance、Model Package、training snapshotの役割を知っているものとします。
+
+読了後は、採用済みの設計だけでなく、見送り、失敗、残った限界を同じ証拠の型で説明できる状態を目指します。
+
+## 非scope
+
+この章はPRの変更fileを時系列に並べる記録ではありません。
+
+開発者個人を評価せず、後知恵だけで当時の判断を断罪しません。
+
+数理の一般理論と各機能の操作手順は対応する専門章へ委ねます。
+
+## 二つの時点を混ぜない
+
+Issueとdecision documentは、当時の問い、制約、候補案を記録します。
+
+commitは、その時点で実際に変更された範囲を固定します。
+
+現在のcodeとtestは、`verified_commit`で残っている挙動を確認します。
+
+過去のIssueに完了条件が書かれていても、それだけでは現在も実装済みだと断定できません。
+
+各ケースでは、歴史的証拠と現在の証拠を分けて読みます。
+
+## Case 1: Model Packageをdata-onlyにする
+
+### 問い
+
+外部で学習したmodelをアプリへ渡すとき、Package自身にPython codeの選択権を持たせるべきでしょうか。
+
+### 選択肢
+
+一案は、pickleやimport pathをPackageへ保存し、任意のmodel objectを復元する方式です。
+
+この案はmodel追加を速くしますが、受け取ったartifactが実行するcodeと依存関係をPackage側へ委ねます。
+
+別案は、Packageをmanifestとdata artifactだけに限定し、アプリが所有するallow-list adapterだけで解釈する方式です。
+
+この案は新しいruntime typeごとにアプリ変更を要求しますが、実行可能なcodeの境界をreview対象へ戻します。
+
+### 証拠
+
+Issue #19は、Package内のimport path、任意Python code、pickleやjoblib callbackで拡張しない方針を記録しました。
+
+commit `0d88eb0`は、検証、active切替、rollbackを含むPackage lifecycleを実装しました。
+
+現在の`AdapterRegistry`はruntime typeとアプリ内adapterの対応を固定し、`ModelPackageLoader`はpath escape、byte上限、size、SHA-256を検査してから一時snapshotへartifactを複製します。
+
+実装は {{< code-ref case-study-package-loader symbol=AdapterRegistry >}} と {{< code-ref case-study-package-loader symbol=ModelPackageLoader >}} で確認できます。
+
+testは改ざん、未知field、危険なdeserialization、置換済みPackageのbyte不変性を拒否条件として固定しています。
+
+検証点は {{< code-ref case-study-package-tests symbol=test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields >}} と {{< code-ref case-study-package-tests symbol=test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization >}} にあります。
+
+### 判断
+
+Packageはdata-onlyとし、runtime codeはアプリが所有するallow-listへ限定しました。
+
+新しいmodel種類を追加するときは、Packageへcodeを入れず、adapterとそのcontract testをアプリへ追加します。
+
+保存済み予測snapshotを新Packageで自動再計算する機能は対象外としました。
+
+### 結果
+
+artifactはhashとsizeを検証した不変snapshotとして読み込まれ、読込中の置換にも影響されません。
+
+Packageが未知のruntime typeを指定しても、任意moduleはimportされず、登録されていないruntimeとして拒否されます。
+
+拡張性は任意pluginではなく、review可能なadapter追加へ変わりました。
+
+### 残る限界
+
+allow-list adapter自体の実装が安全であることは、Package contractだけでは証明できません。
+
+新しい依存関係、artifact schema、Desktop packagingはアプリrelease側で検証する必要があります。
+
+hashはartifactの同一性を示しますが、内容の妥当性や署名者の身元までは示しません。
+
+## Case 2: shared multi-output GPを採用しない
+
+### 問い
+
+複数targetの強い相関が見えたとき、共有Gaussian Processをproductionへ採用すべきでしょうか。
+
+### 選択肢
+
+一案は、旧Draft PR #44を再利用し、複数targetを一つのmodelへ早く統合することです。
+
+別案は、旧実装を採用証拠にせず、現行Feature Pipelineと同一splitでsingle target modelと再比較することです。
+
+再比較後も、全target共有、一部target共有、全target見送りの三つが残ります。
+
+### 証拠
+
+Issue #195は旧PRのrebase、merge、cherry-pickを非scopeとし、現行mainからの再評価を要求しました。
+
+commit `4d6e6f0`は再生成script、test、数値report、decision documentを同時に追加しました。
+
+評価は92 parent conditionsを5-foldでgroup分割し、singleとsharedを同じholdoutで比較しています。
+
+主解析では外れた一条件がRMSEを支配したため、その行を黙って除外せず、plausibility-clean cohortを副解析として分けました。
+
+副解析ではshared modelのRMSEがTSで19.9%、YSで17.2%、ELで11.5%、lambdaで21.6%悪化しました。
+
+shared artifactは約1.12 MB、single合計は約310 KBであり、同一runの100件推論は約288 msと約8 msでした。
+
+再生成条件と結果は {{< code-ref case-study-multi-output-evaluator >}} と {{< code-ref case-study-multi-output-report >}} に固定されています。
+
+現在のdecision documentもruntime adapter、Package、active設定を追加しないと明記しています。
+
+現在の判断は {{< code-ref case-study-multi-output-decision >}} で確認できます。
+
+### 判断
+
+複数targetで一つのartifactを共有するI/O patternは将来候補として残しました。
+
+今回のshared GP runtimeとPackageは見送りました。
+
+相関の強さではなく、事前に固定したholdout改善、calibration悪化、target別negative transferの基準で決めています。
+
+### 結果
+
+実装できたmodelをproductionへ入れないことが、正式な成果になりました。
+
+採用しないmodelのjoint prediction capabilityを現在機能として公開せず、target別`PredictiveSummary`と保存済みsnapshotの意味を変えませんでした。
+
+### 残る限界
+
+評価対象は合成デモデータであり、材料現象の一般的な因果関係を示しません。
+
+実データ、欠損targetを扱える学習法、低rank構造が揃えば再評価の余地があります。
+
+benchmarkの時間は同一run内の比較であり、性能保証ではありません。
+
+## Case 3: Chain Coreとcandidate adapterを分ける
+
+### 問い
+
+一般的に見えるChain実行serviceが、疎な配合と溶接固有pathを直接扱ってよいでしょうか。
+
+### 選択肢
+
+一案は、最初のAからBからC Chainに合わせてCoreを拡張し続けることです。
+
+この案ではfile数を抑えられますが、第二のChainを追加するたびにCoreの条件分岐が増えます。
+
+別案は、stage順序、binding、再計算、snapshotをCoreへ残し、candidate shapeとdomain resource解決をtyped adapterへ移すことです。
+
+任意code pluginにする案もありますが、実行境界と利用不能理由が不透明になるため候補から外しました。
+
+### 証拠
+
+Issue #192は、疎配合を持たない二段ChainをCore変更なしで動かすことを抽象化の検証条件にしました。
+
+commit `7d045a1`はcandidate adapter contract、scalar adapter、sparse blend adapter、第二ユースケースのtestを追加しました。
+
+現在の`ChainCandidateAdapter`はcandidate path、外部入力、domain reference、決定論的stageの責務を宣言します。
+
+`candidate_adapter_for`はChain Revisionのstage shapeからallow-list済みadapterを選びます。
+
+この境界は {{< code-ref case-study-chain-adapters symbol=ChainCandidateAdapter >}} と {{< code-ref case-study-chain-adapters symbol=candidate_adapter_for >}} にあります。
+
+Core側の実行責務は {{< code-ref case-study-chain-core symbol=ChainExecutionService >}} に残っています。
+
+testはscalar candidateが独自namespaceを持つこと、Coreがshape validationをadapterへ委譲することを確認します。
+
+その証拠は {{< code-ref case-study-chain-tests symbol=test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace >}} と {{< code-ref case-study-chain-tests symbol=test_core_prepare_candidate_delegates_shape_validation_to_the_adapter >}} です。
+
+### 判断
+
+Chain Coreとdomain candidate adapterを分離しました。
+
+Coreは順序、binding、実行、snapshot provenanceを扱い、adapterは候補形状とdomain固有資産を扱います。
+
+抽象化の正しさは命名ではなく、疎配合を持たない第二のshapeをCore変更なしで扱えるtestで判定しました。
+
+### 結果
+
+scalar Chainとwelding Chainが同じCoreを使い、異なるcandidate namespaceとdomain referenceを持てるようになりました。
+
+対応外のstage shapeは曖昧なfallbackへ流れず、adapterがない理由付きで失敗します。
+
+### 残る限界
+
+現在のselectionはstage shapeに対する小さなallow-listであり、任意DAG engineではありません。
+
+決定論的stageを二段以上持つ形や分岐と合流には対応していません。
+
+adapter interfaceが将来の全domainを表現できるとはまだ証明されていません。
+
+## Case 4: source更新と学習利用の間に承認境界を置く
+
+### 問い
+
+sourceから新しいrowを取得したとき、品質検査に通ったrowを自動で学習へ流してよいでしょうか。
+
+### 選択肢
+
+一案は、source refresh、curation、training、Package activationを一つの自動処理へ連結することです。
+
+この案は更新を速くしますが、一時的なsource異常やwarningの誤判定が現在の判断へ直結します。
+
+別案は、Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotを別の不変資産とし、承認と学習対象作成を別操作にすることです。
+
+### 証拠
+
+Issue #194は`source refresh != retraining != activation`を安全原則として記録しました。
+
+commit `d7b2043`はcontract、domain、repository、API、UI、test、E2Eを縦に追加しました。
+
+現在の`approve_curation_run`は重複row keyとblocked rowのoverrideを拒否し、承認row、除外row、actor、reason、overrideをdigestへ含めます。
+
+`build_training_snapshot`は承認済みかつtarget eligibleなrowだけを選び、空の学習集合を拒否します。
+
+二つの操作は {{< code-ref case-study-data-approval symbol=approve_curation_run >}} と {{< code-ref case-study-data-approval symbol=build_training_snapshot >}} に分かれています。
+
+repositoryは各資産を別レコードとして保存します。
+
+永続化境界は {{< code-ref case-study-data-repository symbol=DataLifecycleRepository >}} で確認できます。
+
+testはquarantine reasonの保持、承認とTraining Snapshot作成の分離、未承認dataがProjectへ露出しないことを確認します。
+
+証拠は {{< code-ref case-study-data-tests symbol=test_approval_and_training_snapshot_are_explicit_separate_actions >}} と {{< code-ref case-study-data-tests symbol=test_api_tracks_digests_without_exposing_unapproved_data_to_projects >}} にあります。
+
+### 判断
+
+取得、整形、承認、学習対象作成、再学習、active化を独立した境界にしました。
+
+warningは明示承認できますが、blocked rowはoverrideできません。
+
+既存Projectへ最新Datasetを自動適用しないことも非scopeとして固定しました。
+
+### 結果
+
+利用者はsource差分とquality summaryを見た後で、誰が何をなぜ承認したかを不変revisionへ残せます。
+
+承認済みDatasetができても、自動再学習や自動active化は起きません。
+
+### 残る限界
+
+現在のpayload保存は大きなsourceに向かず、Issue #311、#312、#313がingress、外部payload、detail APIの拡張を追跡しています。
+
+履歴UIは各段の最新記録へ偏っており、監査時の全履歴導線はIssue #366に残っています。
+
+## Case 5: 未計算をdashで表示しない
+
+### 問い
+
+候補比較の初期previewを5件へ制限するとき、残りのcellを意味の曖昧なdashで表示してよいでしょうか。
+
+### 選択肢
+
+一案は、値がない状態を共通のdashで表示し、利用者が各候補を開いたときだけ計算することです。
+
+別案は、未計算と計算済み欠損を語で区別し、一操作で残りを計算できるようにすることです。
+
+全候補を最初から自動計算する案もありますが、初期応答と必要な候補だけを更新する方針を崩します。
+
+### 証拠
+
+Issue #221の実測では、候補8件のうち6件目以降がdashになり、一覧は比較済みに見える一方で判断summaryは未確定でした。
+
+commit `d8e6343`はcellを「未計算」へ変え、「未計算 N候補」と「残りを計算」を追加しました。
+
+現在の候補比較UIはpreviewがないcellへ「未計算」とtitleを出し、pending countが正ならsummaryを確定表示しません。
+
+表示境界は {{< code-ref case-study-uncomputed-ui >}} で確認できます。
+
+source inspection testは未計算表示、残りを計算するbutton、完了後にbuttonが消えることを確認します。
+
+現在のtestは {{< code-ref case-study-uncomputed-ui-test >}} にあります。
+
+### 判断
+
+未計算を欠損値と同じdashで表す方式をやめました。
+
+初期5件だけを計算する性能上の境界は維持し、残りを明示的に一括計算する導線を追加しました。
+
+partialな比較では確定的なsummaryを出さないようにしました。
+
+### 結果
+
+利用者は値が存在しないのか、まだ計算していないのかを区別できます。
+
+比較対象を揃える操作が候補ごとの反復clickから一回の操作へ変わりました。
+
+### 残る限界
+
+このtestは主にsource構造を検査しており、画面上の読み順や支援技術での理解を完全には保証しません。
+
+「区間なし」が未計算と不確かさ非対応を兼ねる別の曖昧さはIssue #361に残っています。
+
+## Case 6: 教材driftを検出と判断に分ける
+
+### 問い
+
+教材が参照するcodeに差分が出たとき、`verified_commit`を自動更新すれば十分でしょうか。
+
+### 選択肢
+
+一案は、参照pathに変更があれば章を一律に古いと判定し、commitだけを更新することです。
+
+別案は、差分検出を自動化し、教材内のclaimへの影響分類をreviewerが記録することです。
+
+### 証拠
+
+commit `45e1b5f`はdrift detector、record checker、template、初回record、回帰testを追加しました。
+
+learning branchの`docs/learning/check-main-drift.ps1`は`verified_commit`以後にcode referenceが変わった章を検出します。
+
+`check-drift-reviews.mjs`はtrigger commit、changed path、claim ID、分類値、検証記録の構造を検査します。
+
+PR #283の初回recordは`recorded_after_the_fact: true`を持ち、当時リアルタイムにreviewした記録ではないことを明示しています。
+
+この歴史的制約はlearning branchの`docs/learning/drift-reviews/drift-2026-07-26-pr-283.json`に残っています。
+
+これらの教材保守fileは`verified_commit`のmainには存在せず、commit `45e1b5f`以後のlearning branch上の証拠です。
+
+### 判断
+
+file差分の検出と、教材の意味が変わったかという判断を分離しました。
+
+claimごとに`no_content_impact`、`editorial_update`、`conceptual_update`、`exercise_invalidated`、`evidence_unavailable`を記録します。
+
+証拠が不足したclaimを残したまま`verified_commit`を進めない運用にしました。
+
+### 結果
+
+参照fileが変わっただけで本文を機械的に書き換える誤更新を避けられます。
+
+反対に、pathが残っていても演習や概念が無効になった変更を記録へ残せます。
+
+初回recordは事後再構成であるという来歴も隠しません。
+
+### 残る限界
+
+checkerは説明の意味が変わったかを判定できません。
+
+reviewerはcurrent code、test、画面証拠を読み、claim単位の分類を行う必要があります。
+
+visual reviewが必要な変更を自動checkだけでresolvedにしてはいけません。
+
+## 演習
+
+### 演習1: shared modelの採否を決める {#exercise-case-studies-01}
+
+新しい実データで、shared modelは4 target中2 targetのRMSEを6%改善し、残り2 targetを4%悪化させました。
+
+平均calibration errorは0.01改善し、artifact sizeと推論時間はsingleの約3倍です。
+
+Case 2の採否ルールを使い、採用、subset再評価、見送りのどれを選ぶかを書いてください。
+
+不足している証拠と、productionへ追加してはいけないものも挙げてください。
+
+#### 成功条件
+
+事前基準とtarget別negative transferを用いて結論を説明し、少なくとも二つの代替案のtrade-offを比較します。
+
+[演習1の解答](#answer-case-studies-01)は、回答を固定してから開きます。
+
+::: {#answer-case-studies-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+全target共有の採用は見送ります。
+
+2 targetが4%悪化しており、Case 2の「悪化するtargetがない」という基準を満たしません。
+
+改善した2 targetだけのsubsetは、新しいIssueで同じgrouped split、coverage、calibration、costを再評価します。
+
+再評価が終わるまでruntime adapter、Package、active設定を追加しません。
+
+#### 解答の理由
+
+平均値の改善だけでは、悪化したtargetを使う判断の危険を隠します。
+
+subset案は共有効果を残せますが、採否単位を変えるため、現在の結果から直接採用できません。
+
+全面見送りは最も小さい変更ですが、改善targetの可能性も捨てます。
+
+#### よくある不十分な回答
+
+「平均calibrationが改善したので採用する」だけではtarget別悪化を無視しています。
+
+「3倍遅いので見送る」だけでは、品質と安全性の基準を性能だけへ置き換えています。
+:::
+
+### 演習2: 新しいChain候補形状の責務を置く {#exercise-case-studies-02}
+
+第三のChainは決定論的stageを持たず、候補に時系列の温度programと二つのscalar条件を持ちます。
+
+stage順序、binding、snapshotは既存と同じです。
+
+Core変更、既存scalar adapter拡張、新adapter追加の三案を比較し、最初に書くtestを決めてください。
+
+#### 成功条件
+
+Coreとadapterの責務を分け、現在のselection規則では扱えない点と、fallbackを置かない理由を示します。
+
+[演習2の解答](#answer-case-studies-02)は、回答を固定してから開きます。
+
+::: {#answer-case-studies-02 .exercise-solution data-label="演習2の解答"}
+#### 解答例
+
+時系列candidateを解釈する新しいtyped adapterを追加します。
+
+最初のtestは、第三のstage shapeが新adapterへ選択され、温度programをcanonical external pathへ展開し、同じCoreでsnapshotまで作れることを確認します。
+
+未登録shapeは理由付きで失敗させます。
+
+#### 解答の理由
+
+stage順序、binding、snapshotはCore責務なので変更理由がありません。
+
+既存scalar adapterへ時系列を混ぜると、scalarという成立条件が崩れます。
+
+新adapterはdomain shapeを局所化しますが、selection ruleとcontract testの追加費用が発生します。
+
+#### よくある不十分な回答
+
+「汎用JSONとしてCoreへ渡す」はshape validationの所有者を消します。
+
+「既存adapterが失敗したら新adapterを試す」は不正な入力と未対応shapeを区別できないfallbackになります。
+:::
+
+### 演習3: 承認境界をたどる {#exercise-case-studies-03}
+
+Curation Runにaccepted 8行、warning 2行、quarantined 1行、blocked 1行があります。
+
+利用者はwarningのうち1行だけを理由付きで採用し、blocked rowもoverrideしたいと依頼しました。
+
+Canonical Dataset RevisionとTraining Snapshotへ進める最小安全手順を書いてください。
+
+#### 成功条件
+
+blocked overrideを拒否し、承認とTraining Snapshot作成を別操作にし、actor、reason、除外row、target eligibilityの記録先を示します。
+
+[演習3の解答](#answer-case-studies-03)は、回答を固定してから開きます。
+
+::: {#answer-case-studies-03 .exercise-solution data-label="演習3の解答"}
+#### 解答例
+
+blocked rowのoverrideは拒否します。
+
+accepted rowと採用するwarning rowをCanonical Dataset Revisionへ固定し、actor、reason、override、除外rowをdigest対象として保存します。
+
+そのrevisionを確認した後、target eligibleな承認済みrowだけからTraining Snapshotを別操作で作ります。
+
+再学習とactive Package切替はさらに別の操作として残します。
+
+#### 解答の理由
+
+blockedはwarningより強い停止境界であり、現contractはoverrideを許しません。
+
+承認と学習対象作成を分けることで、承認済みdataから用途別cohortを再現できます。
+
+#### よくある不十分な回答
+
+「警告を除いて自動学習する」は承認者と理由を失います。
+
+「blockedも理由があれば採用する」は現在のdomain contractに反します。
+:::
+
+### 演習4: 歴史的主張をdrift reviewする {#exercise-case-studies-04}
+
+ある章は「候補比較の未計算cellは`未計算`と表示する」と主張しています。
+
+frontend fileの変更後も文言は同じですが、残りを計算するbuttonが別componentへ移動しました。
+
+drift classification、確認する証拠、`verified_commit`を進める条件を書いてください。
+
+#### 成功条件
+
+file差分とclaimへの影響を分け、code link、本文、演習、visual evidenceの更新要否を個別に判定します。
+
+[演習4の解答](#answer-case-studies-04)は、回答を固定してから開きます。
+
+::: {#answer-case-studies-04 .exercise-solution data-label="演習4の解答"}
+#### 解答例
+
+表示の意味が同じならclaimは`editorial_update`または`no_content_impact`の候補です。
+
+code referenceが旧componentを指す場合は`editorial_update`とし、参照先を更新します。
+
+現在のcomponent、UI test、実画面で未計算表示、button、partial summaryを確認し、演習の成功条件が成立すると確認した後だけ`verified_commit`を進めます。
+
+#### 解答の理由
+
+file移動だけでは概念変更になりませんが、教材の証拠linkは古くなり得ます。
+
+文言が同じでもbuttonの到達性や読み順が変わる可能性があるため、source checkだけではvisual claimを閉じられません。
+
+#### よくある不十分な回答
+
+「文言が同じなので自動でno impact」は操作可能性の変化を確認していません。
+
+「fileが変わったのでconceptual update」は差分とclaimを同一視しています。
+:::
+
+## 章末チェック {#exercise-case-studies-chapter-check}
+
+次の六点を、自分が扱う一つの設計変更へ適用してください。
+
+1. 問いを利用者の失敗scenarioとして書いたか。
+2. 採用案以外を二案以上残したか。
+3. IssueやADRの意図とcurrent codeの事実を分けたか。
+4. testが保証する範囲と保証しない範囲を分けたか。
+5. 採用しなかった案の利点と代償を書いたか。
+6. 残る限界と追跡Issueを隠していないか。
+
+### 成功条件
+
+各項目へ具体的な証拠を一つ以上対応させ、証拠がない項目を「未確認」として残します。
+
+[章末チェックの解答](#answer-case-studies-chapter-check)は、自分の記録を固定してから開きます。
+
+::: {#answer-case-studies-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+良い記録は、Issueの完了条件を実装済みの証拠として扱いません。
+
+historical commitで当時の変更を固定し、`verified_commit`のcodeとfocused testで現在の状態を再確認します。
+
+採否基準、非scope、反証となるscenario、残課題を同じ記録へ残します。
+
+#### 解答の理由
+
+最終設計だけを読むと、境界が必要になった失敗と、別案を捨てた条件が消えます。
+
+一方、履歴だけを読むと、その判断が現在も実装へ残っているか分かりません。
+
+二つの時点を分けて接続することで、設計を再評価できる教材になります。
+
+#### よくある不十分な回答
+
+PR descriptionだけを列挙しても、current codeの確認にはなりません。
+
+成功したtest名だけを書いても、未確認の画面挙動や性能まで保証したことにはなりません。
+:::
+
+## Further Reading
+
+- Ousterhoutのmodule設計論 [@ousterhout-philosophy] は、深い境界と情報隠蔽をChain Core、adapter、Package loaderの判断と比較するために使います。class数の少なさをそのまま設計品質とはみなしません。
+- Kleppmannのdata system設計 [@kleppmann-ddia2] は、identity、immutability、derived data、failureの観点を、Snapshotと承認境界へ接続します。現行single-user SQLiteを分散systemとして扱う資料ではありません。
+- The Turing Way [@turing-way] は、再現可能な研究成果へcode、data、environment、記録を含める観点を、教材drift reviewと検証記録へ接続します。再現できることと科学的に正しいことは分けます。

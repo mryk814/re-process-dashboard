@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-YYYY-MM-DD-issue-NNN",
+  "issue": {
+    "number": 0,
+    "url": "https://github.com/OWNER/REPOSITORY/issues/NNN",
+    "title": "Issue title"
+  },
+  "chapter": {
+    "paths": ["docs/learning/chapters/example.qmd"],
+    "scope": "What this acceptance review covers."
+  },
+  "reviewed_against": "FULL_COMMIT_SHA",
+  "status": "changes_required",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "reviewer identity or proxy role",
+      "method": "How the review was performed.",
+      "result": "fail",
+      "evidence": ["path, symbol, test, or generated artifact"],
+      "notes": "What was checked and what remains uncertain."
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "reviewer identity or proxy role",
+      "method": "How the review was performed.",
+      "result": "fail",
+      "evidence": ["learning objective, exercise, or route"],
+      "notes": "What was checked and what remains uncertain."
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "reviewer identity or proxy role",
+      "method": "How the review was performed.",
+      "result": "fail",
+      "evidence": ["structure, alternative text, or rendered artifact"],
+      "notes": "What was checked and what remains uncertain."
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "Reader profile A",
+      "proxy": true,
+      "starting_context": "Knowledge assumed before reading.",
+      "task": "A realistic task attempted from the chapter.",
+      "success_criteria": ["Observable completion criterion"],
+      "result": "fail",
+      "observations": ["Evidence observed during the proxy walkthrough."],
+      "limitations": "A proxy walkthrough is not a real reader study."
+    },
+    {
+      "profile": "Reader profile B",
+      "proxy": true,
+      "starting_context": "Knowledge assumed before reading.",
+      "task": "A second realistic task attempted from the chapter.",
+      "success_criteria": ["Observable completion criterion"],
+      "result": "fail",
+      "observations": ["Evidence observed during the proxy walkthrough."],
+      "limitations": "A proxy walkthrough is not a real reader study."
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "blocking",
+      "summary": "A concise finding.",
+      "evidence": ["path or observation"],
+      "requires_textbook_change": true,
+      "disposition": "followup_issue_required",
+      "tracking": null
+    }
+  ],
+  "verification": {
+    "commands": ["command"],
+    "result": "pending"
+  },
+  "issue_close_recommendation": "not_ready",
+  "reviewer_note": "State proxy limits, deferred evidence, and conflicts explicitly."
+}

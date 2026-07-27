@@ -1,14 +1,32 @@
 ---
-title: "演習：契約変更の影響範囲を予測する"
+chapter_id: "extend-contract"
 level: intermediate
 estimated_minutes: 60
-verified_commit: "c3b9c14e6246c77854de7b8294e56584cb039534"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
-  - "backend/src/material_workbench/contracts/decision_activity_contracts.py"
-  - "backend/tests/test_decision_activities.py"
-  - "backend/tests/test_openapi_contract.py"
-  - "apps/web/src/generated/api-types.ts"
-  - "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    role: "contract"
+  - path: "backend/tests/test_decision_activities.py"
+    role: "test"
+  - path: "backend/tests/test_openapi_contract.py"
+    role: "test"
+  - path: "apps/web/src/generated/api-types.ts"
+    role: "generated"
+  - path: "apps/web/src/features/workbench/decisionActivities/CandidateDifferenceActivityView.tsx"
+    role: "frontend"
+
+prerequisite_concepts:
+  - "application-service"
+  - "contract"
+  - "discriminated-union"
+  - "generated-artifact"
+introduced_concepts: []
+reinforced_concepts:
+  - "contract-test"
+  - "decision-activity"
+  - "typed-error"
+future_concepts: []
+historical_concepts: []
 ---
 
 # 契約変更の影響範囲を予測する {#sec-lab-contract}
@@ -16,7 +34,7 @@ code_references:
 この演習はproduction codeを変更しません。
 変更案、期待する生成差分、必要なtestを先に書き、現mainのcontractと照合します。
 
-## 演習1：requestへ目的を追加する
+## 演習1：requestへ目的を追加する {#exercise-contract-01}
 
 候補差分を実行するとき、利用者が短い「比較の目的」を入力し、保存済みRunにも残したいとします。
 field名を`comparison_purpose`、空白除去後の長さを1文字以上80文字以下とします。
@@ -33,21 +51,44 @@ field名を`comparison_purpose`、空白除去後の長さを1文字以上80文�
 ### 成功条件
 
 回答には、変更するpath、変更しないpath、最低限のtestを含めます。
+既存の保存済みRunを読めるかを確認し、fieldをoptionalにする案とrequiredにする案を区別します。
 「frontendとbackendを直す」のような層の名前だけでは完了としません。
 
-### 解答例
+### ヒント
+
+`DecisionActivityRun`がparameter modelをどの単位で保存しているかを確認します。
+version判断では、新しいrequestだけでなく、変更前に保存したpayloadも読み手に含めます。
+
+[演習1の解答](#answer-contract-01)
+
+::: {#answer-contract-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+ここでは、既存の保存済みRunを引き続き読めるように、`comparison_purpose`をoptional fieldとして追加する案を採ります。
 
 1. `CandidateDifferenceParameters`へfieldを追加する。
 2. `DecisionActivityRun.parameters`がparameter model全体を保存するため、Runへ重複fieldを追加しない。
-3. `npm run api:generate`でOpenAPI JSONとTypeScript型を更新し、差分をreviewする。
+3. `npm run api:generate`でOpenAPI JSONとTypeScript型を更新し、生成差分をreviewする。
 4. `CandidateDifferenceActivityView.tsx`が入力stateを持ち、`onRun`へparameterを渡す。
-5. `test_candidate_difference_is_deterministic_and_persistent`を拡張し、保存後にpurposeが復元されることを確認する。request validationの境界testも追加する。
-6. 既存payloadを引き続き読めるoptional fieldなら`v1`のcompatible extensionと判断できる。required fieldにして既存保存payloadを読めなくするなら`v2`を作り、旧Runの読み方を決める。
+5. `test_candidate_difference_is_deterministic_and_persistent`を拡張し、保存後にpurposeが復元されることを確認する。
+   request validationの境界testも追加する。
+6. optional fieldなら`v1`のcompatible extensionとして扱える。
+   required fieldにして既存payloadを読めなくする場合は`v2`を作り、旧Runの読込規則を決める。
 
-この解答では、version判断をfield追加という見た目だけで決めません。
-保存済みpayloadの互換性と意味の変更で判断します。
+#### 解答の理由
 
-## 演習2：生成型のdriftを観察する
+versionはfieldが増えたという外見ではなく、保存済みpayloadの互換性とparameterの意味で判断します。
+Runへ同じ値を別fieldとして持たせると、`parameters`内の値と食い違う状態を作れます。
+validation、永続化、生成型、入力画面を別々に確認すると、変更が届く範囲と届かない範囲を区別できます。
+
+#### よくある不十分な回答
+
+「frontendとbackendへfieldを追加する」だけでは、変更するmodel、生成command、保存先、testが特定されていません。
+「field追加なので常に`v2`にする」だけでは、既存payloadを読めるかという互換性を評価していません。
+反対に、required fieldを追加しておきながら`v1`のままとする回答は、変更前の保存済みRunをどう読むかを欠いています。
+:::
+
+## 演習2：生成型のdriftを観察する {#exercise-contract-02}
 
 現mainではcodeを変更せず、同期確認だけを実行します。
 
@@ -63,16 +104,38 @@ npm run api:check
 
 `candidate-difference-parameters/v1`を検索し、各fileで何を表しているかを書いてください。
 
-### 解答例
+### 成功条件
+
+三つのfileにある表現を区別し、どの正本から何が生成されるかを説明します。
+同じ文字列があることだけでなく、各fileでの役割を記録します。
+
+### ヒント
+
+Python model、OpenAPI schema、TypeScript unionの順に生成関係をたどります。
+三つを独立した正本として扱わないことが判断点です。
+
+[演習2の解答](#answer-contract-02)
+
+::: {#answer-contract-02 .exercise-solution data-label="演習2の解答"}
+#### 解答例
 
 - Pythonでは、Pydantic modelのliteralとunion discriminatorを表す。
 - OpenAPIでは、schemaの`const`とdiscriminator mappingを表す。
 - TypeScriptでは、文字列literalとrequest unionの一員を表す。
 
-三つは別々の正本ではありません。
-Python contractからOpenAPIを生成し、OpenAPIからTypeScript型を生成します。
+#### 解答の理由
 
-## 演習3：型だけでは防げない誤表示を探す
+Python contractからOpenAPIを生成し、OpenAPIからTypeScript型を生成します。
+同じschema versionが三箇所に現れても、生成元、交換形式、利用側の型という役割は異なります。
+
+#### よくある不十分な回答
+
+「三つとも同じschemaを表す」だけでは、各fileの役割と生成方向が分かりません。
+生成済みの`openapi.json`や`api-types.ts`を独立した正本として直接直す回答は、次の生成で変更を失います。
+`npm run api:check`の成功だけを記録する回答も、どの表現を照合したかを示していません。
+:::
+
+## 演習3：型だけでは防げない誤表示を探す {#exercise-contract-03}
 
 次の操作順を考えます。
 
@@ -83,19 +146,76 @@ Python contractからOpenAPIを生成し、OpenAPIからTypeScript型を生成�
 requestとresponseのshapeはすべて正しいものとします。
 それでも起きる誤りと、現行実装の対策を説明してください。
 
-### 解答例
+### 成功条件
 
-候補Aのresultを候補Bのpanelへ表示すると、payloadの型は正しくても画面文脈が誤ります。
-`DecisionActivityPanel.tsx`はProject ID、Candidate ID、Candidate revisionからidentityを作り、request開始時と現在のidentityが一致する場合だけstateへ反映します。
-候補が変わった時点でAbortControllerも使います。
+候補Aの正しいresultが候補Bの画面では誤表示になる理由を説明します。
+現行実装が比較するidentityと、requestを中止する仕組みの両方を挙げます。
+type safetyと時間的な整合性を区別します。
 
-この演習は、type safetyとtemporal consistencyを分けて考えるものです。
+### ヒント
 
-## 演習4：testの置き場所を選ぶ
+responseの中身だけでなく、request開始時のProject、Candidate、revisionと、現在の画面を比較します。
+同じidentityで複数回requestする場合も考えます。
 
-次の退行を、最も近いtestへ対応付けてください。
+[演習3の解答](#answer-contract-03)
 
-| 退行 | 候補 |
+::: {#answer-contract-03 .exercise-solution data-label="演習3の解答"}
+#### 解答例
+
+候補Aのresultを候補Bのpanelへ表示すると、payloadの型は正しくても画面の対象が誤ります。
+`DecisionActivityPanel.tsx`はProject ID、Candidate ID、Candidate revisionからidentityを作ります。
+request開始時と現在のidentityが一致する場合だけ、panelはresponseをstateへ反映します。
+候補が変わった時点ではAbortControllerも使います。
+
+#### 解答の理由
+
+型はpayloadのshapeとvariantを検査しますが、そのpayloadを現在の候補へ表示してよいかは検査しません。
+identity比較は、responseがどのProject、Candidate、revisionに属するかを現在の画面と照合します。
+AbortControllerは不要になった処理を止めますが、完了直前のresponseなどを捨てる判定の代わりにはなりません。
+
+#### よくある不十分な回答
+
+「responseの型が正しいので誤表示は起きない」という回答は、payloadのshapeと表示対象を混同しています。
+「AbortControllerで防ぐ」だけでは、中止が間に合わなかったresponseの採否を説明できません。
+「Candidate IDを比較する」だけでは、同じCandidateのrevisionが変わった場合を区別できません。
+:::
+
+## 演習4：testの置き場所を選ぶ {#exercise-contract-04}
+
+次の退行を、最初に原因へ近いtestへ対応付けてください。
+
+- `comparison_revision=0`を受け付けた。
+- serviceへ`if activity_id == ...`が増えた。
+- Pydantic変更後に`openapi.json`を更新し忘れた。
+- `openapi.json`更新後に`api-types.ts`を更新し忘れた。
+- 画面から「残差」が消えた。
+- 候補を切り替えた後に古いresultが表示された。
+
+候補は次です。
+
+- contract test
+- source inspection test
+- OpenAPI contract test
+- `npm run api:check`
+- Playwright E2E
+- frontend state test
+
+### 成功条件
+
+六つの退行へ、最初に反応させたいtestを一つずつ対応付けます。
+複数のtestが反応する場合は、最初の調査範囲を狭めるtestを選んだ理由を書きます。
+
+### ヒント
+
+利用者の操作まで通さなくても検出できる退行は、壊れた境界に近いtestから考えます。
+生成物の二つのdriftは、PythonとOpenAPIの間、OpenAPIとTypeScriptの間に分けます。
+
+[演習4の解答](#answer-contract-04)
+
+::: {#answer-contract-04 .exercise-solution data-label="演習4の解答"}
+#### 解答例
+
+| 退行 | 最初に反応させたいtest |
 |---|---|
 | `comparison_revision=0`を受け付けた | contract test |
 | serviceへ`if activity_id == ...`が増えた | source inspection test |
@@ -104,10 +224,20 @@ requestとresponseのshapeはすべて正しいものとします。
 | 画面から「残差」が消えた | Playwright E2E |
 | 候補を切り替えた後に古いresultが表示された | frontend state testまたはE2E |
 
-一つの退行へ複数のtestが反応する場合はあります。
-最初に原因へ近いtestを置くと、失敗時の調査範囲を狭められます。
+#### 解答の理由
 
-## 演習5：現mainを検証する
+validation、共通serviceの構造、生成境界、画面表示、時間的なstateは、それぞれ異なる境界で壊れます。
+原因に近いtestを先に置くと、失敗時に調べるfileと状態を絞れます。
+古いresultの誤表示はstate遷移だけでも検出できますが、実際の候補切替を含む接続はE2Eでも確認できます。
+
+#### よくある不十分な回答
+
+「すべてE2Eで確認する」という回答は、どの境界が壊れたかを一つの遅いtestへ集約します。
+複数のtest名を並べるだけでは、最初に原因へ近いtestを選ぶという問いへ答えていません。
+OpenAPI contract testと`npm run api:check`を同じdrift検査として扱う回答は、二つの生成境界を区別していません。
+:::
+
+## 演習5：現mainを検証する {#exercise-contract-05}
 
 リポジトリ直下で実行します。
 
@@ -129,18 +259,67 @@ api_check:
 unexpected_warnings:
 ```
 
-warningが出た場合、成功件数だけを残して無視しません。
-既知のwarningか、今回のcontract経路に関係する退行かを分けます。
+### 成功条件
 
-## 章末チェックの解答
+commandが成功し、Decision Activity contract、永続化、OpenAPI driftを扱うtestが収集されたことを確認します。
+`npm run api:check`がOpenAPIとTypeScript生成型の同期を確認したことを記録します。
+warningは既知か、今回のcontract経路に関係する退行かを分類します。
 
-1. `backend/src/material_workbench/contracts/decision_activity_contracts.py` の`CandidateDifferenceParameters`。
+### ヒント
+
+pass件数はtest追加で変わります。
+test名と検査対象を対応付けると、件数が変わっても同じ判断基準を使えます。
+
+[演習5の解答](#answer-contract-05)
+
+::: {#answer-contract-05 .exercise-solution data-label="演習5の解答"}
+#### 解答例
+
+記録には変動するpass件数だけでなく、次の評価rubricを満たす証拠を残します。
+
+| 項目 | 十分な記録 |
+|---|---|
+| contract | parameterとresultのvalidation testが収集され、成功した |
+| persistence | 保存済みRunのparameter、result、provenanceを読むtestが収集され、成功した |
+| OpenAPI | Python contractと追跡済みOpenAPIの比較が成功した |
+| TypeScript | `npm run api:check`が生成型の差分なしで成功した |
+| warning | 既知warningと新しいwarningを分けて記録した |
+
+#### 解答の理由
+
+test件数は追加や分割で変わるため、contractが守る境界の証拠として固定できません。
+検査対象とtestを対応付ければ、同じ件数でも対象testが収集されていない実行を成功と誤認せずに済みます。
+
+#### よくある不十分な回答
+
+pass件数と終了codeだけを残す回答は、目的のtestが収集されたかを示しません。
+warning欄を空にする回答は、warningがなかったのか、確認しなかったのかを区別できません。
+`npm run api:check`の成功をPython contractの業務preconditionまで正しい証拠とする回答は、生成型が検査する範囲を越えています。
+:::
+
+[章末チェックの解答](#answer-contract-chapter-check)
+
+::: {#answer-contract-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+1. `backend/src/material_workbench/contracts/decision_activity_contracts.py`の`CandidateDifferenceParameters`。
 2. unionが個別modelを選ぶ前にdiscriminatorを必要とするため。
-3. storeとProject文脈を必要とする業務preconditionであり、payload単体の構造条件ではないため。
+3. storeとProjectの状態を必要とする業務preconditionであり、payload単体の構造条件ではないため。
 4. `test_shared_activity_shells_do_not_name_a_specific_activity`。
-5. `backend/tests/test_openapi_contract.py` のtracked schema比較。
+5. `backend/tests/test_openapi_contract.py`のtracked schema比較。
 6. `npm run api:check`。
 7. resultの`schema_version`。
 8. 候補Aのrequest中に候補Bへ移り、候補Aのresponseが後から返る場合。
-9. 作成時のモデルと特徴量表現を固定し、後から同じresultの出所を説明するため。
+9. 作成時のModel PackageとFeature Pipelineを固定し、後から同じresultの出所を説明するため。
 10. E2Eは統計値の細部より、利用者が差、残差、warningを区別できる接続を守るため。
+
+#### 解答の理由
+
+章末チェックは、contract、業務precondition、生成境界、画面の時間的な整合性を分けて確認します。
+pathまたはtestを求める問いでは、名前だけでなく、そのfileやtestが守る境界まで対応付けます。
+
+#### よくある不十分な回答
+
+識別子だけを列挙し、pathとtestを挙げない回答は、現mainの実装へ接続していません。
+すべてを「型が守る」とする回答は、Project ownership、stale response、統計的な表示の意味をcontractへ含めてしまいます。
+:::

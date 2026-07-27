@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-332",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 332,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/332",
+    "merge_commit": "5a761c621cef1106d4a712926c75cc959c43b841"
+  },
+  "reviewed_against": "5a761c621cef1106d4a712926c75cc959c43b841",
+  "previous_verified_commit": "024b232678b0f50c717a06136ccbe1e9070dee5d",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/src/material_workbench/app.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-e2e"],
+      "action": "no-change",
+      "reason": "The application exposes deterministic E2E fixture identities without changing Activity execution semantics."
+    },
+    {
+      "path": "backend/src/material_workbench/persistence/demo_seed.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-e2e"],
+      "action": "no-change",
+      "reason": "The demo seed provides stable comparison candidates for browser tests and does not change production Activity contracts."
+    },
+    {
+      "path": "backend/src/material_workbench/task_modules.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-e2e"],
+      "action": "no-change",
+      "reason": "Task registration supports the deterministic test setup while preserving Decision Activity availability."
+    },
+    {
+      "path": "backend/tests/test_task_registry.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-e2e"],
+      "action": "no-change",
+      "reason": "Registry tests cover the fixture setup and do not alter the learner-facing Activity flow."
+    },
+    {
+      "path": "e2e/decision-activity.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-e2e"],
+      "action": "no-change",
+      "reason": "The comparison candidate is selected by API identity instead of a stale option label, preserving the same user-visible assertion."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "decision-activity-e2e",
+      "statement": "The browser test verifies the explicit user action that promotes one saved Counterfactual proposal into a Candidate.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #332 stabilizes fixture identity and candidate selection without changing the promotion boundary or expected UI.",
+      "evidence": [
+        {"path": "e2e/decision-activity.spec.ts", "symbol": "comparison!.id"},
+        {"path": "backend/src/material_workbench/persistence/demo_seed.py", "symbol": "initialize_demo_projects"}
+      ],
+      "verification": [
+        "Run the focused Decision Activity browser suite on fresh dedicated ports."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector identified decision-activity.spec.ts as a referenced file changed after the previous verified commit.",
+    "focused_tests": "The fresh-server focused browser suite passed all 10 tests after the merge.",
+    "api_check": "The fixture stabilization does not change generated API shapes.",
+    "code_reference_check": "The referenced E2E file and promotion assertions remain present.",
+    "html_build": "A clean HTML build passed before the main merge.",
+    "pdf_build": "A clean 194-page PDF build passed before the main merge.",
+    "visual_review": "All 194 PDF pages were reviewed before the main merge."
+  },
+  "reviewer_note": "This PR resolves the observed stale-label E2E failure without changing the textbook claim."
+}

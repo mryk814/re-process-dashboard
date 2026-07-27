@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="640" viewBox="0 0 1120 640" role="img" aria-labelledby="title desc">
+  <title id="title">Project archiveとpurgeの状態遷移</title>
+  <desc id="desc">ActiveなProject Aをarchiveすると証拠を保持し、通常一覧とwrite経路から外し、実行中claimを失効させる。Project BがProject AのSnapshotを参照する場合はpurgeを拒否する。外部参照がないProjectだけ、Project-owned evidenceを削除し、shared artifactを残す。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#39546b"/>
+    </marker>
+    <style>
+      .title{font:700 25px "Noto Sans JP",sans-serif;fill:#183247}
+      .head{font:700 19px "Noto Sans JP",sans-serif;fill:#183247}
+      .body{font:17px "Noto Sans JP",sans-serif;fill:#183247}
+      .small{font:15px "Noto Sans JP",sans-serif;fill:#2d485a}
+      .footer{font:15px "Noto Sans JP",sans-serif;fill:#183247}
+      .state{stroke:#39546b;stroke-width:2;rx:16}
+      .arrow{stroke:#39546b;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+      .guard{stroke:#b15b35;stroke-width:2;stroke-dasharray:8 6;fill:none}
+    </style>
+  </defs>
+  <rect width="1120" height="640" fill="#f8fbfd"/>
+  <text x="40" y="48" class="title">一覧の状態、証拠の寿命、実行権を分ける</text>
+
+  <rect x="40" y="90" width="280" height="190" class="state" fill="#dceff7"/>
+  <text x="64" y="124" class="head">Active Project A</text>
+  <text x="64" y="158" class="body">通常一覧に表示</text>
+  <text x="64" y="185" class="body">Project-owned evidenceを読書き</text>
+  <text x="64" y="212" class="body">Chain claimが存在し得る</text>
+  <text x="64" y="252" class="small">Candidate / revision / Snapshot / Run</text>
+
+  <path d="M320 185 H410" class="arrow"/>
+  <text x="340" y="168" class="small">archive</text>
+
+  <rect x="410" y="90" width="310" height="190" class="state" fill="#f5e6c8"/>
+  <text x="434" y="124" class="head">Archived Project A</text>
+  <text x="434" y="158" class="body">通常一覧から外す</text>
+  <text x="434" y="185" class="body">evidenceを保持してwriteを拒否</text>
+  <text x="434" y="212" class="body">実行中claimだけを失効</text>
+  <text x="434" y="252" class="small">restoreで同じProjectをactiveへ戻せる</text>
+
+  <path d="M720 185 H810" class="arrow"/>
+  <text x="742" y="168" class="small">purge試行</text>
+
+  <rect x="810" y="90" width="270" height="190" class="state" fill="#f8dcd6"/>
+  <text x="834" y="124" class="head">Purge gate</text>
+  <text x="834" y="158" class="body">archive済みか</text>
+  <text x="834" y="185" class="body">successorがないか</text>
+  <text x="834" y="212" class="body">外部provenanceがないか</text>
+  <text x="834" y="252" class="small">確認用Project IDも一致させる</text>
+
+  <rect x="410" y="360" width="310" height="165" class="state" fill="#e3dcf5"/>
+  <text x="434" y="394" class="head">Project BのCandidate revision</text>
+  <text x="434" y="428" class="body">Project AのSnapshotを参照</text>
+  <text x="434" y="455" class="body">JSON provenanceから解決</text>
+  <text x="434" y="494" class="small">foreign key checkだけでは検出できない</text>
+  <path d="M720 438 C800 438 780 270 850 270" class="guard"/>
+  <text x="755" y="410" class="small">参照あり: 409で拒否</text>
+
+  <path d="M945 280 V360" class="arrow"/>
+  <text x="960" y="326" class="small">外部参照なし</text>
+
+  <rect x="810" y="360" width="270" height="165" class="state" fill="#d8eddb"/>
+  <text x="834" y="394" class="head">Purge commit</text>
+  <text x="834" y="428" class="body">Project-owned evidenceを削除</text>
+  <text x="834" y="455" class="body">shared artifactを保持</text>
+  <text x="834" y="494" class="small">一つのBEGIN IMMEDIATE transaction</text>
+
+  <rect x="40" y="565" width="1040" height="44" rx="10" fill="#dfe9ee"/>
+  <text x="60" y="592" class="footer">archiveは可視性とwrite可能性を変える。purgeは所有範囲と外部参照を確認してから物理削除する。</text>
+</svg>

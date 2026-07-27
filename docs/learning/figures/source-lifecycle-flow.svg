@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 260" role="img" aria-labelledby="title desc">
+  <title id="title">Source更新からModel Package候補までの資産分割</title>
+  <desc id="desc">Source Connector、Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotを順に作り、別操作でModel Package候補へ進む。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#476582"/>
+    </marker>
+    <style>
+      .box { fill: #f7fbff; stroke: #476582; stroke-width: 2; rx: 10; }
+      .decision { fill: #fff8e8; stroke: #9b6a19; stroke-width: 2; rx: 10; }
+      .label { font: 600 15px sans-serif; fill: #172b3a; text-anchor: middle; }
+      .sub { font: 13px sans-serif; fill: #425b6b; text-anchor: middle; }
+      .arrow { fill: none; stroke: #476582; stroke-width: 2.5; marker-end: url(#arrow); }
+      .separate { fill: none; stroke: #9b6a19; stroke-width: 2.5; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="box" x="22" y="70" width="150" height="94"/>
+  <text class="label" x="97" y="105">Source Connector</text>
+  <text class="sub" x="97" y="133">取得条件</text>
+  <rect class="box" x="200" y="70" width="150" height="94"/>
+  <text class="label" x="275" y="105">Raw Snapshot</text>
+  <text class="sub" x="275" y="133">取得した事実</text>
+  <rect class="box" x="378" y="70" width="150" height="94"/>
+  <text class="label" x="453" y="105">Curation Run</text>
+  <text class="sub" x="453" y="133">意味変換と品質判定</text>
+  <rect class="decision" x="556" y="58" width="170" height="118"/>
+  <text class="label" x="641" y="94">Canonical Dataset</text>
+  <text class="label" x="641" y="117">Revision</text>
+  <text class="sub" x="641" y="147">承認した行集合</text>
+  <rect class="decision" x="754" y="70" width="150" height="94"/>
+  <text class="label" x="829" y="105">Training Snapshot</text>
+  <text class="sub" x="829" y="133">学習へ渡す行集合</text>
+  <rect class="box" x="932" y="70" width="126" height="94"/>
+  <text class="label" x="995" y="105">Model Package</text>
+  <text class="sub" x="995" y="133">学習済み候補</text>
+  <path class="arrow" d="M172 117 H196"/>
+  <path class="arrow" d="M350 117 H374"/>
+  <path class="arrow" d="M528 117 H552"/>
+  <path class="arrow" d="M726 117 H750"/>
+  <path class="separate" d="M904 117 H928"/>
+  <text class="sub" x="916" y="48">別の操作</text>
+</svg>

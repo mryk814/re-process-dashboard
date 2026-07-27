@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-382",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 382,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/382",
+    "merge_commit": "c19e1d79ef4d7a394e20877fabf4b014eb72a24a"
+  },
+  "reviewed_against": "c19e1d79ef4d7a394e20877fabf4b014eb72a24a",
+  "previous_verified_commit": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "new_verified_commit": "c19e1d79ef4d7a394e20877fabf4b014eb72a24a",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/scripts/model_workflow.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "code-link", "exercise", "test-command"],
+      "affected_claims": ["active-package-switch-history", "rollback-target-validation"],
+      "action": "updated",
+      "reason": "Status now reports active-package history, and rollback explains missing previous references with the detected change."
+    },
+    {
+      "path": "backend/scripts/task_inventory.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "test-command"],
+      "affected_claims": ["active-package-switch-history"],
+      "action": "updated",
+      "reason": "The inventory gate now rejects active pointer changes that bypassed the activation contract."
+    },
+    {
+      "path": "backend/src/material_workbench/developer_experience/diagnostics.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["active-package-switch-history"],
+      "action": "updated",
+      "reason": "Developer diagnostics exposes the same history drift instead of discovering it only during rollback."
+    },
+    {
+      "path": "backend/src/material_workbench/modeling/active_package_history.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text", "code-link", "exercise"],
+      "affected_claims": ["active-package-switch-history", "rollback-target-validation"],
+      "action": "updated",
+      "reason": "The new application boundary distinguishes direct-edit drift from legitimate null previous states by checking package existence, Task identity, and contract digest."
+    },
+    {
+      "path": "backend/src/material_workbench/modeling/model_lifecycle.py",
+      "semantic_impact": "behavioral",
+      "material_impact": ["learner-text", "exercise"],
+      "affected_claims": ["active-package-switch-history"],
+      "action": "updated",
+      "reason": "Rollback failure now states that activation must pass through the command that records previous."
+    },
+    {
+      "path": "backend/tests/test_active_package_history.py",
+      "semantic_impact": "none",
+      "material_impact": ["code-link", "exercise", "test-command"],
+      "affected_claims": ["active-package-switch-history", "rollback-target-validation"],
+      "action": "updated",
+      "reason": "The tests fix direct-edit detection, legitimate null previous states, broken previous targets, and reversible activate/rollback."
+    },
+    {
+      "path": "docs/model-package-lifecycle.md",
+      "semantic_impact": "interface-compatible",
+      "material_impact": ["learner-text"],
+      "affected_claims": ["active-package-switch-history", "rollback-target-validation"],
+      "action": "updated",
+      "reason": "The maintainer documentation now makes command-only activation and rollback-target validation explicit."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "active-package-switch-history",
+      "statement": "An active Package switch is reversible only when the activation contract records the replaced reference as previous; editing the JSON pointer directly is not equivalent.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "exercise", "test-command"],
+      "action": "updated",
+      "reason": "The earlier chapter warned against direct editing but did not explain how current code detects the lost history or where the diagnostic appears.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/modeling/active_package_history.py",
+          "symbol": "check_active_package_history"
+        },
+        {
+          "path": "backend/tests/test_active_package_history.py",
+          "symbol": "test_active_pointer_moved_without_recording_previous_is_reported"
+        },
+        {
+          "path": "backend/scripts/model_workflow.py",
+          "symbol": "package_status"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_active_package_history.py",
+        "npm run task:inventory:check",
+        "node docs/learning/check-code-references.mjs"
+      ]
+    },
+    {
+      "claim_id": "rollback-target-validation",
+      "statement": "A null or unusable previous reference must be classified using Package existence, Task identity, and current input contract rather than rejected or accepted by shape alone.",
+      "classification": "conceptual_update",
+      "material_impact": ["learner-text", "code-link", "exercise"],
+      "action": "updated",
+      "reason": "PR #382 adds the distinction between missing history drift and a prior Package that can no longer be activated under the current contract.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/modeling/active_package_history.py",
+          "symbol": "classify_rollback_target"
+        },
+        {
+          "path": "backend/tests/test_active_package_history.py",
+          "symbol": "test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated"
+        },
+        {
+          "path": "backend/tests/test_active_package_history.py",
+          "symbol": "test_rollback_restores_the_previous_package_after_an_activate"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_active_package_history.py",
+        "Review the Model Package runtime chapter's activation and rollback sections against PR #382."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The current Model Package chapter references model_lifecycle.py, model_workflow.py, and the lifecycle documentation changed by PR #382.",
+    "focused_tests": "Active Package history tests passed 9 with 5 known warnings; task inventory and history checks passed.",
+    "api_check": "PR #382 does not change public API contracts.",
+    "code_reference_check": "Validated 28 documents and 789 structured code references after the final update.",
+    "html_build": "The final integrated site build passed for 42 documents with 332 exact code links in 52.76 seconds.",
+    "pdf_build": "The final Reader build passed in 24.81 seconds: 358 A4 pages, 13,266,549 bytes, SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004.",
+    "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
+  },
+  "reviewer_note": "The chapter now distinguishes a valid null previous state from a direct edit that destroyed reversible activation history. It does not claim git history is available in every packaged environment."
+}

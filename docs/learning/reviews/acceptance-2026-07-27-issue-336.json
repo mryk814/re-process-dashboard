@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-336",
+  "issue": {
+    "number": 336,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/336",
+    "title": "[Learning Delivery] Edition 1の完成定義・受入・main公開を束ねる"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/contract-through-stack.qmd",
+      "docs/learning/labs/extend-contract.qmd",
+      "docs/learning/chapters/source-to-training-evidence.qmd",
+      "docs/learning/labs/trace-source-evidence.qmd",
+      "docs/learning/chapters/performance-execution.qmd",
+      "docs/learning/labs/runtime-boundary-drills.qmd",
+      "docs/learning/labs/toy-weighted-mean.qmd",
+      "docs/learning/chapters/implementation-case-studies.qmd"
+    ],
+    "scope": "既存の章別recordで未coverageだった契約、Source evidence、性能、実行境界、数値例、実装ケースをEdition 1の横断読者taskとして受け入れる。"
+  },
+  "reviewed_against": "ec0df39a4f003e978591a4f771b36c16f0f142d8",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "Python contract、application、API、generated TypeScript、React、testの順序と、Sourceからtraining artifact、cache、security boundary、case studyのcode referenceを現mainへ照合した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd"
+      ],
+      "notes": "current implementation、未対応範囲、採用しなかった案が分離され、変更順序と検証先を再構成できる。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "概念導入、worked example、guided Lab、failure drill、ケーススタディの順に、読者が説明を読むだけでなく判断と検証を実行できるかを評価した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "docs/learning/labs/toy-weighted-mean.qmd"
+      ],
+      "notes": "二つの代理reader taskは成立した。実読者の所要時間と誤答率はEdition 1の非blockingな観測課題として残る。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "図、表、codeだけへ意味を閉じず本文でも同じ責務、failure、判断根拠へ到達できること、演習と解答の対応、PDFの読み順を確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd"
+      ],
+      "notes": "source構造とPDF目視は受入対象にした。screen reader固有の発音と200% zoomの実機確認は未実施である。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "toy weighted meanの仮定、単位、手計算、破綻条件と、cacheやbatch計算がscientific meaningを変えない条件を確認した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/labs/toy-weighted-mean.qmd",
+        "docs/learning/chapters/performance-execution.qmd"
+      ],
+      "notes": "数値例は計算結果だけでなく適用条件と誤用時のfailureを持つ。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "source row、反復観測、training cohort、工程条件、予測、採否判断が一つのrowやscoreへ潰れないことを横断確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd"
+      ],
+      "notes": "材料研究者本人による用語・単位・判断順序の読後reviewはIssue #303で追跡し、代理評価を実reviewとして扱わない。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "このrepositoryへ初めて契約変更を加えるfull-stack developer",
+      "proxy": true,
+      "starting_context": "FastAPIとReactは使えるが、生成contractとDecision Activityの変更境界を知らない。",
+      "task": "Decision Activityへfieldを追加し、PythonからReactまでの変更順序、生成file、focused test、失敗時の切り分け先を提示する。",
+      "success_criteria": [
+        "生成fileを直接編集しない",
+        "contract、registry、application、API、生成型、view、testの順序を説明する",
+        "保存済みRunを最新schemaで黙って再解釈しない",
+        "focused testとrepository gateを分ける"
+      ],
+      "result": "pass",
+      "observations": [
+        "契約章とLabから変更順序と検証commandを再構成できた。",
+        "実装ケースから採用しなかった近道と壊れる保証を説明できた。"
+      ],
+      "limitations": "代理source walkthroughであり、初参加者が実際にPull Requestを完成させる所要時間は測定していない。"
+    },
+    {
+      "profile": "材料dataとmodel artifactを監査する研究・品質担当者",
+      "proxy": true,
+      "starting_context": "材料実験と統計の基礎は知っているが、このapplicationのSource、Training Snapshot、Package、cache境界を知らない。",
+      "task": "一つの予測値について、source rowからtraining cohort、feature、Package、runtime、保存済み判断までの証拠とfailure drillを列挙する。",
+      "success_criteria": [
+        "source rowと学習行を同一視しない",
+        "target別eligibilityとgrouped splitを説明する",
+        "Package tamperとunsafe serializationの拒否点を示す",
+        "cache hitを科学的同一性の証拠として扱わない"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "Source evidence章とLabからrow除外理由とprovenanceを追跡できた。",
+        "runtime boundary drillと性能章からtamper、coalescing、cache identityのfailureを分離できた。"
+      ],
+      "limitations": "代理評価であり、実材料研究者による表現reviewとpackaged desktopでの実操作は別途追跡する。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "材料domainの受入は代理評価であり、実材料研究者の読後reviewを置き換えない。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-336.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #303"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "minor",
+      "summary": "GitHub Actionsは月間制限中のため、Edition 1の受入はcommitへ固定したlocal commandとartifact evidenceを使う。",
+      "evidence": [
+        "docs/learning/edition-1.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #336"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
+      "uv run python -m pytest",
+      "npm run typecheck",
+      "npm run build",
+      "npx playwright test e2e/decision-activity.spec.ts",
+      "$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/project-hub.spec.ts --grep \"leave its group\"",
+      "$env:PLAYWRIGHT_API_PORT=9002; $env:PLAYWRIGHT_WEB_PORT=5322; npx playwright test e2e/navigation-intent.spec.ts",
+      "npm run dev:doctor -- --json",
+      "npm run model:status"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready",
+  "reviewer_note": "未coverageだった全Reader対象をrecordへ含めた。content commit 15ae3fa18bfaa5c9e157bb879f570b611c87cb80をmain ec0df39a4f003e978591a4f771b36c16f0f142d8へ照合し、clean HTML／PDF、repository三gate、fresh-server Decision Activity E2E 5件、Project所属解除E2E 1件、navigation E2E 16件、model operation check、358ページ全page目視と変更page再目視、SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004のartifact固定まで完了した。"
+}

@@ -1,12 +1,30 @@
 # 実装を読んで変更を通す {.unnumbered}
 
-この試作教材は、Material Decision Workbenchへ参加した開発者が、型付き契約の変更をPythonからReactまで追跡し、自分で検証できる状態を目指します。
+この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、identity、migration、lifecycle、復元境界、予測から判断への境界を実装から追跡し、自分で変更を検証できる状態を目指します。
 
 対象読者は、PythonまたはTypeScriptで開発経験があり、このリポジトリの境界にはまだ詳しくない開発者です。
 FastAPI、Pydantic、Reactの入門そのものは扱いません。
 
-試作章の題材は**検討アクティビティ（Decision Activity）**です。
+一つ目の題材は**検討アクティビティ（Decision Activity）**です。
 候補差分の要因分解を例に、parameterとresultのdiscriminated union、application service、FastAPI、OpenAPI、生成TypeScript型、React表示、pytest、Playwrightを一つの変更経路として読みます。
+
+二つ目の題材は**Source data lifecycle**です。
+外部Sourceの四行が、Raw Snapshotでは四行、承認済みDatasetでは三行、Training Snapshotでは二行になる過程を追い、取得、品質判定、承認、学習用途、Model Package active化を分けます。
+
+三つ目の題材は**Workspace backup／restore**です。
+動作中SQLiteから整合したsnapshotを作り、Data AssetとModel Packageを同梱し、staging検証、DB切替、API health確認、rollbackを経て復元を確定するまでを追います。
+
+四つ目の題材は**revisionとdigest**です。
+Candidateの二つの編集を固定例に、logical ID、受理順、内容identity、request sequenceを分け、保存競合と遅いresponseを別の境界で判定します。
+
+五つ目の題材は**SQLite migration**です。
+既存DBへ履歴tableと参照列を加える例から、marker、checksum、実schema、data invariantを照合し、過去の意味を発明せずに起動可否を判断します。
+
+六つ目の題材は**Project archiveとpurge**です。
+Projectを通常一覧から外して判断証拠を凍結する操作と、外部provenanceを検査してProject-owned evidenceを物理削除する操作を分けます。
+
+七つ目の題材は**Decision Safety**です。
+点予測、予測区間、support、入力ばらつき、警告、提案の採用境界を分け、不完全な証拠からsummaryを確定しない画面と保存contractを読みます。
 
 ## 読了後にできること
 
@@ -18,6 +36,28 @@ FastAPI、Pydantic、Reactの入門そのものは扱いません。
 - contract test、API test、E2Eがそれぞれ防ぐ破損を説明する
 - 小さな契約変更の影響範囲を、コードマップから列挙する
 - `npm run api:check`を含む検証を実行する
+- Source更新からTraining Snapshotまでの資産とdigestを区別する
+- 品質状態と目的変数への利用可否を別々に判定する
+- 取得が再学習やactive化を起こさないことをtestで確認する
+- logical ID、revision、digest、request sequenceが答える問いを区別する
+- Candidateのlost updateをcompare-and-swapで防ぐ経路を説明する
+- 推論cacheのidentityと保存済み判断証拠のidentityを区別する
+- 遅いresponseをrequest sequenceとidentityで拒否する
+- migration marker、checksum、schema、data invariantを別の証拠として読む
+- transaction内のpartial failureと、migration列の途中停止を区別する
+- foreign keyとapplication invariantの責務を区別する
+- legacy dataをbackfillする条件と、provenance付きで未確定を残す条件を説明する
+- Project archiveで保持する証拠と、失効させる実行権を区別する
+- purge前の確認用ID、外部provenance scan、write guard、foreign keyの責務を区別する
+- Project-owned evidenceとshared artifactの寿命を分ける
+- Workspace bundleと現Workspaceの境界を区別する
+- prepare、commit、health確認、finalize、rollbackの状態遷移を説明する
+- archive改ざん、migration不一致、DB切替失敗を検出するtestを選ぶ
+- 点予測、予測区間、support、入力ばらつきを別の判断材料として読む
+- `0`、未計算、利用不可、失敗、古い結果を別の証拠状態として扱う
+- 警告を原因、影響、次の行動へ分ける
+- proposal生成、Candidate化、Project decision保存のwrite boundaryを説明する
+- accessibility上の欠落を、判断材料の欠落として批評する
 
 ## この教材に含めないもの
 
@@ -31,17 +71,23 @@ FastAPI、Pydantic、Reactの入門そのものは扱いません。
 
 ## 章の読み方
 
-先に構造を把握したい場合は、@sec-foundations、@sec-code-map、試作章の順に読みます。
-変更を急ぐ場合は、自分の担当に近い学習ルートから入り、試作章の演習へ進みます。
+最初から読む場合は、[型付き契約の章](chapters/contract-through-stack.qmd)へ進みます。
+変更したい対象が決まっている場合は、次の表から一章を選びます。
+章名より概念から探したい場合は、[概念の依存から読む](concept-map.qmd)で前提関係を確かめ、[用語集](glossary.qmd)で実装との対応を引きます。
 
-| 読者の現在地 | 入口 |
+| 変更したい対象 | 入口 |
 |---|---|
-| PythonとFastAPIを主に使う | [Python／backendルート](learning-paths/backend.qmd) |
-| ReactまたはElectronを主に使う | [frontend／desktopルート](learning-paths/frontend-desktop.qmd) |
-| DatasetとModel Packageを主に扱う | [ML／dataルート](learning-paths/ml-data.qmd) |
-| 変更箇所だけ知りたい | [教材用コードマップ](code-map.qmd) |
+| Python契約、API、生成TypeScript型、React表示 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
+| 予測、support、不確実性、警告、提案の採用境界 | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| Source取得、品質判定、Training Snapshot | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
+| Candidate revision、digest、遅いresponse | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
+| SQLite schema、migration、既存DB | [過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd) |
+| Project archive、purge、判断証拠 | [一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd) |
+| Workspace backup、restore、rollback | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
 
-::: {.callout-note title="確認済みの基準"}
-本文の実装参照はcommit `c3b9c14e6246c77854de7b8294e56584cb039534` で確認しました。
-章のfront matterと@sec-maintenance-decisionに、更新時の確認方法を残しています。
+::: {.content-visible when-profile="site"}
+## 教材を編集する場合
+
+統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、[教材drift review](drift-reviews/index.qmd)、評価記録があります。
+検索は学習者向け教材と編集と保守のガイドの両方を対象にします。
 :::
