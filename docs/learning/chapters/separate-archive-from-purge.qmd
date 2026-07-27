@@ -2,7 +2,7 @@
 chapter_id: "separate-archive-from-purge"
 level: intermediate
 estimated_minutes: 105
-verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
+verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
 code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"

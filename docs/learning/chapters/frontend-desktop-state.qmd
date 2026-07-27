@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
+verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"
@@ -464,6 +464,7 @@ historyをlocal stateの副作用として扱わず、Navigation Intentから復
 | 状態 | 原因 | 再試行 | 読取 | 書込 |
 |---|---|---|---|---|
 | loading | request実行中 | 待つ | 旧結果があれば明示 | 通常抑制 |
+| starting | local APIがExcelとModel Packageを読込中 | 最大20秒まで自動 | shell内の説明 | 停止 |
 | request error | 一操作の失敗 | 操作単位 | 他surfaceは維持 | 関係操作だけ停止 |
 | offline | APIへ接続不可 | 接続後 | browser内の表示だけ | 停止 |
 | unavailable | Taskやsubsystemの固定依存が欠落 | 修復後 | 保存済みevidence | 対象機能を停止 |
@@ -474,6 +475,9 @@ historyをlocal stateの副作用として扱わず、Navigation Intentから復
 {{< code-ref frontend-state-api-client symbol="requireData" >}}は、backendのdomain error code、field error、availabilityを保持します。
 
 {{< code-ref frontend-state-app symbol="ConnectionBanner" >}}は、API断を全体の接続状態として表示し、再試行を提供します。
+接続不能だけが続く最初の20秒はstartingとして自動再試行し、HTTP errorや時間超過を「待てばよい起動中」と誤表示しません。
+Workspace preflightが診断JSONを残した場合は、一般的なoffline表示ではなく、stage、resource、cause、impact、復旧先を表示します。
+この区別により、通常の起動待ち、復旧が必要なfail-closed、原因を特定できないAPI断を別の利用者行動へ対応させます。
 
 {{< code-ref frontend-state-app symbol="TaskUnavailablePanel" >}}は、予測Taskが使えなくてもProject概要と保存済み判断履歴を読めることを説明します。
 

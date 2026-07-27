@@ -186,7 +186,7 @@
       "reason": "PR #333 strengthens responsive semantics and failure-state acceptance without invalidating the chapter's explicit limitations.",
       "evidence": [
         {"path": "apps/web/src/features/candidates/CandidateUi.tsx", "symbol": "残りを計算"},
-        {"path": "e2e/accessibility-smoke.spec.ts", "symbol": "重大なアクセシビリティ違反がない"},
+        {"path": "e2e/accessibility-smoke.spec.ts", "symbol": "Decision Activityの保存結果とnot-foundをアクセシビリティ検査できる"},
         {"path": "e2e/api-offline.spec.ts", "symbol": "API断を明示し"}
       ],
       "verification": [
