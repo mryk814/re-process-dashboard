@@ -24,20 +24,33 @@ npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 だけを初期化する。起動前のread-only整合検査は `npm run workspace:check` で
 単独実行できる。
 
-変更後は次の3つを通してから完了とする。**いずれもリポジトリ直下で実行する。**
+実装中は、変更した契約や挙動に対応するfocused testと型検査を使う。
 
 ```powershell
-uv run python -m pytest
-npm run typecheck
-npm run build
+npm.cmd run verify:focused -- backend/tests/test_screening_score.py
 ```
+
+PRをレビュー可能にする直前とmerge前は、**リポジトリ直下で**全体検証を実行する。
+
+```powershell
+npm run verify:full
+```
+
+`verify:full`は、pytest、Web unit test、TypeScript typecheck、application build、failure-state E2E、作業ツリーと`origin/main...HEAD`のdiff checkを順に実行する。
+
+画面または操作経路を変えた場合は、変更リスクに対応するPlaywright specもfresh serverで実行する。
+
+反復中のserver再利用は高速化のためのfocused loopであり、merge前の証拠には使わない。
 
 `pythonpath` と `testpaths` は `pyproject.toml` でリポジトリ直下基準に固定してある。
 `backend/` から `pytest` を実行すると `ModuleNotFoundError: No module named 'backend'`
 と複数の失敗が出るが、これは cwd 違いであって実際の失敗ではない。
 
-E2Eは Playwright。UIを変えたときは、`verify:full` にPlaywrightが入っていないので
-merge前に別途流す。ポートは環境変数で移せる。
+E2EはPlaywrightで実行する。`verify:full`にはAPI offlineとaccessibility smokeを扱うfailure-state laneが含まれる。
+
+通常の画面経路と専用runtimeを必要とするspecは、変更内容に応じて別途実行する。
+
+ポートは環境変数で移せる。
 
 既定の `npx playwright test` は `e2e/` 全体を対象にするが、専用configを持つ
 `chain-degraded.spec.ts` だけは除外している（`playwright.chain-degraded.config.ts`の
@@ -77,8 +90,8 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 
 ## 進め方
 
-- GPT-5.6-lunaなどのサブエージェントにタスクを適切に委任しながら進める
-- 敵対的レビューによって実装の穴をつぶす
+- 独立して検証できる作業はサブエージェントへ委任し、共有worktreeの所有権を明示する
+- merge前に、実装者と異なる観点の敵対的レビューで穴をつぶす
 - UIの細かい部分はユーザーが実際にさわってFBします
 
 ### 教材review
@@ -93,12 +106,12 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 
 ## 原則
 
-1. このリポジトリで扱うデータは指示がない限りどれもデモ用に作った合成データです、過度に精度を求める価値はなく、形式やUI上の見え方といった、アプリケーションを扱う際の問題点を探すために仮として使っている点に留意してください。
+1. データは二つの軸で判定する。provenance／license軸では実測か合成か、公開か非公開かを確認する。用途軸ではproduction、reference、教材データ、test用の合成fixtureを区別する。Task inventory、Profile metadata、license、provenanceを正本とし、明示のないデータを合成fixtureと決めつけない。
 2. `relation` の一行を学習行として直接使わない。工程条件と反復観測を分離する。
 3. プレビューと詳細予測を分け、入力変更時は変更候補だけを更新する。
 4. 過度な最適化をしない。実測して遅い箇所だけ改善する。
-5. 将来のWeb化は境界を保つことで対応し、今からクラウド構成を作らない。
-6. プロダクト品質を目指して開発期間を膨らませない。検証速度を常に優先する。
+5. productionはローカルファーストとし、明示的な探索Issueで隔離したspikeを除いてクラウド構成を追加しない。
+6. 過度な作り込みは避ける。ただし、科学的な誤判断、データ破損、復旧不能、accessibilityの阻害につながる品質は検証速度より優先する。
 7. 元Excel（`data/source/`）は読取専用の正本。アプリ・スクリプト・テストのどこからも変更しない。
 8. モデルPackageからPythonコード・pickle・joblibを読み込まない。新しいモデル種類はallow-listされたadapterをアプリ本体へ追加して対応する。
 9. 保存済み予測スナップショットは不変。予測結果にはモデル・特徴量パイプライン・学習データの版を必ず残し、最新モデルで自動再計算しない。
@@ -107,6 +120,14 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 12. 元データにあるシート名や列名などに関する名称などをコード内にハードコーディングすることなどは極力避ける
 13. もし、実装の中で前提の変更や作業環境の改善が望ましい場面があればその旨を伝えること
 
+## AI self-check
+
+- 変更対象の正本、生成物、読取専用資源を区別したか。
+- 予測、実測、不確かさ、支持範囲を混同していないか。
+- 保存済みSnapshot、Run、Project identityを暗黙更新していないか。
+- focused loopだけで完了扱いせず、merge前にfull gateと必要なbrowser証拠を残したか。
+- Actionsが利用可能かを実行時に確認し、利用できない場合はローカルfull gateと不足する外部証拠をPRへ記録したか。
+
 ## 詳細ドキュメント
 
 - [docs/app-charter.md](docs/app-charter.md) — 対象範囲、対象外、将来候補
@@ -114,6 +135,8 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 - [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
 - [docs/design-system.md](docs/design-system.md) — UIデザインシステム
 
-## 注意
+## CIの扱い
 
-- すいません、いまgithub actionsは月の制限にかかっているので使えません
+GitHub Actionsの利用可否は一時的な運用状態であり、この文書の不変条件ではない。
+
+PRごとに現行checkを確認し、利用できない場合はローカルfull gateと変更リスクに応じたbrowserまたはpackaged smokeをPR本文へ記録する。

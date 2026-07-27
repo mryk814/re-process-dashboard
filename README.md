@@ -74,7 +74,7 @@ npm.cmd run verify:focused -- backend/tests/test_screening_score.py
 ```
 
 PRをレビュー可能にする直前とマージ前だけ、全体検証を1回実行します。
-pytest、型検査、build、作業ツリー、`origin/main...HEAD` の差分検査を順に実行します。
+pytest、Web unit test、型検査、application build、failure-state E2E、作業ツリー、`origin/main...HEAD` の差分検査を順に実行します。
 
 ```powershell
 npm run verify:full

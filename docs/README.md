@@ -20,7 +20,11 @@
 ## データ、特徴量、モデル
 
 - [developer-start-here.md](developer-start-here.md) — やりたい変更から契約、成果物、検証を判断する入口
+- [source-data-lifecycle.md](source-data-lifecycle.md) — Source、Raw Snapshot、Curation、Training Snapshotの更新と承認境界
+- [curation-and-proposal-architecture.md](curation-and-proposal-architecture.md) — Source解釈の確定とCuration提案を分離する構成
+- [reference-data-loop.md](reference-data-loop.md) — 参照データの登録、利用、更新判断を閉じたloopとして扱う契約
 - [dataset-input-profile.md](dataset-input-profile.md) — Workbookをアプリ共通入力へ対応付ける手順
+- [variable-length-series.md](variable-length-series.md) — 可変長系列のraw、canonical、model representation境界
 - [feature-engineering.md](feature-engineering.md) — 特徴量パイプラインの定義
 - [model-package-contract.md](model-package-contract.md) — Model Packageの安全境界と読込契約
 - [model-package-lifecycle.md](model-package-lifecycle.md) — Packageの検証、作成、有効化、ロールバック
@@ -40,6 +44,8 @@
 ## 実行、Chain、配布
 
 - [inference-execution.md](inference-execution.md) — 単段推論の識別、共有、キャッシュ方針
+- [project-design-space.md](project-design-space.md) — Project内で変更可能な入力範囲と選択肢の契約
+- [objective-definition.md](objective-definition.md) — Projectの目標、hard constraint、soft preferenceの契約
 - [chain-execution.md](chain-execution.md) — Chainの段別実行、部分再計算、鮮度、Snapshot、明示的な分布伝播
 - [chain-evaluation.md](chain-evaluation.md) — 段単体精度と通し精度の評価契約
 - [workspace-backup.md](workspace-backup.md) — 判断履歴とData Library資源の整合性付きbackup／restore契約

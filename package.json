@@ -41,6 +41,7 @@
     "task:inventory:check": "uv run python backend/scripts/task_inventory.py --check",
     "api:generate": "uv run python backend/scripts/export_openapi.py && npm run api:types -w apps/web",
     "api:check": "uv run python backend/scripts/export_openapi.py --check && npm run api:check -w apps/web",
+    "docs:links:check": "node scripts/check-doc-links.mjs",
     "dev:doctor": "uv run python backend/scripts/developer_doctor.py",
     "workspace:check": "node scripts/workspace-check.mjs",
     "workspace:seed": "node scripts/workspace-seed.mjs",
