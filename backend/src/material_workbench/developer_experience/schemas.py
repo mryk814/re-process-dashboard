@@ -98,6 +98,14 @@ class DeveloperDoctorReport(BaseModel):
     source_inspection: SourceInspection | None = None
 
 
+class ChangeGuideStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    paths: list[str]
+    outcome: str
+
+
 class ChangeGuideEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -107,6 +115,8 @@ class ChangeGuideEntry(BaseModel):
     changes: list[str]
     unchanged: list[str]
     artifacts: list[str]
+    steps: list[ChangeGuideStep] = []
+    warnings: list[str] = []
     commands: list[DeveloperCommand]
     documents: list[str]
     human_review: str | None = None

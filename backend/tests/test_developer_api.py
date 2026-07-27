@@ -27,6 +27,42 @@ def test_change_guide_is_machine_readable_and_requires_human_review(client: Test
     assert "--source" not in profile_command["arguments"]
 
 
+def test_change_guide_exposes_distinct_decision_activity_workflows(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/developer/change-guide")
+    assert response.status_code == 200
+    entries = {item["id"]: item for item in response.json()}
+
+    create = entries["decision-activity-new"]
+    change = entries["decision-activity-change"]
+    assert create["label"] == "新しいDecision Activityを追加したい"
+    assert change["label"] == "既存Decision Activityを変更したい"
+    assert create["risk"] == "specialist"
+    assert change["risk"] == "review"
+
+    expected_steps = [
+        "1. Python contract",
+        "2. Registry",
+        "3. Application",
+        "4. API",
+        "5. Generated contract",
+        "6. React View",
+        "7. Contract / UI / E2E test",
+    ]
+    assert [step["label"] for step in create["steps"]] == expected_steps
+    assert [step["label"] for step in change["steps"]] == expected_steps
+    assert create["steps"][0]["paths"] == [
+        "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+    ]
+    assert "e2e/decision-activity.spec.ts" in create["steps"][-1]["paths"]
+    assert any("直接編集せず" in warning for warning in create["warnings"])
+    assert any("保存済みRun" in warning for warning in change["warnings"])
+    assert "docs/decision-activities.md" in create["documents"]
+    assert "docs/learning/chapters/contract-through-stack.qmd" in change["documents"]
+    assert create["commands"][0]["display_text"] == "npm run api:generate"
+
+
 def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> None:
     response = client.get("/api/developer/overview")
     assert response.status_code == 200, response.text

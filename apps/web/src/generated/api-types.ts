@@ -3596,8 +3596,27 @@ export interface components {
              * @enum {string}
              */
             risk: "safe" | "review" | "specialist";
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["ChangeGuideStep"][];
             /** Unchanged */
             unchanged: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** ChangeGuideStep */
+        ChangeGuideStep: {
+            /** Label */
+            label: string;
+            /** Outcome */
+            outcome: string;
+            /** Paths */
+            paths: string[];
         };
         /** CoerceNumberStep */
         CoerceNumberStep: {
