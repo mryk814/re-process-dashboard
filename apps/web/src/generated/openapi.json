@@ -504,8 +504,11 @@
             "type": "integer"
           },
           "schema_version": {
-            "const": "approved-training-snapshot/v1",
-            "default": "approved-training-snapshot/v1",
+            "default": "approved-training-snapshot/v2",
+            "enum": [
+              "approved-training-snapshot/v1",
+              "approved-training-snapshot/v2"
+            ],
             "title": "Schema Version",
             "type": "string"
           },
@@ -534,6 +537,24 @@
             "minLength": 1,
             "title": "Snapshot Digest",
             "type": "string"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSplitDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_cohorts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TrainingTargetCohort"
+            },
+            "title": "Target Cohorts",
+            "type": "array"
           }
         },
         "required": [
@@ -17779,10 +17800,23 @@
                 "type": "null"
               }
             ]
+          },
+          "split": {
+            "$ref": "#/components/schemas/TrainingSplitDefinition"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingTargetDefinition"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
           }
         },
         "required": [
-          "purpose"
+          "purpose",
+          "targets",
+          "split"
         ],
         "title": "TrainingSnapshotCreateRequest",
         "type": "object"
@@ -17822,6 +17856,129 @@
           "exclusions"
         ],
         "title": "TrainingSnapshotSelectionPolicy",
+        "type": "object"
+      },
+      "TrainingSplitAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "fold": {
+            "minimum": 0.0,
+            "title": "Fold",
+            "type": "integer"
+          },
+          "group_key": {
+            "minLength": 1,
+            "title": "Group Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_key",
+          "fold"
+        ],
+        "title": "TrainingSplitAssignment",
+        "type": "object"
+      },
+      "TrainingSplitDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "folds": {
+            "minimum": 2.0,
+            "title": "Folds",
+            "type": "integer"
+          },
+          "group_field": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Group Field",
+            "type": "string"
+          },
+          "strategy_id": {
+            "const": "sorted-group-round-robin-v1",
+            "default": "sorted-group-round-robin-v1",
+            "title": "Strategy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_field",
+          "folds"
+        ],
+        "title": "TrainingSplitDefinition",
+        "type": "object"
+      },
+      "TrainingTargetCohort": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort_digest": {
+            "minLength": 1,
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "row_keys": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Row Keys",
+            "type": "array"
+          },
+          "split_assignments": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingSplitAssignment"
+            },
+            "minItems": 2,
+            "title": "Split Assignments",
+            "type": "array"
+          },
+          "split_digest": {
+            "minLength": 1,
+            "title": "Split Digest",
+            "type": "string"
+          },
+          "target_field": {
+            "minLength": 1,
+            "title": "Target Field",
+            "type": "string"
+          },
+          "target_key": {
+            "minLength": 1,
+            "title": "Target Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "target_field",
+          "row_keys",
+          "cohort_digest",
+          "split_assignments",
+          "split_digest"
+        ],
+        "title": "TrainingTargetCohort",
+        "type": "object"
+      },
+      "TrainingTargetDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "target_key": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Target Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_key",
+          "field"
+        ],
+        "title": "TrainingTargetDefinition",
         "type": "object"
       },
       "TrimStringsStep": {

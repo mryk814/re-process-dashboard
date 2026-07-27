@@ -19,6 +19,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     RawSourceSnapshot,
     SourceConnector,
     SourceConnectorCreateInput,
+    TrainingSnapshotCreateInput,
 )
 from material_workbench.persistence.sqlite_connection import sqlite_connection
 
@@ -302,6 +303,35 @@ class DataLifecycleRepository:
         )
         if revision.dataset_digest != snapshot.dataset_digest:
             raise ValueError("Training SnapshotのDataset digestが一致しません")
+        if snapshot.schema_version == "approved-training-snapshot/v2":
+            from material_workbench.domain.data_lifecycle import (
+                build_training_snapshot,
+            )
+
+            assert snapshot.split is not None
+            run = self.get_curation_run(revision.curation_run_id)
+            rebuilt = build_training_snapshot(
+                revision,
+                run,
+                TrainingSnapshotCreateInput(
+                    actor=snapshot.actor,
+                    purpose=snapshot.purpose,
+                    targets=tuple(
+                        {
+                            "target_key": cohort.target_key,
+                            "field": cohort.target_field,
+                        }
+                        for cohort in snapshot.target_cohorts
+                    ),
+                    split=snapshot.split,
+                    selection_policy=snapshot.selection_policy,
+                ),
+                created_at=snapshot.created_at,
+            )
+            if rebuilt.snapshot_digest != snapshot.snapshot_digest:
+                raise ValueError(
+                    "Training Snapshotが親Curation Runから再現できません"
+                )
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT payload FROM approved_training_snapshots "

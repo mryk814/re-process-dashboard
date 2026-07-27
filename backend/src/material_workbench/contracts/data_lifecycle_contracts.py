@@ -461,17 +461,94 @@ class TrainingSnapshotSelectionPolicy(ContractModel):
 class TrainingSnapshotCreateInput(ContractModel):
     actor: Annotated[str, Field(min_length=1, max_length=120)]
     purpose: Annotated[str, Field(min_length=1, max_length=300)]
+    targets: Annotated[
+        tuple["TrainingTargetDefinition", ...],
+        Field(min_length=1),
+    ]
+    split: "TrainingSplitDefinition"
     selection_policy: TrainingSnapshotSelectionPolicy | None = None
+
+    @model_validator(mode="after")
+    def targets_are_unique(self) -> "TrainingSnapshotCreateInput":
+        keys = [item.target_key for item in self.targets]
+        fields = [item.field for item in self.targets]
+        if len(keys) != len(set(keys)) or len(fields) != len(set(fields)):
+            raise ValueError("Training Snapshotのtarget keyとfieldは一意にしてください")
+        return self
 
 
 class TrainingSnapshotCreateRequest(ContractModel):
     purpose: Annotated[str, Field(min_length=1, max_length=300)]
+    targets: Annotated[
+        tuple["TrainingTargetDefinition", ...],
+        Field(min_length=1),
+    ]
+    split: "TrainingSplitDefinition"
     selection_policy: TrainingSnapshotSelectionPolicy | None = None
+
+    @model_validator(mode="after")
+    def targets_are_unique(self) -> "TrainingSnapshotCreateRequest":
+        keys = [item.target_key for item in self.targets]
+        fields = [item.field for item in self.targets]
+        if len(keys) != len(set(keys)) or len(fields) != len(set(fields)):
+            raise ValueError("Training Snapshotのtarget keyとfieldは一意にしてください")
+        return self
+
+
+class TrainingTargetDefinition(ContractModel):
+    target_key: Annotated[str, Field(min_length=1, max_length=120)]
+    field: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class TrainingSplitDefinition(ContractModel):
+    strategy_id: Literal["sorted-group-round-robin-v1"] = (
+        "sorted-group-round-robin-v1"
+    )
+    group_field: Annotated[str, Field(min_length=1, max_length=200)]
+    folds: Annotated[int, Field(ge=2)]
+
+
+class TrainingSplitAssignment(ContractModel):
+    group_key: Annotated[str, Field(min_length=1)]
+    fold: Annotated[int, Field(ge=0)]
+
+
+class TrainingTargetCohort(ContractModel):
+    target_key: Annotated[str, Field(min_length=1)]
+    target_field: Annotated[str, Field(min_length=1)]
+    row_keys: Annotated[tuple[str, ...], Field(min_length=1)]
+    cohort_digest: Annotated[str, Field(min_length=1)]
+    split_assignments: Annotated[
+        tuple[TrainingSplitAssignment, ...],
+        Field(min_length=2),
+    ]
+    split_digest: Annotated[str, Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def target_cohort_is_self_consistent(self) -> "TrainingTargetCohort":
+        if len(self.row_keys) != len(set(self.row_keys)):
+            raise ValueError("target cohortのrow keyは重複できません")
+        groups = [item.group_key for item in self.split_assignments]
+        if len(groups) != len(set(groups)):
+            raise ValueError("split assignmentのgroup keyは重複できません")
+        expected_cohort = semantic_digest(
+            {
+                "target_key": self.target_key,
+                "target_field": self.target_field,
+                "row_keys": self.row_keys,
+            }
+        )
+        if expected_cohort != self.cohort_digest:
+            raise ValueError("target cohort digestが内容と一致しません")
+        return self
 
 
 class ApprovedTrainingSnapshot(ContractModel):
-    schema_version: Literal["approved-training-snapshot/v1"] = (
-        "approved-training-snapshot/v1"
+    schema_version: Literal[
+        "approved-training-snapshot/v1",
+        "approved-training-snapshot/v2",
+    ] = (
+        "approved-training-snapshot/v2"
     )
     id: Annotated[str, Field(min_length=1)]
     canonical_dataset_revision_id: Annotated[str, Field(min_length=1)]
@@ -480,6 +557,8 @@ class ApprovedTrainingSnapshot(ContractModel):
     row_count: Annotated[int, Field(ge=1)]
     actor: str
     purpose: str
+    target_cohorts: tuple[TrainingTargetCohort, ...] = ()
+    split: TrainingSplitDefinition | None = None
     selection_policy: TrainingSnapshotSelectionPolicy | None = None
     selection_policy_digest: str | None = None
     snapshot_digest: Annotated[str, Field(min_length=1)]
@@ -491,6 +570,8 @@ class ApprovedTrainingSnapshot(ContractModel):
     ) -> "ApprovedTrainingSnapshot":
         if self.row_count != len(self.included_row_keys):
             raise ValueError("Training Snapshotのrow countが一致しません")
+        if len(self.included_row_keys) != len(set(self.included_row_keys)):
+            raise ValueError("Training Snapshotのrow keyは重複できません")
         if bool(self.selection_policy) != bool(self.selection_policy_digest):
             raise ValueError(
                 "Training Snapshot selection policy identity is incomplete"
@@ -508,6 +589,57 @@ class ApprovedTrainingSnapshot(ContractModel):
             "actor": self.actor,
             "purpose": self.purpose,
         }
+        if self.schema_version == "approved-training-snapshot/v2":
+            if not self.target_cohorts or self.split is None:
+                raise ValueError(
+                    "Training Snapshot v2 requires target cohorts and split"
+                )
+            target_keys = [item.target_key for item in self.target_cohorts]
+            if len(target_keys) != len(set(target_keys)):
+                raise ValueError("Training Snapshotのtarget keyは重複できません")
+            cohort_rows = {
+                row_key
+                for cohort in self.target_cohorts
+                for row_key in cohort.row_keys
+            }
+            if cohort_rows != set(self.included_row_keys):
+                raise ValueError(
+                    "Training Snapshotのrow集合がtarget cohortと一致しません"
+                )
+            if any(
+                item.fold >= self.split.folds
+                for cohort in self.target_cohorts
+                for item in cohort.split_assignments
+            ):
+                raise ValueError("split assignmentがfold数の範囲外です")
+            for cohort in self.target_cohorts:
+                if {
+                    item.fold for item in cohort.split_assignments
+                } != set(range(self.split.folds)):
+                    raise ValueError(
+                        f"{cohort.target_key}: 全foldにsplit groupが必要です"
+                    )
+                expected_split = semantic_digest(
+                    {
+                        "cohort_digest": cohort.cohort_digest,
+                        "split": self.split.model_dump(mode="json"),
+                        "split_assignments": [
+                            item.model_dump(mode="json")
+                            for item in cohort.split_assignments
+                        ],
+                    }
+                )
+                if expected_split != cohort.split_digest:
+                    raise ValueError("split digestが内容と一致しません")
+            payload["target_cohorts"] = [
+                item.model_dump(mode="json")
+                for item in self.target_cohorts
+            ]
+            payload["split"] = self.split.model_dump(mode="json")
+        elif self.target_cohorts or self.split is not None:
+            raise ValueError(
+                "legacy Training Snapshotへv2 identityを追加できません"
+            )
         if self.selection_policy is not None:
             payload["selection_policy"] = self.selection_policy.model_dump(
                 mode="json"

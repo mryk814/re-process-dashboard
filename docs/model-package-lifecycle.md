@@ -12,6 +12,12 @@ TaskDefinitionとDataset Input Profileを起点に、アプリ共通形式の学
 を参照してください。この経路でも自動学習・自動active化は行わず、
 Training Snapshot digest、materialization adapter version、materialized training
 assetのSHA-256、training builder revisionごとに新しい不変Packageを作ります。
+Training Snapshot v2は目的変数別cohortとgroup splitの完全な割当まで固定しますが、
+Feature Pipeline定義は持ちません。
+Feature Pipelineの入力path、変換、特徴量順序とdigestはModel Packageが固定し、
+Package provenanceがTraining Snapshot digestを参照します。
+この分離により、同じcohortで特徴量だけを変えた比較ではSnapshotを改変せず、
+異なるPackageとして検証できます。
 
 ## 標準ルート
 

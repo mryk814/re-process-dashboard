@@ -494,6 +494,8 @@ def run_benchmark_case(
             TrainingSnapshotCreateInput(
                 actor="benchmark",
                 purpose="capacity benchmark",
+                targets=({"target_key": "target", "field": "target"},),
+                split={"group_field": "id", "folds": 2},
             ),
         )
     )
@@ -843,6 +845,8 @@ def run_history_probe(
             TrainingSnapshotCreateInput(
                 actor="benchmark",
                 purpose="history probe",
+                targets=({"target_key": "target", "field": "target"},),
+                split={"group_field": "id", "folds": 2},
             ),
         )
 

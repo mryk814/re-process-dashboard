@@ -65,6 +65,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [recipeId, setRecipeId] = useState("");
   const [approvalReason, setApprovalReason] = useState("");
   const [trainingPurpose, setTrainingPurpose] = useState("");
+  const [trainingGroupField, setTrainingGroupField] = useState("");
+  const [trainingFolds, setTrainingFolds] = useState("2");
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const selectedIdRef = useRef(selectedId);
@@ -116,6 +118,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     setApprovalReason("");
     setTrainingPurpose("");
     setDetail(null);
+    setTrainingGroupField("");
+    setTrainingFolds("2");
     refreshDetail(selectedId, controller.signal).catch((cause) => {
       if (!controller.signal.aborted && selectedIdRef.current === selectedId) {
         setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。");
@@ -193,6 +197,13 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
   const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
   const selectedTraining = detail?.training_snapshots.find((item) => item.id === selectedVersionId);
+  const latestRecipe = catalog?.recipes.find((item) => item.id === latestRun?.recipe_id);
+  const trainingTargetFields = latestRecipe?.steps
+    .find((step) => step.kind === "target_eligibility_v1")?.fields ?? [];
+  const resolvedTrainingGroupField = trainingGroupField.trim()
+    || detail?.connector.selection.primary_key
+    || "";
+  const resolvedTrainingFolds = Number(trainingFolds);
   const selectedProfile = profiles.find((item) => item.id === profileId);
   const currentActor = catalog?.current_actor;
   const overrideCandidates = latestRun?.rows.filter((row) => row.status === "quarantined") ?? [];
@@ -314,6 +325,15 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     await act("training", async () => {
       await workbenchApi.createApprovedTrainingSnapshot(latestRevision.id, {
         purpose: trainingPurpose.trim() || "モデル候補の再評価",
+        targets: trainingTargetFields.map((field) => ({
+          target_key: field,
+          field,
+        })),
+        split: {
+          strategy_id: "sorted-group-round-robin-v1",
+          group_field: resolvedTrainingGroupField,
+          folds: resolvedTrainingFolds,
+        },
       });
       await refreshDetail(selectedId);
       setNotice("学習用スナップショットを明示作成しました。モデルパッケージは変更していません。");
@@ -453,7 +473,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
         {latestRevisionNeedsTraining && latestRevision && <div className="source-approval-action">
           <div className="source-actor"><span>記録される主体</span><strong>{currentActor?.label ?? "確認中…"}</strong><small>{currentActor?.id}</small></div>
           <label>用途<input value={trainingPurpose} onChange={(event) => setTrainingPurpose(event.target.value)} placeholder="例: 再学習候補の比較" /></label>
-          <button className="primary-button" type="button" disabled={busy === "training"} onClick={() => void createTraining()}>学習用スナップショットを作成</button>
+          <label>分割group field<input value={trainingGroupField} onChange={(event) => setTrainingGroupField(event.target.value)} placeholder={detail.connector.selection.primary_key ?? "例: lot_id"} /></label>
+          <label>fold数<input type="number" min="2" step="1" value={trainingFolds} onChange={(event) => setTrainingFolds(event.target.value)} /></label>
+          <button className="primary-button" type="button" disabled={busy === "training" || trainingTargetFields.length === 0 || !resolvedTrainingGroupField || !Number.isInteger(resolvedTrainingFolds) || resolvedTrainingFolds < 2} onClick={() => void createTraining()}>学習用スナップショットを作成</button>
         </div>}
         {latestTraining && <div className="source-training-ready"><strong>学習用スナップショット作成済み</strong><span>{latestTraining.row_count}行 · {latestTraining.purpose}</span><code>{shortDigest(latestTraining.snapshot_digest)}</code><small>再学習・モデル検証・有効化は別の操作です。</small></div>}
       </div> : <div className="source-empty">接続先を登録すると、更新履歴と承認状態をここで確認できます。</div>}

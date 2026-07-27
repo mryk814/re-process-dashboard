@@ -21,7 +21,9 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     RawSnapshotDiff,
     RawSourceSnapshot,
     SourceConnector,
+    TrainingSplitAssignment,
     TrainingSnapshotCreateInput,
+    TrainingTargetCohort,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
 
@@ -376,14 +378,87 @@ def build_training_snapshot(
                 return False
         return True
 
-    included = tuple(
-        row.row_key
+    selected_rows = tuple(
+        row
         for row in run.rows
-        if (
-            row.row_key in approved
-            and row.target_eligible
-            and selected(row)
+        if row.row_key in approved and selected(row)
+    )
+    target_cohorts: list[TrainingTargetCohort] = []
+    for target in request.targets:
+        cohort_rows = tuple(
+            row
+            for row in selected_rows
+            if (
+                (value := row.canonical_record.get(target.field)) is not None
+                and value != ""
+                and not (
+                    isinstance(value, float)
+                    and not math.isfinite(value)
+                )
+            )
         )
+        if not cohort_rows:
+            raise LifecycleConflictError(
+                f"{target.target_key}: 学習対象にできる承認済みrowがありません"
+            )
+        groups: set[str] = set()
+        for row in cohort_rows:
+            raw_group = row.canonical_record.get(request.split.group_field)
+            group = "" if raw_group is None else str(raw_group).strip()
+            if not group:
+                raise LifecycleConflictError(
+                    f"{target.target_key}: split groupが空のrowがあります: "
+                    f"{row.row_key}"
+                )
+            groups.add(group)
+        ordered_groups = sorted(groups)
+        if len(ordered_groups) < request.split.folds:
+            raise LifecycleConflictError(
+                f"{target.target_key}: {request.split.folds} foldsには"
+                f"{request.split.folds}個以上のsplit groupが必要です"
+            )
+        assignments = tuple(
+            TrainingSplitAssignment(
+                group_key=group,
+                fold=index % request.split.folds,
+            )
+            for index, group in enumerate(ordered_groups)
+        )
+        row_keys = tuple(row.row_key for row in cohort_rows)
+        cohort_digest = semantic_digest(
+            {
+                "target_key": target.target_key,
+                "target_field": target.field,
+                "row_keys": row_keys,
+            }
+        )
+        split_digest = semantic_digest(
+            {
+                "cohort_digest": cohort_digest,
+                "split": request.split.model_dump(mode="json"),
+                "split_assignments": [
+                    item.model_dump(mode="json")
+                    for item in assignments
+                ],
+            }
+        )
+        target_cohorts.append(
+            TrainingTargetCohort(
+                target_key=target.target_key,
+                target_field=target.field,
+                row_keys=row_keys,
+                cohort_digest=cohort_digest,
+                split_assignments=assignments,
+                split_digest=split_digest,
+            )
+        )
+    included_set = {
+        row_key
+        for cohort in target_cohorts
+        for row_key in cohort.row_keys
+    }
+    included = tuple(
+        row.row_key for row in selected_rows if row.row_key in included_set
     )
     if not included:
         raise LifecycleConflictError("学習対象にできる承認済みrowがありません")
@@ -392,6 +467,10 @@ def build_training_snapshot(
         "included_row_keys": included,
         "actor": request.actor,
         "purpose": request.purpose,
+        "target_cohorts": [
+            item.model_dump(mode="json") for item in target_cohorts
+        ],
+        "split": request.split.model_dump(mode="json"),
     }
     if policy is not None:
         payload["selection_policy"] = policy.model_dump(mode="json")
@@ -405,6 +484,8 @@ def build_training_snapshot(
         row_count=len(included),
         actor=request.actor,
         purpose=request.purpose,
+        target_cohorts=tuple(target_cohorts),
+        split=request.split,
         selection_policy=policy,
         selection_policy_digest=policy.digest if policy else None,
         snapshot_digest=digest,

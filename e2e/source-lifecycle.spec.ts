@@ -105,6 +105,8 @@ test("source refresh stays separate from approval, training and activation", asy
 
   await overrideApproval.click();
   await expect(section.getByRole("button", { name: "学習用スナップショットを作成" })).toBeVisible();
+  await expect(section.getByLabel("分割group field")).toHaveAttribute("placeholder", "id");
+  await expect(section.getByLabel("fold数")).toHaveValue("2");
   await expect(section).toContainText("再学習・有効化は行っていません");
   const approvedDetail = await (await request.get(
     `${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}`,
@@ -121,6 +123,17 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.getByText("学習用スナップショット作成済み")).toBeVisible();
   await expect(section).toContainText("2行");
   await expect(section).toContainText("再学習・モデル検証・有効化は別の操作です");
+  const trainingDetail = await (await request.get(
+    `${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}`,
+  )).json();
+  const trainingSnapshot = trainingDetail.training_snapshots.at(-1);
+  expect(trainingSnapshot.schema_version).toBe("approved-training-snapshot/v2");
+  expect(trainingSnapshot.target_cohorts).toHaveLength(1);
+  expect(trainingSnapshot.target_cohorts[0].target_key).toBe("target");
+  expect(trainingSnapshot.target_cohorts[0].split_assignments).toEqual([
+    { group_key: "A-01", fold: 0 },
+    { group_key: "CHECK-02", fold: 1 },
+  ]);
 
   const optionsAfter = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   expect(optionsAfter.model_packages).toEqual(optionsBefore.model_packages);

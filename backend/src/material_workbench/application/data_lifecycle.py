@@ -21,6 +21,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     TrainingSnapshotCreateInput,
 )
 from material_workbench.domain.data_lifecycle import (
+    LifecycleConflictError,
     SourceObjectError,
     approve_curation_run,
     build_raw_snapshot,
@@ -171,5 +172,17 @@ class DataLifecycleService:
     ) -> ApprovedTrainingSnapshot:
         revision = self.repository.get_canonical_revision(revision_id)
         run = self.repository.get_curation_run(revision.curation_run_id)
+        recipe = self.repository.get_recipe(run.recipe_id)
+        declared_target_fields = {
+            field
+            for step in recipe.steps
+            if step.kind == "target_eligibility_v1"
+            for field in step.fields
+        }
+        requested_target_fields = {item.field for item in payload.targets}
+        if requested_target_fields != declared_target_fields:
+            raise LifecycleConflictError(
+                "Training Snapshotのtarget fieldsがCuration Recipeと一致しません"
+            )
         snapshot = build_training_snapshot(revision, run, payload)
         return self.repository.save_training_snapshot(snapshot)

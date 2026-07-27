@@ -2082,15 +2082,21 @@ export interface components {
             row_count: number;
             /**
              * Schema Version
-             * @default approved-training-snapshot/v1
-             * @constant
+             * @default approved-training-snapshot/v2
+             * @enum {string}
              */
-            schema_version: "approved-training-snapshot/v1";
+            schema_version: "approved-training-snapshot/v1" | "approved-training-snapshot/v2";
             selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
             /** Selection Policy Digest */
             selection_policy_digest?: string | null;
             /** Snapshot Digest */
             snapshot_digest: string;
+            split?: components["schemas"]["TrainingSplitDefinition"] | null;
+            /**
+             * Target Cohorts
+             * @default []
+             */
+            target_cohorts: components["schemas"]["TrainingTargetCohort"][];
         };
         /** BatchCandidatePoolEvidence */
         BatchCandidatePoolEvidence: {
@@ -8660,6 +8666,9 @@ export interface components {
             /** Purpose */
             purpose: string;
             selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
+            split: components["schemas"]["TrainingSplitDefinition"];
+            /** Targets */
+            targets: components["schemas"]["TrainingTargetDefinition"][];
         };
         /** TrainingSnapshotSelectionPolicy */
         TrainingSnapshotSelectionPolicy: {
@@ -8678,6 +8687,48 @@ export interface components {
              * @constant
              */
             schema_version: "training-snapshot-selection/v1";
+        };
+        /** TrainingSplitAssignment */
+        TrainingSplitAssignment: {
+            /** Fold */
+            fold: number;
+            /** Group Key */
+            group_key: string;
+        };
+        /** TrainingSplitDefinition */
+        TrainingSplitDefinition: {
+            /** Folds */
+            folds: number;
+            /** Group Field */
+            group_field: string;
+            /**
+             * Strategy Id
+             * @default sorted-group-round-robin-v1
+             * @constant
+             */
+            strategy_id: "sorted-group-round-robin-v1";
+        };
+        /** TrainingTargetCohort */
+        TrainingTargetCohort: {
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Row Keys */
+            row_keys: string[];
+            /** Split Assignments */
+            split_assignments: components["schemas"]["TrainingSplitAssignment"][];
+            /** Split Digest */
+            split_digest: string;
+            /** Target Field */
+            target_field: string;
+            /** Target Key */
+            target_key: string;
+        };
+        /** TrainingTargetDefinition */
+        TrainingTargetDefinition: {
+            /** Field */
+            field: string;
+            /** Target Key */
+            target_key: string;
         };
         /** TrimStringsStep */
         TrimStringsStep: {
