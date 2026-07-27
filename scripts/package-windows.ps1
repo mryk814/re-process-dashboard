@@ -1,3 +1,7 @@
+param(
+    [switch]$KeepPrevious
+)
+
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -8,6 +12,10 @@ $portableZip = Join-Path $releaseRoot "Material-Decision-Workbench-folder-$versi
 
 Push-Location $repositoryRoot
 try {
+    if (-not $KeepPrevious) {
+        & (Join-Path $PSScriptRoot "clean-generated.ps1") -ReleaseOnly
+    }
+
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "application build failed with exit code $LASTEXITCODE" }
 
@@ -76,6 +84,14 @@ try {
     Compress-Archive -LiteralPath $portableRoot -DestinationPath $portableZip -CompressionLevel Optimal
 
     & (Join-Path $PSScriptRoot "smoke-windows-delivery.ps1")
+    foreach ($expandedDirectory in @(
+        (Join-Path $releaseRoot "win-unpacked"),
+        $portableRoot
+    )) {
+        if (Test-Path -LiteralPath $expandedDirectory) {
+            Remove-Item -LiteralPath $expandedDirectory -Recurse -Force
+        }
+    }
     Write-Host "Installer: $(Join-Path $releaseRoot "Material-Decision-Workbench-Setup-$version.exe")"
     Write-Host "Folder ZIP: $portableZip"
 } finally {
