@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { numericTaskInputs, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
-import { LiveDataQualityPage, type QualityFilters } from "../quality";
-import { workbenchApi, type ApiModelPackage, type ApiProject, type ApiQuality } from "../../shared/api/workbench-api";
+import { workbenchApi, type ApiModelPackage, type ApiProject } from "../../shared/api/workbench-api";
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
 import { suggestedInputRange } from "./inputRangeDefaults";
 import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
-export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
+export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";
 type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 function number(value: number, digits = 0) {
@@ -79,10 +78,6 @@ export function DeveloperAdminPage({
   developerGuideId,
   onSectionChange,
   onDeveloperLocationChange,
-  qualityFilters,
-  onQualityFiltersChange,
-  onOpenLineage,
-  onOpenQualityIssues,
   onProjectChanged,
   onOpenProfileWorkbench,
 }: {
@@ -97,10 +92,6 @@ export function DeveloperAdminPage({
   developerGuideId?: string;
   onSectionChange: (section: AdminSection) => void;
   onDeveloperLocationChange: (tab: DeveloperTab, guideId?: string) => void;
-  qualityFilters: QualityFilters;
-  onQualityFiltersChange: (filters: QualityFilters) => void;
-  onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
-  onOpenQualityIssues: (filters: QualityFilters) => void;
   onProjectChanged: (project: ApiProject) => void;
   onOpenProfileWorkbench: () => void;
 }) {
@@ -118,17 +109,15 @@ export function DeveloperAdminPage({
     return () => controller.abort();
   }, [project?.id, readOnly, section]);
   useEffect(() => setSection(initialSection ?? "developer"), [initialSection]);
-  const qualityAvailable = resolvedTaskDefinition?.data_explorer?.quality === true;
   const allSections: Array<{ id: AdminSection; label: string }> = [
     { id: "developer", label: "開発者ガイド" },
-    { id: "quality", label: "データ品質集計" },
     { id: "ranges", label: "入力範囲" },
     { id: "display", label: "表示桁数" },
     { id: "task", label: "予測タスク定義" },
     { id: "model", label: "モデルと実行環境" },
   ];
-  const sections = allSections.filter((item) => item.id !== "quality" || qualityAvailable);
-  const visibleSection: AdminSection = section === "quality" && resolvedTaskDefinition && !qualityAvailable ? "task" : section;
+  const sections = allSections;
+  const visibleSection = section;
   return <div className="admin-workspace">
     <aside className="admin-navigation">
       <span className="overline">開発・管理</span><h2>検証と構成</h2><p>{readOnly ? "利用停止中の構成を読み取り専用で確認します。" : "通常の候補検討では使わない管理情報です。"}</p>
@@ -160,9 +149,6 @@ export function DeveloperAdminPage({
         initialGuideId={developerGuideId}
         onLocationChange={onDeveloperLocationChange}
       />}
-      {visibleSection === "quality" && (project?.id
-        ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} onOpenIssueList={onOpenQualityIssues} showReferenceScenarios mode="summary" />
-        : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
       {visibleSection === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
       {visibleSection === "task" && <div className="page-panel admin-contract-page">

@@ -2,14 +2,34 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-test("quality summary hands off to the issue list and distinguishes zero states", async () => {
+async function navigationModule(search) {
+  globalThis.window = { location: { search, pathname: "/", hash: "" } };
+  return import(`../src/app/navigation.ts?quality=${encodeURIComponent(search)}`);
+}
+
+test("legacy quality admin intent resolves to the canonical quality view", async () => {
+  const { isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent } = await navigationModule(
+    "?view=settings&admin=quality&project=p1&quality_type=duplicate_key",
+  );
+  const intent = readNavigationIntent();
+
+  assert.equal(isLegacyQualityAdminNavigation(), true);
+  assert.equal(intent.view, "quality");
+  assert.equal(intent.adminSection, undefined);
+  assert.equal(intent.qualityType, "duplicate_key");
+  assert.equal(navigationUrl(intent), "/?view=quality&project=p1&quality_type=duplicate_key");
+});
+
+test("quality uses one screen for summary, filters, export, and zero states", async () => {
   const source = await readFile(new URL("../src/features/quality/QualityPages.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /問題一覧で確認/);
-  assert.match(source, /現在の検出ルールでは問題は見つかりませんでした/);
+  assert.match(source, /<h2>データ品質<\/h2>/);
+  assert.match(source, /quality-summary/);
+  assert.match(source, /quality-filters/);
+  assert.match(source, /検出結果をCSV出力/);
   assert.match(source, /絞り込みに一致する問題はありません/);
   assert.match(source, /すべての問題を表示/);
-  assert.match(source, /未実行ではありません/);
+  assert.doesNotMatch(source, /mode === "summary"/);
 });
 
 test("candidate summary routes unresolved decisions to their settings", async () => {

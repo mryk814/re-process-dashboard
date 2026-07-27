@@ -30,11 +30,11 @@ test("primary navigation follows the decision flow and separates developer admin
   await page.getByRole("button", { name: "データ探索", exact: true }).click();
   await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "データ探索" })).toBeVisible();
-  await page.getByRole("button", { name: "問題から探す", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "問題から探す" })).toBeVisible();
+  await page.getByRole("button", { name: "データ品質", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
   await expect(page.locator(".quality-filters")).toBeVisible();
-  await expect(page.locator(".quality-summary")).toHaveCount(0);
-  await expect(page.locator(".reference-scenarios")).toHaveCount(0);
+  await expect(page.locator(".quality-summary")).toBeVisible();
+  await expect(page.locator(".reference-scenarios")).toBeVisible();
   await page.getByText("参照データを確認", { exact: true }).click();
   await expect(page.locator(".dataset-identity")).toContainText("annealed-properties-v1");
   await expect(page.locator(".dataset-identity")).toContainText("source sha256:");
@@ -45,11 +45,8 @@ test("primary navigation follows the decision flow and separates developer admin
 
   await page.getByRole("button", { name: "開発・管理", exact: true }).click();
   await expect(page.getByRole("heading", { name: "検証と構成" })).toBeVisible();
-  await page.getByRole("navigation", { name: "開発・管理メニュー" })
-    .getByRole("button", { name: "データ品質集計" }).click();
-  await expect(page.getByRole("heading", { name: "データ品質集計" })).toBeVisible();
-  await expect(page.locator(".quality-summary")).toBeVisible();
-  await expect(page.locator(".quality-filters")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })
+    .getByRole("button", { name: "データ品質集計" })).toHaveCount(0);
   await page.getByRole("button", { name: "予測タスク定義", exact: true }).click();
   await expect(page).toHaveURL(/admin=task/);
   await expect(page.getByRole("heading", { name: "予測タスク定義" })).toBeVisible();
@@ -61,6 +58,26 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page).toHaveURL(/admin=model/);
   await expect(page.getByRole("heading", { name: "モデルと実行環境" })).toBeVisible();
   await expect(page.locator(".admin-model-identity")).toBeVisible();
+});
+
+test("legacy data-quality admin link redirects to the canonical screen", async ({ page }) => {
+  await page.goto("/?view=settings&admin=quality&project=default&quality_type=duplicate_key");
+
+  await expect(page).toHaveURL(/view=quality/);
+  await expect(page).not.toHaveURL(/admin=quality/);
+  await expect(page).toHaveURL(/quality_type=duplicate_key/);
+  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
+  await expect(page.locator(".quality-summary")).toBeVisible();
+  await expect(page.locator(".quality-filters")).toBeVisible();
+});
+
+test("default comparison starts with candidates inside model support", async ({ page }) => {
+  await page.goto("/?view=candidates&project=default");
+
+  const summary = page.getByRole("complementary", { name: "候補比較の判断サマリー" });
+  await expect(summary).toBeVisible();
+  await expect(page.locator(".target-support-list").first()).toContainText("範囲内");
+  await expect(page.locator(".target-support-list").filter({ hasText: "学習範囲外" })).toHaveCount(0);
 });
 
 test("saved prediction returns directly to project history", async ({ page, request }) => {

@@ -12,7 +12,7 @@ export const WORKBENCH_VIEWS = [
 ] as const;
 
 export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
-export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
+export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";
 export type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 export type NavigationIntent = Readonly<{
@@ -37,8 +37,13 @@ export type NavigationIntent = Readonly<{
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
-const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "quality", "ranges", "display", "task", "model"]);
+const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", "task", "model"]);
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
+
+export function isLegacyQualityAdminNavigation(search = window.location.search): boolean {
+  const params = new URLSearchParams(search);
+  return params.get("view") === "settings" && params.get("admin") === "quality";
+}
 
 export function readNavigationIntent(
   search = window.location.search,
@@ -47,8 +52,11 @@ export function readNavigationIntent(
   const requestedView = params.get("view") ?? "project";
   const adminSection = params.get("admin");
   const developerTab = params.get("developer_tab");
+  const legacyQualityAdmin = requestedView === "settings" && adminSection === "quality";
   return Object.freeze({
-    view: VIEW_SET.has(requestedView)
+    view: legacyQualityAdmin
+      ? "quality"
+      : VIEW_SET.has(requestedView)
       ? (requestedView as WorkbenchView)
       : "project",
     projectId: params.get("project") || undefined,
@@ -63,7 +71,7 @@ export function readNavigationIntent(
     activityRunId: params.get("activity_run") || undefined,
     candidateSection: params.get("candidate_section") === "actuals" ? "actuals" : undefined,
     snapshotId: params.get("snapshot") || undefined,
-    adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
+    adminSection: !legacyQualityAdmin && adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
     developerTab: developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
     developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
     developerGuideId: params.get("developer_guide") || undefined,

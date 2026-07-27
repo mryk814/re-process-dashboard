@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
-import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
+import { isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import { ProjectHub } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
@@ -251,6 +251,9 @@ function App() {
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
+      if (isLegacyQualityAdminNavigation()) {
+        window.history.replaceState({}, "", navigationUrl(intent));
+      }
       navigationRef.current = intent;
       setNavigation(intent);
       rememberNavigation(intent);
@@ -264,7 +267,7 @@ function App() {
   useEffect(() => {
     const current = navigationRef.current;
     rememberNavigation(current);
-    if (!new URLSearchParams(window.location.search).has("view")) {
+    if (!new URLSearchParams(window.location.search).has("view") || isLegacyQualityAdminNavigation()) {
       window.history.replaceState({}, "", navigationUrl(current));
     }
   }, []);
@@ -482,41 +485,10 @@ function App() {
               developerGuideId,
             })}
             onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
-            qualityFilters={{
-              issueId: navigation.qualityIssueId,
-              type: navigation.qualityType,
-              sheet: navigation.qualitySheet,
-              key: navigation.qualityKey,
-            }}
-            onQualityFiltersChange={(filters) => navigate({
-              ...navigationRef.current,
-              view: "settings",
-              projectId: activeProjectId,
-              qualityIssueId: filters.issueId,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            }, true)}
-            onOpenLineage={(issue, filters) => navigate({
-              view: "lineage",
-              projectId: activeProjectId,
-              entityKey: issue.focus_entity_key ?? undefined,
-              qualityIssueId: issue.issue_id,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            })}
             onProjectChanged={(project) => {
               void session.refreshAdminProject(project);
             }}
             onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
-            onOpenQualityIssues={(filters) => navigate({
-              view: "quality",
-              projectId: activeProjectId,
-              qualityType: filters.type,
-              qualitySheet: filters.sheet,
-              qualityKey: filters.key,
-            })}
           />
         )}
         {tab === "candidates" && chainProject && (
@@ -653,6 +625,7 @@ function App() {
               qualitySheet: filters.sheet,
               qualityKey: filters.key,
             })}
+            showReferenceScenarios
             />
           </div>
         ) : <DataExploreUnavailable />)}
