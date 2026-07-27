@@ -11,6 +11,10 @@ BACKEND_SRC = Path(__file__).resolve().parents[1] / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
+from material_workbench.modeling.active_package_history import (  # noqa: E402
+    check_active_package_history,
+    rollback_target_note,
+)
 from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     canonical_training_dataset,
@@ -95,7 +99,15 @@ def rollback_package(task_id: str, source: Path, config: Path) -> dict[str, Any]
     before = load_active_packages(config)
     selection = before.tasks[task_id]
     if selection.previous is None:
-        raise PackageContractError(f"no previous active package is recorded for task {task_id}")
+        note = rollback_target_note(task_id, check_active_package_history(config_path=config))
+        raise PackageContractError(
+            f"no previous active package is recorded for task {task_id}"
+            + (
+                f" — {note}"
+                if note
+                else "; activeの切替は npm run model:activate を通す（JSONを直接編集するとpreviousが記録されない）"
+            )
+        )
     previous = (config.resolve().parent / selection.previous).resolve(strict=True)
     report = verify_model_package(previous, task_id=task_id, source=_task_source(task_id, source))
     updated = rollback_active_package(task_id, config_path=config)
@@ -130,7 +142,11 @@ def package_status(config: Path) -> dict[str, Any]:
             "package_version": package.manifest.package_version,
             "manifest_sha256": package.manifest_sha256,
         }
-    return {"schema_version": configured.schema_version, "tasks": tasks}
+    return {
+        "schema_version": configured.schema_version,
+        "tasks": tasks,
+        "history": check_active_package_history(config_path=config).model_dump(mode="json"),
+    }
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -172,6 +188,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     arguments = _parser().parse_args()
     try:
         if arguments.command == "data":

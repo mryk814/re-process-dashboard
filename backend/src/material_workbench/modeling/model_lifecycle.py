@@ -598,7 +598,10 @@ def rollback_active_package(
     config = load_active_packages(config_path)
     current = config.tasks.get(task_id)
     if current is None or current.previous is None:
-        raise PackageContractError(f"no previous active package is recorded for task {task_id}")
+        raise PackageContractError(
+            f"no previous active package is recorded for task {task_id}; "
+            "activeの切替は npm run model:activate を通す（JSONを直接編集するとpreviousが記録されない）"
+        )
     models_root = config_path.resolve().parent
     previous_path = (models_root / current.previous).resolve(strict=True)
     if models_root not in previous_path.parents:

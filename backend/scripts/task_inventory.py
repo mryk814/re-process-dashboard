@@ -12,6 +12,10 @@ BACKEND_SRC = REPOSITORY_ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
+from material_workbench.modeling.active_package_history import (  # noqa: E402
+    check_active_package_history,
+    format_active_package_history,
+)
 from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     load_active_packages,
@@ -100,6 +104,9 @@ def packaged_source_paths() -> list[str]:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Generate or verify the production task inventory.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--check", action="store_true")
@@ -121,7 +128,17 @@ def main() -> int:
         if current != expected:
             print(f"Task inventory is stale: {args.output}", file=sys.stderr)
             return 1
+        history = check_active_package_history()
+        report = "\n".join(format_active_package_history(history))
+        if not history.ok:
+            print(report, file=sys.stderr)
+            print(
+                "active-packages.json is edited outside npm run model:activate",
+                file=sys.stderr,
+            )
+            return 1
         print(f"Task inventory is current: {args.output}")
+        print(report)
         return 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(expected, encoding="utf-8", newline="\n")
