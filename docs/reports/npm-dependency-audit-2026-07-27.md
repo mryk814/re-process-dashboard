@@ -69,7 +69,7 @@ Windows installerとfolder ZIPも生成できた。
 最初のpackaging smokeは、検証scriptがLifecycle APIへ現在禁止されている`actor`を送ったため422で停止した。
 これは[Issue #402](https://github.com/mryk814/re-process-dashboard/issues/402)として記録し、server-owned actor契約へ追従させた。
 修正後はportable版とper-user installer版の双方で起動、1,000行Lifecycle、backup／restore、uninstallまで成功した。
-smokeの実行時間は240.5秒だった。
+最終ソースからのclean packaging、portable smoke、installer smoke、展開directory削除は404.5秒で完了した。
 
 展開済み配布物には`node_modules` directoryがなく、上表のaudit対象package名もなかった。
 Electron Builderのpackaging logも「no node modules returned」と記録した。
@@ -77,8 +77,8 @@ Electron Builderのpackaging logも「no node modules returned」と記録した
 
 | 生成物 | byte | SHA-256 |
 |---|---:|---|
-| `Material-Decision-Workbench-Setup-0.1.0.exe` | 164,251,317 | `F95A9C96017551A2D7CC81A689303208C04F08704F8175CA411B6732AEB26269` |
-| `Material-Decision-Workbench-folder-0.1.0.zip` | 223,097,915 | `3F4498A75C16E9627D39DEA43A1ED06EE1EDF7F296F3134DCB6B29E8E34D4FB5` |
+| `Material-Decision-Workbench-Setup-0.1.0.exe` | 164,252,969 | `3F27451E2DAC69AAAD15CF8110102CFCD6D40B3EFB81C6346F49AD16BB17974A` |
+| `Material-Decision-Workbench-folder-0.1.0.zip` | 223,100,803 | `D62F02295C800B09FB998F9354CDD2AC55D6936372B6083F90FBF67F66402574` |
 
 `npm audit --json`の最終値はHigh 18件、Critical 0件である。
 件数を偽って減らすoverrideは行わず、上記の到達性、入力制限、再確認条件を受容記録とする。
