@@ -35,6 +35,9 @@ book:
     - part: "Part VII　UIとDesktop"
       chapters:
         - chapters/frontend-desktop-state.qmd
+    - part: "Part VIII　検証と運用"
+      chapters:
+        - chapters/verification-operations.qmd
     - concept-map.qmd
     - glossary.qmd
     - references.qmd

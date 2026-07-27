@@ -1540,6 +1540,64 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "pytest-approx",
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "MIT documentation terms; no reuse assumed",
+      "related_concepts": [
+        "numeric-tolerance",
+        "contract-test"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/verification-operations.qmd",
+        "backend/tests/test_chain_execution.py"
+      ],
+      "recommended_sections": [
+        "pytest.approx",
+        "Tolerances"
+      ],
+      "why_read": "浮動小数点の比較で、絶対許容差と相対許容差の意味を明示するために参照する。",
+      "reading_question": "この許容差は単位、期待値のscale、数値近似誤差のどれに基づくか。",
+      "caution": "default toleranceをdomain上の受入基準またはmodel品質基準として流用しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "playwright-testing",
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "Apache-2.0 documentation terms; no reuse assumed",
+      "related_concepts": [
+        "browser-test",
+        "test-isolation"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/verification-operations.qmd",
+        "e2e/decision-activity.spec.ts"
+      ],
+      "recommended_sections": [
+        "Test user-visible behavior",
+        "Make tests as isolated as possible"
+      ],
+      "why_read": "browser testを実装詳細ではなく利用者が観測する挙動へ置き、test間の共有状態を避ける原則を確認する。",
+      "reading_question": "このtestは新規DBとbrowser contextを使い、前のtestの保存状態へ依存していないか。",
+      "caution": "browser test成功だけで数値契約、migration atomicity、配布物の完全性を保証しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }
