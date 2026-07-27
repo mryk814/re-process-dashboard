@@ -6428,7 +6428,7 @@ export interface components {
             /** Expected Project Series Id */
             expected_project_series_id: string | null;
             /** Project Series Id */
-            project_series_id: string;
+            project_series_id: string | null;
         };
         /** ProjectHistoryResponse */
         ProjectHistoryResponse: {

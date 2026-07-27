@@ -1270,12 +1270,13 @@ class Store:
                 raise ProjectGroupConflictError(
                     "このプロジェクトの所属グループは別の操作で変更されています"
                 )
-            target_group = conn.execute(
-                "SELECT archived_at FROM project_series WHERE id=?",
-                (payload.project_series_id,),
-            ).fetchone()
-            if target_group is None or target_group["archived_at"] is not None:
-                raise ProjectGroupUnavailableError("移動先の検討グループを利用できません")
+            if payload.project_series_id is not None:
+                target_group = conn.execute(
+                    "SELECT archived_at FROM project_series WHERE id=?",
+                    (payload.project_series_id,),
+                ).fetchone()
+                if target_group is None or target_group["archived_at"] is not None:
+                    raise ProjectGroupUnavailableError("移動先の検討グループを利用できません")
             if current_group_id == payload.project_series_id:
                 return self._project(
                     conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()

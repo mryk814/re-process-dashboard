@@ -36,6 +36,23 @@ archive中のProjectは通常一覧と書込経路から外すが、判断証跡
 予約Project、後続ProjectがあるProject、別Projectの候補revisionから参照される
 Projectはpurgeしない。purge後は `foreign_key_check` が空であることを契約テストで確認する。
 
+## 検討グループの所属変更
+
+所属は科学的identityではないmetadataとして扱い、次を固定する。
+
+- `PUT /api/projects/{id}/group` の `project_series_id` は `null` を取り、これが
+  「グループなしへ移動」を表す唯一の値である。空文字はUIの未選択と区別できないため
+  受け付けない。所属なし → A → なし → B の往復ができる。
+- `expected_project_series_id` によるcompare-and-swapは解除でも同じに働く。
+  他の操作で所属が変わっていれば `project_group_conflict` で拒否する。
+- 所属変更は候補、判断履歴、snapshot、続き元（predecessor／continuation）を変えない。
+  続き元を持つProjectも解除できる。
+- 最後の1件が抜けて空になったProject Seriesはarchiveする。移動でも解除でも同じ扱いで、
+  グループ名を選び直せば新しい所属として作り直せる。残留Projectがあるグループは閉じない。
+- 所属変更はProjectの他のmetadata更新と同じ可用性方針に従い、対象TaskのModel Package等が
+  unavailableのときは `503 runtime_unavailable` になる。metadata操作だけを可用性から
+  切り離すかどうかは、Project更新全体としてまとめて判断する。
+
 ## portable / installer確認
 
 両配布形態で次を確認する。
