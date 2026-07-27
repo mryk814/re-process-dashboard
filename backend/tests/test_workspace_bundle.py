@@ -13,6 +13,7 @@ import pytest
 from openpyxl import Workbook
 
 import material_workbench.application.workspace_bundle as workspace_bundle_module
+from material_workbench.application.data_lifecycle import DataLifecycleService
 from material_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
     _database_evidence,
@@ -28,6 +29,15 @@ from material_workbench.contracts.schemas import (
     DatasetRevisionCreateInput,
     ModelPackageRefCreateInput,
     ProfileRevisionCreateInput,
+)
+from material_workbench.contracts.data_lifecycle_contracts import (
+    CurationRecipeCreateInput,
+    CurationRunCreateInput,
+    DatasetApprovalInput,
+    ObjectSelection,
+    SourceConnectorCreateInput,
+    SourceFetchRequest,
+    TrainingSnapshotCreateInput,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.persistence.store import Store
@@ -315,68 +325,66 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
                 now,
             ),
         )
-        connection.execute(
-            "INSERT INTO source_connectors VALUES (?,?,?,?)",
-            ("workspace-connector", "connector-digest", "{}", now),
-        )
-        connection.execute(
-            "INSERT INTO raw_source_snapshots VALUES (?,?,?,?,?,?,?)",
-            (
-                "workspace-raw",
-                "workspace-connector",
-                "content-digest",
-                "selection-digest",
-                "raw-snapshot-digest",
-                "{}",
-                now,
-            ),
-        )
-        connection.execute(
-            "INSERT INTO curation_recipes VALUES (?,?,?,?,?,?)",
-            (
-                "workspace-recipe",
-                "workspace-recipe",
-                1,
-                "recipe-digest",
-                "{}",
-                now,
-            ),
-        )
-        connection.execute(
-            "INSERT INTO source_curation_runs VALUES (?,?,?,?,?,?,?)",
-            (
-                "workspace-curation",
-                "workspace-raw",
-                "workspace-recipe",
-                "profile-digest",
-                "curation-digest",
-                "{}",
-                now,
-            ),
-        )
-        connection.execute(
-            "INSERT INTO canonical_dataset_approvals VALUES (?,?,?,?,?)",
-            (
-                "workspace-approval",
-                "workspace-curation",
-                "dataset-digest",
-                "{}",
-                now,
-            ),
-        )
-        connection.execute(
-            "INSERT INTO approved_training_snapshots VALUES (?,?,?,?,?)",
-            (
-                "workspace-training",
-                "workspace-approval",
-                "training-digest",
-                "{}",
-                now,
-            ),
-        )
         connection.commit()
     finally:
         connection.close()
+
+    lifecycle = DataLifecycleService(database)
+    connector = lifecycle.create_connector(
+        SourceConnectorCreateInput(
+            name="Workspace source",
+            connector_type="object_storage_json_v1",
+            source_locator="fixture://workspace",
+            selection=ObjectSelection(format="json_array", primary_key="id"),
+        )
+    )
+    raw, _ = lifecycle.fetch(
+        connector.id,
+        SourceFetchRequest(
+            object_content=(
+                '[{"id":"A","x":1,"target":2},'
+                '{"id":"B","x":3,"target":4}]'
+            ),
+            object_version="workspace-v1",
+        ),
+    )
+    recipe = lifecycle.create_recipe(
+        CurationRecipeCreateInput(
+            recipe_id="workspace-recipe",
+            version=1,
+            name="Workspace recipe",
+            steps=(
+                {"kind": "coerce_number_v1", "fields": ["x", "target"]},
+                {"kind": "required_fields_v1", "fields": ["id", "x"]},
+                {"kind": "target_eligibility_v1", "fields": ["target"]},
+            ),
+        )
+    )
+    run = lifecycle.curate(
+        raw.id,
+        CurationRunCreateInput(
+            recipe_resource_id=recipe.id,
+            profile_revision_id="profile@workspace",
+            profile_digest="sha256:workspace-profile",
+        ),
+    )
+    revision = lifecycle.approve(
+        run.id,
+        DatasetApprovalInput(actor="workspace-test"),
+    )
+    lifecycle.create_training_snapshot(
+        revision.id,
+        TrainingSnapshotCreateInput(
+            actor="workspace-test",
+            purpose="Workspace bundle evidence",
+            targets=({"target_key": "target", "field": "target"},),
+            split={
+                "strategy_id": "sorted-group-round-robin-v1",
+                "group_field": "id",
+                "folds": 2,
+            },
+        ),
+    )
 
     bundle = tmp_path / "live-workspace.mdwb"
     backup = create_workspace_backup(
@@ -385,6 +393,7 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
         destination=bundle,
         app_version="test",
     )
+    assert len(backup.manifest.row_payload_files) == 2
     target = tmp_path / "other-user-data"
     prepared = prepare_workspace_restore(
         database=target / "workbench.db",
@@ -418,6 +427,9 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
         for item in restored_evidence
     }
     assert actual == expected
+    restored_lifecycle = DataLifecycleService(target / "workbench.db")
+    assert restored_lifecycle.repository.get_raw_snapshot(raw.id) == raw
+    assert restored_lifecycle.repository.get_curation_run(run.id) == run
     for table in (
         "projects",
         "candidate_revisions",

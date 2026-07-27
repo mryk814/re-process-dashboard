@@ -76,6 +76,20 @@ Raw Snapshotは次を固定する。
 旧v1 Snapshotのduplicate receiptだけは、当時固定していなかったbyte数を
 `null`として返し、現在値を推測で後付けしない。
 
+### Row payloadの保存契約
+
+Raw SnapshotとCuration Runのrow本体はSQLiteへ埋め込まず、Workspace内の
+`row-payloads/sha256/<先頭2文字>/<SHA-256>.jsonl` に保存する。
+各行はUTF-8・LF終端のcanonical NDJSONであり、参照はrecord kind、media type、
+SHA-256、byte数、row数を固定する。SQLiteにはresourceのidentity、公開digest、
+summary、承認状態、索引用列とこの参照だけを残す。
+
+このCAS digestは保存表現の整合性を検査する内部digestであり、
+Raw／Curation／Canonical／Trainingの公開digestを置き換えない。
+既存Workspaceのinline rowは起動時migrationでCASへ完全移行し、旧inline経路へ
+fallbackしない。解釈できない旧resource、欠損file、size・digest・row数の不一致は
+対象resourceだけを利用不能として記録し、別Connectorや別Projectの起動を妨げない。
+
 upstream row keyが一意なら追加、変更、消失、未変更の件数を算出する。
 row keyがない、欠損、重複の場合は推測で比較せず `comparable=false` と理由を返す。
 
@@ -137,6 +151,8 @@ target cohortやsplitを後付けしてv2として再解釈せず、新しい学
 
 データライブラリの「Source更新」で、Raw差分、品質件数、理由付き隔離row、承認actor、Training Snapshotまでを一つのstage railで確認する。
 取得操作で画面の他のDatasetやPackageを更新しない。
+対象ConnectorのCAS payloadが欠損・改ざんされている場合、詳細APIはresource IDと
+固定error codeを含む503を返す。無関係Connectorの一覧・詳細は引き続き参照できる。
 
 ## 現時点の境界
 

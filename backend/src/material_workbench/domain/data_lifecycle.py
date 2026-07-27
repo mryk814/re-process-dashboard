@@ -270,7 +270,9 @@ def curate_snapshot(
             CuratedRow(
                 row_key=key,
                 raw_row_index=index,
-                canonical_record=record,
+                canonical_record={
+                    field: record[field] for field in sorted(record)
+                },
                 status=status,  # type: ignore[arg-type]
                 reason_codes=tuple(dict.fromkeys(reason for _, reason in reasons)),
                 target_eligible=target_eligible and status != "blocked",

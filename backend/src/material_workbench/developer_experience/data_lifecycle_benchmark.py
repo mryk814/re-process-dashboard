@@ -293,6 +293,17 @@ def _process_memory() -> dict[str, int] | None:
 
 
 def _storage_metrics(database: Path) -> dict[str, Any]:
+    row_payload_root = database.parent / "row-payloads" / "sha256"
+    row_payload_files = (
+        tuple(
+            path
+            for path in row_payload_root.rglob("*.jsonl")
+            if path.is_file()
+        )
+        if row_payload_root.exists()
+        else ()
+    )
+    row_payload_bytes = sum(path.stat().st_size for path in row_payload_files)
     if not database.exists():
         return {
             "file_bytes": 0,
@@ -302,6 +313,9 @@ def _storage_metrics(database: Path) -> dict[str, Any]:
             "freelist_count": 0,
             "payload_bytes_total": 0,
             "payload_bytes_by_table": {},
+            "row_payload_file_count": len(row_payload_files),
+            "row_payload_file_bytes": row_payload_bytes,
+            "total_persisted_bytes": row_payload_bytes,
         }
     tables = (
         "source_connectors",
@@ -335,6 +349,9 @@ def _storage_metrics(database: Path) -> dict[str, Any]:
         "freelist_count": freelist_count,
         "payload_bytes_total": sum(payload_by_table.values()),
         "payload_bytes_by_table": payload_by_table,
+        "row_payload_file_count": len(row_payload_files),
+        "row_payload_file_bytes": row_payload_bytes,
+        "total_persisted_bytes": database.stat().st_size + row_payload_bytes,
     }
 
 
@@ -534,6 +551,10 @@ def run_benchmark_case(
         storage["final"]["payload_bytes_total"]
         - storage["after_setup"]["payload_bytes_total"]
     )
+    lifecycle_total_persisted_increment = (
+        storage["final"]["total_persisted_bytes"]
+        - storage["after_setup"]["total_persisted_bytes"]
+    )
 
     with sqlite3.connect(database) as connection:
         journal_mode = str(
@@ -563,12 +584,19 @@ def run_benchmark_case(
             "journal_mode": journal_mode,
             "lifecycle_file_increment_bytes": lifecycle_file_increment,
             "lifecycle_payload_increment_bytes": lifecycle_payload_increment,
+            "lifecycle_total_persisted_increment_bytes": (
+                lifecycle_total_persisted_increment
+            ),
             "file_amplification_over_source": round(
                 lifecycle_file_increment / source_bytes,
                 3,
             ),
             "payload_amplification_over_source": round(
                 lifecycle_payload_increment / source_bytes,
+                3,
+            ),
+            "total_persisted_amplification_over_source": round(
+                lifecycle_total_persisted_increment / source_bytes,
                 3,
             ),
         },

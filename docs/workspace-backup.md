@@ -55,13 +55,14 @@ npm run workspace:maintenance -- inspect
 `data/workbench.db`を対象にするため、判断台帳へ保守操作を行う前に
 `inspect`の表示パスを必ず確認する。
 
-## bundle v1
+## bundle v2
 
-`workspace-bundle/v1` は次を含む。
+`workspace-bundle/v2` は次を含む。
 
 - SQLite Backup APIで取得した `workbench.db`
 - schema migrationのIDとchecksum
 - 全業務テーブルの行数とcanonical digest
+- Raw Snapshot／Curation Runが参照するcontent-addressed row payload
 - Data Asset本体と、Profileが相対パスで宣言する観察画像
 - DBに登録されたModel Package本体
 - app version、active Package参照、診断結果
@@ -70,6 +71,12 @@ Data AssetとModel Packageはcontent digestで索引し、復元先Data Library�
 配置する。Model PackageからPythonコード、pickle、joblibを読み込まない。
 決定論的Transformはアプリ本体のallow-listされた実行資源であり、bundleへ
 複製せず、復元準備時に固定digestが現行アプリと一致するか診断する。
+row payloadもmanifestへsizeとSHA-256を列挙し、DBが参照する全fileとmanifestの
+集合が一致することをstagingで検証する。欠損・余剰・改ざんがあればDB切替前に
+復元を拒否する。
+移行時に解釈できなかった旧inline payloadは原文をSHA-256名のquarantine fileへ
+退避し、findingとともにbundleへ含める。`workspace-bundle/v1`は読込互換を保ち、
+inline rowをstagingでCASへ移した前後のsemantic identityを照合する。
 
 ## 復元手順
 
@@ -80,11 +87,13 @@ Data AssetとModel Packageはcontent digestで索引し、復元先Data Library�
 4. `integrity_check`、foreign key、表ごとの行数／digestを確認する。
 5. Projectが固定したDataset、Model Package、Chain Revision、Chain Stageの
    参照を診断する。
-6. APIを停止し、Data Library資源を追加した後、最後にDBを切り替える。
+6. APIを停止し、Data Library資源とrow payloadを追加した後、最後にDBを切り替える。
 7. 新WorkspaceでAPI healthを確認してから旧DBを破棄する。
 
 prepare、commit、API再起動のいずれかに失敗した場合は旧DBを維持または
-自動で切り戻す。復元途中の状態はjournalへ残し、次回起動時にも回収する。
+自動で切り戻す。今回の復元で新規配置したrow payloadもrollback時に除去する。
+既存CAS fileは共有されうるため削除しない。復元途中の状態はjournalへ残し、
+次回起動時にも回収する。
 
 ## 互換性と信頼境界
 

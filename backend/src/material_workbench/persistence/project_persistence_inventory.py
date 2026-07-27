@@ -58,6 +58,7 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "chain_stage_memo",
         "curation_recipes",
         "data_assets",
+        "data_lifecycle_payload_findings",
         "dataset_profile_revisions",
         "dataset_revisions",
         "dataset_view_members",
