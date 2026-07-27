@@ -73,7 +73,7 @@ test("dataset import stays in the global data library context", async ({ page })
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
 
   await page.goto("/?view=settings&project=default&admin=profile");
-  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).not.toContainText("Profile Workbench");
+  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
 });
 
@@ -167,7 +167,7 @@ test("developer diagnostics shows runtime checks without repository tooling", as
   // The diagnostics run against every registered runtime, which takes longer than
   // the default expect timeout.
   await expect(page.locator(".doctor-summary")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("Projectの固定参照")).toBeVisible();
+  await expect(page.getByText("Projectの固定参照", { exact: true })).toBeVisible();
   await expect(page.getByText("API／sidecar状態")).toBeVisible();
   await expect(page.getByText(/npm|uv|OpenAPI check/)).toHaveCount(0);
 });

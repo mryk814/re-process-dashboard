@@ -134,6 +134,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     if (selectedVersionId) url.searchParams.set("revision", selectedVersionId);
     else url.searchParams.delete("revision");
     window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
   }, [selectedId, selectedStage, selectedVersionId]);
 
   useEffect(() => {
