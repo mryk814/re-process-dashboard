@@ -35,6 +35,9 @@ from material_workbench.contracts.schemas import (
     ProjectSeriesUpdateInput,
 )
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
+from material_workbench.persistence.workspace_maintenance_migration import (
+    migrate_workspace_maintenance_events,
+)
 from material_workbench.persistence.sqlite_connection import (
     sqlite_connection,
 )
@@ -88,6 +91,54 @@ def _loads_object(raw: str, *, label: str) -> dict[str, Any]:
     return value
 
 
+def model_package_reference_labels(
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+) -> list[str]:
+    """Return every durable evidence location that pins this Package identity."""
+
+    labels = [
+        f"Project: {project['name']}"
+        for project in conn.execute(
+            "SELECT name FROM projects WHERE model_package_ref_id=? ORDER BY name",
+            (row["id"],),
+        )
+    ]
+    digest = str(row["manifest_digest"]).removeprefix("sha256:")
+    needles = (digest, f"sha256:{digest}")
+    excluded = {
+        "model_package_refs",
+        "workspace_maintenance_events",
+        "schema_migrations",
+    }
+    tables = [
+        str(item["name"])
+        for item in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+        if not str(item["name"]).startswith("sqlite_")
+        and str(item["name"]) not in excluded
+    ]
+    for table in tables:
+        escaped_table = table.replace('"', '""')
+        columns = [
+            str(item["name"])
+            for item in conn.execute(f'PRAGMA table_info("{escaped_table}")')
+            if "TEXT" in str(item["type"]).upper()
+        ]
+        for column in columns:
+            escaped_column = column.replace('"', '""')
+            evidence = conn.execute(
+                f'SELECT rowid FROM "{escaped_table}" '
+                f'WHERE instr(COALESCE("{escaped_column}",\'\'),?) > 0 '
+                f'OR instr(COALESCE("{escaped_column}",\'\'),?) > 0 LIMIT 1',
+                needles,
+            ).fetchone()
+            if evidence is not None:
+                labels.append(f"Evidence: {table}.{column} rowid={evidence['rowid']}")
+    return labels
+
+
 class WorkspaceCatalog:
     """SQLite-backed repository for Data Library catalog records."""
 
@@ -95,6 +146,7 @@ class WorkspaceCatalog:
         self.path = str(database)
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         migrate_workspace_catalog(self.path)
+        migrate_workspace_maintenance_events(self.path)
 
     def _connect(self):
         return sqlite_connection(self.path)
@@ -526,9 +578,76 @@ class WorkspaceCatalog:
                     manifest_json,
                 )
                 if stored_without_locator != immutable_without_locator:
-                    raise CatalogConflictError(
-                        f"Model Package {payload.package_id} ({payload.manifest_digest}) は別内容で登録済みです"
+                    latest_maintenance = conn.execute(
+                        "SELECT id,operation FROM workspace_maintenance_events "
+                        "WHERE resource_kind='model_package_ref' "
+                        "AND resource_id=? "
+                        "ORDER BY created_at DESC,id DESC LIMIT 1",
+                        (row["id"],),
+                    ).fetchone()
+                    references = model_package_reference_labels(conn, row)
+                    if (
+                        row["archived_at"] is None
+                        or latest_maintenance is None
+                        or latest_maintenance["operation"] != "deactivate"
+                        or references
+                    ):
+                        raise CatalogConflictError(
+                            f"Model Package {payload.package_id} ({payload.manifest_digest}) は別内容で登録済みです"
+                        )
+                    previous = {
+                        key: row[key]
+                        for key in (
+                            "package_id",
+                            "task_id",
+                            "task_contract_digest",
+                            "manifest_digest",
+                            "locator",
+                            "manifest_json",
+                            "archived_at",
+                        )
+                    }
+                    conn.execute(
+                        "UPDATE model_package_refs SET task_id=?,task_contract_digest=?,"
+                        "locator=?,manifest_json=?,archived_at=NULL WHERE id=?",
+                        (
+                            payload.task_id,
+                            payload.task_contract_digest,
+                            payload.locator,
+                            manifest_json,
+                            row["id"],
+                        ),
                     )
+                    conn.execute(
+                        "INSERT INTO workspace_maintenance_events("
+                        "id,operation,resource_kind,resource_id,reason,detail_json,created_at"
+                        ") VALUES (?,?,?,?,?,?,?)",
+                        (
+                            f"maintenance-{uuid4()}",
+                            "reactivate-current-contract",
+                            "model_package_ref",
+                            row["id"],
+                            "明示的に利用停止された未参照登録を現行contractで再登録",
+                            _canonical_json(
+                                {
+                                    "previous": previous,
+                                    "current": {
+                                        "task_id": payload.task_id,
+                                        "task_contract_digest": payload.task_contract_digest,
+                                        "manifest_json": manifest_json,
+                                        "locator": payload.locator,
+                                    },
+                                    "deactivation_event_id": latest_maintenance["id"],
+                                }
+                            ),
+                            _now(),
+                        ),
+                    )
+                    row = conn.execute(
+                        "SELECT * FROM model_package_refs WHERE id=?",
+                        (row["id"],),
+                    ).fetchone()
+                    stored = immutable
                 if stored != immutable:
                     # Package identity is fixed by package_id + manifest digest.
                     # Rebind only the operational location when a portable
@@ -605,6 +724,91 @@ class WorkspaceCatalog:
                     "SELECT * FROM model_package_refs WHERE id=?", (reference_id,)
                 ).fetchone()
             return self._package(row)
+
+    def deactivate_model_package_ref_for_maintenance(
+        self,
+        reference_id: str,
+        *,
+        reason: str,
+    ) -> ModelPackageRef | None:
+        normalized_reason = reason.strip()
+        if not normalized_reason:
+            raise ValueError("利用停止の理由を入力してください")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT * FROM model_package_refs WHERE id=?",
+                (reference_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            references = model_package_reference_labels(conn, row)
+            if references:
+                raise CatalogReferenceError(
+                    "保存済み証拠から参照されているため利用停止できません: "
+                    + ", ".join(references)
+                )
+            if row["archived_at"] is None:
+                conn.execute(
+                    "UPDATE model_package_refs SET archived_at=? WHERE id=?",
+                    (_now(), reference_id),
+                )
+            conn.execute(
+                "INSERT INTO workspace_maintenance_events("
+                "id,operation,resource_kind,resource_id,reason,detail_json,created_at"
+                ") VALUES (?,?,?,?,?,?,?)",
+                (
+                    f"maintenance-{uuid4()}",
+                    "deactivate",
+                    "model_package_ref",
+                    reference_id,
+                    normalized_reason,
+                    _canonical_json(
+                        {
+                            key: row[key]
+                            for key in (
+                                "package_id",
+                                "task_id",
+                                "task_contract_digest",
+                                "manifest_digest",
+                                "locator",
+                                "manifest_json",
+                                "created_at",
+                                "archived_at",
+                            )
+                        }
+                    ),
+                    _now(),
+                ),
+            )
+            updated = conn.execute(
+                "SELECT * FROM model_package_refs WHERE id=?",
+                (reference_id,),
+            ).fetchone()
+            assert updated is not None
+            return self._package(updated)
+
+    def list_workspace_maintenance_events(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM workspace_maintenance_events "
+                "ORDER BY created_at,id"
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "operation": row["operation"],
+                "resource_kind": row["resource_kind"],
+                "resource_id": row["resource_id"],
+                "reason": row["reason"],
+                "detail": _loads_object(
+                    row["detail_json"],
+                    label="Workspace maintenance event",
+                ),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def create_project_series(self, payload: ProjectSeriesCreateInput) -> ProjectSeries:
         return self.ensure_project_series(f"project-series-{uuid4()}", payload)

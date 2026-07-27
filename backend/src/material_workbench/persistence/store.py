@@ -97,6 +97,9 @@ def _single_task_identity_json(payload: ProjectCreateInput) -> str:
     )
     return identity.model_dump_json()
 from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
+from material_workbench.persistence.workspace_maintenance_migration import (
+    migrate_workspace_maintenance_events,
+)
 from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
 from material_workbench.persistence.chain_analysis_variant_migration import (
     migrate_chain_analysis_variant,
@@ -191,6 +194,7 @@ class Store:
 
     def _init(self) -> None:
         migrate_workspace_catalog(self.path)
+        migrate_workspace_maintenance_events(self.path)
         migrate_project_lifecycle(self.path)
         migrate_chain_catalog(self.path)
         migrate_chain_analysis_variant(self.path)

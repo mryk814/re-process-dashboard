@@ -23,9 +23,24 @@ npm run dev
 
 - Web UI: <http://127.0.0.1:5180>
 - API docs（dev proxy経由）: <http://127.0.0.1:5180/docs>
+- Workspace DB: `.dev-workspaces/<branch名>-<短いhash>.db`
 
 停止は起動したターミナルで `Ctrl+C` です。
 既定portが使用中なら、`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`で変更できます。
+
+`npm run dev` は、判断履歴を保持する `data/workbench.db` を開きません。branchごとの
+捨てて作り直せるWorkspaceを使い、起動前にrepoとDBのcontract／Package driftを
+read-onlyで検査します。レビュー状態を固定seedへ戻す場合は、dev serverを止めて
+`npm run workspace:seed` を実行します。このcommandはbranch既定Workspaceだけを
+対象にし、`WORKBENCH_DB_PATH`などで指定した長寿命Workspaceは拒否します。
+
+本物の判断台帳を明示的に開く場合だけ、`npm run dev:main-workspace` を使います。
+この明示commandは残っているWorkspace環境変数よりmain Workspaceを優先します。
+任意のWorkspaceは `WORKBENCH_DB_PATH` と `WORKBENCH_DATA_LIBRARY_PATH` で指定できます。
+現在開いているパスは起動ログと画面右上の「ワークスペース」に表示されます。
+この絶対パス表示はloopback上で動くローカル開発・Desktop環境の診断情報です。
+起動前検査でcatalog不整合が出た場合は、[起動失敗の境界](docs/decisions/startup-failure-boundaries.md)
+に従い、`npm run workspace:maintenance -- inspect`で停止中のWorkspaceを確認します。
 
 ## デスクトップアプリとして起動
 
@@ -96,7 +111,11 @@ npm run api:check     # schema・生成型のdrift検出
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --json
 ```
 
-候補、Candidate Revision、Project、Prediction Snapshot、Screening Run、Decision Activity Run、実測、Chain実行・Snapshot・不確かさRunは `data/workbench.db` に保存します。保存済み結果を新しいsourceやPackageで自動再計算しません。
+Desktop版と明示的なmain Workspaceの候補、Candidate Revision、Project、Prediction
+Snapshot、Screening Run、Decision Activity Run、実測、Chain実行・Snapshot・
+不確かさRunは `data/workbench.db` に保存します。`npm run dev` はbranch別の
+`.dev-workspaces/`を使うため、この判断台帳を変更しません。保存済み結果を新しい
+sourceやPackageで自動再計算しません。
 
 対応Taskでは候補一覧を画面からXLSXで入出力でき、焼鈍特性ではヒートパターンも往復保持されます。Chainの疎配合候補は、Projectが固定した科学master、商用catalog、Design Spaceと照合して保存します。
 

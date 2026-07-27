@@ -304,6 +304,16 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         database_existed = database.exists()
+        app.state.workspace_database = database.expanduser().resolve()
+        app.state.workspace_kind = (
+            os.getenv("WORKBENCH_WORKSPACE_KIND", "").strip()
+            or (
+                "main"
+                if app.state.workspace_database
+                == Path("data/workbench.db").resolve()
+                else "custom"
+            )
+        )
         try:
             prepared = _resources or _prepare_app_resources(
                 source_path,

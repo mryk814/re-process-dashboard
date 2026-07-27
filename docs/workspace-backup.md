@@ -6,6 +6,55 @@ Desktop版の「ワークスペース」から、判断履歴と再現に必要�
 `.mdwb` bundleへ退避し、別の空のuser data directoryへ復元できる。
 SQLiteファイルを直接コピーせず、動作中でも整合したsnapshotを取得する。
 
+## 開発・レビュー用Workspace
+
+`npm run dev` は判断台帳の `data/workbench.db` ではなく、git branchごとの
+`.dev-workspaces/<branch名>-<短いhash>.db` を既定にする。branch名を正規化した
+表示名に元のbranch名のhashを加えるため、`feature/a`と`feature-a`も衝突しない。
+`WORKBENCH_DB_PATH` が指定されて
+いる場合はそのパスを優先し、`npm run dev:main-workspace` は明示的に
+`data/workbench.db` を開く。現在のDBとData Libraryのパスは起動ログと
+「ワークスペース」画面で確認する。
+
+レビュー開始点を揃える場合はserverを停止して次を実行する。
+
+```powershell
+npm run workspace:seed
+```
+
+このcommandは意味内容を固定したseedから一時的な `.mdwb` bundleを生成し、通常の
+prepare／commit／readiness確認／finalize経路でbranch Workspaceへ復元する。
+初期候補IDとsystem timestampも固定し、Project・候補・入力の内容digestは
+繰り返し実行しても同一になる。`WORKBENCH_DB_PATH`または
+`WORKBENCH_DATA_LIBRARY_PATH`が指定された状態では実行を拒否し、長寿命Workspaceを
+review seedで置き換えない。
+SQLiteの直接コピーはしない。生成したbundleは一時領域だけに置き、
+リポジトリへ保存しない。
+
+起動前の整合検査はDBをread-onlyで開き、catalog、Project binding、Chain Revision
+を現行repoと突き合わせる。
+
+```powershell
+npm run workspace:check
+```
+
+不整合時は原因resource、登録済み／現行digest、影響、次の操作を表示し、
+DBの行やdigestを自動修復しない。
+
+APIを起動できないWorkspaceのPackage登録は、serverを停止したまま保守CLIで
+確認する。
+
+```powershell
+npm run workspace:maintenance -- inspect
+```
+
+未参照の登録だけは `deactivate --package-ref <id> --reason <理由>` で利用停止
+できる。Project、Prediction Snapshot、Chain Stage memoなど保存済み判断証拠から
+参照中なら場所を示して拒否する。利用停止と、次回bootstrapでの
+現行contract再登録は監査行へ残る。`--main-workspace`を付けた場合だけ
+`data/workbench.db`を対象にするため、判断台帳へ保守操作を行う前に
+`inspect`の表示パスを必ず確認する。
+
 ## bundle v1
 
 `workspace-bundle/v1` は次を含む。

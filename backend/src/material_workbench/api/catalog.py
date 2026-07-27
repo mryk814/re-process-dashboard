@@ -53,6 +53,7 @@ def _lifecycle_profile(data: Any) -> Path | Any:
 @router.get("/api/health")
 @router.get("/health", include_in_schema=False)
 def health(
+    request: Request,
     store: StoreDependency,
     registry: RegistryDependency,
     subsystem_registry: SubsystemAvailabilityDependency,
@@ -95,6 +96,11 @@ def health(
         "optional_subsystems": [
             item.model_dump(mode="json") for item in optional_subsystems
         ],
+        "workspace": {
+            "database_path": str(request.app.state.workspace_database),
+            "data_library_path": str(request.app.state.data_library_root),
+            "kind": request.app.state.workspace_kind,
+        },
     }
 
 
