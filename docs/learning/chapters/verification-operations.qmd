@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "ec0df39a4f003e978591a4f771b36c16f0f142d8"
+verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
@@ -297,6 +297,12 @@ npm run build
 {{< code-ref verification-gate label=verify.mjs >}} の`focused` modeは、選んだpytest pathとtypecheckを実行します。
 `full` modeは全pytest、web unit test、typecheck、build、failure-state E2E、diff検査を順に実行します。
 配布境界を変えた場合は、これに`npm run package:windows`を加えます。
+
+failure-state E2EはAPI offlineとaccessibility smokeを同じ専用laneで実行します。
+
+accessibility smokeは主要surfaceの操作可能性に加え、計算済みfont sizeが本文で10px、SVG内で9pxを下回らないことを検査します。
+
+CSSの宣言値だけでなく計算値を見るため、継承やSVG scaleで意図せず小さくなった文字も検出対象です。
 
 GitHub Actionsが利用上限などで起動しない場合、job未開始とcode failureを混同しません。
 ローカル結果をCI成功とも表現しません。

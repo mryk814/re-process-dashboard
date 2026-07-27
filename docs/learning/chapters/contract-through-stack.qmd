@@ -2,7 +2,7 @@
 chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
+verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"
@@ -51,9 +51,23 @@ code_references:
   - path: "apps/web/src/features/workbench/actualMeasurementPresentation.ts"
     role: "frontend"
   - path: "apps/web/src/shared/taskPresentation.ts"
+    id: "contract-stack-task-presentation"
     role: "frontend"
+    symbols:
+      - "formatAllowedRange"
   - path: "apps/web/src/shared/supportPresentation.ts"
     role: "frontend"
+  - path: "apps/web/src/features/workbench/ChainWorkbenchPage.tsx"
+    id: "contract-stack-chain-input-view"
+    role: "frontend"
+  - path: "apps/web/tests/taskPresentation.test.mjs"
+    id: "contract-stack-task-presentation-test"
+    role: "test"
+  - path: "e2e/chain-input-contract.spec.ts"
+    id: "contract-stack-chain-input-e2e"
+    role: "test"
+    symbols:
+      - "stage"
   - path: "apps/web/tests/activityRunNavigation.test.mjs"
     role: "test"
   - path: "backend/tests/test_decision_activities.py"
@@ -569,6 +583,24 @@ function differenceResult(run: ApiDecisionActivityRun) {
 support statusも`"supported"`を直接表示しません。
 `supportStatusLabel()`を通し、「範囲内」「要確認」「外挿」という判断に使える表示へ変えます。
 型付きcontractが状態の集合を固定し、presentation helperが利用者向けの語と桁数を固定します。
+
+### 検証範囲と表示範囲を分ける
+
+数値の**許容範囲**は、候補を受理できるdomain上の境界です。
+
+{{< code-ref contract-stack-chain-input-view label=ChainWorkbenchPage.tsx >}}が示すように、validationとHTML inputの`min`／`max`はTask Definitionの`allowed_range`を丸めずに使います。
+
+一方、利用者へ見せる範囲はpresentationです。
+
+{{< code-ref contract-stack-task-presentation symbol=formatAllowedRange >}}は`display_decimals`に合わせ、下限を上向き、上限を下向きに丸めて単位を付けます。
+
+この内向きの丸めにより、画面に見えた境界値を入力したのに厳密なvalidationで拒否される矛盾を避けます。
+
+表示桁数では表せる区間がなくなるほど範囲が狭い場合だけ、情報を失わないよう元の境界を表示します。
+
+{{< code-ref contract-stack-task-presentation-test label=taskPresentation.test.mjs >}}は内向きの丸めを固定します。
+
+{{< code-ref contract-stack-chain-input-e2e label=chain-input-contract.spec.ts >}}は厳密な`min`／`max`と読みやすい表示を同時に確認します。
 
 ### 点予測の達成と予測区間を分ける
 

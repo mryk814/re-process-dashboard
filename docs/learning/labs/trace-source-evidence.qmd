@@ -2,7 +2,7 @@
 chapter_id: "trace-source-evidence"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
 code_references:
   - path: "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
     role: "contract"

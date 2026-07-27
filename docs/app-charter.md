@@ -52,6 +52,12 @@ Projectは、ある時点の再現可能な検討単位である。現在は次�
 
 を固定し、一つのTaskを候補比較、予測、応答曲線、類似実績、Snapshot、実測照合、検討アクティビティへ接続する。
 
+Project-level Design Spaceは、この固定されたTaskの入力について、今回の検討で変更してよい範囲と選択肢を定める。
+
+Objective Definitionは、このProjectで達成したい目的、hard constraint、soft preferenceを定める。
+
+どちらもTask Definitionそのものを書き換えず、Projectの意思決定文脈へversion付きで固定する。
+
 ### Chain Project
 
 - Chain Revision ID
@@ -82,7 +88,9 @@ Profileは外部sourceをcanonicalな意味へ対応付ける。データ形状�
 
 判断に必要な問いを、画面名ではなくActivity Definitionとして定義する。Activityは必要なruntime capability、resource、parameter、result契約を持ち、candidate revisionと実行条件を固定したRunを保存する。
 
-現在のproduction Activityはロバストネス／公差解析である。Activity結果は判断材料であり、自動意思決定ではない。
+現在のproduction Activityは、ロバストネス／公差解析、候補差分の要因分解、目標へ届く最小変更の三つである。
+
+Activity結果は判断材料であり、自動意思決定ではない。
 
 ## 制約付き逆算の境界
 
@@ -110,18 +118,26 @@ Profileは外部sourceをcanonicalな意味へ対応付ける。データ形状�
 ## 採用済みの拡張方向
 
 - Data AssetとDataset Profileを不変なDataset RevisionとしてData Libraryへ登録する。
+- Source Lifecycleでは、Connector、Raw Snapshot、Curation Recipe、品質判定、承認、Training Snapshotを分離する。
 - Projectはsingle-taskまたはChainの科学的identityを固定し、過去の判断を自動更新しない。
+- Project-level Design SpaceとObjective DefinitionをProjectの意思決定文脈へ固定する。
 - 探索データ、目的変数別Training Cohort、モデル支持範囲、Project内の類似条件を分離する。
 - 複数Projectは任意の検討グループへ束ね、所属と前後関係を分離する。
-- 判断に必要な問いを検討アクティビティとして追加する。
+- 判断に必要な問いを、型付きparameter／resultを持つ検討アクティビティとして追加する。
+- 可変長系列ではraw series、canonical series、model representationを分離し、契約、保存、API、inspectorを接続する。
 - ChainはTask／transformをbindingで再利用し、段別の版、実測、精度、不確かさを分離する。
+- 第二のscalar Chainで、疎配合や溶接固有の決定論的Stageに依存しないChain Coreを検証する。
 
-## 導入条件つきの将来候補
+これらは契約または縦スライスとして実装済みである。
 
-- 新しいDecision Activity：parameter／resultを型付きunionとして追加できること。
-- 可変長温度系列：raw series、canonical series、model representationを分離できること。
-- 溶接以外のChain：疎配合や決定論的Stageを前提にせずChain Coreを再利用できること。
+ただし、契約が実装済みであることと、すべてのproduction画面から作成、編集、実行できることは同じではない。
+
+可変長系列はinspectorまで、Source Lifecycleは資源登録と承認境界まで、第二のscalar Chainはproofまでが現行範囲であり、production UIの採用範囲は [現行システム基準](current-system-baseline.md) を正本とする。
+
+## 未実装の将来候補
+
 - 新しいCandidate Shape：任意JSONではなく、persistence、diff、copy、snapshotの意味を持つ型付きfamilyとして追加できること。
-- Source Connectorと定期Snapshot：source更新、承認、再学習、active化を自動連結しないこと。
+- Source Connectorの自動refresh運用：更新、承認、再学習、active化を自動連結せず、利用者が各境界を確認できること。
+- scalar Chainをproduction UIから作成、編集、実行する導線：既存のWelding Chain専用画面を一般editorと呼ばず、Task familyごとの入力体験を検証してから導入すること。
 
 詳細は [現行システム基準](current-system-baseline.md)、[Data LibraryとProject参照境界](decisions/data-library-project-references.md)、[検討アクティビティ](decision-activities.md)、[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) を参照する。

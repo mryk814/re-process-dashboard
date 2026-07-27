@@ -2,7 +2,7 @@
 chapter_id: "restore-workspace-safely"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
+verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
 code_references:
   - path: "docs/workspace-backup.md"
     role: "docs"
@@ -297,8 +297,13 @@ backendが`committed`を返しても、Desktop main processは復元成功をま
 起動に失敗するとsidecarを止め、`rollback`を呼びます。
 `rollback_workspace_restore()`は失敗した新DBを退避し、旧DBをactive pathへ戻し、新規配置resourceを片付けます。
 
-その後、旧Workspaceでsidecarを起動します。
-利用者には「元の内容へ戻した」と通知し、画面をreloadします。
+復元前にactive DBが存在しなかった場合は、戻す旧DBもありません。
+
+この場合は失敗した新DBと新規配置resourceを削除し、復元前の「DBなし」という状態へ戻します。
+
+旧DBがあった場合だけ、そのWorkspaceでsidecarを起動します。
+
+利用者には復元前の状態へ戻したことを通知し、利用可能なWorkspaceがある場合は画面をreloadします。
 
 rollback自体または旧Workspaceの再起動に失敗した場合、Desktopは曖昧な状態で操作を続けません。
 診断logのpathを示し、recovery modeとしてアプリを再起動します。

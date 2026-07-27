@@ -1,11 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 5199);
-const database = process.env.PLAYWRIGHT_DB_PATH
-  ?? join(tmpdir(), `material-workbench-e2e-${process.pid}.db`);
 const brokenHeatTreatmentPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
 /**
  * Starting both servers costs 25-30s per run, which dominates the loop while
@@ -18,6 +17,10 @@ const brokenHeatTreatmentPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
  * Each default run gets its own database below.
  */
 const reuseServer = process.env.PLAYWRIGHT_REUSE_SERVER === "1";
+const ownsDatabase = !process.env.PLAYWRIGHT_DB_PATH && !reuseServer;
+const database = process.env.PLAYWRIGHT_DB_PATH
+  ?? join(tmpdir(), `material-workbench-e2e-${randomUUID()}.db`);
+if (ownsDatabase) process.env.PLAYWRIGHT_OWNED_DB_PATH = database;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -28,6 +31,7 @@ export default defineConfig({
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
+  globalTeardown: ownsDatabase ? "./e2e/global-teardown.ts" : undefined,
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     channel: "chrome",
