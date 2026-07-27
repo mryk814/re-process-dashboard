@@ -217,7 +217,9 @@ test("Dataset choices explain use, order, and duplicate identity before Project 
     (dataset) => dataset.dataset_views?.some((view) => view.id === defaultProject.dataset_view_revision_id),
   );
   expect(fixedDataset).toBeTruthy();
-  await expect(fixedContent).toContainText(`利用中: ${defaultProject.name}`);
+  // 同じDatasetを使うProjectは他のspecも作るため、並び順ではなく在籍だけを見る。
+  await expect(fixedContent).toContainText("利用中:");
+  await expect(fixedContent).toContainText(defaultProject.name);
   await expect(fixedContent).toContainText(
     `${fixedDataset!.profile_revision.name} · r${fixedDataset!.profile_revision.revision}`,
   );
