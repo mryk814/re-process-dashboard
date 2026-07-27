@@ -20,10 +20,10 @@ from material_workbench.modeling.model_lifecycle import (
     validate_lifecycle_metadata,
 )
 from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
-from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
 from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.contracts.subsystem_availability import (
@@ -562,17 +562,18 @@ def task_definition(
         raise HTTPException(409, "Chainに予測Taskがありません")
     terminal_stage = task_stages[-1]
     try:
-        contract = registry.contract_for(terminal_stage.contract_id)
         resolved = registry.resolved_definition_for(terminal_stage.contract_id)
+        current_contract_digest = task_definition_digest(
+            registry,
+            terminal_stage.contract_id,
+        )
     except TaskRegistryError as exc:
         raise HTTPException(
             409,
             "Chain終端Taskの固定contractを読み込めません",
         ) from exc
     if (
-        semantic_digest(
-            contract.task_definition.model_dump(mode="json")
-        )
+        current_contract_digest
         != terminal_stage.contract_digest
     ):
         raise HTTPException(
