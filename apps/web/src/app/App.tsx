@@ -399,6 +399,17 @@ function App() {
             readOnly={taskUnavailable}
             availability={taskAvailability}
             initialSection={navigation.adminSection}
+            developerTab={navigation.developerTab}
+            developerTabError={navigation.developerTabError}
+            developerGuideId={navigation.developerGuideId}
+            onDeveloperLocationChange={(developerTab, developerGuideId) => navigate({
+              ...navigationRef.current,
+              view: "settings",
+              projectId: activeProjectId,
+              adminSection: "developer",
+              developerTab,
+              developerGuideId,
+            })}
             onSectionChange={(adminSection) => navigate({ ...navigationRef.current, view: "settings", projectId: activeProjectId, adminSection }, true)}
             qualityFilters={{
               issueId: navigation.qualityIssueId,

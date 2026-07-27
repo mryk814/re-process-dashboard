@@ -133,6 +133,32 @@ test("developer guide separates new and existing Decision Activity workflows", a
   });
 });
 
+test("developer guide deep link survives reload and browser history", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=decision-activity-new");
+  const intent = page.getByLabel("何を変更したいですか？");
+  await expect(intent).toHaveValue("decision-activity-new");
+  await expect(page.getByRole("link", { name: /contract-through-stack\.qmd/ })).toHaveAttribute(
+    "href",
+    /github\.com\/mryk814\/re-process-dashboard\/blob\/main\//,
+  );
+
+  await intent.selectOption("decision-activity-change");
+  await expect(page).toHaveURL(/developer_guide=decision-activity-change/);
+  await page.reload();
+  await expect(intent).toHaveValue("decision-activity-change");
+  await page.goBack();
+  await expect(intent).toHaveValue("decision-activity-new");
+  await page.goForward();
+  await expect(intent).toHaveValue("decision-activity-change");
+});
+
+test("unknown developer locations are explicit", async ({ page }) => {
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=missing");
+  await expect(page.getByRole("alert")).toContainText("missing");
+  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=missing");
+  await expect(page.getByRole("alert")).toContainText("missing");
+});
+
 test("developer diagnostics shows runtime checks without repository tooling", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer");
   await page.getByRole("button", { name: "診断" }).click();

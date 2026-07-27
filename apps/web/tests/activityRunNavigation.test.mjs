@@ -76,6 +76,28 @@ test("run selection lives in the panel so every activity shares one link", async
   assert.match(evidence, /onSelectRun\(index === 0 \? null : run\.id\)/);
 });
 
+test("developer tab and guide form a restorable location", async () => {
+  const { readNavigationIntent, navigationUrl, withView } = await navigationModule(
+    "?view=settings&project=p1&admin=developer&developer_tab=guide&developer_guide=decision-activity-new",
+  );
+  const intent = readNavigationIntent();
+  assert.equal(intent.developerTab, "guide");
+  assert.equal(intent.developerGuideId, "decision-activity-new");
+  assert.match(navigationUrl(intent), /developer_tab=guide/);
+  assert.match(navigationUrl(intent), /developer_guide=decision-activity-new/);
+  assert.equal(withView(intent, "settings").developerGuideId, "decision-activity-new");
+  assert.equal(withView(intent, "candidates").developerGuideId, undefined);
+});
+
+test("an unknown developer tab is reported instead of silently selected", async () => {
+  const { readNavigationIntent } = await navigationModule(
+    "?view=settings&project=p1&admin=developer&developer_tab=missing",
+  );
+  const intent = readNavigationIntent();
+  assert.equal(intent.developerTab, undefined);
+  assert.equal(intent.developerTabError, "missing");
+});
+
 test("all saved activity runs and their provenance stay reachable", async () => {
   const evidence = await source("../src/features/workbench/decisionActivities/ActivityRunEvidence.tsx");
   assert.match(evidence, /runs\.map\(/);

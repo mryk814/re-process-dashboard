@@ -8,6 +8,7 @@ import { suggestedInputRange } from "./inputRangeDefaults";
 import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
 export type AdminSection = "developer" | "quality" | "ranges" | "display" | "task" | "model";
+type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -73,7 +74,11 @@ export function DeveloperAdminPage({
   readOnly = false,
   availability,
   initialSection,
+  developerTab,
+  developerTabError,
+  developerGuideId,
   onSectionChange,
+  onDeveloperLocationChange,
   qualityFilters,
   onQualityFiltersChange,
   onOpenLineage,
@@ -87,7 +92,11 @@ export function DeveloperAdminPage({
   readOnly?: boolean;
   availability?: ResolvedTaskDefinition["availability"];
   initialSection?: AdminSection;
+  developerTab?: DeveloperTab;
+  developerTabError?: string;
+  developerGuideId?: string;
   onSectionChange: (section: AdminSection) => void;
+  onDeveloperLocationChange: (tab: DeveloperTab, guideId?: string) => void;
   qualityFilters: QualityFilters;
   onQualityFiltersChange: (filters: QualityFilters) => void;
   onOpenLineage: (issue: ApiQuality["detected_issues"][number], filters: QualityFilters) => void;
@@ -144,7 +153,13 @@ export function DeveloperAdminPage({
         {availability?.recovery_hint && <p><b>復旧の手掛かり:</b> {availability.recovery_hint}</p>}
         <small>保存済み情報と診断は参照できます。入力範囲・表示桁数など、このプロジェクトを変更する操作は無効です。</small>
       </section>}
-      {visibleSection === "developer" && <DeveloperControlCenter onOpenProfileWorkbench={onOpenProfileWorkbench} />}
+      {visibleSection === "developer" && <DeveloperControlCenter
+        onOpenProfileWorkbench={onOpenProfileWorkbench}
+        initialTab={developerTab}
+        invalidTabId={developerTabError}
+        initialGuideId={developerGuideId}
+        onLocationChange={onDeveloperLocationChange}
+      />}
       {visibleSection === "quality" && (project?.id
         ? <LiveDataQualityPage projectId={project.id} filters={qualityFilters} onFiltersChange={onQualityFiltersChange} onOpenLineage={onOpenLineage} onOpenIssueList={onOpenQualityIssues} showReferenceScenarios mode="summary" />
         : <p className="empty-evidence">プロジェクトを読み込んでいます。</p>)}
