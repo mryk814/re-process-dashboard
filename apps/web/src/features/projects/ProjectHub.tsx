@@ -33,6 +33,7 @@ import {
 } from "../../shared/api/workbench-api";
 import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
+import { candidateQuestionActions, candidateQuestionState, type CandidateSection } from "../../shared/projectActionQuestions";
 
 type Props = {
   projects: ApiProject[];
@@ -53,7 +54,11 @@ type Props = {
   onProjectRestored: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
-  onNavigate: (view: "candidates" | "lineage" | "explore" | "settings", candidateId?: string) => void;
+  onNavigate: (
+    view: "candidates" | "lineage" | "explore" | "settings" | "data-library",
+    candidateId?: string,
+    options?: { activityId?: string; candidateSection?: CandidateSection },
+  ) => void;
   onSnapshotNavigate: (snapshotId?: string) => void;
   onCreationIntentConsumed: () => void;
 };
@@ -424,6 +429,13 @@ export function ProjectHub({
   ]);
 
   const activeCandidates = history?.candidates.filter((item) => !item.candidate.archived_at) ?? [];
+  const actionCandidateId = candidate && activeCandidates.some(
+    (item) => item.candidate.id === candidate.id,
+  )
+    ? candidate.id
+    : activeCandidates[0]?.candidate.id;
+  const actionBlocked = Boolean(taskUnavailable || chainExecutionPending || offline);
+  const questionState = candidateQuestionState(actionCandidateId, actionBlocked);
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(
     () => new Map(
@@ -970,7 +982,7 @@ export function ProjectHub({
       aria-current={item.id === activeProjectId ? "page" : undefined}
       onClick={() => switchProject(item.id)}
     >
-      <strong>{item.name}</strong>
+      <span className="project-list-name"><strong>{item.name}</strong>{item.starter && <b>同梱サンプル</b>}</span>
       <small>{(() => {
         const itemIdentity = item.scientific_identity;
         if (itemIdentity?.identity_kind === "chain") {
@@ -1042,7 +1054,7 @@ export function ProjectHub({
         <div className="page-intro project-hub-header">
           <div>
             <span className="overline">PROJECT OVERVIEW</span>
-            <h2>{project?.name ?? "プロジェクト"}</h2>
+            <h2>{project?.name ?? "プロジェクト"}{project?.starter && <span className="starter-project-badge">同梱サンプル</span>}</h2>
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
@@ -1050,6 +1062,10 @@ export function ProjectHub({
             <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
           </div>
         </div>
+      {project?.starter && <section className="starter-project-notice" aria-label="同梱サンプルの案内">
+        <div><strong>これは動作確認用の同梱サンプルです</strong><span>自分のExcelから始めるときは、データを登録して新しいプロジェクトを作成します。</span></div>
+        <button type="button" className="outline-button" onClick={() => onNavigate("data-library")}>自分のデータで始める</button>
+      </section>}
       {taskUnavailable && <section className="task-unavailable-banner" role="status">
         <strong>この予測タスクは一時的に利用できません</strong>
         <span>{taskAvailability.message}</span>
@@ -1195,14 +1211,30 @@ export function ProjectHub({
           ? <div className="project-action-grid">
             <button className="project-action-card primary" disabled={chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>配合と工程条件を編集し、A → B → Cを実行して固定します</span></button>
           </div>
-          : <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate(activeCandidates.length ? "candidates" : supportsLineageCandidate ? "lineage" : "explore")}><strong>{activeCandidates.length ? "候補を比較" : supportsLineageCandidate ? "過去データから探す" : "条件範囲から始める"}</strong><span>{activeCandidates.length ? "入力・予測・根拠を横並びで確認" : supportsLineageCandidate ? "既存の条件と問題から出発" : "基準候補を作り、入力範囲から探索"}</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("explore")}><strong>範囲探索</strong><span>目標と入力範囲から候補を生成</span></button>
-            <button className="project-action-card" disabled={taskUnavailable || chainExecutionPending || offline} onClick={() => onNavigate("candidates")}><strong>直接候補を作る</strong><span>具体的な成分・工程条件を入力</span></button>
+          : <div className="project-action-groups">
+            {project?.starter && <button className="project-action-card sample-start" onClick={() => onNavigate("data-library")}><strong>自分のデータで新しいプロジェクトを作る</strong><span>Excelを登録し、予測タスクとモデルを選んで始める</span></button>}
+            <section><h4>候補を作る</h4><div className="project-action-grid">
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
+              <button className="project-action-card" disabled={actionBlocked || !supportsLineageCandidate} onClick={() => onNavigate("lineage")}><strong>過去データから候補を探す</strong><span>{supportsLineageCandidate ? "既存の条件と問題から出発する" : "この予測タスクでは利用できません"}</span></button>
+            </div></section>
+            <section><h4>候補を確かめる</h4><div className="project-action-grid">
+              {candidateQuestionActions.map((item) => <button
+                type="button"
+                className="project-action-card"
+                key={item.activityId}
+                disabled={questionState.disabled}
+                onClick={() => onNavigate("candidates", actionCandidateId, { activityId: item.activityId })}
+              ><strong>{item.title}</strong><span>{questionState.reason ?? item.description}</span></button>)}
+            </div></section>
+            <section><h4>結果を残す</h4><div className="project-action-grid">
+              <button type="button" className="project-action-card" disabled={questionState.disabled || !operations?.actual_measurement} onClick={() => onNavigate("candidates", actionCandidateId, { candidateSection: "actuals" })}><strong>実測を記録する</strong><span>{questionState.reason ?? (operations?.actual_measurement ? "選択候補の予測と実測を結び付ける" : "この予測タスクでは利用できません")}</span></button>
+              <button type="button" className="project-action-card" onClick={() => document.getElementById("project-candidate-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}><strong>判断履歴を見る</strong><span>固定した予測・実測・採用理由を時系列で確認する</span></button>
+            </div></section>
           </div>}
       </section>
 
-      <section className="project-history-section">
+      <section className="project-history-section" id="project-candidate-history">
         <div className="panel-title"><h3>候補と判断履歴</h3><span>{chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}</span></div>
         {historyState === "error" ? <div className="project-history-error" role="alert">
           <p>候補と判断履歴を取得できませんでした。保存済みのデータは失われていません。</p>

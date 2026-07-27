@@ -1,3 +1,5 @@
+import type { CandidateSection } from "../shared/projectActionQuestions";
+
 export const WORKBENCH_VIEWS = [
   "project",
   "candidates",
@@ -25,6 +27,7 @@ export type NavigationIntent = Readonly<{
   screeningRunId?: string;
   activityId?: string;
   activityRunId?: string;
+  candidateSection?: CandidateSection;
   snapshotId?: string;
   adminSection?: AdminSection;
   developerTab?: DeveloperTab;
@@ -41,13 +44,13 @@ export function readNavigationIntent(
   search = window.location.search,
 ): NavigationIntent {
   const params = new URLSearchParams(search);
-  const requestedView = params.get("view") ?? "candidates";
+  const requestedView = params.get("view") ?? "project";
   const adminSection = params.get("admin");
   const developerTab = params.get("developer_tab");
   return Object.freeze({
     view: VIEW_SET.has(requestedView)
       ? (requestedView as WorkbenchView)
-      : "candidates",
+      : "project",
     projectId: params.get("project") || undefined,
     candidateId: params.get("candidate") || undefined,
     entityKey: params.get("entity") || undefined,
@@ -58,6 +61,7 @@ export function readNavigationIntent(
     screeningRunId: params.get("screening") || undefined,
     activityId: params.get("activity") || undefined,
     activityRunId: params.get("activity_run") || undefined,
+    candidateSection: params.get("candidate_section") === "actuals" ? "actuals" : undefined,
     snapshotId: params.get("snapshot") || undefined,
     adminSection: adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
     developerTab: developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
@@ -80,6 +84,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
   if (intent.activityId) params.set("activity", intent.activityId);
   if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
+  if (intent.candidateSection) params.set("candidate_section", intent.candidateSection);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   if (intent.adminSection) params.set("admin", intent.adminSection);
   if (intent.adminSection === "developer" && intent.developerTab) params.set("developer_tab", intent.developerTab);
@@ -104,6 +109,7 @@ export function withView(
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
     activityId: view === "candidates" ? current.activityId : undefined,
     activityRunId: view === "candidates" ? current.activityRunId : undefined,
+    candidateSection: view === "candidates" ? current.candidateSection : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "settings" ? current.adminSection : undefined,
     developerTab: view === "settings" && current.adminSection === "developer" ? current.developerTab : undefined,

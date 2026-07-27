@@ -416,9 +416,15 @@ function App() {
               navigate({ view: "project", projectId }, true);
               void session.loadProject(projectId);
             }}
-            onNavigate={(view, candidateId) => {
-              navigate({ view, projectId: activeProjectId, candidateId }, true);
-              if (candidateId) selectCandidate(candidateId, true);
+            onNavigate={(view, candidateId, options) => {
+              navigate({
+                view,
+                projectId: activeProjectId,
+                candidateId,
+                activityId: options?.activityId,
+                candidateSection: options?.candidateSection,
+              }, true);
+              if (candidateId) session.selectCandidate(candidateId, false);
             }}
             onSnapshotNavigate={(snapshotId) => navigate({ view: "project", projectId: activeProjectId, snapshotId }, true)}
             onRestore={(candidate) => {
@@ -584,6 +590,7 @@ function App() {
               }}
               activityId={navigation.activityId}
               activityRunId={navigation.activityRunId}
+              candidateSection={navigation.candidateSection}
               onActivityStateChange={(activityId, activityRunId) => navigate({
                 ...navigationRef.current,
                 view: "candidates",
@@ -591,6 +598,7 @@ function App() {
                 candidateId: selectedId || undefined,
                 activityId,
                 activityRunId,
+                candidateSection: undefined,
               }, true)}
               onConfigureGoals={() => navigate({
                 view: "project",
