@@ -8,7 +8,7 @@ export const apiBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ??
 
 type CreationOptions = {
   datasets: Array<{
-    data_asset: { sha256: string };
+    data_asset: { sha256: string; original_filename: string };
     profile_revision: { profile_digest: string };
     dataset_views: Array<{ id: string }>;
   }>;
@@ -32,6 +32,15 @@ export type ProjectBinding = {
 };
 
 /**
+ * A task can have packages trained on several datasets, so a spec that asserts
+ * concrete keys has to say which dataset it means. Prefer `datasetFilename`:
+ * Packages are immutable and get a new ID whenever the contract or the training
+ * data changes, so a pinned `packageId` goes stale on the next revision while
+ * the dataset it was trained on stays the same.
+ */
+export type BindingSelector = { datasetFilename?: string; packageId?: string };
+
+/**
  * A Project pins the exact Dataset View and Model Package it was created against,
  * so creation requires those references. Resolve them the same way the UI does:
  * a package is usable only if it was trained on that dataset and matches the
@@ -40,7 +49,7 @@ export type ProjectBinding = {
 export async function resolveProjectBinding(
   request: APIRequestContext,
   taskId: string,
-  packageId?: string,
+  selector: BindingSelector = {},
 ): Promise<ProjectBinding> {
   const response = await request.get(`${apiBaseUrl}/api/project-creation-options`);
   expect(response.status(), "project-creation-options").toBe(200);
@@ -48,37 +57,47 @@ export async function resolveProjectBinding(
   const digest = options.task_contract_digests[taskId];
   expect(digest, `task contract digest for ${taskId}`).toBeTruthy();
 
-  for (const dataset of options.datasets) {
+  const usable = options.datasets.flatMap((dataset) => {
     const view = dataset.dataset_views[0];
-    if (!view) continue;
-    const modelPackage = options.model_packages.find((item) => (
-      item.task_id === taskId
-      && item.task_contract_digest === digest
-      && item.manifest_json.provenance.training_data_id === `sha256:${dataset.data_asset.sha256}`
-      && item.manifest_json.provenance.dataset_profile_id === dataset.profile_revision.profile_digest
-      // A task can have packages trained on several datasets; a spec that asserts
-      // concrete keys has to say which dataset it means.
-      && (packageId === undefined || item.package_id === packageId)
-    ));
-    if (!modelPackage) continue;
-    return {
-      task_id: taskId,
-      dataset_view_revision_id: view.id,
-      model_package_ref_id: modelPackage.id,
-      task_contract_digest: digest,
-      model_package_manifest_digest: modelPackage.manifest_digest,
-    };
+    if (!view) return [];
+    return options.model_packages
+      .filter((item) => (
+        item.task_id === taskId
+        && item.task_contract_digest === digest
+        && item.manifest_json.provenance.training_data_id === `sha256:${dataset.data_asset.sha256}`
+        && item.manifest_json.provenance.dataset_profile_id === dataset.profile_revision.profile_digest
+      ))
+      .map((item) => ({ dataset, view, modelPackage: item }));
+  });
+  const selected = usable.find((pair) => (
+    (selector.datasetFilename === undefined || pair.dataset.data_asset.original_filename === selector.datasetFilename)
+    && (selector.packageId === undefined || pair.modelPackage.package_id === selector.packageId)
+  ));
+  if (!selected) {
+    const available = usable
+      .map((pair) => `${pair.dataset.data_asset.original_filename} -> ${pair.modelPackage.package_id}`)
+      .join(", ");
+    throw new Error(
+      `no dataset view and model package pair for ${taskId} matches ${JSON.stringify(selector)}. `
+      + `usable pairs now: ${available || "none"}`,
+    );
   }
-  throw new Error(`no dataset view and model package pair is available for ${taskId}${packageId ? ` (${packageId})` : ""}`);
+  return {
+    task_id: taskId,
+    dataset_view_revision_id: selected.view.id,
+    model_package_ref_id: selected.modelPackage.id,
+    task_contract_digest: digest,
+    model_package_manifest_digest: selected.modelPackage.manifest_digest,
+  };
 }
 
 export async function createProjectWithBinding(
   request: APIRequestContext,
   taskId: string,
   name: string,
-  packageId?: string,
+  selector: BindingSelector = {},
 ) {
-  const binding = await resolveProjectBinding(request, taskId, packageId);
+  const binding = await resolveProjectBinding(request, taskId, selector);
   const created = await request.post(`${apiBaseUrl}/api/projects`, { data: { name, ...binding } });
   expect(created.status(), await created.text()).toBe(201);
   return await created.json() as { id: string };

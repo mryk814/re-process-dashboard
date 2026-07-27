@@ -14,7 +14,11 @@ async function createIsolatedProject(request: APIRequestContext) {
 test("primary navigation follows the decision flow and separates developer administration", async ({ page }) => {
   await page.goto("/?view=project&project=default");
 
-  await expect(page.locator(".topbar nav").getByRole("button")).toHaveText(["プロジェクト", "データライブラリ"]);
+  await expect(page.locator(".topbar nav").getByRole("button")).toHaveText([
+    "プロジェクト",
+    "データライブラリ",
+    "ワークスペース",
+  ]);
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button")).toHaveText([
     "概要",
     "データ探索",
