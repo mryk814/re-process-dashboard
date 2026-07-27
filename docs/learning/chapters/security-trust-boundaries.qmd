@@ -2,7 +2,7 @@
 chapter_id: "security-trust-boundaries"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "77a7320bc201cb9a8cf860c6787cc4cca2203116"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "security-package"
@@ -390,7 +390,7 @@ query付きdeep linkを許すため、navigation query全体ではなくdocument
 
 ## Workspace bundleをarchiveとして疑う
 
-Workspace bundleはSQLite snapshotとmanaged resourceを運びます。
+Workspace bundleはSQLite snapshot、managed resource、Source lifecycleのcontent-addressed row payloadを運びます。
 
 復元fileは利用者が選びますが、内容を信頼できるとは限りません。
 
@@ -403,6 +403,7 @@ threatには次があります。
 - 極端なentry数、展開size、compression ratio
 - manifestにないfile
 - manifestのsizeまたはdigestと異なるbytes
+- DBが参照するrow payloadの欠損、余剰、CAS digest不一致
 - 正しいfileでも、DB内固定参照が解決できない状態
 
 ## extraction前にinventoryを検査する
@@ -467,7 +468,8 @@ signed URLをlocatorへ保存すると、DB、backup、export、error messageへ
 
 {{< code-ref security-connector-api symbol="fetch_source" >}}は、credentialをschema非公開の`X-Source-Credential` headerとして一requestだけ受けます。
 
-現行JSON object adapterはcredentialを使わないため、その場で破棄し、persisted application contractへ渡しません。
+現行local file adapterはcredentialを使わないためadapter境界で破棄します。
+元dataはrequest bodyへ展開せず登録済みlocatorからchunk取得しますが、credentialを実際に消費するremote adapterとsecret providerはまだありません。
 
 {{< code-ref security-connector-test symbol="test_failure_retry_and_duplicate_fetch_do_not_store_credentials" >}}は、失敗、retry、duplicate fetch後もsecretがrecordとSQLite bytesへ残らないことを確認します。
 

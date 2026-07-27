@@ -2,7 +2,7 @@
 chapter_id: "implementation-case-studies"
 level: advanced
 estimated_minutes: 150
-verified_commit: "14fcea289d7cb26509c62b335336b9480073c239"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "case-study-package-loader"
@@ -338,7 +338,8 @@ warningは明示承認できますが、blocked rowはoverrideできません。
 
 ### 残る限界
 
-現在のpayload保存は大きなsourceに向かず、Issue #311、#312、#313がingress、外部payload、detail APIの拡張を追跡しています。
+PR #416〜#418で、16 MiBまでのlocal file locator取得、row本体のcontent-addressed NDJSON化、rowを含まないsummaryとbounded detail pageが実装されました。
+これにより大きなsourceをrequest bodyとSQLite payloadへ複製する境界は解消しましたが、remote object transport、16 MiB超のstreaming、CAS garbage collectionは未実装です。
 
 履歴UIは各段の最新記録へ偏っており、監査時の全履歴導線はIssue #366に残っています。
 

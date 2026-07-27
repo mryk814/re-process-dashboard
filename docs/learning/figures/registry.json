@@ -6,7 +6,7 @@
       "kind": "timeline",
       "source": "figures/candidate-revision-conflict.svg",
       "chapter": "chapters/revision-and-digest.qmd",
-      "verified_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "二つの編集がCandidate revisionを介して競合する時系列",
       "long_description": "編集者Aと編集者Bがrevision 7を読み、Aの保存がrevision 8を作る。Bの古い保存は409となり、current revision 8へ変更fieldだけを重ねた保存がrevision 9を作る。",
       "drift_refs": [
@@ -22,7 +22,7 @@
       "kind": "architecture-flow",
       "source": "figures/decision-activity-contract-flow.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "f33294d161633c1238a570e79c5004407b70b850",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "Decision ActivityのrequestとresponseがPythonからReactまで進む流れ",
       "long_description": "React requestからAPI client、FastAPI、Pydantic、application service、Activity handler、保存済みRunを経て、TypeScript unionとReact result viewへ戻る。",
       "drift_refs": [
@@ -38,7 +38,7 @@
       "kind": "contract-diagram",
       "source": "figures/decision-activity-union.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "Decision Activityのparameterとresultをschema_versionで分ける二つのunion",
       "long_description": "DecisionActivityParametersは三つのparameter契約を、DecisionActivityResultは対応する三つのsummary契約を、それぞれschema_versionで判別する。parameter用とresult用の識別子を取り違えたpayloadと未知の識別子はREJECTとなる。",
       "drift_refs": [
@@ -53,7 +53,7 @@
       "kind": "state-diagram",
       "source": "figures/migration-trust-states.svg",
       "chapter": "chapters/trust-a-migrated-database.qmd",
-      "verified_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "未適用、適用中、確認済み、矛盾したmigration状態",
       "long_description": "markerなし実体なしの未適用状態から、同じtransaction内でschema、backfill、markerを作り、確認済み状態へ進む。markerと実体の不一致、checksum不一致、data invariant違反は矛盾状態として起動を停止する。",
       "drift_refs": [
@@ -68,7 +68,7 @@
       "kind": "state-diagram",
       "source": "figures/project-archive-purge-states.svg",
       "chapter": "chapters/separate-archive-from-purge.qmd",
-      "verified_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "active、archive、purge拒否、purge完了を通るProject evidenceの状態",
       "long_description": "Project Aがactiveからarchiveへ進むと、通常一覧とwrite経路から外れるが証拠は残り、実行中claimだけが失効する。Project Bから派生参照があればpurgeを拒否する。外部参照がないProjectだけ、Project-owned evidenceを一つのtransactionで削除し、shared artifactを残す。",
       "drift_refs": [
@@ -84,7 +84,7 @@
       "kind": "data-flow",
       "source": "figures/source-lifecycle-flow.svg",
       "chapter": "chapters/source-to-training-evidence.qmd",
-      "verified_commit": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "Source更新からModel Package候補までの資産分割",
       "long_description": "Source Connector、Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotを順に作り、別操作でModel Package候補へ進む。",
       "drift_refs": [
@@ -100,7 +100,7 @@
       "kind": "timeline",
       "source": "figures/stale-response-timeline.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "2bf8216159ef717a2ed4c53b78acd48150e2fad1",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "Candidate切替後に届いたstale responseをidentity不一致で破棄する時系列",
       "long_description": "Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが届いてもProject、Candidate、revision、request sequenceが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信停止を試みるが、response到着時のidentity checkを置き換えない。",
       "drift_refs": [
@@ -116,7 +116,7 @@
       "kind": "state-diagram",
       "source": "figures/workspace-restore-state.svg",
       "chapter": "chapters/restore-workspace-safely.qmd",
-      "verified_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
       "alt": "Workspace復元の状態遷移",
       "long_description": "現Workspaceからprepare、commit、API health確認、finalizeへ進む。失敗時はrollbackし、旧DBがあれば元Workspaceへ戻し、旧DBがなければDBなしの状態へ戻す。",
       "drift_refs": [

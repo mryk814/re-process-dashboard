@@ -2,7 +2,7 @@
 chapter_id: "source-to-training-evidence"
 level: intermediate
 estimated_minutes: 120
-verified_commit: "77a7320bc201cb9a8cf860c6787cc4cca2203116"
+verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
 code_references:
   - path: "docs/source-data-lifecycle.md"
     role: "docs"
@@ -14,8 +14,19 @@ code_references:
     role: "domain"
   - path: "backend/src/material_workbench/application/data_lifecycle.py"
     role: "application"
+  - path: "backend/src/material_workbench/application/source_ingress.py"
+    id: "source-evidence-ingress"
+    role: "application"
+    symbols:
+      - "LocalFileSourceIngress"
+      - "load_source_object"
   - path: "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
     role: "persistence"
+  - path: "backend/src/material_workbench/persistence/row_payload_store.py"
+    id: "source-evidence-row-payload-store"
+    role: "persistence"
+    symbols:
+      - "RowPayloadStore"
   - path: "backend/src/material_workbench/api/data_lifecycle.py"
     role: "api"
   - path: "backend/src/material_workbench/application/training_snapshot_adapter.py"
@@ -36,6 +47,17 @@ code_references:
       - "build_series_features"
   - path: "backend/tests/test_data_lifecycle.py"
     role: "test"
+  - path: "backend/tests/test_data_lifecycle_payload_storage.py"
+    id: "source-evidence-payload-storage-test"
+    role: "test"
+    symbols:
+      - "test_legacy_inline_rows_migrate_without_changing_public_identity"
+      - "test_tampered_payload_is_scoped_to_its_connector"
+  - path: "backend/tests/test_data_lifecycle_pagination.py"
+    id: "source-evidence-pagination-test"
+    role: "test"
+    symbols:
+      - "test_summary_excludes_rows_and_pages_keep_stable_identity"
   - path: "backend/tests/test_reference_data_loop_acceptance.py"
     role: "test"
   - path: "apps/web/src/shared/api/workbench-api.ts"
@@ -179,8 +201,8 @@ Dが途中で消える理由は、行全体が壊れているからではあり�
 一方、credentialはConnectorへ保存しません。
 FastAPI routeは`X-Source-Credential`を一回のrequest headerとして受け取り、永続化するapplication contractへ渡す前に破棄します。[^credential-boundary]
 
-[^credential-boundary]: 現行adapterはobject contentをrequest bodyで受けるため、credentialを実際のSDKへ渡しません。
-    この境界は「credentialを保存してよい」という意味ではなく、将来の取得adapterでも一回限りに保つためのものです。
+[^credential-boundary]: 現行local file adapterはcredential引数を受け取っても使用せず破棄します。
+    `source_locator`取得では元データをrequest bodyへ展開せず、将来のallow-list済みremote adapterも同じ一回限りの境界を使います。
 
 `source_locator`にもcredentialを埋め込めません。
 username、password、tokenや署名を示すquery keyをvalidatorが拒否します。
@@ -205,6 +227,7 @@ Raw Snapshotは次を保持します。
 - object version
 - manualまたはscheduledという取得trigger
 - UTF-8 contentのSHA-256
+- source byte count
 - 取得した全行
 - 前回Snapshot ID
 - row keyで比較した差分
@@ -212,6 +235,10 @@ Raw Snapshotは次を保持します。
 
 selectionで選んだSource側の表現を変換せずに残すことで、後から別のRecipeを適用できます。
 Curation後の値だけを残すと、変換の誤りを調べるための入力が消えます。
+
+`source_locator`取得では、{{< code-ref source-evidence-ingress symbol=LocalFileSourceIngress >}}がregular fileをchunk読込みし、16 MiB上限、UTF-8、読込前後のsize・更新時刻・file identity、SHA-256を検査します。
+APIへ元data全体を複製せず、任意の期待digestと期待row countが一致したときだけRaw Snapshotを公開します。
+inline JSONは小さなfixtureを検証する別経路であり、locator取得のfallbackではありません。
 
 ### 二種類のhashを混ぜない
 
@@ -221,6 +248,15 @@ Curation後の値だけを残すと、変換の誤りを調べるための入力
 同じ内容であっても、Connectorまたはselectionが違えば同じSnapshotとは限りません。
 逆にrepositoryの重複判定は、同じConnector、同じcontent SHA、同じselectionなら既存Snapshotを返します。
 この条件ではobject versionやtriggerが違っても既存Snapshotを返し、Fetch Attemptへ新しい操作の情報と`reused_existing_snapshot=true`を残します。
+
+### row本体とsummaryを分ける
+
+Raw SnapshotとCuration Runのrow本体は、SQLite payloadへ埋め込まず、{{< code-ref source-evidence-row-payload-store symbol=RowPayloadStore >}}が管理するcontent-addressed NDJSONへ保存します。
+SQLiteは公開digest、row count、quality summary、承認状態、CAS参照、page seek用indexを保持します。
+このCAS digestは保存表現の完全性を検査する内部identityであり、Raw SnapshotやCuration Runの公開digestを置き換えません。
+
+既存Workspaceのinline rowは起動時にCASへ移し、公開identityが変わらないことを{{< code-ref source-evidence-payload-storage-test symbol=test_legacy_inline_rows_migrate_without_changing_public_identity >}}が確認します。
+欠損または改ざんされたpayloadは対象resourceへ限定した503として表面化し、別Connectorを巻き込んでapplication全体を停止しません。
 
 ### 差分にはrow keyが要る
 
@@ -388,12 +424,12 @@ Feature Pipelineは、Canonical inputからモデル入力を作るPackage側の
 Model PackageがFeature PipelineのID、version、入力path、変換、特徴量順序、digestを固定し、provenanceからTraining Snapshot digestを参照します。
 
 ```{mermaid}
-flowchart LR
+flowchart TB
   C["Canonical Dataset Revision"] --> T["Training Snapshot v2<br/>row和集合、target cohort、group割当"]
   T --> A["Task固有materialization adapter"]
   A --> P["Model Package"]
   F["Feature Pipeline定義<br/>入力path、変換、特徴量順序"] --> P
-  T -. "snapshot digestをprovenanceへ記録" .-> P
+  T -.-> P
 ```
 
 したがって、Snapshot digestはrow inclusion、target cohort、split、selection policy、actor、purposeを対象にします。
@@ -480,6 +516,10 @@ Data Libraryの`DatasetRevision`は、Data Asset、Dataset Profile Revision、ca
 
 この分離により、「取得を試みた」「取得できた」「同じ内容だった」「品質判定した」「承認した」を別々に監査できます。
 
+`detail()`はrowを含まないsummaryだけを返します。
+Raw／Curation rowは親resource ID、固定digest、総件数、安定順を持つbounded pageとして別取得し、初期画面表示のために全rowをdecodeしません。
+{{< code-ref source-evidence-pagination-test symbol=test_summary_excludes_rows_and_pages_keep_stable_identity >}}は、summaryからrowとTraining split assignmentが除かれ、pageが親identityを保つことを確認します。
+
 ## Repositoryが参照digestを再検証する
 
 Pydantic modelのself-validatorは、payload内部の件数やdigestを検証します。
@@ -509,9 +549,11 @@ Connector登録、取得、Recipe登録、Curation、承認、Training Snapshot�
 
 `SourceLifecycleSection.tsx`は、取得スナップショット、品質判定、承認、学習用スナップショットの順序を四段のstage railとして表示します。
 JSONを直接入力する経路は閉じた「検証モード」に置き、元データの版、JSON、一時認証情報を空の状態から入力します。
+local file Connectorでは、登録済みlocatorから取得する通常経路を別buttonで示し、期待SHA-256と期待row countを任意で照合できます。
 品質理由はcodeのまま見せず、「必須項目がありません」などの表示へ変換します。
 
 override対象はquarantined rowから選びます。
+隔離rowと理由付きrowはstatus／reason indexから遅延取得するため、先頭page外のblocked rowも監査表示から消えません。
 画面は選んだ各rowの根拠と全体の承認理由が揃うまで、承認buttonを無効にします。
 actorは入力欄にせず、APIが返した「このローカルワークスペースの利用者」を記録される主体として表示します。
 
@@ -580,9 +622,10 @@ Pydantic modelやendpointを変更した場合、`backend/tests/test_openapi_con
 7. 承認だけではTraining Snapshotが作られない
 8. 学習用スナップショットを明示作成できる
 9. Model Packageとactive状態が変わらない
+10. 先頭100行より後ろの理由付きblocked rowを遅延取得して表示できる
 
 E2Eは外部object storageへ接続しません。
-UI、loopback API、SQLiteを通る操作分離を確認するtestです。
+UI、loopback API、SQLite metadata、content-addressed row payloadを通る操作分離を確認するtestです。
 
 ## 症状から戻って調べる
 
