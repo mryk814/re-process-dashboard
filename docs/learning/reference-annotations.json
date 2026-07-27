@@ -1253,6 +1253,123 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "garnett-bayesian-optimization",
+      "roles": [
+        "primary-explanation",
+        "deep-dive"
+      ],
+      "level": "advanced",
+      "source_tier": "specialist-book",
+      "language": "en",
+      "license": "publisher and author site terms; no reuse assumed",
+      "related_concepts": [
+        "acquisition-function",
+        "candidate-generator",
+        "batch-selector"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "backend/src/material_workbench/domain/proposal_acquisition.py"
+      ],
+      "recommended_sections": [
+        "Decision policies",
+        "Parallel and batch Bayesian optimization"
+      ],
+      "why_read": "surrogate、acquisition、policyを別の対象として扱う一般理論を、現行registry境界と比較する。",
+      "reading_question": "現行実装のstrategyとselectorは、理論上のpolicyのどこまでを表しているか。",
+      "caution": "本書の一般手法を、Runtime Capabilityとproduction gateの確認なしに利用可能機能とみなさない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "jones-schonlau-welch-1998",
+      "roles": [
+        "primary-explanation",
+        "historical-context"
+      ],
+      "level": "advanced",
+      "source_tier": "peer-reviewed-primary",
+      "language": "en",
+      "license": "publisher terms; no reuse assumed",
+      "related_concepts": [
+        "acquisition-function",
+        "incumbent"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "backend/src/material_workbench/domain/proposal_acquisition.py"
+      ],
+      "recommended_sections": [
+        "Expected improvement",
+        "The EGO algorithm"
+      ],
+      "why_read": "EIの改善量とincumbentの定義を原論文で確認し、確率だけを返すPIとの差を固定する。",
+      "reading_question": "incumbentの出所を保存しない実装では、期待改善量を後から再現できるか。",
+      "caution": "正規Kriging表現を、quantileだけを返す現行runtimeへ自動適用しない。",
+      "open_access": "partial",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "srinivas-gp-ucb",
+      "roles": [
+        "primary-explanation",
+        "caution"
+      ],
+      "level": "advanced",
+      "source_tier": "peer-reviewed-primary",
+      "language": "en",
+      "license": "arXiv and publisher terms; no reuse assumed",
+      "related_concepts": [
+        "acquisition-function",
+        "support"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "backend/src/material_workbench/domain/proposal_acquisition.py"
+      ],
+      "recommended_sections": [
+        "The GP-UCB algorithm",
+        "Regret bounds"
+      ],
+      "why_read": "UCB係数とregret保証が成立する仮定を確認し、任意の係数をconfidence保証と呼ばないために使う。",
+      "reading_question": "現行UCBの入力とkernel仮定は、論文の保証条件を満たしているか。",
+      "caution": "regret boundを現行候補生成器または有限poolの性能保証として転用しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "daulton-qehvi-2020",
+      "roles": [
+        "alternative-view",
+        "deep-dive"
+      ],
+      "level": "advanced",
+      "source_tier": "peer-reviewed-primary",
+      "language": "en",
+      "license": "NeurIPS proceedings terms; no reuse assumed",
+      "related_concepts": [
+        "batch-selector",
+        "pareto-front"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "backend/src/material_workbench/domain/batch_selector.py"
+      ],
+      "recommended_sections": [
+        "Parallel expected hypervolume improvement",
+        "Monte Carlo estimator"
+      ],
+      "why_read": "joint batch acquisitionが個別scoreのgreedy選択と異なる計算対象を持つ例として読む。",
+      "reading_question": "現行Runtime Capabilityにjoint predictive sampleがないとき、どの入力が不足するか。",
+      "caution": "multi-objective qEHVIを、現行single-objective greedy selectorの実装説明として扱わない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }

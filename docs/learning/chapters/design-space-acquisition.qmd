@@ -1183,10 +1183,10 @@ PDFでは、UCB、EI、q-EIの式が本文幅からはみ出さず、添字と�
 
 ## Further Reading
 
-- Roman Garnett, [Bayesian Optimization](https://bayesoptbook.com/book/bayesoptbook.pdf)：surrogate model、acquisition、parallel evaluationを一つの体系として読む。
-- Donald R. Jones、Matthias Schonlau、William J. Welch, [Efficient Global Optimization of Expensive Black-Box Functions](https://doi.org/10.1023/A:1008306431147)：Expected ImprovementとEGOの原論文として、incumbentと改善の定義を確認する。
-- Niranjan Srinivas、Andreas Krause、Sham M. Kakade、Matthias Seeger, [Gaussian Process Optimization in the Bandit Setting](https://arxiv.org/abs/0912.3995)：GP-UCBの仮定とregret解析を確認し、任意の$\kappa$をconfidence保証と呼べない理由を読む。
-- Samuel Daulton、Maximilian Balandat、Eytan Bakshy, [Differentiable Expected Hypervolume Improvement for Parallel Multi-Objective Bayesian Optimization](https://papers.neurips.cc/paper_files/paper/2020/hash/6fec24eac8f18ed793f5eaad3dd7977c-Abstract.html)：joint batch acquisitionとMonte Carlo estimatorの例として読む。
+- Roman Garnett, *Bayesian Optimization* [@garnett-bayesian-optimization]：surrogate model、acquisition、parallel evaluationを一つの体系として読む。
+- Donald R. Jones、Matthias Schonlau、William J. Welch, “Efficient Global Optimization of Expensive Black-Box Functions” [@jones-schonlau-welch-1998]：Expected ImprovementとEGOの原論文として、incumbentと改善の定義を確認する。
+- Niranjan Srinivas、Andreas Krause、Sham M. Kakade、Matthias Seeger, “Gaussian Process Optimization in the Bandit Setting” [@srinivas-gp-ucb]：GP-UCBの仮定とregret解析を確認し、任意の$\kappa$をconfidence保証と呼べない理由を読む。
+- Samuel Daulton、Maximilian Balandat、Eytan Bakshy, “Differentiable Expected Hypervolume Improvement for Parallel Multi-Objective Bayesian Optimization” [@daulton-qehvi-2020]：joint batch acquisitionとMonte Carlo estimatorの例として読む。
 
 これらの文献は、現行実装がすべての手法を実装済みであることを示しません。
 

@@ -413,6 +413,40 @@ licenseを確認できない画像は使用しません。
 - 推奨箇所：*Introduction*、*Results*、*Discussion*
 - 読む理由：点推定と区間を併記しても、表示によって判断時の重みが変わることを確認します。
 - 注意：実験taskで有効だったvisual encodingを、現行のtarget、cost、constraintへ評価なしで移植しません。
+
+## Route 8：探索価値とbatch選択を分ける
+
+このrouteは、Design Space、Objective、Generator、Acquisition、Selectorを分け、式の仮定を実装境界へ戻す読者向けです。
+
+読書問いは、「このscoreは何を期待し、どの条件では比較できないか」です。
+
+**Garnett, *Bayesian Optimization* [@garnett-bayesian-optimization]**
+
+- 役割：primary explanation、deep dive
+- 推奨箇所：*Decision Policies*、*Parallel and Batch Bayesian Optimization*
+- 読む理由：surrogate、acquisition、policyを別の対象として扱う一般理論を、現行registry境界と比較します。
+- 注意：一般手法を、Runtime Capabilityとproduction gateの確認なしに利用可能機能とみなしません。
+
+**Jones, Schonlau, and Welch, “Efficient Global Optimization of Expensive Black-Box Functions” [@jones-schonlau-welch-1998]**
+
+- 役割：primary explanation、historical context
+- 推奨箇所：*Expected Improvement*、*The EGO Algorithm*
+- 読む理由：EIの改善量とincumbentの定義を確認し、確率だけを返すPIとの差を固定します。
+- 注意：正規Kriging表現を、quantileだけを返すruntimeへ自動適用しません。
+
+**Srinivasほか, “Gaussian Process Optimization in the Bandit Setting” [@srinivas-gp-ucb]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*The GP-UCB Algorithm*、*Regret Bounds*
+- 読む理由：UCB係数とregret保証が成立する仮定を確認します。
+- 注意：論文の保証を、現行の有限poolまたは任意の$\kappa$へ移しません。
+
+**Daulton, Balandat, and Bakshy, “Differentiable Expected Hypervolume Improvement” [@daulton-qehvi-2020]**
+
+- 役割：alternative view、deep dive
+- 推奨箇所：*Parallel Expected Hypervolume Improvement*、*Monte Carlo Estimator*
+- 読む理由：joint batch acquisitionが、個別scoreを順に選ぶgreedy法と異なる計算対象を持つ例として読みます。
+- 注意：multi-objective qEHVIを、現行single-objective selectorの実装説明に使いません。
 :::
 
 ## 書誌情報
