@@ -3,7 +3,7 @@ import type { CandidateSection } from "../shared/projectActionQuestions";
 export const WORKBENCH_VIEWS = [
   "project",
   "candidates",
-  "settings",
+  "workspace",
   "quality",
   "lineage",
   "explore",
@@ -33,7 +33,7 @@ export type NavigationIntent = Readonly<{
   developerTab?: DeveloperTab;
   developerTabError?: string;
   developerGuideId?: string;
-  projectSettings?: "targets";
+  projectSettings?: "targets" | "ranges" | "display" | "task";
   dataLibraryTab?: "update";
   sourceConnectorId?: string;
   sourceStage?: "raw" | "curation" | "approval" | "training";
@@ -57,13 +57,18 @@ export function readNavigationIntent(
   const requestedView = params.get("view") ?? "project";
   const adminSection = params.get("admin");
   const developerTab = params.get("developer_tab");
-  const legacyQualityAdmin = requestedView === "settings" && adminSection === "quality";
+  const legacyProjectSection = adminSection === "ranges"
+    || adminSection === "display"
+    || adminSection === "task"
+    ? adminSection
+    : undefined;
+  const normalizedView: WorkbenchView = requestedView === "settings"
+    ? legacyProjectSection ? "project" : adminSection === "quality" ? "quality" : "workspace"
+    : VIEW_SET.has(requestedView)
+      ? requestedView as WorkbenchView
+      : "project";
   return Object.freeze({
-    view: legacyQualityAdmin
-      ? "quality"
-      : VIEW_SET.has(requestedView)
-      ? (requestedView as WorkbenchView)
-      : "project",
+    view: normalizedView,
     projectId: params.get("project") || undefined,
     candidateId: params.get("candidate") || undefined,
     entityKey: params.get("entity") || undefined,
@@ -76,11 +81,16 @@ export function readNavigationIntent(
     activityRunId: params.get("activity_run") || undefined,
     candidateSection: params.get("candidate_section") === "actuals" ? "actuals" : undefined,
     snapshotId: params.get("snapshot") || undefined,
-    adminSection: !legacyQualityAdmin && adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
-    developerTab: developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
+    adminSection: normalizedView === "workspace" && adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
+    developerTab: adminSection === "model"
+      ? "diagnostics"
+      : developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
     developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
     developerGuideId: params.get("developer_guide") || undefined,
-    projectSettings: params.get("project_settings") === "targets" ? "targets" : undefined,
+    projectSettings: legacyProjectSection
+      ?? (["targets", "ranges", "display", "task"].includes(params.get("project_settings") ?? "")
+        ? params.get("project_settings") as NavigationIntent["projectSettings"]
+        : undefined),
     dataLibraryTab: params.get("tab") === "update" ? "update" : undefined,
     sourceConnectorId: params.get("connector") || undefined,
     sourceStage: SOURCE_STAGES.has(params.get("stage") ?? "")
@@ -105,7 +115,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
   if (intent.candidateSection) params.set("candidate_section", intent.candidateSection);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
-  if (intent.adminSection) params.set("admin", intent.adminSection);
+  if (intent.view === "workspace" && intent.adminSection) params.set("admin", intent.adminSection);
   if (intent.adminSection === "developer" && intent.developerTab) params.set("developer_tab", intent.developerTab);
   if (intent.adminSection === "developer" && intent.developerGuideId) params.set("developer_guide", intent.developerGuideId);
   if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
@@ -134,10 +144,10 @@ export function withView(
     activityRunId: view === "candidates" ? current.activityRunId : undefined,
     candidateSection: view === "candidates" ? current.candidateSection : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
-    adminSection: view === "settings" ? current.adminSection : undefined,
-    developerTab: view === "settings" && current.adminSection === "developer" ? current.developerTab : undefined,
+    adminSection: view === "workspace" ? current.adminSection : undefined,
+    developerTab: view === "workspace" && current.adminSection === "developer" ? current.developerTab : undefined,
     developerTabError: undefined,
-    developerGuideId: view === "settings" && current.adminSection === "developer" ? current.developerGuideId : undefined,
+    developerGuideId: view === "workspace" && current.adminSection === "developer" ? current.developerGuideId : undefined,
     projectSettings: view === "project" ? current.projectSettings : undefined,
     dataLibraryTab: view === "data-library" ? current.dataLibraryTab : undefined,
     sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,

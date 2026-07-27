@@ -20,13 +20,11 @@ test("unavailable tasks keep overview and read-only diagnostics while replacing 
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
   assert.match(app, /item\.id === "project"/);
-  assert.match(app, /item\.id === "settings"/);
   assert.match(app, /chainProject && item\.id === "candidates"/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
-  assert.match(app, /tab !== "settings"/);
-  assert.match(app, /tab === "settings" && !chainProject/);
+  assert.match(app, /tab !== "workspace"/);
+  assert.match(app, /tab === "workspace"/);
   assert.match(app, /readOnly=\{taskUnavailable\}/);
-  assert.match(app, /availability=\{taskAvailability\}/);
   // The reason is rendered by the panels that stay available, not pushed through a notice.
   assert.match(app, /taskAvailability\?\.message/);
   assert.match(projectHub, /taskAvailability\.message/);
@@ -37,7 +35,7 @@ test("the unavailable panel uses Japanese and opens reference diagnostics", () =
   assert.doesNotMatch(app, /TASK UNAVAILABLE/);
   assert.match(app, /参照状態を確認する/);
   assert.match(app, /onOpenSettings/);
-  assert.match(app, /adminSection: "developer"/);
+  assert.match(app, /projectSettings: "task"/);
 });
 
 test("chain projects load their immutable revision without entering the single-task candidate runtime", () => {
@@ -63,7 +61,7 @@ test("chain projects explain single-task-only views instead of failing inside th
   assert.match(app, /tab === "explore" && !taskUnavailable && !chainProject/);
   assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject/);
   assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject/);
-  assert.match(app, /tab === "settings" && !chainProject/);
+  assert.doesNotMatch(app, /tab === "settings"/);
 });
 
 test("chain overview offers the chain work surface instead of single-task next actions", () => {

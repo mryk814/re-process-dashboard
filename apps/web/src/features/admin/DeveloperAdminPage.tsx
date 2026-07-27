@@ -7,6 +7,7 @@ import { suggestedInputRange } from "./inputRangeDefaults";
 import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
 export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";
+export type ProjectSettingsSection = "ranges" | "display" | "task";
 type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
 function number(value: number, digits = 0) {
@@ -297,4 +298,53 @@ export function InputRangeSettingsPage({ project, taskDefinition, readOnly = fal
       return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;
     })}</tbody></table>
   </div>;
+}
+
+export function ProjectScopedSettings({
+  project,
+  taskDefinition,
+  resolvedTaskDefinition,
+  readOnly = false,
+  initialSection = "ranges",
+  onSectionChange,
+  onProjectChanged,
+}: {
+  project: ApiProject | undefined;
+  taskDefinition: TaskDefinitionContract | null;
+  resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  readOnly?: boolean;
+  initialSection?: ProjectSettingsSection;
+  onSectionChange: (section: ProjectSettingsSection) => void;
+  onProjectChanged: (project: ApiProject) => void;
+}) {
+  const [section, setSection] = useState<ProjectSettingsSection>(initialSection);
+  useEffect(() => setSection(initialSection), [initialSection]);
+  const select = (next: ProjectSettingsSection) => {
+    setSection(next);
+    onSectionChange(next);
+  };
+  return <section className="project-scientific-settings" aria-label="このProjectの科学設定">
+    <div className="page-intro">
+      <div>
+        <span className="overline">このPROJECT</span>
+        <h3>入力・表示・Task設定</h3>
+        <p>現在のProjectだけに適用する設定です。workspace内のほかのProjectは変更しません。</p>
+      </div>
+    </div>
+    <nav className="developer-tabs" aria-label="Project設定メニュー">
+      <button type="button" className={section === "ranges" ? "active" : ""} onClick={() => select("ranges")}>入力範囲</button>
+      <button type="button" className={section === "display" ? "active" : ""} onClick={() => select("display")}>表示桁数</button>
+      <button type="button" className={section === "task" ? "active" : ""} onClick={() => select("task")}>予測タスク定義</button>
+    </nav>
+    {section === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
+    {section === "display" && <DisplayDecimalSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}
+    {section === "task" && <div className="page-panel admin-contract-page">
+      <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
+      {taskDefinition ? <>
+        {taskDefinition.input_groups.map((group) => <section key={group.key}><h3>{group.label}</h3><table className="quality-table"><thead><tr><th>項目</th><th>単位</th><th>入力</th><th>標準範囲</th></tr></thead><tbody>{group.fields.map((field) => <tr key={field.path}><th>{field.label}</th><td>{field.unit ?? "—"}</td><td>{field.editable ? "編集可" : "固定"}</td><td>{field.default_range ? `${rangeNumber(field.default_range.min)}–${rangeNumber(field.default_range.max)}` : field.choices.join(" / ") || "—"}</td></tr>)}</tbody></table></section>)}
+        <section><h3>予測特性</h3><div className="admin-output-list">{taskDefinition.outputs.map((output) => <span key={output.key}><b>{output.label}</b>{output.unit} · {output.goal_direction === "at_most" ? "小さい側を目標" : output.goal_direction === "at_least" ? "大きい側を目標" : "方向なし"}</span>)}</div></section>
+        <details className="technical-contract"><summary>技術契約を表示</summary><code>{resolvedTaskDefinition?.task_definition.id}</code><span>{resolvedTaskDefinition?.task_definition.schema_version}</span><span>{resolvedTaskDefinition?.runtime_capability.model_package_schema_version}</span></details>
+      </> : <p className="empty-evidence">予測タスク定義を読み込んでいます。</p>}
+    </div>}
+  </section>;
 }

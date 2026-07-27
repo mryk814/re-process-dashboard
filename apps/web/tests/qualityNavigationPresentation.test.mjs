@@ -40,5 +40,5 @@ test("candidate summary routes unresolved decisions to their settings", async ()
   assert.match(source, /onConfigureSupport/);
   assert.match(source, /goalDirectionLabel/);
   assert.match(app, /projectSettings: "targets"/);
-  assert.match(app, /adminSection: "ranges"/);
+  assert.match(app, /projectSettings: "ranges"/);
 });
