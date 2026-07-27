@@ -582,4 +582,4 @@ cache identityと表示identityを一つのrevision番号だけで説明する�
 - Pythonの`concurrent.futures` [@python-concurrent-futures] は、Future、Executor、bounded worker、cancelの一般契約を確認する入口です。
 - MDNの`AbortController` [@mdn-abort-controller] は、通信の中断とresponse identityの採否判定を分けるために参照します。
 - [Node.js: Understanding process.nextTick](https://nodejs.org/en/learn/asynchronous-work/understanding-processnexttick)
-- SQLiteのtransaction仕様 [@sqlite-transactions] は、process-local cacheと永続memoまたはSnapshotを同一視しないための比較対象です。
+- SQLiteのtransaction仕様 [@sqlite-transactions] は、cacheと永続memoを分ける基準です。

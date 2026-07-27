@@ -5,19 +5,19 @@ book:
   output-file: "material-decision-workbench-reader"
   chapters:
     - index.qmd
-    - part: "Part I　システムを読む"
+    - part: "システムを読む"
       chapters:
         - chapters/system-map.qmd
-    - part: "Part II　型と契約"
+    - part: "型と契約"
       chapters:
         - chapters/contract-through-stack.qmd
         - labs/extend-contract.qmd
-    - part: "Part III　データと再現性"
+    - part: "データと再現性"
       chapters:
         - chapters/source-to-training-evidence.qmd
         - labs/trace-source-evidence.qmd
         - chapters/materials-domain-primer.qmd
-    - part: "Part IV　永続化と証拠"
+    - part: "永続化と証拠"
       chapters:
         - chapters/revision-and-digest.qmd
         - labs/trace-revision-conflict.qmd
@@ -27,26 +27,26 @@ book:
         - labs/trace-project-lifecycle.qmd
         - chapters/restore-workspace-safely.qmd
         - labs/trace-workspace-restore.qmd
-    - part: "Part V　モデルと不確かさ"
+    - part: "モデルと不確かさ"
       chapters:
         - chapters/model-package-runtime.qmd
         - chapters/prediction-calibration-support.qmd
-    - part: "Part VI　探索と意思決定"
+    - part: "探索と意思決定"
       chapters:
         - chapters/design-space-acquisition.qmd
         - chapters/multi-stage-chain.qmd
         - chapters/decision-safety.qmd
-    - part: "Part VII　UIとDesktop"
+    - part: "UIとDesktop"
       chapters:
         - chapters/frontend-desktop-state.qmd
         - chapters/performance-execution.qmd
-    - part: "Part VIII　検証と運用"
+    - part: "検証と運用"
       chapters:
         - chapters/security-trust-boundaries.qmd
         - chapters/verification-operations.qmd
         - labs/runtime-boundary-drills.qmd
         - labs/toy-weighted-mean.qmd
-    - part: "Part IX　ケーススタディ"
+    - part: "ケーススタディ"
       chapters:
         - chapters/implementation-case-studies.qmd
     - concept-map.qmd

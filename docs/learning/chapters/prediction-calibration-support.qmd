@@ -518,15 +518,13 @@ supportは入力距離の検査であり、残差または予測分布の検査�
 
 ## 実装、contract、testを対応付ける
 
-| 数学上の対象 | contractまたは実装 | test | 保証しないこと |
-|---|---|---|---|
-| 点、quantile、distribution | {{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}} | {{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}} | 任意cohortでのcalibration |
-| quantile順序とtarget support | {{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}} | {{< code-ref prediction-math-package-test symbol=test_predictive_summary_rejects_invalid_noncontinuous_semantics >}} | 分布仮定の科学的妥当性 |
-| APIの点と区間 | {{< code-ref prediction-math-api-contract symbol=Prediction >}} | OpenAPI contract test | 区間の共通coverage |
-| grouped OOF residual | {{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}} | {{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}} | Package runtimeすべてのcalibration |
-| support distanceとthreshold | {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}} | {{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}} | 予測が正しい確率 |
-| 入力ばらつきinterval | {{< code-ref prediction-math-robustness-compute symbol=compute >}} | {{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}} | model uncertaintyとの統合分布 |
-| 二種類の区間表示 | {{< code-ref prediction-math-presentation symbol=predictionIntervalLabel >}}とRobustness view | Decision Activity E2E | 利用者が誤読しないことの完全な保証 |
+- **点、quantile、distribution** — contractは{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}です。{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}が意味と再現性を確認しますが、任意cohortでのcalibrationは保証しません。
+- **quantile順序とtarget support** — {{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}を{{< code-ref prediction-math-package-test symbol=test_predictive_summary_rejects_invalid_noncontinuous_semantics >}}で確認します。分布仮定の科学的妥当性は別の問いです。
+- **APIの点と区間** — {{< code-ref prediction-math-api-contract symbol=Prediction >}}をOpenAPI contract testで固定します。異なる区間が共通のcoverageを持つとは保証しません。
+- **grouped OOF residual** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}を{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}で確認します。すべてのPackage runtimeがcalibratedであるとは限りません。
+- **support distanceとthreshold** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}を同じgrouped OOF testで確認します。supportは予測が正しい確率ではありません。
+- **入力ばらつきinterval** — {{< code-ref prediction-math-robustness-compute symbol=compute >}}を{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}で確認します。model uncertaintyとの統合分布は作りません。
+- **二種類の区間表示** — {{< code-ref prediction-math-presentation symbol=predictionIntervalLabel >}}とRobustness viewをDecision Activity E2Eで確認します。利用者が誤読しないことの完全な保証ではありません。
 
 {{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}は、同じseedで同じPredictive Summaryを返し、target kindに応じてquantile supportを守ることを確認します。
 これはseedを変えた有限sample誤差、model choice、data shiftを検証するtestではありません。
