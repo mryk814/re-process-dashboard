@@ -1454,6 +1454,92 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "bazel-build-reference",
+      "roles": [
+        "alternative-view",
+        "implementation-reference"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "Bazel documentation terms; no reuse assumed",
+      "related_concepts": [
+        "chain-binding",
+        "dependency-graph"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "backend/src/material_workbench/contracts/chain_contracts.py"
+      ],
+      "recommended_sections": [
+        "Targets",
+        "Build dependency graph"
+      ],
+      "why_read": "宣言された依存関係からDAGを作る別領域の例として読み、Chain bindingの明示性と比較する。",
+      "reading_question": "未宣言の入力がStage計算へ入ると、affected closureと再現性はどう崩れるか。",
+      "caution": "現行Chainはbuild system、汎用scheduler、hermetic execution engineではない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "scikit-learn-cross-validation",
+      "roles": [
+        "primary-explanation",
+        "implementation-reference"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "BSD documentation terms; no reuse assumed",
+      "related_concepts": [
+        "split-group",
+        "end-to-end-evaluation"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "backend/src/material_workbench/application/chain_evaluation.py"
+      ],
+      "recommended_sections": [
+        "Cross-validation iterators for grouped data"
+      ],
+      "why_read": "同じgroupのsampleをtrainとtestへまたがせない評価設計の基礎を確認する。",
+      "reading_question": "このTaskで同一groupとみなす単位はmaterial、lot、run、paperのどれか。",
+      "caution": "一般的なGroupKFoldの説明だけでは、Welding固有のweld-run grainは決まらない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "jcgm-101-2008",
+      "roles": [
+        "standard",
+        "deep-dive"
+      ],
+      "level": "advanced",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "JCGM publication terms; no reuse assumed",
+      "related_concepts": [
+        "uncertainty-propagation",
+        "monte-carlo"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "backend/src/material_workbench/application/chain_uncertainty.py"
+      ],
+      "recommended_sections": [
+        "Principles of the method",
+        "Propagation of distributions"
+      ],
+      "why_read": "入力分布をmodelへ伝播して出力分布を作るMonte Carlo法の一般原則を確認する。",
+      "reading_question": "現行runtimeが独立近似する分布と、実際には相関する可能性がある量は何か。",
+      "caution": "一般原則を、現行Taskの独立残差近似またはoutput boundsの妥当性保証として扱わない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }

@@ -1,0 +1,845 @@
+---
+title: "複数Stageを証拠付きdataflowとして接続する"
+chapter_id: "multi-stage-chain"
+level: advanced
+estimated_minutes: 240
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+code_references:
+  - path: "backend/src/material_workbench/contracts/chain_contracts.py"
+    id: "multi-stage-chain-definition-contract"
+    role: "contract"
+    symbols:
+      - "ChainPort"
+      - "ChainBinding"
+      - "ChainDefinition"
+      - "ChainRevision"
+      - "UnitConversion"
+      - "validate_chain_definition"
+      - "build_chain_revision"
+  - path: "backend/src/material_workbench/contracts/chain_execution_contracts.py"
+    id: "multi-stage-chain-execution-contract"
+    role: "contract"
+    symbols:
+      - "ChainCandidateInputDefinition"
+      - "ChainStageExecution"
+      - "ChainExecution"
+      - "ChainSnapshot"
+      - "ActualConditionedVariantIdentity"
+      - "ActualConditionedVariant"
+  - path: "backend/src/material_workbench/application/chain_execution.py"
+    id: "multi-stage-chain-execution-service"
+    role: "application"
+    symbols:
+      - "ChainExecutionCoordinator"
+      - "ChainExecutionService.candidate_input_definitions"
+      - "ChainExecutionService._canonical_input"
+      - "ChainExecutionService._memo_key"
+      - "ChainExecutionService.execute"
+      - "ChainExecutionService.mark_candidate_changed"
+      - "ChainExecutionService.actual_conditioned_variant"
+  - path: "backend/src/material_workbench/contracts/chain_uncertainty_contracts.py"
+    id: "multi-stage-chain-uncertainty-contract"
+    role: "contract"
+    symbols:
+      - "StageSamplingCapability"
+      - "DistributionSummary"
+      - "ChainStageUncertainty"
+      - "ChainDistributionProvenance"
+      - "ChainDistributionRun"
+  - path: "backend/src/material_workbench/application/chain_uncertainty.py"
+    id: "multi-stage-chain-uncertainty-service"
+    role: "application"
+    symbols:
+      - "combine_additive_stage_samples"
+      - "apply_output_bounds"
+      - "ChainUncertaintyService.capability"
+      - "ChainUncertaintyService.run"
+  - path: "backend/src/material_workbench/contracts/chain_evaluation_contracts.py"
+    id: "multi-stage-chain-evaluation-contract"
+    role: "contract"
+    symbols:
+      - "ChainEvaluationMetricValue"
+      - "ChainEvaluationTarget"
+      - "ChainEvaluationFoldEvidence"
+      - "ChainEvaluationReport"
+  - path: "backend/src/material_workbench/application/chain_evaluation.py"
+    id: "multi-stage-chain-evaluation-service"
+    role: "application"
+    symbols:
+      - "ChainEvaluationCatalog"
+  - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
+    id: "multi-stage-chain-candidate-adapter"
+    role: "application"
+    symbols:
+      - "ChainCandidateAdapter"
+      - "ScalarChainAdapter"
+      - "SparseBlendChainAdapter"
+      - "candidate_adapter_for"
+  - path: "backend/tests/test_chain_contracts.py"
+    id: "multi-stage-chain-contract-test"
+    role: "test"
+    symbols:
+      - "test_chain_rejects_cycle_or_forward_reference_before_registry_validation"
+      - "test_basis_mismatch_cannot_be_disguised_as_a_unit_conversion"
+      - "test_affine_conversion_is_allowed_only_within_same_quantity_and_basis"
+  - path: "backend/tests/test_chain_execution.py"
+    id: "multi-stage-chain-execution-test"
+    role: "test"
+    symbols:
+      - "test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation"
+      - "test_failure_retains_previous_downstream_result_and_marks_freshness"
+      - "test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain"
+      - "test_chain_distribution_is_explicit_reproducible_and_keeps_uncertainties_distinct"
+      - "test_linear_toy_chain_monte_carlo_matches_analytic_variance"
+  - path: "backend/tests/test_chain_evaluation.py"
+    id: "multi-stage-chain-evaluation-test"
+    role: "test"
+    symbols:
+      - "test_committed_chain_evaluation_is_reproducible_and_leakage_safe"
+      - "test_output_specific_cohorts_keep_stage_and_end_to_end_on_same_scale"
+  - path: "backend/tests/test_chain_candidate_adapters.py"
+    id: "multi-stage-chain-adapter-test"
+    role: "test"
+    symbols:
+      - "test_adapter_is_selected_from_the_declared_stage_shape"
+      - "test_chain_core_modules_do_not_name_domain_specific_symbols"
+      - "test_scalar_candidate_input_survives_the_adapter_round_trip"
+  - path: "backend/scripts/spikes/spike_case_d.py"
+    id: "multi-stage-chain-second-case"
+    role: "fixture"
+    symbols:
+      - "main"
+  - path: "models/evaluations/welding-consumable-a-b-c-v1.json"
+    id: "multi-stage-chain-evaluation-fixture"
+    role: "fixture"
+  - path: "docs/decisions/multistage-chain-architecture.md"
+    id: "multi-stage-chain-architecture-decision"
+    role: "docs"
+  - path: "docs/chain-execution.md"
+    id: "multi-stage-chain-execution-doc"
+    role: "docs"
+  - path: "docs/chain-evaluation.md"
+    id: "multi-stage-chain-evaluation-doc"
+    role: "docs"
+
+prerequisite_concepts:
+  - "contract"
+  - "semantic-digest"
+  - "model-package"
+  - "predictive-summary"
+introduced_concepts: []
+reinforced_concepts:
+  - "immutable-evidence"
+  - "binding-provenance"
+  - "stale-response"
+  - "request-sequence"
+  - "runtime-capability"
+future_concepts: []
+historical_concepts: []
+---
+
+# 複数Stageを証拠付きdataflowとして接続する {#sec-multi-stage-chain}
+
+## 対象読者と到達点
+
+対象読者は、複数の決定論的変換または予測modelを接続し、候補編集から評価までを実装するsoftware developerです。
+
+単一Task、Model Package、semantic digest、grouped cross-validationの基礎を前提にします。
+
+読了後は、次の境界を現mainのcontract、service、testへ戻って説明できます。
+
+- Chain Definitionと一回のChain Executionの違い
+- bindingがfield名ではなくquantity、basis、unitを接続する理由
+- 順序付きDAGと入力変更からaffected Stageを求める方法
+- freshnessとcache hitが別の事実である理由
+- 中間実測をactual-conditioned variantとして保存する理由
+- stage-local評価とend-to-end評価が答える問いの違い
+- forward Monte Carloが統合する不確かさと、その仮定
+- 第二のscalar ChainがChain Coreの境界をどう反証したか
+
+## 非scope
+
+任意DAG editor、一般workflow engine、distributed scheduler、end-to-end再学習、probabilistic programmingの包括的な解説は扱いません。
+
+現行v1は、開発者が順序を宣言したStage列を逐次実行します。
+
+任意の並列枝を実行時にscheduleするengineとして説明しません。
+
+Welding Chainの合成dataから得た数値を、実材料の性能または安全性へ一般化しません。
+
+## 一つの巨大modelでは失う境界がある
+
+Welding Chainは、原料配合からwhole wire組成を得るStage A、whole wire組成からdeposited metal組成を予測するStage B、deposited metal組成から特性を予測するStage Cを接続します。
+
+Stage Aは固定scientific masterを使う決定論的変換ですが、Stage BとCは異なるDataset ProfileとModel Packageを持つ予測Stageです。
+
+三段を一つのmodelへまとめると、中間実測、Stageごとのdataset、誤差の発生箇所、再計算境界を一つの入出力へ潰します。
+
+分割の目的はmodel数を増やすことではなく、各Stageの入力、出力、版、証拠を個別に固定することです。
+
+## Chain Definitionは実行結果ではない
+
+**Chain Definition**は、Stage、外部入力、binding、順序を宣言する不変のdataflow定義です。
+
+{{< code-ref multi-stage-chain-definition-contract symbol=ChainDefinition >}}は、`stages`、`external_inputs`、`bindings`を持ちます。
+
+各Stageは`task`または`deterministic_transform`のkindとcontract IDを宣言します。
+
+Definitionは、candidateの値、予測結果、実行時刻、errorを持ちません。
+
+**Chain Revision**は、Definitionに加えて各Stageのcontract digest、Package manifest digest、予測StageのDataset ViewとProfile、binding digest、unit conversion digestを固定します。
+
+{{< code-ref multi-stage-chain-definition-contract symbol=build_chain_revision >}}は、DefinitionとStage lockから{{< code-ref multi-stage-chain-definition-contract symbol=ChainRevision >}}を構成します。
+
+**Chain Execution**は、固定されたRevisionとcandidate revisionに対する一回の実行状態です。
+
+{{< code-ref multi-stage-chain-execution-contract symbol=ChainExecution >}}はrequest ID、candidate revision、Chain Revision digest、全Stageのfreshnessと結果を持ちます。
+
+Definitionを編集しても過去Executionの意味は変わりません。
+
+新しいDefinitionは新しいRevisionとして登録し、過去snapshotは元のRevisionを参照し続けます。
+
+## bindingは物理的なport契約である
+
+`C`という名前のoutputを`C`というinputへcopyできても、同じ量とは限りません。
+
+whole wire中のCとdeposited metal中のCは、quantity名が同じでもbasisが違います。
+
+**quantity**は何を表す値か、**basis**は分母または参照entityが何か、**unit**は数値尺度をどう表すかを固定します。
+
+{{< code-ref multi-stage-chain-definition-contract symbol=ChainPort >}}は`value_kind`、`quantity`、`basis`、`unit`を別fieldとして持ちます。
+
+binding検証は次の順で行います。
+
+1. source portとtarget portが存在する
+2. value kindが一致する
+3. quantityが一致する
+4. basisが一致する
+5. unitが一致するか、明示した変換が一致する
+6. required inputが一度だけbindingされている
+
+{{< code-ref multi-stage-chain-definition-contract symbol=validate_chain_definition >}}は、quantityまたはbasisが違えばunit conversionの有無にかかわらず拒否します。
+
+`mass% whole wire`から`mass fraction whole wire`は、同じquantityとbasisの尺度変換としてfactor 0.01を宣言できます。
+
+`mass% whole wire`から`mass% deposited metal`はbasisが変わるため、factor 1.0の変換を置いても接続できません。
+
+後者には、材料状態を変えるStageが必要です。
+
+{{< code-ref multi-stage-chain-contract-test symbol=test_basis_mismatch_cannot_be_disguised_as_a_unit_conversion >}}と{{< code-ref multi-stage-chain-contract-test symbol=test_affine_conversion_is_allowed_only_within_same_quantity_and_basis >}}がこの境界を固定します。
+
+{{< code-ref multi-stage-chain-definition-contract symbol=UnitConversion >}}はaffine変換 \(y=ax+b\) を宣言し、その全payloadがRevision identityへ入ります。
+
+変換式が同じでも、conversion IDまたはoffsetが変われば別Revisionです。
+
+## 順序付きDAGとして読む
+
+**有向非巡回graph（DAG）**は、向きを持つedgeがあり、同じnodeへ戻るcycleを持たないgraphです。
+
+Chainを \(G=(V,E)\) と書くと、\(V\) はStage集合、\(E\) はStage outputから後段inputへのbinding集合です。
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| \(G\) | Chainの依存graph | directed graph | \(1\) |
+| \(V\) | Stage集合 | set | \(1\) |
+| \(E\) | Stage間binding集合 | set | \(1\) |
+| \(u,v\) | Stage | node | \(1\) |
+| \(D(v)\) | \(v\) から到達できる下流Stage集合 | set | \(1\) |
+
+一般のDAGでは、すべてのedge \(u\to v\) について \(u\) が \(v\) より前になる順序をtopological orderと呼びます。
+
+現行v1はtopological sortを実行時に求めません。
+
+Definitionの`stages`自体を順序として固定し、Stage outputは必ず後ろのStageだけへbindingできるという制約でcycleとforward referenceを拒否します。
+
+{{< code-ref multi-stage-chain-contract-test symbol=test_chain_rejects_cycle_or_forward_reference_before_registry_validation >}}は、後段から前段へのbindingをcontract validationで止めます。
+
+この方法は順序を一意に固定しますが、独立な枝を並列scheduleする機能は提供しません。
+
+### 入力変更からaffected Stageを求める
+
+外部入力 \(x\) が直接bindingされるStage集合を \(B(x)\) とします。
+
+**Definition**
+
+\[
+A(x) := B(x) \cup \bigcup_{v\in B(x)} D(v)
+\]
+
+\(A(x)\) は、外部入力 \(x\) の変更で影響を受けるStage集合です。
+
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.candidate_input_definitions" >}}は、外部portの直接targetを起点にStage間edgeを反復し、到達可能なStageを`affected_stage_ids`へ格納します。
+
+Welding Chainで試験温度がCだけへ直接bindingされるなら、\(B(x)=\{C\}\) であり \(A(x)=\{C\}\) です。
+
+原料配合がAへbindingされ、AからB、BからCへedgeがあるなら、\(B(x)=\{A\}\) であり \(A(x)=\{A,B,C\}\) です。
+
+この集合はUIへ影響範囲を説明するためにも使えますが、実行時の再利用可否は各Stageのcanonical input digestで最終判定します。
+
+## canonical inputとmemo identity
+
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService._canonical_input" >}}は、外部入力と上流出力をbindingどおりにtarget input pathへ配置し、明示されたunit conversionを適用します。
+
+candidate label、選択中のtab、表示順はcanonical Stage inputへ入りません。
+
+これらは同じ科学入力に対する予測値を変えないためです。
+
+Stage \(s\) のmemo keyが固定すべき情報を次で表します。
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| \(s\) | Stage ID | string | \(1\) |
+| \(c_s\) | Stage contract digest | digest | \(1\) |
+| \(p_s\) | Package manifest digest | digest | \(1\) |
+| \(h_s\) | canonical inputのsemantic digest | digest | \(1\) |
+| \(K_s\) | Stage memo key | digest | \(1\) |
+
+**Implementation**
+
+\[
+K_s := H(s,c_s,p_s,h_s)
+\]
+
+ここで \(H\) は現行repoのsemantic digestです。
+
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService._memo_key" >}}は、この四要素からkeyを作ります。
+
+Package digestを外すと、同じ入力に対する旧modelと新modelの結果を同じcache entryとして扱います。
+
+contract digestを外すと、fieldの意味または出力shapeが変わっても同じ結果を返しえます。
+
+candidate IDをkeyへ入れないため、科学入力と固定identityが同じなら別candidateでも同じStage結果を再利用できます。
+
+この再利用が成立する前提は、Stage実行がkeyに含めた入力と固定artifactだけで決まり、隠れた可変stateを読まないことです。
+
+## freshnessとcache hitを分ける
+
+**freshness**は、保持している結果が現在要求されるinput digestへ対応するかという状態です。
+
+**cache hit**は、今回の実行が同じmemo identityの保存済み結果を再利用したという実行経路です。
+
+freshnessは結果と現在入力の関係であり、cache hitは結果を得た方法です。
+
+| 状態またはflag | 意味 |
+|---|---|
+| `latest` | requested input digestとresult input digestが一致する |
+| `running` | requested inputを計算中である |
+| `stale` | 以前の成功結果を保持するが、現在入力には追従していない |
+| `failed` | 今回の実行が失敗し、errorを持つ |
+| `cache_hit=true` | 今回のStage結果をmemoから取得した |
+
+初回計算が成功すれば`latest`で`cache_hit=false`です。
+
+同じ入力を再実行してmemoを使えば`latest`で`cache_hit=true`です。
+
+candidate編集直後は以前の結果が残っていても`stale`であり、cache hitかどうかはまだ決まりません。
+
+{{< code-ref multi-stage-chain-execution-contract symbol=ChainStageExecution >}}はfreshness、requested input digest、result input digest、retained result、cache hitを別fieldで持ちます。
+
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.mark_candidate_changed" >}}はcandidate revision保存直後にdigestを比較し、未影響Stageを`latest`のまま残し、最初に変わったStage以降を`stale`へします。
+
+{{< code-ref multi-stage-chain-execution-test symbol=test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation >}}では、試験温度変更後にAとBがcache hit、Cだけが再計算になります。
+
+原料配合変更後はA、B、Cのcanonical inputが連鎖して変わり、三段とも再計算されます。
+
+### failure時に前回成功結果を消さない
+
+Stage Bの今回実行が失敗しても、前回成功したStage BとCのresultを削除しません。
+
+削除すると、利用者は直前に何を比較していたかを失います。
+
+代わりにStage Bを`failed`、未追従のStage Cを`stale`とし、requested input digestとresult input digestの差を残します。
+
+{{< code-ref multi-stage-chain-execution-test symbol=test_failure_retains_previous_downstream_result_and_marks_freshness >}}は、このfailure containmentを検査します。
+
+UIは保持値を最新値のように表示せず、状態、error、前回成功時点を同時に示します。
+
+## requestの競合を結果の新しさと混ぜない
+
+同じcandidateを連続編集すると、古いrequestが新しいrequestより後に完了する場合があります。
+
+{{< code-ref multi-stage-chain-execution-service symbol=ChainExecutionCoordinator >}}はscopeごとの最新request IDを保持し、古いrequestを`superseded`として現在状態へ書き戻させません。
+
+永続化側のgeneration compare-and-swapも、process内coordinatorだけに依存しない競合境界を作ります。
+
+debounceは実行数を減らしますが、正しさを保証する機構ではありません。
+
+正しさはrequest identityと保存時のcurrent generation検査で守ります。
+
+## immutable snapshotはすべてlatestのときだけ作る
+
+{{< code-ref multi-stage-chain-execution-contract symbol=ChainSnapshot >}}は、全Stageが`latest`でなければ作成できません。
+
+snapshotはcandidate revision、Chain Revision、adapter ID、domain reference、全Stage inputとresult、request IDを一つの不変証拠として保存します。
+
+現在のExecutionが更新されても、既存snapshotを再計算または上書きしません。
+
+memoは計算再利用のための内部recordであり、判断時点を保存するsnapshotの代わりではありません。
+
+## 中間実測は別variantにする
+
+通常Chainは、Stage Bの予測値 \(\hat{\mathbf{y}}_B\) をStage Cへ渡します。
+
+製造後にStage B相当の実測値 \(\mathbf{y}_B^{\mathrm{actual}}\) が揃えば、Stage Cをその実測値で再評価できます。
+
+\[
+\begin{aligned}
+\text{normal:}\quad
+&\mathbf{x}\rightarrow\hat{\mathbf{y}}_B\rightarrow\hat{\mathbf{y}}_C,\\
+\text{actual-conditioned:}\quad
+&\mathbf{x}\rightarrow\mathbf{y}_B^{\mathrm{actual}}
+\rightarrow\hat{\mathbf{y}}_C^{\mathrm{actual}}.
+\end{aligned}
+\]
+
+二つは利用可能な情報の時点が違うため、同じ予測の新旧版ではありません。
+
+{{< code-ref multi-stage-chain-execution-contract symbol=ActualConditionedVariantIdentity >}}は、base Chain Revision、base candidate revision、比較元snapshot、実測ID、measurement digest、coverage、Stage C Package digestを固定します。
+
+必須中間成分の一部だけを実測した場合、欠けた値をStage B予測で黙って補いません。
+
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.actual_conditioned_variant" >}}は完全なcoverageを要求し、通常Executionを変更せず{{< code-ref multi-stage-chain-execution-contract symbol=ActualConditionedVariant >}}を保存します。
+
+{{< code-ref multi-stage-chain-execution-test symbol=test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain >}}が、部分実測の拒否と通常Chainの不変性を検査します。
+
+## stage-local評価とend-to-end評価
+
+Stage Cの評価には二つの問いがあります。
+
+**stage-local評価**は、実測したStage B出力をCへ入れたときのC自身の誤差を測ります。
+
+**end-to-end評価**は、Stage Bの予測値をCへ入れ、上流誤差を含む最終誤差を測ります。
+
+比較には同じtarget、同じ観測cohort、同じouter split、同じmetricを使います。
+
+### toy dataでRMSEを比較する
+
+ここでの問いは、同じ四観測に対する二つの予測経路のRMSEを比較することです。
+
+四観測を同じcohortとし、欠損がなく、予測値は各rowの評価時に学習へ使われていないと仮定します。
+
+| \(i\) | 実測 \(y_i\) | stage-local予測 \(\hat y_i^{L}\) | end-to-end予測 \(\hat y_i^{E}\) |
+|---:|---:|---:|---:|
+| 1 | 10 | 11 | 12 |
+| 2 | 12 | 11 | 10 |
+| 3 | 14 | 15 | 17 |
+| 4 | 16 | 15 | 13 |
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| \(N\) | 観測数 | integer | \(1\) |
+| \(y_i\) | 観測 \(i\) の実測値 | scalar | 任意の共通property単位 |
+| \(\hat y_i^L\) | stage-local予測 | scalar | \(y_i\)と同じ |
+| \(\hat y_i^E\) | end-to-end予測 | scalar | \(y_i\)と同じ |
+| \(\operatorname{RMSE}\) | 二乗誤差平均の平方根 | scalar | \(y_i\)と同じ |
+
+**Definition**
+
+\[
+\operatorname{RMSE}(\hat{\mathbf y})
+:=
+\sqrt{\frac{1}{N}\sum_{i=1}^{N}(\hat y_i-y_i)^2}
+\]
+
+stage-localの二乗誤差は \(1,1,1,1\) なので、RMSEは \(1\) です。
+
+end-to-endの二乗誤差は \(4,4,9,9\) なので、RMSEは \(\sqrt{26/4}=\sqrt{6.5}\approx2.55\) です。
+
+このtoy dataではend-to-endが悪化しますが、一般に大小関係が必ずこの向きになるとは限りません。
+
+相殺、cohort差、有限sampleの偶然でend-to-endが小さくなる場合もあるため、大小をacceptance conditionにしません。
+
+現行の{{< code-ref multi-stage-chain-evaluation-contract symbol=ChainEvaluationTarget >}}は、同じtarget recordへstage-onlyとend-to-endのMAEとRMSEを別々に保存します。
+
+### nested grouped評価で上流の自己fitを避ける
+
+outer test groupをStage BとCの学習から外します。
+
+outer train内では、inner holdout groupを見ていないStage Bからout-of-fold予測を作り、その予測をend-to-end用Stage Cの学習入力にします。
+
+outer test向けStage Bはouter trainだけで学習します。
+
+これにより、Stage Cの学習入力へStage Bのin-sample予測を入れません。
+
+{{< code-ref multi-stage-chain-evaluation-contract symbol=ChainEvaluationFoldEvidence >}}は`inner-grouped-oof`、`outer-train-only`、self-fit違反数0、outer test重複数0をfoldごとに固定します。
+
+{{< code-ref multi-stage-chain-evaluation-test symbol=test_committed_chain_evaluation_is_reproducible_and_leakage_safe >}}は、合成sourceを変更せず評価artifactを再生成し、fold evidenceを照合します。
+
+targetごとに欠測と観測familyが違うため、観測数とgroup数もtarget別です。
+
+{{< code-ref multi-stage-chain-evaluation-test symbol=test_output_specific_cohorts_keep_stage_and_end_to_end_on_same_scale >}}は、各target内で二つの評価が同じcohortに載ることを固定します。
+
+## 不確かさ伝播は別の明示実行にする
+
+通常編集は点推定だけを自動更新します。
+
+分布伝播は計算量と仮定が増えるため、最新の点推定を前提に明示実行し、別の不変runとして保存します。
+
+Stage Bの出力 \(Y_B\) を介したStage C出力 \(Y_C\) の分布は、概念上は次の周辺化で表せます。
+
+**Identity**
+
+\[
+p(y_C\mid\mathbf{x},\mathcal D_B,\mathcal D_C)
+=
+\int
+p(y_C\mid y_B,\mathbf{x},\mathcal D_C)
+p(y_B\mid\mathbf{x},\mathcal D_B)
+\,dy_B
+\]
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| \(\mathbf{x}\) | 外部入力 | vector | fieldごとの単位 |
+| \(Y_B\) | Stage B出力 | random variable | outputごとの単位 |
+| \(Y_C\) | Stage C出力 | random variable | outputごとの単位 |
+| \(\mathcal D_B,\mathcal D_C\) | 各Stageの学習data | dataset | \(1\) |
+| \(M\) | Monte Carlo sample数 | integer | \(1\) |
+
+現行実装は任意のjoint posteriorを積分しません。
+
+allow-listされたruntimeがsample protocolを宣言したStageだけをsampleし、forward Monte Carloで上流sampleを下流canonical inputへ流します。
+
+### stage-localとpropagatedを分ける
+
+{{< code-ref multi-stage-chain-uncertainty-contract symbol=ChainStageUncertainty >}}は、`stage_uncertainty`と`propagated_uncertainty`を別fieldで持ちます。
+
+`stage_uncertainty`は上流入力を点推定へ固定した当該Stage自身の残差分布です。
+
+`propagated_uncertainty`はsample可能な上流を通し、当該Stage自身の残差も加えた分布です。
+
+現行BとCのsampling methodは、q05とq95から正規残差のscaleを近似し、各outputを独立にsampleし、allow-listされたoutput boundsを適用します。
+
+これはjoint posteriorでも、output間相関を保つsampleでもありません。
+
+Stage間残差も独立に加える近似であり、相関した誤差を表現しません。
+
+sample非対応の予測Stageがあれば、そのStageをunsupportedとし、下流のpropagated分布を空にします。
+
+点推定と既存snapshotは変更しません。
+
+### 線形toy Chainで分散を確認する
+
+ここでの問いは、独立な上流変動と下流残差を線形Chainで伝播した標準偏差です。
+
+\(U\sim\mathcal N(2,0.7^2)\)、\(\varepsilon\sim\mathcal N(0,1.1^2)\) とし、\(U\) と \(\varepsilon\) は独立と仮定します。
+
+Stage Cを \(Y=3U+\varepsilon\) とします。
+
+**Identity under the independence assumption**
+
+\[
+\begin{aligned}
+\mathbb E[Y] &= 3\mathbb E[U]+\mathbb E[\varepsilon]=6,\\
+\operatorname{Var}(Y)
+&=3^2\operatorname{Var}(U)+\operatorname{Var}(\varepsilon)\\
+&=9(0.7^2)+1.1^2=5.62,\\
+\operatorname{SD}(Y)&=\sqrt{5.62}\approx2.37.
+\end{aligned}
+\]
+
+{{< code-ref multi-stage-chain-uncertainty-service symbol=combine_additive_stage_samples >}}は、上流sampleで条件付けた点予測へ、当該Stageの残差sampleをreference point差分として加えます。
+
+{{< code-ref multi-stage-chain-execution-test symbol=test_linear_toy_chain_monte_carlo_matches_analytic_variance >}}は200,000 sampleの固定seed fixtureで、Monte Carloの平均と標準偏差が解析値へ近いことを確認します。
+
+このtestは一般の非線形Chain、相関残差、output間相関の正しさを証明しません。
+
+独立仮定が成立しない場合はjoint sampleを提供するruntime contractへ進むか、propagated分布を利用不可として停止します。
+
+{{< code-ref multi-stage-chain-uncertainty-contract symbol=ChainDistributionProvenance >}}はseed、sample count、Chain Revision、candidate revision、point execution request IDを固定します。
+
+同じseedで同じ有限sampleを再現できても、近似仮定が正しいことまでは保証しません。
+
+## Candidate Adapterがdomain形状をCoreから外す
+
+Chain Coreが疎な原料配合を直接知ると、別domainの二段Chainにも`blend`、scientific master、commercial catalogが必須になります。
+
+{{< code-ref multi-stage-chain-candidate-adapter symbol=ChainCandidateAdapter >}}は、外部入力namespace、candidate validation、初期domain payload、決定論的Stage、snapshot domain referenceをCoreから分離します。
+
+現行の{{< code-ref multi-stage-chain-candidate-adapter symbol=SparseBlendChainAdapter >}}は、決定論的Stageを一段持つChainで疎配合を扱います。
+
+{{< code-ref multi-stage-chain-candidate-adapter symbol=ScalarChainAdapter >}}は、決定論的Stageを持たないTaskからTaskへのChainでscalarとcategorical入力だけを扱います。
+
+adapterはTask IDまたはProject名ではなく、固定Chain RevisionのStage shapeからallow-list選択されます。
+
+## 第二ChainでCore boundaryを反証する
+
+「genericである」という主張は、Welding Chain一件だけでは検証できません。
+
+{{< code-ref multi-stage-chain-second-case symbol=main >}}は、成形条件から収縮率を予測するStage Xと、収縮率と焼鈍温度から平面度を予測するStage Yを接続します。
+
+このspikeは疎配合、決定論的Stage、welding固有namespace、design space referenceを使いません。
+
+同じChain Coreで次を通します。
+
+1. 二つのTask contractからport surfaceを作る
+2. X出力`shrinkage_pct`をY入力へbindingする
+3. `scalar/v1` adapterでcandidateを保存する
+4. X、Yを順に実行する
+5. domain referenceを持たないsnapshot identity v2を保存する
+6. distribution capabilityを照会する
+
+{{< code-ref multi-stage-chain-adapter-test symbol=test_chain_core_modules_do_not_name_domain_specific_symbols >}}は、Core moduleへweldingと疎配合固有symbolが戻っていないことを検査します。
+
+{{< code-ref multi-stage-chain-adapter-test symbol=test_adapter_is_selected_from_the_declared_stage_shape >}}は、Task二段が`scalar/v1`、決定論的Stageを含む三段が`sparse_blend/v1`を選ぶことを固定します。
+
+第二Chainが通った事実は、任意domain、任意DAG、任意candidate shapeを扱える証明ではありません。
+
+現行Coreの境界は、順序付き二段以上、scalarまたは一つの決定論的Stageを含む疎配合、対応可能なTask input kindまでです。
+
+新しいcandidate shapeを加える場合はCoreへ条件分岐を足さず、adapter protocolの責任でexternal values、validation、snapshot referenceを実装します。
+
+## 実装変更のreview順
+
+Chainを追加または変更するときは、次の順で確認します。
+
+1. Stageごとの判断対象とdataset grainを分ける
+2. Stage contract surfaceへquantity、basis、unitを宣言する
+3. Definitionへ外部入力と全required inputのbindingを置く
+4. Stage順序が全edgeに対するtopological orderになっていることを確認する
+5. Revisionへcontract、Package、Dataset Profile、binding、conversionを固定する
+6. external inputごとのaffected Stageを確認する
+7. canonical inputとmemo identityに隠れた可変stateがないことを確認する
+8. failure時のretained resultとfreshnessを確認する
+9. snapshotとanalysis variantを上書き関係にしない
+10. stage-localとend-to-endを同一cohort、同一splitで別表示する
+11. sampling capability、独立性、bounds、seed、sample countを明示する
+12. 第二use caseでCoreへdomain語彙が漏れていないことを確認する
+
+## 演習
+
+### 演習1：affected Stageとcycleを判定する {#exercise-multi-stage-chain-01}
+
+次のbindingを持つChainを考えます。
+
+```text
+external.blend -> A
+A.output -> B
+B.output -> C
+external.test_temperature -> C
+C.output -> D
+```
+
+`external.test_temperature`を変更した場合と`external.blend`を変更した場合のaffected Stage集合を求めてください。
+
+さらに、`D.output -> B`を追加できるかを説明してください。
+
+### 成功条件
+
+- 直接targetとdescendantを分けて示す
+- 二つの変更についてaffected Stage集合を列挙する
+- `D.output -> B`がcycleまたは後段から前段への参照になることを示す
+- 現行v1がStage順序で拒否する位置をcode referenceへ結び付ける
+
+[演習1の解答](#answer-multi-stage-chain-01)は、回答を固定してから開きます。
+
+::: {#answer-multi-stage-chain-01 .exercise-solution data-label="演習1の解答"}
+#### 解答例
+
+試験温度の直接targetはCであり、CのdescendantはDなので、affected Stageは \(\{C,D\}\) です。
+
+blendの直接targetはAであり、AからB、C、Dへ到達できるので、affected Stageは \(\{A,B,C,D\}\) です。
+
+`D.output -> B`を加えると、既存の`B -> C -> D`と合わせて`B -> C -> D -> B`というcycleになります。
+
+現行v1ではDがBより後ろにあるため、{{< code-ref multi-stage-chain-definition-contract symbol=ChainDefinition >}}のvalidationが「Stage outputは後ろのStageだけへbindingできる」という条件で拒否します。
+
+#### 解答の理由
+
+affected集合は直接targetだけでなく、そこから到達できるすべての下流Stageを含みます。
+
+cycleがあると、あるStageの入力を確定するために同じStageの未確定出力が必要になり、逐次実行順を作れません。
+
+#### よくある不十分な回答
+
+試験温度変更を\(\{C\}\)だけとする回答は、C出力に依存するDを落としています。
+
+`D.output -> B`を「順序を入れ替えればよい」とする回答も、edge集合自体がcycleを持つため解決しません。
+:::
+
+### 演習2：freshness、cache、failure表示を設計する {#exercise-multi-stage-chain-02}
+
+A、B、Cがすべて成功済みの状態で試験温度を変更し、Cの再実行だけが失敗したとします。
+
+その直後と失敗後について、各Stageのfreshness、cache hit、保持result、UI表示を提案してください。
+
+### 成功条件
+
+- candidate変更直後と再実行失敗後を分ける
+- freshnessとcache hitを同じfieldにしない
+- AとBの最新結果、Cの前回成功結果、今回errorを失わない
+- Cの保持値を最新値として表示しない
+
+[演習2の解答](#answer-multi-stage-chain-02)は、回答を固定してから開きます。
+
+::: {#answer-multi-stage-chain-02 .exercise-solution data-label="演習2の解答"}
+#### 解答例
+
+変更直後はAとBを`latest`、Cを`stale`とし、三段の前回resultを保持します。
+
+まだ再実行していないため、cache hitは再分類の根拠に使いません。
+
+再実行ではAとBがmemoを使うなら`latest`かつ`cache_hit=true`です。
+
+Cが失敗したら`failed`とerrorを示し、前回成功resultとそのresult input digestを保持します。
+
+UIはCへ「再計算失敗、表示値は前回成功時」と表示し、requested inputと保持resultが違うことを示します。
+
+#### 解答の理由
+
+AとBのcanonical inputは試験温度変更で変わらず、保持resultが現在入力に対応します。
+
+Cのcanonical inputだけが変わるため、前回resultは比較の文脈として有用でも現在入力の結果ではありません。
+
+#### よくある不十分な回答
+
+全Stageを`stale`にする回答は、binding graphとdigestで判定できる再利用範囲を捨てています。
+
+Cの前回resultを削除する回答は比較文脈を失い、値だけを残して`latest`とする回答は誤判断を招きます。
+:::
+
+### 演習3：二つの評価をtoy dataで計算する {#exercise-multi-stage-chain-03}
+
+本文の四観測について、stage-localとend-to-endのMAEとRMSEを計算してください。
+
+その大小だけから「Stage Bを改善すれば差が消える」と結論できるかも説明してください。
+
+### 成功条件
+
+- 二つの経路について絶対誤差と二乗誤差を示す
+- MAEとRMSEへ元のproperty単位を付ける
+- 同一cohortとsplitが比較条件であることを示す
+- metric差を単一Stageの因果効果と呼ばない
+
+[演習3の解答](#answer-multi-stage-chain-03)は、回答を固定してから開きます。
+
+::: {#answer-multi-stage-chain-03 .exercise-solution data-label="演習3の解答"}
+#### 解答例
+
+stage-localの絶対誤差はすべて1なので、MAEは1 property unit、RMSEも1 property unitです。
+
+end-to-endの絶対誤差は2、2、3、3なので、MAEは \(10/4=2.5\) property unitです。
+
+end-to-endの二乗誤差和は26なので、RMSEは \(\sqrt{26/4}\approx2.55\) property unitです。
+
+同じcohortとsplitでend-to-endが悪いことは上流経路を含めた差を示しますが、Stage Bだけを改善すれば差が消えるとは結論できません。
+
+Stage Cの非線形応答、Stage間の分布shift、有限data、誤差相関も差へ寄与しえます。
+
+#### 解答の理由
+
+stage-localは実測中間値で条件付け、end-to-endは予測中間値で条件付けるため、入力のsourceが違います。
+
+同じ観測集合とsplitに揃えることで、metric差へcohort差を混ぜずに比較できます。
+
+#### よくある不十分な回答
+
+RMSEの数値だけを書く回答では、どの誤差を二乗したかと単位が分かりません。
+
+end-to-endが大きいという一例から、Stage Bが唯一の原因だと断定する回答も不足します。
+:::
+
+### 演習4：Monte Carlo伝播の仮定を監査する {#exercise-multi-stage-chain-04}
+
+本文の線形toy Chainについて解析的な標準偏差を再計算し、現行forward Monte Carloが一致するために必要な仮定を三つ挙げてください。
+
+Stage Bの二出力に強い相関がある場合、現行`independent` samplingをどう扱うかも述べてください。
+
+### 成功条件
+
+- \(9(0.7^2)+1.1^2\)から標準偏差を計算する
+- 上流sampleと下流残差の独立性、有限値、同じsample indexでのalignmentを含める
+- output相関未対応を明示する
+- 仮定を満たせない場合の停止またはjoint sample contractを示す
+
+[演習4の解答](#answer-multi-stage-chain-04)は、回答を固定してから開きます。
+
+::: {#answer-multi-stage-chain-04 .exercise-solution data-label="演習4の解答"}
+#### 解答例
+
+分散は \(9\times0.49+1.21=5.62\) であり、標準偏差は \(\sqrt{5.62}\approx2.37\) です。
+
+一致には、上流変動と下流残差が独立であること、sampleが有限値で同じ長さに揃うこと、各indexのconditional predictionとresidual drawを対応付けることが必要です。
+
+さらに、linear toyでは係数3と分布parameterが固定されていると仮定します。
+
+Stage Bの二出力に強い相関があり判断へ影響するなら、現行`independent` samplingをjoint distributionの代用にしません。
+
+joint sampleを表せるruntime capabilityと検証fixtureを追加するか、propagated uncertaintyを利用不可として停止します。
+
+#### 解答の理由
+
+独立でなければ分散に共分散項が加わり、単純な分散和は成立しません。
+
+outputを独立にsampleすると、同時に起きやすい組合せまたは起きにくい組合せを壊す可能性があります。
+
+#### よくある不十分な回答
+
+「sample数を増やせばよい」という回答はMonte Carlo誤差を減らしても、独立近似のmodel誤差を直しません。
+
+同じseedだけを再現性の十分条件とする回答も、Package、Chain Revision、candidate revision、sample countを固定していません。
+:::
+
+## 章末check {#exercise-multi-stage-chain-chapter-check}
+
+1. Chain DefinitionとChain Executionは何を別々に固定しますか。
+2. quantityが同じでもbasisが違うportをunit conversionで接続できないのはなぜですか。
+3. 現行v1はDAGのcycleをどの制約で拒否しますか。
+4. 試験温度だけを変更したとき、AとBを再計算しなくてよい根拠は何ですか。
+5. memo keyへPackage digestを含める理由は何ですか。
+6. `latest`と`cache_hit=true`は何が違いますか。
+7. failed Stageの前回成功resultを保持する場合、何を同時表示すべきですか。
+8. actual-conditioned variantが通常Chainを上書きしてはいけないのはなぜですか。
+9. stage-local評価とend-to-end評価はStage Cへ何を入力しますか。
+10. inner grouped OOF predictionを使う理由は何ですか。
+11. stage uncertaintyとpropagated uncertaintyは何を条件付けていますか。
+12. scalar二段ChainはChain Coreについて何を確認し、何を証明していませんか。
+
+[章末チェックの解答](#answer-multi-stage-chain-chapter-check)は、回答を固定してから開きます。
+
+::: {#answer-multi-stage-chain-chapter-check .exercise-solution data-label="章末チェックの解答"}
+#### 解答例
+
+1. DefinitionはStage、外部port、binding、順序を固定し、Executionは固定Revisionとcandidate revisionに対するrequest、freshness、result、errorを固定します。
+2. basisの違いは尺度ではなく参照entityの違いであり、数値のaffine変換だけでは材料状態の変化を表せないためです。
+3. Stage outputを宣言順で後ろのStageだけへbindingできる制約により、後段から前段への参照を拒否します。
+4. AとBのcanonical input digestが変わらず、保持result input digestと一致するためです。
+5. 同じ入力でもPackageが違えば別の予測器または変換であり、結果を共有できないためです。
+6. `latest`は結果と現在入力の一致、cache hitは今回memoを使った実行経路を表します。
+7. `failed`状態、今回error、requested input、保持resultのinput identity、前回成功時点を同時表示します。
+8. 予測中間値を使う製造前の判断と、実測中間値を使う製造後の分析では利用情報と問いが違うためです。
+9. stage-localは実測した中間値、end-to-endは上流Stageのout-of-foldまたはouter-train-only予測値を入力します。
+10. Cの学習入力へBのin-sample予測を入れず、上流予測誤差を含む経路をleakageなしで評価するためです。
+11. stage uncertaintyは上流入力を点へ固定し、propagated uncertaintyはsample可能な上流分布と当該Stage残差を通します。
+12. 疎配合とwelding固有語彙なしで同じCore経路が成立することを確認しましたが、任意DAG、任意domain、任意candidate shapeへの一般性は証明していません。
+
+#### 解答の理由
+
+十二問はDefinition、物理port、DAG、memo、freshness、failure、variant、評価、不確かさ、abstraction testという独立した境界を確認します。
+
+各回答をdigest、判断時点、条件付けのいずれかへ接続すると、一つの「Chainが動く」という説明へ潰さずに済みます。
+
+#### よくある不十分な回答
+
+「上流から順にmodelを呼ぶ」という回答だけでは、binding、Revision、partial recomputation、evidenceを説明できません。
+
+「cacheがあるので常に最新」という回答も、memo再利用と現在入力へのfreshnessを混同しています。
+:::
+
+## Further Reading
+
+- Bazelのbuild dependency graph [@bazel-build-reference] は、declared dependencyとactual dependencyを分ける節を読み、Chain bindingに未宣言依存を持ち込まない理由と比較しますが、現行Chainをbuild systemまたは並列schedulerとはみなしません。
+- [Python `functools.cache`](https://docs.python.org/3/library/functools.html#functools.cache)は、memoizationの最小例を確認する入口ですが、現行Chainはprocess内function argumentではなくdigest付き永続memoを使います。
+- scikit-learnのcross-validation guide [@scikit-learn-cross-validation] は、grouped sampleをfold間で分離する理由を確認するために使い、Welding固有のweld-run grainはrepoのDataset Profileで別に確認します。
+- JCGM 101:2008 [@jcgm-101-2008] は、分布をmodelへ伝播するMonte Carlo法の一般原則を扱いますが、現行runtimeの独立残差近似とoutput boundsの妥当性はTaskごとに別reviewが必要です。
+- `docs/decisions/multistage-chain-architecture.md`は、Weldingを三段へ分けた設計判断と非scopeを確認する正本です。
+- `docs/chain-execution.md`は、memo、freshness、snapshot、candidate adapter、不確かさrunの現行実装契約を確認する正本です。
+- `docs/chain-evaluation.md`は、nested grouped評価とoutput別cohortの証拠を確認する正本です。
+
+## 現行境界
+
+現行Chain Coreは、順序付きStage列、明示binding、scalarまたはcategorical port、対応するcandidate adapter、allow-listされたsampling runtimeを扱います。
+
+required heat patternを消費するChain port、任意の並列scheduler、cycleを含む反復計算、joint output sample、分布runからの自動判断更新は扱いません。
+
+新しい機能を追加するときは、「generic Chainなら当然できる」と推測せず、contract surface、adapter、execution、snapshot、evaluationのどこへ新しい意味が入るかを第二use caseで確認します。
