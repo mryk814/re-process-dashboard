@@ -122,6 +122,9 @@ from material_workbench.persistence.data_lifecycle_migration import (
 from material_workbench.persistence.data_lifecycle_payload_migration import (
     migrate_data_lifecycle_payloads,
 )
+from material_workbench.persistence.data_lifecycle_summary_migration import (
+    migrate_data_lifecycle_summaries,
+)
 from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 
 
@@ -218,6 +221,7 @@ class Store:
         migrate_series_assets(self.path)
         migrate_data_lifecycle(self.path)
         migrate_data_lifecycle_payloads(self.path)
+        migrate_data_lifecycle_summaries(self.path)
         install_project_archive_write_guards(self.path)
         validate_sqlite_foreign_keys(self.path)
 

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   workbenchApi,
   type ApiConnectorLifecycleDetail,
+  type ApiCurationRunRowPage,
   type ApiDataLibraryDataset,
   type ApiDataLifecycleCatalog,
+  type ApiRawSnapshotRowPage,
 } from "../../shared/api/workbench-api";
 import {
   collectTrainingTargetFields,
@@ -52,6 +54,10 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [selectedStage, setSelectedStage] = useState<LifecycleStage | "">(initialLink.stage);
   const [selectedVersionId, setSelectedVersionId] = useState(initialLink.revision);
   const [detail, setDetail] = useState<ApiConnectorLifecycleDetail | null>(null);
+  const [rawPage, setRawPage] = useState<ApiRawSnapshotRowPage | null>(null);
+  const [curationPage, setCurationPage] = useState<ApiCurationRunRowPage | null>(null);
+  const [overridePage, setOverridePage] = useState<ApiCurationRunRowPage | null>(null);
+  const [reasonPage, setReasonPage] = useState<ApiCurationRunRowPage | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -127,6 +133,10 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     setApprovalReason("");
     setTrainingPurpose("");
     setDetail(null);
+    setRawPage(null);
+    setCurationPage(null);
+    setOverridePage(null);
+    setReasonPage(null);
     setTrainingGroupField("");
     setTrainingFolds("2");
     refreshDetail(selectedId, controller.signal).catch((cause) => {
@@ -206,6 +216,100 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
   const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
   const selectedTraining = detail?.training_snapshots.find((item) => item.id === selectedVersionId);
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!selectedRaw) {
+      setRawPage(null);
+      return () => controller.abort();
+    }
+    workbenchApi.rawSnapshotRows(selectedRaw.id, 0, 50, controller.signal)
+      .then((page) => {
+        if (!controller.signal.aborted) setRawPage(page);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "取得行を読み込めませんでした。");
+        }
+      });
+    return () => controller.abort();
+  }, [selectedRaw]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!selectedRun) {
+      setCurationPage(null);
+      return () => controller.abort();
+    }
+    workbenchApi.curationRunRows(selectedRun.id, 0, 100, controller.signal)
+      .then((page) => {
+        if (!controller.signal.aborted) setCurationPage(page);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "品質判定行を読み込めませんでした。");
+        }
+    });
+    return () => controller.abort();
+  }, [selectedRun]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!latestRunNeedsApproval || !latestRun?.quality.quarantined) {
+      setOverridePage(null);
+      return () => controller.abort();
+    }
+    workbenchApi.curationRunRows(
+      latestRun.id,
+      0,
+      200,
+      controller.signal,
+      "quarantined",
+    )
+      .then((page) => {
+        if (!controller.signal.aborted) setOverridePage(page);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "隔離行を読み込めませんでした。");
+        }
+      });
+    return () => controller.abort();
+  }, [latestRun?.id, latestRun?.quality.quarantined, latestRunNeedsApproval]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const reasonCount = latestRun
+      ? latestRun.quality.warning
+        + latestRun.quality.quarantined
+        + latestRun.quality.blocked
+      : 0;
+    if (!latestRun || reasonCount === 0) {
+      setReasonPage(null);
+      return () => controller.abort();
+    }
+    workbenchApi.curationRunRows(
+      latestRun.id,
+      0,
+      200,
+      controller.signal,
+      undefined,
+      true,
+    )
+      .then((page) => {
+        if (!controller.signal.aborted) setReasonPage(page);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "理由付きの行を読み込めませんでした。");
+        }
+      });
+    return () => controller.abort();
+  }, [
+    latestRun?.id,
+    latestRun?.quality.blocked,
+    latestRun?.quality.quarantined,
+    latestRun?.quality.warning,
+  ]);
   const trainingRecipeId = trainingRecipeIdForRevision(
     latestRevision?.curation_run_id,
     detail?.curation_runs ?? [],
@@ -229,7 +333,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
       || /^[A-Za-z]:[\\/]/.test(detail.connector.source_locator)
     ),
   );
-  const overrideCandidates = latestRun?.rows.filter((row) => row.status === "quarantined") ?? [];
+  const overrideCandidates = overridePage && overridePage.resource_id === latestRun?.id
+    ? overridePage.rows
+    : [];
   const overrideReasonMissing = overrideRowKeys.some((rowKey) => !overrideReasons[rowKey]?.trim());
   const approvalBlocked = busy === "approve"
     || (overrideRowKeys.length > 0 && (!approvalReason.trim() || overrideReasonMissing));
@@ -376,6 +482,53 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
       : [...current, rowKey]);
   };
 
+  const loadMoreCurationRows = async () => {
+    if (!curationPage?.has_more) return;
+    const next = await workbenchApi.curationRunRows(
+      curationPage.resource_id,
+      curationPage.offset + curationPage.rows.length,
+      curationPage.limit,
+    );
+    setCurationPage({
+      ...next,
+      offset: 0,
+      rows: [...curationPage.rows, ...next.rows],
+    });
+  };
+
+  const loadMoreOverrideRows = async () => {
+    if (!overridePage?.has_more) return;
+    const next = await workbenchApi.curationRunRows(
+      overridePage.resource_id,
+      overridePage.offset + overridePage.rows.length,
+      overridePage.limit,
+      undefined,
+      "quarantined",
+    );
+    setOverridePage({
+      ...next,
+      offset: 0,
+      rows: [...overridePage.rows, ...next.rows],
+    });
+  };
+
+  const loadMoreReasonRows = async () => {
+    if (!reasonPage?.has_more) return;
+    const next = await workbenchApi.curationRunRows(
+      reasonPage.resource_id,
+      reasonPage.offset + reasonPage.rows.length,
+      reasonPage.limit,
+      undefined,
+      undefined,
+      true,
+    );
+    setReasonPage({
+      ...next,
+      offset: 0,
+      rows: [...reasonPage.rows, ...next.rows],
+    });
+  };
+
   return <section className="data-library-section source-lifecycle-section">
     <div className="panel-title">
       <div><h3>データ更新</h3><span>取得・品質確認・承認・学習用スナップショットを分離</span></div>
@@ -430,26 +583,28 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             {selectedRaw && <>
               <header><strong>取得スナップショット v{detail.raw_snapshots.indexOf(selectedRaw) + 1}</strong><code>{shortDigest(selectedRaw.snapshot_digest)}</code></header>
               <dl><div><dt>取得日時</dt><dd>{formatTimestamp(selectedRaw.captured_at)}</dd></div><div><dt>Source版</dt><dd>{selectedRaw.object_version}</dd></div><div><dt>行数</dt><dd>{selectedRaw.row_count}</dd></div><div><dt>差分</dt><dd>追加 +{selectedRaw.diff.added_rows} / 変更 {selectedRaw.diff.changed_rows} / 消失 -{selectedRaw.diff.removed_rows}</dd></div></dl>
+              {rawPage?.resource_id === selectedRaw.id && <p>{rawPage.rows.length} / {rawPage.total}行を遅延取得済み</p>}
             </>}
             {selectedRun && <>
               <header><strong>品質判定 v{detail.curation_runs.indexOf(selectedRun) + 1}</strong><code>{shortDigest(selectedRun.curation_digest)}</code></header>
               <div className="source-history-quality"><span>採用 <b>{selectedRun.quality.accepted}</b></span><span>注意 <b>{selectedRun.quality.warning}</b></span><span>隔離 <b>{selectedRun.quality.quarantined}</b></span><span>停止 <b>{selectedRun.quality.blocked}</b></span></div>
               <p className="source-quality-meaning"><b>隔離</b>は該当行を除いて次へ進めます。<b>停止</b>は入力として成立せず、その行を承認候補にしません。</p>
-              <div className="source-history-rows">{selectedRun.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止" : row.status === "quarantined" ? "隔離" : row.status === "warning" ? "注意" : "採用"} · {row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span></p>)}</div>
+              <div className="source-history-rows">{curationPage?.resource_id === selectedRun.id && curationPage.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止" : row.status === "quarantined" ? "隔離" : row.status === "warning" ? "注意" : "採用"} · {row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span></p>)}</div>
+              {curationPage?.resource_id === selectedRun.id && curationPage.has_more && <button className="outline-button" type="button" onClick={() => void loadMoreCurationRows()}>次の行を読み込む</button>}
             </>}
             {selectedRevision && <>
               <header><strong>承認 v{detail.canonical_revisions.indexOf(selectedRevision) + 1}</strong><code>{shortDigest(selectedRevision.dataset_digest)}</code></header>
-              <dl><div><dt>承認日時</dt><dd>{formatTimestamp(selectedRevision.approved_at)}</dd></div><div><dt>承認者</dt><dd>{actorLabel(selectedRevision.actor)}</dd></div><div><dt>承認理由</dt><dd>{selectedRevision.reason || "理由の記録なし"}</dd></div><div><dt>採用 / 除外</dt><dd>{selectedRevision.approved_row_keys.length} / {selectedRevision.excluded_row_keys.length}行</dd></div></dl>
-              <div className="source-history-overrides"><strong>上書き根拠</strong>{selectedRevision.overrides.length ? selectedRevision.overrides.map((override) => <p key={override.row_key}><b>{override.row_key}</b><span>{override.reason}</span></p>) : <span>上書きなし</span>}</div>
+              <dl><div><dt>承認日時</dt><dd>{formatTimestamp(selectedRevision.approved_at)}</dd></div><div><dt>承認者</dt><dd>{actorLabel(selectedRevision.actor)}</dd></div><div><dt>承認理由</dt><dd>{selectedRevision.reason || "理由の記録なし"}</dd></div><div><dt>採用 / 除外</dt><dd>{selectedRevision.approved_row_count} / {selectedRevision.excluded_row_count}行</dd></div></dl>
+              <div className="source-history-overrides"><strong>上書き</strong><span>{selectedRevision.override_count ? `${selectedRevision.override_count}行` : "上書きなし"}</span></div>
             </>}
             {selectedTraining && <>
               <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
               <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
               {selectedTraining.target_cohorts.length
                 ? <div className="source-history-cohorts"><strong>target別cohortとsplit</strong>{selectedTraining.target_cohorts.map((cohort) => <details key={cohort.target_key}>
-                  <summary>{cohort.target_field} · {cohort.row_keys.length}行</summary>
+                  <summary>{cohort.target_field} · {cohort.row_count}行</summary>
                   <dl><div><dt>cohort digest</dt><dd><code>{shortDigest(cohort.cohort_digest)}</code></dd></div><div><dt>split digest</dt><dd><code>{shortDigest(cohort.split_digest)}</code></dd></div></dl>
-                  <ul>{cohort.split_assignments.map((assignment) => <li key={assignment.group_key}><code>{assignment.group_key}</code><span>fold {assignment.fold}</span></li>)}</ul>
+                  <p>{cohort.split_group_count} groupの割当を固定</p>
                 </details>)}</div>
                 : <p>旧契約のため、target別cohortとsplit割当は記録されていません。</p>}
             </>}
@@ -499,7 +654,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
           <div><span>注意</span><strong>{latestRun.quality.warning}</strong></div>
           <div><span>隔離</span><strong>{latestRun.quality.quarantined}</strong></div>
           <div><span>停止</span><strong>{latestRun.quality.blocked}</strong></div>
-          <details><summary>理由付きの行</summary>{latestRun.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span><em>{row.target_eligible ? "目的変数として利用可" : "目的変数として利用不可"}</em></p>)}</details>
+          <details><summary>理由付きの行</summary>{reasonPage?.resource_id === latestRun.id && reasonPage.rows.map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止 · " : row.status === "quarantined" ? "隔離 · " : row.status === "warning" ? "注意 · " : ""}{row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span><em>{row.target_eligible ? "目的変数として利用可" : "目的変数として利用不可"}</em></p>)}
+            {reasonPage?.resource_id === latestRun.id && reasonPage.has_more && <button className="outline-button" type="button" onClick={() => void loadMoreReasonRows()}>次の理由付き行を読み込む</button>}
+          </details>
           {latestRun.quality_delta.comparable && <p className="source-quality-delta">前回比　採用 {latestRun.quality_delta.accepted_delta >= 0 ? "+" : ""}{latestRun.quality_delta.accepted_delta} / 注意 {latestRun.quality_delta.warning_delta >= 0 ? "+" : ""}{latestRun.quality_delta.warning_delta} / 隔離 {latestRun.quality_delta.quarantined_delta >= 0 ? "+" : ""}{latestRun.quality_delta.quarantined_delta}</p>}
         </div>}
         {latestRunNeedsApproval && latestRun && <div className="source-approval-block">
@@ -510,6 +667,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
               <label><input type="checkbox" checked={overrideRowKeys.includes(row.row_key)} onChange={() => toggleOverride(row.row_key)} />{row.row_key} · {row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</label>
               {overrideRowKeys.includes(row.row_key) && <label>この行を採用する根拠<input aria-label={`${row.row_key}の上書き理由`} value={overrideReasons[row.row_key] ?? ""} onChange={(event) => setOverrideReasons((current) => ({ ...current, [row.row_key]: event.target.value }))} /></label>}
             </div>)}
+            {overridePage?.has_more && <button className="outline-button" type="button" onClick={() => void loadMoreOverrideRows()}>次の隔離行を読み込む</button>}
           </details>}
           <div className="source-approval-action">
             <div className="source-actor"><span>記録される主体</span><strong>{currentActor?.label ?? "確認中…"}</strong><small>{currentActor?.id}</small></div>

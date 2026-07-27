@@ -250,14 +250,17 @@ def test_battery_reference_loop_is_traceable_and_resume_safe(
     assert detail.training_snapshots[0].id == lifecycle["training_snapshot_id"]
     assert detail.raw_snapshots[0].row_count == 3_131
     assert detail.curation_runs[0].quality.quarantined == 0
-    assert len(detail.canonical_revisions[0].approved_row_keys) == 3_131
+    assert detail.canonical_revisions[0].approved_row_count == 3_131
+    training_snapshot = repository.get_training_snapshot(
+        lifecycle["training_snapshot_id"]
+    )
     assert (
-        detail.training_snapshots[0].selection_policy_digest
+        training_snapshot.selection_policy_digest
         == lifecycle["training_selection_policy_digest"]
     )
     assert all(
         not key.startswith(f"{HELD_OUT_CELL_ID}|")
-        for key in detail.training_snapshots[0].included_row_keys
+        for key in training_snapshot.included_row_keys
     )
 
     store = Store(workspace / "workbench.db")

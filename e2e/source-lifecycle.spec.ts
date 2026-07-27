@@ -85,6 +85,8 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
   await expect(section.locator(".source-quality-summary")).toContainText("CHECK-02");
   await expect(section.locator(".source-quality-summary")).toContainText("必須項目がありません");
+  await expect(section.locator(".source-quality-summary")).toContainText("A-03");
+  await expect(section.locator(".source-quality-summary")).toContainText("目的変数がありません");
   await expect(section.getByRole("button", { name: "隔離行を除いて承認" })).toBeVisible();
   await expect(section.getByText("このローカルワークスペースの利用者")).toBeVisible();
   await expect(section.getByLabel("Actor")).toHaveCount(0);
@@ -114,10 +116,8 @@ test("source refresh stays separate from approval, training and activation", asy
   const approvedRevision = approvedDetail.canonical_revisions.at(-1);
   expect(approvedRevision.actor).toBe("local-workspace-user");
   expect(approvedRevision.reason).toBe("既知の測定限界として採用");
-  expect(approvedRevision.overrides).toEqual([
-    { row_key: "CHECK-02", reason: "測定担当者に確認済み" },
-  ]);
-  expect(approvedRevision.approved_row_keys).toContain("CHECK-02");
+  expect(approvedRevision.override_count).toBe(1);
+  expect(approvedRevision.approved_row_count).toBe(3);
 
   await section.getByRole("button", { name: "学習用スナップショットを作成" }).click();
   await expect(section.getByText("学習用スナップショット作成済み")).toBeVisible();
@@ -130,10 +130,7 @@ test("source refresh stays separate from approval, training and activation", asy
   expect(trainingSnapshot.schema_version).toBe("approved-training-snapshot/v2");
   expect(trainingSnapshot.target_cohorts).toHaveLength(1);
   expect(trainingSnapshot.target_cohorts[0].target_key).toBe("target");
-  expect(trainingSnapshot.target_cohorts[0].split_assignments).toEqual([
-    { group_key: "A-01", fold: 0 },
-    { group_key: "CHECK-02", fold: 1 },
-  ]);
+  expect(trainingSnapshot.target_cohorts[0].split_group_count).toBe(2);
 
   const optionsAfter = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   expect(optionsAfter.model_packages).toEqual(optionsBefore.model_packages);
@@ -174,8 +171,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(trainingHistory).toContainText("id");
   await expect(trainingHistory).toContainText("target · 2行");
   await trainingHistory.getByText("target · 2行").click();
-  await expect(trainingHistory).toContainText("A-01");
-  await expect(trainingHistory).toContainText("A-04");
+  await expect(trainingHistory).toContainText("2 groupの割当を固定");
   await expect(trainingHistory).toContainText("cohort digest");
   await expect(trainingHistory).toContainText("split digest");
 
@@ -184,8 +180,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(approvalHistory.locator(".source-history-list").getByRole("button")).toHaveCount(2);
   await approvalHistory.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" }).click();
   await expect(approvalHistory).toContainText("既知の測定限界として採用");
-  await expect(approvalHistory).toContainText("CHECK-02");
-  await expect(approvalHistory).toContainText("測定担当者に確認済み");
+  await expect(approvalHistory).toContainText("上書き1行");
   await expect.poll(() => new URL(page.url()).searchParams.get("stage")).toBe("approval");
   await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(approvedRevision.id);
 
@@ -230,4 +225,77 @@ test("late connector detail cannot replace the selected connector", async ({ pag
   await page.waitForTimeout(700);
   await expect(detailHeader).toContainText(selected.name);
   await expect(detailHeader).not.toContainText(slow.name);
+});
+
+test("reason audit loads a blocked row beyond the first hundred without quarantine", async ({ page, request }) => {
+  const options = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
+  const profile = options.datasets[0].profile_revision;
+  const suffix = Date.now();
+  const connectorResponse = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
+    data: {
+      schema_version: "source-connector/v1",
+      name: `理由監査-${suffix}`,
+      connector_type: "object_storage_json_v1",
+      source_locator: `s3://e2e-bucket/reason-audit-${suffix}.json`,
+      selection: {
+        schema_version: "object-selection/v1",
+        format: "json_array",
+        primary_key: "id",
+        included_fields: [],
+      },
+      trigger_policy: "manual_only",
+      schedule: null,
+    },
+  });
+  expect(connectorResponse.ok()).toBeTruthy();
+  const connector = await connectorResponse.json();
+  const rows = Array.from({ length: 100 }, (_, index) => ({
+    id: `accepted-${index.toString().padStart(3, "0")}`,
+    value: index,
+  }));
+  rows.push({ id: "accepted-000", value: 101 });
+  const fetchResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}/fetch`,
+    {
+      data: {
+        schema_version: "source-fetch-request/v1",
+        trigger_kind: "manual",
+        object_content: JSON.stringify(rows),
+        object_version: "101",
+        retry_of: null,
+      },
+    },
+  );
+  expect(fetchResponse.ok()).toBeTruthy();
+  const fetched = await fetchResponse.json();
+  const recipeResponse = await request.post(`${apiBaseUrl}/api/data-lifecycle/recipes`, {
+    data: {
+      schema_version: "curation-recipe/v1",
+      recipe_id: `reason-audit-${suffix}`,
+      version: 1,
+      name: "理由監査",
+      steps: [{ kind: "required_fields_v1", fields: ["id"] }],
+    },
+  });
+  expect(recipeResponse.ok()).toBeTruthy();
+  const recipe = await recipeResponse.json();
+  const runResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/raw-snapshots/${fetched.snapshot.id}/curation-runs`,
+    {
+      data: {
+        recipe_resource_id: recipe.id,
+        profile_revision_id: profile.id,
+        profile_digest: profile.profile_digest,
+      },
+    },
+  );
+  expect(runResponse.ok()).toBeTruthy();
+
+  await page.goto(`/?view=data-library&tab=update&connector=${connector.id}`);
+  const summary = page.locator(".source-quality-summary");
+  await expect(summary).toContainText("隔離0");
+  await expect(summary).toContainText("停止2");
+  await summary.getByText("理由付きの行").click();
+  await expect(summary.getByText("行識別キーが重複しています").first()).toBeVisible();
+  await expect(summary.getByText(/accepted-000/).first()).toBeVisible();
 });

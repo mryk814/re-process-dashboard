@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from material_workbench.api.dependencies import get_store, get_workspace_catalog
 from material_workbench.application.data_lifecycle import (
@@ -12,7 +12,8 @@ from material_workbench.application.data_lifecycle import (
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
     CanonicalDatasetRevision,
-    ConnectorLifecycleDetail,
+    ConnectorLifecycleSummary,
+    CurationRunRowPage,
     CurationRecipe,
     CurationRecipeCreateInput,
     CurationRun,
@@ -26,6 +27,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceFetchRequest,
     SourceFetchResult,
     RawSourceSnapshotReceipt,
+    RawSnapshotRowPage,
     TrainingSnapshotCreateInput,
     TrainingSnapshotCreateRequest,
 )
@@ -88,14 +90,61 @@ def create_connector(
 
 @router.get(
     "/connectors/{connector_id}",
-    response_model=ConnectorLifecycleDetail,
+    response_model=ConnectorLifecycleSummary,
 )
 def connector_detail(
     connector_id: str,
     service: ServiceDependency,
-) -> ConnectorLifecycleDetail:
+) -> ConnectorLifecycleSummary:
     try:
         return service.detail(connector_id)
+    except (LifecycleResourceNotFoundError, LifecyclePayloadUnavailableError) as exc:
+        _raise_lifecycle_error(exc)
+
+
+@router.get(
+    "/raw-snapshots/{snapshot_id}/rows",
+    response_model=RawSnapshotRowPage,
+)
+def raw_snapshot_rows(
+    snapshot_id: str,
+    service: ServiceDependency,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> RawSnapshotRowPage:
+    try:
+        return service.raw_row_page(snapshot_id, offset=offset, limit=limit)
+    except (LifecycleResourceNotFoundError, LifecyclePayloadUnavailableError) as exc:
+        _raise_lifecycle_error(exc)
+
+
+@router.get(
+    "/curation-runs/{run_id}/rows",
+    response_model=CurationRunRowPage,
+)
+def curation_run_rows(
+    run_id: str,
+    service: ServiceDependency,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    status: Literal[
+        "accepted", "warning", "quarantined", "blocked"
+    ] | None = None,
+    reasoned_only: bool = False,
+) -> CurationRunRowPage:
+    if status is not None and reasoned_only:
+        raise HTTPException(
+            status_code=422,
+            detail="status and reasoned_only cannot be combined",
+        )
+    try:
+        return service.curation_row_page(
+            run_id,
+            offset=offset,
+            limit=limit,
+            status=status,
+            reasoned_only=reasoned_only,
+        )
     except (LifecycleResourceNotFoundError, LifecyclePayloadUnavailableError) as exc:
         _raise_lifecycle_error(exc)
 

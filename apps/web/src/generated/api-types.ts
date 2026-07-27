@@ -243,6 +243,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-lifecycle/curation-runs/{run_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Curation Run Rows */
+        get: operations["curation_run_rows_api_data_lifecycle_curation_runs__run_id__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-lifecycle/raw-snapshots/{snapshot_id}/curation-runs": {
         parameters: {
             query?: never;
@@ -254,6 +271,23 @@ export interface paths {
         put?: never;
         /** Create Curation Run */
         post: operations["create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-lifecycle/raw-snapshots/{snapshot_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Raw Snapshot Rows */
+        get: operations["raw_snapshot_rows_api_data_lifecycle_raw_snapshots__snapshot_id__rows_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2098,6 +2132,39 @@ export interface components {
              */
             target_cohorts: components["schemas"]["TrainingTargetCohort"][];
         };
+        /** ApprovedTrainingSnapshotSummary */
+        ApprovedTrainingSnapshotSummary: {
+            /** Actor */
+            actor: string;
+            /** Canonical Dataset Revision Id */
+            canonical_dataset_revision_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dataset Digest */
+            dataset_digest: string;
+            /** Id */
+            id: string;
+            /** Purpose */
+            purpose: string;
+            /** Row Count */
+            row_count: number;
+            /**
+             * Schema Version
+             * @enum {string}
+             */
+            schema_version: "approved-training-snapshot/v1" | "approved-training-snapshot/v2";
+            /** Snapshot Digest */
+            snapshot_digest: string;
+            split?: components["schemas"]["TrainingSplitDefinition"] | null;
+            /**
+             * Target Cohorts
+             * @default []
+             */
+            target_cohorts: components["schemas"]["TrainingTargetCohortSummary"][];
+        };
         /** BatchCandidatePoolEvidence */
         BatchCandidatePoolEvidence: {
             /** Acquisition Ranked Count */
@@ -2892,6 +2959,32 @@ export interface components {
              * @constant
              */
             schema_version: "approved-canonical-dataset/v1";
+        };
+        /** CanonicalDatasetRevisionSummary */
+        CanonicalDatasetRevisionSummary: {
+            /** Actor */
+            actor: string;
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Approved Row Count */
+            approved_row_count: number;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Curation Run Id */
+            curation_run_id: string;
+            /** Dataset Digest */
+            dataset_digest: string;
+            /** Excluded Row Count */
+            excluded_row_count: number;
+            /** Id */
+            id: string;
+            /** Override Count */
+            override_count: number;
+            /** Reason */
+            reason: string;
         };
         /** CanonicalSeriesPoint */
         CanonicalSeriesPoint: {
@@ -3727,8 +3820,8 @@ export interface components {
             /** Source */
             source: string;
         };
-        /** ConnectorLifecycleDetail */
-        ConnectorLifecycleDetail: {
+        /** ConnectorLifecycleSummary */
+        ConnectorLifecycleSummary: {
             /**
              * Attempts
              * @default []
@@ -3738,23 +3831,23 @@ export interface components {
              * Canonical Revisions
              * @default []
              */
-            canonical_revisions: components["schemas"]["CanonicalDatasetRevision"][];
+            canonical_revisions: components["schemas"]["CanonicalDatasetRevisionSummary"][];
             connector: components["schemas"]["SourceConnector"];
             /**
              * Curation Runs
              * @default []
              */
-            curation_runs: components["schemas"]["CurationRun"][];
+            curation_runs: components["schemas"]["CurationRunSummary"][];
             /**
              * Raw Snapshots
              * @default []
              */
-            raw_snapshots: components["schemas"]["RawSourceSnapshot"][];
+            raw_snapshots: components["schemas"]["RawSourceSnapshotSummary"][];
             /**
              * Training Snapshots
              * @default []
              */
-            training_snapshots: components["schemas"]["ApprovedTrainingSnapshot"][];
+            training_snapshots: components["schemas"]["ApprovedTrainingSnapshotSummary"][];
         };
         /** ConnectorSchedule */
         ConnectorSchedule: {
@@ -4085,6 +4178,73 @@ export interface components {
             profile_revision_id: string;
             /** Recipe Resource Id */
             recipe_resource_id: string;
+        };
+        /** CurationRunRowPage */
+        CurationRunRowPage: {
+            /** Connector Id */
+            connector_id: string;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Has More */
+            has_more: boolean;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Raw Snapshot Id */
+            raw_snapshot_id: string;
+            /**
+             * Reasoned Only
+             * @default false
+             */
+            reasoned_only: boolean;
+            /** Resource Id */
+            resource_id: string;
+            /**
+             * Rows
+             * @default []
+             */
+            rows: components["schemas"]["CuratedRow"][];
+            /**
+             * Stable Sort
+             * @default raw_row_index,row_key
+             * @constant
+             */
+            stable_sort: "raw_row_index,row_key";
+            /** Status Filter */
+            status_filter?: ("accepted" | "warning" | "quarantined" | "blocked") | null;
+            /** Total */
+            total: number;
+        };
+        /** CurationRunSummary */
+        CurationRunSummary: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Curation Digest */
+            curation_digest: string;
+            /** Id */
+            id: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Revision Id */
+            profile_revision_id: string;
+            quality: components["schemas"]["QualitySummary"];
+            quality_delta: components["schemas"]["QualityDelta"];
+            /** Raw Snapshot Digest */
+            raw_snapshot_digest: string;
+            /** Raw Snapshot Id */
+            raw_snapshot_id: string;
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** Row Count */
+            row_count: number;
         };
         /** CurveFamilyResponse */
         CurveFamilyResponse: {
@@ -7098,51 +7258,35 @@ export interface components {
              */
             unchanged_rows: number;
         };
-        /** RawSourceSnapshot */
-        RawSourceSnapshot: {
-            /**
-             * Captured At
-             * Format: date-time
-             */
-            captured_at: string;
-            /** Connector Configuration Digest */
-            connector_configuration_digest: string;
+        /** RawSnapshotRowPage */
+        RawSnapshotRowPage: {
             /** Connector Id */
             connector_id: string;
-            /** Content Sha256 */
-            content_sha256: string;
-            diff: components["schemas"]["RawSnapshotDiff"];
-            /** Id */
-            id: string;
-            /** Object Version */
-            object_version: string;
-            /** Previous Snapshot Id */
-            previous_snapshot_id?: string | null;
-            /** Row Count */
-            row_count: number;
-            /** Rows */
+            /** Has More */
+            has_more: boolean;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Resource Id */
+            resource_id: string;
+            /**
+             * Rows
+             * @default []
+             */
             rows: {
                 [key: string]: unknown;
             }[];
-            /**
-             * Schema Version
-             * @default raw-source-snapshot/v2
-             * @enum {string}
-             */
-            schema_version: "raw-source-snapshot/v1" | "raw-source-snapshot/v2";
-            /** Selection Digest */
-            selection_digest: string;
             /** Snapshot Digest */
             snapshot_digest: string;
-            /** Source Byte Count */
-            source_byte_count?: number | null;
-            /** Source Locator */
-            source_locator: string;
             /**
-             * Trigger Kind
-             * @enum {string}
+             * Stable Sort
+             * @default source_order
+             * @constant
              */
-            trigger_kind: "manual" | "scheduled";
+            stable_sort: "source_order";
+            /** Total */
+            total: number;
         };
         /** RawSourceSnapshotReceipt */
         RawSourceSnapshotReceipt: {
@@ -7168,6 +7312,31 @@ export interface components {
              * @constant
              */
             schema_version: "raw-source-snapshot-receipt/v1";
+            /** Snapshot Digest */
+            snapshot_digest: string;
+            /** Source Byte Count */
+            source_byte_count?: number | null;
+        };
+        /** RawSourceSnapshotSummary */
+        RawSourceSnapshotSummary: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Connector Id */
+            connector_id: string;
+            /** Content Sha256 */
+            content_sha256: string;
+            diff: components["schemas"]["RawSnapshotDiff"];
+            /** Id */
+            id: string;
+            /** Object Version */
+            object_version: string;
+            /** Previous Snapshot Id */
+            previous_snapshot_id?: string | null;
+            /** Row Count */
+            row_count: number;
             /** Snapshot Digest */
             snapshot_digest: string;
             /** Source Byte Count */
@@ -8764,6 +8933,21 @@ export interface components {
             /** Target Key */
             target_key: string;
         };
+        /** TrainingTargetCohortSummary */
+        TrainingTargetCohortSummary: {
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Row Count */
+            row_count: number;
+            /** Split Digest */
+            split_digest: string;
+            /** Split Group Count */
+            split_group_count: number;
+            /** Target Field */
+            target_field: string;
+            /** Target Key */
+            target_key: string;
+        };
         /** TrainingTargetDefinition */
         TrainingTargetDefinition: {
             /** Field */
@@ -9243,7 +9427,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConnectorLifecycleDetail"];
+                    "application/json": components["schemas"]["ConnectorLifecycleSummary"];
                 };
             };
             /** @description Validation Error */
@@ -9327,6 +9511,42 @@ export interface operations {
             };
         };
     };
+    curation_run_rows_api_data_lifecycle_curation_runs__run_id__rows_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                reasoned_only?: boolean;
+                status?: ("accepted" | "warning" | "quarantined" | "blocked") | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationRunRowPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     create_curation_run_api_data_lifecycle_raw_snapshots__snapshot_id__curation_runs_post: {
         parameters: {
             query?: never;
@@ -9349,6 +9569,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurationRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    raw_snapshot_rows_api_data_lifecycle_raw_snapshots__snapshot_id__rows_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RawSnapshotRowPage"];
                 };
             };
             /** @description Validation Error */
