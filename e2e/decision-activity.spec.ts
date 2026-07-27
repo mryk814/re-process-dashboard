@@ -83,7 +83,17 @@ test("goal-less robustness explains the prerequisite and offers sensitivity-only
   await expect(page).toHaveURL(/view=project.*project_settings=targets/);
 });
 
-test("candidate difference activity attributes the gap and keeps an explicit residual", async ({ page }) => {
+test("candidate difference activity attributes the gap and keeps an explicit residual", async ({ page, request }) => {
+  const candidatesResponse = await request.get(`${apiBaseUrl}/api/projects/default/candidates`);
+  expect(candidatesResponse.status(), await candidatesResponse.text()).toBe(200);
+  const candidates = await candidatesResponse.json() as Array<{
+    id: string;
+    name: string;
+    revision: number;
+  }>;
+  const comparison = candidates.find((candidate) => candidate.name === "高強度案");
+  expect(comparison, "高強度案の比較候補").toBeTruthy();
+
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
 
@@ -93,7 +103,9 @@ test("candidate difference activity attributes the gap and keeps an explicit res
   await tabs.getByRole("button", { name: "候補差分の要因分解" }).click();
   await expect(page.getByRole("heading", { name: "候補差分の要因分解" })).toBeVisible();
 
-  await page.getByRole("combobox", { name: "比較候補" }).selectOption({ label: "高強度案" });
+  await page.getByRole("combobox", { name: "比較候補" }).selectOption(
+    `${comparison!.id}@${comparison!.revision}`,
+  );
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/decision-activities/candidate-difference-v1/runs")

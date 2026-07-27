@@ -174,6 +174,7 @@ export function HeatPattern({
         />
         {candidate.heat.map((point, index) => (
           <circle
+            role="img"
             tabIndex={0}
             aria-label={`${number(point.time, 2)}分, ${point.temperature}度`}
             key={`${point.time}-${index}`}

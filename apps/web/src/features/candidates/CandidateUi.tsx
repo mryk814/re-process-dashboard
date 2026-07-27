@@ -514,8 +514,8 @@ export function ComparisonTable({
             <dt>目標</dt>
             <dd className={configuredTargetCount === outputs.length ? "is-ready" : "needs-attention"}>
               {configuredTargetCount} / {outputs.length}特性
+              <button type="button" className="decision-summary-link" onClick={onConfigureGoals}>{configuredTargetCount === outputs.length ? "目標を変更" : "目標を設定"}</button>
             </dd>
-            <button type="button" className="decision-summary-link" onClick={onConfigureGoals}>{configuredTargetCount === outputs.length ? "目標を変更" : "目標を設定"}</button>
           </div>
           <div>
             <dt>支持範囲</dt>
@@ -527,8 +527,8 @@ export function ComparisonTable({
                   : supportConcernCount > 0
                     ? `${supportConcernCount}候補を要確認`
                     : "全候補が範囲内"}
+              <button type="button" className="decision-summary-link" onClick={onConfigureSupport}>入力範囲を確認</button>
             </dd>
-            <button type="button" className="decision-summary-link" onClick={onConfigureSupport}>入力範囲を確認</button>
           </div>
           <div>
             <dt>{allOutputsBinary ? "候補間の確率差" : "区間の共通部分"}</dt>
@@ -540,8 +540,8 @@ export function ComparisonTable({
                   : decisionSummary.assessableOutputKeys.length === 0
                     ? "確認中"
                     : `${decisionSummary.overlappingOutputKeys.length} / ${decisionSummary.assessableOutputKeys.length}特性`}
+              {pendingPreviewCount > 0 && <button type="button" className="decision-summary-link" disabled={loadingRemainingPreviews} onClick={onLoadRemainingPreviews}>{loadingRemainingPreviews ? "計算中…" : "残りを計算"}</button>}
             </dd>
-            {pendingPreviewCount > 0 && <button type="button" className="decision-summary-link" disabled={loadingRemainingPreviews} onClick={onLoadRemainingPreviews}>{loadingRemainingPreviews ? "計算中…" : "残りを計算"}</button>}
           </div>
         </dl>
         <p>

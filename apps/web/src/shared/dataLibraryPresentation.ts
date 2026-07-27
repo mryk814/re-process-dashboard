@@ -1,6 +1,8 @@
 import type {
   ApiDataLibraryDataset,
+  ApiDatasetView,
   ApiModelPackageRef,
+  ApiProject,
   ApiProjectCreationOptions,
 } from "./api/workbench-api";
 
@@ -41,6 +43,114 @@ export function datasetDisplayName(dataset: ApiDataLibraryDataset | undefined): 
   if (!dataset) return "Dataset未解決";
   const source = dataset.data_asset.original_filename.replace(/\.(xlsx|csv)$/i, "");
   return `${source} · ${dataset.profile_revision.name}`;
+}
+
+export type ProjectDatasetChoice = {
+  id: string;
+  label: string;
+  purposeLabel: string;
+  sourceLabel: string;
+  createdAt: string;
+  usageCount: number;
+  projectNames: string[];
+  group: "used" | "unused";
+};
+
+type ProjectDatasetChoiceInput = {
+  datasets: ApiDataLibraryDataset[];
+  views: ApiDatasetView[];
+  projects: Array<Pick<ApiProject, "archived_at" | "dataset_view_revision_id" | "id" | "name">>;
+  taskLabels: ReadonlyMap<string, string>;
+  chainLabelsByViewId?: ReadonlyMap<string, readonly string[]>;
+  datasetViewIdsByProjectId?: ReadonlyMap<string, readonly string[]>;
+};
+
+const registrationLabel = (createdAt: string): string => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "登録日時不明";
+  return `登録 ${date.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })}`;
+};
+
+export function projectDatasetChoices({
+  datasets,
+  views,
+  projects,
+  taskLabels,
+  chainLabelsByViewId = new Map(),
+  datasetViewIdsByProjectId = new Map(),
+}: ProjectDatasetChoiceInput): ProjectDatasetChoice[] {
+  const datasetByViewId = new Map(
+    datasets.flatMap((dataset) => (dataset.dataset_views ?? []).map((view) => [view.id, dataset] as const)),
+  );
+  const activeProjects = projects.filter((project) => !project.archived_at);
+  const provisional = views
+    .filter((view) => view.kind === "single")
+    .map((view) => {
+      const dataset = datasetByViewId.get(view.id);
+      const sourceLabel = dataset?.data_asset.original_filename.replace(/\.(xlsx|csv)$/i, "") ?? view.name;
+      const taskPurposes = (dataset?.supported_task_ids ?? []).map(
+        (taskId) => taskLabels.get(taskId) ?? taskId,
+      );
+      const chainPurposes = chainLabelsByViewId.get(view.id) ?? [];
+      const purposes = [...new Set([...taskPurposes, ...chainPurposes])];
+      const purposeLabel = purposes.length > 0 ? purposes.join("・") : view.name;
+      const projectNames = activeProjects
+        .filter((project) => (
+          project.dataset_view_revision_id === view.id
+          || datasetViewIdsByProjectId.get(project.id)?.includes(view.id)
+        ))
+        .map((project) => project.name)
+        .sort((left, right) => left.localeCompare(right, "ja"));
+      return {
+        id: view.id,
+        baseLabel: `${purposeLabel} — ${sourceLabel}`,
+        purposeLabel,
+        sourceLabel,
+        createdAt: view.created_at,
+        usageCount: projectNames.length,
+        projectNames,
+        group: projectNames.length > 0 ? "used" as const : "unused" as const,
+      };
+    });
+  const duplicateCounts = new Map<string, number>();
+  for (const choice of provisional) {
+    duplicateCounts.set(choice.baseLabel, (duplicateCounts.get(choice.baseLabel) ?? 0) + 1);
+  }
+  const uniqueSuffix = (choiceId: string, duplicateIds: string[]): string => {
+    let length = Math.min(6, choiceId.length);
+    while (
+      length < choiceId.length
+      && duplicateIds.some((otherId) => otherId !== choiceId && otherId.endsWith(choiceId.slice(-length)))
+    ) {
+      length = Math.min(length + 2, choiceId.length);
+    }
+    return choiceId.slice(-length);
+  };
+  return provisional
+    .map(({ baseLabel, ...choice }) => {
+      const useLabel = choice.usageCount > 0 ? `利用中${choice.usageCount}件` : "未使用";
+      const duplicateIds = provisional.filter((item) => item.baseLabel === baseLabel).map((item) => item.id);
+      const duplicateLabel = duplicateIds.length > 1
+        ? `・${registrationLabel(choice.createdAt)}・…${uniqueSuffix(choice.id, duplicateIds)}`
+        : "";
+      return {
+        ...choice,
+        label: `${baseLabel}（${useLabel}${duplicateLabel}）`,
+      };
+    })
+    .sort((left, right) => (
+      right.usageCount - left.usageCount
+      || Date.parse(right.createdAt) - Date.parse(left.createdAt)
+      || left.label.localeCompare(right.label, "ja")
+      || left.id.localeCompare(right.id)
+    ));
 }
 
 export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undefined): string {

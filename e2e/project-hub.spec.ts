@@ -116,6 +116,79 @@ test("new project creation can be cancelled or left by selecting an existing pro
   await expect(page.locator(".project-hub-header h2")).toHaveText(otherProjectName);
 });
 
+test("Dataset choices explain use, order, and duplicate identity before Project creation", async ({ page }) => {
+  const projectResponse = await page.request.get(`${apiBaseUrl}/api/projects/default`);
+  expect(projectResponse.status()).toBe(200);
+  const defaultProject = await projectResponse.json() as {
+    name: string;
+    dataset_view_revision_id: string;
+  };
+  const optionsResponse = await page.request.get(`${apiBaseUrl}/api/project-creation-options`);
+  expect(optionsResponse.status()).toBe(200);
+  const options = await optionsResponse.json() as {
+    datasets: Array<{
+      data_asset: { original_filename: string };
+      dataset_revision: { id: string };
+      dataset_views?: Array<{ id: string; name: string }>;
+      profile_revision: { name: string; revision: number };
+    }>;
+  };
+  const source = options.datasets.find(
+    (dataset) => dataset.data_asset.original_filename === "material_workbench_tutorial_v2.xlsx",
+  );
+  expect(source).toBeTruthy();
+  const duplicateLogicalId = `e2e-duplicate-${Date.now()}`;
+  const duplicateResponse = await page.request.post(`${apiBaseUrl}/api/data-library/views`, {
+    data: {
+      view_id: duplicateLogicalId,
+      revision: 1,
+      name: source!.dataset_views?.[0]?.name ?? "material_workbench_tutorial_v2",
+      kind: "single",
+      members: [{ dataset_revision_id: source!.dataset_revision.id, ordinal: 0 }],
+    },
+  });
+  expect(duplicateResponse.status()).toBe(201);
+  const duplicateView = await duplicateResponse.json() as { id: string };
+
+  await page.goto("/?view=project&project=default");
+  await page.getByRole("button", { name: "新規プロジェクト" }).click();
+  const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
+  const datasetSelect = panel.getByRole("combobox", { name: "Dataset", exact: true });
+  const usedOptions = datasetSelect.locator('optgroup[label="利用中のデータ"] > option');
+  const unusedOptions = datasetSelect.locator('optgroup[label="未使用のデータ"] > option');
+
+  await expect(datasetSelect.locator("option[value]").first()).toBeAttached();
+  await expect(usedOptions.first()).toBeAttached();
+  await expect(unusedOptions.first()).toBeAttached();
+  expect(await usedOptions.count()).toBeGreaterThan(0);
+  expect(await unusedOptions.count()).toBeGreaterThan(0);
+  const labels = await datasetSelect.locator("option[value]").allTextContents();
+  expect(new Set(labels).size).toBe(labels.length);
+  expect(labels.join(" ")).not.toContain("thin-sheet-tutorial-v1");
+  const useCounts = (await usedOptions.allTextContents()).map(
+    (label) => Number(label.match(/利用中(\d+)件/)?.[1] ?? 0),
+  );
+  expect(useCounts).toEqual([...useCounts].sort((left, right) => right - left));
+
+  const duplicateLabels = labels.filter((label) => label.includes("material_workbench_tutorial_v2"));
+  expect(duplicateLabels.length).toBeGreaterThanOrEqual(2);
+  expect(duplicateLabels.every((label) => label.includes("登録") && label.includes("…"))).toBe(true);
+
+  await datasetSelect.selectOption(defaultProject.dataset_view_revision_id);
+  const fixedContent = panel.getByRole("region", { name: "作成後に固定される内容" });
+  const fixedDataset = options.datasets.find(
+    (dataset) => dataset.dataset_views?.some((view) => view.id === defaultProject.dataset_view_revision_id),
+  );
+  expect(fixedDataset).toBeTruthy();
+  await expect(fixedContent).toContainText(`利用中: ${defaultProject.name}`);
+  await expect(fixedContent).toContainText(
+    `${fixedDataset!.profile_revision.name} · r${fixedDataset!.profile_revision.revision}`,
+  );
+  await datasetSelect.selectOption(duplicateView.id);
+  await expect(datasetSelect).toHaveValue(duplicateView.id);
+  await expect(fixedContent).toContainText("このDatasetを使うProjectはありません");
+});
+
 test("a continuation can switch prediction task without leaving its series", async ({ page }) => {
   const sourceResponse = await createProjectFromDefault(
     page,
@@ -242,7 +315,12 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /既存グループ/ })).toBeVisible();
   await expect(panel.getByRole("radio", { name: /新しい検討グループ/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
-  await panel.getByRole("combobox", { name: "Dataset", exact: true }).selectOption({ label: "material_workbench_tutorial_v2 · thin-sheet-tutorial-v1" });
+  const datasetSelect = panel.getByRole("combobox", { name: "Dataset", exact: true });
+  const tutorialDatasetValue = () => datasetSelect.evaluate((select: HTMLSelectElement) => (
+    [...select.options].find((option) => option.text.includes("material_workbench_tutorial_v2"))?.value ?? ""
+  ));
+  await expect.poll(tutorialDatasetValue).not.toBe("");
+  await datasetSelect.selectOption(await tutorialDatasetValue());
   await panel.getByRole("combobox", { name: "予測構成" }).selectOption("task:annealed-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await panel.getByRole("radio", { name: /空から開始/ }).check();

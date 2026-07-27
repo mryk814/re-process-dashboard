@@ -32,7 +32,6 @@ from material_workbench.contracts.objective_contracts import (
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
-from material_workbench.execution.inference_work_graph import semantic_digest
 
 
 class ProjectValidationError(ValueError):
@@ -255,6 +254,12 @@ class ProjectService:
         except TaskRegistryError as exc:
             raise ProjectValidationError(str(exc)) from exc
 
+    def _task_definition_digest(self, task_id: str) -> str:
+        try:
+            return task_definition_digest(self.registry, task_id)
+        except TaskRegistryError as exc:
+            raise ProjectValidationError(str(exc)) from exc
+
     def _terminal_task_id(self, project: Project) -> str:
         return self._terminal_task_binding(project)[0]
 
@@ -273,11 +278,8 @@ class ProjectService:
         if not task_stages:
             raise ProjectValidationError("Chainに予測Taskがありません")
         terminal_stage = task_stages[-1]
-        contract = self._contract(terminal_stage.contract_id)
         if (
-            semantic_digest(
-                contract.task_definition.model_dump(mode="json")
-            )
+            self._task_definition_digest(terminal_stage.contract_id)
             != terminal_stage.contract_digest
         ):
             raise ProjectValidationError(
@@ -303,7 +305,7 @@ class ProjectService:
         self.registry.require_available(terminal_task_id)
         contract = self._contract(terminal_task_id)
         if (
-            task_definition_digest(self.registry, terminal_task_id)
+            self._task_definition_digest(terminal_task_id)
             != terminal_stage.contract_digest
         ):
             raise ProjectValidationError(

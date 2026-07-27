@@ -33,7 +33,7 @@
 .lineage-graph-header b,
 .lineage-graph-header span { display: block; }
 .lineage-graph-header span {
-  color: #657386;
+  color: #526276;
   font-size: 10px;
   margin-top: 2px;
 }
@@ -192,7 +192,7 @@
   outline: none;
 }
 .lineage-graph-node b { overflow-wrap: anywhere; font-size: 10px; }
-.lineage-graph-node span { color: #657386; font-size: 8px; }
+.lineage-graph-node span { color: #526276; font-size: 8px; }
 .lineage-graph-node em {
   overflow: hidden;
   color: #9a5a00;
@@ -230,7 +230,7 @@
   place-content: center;
   border: 1px dashed #c5d0dc;
   padding: 30px;
-  color: #657386;
+  color: #526276;
   text-align: center;
 }
 .lineage-empty-overview h3 { margin: 6px 0; color: #263448; }
@@ -314,7 +314,7 @@
 }
 .lineage-browser > label {
   display: block;
-  color: #657386;
+  color: #526276;
   font-size: 11px;
   font-weight: 700;
   margin-bottom: 8px;
@@ -375,7 +375,7 @@
 }
 .lineage-result-meta,
 .lineage-result-observations {
-  color: #657386;
+  color: #526276;
   font-size: 9px;
   line-height: 1.35;
 }
@@ -389,7 +389,7 @@
   background: #edf4fc;
 }
 .lineage-result-list small {
-  color: #657386;
+  color: #526276;
   font-size: 10px;
 }
 .lineage-review-badge {
@@ -439,7 +439,7 @@
   display: block;
 }
 .lineage-canvas-header span {
-  color: #657386;
+  color: #526276;
   font-size: 11px;
   margin-top: 2px;
 }
@@ -502,7 +502,7 @@
   overflow-wrap: anywhere;
 }
 .lineage-node small {
-  color: #657386;
+  color: #526276;
   font-size: 9px;
 }
 .lineage-node em {
@@ -636,7 +636,7 @@
 }
 .lineage-load-error span,
 .lineage-candidate-note {
-  color: #657386;
+  color: #526276;
   font-size: 11px;
 }
 .lineage-candidate-note {
@@ -651,7 +651,7 @@
 }
 .lineage-detail-header p {
   margin: 0;
-  color: #657386;
+  color: #526276;
   font-size: 13px;
 }
 .lineage-node-summary {
@@ -706,7 +706,7 @@
 .lineage-review-editor > div small {
   grid-column: 1 / -1;
   min-height: 13px;
-  color: #657386;
+  color: #526276;
   font-size: 9px;
   text-align: right;
 }
@@ -737,7 +737,7 @@
 }
 .lineage-review-target span,
 .lineage-review-target small {
-  color: #718096;
+  color: #5f6f82;
   font-size: 9px;
 }
 .lineage-review-target strong {
@@ -767,7 +767,7 @@
   border-radius: 5px;
   background: #f4f7fb;
 }
-.lineage-node-evidence-image small { display: block; margin-top: 5px; color: #65758a; font-size: 10px; }
+.lineage-node-evidence-image small { display: block; margin-top: 5px; color: #526276; font-size: 10px; }
 .lineage-node-evidence-image code { color: #536277; }
 .lineage-neighbor-facts {
   margin-bottom: 10px;
@@ -782,7 +782,7 @@
   font-size: 13px;
 }
 .lineage-neighbor-facts h3 small {
-  color: #657386;
+  color: #526276;
   font-size: 10px;
   font-weight: 400;
 }
@@ -807,7 +807,7 @@
 }
 .lineage-group-facts-header p {
   margin: 2px 0 0;
-  color: #657386;
+  color: #526276;
   font-size: 10px;
 }
 .lineage-group-facts-header .text-button {
@@ -852,7 +852,7 @@
 }
 .lineage-node-facts h3 + .lineage-node-facts-scroll { margin-bottom: 10px; }
 .lineage-node-facts h3 small {
-  color: #657386;
+  color: #526276;
   font-size: 10px;
   font-weight: 400;
 }
@@ -908,7 +908,7 @@
 }
 .lineage-detail-grid h3 small {
   font-weight: 400;
-  color: #657386;
+  color: #526276;
 }
 .lineage-detail-grid dl {
   display: grid;
@@ -920,7 +920,7 @@
   display: contents;
 }
 .lineage-detail-grid dt {
-  color: #657386;
+  color: #526276;
   font-size: 12px;
 }
 .lineage-detail-grid dd {

@@ -45,3 +45,27 @@ resource id 単位で `unavailable` として記録する。別 Task と共通�
 障害注入テストでは、壊れた個別 artifact を与えても FastAPI と無関係な Project
 履歴が利用できることを確認する。同時に、Store／schema の障害は引き続き起動を
 失敗させることを確認する。
+
+API断、Task利用停止、workspace catalog不整合は
+`npm run test:e2e:failure-states` でまとめて確認する。catalog不整合はAPIが
+起動してはならないため、ブラウザで正常画面を偽装せず、実DBを衝突状態にして
+起動停止と復旧を検証する。
+
+## workspace catalog不整合からの復旧
+
+Desktopの起動エラーまたはAPIログに
+`WORKBENCH_STARTUP_ERROR` と `"stage":"catalog"` が出た場合は、次の順で扱う。
+
+1. アプリを終了し、現在のWorkspace全体を別の場所へ退避する。
+2. `detail` にあるDataset、Profile、Model Packageなどのresource idとdigestを
+   確認する。DBの行削除やdigestの書換えで辻褄を合わせない。
+3. 更新前のアプリ／Package構成へ戻せる場合は、その構成で起動する。参照中でない
+   古い登録はData Libraryから利用停止にしてから更新をやり直す。
+4. 構成を戻せない場合は、整合性検証済みのWorkspace backupへ復元する。参照中の
+   PackageやDatasetを削除して起動だけ通すことはしない。
+5. backupが無い場合は、退避したWorkspaceと
+   `logs/material-workbench-api.log` を保全して修復対象を特定する。元Excel
+   `data/source/` は変更しない。
+
+同じPackage IDとmanifest digestへ異なるTask contractやmanifest内容を割り当てる
+更新は、既存の判断証跡を別物へ結び直すため自動修復しない。
