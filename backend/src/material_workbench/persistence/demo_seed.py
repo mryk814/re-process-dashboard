@@ -29,6 +29,7 @@ def initialize_demo_projects(
         store.ensure_project(
             starter.project_id,
             ProjectInput(name=starter.name, task_id=task_id),
+            starter=True,
         )
         should_seed = seed_candidates or (not project_existed and starter.seed_on_upgrade)
         if not should_seed or store.list_candidates(starter.project_id):

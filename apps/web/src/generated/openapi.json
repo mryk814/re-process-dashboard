@@ -11840,6 +11840,11 @@
             ],
             "title": "Scientific Identity"
           },
+          "starter": {
+            "default": false,
+            "title": "Starter",
+            "type": "boolean"
+          },
           "target_values": {
             "additionalProperties": {
               "anyOf": [

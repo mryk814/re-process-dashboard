@@ -6287,6 +6287,11 @@ export interface components {
             };
             /** Scientific Identity */
             scientific_identity: components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"];
+            /**
+             * Starter
+             * @default false
+             */
+            starter: boolean;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
