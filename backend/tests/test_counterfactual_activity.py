@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -11,7 +13,9 @@ from material_workbench.application.decision_activity_counterfactual import (
 )
 from material_workbench.application.decision_activity_registry import ActivityContext
 from material_workbench.contracts.decision_activity_contracts import (
+    COUNTERFACTUAL_ACTIVITY,
     CounterfactualParameters,
+    CounterfactualTargetEvaluation,
 )
 from material_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
@@ -209,6 +213,34 @@ def test_counterfactual_finds_the_known_minimal_change_and_is_deterministic() ->
     assert best.changes[0].path == "composition.x"
     assert best.changes[0].proposed_value == pytest.approx(2.5, abs=1e-6)
     assert best.change_distance == pytest.approx(0.25, abs=1e-6)
+    target = best.target_evaluations[0]
+    assert target.achieved is True
+    assert target.shortfall == 0
+    assert target.prediction is not None
+    assert target.prediction.value == target.predicted_value
+    assert target.prediction.quantiles == pytest.approx(
+        {
+            "0.05": target.predicted_value - 0.1,
+            "0.95": target.predicted_value + 0.1,
+        }
+    )
+    assert COUNTERFACTUAL_ACTIVITY.version == "1.1.0"
+
+
+def test_counterfactual_target_evaluation_reads_legacy_results_without_interval() -> None:
+    legacy = CounterfactualTargetEvaluation.model_validate(
+        {
+            "target": "Y",
+            "unit": "a.u.",
+            "predicted_value": 5.0,
+            "achieved": True,
+            "normalized_shortfall": 0.0,
+            "role": "primary_objective",
+        }
+    )
+
+    assert legacy.prediction is None
+    assert legacy.shortfall is None
 
 
 def _copy_project_with_target(client, target: float):
@@ -284,13 +316,59 @@ def test_counterfactual_run_pins_evidence_and_promotes_only_the_selected_proposa
         run["provenance"]["objective_definition_digest"]
         == project["objective_definition_digest"]
     )
+    legacy_run_id = f"legacy-{run['id']}"
+    with sqlite3.connect(client.app.state.store.path) as connection:
+        stored_payload = json.loads(
+            connection.execute(
+                "SELECT payload FROM decision_activity_runs WHERE id = ?",
+                (run["id"],),
+            ).fetchone()[0]
+        )
+        stored_payload["definition"]["version"] = "1.0.0"
+        stored_payload["provenance"]["activity_version"] = "1.0.0"
+        for proposal in stored_payload["result"]["proposals"]:
+            for evaluation in proposal["target_evaluations"]:
+                evaluation.pop("prediction", None)
+                evaluation.pop("shortfall", None)
+        connection.execute(
+            """
+            UPDATE decision_activity_runs
+            SET id = ?, semantic_identity = ?, activity_version = ?, payload = ?
+            WHERE id = ?
+            """,
+            (
+                legacy_run_id,
+                f"legacy-{run['id']}",
+                "1.0.0",
+                json.dumps(stored_payload),
+                run["id"],
+            ),
+        )
+
+    restored_legacy = client.get(
+        f"/api/projects/{project['id']}/decision-activity-runs/{legacy_run_id}"
+    )
+    assert restored_legacy.status_code == 200
+    legacy_target = restored_legacy.json()["result"]["proposals"][0][
+        "target_evaluations"
+    ][0]
+    assert legacy_target["prediction"] is None
+    assert legacy_target["shortfall"] is None
+
+    current_version = client.post(url, json=payload)
+    assert current_version.status_code == 201, current_version.text
+    assert current_version.json()["id"] != legacy_run_id
+    assert current_version.json()["definition"]["version"] == "1.1.0"
+    assert current_version.json()["result"]["proposals"][0]["target_evaluations"][0][
+        "prediction"
+    ] is not None
     before = client.get(
         f"/api/projects/{project['id']}/candidates"
     ).json()
 
     selected = result["proposals"][0]
     promoted = client.post(
-        f"/api/projects/{project['id']}/decision-activity-runs/{run['id']}"
+        f"/api/projects/{project['id']}/decision-activity-runs/{legacy_run_id}"
         f"/proposals/{selected['proposal_id']}/candidate"
     )
 
@@ -298,11 +376,11 @@ def test_counterfactual_run_pins_evidence_and_promotes_only_the_selected_proposa
     created = promoted.json()
     assert created["inputs"] == selected["inputs"]
     assert created["provenance"]["source_kind"] == "decision_activity"
-    assert created["provenance"]["source_ref"]["run_id"] == run["id"]
+    assert created["provenance"]["source_ref"]["run_id"] == legacy_run_id
     after = client.get(f"/api/projects/{project['id']}/candidates").json()
     assert len(after) == len(before) + 1
     repeated = client.post(
-        f"/api/projects/{project['id']}/decision-activity-runs/{run['id']}"
+        f"/api/projects/{project['id']}/decision-activity-runs/{legacy_run_id}"
         f"/proposals/{selected['proposal_id']}/candidate"
     )
     assert repeated.status_code == 201

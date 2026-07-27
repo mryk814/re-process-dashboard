@@ -149,6 +149,10 @@ test("counterfactual activity runs, compares, promotes one proposal and reloads 
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".counterfactual-proposal").first()).toBeVisible();
   await expect(page.locator(".counterfactual-proposal").first()).toContainText("変更量");
+  await expect(page.locator(".counterfactual-proposal").first()).toContainText("✓ 点予測で目標条件を満たす");
+  await expect(page.locator(".counterfactual-targets > span").first()).toContainText("✓ 達成");
+  await expect(page.locator(".counterfactual-targets > span").first()).toContainText("予測区間");
+  await expect(page.locator(".counterfactual-targets > span").first()).toHaveAccessibleName(/点予測.+達成.+予測区間/);
 
   const promoteResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"

@@ -93,6 +93,10 @@ baseline strategyはseed付きSobol候補と一変数の座標線を評価する
 - 支持範囲外の案は無警告で先頭にせず、supported、caution、extrapolatedの順に扱う
 - 到達案がない場合は、特性ごとの最良値と不足量を返す
 - 予測上の達成を実測の達成保証と呼ばない
+- 各特性には判定に使ったcanonical Predictionを保存し、点予測による達成状態と予測区間を分けて表示する
+
+旧Runにはcanonical Predictionが無い場合がある。その場合は再計算したように見せず、
+保存結果では区間情報を利用できないことを明示する。
 
 Activity Runは基準候補revision、Design Space／Objective／Package／Feature Pipeline、
 strategy version、seedを固定する。実行だけでは候補を作らない。
