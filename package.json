@@ -17,6 +17,7 @@
     "verify:full": "node scripts/verify.mjs full",
     "test:e2e": "playwright test",
     "test:e2e:degraded-task": "node scripts/run-degraded-task-e2e.mjs",
+    "test:e2e:failure-states": "node scripts/run-failure-state-e2e.mjs",
     "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
     "smoke:packaged": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-windows-delivery.ps1",
     "models:build:annealed": "uv run python backend/scripts/build_default_model_package.py --replace",
@@ -42,6 +43,7 @@
     "dev:doctor": "uv run python backend/scripts/developer_doctor.py"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "concurrently": "^9.2.1",
     "wait-on": "^8.0.4"

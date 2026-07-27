@@ -43,5 +43,8 @@ jobs:
           npm ci
           uv sync --frozen --extra dev
 
+      - name: Install browser for failure-state E2E
+        run: npx playwright install --with-deps chrome
+
       - name: Run full verification
         run: npm run verify:full

@@ -37,6 +37,7 @@ if (mode === "focused") {
   runNpm("web unit tests", ["run", "test", "-w", "apps/web"]);
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
   runNpm("application build", ["run", "build"]);
+  runNpm("failure-state E2E", ["run", "test:e2e:failure-states"]);
   run("working-tree diff check", "git", ["diff", "--check"]);
   run(`branch diff check (${baseRef}...HEAD)`, "git", ["diff", "--check", `${baseRef}...HEAD`]);
 } else {
