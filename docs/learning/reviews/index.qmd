@@ -28,6 +28,9 @@ node docs/learning/reviews/check-reviews.mjs
 ## Acceptance records
 
 - [Issue #292 Software／Persistence](acceptance-2026-07-27-issue-292.json)
+- [Issue #294 Materials／Model／Prediction／Acquisition](acceptance-2026-07-27-issue-294.json)
+- [Issue #295 Frontend／Desktop／Security](acceptance-2026-07-27-issue-295.json)
+- [Issue #296 System／Chain／Verification](acceptance-2026-07-27-issue-296.json)
 - [Issue #307 Decision Safety／UX](acceptance-2026-07-27-issue-307.json)
 
 このindexは編集者向けです。
