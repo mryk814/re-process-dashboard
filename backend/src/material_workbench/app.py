@@ -326,6 +326,7 @@ def create_app(
                 app.state.store,
                 prepared.modules,
                 prepared.runtimes,
+                prepared.task_registry,
                 seed_candidates=not database_existed or explicit_demo_seed,
             )
         except Exception as exc:

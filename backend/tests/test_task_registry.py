@@ -239,6 +239,28 @@ def test_annealing_starter_candidates_share_equipment_positions(client) -> None:
         assert positions == pytest.approx([positions[0]] * len(positions))
 
 
+def test_annealing_starter_candidates_exclude_undeclared_dataset_fields(
+    client,
+) -> None:
+    task_id = "annealed-properties-v1"
+    registry = client.app.state.task_registry
+    module = registered_task_modules()[task_id]
+    starter = module.starter_project
+    assert starter is not None
+    medians = {
+        **registry.runtime_for(task_id).data.medians,
+        "Ca": 0.01234,
+    }
+    task_definition = registry.contract_for(task_id).task_definition
+
+    candidates = starter.candidate_factory(medians, task_definition)
+
+    assert len(candidates) == 3
+    for candidate in candidates:
+        assert "Ca" not in candidate.inputs.composition
+        registry.validate_candidate(task_id, candidate)
+
+
 @pytest.mark.parametrize("task_id", TASK_IDS)
 def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) -> None:
     if task_id == "annealed-properties-v1":
