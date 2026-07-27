@@ -14,7 +14,11 @@ from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.data.dataset_profile import DatasetInputProfile
 from material_workbench.contracts.schemas import Candidate, CandidateInput
-from material_workbench.contracts.task_contracts import ApplicationCapability, DataExplorerCapability
+from material_workbench.contracts.task_contracts import (
+    ApplicationCapability,
+    DataExplorerCapability,
+    TaskDefinition,
+)
 from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
 
 ANNEALED_TASK_ID = "annealed-properties-v1"
@@ -189,7 +193,10 @@ ModelBuilder = Callable[..., None]
 class StarterProject:
     project_id: str
     name: str
-    candidate_factory: Callable[[dict[str, float]], list[CandidateInput]]
+    candidate_factory: Callable[
+        [dict[str, float], TaskDefinition],
+        list[CandidateInput],
+    ]
     seed_on_upgrade: bool = False
 
 
@@ -211,8 +218,31 @@ class TaskModule:
     curve_family: CurveFamilyHandler | None = None
 
 
-def _annealed_starter_candidates(medians: dict[str, float]) -> list[CandidateInput]:
-    composition = {key: round(value, 5) for key, value in medians.items()}
+def _declared_composition_medians(
+    medians: dict[str, float],
+    task_definition: TaskDefinition,
+) -> dict[str, float]:
+    composition_group = next(
+        group
+        for group in task_definition.input_groups
+        if group.key == "composition"
+    )
+    declared = {
+        field.path.removeprefix("composition.")
+        for field in composition_group.fields
+    }
+    return {
+        key: round(value, 5)
+        for key, value in medians.items()
+        if key in declared
+    }
+
+
+def _annealed_starter_candidates(
+    medians: dict[str, float],
+    task_definition: TaskDefinition,
+) -> list[CandidateInput]:
+    composition = _declared_composition_medians(medians, task_definition)
     reference_line_speed = 103.0
     reference_times = (0.0, 280.0, 340.0, 650.0)
     variants = (
@@ -244,8 +274,11 @@ def _annealed_starter_candidates(medians: dict[str, float]) -> list[CandidateInp
     ]
 
 
-def _hot_rolling_starter_candidates(medians: dict[str, float]) -> list[CandidateInput]:
-    composition = {key: round(value, 5) for key, value in medians.items()}
+def _hot_rolling_starter_candidates(
+    medians: dict[str, float],
+    task_definition: TaskDefinition,
+) -> list[CandidateInput]:
+    composition = _declared_composition_medians(medians, task_definition)
     variants = (
         ("基準熱延", 1170, 900, 34, 3.4, 1160, 30),
         ("高温保持", 1200, 910, 36, 3.2, 1180, 42),
@@ -508,7 +541,10 @@ def _curve_family(
 
 
 def _tabular_starter(task_id: str, name: str) -> StarterProject:
-    def candidates(_medians: dict[str, float]) -> list[CandidateInput]:
+    def candidates(
+        _medians: dict[str, float],
+        _task_definition: TaskDefinition,
+    ) -> list[CandidateInput]:
         from material_workbench.modeling.tabular_regression import load_tabular_data
 
         module = TASK_MODULES[task_id]
@@ -557,7 +593,10 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
     return StarterProject(f"{task_id}-default", name, candidates, seed_on_upgrade=True)
 
 
-def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
+def _welding_stage_c_starter(
+    medians: dict[str, float],
+    _task_definition: TaskDefinition,
+) -> list[CandidateInput]:
     from material_workbench.modeling.observation_regression import (
         resolve_spec,
         stage_c_starter_candidates,
@@ -568,7 +607,10 @@ def _welding_stage_c_starter(medians: dict[str, float]) -> list[CandidateInput]:
     )
 
 
-def _welding_stage_b_starter(_medians: dict[str, float]) -> list[CandidateInput]:
+def _welding_stage_b_starter(
+    _medians: dict[str, float],
+    _task_definition: TaskDefinition,
+) -> list[CandidateInput]:
     from material_workbench.data.stage_b_training import (
         build_stage_b_training_data,
         load_stage_b_profile,
