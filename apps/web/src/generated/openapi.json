@@ -17041,6 +17041,32 @@
             "title": "Message",
             "type": "string"
           },
+          "owner_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "chain",
+                  "transform"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Kind"
+          },
+          "owner_resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Resource Id"
+          },
           "recovery_hint": {
             "default": "",
             "title": "Recovery Hint",

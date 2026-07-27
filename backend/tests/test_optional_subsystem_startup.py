@@ -69,6 +69,8 @@ def test_broken_chain_evaluation_is_isolated_and_structured(
         evaluation = availability[WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID]
         assert evaluation["status"] == "unavailable"
         assert evaluation["cause"].startswith("ValidationError:")
+        assert evaluation["owner_kind"] == "chain"
+        assert evaluation["owner_resource_id"] == "welding-consumable-a-b-c-v1"
         assert "段単体／通し評価" in evaluation["impact"]
         assert "評価JSON" in evaluation["recovery_hint"]
         assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "available"

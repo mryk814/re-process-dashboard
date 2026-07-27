@@ -36,6 +36,8 @@ class SubsystemAvailability(BaseModel):
     subsystem_id: str = Field(min_length=1)
     kind: SubsystemKind
     resource_id: str = Field(min_length=1)
+    owner_kind: Literal["chain", "transform"] | None = None
+    owner_resource_id: str | None = None
     status: Literal["available", "unavailable"] = "available"
     stage: str = Field(min_length=1)
     cause: str | None = None
@@ -61,11 +63,15 @@ class SubsystemAvailabilityRegistry:
         kind: SubsystemKind,
         resource_id: str,
         stage: str,
+        owner_kind: Literal["chain", "transform"] | None = None,
+        owner_resource_id: str | None = None,
     ) -> SubsystemAvailability:
         item = SubsystemAvailability(
             subsystem_id=subsystem_id,
             kind=kind,
             resource_id=resource_id,
+            owner_kind=owner_kind,
+            owner_resource_id=owner_resource_id,
             stage=stage,
         )
         self._items[subsystem_id] = item
@@ -78,6 +84,8 @@ class SubsystemAvailabilityRegistry:
         kind: SubsystemKind,
         resource_id: str,
         stage: str,
+        owner_kind: Literal["chain", "transform"] | None = None,
+        owner_resource_id: str | None = None,
         cause: str,
         message: str,
         impact: str,
@@ -87,6 +95,8 @@ class SubsystemAvailabilityRegistry:
             subsystem_id=subsystem_id,
             kind=kind,
             resource_id=resource_id,
+            owner_kind=owner_kind,
+            owner_resource_id=owner_resource_id,
             status="unavailable",
             stage=stage,
             cause=cause,

@@ -8349,6 +8349,10 @@ export interface components {
              * @default
              */
             message: string;
+            /** Owner Kind */
+            owner_kind?: ("chain" | "transform") | null;
+            /** Owner Resource Id */
+            owner_resource_id?: string | null;
             /**
              * Recovery Hint
              * @default

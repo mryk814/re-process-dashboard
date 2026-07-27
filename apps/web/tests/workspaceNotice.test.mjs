@@ -80,13 +80,14 @@ test("the notice surface is interactive and separates failure from success", asy
 test("an unopened workspace states one recovery action instead of loading forever", async () => {
   const app = await source("../src/app/App.tsx");
   const hub = await source("../src/features/projects/ProjectHub.tsx");
+  const history = await source("../src/features/projects/ProjectEvidenceHistory.tsx");
   const session = await source("../src/features/workbench/useWorkbenchSession.ts");
   assert.match(app, /apiState === "offline" && <ConnectionBanner/);
   assert.match(app, /session\.retryOpenWorkspace\(\)/);
   assert.match(session, /async function retryOpenWorkspace\(\)/);
   // The history reports failure, and recovers with the workspace.
-  assert.match(hub, /historyState === "error" \? <div className="project-history-error"/);
-  assert.match(hub, /履歴を再取得/);
+  assert.match(hub, /error=\{historyState === "error"\}/);
+  assert.match(history, /履歴を再取得/);
   // Dependency lists get reformatted; the recovery dependency itself must stay.
   assert.match(hub, /Recovering the workspace also recovers this overview[\s\S]{0,300}\boffline\b/);
 });
