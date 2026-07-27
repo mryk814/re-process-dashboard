@@ -14,7 +14,10 @@ from material_workbench.developer_experience.schemas import (
     DeveloperDoctorReport,
 )
 from material_workbench.developer_experience.source_inspection import inspect_source_against_profiles
-from material_workbench.modeling.active_package_history import check_active_package_history
+from material_workbench.modeling.active_package_history import (
+    ActivePackageHistoryReport,
+    check_active_package_history,
+)
 from material_workbench.modeling.model_lifecycle import (
     ACTIVE_PACKAGES_PATH,
     load_active_packages,
@@ -47,6 +50,46 @@ def compare_task_sets(task_sets: Mapping[str, Iterable[str]]) -> DeveloperCheck:
             command("npm", ["run", "dev:doctor", "--", "--json"]),
         ],
         details=normalized,
+    )
+
+
+def active_package_history_check(history: ActivePackageHistoryReport) -> DeveloperCheck:
+    if not history.available:
+        severity = "warning"
+        summary = "git履歴を読めないため、直接編集を検査していません。"
+        cause = history.unavailable_reason
+        impact = "active Packageの切替履歴とpreviousの整合を判定できません。"
+    elif not history.ok:
+        severity = "error"
+        summary = "active Package履歴とpreviousにrollbackを妨げる不整合があります。"
+        cause = json.dumps(
+            [item.model_dump(mode="json") for item in (*history.drift, *history.broken_previous)],
+            ensure_ascii=False,
+        )
+        impact = "npm run model:rollback で直前のPackageへ戻せません。"
+    elif history.accepted:
+        severity = "ok"
+        summary = (
+            "rollback可能な直前Packageとpreviousは一致しています。"
+            f"rollback不能な旧版{len(history.accepted)}件のprevious=nullは理由付きで受理しました。"
+        )
+        cause = None
+        impact = None
+    else:
+        severity = "ok"
+        summary = "rollback可能な直前Packageとpreviousの履歴が一致しています。"
+        cause = None
+        impact = None
+    return DeveloperCheck(
+        id="active-package-history",
+        section="packages",
+        title="active切替の記録",
+        severity=severity,
+        summary=summary,
+        cause=cause,
+        impact=impact,
+        commands=[command("npm", ["run", "model:activate", "--", "--task", "<task-id>", "--package", "<path>"])],
+        details=history.model_dump(mode="json"),
     )
 
 
@@ -183,35 +226,7 @@ def run_developer_doctor(
         config_path=active_path if active_path.exists() else ACTIVE_PACKAGES_PATH,
         repository_root=root,
     )
-    if not history.available:
-        history_severity = "warning"
-        history_summary = "git履歴を読めないため、直接編集を検査していません。"
-    elif history.ok:
-        history_severity = "ok"
-        history_summary = "activeの切替はすべて model:activate を経由し、previousが記録されています。"
-    else:
-        history_severity = "error"
-        history_summary = "active-packages.jsonが直接編集され、rollbackできない状態です。"
-    checks.append(DeveloperCheck(
-        id="active-package-history",
-        section="packages",
-        title="active切替の記録",
-        severity=history_severity,
-        summary=history_summary,
-        cause=history.unavailable_reason
-        if not history.available
-        else (
-            None
-            if history.ok
-            else json.dumps(
-                [item.model_dump(mode="json") for item in (*history.drift, *history.broken_previous)],
-                ensure_ascii=False,
-            )
-        ),
-        impact=None if history_severity == "ok" else "npm run model:rollback で直前のPackageへ戻せません。",
-        commands=[command("npm", ["run", "model:activate", "--", "--task", "<task-id>", "--package", "<path>"])],
-        details=history.model_dump(mode="json"),
-    ))
+    checks.append(active_package_history_check(history))
 
     package_errors: dict[str, str] = {}
     package_details: dict[str, object] = {}
