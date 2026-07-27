@@ -112,6 +112,9 @@ try {
     Invoke-Captured "Failure-state Playwright" "npm.cmd" @(
         "run", "test:e2e:failure-states"
     )
+    Invoke-Captured "Chain degraded Playwright" "npx.cmd" @(
+        "playwright", "test", "--config", "playwright.chain-degraded.config.ts"
+    )
     Invoke-Captured "Legacy workspace migration smoke" "uv.exe" @(
         "run", "--extra", "dev", "python", "-m", "pytest",
         "backend/tests/test_legacy_workspace_acceptance.py", "-q"
