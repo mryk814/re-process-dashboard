@@ -45,8 +45,16 @@ function Invoke-Captured {
     $logPath = Join-Path $logRoot "$safeName.log"
     $timer = [Diagnostics.Stopwatch]::StartNew()
     Write-Host "`n== $Name =="
-    $output = @(& $Executable @Arguments 2>&1 | Tee-Object -FilePath $logPath)
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Native stderr contains expected warnings (for example openpyxl).
+        # Capture it in the log and use the process exit code as the gate.
+        $ErrorActionPreference = "Continue"
+        $output = @(& $Executable @Arguments 2>&1 | Tee-Object -FilePath $logPath)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $timer.Stop()
     $summary = @(
         $output |
