@@ -332,6 +332,601 @@
         "title": "ActualMeasurementInput",
         "type": "object"
       },
+      "AiActorIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_kind": {
+            "const": "ai_agent",
+            "default": "ai_agent",
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "agent_definition_id": {
+            "minLength": 1,
+            "title": "Agent Definition Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "model_id": {
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "model_provider": {
+            "minLength": 1,
+            "title": "Model Provider",
+            "type": "string"
+          },
+          "policy_version": {
+            "minLength": 1,
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "toolset_version": {
+            "minLength": 1,
+            "title": "Toolset Version",
+            "type": "string"
+          },
+          "workspace_id": {
+            "minLength": 1,
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor_id",
+          "agent_definition_id",
+          "model_provider",
+          "model_id",
+          "policy_version",
+          "toolset_version",
+          "workspace_id",
+          "capabilities"
+        ],
+        "title": "AiActorIdentity",
+        "type": "object"
+      },
+      "AiReviewAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiActorIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowed_read_tools": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Read Tools",
+            "type": "array"
+          },
+          "allowed_write_tools": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Write Tools",
+            "type": "array"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "AiReviewAvailability",
+        "type": "object"
+      },
+      "AiReviewDisposition": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "disposition": {
+            "enum": [
+              "accepted",
+              "partially_accepted",
+              "rejected",
+              "deferred",
+              "superseded"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "disposition_id": {
+            "minLength": 1,
+            "title": "Disposition Id",
+            "type": "string"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "review_run_id": {
+            "minLength": 1,
+            "title": "Review Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition_id",
+          "review_run_id",
+          "project_id",
+          "disposition",
+          "reason",
+          "actor_id",
+          "recorded_at"
+        ],
+        "title": "AiReviewDisposition",
+        "type": "object"
+      },
+      "AiReviewDispositionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "enum": [
+              "accepted",
+              "partially_accepted",
+              "rejected",
+              "deferred",
+              "superseded"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "reason"
+        ],
+        "title": "AiReviewDispositionInput",
+        "type": "object"
+      },
+      "AiReviewEvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "field_path": {
+            "minLength": 1,
+            "title": "Field Path",
+            "type": "string"
+          },
+          "observed_value_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Observed Value Digest",
+            "type": "string"
+          },
+          "resource_id": {
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_kind": {
+            "enum": [
+              "project",
+              "candidate_revision",
+              "predictive_snapshot",
+              "decision_activity_run",
+              "actual_measurement",
+              "objective_definition",
+              "design_space",
+              "task_capability",
+              "model_package"
+            ],
+            "title": "Resource Kind",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "resource_kind",
+          "resource_id",
+          "field_path",
+          "observed_value_digest"
+        ],
+        "title": "AiReviewEvidenceReference",
+        "type": "object"
+      },
+      "AiReviewFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "objective_fit",
+              "support",
+              "uncertainty",
+              "constraint",
+              "missing_evidence",
+              "next_action"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "claim": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "confidence_kind": {
+            "default": "none",
+            "enum": [
+              "none",
+              "human_readable_heuristic"
+            ],
+            "title": "Confidence Kind",
+            "type": "string"
+          },
+          "confidence_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Level"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/AiReviewEvidenceReference"
+            },
+            "minItems": 1,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "finding_id": {
+            "minLength": 1,
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "reasoning_summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Reasoning Summary",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "caution",
+              "important"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "suggested_action": {
+            "enum": [
+              "inspect_evidence",
+              "run_decision_activity",
+              "collect_measurement",
+              "review_candidate"
+            ],
+            "title": "Suggested Action",
+            "type": "string"
+          },
+          "uncertainty_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Uncertainty Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "category",
+          "severity",
+          "claim",
+          "evidence_refs",
+          "reasoning_summary",
+          "uncertainty_note",
+          "suggested_action"
+        ],
+        "title": "AiReviewFinding",
+        "type": "object"
+      },
+      "AiReviewProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/AiActorIdentity"
+          },
+          "input_snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Input Snapshot Digest",
+            "type": "string"
+          },
+          "prompt_template_version": {
+            "const": "candidate-decision-review-prompt/v1",
+            "default": "candidate-decision-review-prompt/v1",
+            "title": "Prompt Template Version",
+            "type": "string"
+          },
+          "review_task_id": {
+            "const": "candidate-decision-review-v1",
+            "default": "candidate-decision-review-v1",
+            "title": "Review Task Id",
+            "type": "string"
+          },
+          "reviewed_candidate_revision": {
+            "minimum": 1.0,
+            "title": "Reviewed Candidate Revision",
+            "type": "integer"
+          },
+          "sampling_settings": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Sampling Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "actor",
+          "sampling_settings",
+          "input_snapshot_digest",
+          "reviewed_candidate_revision"
+        ],
+        "title": "AiReviewProvenance",
+        "type": "object"
+      },
+      "AiReviewRun": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "findings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AiReviewFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/AiReviewProvenance"
+          },
+          "review_run_id": {
+            "minLength": 1,
+            "title": "Review Run Id",
+            "type": "string"
+          },
+          "reviewed_resource_refs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AiReviewEvidenceReference"
+            },
+            "title": "Reviewed Resource Refs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "ai-review-run/v1",
+            "default": "ai-review-run/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "completed",
+              "partial",
+              "invalid",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "suggested_actions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AiReviewSuggestedAction"
+            },
+            "title": "Suggested Actions",
+            "type": "array"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "workspace_id": {
+            "minLength": 1,
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_run_id",
+          "workspace_id",
+          "project_id",
+          "candidate_id",
+          "state",
+          "started_at",
+          "provenance"
+        ],
+        "title": "AiReviewRun",
+        "type": "object"
+      },
+      "AiReviewRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "AiReviewRunRequest",
+        "type": "object"
+      },
+      "AiReviewSuggestedAction": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "inspect_evidence",
+              "run_decision_activity",
+              "collect_measurement",
+              "review_candidate"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rationale"
+        ],
+        "title": "AiReviewSuggestedAction",
+        "type": "object"
+      },
       "ApiError": {
         "properties": {
           "availability": {
@@ -18611,6 +19206,34 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/ai-review/availability": {
+      "get": {
+        "operationId": "ai_review_availability_api_ai_review_availability_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiReviewAvailability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ai Review Availability"
+      }
+    },
     "/api/canonical-series/{revision_id}/feature-preview": {
       "post": {
         "operationId": "preview_series_features_api_canonical_series__revision_id__feature_preview_post",
@@ -20446,6 +21069,355 @@
         "summary": "Update Project By Id"
       }
     },
+    "/api/projects/{project_id}/ai-review-runs": {
+      "get": {
+        "operationId": "list_ai_review_runs_api_projects__project_id__ai_review_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AiReviewRun"
+                  },
+                  "title": "Response List Ai Review Runs Api Projects  Project Id  Ai Review Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "List Ai Review Runs"
+      }
+    },
+    "/api/projects/{project_id}/ai-review-runs/{review_run_id}": {
+      "get": {
+        "operationId": "get_ai_review_run_api_projects__project_id__ai_review_runs__review_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_run_id",
+            "required": true,
+            "schema": {
+              "title": "Review Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiReviewRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Get Ai Review Run"
+      }
+    },
+    "/api/projects/{project_id}/ai-review-runs/{review_run_id}/dispositions": {
+      "get": {
+        "operationId": "list_ai_review_dispositions_api_projects__project_id__ai_review_runs__review_run_id__dispositions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_run_id",
+            "required": true,
+            "schema": {
+              "title": "Review Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AiReviewDisposition"
+                  },
+                  "title": "Response List Ai Review Dispositions Api Projects  Project Id  Ai Review Runs  Review Run Id  Dispositions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "List Ai Review Dispositions"
+      },
+      "post": {
+        "operationId": "record_ai_review_disposition_api_projects__project_id__ai_review_runs__review_run_id__dispositions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "review_run_id",
+            "required": true,
+            "schema": {
+              "title": "Review Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Development attribution identifier supplied by the trusted local application boundary. This header is not authentication.",
+            "in": "header",
+            "name": "X-Workbench-Human-Actor",
+            "required": true,
+            "schema": {
+              "description": "Development attribution identifier supplied by the trusted local application boundary. This header is not authentication.",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$",
+              "title": "X-Workbench-Human-Actor",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiReviewDispositionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiReviewDisposition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Record Ai Review Disposition"
+      }
+    },
     "/api/projects/{project_id}/batch-selectors": {
       "get": {
         "operationId": "list_batch_selectors_api_projects__project_id__batch_selectors_get",
@@ -21323,6 +22295,94 @@
           }
         },
         "summary": "Delete Actual"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/ai-review-runs": {
+      "post": {
+        "operationId": "run_ai_candidate_review_api_projects__project_id__candidates__candidate_id__ai_review_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiReviewRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiReviewRun"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Run Ai Candidate Review"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/blend-materials": {

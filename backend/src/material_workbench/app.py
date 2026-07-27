@@ -22,6 +22,7 @@ from .api.chains import (
 from .api.data_library import router as data_library_router
 from .api.data_lifecycle import router as data_lifecycle_router
 from .api.series_assets import router as series_assets_router
+from .api.ai_reviews import router as ai_reviews_router
 from .api.decision_activities import router as decision_activities_router
 from .api.developer import router as developer_router
 from .api.project_series import router as project_series_router
@@ -45,6 +46,7 @@ from material_workbench.modeling.transform_catalog import (
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.application.ai_review_provider import AiReviewProvider
 from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
     bootstrap_welding_chain,
@@ -291,6 +293,7 @@ def create_app(
     active_transforms_path: str | Path | None = None,
     chain_evaluation_path: str | Path | None = None,
     blend_contracts: BlendContractRegistry | None = None,
+    ai_review_provider: AiReviewProvider | None = None,
     _resources: _AppResources | None = None,
 ) -> FastAPI:
     database = Path(db_path or os.getenv("WORKBENCH_DB_PATH", "data/workbench.db"))
@@ -332,6 +335,7 @@ def create_app(
         )
         app.state.task_registry = prepared.task_registry
         app.state.blend_contract_registry = blend_contracts or BlendContractRegistry()
+        app.state.ai_review_provider = ai_review_provider
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
             app.state.store = Store(database)
@@ -494,6 +498,7 @@ def create_app(
     app.include_router(data_library_router)
     app.include_router(data_lifecycle_router)
     app.include_router(series_assets_router)
+    app.include_router(ai_reviews_router)
     app.include_router(developer_router)
     app.include_router(project_series_router)
     app.include_router(profile_workbench_router)

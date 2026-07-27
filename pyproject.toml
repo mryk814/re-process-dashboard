@@ -39,6 +39,10 @@ runtime-numpyro = [
 model-package-signing = [
   "cryptography>=44,<46",
 ]
+shared = [
+  "minio>=7.2,<8",
+  "psycopg[binary]>=3.2,<4",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["backend/src"]

@@ -16,6 +16,7 @@ from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
     WELDING_TRANSFORM_SUBSYSTEM_ID,
 )
+from material_workbench.application.ai_review_provider import AiReviewProvider
 
 
 def get_store(request: Request) -> Store:
@@ -61,6 +62,10 @@ def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:
 
 def get_inference_work_graph(request: Request) -> InferenceWorkGraph:
     return request.app.state.inference_work_graph
+
+
+def get_ai_review_provider(request: Request) -> AiReviewProvider | None:
+    return request.app.state.ai_review_provider
 
 
 def project_or_404(store: Store, project_id: str) -> Project:

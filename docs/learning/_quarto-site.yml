@@ -49,6 +49,7 @@ book:
     - part: "Part IX　ケーススタディ"
       chapters:
         - chapters/implementation-case-studies.qmd
+        - chapters/shared-state-and-bounded-actors.qmd
     - part: "編集と保守のガイド"
       chapters:
         - foundations.qmd

@@ -53,7 +53,8 @@
     "compose:up": "node scripts/run-compose-up.mjs",
     "compose:smoke": "docker compose --profile infra run --rm object-smoke",
     "compose:test": "node scripts/run-compose-integration.mjs",
-    "compose:down": "docker compose --profile infra down"
+    "compose:down": "docker compose --profile infra down",
+    "shared:test": "node scripts/run-shared-lab-integration.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
