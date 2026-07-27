@@ -5,6 +5,7 @@ import type {
   ApiDecisionActivityRunRequest,
   ApiCandidate,
 } from "../../../shared/api/workbench-api";
+import type { TargetGoal } from "../../../shared/targetGoals";
 
 export type DecisionActivityParameters = ApiDecisionActivityRunRequest["parameters"];
 
@@ -15,6 +16,7 @@ export type DecisionActivityViewProps = {
   candidates: CandidateViewModel[];
   taskDefinition: TaskDefinitionContract;
   displayDecimalOverrides?: Record<string, number>;
+  targetValues: Record<string, TargetGoal>;
   ready: boolean;
   availability: ApiDecisionActivityAvailability;
   runs: ApiDecisionActivityRun[];
@@ -23,4 +25,5 @@ export type DecisionActivityViewProps = {
   running: boolean;
   onRun: (parameters: DecisionActivityParameters) => Promise<void>;
   onCandidateCreated: (candidate: ApiCandidate) => void;
+  onConfigureGoals: () => void;
 };

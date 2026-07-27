@@ -45,9 +45,9 @@ test("the screening page builds its variable defaults from the safe range", asyn
 
 test("a run without a primary goal asks before ranking anything", async () => {
   const source = await readFile(new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url), "utf8");
-  assert.match(source, /!fixedObjective && !screeningGoalFromDraft\(targetGoal\) && !allowWithoutGoal/);
-  assert.match(source, /主目標が未設定です/);
-  assert.match(source, /目標なしで分布を見る/);
+  assert.match(source, /screeningMode !== "landscape" && !fixedObjective && !screeningGoalFromDraft\(targetGoal\)/);
+  assert.match(source, /有望候補を探すには主目標を入力してください/);
+  assert.match(source, /label: "領域を見る"/);
   assert.match(source, /onConfigureGoals/);
 });
 

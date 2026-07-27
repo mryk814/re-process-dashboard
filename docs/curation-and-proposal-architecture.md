@@ -105,16 +105,23 @@ candidate-level capability gate and semantic Design Space are wired through the
 UI. Raw heat-point exploration therefore remains explicit rather than being
 mislabelled as an engineering-program generator.
 
-`screening-run/v6` pins Design Space and Objective digests, model/package,
+`screening-run/v7` pins the user's purpose (`design_space_map`, `goal_search`,
+or `experiment_batch`) in addition to Design Space and Objective digests, model/package,
 Feature Pipeline and Dataset provenance, the actual generator/acquisition/
 selector versions, seed, support policy, complete evaluated pool and selection
-rank. Older screening runs remain readable without being rewritten.
+rank. A Design Space map deliberately ignores a Project Objective and stores
+reporting-only output metadata with support-distance evidence. An experiment
+batch stores `source_run_id` and selects from that immutable goal-search pool;
+it does not regenerate a second proposal. Older screening runs remain readable
+without being rewritten, and their display purpose is inferred from goal and
+batch evidence.
 
 ### Experiment batch selection
 
-An optional `batch-proposal-definition/v1` selects an experiment batch from an
+The `experiment_batch` purpose uses `batch-proposal-definition/v1` to select an experiment batch from an
 explicitly sized acquisition-ranked prefix plus revision-pinned exact controls.
-This is a separate selector, not a joint acquisition function.
+Its source must be a compatible saved `goal_search` Run. This is a separate
+selector, not a joint acquisition function.
 
 - `ranked_top_k_v1` is the explicit baseline.
 - `greedy_value_diversity_v1` combines acquisition-rank utility with maximin

@@ -7,13 +7,15 @@ type RobustnessReading = {
 };
 
 async function runRobustness(page: import("@playwright/test").Page): Promise<RobustnessReading> {
+  const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
+  if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
   await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("64");
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/decision-activities/robustness-analysis-v1/runs")
   ));
-  await page.getByRole("button", { name: "公差内を解析" }).click();
+  await page.getByRole("button", { name: /公差内を解析|ばらつきを解析/ }).click();
   expect((await runResponse).status()).toBe(201);
 
   const target = page.locator(".activity-targets article").filter({ hasText: "降伏強さ" });
@@ -44,6 +46,41 @@ test("robustness activity distinguishes a higher average candidate from a steadi
   await page.getByRole("button", { name: "基準候補を選択" }).click();
   await expect(page.getByRole("navigation", { name: "保存済みロバストネス解析" })).toBeVisible();
   await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
+});
+
+test("goal-less robustness explains the prerequisite and offers sensitivity-only analysis", async ({ page, request }) => {
+  const binding = await resolveProjectBinding(request, "annealed-properties-v1");
+  const projectResponse = await request.post(`${apiBaseUrl}/api/projects`, {
+    data: { name: "目標未設定ロバストネスE2E", ...binding },
+  });
+  expect(projectResponse.status(), await projectResponse.text()).toBe(201);
+  const project = await projectResponse.json() as { id: string };
+  const starter = await starterCandidate(request, "annealed-properties-v1");
+  const candidateResponse = await request.post(`${apiBaseUrl}/api/projects/${project.id}/candidates`, {
+    data: { ...starter, name: "基準候補" },
+  });
+  expect(candidateResponse.status(), await candidateResponse.text()).toBe(201);
+
+  await page.goto(`/?view=candidates&project=${project.id}`);
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await expect(page.getByText("目標達成率を確認するには、Projectの目標値が必要です")).toBeVisible();
+  await expect(page.getByRole("button", { name: "目標を設定する" })).toBeVisible();
+  await expect(page.locator(".activity-settings")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "目標なしでばらつきだけ見る" }).click();
+  await expect(page.getByText("入力のばらつきで予測がどの程度動くか")).toBeVisible();
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/decision-activities/robustness-analysis-v1/runs")
+  ));
+  await page.getByRole("button", { name: "ばらつきを解析" }).click();
+  expect((await runResponse).status()).toBe(201);
+  await expect(
+    page.getByText("この解析の実行時に、この特性の目標が未設定だったため達成率は算出していません。").first(),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "目標を設定する" }).click();
+  await expect(page).toHaveURL(/view=project.*project_settings=targets/);
 });
 
 test("candidate difference activity attributes the gap and keeps an explicit residual", async ({ page }) => {

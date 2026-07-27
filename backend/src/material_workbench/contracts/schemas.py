@@ -601,6 +601,10 @@ class ScreeningGoal(BaseModel):
 class ScreeningRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    purpose: Literal[
+        "design_space_map", "goal_search", "experiment_batch"
+    ]
+    source_run_id: Annotated[str, Field(min_length=1)] | None = None
     base_candidate_id: Annotated[str, Field(min_length=1)]
     base_inputs: CandidateInputs
     variables: Annotated[dict[str, ScreeningVariable], Field(min_length=1)]
@@ -633,6 +637,20 @@ class ScreeningRequest(BaseModel):
             for item in self.batch_definition.controls
         ):
             raise ValueError("exact Controlには選択時点のcandidate revisionが必要です")
+        if self.purpose == "design_space_map":
+            if self.target_goal is not None or self.secondary_goals:
+                raise ValueError("領域を見るRunには目標を指定しません")
+            if self.objective_definition is not None:
+                raise ValueError("領域を見るRunにはObjectiveを指定しません")
+            if self.batch_definition is not None or self.source_run_id is not None:
+                raise ValueError("領域を見るRunにはbatch元を指定しません")
+            if self.proposal.support_policy != "allow_with_warning":
+                raise ValueError("領域を見るRunは学習範囲外も地図へ含めてください")
+        elif self.purpose == "goal_search":
+            if self.batch_definition is not None or self.source_run_id is not None:
+                raise ValueError("有望候補Runにはbatch元を指定しません")
+        elif self.batch_definition is None or self.source_run_id is None:
+            raise ValueError("実験バッチには元の有望候補Runとbatch定義が必要です")
         return self
 
 
@@ -1201,10 +1219,14 @@ class ScreeningProposalDiagnostics(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
+    purpose: Literal[
+        "design_space_map", "goal_search", "experiment_batch"
+    ] | None = None
+    source_run_id: str | None = None
     seed: int
     base_candidate_id: str
     base_inputs: CandidateInputs | None = None
@@ -1250,7 +1272,7 @@ class ScreeningRunResponse(BaseModel):
 
     @model_validator(mode="after")
     def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
-        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6"}:
+        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"}:
             return self
         if (
             self.design_space is None
@@ -1266,7 +1288,7 @@ class ScreeningRunResponse(BaseModel):
         expected_generated = self.samples * self.proposal_strategy.pool_multiplier
         if self.proposal_diagnostics.generated_count != expected_generated:
             raise ValueError("proposal diagnostics must cover the complete generated pool")
-        if self.schema_version == "screening-run/v6":
+        if self.schema_version in {"screening-run/v6", "screening-run/v7"}:
             if self.proposal_diagnostics.evaluated_count != self.proposal_diagnostics.valid_count:
                 raise ValueError("screening-run/v6 must evaluate the complete valid pool")
             if self.proposal_diagnostics.selected_count != self.samples:
@@ -1322,7 +1344,7 @@ class ScreeningRunResponse(BaseModel):
                     )
         elif self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
-        if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6"}:
+        if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"}:
             if self.__dict__["target_value"] is not None or self.__dict__["secondary_targets"]:
                 raise ValueError("screening-run/v4 must use target_goal and secondary_goals")
             if self.target in self.secondary_goals:
@@ -1330,7 +1352,7 @@ class ScreeningRunResponse(BaseModel):
             expected_direction = self.target_goal.direction if self.target_goal else None
             if self.score_contract.direction != expected_direction:
                 raise ValueError("score contract direction must match target_goal")
-        if self.schema_version in {"screening-run/v5", "screening-run/v6"}:
+        if self.schema_version in {"screening-run/v5", "screening-run/v6", "screening-run/v7"}:
             if self.objective_definition is None or self.objective_definition_digest is None:
                 raise ValueError("screening-run/v5 requires an Objective Definition")
             if self.objective_definition.digest != self.objective_definition_digest:
@@ -1350,6 +1372,31 @@ class ScreeningRunResponse(BaseModel):
                 or self.score_contract.upper != expected_upper
             ):
                 raise ValueError("score contract bounds must match target_goal")
+        if self.schema_version == "screening-run/v7":
+            if self.purpose is None:
+                raise ValueError("screening-run/v7 requires purpose")
+            if self.purpose == "design_space_map":
+                if (
+                    self.source_run_id is not None
+                    or self.target_goal is not None
+                    or self.secondary_goals
+                    or self.objective_execution is not None
+                    or self.batch_proposal is not None
+                ):
+                    raise ValueError("design-space map must not contain goal or batch execution")
+                if self.score_contract.fallback != "support_distance":
+                    raise ValueError("design-space map must use support-distance evidence")
+            elif self.purpose == "goal_search":
+                if self.source_run_id is not None or self.batch_proposal is not None:
+                    raise ValueError("goal search must not contain batch evidence")
+                if self.objective_execution is None:
+                    raise ValueError("goal search requires objective execution")
+            elif (
+                self.source_run_id is None
+                or self.batch_proposal is None
+                or self.objective_execution is None
+            ):
+                raise ValueError("experiment batch requires its source and objective evidence")
         return self
 
 

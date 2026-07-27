@@ -120,6 +120,7 @@ def test_observed_best_records_project_actual_population_evidence(client) -> Non
     response = client.post(
         "/api/screening?project_id=default",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": candidate["id"],
             "base_inputs": candidate["inputs"],
             "samples": 48,
@@ -149,6 +150,7 @@ def test_request_override_is_saved_as_manual_incumbent_provenance(client) -> Non
     response = client.post(
         "/api/screening?project_id=default",
         json={
+            "purpose": "goal_search",
             "base_candidate_id": candidate["id"],
             "base_inputs": candidate["inputs"],
             "samples": 48,
