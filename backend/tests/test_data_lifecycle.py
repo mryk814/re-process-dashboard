@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 from pathlib import Path
 
@@ -15,11 +17,15 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     CurationRunCreateInput,
     DatasetApprovalInput,
     ObjectSelection,
+    RawSourceSnapshot,
     SourceConnectorCreateInput,
     SourceFetchRequest,
     TrainingSnapshotCreateInput,
 )
 from material_workbench.domain.data_lifecycle import LifecycleConflictError
+from material_workbench.developer_experience.data_lifecycle_benchmark import (
+    synthetic_payload,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.data_lifecycle_repository import (
@@ -173,6 +179,208 @@ def test_failure_retry_and_duplicate_fetch_do_not_store_credentials(tmp_path) ->
             source_locator="s3://user:password@bucket/key?token=secret",
             selection=ObjectSelection(format="json_array"),
         )
+
+
+def test_locator_ingress_streams_source_larger_than_inline_contract(tmp_path) -> None:
+    database = tmp_path / "workbench.db"
+    Store(database)
+    row_count = 15_000
+    source_bytes = synthetic_payload(
+        row_count,
+        shape="representative",
+    ).encode("utf-8")
+    assert len(source_bytes) > 5_000_000
+    source = tmp_path / "representative.json"
+    expected_digest = hashlib.sha256(source_bytes).hexdigest()
+
+    service = DataLifecycleService(database)
+    connector = service.create_connector(
+        SourceConnectorCreateInput(
+            name="5MB超fixture",
+            connector_type="object_storage_json_v1",
+            source_locator=source.resolve().as_uri(),
+            selection=ObjectSelection(
+                format="json_array",
+                primary_key="id",
+            ),
+        )
+    )
+    secret = "LOCATOR-CREDENTIAL-MUST-NOT-PERSIST"
+    locator_request = SourceFetchRequest(
+        ingress="source_locator",
+        expected_content_sha256=expected_digest,
+        expected_row_count=row_count,
+    )
+    assert len(locator_request.model_dump_json()) < 1_000
+    assert "temperature_c" not in locator_request.model_dump_json()
+
+    with pytest.raises(SourceFetchFailedError) as unavailable:
+        service.fetch(
+            connector.id,
+            locator_request,
+            source_credential=secret,
+        )
+    source.write_bytes(source_bytes)
+    with pytest.raises(SourceFetchFailedError) as failed:
+        service.fetch(
+            connector.id,
+            SourceFetchRequest(
+                ingress="source_locator",
+                retry_of=unavailable.value.attempt.id,
+                expected_content_sha256=expected_digest,
+                expected_row_count=row_count + 1,
+            ),
+            source_credential=secret,
+        )
+    snapshot, retry = service.fetch(
+        connector.id,
+        SourceFetchRequest(
+            ingress="source_locator",
+            retry_of=failed.value.attempt.id,
+            expected_content_sha256=expected_digest,
+            expected_row_count=row_count,
+        ),
+        source_credential=secret,
+    )
+    duplicate, duplicate_attempt = service.fetch(
+        connector.id,
+        SourceFetchRequest(
+            ingress="source_locator",
+            expected_content_sha256=expected_digest,
+            expected_row_count=row_count,
+        ),
+    )
+
+    assert unavailable.value.attempt.error_code == "source_unavailable"
+    assert failed.value.attempt.error_code == "source_integrity_mismatch"
+    assert retry.retry_of == failed.value.attempt.id
+    assert snapshot.content_sha256 == expected_digest
+    assert snapshot.source_byte_count == len(source_bytes)
+    assert snapshot.object_version == f"sha256:{expected_digest}"
+    assert snapshot.row_count == row_count
+    assert duplicate.id == snapshot.id
+    assert duplicate_attempt.reused_existing_snapshot is True
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == expected_digest
+    assert secret.encode() not in database.read_bytes()
+    tampered = snapshot.model_dump(mode="json")
+    tampered["source_byte_count"] += 1
+    with pytest.raises(ValidationError, match="digest"):
+        RawSourceSnapshot.model_validate(tampered)
+
+
+def test_locator_ingress_http_contract_returns_compact_receipt(
+    client,
+    tmp_path,
+) -> None:
+    row_count = 15_000
+    source_bytes = synthetic_payload(
+        row_count,
+        shape="representative",
+    ).encode("utf-8")
+    assert len(source_bytes) > 5_000_000
+    source = tmp_path / "http-representative.json"
+    source.write_bytes(source_bytes)
+    expected_digest = hashlib.sha256(source_bytes).hexdigest()
+    connector_response = client.post(
+        "/api/data-lifecycle/connectors",
+        json=SourceConnectorCreateInput(
+            name="HTTP locator受入",
+            connector_type="object_storage_json_v1",
+            source_locator=source.resolve().as_uri(),
+            selection=ObjectSelection(format="json_array", primary_key="id"),
+        ).model_dump(mode="json"),
+    )
+    assert connector_response.status_code == 201, connector_response.text
+    connector_id = connector_response.json()["id"]
+    request_json = {
+        "schema_version": "source-fetch-request/v1",
+        "ingress": "source_locator",
+        "trigger_kind": "manual",
+        "expected_content_sha256": expected_digest,
+        "expected_row_count": row_count,
+    }
+    secret = "HTTP-LOCATOR-SECRET-MUST-NOT-PERSIST"
+
+    response = client.post(
+        f"/api/data-lifecycle/connectors/{connector_id}/fetch",
+        json=request_json,
+        headers={"X-Source-Credential": secret},
+    )
+
+    assert response.status_code == 201, response.text
+    assert len(json.dumps(request_json)) < 1_000
+    assert "temperature_c" not in json.dumps(request_json)
+    assert len(response.content) < 10_000
+    assert secret not in response.text
+    receipt = response.json()["snapshot"]
+    assert receipt["schema_version"] == "raw-source-snapshot-receipt/v1"
+    assert receipt["source_byte_count"] == len(source_bytes)
+    assert receipt["content_sha256"] == expected_digest
+    assert receipt["row_count"] == row_count
+    assert "rows" not in receipt
+    assert secret.encode() not in Path(client.app.state.store.path).read_bytes()
+
+
+def test_locator_ingress_does_not_accept_inline_content() -> None:
+    with pytest.raises(ValidationError, match="requestへ含められません"):
+        SourceFetchRequest(
+            ingress="source_locator",
+            object_content=V1,
+            object_version="ambiguous",
+        )
+
+
+def test_duplicate_fetch_of_legacy_v1_snapshot_returns_receipt(client) -> None:
+    database = Path(client.app.state.store.path)
+    service = DataLifecycleService(database)
+    connector = service.create_connector(_connector())
+    current, _ = service.fetch(
+        connector.id,
+        SourceFetchRequest(object_content=V1, object_version="legacy-source"),
+    )
+    legacy_identity = {
+        "connector_id": current.connector_id,
+        "connector_configuration_digest": current.connector_configuration_digest,
+        "source_locator": current.source_locator,
+        "selection_digest": current.selection_digest,
+        "object_version": current.object_version,
+        "trigger_kind": current.trigger_kind,
+        "content_sha256": current.content_sha256,
+        "rows": current.rows,
+    }
+    legacy_payload = current.model_dump(mode="json")
+    legacy_payload["schema_version"] = "raw-source-snapshot/v1"
+    legacy_payload["source_byte_count"] = None
+    legacy_payload["snapshot_digest"] = semantic_digest(legacy_identity)
+    with sqlite3.connect(database) as conn:
+        conn.execute(
+            "UPDATE raw_source_snapshots SET payload=?,snapshot_digest=? WHERE id=?",
+            (
+                json.dumps(legacy_payload, ensure_ascii=False),
+                legacy_payload["snapshot_digest"],
+                current.id,
+            ),
+        )
+
+    response = client.post(
+        f"/api/data-lifecycle/connectors/{connector.id}/fetch",
+        json={
+            "schema_version": "source-fetch-request/v1",
+            "trigger_kind": "manual",
+            "object_content": V1,
+            "object_version": "legacy-repeat",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["attempt"]["reused_existing_snapshot"] is True
+    assert response.json()["snapshot"]["schema_version"] == (
+        "raw-source-snapshot-receipt/v1"
+    )
+    assert response.json()["snapshot"]["source_byte_count"] is None
+    assert response.json()["snapshot"]["snapshot_digest"] == (
+        legacy_payload["snapshot_digest"]
+    )
 
 
 def test_scheduled_fetch_is_separate_from_manual_fetch(tmp_path) -> None:

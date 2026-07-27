@@ -121,6 +121,7 @@ def build_raw_snapshot(
     content: str,
     *,
     object_version: str,
+    source_byte_count: int | None = None,
     trigger_kind: str,
     previous: RawSourceSnapshot | None,
     captured_at: datetime | None = None,
@@ -136,6 +137,7 @@ def build_raw_snapshot(
         "object_version": object_version,
         "trigger_kind": trigger_kind,
         "content_sha256": content_sha256,
+        "source_byte_count": source_byte_count or len(content.encode("utf-8")),
         "rows": rows,
     }
     digest = semantic_digest(payload)
@@ -149,6 +151,7 @@ def build_raw_snapshot(
         trigger_kind=trigger_kind,  # type: ignore[arg-type]
         captured_at=captured,
         content_sha256=content_sha256,
+        source_byte_count=source_byte_count or len(content.encode("utf-8")),
         row_count=len(rows),
         rows=rows,
         previous_snapshot_id=previous.id if previous else None,

@@ -61,6 +61,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [objectContent, setObjectContent] = useState("");
   const [objectVersion, setObjectVersion] = useState("");
   const [credential, setCredential] = useState("");
+  const [expectedContentDigest, setExpectedContentDigest] = useState("");
+  const [expectedRowCount, setExpectedRowCount] = useState("");
   const [recipeName, setRecipeName] = useState("");
   const [numberFields, setNumberFields] = useState("");
   const [requiredFields, setRequiredFields] = useState("");
@@ -117,6 +119,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
 
   useEffect(() => {
     const controller = new AbortController();
+    setCredential("");
+    setExpectedContentDigest("");
+    setExpectedRowCount("");
     setOverrideRowKeys([]);
     setOverrideReasons({});
     setApprovalReason("");
@@ -217,6 +222,13 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const resolvedTrainingFolds = Number(trainingFolds);
   const selectedProfile = profiles.find((item) => item.id === profileId);
   const currentActor = catalog?.current_actor;
+  const locatorFetchSupported = Boolean(
+    detail
+    && (
+      detail.connector.source_locator.startsWith("file://")
+      || /^[A-Za-z]:[\\/]/.test(detail.connector.source_locator)
+    ),
+  );
   const overrideCandidates = latestRun?.rows.filter((row) => row.status === "quarantined") ?? [];
   const overrideReasonMissing = overrideRowKeys.some((rowKey) => !overrideReasons[rowKey]?.trim());
   const approvalBlocked = busy === "approve"
@@ -259,7 +271,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     });
   }
 
-  async function fetchRaw() {
+  async function fetchRaw(ingress: "inline" | "source_locator") {
     if (!selectedId) return;
     await act("fetch", async () => {
       const oneTimeCredential = credential;
@@ -267,9 +279,16 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
       const fetched = await workbenchApi.fetchSourceConnector(selectedId, {
         schema_version: "source-fetch-request/v1",
         trigger_kind: "manual",
-        object_content: objectContent,
-        object_version: objectVersion.trim(),
+        ingress,
+        object_content: ingress === "inline" ? objectContent : null,
+        object_version: ingress === "inline" ? objectVersion.trim() : null,
         retry_of: null,
+        expected_content_sha256: ingress === "source_locator" && expectedContentDigest.trim()
+          ? expectedContentDigest.trim()
+          : null,
+        expected_row_count: ingress === "source_locator" && expectedRowCount.trim()
+          ? Number(expectedRowCount)
+          : null,
       }, oneTimeCredential);
       await refreshDetail(selectedId);
       setNotice(fetched.attempt.reused_existing_snapshot
@@ -436,6 +455,16 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             </>}
           </div>
         </section>}
+        {locatorFetchSupported && <details className="source-action-panel" open={!latestRaw}>
+          <summary>登録した場所から取得</summary>
+          <p>Connectorに登録したファイルを直接読み込みます。内容はrequestへ展開せず、読込時にSHA-256と行数を検証します。</p>
+          <div className="source-action-grid">
+            <label>期待するSHA-256（任意）<input value={expectedContentDigest} onChange={(event) => setExpectedContentDigest(event.target.value)} /></label>
+            <label>期待する行数（任意）<input type="number" min="0" step="1" value={expectedRowCount} onChange={(event) => setExpectedRowCount(event.target.value)} /></label>
+            <label>一時認証情報<input type="password" autoComplete="off" value={credential} onChange={(event) => setCredential(event.target.value)} /></label>
+          </div>
+          <button className="primary-button" type="button" disabled={busy === "fetch" || (expectedRowCount.trim() !== "" && (!Number.isInteger(Number(expectedRowCount)) || Number(expectedRowCount) < 0))} onClick={() => void fetchRaw("source_locator")}>{busy === "fetch" ? "取得中…" : "登録した場所から取得"}</button>
+        </details>}
         <details className="source-action-panel source-validation-mode">
           <summary>検証モード：JSONを直接入力</summary>
           <p>接続確認用です。入力内容と認証情報は初期表示せず、認証情報は保存しません。</p>
@@ -444,10 +473,10 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             <label>一時認証情報<input type="password" autoComplete="off" value={credential} onChange={(event) => setCredential(event.target.value)} /></label>
           </div>
           <label>JSONデータ<textarea rows={5} value={objectContent} onChange={(event) => setObjectContent(event.target.value)} /></label>
-          <button className="outline-button" type="button" disabled={!objectVersion.trim() || !objectContent.trim() || busy === "fetch"} onClick={() => void fetchRaw()}>{busy === "fetch" ? "取得中…" : "検証データを取得"}</button>
+          <button className="outline-button" type="button" disabled={!objectVersion.trim() || !objectContent.trim() || busy === "fetch"} onClick={() => void fetchRaw("inline")}>{busy === "fetch" ? "取得中…" : "検証データを取得"}</button>
         </details>
         {latestRaw && <div className="source-snapshot-summary">
-          <div><span>最新の取得版</span><strong>{latestRaw.row_count}行</strong><code>{shortDigest(latestRaw.snapshot_digest)}</code></div>
+          <div><span>最新の取得版</span><strong>{latestRaw.row_count}行</strong><code>{shortDigest(latestRaw.snapshot_digest)}</code>{latestRaw.source_byte_count && <small>{latestRaw.source_byte_count.toLocaleString("ja-JP")} bytes</small>}</div>
           <dl><div><dt>追加</dt><dd>+{latestRaw.diff.added_rows}</dd></div><div><dt>変更</dt><dd>{latestRaw.diff.changed_rows}</dd></div><div><dt>消失</dt><dd>-{latestRaw.diff.removed_rows}</dd></div></dl>
         </div>}
         <details className="source-action-panel" open={latestRawNeedsCuration}>

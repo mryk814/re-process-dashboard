@@ -31,6 +31,11 @@ from material_workbench.domain.data_lifecycle import (
 from material_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )
+from material_workbench.application.source_ingress import (
+    SourceIngressError,
+    SourceIntegrityError,
+    load_source_object,
+)
 
 
 class SourceFetchFailedError(ValueError):
@@ -58,9 +63,12 @@ class DataLifecycleService:
         self,
         connector_id: str,
         request: SourceFetchRequest,
+        *,
+        source_credential: str | None = None,
     ) -> tuple[RawSourceSnapshot, FetchAttempt]:
         connector = self.repository.get_connector(connector_id)
         started = datetime.now(UTC)
+        attempt_object_version = request.object_version or "connector-locator"
         if request.trigger_kind == "scheduled" and (
             connector.trigger_policy != "schedulable"
             or connector.schedule is None
@@ -70,7 +78,7 @@ class DataLifecycleService:
                 id=f"fetch-attempt-{uuid.uuid4()}",
                 connector_id=connector.id,
                 trigger_kind=request.trigger_kind,
-                object_version=request.object_version,
+                object_version=attempt_object_version,
                 status="failed",
                 error_code="scheduled_trigger_not_allowed",
                 error_message="このConnectorのscheduled取得は有効ではありません",
@@ -82,20 +90,78 @@ class DataLifecycleService:
             raise SourceFetchFailedError(attempt)
         previous_items = self.repository.list_raw_snapshots(connector_id)
         previous = previous_items[-1] if previous_items else None
+        source_byte_count: int | None = None
         try:
+            if request.ingress == "source_locator":
+                loaded = load_source_object(
+                    connector.source_locator,
+                    credential=source_credential,
+                )
+                object_content = loaded.content
+                source_byte_count = loaded.byte_count
+                attempt_object_version = loaded.object_version
+                if (
+                    request.expected_content_sha256 is not None
+                    and loaded.content_sha256 != request.expected_content_sha256
+                ):
+                    raise SourceIntegrityError("source digest does not match")
+            else:
+                assert request.object_content is not None
+                object_content = request.object_content
             candidate = build_raw_snapshot(
                 connector,
-                request.object_content,
-                object_version=request.object_version,
+                object_content,
+                object_version=attempt_object_version,
+                source_byte_count=source_byte_count,
                 trigger_kind=request.trigger_kind,
                 previous=previous,
             )
+            if (
+                request.expected_content_sha256 is not None
+                and candidate.content_sha256 != request.expected_content_sha256
+            ) or (
+                request.expected_row_count is not None
+                and candidate.row_count != request.expected_row_count
+            ):
+                raise SourceIntegrityError(
+                    "source integrity expectation does not match"
+                )
+        except SourceIntegrityError:
+            attempt = FetchAttempt(
+                id=f"fetch-attempt-{uuid.uuid4()}",
+                connector_id=connector.id,
+                trigger_kind=request.trigger_kind,
+                object_version=attempt_object_version,
+                status="failed",
+                error_code="source_integrity_mismatch",
+                error_message="取得objectの完全性を確認できません",
+                retry_of=request.retry_of,
+                started_at=started,
+                finished_at=datetime.now(UTC),
+            )
+            self.repository.save_attempt(attempt)
+            raise SourceFetchFailedError(attempt) from None
+        except SourceIngressError:
+            attempt = FetchAttempt(
+                id=f"fetch-attempt-{uuid.uuid4()}",
+                connector_id=connector.id,
+                trigger_kind=request.trigger_kind,
+                object_version=attempt_object_version,
+                status="failed",
+                error_code="source_unavailable",
+                error_message="取得objectをlocatorから読み込めません",
+                retry_of=request.retry_of,
+                started_at=started,
+                finished_at=datetime.now(UTC),
+            )
+            self.repository.save_attempt(attempt)
+            raise SourceFetchFailedError(attempt) from None
         except SourceObjectError:
             attempt = FetchAttempt(
                 id=f"fetch-attempt-{uuid.uuid4()}",
                 connector_id=connector.id,
                 trigger_kind=request.trigger_kind,
-                object_version=request.object_version,
+                object_version=attempt_object_version,
                 status="failed",
                 error_code="invalid_object",
                 error_message="取得objectを許可されたJSON形式として解釈できません",
@@ -110,7 +176,7 @@ class DataLifecycleService:
             id=f"fetch-attempt-{uuid.uuid4()}",
             connector_id=connector.id,
             trigger_kind=request.trigger_kind,
-            object_version=request.object_version,
+            object_version=attempt_object_version,
             status="succeeded",
             retry_of=request.retry_of,
             snapshot_id=snapshot.id,

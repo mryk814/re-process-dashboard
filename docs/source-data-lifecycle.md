@@ -37,6 +37,17 @@ credentialは取得requestの一時headerであり、Connector、request body、
 APIは `X-Source-Credential` headerで受け、adapter境界を越えたら破棄する。
 失敗attemptには固定error codeと一般化した日本語messageだけを保存する。
 
+通常のローカル取得はConnectorへ登録した `file://` locatorを使う。
+API requestには元データを展開せず、アプリ側がregular fileを1 MiBずつ読み、
+読込前後のsize・更新時刻・file identityが変わっていないことを確認する。
+同時にbyte数とSHA-256を計算し、任意の期待SHA-256・期待行数と照合してから
+Raw Snapshotへ固定する。16 MiBを超えるfile、UTF-8でないfile、読込中に変化した
+fileはSnapshotを作らず失敗attemptにする。
+
+inline JSONは5,000,000文字以下の検証専用経路として残す。
+S3／Azure等のremote object transportとcredential形式はCloud spikeで決め、
+このローカルfile adapterへ暗黙のfallbackを追加しない。
+
 manual取得とscheduled取得は `trigger_kind` で区別する。
 scheduleが有効でないConnectorへのscheduled取得は失敗attemptとして残し、Raw Snapshotを作らない。
 このリポジトリ内にschedulerは作らず、外部schedulerが同じ明示取得APIを呼べる契約だけを持つ。
@@ -45,18 +56,25 @@ scheduleが有効でないConnectorへのscheduled取得は失敗attemptとし�
 
 Raw Snapshotは次を固定する。
 
+- schema v2（source byte countをidentityへ含める。既存v1は旧digest規則のまま読む）
 - connector configuration digest
 - source locator
 - selection digest
 - object versionと取得trigger
 - 取得時刻
 - source内容のSHA-256
+- source byte count
 - row countとraw record
 - snapshot digest
 - 前回Snapshot IDと差分summary
 
 同一Connector、同一selection、同一内容SHAの再取得は既存Snapshotへ統合し、Fetch Attemptへ `reused_existing_snapshot` を残す。
 内容の異なるSnapshotは同じsourceでも別revisionとして残す。
+
+取得APIのresponseはRaw row全件を返さず、Snapshot ID、digest、byte数、row count、
+差分だけのreceiptを返す。row本体は不変Snapshotとして保存し、詳細画面から参照する。
+旧v1 Snapshotのduplicate receiptだけは、当時固定していなかったbyte数を
+`null`として返し、現在値を推測で後付けしない。
 
 upstream row keyが一意なら追加、変更、消失、未変更の件数を算出する。
 row keyがない、欠損、重複の場合は推測で比較せず `comparable=false` と理由を返す。
