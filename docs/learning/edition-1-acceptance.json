@@ -1,16 +1,16 @@
 {
   "edition": 1,
   "status": "accepted",
-  "verified_commit": "cfe53e5a3d9e71fd6368fae848e231411883075b",
-  "base_main_commit": "8328575defc4d456e0bafd03830e6cb1caa0ae96",
-  "accepted_at": "2026-07-27T14:36:05+09:00",
+  "verified_commit": "41ed240cd1354f2385904123dab7e77766a8d128",
+  "base_main_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
+  "accepted_at": "2026-07-27T15:01:32+09:00",
   "artifacts": {
     "reader_pdf": {
       "path": "docs/learning/_build/reader/material-decision-workbench-reader.pdf",
       "pages": 358,
       "page_size": "A4",
-      "bytes": 13171063,
-      "sha256": "5213826fc1377dd95ca7a125d28bd6a19b0e80f23d40a5d76a0981d8e5f79091"
+      "bytes": 13206636,
+      "sha256": "63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046c"
     },
     "integrated_site": {
       "path": "docs/learning/_build/site/index.html",
@@ -32,16 +32,16 @@
     "bibliography_entries": 57,
     "annotated_references": 57,
     "code_reference_documents": 28,
-    "code_reference_records": 759,
-    "verified_html_code_links": 319,
-    "drift_review_records": 13,
+    "code_reference_records": 775,
+    "verified_html_code_links": 325,
+    "drift_review_records": 15,
     "acceptance_review_records": 6
   },
   "build": {
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
     "result": "passed",
-    "site_seconds": 55.98,
-    "reader_seconds": 25.53
+    "site_seconds": 55.06,
+    "reader_seconds": 24.67
   },
   "checks": {
     "textbook": {
@@ -51,10 +51,10 @@
     "pytest": {
       "command": "uv run python -m pytest",
       "result": "passed",
-      "passed": 857,
+      "passed": 868,
       "skipped": 3,
       "warnings": 58,
-      "seconds": 212.85
+      "seconds": 274.34
     },
     "typecheck": {
       "command": "npm run typecheck",
@@ -63,6 +63,21 @@
     "build": {
       "command": "npm run build",
       "result": "passed"
+    },
+    "decision_activity_e2e": {
+      "command": "npx playwright test e2e/decision-activity.spec.ts",
+      "result": "passed",
+      "passed": 5,
+      "seconds": 35.7,
+      "server": "fresh isolated API and Web servers"
+    },
+    "model_operations": {
+      "commands": [
+        "npm run dev:doctor -- --json",
+        "npm run model:status"
+      ],
+      "result": "passed",
+      "evidence": "history drift and broken previous references were empty; four null previous states were accepted with explicit reasons"
     },
     "visual_review": {
       "result": "passed",
@@ -100,9 +115,19 @@
       "pull_request": 381,
       "result": "merged",
       "summary": "Developer Control Center exposes the ordered Decision Activity change path"
+    },
+    {
+      "issue": 385,
+      "pull_request": 386,
+      "result": "merged",
+      "summary": "Developer Doctor distinguishes exact rollback history agreement from accepted null previous states"
     }
   ],
   "known_followups": [
+    {
+      "issue": 301,
+      "reason": "Edition 1 includes eight isolated Labs, but total Lab setup size and runtime still require an explicit reproducibility measurement."
+    },
     {
       "issue": 303,
       "reason": "The materials-domain review remains a documented proxy review until the user performs a direct domain reading."
@@ -134,6 +159,10 @@
     {
       "issue": 345,
       "reason": "Training Snapshot target cohort, split, and feature-definition boundary remains an application follow-up."
+    },
+    {
+      "issue": 387,
+      "reason": "Real-reader, assistive-technology, materials-domain, and specialist security review evidence will inform Edition 2."
     }
   ],
   "constraints": [

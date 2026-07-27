@@ -14,12 +14,14 @@ Edition 1はcommit `cfe53e5a3d9e71fd6368fae848e231411883075b`で`accepted`です
 
 | 項目 | 最新受入値 |
 |---|---|
-| Reader | 358ページ、A4、13,171,063 bytes |
-| SHA-256 | `5213826fc1377dd95ca7a125d28bd6a19b0e80f23d40a5d76a0981d8e5f79091` |
+| Reader | 358ページ、A4、13,206,636 bytes |
+| SHA-256 | `63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046c` |
 | 教材構造 | 9 Part、26 learning units、99演習、117解答block、18章末check |
-| 証拠 | 759 code reference、13 drift review、6 acceptance review |
-| repository gate | pytest 857 passed／3 skipped／58 known warnings、typecheck成功、build成功 |
-| clean build | HTML 55.98秒、Reader PDF 25.53秒 |
+| 証拠 | 775 code reference、15 drift review、6 acceptance review、HTML exact code link 325件 |
+| repository gate | pytest 868 passed／3 skipped／58 known warnings、typecheck成功、build成功 |
+| clean build | HTML 55.06秒、Reader PDF 24.67秒 |
+| current Decision Activity E2E | fresh isolated serverで5 passed、35.7秒 |
+| model operation | Developer DoctorとModel statusが成功。history drift／broken previousは0件、理由付きaccepted null previousは4件 |
 | visual review | 358ページ全件を前半・後半に分けて目視し、異常0件 |
 | 制約 | GitHub Actionsは月間制限中。local command、artifact identity、全page目視を受入証拠にした |
 

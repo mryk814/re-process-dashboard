@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-386",
+  "status": "resolved",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 386,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/386",
+    "merge_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
+  },
+  "reviewed_against": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
+  "previous_verified_commit": "c19e1d79ef4d7a394e20877fabf4b014eb72a24a",
+  "new_verified_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/src/material_workbench/developer_experience/diagnostics.py",
+      "semantic_impact": "wording-only",
+      "material_impact": ["learner-text", "code-link"],
+      "affected_claims": ["active-package-history-success"],
+      "action": "updated",
+      "reason": "The success message now distinguishes exact previous-history agreement from accepted null previous states instead of claiming every switch passed through activate."
+    },
+    {
+      "path": "backend/tests/test_developer_doctor.py",
+      "semantic_impact": "none",
+      "material_impact": ["code-link", "test-command"],
+      "affected_claims": ["active-package-history-success"],
+      "action": "updated",
+      "reason": "The tests fix both successful presentation contracts and preserve accepted details."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "active-package-history-success",
+      "statement": "A green history diagnostic proves rollback-relevant consistency, not that every historical switch necessarily passed through model:activate.",
+      "classification": "editorial_update",
+      "material_impact": ["learner-text", "code-link", "test-command"],
+      "action": "updated",
+      "reason": "The Model Package chapter now states the narrower guarantee and links to the presentation contract and its accepted-state test.",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/developer_experience/diagnostics.py",
+          "symbol": "active_package_history_check"
+        },
+        {
+          "path": "backend/tests/test_developer_doctor.py",
+          "symbol": "test_active_package_history_explains_accepted_null_previous"
+        }
+      ],
+      "verification": [
+        "uv run python -m pytest backend/tests/test_developer_doctor.py backend/tests/test_active_package_history.py",
+        "npm run typecheck",
+        "npm run build",
+        "node docs/learning/check-code-references.mjs"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The Model Package chapter now references the corrected developer diagnostic and contract tests directly.",
+    "focused_tests": "Developer Doctor and active Package history suites passed 16 with 11 known warnings; typecheck and build passed on PR #386.",
+    "api_check": "PR #386 does not change public API contracts.",
+    "code_reference_check": "Validated 28 documents and 775 structured code references after the final update.",
+    "html_build": "The clean integrated site build passed for 42 documents with 325 exact code links in 55.06 seconds.",
+    "pdf_build": "The clean Reader build passed in 24.67 seconds: 358 A4 pages, 13,206,636 bytes, SHA-256 63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046c.",
+    "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
+  },
+  "reviewer_note": "The update narrows the success claim without weakening drift, broken-previous, or unavailable-history diagnostics."
+}

@@ -19,7 +19,7 @@
     ],
     "scope": "既存の章別recordで未coverageだった契約、Source evidence、性能、実行境界、数値例、実装ケースをEdition 1の横断読者taskとして受け入れる。"
   },
-  "reviewed_against": "8328575defc4d456e0bafd03830e6cb1caa0ae96",
+  "reviewed_against": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
   "status": "accepted_with_nonblocking_followups",
   "roles": [
     {
@@ -152,10 +152,13 @@
       "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
       "uv run python -m pytest",
       "npm run typecheck",
-      "npm run build"
+      "npm run build",
+      "npx playwright test e2e/decision-activity.spec.ts",
+      "npm run dev:doctor -- --json",
+      "npm run model:status"
     ],
     "result": "passed"
   },
   "issue_close_recommendation": "ready",
-  "reviewer_note": "未coverageだった全Reader対象をrecordへ含めた。commit cfe53e5a3d9e71fd6368fae848e231411883075bでclean HTML／PDF、repository三gate、358ページ全page目視、artifact hash固定まで完了した。"
+  "reviewer_note": "未coverageだった全Reader対象をrecordへ含めた。content commit 41ed240cd1354f2385904123dab7e77766a8d128をmain 26accf82b2907ad962fea67fc6fde0cd9f4ac019へ照合し、clean HTML／PDF、repository三gate、fresh-server Decision Activity E2E 5件、model operation check、358ページ全page目視、SHA-256 63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046cのartifact固定まで完了した。"
 }
