@@ -14,12 +14,13 @@ Edition 1はcommit `cfe53e5a3d9e71fd6368fae848e231411883075b`で`accepted`です
 
 | 項目 | 最新受入値 |
 |---|---|
-| Reader | 358ページ、A4、13,259,912 bytes |
-| SHA-256 | `95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2` |
+| Reader | 358ページ、A4、13,266,549 bytes |
+| SHA-256 | `7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004` |
 | 教材構造 | 9 Part、26 learning units、99演習、117解答block、18章末check |
-| 証拠 | 787 code reference、16 drift review、6 acceptance review、HTML exact code link 331件 |
+| 証拠 | 789 code reference、17 drift review、6 acceptance review、HTML exact code link 332件 |
 | repository gate | pytest 870 passed／3 skipped／58 known warnings、typecheck成功、build成功 |
-| clean build | HTML 52.48秒、Reader PDF 24.29秒 |
+| clean build | HTML 52.76秒、Reader PDF 24.81秒 |
+| current navigation E2E | fresh isolated serverで16 passed、44.4秒 |
 | current Decision Activity E2E | fresh isolated serverで5 passed、35.7秒 |
 | current Project所属解除 E2E | fresh isolated portで1 passed、21.3秒 |
 | model operation | Developer DoctorとModel statusが成功。history drift／broken previousは0件、理由付きaccepted null previousは4件 |

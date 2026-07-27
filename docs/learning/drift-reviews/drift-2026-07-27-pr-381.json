@@ -131,9 +131,9 @@
     "drift_detection": "No reader chapter references the ten changed PR #381 paths; the PR diff was still recorded explicitly.",
     "focused_tests": "Backend focused tests passed 15, frontend focused tests passed 8, and fresh-server Playwright passed 1 before merge.",
     "api_check": "Generated OpenAPI and TypeScript contracts matched the Python schema.",
-    "code_reference_check": "Validated 28 documents and 787 structured code references after the final update.",
-    "html_build": "The final integrated site build passed for 42 documents with 331 exact code links in 52.48 seconds.",
-    "pdf_build": "The final Reader build passed in 24.29 seconds: 358 A4 pages, 13,259,912 bytes, SHA-256 95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2.",
+    "code_reference_check": "Validated 28 documents and 789 structured code references after the final update.",
+    "html_build": "The final integrated site build passed for 42 documents with 332 exact code links in 52.76 seconds.",
+    "pdf_build": "The final Reader build passed in 24.81 seconds: 358 A4 pages, 13,266,549 bytes, SHA-256 7e4705d2b7d00c7c7156b9980aa19abba4548f53665d31120b50cf4b616dd004.",
     "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
   },
   "reviewer_note": "GitHub Actions remained queued because of the monthly limit. Local backend, frontend, browser, typecheck, build, generated-contract, and referenced-path evidence was used for PR #381."

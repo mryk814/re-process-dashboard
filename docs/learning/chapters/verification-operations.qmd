@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
+verified_commit: "ec0df39a4f003e978591a4f771b36c16f0f142d8"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
@@ -69,6 +69,11 @@ code_references:
   - path: "playwright.config.ts"
     id: "verification-playwright-config"
     role: "build"
+  - path: "e2e/helpers.ts"
+    id: "verification-playwright-helpers"
+    role: "test"
+    symbols:
+      - "resolveProjectBinding"
   - path: "scripts/verify.mjs"
     id: "verification-gate"
     role: "build"
@@ -235,6 +240,13 @@ Playwright E2Eは、利用者が見るroleとaccessible nameを優先して操�
 CSS classやDOM階層だけをlocatorにすると、見た目を保ったrefactorでもtestが壊れます。
 
 {{< code-ref verification-playwright-config label=playwright.config.ts >}} は、既定で実行ごとの一時DBを作り、workerを一つに固定します。
+専用の壊れたfixtureとportを必要とする`chain-degraded.spec.ts`は、既定configへ混ぜず専用configで実行します。
+既定runから外すことは未検証にする宣言ではなく、必要なserver構成を所有するlaneへ分けることです。
+
+Projectを作るE2Eは、immutableなModel Package IDを固定するとPackage改版のたびに古くなります。
+{{< code-ref verification-playwright-helpers symbol=resolveProjectBinding >}}は、具体的な入力keyを検証するspecではDataset filenameを選択条件にし、current contractとtraining provenanceに合うPackageを解決します。
+一致候補がなければ使用可能なDatasetとPackageの組を列挙して失敗します。
+
 `PLAYWRIGHT_REUSE_SERVER=1`は反復中の短縮に使えますが、完了判定には使いません。
 共有Projectの状態と、server起動時にbindしたDataset revisionが次の実行へ残るためです。
 
