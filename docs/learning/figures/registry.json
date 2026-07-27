@@ -38,7 +38,7 @@
       "kind": "contract-diagram",
       "source": "figures/decision-activity-union.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+      "verified_commit": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
       "alt": "Decision Activityのparameterとresultをschema_versionで分ける二つのunion",
       "long_description": "DecisionActivityParametersは三つのparameter契約を、DecisionActivityResultは対応する三つのsummary契約を、それぞれschema_versionで判別する。parameter用とresult用の識別子を取り違えたpayloadと未知の識別子はREJECTとなる。",
       "drift_refs": [
@@ -84,7 +84,7 @@
       "kind": "data-flow",
       "source": "figures/source-lifecycle-flow.svg",
       "chapter": "chapters/source-to-training-evidence.qmd",
-      "verified_commit": "2bf8216159ef717a2ed4c53b78acd48150e2fad1",
+      "verified_commit": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
       "alt": "Source更新からModel Package候補までの資産分割",
       "long_description": "Source Connector、Raw Snapshot、Curation Run、Canonical Dataset Revision、Training Snapshotを順に作り、別操作でModel Package候補へ進む。",
       "drift_refs": [
