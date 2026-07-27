@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   workbenchApi,
   type ApiChainDistributionCapability,
@@ -10,6 +10,7 @@ import {
   distributionMatchesIdentity,
   type DistributionRequestIdentity,
 } from "./distributionRequestGeneration";
+import type { ChainUncertaintyAvailability } from "./chainUncertaintyState";
 import "./chain-uncertainty.css";
 
 type DistributionMetric = {
@@ -31,6 +32,10 @@ export function ChainUncertaintyPanel({
   chainRevisionDigest,
   pointExecutionRequestId,
   readOnly = false,
+  open,
+  onOpenChange,
+  onAvailabilityChange,
+  panelRef,
 }: {
   projectId: string;
   candidateId: string;
@@ -39,6 +44,10 @@ export function ChainUncertaintyPanel({
   chainRevisionDigest: string;
   pointExecutionRequestId: string;
   readOnly?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onAvailabilityChange?: (availability: ChainUncertaintyAvailability) => void;
+  panelRef?: RefObject<HTMLDetailsElement | null>;
 }) {
   const [capability, setCapability] = useState<ApiChainDistributionCapability | null>(null);
   const [run, setRun] = useState<ApiChainDistributionRun | null>(null);
@@ -103,6 +112,18 @@ export function ChainUncertaintyPanel({
     readOnly,
   ]);
 
+  useEffect(() => {
+    if (!onAvailabilityChange) return;
+    const stages = capability?.stages ?? [];
+    onAvailabilityChange({
+      supportedStages: stages.length
+        ? Object.fromEntries(stages.map((stage) => [stage.stage_id, stage.capability.supported]))
+        : undefined,
+      runComputed: Boolean(run),
+    });
+    // 親へ渡すのは状態の要約だけなので、capability/runの変化にだけ反応させる。
+  }, [capability, run]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stageB = run?.stages.find((stage) => stage.stage_id === "B");
   const stageC = run?.stages.find((stage) => stage.stage_id === "C");
   const stageBUncertainty = stageB?.stage_uncertainty ?? {};
@@ -149,7 +170,12 @@ export function ChainUncertaintyPanel({
     }
   }
 
-  return <details className="chain-uncertainty-panel">
+  return <details
+    className="chain-uncertainty-panel"
+    ref={panelRef}
+    open={open}
+    onToggle={(event) => onOpenChange?.((event.currentTarget as HTMLDetailsElement).open)}
+  >
     <summary>
       <span><b>不確かさを伝播</b><small>点推定とは別に明示実行</small></span>
       <em>{run ? `seed ${run.provenance.seed} · n=${run.provenance.sample_count}` : "未実行"}</em>

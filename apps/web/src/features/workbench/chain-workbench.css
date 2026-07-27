@@ -382,3 +382,14 @@
   color: #66758d;
   font-size: 9px;
 }
+
+.chain-uncertainty-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 8px;
+  color: #4b5b70;
+  font-size: 12px;
+  line-height: 1.5;
+}
