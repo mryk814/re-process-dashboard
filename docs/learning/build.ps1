@@ -111,6 +111,7 @@ $requiredReaderChapters = @(
     "chapters/model-package-runtime.qmd",
     "chapters/prediction-calibration-support.qmd",
     "chapters/design-space-acquisition.qmd",
+    "chapters/multi-stage-chain.qmd",
     "chapters/decision-safety.qmd"
 )
 $maintenanceOnlyChapters = @(
