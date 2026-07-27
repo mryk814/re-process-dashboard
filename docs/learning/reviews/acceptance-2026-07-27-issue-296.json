@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-296",
+  "issue": {
+    "number": 296,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/296",
+    "title": "[Learning] Contract test・失敗注入・Playwright・migration／packaged smokeを検証編として教材化する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/system-map.qmd",
+      "docs/learning/chapters/multi-stage-chain.qmd",
+      "docs/learning/chapters/verification-operations.qmd"
+    ],
+    "scope": "system mapからmulti-stage chainの部分再計算と検証運用までを、境界・失敗・証拠を追跡する一続きの教材として受け入れる。"
+  },
+  "reviewed_against": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "三章の責務境界、requestから保存物までの経路、chain binding、部分再計算、contract test、failure injection、migration、packaged smokeの説明を相互参照した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "notes": "正常系の構成図だけで終わらず、どの境界で失敗し、どの証拠で切り分けるかまで読める。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "全体像、依存関係を持つ計算、検証戦略の順に読み、初心者が局所的な実装詳細へ入る前に責務と観測点を持てるかを評価した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "notes": "三章を連続して読む経路は成立する。実読者が章間を往復した際の迷いと所要時間は未測定である。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "図や色だけへ責務・状態・失敗分類を閉じ込めず、本文、表、見出し、手順でも同じ判断材料へ到達できるかをソース上で確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "notes": "文書構造上の代替経路はある。HTML／PDFの読み上げ順、keyboard移動、200% zoomは支援技術で未検証である。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "multi-stage chainで中間実測と予測を区別し、不確かさを単純加算せず、再計算範囲と保存済み証拠を分離しているかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "notes": "統計モデルの導出を目的とする章ではないため、数値的な校正や伝播精度の評価は対象外である。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "工程段階、条件、反復観測、中間実測、最終特性が一行のrelationへ潰れず、材料判断の履歴として追えるかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd"
+      ],
+      "notes": "材料系の代理評価であり、実際の工程設計者による用語と判断順序の確認は未実施である。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "このrepositoryへ初めて参加するbackend初心者",
+      "proxy": true,
+      "starting_context": "FastAPIとSQLiteの基礎は知っているが、Material Decision Workbenchの責務境界と保存物を知らない。",
+      "task": "候補の入力変更からpreview、詳細予測、保存までを追い、各段階の責務、失敗点、確認すべき証拠を列挙する。",
+      "success_criteria": [
+        "UI、API、service、repository、model packageの責務を混同しない",
+        "入力変更時に全候補を再計算するとは説明しない",
+        "保存済みsnapshotと最新runtimeの結果を同一視しない",
+        "失敗を再現する最小の検証層を選べる"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "system mapから境界を列挙し、verification章から層ごとの検証手段を選べる。",
+        "multi-stage chainから部分再計算と中間実測の扱いを説明できる。"
+      ],
+      "limitations": "代理読者によるsource walkthroughであり、実初心者の読了時間、誤答率、実装taskの成功率は測定していない。"
+    },
+    {
+      "profile": "隣接分野から参加する品質保証・運用担当者",
+      "proxy": true,
+      "starting_context": "一般的なtest pyramidとdesktop配布は知っているが、科学計算の再現性とchain bindingには詳しくない。",
+      "task": "中間段階の入力が変わった不具合について、影響範囲、再計算範囲、contract test、migration、packaged smokeの確認順を作る。",
+      "success_criteria": [
+        "unit testだけでpackaged appの成立を主張しない",
+        "binding変更と観測値変更の影響範囲を分ける",
+        "source Excelを変更せずにfixtureで再現する",
+        "失敗時に戻す境界と保存済み証拠を示す"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "verification章から検証層の不足を説明できる。",
+        "chain章から部分再計算の対象を依存関係として整理できる。"
+      ],
+      "limitations": "代理評価であり、Windows packaged build、実migration、障害復旧演習を実行した読者テストではない。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "実初心者と品質保証担当者によるtask testは未実施で、読者結果は代理評価である。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-296.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "minor",
+      "summary": "clean HTML／PDF build、全図のvisual review、支援技術での読み順確認はこの記録では未検証である。",
+      "evidence": [
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/multi-stage-chain.qmd",
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "node docs/learning/check-code-references.mjs",
+      "git diff --check -- docs/learning/reviews/acceptance-2026-07-27-issue-296.json"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready_after_local_build",
+  "reviewer_note": "Issue #302の複眼reviewとして三章をまとめた。performance章とcase study章は作業中のため受入対象外である。"
+}

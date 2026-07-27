@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-294",
+  "issue": {
+    "number": 294,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/294",
+    "title": "[Learning] 予測分布・不確かさ・Design Space・獲得関数・バッチ提案の数理を教材化する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/materials-domain-primer.qmd",
+      "docs/learning/chapters/model-package-runtime.qmd",
+      "docs/learning/chapters/prediction-calibration-support.qmd",
+      "docs/learning/chapters/design-space-acquisition.qmd"
+    ],
+    "scope": "材料・工程・測定の前提からmodel package、予測分布、calibration、support、design space、acquisitionまでを、候補判断に必要な統計・domain・runtimeの連続した教材として受け入れる。"
+  },
+  "reviewed_against": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "canonical input、feature pipeline、data-only package、runtime capability、predictive output、support、design space、proposalの説明をcode referenceと章間契約で照合した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/model-package-runtime.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "notes": "Packageから任意codeを読み込まない境界と、入力、特徴量、予測、提案を別の成果物として扱う境界が保たれている。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "材料の具体物から始め、runtimeの変換、予測の読み方、探索の選び方へ進む順序と、固定例、式、破綻条件、演習の接続を評価した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/model-package-runtime.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "notes": "用語を先に暗記させず、工程条件、測定、予測、候補選択の対象へ結びつけている。異分野の実読者が四章を通読した負荷は未測定である。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "式、表、警告、support状態、proposal比較が色や図だけに依存せず、単位、本文、見出し、列名でも意味を回収できるかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "notes": "source上では予測値と実測値、範囲内と要確認、objectiveとconstraintを文字で区別している。数式読み上げとtable navigationは未検証である。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "点予測、quantile、sample、predictive interval、calibration、model uncertainty、input variation、support、acquisition、batch diversityの定義と非同一性を確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "docs/learning/chapters/model-package-runtime.qmd"
+      ],
+      "notes": "supportを正しさの確率と呼ばず、intervalの意味をadapter契約へ戻し、acquisition scoreを目的値そのものと扱わない。合成データ上の数値校正を一般性能として主張していない。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "組成、工程条件、反復観測、試験条件、単位、測定値、予測値、候補の実行可能性を区別し、数値最大化だけで材料判断を閉じていないかを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "notes": "材料domainの最低限の判断語彙は明示されている。実材料研究者による工程妥当性と測定文脈のreviewは未実施である。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "機械学習は初学者だが材料実験を担当する研究者",
+      "proxy": true,
+      "starting_context": "組成、工程、試験条件は理解しているが、predictive interval、calibration、support、acquisitionは知らない。",
+      "task": "点予測が高いがsupportが低い候補と、点予測は少し低いが範囲内の候補を比較し、追加実験を選ぶ前に必要な確認を説明する。",
+      "success_criteria": [
+        "点予測最大を自動採用しない",
+        "予測値と候補自身の実測値を混同しない",
+        "supportを正しさの確率と呼ばない",
+        "試験条件と単位を確認する",
+        "acquisition scoreを目的特性の予測値と呼ばない"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "materials primerから測定条件と反復観測の確認事項を拾える。",
+        "prediction章からinterval、calibration、supportを別々に説明できる。",
+        "design space章から探索価値と予測値を分離できる。"
+      ],
+      "limitations": "代理評価であり、実材料研究者の選択、説明の正確さ、判断時間は測定していない。"
+    },
+    {
+      "profile": "隣接分野からmodel adapterを追加するML engineer",
+      "proxy": true,
+      "starting_context": "一般的な回帰とartifact管理は知っているが、このアプリのcanonical input、Package契約、capability、採否基準を知らない。",
+      "task": "新しいprobabilistic adapterを追加する前提で、Packageへ含めるdata、アプリ本体へ追加するcode、必要なcontract test、採用を見送る条件を列挙する。",
+      "success_criteria": [
+        "pickle、joblib、Package内Python codeを実行対象にしない",
+        "canonical inputとmodel featureを分ける",
+        "出力表現とcapabilityを明示する",
+        "feature skewとtraining snapshotの版を確認する",
+        "品質改善が不十分なら不採用を選べる"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "runtime章からdata-only packageとallow-list adapterの境界を説明できる。",
+        "prediction章からoutput contractがintervalの意味を決めることを説明できる。",
+        "design space章から提案生成と明示的な候補採用を分けられる。"
+      ],
+      "limitations": "代理評価であり、実際にadapterを実装してcontract testを通す作業型reader testではない。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "統計と材料domainのreviewは代理評価であり、専門家本人による式、単位、工程妥当性の受入は未実施である。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-294.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "minor",
+      "summary": "数式読み上げ、table navigation、clean HTML／PDFでの改ページと横幅は未検証である。",
+      "evidence": [
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    },
+    {
+      "finding_id": "F-003",
+      "severity": "note",
+      "summary": "本教材の数値例は合成データの理解補助であり、実材料系への汎化性能や推奨条件を保証しない。",
+      "evidence": [
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "no_change",
+      "tracking": "Issue #294 and Issue #303"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "node docs/learning/check-code-references.mjs",
+      "git diff --check -- docs/learning/reviews/acceptance-2026-07-27-issue-294.json"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready_after_local_build",
+  "reviewer_note": "Issue #302の複眼reviewとして四章をまとめた。実専門家review、実読者task、clean buildはEdition受入まで未検証として残す。"
+}
