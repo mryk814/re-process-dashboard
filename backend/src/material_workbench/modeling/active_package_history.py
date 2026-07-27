@@ -43,6 +43,10 @@ _STATUS_REASON: dict[RollbackTargetStatus, str] = {
 }
 
 
+def rollback_target_reason(status: RollbackTargetStatus) -> str:
+    return _STATUS_REASON[status]
+
+
 class HistoryModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -75,6 +79,7 @@ class ActivePackageHistoryReport(HistoryModel):
     drift: tuple[ActivePackageChange, ...] = ()
     accepted: tuple[ActivePackageChange, ...] = ()
     broken_previous: tuple[ActivePackagePreviousIssue, ...] = ()
+    superseded_previous: tuple[ActivePackagePreviousIssue, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -164,6 +169,7 @@ def detect_active_package_drift(
         (drift if status == "available" else accepted).append(change)
 
     broken: list[ActivePackagePreviousIssue] = []
+    superseded: list[ActivePackagePreviousIssue] = []
     if revisions:
         for task_id, selection in sorted(revisions[-1][1].tasks.items()):
             if selection.previous is None:
@@ -176,18 +182,23 @@ def detect_active_package_drift(
             )
             if status == "available":
                 continue
-            broken.append(ActivePackagePreviousIssue(
+            issue = ActivePackagePreviousIssue(
                 task_id=task_id,
                 previous=selection.previous,
                 rollback_target=status,
                 reason=_STATUS_REASON[status],
-            ))
+            )
+            # 契約移行で置き換えたときは、set_active_packageが記録したpreviousが
+            # そのまま旧契約の版を指す。履歴としては正しいのでエラーにしない。
+            # 参照先が消えている・別Taskを指しているのは記録自体の誤りとして扱う。
+            (superseded if status == "contract-mismatch" else broken).append(issue)
 
     return ActivePackageHistoryReport(
         available=True,
         drift=tuple(drift),
         accepted=tuple(accepted),
         broken_previous=tuple(broken),
+        superseded_previous=tuple(superseded),
     )
 
 
@@ -283,6 +294,11 @@ def format_active_package_history(report: ActivePackageHistoryReport) -> list[st
     for change in report.accepted:
         lines.append(
             f"[OK] {change.task_id}: previous=null は正当です（直前の {change.replaced} は{change.reason}）。"
+        )
+    for issue in report.superseded_previous:
+        lines.append(
+            f"[OK] {issue.task_id}: previous={issue.previous} は履歴として残しますが、"
+            f"rollback対象にはなりません（{issue.reason}）。"
         )
     if not lines:
         lines.append("[OK] active-packages.jsonのpreviousは履歴と一致しています。")

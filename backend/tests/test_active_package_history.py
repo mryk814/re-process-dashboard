@@ -112,6 +112,25 @@ def test_previous_that_no_longer_exists_is_reported(tmp_path: Path) -> None:
     ]
 
 
+def test_previous_superseded_by_a_contract_migration_is_kept_as_history(tmp_path: Path) -> None:
+    digests = current_task_input_contract_digests()
+    superseded = _package(tmp_path, "superseded", task_id=TASK, digest="sha256:superseded")
+    active = _package(tmp_path, "active", task_id=TASK, digest=digests[TASK])
+
+    report = detect_active_package_drift(
+        [("older", _config(superseded, None)), ("newer", _config(active, superseded))],
+        models_root=tmp_path,
+        contract_digests=digests,
+    )
+
+    # 契約移行での切替では、previousは履歴として正しい。rollback不能でも失敗にしない。
+    assert report.ok
+    assert report.broken_previous == ()
+    assert [(item.previous, item.rollback_target) for item in report.superseded_previous] == [
+        (superseded, "contract-mismatch")
+    ]
+
+
 def test_uncommitted_active_edits_are_compared_against_the_last_commit(tmp_path: Path) -> None:
     repository = tmp_path / "repo"
     models = repository / "models"

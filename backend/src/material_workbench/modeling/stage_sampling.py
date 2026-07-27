@@ -46,6 +46,19 @@ _ALLOWLIST = MappingProxyType(
                 {target: (0.0, None) for target in _STAGE_B_OUTPUTS}
             ),
         ),
+        # v1と同じbuilder・同じ元データから、TaskDefinitionのラベル修正（#359）で
+        # 契約digestだけが変わった版。predictor構成・出力・境界はv1と同一である
+        # ことを確認して同じsampling semanticsを許可する。
+        (
+            "welding-consumable-stage-b-ridge-v2",
+            "570e2902e33aa3530b1127e40bab7783c78e2ad94895fc79f085b325da10af8c",
+        ): PackageSamplingCapability(
+            method="independent-residual-normal-bounded-from-q05-q95/v1",
+            output_dependence="independent",
+            output_bounds=MappingProxyType(
+                {target: (0.0, None) for target in _STAGE_B_OUTPUTS}
+            ),
+        ),
         (
             "welding-stage-c-ridge-v1",
             "c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",

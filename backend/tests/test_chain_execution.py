@@ -21,6 +21,7 @@ from material_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
 )
+from material_workbench.modeling.model_lifecycle import resolve_configured_package
 from material_workbench.contracts.chain_uncertainty_contracts import (
     StageSampleResult,
 )
@@ -36,7 +37,9 @@ from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 ROOT = Path(__file__).resolve().parents[2]
 STAGE_A_SMOKE = ROOT / "models/packages/welding-stage-a-deterministic-v1/smoke/input.json"
-STAGE_B_SMOKE = ROOT / "models/packages/welding-consumable-stage-b-ridge-v1/smoke/input.json"
+STAGE_B_SMOKE = (
+    resolve_configured_package("welding-consumable-stage-b-v1") / "smoke/input.json"
+)
 STAGE_C_SMOKE = ROOT / "models/packages/welding-stage-c-ridge-v1/smoke/input.json"
 
 
@@ -310,12 +313,14 @@ def test_chain_distribution_is_explicit_reproducible_and_keeps_uncertainties_dis
     assert capability.status_code == 200
     assert capability.json()["explicit_run_available"] is True
     assert capability.json()["full_propagation_supported"] is True
+    # Packageは不変だが、契約が変わればTaskごとに新しい版へ切り替わる。固定値では
+    # なく「使用中Packageと一致していること」を確認する。
     assert [
         stage["package_manifest_digest"]
         for stage in capability.json()["stages"][1:]
     ] == [
-        "sha256:670f57fad186c409cb12bf50af47169c57f3b902d37518698b39b09aff1a3380",
-        "sha256:c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",
+        f"sha256:{client.app.state.task_registry.entry_for(task).model_package.manifest_sha256}"
+        for task in ("welding-consumable-stage-b-v1", "welding-stage-c-properties-v1")
     ]
     assert [
         stage["capability"]["output_dependence"]

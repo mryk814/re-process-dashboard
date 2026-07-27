@@ -109,6 +109,8 @@ test("Chain candidate editor exposes and persists every external input from its 
       `[data-chain-external-path="${definition.external_path}"]`,
     );
     await expect(surface).toContainText(definition.label);
+    // 内部名（snake_case）をラベルとして出さない。契約側で日本語ラベルを持つ。
+    expect(definition.label, definition.external_path).not.toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
     if (definition.kind === "number") {
       const input = surface.locator('input[type="number"]');
       await expect(input).toHaveAttribute("min", String(definition.allowed_range!.min));

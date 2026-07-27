@@ -19,6 +19,7 @@ from material_workbench.data.profile_workbench import validate_workbook_profile
 from material_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
 )
+from material_workbench.modeling.model_lifecycle import resolve_configured_package
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.task_modules import _load_welding_stage_b
@@ -331,7 +332,7 @@ def test_stage_b_managed_registration_runs_compiler_preflight(tmp_path: Path) ->
 
 def test_stage_b_package_records_profile_cohort_fold_and_smoke_contracts() -> None:
     package = ModelPackageLoader().load(
-        ROOT / "models/packages/welding-consumable-stage-b-ridge-v1"
+        resolve_configured_package("welding-consumable-stage-b-v1")
     )
     assert package.manifest.task_id == "welding-consumable-stage-b-v1"
     assert len(package.manifest.predictors) == 16
@@ -362,7 +363,9 @@ def test_stage_b_task_predicts_and_compares_actual_measurement(client) -> None:
     )
     package = client.get(f"/api/projects/{project['id']}/model-package")
     assert package.status_code == 200, package.text
-    assert package.json()["id"] == "welding-consumable-stage-b-ridge-v1"
+    assert package.json()["id"] == resolve_configured_package(
+        "welding-consumable-stage-b-v1"
+    ).name
     candidates = client.get(
         f"/api/projects/{project['id']}/candidates"
     ).json()

@@ -241,6 +241,9 @@ def build_package(
             training.data,
             profile_path,
             staging,
+            # Package IDはディレクトリ名に合わせる。Profileの既定値のままだと、
+            # 契約が変わって新しい版を作っても同じIDのPackageが2つ残る。
+            package_id=destination.name,
             training_contract=contract,
         )
         verify_model_package(
