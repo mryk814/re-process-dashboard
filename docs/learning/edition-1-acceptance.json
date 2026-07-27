@@ -1,16 +1,16 @@
 {
   "edition": 1,
   "status": "accepted",
-  "verified_commit": "41ed240cd1354f2385904123dab7e77766a8d128",
-  "base_main_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
-  "accepted_at": "2026-07-27T15:01:32+09:00",
+  "verified_commit": "cb691ef3048a6a7acb26436e86d009a0ce9d7fff",
+  "base_main_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
+  "accepted_at": "2026-07-27T15:39:26+09:00",
   "artifacts": {
     "reader_pdf": {
       "path": "docs/learning/_build/reader/material-decision-workbench-reader.pdf",
       "pages": 358,
       "page_size": "A4",
-      "bytes": 13206636,
-      "sha256": "63167ae79ade4a579e05e51bf7a67f139fd11e725f35c9b4f867ef95f6b3046c"
+      "bytes": 13259912,
+      "sha256": "95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2"
     },
     "integrated_site": {
       "path": "docs/learning/_build/site/index.html",
@@ -32,16 +32,16 @@
     "bibliography_entries": 57,
     "annotated_references": 57,
     "code_reference_documents": 28,
-    "code_reference_records": 775,
-    "verified_html_code_links": 325,
-    "drift_review_records": 15,
+    "code_reference_records": 787,
+    "verified_html_code_links": 331,
+    "drift_review_records": 16,
     "acceptance_review_records": 6
   },
   "build": {
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
     "result": "passed",
-    "site_seconds": 55.06,
-    "reader_seconds": 24.67
+    "site_seconds": 52.48,
+    "reader_seconds": 24.29
   },
   "checks": {
     "textbook": {
@@ -51,10 +51,10 @@
     "pytest": {
       "command": "uv run python -m pytest",
       "result": "passed",
-      "passed": 868,
+      "passed": 870,
       "skipped": 3,
       "warnings": 58,
-      "seconds": 274.34
+      "seconds": 193.62
     },
     "typecheck": {
       "command": "npm run typecheck",
@@ -69,6 +69,13 @@
       "result": "passed",
       "passed": 5,
       "seconds": 35.7,
+      "server": "fresh isolated API and Web servers"
+    },
+    "project_ungroup_e2e": {
+      "command": "$env:PLAYWRIGHT_API_PORT=9001; $env:PLAYWRIGHT_WEB_PORT=5321; npx playwright test e2e/project-hub.spec.ts --grep \"leave its group\"",
+      "result": "passed",
+      "passed": 1,
+      "seconds": 21.3,
       "server": "fresh isolated API and Web servers"
     },
     "model_operations": {
@@ -121,6 +128,12 @@
       "pull_request": 386,
       "result": "merged",
       "summary": "Developer Doctor distinguishes exact rollback history agreement from accepted null previous states"
+    },
+    {
+      "issue": 372,
+      "pull_request": 388,
+      "result": "merged",
+      "summary": "Project Series membership can return to ungrouped without deleting evidence or continuation identity"
     }
   ],
   "known_followups": [
