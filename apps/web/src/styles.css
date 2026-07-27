@@ -537,6 +537,11 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
 .connection-banner strong { color: #7c2d22; font-size: 13px; }
 .connection-banner span { color: #7a5f5a; font-size: 11px; }
 .connection-banner .outline-button { flex: 0 0 auto; min-height: 32px; font-size: 12px; }
+/* 起動待ちは異常ではない。赤ではなく待機の配色にする。 */
+.connection-banner.starting { border-color: #b8cbe6; border-left-color: #2f6fd0; background: #f3f8ff; }
+.connection-banner.starting strong { color: #1f4c8f; }
+.connection-banner.starting span { color: #46566c; }
+.connection-banner-steps code { font-size: 11px; }
 @media (max-width: 660px) {
   .connection-banner { flex-direction: column; align-items: stretch; margin: 10px; }
 }

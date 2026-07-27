@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, useWorkbenchSession } from "../features/workbench";
+import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession } from "../features/workbench";
 import { ProjectHub } from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
@@ -42,11 +42,33 @@ function ChainModeUnavailablePanel({ onOpenCandidates }: { onOpenCandidates: () 
   </div>;
 }
 
+function StartupBanner({ startedAt }: { startedAt: number }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - startedAt);
+  useEffect(() => {
+    const timer = window.setInterval(() => setElapsed(Date.now() - startedAt), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  return <div className="connection-banner starting" role="status">
+    <div>
+      <strong>{apiStartupWaitText(elapsed)}</strong>
+      <span>ExcelとModel Packageの読み込みが終わるまで自動で再試行します。操作は不要です。</span>
+    </div>
+  </div>;
+}
+
 function ConnectionBanner({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
   return <div className="connection-banner" role="alert">
     <div>
       <strong>APIへ接続できません</strong>
-      <span>ローカルAPIが起動していない、または保存データと構成が不整合の可能性があります。保存済みのデータは変更されていません。</span>
+      <span>
+        自動再試行の時間内に接続できませんでした。保存済みのデータは変更されていません。
+        ローカルAPIが起動していないか、保存データと構成が不整合で起動を止めています。
+      </span>
+      <span className="connection-banner-steps">
+        起動ログ（Desktop版は <code>logs/material-workbench-api.log</code>、開発時は <code>npm run dev</code> のapi出力）に
+        <code>WORKBENCH_STARTUP_ERROR</code> があれば構成の不整合です。復旧手順は
+        <code>docs/decisions/startup-failure-boundaries.md</code> にあります。
+      </span>
     </div>
     <button type="button" className="outline-button" disabled={retrying} onClick={onRetry}>{retrying ? "再試行中…" : "再試行"}</button>
   </div>;
@@ -278,6 +300,8 @@ function App() {
         </nav>
       </header>
       <main>
+        {apiState === "starting" && session.apiStartedWaitingAt !== null
+          && <StartupBanner startedAt={session.apiStartedWaitingAt} />}
         {apiState === "offline" && <ConnectionBanner retrying={retrying} onRetry={() => {
           setRetrying(true);
           void session.retryOpenWorkspace().finally(() => setRetrying(false));
@@ -301,7 +325,9 @@ function App() {
               )}
               {apiState !== "ready" && (
                 <span className={`api-state ${apiState}`}>
-                  {apiState === "loading" ? "プレビュー更新中" : "API 未接続"}
+                  {apiState === "loading"
+                    ? "プレビュー更新中"
+                    : apiState === "starting" ? "API 起動待ち" : "API 未接続"}
                 </span>
               )}
               {tab === "candidates" && selected && (

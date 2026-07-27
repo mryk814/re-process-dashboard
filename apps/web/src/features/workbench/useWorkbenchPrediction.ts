@@ -11,7 +11,7 @@ type Options = {
   candidate?: CandidateViewModel;
   operations?: RuntimeOperations;
   onNotify: (kind: WorkspaceNoticeKind, message: string) => void;
-  setApiState: Dispatch<SetStateAction<"ready" | "loading" | "offline">>;
+  setApiState: Dispatch<SetStateAction<"ready" | "loading" | "starting" | "offline">>;
 };
 
 type PreviewIdentity = Readonly<{
