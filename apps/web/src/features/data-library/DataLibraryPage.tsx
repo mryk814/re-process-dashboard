@@ -199,7 +199,7 @@ export function DataLibraryPage({
           >＋ 比較セット</button>
         </div>}
       </div>
-      <nav className="data-library-tabs" aria-label="データライブラリの表示">
+      <nav className="data-library-tabs" aria-label="データライブラリの表示" role="tablist">
         <button type="button" role="tab" aria-selected={activeTab === "browse"} className={activeTab === "browse" ? "active" : ""} onClick={() => setActiveTab("browse")}>閲覧</button>
         <button type="button" role="tab" aria-selected={activeTab === "update"} className={activeTab === "update" ? "active" : ""} onClick={() => setActiveTab("update")}>データ更新</button>
       </nav>
