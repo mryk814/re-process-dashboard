@@ -2,7 +2,7 @@
 chapter_id: "source-to-training-evidence"
 level: intermediate
 estimated_minutes: 120
-verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
 code_references:
   - path: "docs/source-data-lifecycle.md"
     role: "docs"
@@ -20,6 +20,20 @@ code_references:
     role: "api"
   - path: "backend/src/material_workbench/application/training_snapshot_adapter.py"
     role: "application"
+  - path: "backend/src/material_workbench/contracts/series_contracts.py"
+    id: "source-evidence-series-contracts"
+    role: "contract"
+    symbols:
+      - "RawSeriesAsset"
+      - "SeriesNormalizationRecipe"
+      - "CanonicalSeriesRevision"
+      - "SeriesFeatureContract"
+  - path: "backend/src/material_workbench/domain/series_curation.py"
+    id: "source-evidence-series-curation"
+    role: "domain"
+    symbols:
+      - "canonicalize_series"
+      - "build_series_features"
   - path: "backend/tests/test_data_lifecycle.py"
     role: "test"
   - path: "backend/tests/test_reference_data_loop_acceptance.py"
@@ -323,6 +337,70 @@ Training Snapshotは、行key、actor、purpose、任意のselection policyと�
 
 [^selection-policy-scope]: 現行selection policyは、field値による除外条件を固定します。
     目的変数名、trainとvalidationのsplit全体、特徴量定義まで保持する契約ではありません。
+
+### 目的変数ごとにcohortを作る
+
+複数の目的変数を扱うとき、「全目的変数が揃った行」だけを共通の学習集合にすると、利用可能な観測まで失います。
+入力として適格な行の集合を\(E\)、目的変数\(y_k\)が観測された行を\(O_k\)とすると、目的変数\(k\)のcohortは次です。
+
+$$
+I_k = E \cap O_k
+$$
+
+四つのheatを固定例にします。
+
+| heat | 入力適格 | YS | UTS |
+|---|---:|---:|---:|
+| H1 | yes | 510 MPa | 680 MPa |
+| H2 | yes | 495 MPa | missing |
+| H3 | yes | missing | 705 MPa |
+| H4 | no | 530 MPa | 700 MPa |
+
+このとき\(I_{\mathrm{YS}}=\{\mathrm{H1},\mathrm{H2}\}\)、\(I_{\mathrm{UTS}}=\{\mathrm{H1},\mathrm{H3}\}\)です。
+complete-caseだけを採るとH1だけになり、YSではH2、UTSではH3の観測を理由なく捨てます。
+H4は目的変数があっても入力不適格なので、どちらのcohortにも入りません。
+
+MCAR、MAR、MNARは欠損が生じる仕組みを考える語彙です。
+現行アプリは欠損機構を自動判定しません。
+`missing`という値だけから「無作為だから無視できる」と推定せず、測定計画、試験失敗、報告方針をprovenanceで調べます。
+
+### split groupは行ではなく由来を分ける
+
+同じmaterial、lot、heat、paper、weld runから得た反復観測をrandom row splitすると、近縁な観測がtrainとvalidationへまたがります。
+split groupを\(g(i)\)とし、train側のgroup集合を\(G_{\mathrm{train}}\)、validation側を\(G_{\mathrm{validation}}\)とすると、最低条件は次です。
+
+$$
+G_{\mathrm{train}} \cap G_{\mathrm{validation}} = \varnothing
+$$
+
+どのfieldをgroupとするかは一般式から決まりません。
+Dataset Profileがentity roleとrelation cardinalityを固定し、Task側が「同じ由来」とみなすgrainを選びます。
+同じpaper内の異なる材料まで分けるか、同じheatの試験片だけを束ねるかで、評価が答える問いは変わります。
+
+::: {.callout-warning title="CURRENT LIMIT"}
+現行Training Snapshotは行key、purpose、selection policyを固定しますが、目的変数別cohort、split assignment、Feature Pipeline定義を一つの契約へ完全には固定しません。
+したがって、Snapshot IDだけから学習実験全体を再現できるとは主張しません。
+この固定境界の拡張はIssue #345で追跡します。
+:::
+
+### 可変長系列はRaw、Canonical、Featureへ分ける
+
+時間履歴、熱履歴、劣化曲線のような可変長系列を、最初から固定長vectorへ潰すと、単位変換、点順序、重複、補間の判断を後から検証できません。
+三層を分けます。
+
+| 層 | 固定するもの | ここでしないこと |
+|---|---|---|
+| Raw Series | 取得したpoint、元の順序、座標と値の単位、source locator | sort、平均、補間 |
+| Canonical Series | 単位変換、elapsed origin、stable sort、重複判定、品質finding | Task固有の特徴量選択 |
+| Feature Representation | 面積、最大値、傾き、grid値などversion付き計算 | RawまたはCanonicalの上書き |
+
+{{< code-ref source-evidence-series-contracts symbol=SeriesNormalizationRecipe >}}は、座標単位、値単位、elapsed origin、stable sort、同一点の扱いをversion付きrecipeへ置きます。
+{{< code-ref source-evidence-series-curation symbol=canonicalize_series >}}は同一内容の重複だけを決定的にまとめ、同じ座標で異なる値がある場合は自動平均せずblocked revisionを返します。
+{{< code-ref source-evidence-series-curation symbol=build_series_features >}}はCanonical SeriesからFeature Contractに従って表現を作り、Raw pointを変更しません。
+
+補間、smoothing、resamplingは便利ですが、観測事実ではありません。
+採用する場合はFeature Pipeline側のversion付き変換として扱い、Canonical Seriesそのものへ焼き込みません。
+材料組成のmass basis、amount basis、simplex制約は[材料・工程・測定の最小domain](materials-domain-primer.qmd)で別に扱います。
 
 Training Snapshotを作っても、次の処理は起きません。
 
