@@ -560,6 +560,7 @@ def test_commit_switch_failure_preserves_database_and_data_library(
     ("stop_point", "exit_code"),
     (
         ("after_journal_committing", 97),
+        ("after_current_moved", 97),
         ("after_database_committed", 97),
         ("after_journal_committed", 97),
         ("after_health_failed", 98),
@@ -607,6 +608,25 @@ def test_process_restart_recovers_interrupted_restore_from_journal(
     process.start()
     process.join(timeout=30)
     assert process.exitcode == exit_code
+
+    restore_root = (
+        current_database.parent
+        / ".workspace-restore"
+        / prepared.restore_token
+    )
+    state = json.loads((restore_root / "state.json").read_text(encoding="utf-8"))
+    assert state["previous_database_sha256"] == original_database_digest
+    if stop_point == "after_journal_committing":
+        assert _digest(current_database) == original_database_digest
+        assert (restore_root / "next" / "workspace" / "workbench.db").exists()
+        assert not (restore_root / "rollback-workbench.db").exists()
+    elif stop_point == "after_current_moved":
+        assert not current_database.exists()
+        assert _digest(restore_root / "rollback-workbench.db") == original_database_digest
+    else:
+        assert _digest(current_database) == state["commit_database_sha256"]
+        assert _digest(restore_root / "rollback-workbench.db") == original_database_digest
+        assert not (restore_root / "next" / "workspace" / "workbench.db").exists()
 
     recovered = recover_incomplete_workspace_restores(
         current_database,
