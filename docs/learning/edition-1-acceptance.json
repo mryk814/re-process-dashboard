@@ -193,6 +193,10 @@
     {
       "issue": 390,
       "reason": "Chain Project model-package endpoints with an empty task_id remain a separately tracked application defect."
+    },
+    {
+      "issue": 393,
+      "reason": "PR #392 landed after the Edition 1 acceptance cutoff; its Chain input range presentation drift is queued for the next grouped textbook maintenance batch."
     }
   ],
   "constraints": [
