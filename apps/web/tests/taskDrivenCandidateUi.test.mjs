@@ -411,8 +411,13 @@ test("every comparison pane states which candidate each row belongs to", () => {
     support: { status: "supported" },
     model_support: { TS: { status: "supported" } },
   };
+  const candidateWithHeat = {
+    ...candidate,
+    heatTimeBasis: "elapsed_time",
+    heat: [{ time: 1.5, temperature: 780, stageName: "均熱" }],
+  };
   const comparison = renderComparison({
-    candidates: [candidate],
+    candidates: [candidateWithHeat],
     selectedId: candidate.id,
     taskDefinition: definition,
     previewsByCandidate: { [candidate.id]: preview },
@@ -428,4 +433,15 @@ test("every comparison pane states which candidate each row belongs to", () => {
   assert.equal((comparison.match(/data-candidate-id="candidate-1"/g) ?? []).length, 4);
   assert.match(comparison, /<th scope="colgroup"/);
   assert.match(comparison, /<th scope="col" class="composition-col">/);
+  assert.match(comparison, /<summary>選択候補を1件ずつ読む<\/summary>/);
+  assert.match(comparison, /role="region" aria-labelledby="selected-candidate-reading-heading"/);
+  assert.match(comparison, /<h4>入力条件<\/h4>/);
+  assert.match(comparison, /<h4>予測・支持範囲・目標達成<\/h4>/);
+  assert.match(comparison, /<dt>支持範囲<\/dt>/);
+  assert.match(comparison, /<dt>目標達成<\/dt>/);
+  assert.match(comparison, /<h5>ヒートパターン<\/h5>/);
+  assert.match(comparison, /時間基準：経過時間/);
+  assert.match(comparison, /<b>均熱<\/b><span>1.5分、780 °C<\/span>/);
+  assert.match(comparison, /500.0 MPa/);
+  assert.doesNotMatch(comparison, /<tr aria-hidden="true"><th\/><th\/><\/tr>/);
 });

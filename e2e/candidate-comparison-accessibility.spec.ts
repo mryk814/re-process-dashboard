@@ -1,10 +1,31 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAxeViolations } from "./axe";
 
 test("comparison panes keep candidate rows aligned after text enlargement", async ({ page }) => {
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await expect(page.locator(".comparison-prediction-table tbody tr")).toHaveCount(3);
   await expect(page.locator(".decision-prediction").first()).toBeVisible();
+  await expect(page.locator(".candidate-name-table thead tr")).toHaveCount(1);
+
+  const selectedLabel = await page.locator(
+    ".candidate-name-table tbody tr.selected-row input",
+  ).inputValue();
+  await page.getByText("選択候補を1件ずつ読む", { exact: true }).click();
+  const readingView = page.getByRole("region", { name: selectedLabel });
+  await expect(readingView).toBeVisible();
+  await expect(readingView.getByRole("heading", { name: "入力条件" })).toBeVisible();
+  await expect(readingView.getByRole("heading", {
+    name: "予測・支持範囲・目標達成",
+  })).toBeVisible();
+  await expect(readingView.getByText("予測", { exact: true }).first()).toBeVisible();
+  await expect(readingView.getByText("支持範囲", { exact: true }).first()).toBeVisible();
+  await expect(readingView.getByText("目標達成", { exact: true }).first()).toBeVisible();
+  await expect(readingView.getByRole("heading", { name: "ヒートパターン" })).toBeVisible();
+  await expect(readingView.getByText("536.0 MPa", { exact: true })).toBeVisible();
+  await expect(readingView.getByText("533.2–538.8 MPa", { exact: true })).toBeVisible();
+  await expect(readingView.getByText(/分、\d+(?:\.\d+)? °C/).first()).toBeVisible();
+  await expectNoBlockingAxeViolations(page, "expanded selected Candidate reading view");
 
   for (const selector of [
     ".comparison-input-table",
@@ -24,6 +45,11 @@ test("comparison panes keep candidate rows aligned after text enlargement", asyn
     supportFontSize: Number.parseFloat(
       getComputedStyle(document.querySelector(
         ".comparison-prediction-table .target-support-list > span",
+      )!).fontSize,
+    ),
+    readingFontSize: Number.parseFloat(
+      getComputedStyle(document.querySelector(
+        ".selected-candidate-reading-content dd",
       )!).fontSize,
     ),
     rowHeights: Object.fromEntries(
@@ -53,8 +79,13 @@ test("comparison panes keep candidate rows aligned after text enlargement", asyn
         const row = rows.find((item) => item.dataset.candidateId === candidateId);
         return row?.getBoundingClientRect().height ?? 0;
       });
+      const tops = rowSets.map((rows) => {
+        const row = rows.find((item) => item.dataset.candidateId === candidateId);
+        return row?.getBoundingClientRect().top ?? 0;
+      });
       return heights.every((height) => height > 0)
-        && Math.max(...heights) - Math.min(...heights) <= 0.5;
+        && Math.max(...heights) - Math.min(...heights) <= 0.5
+        && Math.max(...tops) - Math.min(...tops) <= 0.5;
     });
   });
   await page.evaluate((fontSize) => {
@@ -69,8 +100,27 @@ test("comparison panes keep candidate rows aligned after text enlargement", asyn
   ).first().evaluate(
     (node) => Number.parseFloat(getComputedStyle(node).fontSize),
   )).toBeGreaterThanOrEqual(baseline.supportFontSize * 1.49);
+  await expect.poll(async () => readingView.locator("dd").first().evaluate(
+    (node) => Number.parseFloat(getComputedStyle(node).fontSize),
+  )).toBeGreaterThanOrEqual(baseline.readingFontSize * 1.49);
 
   await expect.poll(rowsAreAligned).toBe(true);
+  await expect.poll(async () => page.evaluate(() => {
+    const panes = [
+      ".comparison-input-scroll",
+      ".comparison-prediction-scroll",
+      ".comparison-action-scroll",
+    ].map((selector) => document.querySelector<HTMLElement>(selector)!);
+    panes.forEach((pane) => {
+      pane.scrollTop = 80;
+    });
+    return panes.every((pane) => {
+      const headerRows = pane.querySelectorAll<HTMLTableRowElement>("thead > tr");
+      const first = headerRows[0]?.querySelector("th")?.getBoundingClientRect();
+      const second = headerRows[1]?.querySelector("th")?.getBoundingClientRect();
+      return Boolean(first && second && second.top >= first.bottom - 0.5);
+    });
+  })).toBe(true);
   await expect.poll(async () => page.evaluate((baselineRows) => (
     Array.from(document.querySelectorAll<HTMLTableRowElement>(
       ".candidate-name-table tbody tr",

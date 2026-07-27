@@ -65,6 +65,23 @@
 .candidate-decision-summary dd.needs-attention { color: #a65b00; }
 .decision-summary-link { display: block; width: fit-content; max-width: 100%; margin-top: 3px; border: 0; border-bottom: 1px solid #8ea9c8; padding: 1px 0; background: transparent; color: #245d9d; font-size: 10px; font-weight: 700; white-space: normal; text-align: left; cursor: pointer; }
 .candidate-decision-summary p { margin: 0; color: #4a5f78; font-size: 11px; line-height: 1.45; }
+.selected-candidate-reading-view { min-width: 0; border: 1px solid #cfd9e5; border-radius: 4px; background: #fff; }
+.selected-candidate-reading-view > summary { width: fit-content; padding: 7px 10px; color: #245d9d; font-size: 0.6875rem; font-weight: 700; cursor: pointer; }
+.selected-candidate-reading-content { display: grid; grid-template-columns: minmax(180px, 0.8fr) minmax(320px, 1.2fr); gap: 10px 18px; border-top: 1px solid #d8e0ea; padding: 10px 12px 12px; }
+.selected-candidate-reading-content > h3 { grid-column: 1 / -1; margin: 0; color: #173253; font-size: 0.875rem; }
+.selected-candidate-reading-content h4,
+.selected-candidate-reading-content h5 { margin: 0 0 6px; color: #33445b; font-size: 0.6875rem; }
+.selected-candidate-reading-content dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 6px; margin: 0; }
+.selected-candidate-reading-content dl > div { min-width: 0; border-left: 2px solid #d8e2ee; padding-left: 7px; }
+.selected-candidate-reading-content dt { color: #5f6f82; font-size: 0.625rem; }
+.selected-candidate-reading-content dd { margin: 2px 0 0; color: #263448; font-size: 0.6875rem; font-weight: 700; overflow-wrap: anywhere; }
+.selected-candidate-heat-pattern { margin-top: 10px; border-top: 1px solid #d8e0ea; padding-top: 8px; }
+.selected-candidate-heat-pattern p { margin: 0 0 5px; color: #5f6f82; font-size: 0.625rem; }
+.selected-candidate-heat-pattern ol { display: grid; gap: 3px; margin: 0; padding-left: 20px; }
+.selected-candidate-heat-pattern li { color: #263448; font-size: 0.6875rem; }
+.selected-candidate-heat-pattern li b { margin-right: 6px; }
+.selected-candidate-output-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; }
+.selected-candidate-output-list article { min-width: 0; border-radius: 3px; background: #f7faff; padding: 8px; }
 .comparison-grid-viewport { min-width: 0; overflow-x: auto; }
 .comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; width: 100%; min-width: 749px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
 .comparison-pane-scroll { min-width: 0; max-height: 270px; overflow: scroll; background: #fff; }
@@ -134,10 +151,10 @@
 }
 .comparison-pane-scroll .candidate-name-table thead tr:nth-child(2) th,
 .comparison-pane-scroll .comparison-detail-table thead tr:nth-child(2) th {
-  top: 41px;
+  top: var(--comparison-header-first-row-height, 41px);
   z-index: 2;
 }
-.candidate-name-table thead tr:first-child th { border-bottom: 0; }
+.candidate-name-table thead th { height: 82px; }
 .comparison-detail-table thead tr:first-child th:first-child { border-right-color: #c2cfdf; }
 .comparison-detail-table thead tr:nth-child(2) th { background: #f7f9fc; }
 .candidate-name-table tbody th,
@@ -220,7 +237,7 @@
 .comparison-action-table td { height: 37px; padding: 0 4px; border-bottom: 1px solid #d8e0ea; text-align: center; white-space: nowrap; }
 .comparison-action-table thead th { position: sticky; z-index: 3; height: 41px; background: #edf2f8; color: #46566c; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; }
 .comparison-action-table thead tr:first-child th { top: 0; }
-.comparison-action-table thead tr:nth-child(2) th { top: 41px; z-index: 2; background: #f7f9fc; }
+.comparison-action-table thead tr:nth-child(2) th { top: var(--comparison-header-first-row-height, 41px); z-index: 2; background: #f7f9fc; }
 .comparison-action-table thead small { color: #526276; font-size: 0.625rem; font-weight: 400; }
 .comparison-action-table tbody tr { cursor: pointer; }
 .comparison-action-table tbody tr:hover td { background: #f5f9ff; }
@@ -250,6 +267,7 @@
   /* 三つの指標は幅が足りなければ折り返す。ページ全体を横スクロールさせない。 */
   .candidate-decision-summary dl { max-width: 480px; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
   .candidate-decision-summary dd { overflow: hidden; text-overflow: ellipsis; }
+  .selected-candidate-reading-content { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 820px) {

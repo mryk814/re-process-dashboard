@@ -326,6 +326,9 @@ export function ComparisonTable({
     }))
     .sort((left, right) => Number(right.hasVariation) - Number(left.hasVariation) || left.index - right.index);
   const inputFields = inputGroups.flatMap((group) => group.fields);
+  const readingInputFields = orderedInputGroups(taskDefinition)
+    .filter((group) => group.key !== "heat_pattern")
+    .flatMap((group) => group.fields);
   const outputs = taskDefinition.outputs;
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [inputShare, setInputShare] = useState(() => clamp(storedComparisonInputShare(), 28, 58));
@@ -360,6 +363,30 @@ export function ComparisonTable({
       predictionScrollRef.current,
       actionScrollRef.current,
     ];
+    const headerRowsByPane = panes.map((pane) =>
+      Array.from(pane?.querySelectorAll<HTMLTableRowElement>("thead > tr") ?? []),
+    );
+    headerRowsByPane.flat().forEach((row) => {
+      row.style.height = "";
+    });
+    const detailHeaderRows = headerRowsByPane.slice(1);
+    const detailHeaderHeights = [0, 1].map((rowIndex) => Math.max(
+      41,
+      ...detailHeaderRows.map((rows) => rows[rowIndex]?.getBoundingClientRect().height ?? 0),
+    ));
+    comparisonGridRef.current?.style.setProperty(
+      "--comparison-header-first-row-height",
+      `${Math.ceil(detailHeaderHeights[0] ?? 41)}px`,
+    );
+    detailHeaderRows.forEach((rows) => {
+      rows.forEach((row, rowIndex) => {
+        row.style.height = `${Math.ceil(detailHeaderHeights[rowIndex] ?? 41)}px`;
+      });
+    });
+    const nameHeaderRow = headerRowsByPane[0]?.[0];
+    if (nameHeaderRow) {
+      nameHeaderRow.style.height = `${detailHeaderHeights.reduce((sum, height) => sum + Math.ceil(height), 0)}px`;
+    }
     const rows = panes.flatMap((pane) =>
       Array.from(pane?.querySelectorAll<HTMLTableRowElement>("tbody > tr") ?? []),
     );
@@ -410,10 +437,16 @@ export function ComparisonTable({
     };
     const observer = new ResizeObserver(scheduleRowHeightSync);
     tables.forEach((table) => observer.observe(table));
+    const rootStyleObserver = new MutationObserver(scheduleRowHeightSync);
+    rootStyleObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
     window.addEventListener("resize", scheduleRowHeightSync);
     document.fonts?.addEventListener("loadingdone", scheduleRowHeightSync);
     return () => {
       observer.disconnect();
+      rootStyleObserver.disconnect();
       window.removeEventListener("resize", scheduleRowHeightSync);
       document.fonts?.removeEventListener("loadingdone", scheduleRowHeightSync);
       window.cancelAnimationFrame(syncFrame);
@@ -564,6 +597,110 @@ export function ComparisonTable({
               : uncertaintyMessage}
         </p>
       </aside>
+      <details className="selected-candidate-reading-view">
+        <summary>選択候補を1件ずつ読む</summary>
+        {selectedCandidate && (
+          <div
+            className="selected-candidate-reading-content"
+            role="region"
+            aria-labelledby="selected-candidate-reading-heading"
+          >
+            <h3 id="selected-candidate-reading-heading">{selectedCandidate.label}</h3>
+            <section>
+              <h4>入力条件</h4>
+              <dl>
+                {readingInputFields.map((field) => {
+                  const value = getCandidateInputValue(selectedCandidate.raw.inputs, field.path);
+                  const formatted = typeof value === "number"
+                    ? formatInputNumber(value, taskDefinition, field.path, displayDecimalOverrides)
+                    : String(value ?? "未設定");
+                  return (
+                    <div key={field.path}>
+                      <dt>{field.label}</dt>
+                      <dd>{formatted}{field.unit ? ` ${field.unit}` : ""}</dd>
+                    </div>
+                  );
+                })}
+                {[...taskDefinition.fixed_context].sort((left, right) => left.order - right.order).map((item) => (
+                  <div key={item.path}>
+                    <dt>{item.label}</dt>
+                    <dd>{String(item.value)}</dd>
+                  </div>
+                ))}
+              </dl>
+              {selectedCandidate.heat.length > 0 && (
+                <div className="selected-candidate-heat-pattern">
+                  <h5>ヒートパターン</h5>
+                  <p>時間基準：{selectedCandidate.heatTimeBasis === "line_speed" ? "ライン速度連動" : "経過時間"}</p>
+                  <ol>
+                    {selectedCandidate.heat.map((point, index) => (
+                      <li key={`${point.time}:${point.temperature}:${index}`}>
+                        <b>{point.stageName?.trim() || `点${index + 1}`}</b>
+                        <span>{formatNumber(point.time)}分、{formatNumber(point.temperature)} °C{point.segmentStart ? "（区間開始）" : ""}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </section>
+            <section>
+              <h4>予測・支持範囲・目標達成</h4>
+              <div className="selected-candidate-output-list">
+                {outputs.map((output) => {
+                  const prediction = previewsByCandidate[selectedCandidate.id]?.predictions[output.key];
+                  const targetSupport = previewsByCandidate[selectedCandidate.id]?.model_support?.[output.key];
+                  const goal = targetValues[output.key];
+                  const predictionUnit = prediction && ["continuous", "continuous_positive", "count"].includes(prediction.target_kind) && prediction.unit
+                    ? ` ${prediction.unit}`
+                    : "";
+                  let goalStatus = "未計算のため判定なし";
+                  if (prediction?.target_kind === "binary") {
+                    const threshold = typeof goal === "number" ? goal : undefined;
+                    const meetsGoal = threshold == null
+                      ? null
+                      : output.goal_direction === "at_most"
+                        ? prediction.value <= threshold
+                        : prediction.value >= threshold;
+                    goalStatus = meetsGoal == null
+                      ? "基準未設定"
+                      : `${meetsGoal ? "基準内" : "基準外"}（基準 ${formatNumber(threshold! * 100)}%）`;
+                  } else if (prediction) {
+                    const configured = prediction.goal_direction === "between"
+                      ? prediction.goal_lower != null && prediction.goal_upper != null
+                      : prediction.goal_value != null || hasValidTargetGoal(goal);
+                    goalStatus = prediction.goal_probability == null
+                      ? configured ? "達成率なし" : "目標未設定"
+                      : `達成確率 ${formatNumber(prediction.goal_probability * 100)}%`;
+                  }
+                  return (
+                    <article key={output.key}>
+                      <h5>{output.label}</h5>
+                      <dl>
+                        <div>
+                          <dt>予測</dt>
+                          <dd>{prediction ? `${predictionValue(prediction, output.key)}${predictionUnit}` : "未計算"}</dd>
+                        </div>
+                        <div>
+                          <dt>予測区間</dt>
+                          <dd>{prediction && predictionHasInterval(prediction) ? `${uncertaintySummary(prediction, output.key).interval}${predictionUnit}` : "なし"}</dd>
+                        </div>
+                        <div>
+                          <dt>支持範囲</dt>
+                          <dd>{support(targetSupport?.status)}</dd>
+                        </div>
+                        <div>
+                          <dt>目標達成</dt>
+                          <dd>{goalStatus}</dd>
+                        </div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
+      </details>
       <div className="comparison-grid-viewport">
         <section
           ref={comparisonGridRef}
@@ -571,7 +708,7 @@ export function ComparisonTable({
           aria-label="候補の入力と予測結果比較"
           style={{ "--comparison-input-share": `${effectiveInputShare}%` } as CSSProperties}
         >
-          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr><tr aria-hidden="true"><th /><th /></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
+          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(34)} />
           <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
