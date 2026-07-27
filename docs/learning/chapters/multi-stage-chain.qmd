@@ -780,7 +780,7 @@ outputを独立にsampleすると、同時に起きやすい組合せまたは�
 同じseedだけを再現性の十分条件とする回答も、Package、Chain Revision、candidate revision、sample countを固定していません。
 :::
 
-## 章末check {#exercise-multi-stage-chain-chapter-check}
+## 章末チェック {#exercise-multi-stage-chain-chapter-check}
 
 1. Chain DefinitionとChain Executionは何を別々に固定しますか。
 2. quantityが同じでもbasisが違うportをunit conversionで接続できないのはなぜですか。

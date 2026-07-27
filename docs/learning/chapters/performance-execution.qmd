@@ -465,7 +465,7 @@ CPU、memory、結果順、coldまたはwarmの条件を含めてください。
 
 [解答例](#answer-performance-chapter-check)
 
-## 解答例
+## 演習の解答とrubric
 
 ::: {#answer-performance-01 .exercise-solution data-label="演習1の解答"}
 #### 解答例

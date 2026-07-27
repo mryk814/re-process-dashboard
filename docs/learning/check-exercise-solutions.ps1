@@ -8,7 +8,17 @@ $expectedExerciseDocuments = [ordered]@{
     "labs\break-and-repair-migration.qmd" = "migration"
     "labs\trace-project-lifecycle.qmd" = "project-lifecycle"
     "labs\trace-workspace-restore.qmd" = "workspace"
+    "chapters\system-map.qmd" = "system-map"
     "chapters\decision-safety.qmd" = "decision-safety"
+    "chapters\materials-domain-primer.qmd" = "materials-domain-primer"
+    "chapters\model-package-runtime.qmd" = "model-package-runtime"
+    "chapters\prediction-calibration-support.qmd" = "prediction-math"
+    "chapters\design-space-acquisition.qmd" = "acquisition"
+    "chapters\multi-stage-chain.qmd" = "multi-stage-chain"
+    "chapters\frontend-desktop-state.qmd" = "frontend-desktop-state"
+    "chapters\verification-operations.qmd" = "verification"
+    "chapters\security-trust-boundaries.qmd" = "security-trust-boundaries"
+    "chapters\performance-execution.qmd" = "performance"
 }
 
 $errors = New-Object System.Collections.Generic.List[string]
@@ -146,7 +156,27 @@ foreach ($entry in $expectedExerciseDocuments.GetEnumerator()) {
         ) {
             $problemEndIndex = $answerPositionsInFile[$expectedAnswerId] - 1
         }
-        $problemLines = $lines[$section.Start..$problemEndIndex]
+        $problemLines = New-Object System.Collections.Generic.List[string]
+        $embeddedSolutionDepth = 0
+        for ($problemIndex = $section.Start; $problemIndex -le $problemEndIndex; $problemIndex++) {
+            $problemLine = $lines[$problemIndex]
+            if (
+                $embeddedSolutionDepth -eq 0 -and
+                $problemLine -match '^:::\s+\{#answer-[a-z0-9-]+-(?:[0-9]{2}|chapter-check)\s+\.exercise-solution\b'
+            ) {
+                $embeddedSolutionDepth = 1
+                continue
+            }
+            if ($embeddedSolutionDepth -gt 0) {
+                if ($problemLine -match '^:::+\s+\{') {
+                    $embeddedSolutionDepth++
+                } elseif ($problemLine -match '^:::+\s*$') {
+                    $embeddedSolutionDepth--
+                }
+                continue
+            }
+            $problemLines.Add($problemLine)
+        }
         $problemRaw = $problemLines -join "`n"
 
         if (-not ($problemLines -match '^#{3,4}\s+成功条件\s*$')) {
@@ -179,7 +209,17 @@ $chapterChecks = [ordered]@{
     "chapters\trust-a-migrated-database.qmd" = "../labs/break-and-repair-migration.qmd#answer-migration-chapter-check"
     "chapters\separate-archive-from-purge.qmd" = "../labs/trace-project-lifecycle.qmd#answer-project-lifecycle-chapter-check"
     "chapters\restore-workspace-safely.qmd" = "../labs/trace-workspace-restore.qmd#answer-workspace-chapter-check"
+    "chapters\system-map.qmd" = "#answer-system-map-chapter-check"
     "chapters\decision-safety.qmd" = "#answer-decision-safety-chapter-check"
+    "chapters\materials-domain-primer.qmd" = "#answer-materials-domain-primer-chapter-check"
+    "chapters\model-package-runtime.qmd" = "#answer-model-package-runtime-chapter-check"
+    "chapters\prediction-calibration-support.qmd" = "#answer-prediction-math-chapter-check"
+    "chapters\design-space-acquisition.qmd" = "#answer-acquisition-chapter-check"
+    "chapters\multi-stage-chain.qmd" = "#answer-multi-stage-chain-chapter-check"
+    "chapters\frontend-desktop-state.qmd" = "#answer-frontend-desktop-state-chapter-check"
+    "chapters\verification-operations.qmd" = "#answer-verification-chapter-check"
+    "chapters\security-trust-boundaries.qmd" = "#answer-security-trust-boundaries-chapter-check"
+    "chapters\performance-execution.qmd" = "#answer-performance-chapter-check"
 }
 
 foreach ($entry in $chapterChecks.GetEnumerator()) {

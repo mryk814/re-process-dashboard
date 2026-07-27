@@ -660,7 +660,7 @@ plausibilityはoutput、eligibilityは学習row、supportはcandidateと参照da
 「allowed range内なのでsupportも高い」という回答も、設計上の範囲と学習dataからの距離を混同しています。
 :::
 
-## 章末check {#exercise-materials-domain-primer-chapter-check}
+## 章末チェック {#exercise-materials-domain-primer-chapter-check}
 
 次の問いへ、本文を見ずに一文ずつ答えてください。
 

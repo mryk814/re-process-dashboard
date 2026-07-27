@@ -380,7 +380,7 @@ PRへ貼る検証記録を8行以内で書いてください。
 
 [解答例](#answer-verification-chapter-check)
 
-## 解答例
+## 演習の解答とrubric
 
 ::: {#answer-verification-01 .exercise-solution data-label="演習1の解答"}
 #### 解答例

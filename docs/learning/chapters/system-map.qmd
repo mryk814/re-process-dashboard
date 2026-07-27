@@ -428,7 +428,7 @@ node docs/learning/check-code-references.mjs
 [章末チェックの解答](#answer-system-map-chapter-check)は、回答を固定してから開きます。
 
 ::: {#answer-system-map-chapter-check .exercise-solution data-label="章末チェックの解答"}
-#### 解答
+#### 解答例
 
 1. React renderer、Python sidecar、SQLiteです。ElectronはDesktop入口を担当し、local Webをbrowserだけで使う場合には入りません。
 2. rendererの入力は未保存でも存在し、process終了で失われます。SQLite rowはtransaction成功後の永続stateです。
@@ -438,9 +438,14 @@ node docs/learning/check-code-references.mjs
 6. 同じPC上の別pageやprocessもloopbackへ接続できるため、originと起動tokenを検査します。
 7. Python contractとOpenAPIから再生成されるfileであり、直接変更は再生成で消え、backendのresponse shapeも変えないためです。
 
-#### 判定
+#### 解答の理由
 
 requestの流れ、stateの寿命、正本と生成物、信頼境界の四点を別々に説明できれば、この章の到達点を満たします。
+
+#### よくある不十分な回答
+
+component名だけを列挙する回答では、stateがどこで永続化され、どの境界が入力を拒否するかを説明できません。
+「localだから安全」という回答も、loopbackへ接続できる別pageやprocessを考慮していません。
 :::
 
 ## Further Reading
