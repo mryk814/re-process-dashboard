@@ -1,7 +1,7 @@
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 
-function shortDigest(value: string | null | undefined): string {
-  return value ? value.slice(0, 12) : "記録なし";
+function recorded(value: string | number | null | undefined): string {
+  return value === null || value === undefined || value === "" ? "記録なし" : String(value);
 }
 
 export function ActivityRunHistory({
@@ -39,17 +39,35 @@ export function ActivityRunHistory({
 
 export function ActivityRunProvenance({ run }: { run: ApiDecisionActivityRun }) {
   const provenance = run.provenance;
+  const model = provenance.model;
   const entries = [
     ["Activity", `${run.definition.label} ${provenance.activity_version || "記録なし"}`],
     ["作成日時", run.created_at ? new Date(run.created_at).toLocaleString("ja-JP") : "記録なし"],
     ["Candidate", `${provenance.candidate_id || "記録なし"} · 編集版 ${provenance.candidate_revision ?? "記録なし"}`],
-    ["Task", `${provenance.task_id || "記録なし"} · ${shortDigest(provenance.task_contract_digest)}`],
-    ["Model Package", shortDigest(provenance.model_package_digest)],
-    ["Feature pipeline", shortDigest(provenance.feature_pipeline_digest)],
-    ["入力", shortDigest(provenance.canonical_input_digest)],
-    ["実行条件", shortDigest(provenance.parameters_digest)],
-    ["Design Space", shortDigest(provenance.project_design_space_digest)],
-    ["Objective", shortDigest(provenance.objective_definition_digest)],
+    ["Task ID", recorded(provenance.task_id)],
+    ["Task contract digest", recorded(provenance.task_contract_digest)],
+    ["Model", model.model ? `${model.model.id} · v${model.model.version} · ${model.model.method}` : "記録なし"],
+    ["Package", model.package ? `${model.package.id} · v${model.package.version}` : "記録なし"],
+    ["Package manifest", recorded(model.package?.manifest_sha256)],
+    ["Model Package digest", recorded(provenance.model_package_digest)],
+    ["Feature pipeline", model.feature_pipeline
+      ? `${model.feature_pipeline.id} · v${model.feature_pipeline.version}`
+      : "記録なし"],
+    ["Feature pipeline digest", recorded(model.feature_pipeline?.digest || provenance.feature_pipeline_digest)],
+    ["Training data", model.training_data
+      ? `${model.training_data.training_data_id} · ${model.training_data.feature_dataset_id}`
+      : "記録なし"],
+    ["Training source SHA-256", recorded(model.training_data?.source_sha256)],
+    ["Training code revision", recorded(model.training_data?.training_code_revision)],
+    ["Canonical Dataset Revision", recorded(model.source_lifecycle?.canonical_dataset_revision_id)],
+    ["Canonical Dataset digest", recorded(model.source_lifecycle?.canonical_dataset_digest)],
+    ["Training Snapshot", recorded(model.source_lifecycle?.training_snapshot_id)],
+    ["Training Snapshot digest", recorded(model.source_lifecycle?.training_snapshot_digest)],
+    ["Materialized training SHA-256", recorded(model.source_lifecycle?.materialized_training_sha256)],
+    ["Canonical input digest", recorded(provenance.canonical_input_digest)],
+    ["Parameters digest", recorded(provenance.parameters_digest)],
+    ["Design Space digest", recorded(provenance.project_design_space_digest)],
+    ["Objective digest", recorded(provenance.objective_definition_digest)],
   ] as const;
 
   return <details className="activity-run-provenance">
@@ -57,9 +75,9 @@ export function ActivityRunProvenance({ run }: { run: ApiDecisionActivityRun }) 
     <dl>
       {entries.map(([label, value]) => <div key={label}>
         <dt>{label}</dt>
-        <dd>{value}</dd>
+        <dd><code>{value}</code></dd>
       </div>)}
     </dl>
-    <small>Run ID {run.id || "記録なし"} · identity {shortDigest(run.semantic_identity)}</small>
+    <small>Run ID <code>{recorded(run.id)}</code> · identity <code>{recorded(run.semantic_identity)}</code></small>
   </details>;
 }

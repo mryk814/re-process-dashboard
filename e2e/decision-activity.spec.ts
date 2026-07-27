@@ -102,6 +102,11 @@ test("a delayed activity response cannot overwrite the newly selected candidate"
   expect(baseCandidate).toBeTruthy();
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await runRobustness(page);
+  await expect(page.locator(".activity-result")).toBeVisible();
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
 
   let releaseOldResponses!: () => void;
   const oldResponsesReleased = new Promise<void>((resolve) => {
@@ -130,6 +135,7 @@ test("a delayed activity response cannot overwrite the newly selected candidate"
   await oldRequestsStarted;
   await page.getByRole("button", { name: "高強度案を選択" }).click();
   await expect(page.getByText("選択中: 高強度案")).toBeVisible();
+  await expect(page.locator(".activity-result")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
   releaseOldResponses();
 
