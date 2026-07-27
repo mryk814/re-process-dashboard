@@ -203,12 +203,12 @@
 .actual-comparison-table thead th { background: #f5f7fa; color: #536277; font-size: 10px; white-space: nowrap; }
 .actual-comparison-table tbody th { color: #243b55; white-space: nowrap; }
 .actual-comparison-table b { display: block; color: #174f98; font-variant-numeric: tabular-nums; }
-.actual-comparison-table small { display: block; color: #526276; font-size: 9px; font-weight: 400; }
+.actual-comparison-table small { display: block; color: #526276; font-size: 10px; font-weight: 400; }
 .actual-comparison-table .actual-difference { color: #334a65; font-weight: 700; font-variant-numeric: tabular-nums; }
 .actual-comparison-table .actual-difference.positive { color: #9a5210; }
 .actual-comparison-table .actual-difference.negative { color: #166c57; }
 .actual-metadata { display: grid; gap: 1px; min-width: 120px; }
-.actual-measurement-panel > footer { padding: 6px 11px; background: #f8fafc; color: #526276; font-size: 9px; }
+.actual-measurement-panel > footer { padding: 6px 11px; background: #f8fafc; color: #526276; font-size: 10px; }
 @media (max-width: 1280px) {
   .actual-measurement-form { grid-template-columns: repeat(4, minmax(110px, 1fr)); }
   .actual-measurement-form .primary-button { align-self: end; }
@@ -295,7 +295,7 @@
 }
 .candidate-origin.reference-data { border-color: #8fb6ad; background: #f2faf8; color: #426c66; }
 .candidate-origin.reference-data span { align-items: center; }
-.candidate-origin.reference-data i, .reference-data-kicker { border-radius: 999px; background: #d8eee9; padding: 2px 7px; color: #245d55; font-size: 9px; font-style: normal; font-weight: 700; }
+.candidate-origin.reference-data i, .reference-data-kicker { border-radius: 999px; background: #d8eee9; padding: 2px 7px; color: #245d55; font-size: 10px; font-style: normal; font-weight: 700; }
 .candidate-origin-measurements {
   min-width: 0;
   gap: 8px;
@@ -582,7 +582,7 @@
 .heat-point-table thead th { position: sticky; top: 0; z-index: 1; background: #f7f9fc; color: #526276; font-weight: 700; }
 .heat-point-table th:first-child { width: 22px; }
 .heat-point-table th:last-child { width: 30px; }
-.heat-point-table thead small { display: block; color: #526276; font-size: 9px; font-weight: 400; }
+.heat-point-table thead small { display: block; color: #526276; font-size: 10px; font-weight: 400; }
 .heat-point-table input { display: block; width: 100%; height: 25px; border: 1px solid #cbd6e2; border-radius: 3px; padding: 2px 4px; color: #18202c; font-size: 11px; }
 .heat-point-table input:disabled { border-color: #e0e5eb; background: #f1f3f6; color: #7c8795; cursor: not-allowed; }
 .response-curves-panel { position: relative; margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 4px; }
@@ -653,10 +653,10 @@
 .curve-family-panel .response-curve-card svg { width: min(100%, 400px); margin-inline: auto; }
 .curve-family-prompt { margin: 0; padding: 8px 11px; color: #526276; font-size: 11px; }
 .curve-display-range-toggle { margin-left: auto; font-size: 10px; }
-.curve-clipped-summary { border-radius: 999px; background: #fff1dc; padding: 2px 6px; color: #91550d !important; font-size: 9px; font-weight: 700; }
-.curve-current-outside { flex-basis: 100%; color: #8a5b13 !important; font-size: 9px; }
+.curve-clipped-summary { border-radius: 999px; background: #fff1dc; padding: 2px 6px; color: #91550d !important; font-size: 10px; font-weight: 700; }
+.curve-current-outside { flex-basis: 100%; color: #8a5b13 !important; font-size: 10px; }
 .curve-endpoint { pointer-events: none; }
-.curve-clip-indicator { fill: #a15d0a; font-size: 9px; font-weight: 700; }
+.curve-clip-indicator { fill: #a15d0a; font-size: 10px; font-weight: 700; }
 .similar-evidence-panel {
   margin-top: 10px;
   border: 1px solid #d8e0ea;
@@ -738,7 +738,7 @@
   display: inline-block;
   border-radius: 10px;
   padding: 2px 5px;
-  font-size: 9px;
+  font-size: 10px;
   white-space: nowrap;
 }
 .layer-chip.training {
@@ -896,8 +896,8 @@
   font-size: 11px;
 }
 .target-support-list { display: grid; gap: 2px; min-width: 104px; }
-.target-support-list > span { display: grid; grid-template-columns: 22px 8px 1fr; align-items: center; gap: 3px; color: #536478; font-size: 9px; line-height: 1.25; }
-.target-support-list b { color: #2d4259; font-size: 9px; }
+.target-support-list > span { display: grid; grid-template-columns: 22px 8px 1fr; align-items: center; gap: 3px; color: #536478; font-size: 10px; line-height: 1.25; }
+.target-support-list b { color: #2d4259; font-size: 10px; }
 .target-support-list .status-dot { width: 6px; height: 6px; }
 
 .decision-activity-panel {

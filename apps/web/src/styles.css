@@ -555,15 +555,16 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   color: #8a4e06;
 }
 
+/* 物理範囲外などの安全に関わる警告。画面内で最小の文字にしない。 */
 .output-warning-badge {
   display: block;
   width: max-content;
   margin-top: 3px;
   border-radius: 999px;
   background: #fff1dc;
-  padding: 2px 6px;
+  padding: 2px 7px;
   color: #91550d;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }

@@ -47,3 +47,35 @@ for (const surface of surfaces) {
     expect(diagnostics).toEqual([]);
   });
 }
+
+for (const surface of surfaces) {
+  test(`${surface.name}に9px未満の文字がない`, async ({ page }) => {
+    await page.goto(surface.url);
+    await expect(
+      page.getByRole(surface.ready.role, { name: surface.ready.name }).first(),
+    ).toBeVisible();
+
+    // 宣言値ではなく計算値で見る。継承やSVGのスケールで小さくなる場合も拾う。
+    const tooSmall = await page.evaluate(() => {
+      const results: string[] = [];
+      for (const element of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
+        const text = Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent?.trim() ?? "")
+          .join("");
+        if (!text) continue;
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") continue;
+        const size = Number.parseFloat(style.fontSize);
+        // SVG内textは軸目盛りの例外として9pxまで許す。
+        const floor = element.ownerSVGElement || element instanceof SVGElement ? 9 : 10;
+        if (size < floor) {
+          results.push(`${element.tagName.toLowerCase()}.${element.className} ${size}px: ${text.slice(0, 20)}`);
+        }
+      }
+      return results;
+    });
+
+    expect(tooSmall).toEqual([]);
+  });
+}

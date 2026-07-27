@@ -14,7 +14,7 @@
 .admin-availability-diagnostic dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; border: 1px solid #ead9af; border-radius: 4px; background: rgba(255, 255, 255, .55); }
 .admin-availability-diagnostic dl > div { min-width: 0; padding: 8px 9px; border-right: 1px solid #ead9af; }
 .admin-availability-diagnostic dl > div:last-child { border-right: 0; }
-.admin-availability-diagnostic dt { color: #80652c; font-size: 9px; font-weight: 700; }
+.admin-availability-diagnostic dt { color: #80652c; font-size: 10px; font-weight: 700; }
 .admin-availability-diagnostic dd { margin: 3px 0 0; overflow-wrap: anywhere; color: #49350d; font-size: 11px; font-weight: 650; }
 .admin-availability-diagnostic code { font: inherit; }
 .developer-control-center { min-width: 0; }
@@ -27,7 +27,7 @@
 .developer-flow li + li::before { position: absolute; top: 50%; left: -5px; width: 8px; height: 8px; border-top: 1px solid #8da3bd; border-right: 1px solid #8da3bd; background: #f8fafc; content: ""; transform: translateY(-50%) rotate(45deg); }
 .developer-flow li > b { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #dceafb; color: #185b9f; font-size: 11px; }
 .developer-flow li > div { display: grid; gap: 2px; min-width: 0; }
-.developer-flow small { color: #5f6f82; font-size: 9px; font-weight: 700; }
+.developer-flow small { color: #5f6f82; font-size: 10px; font-weight: 700; }
 .developer-flow strong { color: #29445f; font-size: 11px; line-height: 1.35; }
 .developer-flow span { color: #526276; font-size: 10px; line-height: 1.4; }
 .developer-note { color: #526276; font-size: 12px; }
@@ -60,7 +60,7 @@
 .developer-overview-list > details[open] > summary { border-bottom: 1px solid #d8e0ea; }
 .developer-overview-list summary > strong { min-width: 0; overflow: hidden; color: #2a405a; text-overflow: ellipsis; white-space: nowrap; }
 .developer-overview-list summary > small { min-width: 0; overflow: hidden; color: #617187; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.developer-overview-list summary > em { border-radius: 999px; background: #e2edf9; padding: 2px 6px; color: #315f94; font-size: 9px; font-style: normal; }
+.developer-overview-list summary > em { border-radius: 999px; background: #e2edf9; padding: 2px 6px; color: #315f94; font-size: 10px; font-style: normal; }
 .developer-project-status { border-radius: 999px; background: #e4f5ef; padding: 2px 6px; color: #257255; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .developer-project-status.warning { background: #fff3d8; color: #875e10; }
 .developer-project-status.error { background: #fce5e5; color: #974747; }
@@ -97,7 +97,7 @@
 .developer-open-profile { margin-top: 4px; }
 .developer-command { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; border: 1px solid #d8e0ea; border-radius: 4px; background: #f8fafc; padding: 6px 7px 6px 10px; }
 .developer-command code { min-width: 0; overflow-wrap: anywhere; font-size: 11px; }
-.developer-command small { flex: 0 0 auto; color: #748398; font-size: 9px; }
+.developer-command small { flex: 0 0 auto; color: #748398; font-size: 10px; }
 .developer-command button { flex: 0 0 auto; border: 1px solid #b8c7d8; border-radius: 3px; background: #fff; padding: 4px 7px; color: #315d91; font-size: 10px; }
 .developer-diagnostics-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .developer-diagnostics-header h3, .developer-diagnostics-header p { margin: 0 0 4px; }
@@ -209,7 +209,7 @@
 .training-data-table th,
 .training-data-table td { max-width: 240px; padding: 7px 9px; border-right: 1px solid #e3e8ef; border-bottom: 1px solid #e8edf2; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .training-data-table th { position: sticky; top: 0; z-index: 1; background: #edf2f8; color: #34465d; text-align: left; }
-.training-data-table th small { display: block; color: #5f6f82; font-size: 9px; font-weight: 500; }
+.training-data-table th small { display: block; color: #5f6f82; font-size: 10px; font-weight: 500; }
 .training-data-table th span { margin-left: 4px; color: #5f6f82; font-weight: 400; }
 .training-data-table th:nth-child(-n+2),
 .training-data-table td:nth-child(-n+2) { text-align: left; }

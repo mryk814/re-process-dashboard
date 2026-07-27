@@ -227,9 +227,9 @@ function CurveFamilyChart({
         {Number.isFinite(payload.axis.current) && <line x1={x(payload.axis.current)} y1="32" x2={x(payload.axis.current)} y2="124" stroke="#94a5ba" strokeDasharray="2 3" />}
         {clippedAbove > 0 && <text className="curve-clip-indicator" x="280" y="40" textAnchor="end">▲ {clippedAbove}</text>}
         {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="121" textAnchor="end">▼ {clippedBelow}</text>}
-        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="8" fill="#617087">{number(tick, xDigits)}</text>)}
+        {xTicks.map((tick) => <text key={tick} x={x(tick)} y="137" textAnchor="middle" fontSize="9" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
-        <text x="158" y="150" textAnchor="middle" fontSize="9" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
+        <text x="158" y="150" textAnchor="middle" fontSize="10" fill="#617087">{payload.axis.label} ({payload.axis.unit})</text>
       </svg>
     </article>
   );
@@ -667,7 +667,7 @@ function ResponseCurveMiniChart({
         {clippedBelow > 0 && <text className="curve-clip-indicator" x="280" y="125" textAnchor="end">▼ {clippedBelow}</text>}
         {xTicks.map((tick, index) => <text key={tick} x={x(tick)} y="143" textAnchor={index === 0 ? "start" : index === xTicks.length - 1 ? "end" : "middle"} fontSize="9" fill="#617087">{number(tick, xDigits)}</text>)}
         {hoveredPoint && <SvgChartTooltip {...hoveredPoint} chartWidth={width} chartHeight={height} />}
-        <text x="156" y="162" textAnchor="middle" fontSize="9" fill="#617087">{xAxisLabel}</text>
+        <text x="156" y="162" textAnchor="middle" fontSize="10" fill="#617087">{xAxisLabel}</text>
       </svg> : <p className="empty-evidence">読み込み中…</p>}
     </article>
   );
