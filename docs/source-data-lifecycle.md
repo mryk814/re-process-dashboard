@@ -88,7 +88,17 @@ Canonical Dataset RevisionはCuration Runをactorが明示承認して初めて�
 quarantined rowを含めるoverrideは対象row key、actor、row理由、全体理由を必須にする。
 blocked rowや重複row keyはoverrideできない。
 
-Training Snapshotは承認後の別操作であり、承認済みかつtarget-eligibleなrowだけを固定する。
+Training Snapshotは承認後の別操作である。
+v2は承認済みrowから、目的変数ごとの観測済みrow key、cohort digest、group field、fold数、groupからfoldへの完全な割当を固定する。
+全目的変数が揃うrowだけへ狭めず、targetごとに異なるcohortを保存する。
+Snapshot digestはrowの和集合、target cohort、split assignment、selection policy、actor、purposeを対象にする。
+
+Feature Pipelineの入力path、変換、特徴量名と順序はTraining Snapshotへ入れない。
+これらはModel Packageが定義とdigestを固定し、PackageのprovenanceがTraining Snapshot digestを参照する。
+したがって、同じTraining SnapshotからFeature Pipelineの異なるPackageを作ると、Snapshot digestは同じままPackage digestが変わる。
+
+legacyの`approved-training-snapshot/v1`は旧digest規則のまま読み取る。
+target cohortやsplitを後付けしてv2として再解釈せず、新しい学習実験ではv2 Snapshotを明示作成する。
 作成しても次は実行しない。
 
 - モデル再学習

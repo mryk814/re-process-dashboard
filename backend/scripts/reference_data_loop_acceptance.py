@@ -205,6 +205,17 @@ def _lifecycle(client: TestClient) -> dict[str, Any]:
             ),
             json={
                 "purpose": "battery-degradation-v1 acceptance Package",
+                "targets": [
+                    {
+                        "target_key": "capacity_percent",
+                        "field": "capacity_percent",
+                    }
+                ],
+                "split": {
+                    "strategy_id": "sorted-group-round-robin-v1",
+                    "group_field": "cell_id",
+                    "folds": 3,
+                },
                 "selection_policy": {
                     "schema_version": "training-snapshot-selection/v1",
                     "policy_id": "battery-cell-holdout-v1",

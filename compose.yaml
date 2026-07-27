@@ -1,0 +1,193 @@
+name: material-workbench
+
+services:
+  postgres:
+    profiles: ["infra"]
+    image: postgres:17.10-alpine
+    environment:
+      POSTGRES_DB: ${WORKBENCH_POSTGRES_DB:-workbench}
+      POSTGRES_USER: ${WORKBENCH_POSTGRES_USER:-workbench}
+      POSTGRES_PASSWORD: ${WORKBENCH_POSTGRES_PASSWORD:-local-development-only}
+    ports:
+      - "127.0.0.1:${WORKBENCH_POSTGRES_PORT:-54321}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    networks: [workbench-infra]
+
+  object-storage:
+    profiles: ["infra"]
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${WORKBENCH_S3_ACCESS_KEY:-workbench-local}
+      MINIO_ROOT_PASSWORD: ${WORKBENCH_S3_SECRET_KEY:-local-development-only}
+    ports:
+      - "127.0.0.1:${WORKBENCH_S3_PORT:-59000}:9000"
+      - "127.0.0.1:${WORKBENCH_S3_CONSOLE_PORT:-59001}:9001"
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+    networks: [workbench-infra]
+
+  bucket-init:
+    profiles: ["infra"]
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    environment: &s3-environment
+      WORKBENCH_S3_ENDPOINT: http://object-storage:9000
+      WORKBENCH_S3_BUCKET: ${WORKBENCH_S3_BUCKET:-workbench-artifacts}
+      WORKBENCH_S3_ACCESS_KEY: ${WORKBENCH_S3_ACCESS_KEY:-workbench-local}
+      WORKBENCH_S3_SECRET_KEY: ${WORKBENCH_S3_SECRET_KEY:-local-development-only}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set workbench "$${WORKBENCH_S3_ENDPOINT}" "$${WORKBENCH_S3_ACCESS_KEY}" "$${WORKBENCH_S3_SECRET_KEY}"
+        mc mb --ignore-existing "workbench/$${WORKBENCH_S3_BUCKET}"
+    restart: "no"
+    networks: [workbench-infra]
+
+  migration:
+    profiles: ["infra"]
+    image: postgres:17.10-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${WORKBENCH_POSTGRES_DB:-workbench}
+      PGUSER: ${WORKBENCH_POSTGRES_USER:-workbench}
+      PGPASSWORD: ${WORKBENCH_POSTGRES_PASSWORD:-local-development-only}
+    volumes:
+      - ./infrastructure/compose/migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["psql --set ON_ERROR_STOP=1 --file /migrations/001_shared_fixture.sql"]
+    restart: "no"
+    networks: [workbench-infra]
+
+  object-smoke:
+    profiles: ["infra"]
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    depends_on:
+      bucket-init:
+        condition: service_completed_successfully
+    environment: *s3-environment
+    volumes:
+      - ./infrastructure/compose/scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/object-smoke.sh"]
+    restart: "no"
+    networks: [workbench-infra]
+
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:17.10-alpine
+    environment:
+      POSTGRES_DB: workbench_test
+      POSTGRES_USER: workbench_test
+      POSTGRES_PASSWORD: ephemeral-test-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workbench_test -d workbench_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+    networks: [workbench-test]
+
+  migration-test:
+    profiles: ["test"]
+    image: postgres:17.10-alpine
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres-test
+      PGPORT: "5432"
+      PGDATABASE: workbench_test
+      PGUSER: workbench_test
+      PGPASSWORD: ephemeral-test-only
+    volumes:
+      - ./infrastructure/compose/migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        psql --set ON_ERROR_STOP=1 --file /migrations/001_shared_fixture.sql
+        test "$$(psql --tuples-only --no-align --command "SELECT count(*) FROM information_schema.tables WHERE table_schema='workbench_shared'")" = "8"
+    networks: [workbench-test]
+
+  object-storage-test:
+    profiles: ["test"]
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: workbench-test
+      MINIO_ROOT_PASSWORD: ephemeral-test-only
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+    networks: [workbench-test]
+
+  bucket-init-test:
+    profiles: ["test"]
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    depends_on:
+      object-storage-test:
+        condition: service_healthy
+    environment:
+      WORKBENCH_S3_ENDPOINT: http://object-storage-test:9000
+      WORKBENCH_S3_BUCKET: workbench-test
+      WORKBENCH_S3_ACCESS_KEY: workbench-test
+      WORKBENCH_S3_SECRET_KEY: ephemeral-test-only
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set workbench "$${WORKBENCH_S3_ENDPOINT}" "$${WORKBENCH_S3_ACCESS_KEY}" "$${WORKBENCH_S3_SECRET_KEY}"
+        mc mb --ignore-existing "workbench/$${WORKBENCH_S3_BUCKET}"
+    networks: [workbench-test]
+
+  integration-smoke:
+    profiles: ["test"]
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+    depends_on:
+      migration-test:
+        condition: service_completed_successfully
+      bucket-init-test:
+        condition: service_completed_successfully
+    environment:
+      WORKBENCH_S3_ENDPOINT: http://object-storage-test:9000
+      WORKBENCH_S3_BUCKET: workbench-test
+      WORKBENCH_S3_ACCESS_KEY: workbench-test
+      WORKBENCH_S3_SECRET_KEY: ephemeral-test-only
+    volumes:
+      - ./infrastructure/compose/scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/object-smoke.sh"]
+    networks: [workbench-test]
+
+volumes:
+  postgres-data:
+  object-storage-data:
+
+networks:
+  workbench-infra:
+  workbench-test:

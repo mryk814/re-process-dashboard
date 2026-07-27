@@ -2,7 +2,7 @@
 chapter_id: "source-to-training-evidence"
 level: intermediate
 estimated_minutes: 120
-verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
+verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
 code_references:
   - path: "docs/source-data-lifecycle.md"
     role: "docs"
@@ -129,7 +129,7 @@ Dataset Input Profileの作り方、Feature Pipeline、Model Package生成は別
 | Raw Snapshot | 取得時のJSON行、内容hash、設定digest、前回との差分 | 取得 | JSONとして解釈可能 |
 | Curation Run | Recipe適用後の全行、Profile参照、状態、理由、利用可否 | 品質判定 | 登録済みRecipeとProfileが一致 |
 | Canonical Dataset Revision | 承認行、除外行、override、actor、理由 | 承認 | blocked rowがなく、overrideが妥当 |
-| Training Snapshot | 承認済みかつ目的変数を利用でき、version付きselection policyで除外されないrow key | 明示作成 | 対象行が1件以上 |
+| Training Snapshot | selection policy適用後のrow和集合、目的変数別cohort、group field、fold数、group割当 | 明示作成 | 各targetに対象行と必要数のgroupがある |
 
 この表で異なるのは保存時刻だけではありません。
 各資産は、事実の取得、意味の変換、人間の承認、学習用途の選択という別の役割を持ちます。
@@ -327,16 +327,16 @@ Canonical Dataset Revisionは「きれいな表の保存名」ではありませ
 
 承認したDatasetを即座に学習へ使わない理由は、承認と用途選択が別の判断だからです。
 
-`build_training_snapshot()`は、Canonical Datasetで承認された行のうち、Curation Runで`target_eligible=true`だった行を選びます。
-requestに`TrainingSnapshotSelectionPolicy`があれば、version付きの除外条件も適用します。
-対象が0件なら作成を拒否します。
+`build_training_snapshot()`は、Canonical Datasetで承認された行へversion付きselection policyを適用し、目的変数ごとに値が観測されたrowを選びます。
+一つの目的変数が欠損しても、別の目的変数が観測されていれば、そのrowは後者のcohortへ残ります。
+各targetに対象rowがない場合、または指定fold数よりsplit groupが少ない場合は作成を拒否します。
 
-Training Snapshotは、行key、actor、purpose、任意のselection policyとそのdigestを保存します。
-公開requestの`TrainingSnapshotCreateRequest`はpurposeとselection policyだけを受け取り、承認と同じlocal workspace actorをAPIが加えます。
+Training Snapshot v2は、row keyの和集合、目的変数別cohort、cohort digest、group field、fold数、groupからfoldへの完全な割当、actor、purpose、任意のselection policyを保存します。
+公開requestの`TrainingSnapshotCreateRequest`はtarget fieldとsplit定義も受け取り、local workspace actorをAPIが加えます。
 同じDatasetから、異なる学習目的のSnapshotを明示的に作れます。[^selection-policy-scope]
 
 [^selection-policy-scope]: 現行selection policyは、field値による除外条件を固定します。
-    目的変数名、trainとvalidationのsplit全体、特徴量定義まで保持する契約ではありません。
+    target cohortとsplitはSnapshot本体が固定し、特徴量定義はModel Packageが固定します。
 
 ### 目的変数ごとにcohortを作る
 
@@ -377,11 +377,32 @@ $$
 Dataset Profileがentity roleとrelation cardinalityを固定し、Task側が「同じ由来」とみなすgrainを選びます。
 同じpaper内の異なる材料まで分けるか、同じheatの試験片だけを束ねるかで、評価が答える問いは変わります。
 
-::: {.callout-warning title="CURRENT LIMIT"}
-現行Training Snapshotは行key、purpose、selection policyを固定しますが、目的変数別cohort、split assignment、Feature Pipeline定義を一つの契約へ完全には固定しません。
-したがって、Snapshot IDだけから学習実験全体を再現できるとは主張しません。
-この固定境界の拡張はIssue #345で追跡します。
-:::
+### SnapshotとPackageの固定境界
+
+目的変数別cohortとsplit assignmentは、モデルを選ぶ前に確定する学習データの証拠です。
+そのため、Training Snapshot v2のdigestへ含めます。
+seedとalgorithmだけでは、実装変更やgroup順序の変更によって割当が変わり得るため、完全なgroup割当を保存します。
+
+Feature Pipelineは、Canonical inputからモデル入力を作るPackage側の定義です。
+同じcohortを異なる特徴量で比較できるように、Training Snapshotへ特徴量定義を埋め込みません。
+Model PackageがFeature PipelineのID、version、入力path、変換、特徴量順序、digestを固定し、provenanceからTraining Snapshot digestを参照します。
+
+```{mermaid}
+flowchart LR
+  C["Canonical Dataset Revision"] --> T["Training Snapshot v2<br/>row和集合、target cohort、group割当"]
+  T --> A["Task固有materialization adapter"]
+  A --> P["Model Package"]
+  F["Feature Pipeline定義<br/>入力path、変換、特徴量順序"] --> P
+  T -. "snapshot digestをprovenanceへ記録" .-> P
+```
+
+したがって、Snapshot digestはrow inclusion、target cohort、split、selection policy、actor、purposeを対象にします。
+Package digestはmanifest、Training Snapshot参照、Feature Pipeline定義、学習済みartifact、品質reportを対象にします。
+同じSnapshotからFeature Pipelineだけを変えると、Snapshot digestは変わらずPackage digestが変わります。
+
+`approved-training-snapshot/v1`は、旧payloadと旧digest規則のまま読み取ります。
+不足するcohortやsplitを推測してv2へ見せかけると、当時固定していない証拠を後から作ることになるためです。
+新しい学習実験はv2 Snapshotを作り、legacy Snapshotは再解釈しない監査証拠として残します。
 
 ### 可変長系列はRaw、Canonical、Featureへ分ける
 
@@ -625,7 +646,8 @@ Raw取得後に自動Curation、自動承認、自動学習まで進めれば、
 - Profileの意味変換は参照digestを固定するが、このdomain関数自体はProfile内容を解釈しない
 - Training SnapshotからPackage builderへ渡すadapterは`battery-degradation-v1`に限定され、汎用adapterはない
 - Canonical Dataset RevisionからData LibraryのDataset Revisionへ登録するadapterは未実装
-- Training Snapshot単体では目的変数別cohort、split、特徴量を完全には固定しない
+- legacy Training Snapshot v1はtarget cohortとsplitを持たず、新しいPackage入力へ自動昇格しない
+- Feature Pipeline定義はModel Packageの責務であり、Training Snapshot単体ではモデル入力を再現しない
 
 これらの不足を、汎用ETLや自動再学習で一度に埋めると、承認境界が見えなくなります。
 必要なTaskの縦スライスごとに、次の明示操作を追加するのが現行設計に沿います。
@@ -668,6 +690,7 @@ npx playwright test e2e/source-lifecycle.spec.ts
 9. repositoryが親資産のdigestを引き直す理由は何か。
 10. 正常なholdoutをquarantineではなくselection policyへ置く理由は何か。
 11. 現行E2EとTask固有acceptance testが、それぞれ証明しない範囲は何か。
+12. Snapshot digestとPackage digestは、target cohort、split、Feature Pipelineのどれを固定するか。
 
 [章末チェックの解答](../labs/trace-source-evidence.qmd#answer-source-chapter-check)を確認してから、同じページの変更演習へ進みます。
 

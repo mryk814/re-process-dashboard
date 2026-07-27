@@ -50,6 +50,7 @@
 - [chain-evaluation.md](chain-evaluation.md) — 段単体精度と通し精度の評価契約
 - [workspace-backup.md](workspace-backup.md) — 判断履歴とData Library資源の整合性付きbackup／restore契約
 - [windows-distribution.md](windows-distribution.md) — Windows向け成果物の作成とsmoke確認
+- [docker-compose-development.md](docker-compose-development.md) — PostgreSQLとS3互換storageのlocal fixture
 
 ## 履歴資料
 

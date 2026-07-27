@@ -154,13 +154,25 @@ class BatteryTrainingSnapshotAdapter:
                 "Training Snapshot references missing rows: " + ", ".join(missing[:5])
             )
         approved = set(revision.approved_row_keys)
+        cohort_rows = {
+            row_key
+            for cohort in snapshot.target_cohorts
+            for row_key in cohort.row_keys
+        }
         records: list[dict[str, Any]] = []
         for row_key in snapshot.included_row_keys:
             row = rows_by_key[row_key]
             if (
                 row_key not in approved
-                or not row.target_eligible
                 or row.status not in {"accepted", "warning"}
+                or (
+                    snapshot.schema_version == "approved-training-snapshot/v1"
+                    and not row.target_eligible
+                )
+                or (
+                    snapshot.schema_version == "approved-training-snapshot/v2"
+                    and row_key not in cohort_rows
+                )
             ):
                 raise ValueError(
                     f"Training Snapshot row is not approved and eligible: {row_key}"

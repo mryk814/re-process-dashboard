@@ -9,6 +9,8 @@ examples/model-packages/**/model-artifacts/** binary
 examples/model-packages/**/*.json text eol=lf
 apps/web/src/generated/*.json text eol=lf
 apps/web/src/generated/*.ts text eol=lf
+infrastructure/compose/scripts/*.sh text eol=lf
+infrastructure/compose/migrations/*.sql text eol=lf
 # Dataset bytes are part of Package provenance. Never rewrite line endings,
 # including newlines embedded in quoted CSV fields.
 data/source/*.csv -text

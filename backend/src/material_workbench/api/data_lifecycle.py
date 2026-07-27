@@ -203,6 +203,8 @@ def create_training_snapshot(
             TrainingSnapshotCreateInput(
                 actor=LOCAL_WORKSPACE_ACTOR.id,
                 purpose=payload.purpose,
+                targets=payload.targets,
+                split=payload.split,
                 selection_policy=payload.selection_policy,
             ),
         )

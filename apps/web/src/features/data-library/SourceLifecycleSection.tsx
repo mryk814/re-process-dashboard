@@ -5,6 +5,10 @@ import {
   type ApiDataLibraryDataset,
   type ApiDataLifecycleCatalog,
 } from "../../shared/api/workbench-api";
+import {
+  collectTrainingTargetFields,
+  trainingRecipeIdForRevision,
+} from "./trainingSnapshotPresentation";
 
 const shortDigest = (value: string) => value.replace("sha256:", "").slice(0, 12);
 const formatTimestamp = (value: string) => new Date(value).toLocaleString("ja-JP");
@@ -65,6 +69,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [recipeId, setRecipeId] = useState("");
   const [approvalReason, setApprovalReason] = useState("");
   const [trainingPurpose, setTrainingPurpose] = useState("");
+  const [trainingGroupField, setTrainingGroupField] = useState("");
+  const [trainingFolds, setTrainingFolds] = useState("2");
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const selectedIdRef = useRef(selectedId);
@@ -116,6 +122,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     setApprovalReason("");
     setTrainingPurpose("");
     setDetail(null);
+    setTrainingGroupField("");
+    setTrainingFolds("2");
     refreshDetail(selectedId, controller.signal).catch((cause) => {
       if (!controller.signal.aborted && selectedIdRef.current === selectedId) {
         setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。");
@@ -193,6 +201,20 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const selectedRun = detail?.curation_runs.find((item) => item.id === selectedVersionId);
   const selectedRevision = detail?.canonical_revisions.find((item) => item.id === selectedVersionId);
   const selectedTraining = detail?.training_snapshots.find((item) => item.id === selectedVersionId);
+  const trainingRecipeId = trainingRecipeIdForRevision(
+    latestRevision?.curation_run_id,
+    detail?.curation_runs ?? [],
+  );
+  const trainingRecipe = catalog?.recipes.find(
+    (item) => item.id === trainingRecipeId,
+  );
+  const trainingTargetFields = collectTrainingTargetFields(
+    trainingRecipe?.steps ?? [],
+  );
+  const resolvedTrainingGroupField = trainingGroupField.trim()
+    || detail?.connector.selection.primary_key
+    || "";
+  const resolvedTrainingFolds = Number(trainingFolds);
   const selectedProfile = profiles.find((item) => item.id === profileId);
   const currentActor = catalog?.current_actor;
   const overrideCandidates = latestRun?.rows.filter((row) => row.status === "quarantined") ?? [];
@@ -314,6 +336,15 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     await act("training", async () => {
       await workbenchApi.createApprovedTrainingSnapshot(latestRevision.id, {
         purpose: trainingPurpose.trim() || "モデル候補の再評価",
+        targets: trainingTargetFields.map((field) => ({
+          target_key: field,
+          field,
+        })),
+        split: {
+          strategy_id: "sorted-group-round-robin-v1",
+          group_field: resolvedTrainingGroupField,
+          folds: resolvedTrainingFolds,
+        },
       });
       await refreshDetail(selectedId);
       setNotice("学習用スナップショットを明示作成しました。モデルパッケージは変更していません。");
@@ -394,7 +425,14 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             </>}
             {selectedTraining && <>
               <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
-              <dl><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div></dl>
+              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
+              {selectedTraining.target_cohorts.length
+                ? <div className="source-history-cohorts"><strong>target別cohortとsplit</strong>{selectedTraining.target_cohorts.map((cohort) => <details key={cohort.target_key}>
+                  <summary>{cohort.target_field} · {cohort.row_keys.length}行</summary>
+                  <dl><div><dt>cohort digest</dt><dd><code>{shortDigest(cohort.cohort_digest)}</code></dd></div><div><dt>split digest</dt><dd><code>{shortDigest(cohort.split_digest)}</code></dd></div></dl>
+                  <ul>{cohort.split_assignments.map((assignment) => <li key={assignment.group_key}><code>{assignment.group_key}</code><span>fold {assignment.fold}</span></li>)}</ul>
+                </details>)}</div>
+                : <p>旧契約のため、target別cohortとsplit割当は記録されていません。</p>}
             </>}
           </div>
         </section>}
@@ -453,7 +491,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
         {latestRevisionNeedsTraining && latestRevision && <div className="source-approval-action">
           <div className="source-actor"><span>記録される主体</span><strong>{currentActor?.label ?? "確認中…"}</strong><small>{currentActor?.id}</small></div>
           <label>用途<input value={trainingPurpose} onChange={(event) => setTrainingPurpose(event.target.value)} placeholder="例: 再学習候補の比較" /></label>
-          <button className="primary-button" type="button" disabled={busy === "training"} onClick={() => void createTraining()}>学習用スナップショットを作成</button>
+          <label>分割group field<input value={trainingGroupField} onChange={(event) => setTrainingGroupField(event.target.value)} placeholder={detail.connector.selection.primary_key ?? "例: lot_id"} /></label>
+          <label>fold数<input type="number" min="2" step="1" value={trainingFolds} onChange={(event) => setTrainingFolds(event.target.value)} /></label>
+          <button className="primary-button" type="button" disabled={busy === "training" || trainingTargetFields.length === 0 || !resolvedTrainingGroupField || !Number.isInteger(resolvedTrainingFolds) || resolvedTrainingFolds < 2} onClick={() => void createTraining()}>学習用スナップショットを作成</button>
         </div>}
         {latestTraining && <div className="source-training-ready"><strong>学習用スナップショット作成済み</strong><span>{latestTraining.row_count}行 · {latestTraining.purpose}</span><code>{shortDigest(latestTraining.snapshot_digest)}</code><small>再学習・モデル検証・有効化は別の操作です。</small></div>}
       </div> : <div className="source-empty">接続先を登録すると、更新履歴と承認状態をここで確認できます。</div>}

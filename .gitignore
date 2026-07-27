@@ -10,6 +10,7 @@ release/
 apps/web/dist/
 apps/desktop/dist/
 apps/web/.env.local
+.env
 data/app.db
 data/workbench.db
 data/workbench.db-*

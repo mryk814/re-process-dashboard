@@ -20,6 +20,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     TrainingSnapshotCreateInput,
 )
 from material_workbench.domain.data_lifecycle import LifecycleConflictError
+from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.data_lifecycle_repository import (
     LifecycleResourceConflictError,
@@ -314,11 +315,175 @@ def test_approval_and_training_snapshot_are_explicit_separate_actions(
         TrainingSnapshotCreateInput(
             actor="modeler",
             purpose="再学習候補の比較",
+            targets=({"target_key": "target", "field": "target"},),
+            split={"group_field": "id", "folds": 2},
         ),
     )
     assert training.included_row_keys == ("A", "E")
     assert training.row_count == 2
     assert service.detail(connector.id).training_snapshots == (training,)
+
+
+def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
+    tmp_path,
+) -> None:
+    database = tmp_path / "workbench.db"
+    Store(database)
+    service = DataLifecycleService(database)
+    connector = service.create_connector(_connector())
+    recipe = service.create_recipe(
+        CurationRecipeCreateInput(
+            recipe_id="multi-output",
+            version=1,
+            name="target別cohort",
+            steps=(
+                {"kind": "coerce_number_v1", "fields": ["x", "y1", "y2"]},
+                {"kind": "required_fields_v1", "fields": ["id", "lot", "x"]},
+                {"kind": "target_eligibility_v1", "fields": ["y1", "y2"]},
+            ),
+        )
+    )
+    raw, _ = service.fetch(
+        connector.id,
+        SourceFetchRequest(
+            object_content="""[
+              {"id":"A","lot":"L1","x":1,"y1":10,"y2":20},
+              {"id":"B","lot":"L1","x":2,"y1":11},
+              {"id":"C","lot":"L2","x":3,"y2":22},
+              {"id":"D","lot":"L3","x":4,"y1":13,"y2":23},
+              {"id":"E","lot":"L4","x":5,"y1":14,"y2":24}
+            ]""",
+            object_version="multi-output-v1",
+        ),
+    )
+    run = service.curate(
+        raw.id,
+        CurationRunCreateInput(
+            recipe_resource_id=recipe.id,
+            profile_revision_id="profile@1",
+            profile_digest="sha256:profile",
+        ),
+    )
+    revision = service.approve(
+        run.id,
+        DatasetApprovalInput(actor="reviewer", reason="cohort確認"),
+    )
+    definition = {
+        "actor": "modeler",
+        "purpose": "multi-output再現性",
+        "targets": (
+            {"target_key": "strength", "field": "y1"},
+            {"target_key": "ductility", "field": "y2"},
+        ),
+    }
+    snapshot = service.create_training_snapshot(
+        revision.id,
+        TrainingSnapshotCreateInput(
+            **definition,
+            split={"group_field": "lot", "folds": 2},
+        ),
+    )
+    by_target = {
+        cohort.target_key: cohort for cohort in snapshot.target_cohorts
+    }
+
+    assert snapshot.schema_version == "approved-training-snapshot/v2"
+    assert snapshot.included_row_keys == ("A", "B", "C", "D", "E")
+    assert by_target["strength"].row_keys == ("A", "B", "D", "E")
+    assert by_target["ductility"].row_keys == ("A", "C", "D", "E")
+    assert by_target["strength"].cohort_digest != (
+        by_target["ductility"].cohort_digest
+    )
+    assert [item.model_dump() for item in by_target["strength"].split_assignments] == [
+        {"group_key": "L1", "fold": 0},
+        {"group_key": "L3", "fold": 1},
+        {"group_key": "L4", "fold": 0},
+    ]
+    repeated = service.create_training_snapshot(
+        revision.id,
+        TrainingSnapshotCreateInput(
+            **definition,
+            split={"group_field": "lot", "folds": 2},
+        ),
+    )
+    assert repeated == snapshot
+
+    three_fold = service.create_training_snapshot(
+        revision.id,
+        TrainingSnapshotCreateInput(
+            **definition,
+            split={"group_field": "lot", "folds": 3},
+        ),
+    )
+    assert three_fold.target_cohorts[0].cohort_digest == (
+        snapshot.target_cohorts[0].cohort_digest
+    )
+    assert three_fold.target_cohorts[0].split_digest != (
+        snapshot.target_cohorts[0].split_digest
+    )
+    assert three_fold.snapshot_digest != snapshot.snapshot_digest
+
+    with pytest.raises(
+        LifecycleConflictError,
+        match="target fieldsがCuration Recipeと一致しません",
+    ):
+        service.create_training_snapshot(
+            revision.id,
+            TrainingSnapshotCreateInput(
+                actor="modeler",
+                purpose="片方だけを暗黙に除外",
+                targets=({"target_key": "strength", "field": "y1"},),
+                split={"group_field": "lot", "folds": 2},
+            ),
+        )
+
+    forged = snapshot.model_copy(update={"purpose": "改ざんされた目的"})
+    with pytest.raises(
+        ValueError,
+        match="親Curation Runから再現できません",
+    ):
+        service.repository.save_training_snapshot(forged)
+
+
+def test_legacy_training_snapshot_keeps_its_original_digest_semantics() -> None:
+    payload = {
+        "dataset_digest": "sha256:dataset",
+        "included_row_keys": ("A", "B"),
+        "actor": "legacy-modeler",
+        "purpose": "legacy package",
+    }
+    snapshot = {
+        "schema_version": "approved-training-snapshot/v1",
+        "id": "training-snapshot-legacy",
+        "canonical_dataset_revision_id": "canonical-legacy",
+        **payload,
+        "row_count": 2,
+        "snapshot_digest": semantic_digest(payload),
+        "created_at": "2026-07-27T00:00:00Z",
+    }
+
+    from material_workbench.contracts.data_lifecycle_contracts import (
+        ApprovedTrainingSnapshot,
+    )
+
+    restored = ApprovedTrainingSnapshot.model_validate(snapshot)
+    assert restored.schema_version == "approved-training-snapshot/v1"
+    assert restored.target_cohorts == ()
+    assert restored.split is None
+
+    with pytest.raises(ValidationError, match="feature_pipeline"):
+        TrainingSnapshotCreateInput.model_validate(
+            {
+                "actor": "modeler",
+                "purpose": "境界確認",
+                "targets": [{"target_key": "target", "field": "target"}],
+                "split": {"group_field": "lot", "folds": 2},
+                "feature_pipeline": {
+                    "id": "must-belong-to-package",
+                    "version": "1",
+                },
+            }
+        )
 
 
 def test_override_is_targeted_auditable_and_cannot_include_blocked_rows(
@@ -461,7 +626,15 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     training_response = client.post(
         "/api/data-lifecycle/canonical-dataset-revisions/"
         f"{approved['id']}/training-snapshots",
-        json={"purpose": "明示的な学習Snapshot"},
+        json={
+            "purpose": "明示的な学習Snapshot",
+            "targets": [{"target_key": "target", "field": "target"}],
+            "split": {
+                "strategy_id": "sorted-group-round-robin-v1",
+                "group_field": "id",
+                "folds": 2,
+            },
+        },
     )
     assert training_response.status_code == 201, training_response.text
     assert training_response.json()["actor"] == "local-workspace-user"

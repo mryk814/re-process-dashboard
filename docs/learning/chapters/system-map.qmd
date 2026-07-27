@@ -1,7 +1,7 @@
 ---
 level: beginner
 estimated_minutes: 55
-verified_commit: "f33294d161633c1238a570e79c5004407b70b850"
+verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
 code_references:
   - path: "apps/web/src/shared/api/client.ts"
     id: "system-map-web-client"

@@ -1,7 +1,7 @@
 {
   "schema_version": "learning-lab-reproducibility/v1",
-  "measured_at": "2026-07-27T10:23:52.253Z",
-  "measured_commit": "2bf8216159ef717a2ed4c53b78acd48150e2fad1",
+  "measured_at": "2026-07-27T12:53:19.424Z",
+  "measured_commit": "e6805cc5511770d3510449626506a781e5179ae6",
   "methodology": {
     "setup_size": "UTF-8/source file bytes for each Lab document, shared manifest, fixtures, and executable Lab script; dependencies and repository checkout are excluded",
     "runtime": "wall-clock milliseconds on this workstation; only executable Labs have machine runtime",
@@ -11,8 +11,8 @@
     "lab_count": 8,
     "guided_count": 7,
     "executable_count": 1,
-    "sum_of_per_lab_setup_payload_bytes": 216544,
-    "executable_cycle_duration_ms": 2540.43,
+    "sum_of_per_lab_setup_payload_bytes": 217154,
+    "executable_cycle_duration_ms": 1582.72,
     "executable_result_hashes_match": true
   },
   "labs": [
@@ -34,7 +34,7 @@
     {
       "lab_id": "extend-contract",
       "mode": "guided",
-      "setup_payload_bytes": 24494,
+      "setup_payload_bytes": 24493,
       "setup_payload_files": [
         "docs/learning/labs/extend-contract.qmd",
         "docs/learning/labs/manifest.json"
@@ -49,7 +49,7 @@
     {
       "lab_id": "trace-project-lifecycle",
       "mode": "guided",
-      "setup_payload_bytes": 33342,
+      "setup_payload_bytes": 33451,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-project-lifecycle.qmd"
@@ -64,7 +64,7 @@
     {
       "lab_id": "trace-revision-conflict",
       "mode": "guided",
-      "setup_payload_bytes": 29069,
+      "setup_payload_bytes": 29068,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-revision-conflict.qmd"
@@ -79,7 +79,7 @@
     {
       "lab_id": "trace-source-evidence",
       "mode": "guided",
-      "setup_payload_bytes": 35218,
+      "setup_payload_bytes": 35696,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-source-evidence.qmd"
@@ -94,7 +94,7 @@
     {
       "lab_id": "trace-workspace-restore",
       "mode": "guided",
-      "setup_payload_bytes": 31193,
+      "setup_payload_bytes": 31220,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-workspace-restore.qmd"
@@ -109,7 +109,7 @@
     {
       "lab_id": "runtime-boundary-drills",
       "mode": "guided",
-      "setup_payload_bytes": 15092,
+      "setup_payload_bytes": 15091,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/runtime-boundary-drills.qmd"
@@ -124,7 +124,7 @@
     {
       "lab_id": "toy-weighted-mean",
       "mode": "executable",
-      "setup_payload_bytes": 20652,
+      "setup_payload_bytes": 20651,
       "setup_payload_files": [
         "docs/learning/labs/fixtures/toy-weighted-mean.json",
         "docs/learning/labs/manifest.json",
@@ -137,23 +137,23 @@
         "cycles": [
           {
             "cycle": 1,
-            "duration_ms": 1289.34,
+            "duration_ms": 803.93,
             "steps_ms": {
-              "setup": 382.35,
-              "run": 359.33,
-              "verify": 213.71,
-              "reset": 333.95
+              "setup": 216.24,
+              "run": 212.56,
+              "verify": 142.89,
+              "reset": 232.24
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           },
           {
             "cycle": 2,
-            "duration_ms": 1251.09,
+            "duration_ms": 778.79,
             "steps_ms": {
-              "setup": 351.53,
-              "run": 358.87,
-              "verify": 203.63,
-              "reset": 337.06
+              "setup": 216.56,
+              "run": 210.91,
+              "verify": 135.4,
+              "reset": 215.92
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           }

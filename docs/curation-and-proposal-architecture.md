@@ -10,7 +10,14 @@
   accepted, accepted with warning, quarantined, or blocked. It does not add joins
   or arbitrary expressions.
 - Missing targets do not delete a row. Each output gets its own eligible cohort.
-- Training Snapshot records the Dataset/Profile/Recipe digests and grouped split.
+- Training Snapshot v2 records the selected row union, target-specific cohorts,
+  grouped-split definition, and every group-to-fold assignment. Its digest does
+  not contain a Feature Pipeline definition.
+- Model Package owns the Feature Pipeline definition and digest, and links back
+  to the Training Snapshot digest through provenance. Changing features creates
+  a new Package without rewriting the Snapshot.
+- Legacy Training Snapshot v1 payloads retain their original digest semantics;
+  they are readable evidence, not inputs silently upgraded to v2.
 
 The first executable recipe is embedded in the MPEA tabular profile and bundled
 ridge baseline. Its row
