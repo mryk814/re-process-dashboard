@@ -111,6 +111,7 @@
         "backend/tests/test_windows_packaging_contract.py",
         "e2e/accessibility-smoke.spec.ts",
         "e2e/api-offline.spec.ts",
+        "e2e/chain-degraded.spec.ts",
         "e2e/decision-activity.spec.ts",
         "e2e/degraded-task.spec.ts",
         "e2e/screening-workbench.spec.ts",

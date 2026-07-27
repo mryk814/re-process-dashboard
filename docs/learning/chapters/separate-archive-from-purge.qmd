@@ -2,7 +2,7 @@
 chapter_id: "separate-archive-from-purge"
 level: intermediate
 estimated_minutes: 105
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2"
 code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
@@ -23,11 +23,11 @@ code_references:
       - "Store.move_project_to_group"
   - path: "backend/src/material_workbench/persistence/project_lifecycle_migration.py"
     role: "persistence"
-  - path: "apps/web/src/features/projects/ProjectHub.tsx"
+  - path: "apps/web/src/features/projects/ProjectEvidenceHistory.tsx"
     id: "project-history-ui"
     role: "frontend"
     symbols:
-      - "ProjectHub"
+      - "ProjectEvidenceHistoryList"
   - path: "backend/tests/test_chain_execution.py"
     id: "project-chain-history-test"
     role: "test"
@@ -122,7 +122,9 @@ ProjectをSeriesから外しても、Project、Candidate、判断履歴、Snapsh
 残留ProjectがあればSeriesを閉じません。
 この往復と、predecessor／continuationが変わらないことは{{< code-ref project-group-move-test symbol=test_project_leaves_a_group_and_returns_to_another_one >}}で固定し、画面経路は{{< code-ref project-group-move-e2e >}}で確認します。
 
-現行実装では、所属変更もほかのProject metadata更新と同じruntime availability gateを通るため、対象Taskがunavailableなら503になります。
+現行UIは、予測Taskがunavailableでも所属変更のようなmetadata操作を残します。
+ただしAPIへ接続できない場合と、設定保存が進行中の場合は操作を止めます。
+所属変更の競合はTaskの推論可否ではなく、`expected_project_series_id`によるcompare-and-swapで検出します。
 また、所属変更専用のaudit recordは増やしません。
 これは判断証拠を変更しないという意味であり、所属変更履歴を監査できるという意味ではありません。
 
@@ -460,7 +462,7 @@ purgeは、active状態の確認、外部参照、所有境界を検査する管
 
 rowがDBに残ることと、通常UIから見つけられることは別です。
 現行実装では、{{< code-ref project-history-store symbol="Store.project_history" >}}はChain Snapshot、実測conditioned variant、分布runをCandidateごとに読み、Project、Candidate revision、Chain revision、比較元Snapshotのidentityを照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift reviewに残し、本文では現在の判断境界を先に説明します。]
-{{< code-ref project-history-ui symbol=ProjectHub >}}は、照合を通った三種類の証拠を「候補と判断履歴」へ種類別に新しい順で表示します。
+{{< code-ref project-history-ui symbol=ProjectEvidenceHistoryList >}}は、照合を通った三種類の証拠を「候補と判断履歴」へ種類別に新しい順で表示します。
 
 この経路により、activeまたはrestore済みのChain Projectでは、保持したrowへ通常UIから戻れます。
 archive済みProjectは先にrestoreする必要があり、Workspace backupやexportにある別copyまで検索する経路ではありません。

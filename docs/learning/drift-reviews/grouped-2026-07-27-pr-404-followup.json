@@ -121,6 +121,7 @@
         "apps/web/src/features/candidates/decisionSummary.ts",
         "apps/web/src/features/data-library/DataLibraryPage.tsx",
         "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "apps/web/src/features/projects/ProjectEvidenceHistory.tsx",
         "apps/web/src/features/projects/ProjectHub.tsx",
         "apps/web/src/features/workbench/WorkbenchPage.tsx",
         "apps/web/src/generated/api-types.ts",

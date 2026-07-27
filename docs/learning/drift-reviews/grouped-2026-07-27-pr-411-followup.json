@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-27-pr-411-followup",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "b250aea08eda95b8d477d6c8367a13a5547d090e",
+  "reviewed_against": "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2",
+  "pull_requests": [
+    {
+      "number": 411,
+      "merge_commit": "c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2",
+      "classification": "conceptual_update",
+      "reason": "ProjectHub responsibilities moved into explicit creation, settings, and evidence-history boundaries. Chain execution now resolves template, fixed revision, and subsystem availability as one fail-closed state.",
+      "changed_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/features/projects/ChainEvaluationPanel.tsx",
+        "apps/web/src/features/projects/ProjectCreationPanel.tsx",
+        "apps/web/src/features/projects/ProjectEvidenceHistory.tsx",
+        "apps/web/src/features/projects/ProjectHub.tsx",
+        "apps/web/src/features/projects/ProjectSettingsPanel.tsx",
+        "apps/web/src/features/projects/activeChainContext.ts",
+        "apps/web/src/features/projects/chainEvaluationPresentation.ts",
+        "apps/web/src/features/projects/index.ts",
+        "apps/web/src/features/projects/projectCreationState.ts",
+        "apps/web/src/features/projects/projectEvidenceHistoryState.ts",
+        "apps/web/src/features/projects/projectSettingsState.ts",
+        "apps/web/src/features/workbench/WorkbenchPage.tsx",
+        "apps/web/tests/activeChainContext.test.mjs",
+        "apps/web/tests/chainEvaluationPresentation.test.mjs",
+        "apps/web/tests/optionalProjectSeriesPresentation.test.mjs",
+        "apps/web/tests/projectCreationState.test.mjs",
+        "apps/web/tests/projectEvidenceHistoryState.test.mjs",
+        "apps/web/tests/projectGroupMembership.test.mjs",
+        "apps/web/tests/projectSettingsState.test.mjs",
+        "apps/web/tests/taskAvailabilityPresentation.test.mjs",
+        "e2e/chain-degraded.spec.ts",
+        "e2e/project-hub.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/features/projects/ProjectEvidenceHistory.tsx",
+        "apps/web/src/features/projects/ProjectHub.tsx",
+        "apps/web/src/features/projects/activeChainContext.ts",
+        "apps/web/src/features/projects/projectSettingsState.ts",
+        "apps/web/src/features/workbench/WorkbenchPage.tsx",
+        "apps/web/tests/projectGroupMembership.test.mjs",
+        "e2e/chain-degraded.spec.ts",
+        "e2e/project-hub.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "chain-runtime-state-resolution",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/frontend-desktop-state.qmd"
+      ],
+      "reason": "The chapter now explains that template, fixed revision, and availability form one discriminated fail-closed state and cites the direct deep-link E2E."
+    },
+    {
+      "claim_id": "project-group-selection-behavior",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "reason": "The chapter now cites the pure membership-state contract and distinguishes metadata writes from prediction-task availability."
+    },
+    {
+      "claim_id": "project-evidence-history-boundary",
+      "classification": "editorial_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "reason": "The history rendering claim now points to ProjectEvidenceHistoryList after responsibility extraction."
+    },
+    {
+      "claim_id": "workbench-contract-reference",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "reason": "WorkbenchEmptyState gained a contextual recovery hint, but the contract-flow claims and referenced symbols remain valid."
+    },
+    {
+      "claim_id": "concept-map-currentness",
+      "classification": "no_content_impact",
+      "action": "updated",
+      "documents": [
+        "docs/learning/concept-map.qmd",
+        "docs/learning/glossary.qmd"
+      ],
+      "reason": "The concept source of truth now advances its verified commit with the reviewed App state changes, preventing generated pages from reverting to an older implementation commit."
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #411 contains 23 changed paths; every changed path and all current structured-reference intersections are listed.",
+    "current_main_drift": "All three affected chapters advance to merge commit c5a8c9a2210fd05b6e6f170cfd274ef48c126ef2 after direct claim review.",
+    "repository_gates": "PR #411 passed 910 backend tests with 3 skips, 271 Web unit tests, typecheck, production build, 10 ProjectHub E2E tests, and 3 Chain degraded E2E tests.",
+    "focused_evidence": "The focused E2E verifies ProjectHub flows, Chain catalog waiting, fail-closed availability errors, zero premature Chain requests, and absence of a false FastAPI recovery hint."
+  },
+  "reviewer_note": "The implementation received an adversarial review with no remaining P0-P2 findings. GitHub Actions had zero executed steps because the repository is over its monthly quota, so all gates were run locally on fresh Playwright servers."
+}

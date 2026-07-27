@@ -177,7 +177,7 @@
         },
         {
           "path": "apps/web/tests/projectGroupMembership.test.mjs",
-          "symbol": "a late group list does not overwrite the membership the user just picked"
+          "symbol": "leaving a group sends null and is offered only to grouped Projects"
         }
       ],
       "verification": [
