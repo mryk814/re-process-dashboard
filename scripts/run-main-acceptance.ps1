@@ -14,6 +14,22 @@ $resolvedReportPath = if ([IO.Path]::IsPathRooted($ReportPath)) {
     Join-Path $repositoryRoot $ReportPath
 }
 $results = [Collections.Generic.List[object]]::new()
+$playwrightEnvironmentKeys = @(
+    "PLAYWRIGHT_REUSE_SERVER",
+    "PLAYWRIGHT_DB_PATH",
+    "PLAYWRIGHT_OWNED_DB_PATH",
+    "PLAYWRIGHT_API_PORT",
+    "PLAYWRIGHT_WEB_PORT",
+    "PLAYWRIGHT_BROKEN_TASK_PACKAGE"
+)
+$inheritedPlaywrightEnvironment = [ordered]@{}
+foreach ($key in $playwrightEnvironmentKeys) {
+    $value = [Environment]::GetEnvironmentVariable($key, "Process")
+    if ($null -ne $value) {
+        $inheritedPlaywrightEnvironment[$key] = $value
+        Remove-Item -LiteralPath "Env:$key"
+    }
+}
 
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 New-Item -ItemType Directory -Path (Split-Path -Parent $resolvedReportPath) -Force | Out-Null
@@ -60,6 +76,9 @@ function Read-Version {
 
 $testedCommit = (git -C $repositoryRoot rev-parse HEAD).Trim()
 $trackedChanges = @(git -C $repositoryRoot status --porcelain --untracked-files=no)
+if ($trackedChanges.Count -gt 0) {
+    throw "main acceptance requires a tracked-clean worktree; commit or restore tracked changes first"
+}
 $environment = [ordered]@{
     os = [Environment]::OSVersion.VersionString
     powershell = "$($PSVersionTable.PSVersion)"
@@ -130,6 +149,7 @@ $report = [ordered]@{
     runId = $runId
     testedCommit = $testedCommit
     trackedChangesAtStart = $trackedChanges
+    clearedInheritedPlaywrightEnvironment = $inheritedPlaywrightEnvironment
     cleanIsolatedPlaywright = $true
     startedAt = $startedAt.ToUniversalTime().ToString("o")
     finishedAt = $finishedAt.ToUniversalTime().ToString("o")
