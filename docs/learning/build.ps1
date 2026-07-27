@@ -112,7 +112,8 @@ $requiredReaderChapters = @(
     "chapters/prediction-calibration-support.qmd",
     "chapters/design-space-acquisition.qmd",
     "chapters/multi-stage-chain.qmd",
-    "chapters/decision-safety.qmd"
+    "chapters/decision-safety.qmd",
+    "chapters/frontend-desktop-state.qmd"
 )
 $maintenanceOnlyChapters = @(
     "foundations.qmd",

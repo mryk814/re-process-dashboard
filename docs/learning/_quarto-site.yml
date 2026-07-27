@@ -32,6 +32,9 @@ book:
         - chapters/design-space-acquisition.qmd
         - chapters/multi-stage-chain.qmd
         - chapters/decision-safety.qmd
+    - part: "Part VII　UIとDesktop"
+      chapters:
+        - chapters/frontend-desktop-state.qmd
     - part: "編集と保守のガイド"
       chapters:
         - foundations.qmd
