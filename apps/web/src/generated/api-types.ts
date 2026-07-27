@@ -4674,6 +4674,8 @@ export interface components {
              * @default []
              */
             archived_references: string[];
+            /** Chain Revision Id */
+            chain_revision_id?: string | null;
             /**
              * Dataset Revision Ids
              * @default []
@@ -4685,6 +4687,12 @@ export interface components {
             feature_pipeline_id?: string | null;
             /** Feature Pipeline Version */
             feature_pipeline_version?: string | null;
+            /**
+             * Identity Kind
+             * @default single_task
+             * @enum {string}
+             */
+            identity_kind: "single_task" | "chain";
             /** Package Id */
             package_id?: string | null;
             /** Package Manifest Digest */

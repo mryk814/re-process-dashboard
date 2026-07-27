@@ -41,7 +41,7 @@ from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeReso
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
 )
-from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
@@ -252,7 +252,15 @@ def get_overview(
 ) -> DeveloperOverview:
     items: list[DeveloperOverviewItem] = []
     for project in store.list_projects():
-        entry = registry.entry_for(project.task_id)
+        identity = project.scientific_identity
+        # Chain Projectは単一Taskを持たず、利用停止中のTaskはentryを返さない。
+        # どちらも一覧の1行として出す。1件のためにページ全体を落とさない。
+        entry = None
+        if identity.identity_kind == "single_task" and project.task_id:
+            try:
+                entry = registry.entry_for(project.task_id)
+            except TaskRegistryError:
+                entry = None
         view = (
             catalog.get_dataset_view_revision(project.dataset_view_revision_id, include_archived=True)
             if project.dataset_view_revision_id
@@ -286,15 +294,33 @@ def get_overview(
             )
             if archived_at is not None
         ]
-        validation_status = "error" if not view or not dataset or not package_ref else "warning" if archived_references else "ok"
+        chain_revision_id = (
+            identity.chain_revision_id if identity.identity_kind == "chain" else None
+        )
+        if identity.identity_kind == "chain":
+            revision = store.get_chain_revision(identity.chain_revision_id)
+            validation_status = (
+                "ok"
+                if revision is not None
+                and revision.revision_digest == identity.chain_revision_digest
+                else "error"
+            )
+        else:
+            validation_status = (
+                "error"
+                if not view or not dataset or not package_ref
+                else "warning" if archived_references else "ok"
+            )
         items.append(DeveloperOverviewItem(
             project_id=project.id,
             project_name=project.name,
+            identity_kind=identity.identity_kind,
+            chain_revision_id=chain_revision_id,
             dataset_view_revision_id=project.dataset_view_revision_id,
             dataset_revision_ids=dataset_ids,
             source_filename=asset.original_filename if asset else None,
-            source_sha256=asset.sha256 if asset else entry.predictor_runtime.data.source_sha256,
-            profile_id=profile.profile_id if profile else entry.predictor_runtime.data.profile_id,
+            source_sha256=asset.sha256 if asset else entry.predictor_runtime.data.source_sha256 if entry else None,
+            profile_id=profile.profile_id if profile else entry.predictor_runtime.data.profile_id if entry else None,
             profile_digest=profile.profile_digest if profile else None,
             task_id=project.task_id,
             task_contract_digest=project.task_contract_digest,
@@ -304,7 +330,8 @@ def get_overview(
             feature_pipeline_version=str(pipeline.get("version")) if pipeline.get("version") else None,
             runtime_type="+".join(runtime_types) or None,
             active_package=bool(
-                package_ref
+                entry
+                and package_ref
                 and package_ref.manifest_digest.replace("sha256:", "")
                 == entry.model_package.manifest_sha256
             ),

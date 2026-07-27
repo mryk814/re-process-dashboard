@@ -66,11 +66,48 @@ def test_change_guide_exposes_distinct_decision_activity_workflows(
 def test_overview_connects_project_to_runtime_contracts(client: TestClient) -> None:
     response = client.get("/api/developer/overview")
     assert response.status_code == 200, response.text
-    items = response.json()["items"]
+    items = [
+        item for item in response.json()["items"] if item["identity_kind"] == "single_task"
+    ]
     assert items
     assert all(item["project_id"] and item["task_id"] and item["package_id"] for item in items)
     assert all(item["feature_pipeline_id"] and item["runtime_type"] for item in items)
     assert all(isinstance(item["active_package"], bool) for item in items)
+
+
+def test_overview_lists_chain_projects_instead_of_failing_on_their_empty_task(
+    client: TestClient,
+) -> None:
+    chain = next(
+        item
+        for item in client.get("/api/chains").json()
+        if item["definition"]["chain_id"] == "welding-consumable-a-b-c-v1"
+    )
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Chain構成一覧",
+            "scientific_identity": {
+                "identity_kind": "chain",
+                "chain_revision_id": "welding-consumable-a-b-c-v1:r1",
+                "chain_revision_digest": chain["revisions"][0]["revision_digest"],
+            },
+        },
+    )
+    assert created.status_code == 201, created.text
+    project = created.json()
+
+    response = client.get("/api/developer/overview")
+    assert response.status_code == 200, response.text
+    item = next(
+        item for item in response.json()["items"] if item["project_id"] == project["id"]
+    )
+    assert item["identity_kind"] == "chain"
+    assert item["chain_revision_id"] == "welding-consumable-a-b-c-v1:r1"
+    assert item["task_id"] == ""
+    # 単一TaskのPackage参照が無いことは、Chainでは参照不足ではない。
+    assert item["validation_status"] == "ok"
+    assert item["active_package"] is False
 
 
 def test_observation_training_profile_is_inspectable_before_model_packaging(

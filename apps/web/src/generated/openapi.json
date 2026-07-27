@@ -7453,6 +7453,17 @@
             "title": "Archived References",
             "type": "array"
           },
+          "chain_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Revision Id"
+          },
           "dataset_revision_ids": {
             "default": [],
             "items": {
@@ -7493,6 +7504,15 @@
               }
             ],
             "title": "Feature Pipeline Version"
+          },
+          "identity_kind": {
+            "default": "single_task",
+            "enum": [
+              "single_task",
+              "chain"
+            ],
+            "title": "Identity Kind",
+            "type": "string"
           },
           "package_id": {
             "anyOf": [

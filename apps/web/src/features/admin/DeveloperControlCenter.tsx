@@ -32,6 +32,7 @@ export function filterDeveloperOverviewItems(
       item.project_name,
       item.project_id,
       item.task_id,
+      item.chain_revision_id,
       item.source_filename,
       item.profile_id,
       item.package_id,
@@ -78,7 +79,8 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
   useEffect(() => { if (tab === "diagnostics" && doctor === null && !diagnosing) void runDiagnostics(); }, [tab]);
 
   const selected = guide.find((item) => item.id === selectedGuide);
-  const overviewTasks = [...new Set(overview?.items.map((item) => item.task_id) ?? [])].sort();
+  // Chain Projectには単一Taskが無い。空のtask_idを選択肢に出さない。
+  const overviewTasks = [...new Set(overview?.items.map((item) => item.task_id).filter(Boolean) ?? [])].sort();
   const filteredOverviewItems = overview
     ? filterDeveloperOverviewItems(overview.items, overviewQuery, overviewStatus, overviewTask)
     : [];
@@ -111,13 +113,13 @@ export function DeveloperControlCenter({ onOpenProfileWorkbench }: { onOpenProfi
         <span>{filteredOverviewItems.length} / {overview.items.length}件</span>
       </div>}
       {overview ? <div className="developer-overview-list">{filteredOverviewItems.map((item) => <details key={item.project_id}>
-        <summary><span className={`developer-project-status ${item.validation_status}`}>{item.validation_status === "ok" ? "検証済み" : item.validation_status === "warning" ? "Archive参照" : "参照不足"}</span><strong>{item.project_name}</strong><small>{item.task_id}</small>{item.active_package && <em>active</em>}<code>{item.project_id}</code></summary>
+        <summary><span className={`developer-project-status ${item.validation_status}`}>{item.validation_status === "ok" ? "検証済み" : item.validation_status === "warning" ? "Archive参照" : "参照不足"}</span><strong>{item.project_name}</strong><small>{item.identity_kind === "chain" ? `Chain ${item.chain_revision_id ?? ""}` : item.task_id}</small>{item.active_package && <em>active</em>}<code>{item.project_id}</code></summary>
         {item.archived_references.length > 0 && <p className="developer-archived">Archive参照: {item.archived_references.join(" / ")}</p>}
         <dl>
           <div><dt>Dataset</dt><dd>{item.source_filename ?? "—"}<small>{item.dataset_revision_ids.join(", ") || "revisionなし"}</small></dd></div>
           <div><dt>Source SHA</dt><dd><ShortDigest value={item.source_sha256} /></dd></div>
           <div><dt>Profile</dt><dd>{item.profile_id ?? "—"}<ShortDigest value={item.profile_digest} /></dd></div>
-          <div><dt>Task</dt><dd>{item.task_id}<ShortDigest value={item.task_contract_digest} /></dd></div>
+          <div><dt>Task</dt><dd>{item.identity_kind === "chain" ? `Chain ${item.chain_revision_id ?? ""}` : item.task_id}<ShortDigest value={item.task_contract_digest} /></dd></div>
           <div><dt>Package</dt><dd>{item.package_id ?? "—"}<ShortDigest value={item.package_manifest_digest} /></dd></div>
           <div><dt>Feature Pipeline</dt><dd>{item.feature_pipeline_id ?? "—"} <small>v{item.feature_pipeline_version ?? "—"}</small></dd></div>
           <div><dt>Runtime</dt><dd>{item.runtime_type ?? "—"}</dd></div>
