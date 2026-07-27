@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAxeViolations } from "./axe";
 
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8876);
 const apiBase = `http://127.0.0.1:${apiPort}`;
@@ -59,5 +60,6 @@ test("broken Chain evaluation is isolated and explained without hiding Projects"
   await expect(page.locator(".chain-snapshot-evidence pre").first()).toContainText(
     "\"candidate.blend\"",
   );
+  await expectNoBlockingAxeViolations(page, "Chain unavailable");
   expect(failedApiResponses).toEqual([]);
 });

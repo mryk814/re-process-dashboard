@@ -776,7 +776,9 @@ export function ChainWorkbenchPage({
       </div>
       <details>
         <summary>固定入力</summary>
-        <pre>{JSON.stringify(viewedSnapshot.external_input, null, 2)}</pre>
+        <pre tabIndex={0} aria-label="固定入力JSON">
+          {JSON.stringify(viewedSnapshot.external_input, null, 2)}
+        </pre>
       </details>
       <div className="chain-snapshot-stages">
         {viewedSnapshot.stages.map((stage) => {
@@ -790,7 +792,9 @@ export function ChainWorkbenchPage({
           return <details key={stage.stage_id}>
             <summary>Stage {stage.stage_id} · {statusLabel[stage.status as StageStatus]}</summary>
             {stage.stage_id === "A"
-              ? <pre>{JSON.stringify(stage.result, null, 2)}</pre>
+              ? <pre tabIndex={0} aria-label={`Stage ${stage.stage_id}の固定出力JSON`}>
+                {JSON.stringify(stage.result, null, 2)}
+              </pre>
               : definitions.length
                 ? <table className="chain-snapshot-output-table">
                 <thead><tr><th>出力</th><th>固定した予測</th></tr></thead>
@@ -827,7 +831,7 @@ export function ChainWorkbenchPage({
       <section className="chain-result-card">
         <header><div><span>STAGE B</span><h3>溶着金属成分</h3></div>{latestVariant && <b className="source-badge actual-match">実測照合あり</b>}</header>
         {uncertaintyNote("B")}
-        <div className="chain-table-scroll">
+        <div className="chain-table-scroll" tabIndex={0} aria-label="Stage Bの予測と実測">
           <table><thead><tr><th>成分</th><th>予測</th><th>実測</th></tr></thead>
             <tbody>{stageBDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageBPredictions[definition.key], definition, false, "B")}</td><td>{latestVariant ? <>{formatStageNumber(latestVariant.measured_stage_b[definition.key], definition)}{definition.unit.trim() ? ` ${definition.unit.trim()}` : ""}</> : "—"}</td></tr>)}</tbody>
           </table>
@@ -837,7 +841,7 @@ export function ChainWorkbenchPage({
       <section className="chain-result-card">
         <header><div><span>STAGE C</span><h3>特性</h3></div><b className="source-badge predicted">通常Chain</b></header>
         {uncertaintyNote("C")}
-        <div className="chain-table-scroll">
+        <div className="chain-table-scroll" tabIndex={0} aria-label="Stage Cの予測比較">
           <table><thead><tr><th>特性</th><th>予測B経由</th><th>実測B経由</th></tr></thead>
             <tbody>{stageCDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageCPredictions[definition.key], definition, true, "C")}</td><td className={latestVariant ? "actual-conditioned" : ""}>{latestVariant ? predictionCell(variantCPredictions[definition.key], definition, true, "C") : "—"}</td></tr>)}</tbody>
           </table>

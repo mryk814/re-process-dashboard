@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAxeViolations } from "./axe";
 
 test("API断を明示し、変更を止め、再試行で同じ画面へ復帰する", async ({
   page,
@@ -26,6 +27,7 @@ test("API断を明示し、変更を止め、再試行で同じ画面へ復帰�
   await expect(
     page.getByRole("button", { name: "＋ 新規プロジェクト" }),
   ).toBeDisabled();
+  await expectNoBlockingAxeViolations(page, "API断");
 
   offline = false;
   await connection.getByRole("button", { name: "再試行" }).click();

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAxeViolations } from "./axe";
 
 const brokenPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
@@ -30,6 +31,7 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
   await expect(page.getByText(project!.dataset_view_revision_id!, { exact: false }).first()).toBeVisible();
   await expect(page.getByText(project!.model_package_ref_id!, { exact: false }).first()).toBeVisible();
   await expect(page.getByText(project!.model_package_manifest_digest!, { exact: false }).first()).toBeVisible();
+  await expectNoBlockingAxeViolations(page, "Task unavailable");
 
   await page.goto(`/?view=candidates&project=${project!.id}`);
   await page.getByRole("button", { name: "参照状態を確認する" }).click();
