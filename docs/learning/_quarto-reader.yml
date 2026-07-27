@@ -44,6 +44,7 @@ book:
       chapters:
         - chapters/security-trust-boundaries.qmd
         - chapters/verification-operations.qmd
+        - labs/runtime-boundary-drills.qmd
         - labs/toy-weighted-mean.qmd
     - part: "Part IX　ケーススタディ"
       chapters:

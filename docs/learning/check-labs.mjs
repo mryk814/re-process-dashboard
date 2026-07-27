@@ -13,7 +13,14 @@ const requiredProtectedPaths = new Set([
   "apps/web/src/generated",
 ]);
 const allowedModes = new Set(["guided", "executable"]);
-const allowedCategories = new Set(["contract", "data", "frontend", "math", "persistence"]);
+const allowedCategories = new Set([
+  "contract",
+  "data",
+  "frontend",
+  "math",
+  "persistence",
+  "security",
+]);
 const allowedRequirements = new Set(["node", "python"]);
 const idPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const manifestKeys = new Set([

@@ -1,0 +1,126 @@
+---
+chapter_id: "runtime-boundary-drills"
+level: advanced
+estimated_minutes: 45
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+code_references:
+  - path: "backend/tests/test_model_packages.py"
+    id: "runtime-drill-package-tests"
+    role: "test"
+    symbols:
+      - "test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields"
+      - "test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization"
+  - path: "backend/tests/test_chain_execution.py"
+    id: "runtime-drill-chain-tests"
+    role: "test"
+    symbols:
+      - "test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation"
+      - "test_linear_toy_chain_monte_carlo_matches_analytic_variance"
+      - "test_failure_retains_previous_downstream_result_and_marks_freshness"
+  - path: "backend/tests/test_inference_work_graph.py"
+    id: "runtime-drill-cache-tests"
+    role: "test"
+    symbols:
+      - "test_work_graph_coalesces_identical_in_flight_work_and_reports_operation_stats"
+      - "test_lru_never_evicts_in_flight_identity_and_returns_to_bound_after_completion"
+      - "test_failed_computation_is_not_cached_and_still_records_total_duration"
+  - path: "backend/tests/test_workspace_bundle.py"
+    id: "runtime-drill-bundle-tests"
+    role: "test"
+    symbols:
+      - "test_tampered_bundle_is_rejected_without_changing_current_workspace"
+      - "test_unsafe_archive_paths_are_rejected_before_extraction"
+  - path: "apps/web/tests/inferenceRequestCache.test.mjs"
+    id: "runtime-drill-client-cache-tests"
+    role: "test"
+
+prerequisite_concepts:
+  - "model-package"
+  - "runtime-adapter"
+  - "semantic-digest"
+  - "stale-response"
+introduced_concepts: []
+reinforced_concepts:
+  - "bounded-concurrency"
+  - "immutable-evidence"
+  - "partial-recomputation"
+  - "trust-boundary"
+future_concepts: []
+historical_concepts: []
+---
+
+# Runtime境界を壊してから直す
+
+このguided Labは、Model Package、Chain、推論cache、Workspace bundleの既存adversarial testを、四つの独立した失敗モードとして実行します。
+すべて合成fixtureとpytestの一時directoryを使い、`data/source/`、production Workspace DB、checked-in Packageを変更しません。
+
+## 1. Model Packageの改ざんと任意codeを拒否する
+
+repository rootで実行します。
+
+```powershell
+uv run python -m pytest -n 0 `
+  backend/tests/test_model_packages.py::test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields `
+  backend/tests/test_model_packages.py::test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization
+```
+
+一つ目はhash、path traversal、未知fieldを別々に拒否します。
+二つ目はruntime経路に動的import、pickle、joblib、任意code実行が入らないことを検査します。
+単に「loadが失敗した」ではなく、どの信頼境界が原因に最も近いかを記録してください。
+
+## 2. Chainの部分再計算と不確かさ伝播を分ける
+
+```powershell
+uv run python -m pytest -n 0 `
+  backend/tests/test_chain_execution.py::test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation `
+  backend/tests/test_chain_execution.py::test_linear_toy_chain_monte_carlo_matches_analytic_variance `
+  backend/tests/test_chain_execution.py::test_failure_retains_previous_downstream_result_and_marks_freshness
+```
+
+最初のtestはbindingとaffected closure、二つ目は線形toyの解析分散とMonte Carlo、三つ目は失敗後に残す旧resultとfreshnessを検査します。
+三つを一つの「Chainが動くtest」とまとめず、それぞれの非保証も書いてください。
+
+## 3. 同じ推論だけをcoalesceする
+
+```powershell
+uv run python -m pytest -n 0 `
+  backend/tests/test_inference_work_graph.py::test_work_graph_coalesces_identical_in_flight_work_and_reports_operation_stats `
+  backend/tests/test_inference_work_graph.py::test_lru_never_evicts_in_flight_identity_and_returns_to_bound_after_completion `
+  backend/tests/test_inference_work_graph.py::test_failed_computation_is_not_cached_and_still_records_total_duration
+
+node --test apps/web/tests/inferenceRequestCache.test.mjs
+```
+
+backendはsemantic keyと共有Future、frontendはsubscriberごとのabortと最新identityを扱います。
+cache hit、coalesced request、stale responseを同じ件数へ混ぜないでください。
+
+## 4. Workspace bundleを展開前に拒否する
+
+```powershell
+uv run python -m pytest -n 0 `
+  backend/tests/test_workspace_bundle.py::test_tampered_bundle_is_rejected_without_changing_current_workspace `
+  backend/tests/test_workspace_bundle.py::test_unsafe_archive_paths_are_rejected_before_extraction
+```
+
+現在WorkspaceのDBとdata libraryが変わらないこと、unsafe pathを展開前に拒否することを確認します。
+checksum不一致とZIP slipは別の攻撃入力です。
+
+## 成功条件
+
+- 四つのcommand群が終了code 0になる
+- Package、Chain、cache、bundleについて、各testが保証することと保証しないことを一行ずつ記録する
+- `git status --short -- data/source data models apps/web/src/generated`にLab由来の変更がない
+- 実データ、credential、networkを使っていない
+
+## Reset
+
+このLabはrepository内へ成果物を書きません。
+失敗時もpytestとNode processが終了していることを確認し、`artifacts/learning-labs/`またはproduction pathを手動削除しません。
+一時directoryはtest runnerの管理下にあります。
+
+## 次に読む
+
+- [Model PackageとRuntime](../chapters/model-package-runtime.qmd)
+- [複数StageのChain](../chapters/multi-stage-chain.qmd)
+- [計算の意味を守る性能設計](../chapters/performance-execution.qmd)
+- [Local Appの信頼境界](../chapters/security-trust-boundaries.qmd)

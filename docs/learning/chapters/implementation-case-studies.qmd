@@ -147,11 +147,11 @@ commit `0d88eb0`は、検証、active切替、rollbackを含むPackage lifecycle
 
 現在の`AdapterRegistry`はruntime typeとアプリ内adapterの対応を固定し、`ModelPackageLoader`はpath escape、byte上限、size、SHA-256を検査してから一時snapshotへartifactを複製します。
 
-実装は {{{< code-ref case-study-package-loader symbol=AdapterRegistry >}}} と {{{< code-ref case-study-package-loader symbol=ModelPackageLoader >}}} で確認できます。
+実装は {{< code-ref case-study-package-loader symbol=AdapterRegistry >}} と {{< code-ref case-study-package-loader symbol=ModelPackageLoader >}} で確認できます。
 
 testは改ざん、未知field、危険なdeserialization、置換済みPackageのbyte不変性を拒否条件として固定しています。
 
-検証点は {{{< code-ref case-study-package-tests symbol=test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields >}}} と {{{< code-ref case-study-package-tests symbol=test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization >}}} にあります。
+検証点は {{< code-ref case-study-package-tests symbol=test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields >}} と {{< code-ref case-study-package-tests symbol=test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization >}} にあります。
 
 ### 判断
 
@@ -205,11 +205,11 @@ commit `4d6e6f0`は再生成script、test、数値report、decision documentを�
 
 shared artifactは約1.12 MB、single合計は約310 KBであり、同一runの100件推論は約288 msと約8 msでした。
 
-再生成条件と結果は {{{< code-ref case-study-multi-output-evaluator >}}} と {{{< code-ref case-study-multi-output-report >}}} に固定されています。
+再生成条件と結果は {{< code-ref case-study-multi-output-evaluator >}} と {{< code-ref case-study-multi-output-report >}} に固定されています。
 
 現在のdecision documentもruntime adapter、Package、active設定を追加しないと明記しています。
 
-現在の判断は {{{< code-ref case-study-multi-output-decision >}}} で確認できます。
+現在の判断は {{< code-ref case-study-multi-output-decision >}} で確認できます。
 
 ### 判断
 
@@ -259,13 +259,13 @@ commit `7d045a1`はcandidate adapter contract、scalar adapter、sparse blend ad
 
 `candidate_adapter_for`はChain Revisionのstage shapeからallow-list済みadapterを選びます。
 
-この境界は {{{< code-ref case-study-chain-adapters symbol=ChainCandidateAdapter >}}} と {{{< code-ref case-study-chain-adapters symbol=candidate_adapter_for >}}} にあります。
+この境界は {{< code-ref case-study-chain-adapters symbol=ChainCandidateAdapter >}} と {{< code-ref case-study-chain-adapters symbol=candidate_adapter_for >}} にあります。
 
-Core側の実行責務は {{{< code-ref case-study-chain-core symbol=ChainExecutionService >}}} に残っています。
+Core側の実行責務は {{< code-ref case-study-chain-core symbol=ChainExecutionService >}} に残っています。
 
 testはscalar candidateが独自namespaceを持つこと、Coreがshape validationをadapterへ委譲することを確認します。
 
-その証拠は {{{< code-ref case-study-chain-tests symbol=test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace >}}} と {{{< code-ref case-study-chain-tests symbol=test_core_prepare_candidate_delegates_shape_validation_to_the_adapter >}}} です。
+その証拠は {{< code-ref case-study-chain-tests symbol=test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace >}} と {{< code-ref case-study-chain-tests symbol=test_core_prepare_candidate_delegates_shape_validation_to_the_adapter >}} です。
 
 ### 判断
 
@@ -313,15 +313,15 @@ commit `d7b2043`はcontract、domain、repository、API、UI、test、E2Eを縦�
 
 `build_training_snapshot`は承認済みかつtarget eligibleなrowだけを選び、空の学習集合を拒否します。
 
-二つの操作は {{{< code-ref case-study-data-approval symbol=approve_curation_run >}}} と {{{< code-ref case-study-data-approval symbol=build_training_snapshot >}}} に分かれています。
+二つの操作は {{< code-ref case-study-data-approval symbol=approve_curation_run >}} と {{< code-ref case-study-data-approval symbol=build_training_snapshot >}} に分かれています。
 
 repositoryは各資産を別レコードとして保存します。
 
-永続化境界は {{{< code-ref case-study-data-repository symbol=DataLifecycleRepository >}}} で確認できます。
+永続化境界は {{< code-ref case-study-data-repository symbol=DataLifecycleRepository >}} で確認できます。
 
 testはquarantine reasonの保持、承認とTraining Snapshot作成の分離、未承認dataがProjectへ露出しないことを確認します。
 
-証拠は {{{< code-ref case-study-data-tests symbol=test_approval_and_training_snapshot_are_explicit_separate_actions >}}} と {{{< code-ref case-study-data-tests symbol=test_api_tracks_digests_without_exposing_unapproved_data_to_projects >}}} にあります。
+証拠は {{< code-ref case-study-data-tests symbol=test_approval_and_training_snapshot_are_explicit_separate_actions >}} と {{< code-ref case-study-data-tests symbol=test_api_tracks_digests_without_exposing_unapproved_data_to_projects >}} にあります。
 
 ### 判断
 
@@ -365,11 +365,11 @@ commit `d8e6343`はcellを「未計算」へ変え、「未計算 N候補」と�
 
 現在の候補比較UIはpreviewがないcellへ「未計算」とtitleを出し、pending countが正ならsummaryを確定表示しません。
 
-表示境界は {{{< code-ref case-study-uncomputed-ui >}}} で確認できます。
+表示境界は {{< code-ref case-study-uncomputed-ui >}} で確認できます。
 
 source inspection testは未計算表示、残りを計算するbutton、完了後にbuttonが消えることを確認します。
 
-現在のtestは {{{< code-ref case-study-uncomputed-ui-test >}}} にあります。
+現在のtestは {{< code-ref case-study-uncomputed-ui-test >}} にあります。
 
 ### 判断
 

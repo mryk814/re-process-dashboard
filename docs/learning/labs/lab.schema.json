@@ -84,7 +84,8 @@
             "data",
             "frontend",
             "math",
-            "persistence"
+            "persistence",
+            "security"
           ]
         },
         "title": {

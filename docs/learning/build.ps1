@@ -239,15 +239,20 @@ foreach ($artifact in @($siteIndex, $siteSearch, $readerPdf)) {
 }
 
 $searchIndex = Get-Content -LiteralPath $siteSearch -Raw -Encoding UTF8
-foreach ($expectedHref in @(
-    "chapters/contract-through-stack.html",
-    "chapters/decision-safety.html",
-    "concept-map.html",
-    "glossary.html",
-    "writer-persona.html",
-    "drift-reviews/index.html",
+$readerChapterHrefs = [regex]::Matches(
+    $readerConfig,
+    '(?m)^\s*-\s+([^\s]+\.qmd)\s*$'
+) | ForEach-Object {
+    $_.Groups[1].Value -replace '\.qmd$', '.html'
+}
+$expectedSearchHrefs = @(
+    $readerChapterHrefs
+    "writer-persona.html"
+    "drift-reviews/index.html"
+    "reviews/index.html"
     "evaluation.html"
-)) {
+) | Sort-Object -Unique
+foreach ($expectedHref in $expectedSearchHrefs) {
     if ($searchIndex -notmatch [regex]::Escape($expectedHref)) {
         throw "Integrated HTML search index is missing: $expectedHref"
     }
@@ -266,6 +271,12 @@ $siteHtml = (
     Get-ChildItem -LiteralPath (Join-Path $buildRoot "site") -Filter "*.html" -File -Recurse |
         Get-Content -Raw -Encoding UTF8
 ) -join "`n"
+if (
+    $siteHtml -match '\{\{&lt;\s*code-ref\b' -or
+    $siteHtml -match '\{\{<\s*code-ref\b'
+) {
+    throw "Integrated HTML contains an unexpanded code-ref shortcode."
+}
 $renderedSolutions = [regex]::Matches(
     $siteHtml,
     '<details\s+id="answer-[^"]+"\s+class="exercise-solution"\s+data-answer-content(?:="")?>'

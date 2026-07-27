@@ -219,6 +219,44 @@
       ]
     },
     {
+      "lab_id": "runtime-boundary-drills",
+      "document": "labs/runtime-boundary-drills.qmd",
+      "mode": "guided",
+      "category": "security",
+      "title": "Runtime境界を壊してから直す",
+      "verified_commit": "0232f1b506a975bbc50186271ee753df9940ed24",
+      "expected_minutes": 45,
+      "requires": [
+        "node",
+        "python"
+      ],
+      "fixtures": [],
+      "commands": {
+        "setup": null,
+        "run": null,
+        "verify": null,
+        "reset": null
+      },
+      "writes": [],
+      "must_not_write": [
+        "data/source",
+        "data/workbench.db",
+        "models/active-packages.json",
+        "models/active-transforms.json",
+        "models/packages",
+        "apps/web/src/generated"
+      ],
+      "network": "forbidden",
+      "secrets": "forbidden",
+      "timeout_seconds": 300,
+      "expected_outcomes": [
+        "Model Package改ざんと任意code経路を拒否する",
+        "Chainの部分再計算、Monte Carlo、failure保持を別々に検証する",
+        "cache hit、coalescing、stale responseを区別する",
+        "Workspace bundleの改ざんとunsafe pathを展開前に拒否する"
+      ]
+    },
+    {
       "lab_id": "toy-weighted-mean",
       "document": "labs/toy-weighted-mean.qmd",
       "mode": "executable",
