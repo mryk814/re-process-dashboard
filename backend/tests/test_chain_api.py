@@ -2,22 +2,17 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from material_workbench.contracts.chain_contracts import (
-    ChainBinding,
     ChainDefinition,
-    ChainPort,
     ChainRevision,
-    ChainStage,
-    ChainStageLock,
-    ExternalBindingSource,
-    StageContractSurface,
-    build_chain_revision,
     task_contract_surface,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.welding_chain_bootstrap import (
+    WELDING_CHAIN_ID,
     bootstrap_welding_chain,
 )
 from material_workbench.persistence.workspace_catalog_bootstrap import (
@@ -25,88 +20,26 @@ from material_workbench.persistence.workspace_catalog_bootstrap import (
 )
 
 
-SHA_A = "sha256:" + "a" * 64
-SHA_B = "sha256:" + "b" * 64
-SHA_C = "sha256:" + "c" * 64
 SHA_D = "sha256:" + "d" * 64
 
 
-def _register_chain(client: TestClient) -> tuple[ChainDefinition, ChainRevision]:
-    definition = ChainDefinition(
-        chain_id="annealed-chain-test",
-        label="固定Revision確認用",
-        stages=(
-            ChainStage(
-                stage_id="C",
-                stage_kind="task",
-                contract_id="annealed-properties-v1",
-            ),
-        ),
-        external_inputs=(
-            ChainPort(
-                path="candidate.C",
-                value_kind="number",
-                quantity="C",
-                unit="mass%",
-            ),
-        ),
-        bindings=(
-            ChainBinding(
-                target_stage_id="C",
-                target_input_path="composition.C",
-                source=ExternalBindingSource(
-                    source_kind="external",
-                    path="candidate.C",
-                ),
-            ),
-        ),
+def _bundled_chain(client: TestClient) -> tuple[ChainDefinition, ChainRevision]:
+    revision = client.app.state.store.get_chain_revision(
+        f"{WELDING_CHAIN_ID}:r1"
     )
-    surface = StageContractSurface(
-        stage_kind="task",
-        contract_id="annealed-properties-v1",
-        contract_digest=SHA_C,
-        input_ports=(
-            ChainPort(
-                path="composition.C",
-                value_kind="number",
-                quantity="C",
-                unit="mass%",
-            ),
-        ),
-        output_ports=(
-            ChainPort(
-                path="TS",
-                value_kind="number",
-                quantity="TS",
-                unit="MPa",
-            ),
-        ),
+    assert revision is not None
+    definition = client.app.state.store.get_chain_definition(
+        WELDING_CHAIN_ID,
+        revision.chain_definition_digest,
     )
-    revision = build_chain_revision(
-        definition,
-        revision=1,
-        contracts={(surface.stage_kind, surface.contract_id): surface},
-        stage_locks={
-            "C": ChainStageLock(
-                contract_digest=SHA_C,
-                package_manifest_digest=SHA_D,
-                dataset_view_revision_id="view-r1",
-                dataset_profile_digest=SHA_A,
-            )
-        },
-    )
-    client.app.state.store.register_chain_definition(definition)
-    client.app.state.store.register_chain_revision(
-        revision,
-        contracts={(surface.stage_kind, surface.contract_id): surface},
-    )
+    assert definition is not None
     return definition, revision
 
 
 def test_chain_catalog_and_project_creation_pin_exact_revision(
     client: TestClient,
 ) -> None:
-    definition, revision = _register_chain(client)
+    definition, revision = _bundled_chain(client)
 
     catalog = client.get("/api/chains")
     assert catalog.status_code == 200
@@ -227,7 +160,7 @@ def test_bundled_welding_chain_pins_real_a_b_c_resources(
 
 
 def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None:
-    definition, _revision = _register_chain(client)
+    definition, _revision = _bundled_chain(client)
     response = client.post(
         "/api/projects",
         json={
@@ -243,10 +176,50 @@ def test_chain_project_rejects_revision_digest_drift(client: TestClient) -> None
     assert "digest" in json.dumps(response.json(), ensure_ascii=False)
 
 
+def test_chain_project_rejects_terminal_task_contract_drift(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    definition, revision = _bundled_chain(client)
+    registry = client.app.state.task_registry
+    terminal_task_id = [
+        stage.contract_id
+        for stage in revision.stages
+        if stage.stage_kind == "task"
+    ][-1]
+    fixture = registry._contracts[terminal_task_id]  # noqa: SLF001
+    drifted_definition = fixture.task_definition.model_copy(
+        update={"label": fixture.task_definition.label + " drift"}
+    )
+    monkeypatch.setitem(
+        registry._contracts,  # noqa: SLF001
+        terminal_task_id,
+        fixture.model_copy(update={"task_definition": drifted_definition}),
+    )
+
+    response = client.post(
+        "/api/projects",
+        json={
+            "name": "contract drift",
+            "scientific_identity": {
+                "identity_kind": "chain",
+                "chain_revision_id": f"{definition.chain_id}:r1",
+                "chain_revision_digest": revision.revision_digest,
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Chain終端Taskのcontract digest" in json.dumps(
+        response.json(),
+        ensure_ascii=False,
+    )
+
+
 def test_chain_project_rejects_conflicting_legacy_fields_and_manual_seed(
     client: TestClient,
 ) -> None:
-    definition, revision = _register_chain(client)
+    definition, revision = _bundled_chain(client)
     identity = {
         "identity_kind": "chain",
         "chain_revision_id": f"{definition.chain_id}:r1",
