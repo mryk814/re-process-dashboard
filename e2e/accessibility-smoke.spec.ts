@@ -18,13 +18,20 @@ const heading = (
 };
 
 const settings = [
-  ["開発者ガイド", "developer", /構成・変更判断・診断/],
-  ["データ品質集計", "quality", "データ品質集計"],
   ["入力範囲", "ranges", "入力範囲設定"],
   ["表示桁数", "display", "表示桁数"],
   ["予測タスク定義", "task", "予測タスク定義"],
-  ["モデルと実行環境", "model", "モデルと実行環境"],
 ] as const;
+
+async function openDecisionActivities(page: Page) {
+  const panel = page.locator(".decision-activity-panel");
+  if (!(await panel.isVisible())) {
+    await page.getByRole("button", {
+      name: /候補を確かめる|」を開く$/,
+    }).click();
+  }
+  await expect(panel).toBeVisible();
+}
 
 const surfaces: Surface[] = [
   {
@@ -58,18 +65,23 @@ const surfaces: Surface[] = [
   {
     name: "品質",
     url: "/?view=quality&project=default",
-    ready: heading("問題から探す"),
+    ready: heading("データ品質"),
   },
   ...settings.map(([name, section, ready]) => ({
-    name: `開発・管理: ${name}`,
-    url: `/?view=settings&project=default&admin=${section}`,
+    name: `プロジェクト設定: ${name}`,
+    url: `/?view=project&project=default&project_settings=${section}`,
     ready: heading(ready),
   })),
+  {
+    name: "ワークスペース管理",
+    url: "/?view=workspace&admin=developer",
+    ready: heading("ワークスペース"),
+  },
   {
     name: "検討アクティビティ",
     url: "/?view=candidates&project=default",
     prepare: async (page) => {
-      await page.getByRole("button", { name: "検討アクティビティ" }).click();
+      await openDecisionActivities(page);
     },
     ready: heading("ロバストネス／公差解析"),
   },
@@ -149,7 +161,7 @@ test("Decision Activityの保存結果とnot-foundをアクセシビリティ検
   page,
 }) => {
   await page.goto("/?view=candidates&project=default");
-  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await openDecisionActivities(page);
   await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
   if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
@@ -157,16 +169,22 @@ test("Decision Activityの保存結果とnot-foundをアクセシビリティ検
   await page.getByRole("button", { name: /公差内を解析|ばらつきを解析/ }).click();
   const history = page.getByRole("navigation", { name: "保存済みロバストネス解析" });
   await expect(history).toBeVisible();
-  await history.getByRole("button").first().focus();
+  const activeHistory = history.locator('button[aria-current="true"]');
+  await expect(activeHistory).toHaveCount(1);
+  await activeHistory.focus();
   await page.keyboard.press("Enter");
-  await expect(history.getByRole("button").first()).toHaveAttribute("aria-current", "true");
+  await expect(activeHistory).toHaveAttribute("aria-current", "true");
   await page.getByText("この結果の再現情報").click();
-  await expect(page.getByText("Model Package", { exact: true })).toBeVisible();
+  await expect(page.getByText("Package", { exact: true })).toBeVisible();
   await expectNoBlockingAxeViolations(page, "Decision Activity保存結果");
 
   const unknown = new URL(page.url());
+  unknown.searchParams.set("activity", "robustness-analysis-v1");
   unknown.searchParams.set("activity_run", "activity-does-not-exist");
-  await page.goto(unknown.toString());
+  await page.evaluate((url) => {
+    window.history.pushState({}, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, unknown.toString());
   await expect(page.getByRole("alert")).toContainText("この候補では見つかりません");
   await expectNoBlockingAxeViolations(page, "Decision Activity not-found");
 });
@@ -187,7 +205,7 @@ test("利用できないDecision Activityをアクセシビリティ検査でき
   expect(candidate.status(), await candidate.text()).toBe(201);
 
   await page.goto(`/?view=candidates&project=${project.id}`);
-  await page.getByRole("button", { name: "検討アクティビティ" }).click();
+  await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
     .getByRole("button", { name: "候補差分の要因分解" }).click();
   await expect(page.getByText("現在は利用できません")).toBeVisible();

@@ -149,6 +149,7 @@ function App() {
   const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
   const [chainTemplatesLoaded, setChainTemplatesLoaded] = useState(false);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+  const workspaceDialogReturnFocusRef = useRef<HTMLElement | null>(null);
   const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
   const navigationRef = useRef(navigation);
   const workspaceButtonRef = useRef<HTMLButtonElement>(null);
@@ -486,6 +487,7 @@ function App() {
               project={project}
               taskDefinition={taskDefinition}
               resolvedTaskDefinition={resolvedTaskDefinition}
+              availability={taskAvailability}
               readOnly={projectScientificSettingsReadOnly(taskUnavailable, readOnly)}
               initialSection={navigation.projectSettings === "display" || navigation.projectSettings === "task"
                 ? navigation.projectSettings
@@ -539,7 +541,12 @@ function App() {
               developerGuideId,
             })}
             onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
-            onOpenStorage={() => setWorkspaceDialogOpen(true)}
+            onOpenStorage={() => {
+              workspaceDialogReturnFocusRef.current = document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+              setWorkspaceDialogOpen(true);
+            }}
           />
         )}
         {tab === "candidates" && chainProject
@@ -759,7 +766,12 @@ function App() {
           open={workspaceDialogOpen}
           onClose={() => {
             setWorkspaceDialogOpen(false);
-            window.requestAnimationFrame(() => workspaceButtonRef.current?.focus());
+            window.requestAnimationFrame(() => {
+              const target = workspaceDialogReturnFocusRef.current;
+              workspaceDialogReturnFocusRef.current = null;
+              if (target?.isConnected) target.focus();
+              else workspaceButtonRef.current?.focus();
+            });
           }}
         />
       </main>

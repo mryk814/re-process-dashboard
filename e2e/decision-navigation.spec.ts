@@ -24,7 +24,6 @@ test("primary navigation follows the decision flow and separates developer admin
     "データ探索",
     "範囲探索",
     "候補比較",
-    "開発・管理",
   ]);
 
   await page.getByRole("button", { name: "データ探索", exact: true }).click();
@@ -43,21 +42,21 @@ test("primary navigation follows the decision flow and separates developer admin
   await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" }).click();
   await expect(page).toHaveURL(qualityUrl);
 
-  await page.getByRole("button", { name: "開発・管理", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "検証と構成" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })
-    .getByRole("button", { name: "データ品質集計" })).toHaveCount(0);
-  await page.getByRole("button", { name: "予測タスク定義", exact: true }).click();
-  await expect(page).toHaveURL(/admin=task/);
+  await page.getByRole("button", { name: "概要", exact: true }).click();
+  await page.getByRole("button", { name: "設定を編集" }).click();
+  await page.getByRole("navigation", { name: "Project設定メニュー" })
+    .getByRole("button", { name: "予測タスク定義" }).click();
+  await expect(page).toHaveURL(/project_settings=task/);
   await expect(page.getByRole("heading", { name: "予測タスク定義" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "成分" })).toBeVisible();
   await expect(page.getByText("引張強さ").first()).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "予測タスク定義" })).toBeVisible();
-  await page.getByRole("button", { name: "モデルと実行環境", exact: true }).click();
-  await expect(page).toHaveURL(/admin=model/);
-  await expect(page.getByRole("heading", { name: "モデルと実行環境" })).toBeVisible();
-  await expect(page.locator(".admin-model-identity")).toBeVisible();
+  await page.getByRole("navigation", { name: "ホーム" })
+    .getByRole("button", { name: "ワークスペース" }).click();
+  await expect(page).toHaveURL(/view=workspace/);
+  await expect(page.getByRole("heading", { name: "ワークスペース" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存場所を管理" })).toBeVisible();
 });
 
 test("legacy data-quality admin link redirects to the canonical screen", async ({ page }) => {

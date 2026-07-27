@@ -132,9 +132,19 @@ export function DecisionActivityPanel({
   }, [activities, identity, loadedIdentity, requestedActivityId, requestedRunId, runs]);
 
   useEffect(() => {
-    if (!selectedId || locationError) return;
+    if (loadedIdentity !== identity || !selectedId || locationError) return;
+    if (requestedActivityId && selectedId !== requestedActivityId) return;
+    if (requestedRunId && activeRunId !== requestedRunId) return;
     onStateChange(selectedId, activeRunId ?? undefined);
-  }, [selectedId, activeRunId, locationError]);
+  }, [
+    activeRunId,
+    identity,
+    loadedIdentity,
+    locationError,
+    requestedActivityId,
+    requestedRunId,
+    selectedId,
+  ]);
 
   const selected = activities.find((item) => item.definition.activity_id === selectedId) ?? null;
   const View = selected ? decisionActivityView(selected.definition.activity_id) : null;
@@ -142,6 +152,13 @@ export function DecisionActivityPanel({
     () => runs.filter((run) => run.definition.activity_id === selectedId),
     [runs, selectedId],
   );
+
+  function selectRun(activityId: string, runId: string | null) {
+    setSelectedId(activityId);
+    setActiveRunId(runId);
+    setLocationError("");
+    onStateChange(activityId, runId ?? undefined);
+  }
 
   async function runActivity(parameters: DecisionActivityParameters) {
     if (!selected || running) return;
@@ -161,6 +178,7 @@ export function DecisionActivityPanel({
       );
       if (!acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) return;
       setRuns((current) => [result, ...current.filter((item) => item.id !== result.id)]);
+      selectRun(result.definition.activity_id, result.id);
     } catch (cause) {
       if (!controller.signal.aborted && acceptsDecisionActivityResponse(identityRef.current, requestedIdentity)) {
         setError(cause instanceof Error ? cause.message : `${selected.definition.label}を実行できませんでした。`);
@@ -188,6 +206,7 @@ export function DecisionActivityPanel({
           setSelectedId(item.definition.activity_id);
           setActiveRunId(null);
           setLocationError("");
+          onStateChange(item.definition.activity_id, undefined);
         }}
       >{item.definition.label}</button>)}
     </nav>}
@@ -210,7 +229,7 @@ export function DecisionActivityPanel({
       availability={selected}
       runs={activityRuns}
       activeRunId={activeRunId}
-      onSelectRun={setActiveRunId}
+      onSelectRun={(runId) => selectRun(selectedId, runId)}
       running={running}
       onRun={runActivity}
       onCandidateCreated={onCandidateCreated}

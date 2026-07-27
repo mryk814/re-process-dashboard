@@ -120,6 +120,8 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
 test("a purpose-less legacy goal run reopens as opportunity search", async ({ page, request }) => {
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
+  await page.locator(".screening-mode-options")
+    .getByRole("button", { name: /有望候補を探す/ }).click();
   await page.getByLabel(/主目標: .*の下限/).fill("500");
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -161,6 +163,8 @@ test("a purpose-less legacy goal run reopens as opportunity search", async ({ pa
 test("bounded simplex display agrees with the persisted proposal evidence", async ({ page, request }) => {
   const project = await createProject(request, "mpea-hardness-process-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
+  await page.locator(".screening-mode-options")
+    .getByRole("button", { name: /有望候補を探す/ }).click();
 
   await openAdvancedSettings(page);
   await page.getByLabel("候補の提案方法").selectOption("bounded_simplex_goal_v1");
@@ -234,7 +238,7 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
     "組成bounded CLR-RMS + 入力群均等",
   );
-  await page.getByText("再現情報").click();
+  await page.getByText("再現情報", { exact: true }).click();
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("bounded_simplex_goal_v1");
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("生成coverage:");
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("composition.Ni");
@@ -290,7 +294,7 @@ test("a late proposal response cannot replace a newer run", async ({ page, reque
   await page.getByLabel("乱数seed").fill("202");
   await runScreening(page);
 
-  await page.getByText("再現情報").click();
+  await page.getByText("再現情報", { exact: true }).click();
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
   await page.waitForTimeout(900);
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
