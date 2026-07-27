@@ -17,6 +17,7 @@ import {
 } from "../shared/api/workbench-api";
 
 type Tab = WorkbenchView;
+type HomeNavigationIcon = "project" | "data" | "workspace";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
@@ -25,6 +26,23 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "settings", label: "開発・管理", active: ["settings"] },
 ];
+
+function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
+  if (icon === "project") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3 4.5h5l1.4 1.7H17v9.3H3z" />
+    </svg>;
+  }
+  if (icon === "data") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <ellipse cx="10" cy="4.5" rx="6.5" ry="2.5" />
+      <path d="M3.5 4.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5M3.5 9.5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5" />
+    </svg>;
+  }
+  return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M3.5 6.5h13v10h-13zM6 3.5h8v3H6zM7 10h6M7 13h6" />
+  </svg>;
+}
 
 function DataExploreUnavailable() {
   return <div className="page-panel">
@@ -278,31 +296,45 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand">Material Decision Workbench</div>
+        <div className="brand" aria-label="Material Decision Workbench">
+          <span className="brand-full">Material Decision Workbench</span>
+          <span className="brand-short" aria-hidden="true">MDW</span>
+        </div>
         <nav aria-label="ホーム">
           <button
+            type="button"
             className="nav-button"
+            aria-label="プロジェクト"
+            data-short-label="Project"
             aria-current={!dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "project", projectId: activeProjectId })}
           >
-            プロジェクト
+            <HomeNavIcon icon="project" />
+            <span className="nav-label-full">プロジェクト</span>
           </button>
           <button
+            type="button"
             className={dataLibraryMode ? "nav-button active" : "nav-button"}
+            aria-label="データライブラリ"
+            data-short-label="Data"
             aria-current={dataLibraryMode ? "page" : undefined}
             onClick={() => navigate({ view: "data-library" })}
           >
-            データライブラリ
+            <HomeNavIcon icon="data" />
+            <span className="nav-label-full">データライブラリ</span>
           </button>
           <button
             ref={workspaceButtonRef}
             type="button"
             className={workspaceDialogOpen ? "nav-button active" : "nav-button"}
+            aria-label="ワークスペース"
+            data-short-label="保管"
             aria-haspopup="dialog"
             aria-expanded={workspaceDialogOpen}
             onClick={() => setWorkspaceDialogOpen(true)}
           >
-            ワークスペース
+            <HomeNavIcon icon="workspace" />
+            <span className="nav-label-full">ワークスペース</span>
           </button>
         </nav>
       </header>
