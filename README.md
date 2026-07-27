@@ -105,6 +105,21 @@ npm run api:check     # schema・生成型のdrift検出
 
 `npm run typecheck` はdrift checkも含みます。production UIのHTTPアクセスは `apps/web/src/shared/api/workbench-api.ts` を経由します。
 
+## Docker Composeのlocal fixture
+
+PostgreSQLとS3互換object storageを再現するhybrid開発環境は [Docker Composeによるlocal開発基盤](docs/docker-compose-development.md) を使います。
+Electron、Web、FastAPIはhostで動かし、現行のSQLiteとlocal filesを既定のまま維持します。
+
+```powershell
+npm run compose:check
+npm run compose:up
+npm run compose:smoke
+npm run compose:down
+```
+
+使い捨てのPostgreSQL／object storage fixtureは`npm run compose:test`で起動、検査、破棄します。
+永続dataも削除する`docker compose --profile infra down --volumes`は破壊的操作です。
+
 ## データ
 
 `data/source/` のExcelとCSVは読取専用の正本として扱います。
