@@ -16,6 +16,14 @@ npm install
 npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 ```
 
+`npm run dev` の既定DBは `.dev-workspaces/<branch名>-<短いhash>.db` であり、
+`data/workbench.db` は開かない。固定レビュー状態へ戻すときはserverを止めて
+`npm run workspace:seed` を使う。本物の判断台帳を開く場合だけ
+`npm run dev:main-workspace` または `WORKBENCH_DB_PATH=data/workbench.db` を
+明示する。`workspace:seed`は環境変数で指定したDBを拒否し、branch既定Workspace
+だけを初期化する。起動前のread-only整合検査は `npm run workspace:check` で
+単独実行できる。
+
 変更後は次の3つを通してから完了とする。**いずれもリポジトリ直下で実行する。**
 
 ```powershell

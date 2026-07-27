@@ -332,6 +332,22 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
 .workspace-dialog-lead {
   margin: 14px 0;
 }
+
+.workspace-location {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 27, 45, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 27, 45, 0.035);
+}
+
+.workspace-location code,
+.workspace-location span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
 .workspace-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

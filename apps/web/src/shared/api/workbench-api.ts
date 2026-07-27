@@ -40,6 +40,13 @@ export type ApiChainDistributionCapability = components["schemas"]["ChainDistrib
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiSubsystemAvailability = components["schemas"]["SubsystemAvailability"];
+export type ApiWorkspaceHealth = {
+  workspace: {
+    database_path: string;
+    data_library_path: string;
+    kind: string;
+  };
+};
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
@@ -87,6 +94,12 @@ const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
 
 export const workbenchApi = {
+  async health(): Promise<ApiWorkspaceHealth> {
+    return requireData(
+      await apiClient.GET("/api/health"),
+      "Workspace情報を取得できませんでした。",
+    ) as ApiWorkspaceHealth;
+  },
   async candidateCapacity(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidate-capacity", {
       params: { path: { project_id: projectId } },

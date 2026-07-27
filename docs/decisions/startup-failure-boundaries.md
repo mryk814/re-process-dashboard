@@ -59,8 +59,22 @@ Desktopの起動エラーまたはAPIログに
 1. アプリを終了し、現在のWorkspace全体を別の場所へ退避する。
 2. `detail` にあるDataset、Profile、Model Packageなどのresource idとdigestを
    確認する。DBの行削除やdigestの書換えで辻褄を合わせない。
-3. 更新前のアプリ／Package構成へ戻せる場合は、その構成で起動する。参照中でない
-   古い登録はData Libraryから利用停止にしてから更新をやり直す。
+3. APIを起動できなくても、保守CLIの
+   `npm run workspace:maintenance -- --main-workspace inspect` でPackage登録と
+   参照Projectをread-only確認する。参照中でない衝突登録だけは、次のように
+   理由を明示して利用停止できる。
+
+   ```powershell
+   npm run workspace:maintenance -- --main-workspace deactivate `
+     --package-ref <id> `
+     --reason "現行Task contractへ明示的に再登録するため"
+   ```
+
+   Project、Prediction Snapshot、Chain Stage memoなど保存済み判断証拠から
+   参照中の登録は拒否される。未参照登録の旧内容と理由は
+   `workspace_maintenance_events`へ監査記録として固定し、次回起動時に限って
+   現行contractを同じPackage identityへ再登録する。行削除やdigest書換えを
+   手作業で行わない。
 4. 構成を戻せない場合は、整合性検証済みのWorkspace backupへ復元する。参照中の
    PackageやDatasetを削除して起動だけ通すことはしない。
 5. backupが無い場合は、退避したWorkspaceと
@@ -68,4 +82,6 @@ Desktopの起動エラーまたはAPIログに
    `data/source/` は変更しない。
 
 同じPackage IDとmanifest digestへ異なるTask contractやmanifest内容を割り当てる
-更新は、既存の判断証跡を別物へ結び直すため自動修復しない。
+更新は、既存の判断証跡を別物へ結び直すため自動修復しない。唯一の例外は、
+未参照であることを保守CLIがtransaction内で確認し、理由と旧内容を監査記録へ
+残した登録である。この明示操作なしにbootstrapが内容を置き換えることはない。

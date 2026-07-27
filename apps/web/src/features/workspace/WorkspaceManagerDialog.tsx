@@ -3,6 +3,10 @@ import type {
   DesktopWorkspaceOperationResult,
   DesktopWorkspaceSummary,
 } from "../../shared/api/client";
+import {
+  workbenchApi,
+  type ApiWorkspaceHealth,
+} from "../../shared/api/workbench-api";
 
 type Props = {
   open: boolean;
@@ -48,12 +52,21 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
   const dialogRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState<"backup" | "prepare" | "restore" | "cancel">();
   const [result, setResult] = useState<DesktopWorkspaceOperationResult>();
+  const [health, setHealth] = useState<ApiWorkspaceHealth>();
   const [error, setError] = useState("");
   const desktop = window.workbenchDesktop;
   const prepared = result?.status === "prepared" ? result : undefined;
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
+    void workbenchApi.health()
+      .then((value) => {
+        if (!cancelled) setHealth(value);
+      })
+      .catch(() => {
+        if (!cancelled) setHealth(undefined);
+      });
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busy) void close();
@@ -73,7 +86,10 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, busy]);
 
   async function invoke(
@@ -136,6 +152,20 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
           ×
         </button>
       </header>
+
+      {health && (
+        <div className="workspace-location" role="status">
+          <strong>
+            {health.workspace.kind === "branch-default"
+              ? "開発用Workspace"
+              : health.workspace.kind === "main"
+                ? "判断台帳Workspace"
+                : "指定Workspace"}
+          </strong>
+          <code>{health.workspace.database_path}</code>
+          <span>Data Library: {health.workspace.data_library_path}</span>
+        </div>
+      )}
 
       {!desktop ? (
         <p className="workspace-desktop-only">バックアップと復元はDesktop版で利用できます。</p>

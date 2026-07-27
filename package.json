@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev-launcher.mjs",
+    "dev:main-workspace": "node scripts/dev-launcher.mjs --main-workspace",
     "dev:process": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-process-v1.ps1",
     "dev:desktop": "concurrently -k -n web,desktop -c cyan,magenta \"npm run dev -w apps/web\" \"wait-on http://127.0.0.1:5180 && npm run dev -w apps/desktop\"",
     "build": "npm run build -w apps/web && npm run build -w apps/desktop",
@@ -40,7 +41,10 @@
     "task:inventory:check": "uv run python backend/scripts/task_inventory.py --check",
     "api:generate": "uv run python backend/scripts/export_openapi.py && npm run api:types -w apps/web",
     "api:check": "uv run python backend/scripts/export_openapi.py --check && npm run api:check -w apps/web",
-    "dev:doctor": "uv run python backend/scripts/developer_doctor.py"
+    "dev:doctor": "uv run python backend/scripts/developer_doctor.py",
+    "workspace:check": "node scripts/workspace-check.mjs",
+    "workspace:seed": "node scripts/workspace-seed.mjs",
+    "workspace:maintenance": "node scripts/workspace-maintenance.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

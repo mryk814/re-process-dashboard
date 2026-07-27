@@ -23,4 +23,5 @@ artifacts/
 playwright-report/
 test-results/
 .codex-tmp/
+.dev-workspaces/
 docs/learning/**/*_files/

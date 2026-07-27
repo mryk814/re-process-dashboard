@@ -1433,7 +1433,18 @@ def rollback_workspace_restore(
     state = _read_state(root)
     rollback_database = root / "rollback-workbench.db"
     if not rollback_database.exists():
-        raise WorkspaceBundleError("Rollback database is unavailable")
+        if state.get("previous_database_sha256") is not None:
+            raise WorkspaceBundleError("Rollback database is unavailable")
+        if database.exists():
+            database.unlink()
+        _cleanup_installed_resources(
+            data_library_root,
+            state.get("installed_resource_roots"),
+        )
+        shutil.rmtree(root, ignore_errors=True)
+        return WorkspaceRestoreResolution(
+            status="rolled_back", restore_token=restore_token
+        )
     failed_database = root / "failed-workbench.db"
     if database.exists():
         os.replace(database, failed_database)
