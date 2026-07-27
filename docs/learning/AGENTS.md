@@ -116,6 +116,26 @@ GitHub repositoryのfull nameは `code-reference-config.json` だけへ定義す
 文章と構成を新しく決める場合は、公式教材または公式style guideを事前調査する。
 採用した規則と出典は `foundations.qmd` または `references.bib` に残す。
 
+### 数理を含む章
+
+数理を含む章は [`math-style-guide.qmd`](math-style-guide.qmd) に従う。
+式の前に問いと仮定を置き、記号表へ意味、型、単位を示す。
+数式上の量はcontract、code、testへ対応付け、実装との差分を隠さない。
+
+review依頼前に [`数理レビューchecklist`](math-style-guide.qmd#sec-math-review-checklist) を完了する。
+少なくとも次を確認する。
+
+- random variable、観測値、推定値、予測値、実測値を区別した
+- 条件付け、添字、単位、maximizeまたはminimizeの向きを示した
+- Definition、Assumption、Approximation、Estimator、Algorithm、Implementationを区別した
+- 手計算できる数値例、破綻条件、代替または停止条件を置いた
+- 数学上の量と現mainのfield、symbol、testを対応付けた
+- 未実装の手法をcurrent featureとして書いていない
+- HTMLとPDFで式を目視し、式を読めなくても本文から意味を追える
+
+数理reviewの記録には、確認commit、対象の式、fixture、test、未確認範囲を残す。
+数式の見た目だけを確認して数理reviewを完了としない。
+
 ## 正本と生成物
 
 - 正本は `*.qmd`、`*.md`、`*.bib`、`_quarto*.yml`、`styles/`、PowerShell scriptである。

@@ -1,0 +1,378 @@
+# 数理を実装と判断へ接続する {#sec-math-style}
+
+数式は、計算を短く書くための表記です。
+式だけを置くと、読者は記号の意味、単位、仮定、実装との対応を推測することになります。
+
+数理を含む節は、読者が「何を計算し、どの条件で使え、どこから先は使えないか」を説明できる形にします。
+記号の統一は、その説明を章の間で読み直さずに済ませるために行います。
+
+## 数理節の読む順序
+
+数理を含む節は、原則として次の順序で書きます。
+
+1. **問い**：判断または実装で求めたい量を書く
+2. **仮定**：独立性、分布、既知量、連続性などを列挙する
+3. **記号表**：記号、意味、型、単位を対応付ける
+4. **式の種類**：定義、仮定、近似、推定量、アルゴリズム、実装のいずれかを示す
+5. **式**：記号表で導入した記号だけを使う
+6. **数値例**：手計算できる値で途中結果を確認する
+7. **実装対応**：契約、関数、field、testを対応付ける
+8. **破綻条件**：式を適用できない条件または誤読しやすい境界を書く
+9. **代替**：破綻条件に入ったときの別手段を示す
+10. **演習**：計算結果だけでなく、仮定を批判する問いを置く
+
+短い節では、隣り合う項目を一つの段落または表へまとめても構いません。
+ただし、仮定、単位、破綻条件を省略して式だけを残すことはしません。
+
+## 記号の役割を固定する
+
+同じ章では、一つの記号へ一つの役割だけを与えます。
+別の量へ記号を再利用すると、読者は式を戻って読み直さなければなりません。
+
+### Scalar、vector、matrix、集合
+
+| 対象 | 表記 | 成分または要素 | 例 |
+|---|---|---|---|
+| scalar | italic小文字 | 該当なし | $x$, $y$, $\mu$, $\sigma$ |
+| vector | 太字小文字 | italic小文字と添字 | $\mathbf{x}$、成分$x_j$ |
+| matrix | 太字大文字 | italic大文字と二添字 | $\mathbf{X}$、成分$X_{ij}$ |
+| 集合 | calligraphic大文字 | 通常の要素記号 | $\mathcal{X}$、$x \in \mathcal{X}$ |
+| 集合の要素数 | 絶対値記号 | 該当なし | $|\mathcal{D}|$ |
+
+太字だけではvectorとscalarを区別しにくい読者がいます。
+本文では「入力vector $\mathbf{x}$」と最初に書き、装飾だけへ意味を預けません。
+
+matrixのrowをobservation、columnをfeatureとする場合は、$\mathbf{X} \in \mathbb{R}^{n \times d}$とshapeを書きます。
+$n$と$d$の意味は、式の前に記号表で定義します。
+
+### Random variableと観測値
+
+確率的に変動する量と、観測または計算で得た値を大文字と小文字で分けます。
+
+| 対象 | 表記 | 読み方 |
+|---|---|---|
+| random variable | $X$, $Y$ | まだ一つの値へ定まっていない量 |
+| realization | $x$, $y$ | 観測または条件指定で得た値 |
+| model parameter | $\theta$ | modelが持つparameter |
+| parameter estimate | $\hat{\theta}$ | dataから推定したparameter値 |
+| true value | $\theta$ | 仮定した母数。実際には未知であることが多い |
+| prediction | $\hat{y}$ | 入力からmodelが計算した予測値 |
+| actual measurement | $y$ | 測定で得た値 |
+
+datasetは次の形を既定とします。
+
+$$
+\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^{n}
+$$
+
+この式は「$n$件の独立同分布sample」を自動的には意味しません。
+独立性、group構造、時系列順序は、必要な節で別の仮定として書きます。
+
+### 添字
+
+添字は次の役割を既定とします。
+
+| 添字 | 役割 |
+|---|---|
+| $i$ | observation |
+| $j$ | feature、composition component、constraint |
+| $k$ | target、equality constraint |
+| $m$ | Monte Carlo sample |
+| $s$ | Chain stage |
+| $b$ | batch member |
+| $t$ | 時点または反復step |
+
+一つの式で役割が衝突する場合は、既定から外れた記号を記号表で宣言します。
+たとえばconstraintとfeatureを同時に扱う節では、constraintを$r$、featureを$j$と書けます。
+
+Monte Carlo sample数には$M$を使い、observation数$n$と分けます。
+$n$をsample countの一般名として再利用しません。
+
+### Probability、density、頻度
+
+| 対象 | 表記 |
+|---|---|
+| eventの確率 | $\Pr(A)$ |
+| conditional densityまたはmass | $p(y \mid \mathbf{x}, \mathcal{D})$ |
+| conditional expectation | $\mathbb{E}[Y \mid \mathbf{x}, \mathcal{D}]$ |
+| conditional variance | $\operatorname{Var}[Y \mid \mathbf{x}, \mathcal{D}]$ |
+| $\alpha$ quantile | $q_{\alpha}(\mathbf{x})$ |
+| empirical rate | $\hat{p}$ |
+
+$\Pr(Y \ge \tau \mid \mathbf{x}, \mathcal{D})$と、$M$回のsampleで閾値を超えた割合$\hat{p}$は別の量です。
+前者はmodelと条件付けの下での確率であり、後者は有限sampleから計算した頻度です。
+
+条件付けを省略すると、どのdataと入力の下での分布か分からなくなります。
+節内で条件を固定した後に$p(y)$と短く書く場合は、何を省略したかを式の直前で示します。
+
+## 単位を式の外へ追い出さない
+
+記号表には、意味と型に加えて単位列を置きます。
+無次元量は空欄にせず、単位を$1$と書きます。
+
+| 記号 | 意味 | 型 | 単位 |
+|---|---|---|---|
+| $T$ | 温度 | scalar | $\mathrm{K}$ |
+| $t$ | 保持時間 | scalar | $\mathrm{s}$ |
+| $w_j$ | component $j$の質量分率 | scalar | $1$ |
+| $Y$ | 引張強さ | random variable | $\mathrm{MPa}$ |
+| $\hat{p}$ | sample内の達成率 | scalar | $1$ |
+
+`%`表示とfractionを同じ数値として扱いません。
+たとえば61%はfractionでは$0.61$です。
+mass%とat%は変換式と必要な原子量が異なるため、labelだけを置き換えません。
+
+温度の差では$1\ \mathrm{K}$と$1\ ^\circ\mathrm{C}$が同じ大きさですが、温度の値にはoffsetがあります。
+摂氏温度を絶対温度として式へ代入しません。
+
+単位付きの量をそのまま対数へ入れません。
+基準量$y_0$との比を使い、$\log(y/y_0)$を無次元にします。
+
+距離を正規化する場合は、分母を示します。
+「正規化距離」というlabelだけでは、range、standard deviation、domain固有scaleのどれを使ったか判定できません。
+
+表示丸めは計算精度を変えません。
+内部値$630.288\ \mathrm{MPa}$を$630.3\ \mathrm{MPa}$と表示しても、比較、制約判定、保存には内部値を使います。
+
+## 等号と近似を使い分ける
+
+| 記号 | 役割 | 使用例 |
+|---|---|---|
+| $=$ | 同値または計算結果 | $z = (x-\mu)/\sigma$ |
+| $:=$ | この節での定義 | $e := y-\hat{y}$ |
+| $\approx$ | 近似 | $\hat{p} \approx 0.61$ |
+| $\propto$ | 比例。定数を省略 | $p(\theta \mid y) \propto p(y \mid \theta)p(\theta)$ |
+| $\le$, $\ge$ | 境界を含む不等式 | $c_j(\mathbf{x}) \le 0$ |
+
+丸めた数値を$=$で結びません。
+$39/64 = 0.609375 \approx 0.61$のように、正確な計算と表示近似を分けます。
+
+$\propto$を使った式を、そのまま正規化済み確率として扱いません。
+省略した比例定数または正規化の方法を本文で説明します。
+
+代入による定義と、既存の定義から導いた等式を区別したい場合に$:=$を使います。
+一章の中で$:=$と「ここで定義する」を重複して繰り返す必要はありません。
+
+## 最大化と最小化を節の入口で決める
+
+最適化節は、目的の向きを式の前に宣言します。
+既定は最小化です。
+
+$$
+\begin{aligned}
+\underset{\mathbf{x} \in \mathcal{X}}{\operatorname{minimize}}
+&\quad f(\mathbf{x}) \\
+\operatorname{subject\ to}
+&\quad c_j(\mathbf{x}) \le 0,\quad j=1,\ldots,J, \\
+&\quad h_k(\mathbf{x}) = 0,\quad k=1,\ldots,K.
+\end{aligned}
+$$
+
+最大化する物性を最小化形式へ変える場合は、$f(\mathbf{x})=-g(\mathbf{x})$と符号反転を明示します。
+UI labelの「高いほどよい」だけを根拠に、式の向きを推測させません。
+
+複数目的では、各目的の向きを表で示します。
+Pareto dominanceは向きを揃えた後に定義し、最大化と最小化を同じvectorへ無言で混ぜません。
+
+獲得関数$a(\mathbf{x})$を最大化する場合は、予測対象$f(\mathbf{x})$の向きと別に宣言します。
+獲得scoreが確率、物性値、効用のどれであるかを単位列で区別します。
+
+selected batchは順序を持たない集合なら$\mathcal{B}$、選択順を使う列なら$(\mathbf{x}^{(1)},\ldots,\mathbf{x}^{(B)})$と書き分けます。
+
+## 式が担う役割を示す
+
+節の中心となる式には、次のlabelから一つを付けます。
+
+- **Definition**：概念の意味を固定する
+- **Identity**：定義と代数から常に成立する
+- **Assumption**：model化のために置く条件
+- **Approximation**：正確な量を別の計算で近似する
+- **Estimator**：有限dataから未知量を推定する
+- **Algorithm**：入力から出力を得る手順
+- **Implementation**：現mainのcodeが実際に計算する式
+
+一つの式が複数の役割を持つ場合は、読者が判断に使う役割を先に置きます。
+たとえば有限sampleで確率を見積もる式はEstimatorであり、その計算を現mainが使うならImplementationでもあります。
+
+quantile intervalから標準偏差を復元する式はDefinitionではありません。
+分布形とquantile levelを仮定して初めて成立するApproximationです。
+
+Implementation labelは、一般に推奨される方法という意味ではありません。
+現mainの計算を確認したcommit、symbol、testへ接続し、未実装の手法と分けます。
+
+## 導出の深さを選ぶ
+
+導出は次の三段階から選びます。
+
+- **Level 1（利用）**：式の意味、入力、出力、単位、破綻条件を説明する
+- **Level 2（短い導出）**：二行から八行を目安に、仮定から式までをつなぐ
+- **Level 3（Deep Dive）**：本筋を止める導出を付録または別章へ分ける
+
+章の読了後に必要なのが実装判断であれば、Level 1またはLevel 2を選びます。
+導出そのものを再現することが到達点でなければ、Level 3を本文へ置きません。
+
+導出を省略するときは、「よく知られているため」とだけ書かず、利用に必要な仮定と参照先を残します。
+
+## 数値例を手計算できる大きさにする
+
+数値例は、入力、途中結果、丸め、単位、解釈を示します。
+最終値だけをcode outputから転記しません。
+
+### 達成率の例
+
+問いは、入力ばらつきを表す64個のsampleのうち、引張強さが目標値を満たした割合です。
+この例はsample間を独立に生成し、欠損した予測がないと仮定します。
+
+| 記号 | 意味 | 値 | 単位 |
+|---|---|---:|---|
+| $M$ | Monte Carlo sample数 | 64 | $1$ |
+| $I_m$ | sample $m$が目標を満たすindicator | $0$または$1$ | $1$ |
+| $\sum_{m=1}^{M}I_m$ | 目標を満たしたsample数 | 39 | $1$ |
+| $\hat{p}$ | empirical achievement rate | 未計算 | $1$ |
+
+**Estimator**
+
+$$
+\hat{p} := \frac{1}{M}\sum_{m=1}^{M} I_m
+          = \frac{39}{64}
+          = 0.609375
+          \approx 0.61.
+$$
+
+UIへpercentで出す場合は61%と表示します。
+この値は「候補が61%の確率で成功する」という保証ではなく、指定したばらつき分布と64個の有限sampleにおける達成頻度です。
+
+独立なBernoulli sampleという追加仮定を置くと、単純な標準誤差は次のように近似できます。
+
+**Approximation**
+
+$$
+\operatorname{SE}(\hat{p})
+\approx
+\sqrt{\frac{\hat{p}(1-\hat{p})}{M}}
+\approx
+0.061.
+$$
+
+この近似は$\hat{p}=0$または$1$で標準誤差を0とするため、小さい$M$の区間推定にはそのまま使えません。
+sampleに相関がある場合も、有効sample数を64とみなせません。
+その場合は生成過程を見直し、Wilson区間、bootstrap、相関を保つsimulationなど、問いに合う方法を選びます。
+
+### 数値例のtemplate
+
+新しい数値例は次を埋めます。
+
+1. 問い
+2. 仮定
+3. 記号、値、単位の表
+4. 式の種類
+5. 代入前の式
+6. 途中結果
+7. 丸め前と表示値
+8. 実装またはtestの期待値
+9. 結果の解釈
+10. 破綻条件と代替
+
+## 破綻条件を式の近くに置く
+
+破綻条件は、章末の一般的な注意へまとめません。
+読者が式を使う位置で、入力条件、数値条件、意味上の条件を分けて書きます。
+
+入力条件の例は、$M=0$、欠損値、単位不一致、simplexのclosure違反です。
+数値条件の例は、分母が0、対数の引数が0以下、分散が負になる丸め誤差です。
+意味上の条件の例は、supportがない候補へcalibration結果を外挿すること、相関を因果効果として読むことです。
+
+edge caseをcodeが拒否する場合は、error contractとtestを示します。
+codeが値を返すが解釈に制限がある場合は、UIのwarningとprovenanceを示します。
+現mainが検出しない条件は、検出済みであるかのように書かず、Known limitationまたはFUTUREとして分けます。
+
+## 数式と実装を対応付ける
+
+数理節には、必要に応じて次の対応表を置きます。
+
+| 数学上の量 | contractまたはfield | 計算するsymbol | 確認するtest | 差分 |
+|---|---|---|---|---|
+| $\hat{p}$ | `achievement_rate` | `compute` | focused test名 | fieldはpercentではなくfraction |
+
+数学上の量とcode identifierを同じものとして扱いません。
+fieldが丸め、欠損表現、単位変換、複数の量の要約を含む場合は、その差分を書きます。
+
+本文からcodeを指すときは、章front matterの`code_references`とcode reference shortcodeを使います。
+line番号を手書きせず、式を確認した`verified_commit`へ固定します。
+
+現行codeと式が一致することは、可能なら手計算できるfixtureを使うtestで確認します。
+testが確認するのがshapeだけなら、数値的な一致まで保証すると書きません。
+
+## Computation cellを正本にしない
+
+実行可能なcellを使う場合は、seed、依存version、入力fixture、実行時間の上限を固定します。
+cellはnetworkへ接続せず、productionのDB、source data、Model Packageを変更しません。
+
+出力値だけを本文の正本にしません。
+式、入力fixture、期待値をreviewできる形で残し、cellを実行できない環境でも論証を読めるようにします。
+
+生成した表または図には、source、verified environment、丸め規則を残します。
+乱数を使う例では、seedを固定しても一般的な統計的保証が得られるわけではないことを明記します。
+
+## 数式を視覚だけへ閉じ込めない
+
+display式の前後に、その式が答える問いと結論を文章で置きます。
+screen readerが式を読めない場合でも、本文から入力、演算、出力、条件を理解できる形にします。
+
+複雑な式は一行へ押し込まず、意味のまとまりで複数行へ分けます。
+式番号は本文から参照する式だけへ付けます。
+「上式」「下式」ではなく、式の名前または番号で参照します。
+
+vector、状態、種類を色だけで区別しません。
+添字、label、線種、形を併用します。
+
+inline式が日本語の行間を崩す場合は、記号を地の文へ詰め込まずdisplay式または記号表へ移します。
+monospaceのcode identifierとitalicの数学記号を使い分けます。
+
+HTMLとPDFの両方で、次を目視します。
+
+- 添字とhatが本文サイズで判別できる
+- 太字vectorとscalarを本文の説明でも区別できる
+- 長いconstraintがpageまたはviewportからはみ出さない
+- 数式と日本語のbaselineが大きくずれない
+- copyした式から記号が欠落しない
+- 150%拡大と白黒表示で意味が残る
+
+アクセシビリティcheckは、数理の妥当性を保証するものではありません。
+WCAG 2.2の知覚可能性と操作可能性を確認しつつ、式の仮定と解釈は数理reviewで別に確認します [@w3c-wcag22]。
+
+## 数理レビューchecklist {#sec-math-review-checklist}
+
+数理を含む章は、review依頼前に次を確認します。
+
+- [ ] 式が答える問いを先に書いた
+- [ ] 仮定を式の近くへ置いた
+- [ ] random variableとrealizationを区別した
+- [ ] parameter、estimate、prediction、actual measurementを区別した
+- [ ] conditioning informationを示した
+- [ ] 記号表に意味、型、単位を示した
+- [ ] 添字の役割が章内で一貫している
+- [ ] maximizeまたはminimizeの向きを示した
+- [ ] $=$、$:=$、$\approx$、$\propto$を役割どおり使った
+- [ ] Definition、Assumption、Approximation、Estimator、Algorithm、Implementationを区別した
+- [ ] 手計算できる数値例と丸め規則がある
+- [ ] 数学上の量をcontract、code、testへ対応付けた
+- [ ] current codeと式の一致を確認するtest、または未確認範囲を示した
+- [ ] 入力、数値、意味上の破綻条件を示した
+- [ ] 破綻条件に入った場合の代替または停止条件を示した
+- [ ] probability、empirical rate、score、confidenceを同義にしていない
+- [ ] prediction interval、measurement variability、Monte Carlo errorを混ぜていない
+- [ ] 未実装の手法をcurrent featureとして書いていない
+- [ ] 式を読めなくても本文から問い、入力、結論、制限を理解できる
+- [ ] HTMLとPDFで記号、改行、はみ出し、拡大表示を確認した
+
+数理reviewの記録には、確認したcommit、対象の式、使用したfixture、実行したtest、未確認範囲を残します。
+reviewerが計算を再現できない場合は、表現だけを整えて完了としません。
+
+## このガイドの適用範囲
+
+このガイドは、機械学習algorithmの網羅的な解説、LaTeXまたはTypst記法の完全なreference、大学数学の基礎教材を提供しません。
+各章の問いに必要な数理だけを、実装と判断へ接続するために使います。
+
+数理規約を変える場合は、既存章の式を機械的に置換しません。
+意味、単位、実装との対応が変わらないことを確認し、影響する章と生成物を同じ変更でreviewします。

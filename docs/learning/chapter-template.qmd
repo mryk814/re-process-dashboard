@@ -44,6 +44,22 @@ historical_concepts: []
 本文の理解に必要な説明は本文へ置く。
 流れを止める補足、例外、来歴、関連する実務知識は脚注へ置く。^[脚注を削っても章の論証と手順が成立するかを確認する。成立しなければ、その情報は本文へ戻す。]
 
+## 数理を扱う場合
+
+数理を扱わない章では、この節を削除する。
+数理を扱う章では、編集時に [`math-style-guide.qmd`](math-style-guide.qmd) の順序と [`数理レビューchecklist`](math-style-guide.qmd#sec-math-review-checklist) を使う。
+この編集指示は完成原稿へ残さない。
+
+1. 式が答える問い
+2. 仮定
+3. 記号、意味、型、単位の表
+4. Definition、Assumption、Approximation、Estimator、Algorithm、Implementationの区別
+5. 式
+6. 手計算できる数値例
+7. contract、code、testとの対応
+8. 破綻条件
+9. 代替または停止条件
+
 ## 実装を読む
 
 次の順を基本とし、存在しない層を無理に作らない。
