@@ -67,7 +67,7 @@ type Props = {
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (
-    view: "candidates" | "lineage" | "explore" | "settings" | "data-library",
+    view: "candidates" | "lineage" | "explore" | "data-library",
     candidateId?: string,
     options?: { activityId?: string; candidateSection?: CandidateSection },
   ) => void;
