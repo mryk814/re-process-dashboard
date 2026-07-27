@@ -74,6 +74,19 @@ function Read-Version {
     return (@(& $Executable @Arguments 2>&1) -join " ").Trim()
 }
 
+function Get-Sha256 {
+    param([string]$Path)
+    $stream = [IO.File]::OpenRead($Path)
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $hasher.ComputeHash($stream)
+        return ([BitConverter]::ToString($bytes) -replace "-", "").ToLowerInvariant()
+    } finally {
+        $hasher.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $testedCommit = (git -C $repositoryRoot rev-parse HEAD).Trim()
 $trackedChanges = @(git -C $repositoryRoot status --porcelain --untracked-files=no)
 if ($trackedChanges.Count -gt 0) {
@@ -134,14 +147,20 @@ $artifactPaths = @(
     Join-Path $repositoryRoot "release/Material-Decision-Workbench-Setup-$version.exe"
     Join-Path $repositoryRoot "release/Material-Decision-Workbench-folder-$version.zip"
 )
+$deliveryPassed = @(
+    $results | Where-Object {
+        $_.name -eq "Windows installer and moved portable delivery" -and
+        $_.exitCode -eq 0
+    }
+).Count -eq 1
 $artifacts = @(
-    foreach ($artifactPath in $artifactPaths) {
+    foreach ($artifactPath in $(if ($deliveryPassed) { $artifactPaths } else { @() })) {
         if (Test-Path -LiteralPath $artifactPath -PathType Leaf) {
             $item = Get-Item -LiteralPath $artifactPath
             [ordered]@{
                 name = $item.Name
                 bytes = $item.Length
-                sha256 = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                sha256 = Get-Sha256 $artifactPath
             }
         }
     }
