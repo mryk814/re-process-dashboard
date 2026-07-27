@@ -214,6 +214,15 @@ def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
     assert "powder_blend_cost_yen_per_kg_core > 0" in packaged_smoke
 
 
+def test_packaged_smoke_uses_the_server_owned_lifecycle_actor() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert "packaged lifecycle probe" in packaged_smoke
+    assert 'actor: "packaged-smoke"' not in packaged_smoke
+
+
 def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -> None:
     packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
         encoding="utf-8"
