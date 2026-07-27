@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-28-issue-346",
+  "issue": {
+    "number": 346,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/346",
+    "title": "[Exploration Epic] Local-first共有WorkBench・Cloud・AI Actorを段階的に実証する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/shared-state-and-bounded-actors.qmd"
+    ],
+    "scope": "Shared Lab、AI Review、cloud blocker evidenceを、統合していないActor境界まで含めて一つの実装ケーススタディとして受け入れる。"
+  },
+  "reviewed_against": "ec8b7caddd4a8852a4b27fbf5a70a8d5a05bba2c",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation and security review proxy",
+      "method": "Shared Lab、AI Review、cloud reportを参照commitで逆引きし、Actor resolver、revision history、audit、artifact compensation、numeric grounding、failure sanitizationの主張を敵対的に照合した。",
+      "result": "pass",
+      "evidence": [
+        "backend/tests/integration/test_shared_lab_integration.py",
+        "backend/tests/test_ai_reviews.py",
+        "docs/reports/cloud-spike-aws-snowflake-2026-07-28.md",
+        "node docs/learning/check-code-references.mjs"
+      ],
+      "notes": "初回reviewでcode reference構文、Human attribution、prompt injection、revisionとaudit、best-effort compensationの過大主張を検出し、本文で修正した。再reviewでblocking findingが残らないことを確認した。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy review proxy",
+      "method": "上級backend読者として問題、Actor identity、競合、artifact、AI、external authority、演習の順に代理walkthroughし、各演習を本文だけから解いた。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/shared-state-and-bounded-actors.qmd",
+        "exercise-shared-state-and-bounded-actors-01",
+        "exercise-shared-state-and-bounded-actors-02",
+        "exercise-shared-state-and-bounded-actors-03"
+      ],
+      "notes": "subsystem seam表、current enforcement表、artifact failure表、実行commandを追加した。実読者の所要時間と誤答率は測定していない。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility review proxy",
+      "method": "見出しoutline、一文一行、複数文段落、表の列見出し、線形な補足説明、解答linkとanchorをsource上で検査した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/shared-state-and-bounded-actors.qmd",
+        "powershell -File docs/learning/check-exercise-solutions.ps1"
+      ],
+      "notes": "三つの表は色や位置だけに依存せず、直後の文章から主要な意味を追える。screen readerと200% zoomの実機確認はIssue #387で追跡する。"
+    },
+    {
+      "role": "security",
+      "reviewer": "Codex trust-boundary review proxy",
+      "method": "caller supplied identity、provider code、untrusted text、secret redaction、tool allow-list、immutable Run、external cloud authorityの保証範囲を攻撃者視点で確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "backend/src/material_workbench/api/ai_reviews.py",
+        "backend/src/material_workbench/application/ai_review_tools.py",
+        "backend/src/material_workbench/application/ai_reviews.py",
+        "backend/tests/test_ai_reviews.py"
+      ],
+      "notes": "development headerは認証ではなく、provider codeもOS sandboxで隔離されないと明記した。実provider、remote identity、production customer dataは非scopeである。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "local-firstアプリを共有化するbackend architect",
+      "proxy": true,
+      "starting_context": "SQLite transactionとrevisionは理解しているが、PostgreSQLとobject storageをまたぐ失敗境界は未経験である。",
+      "task": "二つのActorの競合後UIを設計し、四つのartifact failureで残るobjectとmetadataを判定する。",
+      "success_criteria": [
+        "古いdraftとcurrent revisionを区別する",
+        "拒否された試行をrevision履歴ではなくauditへ対応付ける",
+        "新規objectと既存objectの補償削除を区別する",
+        "補償失敗時の孤立objectを保証外として残す"
+      ],
+      "result": "pass",
+      "observations": [
+        "演習1から409後の五段階遷移を構成できた。",
+        "演習3からDB rollbackがobjectを自動削除しない理由を説明できた。"
+      ],
+      "limitations": "代理source walkthroughであり、実browser二面操作の読者task時間は測定していない。"
+    },
+    {
+      "profile": "AI Reviewのapproval boundaryを監査する品質担当者",
+      "proxy": true,
+      "starting_context": "AI tool callingは知っているが、Shared Lab、AI Review、Data Lifecycleが別Actor contractであることを知らない。",
+      "task": "五操作と三Actorのcurrent enforcement表を作り、設計意図と実装の差を一つ示す。",
+      "success_criteria": [
+        "surfaceごとのresolverとpersistenceを分ける",
+        "Human disposition headerが未認証でActor kindを照合しないと指摘する",
+        "Dataset approvalが固定local Actorへ帰属すると説明する",
+        "AI provider codeとmodel outputのtrust boundaryを区別する"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "演習2の全cellをcurrent、denied、out of scopeへ分類できた。",
+        "正式なremote identity統合をcurrent featureとして扱わなかった。"
+      ],
+      "limitations": "代理評価であり、実LLM providerのprompt injection耐性とHuman reviewerの有用性は未測定である。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "blocking",
+      "summary": "三つのsubsystemが一つのActor基盤へ統合済みに見える。",
+      "evidence": [
+        "docs/learning/chapters/shared-state-and-bounded-actors.qmd"
+      ],
+      "requires_textbook_change": true,
+      "disposition": "fixed_in_review",
+      "tracking": null
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "blocking",
+      "summary": "prompt injection、Human attribution、数値grounding、artifact compensationの保証範囲が実装より広い。",
+      "evidence": [
+        "backend/tests/test_ai_reviews.py",
+        "backend/src/material_workbench/shared_lab/service.py"
+      ],
+      "requires_textbook_change": true,
+      "disposition": "fixed_in_review",
+      "tracking": null
+    },
+    {
+      "finding_id": "F-003",
+      "severity": "minor",
+      "summary": "実読者、screen reader、実LLM、remote identityの独立評価は未実施である。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-28-issue-346.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #387"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "npm run shared:test",
+      "uv run python -m pytest backend/tests/test_ai_reviews.py -q -n 0",
+      "node docs/learning/check-code-references.mjs",
+      "powershell -File docs/learning/check-exercise-solutions.ps1",
+      "powershell -File docs/learning/build.ps1 -Clean"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready",
+  "reviewer_note": "実装、pedagogy、accessibility、securityを代理reviewした。実読者と支援技術の独立評価はEdition 2のIssue #387へ残す。"
+}
