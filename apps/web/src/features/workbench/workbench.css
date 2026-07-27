@@ -951,7 +951,7 @@
 .activity-run-history button[aria-current="true"]::before {
   content: "●";
   margin-right: 5px;
-  font-size: 8px;
+  font-size: 10px;
 }
 .activity-run-provenance {
   border: 1px solid #d9e1e8;

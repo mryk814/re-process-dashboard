@@ -39,7 +39,8 @@ test("a preview failure never becomes the connection state", async () => {
 test("a failed write reports itself without claiming the API is unreachable", async () => {
   const session = await source("../src/features/workbench/useWorkbenchSession.ts");
   assert.doesNotMatch(session, /setApiState\("offline"\);\s*\n\s*notifyError/);
-  assert.equal((session.match(/setApiState\("offline"\)/g) ?? []).length, 1);
+  const writeOperations = session.slice(session.indexOf("async function addCandidate"));
+  assert.doesNotMatch(writeOperations, /setApiState\("offline"\)/);
 });
 
 test("opening a project reports no operation result", async () => {
