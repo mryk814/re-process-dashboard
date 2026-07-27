@@ -101,6 +101,11 @@ const migration = readFileSync(
   resolve(repositoryRoot, "infrastructure", "compose", "migrations", "001_shared_fixture.sql"),
   "utf8",
 );
+const sharedLabMigration = readFileSync(
+  resolve(repositoryRoot, "infrastructure", "compose", "migrations", "002_shared_workbench_lab.sql"),
+  "utf8",
+);
+const migrations = `${migration}\n${sharedLabMigration}`;
 for (const table of [
   "schema_migrations",
   "workspaces",
@@ -110,10 +115,18 @@ for (const table of [
   "activity_runs",
   "review_runs",
   "artifact_references",
+  "candidates",
+  "audit_events",
 ]) {
-  assert(migration.includes(`workbench_shared.${table}`), `Migration is missing ${table}.`);
+  assert(migrations.includes(`workbench_shared.${table}`), `Migration is missing ${table}.`);
 }
 assert(migration.includes("ON CONFLICT (version) DO NOTHING"), "Migration must be repeatable.");
+assert(
+  sharedLabMigration.includes("002_shared_workbench_lab")
+    && sharedLabMigration.includes("human-a")
+    && sharedLabMigration.includes("human-b"),
+  "Shared Lab migration must seed its version and fixed development actors.",
+);
 assert(
   migration.includes("FOREIGN KEY (project_id, candidate_id, candidate_revision)"),
   "Activity Run must bind Candidate Revision within the same Project.",

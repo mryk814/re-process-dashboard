@@ -7,7 +7,7 @@
 
 現行applicationはSQLiteとlocal filesを使い続けます。
 `WORKBENCH_PERSISTENCE_BACKEND=postgres`または`WORKBENCH_ARTIFACT_BACKEND=s3`を指定しても、現行applicationが自動でshared modeへ切り替わるわけではありません。
-これらの値はshared modeの契約を先に固定するための予約値であり、application接続は後続の縦切りで実装します。
+PostgreSQLとS3へ接続するShared Labは別appとして明示的に起動し、既存local Projectを同期しません。
 
 Electron、Vite、FastAPIはhostで起動します。
 Windows installerのPython sidecarをcontainerへ置き換えず、既存のlaunch tokenとloopback境界も変更しません。
@@ -117,6 +117,39 @@ npm run compose:test
 
 このprofileはapplication全体のintegration testではありません。
 shared persistenceとartifact storageの最小fixtureが同じnetwork上で初期化できることを検査します。
+
+## Shared Workbench Labを起動する
+
+Shared Labは既存applicationを自動で切り替えず、明示的な別FastAPI appとして起動します。
+最初にinfraを準備し、shared用のoptional dependencyを指定します。
+
+```powershell
+npm run compose:up
+uv run --extra shared uvicorn material_workbench.shared_lab.app:build_app --factory --host 127.0.0.1 --port 8766
+```
+
+OpenAPIは`http://127.0.0.1:8766/docs`で確認できます。
+request identityはbodyではなく、固定seedと照合する次のheaderで渡します。
+
+```text
+X-Workbench-Workspace: shared-lab
+X-Workbench-Actor: human-a | human-b | ai-reviewer
+X-Request-ID: request-unique-id
+X-Correlation-ID: scenario-or-operation-id
+```
+
+`human-a`と`human-b`はProject、Candidate Revision、Run、artifact、auditの実験用Actorです。
+`ai-reviewer`はreadとreviewだけを許可する固定Actorで、Humanのwrite権限を持ちません。
+正式なauthenticationやmember管理を表すものではありません。
+
+二Actor競合、履歴、Run共有、artifact整合性、failure compensationを隔離環境でまとめて検証します。
+
+```powershell
+npm run shared:test
+```
+
+runnerはprocess固有のCompose projectと空きportを使い、migrationの再実行も確認します。
+終了時は成功・失敗を問わず、そのtest projectのcontainer、network、named volumeだけを削除します。
 
 ## migrationの責務
 
