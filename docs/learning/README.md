@@ -13,6 +13,8 @@ Workspace restoreの章では、SQLite snapshot、bundle検証、staging migrati
 - 順に学ぶ場合は、学習者向けPDFまたは統合HTMLの「学習者向け教材」から始めます。
 - 実装箇所を探す場合は、統合HTMLの「編集と保守のガイド」にある [`code-map.qmd`](code-map.qmd) を使います。
 - 担当別に読む順番を選ぶ場合は、同じガイドにある `learning-paths/` の三つのルートを使います。
+- 概念の前提関係から入口を選ぶ場合は、[`concept-map.qmd`](concept-map.qmd) を使います。
+- 用語の意味、混同しやすい語、現行実装への接続を確かめる場合は、[`glossary.qmd`](glossary.qmd) を使います。
 - 編集する場合は [`AGENTS.md`](AGENTS.md) と [`writer-persona.md`](writer-persona.md) を先に読みます。
 - mainの変更が教材へ与える影響を判定する場合は [`drift-reviews/index.qmd`](drift-reviews/index.qmd) を使います。
 
@@ -71,6 +73,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-drift-reviews.mjs
+node docs/learning/test-concepts.mjs
 ```
 
 リポジトリ全体の完了判定では、ルートの `AGENTS.md` に従ってfull test、typecheck、buildも実行します。
@@ -78,11 +81,13 @@ node docs/learning/check-drift-reviews.mjs
 ## 更新ルール
 
 1. 章のfront matterにある `verified_commit` と `code_references` を確認する。
-2. 参照先の契約や期待出力が変わった場合は、本文と演習を同じPRで直す。
-3. 実装事実、設計意図、教材上の解釈、将来案を混ぜない。
-4. コード全文を転載せず、判断に必要な短い断片と正本へのリンクを置く。
-5. HTMLとPDFを生成し、コード折返し、表、callout、相互参照を確認する。
-6. 維持コストがproduction開発を圧迫する場合は、章を増やす前に [`evaluation.qmd`](evaluation.qmd) の判断を更新する。
+2. 章の概念欄と `concepts/concepts.json` を同じ変更で更新する。
+3. `node docs/learning/check-concepts.mjs --write`で用語集と概念表を再生成する。
+4. 参照先の契約や期待出力が変わった場合は、本文と演習を同じPRで直す。
+5. 実装事実、設計意図、教材上の解釈、将来案を混ぜない。
+6. コード全文を転載せず、判断に必要な短い断片と正本へのリンクを置く。
+7. HTMLとPDFを生成し、コード折返し、表、callout、相互参照を確認する。
+8. 維持コストがproduction開発を圧迫する場合は、章を増やす前に [`evaluation.qmd`](evaluation.qmd) の判断を更新する。
 
 Quartoの構成は `_quarto.yml` が共通設定、`_quarto-site.yml` が統合HTMLの章順、`_quarto-reader.yml` が学習者向けPDFの章順を管理します。
 profileのchapter listへ同じ本文を登録し、出力ごとのコピーは作りません。

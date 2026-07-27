@@ -1,4 +1,5 @@
 ---
+chapter_id: "break-and-repair-migration"
 level: intermediate
 estimated_minutes: 75
 verified_commit: "bb3b4ff8b2f4b30d13b587162fef546421eea283"
@@ -18,6 +19,17 @@ code_references:
   - path: "backend/tests/test_sqlite_connection.py"
     role: "test"
 
+prerequisite_concepts:
+  - "contract"
+  - "domain-invariant"
+  - "migration-smoke"
+  - "repository"
+introduced_concepts: []
+reinforced_concepts:
+  - "immutable-evidence"
+  - "integration-test"
+future_concepts: []
+historical_concepts: []
 ---
 
 # migrationの矛盾を再現して診断する {#sec-lab-migration}

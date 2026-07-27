@@ -1,4 +1,5 @@
 ---
+chapter_id: "restore-workspace-safely"
 level: intermediate
 estimated_minutes: 150
 verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
@@ -28,13 +29,22 @@ code_references:
   - path: "scripts/smoke-packaged.mjs"
     role: "build"
 
-concepts:
-  - "SQLite Online Backup API"
-  - "staged restore"
-  - "commit and compensating rollback"
-  - "content-addressed resource"
-  - "recovery journal"
-  - "archive trust boundary"
+prerequisite_concepts:
+  - "byte-digest"
+  - "migration-smoke"
+  - "repository"
+  - "snapshot"
+  - "trust-boundary"
+introduced_concepts:
+  - "packaged-smoke"
+  - "recovery-journal"
+  - "staged-restore"
+  - "workspace-bundle"
+reinforced_concepts:
+  - "immutable-evidence"
+  - "integration-test"
+future_concepts: []
+historical_concepts: []
 ---
 
 # Workspaceを切り替える前に復元を確かめる {#sec-workspace-restore}

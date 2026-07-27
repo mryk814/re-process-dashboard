@@ -32,6 +32,122 @@
       "official_url_checked_on": "2026-07-27"
     },
     {
+      "citekey": "w3c-skos-reference",
+      "roles": [
+        "standard"
+      ],
+      "level": "intermediate",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "W3C document license; no reuse assumed",
+      "related_concepts": [
+        "controlled-vocabulary",
+        "concept-relation",
+        "preferred-label"
+      ],
+      "repo_routes": [
+        "docs/learning/concepts/concept.schema.json",
+        "docs/learning/concepts/concepts.json",
+        "docs/learning/concept-map.qmd"
+      ],
+      "recommended_sections": [
+        "The skos:Concept Class",
+        "Lexical Labels",
+        "Semantic Relations"
+      ],
+      "why_read": "概念、表示label、直接の前提関係を同じものとして扱わないための基準を確認する。",
+      "reading_question": "用語の表記が変わっても、概念IDと関係を安定して保てるか。",
+      "caution": "本教材はRDF vocabularyを実装せず、概念とlabelと関係を分ける原則だけをJSONへ借りる。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "w3c-skos-primer",
+      "roles": [
+        "primary-explanation"
+      ],
+      "level": "beginner",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "W3C document license; no reuse assumed",
+      "related_concepts": [
+        "controlled-vocabulary",
+        "concept-relation"
+      ],
+      "repo_routes": [
+        "docs/learning/concept-map.qmd",
+        "docs/learning/glossary.qmd"
+      ],
+      "recommended_sections": [
+        "Concepts",
+        "Concept Schemes",
+        "Semantic Relationships"
+      ],
+      "why_read": "concept schemeを小さな例から読み、階層関係と単なる関連を区別する。",
+      "reading_question": "章の前提関係へ、関連があるだけの概念を混ぜていないか。",
+      "caution": "SKOSのbroader関係を、教材のprerequisiteへそのまま同一視しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "google-dev-word-list",
+      "roles": [
+        "standard"
+      ],
+      "level": "beginner",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "preferred-label",
+        "terminology"
+      ],
+      "repo_routes": [
+        "docs/learning/glossary.qmd",
+        "docs/learning/concepts/concepts.json"
+      ],
+      "recommended_sections": [
+        "Word list",
+        "Abbreviations"
+      ],
+      "why_read": "同じ概念へ複数のpreferred labelを与えず、検索語をaliasとして分ける判断を確認する。",
+      "reading_question": "本文と用語集が同じ対象を別の語で呼んでいないか。",
+      "caution": "英語向けstyle guideの表記規則を日本語へ機械的に移植しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "google-dev-lists",
+      "roles": [
+        "standard"
+      ],
+      "level": "beginner",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "source terms; no reuse assumed",
+      "related_concepts": [
+        "reference-structure",
+        "definition-list"
+      ],
+      "repo_routes": [
+        "docs/learning/glossary.qmd",
+        "docs/learning/concept-map.qmd"
+      ],
+      "recommended_sections": [
+        "Description lists",
+        "Introductory sentences for lists"
+      ],
+      "why_read": "用語と説明を同じ反復構造で示し、各entryの比較可能性を保つ。",
+      "reading_question": "項目ごとに状態、前提、誤解、実装参照を同じ順で探せるか。",
+      "caution": "短い用語entryへ本文の説明や手順まで詰め込まない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
       "citekey": "rustbook",
       "roles": [
         "alternative-view"

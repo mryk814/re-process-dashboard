@@ -12,8 +12,14 @@ code_references:
   - path: "path/to/test.py"
     role: "test"
 
-concepts:
-  - "concept name"
+chapter_id: "unit-id"
+prerequisite_concepts:
+  - "concept-id"
+introduced_concepts:
+  - "concept-id"
+reinforced_concepts: []
+future_concepts: []
+historical_concepts: []
 ---
 
 # 章タイトル

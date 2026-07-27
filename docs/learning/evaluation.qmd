@@ -26,26 +26,29 @@
 | Project lifecycle focused test | Project archive、claim失効、purge、cross-Project provenance、successor保護で5 passed、11 known warnings、20.67秒 |
 | Chain history focused test | Chain execution、Project lifecycle、Candidate migrationで49 passed、9 known warnings、32.03秒。presentation helperは4 passed、fresh-server E2Eは1 passed、28.1秒 |
 | API生成型 | `npm run api:check` 成功、openapi-typescript 7.9.1 |
-| repository full gate | pytest 850 passed、2 failed、3 skipped、58 known warnings、186.39秒。Chain Project作成のcontract digest検証で2件失敗し、[Issue #323](https://github.com/mryk814/re-process-dashboard/issues/323)へ記録。typecheck、API生成型、frontend import境界、production build成功 |
+| repository full gate | pytest 850 passed、2 failed、3 skipped、58 known warnings、181.72秒。Chain Project作成のcontract digest検証で2件失敗し、[Issue #323](https://github.com/mryk814/re-process-dashboard/issues/323)へ記録。typecheck、API生成型、frontend import境界、production build成功 |
 | Decision Activity E2E | main commit `b8ef18a` で2 passed、1 failed。比較候補label追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) を再現。[Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) はopenだが、記録されていた失敗は再現せず |
 | Source lifecycle E2E | 隔離portで1 passed、31.8秒 |
 | repository path | `docs/learning/check-references.ps1` 成功 |
 | PR #283教材drift review | changed file 9件を5分類でclaim単位に判定。Screeningの数値とsupport labelは章のscope外、表示桁数とsupport languageは本文更新、contract union、stale response、演習、既存図はno-changeと記録 |
 | PR #322教材drift review | changed file 14件を6 claimに分けて判定。三種類のChain evidenceをCandidate historyから再訪する経路は本文とcode linkを更新し、lifecycle ownership、共通contract、演習、既存図はno-changeと記録 |
 | drift detector回帰test | PR #283のfirst parentで参照変更を検出して終了code 2、非参照変更とreview済みcommitで0、不正な相対pathとpathspec magicを1として拒否 |
-| 統合HTML | `site` profileで24文書を生成。学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録 |
+| 概念台帳 | 69概念、直接の前提関係89本、否定定義67件、12章を一つのJSONから検証。現行66件、将来候補2件、履歴1件を混在させず、前提の循環、欠けた参照、章内roleとの状態不一致を拒否 |
+| 概念checker回帰test | JSON Schema、重複ID、欠けた前提、currentからfutureへの依存、非循環と循環、repository path traversal、別ページの用語anchorを自己検査し、生成済み用語集と概念表が正本と一致することを確認 |
+| 統合HTML | `site` profileで25文書を生成。学習者向け教材と編集と保守のガイドを別partにし、一つの検索索引へ収録 |
+| HTMLの概念導線 | 概念表に生成した532 linkが用語集の69 anchorへ到達し、`concept-map.html`と`glossary.html`が検索索引にあることを生成HTMLで確認 |
 | HTMLの読者導線 | 表紙から第1章へ一回の操作で移動できることを実ブラウザで確認 |
 | HTMLの保守導線 | `共同研究者`の検索で書き手のペルソナを含む3文書が見つかることを実ブラウザで確認 |
 | 演習と解答の構造 | 6演習章で55演習、61解答block、6章末チェックを検査。全演習にstable ID、成功条件、対応する解答linkがあり、全解答blockに解答例、理由、不十分な回答がある |
 | HTMLの解答表示 | 61個のnative `details`を生成し、`open`属性0件を確認。JavaScript無効のChromiumでsummaryの`tabIndex`が0、Enterで開き、Spaceで閉じることを確認 |
 | HTMLの印刷 | 契約変更の演習を8ページのPDFへ印刷し、閉じていた6解答の本文が表示され、固有の不十分な回答がpage 7から抽出できることを確認 |
-| 学習者向けPDF | `reader` profileで本編6章と演習6章を含む15文書、142ページを生成 |
+| 学習者向けPDF | `reader` profileで本編6章、演習6章、概念表、用語集、参考文献を含む16文書、172ページを生成 |
 | PDFの演習解答 | 問題側の解答linkを内部destinationとして確認。`exercise-contract-01`はpage 31、`answer-contract-01`はpage 107、`exercise-workspace-11`はpage 104、`answer-workspace-11`はpage 133 |
 | PDFの解答group | 6演習章の見出しをpage 107、110、115、120、125、130へ配置し、同名の「演習1の解答」と章末チェックを所属章から識別できることを確認 |
-| PDFの解答配置 | 演習解答はpage 107からpage 134、用語集はpage 135、読書案内はpage 137からpage 140、書誌一覧はpage 141からpage 142に分離 |
+| PDFの解答配置 | 概念表はpage 109からpage 118、演習解答はpage 119からpage 146、用語集はpage 147からpage 166、読書案内はpage 167からpage 170、書誌一覧はpage 171からpage 172に分離 |
 | PDFの内容境界 | 設計基準、書き手のペルソナ、コードマップ、学習ルート、組版手順、評価記録、参考文献の編集方針と保守用Route 5、Route 6がPDF本文と目次にないことを確認 |
-| clean build | 統合HTMLを27.06秒、学習者向けPDFを7.97秒で生成。教材固有checkとtool解決を含むcommand全体は52秒 |
-| visual review | 最終PDFの全142ページを8枚のcontact sheetへ画像化し、日本語、脚注、数式、表、code、SVG図、header、footer、演習章別の解答見出し、page transition、recto調整ページを確認。実ブラウザでペルソナ章、drift review章、PR #322で更新したretentionとdiscoverabilityの節を確認 |
+| clean build | 統合HTMLを33.00秒、学習者向けPDFを13.34秒で生成。概念checkerを含む教材固有checkとtool解決を合わせて68.6秒で完了 |
+| visual review | 最終PDFの全172ページを9枚のcontact sheetへ画像化し、日本語、脚注、数式、表、code、SVG図、header、footer、概念表、用語集、page transitionを確認。概念表と用語集に欠落、重なり、page外へのはみ出しがないことを確認 |
 
 ## 更新トリガ
 

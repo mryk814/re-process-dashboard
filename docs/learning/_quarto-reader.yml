@@ -17,5 +17,6 @@ book:
     - labs/trace-project-lifecycle.qmd
     - chapters/restore-workspace-safely.qmd
     - labs/trace-workspace-restore.qmd
+    - concept-map.qmd
     - glossary.qmd
     - references.qmd

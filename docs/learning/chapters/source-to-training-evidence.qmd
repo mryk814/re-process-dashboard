@@ -1,4 +1,5 @@
 ---
+chapter_id: "source-to-training-evidence"
 level: intermediate
 estimated_minutes: 120
 verified_commit: "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
@@ -32,6 +33,30 @@ code_references:
   - path: "e2e/source-lifecycle.spec.ts"
     role: "test"
 
+prerequisite_concepts:
+  - "contract"
+  - "provenance"
+introduced_concepts:
+  - "active-package"
+  - "canonical-input"
+  - "curation-recipe"
+  - "dataset-profile"
+  - "feature-pipeline"
+  - "leakage"
+  - "model-package"
+  - "quarantine"
+  - "raw-source-snapshot"
+  - "split-group"
+  - "target-eligibility"
+  - "training-cohort"
+  - "training-snapshot"
+reinforced_concepts:
+  - "application-service"
+  - "byte-digest"
+  - "repository"
+  - "semantic-digest"
+future_concepts: []
+historical_concepts: []
 ---
 
 # Source更新を学習から切り離す {#sec-source-evidence}

@@ -30,5 +30,6 @@ book:
         - tooling.qmd
         - drift-reviews/index.qmd
         - evaluation.qmd
+    - concept-map.qmd
     - glossary.qmd
     - references.qmd

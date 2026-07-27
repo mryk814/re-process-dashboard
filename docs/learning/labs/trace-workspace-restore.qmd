@@ -1,4 +1,5 @@
 ---
+chapter_id: "trace-workspace-restore"
 level: intermediate
 estimated_minutes: 90
 verified_commit: "f3e64fa15b49ffcb504357864bd58052ab2c3780"
@@ -24,6 +25,17 @@ code_references:
   - path: "scripts/smoke-packaged.mjs"
     role: "build"
 
+prerequisite_concepts:
+  - "recovery-journal"
+  - "staged-restore"
+  - "trust-boundary"
+  - "workspace-bundle"
+introduced_concepts: []
+reinforced_concepts:
+  - "migration-smoke"
+  - "packaged-smoke"
+future_concepts: []
+historical_concepts: []
 ---
 
 # 復元の途中で止まったWorkspaceを診断する {#sec-lab-workspace-restore}

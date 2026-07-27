@@ -11,6 +11,7 @@ $readerProfile = Join-Path $learningRoot "_quarto-reader.yml"
 $exerciseCheck = Join-Path $learningRoot "check-exercise-solutions.ps1"
 $codeReferenceCheck = Join-Path $learningRoot "check-code-references.mjs"
 $driftReviewCheck = Join-Path $learningRoot "check-drift-reviews.mjs"
+$conceptTest = Join-Path $learningRoot "test-concepts.mjs"
 $toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
 $toolLock = Join-Path $learningRoot "tools.lock.json"
 
@@ -20,6 +21,7 @@ foreach ($profilePath in @(
     $exerciseCheck,
     $codeReferenceCheck,
     $driftReviewCheck,
+    $conceptTest,
     $toolLibrary,
     $toolLock
 )) {
@@ -116,6 +118,10 @@ foreach ($chapter in $maintenanceOnlyChapters) {
 }
 
 & $exerciseCheck
+node $conceptTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Concept validation failed with exit code $LASTEXITCODE."
+}
 node $codeReferenceCheck --write-manifest
 if ($LASTEXITCODE -ne 0) {
     throw "Code reference validation failed with exit code $LASTEXITCODE."
@@ -175,6 +181,8 @@ foreach ($artifact in @($siteIndex, $siteSearch, $readerPdf)) {
 $searchIndex = Get-Content -LiteralPath $siteSearch -Raw -Encoding UTF8
 foreach ($expectedHref in @(
     "chapters/contract-through-stack.html",
+    "concept-map.html",
+    "glossary.html",
     "writer-persona.html",
     "drift-reviews/index.html",
     "evaluation.html"

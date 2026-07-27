@@ -1,4 +1,5 @@
 ---
+chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
 verified_commit: "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9"
@@ -51,13 +52,34 @@ code_references:
   - path: "e2e/decision-activity.spec.ts"
     role: "test"
 
-concepts:
-  - "discriminated union"
-  - "contract as source of truth"
-  - "application service"
-  - "generated client"
+prerequisite_concepts:
+  - "contract"
+introduced_concepts:
+  - "application-service"
+  - "contract-test"
+  - "decision-activity"
+  - "discriminated-union"
+  - "generated-artifact"
+  - "registry"
+  - "typed-error"
+reinforced_concepts:
+  - "calibration"
+  - "counterfactual"
+  - "end-to-end-test"
+  - "extrapolation"
+  - "integration-test"
+  - "navigation-state"
+  - "predictive-summary"
   - "provenance"
-  - "stale response"
+  - "robustness"
+  - "runtime-capability"
+  - "stale-response"
+  - "support"
+future_concepts:
+  - "pareto-front"
+  - "soft-preference"
+historical_concepts:
+  - "legacy-screening-objective"
 ---
 
 # 型付き契約をPythonからReactまで通す {#sec-contract-stack}

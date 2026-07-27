@@ -64,6 +64,24 @@ code_references:
     role: "test"
 ```
 
+章と用語集の接続は、同じfront matterへ次の欄を置く。
+
+```yaml
+chapter_id: "unit-id"
+prerequisite_concepts:
+  - "concept-id"
+introduced_concepts:
+  - "concept-id"
+reinforced_concepts: []
+future_concepts: []
+historical_concepts: []
+```
+
+概念の正本は`concepts/concepts.json`、形式契約は`concepts/concept.schema.json`とする。
+`glossary.qmd`と`concept-map.qmd`は生成物であり、手編集しない。
+概念を追加または変更した後は、`node docs/learning/check-concepts.mjs --write`で二つのQMDを再生成する。
+通常のcheckとbuildは生成物の古さ、参照先path、前提の循環、状態と章内roleの矛盾を拒否する。
+
 `verified_commit`は、参照実装とtestを実際に確認したcommitへ更新する。
 教材だけを編集したcommitへ機械的に置き換えない。
 
@@ -156,6 +174,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drif
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-code-references.mjs
 node docs/learning/check-drift-reviews.mjs
+node docs/learning/test-concepts.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
 ```

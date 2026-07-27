@@ -331,6 +331,34 @@ licenseを確認できない画像は使用しません。
 - 読む理由：学習の順路と、作業中に引く一覧を別の文書へ分けます。
 - 注意：四分類を各ページへ機械的に当てはめません。
 
+**W3C, *SKOS Reference* [@w3c-skos-reference]**
+
+- 役割：standard
+- 推奨箇所：*The skos:Concept Class*、*Lexical Labels*、*Semantic Relations*
+- 読む理由：概念、表示label、概念どうしの関係を分ける基準を確認します。
+- 注意：RDFを導入せず、分離の原則だけを小さなJSON schemaへ借ります。
+
+**W3C, *SKOS Primer* [@w3c-skos-primer]**
+
+- 役割：primary explanation
+- 推奨箇所：*Concepts*、*Concept Schemes*、*Semantic Relationships*
+- 読む理由：直接の階層関係と、関連があるだけの関係を小さな例から区別します。
+- 注意：SKOSの`broader`を教材の前提関係と同一視しません。
+
+**Google developer documentation style guide, *Word list* [@google-dev-word-list]**
+
+- 役割：standard
+- 推奨箇所：*Word list*、*Abbreviations*
+- 読む理由：preferred labelと検索用aliasを分け、同じ対象を一貫した語で指します。
+- 注意：英語向けの個別表記を日本語へ機械的に移植しません。
+
+**Google developer documentation style guide, *Lists* [@google-dev-lists]**
+
+- 役割：standard
+- 推奨箇所：*Description lists*、*Introductory sentences for lists*
+- 読む理由：用語entryの項目順をそろえ、状態、前提、誤解、実装参照を比較しやすくします。
+- 注意：referenceへ本文の説明や手順を詰め込みません。
+
 **The Rust Programming Language [@rustbook]**
 
 - 役割：alternative view
