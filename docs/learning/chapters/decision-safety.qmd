@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "14fcea289d7cb26509c62b335336b9480073c239"
 code_references:
   - path: "apps/web/src/features/candidates/CandidateUi.tsx"
     id: "decision-safety-comparison"
@@ -539,10 +539,15 @@ W3C WCAG 2.2は、色を唯一の伝達手段にしないこと、errorをtext�
 | supportの語と形 | 色を見分けられない場合の状態欠落 |
 | `role="status"`と`role="alert"` | 完了receiptと要対応失敗の混同 |
 | text enlargement後のrow同期 | 候補名と別行の予測値の対応ずれ |
+| 候補単位の連続した読み順 | 入力、heat pattern、予測、support、目標達成の所属先 |
+| 値と区間に付けた単位 | 異なるtargetの数値を同じ尺度として読む誤り |
 | 「未計算」というtext | 空欄、0、失敗との混同 |
 
 {{< code-ref decision-safety-support-test >}}は、support badgeが色だけでなく語と形を持つことを検査します。
-{{< code-ref decision-safety-accessibility-e2e >}}は、textを150%へ拡大した後も、分割tableの候補行が同じ高さで対応することを実ブラウザで確認します。
+候補比較には、横方向の比較表とは別に、選択候補の入力、固定条件、heat pattern、予測区間、support、目標達成を一続きで読む領域があります。
+この領域の順序は表示上の変動量ではなくTask定義に従うため、同じfieldを候補間で追跡しても意味が入れ替わりません。
+
+{{< code-ref decision-safety-accessibility-e2e >}}は、重大な自動検出違反がないこと、候補単位の情報が揃うこと、textを150%へ拡大しても四つのpaneの候補行と固定headerが対応することを実ブラウザで確認します。
 
 この証拠だけでWCAG 2.2適合を宣言することはできません。
 screen readerの実機確認、全操作のkeyboard到達、400% zoomに相当するreflowなどは別の監査が必要です。[^wcag-limit]

@@ -2,7 +2,7 @@
 chapter_id: "implementation-case-studies"
 level: advanced
 estimated_minutes: 150
-verified_commit: "77a7320bc201cb9a8cf860c6787cc4cca2203116"
+verified_commit: "14fcea289d7cb26509c62b335336b9480073c239"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "case-study-package-loader"
@@ -386,7 +386,9 @@ partialな比較では確定的なsummaryを出さないようにしました。
 
 ### 残る限界
 
-このtestは主にsource構造を検査しており、画面上の読み順や支援技術での理解を完全には保証しません。
+source inspection testに加えて、現在は実ブラウザtestが候補単位の読み順、値の単位、text enlargement、分割tableのrowと固定headerの同期を検査します。
+
+ただし、screen reader実機での理解と全操作のkeyboard到達は外部評価が必要です。
 
 「区間なし」が未計算と不確かさ非対応を兼ねる別の曖昧さはIssue #361に残っています。
 

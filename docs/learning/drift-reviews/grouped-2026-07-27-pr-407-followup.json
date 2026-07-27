@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-27-pr-407-followup",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "4dba39a2219aadef6d801d4e4aa2f422e55c3397",
+  "reviewed_against": "14fcea289d7cb26509c62b335336b9480073c239",
+  "pull_requests": [
+    {
+      "number": 407,
+      "merge_commit": "14fcea289d7cb26509c62b335336b9480073c239",
+      "classification": "conceptual_update",
+      "reason": "Candidate comparison now supplements the split comparison table with a selected-candidate semantic flow and verifies units, heat pattern, text enlargement, pane alignment, and stacked sticky headers.",
+      "changed_paths": [
+        "apps/web/src/features/candidates/CandidateUi.tsx",
+        "apps/web/src/features/candidates/candidates.css",
+        "apps/web/tests/taskDrivenCandidateUi.test.mjs",
+        "e2e/candidate-comparison-accessibility.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/candidates/CandidateUi.tsx",
+        "apps/web/tests/taskDrivenCandidateUi.test.mjs",
+        "e2e/candidate-comparison-accessibility.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "candidate-comparison-semantic-reading-flow",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd"
+      ],
+      "reason": "The learner-facing explanation now covers candidate-scoped reading order, task-defined input order, fixed context, heat pattern, prediction units, support, and goal attainment."
+    },
+    {
+      "claim_id": "candidate-comparison-layout-verification",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/frontend-desktop-state.qmd"
+      ],
+      "reason": "The accessibility evidence now includes serious and critical automated checks, 150 percent text enlargement, pane row height and top alignment, and non-overlapping stacked sticky headers."
+    },
+    {
+      "claim_id": "concept-map-candidate-reference",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/concept-map.qmd"
+      ],
+      "reason": "The Candidate UI reference still represents the same candidate-comparison concept boundary, so only its verified commit advances."
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #407 contains 4 changed paths; all first-parent paths are listed and all 3 current structured-reference intersections are named.",
+    "current_main_drift": "Every affected document advances to merge commit 14fcea289d7cb26509c62b335336b9480073c239 after direct claim review.",
+    "repository_gates": "Candidate comparison passed 910 backend tests with 3 skips, 257 Web unit tests, typecheck, production build, and fresh focused Playwright E2E.",
+    "focused_evidence": "The focused E2E verifies semantic reading content, units, heat pattern, serious and critical automated accessibility checks, text enlargement, pane alignment, and sticky header separation."
+  },
+  "reviewer_note": "This review covers merged PR #407. External screen-reader and keyboard review remains tracked by issue #387. The same validation pass found and repaired the pre-existing Lab manifest mismatch tracked by issue #408."
+}

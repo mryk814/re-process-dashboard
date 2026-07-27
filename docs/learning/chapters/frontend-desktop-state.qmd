@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "14fcea289d7cb26509c62b335336b9480073c239"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"
@@ -570,13 +570,19 @@ sidecarが予期せず終了した場合、計算不能のrendererをそのま�
 
 これにより、視覚的な横並びだけでなく、各cellとCandidateのsemantic associationを作ります。
 
+横比較だけでは、screen readerが一つのCandidateに属する入力と出力を続けて読むことが困難です。
+
+そのため、選択Candidateを一件ずつ読む領域は、Task定義順の入力、固定条件、heat pattern、単位付き予測、区間、support、目標達成を一つのsemantic flowへ並べます。
+
 WCAG 2.2は、情報と関係をprogrammatically determinableにすることを求めます[@w3c-wcag22]。
 
-{{< code-ref frontend-state-accessibility-e2e >}}は、root font sizeを150%へ上げ、文字が実際に拡大し、四つのpaneで同じCandidate rowの高さが揃うことを確認します。
+{{< code-ref frontend-state-accessibility-e2e >}}は、重大な自動検出違反がないことを検査します。
+
+同じtestはroot font sizeを150%へ上げ、読み上げ用の文字が実際に拡大し、四つのpaneで同じCandidate rowの高さと位置が揃い、二段目の固定headerが一段目と重ならないことも確認します。
 
 accessibility testは、見た目の追加検査ではありません。
 
-tableの意味、文字拡大、layout同期という設計契約を検証します。
+tableと読み上げ領域の意味、文字拡大、layout同期という設計契約を検証します。
 
 ## 実ブラウザでraceを再現する
 
