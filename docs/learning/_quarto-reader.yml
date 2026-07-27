@@ -45,6 +45,9 @@ book:
         - chapters/security-trust-boundaries.qmd
         - chapters/verification-operations.qmd
         - labs/toy-weighted-mean.qmd
+    - part: "Part IX　ケーススタディ"
+      chapters:
+        - chapters/implementation-case-studies.qmd
     - concept-map.qmd
     - glossary.qmd
     - references.qmd

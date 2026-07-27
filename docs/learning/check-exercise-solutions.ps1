@@ -19,6 +19,7 @@ $expectedExerciseDocuments = [ordered]@{
     "chapters\verification-operations.qmd" = "verification"
     "chapters\security-trust-boundaries.qmd" = "security-trust-boundaries"
     "chapters\performance-execution.qmd" = "performance"
+    "chapters\implementation-case-studies.qmd" = "case-studies"
 }
 
 $errors = New-Object System.Collections.Generic.List[string]
@@ -220,6 +221,7 @@ $chapterChecks = [ordered]@{
     "chapters\verification-operations.qmd" = "#answer-verification-chapter-check"
     "chapters\security-trust-boundaries.qmd" = "#answer-security-trust-boundaries-chapter-check"
     "chapters\performance-execution.qmd" = "#answer-performance-chapter-check"
+    "chapters\implementation-case-studies.qmd" = "#answer-case-studies-chapter-check"
 }
 
 foreach ($entry in $chapterChecks.GetEnumerator()) {

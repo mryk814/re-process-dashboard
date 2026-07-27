@@ -120,7 +120,8 @@ $requiredReaderChapters = @(
     "chapters/frontend-desktop-state.qmd",
     "chapters/performance-execution.qmd",
     "chapters/security-trust-boundaries.qmd",
-    "chapters/verification-operations.qmd"
+    "chapters/verification-operations.qmd",
+    "chapters/implementation-case-studies.qmd"
 )
 $maintenanceOnlyChapters = @(
     "foundations.qmd",
