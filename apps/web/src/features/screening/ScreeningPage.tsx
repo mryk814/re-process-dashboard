@@ -24,6 +24,7 @@ import {
 import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
 import { safeExplorationRange } from "./screeningVariableRange";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
+import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
 
 function cloneScreeningCandidate(candidate: Candidate): Candidate {
   return {
@@ -63,8 +64,6 @@ function chartDigits(min: number, max: number) {
 }
 
 const MAX_SCREENING_SEED = 2_147_483_647;
-
-type ScreeningMode = "landscape" | "opportunity" | "batch";
 
 const screeningModes: Array<{
   id: ScreeningMode;
@@ -195,7 +194,9 @@ export function ScreeningPage({
   const [explorationParameter, setExplorationParameter] = useState(2);
   const [incumbentValue, setIncumbentValue] = useState("");
   const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
-  const [screeningMode, setScreeningMode] = useState<ScreeningMode>("opportunity");
+  const [screeningMode, setScreeningMode] = useState<ScreeningMode>(
+    () => initialScreeningMode(project?.target_values),
+  );
   const [batchSize, setBatchSize] = useState(8);
   const [batchCandidatePoolSize, setBatchCandidatePoolSize] = useState(32);
   const [batchSelectorId, setBatchSelectorId] = useState<"ranked_top_k_v1" | "greedy_value_diversity_v1">("greedy_value_diversity_v1");
@@ -340,7 +341,7 @@ export function ScreeningPage({
       setTargetGoal(defaultGoalDraft(outputs[0]));
       setSecondaryGoals({});
     }
-    setScreeningMode("opportunity");
+    setScreeningMode(initialScreeningMode(project?.target_values));
     setBatchSize(8);
     setBatchCandidatePoolSize(32);
     setBatchSelectorId("greedy_value_diversity_v1");
@@ -940,17 +941,6 @@ export function ScreeningPage({
                  {run.samples}点{" "}
                 <small>
                   基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
-                  seed {run.seed} ·{" "}
-                  strategy {run.proposal_strategy?.id ?? "legacy"} ·{" "}
-                  {run.model_provenance.package?.manifest_sha256
-                    ? `model ${run.model_provenance.package.manifest_sha256.replace("sha256:", "").slice(0, 10)} · `
-                    : ""}
-                  {run.design_space_digest
-                    ? `space ${run.design_space_digest.replace("sha256:", "").slice(0, 10)} · `
-                    : ""}
-                  {run.objective_definition_digest
-                    ? `objective ${run.objective_definition_digest.replace("sha256:", "").slice(0, 10)} · `
-                    : ""}
                   {Object.entries(run.variables).map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : spec.mode === "list" ? (spec.values ?? []).join("/") : String(spec.value ?? "")}`).join(" / ")} ·{" "}
                   {run.created_at
                     ? new Date(run.created_at).toLocaleString("ja-JP")
@@ -959,6 +949,16 @@ export function ScreeningPage({
               </button>
             ))}
           </div>
+          {result && <details className="screening-run-reproducibility">
+            <summary>選択中Runの再現情報</summary>
+            <dl>
+              <div><dt>seed</dt><dd>{result.seed}</dd></div>
+              <div><dt>配置方法</dt><dd>{result.proposal_strategy?.id ?? "legacy"}</dd></div>
+              <div><dt>Model Package</dt><dd>{result.model_provenance.package?.manifest_sha256 ?? "記録なし"}</dd></div>
+              <div><dt>Design Space</dt><dd>{result.design_space_digest ?? "記録なし"}</dd></div>
+              <div><dt>Objective</dt><dd>{result.objective_definition_digest ?? "記録なし"}</dd></div>
+            </dl>
+          </details>}
         </section>
       )}
       <div className="screening-settings">

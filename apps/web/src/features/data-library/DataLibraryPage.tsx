@@ -11,6 +11,7 @@ import {
   datasetDisplayName,
   modelPackageDecisionSummary,
   modelPackageDisplayName,
+  modelPackageDisplayNames,
   trainingDataSha,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
@@ -97,6 +98,10 @@ export function DataLibraryPage({
       return trainingDataset(item, datasets)?.dataset_revision.id === packageDatasetFilter;
     }),
     [datasets, modelPackages, packageDatasetFilter, packageStateFilter, packageTaskFilter],
+  );
+  const packageDisplayNames = useMemo(
+    () => modelPackageDisplayNames(modelPackages),
+    [modelPackages],
   );
 
   async function changeDatasetState(item: ApiDataLibraryDataset) {
@@ -288,7 +293,7 @@ export function DataLibraryPage({
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
                 return <article key={item.id}>
-                  <div><strong>{modelPackageDisplayName(item)}</strong><span title={item.task_id}>{taskLabel(item.task_id)}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : decision?.experimental ? "試験モデル" : "利用可能"}</small></div>
+                  <div><strong>{packageDisplayNames.get(item.id)}</strong><span title={item.task_id}>{taskLabel(item.task_id)}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : decision?.experimental ? "試験モデル" : "利用可能"}</small></div>
                   <dl>
                     <div><dt>使いどころ</dt><dd>{decision?.useCase ?? "—"}</dd></div>
                     <div><dt>学習単位</dt><dd>{decision?.trainingUnit ?? "—"}</dd></div>
@@ -297,9 +302,9 @@ export function DataLibraryPage({
                   </dl>
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
                   <details className="resource-manage-menu">
-                    <summary aria-label={`${modelPackageDisplayName(item)}の管理`}>管理</summary>
+                    <summary aria-label={`${packageDisplayNames.get(item.id)}の管理`}>管理</summary>
                     <div>
-                      <strong>{modelPackageDisplayName(item)} · {taskLabel(item.task_id)}</strong>
+                      <strong>{packageDisplayNames.get(item.id)} · {taskLabel(item.task_id)}</strong>
                       <small>{item.archived_at ? "新規利用を再開します。" : usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中のため利用停止できません。` : "Packageは残し、新しいプロジェクトでの利用から外します。"}</small>
                       <button
                         type="button"
