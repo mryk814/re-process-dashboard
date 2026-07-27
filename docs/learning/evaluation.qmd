@@ -5,7 +5,18 @@
 評価対象は教材のページ数ではありません。
 新規開発者が実装経路を追えるか、現mainとの整合を確認できるか、production開発を圧迫せず更新できるかを確認します。
 
-## 検証記録
+## 最新受入状態
+
+Edition 1の最新受入は、[Edition 1を受け入れる](edition-1.qmd)の条件に従います。
+
+現時点では新しいReader章を編集中のため、Edition 1は`pending`です。
+過去の成功件数、ページ数、build時間を現在の受入証拠として使いません。
+
+## 過去の検証スナップショット
+
+次の表は、各機能と教材基盤を作った時点の履歴です。
+行ごとに検証commitが異なり、現在のmain全体を表す一覧ではありません。
+現在値を確認する場合は、Edition 1の受入記録と各章の`verified_commit`を使います。
 
 | 項目 | 結果 |
 |---|---|
@@ -26,8 +37,8 @@
 | Project lifecycle focused test | Project archive、claim失効、purge、cross-Project provenance、successor保護で5 passed、11 known warnings、20.67秒 |
 | Chain history focused test | Chain execution、Project lifecycle、Candidate migrationで49 passed、9 known warnings、32.03秒。presentation helperは4 passed、fresh-server E2Eは1 passed、28.1秒 |
 | API生成型 | `npm run api:check` 成功、openapi-typescript 7.9.1 |
-| repository full gate | pytest 850 passed、2 failed、3 skipped、58 known warnings、181.72秒。Chain Project作成のcontract digest検証で2件失敗し、[Issue #323](https://github.com/mryk814/re-process-dashboard/issues/323)へ記録。typecheck、API生成型、frontend import境界、production build成功 |
-| Decision Activity E2E | main commit `b8ef18a` で2 passed、1 failed。比較候補label追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) を再現。[Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) はopenだが、記録されていた失敗は再現せず |
+| repository full gate | 過去のsnapshotではpytest 850 passed、2 failed、3 skipped、58 known warnings、181.72秒。Chain Project作成のcontract digest検証で2件失敗し、[Issue #323](https://github.com/mryk814/re-process-dashboard/issues/323)へ記録した。Issueは修正後にclosedであり、この行は現在の失敗を示さない |
+| Decision Activity E2E | 過去のmain commit `b8ef18a`で2 passed、1 failed。比較候補label追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) を再現し、関連調査を[Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280)へ記録した。両Issueは修正または確認後にclosedであり、この行は現在の失敗を示さない |
 | Source lifecycle E2E | 隔離portで1 passed、31.8秒 |
 | repository path | `docs/learning/check-references.ps1` 成功 |
 | PR #283教材drift review | changed file 9件を5分類でclaim単位に判定。Screeningの数値とsupport labelは章のscope外、表示桁数とsupport languageは本文更新、contract union、stale response、演習、既存図はno-changeと記録 |
