@@ -1598,6 +1598,64 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "python-concurrent-futures",
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "PSF documentation terms; no reuse assumed",
+      "related_concepts": [
+        "bounded-concurrency",
+        "request-coalescing"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/performance-execution.qmd",
+        "backend/src/material_workbench/execution/inference_work_graph.py"
+      ],
+      "recommended_sections": [
+        "Executor Objects",
+        "ThreadPoolExecutor"
+      ],
+      "why_read": "Futureの共有、worker数、cancelと完了の関係を一般APIの契約で確認する。",
+      "reading_question": "同じsemantic keyのrequestを一つのFutureへ束ねるとき、最後のsubscriberが離れた後に何をcancelできるか。",
+      "caution": "libraryのdefault worker数をCPU-bound推論の最適値として採用しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "mdn-abort-controller",
+      "roles": [
+        "implementation-reference",
+        "caution"
+      ],
+      "level": "intermediate",
+      "source_tier": "official-documentation",
+      "language": "en",
+      "license": "MDN content terms; no reuse assumed",
+      "related_concepts": [
+        "stale-response",
+        "request-sequence"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/performance-execution.qmd",
+        "apps/web/src/features/workbench/useWorkbenchPrediction.ts"
+      ],
+      "recommended_sections": [
+        "AbortController",
+        "Instance methods"
+      ],
+      "why_read": "fetchの中断要求と、到着済みresponseを現在stateへ採用する判定が別であることを確認する。",
+      "reading_question": "abortが間に合わずresponseが届いた場合、どのidentityとsequenceで破棄するか。",
+      "caution": "AbortControllerだけでstale response、cache subscriber、保存競合を防げるとはみなさない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }
