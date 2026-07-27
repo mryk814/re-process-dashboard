@@ -449,6 +449,13 @@ export function ComparisonTable({
   const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
   const supportConcernCount = decisionSummary.supportCounts.caution + decisionSummary.supportCounts.extrapolated;
   const supportUnknownCount = decisionSummary.supportCounts.unknown + candidates.length - decisionSummary.loadedCandidateCount;
+  const uniformSupportMessage = decisionSummary.uniformSupportStatus === "supported"
+    ? "全候補が学習条件の近傍です。支持範囲では候補を絞れないため、予測区間と目標との差を比較してください。"
+    : decisionSummary.uniformSupportStatus === "caution"
+      ? "全候補が学習条件の密度が低い領域です。候補間の相対比較に加え、近い実績を確認してください。"
+      : decisionSummary.uniformSupportStatus === "extrapolated"
+        ? "全候補が学習範囲外です。候補間の相対比較には使えますが、絶対値は探索的な参考です。"
+        : null;
   const goalDirectionLabel = (direction: TaskOutputDefinition["goal_direction"]) => direction === "at_most"
     ? "↓ 小さい側が目標"
     : direction === "at_least"
@@ -546,6 +553,7 @@ export function ComparisonTable({
             </dd>
           </div>
         </dl>
+        {uniformSupportMessage && <p className="uniform-support-message">{uniformSupportMessage}</p>}
         <p>
           {pendingPreviewCount > 0
             ? `${pendingPreviewCount}候補はまだ予測を計算していません。すべて計算すると、目標達成率と予測区間の重なりを全候補で比較できます。`

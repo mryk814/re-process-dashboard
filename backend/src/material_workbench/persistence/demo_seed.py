@@ -36,7 +36,7 @@ def initialize_demo_projects(
             continue
         task_definition = registry.contract_for(task_id).task_definition
         for candidate in starter.candidate_factory(
-            runtime.data.medians,
+            runtime,
             task_definition,
         ):
             registry.validate_candidate(task_id, candidate)

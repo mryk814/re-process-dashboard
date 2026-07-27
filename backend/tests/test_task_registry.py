@@ -221,23 +221,28 @@ def test_project_api_errors_have_machine_readable_code_and_fields(client) -> Non
     assert any(error["path"].endswith("name") for error in body["field_errors"])
 
 
-def test_annealing_starter_candidates_share_equipment_positions(client) -> None:
+def test_annealing_starter_candidates_start_inside_model_support(client) -> None:
     candidates = client.get("/api/projects/default/candidates").json()
-    line_speed_candidates = [
+    starter_candidates = [
         candidate
         for candidate in candidates
         if candidate["name"] in {"基準候補", "高強度案", "延性重視案"}
     ]
 
-    assert len(line_speed_candidates) == 3
-    for point_index in range(4):
-        positions = [
-            candidate["inputs"]["heat_pattern"][point_index]["time_s"]
-            * candidate["inputs"]["process"]["ls_mpm"]
-            / 60.0
-            for candidate in line_speed_candidates
-        ]
-        assert positions == pytest.approx([positions[0]] * len(positions))
+    assert len(starter_candidates) == 3
+    statuses = []
+    for candidate in starter_candidates:
+        preview = client.post(
+            f"/api/projects/default/candidates/{candidate['id']}/preview",
+            params={"expected_revision": candidate["revision"]},
+        )
+        assert preview.status_code == 200
+        statuses.extend(
+            support["status"]
+            for support in preview.json()["model_support"].values()
+        )
+    assert "supported" in statuses
+    assert "extrapolated" not in statuses
 
 
 def test_annealing_starter_candidates_exclude_undeclared_dataset_fields(
@@ -248,13 +253,10 @@ def test_annealing_starter_candidates_exclude_undeclared_dataset_fields(
     module = registered_task_modules()[task_id]
     starter = module.starter_project
     assert starter is not None
-    medians = {
-        **registry.runtime_for(task_id).data.medians,
-        "Ca": 0.01234,
-    }
+    runtime = registry.runtime_for(task_id)
     task_definition = registry.contract_for(task_id).task_definition
 
-    candidates = starter.candidate_factory(medians, task_definition)
+    candidates = starter.candidate_factory(runtime, task_definition)
 
     assert len(candidates) == 3
     for candidate in candidates:
