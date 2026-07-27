@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-27-pr-405-followup",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "f2ec60430a30f1a2ac04261569dbe13974067f21",
+  "reviewed_against": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
+  "pull_requests": [
+    {
+      "number": 405,
+      "merge_commit": "77a7320bc201cb9a8cf860c6787cc4cca2203116",
+      "classification": "conceptual_update",
+      "reason": "Training Snapshot v2 fixes target-specific cohorts, complete group-to-fold assignments, and their digests while preserving legacy v1 identity. The Source-to-Training chapter and Lab were updated before merge; Compose files establish a local fixture but do not change the textbook's current runtime-boundary claims.",
+      "changed_paths": [
+        ".env.example",
+        ".gitattributes",
+        ".gitignore",
+        "README.md",
+        "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "apps/web/src/features/data-library/trainingSnapshotPresentation.ts",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "apps/web/tests/trainingSnapshotPresentation.test.mjs",
+        "backend/scripts/reference_data_loop_acceptance.py",
+        "backend/src/material_workbench/api/data_lifecycle.py",
+        "backend/src/material_workbench/application/data_lifecycle.py",
+        "backend/src/material_workbench/application/training_snapshot_adapter.py",
+        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/material_workbench/developer_experience/data_lifecycle_benchmark.py",
+        "backend/src/material_workbench/domain/data_lifecycle.py",
+        "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+        "backend/tests/test_data_lifecycle.py",
+        "compose.yaml",
+        "docs/README.md",
+        "docs/curation-and-proposal-architecture.md",
+        "docs/docker-compose-development.md",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/frontend-desktop-state.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/chapters/verification-operations.qmd",
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd",
+        "docs/learning/drift-reviews/grouped-2026-07-27-pr-404-followup.json",
+        "docs/learning/figures/registry.json",
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/reproducibility.json",
+        "docs/learning/labs/runtime-boundary-drills.qmd",
+        "docs/learning/labs/toy-weighted-mean.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd",
+        "docs/learning/labs/trace-workspace-restore.qmd",
+        "docs/learning/reviews/acceptance-2026-07-27-issue-345.json",
+        "docs/model-package-lifecycle.md",
+        "docs/reports/docker-compose-local-development-2026-07-27.md",
+        "docs/source-data-lifecycle.md",
+        "e2e/source-lifecycle.spec.ts",
+        "infrastructure/compose/migrations/001_shared_fixture.sql",
+        "infrastructure/compose/scripts/object-smoke.sh",
+        "package.json",
+        "scripts/check-compose-contract.mjs",
+        "scripts/run-compose-integration.mjs"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/data-library/SourceLifecycleSection.tsx",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/api/data_lifecycle.py",
+        "backend/src/material_workbench/application/data_lifecycle.py",
+        "backend/src/material_workbench/application/training_snapshot_adapter.py",
+        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/material_workbench/domain/data_lifecycle.py",
+        "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+        "backend/tests/test_data_lifecycle.py",
+        "docs/model-package-lifecycle.md",
+        "docs/source-data-lifecycle.md",
+        "e2e/source-lifecycle.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "training-snapshot-fixed-experiment-boundary",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd"
+      ],
+      "reason": "The learner-facing explanation now identifies each target cohort, its ordered row keys and digest, the explicit group field, every group-to-fold assignment, and the split digest as immutable Training Snapshot evidence."
+    },
+    {
+      "claim_id": "feature-pipeline-responsibility",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/source-to-training-evidence.qmd"
+      ],
+      "reason": "The chapter now states that row and split identity belong to Training Snapshot while executable feature transformation remains a versioned Model Package responsibility."
+    },
+    {
+      "claim_id": "remaining-referenced-claims",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/implementation-case-studies.qmd",
+        "docs/learning/chapters/materials-domain-primer.qmd",
+        "docs/learning/chapters/model-package-runtime.qmd",
+        "docs/learning/chapters/security-trust-boundaries.qmd",
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/labs/extend-contract.qmd"
+      ],
+      "reason": "Generated schema expansion, adapter validation, and Compose documentation do not invalidate these documents' existing contract, domain, runtime, security, or extension claims after direct reference review."
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #405 contains 58 changed paths; all first-parent paths are listed and all 13 current structured-reference intersections are named.",
+    "current_main_drift": "Every affected document and the two affected figure records advance to merge commit 77a7320bc201cb9a8cf860c6787cc4cca2203116 after content review.",
+    "repository_gates": "Training Snapshot integration passed 910 backend tests with 3 skips, 256 Web unit tests, typecheck, production build, and fresh Source lifecycle E2E.",
+    "focused_evidence": "Snapshot reconstruction, cohort and split digests, full group assignment, legacy v1 reads, target eligibility presentation, and generated OpenAPI contracts all have focused automated evidence."
+  },
+  "reviewer_note": "This review covers merged PR #405. Docker Engine execution remains unavailable, so issue #347 and its real Compose acceptance evidence remain open."
+}
