@@ -116,6 +116,13 @@ test("Chain candidate editor exposes and persists every external input from its 
       if (definition.editable) await expect(input).toBeEnabled();
       else await expect(input).toBeDisabled();
       if (definition.unit) await expect(surface).toContainText(definition.unit);
+      // 許容範囲は表示桁数で丸めて出す。生の浮動小数（0.6316999999999999）を出さない。
+      const rangeText = await surface.locator(".chain-input-range").innerText();
+      const shownDecimals = [...rangeText.matchAll(/\d+\.(\d+)/g)].map(([, fraction]) => fraction.length);
+      expect(
+        Math.max(0, ...shownDecimals),
+        `${definition.external_path} range text ${rangeText}`,
+      ).toBeLessThanOrEqual(definition.display_decimals ?? 1);
     } else if (definition.kind === "categorical") {
       const select = surface.locator("select");
       await expect(select.locator("option")).toHaveCount(definition.choices.length);

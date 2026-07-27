@@ -23,7 +23,7 @@ import {
   type CandidateRequestToken,
 } from "./candidateRequestGeneration";
 import { ApiClientError } from "../../shared/api/client";
-import { formatNumberAtDecimals } from "../../shared/taskPresentation";
+import { formatAllowedRange, formatNumberAtDecimals } from "../../shared/taskPresentation";
 import "./chain-workbench.css";
 
 type StageStatus = "latest" | "running" | "stale" | "failed";
@@ -445,9 +445,7 @@ export function ChainWorkbenchPage({
     ) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
       setStatusMessage(
-        `${definition.label}は許容範囲 `
-        + `${definition.allowed_range!.min}〜${definition.allowed_range!.max} `
-        + `${definition.unit ?? ""}で入力してください`,
+        `${definition.label}は許容範囲 ${formatAllowedRange(definition)}で入力してください`,
       );
       return;
     }
@@ -720,7 +718,7 @@ export function ChainWorkbenchPage({
               className="chain-input-range"
               id={`${selected.id}-${definition.order}-range`}
             >
-              許容 {definition.allowed_range!.min}〜{definition.allowed_range!.max}
+              許容 {formatAllowedRange(definition)}
             </small>}
             {reason && <small className="chain-input-reason">{reason}</small>}
           </label>;
