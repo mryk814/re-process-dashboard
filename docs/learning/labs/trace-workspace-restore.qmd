@@ -480,7 +480,7 @@ warningは件数だけでなく、既知かunexpectedかを分類します。
 #### 解答例
 
 記録にはcommitと日付に加え、収集されたtest名、各commandの終了結果、unexpected warningの有無を残します。
-focused pytestでは、少なくともbundle検証、staging migration、DB切替補償、startup recoveryに対応するassertを確認します。
+focused pytestでは、少なくともbundle検証、staging migration、DB切替補償、別process強制終了後のjournal recoveryに対応するassertを確認します。
 
 #### 解答の理由
 

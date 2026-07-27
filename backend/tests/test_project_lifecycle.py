@@ -5,9 +5,56 @@ import sqlite3
 import pytest
 
 from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.persistence.project_persistence_inventory import (
+    PROJECT_PERSISTENCE,
+    assert_project_persistence_inventory_complete,
+    project_scoped_tables_from_schema,
+)
 from material_workbench.persistence.sqlite_connection import sqlite_connection
 
 from backend.tests.test_projects import _candidate, _project
+
+
+def test_project_persistence_inventory_covers_schema_and_archive_guards(
+    client,
+) -> None:
+    with sqlite_connection(client.app.state.store.path) as connection:
+        assert_project_persistence_inventory_complete(connection)
+        assert project_scoped_tables_from_schema(connection) == frozenset(
+            PROJECT_PERSISTENCE.project_owned_tables
+            + PROJECT_PERSISTENCE.control_tables
+        )
+        triggers = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger'"
+            )
+        }
+
+    for table in PROJECT_PERSISTENCE.direct_tables:
+        if table == "projects":
+            assert "guard_archived_project_update" in triggers
+            assert "guard_project_delete" in triggers
+            continue
+        for operation in ("insert", "update", "delete"):
+            assert f"guard_archived_{table}_{operation}" in triggers
+    for table in PROJECT_PERSISTENCE.candidate_tables:
+        for operation in ("insert", "update", "delete"):
+            assert f"guard_archived_{table}_{operation}" in triggers
+
+    assert PROJECT_PERSISTENCE.external_reference_scans == (
+        ("candidate_revisions", "payload"),
+    )
+
+
+def test_unregistered_project_scoped_table_fails_inventory_contract(client) -> None:
+    with sqlite_connection(client.app.state.store.path) as connection:
+        connection.execute(
+            "CREATE TABLE project_scope_fixture ("
+            "id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
+        )
+        with pytest.raises(AssertionError, match="project_scope_fixture"):
+            assert_project_persistence_inventory_complete(connection)
 
 
 def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:

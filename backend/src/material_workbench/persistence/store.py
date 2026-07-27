@@ -18,6 +18,9 @@ from material_workbench.persistence.project_lifecycle_migration import (
     migrate_project_lifecycle,
     remove_project_archive_write_guards,
 )
+from material_workbench.persistence.project_persistence_inventory import (
+    PROJECT_PERSISTENCE,
+)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainProjectIdentity,
@@ -1470,41 +1473,23 @@ class Store:
             )
             if candidate_ids:
                 placeholders = ",".join("?" for _ in candidate_ids)
-                conn.execute(f"DELETE FROM actual_measurements WHERE candidate_id IN ({placeholders})", candidate_ids)
-                conn.execute(f"DELETE FROM snapshots WHERE candidate_id IN ({placeholders})", candidate_ids)
-            conn.execute(
-                "DELETE FROM chain_analysis_variant_records WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_distribution_runs WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_snapshot_records WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
-                (f"{project_id}:%",),
-            )
-            conn.execute(
-                "DELETE FROM chain_execution_state WHERE scope_id LIKE ?",
-                (f"{project_id}:%",),
-            )
-            conn.execute("DELETE FROM decision_activity_runs WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM screening_runs WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM lineage_node_reviews WHERE project_id=?", (project_id,))
-            conn.execute(
-                "DELETE FROM project_objective_revisions WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute(
-                "DELETE FROM candidate_revisions WHERE project_id=?",
-                (project_id,),
-            )
-            conn.execute("DELETE FROM candidates WHERE project_id=?", (project_id,))
-            conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+                for table in PROJECT_PERSISTENCE.candidate_tables:
+                    conn.execute(
+                        f"DELETE FROM {table} "
+                        f"WHERE candidate_id IN ({placeholders})",
+                        candidate_ids,
+                    )
+            for table in PROJECT_PERSISTENCE.scope_tables:
+                conn.execute(
+                    f"DELETE FROM {table} WHERE scope_id LIKE ?",
+                    (f"{project_id}:%",),
+                )
+            for table in PROJECT_PERSISTENCE.direct_tables:
+                column = "id" if table == "projects" else "project_id"
+                conn.execute(
+                    f"DELETE FROM {table} WHERE {column}=?",
+                    (project_id,),
+                )
             conn.execute(
                 "DELETE FROM project_purge_authorizations WHERE project_id=?",
                 (project_id,),

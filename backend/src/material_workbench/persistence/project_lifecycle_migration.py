@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from material_workbench.persistence.project_persistence_inventory import (
+    PROJECT_PERSISTENCE,
+)
 from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
@@ -105,15 +108,9 @@ def install_project_archive_write_guards(database: str | Path) -> None:
             ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
         )
         for table in (
-            "candidates",
-            "candidate_revisions",
-            "screening_runs",
-            "decision_activity_runs",
-            "lineage_node_reviews",
-            "project_objective_revisions",
-            "chain_snapshot_records",
-            "chain_distribution_runs",
-            "chain_analysis_variant_records",
+            table
+            for table in PROJECT_PERSISTENCE.direct_tables
+            if table != "projects"
         ):
             for operation in ("INSERT", "UPDATE"):
                 trigger = f"guard_archived_{table}_{operation.lower()}"
@@ -136,7 +133,7 @@ def install_project_archive_write_guards(database: str | Path) -> None:
                 "WHERE project_id=OLD.project_id"
                 ") BEGIN SELECT RAISE(ABORT, 'project_archived'); END"
             )
-        for table in ("snapshots", "actual_measurements"):
+        for table in PROJECT_PERSISTENCE.candidate_tables:
             for operation in ("INSERT", "UPDATE"):
                 trigger = f"guard_archived_{table}_{operation.lower()}"
                 connection.execute(

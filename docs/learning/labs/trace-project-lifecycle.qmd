@@ -495,7 +495,7 @@ warningを確認せず、終了codeだけを記録する回答も不十分です
 7. `project_purge_authorizations`は、purge transaction内のDELETEだけをarchive write guardへ通す一時的な承認です。
 8. shared evidenceへ一律に`ON DELETE CASCADE`を付けると、別Projectが使うcatalogやData Library artifactまでProjectの寿命へ巻き込みます。
 9. transaction成功は選ばれたDELETEのatomicityを保証しますが、その削除集合がdomain上正しいことは保証しません。
-10. ADRのownership表、write guardのtrigger一覧、repositoryのpurge SQL、focused testのinventoryを同時に更新します。
+10. `PROJECT_PERSISTENCE`の所有区分または保持区分へtableを登録し、必要ならJSON provenance scanも同じ正本へ加えます。trigger、purge SQL、契約testはこのinventoryと実schemaの不一致を検出します。
 
 #### 解答の理由
 

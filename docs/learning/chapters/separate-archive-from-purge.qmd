@@ -423,8 +423,9 @@ tableを作り、保存APIを実装しただけではlifecycle policyへ接続�
 5. Workspace backupとrestoreへ含まれるか。
 6. focused testでarchive前後とpurge後のrow countをどう固定するか。
 
-triggerの対象list、repositoryのpurge SQL、ADRの保持表、test inventoryは同じ変更の一部です。
-一箇所だけへtable名を足すと、通常操作は動いてもarchive後のwriteまたはpurge時の残骸が漏れます。
+`PROJECT_PERSISTENCE`は、Project直結table、Candidate経由table、scope ID経由table、共有保持table、制御table、JSON provenance scanを一つのinventoryにします。
+archive triggerとpurge SQLはこのinventoryを読みます。
+契約testは実SQLite schemaの全tableを分類と照合するため、`proposal_runs(project_id, ...)`だけを追加すると未登録tableとして失敗します。
 
 ## 症状から最初の証拠を選ぶ
 
@@ -470,8 +471,8 @@ archive済みProjectは先にrestoreする必要があり、Workspace backupやe
 purgeの外部参照検査は、既知のCandidate provenance `source_kind`だけを理解します。
 未知のJSON schemaを自動でgraph探索しません。
 
-write guardの対象tableとoperationはhard-codedです。
-とくにChain execution stateとclaimは、database triggerだけで全write経路を覆うわけではなく、正規repositoryのclaim protocolにも依存します。
+write guardとpurgeの対象tableは正本inventoryから導出します。
+ただし、Chain execution stateとclaimはdatabase triggerだけで全write経路を覆うわけではなく、正規repositoryのclaim protocolにも依存します。
 
 Project-owned tableの一部はforeign keyを持ちません。
 `PRAGMA foreign_key_check`が空でも、宣言されていない関係の整合性は保証されません。
@@ -493,7 +494,7 @@ purgeはProject-scoped evidenceを削除しますが、Workspace backupやexport
 7. `project_purge_authorizations`は何のためのtableか。
 8. `ON DELETE CASCADE`をshared evidenceへ一律に付けない理由は何か。
 9. transaction成功と削除対象の正しさは、どう違うか。
-10. 新しいProject-scoped tableを追加するとき、同時に更新する四つのinventoryは何か。
+10. 新しいProject-scoped tableを追加するとき、`PROJECT_PERSISTENCE`のどの所有区分または保持区分へ登録するか。
 
 [章末チェックの解答](../labs/trace-project-lifecycle.qmd#answer-project-lifecycle-chapter-check)を確認してから、同じページの変更演習へ進みます。
 

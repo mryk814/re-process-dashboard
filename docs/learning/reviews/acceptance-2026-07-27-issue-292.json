@@ -20,13 +20,13 @@
     "scope": "revisionとdigest、optimistic concurrency、SQLite migration、Project archive／purge、Workspace backup／restoreを一つのSoftware／Persistence学習単位として受け入れる。"
   },
   "reviewed_against": "e292a2ec2373c3c5e47bac9e75a1322faad71087",
-  "status": "accepted_with_nonblocking_followups",
+  "status": "accepted",
   "roles": [
     {
       "role": "implementation",
       "reviewer": "Codex implementation-review proxy",
       "method": "front matterのcode reference、現mainのcontract／application／persistence／test、章内の現main再確認commandを往復してclaimを照合した。",
-      "result": "pass_with_followup",
+      "result": "pass",
       "evidence": [
         "docs/learning/chapters/revision-and-digest.qmd",
         "docs/learning/chapters/trust-a-migrated-database.qmd",
@@ -34,7 +34,7 @@
         "docs/learning/chapters/restore-workspace-safely.qmd",
         "docs/learning/evaluation.qmd"
       ],
-      "notes": "Issueの完了条件である競合、migration、archive／purge、backup／restoreの実装経路と演習は揃う。Project lifecycle inventoryとrestore強制終了の自動検証不足は本文で限界として明示されており、教材acceptanceを妨げない。"
+      "notes": "Issueの完了条件である競合、migration、archive／purge、backup／restoreの実装経路と演習は揃う。後続Issue #338と#339によりProject lifecycle inventoryとrestore強制終了の自動検証も接続された。"
     },
     {
       "role": "pedagogy",
@@ -93,13 +93,13 @@
       "success_criteria": [
         "marker、checksum、schema実体を三方向で照合する",
         "prepare、commit、finalizeを区別する",
-        "自動testが保証しない強制終了条件を明示する"
+        "強制終了の自動testとpackaged smokeの保証範囲を分ける"
       ],
-      "result": "pass_with_followup",
+      "result": "pass",
       "observations": [
         "migration章と故障Labからmarker-only状態を不整合として分類できる。",
         "restore章のprepare／commit／finalizeとjournalから切替前後の正本を追える。",
-        "evaluationの既知限界へ戻り、commit後health失敗とprocess強制終了の直接故障注入が未実施だと説明できる。"
+        "commit直後、journal確定後、health失敗後のprocess終了を故障注入するtestと起動時recoveryを対応付けられる。"
       ],
       "limitations": "実際の破損DB、installer、process killを使う操作試験ではなく、教材sourceと既存test evidenceによる代理評価である。"
     }
@@ -108,26 +108,26 @@
     {
       "finding_id": "F-001",
       "severity": "minor",
-      "summary": "新しいProject-scoped tableまたはprovenance kindを追加した際、archive／purge inventoryの更新漏れを自動発見しない。",
+      "summary": "Project persistence inventoryを正本化し、新しいProject-scoped tableの未登録を契約testで検出する。",
       "evidence": [
         "docs/learning/chapters/separate-archive-from-purge.qmd",
         "docs/learning/evaluation.qmd"
       ],
       "requires_textbook_change": false,
-      "disposition": "followup_issue_required",
-      "tracking": "新規production Issue候補: Project lifecycle inventoryの契約test"
+      "disposition": "fixed_in_review",
+      "tracking": "Issue #339"
     },
     {
       "finding_id": "F-002",
       "severity": "minor",
-      "summary": "Workspace restoreのcommit後health失敗とprocess強制終了は直接の故障注入testがない。",
+      "summary": "Workspace restoreのcommit中・commit後・health失敗後を別processで強制終了し、journal recoveryを検証する。",
       "evidence": [
         "docs/learning/chapters/restore-workspace-safely.qmd",
         "docs/learning/evaluation.qmd"
       ],
       "requires_textbook_change": false,
-      "disposition": "followup_issue_required",
-      "tracking": "新規production Issue候補: restore interruption fault injection"
+      "disposition": "fixed_in_review",
+      "tracking": "Issue #338"
     },
     {
       "finding_id": "F-003",
@@ -154,5 +154,5 @@
     "result": "passed"
   },
   "issue_close_recommendation": "ready_after_local_build",
-  "reviewer_note": "章のacceptanceは現main e292a2eに対するsource reviewである。clean HTML／PDF buildと全page visual reviewはEdition受入で再実行する。"
+  "reviewer_note": "章のacceptanceは現main e292a2eに対するsource reviewとして始まり、Issue #338と#339のproduction followup結果を追記した。clean HTML／PDF buildと全page visual reviewはEdition受入で再実行する。"
 }
