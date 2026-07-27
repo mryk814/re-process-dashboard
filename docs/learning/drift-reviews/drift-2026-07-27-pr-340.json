@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-340",
+  "status": "update-required",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 340,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/340",
+    "merge_commit": "0232f1b506a975bbc50186271ee753df9940ed24"
+  },
+  "reviewed_against": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "previous_verified_commit": "e292a2ec2373c3c5e47bac9e75a1322faad71087",
+  "new_verified_commit": "0232f1b506a975bbc50186271ee753df9940ed24",
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-run-location"],
+      "action": "updated",
+      "reason": "Run selection now resynchronizes when the location changes inside the same Candidate identity and rejects unknown Run IDs instead of falling back."
+    },
+    {
+      "path": "apps/web/tests/activityRunNavigation.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-run-location"],
+      "action": "updated",
+      "reason": "The source contract test now fixes Run resynchronization and explicit unknown-Run rejection."
+    },
+    {
+      "path": "e2e/decision-activity.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["decision-activity-run-location", "decision-safety-evidence-state"],
+      "action": "updated",
+      "reason": "The browser test proves that two saved Runs on one Candidate follow pushState, back, and forward without displaying the wrong evidence."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "decision-activity-run-location",
+      "statement": "The location identifies a saved Run, and same-Candidate history changes resynchronize the displayed evidence or fail explicitly when that Run is absent.",
+      "classification": "conceptual_update",
+      "material_impact": [],
+      "action": "updated",
+      "reason": "The previous text covered initial deep-link resolution but not history changes that preserve Candidate identity.",
+      "evidence": [
+        {"path": "apps/web/src/features/workbench/DecisionActivityPanel.tsx", "symbol": "loadedIdentity"},
+        {"path": "apps/web/tests/activityRunNavigation.test.mjs", "symbol": "an unknown run is reported instead of falling back"},
+        {"path": "e2e/decision-activity.spec.ts", "symbol": "activity run deep links follow same-candidate history"}
+      ],
+      "verification": [
+        "node --test apps/web/tests/activityRunNavigation.test.mjs",
+        "npx playwright test e2e/decision-activity.spec.ts"
+      ]
+    },
+    {
+      "claim_id": "decision-safety-evidence-state",
+      "statement": "A saved Run is not interchangeable with another result merely because both belong to the same Candidate.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "The new behavior strengthens the existing evidence-state distinction and does not invalidate its wording.",
+      "evidence": [
+        {"path": "e2e/decision-activity.spec.ts", "symbol": "activity run deep links follow same-candidate history"}
+      ],
+      "verification": [
+        "Review the PR #340 diff against the Decision Safety evidence-state table."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector reported DecisionActivityPanel, activityRunNavigation, and the Decision Activity browser spec.",
+    "focused_tests": "Web unit suite passed 209 tests and the fresh-DB Decision Activity browser suite passed 5 tests on PR #340.",
+    "api_check": "PR #340 does not change generated API contracts.",
+    "code_reference_check": "Pending after textbook integration.",
+    "html_build": "Pending after textbook integration.",
+    "pdf_build": "Pending after textbook integration.",
+    "visual_review": "Pending after textbook integration."
+  },
+  "reviewer_note": "The update documents location-to-evidence synchronization without claiming that every Run provenance field is exposed in the current UI."
+}

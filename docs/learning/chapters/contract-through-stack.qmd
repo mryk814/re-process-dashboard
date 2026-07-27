@@ -2,7 +2,7 @@
 chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"
@@ -607,8 +607,13 @@ Robustness viewだけは、目標がない間は前提説明を出し、利用�
 選択中ActivityとRun IDは、`apps/web/src/app/navigation.ts`を通してlocationへ含めます。
 共有URLから開いた場合、shellはRun IDを保存済みRunへ照合し、そのRun自身が持つ`activity_id`を優先します。^[URLのActivity IDは入口を早く決めるhintです。Runと矛盾する場合は、保存済みRunが持つdefinitionを正とするため、別Activityの表示へ誤って復元しません。]
 
+同じCandidate内でブラウザの戻る、進む、または`pushState`によりRun IDだけが変わった場合も、読込済みRun一覧から選択を同期し直します。
+URLが存在しないRunを指す場合は、別Runへfallbackせずalertを表示し、結果viewを隠します。
+これにより「開けた」という見かけの成功と、URLが指した証拠を復元できたことを分けます。
+
 この状態を共通shellへ持ち上げることで、ロバストネス、候補差分、最小変更が同じ共有linkの契約を使います。
-`apps/web/tests/activityRunNavigation.test.mjs`は、locationへのRun ID保持、候補の作成元Runへの帰還、各viewが選択stateを重複所有しないことを確認します。
+`apps/web/tests/activityRunNavigation.test.mjs`は、locationへのRun ID保持、候補の作成元Runへの帰還、Run変更時の再同期、未知Runの拒否、各viewが選択stateを重複所有しないことを確認します。
+`e2e/decision-activity.spec.ts`は、同じCandidateの二つの保存Runをブラウザ履歴で往復し、各Runの結果が入れ替わらないことを確認します。
 
 ### stale response
 
