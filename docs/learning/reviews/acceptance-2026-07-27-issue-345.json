@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-345",
+  "issue": {
+    "number": 345,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/345",
+    "title": "[Training Snapshot] target cohort・split・feature定義の固定境界を決める"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/source-to-training-evidence.qmd",
+      "docs/learning/labs/trace-source-evidence.qmd"
+    ],
+    "scope": "Training Snapshot v2が固定するtarget別cohortとgroup split、Model Packageが固定するFeature Pipeline、legacy v1の非再解釈を受け入れる。"
+  },
+  "reviewed_against": "abe8f3054de09cf20dfe18565f247a2d897657fd",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "Level BとLevel Dとしてcontract、domain、application、persistence、API、generated type、UI、testを逆順にも追い、Snapshotが親Curation Runから再構築できない改ざんを拒否することを確認した。",
+      "result": "pass",
+      "evidence": [
+        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/material_workbench/domain/data_lifecycle.py",
+        "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+        "backend/tests/test_data_lifecycle.py"
+      ],
+      "notes": "新規作成はv2へ完全置換され、v1は保存済みartifactを別の意味へ読み替えず旧digestのまま読む。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "Level AからLevel Dとして、固定例、責務図、digest境界、反例、chapter check、Lab解答の順で読者が境界判断を再現できるかを代理walkthroughした。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd"
+      ],
+      "notes": "同じCanonical Datasetからtarget別cohortが分かれる理由と、feature変更がSnapshotではなくPackage identityを変える理由を問いと解答で再確認できる。実読者の誤読率は未測定である。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "見出し順、表の列見出し、Mermaid図に依存しない本文説明、code以外から到達できるdigest責務、Labとの相互参照をsource上で確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/learning/labs/trace-source-evidence.qmd"
+      ],
+      "notes": "図を見なくてもSnapshotとPackageの責務を本文から追える。screen readerと200% zoomによる実機確認はIssue #387で追跡する。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "Level CとLevel Dとして、欠測targetの扱い、target別母集団、group単位のleakage、seedだけでは再現証拠にならない反例、全foldにgroupが存在する条件を確認した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "backend/tests/test_data_lifecycle.py::test_training_snapshot_fixes_target_cohorts_and_exact_group_splits"
+      ],
+      "notes": "同じRawとCanonicalでもtarget欠測によりcohortが異なる固定例があり、splitはstrategy名だけでなくgroupからfoldへの完全assignmentを固定する。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "材料判断の単位を壊す近道として、反復行を独立標本とみなす分割、target欠測を全出力一括除外する分割、工程群をまたぐleakageを敵対的に確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/source-to-training-evidence.qmd",
+        "docs/source-data-lifecycle.md"
+      ],
+      "notes": "group fieldは明示して固定されるが、どの材料・ロット・工程単位をgroupに採るかはdomain判断である。実材料研究者reviewはIssue #387で追跡する。"
+    },
+    {
+      "role": "security",
+      "reviewer": "Codex security-review proxy",
+      "method": "trust boundaryとしてclient入力、保存前の親artifact照合、digestで覆うfield、legacy artifact、Feature Pipeline codeのPackage境界を確認した。",
+      "result": "pass",
+      "evidence": [
+        "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+        "docs/model-package-lifecycle.md",
+        "docs/learning/chapters/source-to-training-evidence.qmd"
+      ],
+      "notes": "v2 Snapshotは親Curation Runから同一digestを再構築できる場合だけ保存され、Feature Pipelineの定義や実行codeはSnapshot入力として受け付けない。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "複数物性を別々の欠測率で持つ材料dataを学習へ渡すmodeler",
+      "proxy": true,
+      "starting_context": "Canonical Datasetは承認済みだが、target別cohortとgroup splitの固定境界を知らない。",
+      "task": "同じCanonical Datasetから強度と延性のcohortを作り、各cohortのrowとgroupからfoldへの割当を後日再現できる証拠を示す。",
+      "success_criteria": [
+        "一方のtarget欠測だけで他方のcohortからrowを除外しない",
+        "cohortごとのrow keyとdigestを示す",
+        "group field、fold数、groupからfoldへの完全assignmentを示す",
+        "seedやalgorithm名だけを再現証拠にしない"
+      ],
+      "result": "pass",
+      "observations": [
+        "固定例からstrengthとductilityの異なるrow集合を読み取れた。",
+        "Snapshot v2のtarget_cohortsとsplit assignmentを監査証拠として列挙できた。"
+      ],
+      "limitations": "代理source walkthroughであり、材料研究者が実データの適切なgroup fieldを選べるかは評価していない。"
+    },
+    {
+      "profile": "学習artifactの再現性を監査する品質担当者",
+      "proxy": true,
+      "starting_context": "Training SnapshotとModel Packageが存在するが、feature変更時にどちらのidentityが変わるかを知らない。",
+      "task": "同じSnapshotからFeature Pipelineだけを変更した場合のdigest責務と、legacy v1を読む際の禁止事項を説明する。",
+      "success_criteria": [
+        "Snapshot digestはrow inclusion、target cohort、splitを覆う",
+        "Package digestはFeature Pipeline定義とSnapshot digestへの参照を覆う",
+        "Feature PipelineをSnapshotへ混入させない",
+        "legacy v1をv2の意味へ黙って再解釈しない"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "責務図と本文から、feature変更ではPackage identityだけが変わると説明できた。",
+        "legacy v1は空のv2 fieldを補って新しい保証を装わないと確認できた。"
+      ],
+      "limitations": "代理評価であり、外部監査者が保存済み実artifactを用いて追跡する実地試験は未実施である。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "group fieldの妥当性と教材理解は代理reviewだけでは承認できない。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-345.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #387"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/check-concept-order.mjs",
+      "node docs/learning/check-labs.mjs",
+      "node docs/learning/check-figures.mjs",
+      "node docs/learning/reviews/check-reviews.mjs"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready",
+  "reviewer_note": "Level AからLevel Dまで代理reviewした。実読者、支援技術、材料・統計専門家の独立承認ではなく、その限界はIssue #387で追跡する。"
+}
