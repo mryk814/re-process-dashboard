@@ -48,6 +48,21 @@ from material_workbench.persistence.sqlite_connection import (
     validate_sqlite_foreign_keys,
 )
 from material_workbench.persistence.store import Store
+from material_workbench.persistence.row_payload_store import (
+    RowPayloadError,
+    RowPayloadReference,
+    RowPayloadStore,
+)
+from material_workbench.persistence.data_lifecycle_payload_storage import (
+    QuarantinedPayloadReference,
+    StoredLifecycleRowResource,
+    hydrate_curation_run,
+    hydrate_raw_snapshot,
+)
+from material_workbench.contracts.data_lifecycle_contracts import (
+    CurationRun,
+    RawSourceSnapshot,
+)
 from material_workbench.persistence.welding_chain_bootstrap import (
     welding_stage_a_surface,
 )
@@ -59,6 +74,14 @@ from material_workbench.tasks.task_registry import TaskRegistry
 DATABASE_ARCHIVE_PATH = "workspace/workbench.db"
 MANIFEST_ARCHIVE_PATH = "manifest.json"
 RESOURCE_ARCHIVE_ROOT = "workspace/resources"
+ROW_PAYLOAD_ARCHIVE_ROOT = "workspace/row-payloads"
+LIFECYCLE_ROW_TABLES = frozenset(
+    {
+        "raw_source_snapshots",
+        "source_curation_runs",
+        "data_lifecycle_payload_findings",
+    }
+)
 MAX_BUNDLE_ENTRIES = 20_000
 MAX_BUNDLE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_ENTRY_BYTES = 1024 * 1024 * 1024
@@ -614,6 +637,183 @@ def _snapshot_resources(
     )
 
 
+def _row_payload_references(
+    database: Path,
+) -> tuple[RowPayloadReference, ...]:
+    connection = connect_sqlite(database)
+    references: dict[str, RowPayloadReference] = {}
+    try:
+        for table, kind in (
+            ("raw_source_snapshots", "raw-json-record/v1"),
+            ("source_curation_runs", "curated-row/v1"),
+        ):
+            columns = {
+                str(row["name"])
+                for row in connection.execute(f'PRAGMA table_info("{table}")')
+            }
+            if "row_payload_sha256" not in columns:
+                continue
+            rows = connection.execute(
+                f"SELECT id,payload,row_payload_sha256,row_payload_bytes,row_count "
+                f"FROM {table} ORDER BY id"
+            ).fetchall()
+            for row in rows:
+                wrapper = StoredLifecycleRowResource.model_validate_json(
+                    row["payload"]
+                )
+                expected_resource_kind = (
+                    "raw_source_snapshot"
+                    if table == "raw_source_snapshots"
+                    else "curation_run"
+                )
+                indexed_values = (
+                    row["row_payload_sha256"],
+                    row["row_payload_bytes"],
+                    row["row_count"],
+                )
+                if all(value is None for value in indexed_values):
+                    if (
+                        wrapper.resource_kind == expected_resource_kind
+                        and wrapper.resource_id == str(row["id"])
+                        and wrapper.row_payload is None
+                        and wrapper.unavailable_reason
+                    ):
+                        continue
+                    raise WorkspaceBundleError(
+                        f"Lifecycle row payload is unavailable without quarantine: "
+                        f"{table}/{row['id']}"
+                    )
+                if any(value is None for value in indexed_values):
+                    raise WorkspaceBundleError(
+                        f"Lifecycle row payload reference is incomplete: "
+                        f"{table}/{row['id']}"
+                    )
+                reference = RowPayloadReference(
+                    record_kind=kind,
+                    sha256=str(indexed_values[0]),
+                    size_bytes=int(indexed_values[1]),
+                    row_count=int(indexed_values[2]),
+                )
+                if (
+                    wrapper.resource_kind != expected_resource_kind
+                    or wrapper.resource_id != str(row["id"])
+                    or wrapper.row_payload != reference
+                ):
+                    raise WorkspaceBundleError(
+                        f"Lifecycle row payload reference is inconsistent: "
+                        f"{table}/{row['id']}"
+                    )
+                previous = references.get(reference.sha256)
+                if previous is not None and (
+                    previous.size_bytes != reference.size_bytes
+                    or previous.row_count != reference.row_count
+                ):
+                    raise WorkspaceBundleError(
+                        "Lifecycle row payload reference is inconsistent"
+                    )
+                references[reference.sha256] = reference
+    finally:
+        connection.close()
+    return tuple(references[digest] for digest in sorted(references))
+
+
+def _quarantined_payload_references(
+    database: Path,
+) -> tuple[QuarantinedPayloadReference, ...]:
+    connection = connect_sqlite(database)
+    references: dict[str, QuarantinedPayloadReference] = {}
+    try:
+        for table in ("raw_source_snapshots", "source_curation_runs"):
+            columns = {
+                str(row["name"])
+                for row in connection.execute(f'PRAGMA table_info("{table}")')
+            }
+            if "row_payload_sha256" not in columns:
+                continue
+            for row in connection.execute(
+                f'SELECT id,payload FROM "{table}" ORDER BY id'
+            ):
+                wrapper = StoredLifecycleRowResource.model_validate_json(
+                    row["payload"]
+                )
+                if wrapper.unavailable_reason is None:
+                    continue
+                reference = wrapper.quarantined_payload
+                if reference is None:
+                    raise WorkspaceBundleError(
+                        f"Lifecycle quarantine reference is missing: "
+                        f"{table}/{row['id']}"
+                    )
+                previous = references.get(reference.path)
+                if previous is not None and previous != reference:
+                    raise WorkspaceBundleError(
+                        "Lifecycle quarantine reference is inconsistent"
+                    )
+                references[reference.path] = reference
+    finally:
+        connection.close()
+    return tuple(references[path] for path in sorted(references))
+
+
+def _snapshot_row_payloads(
+    *,
+    database: Path,
+    staged_database: Path,
+    staging: Path,
+) -> tuple[WorkspaceBundleFile, ...]:
+    source_store = RowPayloadStore(database)
+    records: list[WorkspaceBundleFile] = []
+    for reference in _row_payload_references(staged_database):
+        try:
+            source_store.verify(reference)
+        except RowPayloadError as exc:
+            raise WorkspaceBundleError(
+                "Lifecycle row payload cannot be backed up: "
+                f"{reference.sha256}"
+            ) from exc
+        source = source_store.path_for(reference)
+        archive_path = (
+            f"{ROW_PAYLOAD_ARCHIVE_ROOT}/sha256/"
+            f"{reference.sha256[:2]}/{reference.sha256}.jsonl"
+        )
+        destination = staging / Path(archive_path)
+        _copy_file_verified(source, destination, reference.sha256)
+        records.append(_file_record(destination, archive_path))
+    expected_quarantine_paths: set[Path] = set()
+    for reference in _quarantined_payload_references(staged_database):
+        source = source_store.database.parent / Path(reference.path)
+        expected_quarantine_paths.add(source.resolve())
+        if (
+            not source.is_file()
+            or source.is_symlink()
+            or source.stat().st_size != reference.size_bytes
+            or _file_digest(source) != reference.sha256
+        ):
+            raise WorkspaceBundleError(
+                "Lifecycle payload quarantine cannot be backed up: "
+                f"{reference.path}"
+            )
+        archive_path = f"workspace/{reference.path}"
+        destination = staging / Path(archive_path)
+        _copy_file_verified(source, destination, reference.sha256)
+        records.append(_file_record(destination, archive_path))
+    quarantine_root = source_store.database.parent / "row-payloads" / "quarantine"
+    actual_quarantine_paths = (
+        {
+            path.resolve()
+            for path in quarantine_root.rglob("*.json")
+            if path.is_file()
+        }
+        if quarantine_root.exists()
+        else set()
+    )
+    if actual_quarantine_paths != expected_quarantine_paths:
+        raise WorkspaceBundleError(
+            "Lifecycle payload quarantine inventory is inconsistent"
+        )
+    return tuple(records)
+
+
 def _safe_backup_destination(
     raw: str | Path,
     *,
@@ -661,6 +861,11 @@ def create_workspace_backup(
         resources, resource_files, resource_warnings = _snapshot_resources(
             staged_database, staging / "resources"
         )
+        row_payload_files = _snapshot_row_payloads(
+            database=database,
+            staged_database=staged_database,
+            staging=staging,
+        )
         database_record = _file_record(
             staged_database, DATABASE_ARCHIVE_PATH
         )
@@ -670,6 +875,7 @@ def create_workspace_backup(
             app_version=app_version,
             database=database_record,
             data_library_files=resource_files,
+            row_payload_files=row_payload_files,
             schema_migrations=migrations,
             model_package_references=packages,
             bundled_resources=resources,
@@ -713,6 +919,8 @@ def create_workspace_backup(
                         staging / "resources" / Path(relative.as_posix()),
                         record.path,
                     )
+                for record in row_payload_files:
+                    bundle.write(staging / Path(record.path), record.path)
             inspected, _ = _inspect_bundle(temporary_target)
             inspected.close()
             os.replace(temporary_target, target)
@@ -797,7 +1005,11 @@ def _stream_extract(
     manifest: WorkspaceBundleManifest,
     destination: Path,
 ) -> None:
-    records = (manifest.database, *manifest.data_library_files)
+    records = (
+        manifest.database,
+        *manifest.data_library_files,
+        *manifest.row_payload_files,
+    )
     expanded_bytes = sum(record.size_bytes for record in records)
     required_free = expanded_bytes + max(
         MIN_FREE_SPACE_RESERVE,
@@ -908,6 +1120,146 @@ def _extract_verified_bundle(
         return manifest, sha256(raw_manifest).hexdigest()
     finally:
         bundle.close()
+
+
+def _row_payload_archive_path(reference: RowPayloadReference) -> str:
+    return (
+        f"{ROW_PAYLOAD_ARCHIVE_ROOT}/sha256/"
+        f"{reference.sha256[:2]}/{reference.sha256}.jsonl"
+    )
+
+
+def _validate_staged_row_payloads(
+    staged_database: Path,
+    manifest: WorkspaceBundleManifest,
+) -> None:
+    references = _row_payload_references(staged_database)
+    store = RowPayloadStore(staged_database)
+    for reference in references:
+        store.verify(reference)
+    if (
+        manifest.schema_version == "workspace-bundle/v2"
+        or manifest.row_payload_files
+    ):
+        expected = {_row_payload_archive_path(reference) for reference in references}
+        for reference in _quarantined_payload_references(staged_database):
+            path = staged_database.parent / Path(reference.path)
+            if (
+                not path.is_file()
+                or path.is_symlink()
+                or path.stat().st_size != reference.size_bytes
+                or _file_digest(path) != reference.sha256
+            ):
+                raise WorkspaceBundleError(
+                    "Lifecycle payload quarantine is unavailable: "
+                    f"{reference.path}"
+                )
+            expected.add(f"workspace/{reference.path}")
+        declared = {record.path for record in manifest.row_payload_files}
+        if declared != expected:
+            raise WorkspaceBundleError(
+                "Workspace lifecycle row payload inventory does not match its database"
+            )
+
+
+def _lifecycle_semantic_evidence(database: Path) -> dict[str, str]:
+    connection = connect_sqlite(database)
+    store = RowPayloadStore(database)
+    evidence: dict[str, str] = {}
+    try:
+        for table, model, hydrate, record_kind in (
+            (
+                "raw_source_snapshots",
+                RawSourceSnapshot,
+                hydrate_raw_snapshot,
+                "raw-json-record/v1",
+            ),
+            (
+                "source_curation_runs",
+                CurationRun,
+                hydrate_curation_run,
+                "curated-row/v1",
+            ),
+        ):
+            columns = {
+                str(row["name"])
+                for row in connection.execute(f'PRAGMA table_info("{table}")')
+            }
+            selected = ["id", "payload"]
+            if "row_payload_sha256" in columns:
+                selected.extend(
+                    ["row_payload_sha256", "row_payload_bytes", "row_count"]
+                )
+            rows = connection.execute(
+                f'SELECT {",".join(selected)} FROM "{table}" ORDER BY id'
+            )
+            digest = sha256()
+            for row in rows:
+                stored = str(row["payload"])
+                try:
+                    wrapper = StoredLifecycleRowResource.model_validate_json(
+                        stored
+                    )
+                except Exception:
+                    try:
+                        resource = model.model_validate_json(stored)
+                    except Exception:
+                        payload = {
+                            "resource_id": str(row["id"]),
+                            "quarantined_sha256": sha256(
+                                stored.encode("utf-8")
+                            ).hexdigest(),
+                        }
+                    else:
+                        payload = resource.model_dump(mode="json")
+                else:
+                    if wrapper.unavailable_reason is not None:
+                        if wrapper.quarantined_payload is None:
+                            raise WorkspaceBundleError(
+                                "Lifecycle quarantine reference is missing"
+                            )
+                        payload = {
+                            "resource_id": str(row["id"]),
+                            "quarantined_sha256": (
+                                wrapper.quarantined_payload.sha256
+                            ),
+                        }
+                    else:
+                        values = (
+                            row["row_payload_sha256"],
+                            row["row_payload_bytes"],
+                            row["row_count"],
+                        )
+                        reference = (
+                            RowPayloadReference(
+                                record_kind=record_kind,
+                                sha256=str(values[0]),
+                                size_bytes=int(values[1]),
+                                row_count=int(values[2]),
+                            )
+                            if all(value is not None for value in values)
+                            else wrapper.row_payload
+                        )
+                        resource = hydrate(
+                            stored,
+                            store,
+                            expected_reference=reference,
+                            expected_resource_id=str(row["id"]),
+                        )
+                        payload = resource.model_dump(mode="json")
+                encoded = json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode("utf-8")
+                digest.update(len(encoded).to_bytes(8, "big"))
+                digest.update(encoded)
+            evidence[table] = digest.hexdigest()
+    finally:
+        connection.close()
+    return evidence
 
 
 def _resource_by_reference(
@@ -1179,8 +1531,23 @@ def prepare_workspace_restore(
         )
         staged_database = next_root / Path(manifest.database.path)
         _validate_migration_inventory(staged_database, manifest)
+        legacy_lifecycle_evidence = (
+            _lifecycle_semantic_evidence(staged_database)
+            if manifest.schema_version == "workspace-bundle/v1"
+            and not manifest.row_payload_files
+            else None
+        )
         # Store applies only the application's allow-listed migrations.
         Store(staged_database)
+        _validate_staged_row_payloads(staged_database, manifest)
+        if (
+            legacy_lifecycle_evidence is not None
+            and _lifecycle_semantic_evidence(staged_database)
+            != legacy_lifecycle_evidence
+        ):
+            raise WorkspaceBundleError(
+                "Migration changed Data Lifecycle semantic evidence"
+            )
         migrated_inventory = _migration_inventory(staged_database)
         supported_inventory = _current_migration_inventory()
         if migrated_inventory != supported_inventory:
@@ -1201,6 +1568,11 @@ def prepare_workspace_restore(
         )
         expected = {item.table: item for item in manifest.table_evidence}
         for item in evidence:
+            if (
+                legacy_lifecycle_evidence is not None
+                and item.table in LIFECYCLE_ROW_TABLES
+            ):
+                continue
             before = expected[item.table]
             if item.row_count != before.row_count or item.digest != before.digest:
                 raise WorkspaceBundleError(
@@ -1319,6 +1691,99 @@ def _install_resources(
     return tuple(installed)
 
 
+def _install_row_payloads(
+    *,
+    database: Path,
+    staged_database: Path,
+    restore_root: Path,
+    state: dict[str, object],
+    fault_injector: Callable[[str], None] | None = None,
+) -> tuple[str, ...]:
+    source_store = RowPayloadStore(staged_database)
+    destination_store = RowPayloadStore(database)
+    installed: list[str] = []
+    def install_file(source: Path, destination: Path, digest: str) -> None:
+        if destination.exists():
+            if _file_digest(destination) != digest:
+                raise WorkspaceBundleError(
+                    "Installed lifecycle row payload digest mismatch"
+                )
+            return
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(
+            f".{destination.name}.{uuid4().hex}.tmp"
+        )
+        try:
+            shutil.copyfile(source, temporary)
+            if _file_digest(temporary) != digest:
+                raise WorkspaceBundleError(
+                    "Installed lifecycle row payload digest mismatch"
+                )
+            with temporary.open("r+b") as copied:
+                os.fsync(copied.fileno())
+            os.replace(temporary, destination)
+            installed.append(
+                destination.relative_to(database.parent).as_posix()
+            )
+            state["installed_row_payload_files"] = list(installed)
+            _write_state(restore_root, state)
+            if fault_injector is not None:
+                fault_injector("after_row_payload_installed")
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    try:
+        for reference in _row_payload_references(staged_database):
+            source_store.verify(reference)
+            source = source_store.path_for(reference)
+            destination = destination_store.path_for(reference)
+            install_file(source, destination, reference.sha256)
+            destination_store.verify(reference)
+        quarantine_root = (
+            staged_database.parent / "row-payloads" / "quarantine"
+        )
+        if quarantine_root.exists():
+            destination_root = (
+                database.parent / "row-payloads" / "quarantine"
+            )
+            for source in sorted(quarantine_root.rglob("*.json")):
+                digest = _file_digest(source)
+                if source.stem != digest:
+                    raise WorkspaceBundleError(
+                        "Lifecycle payload quarantine digest does not match its name"
+                    )
+                destination = destination_root / source.relative_to(
+                    quarantine_root
+                )
+                install_file(source, destination, digest)
+    except Exception:
+        _cleanup_installed_row_payloads(database, installed)
+        state["installed_row_payload_files"] = []
+        _write_state(restore_root, state)
+        raise
+    return tuple(installed)
+
+
+def _cleanup_installed_row_payloads(
+    database: Path,
+    relative_files: object,
+) -> None:
+    if not isinstance(relative_files, list | tuple):
+        return
+    root = (database.parent / "row-payloads").resolve()
+    for raw in relative_files:
+        if not isinstance(raw, str):
+            continue
+        candidate = (database.parent / raw).resolve()
+        if candidate != root and root not in candidate.parents:
+            continue
+        candidate.unlink(missing_ok=True)
+        parent = candidate.parent
+        while parent != root and parent.exists() and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+
+
 def _cleanup_installed_resources(
     data_library_root: Path,
     relative_roots: object,
@@ -1365,7 +1830,15 @@ def commit_workspace_restore(
         raise WorkspaceBundleError("Prepared restore database changed before commit")
 
     installed_resources: tuple[str, ...] = ()
+    installed_row_payloads: tuple[str, ...] = ()
     try:
+        installed_row_payloads = _install_row_payloads(
+            database=database,
+            staged_database=staged_database,
+            restore_root=root,
+            state=state,
+            fault_injector=_fault_injector,
+        )
         installed_resources = _install_resources(
             database=database,
             data_library_root=data_library_root,
@@ -1378,6 +1851,12 @@ def commit_workspace_restore(
         )
         expected = {item.table: item for item in manifest.table_evidence}
         for item in evidence:
+            if (
+                manifest.schema_version == "workspace-bundle/v1"
+                and not manifest.row_payload_files
+                and item.table in LIFECYCLE_ROW_TABLES
+            ):
+                continue
             before = expected[item.table]
             if item.row_count != before.row_count or item.digest != before.digest:
                 raise WorkspaceBundleError(
@@ -1385,6 +1864,7 @@ def commit_workspace_restore(
                 )
     except Exception:
         _cleanup_installed_resources(data_library_root, installed_resources)
+        _cleanup_installed_row_payloads(database, installed_row_payloads)
         raise
 
     rollback_database = root / "rollback-workbench.db"
@@ -1394,6 +1874,7 @@ def commit_workspace_restore(
         _file_digest(database) if database.exists() else None
     )
     state["installed_resource_roots"] = list(installed_resources)
+    state["installed_row_payload_files"] = list(installed_row_payloads)
     _write_state(root, state)
     if _fault_injector is not None:
         _fault_injector("after_journal_committing")
@@ -1424,6 +1905,7 @@ def commit_workspace_restore(
         if moved_current and rollback_database.exists():
             os.replace(rollback_database, database)
         _cleanup_installed_resources(data_library_root, installed_resources)
+        _cleanup_installed_row_payloads(database, installed_row_payloads)
         state["status"] = "commit_failed"
         state["failure"] = str(exc)
         _write_state(root, state)
@@ -1454,6 +1936,10 @@ def rollback_workspace_restore(
             data_library_root,
             state.get("installed_resource_roots"),
         )
+        _cleanup_installed_row_payloads(
+            database,
+            state.get("installed_row_payload_files"),
+        )
         shutil.rmtree(root, ignore_errors=True)
         return WorkspaceRestoreResolution(
             status="rolled_back", restore_token=restore_token
@@ -1465,6 +1951,10 @@ def rollback_workspace_restore(
     _cleanup_installed_resources(
         data_library_root,
         state.get("installed_resource_roots"),
+    )
+    _cleanup_installed_row_payloads(
+        database,
+        state.get("installed_row_payload_files"),
     )
     shutil.rmtree(root, ignore_errors=True)
     return WorkspaceRestoreResolution(
@@ -1501,6 +1991,10 @@ def cancel_workspace_restore(
         raise WorkspaceBundleError(
             "Only a prepared or preserved failed restore can be cancelled"
         )
+    _cleanup_installed_row_payloads(
+        database,
+        state.get("installed_row_payload_files"),
+    )
     shutil.rmtree(root)
     parent = root.parent
     if parent.exists() and not any(parent.iterdir()):
@@ -1535,6 +2029,10 @@ def recover_incomplete_workspace_restores(
                     library_root,
                     state.get("installed_resource_roots"),
                 )
+                _cleanup_installed_row_payloads(
+                    database,
+                    state.get("installed_row_payload_files"),
+                )
                 recovered.append(str(state.get("token", root.name)))
                 shutil.rmtree(root, ignore_errors=True)
             elif state.get("previous_database_sha256") is None and (
@@ -1551,6 +2049,10 @@ def recover_incomplete_workspace_restores(
                     library_root,
                     state.get("installed_resource_roots"),
                 )
+                _cleanup_installed_row_payloads(
+                    database,
+                    state.get("installed_row_payload_files"),
+                )
                 recovered.append(str(state.get("token", root.name)))
                 shutil.rmtree(root, ignore_errors=True)
             elif (
@@ -1565,6 +2067,10 @@ def recover_incomplete_workspace_restores(
                     library_root,
                     state.get("installed_resource_roots"),
                 )
+                _cleanup_installed_row_payloads(
+                    database,
+                    state.get("installed_row_payload_files"),
+                )
                 recovered.append(str(state.get("token", root.name)))
                 shutil.rmtree(root, ignore_errors=True)
         elif state.get("status") == "prepared":
@@ -1573,12 +2079,24 @@ def recover_incomplete_workspace_restores(
             except (KeyError, ValueError):
                 continue
             if datetime.now(UTC) >= expires_at:
+                _cleanup_installed_resources(
+                    library_root,
+                    state.get("installed_resource_roots"),
+                )
+                _cleanup_installed_row_payloads(
+                    database,
+                    state.get("installed_row_payload_files"),
+                )
                 recovered.append(str(state.get("token", root.name)))
                 shutil.rmtree(root, ignore_errors=True)
         elif state.get("status") == "commit_failed":
             _cleanup_installed_resources(
                 library_root,
                 state.get("installed_resource_roots"),
+            )
+            _cleanup_installed_row_payloads(
+                database,
+                state.get("installed_row_payload_files"),
             )
             recovered.append(str(state.get("token", root.name)))
             shutil.rmtree(root, ignore_errors=True)

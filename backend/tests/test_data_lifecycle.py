@@ -31,6 +31,10 @@ from material_workbench.persistence.store import Store
 from material_workbench.persistence.data_lifecycle_repository import (
     LifecycleResourceConflictError,
 )
+from material_workbench.persistence.row_payload_store import (
+    RowPayloadReference,
+    RowPayloadStore,
+)
 
 
 def _connector() -> SourceConnectorCreateInput:
@@ -354,13 +358,23 @@ def test_duplicate_fetch_of_legacy_v1_snapshot_returns_receipt(client) -> None:
     legacy_payload["snapshot_digest"] = semantic_digest(legacy_identity)
     with sqlite3.connect(database) as conn:
         conn.execute(
-            "UPDATE raw_source_snapshots SET payload=?,snapshot_digest=? WHERE id=?",
+            "DROP TRIGGER guard_raw_source_snapshots_update_row_payload"
+        )
+        conn.execute(
+            "UPDATE raw_source_snapshots SET payload=?,snapshot_digest=?,"
+            "row_payload_sha256=NULL,row_payload_bytes=NULL,row_count=NULL "
+            "WHERE id=?",
             (
                 json.dumps(legacy_payload, ensure_ascii=False),
                 legacy_payload["snapshot_digest"],
                 current.id,
             ),
         )
+        conn.execute(
+            "DELETE FROM schema_migrations "
+            "WHERE id='source-data-lifecycle-row-payload-v2'"
+        )
+    Store(database)
 
     response = client.post(
         f"/api/data-lifecycle/connectors/{connector.id}/fetch",
@@ -849,6 +863,81 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     assert training_response.json()["row_count"] == 2
     after = client.get("/api/project-creation-options").json()
     assert after["model_packages"] == before["model_packages"]
+
+
+def test_api_isolates_a_tampered_row_payload_to_its_connector(client) -> None:
+    first = client.post(
+        "/api/data-lifecycle/connectors",
+        json=_connector()
+        .model_copy(
+            update={
+                "name": "改ざん対象",
+                "source_locator": "s3://demo-bucket/tampered.json",
+            }
+        )
+        .model_dump(mode="json"),
+    ).json()
+    second = client.post(
+        "/api/data-lifecycle/connectors",
+        json=_connector()
+        .model_copy(
+            update={
+                "name": "無関係",
+                "source_locator": "s3://demo-bucket/independent.json",
+            }
+        )
+        .model_dump(mode="json"),
+    ).json()
+    fetched = client.post(
+        f"/api/data-lifecycle/connectors/{first['id']}/fetch",
+        json={
+            "schema_version": "source-fetch-request/v1",
+            "trigger_kind": "manual",
+            "object_content": V1,
+            "object_version": "tamper-target",
+        },
+    )
+    assert fetched.status_code == 201, fetched.text
+    database = Path(client.app.state.store.path)
+    snapshot_id = fetched.json()["snapshot"]["id"]
+    with sqlite3.connect(database) as connection:
+        stored = connection.execute(
+            "SELECT payload FROM raw_source_snapshots WHERE id=?",
+            (snapshot_id,),
+        ).fetchone()[0]
+    reference = RowPayloadReference.model_validate(
+        json.loads(stored)["row_payload"]
+    )
+    RowPayloadStore(database).path_for(reference).write_bytes(
+        b'{"tampered":true}\n'
+    )
+
+    unavailable = client.get(
+        f"/api/data-lifecycle/connectors/{first['id']}"
+    )
+    assert unavailable.status_code == 503
+    assert unavailable.json() == {
+        "code": "lifecycle_payload_unavailable",
+        "resource_kind": "raw_source_snapshot",
+        "resource_id": snapshot_id,
+        "message": (
+            f"raw_source_snapshot {snapshot_id} のrow payloadを確認できません: "
+            "row payload size does not match its reference"
+        ),
+    }
+    assert client.get(f"/api/data-lifecycle/connectors/{second['id']}").status_code == 200
+    assert client.get("/api/data-lifecycle").status_code == 200
+    duplicate = client.post(
+        f"/api/data-lifecycle/connectors/{first['id']}/fetch",
+        json={
+            "schema_version": "source-fetch-request/v1",
+            "trigger_kind": "manual",
+            "object_content": V1,
+            "object_version": "tamper-target",
+        },
+    )
+    assert duplicate.status_code == 503
+    assert duplicate.json()["code"] == "lifecycle_payload_unavailable"
 
 
 def test_api_owns_lifecycle_actor_and_requires_override_reason(client) -> None:

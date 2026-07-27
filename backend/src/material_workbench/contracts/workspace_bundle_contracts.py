@@ -54,12 +54,15 @@ class WorkspaceBundleDiagnostic(WorkspaceBundleModel):
 
 
 class WorkspaceBundleManifest(WorkspaceBundleModel):
-    schema_version: Literal["workspace-bundle/v1"] = "workspace-bundle/v1"
+    schema_version: Literal["workspace-bundle/v1", "workspace-bundle/v2"] = (
+        "workspace-bundle/v2"
+    )
     bundle_id: Annotated[str, Field(min_length=1)]
     created_at: datetime
     app_version: Annotated[str, Field(min_length=1)]
     database: WorkspaceBundleFile
     data_library_files: tuple[WorkspaceBundleFile, ...]
+    row_payload_files: tuple[WorkspaceBundleFile, ...] = ()
     schema_migrations: tuple[WorkspaceBundleMigration, ...]
     model_package_strategy: Literal["included"] = "included"
     model_package_references: tuple[WorkspaceBundlePackageReference, ...]

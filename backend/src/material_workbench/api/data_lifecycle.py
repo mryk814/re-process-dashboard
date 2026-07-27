@@ -34,6 +34,9 @@ from material_workbench.persistence.data_lifecycle_repository import (
     LifecycleResourceConflictError,
     LifecycleResourceNotFoundError,
 )
+from material_workbench.persistence.data_lifecycle_payload_storage import (
+    LifecyclePayloadUnavailableError,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
@@ -61,6 +64,8 @@ CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 def _raise_lifecycle_error(exc: Exception) -> None:
     if isinstance(exc, LifecycleResourceNotFoundError):
         raise HTTPException(404, str(exc)) from exc
+    if isinstance(exc, LifecyclePayloadUnavailableError):
+        raise exc
     raise HTTPException(409, str(exc)) from exc
 
 
@@ -91,7 +96,7 @@ def connector_detail(
 ) -> ConnectorLifecycleDetail:
     try:
         return service.detail(connector_id)
-    except LifecycleResourceNotFoundError as exc:
+    except (LifecycleResourceNotFoundError, LifecyclePayloadUnavailableError) as exc:
         _raise_lifecycle_error(exc)
 
 
@@ -145,7 +150,10 @@ def fetch_source(
                 "error_code": exc.attempt.error_code,
             },
         ) from exc
-    except LifecycleResourceNotFoundError as exc:
+    except (
+        LifecycleResourceNotFoundError,
+        LifecyclePayloadUnavailableError,
+    ) as exc:
         _raise_lifecycle_error(exc)
 
 
@@ -181,7 +189,11 @@ def create_curation_run(
         raise HTTPException(409, "Dataset Profile digestが登録済みrevisionと一致しません")
     try:
         return service.curate(snapshot_id, payload)
-    except (LifecycleResourceNotFoundError, LifecycleConflictError) as exc:
+    except (
+        LifecycleResourceNotFoundError,
+        LifecyclePayloadUnavailableError,
+        LifecycleConflictError,
+    ) as exc:
         _raise_lifecycle_error(exc)
 
 
@@ -204,7 +216,11 @@ def approve_curation_run(
                 overrides=payload.overrides,
             ),
         )
-    except (LifecycleResourceNotFoundError, LifecycleConflictError) as exc:
+    except (
+        LifecycleResourceNotFoundError,
+        LifecyclePayloadUnavailableError,
+        LifecycleConflictError,
+    ) as exc:
         _raise_lifecycle_error(exc)
 
 
@@ -229,5 +245,9 @@ def create_training_snapshot(
                 selection_policy=payload.selection_policy,
             ),
         )
-    except (LifecycleResourceNotFoundError, LifecycleConflictError) as exc:
+    except (
+        LifecycleResourceNotFoundError,
+        LifecyclePayloadUnavailableError,
+        LifecycleConflictError,
+    ) as exc:
         _raise_lifecycle_error(exc)

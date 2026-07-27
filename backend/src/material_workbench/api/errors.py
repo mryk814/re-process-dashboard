@@ -12,6 +12,9 @@ from material_workbench.tasks.task_registry import TaskUnavailableError
 from material_workbench.contracts.subsystem_availability import (
     SubsystemUnavailableError,
 )
+from material_workbench.persistence.data_lifecycle_payload_storage import (
+    LifecyclePayloadUnavailableError,
+)
 
 
 PROJECT_API_ERRORS = {
@@ -39,6 +42,20 @@ class DomainApiException(Exception):
 
 
 def install_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(LifecyclePayloadUnavailableError)
+    async def lifecycle_payload_unavailable(
+        _: Request, exc: LifecyclePayloadUnavailableError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "lifecycle_payload_unavailable",
+                "message": str(exc),
+                "resource_kind": exc.resource_kind,
+                "resource_id": exc.resource_id,
+            },
+        )
+
     @app.exception_handler(sqlite3.IntegrityError)
     async def sqlite_integrity_error(
         _: Request, exc: sqlite3.IntegrityError

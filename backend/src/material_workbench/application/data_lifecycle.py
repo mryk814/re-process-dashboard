@@ -203,14 +203,10 @@ class DataLifecycleService:
         snapshot = self.repository.get_raw_snapshot(snapshot_id)
         recipe = self.repository.get_recipe(payload.recipe_resource_id)
         connector = self.repository.get_connector(snapshot.connector_id)
-        previous = next(
-            (
-                run
-                for run in reversed(self.repository.detail(connector.id).curation_runs)
-                if run.recipe_id == recipe.id
-                and run.raw_snapshot_id != snapshot.id
-            ),
-            None,
+        previous = self.repository.previous_curation_run(
+            connector_id=connector.id,
+            recipe_id=recipe.id,
+            excluding_snapshot_id=snapshot.id,
         )
         run = curate_snapshot(
             snapshot,
@@ -220,7 +216,11 @@ class DataLifecycleService:
             primary_key=connector.selection.primary_key,
             previous=previous,
         )
-        return self.repository.save_curation_run(run)
+        return self.repository.save_curation_run(
+            run,
+            raw=snapshot,
+            recipe=recipe,
+        )
 
     def approve(
         self,
@@ -229,7 +229,7 @@ class DataLifecycleService:
     ) -> CanonicalDatasetRevision:
         run = self.repository.get_curation_run(run_id)
         revision = approve_curation_run(run, payload)
-        return self.repository.save_canonical_revision(revision)
+        return self.repository.save_canonical_revision(revision, run=run)
 
     def create_training_snapshot(
         self,
@@ -251,4 +251,8 @@ class DataLifecycleService:
                 "Training Snapshotのtarget fieldsがCuration Recipeと一致しません"
             )
         snapshot = build_training_snapshot(revision, run, payload)
-        return self.repository.save_training_snapshot(snapshot)
+        return self.repository.save_training_snapshot(
+            snapshot,
+            revision=revision,
+            run=run,
+        )
