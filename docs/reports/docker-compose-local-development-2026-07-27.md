@@ -2,9 +2,10 @@
 
 ## 対象
 
-- revision：`f33294d161633c1238a570e79c5004407b70b850`から開始したIssue #347 branch
+- revision：`2f02f202f11dd9f93985e9a1c7dc358e624dbbc2`
 - OS：Windows 11
 - Docker Client：28.5.1
+- Docker Engine：28.5.1（Linux／amd64）
 - Docker Compose：2.40.0-desktop.1
 - Docker context：`desktop-linux`
 
@@ -27,15 +28,8 @@
 
 ## Engine検証
 
-2026-07-27の初回確認ではDocker DesktopのLinux Engineへ接続できませんでした。
-最初の`docker version`はnamed pipe `//./pipe/dockerDesktopLinuxEngine`が存在しないと報告しました。
-
-Docker Desktopを起動した後はbackend processが開始しましたが、Engine API `/v1.51/version`がHTTP 500を返しました。
-50秒間のstatus確認では`starting`のまま変わらず、`docker desktop restart`も60秒でtimeoutしました。
-restart後の`npm run compose:test`は0.9秒で停止し、Linux Engineのnamed pipeが存在しないためMinIO imageを取得できないと報告しました。
-そのため、image build／pull、`compose up`、healthcheck、migration実行、object roundtrip、`compose down`は未検証です。
-
-Engineが利用可能なWindows環境では次を順に実行します。
+初回確認ではDocker DesktopのLinux Engineが未起動で、named pipe不在とEngine APIのHTTP 500を確認しました。
+Engine起動後に同じWindows環境で再検証し、次のcommandが成功しました。
 
 ```powershell
 npm run compose:check
@@ -45,17 +39,42 @@ npm run compose:down
 npm run compose:test
 ```
 
+`compose:up`は長時間稼働するPostgreSQLとMinIOだけを`--wait`で待ち、正常終了するone-shot containerを別に実行します。
+これにより、migrationとbucket初期化がexit 0でもComposeが起動失敗と判定する問題を避けています。
+既存imageを使った起動は8.3秒で完了し、両serviceがhealthy、migration成功、bucket作成成功を確認しました。
+続く`compose:smoke`はobjectのput／get／digest一致に成功し、`compose:down`後にcontainerとnetworkが残らないことを確認しました。
+
+`compose:test`は隔離されたprocess固有のCompose projectを作り、次を実機で検査しました。
+
+- PostgreSQLとMinIOがhealthcheckを通過する
+- migrationが8 tableを作成する
+- bucketを初期化する
+- 35 byteのobjectをput／getし、SHA-256 digestが一致する
+- 成功後にtest containerとnetworkを削除する
+- test用dataはtmpfsだけを使い、named volumeを作らない
+
+再検証後、`material-workbench-test-*`のcontainer、network、volumeが残っていないことを確認しました。
+
 ## setup時間とdisk使用量
 
-静的なCompose正規化とcontract検査は実行できました。
-image pullを含むclean setup時間とDocker disk使用量は、Engine APIのHTTP 500により測定できませんでした。
+対象3 imageを明示的に削除した状態から`npm run compose:test`を実行し、pull、healthcheck、migration、object smoke、cleanupを含めて32.5秒でした。
+imageを再利用した`npm run compose:check`と`npm run compose:test`の連続実行は9.1秒でした。
 
-測定時はcacheを消した値と既存imageを再利用した値を分けます。
-disk使用量は`docker system df -v`で対象imageとvolumeを記録し、他projectの総量をIssue #347の使用量として扱いません。
+`docker system df -v`で確認した対象imageのdisk使用量は合計約787 MBです。
+
+| image | tag | size |
+|---|---|---:|
+| PostgreSQL | `17.10-alpine` | 423 MB |
+| MinIO server | `RELEASE.2025-09-07T16-13-09Z` | 241 MB |
+| MinIO client | `RELEASE.2025-08-13T08-35-41Z-cpuv1` | 124 MB |
+
+test終了後のcontainer使用量は0 Bで、test project由来のvolume使用量も0 Bです。
+時間はnetwork速度とDocker Desktopのcache状態で変動します。
 
 ## 既知問題
 
 - Docker Desktop processが動いていてもLinux Engine APIがreadyとは限らない。
+- Engineの初回起動時にnamed pipe不在またはEngine APIのHTTP 500が続く場合は、`docker version`でServerが返るまで待ってから再実行する。
 - Windows filesystemからLinux containerへのbind mountは、WSL filesystemよりmetadata accessが遅い場合がある。
 - `.env.example`のcredentialはlocal開発専用であり、共有環境へ転用できない。
 - MinIO community imageは固定tagのlocal fixtureであり、production storageの選定結果ではない。
