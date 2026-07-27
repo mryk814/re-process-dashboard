@@ -1,0 +1,199 @@
+﻿{
+    "schemaVersion":  "main-acceptance/v1",
+    "runId":  "20260727T172328Z",
+    "testedCommit":  "684cb5eff9139d3c16101c698e1225f5e4ae7a30",
+    "trackedChangesAtStart":  [
+
+                              ],
+    "clearedInheritedPlaywrightEnvironment":  {
+
+                                              },
+    "cleanIsolatedPlaywright":  true,
+    "startedAt":  "2026-07-27T17:23:28.5974597Z",
+    "finishedAt":  "2026-07-27T17:40:06.8626404Z",
+    "durationSeconds":  998.265,
+    "environment":  {
+                        "os":  "Microsoft Windows NT 10.0.26200.0",
+                        "powershell":  "5.1.26100.8894",
+                        "node":  "v24.4.1",
+                        "npm":  "11.4.2",
+                        "uv":  "uv 0.9.15 (5eafae332 2025-12-02)",
+                        "python":  "Python 3.13.5"
+                    },
+    "gates":  [
+                  {
+                      "name":  "Backend pytest",
+                      "command":  "uv.exe run --extra dev python -m pytest",
+                      "exitCode":  0,
+                      "durationSeconds":  228.444,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/backend-pytest.log",
+                      "summary":  [
+                                      "backend/tests/test_task_registry.py: 2 warnings",
+                                      "backend/tests/test_chain_execution.py: 1 warning",
+                                      "backend/tests/test_dataset_profile.py: 1 warning",
+                                      "backend/tests/test_api.py: 1 warning",
+                                      "backend/tests/test_flank_wear.py: 2 warnings",
+                                      "backend/tests/test_model_lifecycle.py: 4 warnings",
+                                      "backend/tests/test_developer_doctor.py: 2 warnings",
+                                      "backend/tests/test_degraded_startup.py: 3 warnings",
+                                      "backend/tests/test_individual_observation_packages.py: 1 warning",
+                                      "backend/tests/test_external_tabular_tasks.py: 2 warnings",
+                                      "backend/tests/test_task_registry.py: 2 warnings",
+                                      "backend/tests/test_chain_execution.py: 1 warning",
+                                      "backend/tests/test_dataset_profile.py: 1 warning",
+                                      "backend/tests/test_api.py: 1 warning",
+                                      "backend/tests/test_flank_wear.py: 2 warnings",
+                                      "backend/tests/test_model_lifecycle.py: 4 warnings",
+                                      "backend/tests/test_developer_doctor.py: 2 warnings",
+                                      "backend/tests/test_degraded_startup.py: 3 warnings",
+                                      "backend/tests/test_individual_observation_packages.py: 1 warning",
+                                      "911 passed, 3 skipped, 58 warnings in 225.74s (0:03:45)"
+                                  ]
+                  },
+                  {
+                      "name":  "Web unit tests",
+                      "command":  "npm.cmd run test -w apps/web",
+                      "exitCode":  0,
+                      "durationSeconds":  1.585,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/web-unit-tests.log",
+                      "summary":  [
+                                      "\u003e node --test tests/*.test.mjs",
+                                      "✔ an unrelated subsystem failure does not disable the selected Chain (0.3025ms)",
+                                      "✔ a connection that never opened is treated as startup, not as a failure (1.0559ms)",
+                                      "✔ a served error is a real failure, not a startup wait (0.2865ms)",
+                                      "✔ deleting a row does not bypass a locked remainder (0.2313ms)",
+                                      "✔ omits failed loads and stops without publishing partial results after abort (0.5778ms)",
+                                      "✔ matches availability by explicit Chain ownership and ignores unrelated failures (0.2584ms)",
+                                      "✔ retains stale data when the current refresh fails (0.2111ms)",
+                                      "✔ a delayed Project history failure cannot replace the next Project state (0.7767ms)",
+                                      "✔ chain projects explain single-task-only views instead of failing inside them (0.2211ms)",
+                                      "✔ fails fast for task mismatch, malformed paths, and unsupported field kinds (0.8235ms)",
+                                      "✔ a failure is announced as an alert and never expires on its own (0.8223ms)",
+                                      "✔ a preview failure never becomes the connection state (1.3271ms)",
+                                      "✔ a failed write reports itself without claiming the API is unreachable (1.0351ms)",
+                                      "✔ every notice declares whether it reports success or failure (3.7ms)",
+                                      "✔ the notice surface is interactive and separates failure from success (1.1922ms)",
+                                      "ℹ tests 271",
+                                      "ℹ pass 271",
+                                      "ℹ fail 0",
+                                      "ℹ skipped 0"
+                                  ]
+                  },
+                  {
+                      "name":  "Desktop unit tests",
+                      "command":  "npm.cmd run test -w apps/desktop",
+                      "exitCode":  0,
+                      "durationSeconds":  1.562,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/desktop-unit-tests.log",
+                      "summary":  [
+                                      "\u003e npm run build \u0026\u0026 node --test tests/*.test.mjs",
+                                      "✔ restored API health failure rolls back before restarting the original Workspace (1.2247ms)",
+                                      "ℹ tests 1",
+                                      "ℹ pass 1",
+                                      "ℹ fail 0",
+                                      "ℹ skipped 0"
+                                  ]
+                  },
+                  {
+                      "name":  "Generated contracts and typecheck",
+                      "command":  "npm.cmd run typecheck",
+                      "exitCode":  0,
+                      "durationSeconds":  16.21,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/generated-contracts-and-typecheck.log",
+                      "summary":  [
+                                      "Frontend import boundaries: OK"
+                                  ]
+                  },
+                  {
+                      "name":  "Web and Desktop build",
+                      "command":  "npm.cmd run build",
+                      "exitCode":  0,
+                      "durationSeconds":  6.734,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/web-and-desktop-build.log",
+                      "summary":  [
+
+                                  ]
+                  },
+                  {
+                      "name":  "All default Playwright on isolated DB",
+                      "command":  "npx.cmd playwright test",
+                      "exitCode":  0,
+                      "durationSeconds":  183.53,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/all-default-playwright-on-isolated-db.log",
+                      "summary":  [
+                                      "Running 84 tests using 1 worker",
+                                      "  1 skipped",
+                                      "  83 passed (3.0m)"
+                                  ]
+                  },
+                  {
+                      "name":  "Failure-state Playwright",
+                      "command":  "npm.cmd run test:e2e:failure-states",
+                      "exitCode":  0,
+                      "durationSeconds":  129.175,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/failure-state-playwright.log",
+                      "summary":  [
+                                      "\u003e material-decision-workbench@0.1.0 test:e2e:failure-states",
+                                      "\u003e node scripts/run-failure-state-e2e.mjs",
+                                      "Running 16 tests using 1 worker",
+                                      "  16 passed (1.1m)",
+                                      "  ok 1 e2e\\startup-diagnostic.spec.ts:3:5 › catalog preflight failure remains readable while the API is unavailable (1.6s)",
+                                      "  1 passed (3.4s)",
+                                      "  1 passed (19.5s)",
+                                      "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers",
+                                      "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers"
+                                  ]
+                  },
+                  {
+                      "name":  "Chain degraded Playwright",
+                      "command":  "npx.cmd playwright test --config playwright.chain-degraded.config.ts",
+                      "exitCode":  0,
+                      "durationSeconds":  37.539,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/chain-degraded-playwright.log",
+                      "summary":  [
+                                      "Running 3 tests using 1 worker",
+                                      "  ok 3 e2e\\chain-degraded.spec.ts:118:5 › a failed availability catalog blocks a direct Chain deep link (1.2s)",
+                                      "  3 passed (36.3s)"
+                                  ]
+                  },
+                  {
+                      "name":  "Legacy workspace migration smoke",
+                      "command":  "uv.exe run --extra dev python -m pytest backend/tests/test_legacy_workspace_acceptance.py -q",
+                      "exitCode":  0,
+                      "durationSeconds":  5.97,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/legacy-workspace-migration-smoke.log",
+                      "summary":  [
+
+                                  ]
+                  },
+                  {
+                      "name":  "Windows installer and moved portable delivery",
+                      "command":  "npm.cmd run package:windows",
+                      "exitCode":  0,
+                      "durationSeconds":  386.5,
+                      "log":  "artifacts/main-acceptance/20260727T172328Z/windows-installer-and-moved-portable-delivery.log",
+                      "summary":  [
+                                      "\u003e powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
+                                      "130 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6",
+                                      "Folder ZIP extract/run/delete: OK",
+                                      "Per-user installer install/run/uninstall: OK",
+                                      "Installer: C:\\Users\\ootan\\projects\\re-process-dashboard-all-issues\\release\\Material-Decision-Workbench-Setup-0.1.0.exe",
+                                      "Folder ZIP: C:\\Users\\ootan\\projects\\re-process-dashboard-all-issues\\release\\Material-Decision-Workbench-folder-0.1.0.zip"
+                                  ]
+                  }
+              ],
+    "artifacts":  [
+                      {
+                          "name":  "Material-Decision-Workbench-Setup-0.1.0.exe",
+                          "bytes":  164273399,
+                          "sha256":  "2f93cc97d3b2c9bbe6c7fe06fcec3d0b0b98986edc076fe6919c2dcfa74c76ba"
+                      },
+                      {
+                          "name":  "Material-Decision-Workbench-folder-0.1.0.zip",
+                          "bytes":  223120111,
+                          "sha256":  "0b2ecb1b03fe25ebd2ce47397df4b54f7fcb441dca4aa48da7c44915ac66a95d"
+                      }
+                  ],
+    "status":  "passed",
+    "failure":  null
+}
