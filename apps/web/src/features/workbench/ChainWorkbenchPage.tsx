@@ -19,6 +19,12 @@ import {
 import { BlendEditorPanel } from "./BlendEditorPanel";
 import { ChainUncertaintyPanel } from "./ChainUncertaintyPanel";
 import {
+  chainUncertaintyLabel,
+  chainUncertaintyStageNote,
+  chainUncertaintyStatus,
+  type ChainUncertaintyAvailability,
+} from "./chainUncertaintyState";
+import {
   CandidateRequestGeneration,
   type CandidateRequestToken,
 } from "./candidateRequestGeneration";
@@ -90,6 +96,11 @@ export function ChainWorkbenchPage({
   const [numericDraft, setNumericDraft] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("Chain候補を読み込んでいます");
   const [busy, setBusy] = useState(false);
+  const [uncertaintyAvailability, setUncertaintyAvailability] = useState<ChainUncertaintyAvailability>({
+    runComputed: false,
+  });
+  const [uncertaintyPanelOpen, setUncertaintyPanelOpen] = useState(false);
+  const uncertaintyPanel = useRef<HTMLDetailsElement | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const requestSequence = useRef(0);
   const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
@@ -155,17 +166,34 @@ export function ChainWorkbenchPage({
     prediction: { value?: number; std?: number } | undefined,
     definition: ApiChainExecution["stages"][number]["output_definitions"][number],
     useProjectOverride = false,
+    stageId?: string,
   ) => {
     if (typeof prediction?.value !== "number" || !Number.isFinite(prediction.value)) return "—";
     const unit = definition.unit.trim();
     const formattedValue = formatStageNumber(prediction.value, definition, useProjectOverride);
-    const uncertainty = typeof prediction.std === "number" && Number.isFinite(prediction.std)
+    const hasInterval = typeof prediction.std === "number" && Number.isFinite(prediction.std);
+    const uncertainty = hasInterval
       ? `標準偏差 ±${formatStageNumber(prediction.std, definition, useProjectOverride)}${unit ? ` ${unit}` : ""}`
-      : "区間なし";
+      : chainUncertaintyLabel(chainUncertaintyStatus(false, uncertaintyAvailability, stageId));
     return <span className="chain-prediction-value">
       <strong>{formattedValue}{unit ? ` ${unit}` : ""}</strong>
       <small>{uncertainty}</small>
     </span>;
+  };
+
+  const uncertaintyNote = (stageId: string) => {
+    const canPropagate = uncertaintyAvailability.supportedStages?.[stageId] !== false;
+    return <p className="chain-uncertainty-note">
+      <span>{chainUncertaintyStageNote(uncertaintyAvailability, stageId)}</span>
+      {canPropagate && <button
+        type="button"
+        className="text-button"
+        onClick={() => {
+          setUncertaintyPanelOpen(true);
+          uncertaintyPanel.current?.scrollIntoView({ block: "start" });
+        }}
+      >不確かさを伝播へ</button>}
+    </p>;
   };
 
   async function loadCandidateEvidence(
@@ -768,7 +796,7 @@ export function ChainWorkbenchPage({
                 <thead><tr><th>出力</th><th>固定した予測</th></tr></thead>
                 <tbody>{definitions.map((definition) => <tr key={definition.key}>
                   <th>{definition.label}</th>
-                  <td>{predictionCell(stagePredictions[definition.key], definition, stage.stage_id === "C")}</td>
+                  <td>{predictionCell(stagePredictions[definition.key], definition, stage.stage_id === "C", stage.stage_id)}</td>
                 </tr>)}</tbody>
                 </table>
                 : <p className="chain-output-unavailable">このSnapshotの出力定義を確認できません。</p>}
@@ -798,18 +826,20 @@ export function ChainWorkbenchPage({
     <div className="chain-result-grid">
       <section className="chain-result-card">
         <header><div><span>STAGE B</span><h3>溶着金属成分</h3></div>{latestVariant && <b className="source-badge actual-match">実測照合あり</b>}</header>
+        {uncertaintyNote("B")}
         <div className="chain-table-scroll">
           <table><thead><tr><th>成分</th><th>予測</th><th>実測</th></tr></thead>
-            <tbody>{stageBDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageBPredictions[definition.key], definition)}</td><td>{latestVariant ? <>{formatStageNumber(latestVariant.measured_stage_b[definition.key], definition)}{definition.unit.trim() ? ` ${definition.unit.trim()}` : ""}</> : "—"}</td></tr>)}</tbody>
+            <tbody>{stageBDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageBPredictions[definition.key], definition, false, "B")}</td><td>{latestVariant ? <>{formatStageNumber(latestVariant.measured_stage_b[definition.key], definition)}{definition.unit.trim() ? ` ${definition.unit.trim()}` : ""}</> : "—"}</td></tr>)}</tbody>
           </table>
           {!stageBDefinitions.length && <p className="chain-output-unavailable">Stage Bの出力定義を取得できません。</p>}
         </div>
       </section>
       <section className="chain-result-card">
         <header><div><span>STAGE C</span><h3>特性</h3></div><b className="source-badge predicted">通常Chain</b></header>
+        {uncertaintyNote("C")}
         <div className="chain-table-scroll">
           <table><thead><tr><th>特性</th><th>予測B経由</th><th>実測B経由</th></tr></thead>
-            <tbody>{stageCDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageCPredictions[definition.key], definition, true)}</td><td className={latestVariant ? "actual-conditioned" : ""}>{latestVariant ? predictionCell(variantCPredictions[definition.key], definition, true) : "—"}</td></tr>)}</tbody>
+            <tbody>{stageCDefinitions.map((definition) => <tr key={definition.key}><th>{definition.label}</th><td>{predictionCell(stageCPredictions[definition.key], definition, true, "C")}</td><td className={latestVariant ? "actual-conditioned" : ""}>{latestVariant ? predictionCell(variantCPredictions[definition.key], definition, true, "C") : "—"}</td></tr>)}</tbody>
           </table>
           {!stageCDefinitions.length && <p className="chain-output-unavailable">Stage Cの出力定義を取得できません。</p>}
         </div>
@@ -818,6 +848,10 @@ export function ChainWorkbenchPage({
     </div>
 
     {execution && <ChainUncertaintyPanel
+      panelRef={uncertaintyPanel}
+      open={uncertaintyPanelOpen}
+      onOpenChange={setUncertaintyPanelOpen}
+      onAvailabilityChange={setUncertaintyAvailability}
       projectId={projectId}
       candidateId={selected.id}
       candidateRevision={selected.revision}
