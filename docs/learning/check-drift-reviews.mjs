@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseDocumentMetadata } from "./check-code-references.mjs";
 
 const learningRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 const repositoryRoot = resolve(learningRoot, "..", "..");
@@ -87,6 +88,21 @@ function repositoryFile(path, label) {
   assert(statSync(absolute, { throwIfNoEntry: false })?.isFile(), `${label} does not exist: ${path}`);
   return absolute;
 }
+
+function qmdFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return qmdFiles(path);
+    return entry.isFile() && entry.name.endsWith(".qmd") ? [path] : [];
+  });
+}
+
+const structuredReferencePaths = new Set(
+  qmdFiles(learningRoot).flatMap((path) => {
+    const metadata = parseDocumentMetadata(readFileSync(path, "utf8"), path);
+    return metadata?.references.map((reference) => reference.path) ?? [];
+  }),
+);
 
 const files = readdirSync(reviewRoot)
   .filter((name) => /^drift-\d{4}-\d{2}-\d{2}-pr-\d+\.json$/.test(name))
@@ -230,11 +246,30 @@ for (const file of groupedFiles) {
 
   const pullRequestNumbers = record.pull_requests.map((pullRequest) => pullRequest.number);
   assertUnique(pullRequestNumbers, `${file}: pull request numbers`);
+  const rangeMergeCommits = git([
+    "rev-list",
+    "--first-parent",
+    "--merges",
+    `${record.base_commit}..${record.reviewed_against}`,
+  ]).split(/\r?\n/).filter(Boolean).sort();
+  const recordedMergeCommits = record.pull_requests
+    .map((pullRequest) => pullRequest.merge_commit)
+    .sort();
+  assertUnique(recordedMergeCommits, `${file}: merge commits`);
+  assert(
+    JSON.stringify(rangeMergeCommits) === JSON.stringify(recordedMergeCommits),
+    `${file}: pull_requests must exactly cover first-parent merges in the review range.\nExpected: ${rangeMergeCommits.join(", ")}\nFound: ${recordedMergeCommits.join(", ")}`,
+  );
   for (const pullRequest of record.pull_requests) {
     assert(Number.isInteger(pullRequest.number) && pullRequest.number > 0, `${file}: invalid pull request number.`);
     assertCommit(pullRequest.merge_commit, `${file}: PR #${pullRequest.number} merge_commit`);
     assertAncestor(record.base_commit, pullRequest.merge_commit, `${file}: PR #${pullRequest.number} range`);
     assertAncestor(pullRequest.merge_commit, record.reviewed_against, `${file}: PR #${pullRequest.number} range`);
+    const mergeSubject = git(["show", "-s", "--format=%s", pullRequest.merge_commit]);
+    assert(
+      mergeSubject.includes(`#${pullRequest.number} `),
+      `${file}: ${pullRequest.merge_commit} is not the recorded PR #${pullRequest.number} merge.`,
+    );
     assert(classifications.has(pullRequest.classification), `${file}: invalid PR #${pullRequest.number} classification.`);
     assert(typeof pullRequest.reason === "string" && pullRequest.reason.length > 20, `${file}: PR #${pullRequest.number} reason is too weak.`);
 
@@ -250,11 +285,15 @@ for (const file of groupedFiles) {
       JSON.stringify(changedPaths) === JSON.stringify(recordedPaths),
       `${file}: PR #${pullRequest.number} paths differ from the first-parent merge diff.`,
     );
-    const changedPathSet = new Set(changedPaths);
-    assertUnique(pullRequest.referenced_paths, `${file}: PR #${pullRequest.number} referenced_paths`);
-    for (const path of pullRequest.referenced_paths) {
-      assert(changedPathSet.has(path), `${file}: PR #${pullRequest.number} referenced path was not changed: ${path}`);
-    }
+    const expectedReferencedPaths = changedPaths
+      .filter((path) => structuredReferencePaths.has(path))
+      .sort();
+    const recordedReferencedPaths = [...pullRequest.referenced_paths].sort();
+    assertUnique(recordedReferencedPaths, `${file}: PR #${pullRequest.number} referenced_paths`);
+    assert(
+      JSON.stringify(expectedReferencedPaths) === JSON.stringify(recordedReferencedPaths),
+      `${file}: PR #${pullRequest.number} referenced_paths must exactly match the current textbook's structured references.\nExpected: ${expectedReferencedPaths.join(", ")}\nFound: ${recordedReferencedPaths.join(", ")}`,
+    );
   }
 
   assert(Array.isArray(record.claim_assessments) && record.claim_assessments.length > 0, `${file}: claim_assessments must not be empty.`);

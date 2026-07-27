@@ -3,7 +3,7 @@
   "review_id": "grouped-2026-07-27-post-cutoff",
   "status": "resolved",
   "recorded_after_the_fact": true,
-  "base_commit": "24866add9259eb261c8d34365e6b8de86ace287e",
+  "base_commit": "dc9310f27c58e175e0218765403a35a8d62b4b21",
   "reviewed_against": "e2cf67477d1a88d39b963046c878d2a9e64ae111",
   "pull_requests": [
     {
@@ -87,7 +87,7 @@
       "number": 397,
       "merge_commit": "59d172dc50c903a4572005a59b9b9cd000bf413f",
       "classification": "no_content_impact",
-      "reason": "The Chain UI now distinguishes not computed, unsupported, point-only, and interval states. The multi-stage chapter already treats point prediction, model uncertainty, and propagation capability as separate evidence, and none of the changed files was a structured code reference at the prior cutoff.",
+      "reason": "The Chain UI now distinguishes not computed, unsupported, point-only, and interval states. ChainWorkbenchPage is referenced by the contract chapter, whose exact-range and presentation-rounding update remains consistent with these uncertainty-state presentation changes.",
       "changed_paths": [
         "apps/web/src/features/workbench/ChainUncertaintyPanel.tsx",
         "apps/web/src/features/workbench/ChainWorkbenchPage.tsx",
@@ -96,7 +96,9 @@
         "apps/web/tests/chainUncertaintyState.test.mjs",
         "e2e/chain-output-presentation.spec.ts"
       ],
-      "referenced_paths": []
+      "referenced_paths": [
+        "apps/web/src/features/workbench/ChainWorkbenchPage.tsx"
+      ]
     },
     {
       "number": 398,
@@ -160,7 +162,6 @@
         "scripts/workspace-seed.mjs"
       ],
       "referenced_paths": [
-        "AGENTS.md",
         "apps/web/src/features/workspace/WorkspaceManagerDialog.tsx",
         "apps/web/src/shared/api/workbench-api.ts",
         "backend/src/material_workbench/app.py",
