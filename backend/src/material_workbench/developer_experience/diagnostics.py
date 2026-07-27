@@ -14,6 +14,7 @@ from material_workbench.developer_experience.schemas import (
     DeveloperDoctorReport,
 )
 from material_workbench.developer_experience.source_inspection import inspect_source_against_profiles
+from material_workbench.modeling.active_package_history import check_active_package_history
 from material_workbench.modeling.model_lifecycle import (
     ACTIVE_PACKAGES_PATH,
     load_active_packages,
@@ -178,6 +179,40 @@ def run_developer_doctor(
         commands=[command("npm", ["run", "model:status"])],
         details={"path": str(active_path)},
     ))
+    history = check_active_package_history(
+        config_path=active_path if active_path.exists() else ACTIVE_PACKAGES_PATH,
+        repository_root=root,
+    )
+    if not history.available:
+        history_severity = "warning"
+        history_summary = "git履歴を読めないため、直接編集を検査していません。"
+    elif history.ok:
+        history_severity = "ok"
+        history_summary = "activeの切替はすべて model:activate を経由し、previousが記録されています。"
+    else:
+        history_severity = "error"
+        history_summary = "active-packages.jsonが直接編集され、rollbackできない状態です。"
+    checks.append(DeveloperCheck(
+        id="active-package-history",
+        section="packages",
+        title="active切替の記録",
+        severity=history_severity,
+        summary=history_summary,
+        cause=history.unavailable_reason
+        if not history.available
+        else (
+            None
+            if history.ok
+            else json.dumps(
+                [item.model_dump(mode="json") for item in (*history.drift, *history.broken_previous)],
+                ensure_ascii=False,
+            )
+        ),
+        impact=None if history_severity == "ok" else "npm run model:rollback で直前のPackageへ戻せません。",
+        commands=[command("npm", ["run", "model:activate", "--", "--task", "<task-id>", "--package", "<path>"])],
+        details=history.model_dump(mode="json"),
+    ))
+
     package_errors: dict[str, str] = {}
     package_details: dict[str, object] = {}
     for task_id in sorted(modules):

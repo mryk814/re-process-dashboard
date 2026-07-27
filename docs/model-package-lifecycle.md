@@ -123,6 +123,24 @@ LightGBMの予測区間は、GPのような入力位置ごとの潜在不確か�
 品質レポートの数値閾値は共通CLIで固定しません。
 各タスクの受入基準としてレビューします。
 
+## activeの切替は必ずコマンドを通す
+
+`models/active-packages.json` の `active` を直接編集しないでください。
+`previous` を書くのは `npm run model:activate`（`set_active_package`）だけで、
+手編集した場合は `previous` が置き去りになり、以後 `npm run model:rollback` が
+「no previous active package is recorded」で必ず失敗します。
+
+直接編集は `npm run task:inventory:check` と `npm run dev:doctor` が検出します。
+検査はgit履歴上で `active` が最後に変わった版を取り出し、そこで置き換えられたPackageが
+いまも `npm run model:activate` で戻せる状態（`models/packages/` に存在し、同じTaskで、
+現在のTaskDefinitionと入力契約が一致する）なら、`previous` がそれを指していることを求めます。
+
+`previous: null` が正しい場合もあります。切替が一度も無いTask、そして戻し先のPackageが
+削除された、別TaskのPackageだった、入力契約の移行で現行TaskDefinitionと一致しなくなった場合です。
+このときは戻し先が存在しないため、検査は理由付きで正当と報告します。
+復旧は旧版への `rollback` ではなく、現行契約を満たすPackageを `model:build` して
+`model:activate` する経路になります。
+
 ## ロールバック
 
 Packageを使用対象へ切り替えると、直前の参照が `previous` に残ります。
@@ -136,6 +154,9 @@ npm run model:status
 
 切削逃げ面摩耗のロールバックも、`--source`を省略すれば同じタスク固有ソースへ解決されます。
 別の検証済みソースを使う場合だけ、activate時とrollback時に同じ `--source` を明示します。
+
+`rollback` は戻し先のPackageを `activate` と同じ完全検証にかけます。
+検証に落ちる版へは戻しません。
 
 ロールバック後もアプリを再起動します。
 保存済みスナップショットは再計算されず、保存時のPackage ID、バージョン、manifest hashを保持します。
