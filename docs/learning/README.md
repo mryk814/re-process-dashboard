@@ -18,6 +18,7 @@ Decision Safetyの章では、点予測、予測区間、support、入力ばら�
 - 用語の意味、混同しやすい語、現行実装への接続を確かめる場合は、[`glossary.qmd`](glossary.qmd) を使います。
 - 編集する場合は [`AGENTS.md`](AGENTS.md) と [`writer-persona.md`](writer-persona.md) を先に読みます。
 - mainの変更が教材へ与える影響を判定する場合は [`drift-reviews/index.qmd`](drift-reviews/index.qmd) を使います。
+- 章の複眼レビューと代理読者taskの記録は [`reviews/index.qmd`](reviews/index.qmd) から確認します。
 
 ## Windowsで生成する
 
@@ -74,6 +75,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-referenc
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drift.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-drift-reviews.mjs
+node docs/learning/reviews/check-reviews.mjs
 node docs/learning/test-concepts.mjs
 ```
 

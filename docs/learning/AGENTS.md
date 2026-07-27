@@ -194,6 +194,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/test-main-drif
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1
 node docs/learning/check-code-references.mjs
 node docs/learning/check-drift-reviews.mjs
+node docs/learning/reviews/check-reviews.mjs
 node docs/learning/test-concepts.mjs
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/scripts/test-bootstrap-book-tools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean
