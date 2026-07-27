@@ -1,6 +1,6 @@
 # 実装を読んで変更を通す {.unnumbered}
 
-この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、identity、migration、lifecycle、復元境界を実装から追跡し、自分で変更を検証できる状態を目指します。
+この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、identity、migration、lifecycle、復元境界、予測から判断への境界を実装から追跡し、自分で変更を検証できる状態を目指します。
 
 対象読者は、PythonまたはTypeScriptで開発経験があり、このリポジトリの境界にはまだ詳しくない開発者です。
 FastAPI、Pydantic、Reactの入門そのものは扱いません。
@@ -22,6 +22,9 @@ Candidateの二つの編集を固定例に、logical ID、受理順、内容iden
 
 六つ目の題材は**Project archiveとpurge**です。
 Projectを通常一覧から外して判断証拠を凍結する操作と、外部provenanceを検査してProject-owned evidenceを物理削除する操作を分けます。
+
+七つ目の題材は**Decision Safety**です。
+点予測、予測区間、support、入力ばらつき、警告、提案の採用境界を分け、不完全な証拠からsummaryを確定しない画面と保存contractを読みます。
 
 ## 読了後にできること
 
@@ -50,6 +53,11 @@ Projectを通常一覧から外して判断証拠を凍結する操作と、外�
 - Workspace bundleと現Workspaceの境界を区別する
 - prepare、commit、health確認、finalize、rollbackの状態遷移を説明する
 - archive改ざん、migration不一致、DB切替失敗を検出するtestを選ぶ
+- 点予測、予測区間、support、入力ばらつきを別の判断材料として読む
+- `0`、未計算、利用不可、失敗、古い結果を別の証拠状態として扱う
+- 警告を原因、影響、次の行動へ分ける
+- proposal生成、Candidate化、Project decision保存のwrite boundaryを説明する
+- accessibility上の欠落を、判断材料の欠落として批評する
 
 ## この教材に含めないもの
 
@@ -70,6 +78,7 @@ Projectを通常一覧から外して判断証拠を凍結する操作と、外�
 | 変更したい対象 | 入口 |
 |---|---|
 | Python契約、API、生成TypeScript型、React表示 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
+| 予測、support、不確実性、警告、提案の採用境界 | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 | Source取得、品質判定、Training Snapshot | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
 | Candidate revision、digest、遅いresponse | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
 | SQLite schema、migration、既存DB | [過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd) |

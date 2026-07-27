@@ -635,7 +635,7 @@ targetごとにpoint、quantile、標準偏差、sample、達成確率のうち�
 
 **数理との接続**：距離または範囲判定の定義がsubsystemごとに異なります。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/application/decision_activity_robustness.py)
 
@@ -692,7 +692,7 @@ Chain評価などのholdoutで、予測区間の名目被覆率と実測被覆�
 
 **数理との接続**：正規化距離の分母と学習範囲を明示する必要があります。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/schemas.py)
 
@@ -722,7 +722,7 @@ runtime固有出力をtarget、単位、代表値、quantile、分布情報へ�
 
 **数理との接続**：期待値、median、quantile、sampleを同義にせず別fieldとして扱います。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/modeling/model_packages.py)
 
@@ -771,7 +771,7 @@ acquisition順位済みのshortlistから、control、cost、quota、setup、多
 
 **数理との接続**：maximizeとminimizeの方向、feasibility、基準値を固定します。
 
-**学ぶ章**：今後の章候補（未配置）
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/objective_contracts.py)
 
@@ -889,7 +889,7 @@ Project内でCandidateが取り得る数値域、category、条件付き有効�
 
 - CandidateやProjectを自動採用する意思決定主体ではありません。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/contracts/decision_activity_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/decision_activity_contracts.py)
 
@@ -939,6 +939,35 @@ Design Space内の点をLatin hypercube、Sobol、bounded simplexなど登録済
 
 **このrepoの実装**：[backend/src/material_workbench/domain/proposal_generation.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/domain/proposal_generation.py)
 
+### 証拠状態（Evidence State） {#concept-evidence-state}
+
+値または証拠が現在ない理由と、その状態で許される判断および次の行動を対応付ける分類です。
+
+**状態**：現行
+
+**別名と検索語**：evidence availability state
+
+**適用範囲**：pattern
+
+**同じではない概念**：[古い応答](#concept-stale-response)
+
+**前提概念**：[契約](#concept-contract)
+
+**この語が意味しないもの**：
+
+- 空欄や横線を一律に値なしと呼ぶ表示規則ではありません。
+
+**数理との接続**：数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です。。
+
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
+
+**このrepoの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/candidates/CandidateUi.tsx)
+
+**よくある誤解**：
+
+- 未計算は計算失敗ではありません。
+- 利用不可の依存先へ同じ再試行を促しても復旧しない場合があります。
+
 ### 条件変更案（counterfactual） {#concept-counterfactual}
 
 Design Space内で変更量を正規化し、Objectiveを点予測で満たす候補または満たせない理由を探索し、各案のcanonical Predictionを固定して、利用可能な予測区間を点判定と分けて示すDecision Activityです。
@@ -962,7 +991,7 @@ Design Space内で変更量を正規化し、Objectiveを点予測で満たす�
 
 **数理との接続**：変更量をvariable rangeで正規化し、制約付き探索として扱います。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/application/decision_activity_counterfactual.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/application/decision_activity_counterfactual.py)、[apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx)、[apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/tests/test_counterfactual_activity.py)
 
@@ -1010,7 +1039,7 @@ Screening Runが答える問いを、「領域を見る」「有望候補を探�
 
 **数理との接続**：問いごとに、support distance、Objective score、集合選択へ使える証拠を分けます。
 
-**学ぶ章**：今後の章候補（未配置）
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/schemas.py)、[backend/src/material_workbench/application/screening.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/application/screening.py)、[apps/web/src/features/screening/ScreeningPage.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/screening/ScreeningPage.tsx)、[apps/web/src/features/screening/ScreeningProposalSummary.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/screening/ScreeningProposalSummary.tsx)、[e2e/screening-workbench.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/e2e/screening-workbench.spec.ts)
 
@@ -1039,9 +1068,38 @@ Candidate入力をTolerance Profileに従って変動させ、入力ばらつき
 
 **数理との接続**：入力分布からMonte Carlo sampleを作り、失敗率と分位点を推定します。
 
-**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
+**学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
 **このrepoの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/application/decision_activity_robustness.py)、[apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx)、[e2e/decision-activity.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/e2e/decision-activity.spec.ts)
+
+### 判断面（Decision Surface） {#concept-decision-surface}
+
+候補の入力、予測、区間、目標達成、support、制約、robustness、provenance、実測を、意味を潰さず判断時点へ対応付ける読取り可能なまとまりです。
+
+**状態**：現行
+
+**別名と検索語**：decision evidence surface
+
+**適用範囲**：pattern
+
+**同じではない概念**：[予測要約](#concept-predictive-summary)
+
+**前提概念**：[予測要約](#concept-predictive-summary)、[学習dataによる裏付け](#concept-support)、[Objective Definition](#concept-objective-definition)
+
+**この語が意味しないもの**：
+
+- すべての判断材料を一つのscoreへ畳み込むdashboardではありません。
+- 九つのwidgetを常時表示するlayout規則ではありません。
+
+**数理との接続**：判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します。。
+
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
+
+**このrepoの実装**：[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/features/candidates/CandidateUi.tsx)、[docs/decisions/calibrated-decision-support.md](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/docs/decisions/calibrated-decision-support.md)
+
+**よくある誤解**：
+
+- 点予測が最も高い候補を、そのまま最良の判断とは呼べません。
 
 ### 必須制約（hard constraint） {#concept-hard-constraint}
 
@@ -1064,6 +1122,33 @@ Candidate入力をTolerance Profileに従って変動させ、入力ばらつき
 **学ぶ章**：今後の章候補（未配置）
 
 **このrepoの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/objective_contracts.py)
+
+### 明示的採用境界（Explicit Adoption Boundary） {#concept-explicit-adoption}
+
+algorithmが保存したproposalを、利用者が別のwriteでCandidateへ変換し、さらに固定証拠と理由を伴う別操作で判断として保存する境界です。
+
+**状態**：現行
+
+**別名と検索語**：proposal adoption boundary
+
+**適用範囲**：pattern
+
+**同じではない概念**：[検討Activity](#concept-decision-activity)
+
+**前提概念**：[検討Activity](#concept-decision-activity)、[スナップショット](#concept-snapshot)
+
+**この語が意味しないもの**：
+
+- proposal生成後に最上位案を自動採用する処理ではありません。
+- 確認dialogを一つ挟むだけの見た目上の区切りではありません。
+
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
+
+**このrepoの実装**：[backend/src/material_workbench/application/decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/application/decision_activities.py)、[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/schemas.py)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/tests/test_counterfactual_activity.py)
+
+**よくある誤解**：
+
+- Candidate化とProject decision保存は同じ採用操作ではありません。
 
 ## Architecture
 
@@ -1534,6 +1619,32 @@ Pydantic、OpenAPI、Package、Task間のshapeと意味の一致を境界単位�
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)
 
 **このrepoの実装**：[backend/tests/test_openapi_contract.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/tests/test_openapi_contract.py)
+
+### 行動可能な警告（actionable warning） {#concept-actionable-warning}
+
+原因、判断への影響、利用者が実行できる次の行動を分け、どの結論を止めるかまで示す警告です。
+
+**状態**：現行
+
+**別名と検索語**：cause impact next action
+
+**適用範囲**：pattern
+
+**同じではない概念**：[証拠状態](#concept-evidence-state)
+
+**前提概念**：[証拠状態](#concept-evidence-state)
+
+**この語が意味しないもの**：
+
+- 注意してくださいとだけ伝えるpersistent alertではありません。
+
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
+
+**このrepoの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx](https://github.com/mryk814/re-process-dashboard/blob/985e77682d175203fe5ccb4a6688729a8077088f/apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx)
+
+**よくある誤解**：
+
+- 警告を増やすだけでは、重要な警告の選択性は上がりません。
 
 ### 段階的restore（staged restore） {#concept-staged-restore}
 

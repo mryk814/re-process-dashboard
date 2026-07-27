@@ -379,6 +379,40 @@ licenseを確認できない画像は使用しません。
 - 推奨箇所：*Active voice vs. passive voice*
 - 読む理由：処理主体と動作を示し、変更箇所を追える文へ直します。
 - 注意：受動態を禁止せず、行為者が重要な箇所で曖昧さを減らします。
+
+## Route 7：予測を判断へ格上げしない
+
+このrouteは、model output、support、不確実性、警告、提案を、同じscoreまたは同じ注意表示へ潰さずに設計する読者向けです。
+
+読書問いは、「この証拠を、この候補、この条件、この時点の判断へ使ってよいか」です。
+
+**NIST, *AI Risk Management Framework 1.0* [@nist-ai-rmf-1]**
+
+- 役割：standard、caution
+- 推奨箇所：*Framing Risk*、*AI RMF Core*、Appendix C
+- 読む理由：出力の用途、knowledge limit、人間の監督、停止経路をcontext of useへ固定します。
+- 注意：組織向けframeworkであり、現行UIの適合認証または安全性認証ではありません。
+
+**W3C, *WCAG 2.2* [@w3c-wcag22]**
+
+- 役割：standard
+- 推奨箇所：SC 1.4.1、SC 1.4.10、SC 3.3.1、SC 4.1.3
+- 読む理由：候補、証拠状態、警告、完了を色またはhoverだけへ隠さない検査へ接続します。
+- 注意：WCAG適合は、統計的妥当性または意思決定の正しさを保証しません。
+
+**Parasuraman and Manzey, “Complacency and Bias in Human Use of Automation” [@parasuraman-manzey-2010]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*Results*、*Application*
+- 読む理由：明示操作を設けても、注意配分とautomation biasが残る条件を確認します。
+- 注意：複数領域のreview結果を、材料候補比較の効果量へ直接移しません。
+
+**Kale, Kay, and Hullman, “Visual Reasoning Strategies for Effect Size Judgments and Decisions” [@kale-kay-hullman-2021]**
+
+- 役割：primary explanation、caution
+- 推奨箇所：*Introduction*、*Results*、*Discussion*
+- 読む理由：点推定と区間を併記しても、表示によって判断時の重みが変わることを確認します。
+- 注意：実験taskで有効だったvisual encodingを、現行のtarget、cost、constraintへ評価なしで移植しません。
 :::
 
 ## 書誌情報

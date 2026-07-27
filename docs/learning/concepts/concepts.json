@@ -41,6 +41,11 @@
       "path": "labs/extend-contract.qmd"
     },
     {
+      "id": "decision-safety",
+      "title": "予測と判断のあいだを設計する",
+      "path": "chapters/decision-safety.qmd"
+    },
+    {
       "id": "source-to-training-evidence",
       "title": "Source更新を学習から切り離す",
       "path": "chapters/source-to-training-evidence.qmd"
@@ -2537,6 +2542,181 @@
         }
       ],
       "common_misconceptions": []
+    },
+    {
+      "id": "decision-surface",
+      "term_ja": "判断面",
+      "term_en": "Decision Surface",
+      "aliases": [
+        "decision evidence surface"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "候補の入力、予測、区間、目標達成、support、制約、robustness、provenance、実測を、意味を潰さず判断時点へ対応付ける読取り可能なまとまりです。",
+      "anti_definitions": [
+        "すべての判断材料を一つのscoreへ畳み込むdashboardではありません。",
+        "九つのwidgetを常時表示するlayout規則ではありません。"
+      ],
+      "not_same_as": [
+        "predictive-summary"
+      ],
+      "prerequisites": [
+        "predictive-summary",
+        "support",
+        "objective-definition"
+      ],
+      "related": [
+        "decision-activity",
+        "robustness",
+        "counterfactual"
+      ],
+      "math_connections": [
+        "判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します。"
+      ],
+      "repo_references": [
+        {
+          "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "docs/decisions/calibrated-decision-support.md",
+          "role": "docs"
+        }
+      ],
+      "common_misconceptions": [
+        "点予測が最も高い候補を、そのまま最良の判断とは呼べません。"
+      ]
+    },
+    {
+      "id": "evidence-state",
+      "term_ja": "証拠状態",
+      "term_en": "Evidence State",
+      "aliases": [
+        "evidence availability state"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "値または証拠が現在ない理由と、その状態で許される判断および次の行動を対応付ける分類です。",
+      "anti_definitions": [
+        "空欄や横線を一律に値なしと呼ぶ表示規則ではありません。"
+      ],
+      "not_same_as": [
+        "stale-response"
+      ],
+      "prerequisites": [
+        "contract"
+      ],
+      "related": [
+        "stale-response",
+        "decision-surface"
+      ],
+      "math_connections": [
+        "数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です。"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "role": "contract"
+        },
+        {
+          "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": [
+        "未計算は計算失敗ではありません。",
+        "利用不可の依存先へ同じ再試行を促しても復旧しない場合があります。"
+      ]
+    },
+    {
+      "id": "actionable-warning",
+      "term_ja": "行動可能な警告",
+      "term_en": "actionable warning",
+      "aliases": [
+        "cause impact next action"
+      ],
+      "category": "ui-testing",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "原因、判断への影響、利用者が実行できる次の行動を分け、どの結論を止めるかまで示す警告です。",
+      "anti_definitions": [
+        "注意してくださいとだけ伝えるpersistent alertではありません。"
+      ],
+      "not_same_as": [
+        "evidence-state"
+      ],
+      "prerequisites": [
+        "evidence-state"
+      ],
+      "related": [
+        "decision-surface"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "role": "contract"
+        },
+        {
+          "path": "apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx",
+          "role": "frontend"
+        }
+      ],
+      "common_misconceptions": [
+        "警告を増やすだけでは、重要な警告の選択性は上がりません。"
+      ]
+    },
+    {
+      "id": "explicit-adoption",
+      "term_ja": "明示的採用境界",
+      "term_en": "Explicit Adoption Boundary",
+      "aliases": [
+        "proposal adoption boundary"
+      ],
+      "category": "decision",
+      "scope": "pattern",
+      "status": "current",
+      "status_note": null,
+      "definition": "algorithmが保存したproposalを、利用者が別のwriteでCandidateへ変換し、さらに固定証拠と理由を伴う別操作で判断として保存する境界です。",
+      "anti_definitions": [
+        "proposal生成後に最上位案を自動採用する処理ではありません。",
+        "確認dialogを一つ挟むだけの見た目上の区切りではありません。"
+      ],
+      "not_same_as": [
+        "decision-activity"
+      ],
+      "prerequisites": [
+        "decision-activity",
+        "snapshot"
+      ],
+      "related": [
+        "counterfactual",
+        "immutable-evidence",
+        "decision-surface"
+      ],
+      "math_connections": [],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/application/decision_activities.py",
+          "role": "application"
+        },
+        {
+          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/tests/test_counterfactual_activity.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "Candidate化とProject decision保存は同じ採用操作ではありません。"
+      ]
     }
   ]
 }

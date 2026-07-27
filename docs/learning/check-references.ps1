@@ -121,6 +121,12 @@ foreach ($entryMatch in $bibEntryMatches) {
         "techreport" {
             $requiredBibFields += @("institution", "number", "year")
         }
+        "article" {
+            $requiredBibFields += @("journal", "year")
+        }
+        "standard" {
+            $requiredBibFields += @("organization", "year", "url", "urldate")
+        }
         default {
             Add-ValidationError "unsupported-bib-type" "${entryKey}: $entryType"
         }
@@ -155,7 +161,8 @@ $allowedSourceTiers = @(
     "maintainer-publication",
     "specialist-book",
     "official-handbook",
-    "organization-book"
+    "organization-book",
+    "peer-reviewed-primary"
 )
 $allowedOpenAccess = @("full", "partial", "none")
 $requiredFields = @(

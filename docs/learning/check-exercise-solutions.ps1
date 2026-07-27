@@ -1,13 +1,14 @@
 ﻿$ErrorActionPreference = "Stop"
 
 $learningRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$expectedLabs = [ordered]@{
-    "extend-contract.qmd" = "contract"
-    "trace-source-evidence.qmd" = "source"
-    "trace-revision-conflict.qmd" = "revision"
-    "break-and-repair-migration.qmd" = "migration"
-    "trace-project-lifecycle.qmd" = "project-lifecycle"
-    "trace-workspace-restore.qmd" = "workspace"
+$expectedExerciseDocuments = [ordered]@{
+    "labs\extend-contract.qmd" = "contract"
+    "labs\trace-source-evidence.qmd" = "source"
+    "labs\trace-revision-conflict.qmd" = "revision"
+    "labs\break-and-repair-migration.qmd" = "migration"
+    "labs\trace-project-lifecycle.qmd" = "project-lifecycle"
+    "labs\trace-workspace-restore.qmd" = "workspace"
+    "chapters\decision-safety.qmd" = "decision-safety"
 }
 
 $errors = New-Object System.Collections.Generic.List[string]
@@ -22,15 +23,15 @@ function Add-ValidationError {
     $script:errors.Add($Message)
 }
 
-foreach ($entry in $expectedLabs.GetEnumerator()) {
-    $labPath = Join-Path $learningRoot ("labs\" + $entry.Key)
+foreach ($entry in $expectedExerciseDocuments.GetEnumerator()) {
+    $documentPath = Join-Path $learningRoot $entry.Key
     $expectedSlug = $entry.Value
-    if (-not (Test-Path -LiteralPath $labPath -PathType Leaf)) {
-        Add-ValidationError "Missing lab file: $labPath"
+    if (-not (Test-Path -LiteralPath $documentPath -PathType Leaf)) {
+        Add-ValidationError "Missing exercise document: $documentPath"
         continue
     }
 
-    $lines = Get-Content -LiteralPath $labPath -Encoding UTF8
+    $lines = Get-Content -LiteralPath $documentPath -Encoding UTF8
     $raw = $lines -join "`n"
     $exerciseSections = New-Object System.Collections.Generic.List[object]
     $answerIdsInFile = New-Object System.Collections.Generic.List[string]
@@ -42,21 +43,21 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
     for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
         $line = $lines[$lineIndex]
         $lineNumber = $lineIndex + 1
-        if ($solutionDepth -eq 0 -and $line -match '^##\s+(?:演習|checkpoint)\s*([0-9]+)[^{}]*\{#(exercise-([a-z0-9-]+)-([0-9]{2}))\}\s*$') {
+        if ($solutionDepth -eq 0 -and $line -match '^#{2,3}\s+(?:演習|checkpoint)\s*([0-9]+)[^{}]*\{#(exercise-([a-z0-9-]+)-([0-9]{2}))\}\s*$') {
             $displayNumber = [int]$Matches[1]
             $exerciseId = $Matches[2]
             $slug = $Matches[3]
             $idNumber = [int]$Matches[4]
             if ($slug -ne $expectedSlug) {
-                Add-ValidationError "${labPath}:${lineNumber}: expected exercise slug '$expectedSlug', found '$slug'"
+                Add-ValidationError "${documentPath}:${lineNumber}: expected exercise slug '$expectedSlug', found '$slug'"
             }
             if ($displayNumber -ne $idNumber) {
-                Add-ValidationError "${labPath}:${lineNumber}: display number $displayNumber does not match ID number $idNumber"
+                Add-ValidationError "${documentPath}:${lineNumber}: display number $displayNumber does not match ID number $idNumber"
             }
             if ($allExerciseIds.ContainsKey($exerciseId)) {
-                Add-ValidationError "${labPath}:${lineNumber}: duplicate exercise ID '$exerciseId'"
+                Add-ValidationError "${documentPath}:${lineNumber}: duplicate exercise ID '$exerciseId'"
             } else {
-                $allExerciseIds[$exerciseId] = "${labPath}:${lineNumber}"
+                $allExerciseIds[$exerciseId] = "${documentPath}:${lineNumber}"
             }
             $exerciseSections.Add([pscustomobject]@{
                 Id = $exerciseId
@@ -71,12 +72,12 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
             $slug = $Matches[2]
             $suffix = $Matches[3]
             if ($slug -ne $expectedSlug) {
-                Add-ValidationError "${labPath}:${lineNumber}: expected answer slug '$expectedSlug', found '$slug'"
+                Add-ValidationError "${documentPath}:${lineNumber}: expected answer slug '$expectedSlug', found '$slug'"
             }
             if ($allAnswerIds.ContainsKey($answerId)) {
-                Add-ValidationError "${labPath}:${lineNumber}: duplicate answer ID '$answerId'"
+                Add-ValidationError "${documentPath}:${lineNumber}: duplicate answer ID '$answerId'"
             } else {
-                $allAnswerIds[$answerId] = "${labPath}:${lineNumber}"
+                $allAnswerIds[$answerId] = "${documentPath}:${lineNumber}"
             }
             $answerIdsInFile.Add($answerId)
             $answerPositionsInFile[$answerId] = $lineIndex
@@ -105,7 +106,7 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
                 if ($solutionDepth -eq 0) {
                     foreach ($heading in $requiredHeadings.Keys) {
                         if (-not $requiredHeadings[$heading]) {
-                            Add-ValidationError "${labPath}:${lineNumber}: answer '$currentAnswer' is missing '#### $heading'"
+                            Add-ValidationError "${documentPath}:${lineNumber}: answer '$currentAnswer' is missing '#### $heading'"
                         }
                     }
                     $currentAnswer = $null
@@ -113,16 +114,16 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
                 }
             }
         } elseif ($line -match '^###\s+解答例\s*$') {
-            Add-ValidationError "${labPath}:${lineNumber}: immediate '### 解答例' remains outside an exercise-solution block"
+            Add-ValidationError "${documentPath}:${lineNumber}: immediate '### 解答例' remains outside an exercise-solution block"
         }
 
         if ($solutionDepth -eq 0 -and $line -match '^##\s+章末チェックの解答\s*$') {
-            Add-ValidationError "${labPath}:${lineNumber}: chapter check answers must use an exercise-solution block"
+            Add-ValidationError "${documentPath}:${lineNumber}: chapter check answers must use an exercise-solution block"
         }
     }
 
     if ($solutionDepth -ne 0) {
-        Add-ValidationError "${labPath}: unclosed exercise-solution block '$currentAnswer'"
+        Add-ValidationError "${documentPath}: unclosed exercise-solution block '$currentAnswer'"
     }
 
     for ($sectionIndex = 0; $sectionIndex -lt $exerciseSections.Count; $sectionIndex++) {
@@ -134,7 +135,7 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
         }
         $expectedAnswerId = $section.Id -replace '^exercise-', 'answer-'
         if ($expectedAnswerId -notin $answerIdsInFile) {
-            Add-ValidationError "${labPath}:$($section.LineNumber): exercise '$($section.Id)' has no matching answer '$expectedAnswerId'"
+            Add-ValidationError "${documentPath}:$($section.LineNumber): exercise '$($section.Id)' has no matching answer '$expectedAnswerId'"
         }
 
         $problemEndIndex = $endIndex
@@ -148,26 +149,26 @@ foreach ($entry in $expectedLabs.GetEnumerator()) {
         $problemLines = $lines[$section.Start..$problemEndIndex]
         $problemRaw = $problemLines -join "`n"
 
-        if (-not ($problemLines -match '^###\s+成功条件\s*$')) {
-            Add-ValidationError "${labPath}:$($section.LineNumber): exercise '$($section.Id)' is missing '### 成功条件' before its answer"
+        if (-not ($problemLines -match '^#{3,4}\s+成功条件\s*$')) {
+            Add-ValidationError "${documentPath}:$($section.LineNumber): exercise '$($section.Id)' is missing a success-criteria heading before its answer"
         }
         if ($problemRaw -notmatch [regex]::Escape("](#$expectedAnswerId)")) {
-            Add-ValidationError "${labPath}:$($section.LineNumber): exercise '$($section.Id)' has no problem-side link to '#$expectedAnswerId'"
+            Add-ValidationError "${documentPath}:$($section.LineNumber): exercise '$($section.Id)' has no problem-side link to '#$expectedAnswerId'"
         }
         if ($problemLines -match '^#{1,6}\s+(解答例|解答の理由|よくある不十分な回答)\s*$') {
-            Add-ValidationError "${labPath}:$($section.LineNumber): exercise '$($section.Id)' leaks an answer heading into the problem"
+            Add-ValidationError "${documentPath}:$($section.LineNumber): exercise '$($section.Id)' leaks an answer heading into the problem"
         }
     }
 
     $expectedChapterCheckId = "answer-$expectedSlug-chapter-check"
     if ($expectedChapterCheckId -notin $answerIdsInFile) {
         Add-ValidationError (
-            "${labPath}: missing chapter check answer '$expectedChapterCheckId'; found: " +
+            "${documentPath}: missing chapter check answer '$expectedChapterCheckId'; found: " +
                 ($answerIdsInFile -join ", ")
         )
     }
     if ($raw -notmatch [regex]::Escape("](#$expectedChapterCheckId)")) {
-        Add-ValidationError "${labPath}: missing link to chapter check answer '#$expectedChapterCheckId'"
+        Add-ValidationError "${documentPath}: missing link to chapter check answer '#$expectedChapterCheckId'"
     }
 }
 
@@ -178,6 +179,7 @@ $chapterChecks = [ordered]@{
     "chapters\trust-a-migrated-database.qmd" = "../labs/break-and-repair-migration.qmd#answer-migration-chapter-check"
     "chapters\separate-archive-from-purge.qmd" = "../labs/trace-project-lifecycle.qmd#answer-project-lifecycle-chapter-check"
     "chapters\restore-workspace-safely.qmd" = "../labs/trace-workspace-restore.qmd#answer-workspace-chapter-check"
+    "chapters\decision-safety.qmd" = "#answer-decision-safety-chapter-check"
 }
 
 foreach ($entry in $chapterChecks.GetEnumerator()) {
@@ -185,7 +187,7 @@ foreach ($entry in $chapterChecks.GetEnumerator()) {
     $lines = Get-Content -LiteralPath $chapterPath -Encoding UTF8
     $chapterCheckStart = -1
     for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
-        if ($lines[$lineIndex] -match '^##\s+章末チェック\s*$') {
+        if ($lines[$lineIndex] -match '^##\s+章末チェック(?:\s+\{#[^}]+\})?\s*$') {
             $chapterCheckStart = $lineIndex
             break
         }

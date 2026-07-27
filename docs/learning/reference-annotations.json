@@ -1130,6 +1130,129 @@
       "open_access": "full",
       "edition_verified": true,
       "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "nist-ai-rmf-1",
+      "roles": [
+        "standard",
+        "caution"
+      ],
+      "level": "intermediate",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "NIST publication; public domain in the United States",
+      "related_concepts": [
+        "decision-surface",
+        "explicit-adoption",
+        "support"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/decisions/calibrated-decision-support.md"
+      ],
+      "recommended_sections": [
+        "Framing Risk",
+        "AI RMF Core",
+        "Appendix C: AI Risk Management and Human-AI Interaction"
+      ],
+      "why_read": "model outputの用途、knowledge limit、人間の監督、残余riskをcontext of useへ固定する問いを借りる。",
+      "reading_question": "この出力を、誰がどの条件の判断へ使い、どこで停止または上書きできるか。",
+      "caution": "組織向けの任意frameworkであり、現行UIの適合認証または安全性認証には使わない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "w3c-wcag22",
+      "roles": [
+        "standard"
+      ],
+      "level": "intermediate",
+      "source_tier": "standard",
+      "language": "en",
+      "license": "W3C document license; no reuse assumed",
+      "related_concepts": [
+        "decision-surface",
+        "evidence-state",
+        "actionable-warning"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "e2e/candidate-comparison-accessibility.spec.ts"
+      ],
+      "recommended_sections": [
+        "1.4.1 Use of Color",
+        "1.4.10 Reflow",
+        "3.3.1 Error Identification",
+        "4.1.3 Status Messages"
+      ],
+      "why_read": "候補、証拠状態、警告、動的な完了を色またはhoverだけへ隠さない検査へ接続する。",
+      "reading_question": "判断を変える対応関係が、拡大、keyboard、支援技術でも保たれるか。",
+      "caution": "WCAG適合は統計的妥当性または意思決定の正しさを保証せず、個別testだけで製品適合を宣言しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "parasuraman-manzey-2010",
+      "roles": [
+        "primary-explanation",
+        "caution"
+      ],
+      "level": "advanced",
+      "source_tier": "peer-reviewed-primary",
+      "language": "en",
+      "license": "publisher terms; no reuse assumed",
+      "related_concepts": [
+        "actionable-warning",
+        "explicit-adoption",
+        "decision-surface"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx"
+      ],
+      "recommended_sections": [
+        "Results",
+        "Application"
+      ],
+      "why_read": "automationの監視と手動作業が競合するとき、警告と提案を増やすだけでは見落としを防げない理由を確認する。",
+      "reading_question": "proposalの別操作を設けた後も、注意配分とautomation biasはどこに残るか。",
+      "caution": "複数領域の研究reviewを、材料候補比較の効果量または個別UIの有効性へ直接移さない。",
+      "open_access": "partial",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
+    },
+    {
+      "citekey": "kale-kay-hullman-2021",
+      "roles": [
+        "primary-explanation",
+        "caution"
+      ],
+      "level": "advanced",
+      "source_tier": "peer-reviewed-primary",
+      "language": "en",
+      "license": "author manuscript terms; no reuse assumed",
+      "related_concepts": [
+        "decision-surface",
+        "predictive-summary",
+        "robustness"
+      ],
+      "repo_routes": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "apps/web/src/shared/predictionPresentation.ts"
+      ],
+      "recommended_sections": [
+        "Introduction",
+        "Results",
+        "Discussion"
+      ],
+      "why_read": "点推定と不確実性を同時表示しても、visual encodingによって判断時の重みが変わることを確認する。",
+      "reading_question": "推定値を読み取りやすくする表示が、制約とcostを含む判断にも適切か。",
+      "caution": "実験taskの結果を、現行target、cost、constraintへ利用者評価なしで移植しない。",
+      "open_access": "full",
+      "edition_verified": true,
+      "official_url_checked_on": "2026-07-27"
     }
   ]
 }

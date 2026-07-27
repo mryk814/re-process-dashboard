@@ -7,6 +7,7 @@ book:
     - index.qmd
     - chapters/contract-through-stack.qmd
     - labs/extend-contract.qmd
+    - chapters/decision-safety.qmd
     - chapters/source-to-training-evidence.qmd
     - labs/trace-source-evidence.qmd
     - chapters/revision-and-digest.qmd

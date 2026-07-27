@@ -181,6 +181,7 @@ foreach ($artifact in @($siteIndex, $siteSearch, $readerPdf)) {
 $searchIndex = Get-Content -LiteralPath $siteSearch -Raw -Encoding UTF8
 foreach ($expectedHref in @(
     "chapters/contract-through-stack.html",
+    "chapters/decision-safety.html",
     "concept-map.html",
     "glossary.html",
     "writer-persona.html",
@@ -192,9 +193,13 @@ foreach ($expectedHref in @(
     }
 }
 
-$labRoot = Join-Path $learningRoot "labs"
+$exerciseDocumentRoots = @(
+    (Join-Path $learningRoot "labs"),
+    (Join-Path $learningRoot "chapters")
+)
 $expectedSolutionCount = (
-    Get-ChildItem -LiteralPath $labRoot -Filter "*.qmd" -File |
+    $exerciseDocumentRoots |
+        ForEach-Object { Get-ChildItem -LiteralPath $_ -Filter "*.qmd" -File } |
         Select-String -Pattern '^:::\s+\{#answer-[a-z0-9-]+\s+\.exercise-solution(?:\s|})'
 ).Count
 $siteHtml = (

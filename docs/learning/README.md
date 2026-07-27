@@ -7,6 +7,7 @@
 Source data lifecycleの章では、外部Sourceの取得、品質判定、承認、Training Snapshot、Model Package active化を分けます。
 revisionとdigestの章では、Candidate ID、受理順、内容identity、request sequenceを分け、保存競合と遅いresponseを追います。
 Workspace restoreの章では、SQLite snapshot、bundle検証、staging migration、DB切替、API health確認、rollbackを分けます。
+Decision Safetyの章では、点予測、予測区間、support、入力ばらつき、警告、提案の採用境界を分けます。
 
 ## 読み始める
 

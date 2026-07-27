@@ -3,6 +3,8 @@ verified_commit: "985e77682d175203fe5ccb4a6688729a8077088f"
 code_references:
   - path: "apps/web/src/app/navigation.ts"
     role: "frontend"
+  - path: "apps/web/src/features/candidates/CandidateUi.tsx"
+    role: "frontend"
   - path: "apps/web/src/features/candidates/useCandidateEditor.ts"
     role: "frontend"
   - path: "apps/web/src/features/screening/ScreeningPage.tsx"
@@ -23,6 +25,8 @@ code_references:
     role: "frontend"
   - path: "apps/web/src/generated/api-types.ts"
     role: "generated"
+  - path: "apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx"
+    role: "frontend"
   - path: "backend/src/material_workbench/api/security.py"
     role: "api"
   - path: "backend/src/material_workbench/application/decision_activities.py"
@@ -99,6 +103,8 @@ code_references:
     role: "test"
   - path: "backend/tests/test_openapi_contract.py"
     role: "test"
+  - path: "docs/decisions/calibrated-decision-support.md"
+    role: "docs"
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
   - path: "e2e/decision-activity.spec.ts"
@@ -125,6 +131,7 @@ code_references:
 |---|---|---|---|
 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) | [契約](glossary.qmd#concept-contract) | [Application Service](glossary.qmd#concept-application-service)、[契約test](glossary.qmd#concept-contract-test)、[検討Activity](glossary.qmd#concept-decision-activity)、[判別可能union](glossary.qmd#concept-discriminated-union)、[生成成果物](glossary.qmd#concept-generated-artifact)、[Registry](glossary.qmd#concept-registry)、[型付きerror](glossary.qmd#concept-typed-error) | [較正](glossary.qmd#concept-calibration)、[条件変更案](glossary.qmd#concept-counterfactual)、[E2E test](glossary.qmd#concept-end-to-end-test)、[外挿](glossary.qmd#concept-extrapolation)、[統合test](glossary.qmd#concept-integration-test)、[navigation state](glossary.qmd#concept-navigation-state)、[予測要約](glossary.qmd#concept-predictive-summary)、[来歴](glossary.qmd#concept-provenance)、[入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[Runtime Capability](glossary.qmd#concept-runtime-capability)、[古い応答](glossary.qmd#concept-stale-response)、[学習dataによる裏付け](glossary.qmd#concept-support) |
 | [演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd) | [Application Service](glossary.qmd#concept-application-service)、[契約](glossary.qmd#concept-contract)、[判別可能union](glossary.qmd#concept-discriminated-union)、[生成成果物](glossary.qmd#concept-generated-artifact) | なし | [契約test](glossary.qmd#concept-contract-test)、[検討Activity](glossary.qmd#concept-decision-activity)、[型付きerror](glossary.qmd#concept-typed-error) |
+| [予測と判断のあいだを設計する](chapters/decision-safety.qmd) | [予測要約](glossary.qmd#concept-predictive-summary)、[学習dataによる裏付け](glossary.qmd#concept-support)、[Objective Definition](glossary.qmd#concept-objective-definition)、[検討Activity](glossary.qmd#concept-decision-activity) | [判断面](glossary.qmd#concept-decision-surface)、[証拠状態](glossary.qmd#concept-evidence-state)、[行動可能な警告](glossary.qmd#concept-actionable-warning)、[明示的採用境界](glossary.qmd#concept-explicit-adoption) | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[条件変更案](glossary.qmd#concept-counterfactual)、[探索目的](glossary.qmd#concept-screening-purpose)、[外挿](glossary.qmd#concept-extrapolation) |
 | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) | [契約](glossary.qmd#concept-contract)、[来歴](glossary.qmd#concept-provenance) | [Active Package](glossary.qmd#concept-active-package)、[正規入力](glossary.qmd#concept-canonical-input)、[Curation Recipe](glossary.qmd#concept-curation-recipe)、[Dataset Profile](glossary.qmd#concept-dataset-profile)、[Feature Pipeline](glossary.qmd#concept-feature-pipeline)、[データ漏洩](glossary.qmd#concept-leakage)、[Model Package](glossary.qmd#concept-model-package)、[隔離](glossary.qmd#concept-quarantine)、[Raw Source Snapshot](glossary.qmd#concept-raw-source-snapshot)、[分割group](glossary.qmd#concept-split-group)、[目的変数利用可否](glossary.qmd#concept-target-eligibility)、[学習cohort](glossary.qmd#concept-training-cohort)、[Training Snapshot](glossary.qmd#concept-training-snapshot) | [Application Service](glossary.qmd#concept-application-service)、[byte digest](glossary.qmd#concept-byte-digest)、[Repository](glossary.qmd#concept-repository)、[意味表現digest](glossary.qmd#concept-semantic-digest) |
 | [演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd) | [Curation Recipe](glossary.qmd#concept-curation-recipe)、[Dataset Profile](glossary.qmd#concept-dataset-profile)、[来歴](glossary.qmd#concept-provenance)、[目的変数利用可否](glossary.qmd#concept-target-eligibility)、[Training Snapshot](glossary.qmd#concept-training-snapshot) | なし | [隔離](glossary.qmd#concept-quarantine)、[Repository](glossary.qmd#concept-repository)、[学習cohort](glossary.qmd#concept-training-cohort) |
 | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) | [契約](glossary.qmd#concept-contract)、[来歴](glossary.qmd#concept-provenance) | [編集中state](glossary.qmd#concept-draft-state)、[不変な判断証拠](glossary.qmd#concept-immutable-evidence)、[論理identity](glossary.qmd#concept-logical-identity)、[楽観的並行制御](glossary.qmd#concept-optimistic-concurrency)、[request連番](glossary.qmd#concept-request-sequence)、[リビジョン](glossary.qmd#concept-revision)、[意味表現digest](glossary.qmd#concept-semantic-digest)、[server state](glossary.qmd#concept-server-state)、[スナップショット](glossary.qmd#concept-snapshot)、[古い応答](glossary.qmd#concept-stale-response) | [byte digest](glossary.qmd#concept-byte-digest) |
@@ -182,12 +189,12 @@ code_references:
 | [学習dataによる裏付け](glossary.qmd#concept-support) | [外挿](glossary.qmd#concept-extrapolation) | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
 | [Model Package](glossary.qmd#concept-model-package) | [Active Package](glossary.qmd#concept-active-package) | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
 | [正規入力](glossary.qmd#concept-canonical-input) | [Project Design Space](glossary.qmd#concept-design-space) | 未配置 |
-| [Project Design Space](glossary.qmd#concept-design-space) | [Objective Definition](glossary.qmd#concept-objective-definition) | 未配置 |
+| [Project Design Space](glossary.qmd#concept-design-space) | [Objective Definition](glossary.qmd#concept-objective-definition) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 | [Project Design Space](glossary.qmd#concept-design-space) | [候補生成器](glossary.qmd#concept-candidate-generator) | 未配置 |
 | [Registry](glossary.qmd#concept-registry) | [候補生成器](glossary.qmd#concept-candidate-generator) | 未配置 |
 | [Objective Definition](glossary.qmd#concept-objective-definition) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
 | [予測要約](glossary.qmd#concept-predictive-summary) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
-| [Project Design Space](glossary.qmd#concept-design-space) | [探索目的](glossary.qmd#concept-screening-purpose) | 未配置 |
+| [Project Design Space](glossary.qmd#concept-design-space) | [探索目的](glossary.qmd#concept-screening-purpose) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | [batch選択器](glossary.qmd#concept-batch-selector) | 未配置 |
 | [Objective Definition](glossary.qmd#concept-objective-definition) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
 | [スナップショット](glossary.qmd#concept-snapshot) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
@@ -236,6 +243,13 @@ code_references:
 | [Workspace bundle](glossary.qmd#concept-workspace-bundle) | [段階的restore](glossary.qmd#concept-staged-restore) | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
 | [migration smoke](glossary.qmd#concept-migration-smoke) | [段階的restore](glossary.qmd#concept-staged-restore) | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
 | [段階的restore](glossary.qmd#concept-staged-restore) | [復旧journal](glossary.qmd#concept-recovery-journal) | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
+| [予測要約](glossary.qmd#concept-predictive-summary) | [判断面](glossary.qmd#concept-decision-surface) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [学習dataによる裏付け](glossary.qmd#concept-support) | [判断面](glossary.qmd#concept-decision-surface) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [Objective Definition](glossary.qmd#concept-objective-definition) | [判断面](glossary.qmd#concept-decision-surface) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [契約](glossary.qmd#concept-contract) | [証拠状態](glossary.qmd#concept-evidence-state) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [証拠状態](glossary.qmd#concept-evidence-state) | [行動可能な警告](glossary.qmd#concept-actionable-warning) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [検討Activity](glossary.qmd#concept-decision-activity) | [明示的採用境界](glossary.qmd#concept-explicit-adoption) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [スナップショット](glossary.qmd#concept-snapshot) | [明示的採用境界](glossary.qmd#concept-explicit-adoption) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 
 ## 比較して理解する関係
 
@@ -361,12 +375,25 @@ code_references:
 | [段階的restore](glossary.qmd#concept-staged-restore) | 関連する | [復旧journal](glossary.qmd#concept-recovery-journal) |
 | [復旧journal](glossary.qmd#concept-recovery-journal) | 関連する | [配布物smoke](glossary.qmd#concept-packaged-smoke) |
 | [復旧journal](glossary.qmd#concept-recovery-journal) | 同じではない | [不変な判断証拠](glossary.qmd#concept-immutable-evidence) |
+| [判断面](glossary.qmd#concept-decision-surface) | 関連する | [検討Activity](glossary.qmd#concept-decision-activity) |
+| [判断面](glossary.qmd#concept-decision-surface) | 関連する | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness) |
+| [判断面](glossary.qmd#concept-decision-surface) | 関連する | [条件変更案](glossary.qmd#concept-counterfactual) |
+| [判断面](glossary.qmd#concept-decision-surface) | 同じではない | [予測要約](glossary.qmd#concept-predictive-summary) |
+| [証拠状態](glossary.qmd#concept-evidence-state) | 関連する | [古い応答](glossary.qmd#concept-stale-response) |
+| [証拠状態](glossary.qmd#concept-evidence-state) | 関連する | [判断面](glossary.qmd#concept-decision-surface) |
+| [証拠状態](glossary.qmd#concept-evidence-state) | 同じではない | [古い応答](glossary.qmd#concept-stale-response) |
+| [行動可能な警告](glossary.qmd#concept-actionable-warning) | 関連する | [判断面](glossary.qmd#concept-decision-surface) |
+| [行動可能な警告](glossary.qmd#concept-actionable-warning) | 同じではない | [証拠状態](glossary.qmd#concept-evidence-state) |
+| [明示的採用境界](glossary.qmd#concept-explicit-adoption) | 関連する | [条件変更案](glossary.qmd#concept-counterfactual) |
+| [明示的採用境界](glossary.qmd#concept-explicit-adoption) | 関連する | [不変な判断証拠](glossary.qmd#concept-immutable-evidence) |
+| [明示的採用境界](glossary.qmd#concept-explicit-adoption) | 関連する | [判断面](glossary.qmd#concept-decision-surface) |
+| [明示的採用境界](glossary.qmd#concept-explicit-adoption) | 同じではない | [検討Activity](glossary.qmd#concept-decision-activity) |
 
 ## 状態を混ぜない
 
 | 状態 | 件数 | 読み方 |
 |---|---:|---|
-| 現行 | 67 | verified commitの実装または契約へリンクする |
+| 現行 | 71 | verified commitの実装または契約へリンクする |
 | 将来候補 | 2 | 未実装の候補として読み、現行機能へ格上げしない |
 | 履歴 | 1 | 過去の案または不採用判断として読む |
 
