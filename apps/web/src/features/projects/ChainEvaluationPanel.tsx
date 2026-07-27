@@ -1,7 +1,9 @@
 import type { ApiChainEvaluation } from "../../shared/api/workbench-api";
+import { chainEvaluationPresentation } from "./chainEvaluationPresentation";
 
 type Props = {
   evaluation: ApiChainEvaluation;
+  stagePath: string;
 };
 
 const familyLabels: Record<string, string> = {
@@ -14,8 +16,9 @@ const metric = (value: number) => value.toLocaleString("ja-JP", {
   maximumFractionDigits: Math.abs(value) < 0.1 ? 4 : 2,
 });
 
-export function ChainEvaluationPanel({ evaluation }: Props) {
+export function ChainEvaluationPanel({ evaluation, stagePath }: Props) {
   const { report } = evaluation;
+  const presentation = chainEvaluationPresentation(evaluation, stagePath);
   return <section className="chain-evaluation-panel" aria-labelledby="chain-evaluation-title">
     <header className="chain-evaluation-header">
       <div>
@@ -28,12 +31,12 @@ export function ChainEvaluationPanel({ evaluation }: Props) {
     </header>
     <div className="chain-evaluation-kinds">
       <div>
-        <strong>段単体</strong>
-        <span>実測した溶着金属成分を C へ入力</span>
+        <strong>{presentation.stageOnlyLabel}</strong>
+        <span>{presentation.stageOnlyDescription}</span>
       </div>
       <div>
-        <strong>通し A → B → C</strong>
-        <span>学習側は inner OOF、評価側は outer-train の B 予測を入力</span>
+        <strong>{presentation.endToEndLabel}</strong>
+        <span>学習側はinner OOF、評価側はouter-trainだけで作った上流予測を入力</span>
       </div>
     </div>
     <div className="chain-evaluation-table-wrap">

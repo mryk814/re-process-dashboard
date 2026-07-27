@@ -63,3 +63,98 @@ test("broken Chain evaluation is isolated and explained without hiding Projects"
   await expectNoBlockingAxeViolations(page, "Chain unavailable");
   expect(failedApiResponses).toEqual([]);
 });
+
+test("a direct Chain deep link waits for templates and availability before loading Chain data", async ({
+  page,
+  request,
+}) => {
+  const projectsResponse = await request.get(`${apiBase}/api/projects`);
+  const project = (await projectsResponse.json()).find(
+    (item: { name: string }) => item.name === "保存済み証跡を確認するChain",
+  );
+  if (!project) throw new Error("Chain E2E Project was not seeded.");
+  const prematureChainRequests: string[] = [];
+  let releaseCatalogs!: () => void;
+  const catalogsReleased = new Promise<void>((resolve) => {
+    releaseCatalogs = resolve;
+  });
+  await page.route("**/api/subsystem-availability", async (route) => {
+    await catalogsReleased;
+    await route.continue();
+  });
+  await page.route("**/api/chains", async (route) => {
+    await catalogsReleased;
+    await route.continue();
+  });
+  page.on("request", (browserRequest) => {
+    const url = browserRequest.url();
+    if (
+      url.includes(`/api/projects/${project.id}/chain/`)
+      && !url.endsWith("/chain/evaluation")
+    ) {
+      prematureChainRequests.push(url);
+    }
+  });
+
+  await page.goto(`/?view=project&project=${encodeURIComponent(project.id)}`);
+  await expect(page.getByText("Chainの利用状況を確認しています", {
+    exact: true,
+  })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Chain候補を開く/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "このプロジェクトの続き" })).toBeDisabled();
+
+  await page.goto(`/?view=candidates&project=${encodeURIComponent(project.id)}`);
+  await expect(page.getByRole("heading", {
+    name: "候補を読み込んでいます",
+  })).toBeVisible();
+  await page.waitForTimeout(250);
+  expect(prematureChainRequests).toEqual([]);
+
+  releaseCatalogs();
+  await expect(page.getByRole("region", { name: "Chain候補作業面" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "全Stageを固定" })).toBeDisabled();
+});
+
+test("a failed availability catalog blocks a direct Chain deep link", async ({
+  page,
+  request,
+}) => {
+  const projectsResponse = await request.get(`${apiBase}/api/projects`);
+  const project = (await projectsResponse.json()).find(
+    (item: { name: string }) => item.name === "保存済み証跡を確認するChain",
+  );
+  if (!project) throw new Error("Chain E2E Project was not seeded.");
+  const chainRequests: string[] = [];
+  await page.route("**/api/subsystem-availability", (route) => route.fulfill({
+    status: 503,
+    contentType: "application/json",
+    body: JSON.stringify({ detail: "availability catalog unavailable" }),
+  }));
+  page.on("request", (browserRequest) => {
+    const url = browserRequest.url();
+    if (url.includes(`/api/projects/${project.id}/chain/`)) {
+      chainRequests.push(url);
+    }
+  });
+
+  await page.goto(`/?view=project&project=${encodeURIComponent(project.id)}`);
+  await expect(page.getByText("Chainの利用状況を取得できません", {
+    exact: true,
+  })).toBeVisible();
+  await expect(page.getByText(
+    "Chain評価の利用状況を取得できません",
+  )).toBeVisible();
+  await expect(page.getByRole("button", { name: /Chain候補を開く/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "このプロジェクトの続き" })).toBeDisabled();
+
+  await page.goto(`/?view=candidates&project=${encodeURIComponent(project.id)}`);
+  await expect(page.getByRole("heading", {
+    name: "候補を表示できません",
+  })).toBeVisible();
+  await expect(page.getByText(
+    "Chainの利用状況を取得できませんでした。再読み込みしてから操作してください。",
+  )).toBeVisible();
+  await expect(page.getByText(/FastAPI を/)).toHaveCount(0);
+  await page.waitForTimeout(250);
+  expect(chainRequests).toEqual([]);
+});

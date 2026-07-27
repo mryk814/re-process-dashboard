@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
-import { chainAvailability, chainStagePath, ProjectHub, resolveFixedChain } from "../features/projects";
+import {
+  chainStagePath,
+  projectScientificSettingsReadOnly,
+  ProjectHub,
+  resolveActiveChainContext,
+  resolveFixedChain,
+} from "../features/projects";
 import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
@@ -139,7 +145,9 @@ function App() {
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
+  const [subsystemAvailabilityError, setSubsystemAvailabilityError] = useState(false);
   const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
+  const [chainTemplatesLoaded, setChainTemplatesLoaded] = useState(false);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
   const navigationRef = useRef(navigation);
@@ -199,13 +207,18 @@ function App() {
   const chainIdentity = activeProject?.scientific_identity?.identity_kind === "chain"
     ? activeProject.scientific_identity
     : null;
-  const activeChainRevision = resolveFixedChain(chainIdentity, chainTemplates).revision;
-  const activeChainId = activeChainRevision?.chain_id;
-  const activeChainAvailability = chainAvailability(
-    subsystemAvailability,
-    activeChainId,
-    "chain",
-  );
+  const activeChainContext = resolveActiveChainContext({
+    identity: chainIdentity,
+    templates: chainTemplates,
+    templatesLoaded: chainTemplatesLoaded,
+    availability: subsystemAvailability,
+    availabilityLoaded: subsystemAvailabilityLoaded,
+    availabilityError: subsystemAvailabilityError,
+    offline: apiState === "offline",
+  });
+  const activeChainRevision = "revision" in activeChainContext
+    ? activeChainContext.revision
+    : resolveFixedChain(chainIdentity, chainTemplates).revision;
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
     && !chainProject
@@ -298,21 +311,31 @@ function App() {
     if (apiState === "offline") return;
     let active = true;
     setSubsystemAvailabilityLoaded(false);
+    setSubsystemAvailabilityError(false);
+    setChainTemplatesLoaded(false);
     void workbenchApi.listSubsystemAvailability().then((items) => {
       if (active) {
         setSubsystemAvailability(items);
+        setSubsystemAvailabilityError(false);
         setSubsystemAvailabilityLoaded(true);
       }
     }).catch(() => {
       if (active) {
         setSubsystemAvailability([]);
+        setSubsystemAvailabilityError(true);
         setSubsystemAvailabilityLoaded(true);
       }
     });
     void workbenchApi.listChainTemplates().then((items) => {
-      if (active) setChainTemplates(items);
+      if (active) {
+        setChainTemplates(items);
+        setChainTemplatesLoaded(true);
+      }
     }).catch(() => {
-      if (active) setChainTemplates([]);
+      if (active) {
+        setChainTemplates([]);
+        setChainTemplatesLoaded(true);
+      }
     });
     return () => { active = false; };
   }, [apiState]);
@@ -431,6 +454,7 @@ function App() {
             taskAvailability={taskAvailability}
             subsystemAvailability={subsystemAvailability}
             subsystemAvailabilityLoaded={subsystemAvailabilityLoaded}
+            subsystemAvailabilityError={subsystemAvailabilityError}
             offline={apiState === "offline"}
             onProjectChanged={(project) => {
               void session.refreshProjectDefinition(project);
@@ -458,11 +482,11 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedSettingsSection={navigation.projectSettings}
-            renderScientificSettings={(project, handleProjectChanged) => <ProjectScopedSettings
+            renderScientificSettings={(project, handleProjectChanged, readOnly) => <ProjectScopedSettings
               project={project}
               taskDefinition={taskDefinition}
               resolvedTaskDefinition={resolvedTaskDefinition}
-              readOnly={taskUnavailable}
+              readOnly={projectScientificSettingsReadOnly(taskUnavailable, readOnly)}
               initialSection={navigation.projectSettings === "display" || navigation.projectSettings === "task"
                 ? navigation.projectSettings
                 : "ranges"}
@@ -518,12 +542,37 @@ function App() {
             onOpenStorage={() => setWorkspaceDialogOpen(true)}
           />
         )}
-        {tab === "candidates" && chainProject && (
+        {tab === "candidates" && chainProject
+          && (activeChainContext.status === "loading"
+            || activeChainContext.status === "unresolved") && (
+          <WorkbenchEmptyState
+            loading={activeChainContext.status === "loading"}
+            error={activeChainContext.status === "unresolved"
+              ? `固定したChain Revisionを解決できません（${activeChainContext.chainRevisionId}）。`
+              : null}
+            onCreate={() => undefined}
+          />
+        )}
+        {tab === "candidates" && chainProject
+          && (activeChainContext.status === "offline"
+            || activeChainContext.status === "error") && (
+          <WorkbenchEmptyState
+            loading={false}
+            error={activeChainContext.status === "offline"
+              ? "APIへ接続できないため、固定したChain Revisionの利用状況を確認できません。"
+              : "Chainの利用状況を取得できませんでした。再読み込みしてから操作してください。"}
+            errorHint={activeChainContext.status === "error" ? null : undefined}
+            onCreate={() => undefined}
+          />
+        )}
+        {tab === "candidates" && chainProject
+          && (activeChainContext.status === "available"
+            || activeChainContext.status === "unavailable") && (
           <ChainWorkbenchPage
             projectId={activeProjectId}
             initialCandidateId={navigation.candidateId}
-            unavailable={activeChainAvailability?.status === "unavailable"
-              ? activeChainAvailability
+            unavailable={activeChainContext.status === "unavailable"
+              ? activeChainContext.availability
               : undefined}
             displayDecimalOverrides={activeProject?.display_decimals}
             onCandidateSelected={(candidateId) => navigate({

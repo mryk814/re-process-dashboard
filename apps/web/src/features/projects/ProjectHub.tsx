@@ -1,9 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { provenanceLabel } from "../../shared/candidateProvenance";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
-import { assessOutputValues, assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
+import { assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
-import { ModelPackageDecisionCard } from "../../shared/ui/ModelPackageDecisionCard";
 import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import { formatNumberAtDecimals, formatTaskNumber, orderedTaskEntries } from "../../shared/taskPresentation";
 import {
@@ -39,8 +37,14 @@ import {
 import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
 import { candidateQuestionActions, candidateQuestionState, type CandidateSection } from "../../shared/projectActionQuestions";
-import { ProjectEvidenceHistory } from "./ProjectEvidenceHistory";
+import { ProjectEvidenceHistoryList } from "./ProjectEvidenceHistory";
 import { ProjectCreationPanel } from "./ProjectCreationPanel";
+import { ProjectSettingsPanel } from "./ProjectSettingsPanel";
+import {
+  isCurrentProjectSettingsRequest,
+  projectGroupMembershipState,
+  ungroupedMembershipValue,
+} from "./projectSettingsState";
 import { useProjectHistory } from "./useProjectHistory";
 
 type Props = {
@@ -54,6 +58,7 @@ type Props = {
   taskAvailability?: ResolvedTaskDefinition["availability"];
   subsystemAvailability: ApiSubsystemAvailability[];
   subsystemAvailabilityLoaded: boolean;
+  subsystemAvailabilityError: boolean;
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
@@ -61,6 +66,7 @@ type Props = {
   renderScientificSettings?: (
     project: ApiProject,
     onProjectChanged: (project: ApiProject) => void,
+    readOnly: boolean,
   ) => ReactNode;
   onProjectChanged: (project: ApiProject) => void;
   onProjectArchived: (projectId: string) => Promise<boolean>;
@@ -110,9 +116,7 @@ function unresolvedReferenceLabel(kind: string, identifier: string | null | unde
 
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
-const defaultGoalLabel = (direction: "at_least" | "at_most" | "target") => direction === "at_most" ? "以下" : direction === "target" ? "目標値付近" : "以上";
 // 所属変更のselectでは、未選択（空文字）と「グループなしへ移動」を別の値で持つ。
-const ungroupedMembershipValue = "__ungrouped__";
 type ChainStage = ApiChainSnapshot["stages"][number];
 type ChainOutputDefinition = ChainStage["output_definitions"][number];
 type ChainPrediction = {
@@ -164,6 +168,7 @@ export function ProjectHub({
   taskAvailability,
   subsystemAvailability,
   subsystemAvailabilityLoaded,
+  subsystemAvailabilityError,
   offline,
   requestedSnapshotId,
   requestedDatasetViewId,
@@ -194,6 +199,8 @@ export function ProjectHub({
     useState<ApiChainSnapshot | null>(null);
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPending, setSettingsPending] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
@@ -250,6 +257,12 @@ export function ProjectHub({
     fixedChainId,
     "chain_evaluation",
   );
+  const chainOperationsUnavailable = Boolean(chainIdentity) && (
+    !subsystemAvailabilityLoaded
+    || subsystemAvailabilityError
+    || !fixedChainRevision
+    || chainSubsystem?.status === "unavailable"
+  );
   const fixedStagePath = chainStagePath(fixedChainRevision);
   const effectiveTaskDefinition = taskDefinition
     ?? chainTaskDefinition?.task_definition
@@ -276,6 +289,8 @@ export function ProjectHub({
     setProject(selected);
     setError("");
     setArchiveOpen(false);
+    setSettingsPending(false);
+    setSettingsError("");
     setDecisionNote("");
     decisionDraftRef.current = { key: "", dirty: false };
   }, [projects, activeProjectId]);
@@ -527,9 +542,14 @@ export function ProjectHub({
     ? projects.filter((item) => item.project_series_id === project.project_series_id).length
     : 0;
   const showActiveSeriesMembership = Boolean(fixedSeries && fixedSeriesProjectCount > 1);
-  const membershipTargetSeriesId = groupMembershipId === ungroupedMembershipValue ? null : groupMembershipId;
-  const membershipChanged = Boolean(groupMembershipId) && membershipTargetSeriesId !== (project?.project_series_id ?? null);
-  const membershipEmptiesFixedSeries = membershipChanged && Boolean(fixedSeries) && fixedSeriesProjectCount === 1;
+  const membershipState = projectGroupMembershipState({
+    selectedSeriesId: groupMembershipId,
+    currentSeriesId: project?.project_series_id ?? null,
+    currentSeriesProjectCount: fixedSeriesProjectCount,
+  });
+  const membershipTargetSeriesId = membershipState.targetSeriesId;
+  const membershipChanged = membershipState.changed;
+  const membershipEmptiesFixedSeries = membershipState.emptiesCurrentSeries;
   const activeProjectSeries = useMemo(() => {
     const usedSeriesIds = new Set(projects.map((item) => item.project_series_id).filter(Boolean));
     return (creationOptions?.project_series ?? []).filter((item) => usedSeriesIds.has(item.id));
@@ -649,9 +669,11 @@ export function ProjectHub({
   }, [activeProjectId, requestedSettingsSection]);
 
   async function saveProject() {
-    if (!project) return;
+    if (!project || settingsPending) return;
     const requestProjectId = activeProjectId;
     if (project.id !== requestProjectId || activeProjectRef.current !== requestProjectId) return;
+    setSettingsPending(true);
+    setSettingsError("");
     try {
       const saved = await workbenchApi.updateProject(requestProjectId, project);
       if (activeProjectRef.current !== requestProjectId) return;
@@ -659,28 +681,41 @@ export function ProjectHub({
       onProjectChanged(saved);
       setSettingsOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "プロジェクトを保存できませんでした。");
+      if (activeProjectRef.current === requestProjectId) {
+        setSettingsError(cause instanceof Error ? cause.message : "プロジェクトを保存できませんでした。");
+      }
+    } finally {
+      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
     }
   }
 
   async function saveSeriesName() {
     const trimmedSeriesName = seriesName.trim();
-    if (!fixedSeries || !trimmedSeriesName) return;
+    if (!fixedSeries || !trimmedSeriesName || settingsPending) return;
+    const requestProjectId = activeProjectId;
+    setSettingsPending(true);
+    setSettingsError("");
     try {
       const savedSeries = await workbenchApi.updateProjectSeries(fixedSeries.id, trimmedSeriesName, fixedSeries.description);
+      if (activeProjectRef.current !== requestProjectId) return;
       setCreationOptions((current) => current ? {
         ...current,
         project_series: current.project_series.map((item) => item.id === savedSeries.id ? savedSeries : item),
       } : current);
-      setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "検討グループ名を保存できませんでした。");
+      if (activeProjectRef.current === requestProjectId) {
+        setSettingsError(cause instanceof Error ? cause.message : "検討グループ名を保存できませんでした。");
+      }
+    } finally {
+      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
     }
   }
 
   async function moveProjectToGroup() {
-    if (!project || !membershipChanged) return;
+    if (!project || !membershipChanged || settingsPending) return;
     const requestProjectId = project.id;
+    setSettingsPending(true);
+    setSettingsError("");
     try {
       const moved = await workbenchApi.moveProjectToGroup(requestProjectId, {
         project_series_id: membershipTargetSeriesId,
@@ -690,7 +725,6 @@ export function ProjectHub({
       setProject(moved);
       setGroupMembershipId(moved.project_series_id ?? "");
       onProjectChanged(moved);
-      setError("");
       try {
         const refreshedOptions = await workbenchApi.projectCreationOptions();
         if (activeProjectRef.current !== requestProjectId) return;
@@ -699,11 +733,17 @@ export function ProjectHub({
           refreshedOptions.project_series.find((item) => item.id === moved.project_series_id)?.name ?? "",
         );
       } catch {
-        setError("所属は変更しましたが、グループ一覧を更新できませんでした。");
+        if (isCurrentProjectSettingsRequest(requestProjectId, activeProjectRef.current)) {
+          setSettingsError("所属は変更しましたが、グループ一覧を更新できませんでした。");
+        }
       }
     } catch (cause) {
-      setGroupMembershipId(project.project_series_id ?? "");
-      setError(cause instanceof Error ? cause.message : "所属グループを変更できませんでした。");
+      if (isCurrentProjectSettingsRequest(requestProjectId, activeProjectRef.current)) {
+        setGroupMembershipId(project.project_series_id ?? "");
+        setSettingsError(cause instanceof Error ? cause.message : "所属グループを変更できませんでした。");
+      }
+    } finally {
+      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
     }
   }
 
@@ -908,7 +948,11 @@ export function ProjectHub({
 
   const continueCurrentProject = () => {
     if (!project) return;
-    if (chainIdentity && fixedChainRevision) {
+    if (chainIdentity) {
+      if (chainOperationsUnavailable || !fixedChainRevision) {
+        setError("Chain Revisionの参照と利用状況を確認できるまで、続きは作成できません。");
+        return;
+      }
       const datasetViewId = fixedChainRevision.stages.find(
         (stage) => stage.dataset_view_revision_id,
       )?.dataset_view_revision_id;
@@ -1070,8 +1114,22 @@ export function ProjectHub({
             <p>{project?.purpose || project?.description || "検討の入口、候補比較、判断時点の記録をここからたどれます。"}</p>
           </div>
           <div className="project-actions">
-            <button className="outline-button" disabled={taskUnavailable || offline} onClick={continueCurrentProject}>このプロジェクトの続き</button>
-            <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => setSettingsOpen((value) => !value)}>設定を編集</button>
+            <button
+              className="outline-button"
+              disabled={offline
+                || taskUnavailable
+                || chainOperationsUnavailable}
+              onClick={continueCurrentProject}
+            >このプロジェクトの続き</button>
+            <button
+              className="outline-button"
+              disabled={projectOperationDisabled({
+                operation: "metadata",
+                offline,
+                pending: settingsPending,
+              })}
+              onClick={() => setSettingsOpen((value) => !value)}
+            >設定を編集</button>
           </div>
         </div>
       {project?.starter && <section className="starter-project-notice" aria-label="同梱サンプルの案内">
@@ -1094,6 +1152,21 @@ export function ProjectHub({
           <span>{chainSubsystem.impact}</span>
           <small>原因: {chainSubsystem.cause}</small>
           <small>復旧: {chainSubsystem.recovery_hint}</small>
+        </section>
+      )}
+      {chainIdentity && subsystemAvailabilityError && (
+        <section className="task-unavailable-banner" role="alert">
+          <strong>Chainの利用状況を取得できません</strong>
+          <span>利用可否を確認できないため、Chainの実行と続きの作成を停止しています。</span>
+          <small>API接続を確認して再読み込みしてください。</small>
+        </section>
+      )}
+      {chainIdentity
+        && (!subsystemAvailabilityLoaded || !fixedChainRevision)
+        && !subsystemAvailabilityError && (
+        <section className="task-unavailable-banner" role="status">
+          <strong>Chainの利用状況を確認しています</strong>
+          <span>利用可否が確定するまで、Chainの実行と続きの作成を停止しています。</span>
         </section>
       )}
       {error && <p className="panel-error" role="alert">{error}</p>}
@@ -1122,7 +1195,12 @@ export function ProjectHub({
           ]} />
         </section>)}
       {chainIdentity && (
-        chainEvaluationSubsystem?.status === "unavailable"
+        subsystemAvailabilityError
+          ? <section className="chain-evaluation-panel unavailable" role="alert">
+            <strong>Chain評価の利用状況を取得できません</strong>
+            <p>評価APIは呼び出していません。利用可否の取得後に再読み込みしてください。</p>
+          </section>
+          : chainEvaluationSubsystem?.status === "unavailable"
           ? <section className="chain-evaluation-panel unavailable" role="status">
             <strong>{chainEvaluationSubsystem.message}</strong>
             <p>{chainEvaluationSubsystem.impact}</p>
@@ -1130,7 +1208,7 @@ export function ProjectHub({
             <small>復旧: {chainEvaluationSubsystem.recovery_hint}</small>
           </section>
           : chainEvaluation?.projectId === activeProjectId
-            ? <ChainEvaluationPanel evaluation={chainEvaluation.value} />
+            ? <ChainEvaluationPanel evaluation={chainEvaluation.value} stagePath={fixedStagePath} />
             : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>
       )}
       {project && configurableOutputs.length > 0 && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
@@ -1147,86 +1225,210 @@ export function ProjectHub({
       <ProjectCreationPanel
         open={createOpen}
         loading={creating}
+        disabled={offline}
         error={creationError}
+        projectNameInputRef={projectNameInputRef}
+        projectName={newProjectName}
+        datasetViewId={newDatasetViewId}
+        predictionConfiguration={createMode === "copy"
+          ? `task:${copyTaskId ?? ""}`
+          : newChainId
+            ? `chain:${newChainId}`
+            : newTaskId
+              ? `task:${newTaskId}`
+              : ""}
+        chainId={newChainId}
+        chainRevisionId={newChainRevisionId}
+        modelPackageRefId={newModelPackageRefId}
+        mode={createMode}
+        groupChoice={newProjectGroupChoice}
+        projectSeriesId={newProjectSeriesId}
+        projectSeriesName={newProjectSeriesName}
+        showContinuationReason={Boolean(predecessorProjectId)}
+        continuationReason={continuationReason}
+        copyTaskId={copyTaskId}
+        copyDisabled={Boolean(newChainId) || taskUnavailable || !candidate || Boolean(predecessorProjectId)}
+        copyDescription={newChainId
+          ? "Chain Projectは空から開始します"
+          : taskUnavailable
+            ? "利用停止中のタスクからはコピーできません"
+            : candidate
+              ? `${candidate.label}（編集版 ${candidate.raw.revision}）`
+              : "コピーできる候補がありません"}
+        usedDatasetChoices={usedDatasetChoices}
+        unusedDatasetChoices={unusedDatasetChoices}
+        predictionConfigurationChoices={[
+          ...catalog.filter((item) => availableTaskIds.includes(
+            item.definition.task_definition.id,
+          )).map((item) => ({
+            id: `task:${item.definition.task_definition.id}`,
+            label: `${item.definition.task_definition.label}（単一Task）`,
+          })),
+          ...availableChains.map((item) => ({
+            id: `chain:${item.definition.chain_id}`,
+            label: `${item.definition.label}（Chain）`,
+          })),
+        ]}
+        chainRevisionChoices={(selectedChain?.revisions ?? []).map((revision) => ({
+          id: `${revision.chain_id}:r${revision.revision}`,
+          label: `r${revision.revision} · ${revision.stages.map(
+            (stage) => stage.stage_id,
+          ).join(" → ")}`,
+        }))}
+        modelPackageChoices={availablePackages.map((item) => ({
+          id: item.id,
+          label: availablePackageNames.get(item.id) ?? item.id,
+        }))}
+        activeProjectSeries={activeProjectSeries.map((series) => ({
+          id: series.id,
+          label: series.name,
+        }))}
+        modelPackage={selectedPackage}
+        bindingSummary={{
+          dataset: {
+            label: selectedDatasetChoice
+              ? `${selectedDatasetChoice.purposeLabel} — ${selectedDatasetChoice.sourceLabel}`
+              : "選択してください",
+            detail: selectedDatasetEvidence,
+            detailTitle: selectedDatasetChoice?.projectNames.join("、") || undefined,
+          },
+          prediction: {
+            label: newChainId
+              ? selectedChain?.definition.label ?? "選択してください"
+              : taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください"),
+            detail: newChainId
+              ? "再利用可能なStageをbindingで接続"
+              : "Projectの予測目的",
+          },
+          package: {
+            label: newChainId
+              ? selectedChainRevision
+                ? `r${selectedChainRevision.revision}`
+                : "選択してください"
+              : selectedPackage
+                ? modelPackageDisplayName(selectedPackage)
+                : "選択してください",
+            detail: newChainId
+              ? selectedChainRevision
+                ? selectedChainRevision.stages.map(
+                  (stage) => `${stage.stage_id}:${stage.package_manifest_digest.slice(7, 15)}`,
+                ).join(" · ")
+                : "Revisionを選択してください"
+              : `学習元: ${selectedPackage
+                ? selectedTrainingDataset
+                  ? datasetDisplayName(selectedTrainingDataset)
+                  : "未登録または記録なし"
+                : "Model Packageを選択してください"}`,
+          },
+          group: {
+            label: newProjectGroupChoice === "none"
+              ? "グループなし"
+              : (selectedSeries?.name ?? newProjectSeriesName.trim()) || "名前を入力してください",
+            detail: newProjectGroupChoice === "none"
+              ? "単独のプロジェクトとして作成"
+              : selectedSeries
+                ? "既存グループに追加"
+                : "新しいグループを作成",
+          },
+        }}
         onClose={closeCreateProject}
-      >
-        <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
-        <div className="project-binding-flow">
-          <label className="project-dataset-choice"><b aria-hidden="true">1</b><span>Dataset</span><select disabled={createMode === "copy"} value={newDatasetViewId} onChange={(event) => { setNewDatasetViewId(event.target.value); setNewTaskId(""); setNewModelPackageRefId(""); setNewChainId(""); setNewChainRevisionId(""); }}><option value="">選択してください</option>{usedDatasetChoices.length > 0 && <optgroup label="利用中のデータ">{usedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}{unusedDatasetChoices.length > 0 && <optgroup label="未使用のデータ">{unusedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}</select><small aria-hidden="true">利用中のProject数が多い順。同数なら新しい登録順。</small></label>
-          <label><b aria-hidden="true">2</b><span>予測構成</span><select disabled={createMode === "copy" || !newDatasetViewId} value={createMode === "copy" ? `task:${copyTaskId ?? ""}` : newChainId ? `chain:${newChainId}` : newTaskId ? `task:${newTaskId}` : ""} onChange={(event) => { const [kind, id] = event.target.value.split(":", 2); setNewTaskId(kind === "task" ? id : ""); setNewModelPackageRefId(""); setNewChainId(kind === "chain" ? id : ""); setNewChainRevisionId(""); }}><option value="">{newDatasetViewId ? "選択してください" : "先にDatasetを選択"}</option>{catalog.filter((item) => availableTaskIds.includes(item.definition.task_definition.id)).map((item) => <option key={item.definition.task_definition.id} value={`task:${item.definition.task_definition.id}`}>{item.definition.task_definition.label}（単一Task）</option>)}{availableChains.map((item) => <option key={item.definition.chain_id} value={`chain:${item.definition.chain_id}`}>{item.definition.label}（Chain）</option>)}</select></label>
-          <label><b aria-hidden="true">3</b><span>{newChainId ? "Chain Revision" : "Model Package"}</span>{newChainId ? <select disabled={!newChainId} value={newChainRevisionId} onChange={(event) => setNewChainRevisionId(event.target.value)}><option value="">Revisionを選択</option>{selectedChain?.revisions.map((revision) => { const id = `${revision.chain_id}:r${revision.revision}`; return <option key={id} value={id}>r{revision.revision} · {revision.stages.map((stage) => stage.stage_id).join(" → ")}</option>; })}</select> : <select disabled={createMode === "copy" || !newTaskId} value={newModelPackageRefId} onChange={(event) => setNewModelPackageRefId(event.target.value)}><option value="">{newTaskId ? "手法を選択してください" : "先にPrediction Taskを選択"}</option>{availablePackages.map((item) => <option key={item.id} value={item.id}>{availablePackageNames.get(item.id)}</option>)}</select>}</label>
-          <fieldset className="project-group-choice">
-            <legend><b aria-hidden="true">4</b><span>検討グループ</span></legend>
-            <p>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</p>
-            <div>
-              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "none"} onChange={() => { setNewProjectGroupChoice("none"); setNewProjectSeriesId(""); setNewProjectSeriesName(""); }} />グループなし<span>既定。単独のプロジェクトとして作成</span></label>
-              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "existing"} disabled={activeProjectSeries.length === 0} onChange={() => { setNewProjectGroupChoice("existing"); setNewProjectSeriesName(""); }} />既存グループ<span>{activeProjectSeries.length ? "ほかの検討と同じまとまりに追加" : "追加できるグループがありません"}</span></label>
-              <label><input type="radio" name="project-group-choice" checked={newProjectGroupChoice === "new"} onChange={() => { setNewProjectGroupChoice("new"); setNewProjectSeriesId(""); }} />新しい検討グループ<span>名前を付けて新しいまとまりを作成</span></label>
-            </div>
-            {newProjectGroupChoice === "existing" && <label>追加する検討グループ<select value={newProjectSeriesId} onChange={(event) => setNewProjectSeriesId(event.target.value)}><option value="">選択してください</option>{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label>}
-            {newProjectGroupChoice === "new" && <label>新しい検討グループ名<input required value={newProjectSeriesName} onChange={(event) => setNewProjectSeriesName(event.target.value)} placeholder="例: 焼鈍条件の再検討" /></label>}
-          </fieldset>
-        </div>
-        {selectedPackage && !newChainId && <ModelPackageDecisionCard modelPackage={selectedPackage} />}
-        <section className="project-binding-confirmation" aria-label="作成後に固定される内容">
-          <header><strong>作成後に固定される内容</strong><span>{newChainId ? "Chain Revisionと各StageのPackage・Dataset・Profileは後から変わりません" : "Dataset・Prediction Task・Model Packageは後から変更できません"}</span></header>
-          <div><span>参照Dataset</span><strong>{selectedDatasetChoice ? `${selectedDatasetChoice.purposeLabel} — ${selectedDatasetChoice.sourceLabel}` : "選択してください"}</strong><small title={selectedDatasetChoice?.projectNames.join("、") || undefined}>{selectedDatasetEvidence}</small></div>
-          <div><span>{newChainId ? "Chain Template" : "Prediction Task"}</span><strong>{newChainId ? selectedChain?.definition.label ?? "選択してください" : taskLabels.get(selectedTaskId) ?? (selectedTaskId || "選択してください")}</strong><small>{newChainId ? "再利用可能なStageをbindingで接続" : "Projectの予測目的"}</small></div>
-          <div><span>{newChainId ? "Chain Revision" : "Model Package"}</span><strong>{newChainId ? selectedChainRevision ? `r${selectedChainRevision.revision}` : "選択してください" : selectedPackage ? modelPackageDisplayName(selectedPackage) : "選択してください"}</strong><small>{newChainId ? selectedChainRevision ? selectedChainRevision.stages.map((stage) => `${stage.stage_id}:${stage.package_manifest_digest.slice(7, 15)}`).join(" · ") : "Revisionを選択してください" : `学習元: ${selectedPackage ? selectedTrainingDataset ? datasetDisplayName(selectedTrainingDataset) : "未登録または記録なし" : "Model Packageを選択してください"}`}</small></div>
-        </section>
-        <div className="project-group-summary"><span>検討グループ</span><strong>{newProjectGroupChoice === "none" ? "グループなし" : (selectedSeries?.name ?? newProjectSeriesName.trim()) || "名前を入力してください"}</strong><small>{newProjectGroupChoice === "none" ? "単独のプロジェクトとして作成" : selectedSeries ? "既存グループに追加" : "新しいグループを作成"}</small></div>
-        {predecessorProjectId && <label>続ける理由（任意）<textarea value={continuationReason} onChange={(event) => setContinuationReason(event.target.value)} placeholder="予測タスク変更、データ追加、条件変更、判断の再検討など" /></label>}
-        <div className="project-start-options">
-          <label><input type="radio" checked={createMode === "empty"} onChange={() => setCreateMode("empty")} />空から開始<span>候補を持たない検討として作成</span></label>
-          <label><input type="radio" checked={createMode === "copy"} disabled={Boolean(newChainId) || taskUnavailable || !candidate || Boolean(predecessorProjectId)} onChange={() => { setCreateMode("copy"); setNewChainId(""); setNewChainRevisionId(""); if (project) { setNewDatasetViewId(project.dataset_view_revision_id ?? ""); setNewTaskId(project.task_id); setNewModelPackageRefId(project.model_package_ref_id ?? ""); } }} />現在候補をコピー<span>{newChainId ? "Chain Projectは空から開始します" : taskUnavailable ? "利用停止中のタスクからはコピーできません" : candidate ? `${candidate.label}（編集版 ${candidate.raw.revision}）` : "コピーできる候補がありません"}</span></label>
-        </div>
-        <button className="primary-button" disabled={creating || !newProjectName.trim() || !newDatasetViewId || (newChainId ? !newChainRevisionId : !(createMode === "copy" ? copyTaskId : newTaskId) || !newModelPackageRefId) || (newProjectGroupChoice === "existing" && !newProjectSeriesId) || (newProjectGroupChoice === "new" && !newProjectSeriesName.trim())} onClick={() => void createProject()}>{creating ? "作成中…" : "固定してプロジェクトを作成"}</button>
-      </ProjectCreationPanel>
+        onProjectNameChange={setNewProjectName}
+        onDatasetChange={(datasetViewId) => {
+          setNewDatasetViewId(datasetViewId);
+          setNewTaskId("");
+          setNewModelPackageRefId("");
+          setNewChainId("");
+          setNewChainRevisionId("");
+        }}
+        onPredictionConfigurationChange={(selection) => {
+          const [kind, id] = selection.split(":", 2);
+          setNewTaskId(kind === "task" ? id : "");
+          setNewModelPackageRefId("");
+          setNewChainId(kind === "chain" ? id : "");
+          setNewChainRevisionId("");
+        }}
+        onChainRevisionChange={setNewChainRevisionId}
+        onModelPackageChange={setNewModelPackageRefId}
+        onGroupChoiceChange={(choice) => {
+          setNewProjectGroupChoice(choice);
+          if (choice === "none") {
+            setNewProjectSeriesId("");
+            setNewProjectSeriesName("");
+          } else if (choice === "existing") {
+            setNewProjectSeriesName("");
+          } else {
+            setNewProjectSeriesId("");
+          }
+        }}
+        onProjectSeriesChange={setNewProjectSeriesId}
+        onProjectSeriesNameChange={setNewProjectSeriesName}
+        onContinuationReasonChange={setContinuationReason}
+        onModeChange={(mode) => {
+          setCreateMode(mode);
+          if (mode === "copy" && project) {
+            setNewChainId("");
+            setNewChainRevisionId("");
+            setNewDatasetViewId(project.dataset_view_revision_id ?? "");
+            setNewTaskId(project.task_id);
+            setNewModelPackageRefId(project.model_package_ref_id ?? "");
+          }
+        }}
+        onSubmit={createProject}
+      />
 
-      {settingsOpen && project && <section className="project-settings-panel">
-        <div className="project-form">
-          {!showActiveSeriesMembership && !groupSettingsOpen && <div className="project-group-entry">
-            <button type="button" className="outline-button" onClick={() => {
-              setSeriesName(fixedSeries?.name ?? "");
-              setGroupMembershipId(project.project_series_id ?? "");
-              setGroupSettingsOpen(true);
-            }}>ほかの検討とまとめる</button>
-            <small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。</small>
-          </div>}
-          {(showActiveSeriesMembership || groupSettingsOpen) && <>
-            <div className="group-membership-setting"><label>所属グループ<select value={groupMembershipId} onChange={(event) => setGroupMembershipId(event.target.value)}><option value="">選択してください</option>{project.project_series_id && <option value={ungroupedMembershipValue}>グループなし</option>}{activeProjectSeries.map((series) => <option key={series.id} value={series.id}>{series.name}</option>)}</select></label><button className="outline-button" disabled={!membershipChanged} onClick={() => void moveProjectToGroup()}>{membershipTargetSeriesId === null ? "このプロジェクトをグループから外す" : "このプロジェクトを移動"}</button><small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。候補・判断履歴・続き元は変わりません。</small>{membershipEmptiesFixedSeries && <small className="warning-note">外すとグループ「{fixedSeries?.name}」は所属プロジェクトが無くなり、一覧から閉じられます。グループ名を選び直せば戻せます。</small>}</div>
-            {fixedSeries && <div className="series-name-setting"><label>グループ名<input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} /></label><button className="outline-button" disabled={!seriesName.trim()} onClick={() => void saveSeriesName()}>名前を保存</button><small>このグループに含まれるすべてのプロジェクトへ反映されます</small></div>}
-          </>}
-          <label>プロジェクト名<input value={project.name} onChange={(event) => setProject({ ...project, name: event.target.value })} /></label>
-          <label>説明<textarea value={project.description} onChange={(event) => setProject({ ...project, description: event.target.value })} /></label>
-          <label>目的<textarea value={project.purpose} onChange={(event) => setProject({ ...project, purpose: event.target.value })} /></label>
-          {configurableOutputs.length > 0 && <fieldset className="target-grid" id="project-target-settings"><legend>目標値</legend>{configurableOutputs.map((output) => {
-            const goal = targetValues[output.key];
-            const range = isTargetRange(goal) ? goal : undefined;
-            const rangeOnly = output.goal_direction === "target";
-            const showRange = rangeOnly || range != null;
-            const rangeDraft = range ?? { lower: Number.NaN, upper: Number.NaN };
-            return <div className="target-setting" key={output.key}>
-              <label>{output.label}<select disabled={rangeOnly} value={showRange ? "between" : "directional"} onChange={(event) => setTargetMode(output.key, event.target.value as "directional" | "between")}><option value="directional">{defaultGoalLabel(output.goal_direction)}</option><option value="between">範囲内</option></select></label>
-              {showRange
-                ? <div className="target-range-inputs"><label>下限<input type="number" value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""} placeholder="下限" onChange={(event) => setRangeTarget(output.key, "lower", event.target.value)} /></label><span>–</span><label>上限<input type="number" value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""} placeholder="上限" onChange={(event) => setRangeTarget(output.key, "upper", event.target.value)} /></label></div>
-                : <input type="number" value={typeof goal === "number" ? goal : ""} placeholder="未設定" onChange={(event) => setScalarTarget(output.key, event.target.value)} />}
-            </div>;
-          })}{invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}</fieldset>}
-          <label>メモ<textarea value={project.notes} onChange={(event) => setProject({ ...project, notes: event.target.value })} /></label>
-        </div>
-        <button className="primary-button" disabled={!project.name.trim() || invalidTargetRange} onClick={() => void saveProject()}>設定を保存</button>
-        {!chainIdentity && renderScientificSettings?.(project, (nextProject) => {
-            setProject(nextProject);
-            onProjectChanged(nextProject);
-          })}
-      </section>}
+      <ProjectSettingsPanel
+        open={settingsOpen}
+        project={project}
+        loading={settingsPending}
+        error={settingsError}
+        disabled={projectOperationDisabled({
+          operation: "metadata",
+          offline,
+          pending: settingsPending,
+        })}
+        outputs={configurableOutputs}
+        targetValues={targetValues}
+        invalidTargetRange={invalidTargetRange}
+        showActiveSeriesMembership={showActiveSeriesMembership}
+        groupSettingsOpen={groupSettingsOpen}
+        fixedSeries={fixedSeries}
+        activeProjectSeries={activeProjectSeries}
+        groupMembershipId={groupMembershipId}
+        membershipChanged={membershipChanged}
+        membershipTargetSeriesId={membershipTargetSeriesId}
+        membershipEmptiesFixedSeries={membershipEmptiesFixedSeries}
+        seriesName={seriesName}
+        scientificSettings={!chainIdentity && project
+          ? renderScientificSettings?.(
+            project,
+            (nextProject) => {
+              setProject(nextProject);
+              onProjectChanged(nextProject);
+            },
+            offline || settingsPending,
+          )
+          : undefined}
+        onOpenGroupSettings={() => {
+          setSeriesName(fixedSeries?.name ?? "");
+          setGroupMembershipId(project?.project_series_id ?? "");
+          setGroupSettingsOpen(true);
+        }}
+        onGroupMembershipChange={setGroupMembershipId}
+        onMoveProjectToGroup={moveProjectToGroup}
+        onSeriesNameChange={setSeriesName}
+        onSaveSeriesName={saveSeriesName}
+        onProjectChange={setProject}
+        onTargetModeChange={setTargetMode}
+        onScalarTargetChange={setScalarTarget}
+        onRangeTargetChange={setRangeTarget}
+        onSave={saveProject}
+      />
 
       <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
         {chainIdentity
           ? <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainSubsystem?.status === "unavailable" })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
+            <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainOperationsUnavailable })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
           </div>
           : <div className="project-action-groups">
             {project?.starter && <button className="project-action-card sample-start" onClick={() => onNavigate("data-library")}><strong>自分のデータで新しいプロジェクトを作る</strong><span>Excelを登録し、予測タスクとモデルを選んで始める</span></button>}
@@ -1251,112 +1453,25 @@ export function ProjectHub({
           </div>}
       </section>
 
-      <ProjectEvidenceHistory
+      <ProjectEvidenceHistoryList
         subtitle={chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}
         loading={historyState === "loading"}
         error={historyState === "error"}
-        empty={Boolean(history && !history.candidates.length)}
         emptyMessage={supportsLineageCandidate ? "候補はまだありません。上の「次の作業」から過去データを探すと、由来付き候補としてここに残ります。" : "候補はまだありません。上の「次の作業」から基準候補を用意し、検討を始めます。"}
+        history={history}
+        chainMode={Boolean(chainIdentity)}
+        currentPreviews={currentPreviews}
+        taskDefinition={effectiveTaskDefinition}
+        displayDecimalOverrides={project?.display_decimals}
+        disabled={Boolean(taskUnavailable || offline)}
+        restoringCandidateId={restoringCandidateId}
         onRetry={retryHistory}
-      >
-        {history && <div className="project-history-list">
-          {history.candidates.map((item) => {
-            const preview = currentPreviews[item.candidate.id];
-            const chainSnapshots = item.chain_snapshots ?? [];
-            const chainVariants = item.chain_analysis_variants ?? [];
-            const chainDistributionRuns = item.chain_distribution_runs ?? [];
-            const hasChainEvidence = chainSnapshots.length > 0
-              || chainVariants.length > 0
-              || chainDistributionRuns.length > 0;
-            return <article className="project-history-card" key={item.candidate.id}>
-              <header>
-                <div><strong>{item.candidate.name}</strong>{item.candidate.archived_at && <span className="muted-badge">archive</span>}</div>
-                {item.candidate.archived_at
-                  ? <button className="outline-button" disabled={taskUnavailable || offline || Boolean(restoringCandidateId)} onClick={() => void restoreArchivedCandidate(item.candidate.id)}>
-                    {restoringCandidateId === item.candidate.id ? "復元中…" : "候補へ戻す"}
-                  </button>
-                  : <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => onNavigate("candidates", item.candidate.id)}>現在の候補を見る</button>}
-              </header>
-              <div className="history-current-row"><span className="history-kind current">現在</span><span>編集版 {item.current.revision}</span><span>{formatDate(item.current.updated_at)}</span><span className={item.candidate.provenance?.source_kind === "lineage" ? "history-origin reference-data" : "history-origin"}>{item.candidate.provenance?.source_kind === "lineage" && <b>参照データ由来</b>}{item.candidate.provenance ? provenanceLabel(item.candidate.provenance) : "由来不明"}</span></div>
-              {chainIdentity
-                ? <>
-                  <p className="history-muted">現在のChain条件です。固定済みの判断時点は下に時系列で残ります。</p>
-                  {chainSnapshots.map((snapshot) => {
-                    const terminalStage = terminalChainStage(snapshot.stages);
-                    const predictions = chainStagePredictions(terminalStage);
-                    return <div className="history-snapshot-row chain-history-row" key={snapshot.snapshot_id}>
-                      <span className="history-kind fixed">全Stageを固定</span>
-                      {item.decision?.snapshot_id === snapshot.snapshot_id && <span className="decision-snapshot-badge">採用判断</span>}
-                      <span>編集版 {snapshot.identity.candidate_revision}</span>
-                      <span>{formatDate(snapshot.created_at)}</span>
-                      <span className="history-predictions">
-                        {terminalStage?.output_definitions.length
-                          ? terminalStage.output_definitions.map((definition) => <span key={definition.key}>{definition.label} {formatChainOutput(predictions[definition.key], definition)}</span>)
-                          : "終端Stageの出力定義を確認できません"}
-                      </span>
-                      {item.decision?.snapshot_id === snapshot.snapshot_id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                      <button className="outline-button" onClick={() => openChainSnapshot(snapshot)}>詳細</button>
-                    </div>;
-                  })}
-                  {chainVariants.map((variant) => {
-                    const comparison = chainSnapshots.find(
-                      (snapshot) => snapshot.snapshot_id === variant.identity.comparison_snapshot_id,
-                    );
-                    const terminalStage = terminalChainStage(comparison?.stages ?? []);
-                    const predictions = chainResultPredictions(variant.stage_c_result);
-                    return <div className="history-snapshot-row chain-history-row actual-conditioned" key={variant.variant_id}>
-                      <span className="history-kind fixed">実測Bを条件にした予測</span>
-                      <span>編集版 {variant.identity.base_candidate_revision}</span>
-                      <span>{formatDate(variant.created_at)}</span>
-                      <span className="history-predictions">
-                        {terminalStage?.output_definitions.length
-                          ? terminalStage.output_definitions.map((definition) => <span key={definition.key}>{definition.label} {formatChainOutput(predictions[definition.key], definition)}</span>)
-                          : "比較Snapshotの出力定義を確認できません"}
-                      </span>
-                      <span className="history-actual">実測ID {variant.identity.actual_ids.join(", ")} · {variant.identity.coverage.length}項目</span>
-                      <small>通常のChain結果は置き換えません。</small>
-                    </div>;
-                  })}
-                  {chainDistributionRuns.map((run) => {
-                    const comparison = chainSnapshots.find((snapshot) => (
-                      snapshot.identity.candidate_revision === run.provenance.candidate_revision
-                      && snapshot.identity.chain_revision_digest === run.provenance.chain_revision_digest
-                    ));
-                    const terminalSnapshotStage = terminalChainStage(comparison?.stages ?? []);
-                    const terminalDistribution = run.stages[run.stages.length - 1];
-                    return <div className="history-snapshot-row chain-history-row" key={run.run_id}>
-                      <span className="history-kind fixed">不確かさを伝播</span>
-                      <span>編集版 {run.provenance.candidate_revision}</span>
-                      <span>{formatDate(run.created_at)}</span>
-                      <span>{run.status === "completed" ? "完了" : "一部Stageは利用不可"} · seed {run.provenance.seed} · {run.provenance.sample_count}標本</span>
-                      <span className="history-predictions">
-                        {terminalSnapshotStage?.output_definitions.length
-                          ? terminalSnapshotStage.output_definitions.map((definition) => {
-                            const summary = terminalDistribution?.propagated_uncertainty?.[definition.key];
-                            return <span key={definition.key}>{definition.label} {summary
-                              ? `${formatNumberAtDecimals(summary.quantiles["0.05"], definition.display_decimals)}–${formatNumberAtDecimals(summary.quantiles["0.95"], definition.display_decimals)}${definition.unit ? ` ${definition.unit}` : ""}`
-                              : "伝播区間なし"}</span>;
-                          })
-                          : "固定Snapshotの出力定義を確認できません"}
-                      </span>
-                    </div>;
-                  })}
-                  {!hasChainEvidence && <div className="project-empty-inline"><span>全Stageを固定した記録はまだありません。Chain候補で「全Stageを固定」すると判断時点が残ります。</span></div>}
-                </>
-                : <>
-                  {preview ? <div className="history-preview"><span>現在のpreview</span>{orderedPredictions(preview.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <strong className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</strong>; })}</div> : <p className="history-muted">現在のpreviewは未計算です。候補比較を開くと必要な候補だけ計算します。</p>}
-                  {item.snapshots.length ? <div className="history-snapshots">{item.snapshots.map((snapshot) => <div className="history-snapshot-row" key={snapshot.id}>
-                    <span className="history-kind fixed">固定した予測</span>{item.decision?.snapshot_id === snapshot.id && <span className="decision-snapshot-badge">採用判断</span>}<span>編集版 {snapshot.candidate_revision ?? "不明（旧形式）"}</span><span>{formatDate(snapshot.created_at)}</span>
-                    <span className="history-predictions">{orderedPredictions(snapshot.prediction_summary).map(([key, value], index) => { const assessment = assessPrediction(outputDefinition(key), value); return <span className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>{index > 0 && " / "}{outputLabels.get(key) ?? key} {formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}</span>
-                    {item.actuals.filter((actual) => actual.snapshot_id === snapshot.id).map((actual) => { const definition = outputDefinition(actual.property); const assessment = assessOutputValues(definition, [actual.mean], "実測値"); const key = definition?.key ?? actual.property; return <span className={`history-actual${assessment.implausible ? " implausible-output" : ""}`} title={assessment.warning ?? undefined} key={actual.id}>実測 {definition?.label ?? outputLabels.get(actual.property) ?? actual.property} {formatOutputNumber(key, actual.mean)} ± {formatOutputNumber(key, actual.std)} {definition?.unit ?? actual.unit}{actual.experiment_no ? ` / ${actual.experiment_no}` : ""}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</span>; })}
-                    {item.decision?.snapshot_id === snapshot.id && <span className="decision-note-inline">判断理由: {item.decision.note}</span>}
-                    <button className="outline-button" onClick={() => void openSnapshot(snapshot.id)}>詳細</button><CandidateAddButton compact disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(snapshot.id)}>新しい候補として複製</CandidateAddButton>
-                  </div>)}</div> : <div className="project-empty-inline"><span>固定した予測はありません。上の「現在の候補を見る」から詳細予測を保存すると判断時点が残ります。</span></div>}
-                </>}
-            </article>;
-          })}
-        </div>}
-      </ProjectEvidenceHistory>
+        onOpenCandidate={(candidateId) => onNavigate("candidates", candidateId)}
+        onRestoreArchivedCandidate={restoreArchivedCandidate}
+        onOpenSnapshot={openSnapshot}
+        onRestoreSnapshot={restoreSnapshot}
+        onOpenChainSnapshot={openChainSnapshot}
+      />
 
       {selectedSnapshot?.payload.prediction && <section className="snapshot-detail project-snapshot-detail">
         <div className="panel-title"><h3>固定した予測の詳細</h3><button className="outline-button" onClick={() => { setSelectedSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>

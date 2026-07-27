@@ -150,7 +150,7 @@ test("new project creation can be cancelled or left by selecting an existing pro
   await otherProject.click();
 
   await expect(createPanel).toBeHidden();
-  await expect(page.locator(".project-hub-header h2")).toHaveText(otherProjectName);
+  await expect(page.locator(".project-hub-header h2")).toContainText(otherProjectName);
 });
 
 test("Dataset choices explain use, order, and duplicate identity before Project creation", async ({ page }) => {
@@ -292,7 +292,7 @@ test("project settings keep one fixed reference display and archiving at the bot
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
-  await page.getByRole("button", { name: "範囲探索 目標と入力範囲から候補を生成" }).click();
+  await page.getByRole("button", { name: /条件範囲から候補を探す/ }).click();
   await expect(page).toHaveURL(/view=explore/);
   await expect(page.getByRole("heading", { name: /範囲探索/ })).toBeVisible();
 
@@ -378,7 +378,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   expect(options.project_series.find((series) => series.id === created.project_series_id)?.name).toBe(groupName);
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
   await expect(page.locator(".project-history-section").getByRole("button")).toHaveCount(0);
-  await page.locator(".project-next-actions").getByRole("button", { name: /範囲探索/ }).click();
+  await page.locator(".project-next-actions").getByRole("button", { name: /条件範囲から候補を探す/ }).click();
   await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.locator(".comparison-prediction-table thead .decision-output-col").filter({ hasText: "引張強さ" })).toBeVisible();
