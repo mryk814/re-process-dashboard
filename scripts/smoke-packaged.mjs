@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -21,6 +22,9 @@ let userData;
 let lifecycleBenchmark;
 
 const PACKAGED_STARTUP_TIMEOUT_MS = 120_000;
+const sha256File = async (path) => createHash("sha256")
+  .update(await readFile(path))
+  .digest("hex");
 
 const readProcessTreeMemory = (rootPid) => {
   const script = [
@@ -211,6 +215,12 @@ try {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           purpose: "packaged lifecycle probe",
+          targets: [{ target_key: "target", field: "target" }],
+          split: {
+            strategy_id: "sorted-group-round-robin-v1",
+            group_field: "id",
+            folds: 5,
+          },
         }),
       },
     ),
@@ -382,6 +392,8 @@ try {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath });
   }, backupPath);
   await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("heading", { name: "ワークスペース" }).waitFor();
+  await window.getByRole("button", { name: "保存場所を管理" }).click();
   await window.getByRole("heading", { name: "ワークスペースの保管と復元" }).waitFor();
   await window.getByRole("button", { name: "保存先を選ぶ" }).click();
   const backupOutcome = await Promise.race([
@@ -410,13 +422,15 @@ try {
   const tamperedBytes = await readFile(backupPath);
   tamperedBytes[Math.min(128, tamperedBytes.length - 1)] ^= 0xff;
   await writeFile(tamperedPath, tamperedBytes);
+  const databaseBeforeTamperedRestore = await sha256File(database);
   await electronApp.evaluate(async ({ dialog }, filePath) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
   }, tamperedPath);
-  await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("button", { name: "保存場所を管理" }).click();
   await window.getByRole("button", { name: "ファイルを選ぶ" }).click();
   await window.getByRole("alert").waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
-  assert(await window.getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 }).isVisible());
+  assert.equal(await sha256File(database), databaseBeforeTamperedRestore);
+  assert.equal((await readSmokeProject()).notes, changedMarker);
   await window.getByRole("button", { name: "閉じる" }).click();
 
   const portableBackupPath = join(artifacts, "packaged-portable-workspace.mdwb");
@@ -425,7 +439,7 @@ try {
   await electronApp.evaluate(async ({ dialog }, filePath) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
   }, restorePath);
-  await window.getByRole("button", { name: "ワークスペース" }).click();
+  await window.getByRole("button", { name: "保存場所を管理" }).click();
   await window.getByRole("button", { name: "ファイルを選ぶ" }).click();
   await window.getByRole("button", { name: "この内容へ復元" }).waitFor({
     timeout: PACKAGED_STARTUP_TIMEOUT_MS,
@@ -433,7 +447,7 @@ try {
   await window.getByRole("button", { name: "この内容へ復元" }).click();
   await window.getByRole(
     "heading",
-    { name: "焼鈍条件の候補検討", level: 1 },
+    { name: "ワークスペース", exact: true },
   ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   await window.getByText("Workspaceを復元し、APIの起動確認まで完了しました。")
     .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
@@ -500,7 +514,7 @@ try {
   });
   await restartedWindow.getByRole(
     "heading",
-    { name: "焼鈍条件の候補検討", level: 1 },
+    { name: "ワークスペース", exact: true },
   ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   lifecycleBenchmark.restartToFirstUsableMs = performance.now() - restartStarted;
 } finally {

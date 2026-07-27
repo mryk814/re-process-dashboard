@@ -71,8 +71,8 @@ export function DeveloperAdminPage({
   project,
   taskDefinition,
   resolvedTaskDefinition,
-  readOnly = false,
   availability,
+  readOnly = false,
   initialSection,
   developerTab,
   developerTabError,
@@ -85,8 +85,8 @@ export function DeveloperAdminPage({
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
-  readOnly?: boolean;
   availability?: ResolvedTaskDefinition["availability"];
+  readOnly?: boolean;
   initialSection?: AdminSection;
   developerTab?: DeveloperTab;
   developerTabError?: string;
@@ -304,6 +304,7 @@ export function ProjectScopedSettings({
   project,
   taskDefinition,
   resolvedTaskDefinition,
+  availability,
   readOnly = false,
   initialSection = "ranges",
   onSectionChange,
@@ -312,6 +313,7 @@ export function ProjectScopedSettings({
   project: ApiProject | undefined;
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
+  availability?: ResolvedTaskDefinition["availability"];
   readOnly?: boolean;
   initialSection?: ProjectSettingsSection;
   onSectionChange: (section: ProjectSettingsSection) => void;
@@ -331,6 +333,26 @@ export function ProjectScopedSettings({
         <p>現在のProjectだけに適用する設定です。workspace内のほかのProjectは変更しません。</p>
       </div>
     </div>
+    {readOnly && availability?.status === "unavailable" && (
+      <section className="admin-availability-diagnostic" role="status" aria-label="予測タスクの利用停止診断">
+        <div>
+          <span className="overline">読み取り専用</span>
+          <h2>固定参照と停止段階を確認してください</h2>
+          <p>{availability.message}</p>
+        </div>
+        <dl>
+          <div><dt>対象Task</dt><dd><FixedReferenceValue value={taskDefinition?.id ?? project?.task_id} /></dd></div>
+          <div><dt>停止段階</dt><dd>{availabilityStageLabel(availability.stage)}</dd></div>
+          <div><dt>Dataset View</dt><dd><FixedReferenceValue value={project?.dataset_view_revision_id} /></dd></div>
+          <div><dt>Model Package参照</dt><dd><FixedReferenceValue value={project?.model_package_ref_id} /></dd></div>
+          <div><dt>Manifest digest</dt><dd><FixedReferenceValue value={project?.model_package_manifest_digest} /></dd></div>
+          <div><dt>診断対象</dt><dd><FixedReferenceValue value={availability.resource_id} /></dd></div>
+          <div><dt>期待する場所</dt><dd><FixedReferenceValue value={availability.expected_locator} /></dd></div>
+        </dl>
+        {availability.recovery_hint && <p><b>復旧の手掛かり:</b> {availability.recovery_hint}</p>}
+        <small>保存済み情報と診断は参照できます。入力範囲・表示桁数など、このProjectを変更する操作は無効です。</small>
+      </section>
+    )}
     <nav className="developer-tabs" aria-label="Project設定メニュー">
       <button type="button" className={section === "ranges" ? "active" : ""} onClick={() => select("ranges")}>入力範囲</button>
       <button type="button" className={section === "display" ? "active" : ""} onClick={() => select("display")}>表示桁数</button>

@@ -193,7 +193,9 @@ test("quality finding opens the selected lineage node and returns with filters",
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(`/?view=quality&project=${project}`);
-  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible();
+  // The first process-dataset load parses a larger workbook than the bundled
+  // teaching sample and can cross the default 5 second assertion budget.
+  await expect(page.getByRole("heading", { name: "データ品質" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "データ探索" })).toHaveClass(/active/);
 
   await page.getByLabel("種別").selectOption("duplicate_key");

@@ -64,7 +64,7 @@ test("an unknown run is reported instead of falling back to another result", asy
   assert.match(panel, /requestedRunId && !requestedRun/);
   assert.match(panel, /保存済みRun.+この候補では見つかりません/);
   assert.match(panel, /selected && View && !locationError/);
-  assert.match(panel, /if \(!selectedId \|\| locationError\) return/);
+  assert.match(panel, /if \(loadedIdentity !== identity \|\| !selectedId \|\| locationError\) return/);
 });
 
 test("run selection lives in the panel so every activity shares one link", async () => {

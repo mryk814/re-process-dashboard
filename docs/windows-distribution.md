@@ -19,6 +19,16 @@ npm run package:windows
 
 成果物はgit管理外の `release/` に作る。`package:windows` は必要resourceの同梱を検査した後、ZIPの展開・起動・削除と、installerの非管理者install・起動・uninstallを一時領域で実行し、次を確認する。不完全な成果物やsmoke失敗時はコマンド自体が失敗する。
 
+## 現mainの統合受入
+
+Actionsを使わず、backend、Web／Desktop、clean DBの全E2E、旧DB移行、Windows配布物までを一続きで再確認するときは、コミット済みのcleanなworktreeで次を実行する。
+
+```powershell
+npm run acceptance:main -- -ReportPath docs/reports/main-acceptance-YYYY-MM-DD.json
+```
+
+このコマンドは各gateのlogを`artifacts/main-acceptance/<run-id>/`へ保存し、対象commit、環境、成功件数、所要時間、installer／folder ZIPのサイズとSHA-256を指定したJSONへ記録する。Playwrightは常駐サーバを再利用せず、実行ごとの一時DBを使う。途中で失敗しても、完了済みgateと失敗箇所を含む部分reportを残す。
+
 - sidecar health後に実画面が表示される
 - tokenなしのloopback API requestが401になる
 - rendererが付与するtokenではAPIへ到達できる

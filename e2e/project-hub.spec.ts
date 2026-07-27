@@ -154,6 +154,9 @@ test("new project creation can be cancelled or left by selecting an existing pro
 });
 
 test("Dataset choices explain use, order, and duplicate identity before Project creation", async ({ page }) => {
+  const boundProjectName = `Dataset結合確認 ${Date.now()}`;
+  const boundProjectResponse = await createProjectFromDefault(page, boundProjectName);
+  expect(boundProjectResponse.status(), await boundProjectResponse.text()).toBe(201);
   const projectResponse = await page.request.get(`${apiBaseUrl}/api/projects/default`);
   expect(projectResponse.status()).toBe(200);
   const defaultProject = await projectResponse.json() as {
@@ -217,9 +220,8 @@ test("Dataset choices explain use, order, and duplicate identity before Project 
     (dataset) => dataset.dataset_views?.some((view) => view.id === defaultProject.dataset_view_revision_id),
   );
   expect(fixedDataset).toBeTruthy();
-  // 同じDatasetを使うProjectは他のspecも作るため、並び順ではなく在籍だけを見る。
   await expect(fixedContent).toContainText("利用中:");
-  await expect(fixedContent).toContainText(defaultProject.name);
+  await expect(fixedContent).toContainText(boundProjectName);
   await expect(fixedContent).toContainText(
     `${fixedDataset!.profile_revision.name} · r${fixedDataset!.profile_revision.revision}`,
   );

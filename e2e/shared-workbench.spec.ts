@@ -159,7 +159,7 @@ for (const task of tasks) {
     const restoreResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${disposableId}/restore`));
     await page.getByRole("article").filter({ hasText: disposableName }).getByRole("button", { name: "候補へ戻す" }).click();
     expect((await restoreResponse).status()).toBe(200);
-    await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "候補", exact: true }).click();
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "候補比較", exact: true }).click();
     await expect(page.getByRole("textbox", { name: `${disposableName}の候補名` })).toBeVisible();
 
     await page.getByRole("textbox", { name: `${editedName}の候補名` }).click();

@@ -9,8 +9,66 @@ $installerPath = Join-Path $releaseRoot "Material-Decision-Workbench-Setup-$vers
 $extractedRoot = Join-Path $smokeRoot "extracted"
 $installedRoot = Join-Path $smokeRoot "installed"
 
+function Stop-PackagedProcessesUnder {
+    param([string]$RootPath)
+
+    if (-not (Test-Path -LiteralPath $RootPath)) {
+        return
+    }
+    $resolvedRoot = [IO.Path]::GetFullPath($RootPath).TrimEnd("\") + "\"
+    $matches = @(
+        Get-CimInstance Win32_Process |
+            Where-Object {
+                $_.ExecutablePath -and
+                [IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
+                    $resolvedRoot,
+                    [StringComparison]::OrdinalIgnoreCase
+                )
+            }
+    )
+    foreach ($process in $matches) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    if ($matches.Count -gt 0) {
+        Wait-Process -Id $matches.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+    }
+    $remaining = @(
+        Get-CimInstance Win32_Process |
+            Where-Object {
+                $_.ExecutablePath -and
+                [IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
+                    $resolvedRoot,
+                    [StringComparison]::OrdinalIgnoreCase
+                )
+            }
+    )
+    if ($remaining.Count -gt 0) {
+        throw "packaged smoke processes remained under $resolvedRoot"
+    }
+}
+
+function Remove-SmokeTree {
+    param([string]$RootPath)
+
+    for ($attempt = 1; $attempt -le 5; $attempt += 1) {
+        if (-not (Test-Path -LiteralPath $RootPath)) {
+            return
+        }
+        try {
+            Remove-Item -LiteralPath $RootPath -Recurse -Force -ErrorAction Stop
+            return
+        } catch {
+            if ($attempt -eq 5) {
+                throw
+            }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+
 if (Test-Path -LiteralPath $smokeRoot) {
-    Remove-Item -LiteralPath $smokeRoot -Recurse -Force
+    Stop-PackagedProcessesUnder $smokeRoot
+    Remove-SmokeTree $smokeRoot
 }
 New-Item -ItemType Directory -Path $smokeRoot | Out-Null
 
@@ -19,6 +77,7 @@ try {
     $portableAppRoot = (Get-ChildItem -LiteralPath $extractedRoot -Directory | Select-Object -First 1).FullName
     node (Join-Path $repositoryRoot "scripts/smoke-packaged.mjs") $portableAppRoot portable
     if ($LASTEXITCODE -ne 0) { throw "folder smoke failed with code $LASTEXITCODE" }
+    Stop-PackagedProcessesUnder $portableAppRoot
 
     $installer = Start-Process -FilePath $installerPath -ArgumentList "/S", "/D=$installedRoot" -Wait -PassThru
     if ($installer.ExitCode -ne 0) {
@@ -26,6 +85,7 @@ try {
     }
     node (Join-Path $repositoryRoot "scripts/smoke-packaged.mjs") $installedRoot installed
     if ($LASTEXITCODE -ne 0) { throw "installed smoke failed with code $LASTEXITCODE" }
+    Stop-PackagedProcessesUnder $installedRoot
 
     $uninstallerPath = Join-Path $installedRoot "Uninstall Material Decision Workbench.exe"
     if (-not (Test-Path -LiteralPath $uninstallerPath)) {
@@ -47,6 +107,7 @@ try {
     Write-Host "Per-user installer install/run/uninstall: OK"
 } finally {
     if (Test-Path -LiteralPath $smokeRoot) {
-        Remove-Item -LiteralPath $smokeRoot -Recurse -Force
+        Stop-PackagedProcessesUnder $smokeRoot
+        Remove-SmokeTree $smokeRoot
     }
 }

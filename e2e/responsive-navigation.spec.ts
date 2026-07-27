@@ -29,14 +29,14 @@ test("狭い画面でもホームの3導線を直接操作できる", async ({ p
     level: 1,
   })).toBeVisible();
 
-  await page.evaluate(() => window.scrollTo(0, 300));
-  const scrollBefore = await page.evaluate(() => window.scrollY);
   await navigation.getByRole("button", { name: "ワークスペース" }).click();
+  await expect(page).toHaveURL(/view=workspace/);
+  await expect(page.getByRole("heading", { name: "ワークスペース" })).toBeVisible();
+  const storageButton = page.getByRole("button", { name: "保存場所を管理" });
+  await storageButton.click();
   await expect(page.getByRole("dialog", { name: "ワークスペースの保管と復元" })).toBeVisible();
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
   await page.getByRole("button", { name: "閉じる" }).click();
-  await expect(navigation.getByRole("button", { name: "ワークスペース" })).toBeFocused();
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  await expect(storageButton).toBeFocused();
 });
 
 test("文字を200%へ拡大しても3導線の操作対象が画面内に残る", async ({ page }) => {
