@@ -450,7 +450,7 @@ component名だけを列挙する回答では、stateがどこで永続化され
 
 ## Further Reading
 
-- [@cosmic-python]の「Repository Pattern」と「A Brief Interlude: On Coupling and Abstractions」は、domain処理からpersistence表現を分ける理由を読むための資料です。現行repoの`Store`は同書の構成をそのまま実装したものではないため、名前の一致をclass構造の一致と解釈しません。
-- [@openapi-311]の「Schema Object」と「Paths Object」は、FastAPI contractが生成物を介してWeb clientへ届く形を確認する資料です。specificationは個々のfieldのdomain上の意味までは決めません。
-- [@google-bsrs]の「Design for Least Privilege」と「Understand Your Dependencies」は、renderer、sidecar、Package loaderの信頼境界を一般化する資料です。現行アプリはsingle-user local構成なので、同書の分散service向け対策をそのまま要求しません。
-- [@turing-way]の「Reproducible Research」と「Research Data Management」は、artifactと判断evidenceを分けて保存する理由を研究softwareへ接続する資料です。Material Decision Workbench固有のSnapshot contractは現行codeで別に確認します。
+- *Architecture Patterns with Python*の「Repository Pattern」と「A Brief Interlude: On Coupling and Abstractions」は、domain処理からpersistence表現を分ける理由を読むための資料です [@cosmic-python]。現行repoの`Store`は同書の構成をそのまま実装したものではないため、名前の一致をclass構造の一致と解釈しません。
+- OpenAPI 3.1.1の「Schema Object」と「Paths Object」は、FastAPI contractが生成物を介してWeb clientへ届く形を確認する資料です [@openapi-311]。specificationは個々のfieldのdomain上の意味までは決めません。
+- *Building Secure and Reliable Systems*の「Design for Least Privilege」と「Understand Your Dependencies」は、renderer、sidecar、Package loaderの信頼境界を一般化する資料です [@google-bsrs]。現行アプリはsingle-user local構成なので、同書の分散service向け対策をそのまま要求しません。
+- *The Turing Way*の「Reproducible Research」と「Research Data Management」は、artifactと判断evidenceを分けて保存する理由を研究softwareへ接続する資料です [@turing-way]。Material Decision Workbench固有のSnapshot contractは現行codeで別に確認します。
