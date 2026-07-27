@@ -77,9 +77,9 @@
     "drift_detection": "The detector reported DecisionActivityPanel, activityRunNavigation, and the Decision Activity browser spec.",
     "focused_tests": "Web unit suite passed 209 tests and the fresh-DB Decision Activity browser suite passed 5 tests on PR #340.",
     "api_check": "PR #340 does not change generated API contracts.",
-    "code_reference_check": "Validated 28 documents and 775 structured code references after the final update.",
-    "html_build": "The final integrated site build passed for 42 documents with 325 exact code links in 56.38 seconds.",
-    "pdf_build": "The final Reader build passed in 26.61 seconds: 358 A4 pages, 13,206,925 bytes, SHA-256 03d0197ca64756f1a70858472efa1b8d56e855b3a952df6a4e5aa9966ba4be9d.",
+    "code_reference_check": "Validated 28 documents and 787 structured code references after the final update.",
+    "html_build": "The final integrated site build passed for 42 documents with 331 exact code links in 52.48 seconds.",
+    "pdf_build": "The final Reader build passed in 24.29 seconds: 358 A4 pages, 13,259,912 bytes, SHA-256 95b86dcf707489e88b257919d0d490cfac4bf08a2d1eb751c6c155a87703d2f2.",
     "visual_review": "All 358 final PDF pages were reviewed at readable resolution in two independent ranges; no overflow, overlap, cutoff, unexpected blank, font, mathematics, table, code, or figure defects remained."
   },
   "reviewer_note": "The update documents location-to-evidence synchronization without claiming that every Run provenance field is exposed in the current UI."

@@ -51,7 +51,7 @@
       "mode": "guided",
       "category": "contract",
       "title": "契約変更の影響範囲を予測する",
-      "verified_commit": "26accf82b2907ad962fea67fc6fde0cd9f4ac019",
+      "verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
       "expected_minutes": 60,
       "requires": [
         "node",
@@ -86,7 +86,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "Project Aの証拠を残したまま作業を終える",
-      "verified_commit": "b3040f701d2db6c339aabbd6fbe368f0fdeac4f9",
+      "verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
       "expected_minutes": 90,
       "requires": [
         "python"
@@ -120,7 +120,7 @@
       "mode": "guided",
       "category": "frontend",
       "title": "二つの編集と遅いresponseを判定する",
-      "verified_commit": "3d2fa76b0771888f0d200d36b8d740b82225cc99",
+      "verified_commit": "a7628a0e9a7d30cf9262e53a27e430d4379475ba",
       "expected_minutes": 90,
       "requires": [
         "node",

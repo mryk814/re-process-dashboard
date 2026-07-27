@@ -2,7 +2,7 @@
 chapter_id: "prediction-calibration-support"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "prediction-math-summary-contract"

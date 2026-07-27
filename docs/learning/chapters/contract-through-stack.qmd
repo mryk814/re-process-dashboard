@@ -2,7 +2,7 @@
 chapter_id: "contract-through-stack"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"

@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"
@@ -67,6 +67,14 @@ code_references:
     role: "frontend"
     symbols:
       - "ComparisonTable"
+  - path: "apps/web/src/features/projects/ProjectHub.tsx"
+    id: "frontend-state-group-selection"
+    role: "frontend"
+    symbols:
+      - "ProjectHub"
+  - path: "apps/web/tests/projectGroupMembership.test.mjs"
+    id: "frontend-state-group-selection-test"
+    role: "test"
   - path: "apps/web/src/shared/api/client.ts"
     id: "frontend-state-api-client"
     role: "application"
@@ -192,6 +200,19 @@ state分類は、保存場所を機械的に決める表ではありません。
 たとえば、Candidate draftをURLへ入れると、未保存の巨大payloadがhistoryへ残ります。
 
 反対に、Activity Run IDをcomponent内だけへ置くと、共有linkから同じ判断証拠を開けません。
+
+## 遅れて届く一覧と利用者の選択を分ける
+
+Project Series一覧はserver stateですが、設定panelで利用者が選んだ移動先はselection stateです。
+一覧のfetchが遅れて完了したとき、一覧そのものをeffectの依存へ入れて選択を初期化すると、利用者が選んだ「グループなし」を現在所属へ戻してしまいます。
+
+これは古いAPI responseを別Candidateへ採用するstale responseとは違います。
+正しい最新一覧の到着が、所有者の異なるselection stateを上書きする問題です。
+
+{{< code-ref frontend-state-group-selection symbol=ProjectHub >}}は、panelを開いた時と実際の所属が変わった時だけ選択を初期化します。
+一覧の到着では初期化しません。
+この依存境界は{{< code-ref frontend-state-group-selection-test >}}でsource contractとして固定しています。
+現行browser testは通常の所属解除を確認しますが、一覧の意図的な遅延までは注入していません。
 
 ## server stateとdraft stateを分ける
 

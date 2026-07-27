@@ -2,7 +2,7 @@
 chapter_id: "trace-revision-conflict"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "3d2fa76b0771888f0d200d36b8d740b82225cc99"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/contracts/schemas.py"
     role: "contract"

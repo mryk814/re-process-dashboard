@@ -2,7 +2,7 @@
 chapter_id: "separate-archive-from-purge"
 level: intermediate
 estimated_minutes: 105
-verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
@@ -10,11 +10,17 @@ code_references:
     role: "api"
   - path: "backend/src/material_workbench/application/projects.py"
     role: "application"
+  - path: "backend/src/material_workbench/contracts/schemas.py"
+    id: "project-group-move-contract"
+    role: "contract"
+    symbols:
+      - "ProjectGroupMoveInput"
   - path: "backend/src/material_workbench/persistence/store.py"
     id: "project-history-store"
     role: "persistence"
     symbols:
       - "Store.project_history"
+      - "Store.move_project_to_group"
   - path: "backend/src/material_workbench/persistence/project_lifecycle_migration.py"
     role: "persistence"
   - path: "apps/web/src/features/projects/ProjectHub.tsx"
@@ -30,6 +36,13 @@ code_references:
   - path: "backend/tests/test_project_lifecycle.py"
     role: "test"
   - path: "backend/tests/test_projects.py"
+    id: "project-group-move-test"
+    role: "test"
+    symbols:
+      - "test_project_leaves_a_group_and_returns_to_another_one"
+      - "test_ungrouping_keeps_conflict_detection_and_rejects_an_empty_group_id"
+  - path: "e2e/project-hub.spec.ts"
+    id: "project-group-move-e2e"
     role: "test"
   - path: "backend/tests/test_data_library_api.py"
     role: "test"
@@ -66,6 +79,7 @@ SQL transaction、foreign key、JSON payloadの基本を読めることを前提
 - APIの確認用ID、applicationの参照検査、SQLite triggerは何を分担するか
 - 新しいProject-scoped tableを追加するとき、どのinventoryを更新するか
 - 保持したChain evidenceをProject historyへ戻すとき、どのidentityを照合するか
+- Project Seriesの所属解除が、archiveや続き元の切断と異なる理由は何か
 
 ## 扱わない範囲
 
@@ -93,6 +107,30 @@ Project Aが通常一覧を埋めるため、日常の作業対象から外し�
 | archive | 通常一覧から外す | 保持する | 新しいwriteを拒否する | 解決できる |
 | restore | 同じProjectをactiveへ戻す | そのまま使う | 新しい操作を受理できる | 解決できる |
 | purge | Project rowを物理削除する | Project-owned evidenceを削除する | 残さない | 参照があれば拒否する |
+
+## 所属解除は証拠の削除ではない
+
+Project Seriesは、同じ目的で続けた検討を一覧上でまとめる任意のmetadataです。
+ProjectをSeriesから外しても、Project、Candidate、判断履歴、Snapshot、続き元の関係は残ります。
+したがって所属解除をarchive、purge、またはcontinuation切断として実装してはいけません。
+
+{{< code-ref project-group-move-contract symbol=ProjectGroupMoveInput >}}は、`project_series_id: null`だけを「グループなしへ移動する」という明示操作に使います。
+空文字はselectの未選択と区別できないため422で拒否します。
+{{< code-ref project-history-store symbol="Store.move_project_to_group" >}}は`expected_project_series_id`をcompare-and-swap条件として使うため、解除の直前に別操作が所属を変えた場合も409で止まります。
+
+最後のProjectが抜けて空になったSeriesはarchiveしますが、Project本体はactiveのままです。
+残留ProjectがあればSeriesを閉じません。
+この往復と、predecessor／continuationが変わらないことは{{< code-ref project-group-move-test symbol=test_project_leaves_a_group_and_returns_to_another_one >}}で固定し、画面経路は{{< code-ref project-group-move-e2e >}}で確認します。
+
+現行実装では、所属変更もほかのProject metadata更新と同じruntime availability gateを通るため、対象Taskがunavailableなら503になります。
+また、所属変更専用のaudit recordは増やしません。
+これは判断証拠を変更しないという意味であり、所属変更履歴を監査できるという意味ではありません。
+
+| 操作 | Project | Series所属 | Candidate・判断履歴 | 続き元 |
+|---|---|---|---|---|
+| 所属解除 | activeのまま | `null`へ変更 | 保持 | 保持 |
+| archive | 通常一覧から外す | rowには保持 | 保持 | 保持 |
+| purge | 物理削除 | 関連cleanup対象 | Project-owned evidenceを削除 | 外部参照があれば拒否 |
 
 archiveは、削除の弱い版ではありません。
 可視性と書き込み可能性を変え、判断証拠の寿命は変えない状態遷移です。

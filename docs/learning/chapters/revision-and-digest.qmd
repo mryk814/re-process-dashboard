@@ -2,7 +2,7 @@
 chapter_id: "revision-and-digest"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "3d2fa76b0771888f0d200d36b8d740b82225cc99"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/contracts/schemas.py"
     role: "contract"
@@ -162,6 +162,10 @@ SQLiteが同時に持てるwriterは一つであり、`BEGIN IMMEDIATE`は最初
 同じ`BEGIN IMMEDIATE` transaction内では別writerが割り込めませんが、revision条件を`UPDATE`自身へ置くと、更新を許す条件がSQL statementだけで完結します。
 この実装のcompare-and-swapは、revision条件を`UPDATE`自身へ置くことで成立します。
 :::
+
+同じ考え方は整数revisionに限りません。
+Project Series所属変更では、nullableな`expected_project_series_id`が変更前、nullableな`project_series_id`が変更後です。
+`null`も「比較しない」ではなく未所属というcurrent identityとして比較し、他操作で所属が変わっていれば409で拒否します。
 
 ## 競合は現在値を返して終わらない
 

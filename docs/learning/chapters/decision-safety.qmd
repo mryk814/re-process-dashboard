@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "apps/web/src/features/candidates/CandidateUi.tsx"
     id: "decision-safety-comparison"

@@ -1,5 +1,5 @@
 ---
-verified_commit: "26accf82b2907ad962fea67fc6fde0cd9f4ac019"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "code-map-activity-contract"
@@ -114,6 +114,17 @@ code_references:
 - **Write guard**：`backend/src/material_workbench/persistence/project_lifecycle_migration.py`
 - **UI**：`apps/web/src/features/projects/ProjectHub.tsx`
 - **Test**：`backend/tests/test_project_lifecycle.py`、`backend/tests/test_projects.py`、`backend/tests/test_data_library_api.py`
+
+### Project Series所属変更
+
+- **Contract**：`backend/src/material_workbench/contracts/schemas.py`の`ProjectGroupMoveInput`
+- **API／Application**：`backend/src/material_workbench/api/projects.py`、`backend/src/material_workbench/application/projects.py`
+- **CASと空Series archive**：`backend/src/material_workbench/persistence/store.py`の`move_project_to_group`
+- **UI**：`apps/web/src/features/projects/ProjectHub.tsx`
+- **Test**：`backend/tests/test_projects.py`、`apps/web/tests/projectGroupMembership.test.mjs`、`e2e/project-hub.spec.ts`
+
+Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline、Dataset、Model Package、predecessor、continuationからなるscientific identityではありません。
+`project_series_id: null`は明示的な所属解除、空文字は未選択として拒否します。
 
 ### Project scientific identity
 

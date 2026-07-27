@@ -2,7 +2,7 @@
 chapter_id: "performance-execution"
 level: advanced
 estimated_minutes: 110
-verified_commit: "0232f1b506a975bbc50186271ee753df9940ed24"
+verified_commit: "a7628a0e9a7d30cf9262e53a27e430d4379475ba"
 code_references:
   - path: "backend/src/material_workbench/execution/inference_work_graph.py"
     id: "performance-work-graph"
