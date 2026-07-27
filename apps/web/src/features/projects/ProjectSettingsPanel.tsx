@@ -9,9 +9,9 @@ import {
   projectSettingsControlsDisabled,
   projectSettingsSaveDisabled,
   shouldShowProjectSettings,
+  ungroupedMembershipValue,
 } from "./projectSettingsState";
 
-const ungroupedMembershipValue = "__ungrouped__";
 const defaultGoalLabel = (
   direction: "at_least" | "at_most" | "target",
 ) => direction === "at_most"

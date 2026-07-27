@@ -2,10 +2,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const projectHub = readFileSync(
+const projectHubSource = readFileSync(
   new URL("../src/features/projects/ProjectHub.tsx", import.meta.url),
   "utf8",
 );
+const creationPanelSource = readFileSync(
+  new URL("../src/features/projects/ProjectCreationPanel.tsx", import.meta.url),
+  "utf8",
+);
+const settingsPanelSource = readFileSync(
+  new URL("../src/features/projects/ProjectSettingsPanel.tsx", import.meta.url),
+  "utf8",
+);
+const projectHub = `${projectHubSource}\n${creationPanelSource}\n${settingsPanelSource}`;
 
 test("project creation presents no group, existing group, and named new group as explicit choices", () => {
   assert.match(projectHub, /useState<"none" \| "existing" \| "new">\("none"\)/);
@@ -26,7 +35,7 @@ test("unassigned projects stay direct instead of sharing a synthetic group", () 
 
 test("series chrome stays hidden until a series contains more than one active project", () => {
   assert.match(projectHub, /fixedSeriesProjectCount > 1/);
-  assert.match(projectHub, /\{showActiveSeriesMembership && <div><span>検討グループ/);
+  assert.match(settingsPanelSource, /showActiveSeriesMembership \|\| groupSettingsOpen/);
   assert.match(projectHub, /!showActiveSeriesMembership && !groupSettingsOpen/);
   assert.match(projectHub, /ほかの検討とまとめる/);
 });

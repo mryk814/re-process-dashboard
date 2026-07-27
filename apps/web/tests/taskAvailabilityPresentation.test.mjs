@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { projectScientificSettingsReadOnly } from "../src/features/projects/projectSettingsState.ts";
 
 const app = readFileSync(new URL("../src/app/App.tsx", import.meta.url), "utf8");
 const projectHub = readFileSync(
@@ -24,7 +25,9 @@ test("unavailable tasks keep overview and read-only diagnostics while replacing 
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
   assert.match(app, /tab !== "workspace"/);
   assert.match(app, /tab === "workspace"/);
-  assert.match(app, /readOnly=\{taskUnavailable\}/);
+  assert.equal(projectScientificSettingsReadOnly(true, false), true);
+  assert.equal(projectScientificSettingsReadOnly(false, true), true);
+  assert.equal(projectScientificSettingsReadOnly(false, false), false);
   // The reason is rendered by the panels that stay available, not pushed through a notice.
   assert.match(app, /taskAvailability\?\.message/);
   assert.match(projectHub, /taskAvailability\.message/);

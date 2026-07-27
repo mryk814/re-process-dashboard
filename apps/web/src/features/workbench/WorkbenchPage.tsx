@@ -44,19 +44,21 @@ import {
 export function WorkbenchEmptyState({
   loading,
   error,
+  errorHint,
   onCreate,
 }: {
   loading: boolean;
   error: string | null;
+  errorHint?: string | null;
   onCreate: () => void;
 }) {
   return (
     <div className="api-empty-state" role={error ? "alert" : "status"}>
       <h2>{loading ? "候補を読み込んでいます" : "候補を表示できません"}</h2>
       <p>{error ?? "データと予測モデルを準備しています。"}</p>
-      {error && (
+      {error && errorHint !== null && (
         <p className="api-hint">
-          FastAPI を <code>{apiBaseUrl}</code> で起動後、再読み込みしてください。
+          {errorHint ?? <>FastAPI を <code>{apiBaseUrl}</code> で起動後、再読み込みしてください。</>}
         </p>
       )}
       {!loading && !error && (

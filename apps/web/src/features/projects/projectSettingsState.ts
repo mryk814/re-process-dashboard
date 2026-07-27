@@ -32,3 +32,42 @@ export function projectSettingsControlsDisabled({
 }: Pick<ProjectSettingsAvailability, "loading" | "disabled">): boolean {
   return loading || disabled;
 }
+
+export function isCurrentProjectSettingsRequest(
+  expectedProjectId: string,
+  currentProjectId: string,
+): boolean {
+  return expectedProjectId === currentProjectId;
+}
+
+export const ungroupedMembershipValue = "__ungrouped__";
+
+export function projectGroupMembershipState({
+  selectedSeriesId,
+  currentSeriesId,
+  currentSeriesProjectCount,
+}: {
+  selectedSeriesId: string;
+  currentSeriesId: string | null;
+  currentSeriesProjectCount: number;
+}) {
+  const targetSeriesId = selectedSeriesId === ungroupedMembershipValue
+    ? null
+    : selectedSeriesId;
+  const changed = Boolean(selectedSeriesId) && targetSeriesId !== currentSeriesId;
+  return {
+    targetSeriesId,
+    changed,
+    emptiesCurrentSeries: changed
+      && currentSeriesId != null
+      && currentSeriesProjectCount === 1,
+    showUngroupOption: currentSeriesId != null,
+  };
+}
+
+export function projectScientificSettingsReadOnly(
+  taskUnavailable: boolean,
+  settingsReadOnly: boolean,
+): boolean {
+  return taskUnavailable || settingsReadOnly;
+}

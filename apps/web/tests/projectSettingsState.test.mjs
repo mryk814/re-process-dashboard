@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isCurrentProjectSettingsRequest,
   projectSettingsControlsDisabled,
   projectSettingsSaveDisabled,
   shouldShowProjectSettings,
@@ -47,4 +48,9 @@ test("Project settings reject an empty name and invalid target ranges", () => {
     ...available,
     loading: true,
   }), true);
+});
+
+test("a delayed settings mutation cannot write into the next Project", () => {
+  assert.equal(isCurrentProjectSettingsRequest("project-a", "project-a"), true);
+  assert.equal(isCurrentProjectSettingsRequest("project-a", "project-b"), false);
 });

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  chainEvaluationPresentation,
+} from "../src/features/projects/chainEvaluationPresentation.ts";
 
 const source = readFileSync(
   new URL("../src/features/projects/ChainEvaluationPanel.tsx", import.meta.url),
@@ -8,6 +11,10 @@ const source = readFileSync(
 );
 const projectHubSource = readFileSync(
   new URL("../src/features/projects/ProjectHub.tsx", import.meta.url),
+  "utf8",
+);
+const projectHistorySource = readFileSync(
+  new URL("../src/features/projects/ProjectEvidenceHistory.tsx", import.meta.url),
   "utf8",
 );
 
@@ -27,6 +34,22 @@ test("chain evaluation exposes output-specific cohort and split evidence", () =>
   assert.match(source, /outer-train/);
 });
 
+test("chain evaluation derives generic stage labels from the selected revision", () => {
+  const presentation = chainEvaluationPresentation({
+    report: {
+      stages: [
+        { stage_id: "prepare" },
+        { stage_id: "score" },
+      ],
+    },
+  }, "prepare → score");
+  assert.deepEqual(presentation, {
+    stageOnlyLabel: "段単体 score",
+    stageOnlyDescription: "上流Stageの実測値をscoreへ入力",
+    endToEndLabel: "通し prepare → score",
+  });
+});
+
 test("project switch resolves Chain identity from the requested project before loading data", () => {
   assert.match(projectHubSource, /project\?\.id === activeProjectId/);
   assert.match(projectHubSource, /projects\.find\(\(item\) => item\.id === activeProjectId\)/);
@@ -37,19 +60,20 @@ test("project switch resolves Chain identity from the requested project before l
 });
 
 test("Chain project history presents immutable evidence and terminal goals", () => {
-  assert.match(projectHubSource, /workbenchApi\.taskDefinition\(activeProjectId\)/);
-  assert.match(projectHubSource, /configurableOutputs\.length > 0/);
-  assert.match(projectHubSource, /item\.chain_snapshots \?\? \[\]/);
-  assert.match(projectHubSource, /item\.chain_analysis_variants \?\? \[\]/);
-  assert.match(projectHubSource, /item\.chain_distribution_runs \?\? \[\]/);
+  const combinedSource = `${projectHubSource}\n${projectHistorySource}`;
+  assert.match(combinedSource, /workbenchApi\.taskDefinition\(activeProjectId\)/);
+  assert.match(combinedSource, /configurableOutputs\.length > 0/);
+  assert.match(combinedSource, /item\.chain_snapshots \?\? \[\]/);
+  assert.match(combinedSource, /item\.chain_analysis_variants \?\? \[\]/);
+  assert.match(combinedSource, /item\.chain_distribution_runs \?\? \[\]/);
   for (const label of [
     "全Stageを固定",
     "実測Bを条件にした予測",
     "不確かさを伝播",
     "通常のChain結果は置き換えません",
   ]) {
-    assert.ok(projectHubSource.includes(label), `${label} is visible in Chain history`);
+    assert.ok(combinedSource.includes(label), `${label} is visible in Chain history`);
   }
-  assert.match(projectHubSource, /selectedChainSnapshot[\s\S]*updateProjectDecision/);
-  assert.match(projectHubSource, /terminalStage\.output_definitions/);
+  assert.match(combinedSource, /selectedChainSnapshot[\s\S]*updateProjectDecision/);
+  assert.match(combinedSource, /terminalStage\.output_definitions/);
 });
