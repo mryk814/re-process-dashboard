@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-292",
+  "issue": {
+    "number": 292,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/292",
+    "title": "[Learning] 契約・境界・SQLite・revision／digestをソフトウェア設計編として教材化する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/revision-and-digest.qmd",
+      "docs/learning/labs/trace-revision-conflict.qmd",
+      "docs/learning/chapters/trust-a-migrated-database.qmd",
+      "docs/learning/labs/break-and-repair-migration.qmd",
+      "docs/learning/chapters/separate-archive-from-purge.qmd",
+      "docs/learning/labs/trace-project-lifecycle.qmd",
+      "docs/learning/chapters/restore-workspace-safely.qmd",
+      "docs/learning/labs/trace-workspace-restore.qmd"
+    ],
+    "scope": "revisionとdigest、optimistic concurrency、SQLite migration、Project archive／purge、Workspace backup／restoreを一つのSoftware／Persistence学習単位として受け入れる。"
+  },
+  "reviewed_against": "e292a2ec2373c3c5e47bac9e75a1322faad71087",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "front matterのcode reference、現mainのcontract／application／persistence／test、章内の現main再確認commandを往復してclaimを照合した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/trust-a-migrated-database.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/evaluation.qmd"
+      ],
+      "notes": "Issueの完了条件である競合、migration、archive／purge、backup／restoreの実装経路と演習は揃う。Project lifecycle inventoryとrestore強制終了の自動検証不足は本文で限界として明示されており、教材acceptanceを妨げない。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "到達点、非scope、固定例、実装読解、症状からの診断、設計判断、章末check、対応Labのreading orderをtask walkthroughで評価した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/_quarto-reader.yml",
+        "docs/learning/learning-paths/backend.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd",
+        "docs/learning/labs/break-and-repair-migration.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-workspace-restore.qmd"
+      ],
+      "notes": "API一覧ではなく、identity、invariant、failure boundaryから実装へ戻る順序になっている。各Labは成功条件と不十分な回答を持ち、暗記だけで終わらない。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "見出し階層、表の意味、色以外の状態label、SVGの代替説明、HTML disclosureとPDF解答分離の既存検証記録を確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/figures/candidate-revision-conflict.svg",
+        "docs/learning/figures/migration-trust-states.svg",
+        "docs/learning/figures/project-archive-purge-states.svg",
+        "docs/learning/figures/workspace-restore-state.svg",
+        "docs/learning/evaluation.qmd"
+      ],
+      "notes": "本文だけで前提と結論が成立し、図は方向と状態をlabelでも区別する。今回のreviewはsourceと既存visual review記録の代理評価であり、支援技術を使う実読者テストではない。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "Python／FastAPI経験はあるがrevision設計を初めて担当するbackend開発者",
+      "proxy": true,
+      "starting_context": "REST APIとSQLite transactionは知っているが、Candidate revision、semantic digest、immutable historyのrepo固有境界は知らない。",
+      "task": "二つの編集が競合した時系列を説明し、expected_revision、semantic digest、frontend response identityのどこで各失敗を止めるか選ぶ。",
+      "success_criteria": [
+        "revisionとdigestを同義にしない",
+        "lost updateとstale responseを別の失敗として扱う",
+        "対応するbackend／frontend testへ到達する"
+      ],
+      "result": "pass",
+      "observations": [
+        "本文の四つのidentity表からrevisionとdigestの問いを分離できる。",
+        "Lab演習2、6、9、11を順に辿ると保存競合、canonicalization、遅いresponse、test配置へ到達する。",
+        "code referenceからCandidate service、Inference Key、frontend identityへ戻れる。"
+      ],
+      "limitations": "代理評価であり、初見の実開発者の所要時間、誤答率、用語理解は測定していない。"
+    },
+    {
+      "profile": "既存Workspaceのmigrationと復旧を担当するdesktop保守者",
+      "proxy": true,
+      "starting_context": "SQLite fileの扱いは知っているが、migration ledger、staging restore、recovery journalの現行実装は知らない。",
+      "task": "markerだけ存在するDBとcommit後health失敗を分類し、現Workspaceを上書きする前後の確認点を示す。",
+      "success_criteria": [
+        "marker、checksum、schema実体を三方向で照合する",
+        "prepare、commit、finalizeを区別する",
+        "自動testが保証しない強制終了条件を明示する"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "migration章と故障Labからmarker-only状態を不整合として分類できる。",
+        "restore章のprepare／commit／finalizeとjournalから切替前後の正本を追える。",
+        "evaluationの既知限界へ戻り、commit後health失敗とprocess強制終了の直接故障注入が未実施だと説明できる。"
+      ],
+      "limitations": "実際の破損DB、installer、process killを使う操作試験ではなく、教材sourceと既存test evidenceによる代理評価である。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "新しいProject-scoped tableまたはprovenance kindを追加した際、archive／purge inventoryの更新漏れを自動発見しない。",
+      "evidence": [
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/evaluation.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "followup_issue_required",
+      "tracking": "新規production Issue候補: Project lifecycle inventoryの契約test"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "minor",
+      "summary": "Workspace restoreのcommit後health失敗とprocess強制終了は直接の故障注入testがない。",
+      "evidence": [
+        "docs/learning/chapters/restore-workspace-safely.qmd",
+        "docs/learning/evaluation.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "followup_issue_required",
+      "tracking": "新規production Issue候補: restore interruption fault injection"
+    },
+    {
+      "finding_id": "F-003",
+      "severity": "note",
+      "summary": "読者task testは二つの代理profileで成功したが、実読者の観察結果ではない。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-292.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1",
+      "node docs/learning/check-code-references.mjs",
+      "uv run python docs/learning/check-python-symbols.py",
+      "node docs/learning/check-concepts.mjs",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready_after_local_build",
+  "reviewer_note": "章のacceptanceは現main e292a2eに対するsource reviewである。clean HTML／PDF buildと全page visual reviewはEdition受入で再実行する。"
+}

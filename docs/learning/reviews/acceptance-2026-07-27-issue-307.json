@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "review_id": "acceptance-2026-07-27-issue-307",
+  "issue": {
+    "number": 307,
+    "url": "https://github.com/mryk814/re-process-dashboard/issues/307",
+    "title": "[Learning] 予測・support・不確かさ・提案を誤解させないDecision Safety／UX編を教材化する"
+  },
+  "chapter": {
+    "paths": [
+      "docs/learning/chapters/decision-safety.qmd"
+    ],
+    "scope": "predictionとdecision、Evidence State、不確実性source、support、safe default、warning、proposal adoption、provenance、accessibilityをDecision Safetyとして受け入れる。"
+  },
+  "reviewed_against": "e292a2ec2373c3c5e47bac9e75a1322faad71087",
+  "status": "accepted_with_nonblocking_followups",
+  "roles": [
+    {
+      "role": "implementation",
+      "reviewer": "Codex implementation-review proxy",
+      "method": "章のcode referenceをCandidate comparison、Robustness、Counterfactual、Screening、Proposal、Project history、accessibility testへ戻し、verified commit後のdrift reviewも照合した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-324.json",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-325.json",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-326.json",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-328.json",
+        "docs/learning/drift-reviews/drift-2026-07-27-pr-329.json"
+      ],
+      "notes": "未計算、support、safe default、goal確認、提案の不確かさ、Activity固有質問の直近変更を章とdrift recordが追跡している。"
+    },
+    {
+      "role": "pedagogy",
+      "reviewer": "Codex pedagogy-review proxy",
+      "method": "固定候補比較からDecision Surfaceへ一般化し、Evidence State、不確実性、support、warning、adoptionへ進むreading orderと四つのUI批評演習を評価した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/learning-paths/frontend-desktop.qmd",
+        "docs/learning/learning-paths/ml-data.qmd"
+      ],
+      "notes": "630.3 MPaの固定例がprecision biasを具体化し、各節は現行UIへ戻る。演習は文言修正だけでなくsummary suppression、support説明、warning構造、採用境界の判断を要求する。"
+    },
+    {
+      "role": "accessibility",
+      "reviewer": "Codex accessibility-review proxy",
+      "method": "色へ依存しないEvidence State、表の読み順、tooltipだけに閉じない説明、zoom／keyboard／row headerをdecision correctnessへ結ぶclaimと対応testを確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd",
+        "e2e/accessibility-smoke.spec.ts",
+        "apps/web/src/features/candidates/CandidateUi.tsx"
+      ],
+      "notes": "accessibilityを装飾的な準拠項目ではなく誤判断防止として扱う。章は限定された検証証拠から製品全体のWCAG適合を主張していない。実支援技術利用者の読者テストは#302へ残す。"
+    },
+    {
+      "role": "statistics",
+      "reviewer": "Codex statistics-review proxy",
+      "method": "predictive interval、target achievement、model uncertainty、input variation、Monte Carlo標準誤差、measurement variability、support percentileの定義と非同一性を式・単位・破綻条件で確認した。",
+      "result": "pass",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd#不確実性を一つの帯へ混ぜない",
+        "docs/learning/chapters/decision-safety.qmd#supportは正しさの確率ではない",
+        "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+      ],
+      "notes": "61%を無条件の成功確率と呼ばず、Monte Carlo推定誤差と入力ばらつきも分離している。supportはaccuracy probabilityではないと明示し、異なるinterval定義を横並び比較しない。"
+    },
+    {
+      "role": "domain",
+      "reviewer": "Codex materials-domain review proxy",
+      "method": "単位、target semantics、試験規格・温度・採取方向・試験片条件、実測と予測、historical actualと候補自身の未観測を区別しているか確認した。",
+      "result": "pass_with_followup",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd#630.3は候補を選ぶ理由にならない",
+        "docs/learning/chapters/decision-safety.qmd#判断面に置く九つの層",
+        "docs/learning/chapters/decision-safety.qmd#設計を振り返る"
+      ],
+      "notes": "MPaの数値比較だけで材料判断を確定せず、測定conditionとActual Snapshotの限界を明示する。材料・工程・測定の体系的な前提章は#303へ委ねる。"
+    }
+  ],
+  "reader_task_tests": [
+    {
+      "profile": "候補比較画面を実験計画に使う材料研究者",
+      "proxy": true,
+      "starting_context": "予測値と実験値の違いは理解しているが、support percentile、predictive interval、入力robustnessの実装定義は知らない。",
+      "task": "候補A 630.3 MPa／要確認と候補B 625.1 MPa／範囲内を比較し、選択前に不足する証拠と次の操作を列挙する。",
+      "success_criteria": [
+        "点予測最大を自動採用しない",
+        "supportを正しさの確率と呼ばない",
+        "予測区間、入力ばらつき、測定条件を別々に確認する",
+        "候補自身の実測が未観測であることを保つ"
+      ],
+      "result": "pass",
+      "observations": [
+        "冒頭の固定例と九層のDecision Surfaceから不足証拠を列挙できる。",
+        "support節から範囲内／要確認／外挿をaccuracy probabilityと分離できる。",
+        "provenance節から保存Run、Package、Snapshot、historical actualへ戻る経路を確認できる。"
+      ],
+      "limitations": "代理評価であり、実研究者が画面を操作した際の理解、判断時間、誤選択は測定していない。"
+    },
+    {
+      "profile": "候補比較とScreeningを改修するfrontend開発者",
+      "proxy": true,
+      "starting_context": "ReactとアクセシブルなHTMLは扱えるが、Evidence Stateと統計的な表示境界は知らない。",
+      "task": "未計算候補を含むsummary、support percentile 100、失敗した計算、proposal採用操作を誤解させないUI状態へ分解する。",
+      "success_criteria": [
+        "0、missing、unavailable、uncomputed、stale、failedを一つの横線へ潰さない",
+        "不完全な比較から完成済みsummaryを作らない",
+        "warningへcause、impact、next actionを持たせる",
+        "proposal保存と候補採用を別操作にする",
+        "色、tooltip、視覚的表順だけへ意味を閉じ込めない"
+      ],
+      "result": "pass_with_followup",
+      "observations": [
+        "Evidence State表と演習1からsummary suppressionの条件を選べる。",
+        "warning節と演習3からcause／impact／next actionへ書き換えられる。",
+        "proposal節と演習4からalgorithm proposalとexplicit adoptionを別の証拠にできる。",
+        "accessibility節からrow header、zoom、keyboard、chart descriptionを判断安全性へ接続できる。"
+      ],
+      "limitations": "代理評価であり、スクリーンリーダー、キーボードのみ、200% zoomを使う実利用者task testではない。"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "severity": "minor",
+      "summary": "実読者によるUX・統計・材料domainの理解確認は未実施で、今回のrole reviewとreader task testは代理評価である。",
+      "evidence": [
+        "docs/learning/reviews/acceptance-2026-07-27-issue-307.json"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "accepted_documented_limitation",
+      "tracking": "Issue #302"
+    },
+    {
+      "finding_id": "F-002",
+      "severity": "note",
+      "summary": "材料・工程・測定conditionの一般的な前提知識は本章で体系化せず、Decision Surfaceで確認すべき条件として限定している。",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "no_change",
+      "tracking": "Issue #303"
+    },
+    {
+      "finding_id": "F-003",
+      "severity": "note",
+      "summary": "数理導出の完全な説明はPrediction／Optimization Math編へ委ね、本章は誤読防止に必要な式と破綻条件へ限定している。",
+      "evidence": [
+        "docs/learning/chapters/decision-safety.qmd"
+      ],
+      "requires_textbook_change": false,
+      "disposition": "no_change",
+      "tracking": "Issue #294 and Issue #299"
+    }
+  ],
+  "verification": {
+    "commands": [
+      "node docs/learning/reviews/check-reviews.mjs",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-references.ps1",
+      "node docs/learning/check-code-references.mjs",
+      "uv run python docs/learning/check-python-symbols.py",
+      "node docs/learning/check-concepts.mjs",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-exercise-solutions.ps1",
+      "powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/check-main-drift.ps1"
+    ],
+    "result": "passed"
+  },
+  "issue_close_recommendation": "ready_after_local_build",
+  "reviewer_note": "UX、statistics、domainを独立roleとして明示した。clean HTML／PDF buildと全page visual review、実読者task testはEdition受入またはIssue #302で行う。"
+}
