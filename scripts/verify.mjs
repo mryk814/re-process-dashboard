@@ -33,6 +33,8 @@ if (mode === "focused") {
   runNpm("TypeScript typecheck", ["run", "typecheck"]);
 } else if (mode === "full") {
   const baseRef = process.env.VERIFY_BASE_REF || "origin/main";
+  runNpm("dependency audit policy tests", ["run", "security:audit:test"]);
+  runNpm("dependency audit", ["run", "security:audit"]);
   run("full pytest", "uv", ["run", "--extra", "dev", "python", "-m", "pytest"]);
   runNpm("web unit tests", ["run", "test", "-w", "apps/web"]);
   runNpm("desktop unit tests", ["run", "test", "-w", "apps/desktop"]);
