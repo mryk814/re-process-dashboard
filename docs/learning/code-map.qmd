@@ -1,5 +1,5 @@
 ---
-verified_commit: "985e77682d175203fe5ccb4a6688729a8077088f"
+verified_commit: "e292a2ec2373c3c5e47bac9e75a1322faad71087"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "code-map-activity-contract"

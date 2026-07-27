@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-330",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 330,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/330",
+    "merge_commit": "f846897997048e1dbd26f2c1f3991f0f19e78ffa"
+  },
+  "reviewed_against": "f846897997048e1dbd26f2c1f3991f0f19e78ffa",
+  "previous_verified_commit": "985e77682d175203fe5ccb4a6688729a8077088f",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "apps/web/src/features/projects/ProjectHub.tsx",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-lifecycle-boundary"],
+      "action": "no-change",
+      "reason": "Project creation now groups Dataset choices by current use, but archive, purge, and frozen-decision lifecycle behavior is unchanged."
+    },
+    {
+      "path": "apps/web/src/features/projects/projects.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["project-lifecycle-boundary"],
+      "action": "no-change",
+      "reason": "Layout changes support the new Dataset selector and do not alter any lifecycle claim."
+    },
+    {
+      "path": "apps/web/src/shared/dataLibraryPresentation.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-lifecycle-boundary"],
+      "action": "no-change",
+      "reason": "The presenter derives Dataset choice labels and usage counts without changing Project evidence ownership."
+    },
+    {
+      "path": "apps/web/tests/dataLibraryPresentation.test.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-lifecycle-boundary"],
+      "action": "no-change",
+      "reason": "The new unit tests cover Dataset sorting and labels, outside the archive and purge exercise."
+    },
+    {
+      "path": "e2e/project-hub.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-lifecycle-boundary"],
+      "action": "no-change",
+      "reason": "The E2E adds Dataset selection behavior and leaves lifecycle confirmation and purge evidence unchanged."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "project-lifecycle-boundary",
+      "statement": "Project archive preserves decision evidence, while purge validates references before deleting Project-owned evidence.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #330 changes how a Dataset is selected during Project creation and does not change either lifecycle operation.",
+      "evidence": [
+        {"path": "apps/web/src/features/projects/ProjectHub.tsx", "symbol": "projectDatasetChoices"},
+        {"path": "apps/web/tests/dataLibraryPresentation.test.mjs", "symbol": "projectDatasetChoices"}
+      ],
+      "verification": [
+        "Inspect the first-parent PR diff and run code-reference and drift-review validation."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector identified ProjectHub as a referenced file changed after the previous verified commit.",
+    "focused_tests": "The Decision Safety focused browser suite passed 10 tests after the main merge.",
+    "api_check": "The PR did not change generated API contracts.",
+    "code_reference_check": "The referenced ProjectHub symbol remains present.",
+    "html_build": "A clean HTML build passed before the main merge.",
+    "pdf_build": "A clean 194-page PDF build passed before the main merge.",
+    "visual_review": "All 194 PDF pages were reviewed before the main merge."
+  },
+  "reviewer_note": "The Dataset-choice behavior is outside the lifecycle chapter claim and does not invalidate its exercise."
+}

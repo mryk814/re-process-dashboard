@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-331",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 331,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/331",
+    "merge_commit": "024b232678b0f50c717a06136ccbe1e9070dee5d"
+  },
+  "reviewed_against": "024b232678b0f50c717a06136ccbe1e9070dee5d",
+  "previous_verified_commit": "f846897997048e1dbd26f2c1f3991f0f19e78ffa",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/src/material_workbench/api/catalog.py",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["project-decision-validation"],
+      "action": "no-change",
+      "reason": "Catalog output uses the same canonical Task digest helper and does not change Project decision references."
+    },
+    {
+      "path": "backend/src/material_workbench/application/projects.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-decision-validation"],
+      "action": "no-change",
+      "reason": "Chain terminal digest validation now uses the canonical registry helper, while decision Candidate and Snapshot validation is unchanged."
+    },
+    {
+      "path": "backend/tests/test_chain_api.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["project-decision-validation"],
+      "action": "no-change",
+      "reason": "Chain API tests pin the canonical digest path and do not alter the Decision Safety adoption exercise."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "project-decision-validation",
+      "statement": "Saving a Project decision validates that the Candidate and immutable Snapshot correspond to the same Project context.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #331 changes Chain Task-definition digest calculation before Project use, not decision persistence validation.",
+      "evidence": [
+        {"path": "backend/src/material_workbench/application/projects.py", "symbol": "_task_definition_digest"},
+        {"path": "backend/src/material_workbench/persistence/store.py", "symbol": "update_project_decision"}
+      ],
+      "verification": [
+        "Inspect the first-parent PR diff and run focused decision backend tests."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector identified projects.py as a referenced file changed after the previous verified commit.",
+    "focused_tests": "Decision Activity, Counterfactual, and degraded-startup tests passed 27 tests.",
+    "api_check": "The digest refactor preserves the public API contract.",
+    "code_reference_check": "All referenced Project decision symbols remain present.",
+    "html_build": "A clean HTML build passed before the main merge.",
+    "pdf_build": "A clean 194-page PDF build passed before the main merge.",
+    "visual_review": "All 194 PDF pages were reviewed before the main merge."
+  },
+  "reviewer_note": "The canonical digest helper improves one prerequisite check without changing the chapter's adoption or lifecycle boundaries."
+}

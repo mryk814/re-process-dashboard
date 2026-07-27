@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-27-pr-333",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": false,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 333,
+    "url": "https://github.com/mryk814/re-process-dashboard/pull/333",
+    "merge_commit": "e292a2ec2373c3c5e47bac9e75a1322faad71087"
+  },
+  "reviewed_against": "e292a2ec2373c3c5e47bac9e75a1322faad71087",
+  "previous_verified_commit": "5a761c621cef1106d4a712926c75cc959c43b841",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": ".github/workflows/verify.yml",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The workflow wires a local failure-state suite and does not change the learner-visible contract."
+    },
+    {
+      "path": "apps/web/src/features/admin/admin.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive style changes preserve the same status and failure semantics."
+    },
+    {
+      "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Decision summary actions move inside their description cells, improving semantic grouping without changing labels or evidence states."
+    },
+    {
+      "path": "apps/web/src/features/candidates/candidates.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive Candidate layout changes do not alter the Decision Safety claims."
+    },
+    {
+      "path": "apps/web/src/features/data-library/DataLibraryPage.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The Data Library navigation now declares tablist semantics without changing Source evidence lifecycle."
+    },
+    {
+      "path": "apps/web/src/features/data-library/data-library.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive Data Library styling leaves the referenced lifecycle claim unchanged."
+    },
+    {
+      "path": "apps/web/src/features/lineage/lineage.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive lineage styling does not change provenance identity or evidence."
+    },
+    {
+      "path": "apps/web/src/features/projects/projects.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive Project styling does not change archive, purge, or decision persistence."
+    },
+    {
+      "path": "apps/web/src/features/screening/screening.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive Screening styling preserves safe-range and goal-warning behavior."
+    },
+    {
+      "path": "apps/web/src/features/workbench/HeatPatternPanel.tsx",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The panel gains an accessible table label without changing its data interpretation."
+    },
+    {
+      "path": "apps/web/src/features/workbench/workbench.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Responsive Workbench styling preserves Decision Activity evidence and controls."
+    },
+    {
+      "path": "apps/web/src/styles.css",
+      "semantic_impact": "wording-only",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Global reflow styles improve narrow-screen behavior without changing any contract."
+    },
+    {
+      "path": "backend/tests/test_catalog_failure_e2e.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The new backend test fixes catalog failure diagnostics and does not change the chapter's optional subsystem example."
+    },
+    {
+      "path": "docs/decisions/startup-failure-boundaries.md",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The decision record adds local failure-state acceptance evidence without changing the existing cause, impact, and recovery contract."
+    },
+    {
+      "path": "e2e/accessibility-smoke.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The new browser smoke expands accessibility evidence but does not justify a product-wide WCAG conformance claim."
+    },
+    {
+      "path": "e2e/api-offline.spec.ts",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The offline browser test verifies recovery messaging while preserving the chapter's distinction between unavailable and failed."
+    },
+    {
+      "path": "package-lock.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "Package metadata changes support the new local test command and do not alter textbook content."
+    },
+    {
+      "path": "package.json",
+      "semantic_impact": "interface-compatible",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The package script exposes the failure-state suite without replacing any textbook verification command."
+    },
+    {
+      "path": "scripts/run-failure-state-e2e.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The local runner isolates failure-state ports and databases, outside the chapter's focused exercise."
+    },
+    {
+      "path": "scripts/verify.mjs",
+      "semantic_impact": "behavioral",
+      "material_impact": [],
+      "affected_claims": ["failure-accessibility-boundary"],
+      "action": "no-change",
+      "reason": "The verifier invokes the new local suite and leaves textbook-specific checks unchanged."
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "failure-accessibility-boundary",
+      "statement": "Unavailable, failed, and completed states remain distinguishable, and accessibility evidence is limited to the specific structures and browser checks performed.",
+      "classification": "no_content_impact",
+      "material_impact": [],
+      "action": "no-change",
+      "reason": "PR #333 strengthens responsive semantics and failure-state acceptance without invalidating the chapter's explicit limitations.",
+      "evidence": [
+        {"path": "apps/web/src/features/candidates/CandidateUi.tsx", "symbol": "残りを計算"},
+        {"path": "e2e/accessibility-smoke.spec.ts", "symbol": "重大なアクセシビリティ違反がない"},
+        {"path": "e2e/api-offline.spec.ts", "symbol": "API断を明示し"}
+      ],
+      "verification": [
+        "Inspect the first-parent PR diff and run the focused Decision Safety browser suite."
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "The detector identified CandidateUi and DataLibraryPage as referenced files changed after the previous verified commit.",
+    "focused_tests": "The fresh-server focused browser suite passed all 10 tests after the merge.",
+    "api_check": "PR #333 does not change generated API contracts.",
+    "code_reference_check": "The Decision Safety and Source lifecycle code-reference symbols remain present.",
+    "html_build": "A clean HTML build passed before the main merge.",
+    "pdf_build": "A clean 194-page PDF build passed before the main merge.",
+    "visual_review": "All 194 PDF pages were reviewed before the main merge."
+  },
+  "reviewer_note": "The stronger failure and accessibility evidence does not expand the chapter into a WCAG conformance claim."
+}
