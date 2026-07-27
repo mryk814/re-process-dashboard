@@ -139,6 +139,21 @@ for (const key of [
 }
 assert(!readFileSync(composePath, "utf8").includes("data/source"), "Compose must not mount the read-only source data.");
 assert(!readFileSync(composePath, "utf8").includes("models/packages"), "Compose must not mount Model Packages.");
+const packageJson = JSON.parse(readFileSync(resolve(repositoryRoot, "package.json"), "utf8"));
+assert(
+  packageJson.scripts["compose:up"] === "node scripts/run-compose-up.mjs",
+  "Persistent Compose startup must use the one-shot-aware runner.",
+);
+const startupRunner = readFileSync(resolve(repositoryRoot, "scripts", "run-compose-up.mjs"), "utf8");
+for (const evidence of [
+  '"--wait"',
+  '"postgres"',
+  '"object-storage"',
+  '"--no-deps", "migration"',
+  '"--no-deps", "bucket-init"',
+]) {
+  assert(startupRunner.includes(evidence), `Persistent Compose startup runner is missing ${evidence}.`);
+}
 const integrationRunner = readFileSync(
   resolve(repositoryRoot, "scripts", "run-compose-integration.mjs"),
   "utf8",

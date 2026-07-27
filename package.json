@@ -50,7 +50,7 @@
     "workspace:seed": "node scripts/workspace-seed.mjs",
     "workspace:maintenance": "node scripts/workspace-maintenance.mjs",
     "compose:check": "node scripts/check-compose-contract.mjs",
-    "compose:up": "docker compose --profile infra up -d --wait",
+    "compose:up": "node scripts/run-compose-up.mjs",
     "compose:smoke": "docker compose --profile infra run --rm object-smoke",
     "compose:test": "node scripts/run-compose-integration.mjs",
     "compose:down": "docker compose --profile infra down"
