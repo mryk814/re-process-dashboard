@@ -132,6 +132,7 @@ export function RobustnessActivityView({
   const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
   const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
+    {hasConfiguredGoals && <p className="activity-question">{availability.definition.question}</p>}
     {!hasConfiguredGoals && !sensitivityOnlyConfirmed && <section className="activity-prerequisite" role="status">
       <strong>目標達成率を確認するには、Projectの目標値が必要です</strong>
       <span>目標なしでも、入力ばらつきによる予測の振れ幅とモデル支持範囲は確認できます。</span>
