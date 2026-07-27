@@ -51,6 +51,9 @@
 - [workspace-backup.md](workspace-backup.md) — 判断履歴とData Library資源の整合性付きbackup／restore契約
 - [windows-distribution.md](windows-distribution.md) — Windows向け成果物の作成とsmoke確認
 - [docker-compose-development.md](docker-compose-development.md) — PostgreSQLとS3互換storageのlocal fixture
+- [reports/shared-workbench-lab-v1-2026-07-28.md](reports/shared-workbench-lab-v1-2026-07-28.md) — 二Actor、PostgreSQL、object storageを通した共有縦切りの実験結果
+- [reports/cloud-spike-aws-snowflake-2026-07-28.md](reports/cloud-spike-aws-snowflake-2026-07-28.md) — AWS／Snowflakeの境界、外部阻害、採否判断
+- [reports/ai-actor-review-v1-2026-07-28.md](reports/ai-actor-review-v1-2026-07-28.md) — AI Actorをtyped evidenceとHuman dispositionへ閉じ込めた実験結果
 
 ## 履歴資料
 
