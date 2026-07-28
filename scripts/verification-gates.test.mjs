@@ -64,6 +64,7 @@ test("changed paths classify evidence separately from product risks", () => {
   assert.equal(classifyChangedPath("unclassified.file"), "unknown");
   assert.equal(requiresBackendPytest(["backend"]), true);
   assert.equal(requiresBackendPytest(["persistence"]), true);
+  assert.equal(requiresBackendPytest(["security"]), true);
   assert.equal(requiresBackendPytest(["docs", "frontend"]), false);
 });
 

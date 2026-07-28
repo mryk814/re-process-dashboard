@@ -175,7 +175,7 @@ export function classifyChangedPaths(paths) {
 
 export function requiresBackendPytest(riskCategories) {
   return riskCategories.some((risk) =>
-    ["backend", "persistence", "model-package", "contracts"].includes(risk)
+    ["backend", "persistence", "model-package", "contracts", "security"].includes(risk)
   );
 }
 
