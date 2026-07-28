@@ -26,6 +26,8 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
   const queue = useRef(new LatestSaveQueue<ApiCandidate>());
   const authoritative = useRef(new Map<string, ApiCandidate>());
   const scheduled = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const scheduledDrafts = useRef(new Map<string, { candidate: CandidateViewModel; previous?: CandidateViewModel }>());
+  const inFlightFlushes = useRef(new Set<Promise<boolean>>());
   const previewControllers = useRef(new Map<string, AbortController>());
   const activeProjectId = useRef(projectId);
   activeProjectId.current = projectId;
@@ -42,11 +44,12 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
     setFieldErrors({});
   }
 
-  async function flush(candidate: CandidateViewModel, previous?: CandidateViewModel) {
+  async function persist(candidate: CandidateViewModel, previous?: CandidateViewModel) {
     const candidateId = candidate.id;
     const timer = scheduled.current.get(candidateId);
     if (timer) clearTimeout(timer);
     scheduled.current.delete(candidateId);
+    scheduledDrafts.current.delete(candidateId);
     const initial = authoritative.current.get(candidateId) ?? previous?.raw ?? candidate.raw;
     const basePayload = toApiCandidate(fromApiCandidate(initial));
     const draftPayload = toApiCandidate(candidate);
@@ -74,18 +77,18 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
     try {
       const saved = await queued.promise;
       authoritative.current.set(candidateId, saved);
-      if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+      if (!queued.isLatest() || activeProjectId.current !== projectId) return true;
       const contractError = candidateSaveContractError(saved, draftPayload);
       if (contractError) {
         setSaveState(candidateId, "error");
         onNotify("error", contractError);
-        return;
+        return false;
       }
       setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(saved) : item));
       setSaveState(candidateId, "saved");
-      if (!previewAvailable) return;
+      if (!previewAvailable) return true;
       const inputIdentity = candidateInputIdentity(saved.inputs);
-      if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return;
+      if (!shouldRefreshPreviewAfterSave(baseInputIdentity, inputIdentity, previewInputIdentityAtStart)) return true;
       inferenceRequestCache.invalidatePrefix(candidateInferencePrefix(projectId, candidateId));
       onPreview(candidateId, null, inputIdentity, saved.revision);
       previewControllers.current.get(candidateId)?.abort();
@@ -98,7 +101,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
           activeProjectId.current !== projectId
           || previewControllers.current.get(candidateId) !== previewController
           || candidateInputIdentity(current?.inputs) !== inputIdentity
-        ) return;
+        ) return true;
         onPreview(candidateId, preview, inputIdentity, saved.revision);
       } catch (cause) {
         const current = authoritative.current.get(candidateId);
@@ -106,8 +109,8 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
           activeProjectId.current !== projectId
           || previewControllers.current.get(candidateId) !== previewController
           || candidateInputIdentity(current?.inputs) !== inputIdentity
-        ) return;
-        if (previewController.signal.aborted) return;
+        ) return true;
+        if (previewController.signal.aborted) return true;
         onPreview(candidateId, null, inputIdentity, saved.revision, cause);
         onNotify("error", "入力は保存しましたが、予測結果を更新できませんでした");
       } finally {
@@ -115,8 +118,9 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
           previewControllers.current.delete(candidateId);
         }
       }
+      return true;
     } catch (error) {
-      if (!queued.isLatest() || activeProjectId.current !== projectId) return;
+      if (!queued.isLatest() || activeProjectId.current !== projectId) return true;
       const apiError = error instanceof ApiClientError ? error : undefined;
       if (apiError?.currentCandidate) authoritative.current.set(candidateId, apiError.currentCandidate);
       setFieldErrors((current) => ({ ...current, [candidateId]: apiError?.fieldErrors ?? [] }));
@@ -124,9 +128,24 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       onNotify("error", apiError?.kind === "conflict"
         ? "別の更新と競合しました。入力値は保持しています。再読込するか変更内容をコピーしてください"
         : "入力を保存できません。値とエラー表示を確認してください");
+      return false;
     } finally {
       queued.release();
     }
+  }
+
+  function flush(candidate: CandidateViewModel, previous?: CandidateViewModel) {
+    const operation = persist(candidate, previous);
+    inFlightFlushes.current.add(operation);
+    void operation.finally(() => inFlightFlushes.current.delete(operation));
+    return operation;
+  }
+
+  async function settlePending() {
+    const drafts = [...scheduledDrafts.current.values()];
+    for (const { candidate, previous } of drafts) void flush(candidate, previous);
+    const results = await Promise.all([...inFlightFlushes.current]);
+    return results.every(Boolean);
   }
 
   function markDirty(candidateId: string) {
@@ -142,8 +161,10 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
     }
     const timer = scheduled.current.get(candidate.id);
     if (timer) clearTimeout(timer);
+    scheduledDrafts.current.set(candidate.id, { candidate, previous });
     scheduled.current.set(candidate.id, setTimeout(() => {
       scheduled.current.delete(candidate.id);
+      scheduledDrafts.current.delete(candidate.id);
       void flush(candidate, previous);
     }, 250));
   }
@@ -154,6 +175,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
     const timer = scheduled.current.get(candidateId);
     if (timer) clearTimeout(timer);
     scheduled.current.delete(candidateId);
+    scheduledDrafts.current.delete(candidateId);
     queue.current.supersede(candidateId);
     setCandidates((items) => items.map((item) => item.id === candidateId ? fromApiCandidate(serverCandidate) : item));
     setFieldErrors((current) => ({ ...current, [candidateId]: [] }));
@@ -175,9 +197,10 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
   useEffect(() => () => {
     for (const timer of scheduled.current.values()) clearTimeout(timer);
     scheduled.current.clear();
+    scheduledDrafts.current.clear();
     for (const controller of previewControllers.current.values()) controller.abort();
     previewControllers.current.clear();
   }, [projectId]);
 
-  return { acceptServerCandidates, copyDraft, fieldErrors, flush, reload, saveStates, schedule };
+  return { acceptServerCandidates, copyDraft, fieldErrors, flush, reload, saveStates, schedule, settlePending };
 }

@@ -656,6 +656,7 @@ export function useWorkbenchSession({
 
   async function archiveProject(projectId: string): Promise<boolean> {
     try {
+      if (projectId === activeProjectIdRef.current && !(await editor.settlePending())) return false;
       await workbenchApi.archiveProject(projectId);
       const remaining = projects.filter((project) => project.id !== projectId);
       projectsRef.current = remaining;

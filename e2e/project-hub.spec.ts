@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl } from "./helpers";
+import { apiBaseUrl, createProjectWithCandidate } from "./helpers";
 
 async function createProjectFromDefault(
   page: import("@playwright/test").Page,
@@ -310,6 +310,127 @@ test("project settings keep one fixed reference display and archiving at the bot
   await expect(page.locator(".project-reference-strip")).toHaveCount(1);
   await expect(page.locator(".project-fixed-bindings")).toHaveCount(0);
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
+});
+
+test("archiving waits for a candidate save before changing project lifecycle", async ({ page }) => {
+  const project = await createProjectWithCandidate(
+    page.request,
+    "annealed-properties-v1",
+    `保存中アーカイブ ${Date.now()}`,
+    "保存競合候補",
+  );
+
+  let releaseSave!: () => void;
+  const saveCanFinish = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  let reportSaveStarted!: () => void;
+  const saveStarted = new Promise<void>((resolve) => {
+    reportSaveStarted = resolve;
+  });
+  await page.route(new RegExp(`/api/projects/${project.id}/candidates/[^/]+$`), async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+    reportSaveStarted();
+    await saveCanFinish;
+    await route.continue();
+  });
+
+  await page.goto(`/?view=candidates&project=${project.id}`);
+  const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
+  const value = Number(await numeric.inputValue());
+  await numeric.fill(String(value + 0.001));
+  await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+    .getByRole("button", { name: "概要", exact: true })
+    .click();
+  await saveStarted;
+
+  const archivedResponse = page.waitForResponse((response) => (
+    response.request().method() === "DELETE"
+    && new URL(response.url()).pathname === `/api/projects/${project.id}`
+  ));
+  let archiveRequestStarted = false;
+  page.on("request", (request) => {
+    if (
+      request.method() === "DELETE"
+      && new URL(request.url()).pathname === `/api/projects/${project.id}`
+    ) archiveRequestStarted = true;
+  });
+  await page.getByRole("button", { name: "プロジェクトをアーカイブ" }).click();
+  await page.getByRole("button", { name: "アーカイブする" }).click();
+  const staleSaveResponse = page.waitForResponse((response) => (
+    response.request().method() === "PUT"
+    && new URL(response.url()).pathname.startsWith(`/api/projects/${project.id}/candidates/`)
+  ));
+  await expect(page.getByRole("button", { name: "アーカイブ中…" })).toBeVisible();
+  expect(archiveRequestStarted).toBe(false);
+  releaseSave();
+  expect((await staleSaveResponse).status()).toBe(200);
+  expect((await archivedResponse).status()).toBe(204);
+  await expect(page.locator(".workspace-notice.error")).toHaveCount(0);
+  await expect(page.locator(".workspace-notice.success")).toContainText("プロジェクトをアーカイブしました");
+});
+
+test("a failed pending candidate save prevents project archiving", async ({ page }) => {
+  const project = await createProjectWithCandidate(
+    page.request,
+    "annealed-properties-v1",
+    `保存失敗アーカイブ ${Date.now()}`,
+    "保存失敗候補",
+  );
+
+  let releaseSave!: () => void;
+  const saveCanFinish = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  let reportSaveStarted!: () => void;
+  const saveStarted = new Promise<void>((resolve) => {
+    reportSaveStarted = resolve;
+  });
+  await page.route(new RegExp(`/api/projects/${project.id}/candidates/[^/]+$`), async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+    reportSaveStarted();
+    await saveCanFinish;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "forced save failure" }),
+    });
+  });
+
+  await page.goto(`/?view=candidates&project=${project.id}`);
+  const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
+  const value = Number(await numeric.inputValue());
+  await numeric.fill(String(value + 0.001));
+  await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+    .getByRole("button", { name: "概要", exact: true })
+    .click();
+  await saveStarted;
+
+  let archiveRequestStarted = false;
+  page.on("request", (request) => {
+    if (
+      request.method() === "DELETE"
+      && new URL(request.url()).pathname === `/api/projects/${project.id}`
+    ) archiveRequestStarted = true;
+  });
+  await page.getByRole("button", { name: "プロジェクトをアーカイブ" }).click();
+  await page.getByRole("button", { name: "アーカイブする" }).click();
+  await expect(page.getByRole("button", { name: "アーカイブ中…" })).toBeVisible();
+  releaseSave();
+
+  await expect(page.locator(".workspace-notice.error")).toContainText("入力を保存できません");
+  await expect(page).toHaveURL(new RegExp(`project=${project.id}`));
+  await expect(page.getByRole("button", { name: "アーカイブする" })).toBeEnabled();
+  expect(archiveRequestStarted).toBe(false);
+
+  await page.unrouteAll({ behavior: "wait" });
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${project.id}`)).status()).toBe(204);
 });
 
 test("project overview leads with goals and next work while fixed references stay collapsed", async ({ page }) => {
