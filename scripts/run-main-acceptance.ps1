@@ -204,6 +204,10 @@ $omittedGates = @(
     foreach ($gateId in $knownGateIds) {
         if ($gateId -notin $selectedGateIds) {
             $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
+            [object[]]$priorEvidence = @()
+            if ($null -ne $gate.priorEvidence) {
+                $priorEvidence = @($gate.priorEvidence)
+            }
             [ordered]@{
                 id = $gateId
                 status = "not_run"
@@ -212,11 +216,7 @@ $omittedGates = @(
                 } else {
                     "not selected by the release profile or -IncludeGate"
                 }
-                priorEvidence = if ($null -eq $gate.priorEvidence) {
-                    @()
-                } else {
-                    @($gate.priorEvidence)
-                }
+                priorEvidence = $priorEvidence
             }
         }
     }
