@@ -2,7 +2,7 @@
 chapter_id: "materials-domain-primer"
 level: intermediate
 estimated_minutes: 180
-verified_commit: "df521923742293acb4aeb0ea44938388b9a5554b"
+verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "materials-task-contract"
