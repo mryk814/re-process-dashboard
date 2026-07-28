@@ -3,8 +3,8 @@
 ## 結果
 
 - status: passed
-- tested commit: `888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba`
-- duration: 1362.157秒
+- tested commit: `d29932e957c4365d7da8dc33b29e7739e7025f46`
+- duration: 1379.435秒
 - 検証カタログ SHA-256: `39565b1ca46a2aa2793d43e914ee55b9122ede0b65adeb68e041a6bec1262541`
 - 自動gate: 16/16 passed
 - dependency audit policy・本体監査: passed
@@ -25,8 +25,8 @@
 
 | artifact | SHA-256 |
 |---|---|
-| `Material-Decision-Workbench-Setup-0.1.0.exe` | `8dba55ba86576491338098fb383e92c625e4b4617c2d1acf6e7a32a79dde797b` |
-| `Material-Decision-Workbench-folder-0.1.0.zip` | `4ee8fcc7c50bd466b769a732600970fccb5e09877108514341c5e5907a3c4932` |
+| `Material-Decision-Workbench-Setup-0.1.0.exe` | `59d725185e4eae9a770b7142257dfa61e78dbdf94449e032636b87100f660404` |
+| `Material-Decision-Workbench-folder-0.1.0.zip` | `c322860ab0fcbe30fdcd0f9fb0421a334c528cd169013ddda26b1656f653b765` |
 
 ## 今回実行しなかったgate
 
