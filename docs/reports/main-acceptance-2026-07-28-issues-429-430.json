@@ -1,9 +1,9 @@
 ﻿{
     "schemaVersion":  "main-acceptance/v2",
-    "runId":  "20260728T050529Z",
+    "runId":  "20260728T052908Z",
     "level":  "release",
-    "testedCommit":  "cdb2fd79e175b313067df6ee3bc112b6196d7bec",
-    "currentCommitAtInspection":  "cdb2fd79e175b313067df6ee3bc112b6196d7bec",
+    "testedCommit":  "6107b99f3f07ec33a5580c69e07e71b7e404a37a",
+    "currentCommitAtInspection":  "6107b99f3f07ec33a5580c69e07e71b7e404a37a",
     "commitsAhead":  0,
     "changedRiskCategories":  [
 
@@ -93,9 +93,9 @@
 
                                               },
     "cleanIsolatedPlaywright":  true,
-    "startedAt":  "2026-07-28T05:05:29.1649594Z",
-    "finishedAt":  "2026-07-28T05:27:11.6214446Z",
-    "durationSeconds":  1302.456,
+    "startedAt":  "2026-07-28T05:29:08.9225511Z",
+    "finishedAt":  "2026-07-28T05:53:50.7535129Z",
+    "durationSeconds":  1481.831,
     "environment":  {
                         "os":  "Microsoft Windows NT 10.0.26200.0",
                         "powershell":  "5.1.26100.8894",
@@ -111,8 +111,8 @@
                       "status":  "passed",
                       "command":  "npm.cmd run security:audit:test",
                       "exitCode":  0,
-                      "durationSeconds":  0.371,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/dependency-audit-policy.log",
+                      "durationSeconds":  0.409,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/dependency-audit-policy.log",
                       "summary":  [
                                       "Dependency audit policy self-tests passed: 6 cases."
                                   ]
@@ -122,8 +122,8 @@
                       "status":  "passed",
                       "command":  "npm.cmd run security:audit",
                       "exitCode":  0,
-                      "durationSeconds":  3.055,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/dependency-audit.log",
+                      "durationSeconds":  3.23,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/dependency-audit.log",
                       "summary":  [
                                       "Dependency audit passed: production=0; 18 development-only package records map only to GHSA-mh99-v99m-4gvg, GHSA-52cp-r559-cp3m; exceptions expire 2026-08-31 (repository maintainers)."
                                   ]
@@ -133,8 +133,8 @@
                       "status":  "passed",
                       "command":  "uv.exe run --extra dev python -m pytest backend/tests/test_launch_token.py backend/tests/test_api.py backend/tests/test_optional_subsystem_startup.py::test_transform_security_boundary_remains_fail_fast -q",
                       "exitCode":  0,
-                      "durationSeconds":  51.706,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/security-boundary-tests.log",
+                      "durationSeconds":  50.216,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/security-boundary-tests.log",
                       "summary":  [
                                       "backend/tests/test_optional_subsystem_startup.py::test_transform_security_boundary_remains_fail_fast[failure0]",
                                       "backend/tests/test_api.py::test_data_library_model_packages_can_include_archived_refs",
@@ -149,8 +149,8 @@
                       "status":  "passed",
                       "command":  "uv.exe run --extra dev python -m pytest backend/tests/test_model_lifecycle.py backend/tests/test_model_packages.py backend/tests/test_runtime.py -q",
                       "exitCode":  0,
-                      "durationSeconds":  75.479,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/model-package-contract-tests.log",
+                      "durationSeconds":  71.941,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/model-package-contract-tests.log",
                       "summary":  [
                                       "backend/tests/test_runtime.py::test_grouped_oof_calibration_and_parent_condition_support",
                                       "backend/tests/test_model_lifecycle.py::test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity",
@@ -171,8 +171,8 @@
                       "status":  "passed",
                       "command":  "uv.exe run --extra dev python -m pytest",
                       "exitCode":  0,
-                      "durationSeconds":  250.538,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/full-pytest.log",
+                      "durationSeconds":  241.045,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/full-pytest.log",
                       "summary":  [
                                       "backend/tests/test_task_registry.py: 2 warnings",
                                       "backend/tests/test_chain_execution.py: 1 warning",
@@ -193,7 +193,7 @@
                                       "backend/tests/test_developer_doctor.py: 2 warnings",
                                       "backend/tests/test_degraded_startup.py: 3 warnings",
                                       "backend/tests/test_individual_observation_packages.py: 1 warning",
-                                      "960 passed, 2 skipped, 58 warnings in 247.74s (0:04:07)"
+                                      "960 passed, 2 skipped, 58 warnings in 238.30s (0:03:58)"
                                   ]
                   },
                   {
@@ -201,25 +201,25 @@
                       "status":  "passed",
                       "command":  "npm.cmd run test -w apps/web",
                       "exitCode":  0,
-                      "durationSeconds":  1.584,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/web-unit.log",
+                      "durationSeconds":  1.635,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/web-unit.log",
                       "summary":  [
                                       "\u003e node --test tests/*.test.mjs",
-                                      "✔ an unrelated subsystem failure does not disable the selected Chain (0.2981ms)",
-                                      "✔ a connection that never opened is treated as startup, not as a failure (1.4249ms)",
-                                      "✔ a served error is a real failure, not a startup wait (0.4736ms)",
-                                      "✔ deleting a row does not bypass a locked remainder (0.2133ms)",
-                                      "✔ omits failed loads and stops without publishing partial results after abort (0.8285ms)",
-                                      "✔ matches availability by explicit Chain ownership and ignores unrelated failures (0.1641ms)",
-                                      "✔ retains stale data when the current refresh fails (0.1966ms)",
-                                      "✔ a delayed Project history failure cannot replace the next Project state (0.7335ms)",
-                                      "✔ chain projects explain single-task-only views instead of failing inside them (0.1896ms)",
-                                      "✔ fails fast for task mismatch, malformed paths, and unsupported field kinds (0.7196ms)",
-                                      "✔ a failure is announced as an alert and never expires on its own (0.6563ms)",
-                                      "✔ a preview failure never becomes the connection state (0.7649ms)",
-                                      "✔ a failed write reports itself without claiming the API is unreachable (0.7283ms)",
-                                      "✔ every notice declares whether it reports success or failure (3.2192ms)",
-                                      "✔ the notice surface is interactive and separates failure from success (0.6591ms)",
+                                      "✔ an unrelated subsystem failure does not disable the selected Chain (0.2375ms)",
+                                      "✔ a connection that never opened is treated as startup, not as a failure (0.9711ms)",
+                                      "✔ a served error is a real failure, not a startup wait (0.2217ms)",
+                                      "✔ deleting a row does not bypass a locked remainder (0.2463ms)",
+                                      "✔ omits failed loads and stops without publishing partial results after abort (0.5378ms)",
+                                      "✔ matches availability by explicit Chain ownership and ignores unrelated failures (0.2365ms)",
+                                      "✔ retains stale data when the current refresh fails (0.2418ms)",
+                                      "✔ a delayed Project history failure cannot replace the next Project state (0.8884ms)",
+                                      "✔ chain projects explain single-task-only views instead of failing inside them (0.2094ms)",
+                                      "✔ fails fast for task mismatch, malformed paths, and unsupported field kinds (0.5853ms)",
+                                      "✔ a failure is announced as an alert and never expires on its own (1.0299ms)",
+                                      "✔ a preview failure never becomes the connection state (1.198ms)",
+                                      "✔ a failed write reports itself without claiming the API is unreachable (1.1792ms)",
+                                      "✔ every notice declares whether it reports success or failure (2.9334ms)",
+                                      "✔ the notice surface is interactive and separates failure from success (1.0175ms)",
                                       "ℹ tests 271",
                                       "ℹ pass 271",
                                       "ℹ fail 0",
@@ -231,11 +231,11 @@
                       "status":  "passed",
                       "command":  "npm.cmd run test -w apps/desktop",
                       "exitCode":  0,
-                      "durationSeconds":  1.626,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/desktop-unit.log",
+                      "durationSeconds":  1.634,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/desktop-unit.log",
                       "summary":  [
                                       "\u003e npm run build \u0026\u0026 node --test tests/*.test.mjs",
-                                      "✔ restored API health failure rolls back before restarting the original Workspace (1.6816ms)",
+                                      "✔ restored API health failure rolls back before restarting the original Workspace (1.5668ms)",
                                       "ℹ tests 1",
                                       "ℹ pass 1",
                                       "ℹ fail 0",
@@ -247,8 +247,8 @@
                       "status":  "passed",
                       "command":  "npm.cmd run typecheck",
                       "exitCode":  0,
-                      "durationSeconds":  18.279,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/typecheck.log",
+                      "durationSeconds":  18.295,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/typecheck.log",
                       "summary":  [
                                       "Frontend import boundaries: OK"
                                   ]
@@ -258,8 +258,8 @@
                       "status":  "passed",
                       "command":  "npm.cmd run build",
                       "exitCode":  0,
-                      "durationSeconds":  6.753,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/application-build.log",
+                      "durationSeconds":  6.695,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/application-build.log",
                       "summary":  [
 
                                   ]
@@ -269,11 +269,11 @@
                       "status":  "passed",
                       "command":  "npx.cmd playwright test",
                       "exitCode":  0,
-                      "durationSeconds":  189.552,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/default-playwright.log",
+                      "durationSeconds":  188.308,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/default-playwright.log",
                       "summary":  [
-                                      "✔ a database still owned by the web server is reported without failing (0.1789ms)",
-                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.2713ms)",
+                                      "✔ a database still owned by the web server is reported without failing (0.2102ms)",
+                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.2822ms)",
                                       "Running 85 tests using 1 worker",
                                       "  1 skipped",
                                       "  84 passed (3.1m)"
@@ -284,22 +284,22 @@
                       "status":  "passed",
                       "command":  "npm.cmd run test:e2e:failure-states",
                       "exitCode":  0,
-                      "durationSeconds":  141.515,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/failure-state-e2e.log",
+                      "durationSeconds":  137.413,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/failure-state-e2e.log",
                       "summary":  [
                                       "\u003e material-decision-workbench@0.1.0 test:e2e:failure-states",
                                       "\u003e node scripts/run-failure-state-e2e.mjs",
-                                      "✔ a database still owned by the web server is reported without failing (0.7753ms)",
-                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.246ms)",
+                                      "✔ a database still owned by the web server is reported without failing (0.7824ms)",
+                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.2662ms)",
                                       "ℹ tests 4",
                                       "ℹ pass 4",
                                       "ℹ fail 0",
                                       "ℹ skipped 0",
                                       "Running 16 tests using 1 worker",
-                                      "  16 passed (1.2m)",
+                                      "  16 passed (1.1m)",
                                       "  ok 1 e2e\\startup-diagnostic.spec.ts:3:5 › catalog preflight failure remains readable while the API is unavailable (1.6s)",
-                                      "  1 passed (3.7s)",
-                                      "  1 passed (22.0s)",
+                                      "  1 passed (3.6s)",
+                                      "  1 passed (21.7s)",
                                       "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers",
                                       "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers"
                                   ]
@@ -309,12 +309,12 @@
                       "status":  "passed",
                       "command":  "npx.cmd playwright test --config playwright.chain-degraded.config.ts",
                       "exitCode":  0,
-                      "durationSeconds":  39.24,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/chain-degraded-e2e.log",
+                      "durationSeconds":  39.898,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/chain-degraded-e2e.log",
                       "summary":  [
                                       "Running 3 tests using 1 worker",
                                       "  ok 3 e2e\\chain-degraded.spec.ts:118:5 › a failed availability catalog blocks a direct Chain deep link (1.3s)",
-                                      "  3 passed (38.0s)"
+                                      "  3 passed (38.6s)"
                                   ]
                   },
                   {
@@ -322,8 +322,8 @@
                       "status":  "passed",
                       "command":  "uv.exe run --extra dev python -m pytest backend/tests/test_legacy_workspace_acceptance.py -q",
                       "exitCode":  0,
-                      "durationSeconds":  6.127,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/legacy-workspace.log",
+                      "durationSeconds":  6.961,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/legacy-workspace.log",
                       "summary":  [
 
                                   ]
@@ -333,8 +333,8 @@
                       "status":  "passed",
                       "command":  "npm.cmd run docs:check",
                       "exitCode":  0,
-                      "durationSeconds":  1.322,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/docs-check.log",
+                      "durationSeconds":  1.375,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/docs-check.log",
                       "summary":  [
                                       "Relative documentation link check passed.",
                                       "Documentation structure passed: root contains only README.md and developer-start-here.md, inventory targets exist."
@@ -345,11 +345,11 @@
                       "status":  "passed",
                       "command":  "npm.cmd run package:windows",
                       "exitCode":  0,
-                      "durationSeconds":  512.201,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/windows-delivery.log",
+                      "durationSeconds":  507.073,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/windows-delivery.log",
                       "summary":  [
                                       "\u003e powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
-                                      "173 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6",
+                                      "169 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6",
                                       "Folder ZIP extract/run/delete: OK",
                                       "Per-user installer install/run/uninstall: OK",
                                       "Installer: C:\\Users\\ootan\\projects\\re-process-dashboard\\release\\Material-Decision-Workbench-Setup-0.1.0.exe",
@@ -358,36 +358,43 @@
                   },
                   {
                       "name":  "learning-clean-build",
-                      "status":  "failed",
+                      "status":  "passed",
                       "command":  "powershell.exe -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
-                      "exitCode":  1,
-                      "durationSeconds":  1.964,
-                      "log":  "artifacts/main-acceptance/20260728T050529Z/learning-clean-build.log",
+                      "exitCode":  0,
+                      "durationSeconds":  204.599,
+                      "log":  "artifacts/main-acceptance/20260728T052908Z/learning-clean-build.log",
                       "summary":  [
                                       "Reference validation passed: 57 BibTeX entries, 57 annotations, 57 citations, 0 warning(s).",
                                       "Exercise solution validation passed: 99 exercises, 117 solution blocks, 18 chapter checks.",
                                       "Concept checker self-tests passed: schema, duplicate, relation, graph, path, and link invariants.",
-                                      "    at fail (file:///C:/Users/ootan/projects/re-process-dashboard/docs/learning/check-concepts.mjs:32:9)",
-                                      "    throw new Error(`Concept checker failed with exit code ${result.status}.`);",
-                                      "Error: Concept checker failed with exit code 1.",
-                                      "Concept validation failed with exit code 1.",
-                                      "+     throw \"Concept validation failed with exit code $LASTEXITCODE.\"",
-                                      "    + FullyQualifiedErrorId : Concept validation failed with exit code 1."
+                                      "Concept validation passed: 82 concepts, 105 prerequisite edges, 80 anti-definitions, 14 chapters.",
+                                      "Concept source and generated pages passed regression checks.",
+                                      "Concept order fixture tests passed: profile parsing, violation detail, glossary exclusion, and bridge contract.",
+                                      "Concept order validation passed: _quarto-reader.yml 27 learning units, _quarto-site.yml 27 learning units.",
+                                      "Figure fixture tests passed: registry schema, references, alt metadata, drift paths, SVG accessibility, and raster rejection.",
+                                      "Figure validation passed: 8 registered figures, 8 chapter references.",
+                                      "Lab fixture tests passed: manifest contract, registration, sandbox writes, protected paths, commands, and toy calculation.",
+                                      "Lab validation passed: 8 registered Labs.",
+                                      "Code reference self-test passed: 10 assertions.",
+                                      "Drift review validation passed: 18 PR record(s), 8 grouped record(s).",
+                                      "Learning acceptance review validation passed: 8 records.",
+                                      "Edition 2 observation fixture tests passed: schema execution, record discovery, honest pending state, proxy rejection, participant-task completion, artifact identity, finding references, protocol coverage, and privacy fields.",
+                                      "Edition 2 observation validation passed: 1 template or record file(s)."
                                   ]
                   }
               ],
     "artifacts":  [
                       {
                           "name":  "Material-Decision-Workbench-Setup-0.1.0.exe",
-                          "bytes":  218326620,
-                          "sha256":  "aabb6126c82657d93b2ff2f6b230f58b1efa24248a22a37c24c1d552b9e9668b"
+                          "bytes":  218327118,
+                          "sha256":  "2c99ef8cc1bdf7fcc8f787a2b152c81b5aaa0da47229db9a52d2357c89e916b3"
                       },
                       {
                           "name":  "Material-Decision-Workbench-folder-0.1.0.zip",
-                          "bytes":  305038996,
-                          "sha256":  "97ccbc6f9f0482d5c19181f319c2aa3c5a7719ef9a1e6b973dedfce00dff3533"
+                          "bytes":  305039626,
+                          "sha256":  "1c514f014f84e6d6a183dd9e4c82cbb28724ea5276671d6eb47b25da660a32a7"
                       }
                   ],
-    "status":  "failed",
-    "failure":  "learning-clean-build failed with exit code 1"
+    "status":  "passed",
+    "failure":  null
 }
