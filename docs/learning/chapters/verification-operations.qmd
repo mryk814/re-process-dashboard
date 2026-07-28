@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
+verified_commit: "ef2ad7f82e9b3bf29ddf49f3521b44334ffd8f9b"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
