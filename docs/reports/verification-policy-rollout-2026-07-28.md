@@ -2,13 +2,15 @@
 
 ## 結論
 
-通常PR向けの `npm run verify:pr` は、commit `bba2420afafc61d43e198b5a7f8fb7a3b125eb18` で 31.111 秒だった。
-直近のRelease受入 `main-acceptance-2026-07-27.json` は 998.265 秒だったため、通常変更の待ち時間は 967.154 秒（96.9%、約32分の1）短くなった。
+最終の `npm run verify:pr` は、backend差分を検出したcommit `be47b1bc18f75bd046d4b76205e661d709b79be5` でfull pytestへ昇格し、295.616秒だった。
+直近のRelease受入 `main-acceptance-2026-07-27.json` は998.265秒だったため、安全側へ昇格したPRでも待ち時間は702.649秒（70.4%、約3分の1）短くなった。
+初期実装では31.111秒だったが、敵対的レビューでbackend変更時にもpytestを省略できる穴を検出したため、この値を最終効果としては採用しない。
 これは重いgateを削除した結果ではなく、Release／Evidence checkpointへ移した結果である。
 
 ## 実行したLevel 1 gate
 
 - docs link／placement check
+- backend差分検出によるfull pytest
 - Web unit test
 - Desktop unit test
 - generated contract／typecheck
@@ -16,7 +18,8 @@
 - working tree／branch diff check
 
 所要時間の内訳と実行コマンドは `artifacts/verification/latest-pr.json` に保存した。
-focused pytestは対象pathを指定しなかったため `not_run`、full pytest、Playwright、migration、Windows配布、Compose、Shared Lab、教材clean build／visual reviewはLevel 1では `not_run` と記録した。
+focused pytestは対象pathを指定しなかったため `not_run` とし、代わりにfull pytestを自動選択した。
+Playwright、migration、Windows配布、Compose、Shared Lab、教材clean build／visual reviewはLevel 1では `not_run` と記録した。
 
 ## 比較条件
 
