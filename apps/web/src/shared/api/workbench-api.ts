@@ -320,6 +320,14 @@ export const workbenchApi = {
       "サンプルを追加できませんでした。",
     );
   },
+  async removeSampleGallery(projectId: string) {
+    requireSuccess(
+      await apiClient.DELETE("/api/sample-gallery/{project_id}", {
+        params: { path: { project_id: projectId } },
+      }),
+      "サンプルを取り除けませんでした。",
+    );
+  },
   async listTaskDefinitions() {
     return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");
   },

@@ -956,6 +956,7 @@
               "project_archived",
               "active_project_purge",
               "project_purge_confirmation_mismatch",
+              "sample_has_saved_work",
               "data_integrity_error",
               "validation_error",
               "batch_feasibility_infeasible",
@@ -15646,6 +15647,16 @@
             "title": "Project Id",
             "type": "string"
           },
+          "removable": {
+            "default": false,
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "remove_blocked_reason": {
+            "default": "",
+            "title": "Remove Blocked Reason",
+            "type": "string"
+          },
           "task_id": {
             "title": "Task Id",
             "type": "string"
@@ -26709,6 +26720,38 @@
           }
         },
         "summary": "Install Sample Gallery"
+      }
+    },
+    "/api/sample-gallery/{project_id}": {
+      "delete": {
+        "operationId": "remove_sample_gallery_api_sample_gallery__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Sample Gallery"
       }
     },
     "/api/screening": {

@@ -1782,6 +1782,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sample-gallery/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Sample Gallery */
+        delete: operations["remove_sample_gallery_api_sample_gallery__project_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/screening": {
         parameters: {
             query?: never;
@@ -2384,7 +2401,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "sample_has_saved_work" | "data_integrity_error" | "validation_error" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -7980,6 +7997,16 @@ export interface components {
             name: string;
             /** Project Id */
             project_id: string;
+            /**
+             * Removable
+             * @default false
+             */
+            removable: boolean;
+            /**
+             * Remove Blocked Reason
+             * @default
+             */
+            remove_blocked_reason: string;
             /** Task Id */
             task_id: string;
             /**
@@ -14567,6 +14594,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Project"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    remove_sample_gallery_api_sample_gallery__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

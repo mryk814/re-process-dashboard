@@ -1525,6 +1525,47 @@ class Store:
                 )
             return True
 
+    def project_has_persisted_evidence(self, project_id: str) -> bool:
+        """Return whether removing a starter would discard user-created evidence.
+
+        Project, Candidate, and Candidate Revision baseline rows are checked by
+        the caller against the current starter definition. Every other
+        Project-owned record is evidence and makes removal unsafe.
+        """
+        baseline_tables = {
+            "projects",
+            "candidates",
+            "candidate_revisions",
+        }
+        with self._connect() as conn:
+            candidate_ids = [
+                row["id"]
+                for row in conn.execute(
+                    "SELECT id FROM candidates WHERE project_id=?",
+                    (project_id,),
+                ).fetchall()
+            ]
+            for table in PROJECT_PERSISTENCE.direct_tables:
+                if table in baseline_tables:
+                    continue
+                row = conn.execute(
+                    f"SELECT 1 FROM {table} WHERE project_id=? LIMIT 1",
+                    (project_id,),
+                ).fetchone()
+                if row is not None:
+                    return True
+            if candidate_ids:
+                placeholders = ",".join("?" for _ in candidate_ids)
+                for table in PROJECT_PERSISTENCE.candidate_tables:
+                    row = conn.execute(
+                        f"SELECT 1 FROM {table} "
+                        f"WHERE candidate_id IN ({placeholders}) LIMIT 1",
+                        candidate_ids,
+                    ).fetchone()
+                    if row is not None:
+                        return True
+        return False
+
     @staticmethod
     def _lineage_review(row: sqlite3.Row) -> LineageNodeReview:
         return LineageNodeReview(

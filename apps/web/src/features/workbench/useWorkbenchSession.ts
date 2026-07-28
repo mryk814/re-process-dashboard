@@ -715,6 +715,34 @@ export function useWorkbenchSession({
     }
   }
 
+  async function removeSampleProject(projectId: string): Promise<boolean> {
+    try {
+      if (
+        projectId === activeProjectIdRef.current
+        && !(await editor.settlePending())
+      ) return false;
+      await workbenchApi.removeSampleGallery(projectId);
+      const remaining = await workbenchApi.listProjects();
+      projectsRef.current = remaining;
+      setProjects(remaining);
+      if (projectId === activeProjectIdRef.current) {
+        const nextProject = remaining[0];
+        if (nextProject) await loadProject(nextProject.id);
+      }
+      notifySuccess(
+        "サンプルをWorkspaceから取り除きました。必要なら再追加できます",
+      );
+      return true;
+    } catch (cause) {
+      notifyError(
+        cause instanceof Error
+          ? cause.message
+          : "サンプルを取り除けませんでした",
+      );
+      return false;
+    }
+  }
+
   function acceptCandidate(candidate: CandidateViewModel) {
     appendCandidate(candidate);
     selectedIdRef.current = candidate.id;
@@ -811,6 +839,7 @@ export function useWorkbenchSession({
     archiveProject,
     restoreProject,
     installSampleProjects,
+    removeSampleProject,
     deleteHeatPoint,
     editor,
     loadError,
