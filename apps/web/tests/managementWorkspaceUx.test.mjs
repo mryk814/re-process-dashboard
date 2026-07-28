@@ -49,6 +49,8 @@ test("data library collapses an empty comparison area and moves state changes in
   const content = await source("../src/features/data-library/DataLibraryPage.tsx");
   assert.match(content, /comparisonSets\.length === 0 \? "comparison-empty"/);
   assert.match(content, /className="resource-manage-menu"/);
+  assert.match(content, /const \[samplesOpen, setSamplesOpen\] = useState\(false\)/);
+  assert.doesNotMatch(content, /managedDatasets\.length === 0\) setSamplesOpen\(true\)/);
   assert.match(content, /利用停止にする/);
   assert.match(content, /利用可能に戻す/);
   assert.match(content, /件のプロジェクトが参照中のため利用停止できません/);

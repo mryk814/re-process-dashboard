@@ -113,10 +113,6 @@ export function DataLibraryPage({
       ? current
       : selectedDataset.supported_task_ids[0] ?? "");
   }, [selectedDataset?.dataset_revision.id]);
-  useEffect(() => {
-    if (!loading && managedDatasets.length === 0) setSamplesOpen(true);
-  }, [loading, managedDatasets.length]);
-
   const modelGuide = useMemo(() => {
     if (!selectedDataset || !guideTaskId) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
