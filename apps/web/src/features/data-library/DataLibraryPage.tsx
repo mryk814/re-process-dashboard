@@ -12,7 +12,6 @@ import {
   modelPackageDecisionSummary,
   modelPackageDisplayName,
   modelPackageDisplayNames,
-  trainingDataSha,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
 import { useTaskLabels } from "../../shared/useTaskLabels";
@@ -40,9 +39,11 @@ export function DataLibraryPage({
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareName, setCompareName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [packageTaskFilter, setPackageTaskFilter] = useState("");
-  const [packageDatasetFilter, setPackageDatasetFilter] = useState("");
-  const [packageStateFilter, setPackageStateFilter] = useState("");
+  const [selectedDatasetId, setSelectedDatasetId] = useState("");
+  const [modelGuideOpen, setModelGuideOpen] = useState(false);
+  const [guideTaskId, setGuideTaskId] = useState("");
+  const [copiedGuide, setCopiedGuide] = useState(false);
+  const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
@@ -93,30 +94,57 @@ export function DataLibraryPage({
     }),
     [datasetStateFilter, datasets],
   );
-  const packageTaskIds = useMemo(
-    () => [...new Set(modelPackages.map((item) => item.task_id))].sort(),
-    [modelPackages],
-  );
-  const packageDatasets = useMemo(
-    () => datasets.filter((dataset) => modelPackages.some(
-      (item) => trainingDataset(item, datasets)?.dataset_revision.id === dataset.dataset_revision.id,
-    )),
-    [datasets, modelPackages],
-  );
-  const filteredModelPackages = useMemo(
-    () => modelPackages.filter((item) => {
-      if (packageTaskFilter && item.task_id !== packageTaskFilter) return false;
-      if (packageStateFilter === "available" && item.archived_at) return false;
-      if (packageStateFilter === "archived" && !item.archived_at) return false;
-      if (!packageDatasetFilter) return true;
-      return trainingDataset(item, datasets)?.dataset_revision.id === packageDatasetFilter;
-    }),
-    [datasets, modelPackages, packageDatasetFilter, packageStateFilter, packageTaskFilter],
-  );
+  const managedDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "managed");
+  const bundledDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "bundled");
+  const selectedDataset = filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
+    ?? managedDatasets[0]
+    ?? bundledDatasets[0];
+  const selectedDatasetPackages = selectedDataset
+    ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
+    : [];
   const packageDisplayNames = useMemo(
     () => modelPackageDisplayNames(modelPackages),
     [modelPackages],
   );
+  useEffect(() => {
+    if (!selectedDataset) return;
+    setSelectedDatasetId(selectedDataset.dataset_revision.id);
+    setGuideTaskId((current) => selectedDataset.supported_task_ids.includes(current)
+      ? current
+      : selectedDataset.supported_task_ids[0] ?? "");
+  }, [selectedDataset?.dataset_revision.id]);
+  useEffect(() => {
+    if (!loading && managedDatasets.length === 0) setSamplesOpen(true);
+  }, [loading, managedDatasets.length]);
+
+  const modelGuide = useMemo(() => {
+    if (!selectedDataset || !guideTaskId) return "";
+    const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    return [
+      `$task = ${quote(guideTaskId)}`,
+      `$source = ${quote(selectedDataset.data_asset.locator)}`,
+      '$packageId = "$task-local-$(Get-Date -Format yyyyMMdd-HHmmss)"',
+      '$packageVersion = "1.0.0"',
+      "",
+      "npm run model:diagnose -- --task $task --source $source",
+      "",
+      "npm run model:build -- `",
+      "  --task $task `",
+      "  --source $source `",
+      "  --package-id $packageId `",
+      "  --package-version $packageVersion",
+      "",
+      "npm run model:promote -- `",
+      "  --task $task `",
+      "  --source $source `",
+      '  --package "artifacts/model-package-candidates/$packageId" `',
+      "  --activate",
+      "",
+      "npm run task:inventory",
+      "npm run model:status",
+      "npm run dev",
+    ].join("\n");
+  }, [guideTaskId, selectedDataset]);
 
   async function changeDatasetState(item: ApiDataLibraryDataset) {
     const id = item.dataset_revision.id;
@@ -204,6 +232,83 @@ export function DataLibraryPage({
     }
   }
 
+  const openModelGuide = (taskId?: string) => {
+    if (!selectedDataset) return;
+    setGuideTaskId(taskId ?? selectedDataset.supported_task_ids[0] ?? "");
+    setCopiedGuide(false);
+    setModelGuideOpen(true);
+  };
+
+  const copyModelGuide = async () => {
+    try {
+      await navigator.clipboard.writeText(modelGuide);
+      setCopiedGuide(true);
+    } catch {
+      setError("PowerShell手順をコピーできませんでした。テキスト欄を選択してコピーしてください。");
+    }
+  };
+
+  const renderDatasetCard = (item: ApiDataLibraryDataset) => {
+    const singleView = item.dataset_views?.find((view) => view.kind === "single");
+    const relatedViewIds = new Set(item.dataset_views?.map((view) => view.id) ?? []);
+    const usingProjects = projects.filter((project) => project.dataset_view_revision_id && relatedViewIds.has(project.dataset_view_revision_id));
+    const compatibleTaskIds = compatibleTaskIdsForDataset(item, options!);
+    const relatedPackages = modelPackages.filter(
+      (modelPackage) => trainingDataset(modelPackage, datasets)?.dataset_revision.id === item.dataset_revision.id,
+    );
+    const archived = Boolean(item.dataset_revision.archived_at);
+    const startUnavailableReason = item.supported_task_ids.length === 0
+      ? "対応する予測タスクがありません"
+      : compatibleTaskIds.length === 0
+        ? "利用可能なModel Packageがありません"
+        : "";
+    const selected = selectedDataset?.dataset_revision.id === item.dataset_revision.id;
+    return <article className={`dataset-card ${selected ? "selected" : ""}`} key={item.dataset_revision.id}>
+      <button
+        type="button"
+        className="dataset-card-select"
+        aria-pressed={selected}
+        aria-label={`${datasetDisplayName(item)}の詳細を表示`}
+        onClick={() => {
+          setSelectedDatasetId(item.dataset_revision.id);
+          setModelGuideOpen(false);
+        }}
+      >
+        <span className="dataset-card-main">
+          <strong title={item.data_asset.original_filename}>{item.data_asset.original_filename}</strong>
+          <span>{item.data_asset.locator_kind === "managed" ? "自分のデータ" : "同梱サンプル"} · {formatDate(item.dataset_revision.created_at)}</span>
+          {archived && <small className="resource-state archived">利用停止中</small>}
+        </span>
+        <span className="dataset-card-summary">
+          <span>{item.supported_task_ids.length ? item.supported_task_ids.map(taskLabel).join(" / ") : "予測タスク未定義"}</span>
+          <small>{relatedPackages.filter((modelPackage) => !modelPackage.archived_at).length}モデル · {usingProjects.length}プロジェクト</small>
+        </span>
+      </button>
+      <div className="dataset-project-links">
+        {!archived && singleView && <button
+          className="outline-button dataset-start-project"
+          aria-label={`${datasetDisplayName(item)}でプロジェクトを作成${startUnavailableReason ? `：${startUnavailableReason}` : ""}`}
+          title={startUnavailableReason || `${datasetDisplayName(item)}でプロジェクトを作成`}
+          disabled={Boolean(startUnavailableReason)}
+          onClick={() => onStartProject(singleView.id)}
+        >プロジェクト作成</button>}
+        <details className="resource-manage-menu">
+          <summary aria-label={`${datasetDisplayName(item)}の管理`}>管理</summary>
+          <div>
+            <strong>{datasetDisplayName(item)}</strong>
+            <small>{archived ? "新規利用を再開します。" : usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中のため利用停止できません。` : "元データは残し、一覧と新規利用から外します。"}</small>
+            <button
+              type="button"
+              className={archived ? "outline-button resource-state-action" : "text-button resource-state-action"}
+              disabled={changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
+              onClick={() => void changeDatasetState(item)}
+            >{changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "利用可能に戻す" : "利用停止にする"}</button>
+          </div>
+        </details>
+      </div>
+    </article>;
+  };
+
   return (
     <div className="page-panel data-library-page">
       <div className="page-intro data-library-header">
@@ -241,69 +346,48 @@ export function DataLibraryPage({
         <button className="outline-button" onClick={() => void load()}>再読み込み</button>
       </section>}
       {options && activeTab === "browse" && <>
-        <section className="data-library-section">
+        <section className="data-library-section dataset-library">
           <div className="panel-title library-title-with-filter">
-            <div><h3>データセット（Dataset）</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
+            <div><h3>使うデータを選ぶ</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
             <label>状態<select value={datasetStateFilter} onChange={(event) => setDatasetStateFilter(event.target.value)}><option value="available">利用可能</option><option value="archived">利用停止中</option><option value="">すべて</option></select></label>
           </div>
-          <div className="dataset-list">{filteredDatasets.map((item) => {
-            const singleView = item.dataset_views?.find((view) => view.kind === "single");
-            const relatedViewIds = new Set(item.dataset_views?.map((view) => view.id) ?? []);
-            const usingProjects = projects.filter((project) => project.dataset_view_revision_id && relatedViewIds.has(project.dataset_view_revision_id));
-            const compatibleTaskIds = compatibleTaskIdsForDataset(item, options);
-            const archived = Boolean(item.dataset_revision.archived_at);
-            const startUnavailableReason = item.supported_task_ids.length === 0
-              ? "対応する予測タスクがありません"
-              : compatibleTaskIds.length === 0
-                ? "利用可能なModel Packageがありません"
-                : "";
-            return <article className="dataset-card" key={item.dataset_revision.id}>
-              <div className="dataset-card-main"><strong title={item.data_asset.original_filename}>{item.data_asset.original_filename}</strong><span>{item.data_asset.locator_kind === "managed" ? "取り込みデータ" : "同梱データ"} · {formatDate(item.dataset_revision.created_at)}</span>{archived && <small className="resource-state archived">利用停止中</small>}</div>
-              <dl><div><dt>データセットプロファイル</dt><dd>{item.profile_revision.name} · r{item.profile_revision.revision}</dd></div><div><dt>予測タスク</dt><dd title={item.supported_task_ids.join(" / ")}>{item.supported_task_ids.length ? item.supported_task_ids.map(taskLabel).join(" / ") : "未定義"}</dd></div><div><dt>データセット識別子</dt><dd title={item.dataset_revision.dataset_digest}>{shortDigest(item.dataset_revision.dataset_digest)}</dd></div></dl>
-              <div className="dataset-project-links">
-                <div>{usingProjects.length ? usingProjects.map((project) => <span key={project.id}>{project.name}</span>) : <small>参照中のプロジェクトなし</small>}</div>
-                {!archived && singleView && <button
-                  className="outline-button dataset-start-project"
-                  aria-label={`${datasetDisplayName(item)}でプロジェクトを作成${startUnavailableReason ? `：${startUnavailableReason}` : ""}`}
-                  title={startUnavailableReason || `${datasetDisplayName(item)}でプロジェクトを作成`}
-                  disabled={Boolean(startUnavailableReason)}
-                  onClick={() => onStartProject(singleView.id)}
-                >プロジェクト作成</button>}
-                {startUnavailableReason && <small className="dataset-start-unavailable">{startUnavailableReason}</small>}
-                <details className="resource-manage-menu">
-                  <summary aria-label={`${datasetDisplayName(item)}の管理`}>管理</summary>
-                  <div>
-                    <strong>{datasetDisplayName(item)}</strong>
-                    <small>{archived ? "新規利用を再開します。" : usingProjects.length > 0 ? `${usingProjects.length}件のプロジェクトが参照中のため利用停止できません。` : "元データは残し、一覧と新規利用から外します。"}</small>
-                    <button
-                      type="button"
-                      className={archived ? "outline-button resource-state-action" : "text-button resource-state-action"}
-                      disabled={changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
-                      onClick={() => void changeDatasetState(item)}
-                    >{changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "利用可能に戻す" : "利用停止にする"}</button>
-                  </div>
-                </details>
-              </div>
-            </article>;
-          })}</div>
+          <div className="dataset-groups">
+            <section aria-labelledby="managed-datasets-heading">
+              <div className="dataset-group-title"><h4 id="managed-datasets-heading">自分のデータ</h4><span>{managedDatasets.length}件</span></div>
+              {managedDatasets.length
+                ? <div className="dataset-list">{managedDatasets.map(renderDatasetCard)}</div>
+                : <div className="dataset-group-empty"><p>追加したExcelやCSVはここにまとまります。</p><button className="primary-button" onClick={onAddDataset}>最初のデータセットを追加</button></div>}
+            </section>
+            <details className="bundled-dataset-group" open={samplesOpen} onToggle={(event) => setSamplesOpen(event.currentTarget.open)}>
+              <summary><span>同梱サンプル</span><small>{bundledDatasets.length}件 · 必要なときだけ開く</small></summary>
+              <div className="dataset-list">{bundledDatasets.map(renderDatasetCard)}</div>
+            </details>
+          </div>
           {filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
         </section>
 
-        <SeriesLibrarySection />
-        <section className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
-          <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
-          <div className="data-library-section model-package-library">
-            <div className="panel-title"><h3>モデルパッケージ</h3><span>{filteredModelPackages.length} / {modelPackages.length}件</span></div>
-            <div className="model-package-toolbar" aria-label="モデルパッケージの絞り込み">
-              <label>予測タスク<select value={packageTaskFilter} onChange={(event) => setPackageTaskFilter(event.target.value)}><option value="">すべて</option>{packageTaskIds.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
-              <label>学習元データセット<select value={packageDatasetFilter} onChange={(event) => setPackageDatasetFilter(event.target.value)}><option value="">すべて</option>{packageDatasets.map((dataset) => <option key={dataset.dataset_revision.id} value={dataset.dataset_revision.id}>{datasetDisplayName(dataset)}</option>)}</select></label>
-              <label>状態<select value={packageStateFilter} onChange={(event) => setPackageStateFilter(event.target.value)}><option value="">すべて</option><option value="available">利用可能</option><option value="archived">アーカイブ</option></select></label>
-              {(packageTaskFilter || packageDatasetFilter || packageStateFilter) && <button type="button" className="text-button" onClick={() => { setPackageTaskFilter(""); setPackageDatasetFilter(""); setPackageStateFilter(""); }}>絞り込みを解除</button>}
+        {selectedDataset && <section className="data-library-section dataset-context" aria-labelledby="dataset-context-heading">
+          <header>
+            <div>
+              <span className="overline">SELECTED DATASET</span>
+              <h3 id="dataset-context-heading">{selectedDataset.data_asset.original_filename}</h3>
+              <p>{selectedDataset.supported_task_ids.map(taskLabel).join(" / ") || "予測タスク未定義"}</p>
             </div>
-            {filteredModelPackages.length > 0
-              ? <div className="model-package-list">{filteredModelPackages.map((item) => {
+            <div className="dataset-context-actions">
+              <button className="outline-button" type="button" disabled={selectedDataset.supported_task_ids.length === 0} onClick={() => openModelGuide()}>このデータでモデルを更新</button>
+            </div>
+          </header>
+          <div className="dataset-context-facts">
+            <div><span>データの種類</span><strong>{selectedDataset.data_asset.locator_kind === "managed" ? "自分で追加" : "同梱サンプル"}</strong></div>
+            <div><span>プロファイル</span><strong>{selectedDataset.profile_revision.name} · r{selectedDataset.profile_revision.revision}</strong></div>
+            <div><span>利用できるモデル</span><strong>{selectedDatasetPackages.filter((item) => !item.archived_at).length}件</strong></div>
+            <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small>{selectedDataset.data_asset.locator}</small></details>
+          </div>
+          <div className="model-package-library">
+            <div className="panel-title"><h4>このデータで使うモデル</h4><span>{selectedDatasetPackages.length}件</span></div>
+            {selectedDatasetPackages.length > 0
+              ? <div className="model-package-list">{selectedDatasetPackages.map((item) => {
                 const source = trainingDataset(item, datasets);
-                const sourceSha = trainingDataSha(item);
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
                 return <article key={item.id}>
@@ -311,7 +395,7 @@ export function DataLibraryPage({
                   <dl>
                     <div><dt>使いどころ</dt><dd>{decision?.useCase ?? "—"}</dd></div>
                     <div><dt>学習単位</dt><dd>{decision?.trainingUnit ?? "—"}</dd></div>
-                    <div><dt>学習元データセット</dt><dd title={source?.data_asset.original_filename ?? sourceSha ?? undefined}>{source ? datasetDisplayName(source) : sourceSha ? `未登録 ${sourceSha.slice(0, 10)}` : "マニフェストに記録なし"}</dd></div>
+                    <div><dt>予測タスク</dt><dd>{taskLabel(item.task_id)}</dd></div>
                     <div><dt>学習時プロファイル</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
                   </dl>
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
@@ -330,9 +414,25 @@ export function DataLibraryPage({
                   </details>
                 </article>;
               })}</div>
-              : <p className="library-empty">条件に合うModel Packageはありません。</p>}
+              : <div className="model-package-empty"><p>このデータに対応するモデルはまだありません。</p><button className="outline-button" type="button" onClick={() => openModelGuide()}>モデルを作成する</button></div>}
           </div>
-        </section>
+        </section>}
+
+        {modelGuideOpen && selectedDataset && <section className="data-library-section model-update-guide" aria-labelledby="model-update-guide-heading">
+          <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデル更新を安全に進める</h3><p>アプリを停止し、リポジトリ直下のPowerShellで診断 → 候補作成 → 検証付き有効化を実行します。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
+          <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
+          <ol><li><strong>診断</strong><span>既存Taskの置換として扱えるか確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>有効化</strong><span>trusted modelsへ昇格し、再起動</span></li></ol>
+          <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
+          <div><button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button><small>保存済み予測は再計算されません。`diagnose`が新規Task/Profileを示した場合はbuildへ進まず、契約を追加します。</small></div>
+        </section>}
+
+        <details className="data-library-secondary">
+          <summary><span>比較セットと系列データ</span><small>{comparisonSets.length}比較セット · 必要なときに開く</small></summary>
+          <div className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
+            <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
+          </div>
+          <SeriesLibrarySection />
+        </details>
       </>}
       {activeTab === "update" && <SourceLifecycleSection datasets={datasets} />}
     </div>
