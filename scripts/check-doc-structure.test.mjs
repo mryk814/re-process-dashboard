@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   allowedDocsRootFiles,
+  validateDocumentInventory,
   validateDocsRoot,
 } from "./check-doc-structure.mjs";
 
@@ -12,6 +13,18 @@ function file(name) {
     isSymbolicLink: () => false,
   };
 }
+
+test("inventory digest detects a deleted or unrecorded document", () => {
+  const failures = validateDocumentInventory(
+    {
+      schemaVersion: "document-inventory/v1",
+      documentSetSha256: "stale",
+      documents: [],
+    },
+    process.cwd(),
+  );
+  assert.ok(failures.some((failure) => failure.includes("document set digest mismatch")));
+});
 
 test("the exact two documentation entry files are allowed at docs root", () => {
   assert.deepEqual(

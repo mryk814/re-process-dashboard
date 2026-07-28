@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  appendNotRunResults,
   classifyChangedPath,
   evaluateAcceptanceApplicability,
   getVerificationLevel,
   loadVerificationCatalog,
+  requiresBackendPytest,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
 import { inspectAcceptanceReport } from "./acceptance-status.mjs";
@@ -34,7 +36,13 @@ test("high-risk rules retain migration, restore, package, security, and textbook
   const rules = new Map(catalog.riskMatrix.map((rule) => [rule.risk, rule]));
   assert.ok(rules.get("sqlite-migration").requiredGates.includes("legacy-workspace"));
   assert.ok(rules.get("backup-restore").requiredGates.includes("windows-delivery"));
-  assert.ok(rules.get("model-package").requiredGates.includes("chain-degraded-e2e"));
+  assert.ok(
+    rules.get("model-package").requiredGates.includes("model-package-contract-tests"),
+  );
+  assert.ok(
+    rules.get("model-package").requiredGates.includes("model-package-release-evidence"),
+  );
+  assert.ok(rules.get("security").requiredGates.includes("security-boundary-tests"));
   assert.ok(rules.get("dependency-packaging").requiredGates.includes("dependency-audit"));
   assert.deepEqual(
     rules.get("textbook-edition").requiredGates.slice(-2),
@@ -46,10 +54,17 @@ test("changed paths classify evidence separately from product risks", () => {
   assert.equal(classifyChangedPath("docs/reports/checkpoint.json"), "evidence");
   assert.equal(classifyChangedPath("docs/learning/index.qmd"), "textbook");
   assert.equal(
+    classifyChangedPath("backend/src/material_workbench/api/security.py"),
+    "security",
+  );
+  assert.equal(
     classifyChangedPath("backend/src/material_workbench/persistence/store.py"),
     "persistence",
   );
   assert.equal(classifyChangedPath("unclassified.file"), "unknown");
+  assert.equal(requiresBackendPytest(["backend"]), true);
+  assert.equal(requiresBackendPytest(["persistence"]), true);
+  assert.equal(requiresBackendPytest(["docs", "frontend"]), false);
 });
 
 test("acceptance stays applicable only for the same commit or evidence-only changes", () => {
@@ -102,4 +117,61 @@ test("dirty worktree and catalog drift cannot be reported as current", () => {
   });
   assert.equal(status.applicability, "invalid");
   assert.equal(status.catalogChanged, true);
+});
+
+test("failed reports and dirty evidence-only successors are never accepted", () => {
+  const common = {
+    currentCatalogSha256: "same",
+  };
+  const failed = inspectAcceptanceReport(
+    {
+      schemaVersion: "main-acceptance/v2",
+      testedCommit: "a",
+      status: "failed",
+      verificationCatalogSha256: "same",
+    },
+    {
+      ...common,
+      currentCommit: "a",
+      commitsAhead: 0,
+      commitsBehind: 0,
+      changedPaths: [],
+      dirtyPaths: [],
+    },
+  );
+  assert.equal(failed.applicability, "invalid");
+
+  const dirtySuccessor = inspectAcceptanceReport(
+    {
+      schemaVersion: "main-acceptance/v2",
+      testedCommit: "a",
+      status: "passed",
+      verificationCatalogSha256: "same",
+    },
+    {
+      ...common,
+      currentCommit: "b",
+      commitsAhead: 1,
+      commitsBehind: 0,
+      changedPaths: ["docs/reports/new.json"],
+      dirtyPaths: ["backend/src/material_workbench/app.py"],
+    },
+  );
+  assert.equal(dirtySuccessor.applicability, "partial");
+});
+
+test("selected gates after an early failure are recorded as not_run", () => {
+  const catalog = loadVerificationCatalog();
+  const results = appendNotRunResults(
+    ["docs-check", "web-unit"],
+    [{ id: "docs-check", status: "failed" }],
+    catalog,
+  );
+  assert.deepEqual(
+    results.map(({ id, status }) => ({ id, status })),
+    [
+      { id: "docs-check", status: "failed" },
+      { id: "web-unit", status: "not_run" },
+    ],
+  );
 });

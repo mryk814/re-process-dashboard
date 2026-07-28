@@ -38,7 +38,16 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "api:generate"]),
             command("npm", ["run", "task:inventory"]),
-            command("npm", ["run", "verify:edit"]),
+            command(
+                "npm",
+                [
+                    "run",
+                    "verify:edit",
+                    "--",
+                    "backend/tests/test_task_registry.py",
+                    "backend/tests/test_feature_pipeline.py",
+                ],
+            ),
         ],
         documents=["docs/recipes/add-input-field.md", "docs/contracts/feature-engineering.md"],
         human_review="入力の科学的意味と学習単位を人が決めます。",
@@ -53,7 +62,16 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "api:generate"]),
             command("npm", ["run", "model:verify"]),
-            command("npm", ["run", "verify:edit"]),
+            command(
+                "npm",
+                [
+                    "run",
+                    "verify:edit",
+                    "--",
+                    "backend/tests/test_task_contracts.py",
+                    "backend/tests/test_model_lifecycle.py",
+                ],
+            ),
         ],
         documents=["docs/contracts/model-package-contract.md"],
         human_review="目的変数と品質基準を人が決めます。",
@@ -68,7 +86,10 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "model:build"]),
             command("npm", ["run", "model:verify"]),
-            command("npm", ["run", "verify:edit"]),
+            command(
+                "npm",
+                ["run", "verify:edit", "--", "backend/tests/test_feature_pipeline.py"],
+            ),
         ],
         documents=["docs/contracts/feature-engineering.md"],
         human_review="特徴量の妥当性と反復観測の扱いを人がレビューします。",
@@ -93,7 +114,16 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "task:inventory"]),
             command("npm", ["run", "api:generate"]),
-            command("npm", ["run", "verify:edit"]),
+            command(
+                "npm",
+                [
+                    "run",
+                    "verify:edit",
+                    "--",
+                    "backend/tests/test_task_registry.py",
+                    "backend/tests/test_openapi_contract.py",
+                ],
+            ),
         ],
         documents=[".claude/skills/add-prediction-task/SKILL.md"],
         human_review="新Taskか既存Taskのversion更新かを人が判断します。",

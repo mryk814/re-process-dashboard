@@ -130,6 +130,13 @@ export function classifyChangedPath(path) {
     return "model-package";
   }
   if (
+    normalized === "backend/src/material_workbench/api/security.py"
+    || normalized === "backend/tests/test_launch_token.py"
+    || normalized.includes("/security/")
+  ) {
+    return "security";
+  }
+  if (
     normalized.includes("migration")
     || normalized.includes("workspace_bundle")
     || normalized.includes("workspace-backup")
@@ -164,6 +171,29 @@ export function classifyChangedPath(path) {
 
 export function classifyChangedPaths(paths) {
   return [...new Set(paths.map(classifyChangedPath))].sort();
+}
+
+export function requiresBackendPytest(riskCategories) {
+  return riskCategories.some((risk) =>
+    ["backend", "persistence", "model-package", "contracts"].includes(risk)
+  );
+}
+
+export function appendNotRunResults(selectedGateIds, results, catalog) {
+  const completed = new Set(results.map((result) => result.id));
+  return [
+    ...results,
+    ...selectedGateIds
+      .filter((gateId) => !completed.has(gateId))
+      .map((gateId) => ({
+        id: gateId,
+        status: "not_run",
+        command: catalog.gates[gateId].command,
+        exitCode: null,
+        durationSeconds: 0,
+        error: "an earlier selected gate failed",
+      })),
+  ];
 }
 
 export function evaluateAcceptanceApplicability({

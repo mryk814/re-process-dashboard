@@ -74,6 +74,7 @@ manual reviewは自動gateへ偽装せず、別の証拠として記録します
 | SQLite migration | migration fixture、restart | legacy Workspaceとrelease acceptance |
 | backup／restore | focused restore | packaged restore |
 | Model Package | builder／verify／smoke | degraded Chain、rollback、配布 |
+| application security | local access／Origin／trust-boundary test | dependency auditとfresh browser |
 | dependency／packaging | security audit、Desktop | Windows installer／portable |
 | Compose／Shared Lab | static contract | isolated Docker integration |
 
@@ -93,7 +94,7 @@ status checkerは次を区別します。
 - `still_applicable`：後続差分が受入reportなどの証拠だけ
 - `stale`：実装、契約、文書、配布などのrisk差分がある
 - `partial`：未知path、dirty worktree、履歴分岐などで証拠の適用範囲を確定できない
-- `invalid`：gate catalog自体が変わり、当時の実行定義を現在へ適用できない
+- `invalid`：report自体がfailed、またはgate catalogが変わり、当時の実行定義を現在へ適用できない
 
 reportは展開後command、所要時間、`passed`／`failed`、選択しなかったgateの`not_run`と理由、catalog digestを保持します。
 `skipped`、`blocked`、`not_run`を`passed`へ読み替えません。

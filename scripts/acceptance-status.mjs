@@ -40,8 +40,8 @@ export function inspectAcceptanceReport(
     report.verificationCatalogSha256 !== undefined
     && report.verificationCatalogSha256 !== currentCatalogSha256;
   let applicability = base.applicability;
-  if (catalogChanged) applicability = "invalid";
-  else if (dirtyPaths.length > 0 && applicability === "current") {
+  if (report.status !== "passed" || catalogChanged) applicability = "invalid";
+  else if (dirtyPaths.length > 0) {
     applicability = "partial";
   }
   return {
@@ -113,6 +113,7 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     process.stdout.write(
       `Acceptance ${status.applicability}: tested=${status.testedCommit} current=${status.currentCommit} ahead=${status.commitsAhead} behind=${status.commitsBehind}\n`,
     );
+    process.stdout.write(`Report status: ${status.reportStatus ?? "unknown"}\n`);
     if (status.changedRiskCategories.length > 0) {
       process.stdout.write(
         `Changed risk categories: ${status.changedRiskCategories.join(", ")}\n`,

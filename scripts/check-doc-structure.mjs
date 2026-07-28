@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 export const allowedDocsRootFiles = new Set([
@@ -50,6 +51,19 @@ export function validateDocumentInventory(inventory, repositoryRoot) {
     if (!existsSync(resolve(repositoryRoot, document.path))) {
       failures.push(`inventory target does not exist: ${document.path}`);
     }
+  }
+  const documentSetSha256 = createHash("sha256")
+    .update(
+      (inventory.documents ?? [])
+        .map((document) => `${document.sourcePath}->${document.path}`)
+        .sort()
+        .join("\n"),
+    )
+    .digest("hex");
+  if (inventory.documentSetSha256 !== documentSetSha256) {
+    failures.push(
+      `inventory document set digest mismatch: expected ${inventory.documentSetSha256 ?? "missing"}, calculated ${documentSetSha256}`,
+    );
   }
   return failures;
 }

@@ -4,7 +4,7 @@
 
 - プロダクトの長期的な性格と対象外は [アプリ憲章](app-charter.md) を正本とする。
 - 個別契約の詳細は各契約文書とコード上の型を正本とする。
-- 過去の設計判断は `docs/../decisions/` に残す。ADRの背景説明を現在の機能一覧として読まない。
+- 過去の設計判断は `docs/decisions/` に残す。ADRの背景説明を現在の機能一覧として読まない。
 - Task、source、Profile、active Model Packageの現在値は [生成済みTask inventory](../contracts/task-inventory.json) を正本とする。
 
 ## 1. 現在のプロダクト境界
@@ -169,19 +169,19 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 |---|---|
 | プロダクトの性格、対象外 | `docs/product/app-charter.md` |
 | 現在の実装前提とv1境界 | この文書 |
-| Task、source、Profile、active Packageの一覧 | `docs/contracts/../contracts/task-inventory.json` |
+| Task、source、Profile、active Packageの一覧 | `docs/contracts/task-inventory.json` |
 | Task／Canonical Candidate／Runtime Capability | `backend/src/material_workbench/contracts/task_contracts.py` |
 | Chain Definition／Revision／binding | `backend/src/material_workbench/contracts/chain_contracts.py` |
 | Chain execution／snapshot／actual variant | `backend/src/material_workbench/contracts/chain_execution_contracts.py` |
 | Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
-| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/contracts/../contracts/project-design-space.md` |
-| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/contracts/../contracts/objective-definition.md` |
-| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/contracts/../contracts/curation-and-proposal-architecture.md` |
-| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/contracts/../contracts/curation-and-proposal-architecture.md` |
+| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
+| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |
+| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
+| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
 | Model Package | `docs/contracts/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |
-| 過去の採否判断 | `docs/../decisions/`、Issue、Pull Request |
+| 過去の採否判断 | `docs/decisions/`、Issue、Pull Request |
 
 文書とコードが食い違う場合は、次のように扱う。
 

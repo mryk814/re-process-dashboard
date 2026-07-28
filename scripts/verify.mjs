@@ -4,8 +4,11 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   catalogPath,
+  appendNotRunResults,
+  classifyChangedPaths,
   getVerificationLevel,
   loadVerificationCatalog,
+  requiresBackendPytest,
   resolveRunner,
 } from "./verification-gates.mjs";
 
@@ -92,6 +95,14 @@ if (levelId === "edit" && focusedArgs.length === 0) {
   process.exit(2);
 }
 
+const baseRef = process.env.VERIFY_BASE_REF || "origin/main";
+const changedPaths = (
+  gitOutput(["diff", "--name-only", "--find-renames", `${baseRef}...HEAD`]) ?? ""
+)
+  .split(/\r?\n/)
+  .filter(Boolean);
+const changedRiskCategories = classifyChangedPaths(changedPaths);
+const backendRiskDetected = requiresBackendPytest(changedRiskCategories);
 const selectedGateIds = [...level.gates];
 if (
   levelId === "pr"
@@ -99,6 +110,14 @@ if (
   && !selectedGateIds.includes("focused-pytest")
 ) {
   selectedGateIds.unshift("focused-pytest");
+}
+if (
+  levelId === "pr"
+  && focusedArgs.length === 0
+  && backendRiskDetected
+  && !selectedGateIds.includes("full-pytest")
+) {
+  selectedGateIds.unshift("full-pytest");
 }
 const omittedGates = Object.keys(catalog.gates)
   .filter((gateId) => !selectedGateIds.includes(gateId))
@@ -109,7 +128,9 @@ const omittedGates = Object.keys(catalog.gates)
   }));
 if (levelId === "pr" && focusedArgs.length === 0) {
   const focused = omittedGates.find((gate) => gate.id === "focused-pytest");
-  focused.reason = "no focused pytest paths were supplied; record affected tests separately";
+  focused.reason = backendRiskDetected
+    ? "no focused pytest paths were supplied; full-pytest is selected for detected backend risk"
+    : "no backend risk was detected and no focused pytest paths were supplied";
 }
 
 const plan = {
@@ -119,7 +140,9 @@ const plan = {
   purpose: level.purpose,
   estimatedMinutes: level.estimatedMinutes,
   verificationCatalogSha256: catalogSha256,
-  baseRef: process.env.VERIFY_BASE_REF || "origin/main",
+  baseRef,
+  changedPaths,
+  changedRiskCategories,
   focusedArgs,
   selectedGates: selectedGateIds.map((id) => ({
     id,
@@ -143,7 +166,7 @@ process.stdout.write(
 );
 
 const startedAt = new Date();
-const results = [];
+let results = [];
 let exitCode = 0;
 for (const gateId of selectedGateIds) {
   const gate = catalog.gates[gateId];
@@ -179,6 +202,9 @@ for (const gateId of selectedGateIds) {
     exitCode = result.status ?? 1;
     break;
   }
+}
+if (exitCode !== 0) {
+  results = appendNotRunResults(selectedGateIds, results, catalog);
 }
 
 const finishedAt = new Date();

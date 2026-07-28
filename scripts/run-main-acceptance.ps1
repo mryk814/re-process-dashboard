@@ -212,7 +212,11 @@ $omittedGates = @(
                 } else {
                     "not selected by the release profile or -IncludeGate"
                 }
-                priorEvidence = @($gate.priorEvidence)
+                priorEvidence = if ($null -eq $gate.priorEvidence) {
+                    @()
+                } else {
+                    @($gate.priorEvidence)
+                }
             }
         }
     }
