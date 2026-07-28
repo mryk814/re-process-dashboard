@@ -190,7 +190,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("late connector detail cannot replace the selected connector", async ({ page, request }) => {
+test("late initial catalog cannot replace the selected connector", async ({ page, request }) => {
   const createConnector = async (name: string) => {
     const response = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
       data: {
@@ -213,17 +213,40 @@ test("late connector detail cannot replace the selected connector", async ({ pag
   };
   const slow = await createConnector(`遅い接続先-${Date.now()}`);
   const selected = await createConnector(`選択接続先-${Date.now()}`);
-  await page.route(`**/api/data-lifecycle/connectors/${slow.id}`, async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await route.continue();
+  let releaseFirstCatalog = () => {};
+  const firstCatalogGate = new Promise<void>((resolve) => {
+    releaseFirstCatalog = resolve;
+  });
+  let markFirstCatalogStarted = () => {};
+  const firstCatalogStarted = new Promise<void>((resolve) => {
+    markFirstCatalogStarted = resolve;
+  });
+  let catalogRequestCount = 0;
+  await page.route("**/api/data-lifecycle", async (route) => {
+    catalogRequestCount += 1;
+    if (catalogRequestCount !== 1) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    markFirstCatalogStarted();
+    await firstCatalogGate;
+    await route.fulfill({ response });
   });
 
   await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
-  await page.getByRole("button", { name: new RegExp(selected.name) }).click();
+  await firstCatalogStarted;
+  const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
+  const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
+  await selectedButton.click();
+  await expect(selectedButton).toHaveClass(/active/);
+  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+
+  releaseFirstCatalog();
   const detailHeader = page.locator(".source-lifecycle-detail > header");
   await expect(detailHeader).toContainText(selected.name);
-  await page.waitForTimeout(700);
-  await expect(detailHeader).toContainText(selected.name);
+  await expect(selectedButton).toHaveClass(/active/);
+  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
   await expect(detailHeader).not.toContainText(slow.name);
 });
 
