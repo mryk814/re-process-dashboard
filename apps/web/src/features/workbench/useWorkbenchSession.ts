@@ -383,6 +383,34 @@ export function useWorkbenchSession({
   }, []);
 
   useEffect(() => {
+    if (resolvedTaskDefinition?.availability.status !== "unavailable") return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      try {
+        const health = await workbenchApi.health();
+        if (cancelled) return;
+        if (health.resources_loading_error) {
+          notifyError("追加Taskの準備に失敗しました。起動ログを確認してください。");
+          return;
+        }
+        if (health.ready) {
+          await loadProject(activeProjectIdRef.current, selectedIdRef.current || undefined);
+          return;
+        }
+      } catch {
+        // The ordinary connection state owns transport failures.
+      }
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 750);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [resolvedTaskDefinition?.availability.status]);
+
+  useEffect(() => {
     const provenance = selected?.raw.provenance as CandidateProvenance | undefined;
     if (!selected || provenance?.source_kind !== "copy") {
       setBrokenOriginCandidateId(null);

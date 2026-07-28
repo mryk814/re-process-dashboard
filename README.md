@@ -28,6 +28,11 @@ npm run dev
 停止は起動したターミナルで `Ctrl+C` です。
 既定portが使用中なら、`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`で変更できます。
 
+開発起動では、Web UIと既定Task（`annealed-properties-v1`）を先に利用可能にし、
+ほかのTaskのデータ、Model Package、runtimeは整合性検証を省略せずbackgroundで準備します。
+先に開くTaskは`WORKBENCH_STARTUP_TASK_ID`で変更できます。
+全Taskの準備状況は`/api/readiness`の`ready`で確認できます。
+
 `npm run dev` は、判断履歴を保持する `data/workbench.db` を開きません。branchごとの
 捨てて作り直せるWorkspaceを使い、起動前にrepoとDBのcontract／Package driftを
 read-onlyで検査します。レビュー状態を固定seedへ戻す場合は、dev serverを止めて

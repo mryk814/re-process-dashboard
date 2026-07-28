@@ -41,6 +41,8 @@ export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRu
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiSubsystemAvailability = components["schemas"]["SubsystemAvailability"];
 export type ApiWorkspaceHealth = {
+  ready: boolean;
+  resources_loading_error: string | null;
   workspace: {
     database_path: string;
     data_library_path: string;

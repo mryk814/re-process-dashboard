@@ -60,6 +60,12 @@ def health(
 ) -> dict[str, Any]:
     available = set(registry.available_task_ids)
     optional_subsystems = subsystem_registry.list()
+    resources_ready = bool(getattr(request.app.state, "resources_ready", True))
+    resources_loading_error = getattr(
+        request.app.state,
+        "resources_loading_error",
+        None,
+    )
     default_project = store.get_project("default")
     default_runtime = (
         registry.runtime_for(default_project.task_id)
@@ -68,7 +74,9 @@ def health(
     )
     return {
         "ok": True,
-        "ready": True,
+        "ready": resources_ready,
+        "resources_loading": not resources_ready and resources_loading_error is None,
+        "resources_loading_error": resources_loading_error,
         "degraded": (
             len(available) != len(registry.task_ids)
             or any(item.status == "unavailable" for item in optional_subsystems)
@@ -106,6 +114,7 @@ def health(
 
 @router.get("/api/readiness", operation_id="getReadiness")
 def readiness(
+    request: Request,
     registry: RegistryDependency,
     subsystem_registry: SubsystemAvailabilityDependency,
 ) -> dict[str, Any]:
@@ -116,7 +125,12 @@ def readiness(
     }
     optional_subsystems = subsystem_registry.list()
     return {
-        "ready": True,
+        "ready": bool(getattr(request.app.state, "resources_ready", True)),
+        "resources_loading_error": getattr(
+            request.app.state,
+            "resources_loading_error",
+            None,
+        ),
         "degraded": bool(unavailable) or any(
             item.status == "unavailable" for item in optional_subsystems
         ),

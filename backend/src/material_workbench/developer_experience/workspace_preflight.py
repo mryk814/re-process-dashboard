@@ -1,30 +1,180 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from types import MappingProxyType
+from typing import Literal, Mapping, Protocol
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from material_workbench.contracts.chain_contracts import ProjectScientificIdentity
-from material_workbench.persistence.workspace_catalog_bootstrap import (
-    task_definition_digest,
+from material_workbench.contracts.task_contracts import (
+    TaskContractFixture,
+)
+from material_workbench.execution.inference_work_graph import semantic_digest
+from material_workbench.modeling.model_lifecycle import (
+    ACTIVE_PACKAGES_PATH,
+    load_active_packages,
+    resolve_configured_package,
+    validate_active_package_task_set,
+)
+from material_workbench.modeling.model_packages import (
+    ModelPackageManifest,
+    PackageContractError,
 )
 from material_workbench.persistence.workspace_catalog import (
     model_package_reference_labels,
 )
-from material_workbench.tasks.task_registry import TaskRegistry
+from material_workbench.task_modules import registered_task_modules
+from material_workbench.tasks.task_registry import TaskRegistryError, load_task_contracts
 
 
 _PROJECT_IDENTITY_ADAPTER = TypeAdapter(ProjectScientificIdentity)
+
+
+class WorkspacePreflightPackage(Protocol):
+    manifest: ModelPackageManifest
+
+    @property
+    def manifest_sha256(self) -> str: ...
+
+
+class WorkspacePreflightEntryLike(Protocol):
+    model_package: WorkspacePreflightPackage
+
+
+class WorkspacePreflightRegistry(Protocol):
+    @property
+    def available_task_ids(self) -> tuple[str, ...]: ...
+
+    def contract_for(self, task_id: str) -> TaskContractFixture: ...
+
+    def entry_for(self, task_id: str) -> WorkspacePreflightEntryLike: ...
+
+
+@dataclass(frozen=True)
+class WorkspacePreflightPackageIdentity:
+    manifest: ModelPackageManifest
+    manifest_sha256: str
+
+
+@dataclass(frozen=True)
+class WorkspacePreflightEntry:
+    model_package: WorkspacePreflightPackageIdentity
+
+
+class CurrentWorkspacePreflightRegistry:
+    """Package and Task metadata needed by the read-only workspace check.
+
+    Unlike the production TaskRegistry this deliberately does not load source
+    workbooks or initialize prediction runtimes. The API startup immediately
+    performs those complete checks, while this preflight only compares the
+    current immutable identities with references already stored in the DB.
+    """
+
+    def __init__(
+        self,
+        *,
+        active_packages_path: str | Path = ACTIVE_PACKAGES_PATH,
+        contract_root: str | Path | None = None,
+    ) -> None:
+        root = (
+            Path(contract_root)
+            if contract_root is not None
+            else Path(__file__).resolve().parents[1] / "tasks" / "task_definitions"
+        )
+        contracts = load_task_contracts(root)
+        registered = set(registered_task_modules())
+        if registered != set(contracts):
+            missing = sorted(set(contracts) - registered)
+            unknown = sorted(registered - set(contracts))
+            raise TaskRegistryError(
+                "TaskModule registry must exactly match task definitions; "
+                f"missing={missing}, unknown={unknown}"
+            )
+        configured_path = Path(active_packages_path)
+        configured = load_active_packages(configured_path)
+        validate_active_package_task_set(configured, set(contracts))
+        entries: dict[str, WorkspacePreflightEntry] = {}
+        for task_id in contracts:
+            try:
+                package_root = resolve_configured_package(
+                    task_id,
+                    config_path=configured_path,
+                )
+                manifest_bytes = (package_root / "manifest.json").read_bytes()
+                manifest = ModelPackageManifest.model_validate_json(manifest_bytes)
+                if manifest.task_id != task_id:
+                    raise PackageContractError(
+                        f"active Package task {manifest.task_id} does not match {task_id}"
+                    )
+                package = WorkspacePreflightPackageIdentity(
+                    manifest=manifest,
+                    manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+                )
+            except (OSError, ValueError, KeyError):
+                # Resource failures are rendered by the normal startup
+                # diagnostic. They are not persisted-workspace conflicts.
+                continue
+            entries[task_id] = WorkspacePreflightEntry(model_package=package)
+        self._contracts = MappingProxyType(contracts)
+        self._entries = MappingProxyType(entries)
+        self._active_packages_path = configured_path
+        self._production_identities: frozenset[tuple[str, str, str]] | None = None
+
+    @property
+    def available_task_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._entries))
+
+    def contract_for(self, task_id: str) -> TaskContractFixture:
+        return self._contracts[task_id]
+
+    def entry_for(self, task_id: str) -> WorkspacePreflightEntry:
+        return self._entries[task_id]
+
+    def confirms_package_identity(self, task_id: str) -> bool:
+        """Run the production source/runtime checks only before blocking startup."""
+
+        if self._production_identities is None:
+            try:
+                # Local import avoids app -> preflight -> app initialization.
+                from material_workbench.app import _prepare_app_resources
+
+                resources = _prepare_app_resources(
+                    active_packages_path=self._active_packages_path,
+                )
+            except (OSError, ValueError, KeyError):
+                self._production_identities = frozenset()
+            else:
+                self._production_identities = frozenset(
+                    (
+                        available_task_id,
+                        production.manifest.package_id,
+                        production.manifest_sha256,
+                    )
+                    for available_task_id in resources.task_registry.available_task_ids
+                    for production in (
+                        resources.task_registry.entry_for(
+                            available_task_id
+                        ).model_package,
+                    )
+                )
+        candidate = self._entries[task_id].model_package
+        return (
+            task_id,
+            candidate.manifest.package_id,
+            candidate.manifest_sha256,
+        ) in self._production_identities
 
 
 class WorkspacePreflightFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     severity: Literal["warning", "error"]
-    stage: Literal["catalog", "project_binding", "chain_binding"]
+    stage: Literal["resource", "catalog", "project_binding", "chain_binding"]
     resource_id: str
     cause: str
     impact: str
@@ -84,7 +234,7 @@ def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
 
 def _package_findings(
     connection: sqlite3.Connection,
-    registry: TaskRegistry,
+    registry: WorkspacePreflightRegistry,
 ) -> list[WorkspacePreflightFinding]:
     findings: list[WorkspacePreflightFinding] = []
     for task_id in registry.available_task_ids:
@@ -98,7 +248,9 @@ def _package_findings(
         ).fetchone()
         if row is None:
             continue
-        current_contract = task_definition_digest(registry, task_id)
+        current_contract = semantic_digest(
+            registry.contract_for(task_id).task_definition.model_dump(mode="json")
+        )
         current_manifest = _canonical_json(
             package.manifest.model_dump(mode="json")
         )
@@ -115,6 +267,11 @@ def _package_findings(
         if row["manifest_json"] != current_manifest:
             mismatches.append("manifest内容が現行Packageと異なります")
         if not mismatches:
+            continue
+        identity_validator = getattr(registry, "confirms_package_identity", None)
+        if callable(identity_validator) and not identity_validator(task_id):
+            # A broken current Package is diagnosed by normal API startup.
+            # It must not be presented as a persisted-workspace conflict.
             continue
         latest_maintenance = (
             connection.execute(
@@ -304,7 +461,7 @@ def _project_findings(
 
 def inspect_workspace_compatibility(
     database: str | Path,
-    registry: TaskRegistry,
+    registry: WorkspacePreflightRegistry,
 ) -> WorkspacePreflightReport:
     path = Path(database).expanduser().resolve()
     if not path.exists():

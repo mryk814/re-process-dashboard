@@ -53,6 +53,27 @@ test("project series keep the active series open and let other series expand", a
   await expect(toggles).toHaveCount(await page.locator(".project-list-group:not(.singleton)").count());
 });
 
+test("long bundled dataset names stay inside the project list on the overview", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/?view=project&project=default");
+
+  const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });
+  await expect(projectList).toBeVisible();
+  await expect(page.locator(".project-hub-header h2")).toContainText("焼鈍条件の候補検討");
+
+  const dimensions = await projectList.evaluate((element) => {
+    const items = element.querySelector<HTMLElement>(".project-list-items");
+    return {
+      panelClientWidth: element.clientWidth,
+      panelScrollWidth: element.scrollWidth,
+      itemsClientWidth: items?.clientWidth ?? 0,
+      itemsScrollWidth: items?.scrollWidth ?? 0,
+    };
+  });
+  expect(dimensions.panelScrollWidth).toBeLessThanOrEqual(dimensions.panelClientWidth);
+  expect(dimensions.itemsScrollWidth).toBeLessThanOrEqual(dimensions.itemsClientWidth);
+});
+
 test("a single-project series is shown as a direct project without collapse hierarchy", async ({ page }) => {
   const createdResponse = await createProjectFromDefault(page, `単独プロジェクト ${Date.now()}`);
   expect(createdResponse.status()).toBe(201);

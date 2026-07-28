@@ -6,7 +6,11 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from material_workbench.api.dependencies import get_store, get_workspace_catalog
+from material_workbench.api.dependencies import (
+    get_runtime_context,
+    get_store,
+    get_workspace_catalog,
+)
 from material_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
 )
@@ -145,7 +149,7 @@ def get_chain_revision(
 
 def _execution_service(request: Request) -> ChainExecutionService:
     request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
-    service = request.app.state.chain_execution_service
+    service = get_runtime_context(request).chain_execution_service
     assert service is not None
     return service
 
@@ -153,14 +157,14 @@ def _execution_service(request: Request) -> ChainExecutionService:
 def _candidate_input_service(request: Request) -> ChainExecutionService:
     """Resolve pinned presentation metadata without enabling Chain execution."""
 
-    service = request.app.state.chain_execution_service
+    service = get_runtime_context(request).chain_execution_service
     assert service is not None
     return service
 
 
 def _uncertainty_service(request: Request) -> ChainUncertaintyService:
     request.app.state.subsystem_availability.require(WELDING_CHAIN_SUBSYSTEM_ID)
-    service = request.app.state.chain_uncertainty_service
+    service = get_runtime_context(request).chain_uncertainty_service
     assert service is not None
     return service
 
