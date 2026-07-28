@@ -5,7 +5,7 @@
 - プロダクトの長期的な性格と対象外は [アプリ憲章](app-charter.md) を正本とする。
 - 個別契約の詳細は各契約文書とコード上の型を正本とする。
 - 過去の設計判断は `docs/decisions/` に残す。ADRの背景説明を現在の機能一覧として読まない。
-- Task、source、Profile、active Model Packageの現在値は [生成済みTask inventory](task-inventory.json) を正本とする。
+- Task、source、Profile、active Model Packageの現在値は [生成済みTask inventory](../contracts/task-inventory.json) を正本とする。
 
 ## 1. 現在のプロダクト境界
 
@@ -77,7 +77,7 @@ TaskDefinitionはcanonical input、output、単位、許容範囲、制約を定
 
 Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読み込む。Task、Feature Pipeline、training provenance、artifact hash、quality report、smoke inputを固定する。
 
-複数出力が同じartifactを参照するI/O契約は将来拡張できる形を維持するが、現行データで再評価したshared multi-output GPは、target別modelより精度、calibration、artifact size、推論時間が悪化したため採用していない。runtime、Package、active設定は追加していない。採否根拠は[複数出力で共有するモデル成果物](decisions/shared-multi-output.md)を参照する。
+複数出力が同じartifactを参照するI/O契約は将来拡張できる形を維持するが、現行データで再評価したshared multi-output GPは、target別modelより精度、calibration、artifact size、推論時間が悪化したため採用していない。runtime、Package、active設定は追加していない。採否根拠は[複数出力で共有するモデル成果物](../decisions/shared-multi-output.md)を参照する。
 
 ### Dataset Profile family
 
@@ -94,7 +94,7 @@ Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読
 
 ### Source data lifecycle
 
-外部sourceの定期更新は、Connector、Raw Snapshot、Curation Run、承認済みCanonical Dataset Revision、Training Snapshotを不変資産として分離する。取得は再学習・Package active化・既存Project更新を起動しない。詳細は[Source更新と承認付きDataset lifecycle](source-data-lifecycle.md)を参照する。
+外部sourceの定期更新は、Connector、Raw Snapshot、Curation Run、承認済みCanonical Dataset Revision、Training Snapshotを不変資産として分離する。取得は再学習・Package active化・既存Project更新を起動しない。詳細は[Source更新と承認付きDataset lifecycle](../contracts/source-data-lifecycle.md)を参照する。
 
 ### Decision Activity
 
@@ -113,7 +113,7 @@ ChainDefinitionはStage順序、external input、Stage間binding、明示的な�
 
 通常Taskのcanonical input groupは主に `composition`、`process`、`categorical`、`heat_pattern` である。画像、スペクトル、グラフ、複数明細集合はproduction契約に含まれない。
 
-一般的な可変長系列は、Candidate入力とは独立したRaw Series／Canonical Series／Feature Representation契約、永続化、API、inspectorを持つ。通常Taskへ自動bindingはせず、Taskごとの縦スライスで明示する。詳細は[可変長系列の契約](variable-length-series.md)を参照する。
+一般的な可変長系列は、Candidate入力とは独立したRaw Series／Canonical Series／Feature Representation契約、永続化、API、inspectorを持つ。通常Taskへ自動bindingはせず、Taskごとの縦スライスで明示する。詳細は[可変長系列の契約](../contracts/variable-length-series.md)を参照する。
 
 疎な原料配合は通常のscalar inputへ押し込まず、別のSparse Blend契約として実装している。
 
@@ -127,17 +127,17 @@ Task追加は内部allow-listである `TaskModule` への明示登録を必要�
 
 新しい単一Task Projectは、TaskDefinitionを狭める不変なDesign Space Revisionを固定する。
 範囲探索とロバストネス解析は同じdigestを来歴へ残す。既存Projectは履歴を推測せず、
-`unbound_legacy`として読み出す。詳細は[Project Design Space](project-design-space.md)を参照する。
+`unbound_legacy`として読み出す。詳細は[Project Design Space](../contracts/project-design-space.md)を参照する。
 
 ### Objective Definition
 
-Objective Definitionは、どのoutputをどの方向・目標・許容範囲で評価するか、制約を満たさない候補をどう扱うか、改善基準となるincumbentを何に固定するかをversionとdigest付きで定義する。Project Design Space、Proposal Strategy、Prediction Taskとは別の不変な判断基準である。詳細は[Objective Definition](objective-definition.md)を参照する。
+Objective Definitionは、どのoutputをどの方向・目標・許容範囲で評価するか、制約を満たさない候補をどう扱うか、改善基準となるincumbentを何に固定するかをversionとdigest付きで定義する。Project Design Space、Proposal Strategy、Prediction Taskとは別の不変な判断基準である。詳細は[Objective Definition](../contracts/objective-definition.md)を参照する。
 
 ### Proposal StrategyとBatch Selector
 
 範囲探索は、利用目的を`design_space_map`／`goal_search`／`experiment_batch`として固定し、allow-listされたCandidate Generator、Acquisition Evaluator、SelectorをProposal Strategyとして解決する。領域表示はProject Objectiveを適用せず、実験batchは保存済みgoal-search Runのpoolを再生成せずに参照する。保存済みRunは、Design Space／Objective／Package／Feature Pipeline／Datasetのdigest、実際に使ったstrategy、seed、評価pool、棄却理由、獲得値の内訳を固定する。
 
-任意の実験batchを作る場合は、点ごとのProposal Strategyとは別のBatch Selectorが、取得価値、多様性、pending候補、対照・反復、カテゴリquota、実験費用、setup制約を扱う。現行実装はmarginal acquisition後の決定論的batch選択であり、joint q-acquisitionやbatch Thompson Samplingを実装済みとはみなさない。詳細は[Curation and Proposal architecture](curation-and-proposal-architecture.md)を参照する。
+任意の実験batchを作る場合は、点ごとのProposal Strategyとは別のBatch Selectorが、取得価値、多様性、pending候補、対照・反復、カテゴリquota、実験費用、setup制約を扱う。現行実装はmarginal acquisition後の決定論的batch選択であり、joint q-acquisitionやbatch Thompson Samplingを実装済みとはみなさない。詳細は[Curation and Proposal architecture](../contracts/curation-and-proposal-architecture.md)を参照する。
 
 ### Decision Activity
 
@@ -153,7 +153,7 @@ Chain Coreは候補shapeを解釈せず、Stage順序、binding、単位変換�
 
 一方、現在の画面は疎配合Chain専用であり、scalar候補の編集画面はない。また、決定論的Stageを二段以上持つ候補shape、画像・系列などの非scalar外部入力、domain固有の実験資源はadapter追加なしには扱わない。
 
-詳細は[Chain実行と証跡](chain-execution.md)と[拡張性反証結果](architecture/extensibility-spikes.md)を参照する。
+詳細は[Chain実行と証跡](../contracts/chain-execution.md)と[拡張性反証結果](../architecture/extensibility-spikes.md)を参照する。
 
 ### Chain uncertainty
 
@@ -167,18 +167,18 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 
 | 関心 | 正本 |
 |---|---|
-| プロダクトの性格、対象外 | `docs/app-charter.md` |
+| プロダクトの性格、対象外 | `docs/product/app-charter.md` |
 | 現在の実装前提とv1境界 | この文書 |
-| Task、source、Profile、active Packageの一覧 | `docs/task-inventory.json` |
+| Task、source、Profile、active Packageの一覧 | `docs/contracts/task-inventory.json` |
 | Task／Canonical Candidate／Runtime Capability | `backend/src/material_workbench/contracts/task_contracts.py` |
 | Chain Definition／Revision／binding | `backend/src/material_workbench/contracts/chain_contracts.py` |
 | Chain execution／snapshot／actual variant | `backend/src/material_workbench/contracts/chain_execution_contracts.py` |
 | Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
-| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/project-design-space.md` |
-| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/objective-definition.md` |
-| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/curation-and-proposal-architecture.md` |
-| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/curation-and-proposal-architecture.md` |
-| Model Package | `docs/model-package-contract.md` と対応するcontract code |
+| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
+| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |
+| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
+| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
+| Model Package | `docs/contracts/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |
 | 過去の採否判断 | `docs/decisions/`、Issue、Pull Request |

@@ -13,8 +13,8 @@
     "packages/wear-curve-ridge-external-v1",
     "packages/battery-degradation-lightgbm-calce-v1",
     "packages/secom-yield-lightgbm-calibrated-v1",
-    "packages/mpea-room-tensile-ridge-v1",
-    "packages/mpea-hardness-ridge-v1",
+    "packages/mpea-room-tensile-ridge-v2",
+    "packages/mpea-hardness-ridge-v2",
     "packages/welding-stage-c-ridge-v1"
   ]
 }

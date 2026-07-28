@@ -1,7 +1,7 @@
 # 多段構造の検証用合成データ（溶接材料）
 
 `data/source/welding_consumable_multistage_synthetic_dataset.xlsx` は、原料配合から特性までが多段になる問題を模した合成データです。
-実測値ではありません。[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) の方針を、契約や画面を作る前に具体的な行と列で確認するために使います。
+実測値ではありません。[多段Chainアーキテクチャ](../decisions/multistage-chain-architecture.md) の方針を、契約や画面を作る前に具体的な行と列で確認するために使います。
 
 Stage Cの観測familyを組み立てるDataset Profile契約には接続済みです。
 Stage Bは実測溶着金属成分300観測を正本とする単独Task・Packageへ接続済みです。
@@ -112,7 +112,7 @@ wire_c = 充填率 × core_c + (1 - 充填率) × フープ成分_c
 - 調達可否を単なる許可集合として事前に絞るだけならLPのままです。
 - 基準配合からのL1距離はLPですが、L2距離はQPになるためv1では扱いません。
 
-詳しい契約は [多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) に記録します。
+詳しい契約は [多段Chainアーキテクチャ](../decisions/multistage-chain-architecture.md) に記録します。
 
 ## シート構成
 

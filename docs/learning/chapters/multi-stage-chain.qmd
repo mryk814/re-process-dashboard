@@ -2,7 +2,7 @@
 chapter_id: "multi-stage-chain"
 level: advanced
 estimated_minutes: 240
-verified_commit: "e2cf67477d1a88d39b963046c878d2a9e64ae111"
+verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
 code_references:
   - path: "backend/src/material_workbench/contracts/chain_contracts.py"
     id: "multi-stage-chain-definition-contract"
@@ -66,6 +66,11 @@ code_references:
     role: "application"
     symbols:
       - "ChainEvaluationCatalog"
+  - path: "backend/src/material_workbench/modeling/numeric_canonicalization.py"
+    id: "multi-stage-chain-evidence-number"
+    role: "contract"
+    symbols:
+      - "canonicalize_report_float"
   - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
     id: "multi-stage-chain-candidate-adapter"
     role: "application"
@@ -114,10 +119,10 @@ code_references:
   - path: "docs/decisions/multistage-chain-architecture.md"
     id: "multi-stage-chain-architecture-decision"
     role: "docs"
-  - path: "docs/chain-execution.md"
+  - path: "docs/contracts/chain-execution.md"
     id: "multi-stage-chain-execution-doc"
     role: "docs"
-  - path: "docs/chain-evaluation.md"
+  - path: "docs/contracts/chain-evaluation.md"
     id: "multi-stage-chain-evaluation-doc"
     role: "docs"
 
@@ -463,6 +468,10 @@ outer テスト向けステージ Bはouter trainだけで学習します。
 {{< code-ref multi-stage-chain-evaluation-contract symbol=ChainEvaluationFoldEvidence >}}は`inner-grouped-oof`、`outer-train-only`、自己適合違反数0、outer テスト重複数0をフォールドごとに固定します。
 
 {{< code-ref multi-stage-chain-evaluation-test symbol=test_committed_chain_evaluation_is_reproducible_and_leakage_safe >}}は、合成ソースを変更せず評価成果物を再生成し、フォールド evidenceを照合します。
+
+commitするMAEとRMSEは、{{< code-ref multi-stage-chain-evidence-number symbol=canonicalize_report_float >}}で有限値を要求し、12有効桁へ正規化します。
+これはOSごとの末尾bit差だけを除く成果物境界です。
+source、Package、Profileのdigest、cohort、fold assignment、件数は丸めずexactに照合します。
 
 targetごとに欠測と観測familyが違うため、観測数とグループ数もtarget別です。
 
@@ -832,8 +841,8 @@ joint サンプルを表せるランタイム能力と検証フィクスチャ�
 - scikit-learnのcross-validation guide [@scikit-learn-cross-validation] は、グループ別サンプルをフォールド間で分離する理由を確認するために使い、Welding固有のweld-run grainはrepoのデータセットプロファイルで別に確認します。
 - JCGM 101:2008 [@jcgm-101-2008] は、分布をモデルへ伝播するモンテカルロ法の一般原則を扱いますが、現行ランタイムの独立残差近似と出力 boundsの妥当性はタスクごとに別レビューが必要です。
 - `docs/decisions/multistage-chain-architecture.md`は、Weldingを三段へ分けた設計判断と非scopeを確認する正本です。
-- `docs/chain-execution.md`は、memo、freshness、スナップショット、candidate アダプタ、不確かさrunの現行実装契約を確認する正本です。
-- `docs/chain-evaluation.md`は、入れ子のグループ別評価と出力別cohortの証拠を確認する正本です。
+- `docs/contracts/chain-execution.md`は、memo、freshness、スナップショット、candidate アダプタ、不確かさrunの現行実装契約を確認する正本です。
+- `docs/contracts/chain-evaluation.md`は、入れ子のグループ別評価と出力別cohortの証拠を確認する正本です。
 
 ## 現行境界
 

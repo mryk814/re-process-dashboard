@@ -57,4 +57,4 @@ screeningは `InferenceWorkGraph` のdiagnostics対象ではないため、scree
 batchは、対応adapterと標準loopが同じ `PredictiveSummary` の意味値を返すcontractを用意できる場合に限り導入します。
 測定結果を更新する場合は、このポリシーへ固定値を書き足さず、日付付きのベンチ記録として保存します。
 
-直近の判断根拠は [2026-07-21の推論ベンチ](benchmarks/2026-07-21-inference.md) にあります。
+直近の判断根拠は [2026-07-21の推論ベンチ](../benchmarks/2026-07-21-inference.md) にあります。

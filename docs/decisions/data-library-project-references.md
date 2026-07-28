@@ -181,7 +181,7 @@ SQLite migrationは追加的に行い、既存Project、候補、Snapshot、判�
 
 後続の [多段Chainアーキテクチャ](multistage-chain-architecture.md) により、Project scientific identity、Stage lock、Chain execution／Snapshot、中間実測variant、段単体／通し評価、明示的な不確かさ伝播を追加した。
 
-現在の機能一覧とv1固有境界は [現行システム基準](../current-system-baseline.md) を参照する。
+現在の機能一覧とv1固有境界は [現行システム基準](../product/current-system-baseline.md) を参照する。
 
 ## 対象外
 

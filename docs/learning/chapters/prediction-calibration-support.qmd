@@ -2,7 +2,7 @@
 chapter_id: "prediction-calibration-support"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "f2ec60430a30f1a2ac04261569dbe13974067f21"
+verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "prediction-math-summary-contract"
@@ -69,7 +69,7 @@ code_references:
     role: "test"
     symbols:
       - "test_robustness_activity_is_available_deterministic_and_persistent"
-  - path: "docs/model-package-contract.md"
+  - path: "docs/contracts/model-package-contract.md"
     id: "prediction-math-package-doc"
     role: "docs"
   - path: "docs/decisions/calibrated-decision-support.md"

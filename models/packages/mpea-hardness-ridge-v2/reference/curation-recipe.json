@@ -1,0 +1,305 @@
+{
+  "schema_version": "curation-recipe/v1",
+  "id": "mpea-hardness-process-aware",
+  "version": "1.0.0",
+  "header_row_index": 1,
+  "columns": {
+    "Fe": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Ni": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Co": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Mn": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Cr": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Al": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Ti": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Cu": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Si": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "V": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Nb": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "B": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Mo": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Ta": {
+      "parser": "finite_number",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Homogenization? (Yes=1, No=0)": {
+      "parser": "reported_flag",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Homogenization temp (°C)": {
+      "parser": "temperature_c",
+      "condition_column": "Homogenization? (Yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": 1300.0,
+      "reject_below": null,
+      "reject_above": 1350.0
+    },
+    "Homogenization time (hr)": {
+      "parser": "duration_hours",
+      "condition_column": "Homogenization? (Yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Rolling? (Yes=1, No=0)": {
+      "parser": "reported_flag",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Rolling temp (°C)": {
+      "parser": "temperature_c",
+      "condition_column": "Rolling? (Yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Rolling %": {
+      "parser": "percentage",
+      "condition_column": "Rolling? (Yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Recrystallization (Y=1, N=0)": {
+      "parser": "reported_flag",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Recrystallization temp (°C)": {
+      "parser": "temperature_c",
+      "condition_column": "Recrystallization (Y=1, N=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": 1300.0,
+      "reject_below": null,
+      "reject_above": 1350.0
+    },
+    "Recrystallization Time (min)": {
+      "parser": "duration_minutes",
+      "condition_column": "Recrystallization (Y=1, N=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Aging? (yes=1, No=0)": {
+      "parser": "reported_flag",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Aging temp (°C)": {
+      "parser": "temperature_c",
+      "condition_column": "Aging? (yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": 1050.0
+    },
+    "Aging time (hr)": {
+      "parser": "duration_hours",
+      "condition_column": "Aging? (yes=1, No=0)",
+      "inactive_value": 0.0,
+      "allowed_units": [],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    },
+    "Hardness (HV)": {
+      "parser": "reported_scalar",
+      "condition_column": null,
+      "inactive_value": null,
+      "allowed_units": [
+        "",
+        "HV"
+      ],
+      "warn_below": null,
+      "warn_above": null,
+      "reject_below": null,
+      "reject_above": null
+    }
+  },
+  "sum_rules": [
+    {
+      "id": "composition-total-at-pct",
+      "label": "14元素の組成合計",
+      "columns": [
+        "Fe",
+        "Ni",
+        "Co",
+        "Mn",
+        "Cr",
+        "Al",
+        "Ti",
+        "Cu",
+        "Si",
+        "V",
+        "Nb",
+        "B",
+        "Mo",
+        "Ta"
+      ],
+      "minimum": 99.0,
+      "maximum": 101.0
+    }
+  ]
+}

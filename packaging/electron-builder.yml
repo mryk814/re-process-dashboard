@@ -78,6 +78,10 @@ extraResources:
     to: models/packages/mpea-room-tensile-ridge-v1
   - from: models/packages/mpea-hardness-ridge-v1
     to: models/packages/mpea-hardness-ridge-v1
+  - from: models/packages/mpea-room-tensile-ridge-v2
+    to: models/packages/mpea-room-tensile-ridge-v2
+  - from: models/packages/mpea-hardness-ridge-v2
+    to: models/packages/mpea-hardness-ridge-v2
   - from: models/packages/welding-stage-c-ridge-v1
     to: models/packages/welding-stage-c-ridge-v1
   - from: models/packages/welding-consumable-stage-b-ridge-v2

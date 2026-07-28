@@ -27,7 +27,7 @@ from material_workbench.task_modules import registered_task_modules, resolve_tas
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "task-inventory.json"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"
 
 
 def _repository_path(value: str | Path) -> str:

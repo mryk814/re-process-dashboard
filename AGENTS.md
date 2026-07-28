@@ -24,19 +24,21 @@ npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 だけを初期化する。起動前のread-only整合検査は `npm run workspace:check` で
 単独実行できる。
 
-実装中は、変更した契約や挙動に対応するfocused testと型検査を使う。
+実装中は、変更した契約や挙動に対応するLevel 0を使う。
 
 ```powershell
-npm.cmd run verify:focused -- backend/tests/test_screening_score.py
+npm.cmd run verify:edit -- backend/tests/test_screening_score.py
 ```
 
-PRをレビュー可能にする直前とmerge前は、**リポジトリ直下で**全体検証を実行する。
+通常のPRはLevel 1を使い、対象pytestを`--`以降へ渡す。
 
 ```powershell
-npm run verify:full
+npm.cmd run verify:pr -- backend/tests/test_screening_score.py
 ```
 
-`verify:full`は、pytest、Web unit test、TypeScript typecheck、application build、failure-state E2E、作業ツリーと`origin/main...HEAD`のdiff checkを順に実行する。
+複数PRをまとめた節目は`npm run verify:checkpoint`、配布・migration・restore・Packageなど高リスクの受入は`npm run acceptance:release`を使う。通常PRごとにLevel 2／3を要求しない。
+
+4段階の選択、risk matrix、gateの唯一の正本は`docs/operations/verification-policy.md`と`scripts/verification-gates.json`に置く。未実行gateを成功扱いしない。
 
 画面または操作経路を変えた場合は、変更リスクに対応するPlaywright specもfresh serverで実行する。
 
@@ -46,7 +48,7 @@ npm run verify:full
 `backend/` から `pytest` を実行すると `ModuleNotFoundError: No module named 'backend'`
 と複数の失敗が出るが、これは cwd 違いであって実際の失敗ではない。
 
-E2EはPlaywrightで実行する。`verify:full`にはAPI offlineとaccessibility smokeを扱うfailure-state laneが含まれる。
+E2EはPlaywrightで実行する。Level 2にはAPI offlineとaccessibility smokeを扱うfailure-state laneが含まれる。
 
 通常の画面経路と専用runtimeを必要とするspecは、変更内容に応じて別途実行する。
 
@@ -125,18 +127,18 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 - 変更対象の正本、生成物、読取専用資源を区別したか。
 - 予測、実測、不確かさ、支持範囲を混同していないか。
 - 保存済みSnapshot、Run、Project identityを暗黙更新していないか。
-- focused loopだけで完了扱いせず、merge前にfull gateと必要なbrowser証拠を残したか。
-- Actionsが利用可能かを実行時に確認し、利用できない場合はローカルfull gateと不足する外部証拠をPRへ記録したか。
+- edit loopだけで完了扱いせず、変更riskに対応するLevel 1以上と必要なbrowser証拠を残したか。
+- Actionsが利用可能かを実行時に確認し、利用できない場合は選択したローカルgateと不足する外部証拠をPRへ記録したか。
 
 ## 詳細ドキュメント
 
-- [docs/app-charter.md](docs/app-charter.md) — 対象範囲、対象外、将来候補
-- [docs/model-package-contract.md](docs/model-package-contract.md) — モデルPackageの契約と読込手順
-- [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
-- [docs/design-system.md](docs/design-system.md) — UIデザインシステム
+- [docs/product/app-charter.md](docs/product/app-charter.md) — 対象範囲、対象外、将来候補
+- [docs/contracts/model-package-contract.md](docs/contracts/model-package-contract.md) — モデルPackageの契約と読込手順
+- [docs/contracts/feature-engineering.md](docs/contracts/feature-engineering.md) — 特徴量パイプラインの定義
+- [docs/product/design-system.md](docs/product/design-system.md) — UIデザインシステム
 
 ## CIの扱い
 
 GitHub Actionsの利用可否は一時的な運用状態であり、この文書の不変条件ではない。
 
-PRごとに現行checkを確認し、利用できない場合はローカルfull gateと変更リスクに応じたbrowserまたはpackaged smokeをPR本文へ記録する。
+PRごとに現行checkを確認し、利用できない場合は`verify:pr`、必要なら`verify:checkpoint`または`acceptance:release`と、変更リスクに応じたbrowser／packaged smokeをPR本文へ記録する。

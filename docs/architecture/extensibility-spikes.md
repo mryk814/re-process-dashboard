@@ -513,7 +513,7 @@ A（標準表形式Task）          実行済み
 - **破壊的変更**: リクエストの `parameters.schema_version` が必須になった（以前は既定値で省略できた）。
   discriminated unionは判別子の省略を許さない。保存済みrunは常に `schema_version` を含むため読み出しは影響なし
 - Activity追加時に触る箇所は4か所（contracts / handler module / registry / UI view+registry）。
-  [decision-activities.md](../decision-activities.md) に記載
+  [decision-activities.md](../contracts/decision-activities.md) に記載
 
 ### P1-b｜Chain Coreと溶接adapterの分離 — **完了**
 
@@ -574,7 +574,7 @@ A（標準表形式Task）          実行済み
 - **output boundsは意図的に宣言のまま残す**。TaskDefinitionの `plausibility_range` は
   表示・検証用であり、実測すると値が違う（TS: 0–2000 vs 0–上限なし）。
   Chain samplingが使う実行時clampへ流用すると新たにclipが発生するため代用しない。
-  [chain-execution.md](../chain-execution.md) の「exact allow-listで固定した物理境界」と整合する
+  [chain-execution.md](../contracts/chain-execution.md) の「exact allow-listで固定した物理境界」と整合する
 - 完了条件の確認: `backend/tests/test_observation_training_spec.py` が、
   導出結果が**保存済みModel Packageの特徴量パイプラインと一致**すること、
   runtime moduleにtask idもprofile pathも残っていないことを固定

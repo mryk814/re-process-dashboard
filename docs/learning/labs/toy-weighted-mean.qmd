@@ -2,7 +2,7 @@
 chapter_id: "toy-weighted-mean"
 level: beginner
 estimated_minutes: 20
-verified_commit: "d6bc60fe8a879dbb03831accb0ba13d3123bc626"
+verified_commit: "ef2ad7f82e9b3bf29ddf49f3521b44334ffd8f9b"
 code_references:
   - path: "docs/learning/AGENTS.md"
     role: "docs"

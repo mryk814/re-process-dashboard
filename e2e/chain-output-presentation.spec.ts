@@ -109,8 +109,10 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
   const carbonRow = stageB.getByRole("row").filter({ has: page.getByRole("rowheader", { name: "溶着金属 C", exact: true }) });
 
   await expect(tensileRow).toContainText(/[\d,]+\.\d MPa/);
-  // 点推定だけの実行では「区間が無い」ではなく「まだ計算していない」と言う。
-  await expect(tensileRow).toContainText(/標準偏差 ±|不確かさ未計算|区間なし（このStageは点推定のみ）/);
+  // 区間の有無だけでなく、未計算・点推定のみ・伝播Run対象外を区別して示す。
+  await expect(tensileRow).toContainText(
+    /標準偏差 ±|不確かさ未計算|区間なし（このStageは点推定のみ）|この出力は伝播Runの対象外/,
+  );
   await expect(stageC.locator(".chain-uncertainty-note")).toContainText(/未計算|点推定のみ|計算済み/);
   await expect(stageB.locator(".chain-uncertainty-note")).toBeVisible();
   await expect(tensileRow.locator("td").nth(1)).not.toHaveText("—");

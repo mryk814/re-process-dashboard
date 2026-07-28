@@ -35,7 +35,7 @@ P1-dで `stage_c_regression.py` → `observation_regression.py`、
 | UI | [features/candidates/taskDefinition.ts](../../apps/web/src/features/candidates/taskDefinition.ts)、[CandidateUi.tsx](../../apps/web/src/features/candidates/CandidateUi.tsx) |
 | generated schema | `apps/web/src/generated/api-types.ts`（`npm run api:generate`） |
 | tests | `test_task_registry.py`、`test_task_contracts.py`、`test_external_tabular_tasks.py` |
-| docs | [task-inventory.json](../task-inventory.json)（生成物）、[.claude/skills/add-prediction-task/SKILL.md](../../.claude/skills/add-prediction-task/SKILL.md) |
+| docs | [task-inventory.json](../contracts/task-inventory.json)（生成物）、[.claude/skills/add-prediction-task/SKILL.md](../../.claude/skills/add-prediction-task/SKILL.md) |
 | packaging | `models/active-packages.json`、`models/packages/<package>/` |
 
 **登録点（Task追加時に必ず触る箇所）**
@@ -49,7 +49,7 @@ P1-dで `stage_c_regression.py` → `observation_regression.py`、
 | `task.default_source` | `TaskModule.default_source` が指す実ファイル | data |
 | `task.source_env` | `TaskModule.source_env`（環境変数名。全Taskで一意） | code |
 | `task.package_override_env` | `TaskModule.package_override_env`（全Taskで一意） | code |
-| `task.inventory_generated` | `docs/task-inventory.json`（`npm run task:inventory`） | 生成物 |
+| `task.inventory_generated` | `docs/contracts/task-inventory.json`（`npm run task:inventory`） | 生成物 |
 
 ### 1.2 Dataset Profile
 
@@ -110,7 +110,7 @@ DataDescriptor（宣言済みの共通面）
 
 | 側面 | 正本 |
 | --- | --- |
-| 契約 | [docs/model-package-contract.md](../model-package-contract.md)、[modeling/model_packages.py](../../backend/src/material_workbench/modeling/model_packages.py) |
+| 契約 | [docs/contracts/model-package-contract.md](../contracts/model-package-contract.md)、[modeling/model_packages.py](../../backend/src/material_workbench/modeling/model_packages.py) |
 | adapter allow-list | `backend/src/material_workbench/adapters/`（allow-listされたadapter群） |
 | lifecycle | [modeling/model_lifecycle.py](../../backend/src/material_workbench/modeling/model_lifecycle.py)、`models/active-packages.json` |
 | builder | `TaskModule.model_builder` |

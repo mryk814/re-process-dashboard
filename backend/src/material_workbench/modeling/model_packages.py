@@ -25,6 +25,12 @@ MAX_PACKAGE_BYTES = 512 * 1024 * 1024
 MAX_PACKAGE_ARTIFACTS = 4096
 SNAPSHOT_CHUNK_BYTES = 1024 * 1024
 PACKAGE_SCHEMA_VERSION = "model-package/v1"
+FEATURE_DATASET_DIGEST_LEGACY = "canonical-json/v1"
+FEATURE_DATASET_DIGEST_FLOAT15 = "canonical-json-finite-float15/v2"
+FeatureDatasetDigestAlgorithm = Literal[
+    "canonical-json/v1",
+    "canonical-json-finite-float15/v2",
+]
 PREDICTOR_RUNTIME_TYPES = {
     "builtin.linear.v1",
     "builtin.exact_gp.v1",
@@ -249,6 +255,9 @@ class SourceLifecycleProvenance(PackageModel):
 class ProvenanceSpec(PackageModel):
     training_data_id: str
     feature_dataset_id: str
+    feature_dataset_digest_algorithm: FeatureDatasetDigestAlgorithm = (
+        FEATURE_DATASET_DIGEST_LEGACY
+    )
     training_code_revision: str
     dataset_profile_id: str | None = None
     source_lifecycle: SourceLifecycleProvenance | None = None

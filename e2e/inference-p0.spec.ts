@@ -91,6 +91,9 @@ test("inference runs only for changed candidates and visible selected curves", a
   await expect.poll(() => new URL(page.url()).searchParams.get("candidate")).not.toBe(selectedCandidateId);
   const createdCandidateId = new URL(page.url()).searchParams.get("candidate");
   expect(createdCandidateId).toBeTruthy();
+  const successfulCreatedPreviews = () => inferenceResponses.filter(
+    (item) => item.kind === "preview" && item.candidateId === createdCandidateId && item.status === 200,
+  ).length;
   const createdCandidateLabel = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
   const curvesBeforeCreatedPreview = curveRequests;
   await page.waitForTimeout(500);
@@ -112,11 +115,13 @@ test("inference runs only for changed candidates and visible selected curves", a
 
   const selectedNumeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const currentValue = Number(await selectedNumeric.inputValue());
+  const successfulPreviewsBeforeInputChange = successfulCreatedPreviews();
   const saveInput = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
   await selectedNumeric.fill(String(currentValue + 0.001));
   await page.locator(".table-heading h2").click();
   await saveInput;
   await expect.poll(() => previewRequests).toBe(5);
+  await expect.poll(successfulCreatedPreviews).toBe(successfulPreviewsBeforeInputChange + 1);
 
   await page.unroute("**/preview*");
   let releasePendingPreview = () => undefined;
@@ -128,9 +133,6 @@ test("inference runs only for changed candidates and visible selected curves", a
     await pendingPreviewGate;
     await route.fulfill({ response });
   }, { times: 1 });
-  const successfulCreatedPreviews = () => inferenceResponses.filter(
-    (item) => item.kind === "preview" && item.candidateId === createdCandidateId && item.status === 200,
-  ).length;
   const successfulPreviewsBeforePending = successfulCreatedPreviews();
   const failedPreviewsBeforePending = failedInferenceRequests.filter((path) => path.endsWith("/preview")).length;
   const valueBeforePendingPreview = Number(await selectedNumeric.inputValue());

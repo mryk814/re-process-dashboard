@@ -621,11 +621,11 @@
         "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
       },
       "active_package": {
-        "path": "packages/mpea-room-tensile-ridge-v1",
-        "previous": null,
-        "package_id": "mpea-room-tensile-ridge-v1",
-        "version": "1.0.0",
-        "manifest_sha256": "ed86cfb49d1051d0dd1b9e9e7581bebaf86dcb424d04317e766c0cc1e5ca17e4",
+        "path": "packages/mpea-room-tensile-ridge-v2",
+        "previous": "packages/mpea-room-tensile-ridge-v1",
+        "package_id": "mpea-room-tensile-ridge-v2",
+        "version": "2.0.0",
+        "manifest_sha256": "a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
         "runtime_types": [
           "builtin.linear.v1"
         ]
@@ -671,11 +671,11 @@
         "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-hardness-v1.json"
       },
       "active_package": {
-        "path": "packages/mpea-hardness-ridge-v1",
-        "previous": null,
-        "package_id": "mpea-hardness-ridge-v1",
-        "version": "1.0.0",
-        "manifest_sha256": "a44ea314b7145209381ae14d9ff659c60f5101c7437e2c6eff27ba4d1f034607",
+        "path": "packages/mpea-hardness-ridge-v2",
+        "previous": "packages/mpea-hardness-ridge-v1",
+        "package_id": "mpea-hardness-ridge-v2",
+        "version": "2.0.0",
+        "manifest_sha256": "45200e4381cb8f733aeb987a1026bdf46ec8e04e7c04fcf2ba9652f803cc3058",
         "runtime_types": [
           "builtin.linear.v1"
         ]

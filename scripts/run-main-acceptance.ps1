@@ -1,10 +1,34 @@
 param(
-    [string]$ReportPath = "artifacts/main-acceptance/latest.json"
+    [string]$ReportPath = "artifacts/main-acceptance/latest.json",
+    [string[]]$IncludeGate = @()
 )
 
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$verificationCatalogPath = Join-Path $PSScriptRoot "verification-gates.json"
+$verificationCatalog = Get-Content -LiteralPath $verificationCatalogPath -Raw -Encoding utf8 |
+    ConvertFrom-Json
+$releaseLevel = @($verificationCatalog.levels | Where-Object { $_.id -eq "release" })
+if ($releaseLevel.Count -ne 1) {
+    throw "verification catalog must define one release level"
+}
+$selectedGateIds = [Collections.Generic.List[string]]::new()
+foreach ($gateId in @($releaseLevel[0].gates) + $IncludeGate) {
+    if (-not $selectedGateIds.Contains("$gateId")) {
+        $selectedGateIds.Add("$gateId")
+    }
+}
+$knownGateIds = @($verificationCatalog.gates.PSObject.Properties.Name)
+foreach ($gateId in $selectedGateIds) {
+    if ($gateId -notin $knownGateIds) {
+        throw "unknown verification gate: $gateId"
+    }
+    $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
+    if ($gate.manual) {
+        throw "manual verification gate cannot be automated by acceptance: $gateId"
+    }
+}
 $startedAt = Get-Date
 $runId = $startedAt.ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $logRoot = Join-Path $repositoryRoot "artifacts/main-acceptance/$runId"
@@ -66,6 +90,7 @@ function Invoke-Captured {
     )
     $results.Add([ordered]@{
         name = $Name
+        status = if ($exitCode -eq 0) { "passed" } else { "failed" }
         command = "$Executable $($Arguments -join ' ')"
         exitCode = $exitCode
         durationSeconds = [Math]::Round($timer.Elapsed.TotalSeconds, 3)
@@ -96,9 +121,9 @@ function Get-Sha256 {
 }
 
 $testedCommit = (git -C $repositoryRoot rev-parse HEAD).Trim()
-$trackedChanges = @(git -C $repositoryRoot status --porcelain --untracked-files=no)
-if ($trackedChanges.Count -gt 0) {
-    throw "main acceptance requires a tracked-clean worktree; commit or restore tracked changes first"
+$worktreeChanges = @(git -C $repositoryRoot status --porcelain)
+if ($worktreeChanges.Count -gt 0) {
+    throw "release acceptance requires a clean worktree; commit or remove scoped changes first"
 }
 $environment = [ordered]@{
     os = [Environment]::OSVersion.VersionString
@@ -107,42 +132,32 @@ $environment = [ordered]@{
     npm = Read-Version "npm.cmd" @("--version")
     uv = Read-Version "uv.exe" @("--version")
     python = Read-Version "uv.exe" @("run", "python", "--version")
+    verificationCatalog = "scripts/verification-gates.json"
 }
 $failure = $null
 
 Push-Location $repositoryRoot
 try {
-    Invoke-Captured "Backend pytest" "uv.exe" @(
-        "run", "--extra", "dev", "python", "-m", "pytest"
-    )
-    Invoke-Captured "Web unit tests" "npm.cmd" @(
-        "run", "test", "-w", "apps/web"
-    )
-    Invoke-Captured "Desktop unit tests" "npm.cmd" @(
-        "run", "test", "-w", "apps/desktop"
-    )
-    Invoke-Captured "Generated contracts and typecheck" "npm.cmd" @(
-        "run", "typecheck"
-    )
-    Invoke-Captured "Web and Desktop build" "npm.cmd" @(
-        "run", "build"
-    )
-    Invoke-Captured "All default Playwright on isolated DB" "npx.cmd" @(
-        "playwright", "test"
-    )
-    Invoke-Captured "Failure-state Playwright" "npm.cmd" @(
-        "run", "test:e2e:failure-states"
-    )
-    Invoke-Captured "Chain degraded Playwright" "npx.cmd" @(
-        "playwright", "test", "--config", "playwright.chain-degraded.config.ts"
-    )
-    Invoke-Captured "Legacy workspace migration smoke" "uv.exe" @(
-        "run", "--extra", "dev", "python", "-m", "pytest",
-        "backend/tests/test_legacy_workspace_acceptance.py", "-q"
-    )
-    Invoke-Captured "Windows installer and moved portable delivery" "npm.cmd" @(
-        "run", "package:windows"
-    )
+    foreach ($gateId in $selectedGateIds) {
+        $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
+        $executable = switch ("$($gate.runner.executable)") {
+            "npm" { "npm.cmd" }
+            "npx" { "npx.cmd" }
+            "uv" { "uv.exe" }
+            "powershell" { "powershell.exe" }
+            default { "$($gate.runner.executable)" }
+        }
+        $arguments = @(
+            foreach ($argument in @($gate.runner.args)) {
+                if ("$argument" -eq '$BASE...HEAD') {
+                    "origin/main...HEAD"
+                } else {
+                    "$argument"
+                }
+            }
+        )
+        Invoke-Captured "$gateId" $executable $arguments
+    }
 } catch {
     $failure = "$_"
 } finally {
@@ -157,7 +172,7 @@ $artifactPaths = @(
 )
 $deliveryPassed = @(
     $results | Where-Object {
-        $_.name -eq "Windows installer and moved portable delivery" -and
+        $_.name -eq "windows-delivery" -and
         $_.exitCode -eq 0
     }
 ).Count -eq 1
@@ -174,11 +189,51 @@ $artifacts = @(
     }
 )
 $finishedAt = Get-Date
+$omittedGates = @(
+    $completedGateIds = @($results | ForEach-Object { $_.name })
+    foreach ($gateId in $selectedGateIds) {
+        if ($gateId -notin $completedGateIds) {
+            [ordered]@{
+                id = $gateId
+                status = "not_run"
+                reason = "an earlier selected gate failed"
+                priorEvidence = @()
+            }
+        }
+    }
+    foreach ($gateId in $knownGateIds) {
+        if ($gateId -notin $selectedGateIds) {
+            $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
+            [object[]]$priorEvidence = @()
+            if ($null -ne $gate.priorEvidence) {
+                $priorEvidence = @($gate.priorEvidence)
+            }
+            [ordered]@{
+                id = $gateId
+                status = "not_run"
+                reason = if ($gate.manual) {
+                    "manual evidence is outside the automated release profile"
+                } else {
+                    "not selected by the release profile or -IncludeGate"
+                }
+                priorEvidence = $priorEvidence
+            }
+        }
+    }
+)
 $report = [ordered]@{
-    schemaVersion = "main-acceptance/v1"
+    schemaVersion = "main-acceptance/v2"
     runId = $runId
+    level = "release"
     testedCommit = $testedCommit
-    trackedChangesAtStart = $trackedChanges
+    currentCommitAtInspection = $testedCommit
+    commitsAhead = 0
+    changedRiskCategories = @()
+    applicability = "current"
+    worktreeChangesAtStart = $worktreeChanges
+    verificationCatalogSha256 = (Get-FileHash -LiteralPath $verificationCatalogPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    selectedGates = @($selectedGateIds)
+    omittedGates = $omittedGates
     clearedInheritedPlaywrightEnvironment = $inheritedPlaywrightEnvironment
     cleanIsolatedPlaywright = $true
     startedAt = $startedAt.ToUniversalTime().ToString("o")

@@ -239,6 +239,11 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     assert "packaged-smoke-${mode}-after-backup" in packaged_smoke
     assert "Workspaceを復元し、APIの起動確認まで完了しました。" in packaged_smoke
     assert "readSmokeProject()).notes, restoredMarker" in packaged_smoke
+    assert packaged_smoke.index(
+        'getByText("Workspaceを復元し、APIの起動確認まで完了しました。")'
+    ) < packaged_smoke.index(
+        '"heading",\n    { name: "ワークスペース", exact: true }'
+    )
 
 
 def test_desktop_startup_recovery_distinguishes_workspace_and_runtime_failures() -> None:

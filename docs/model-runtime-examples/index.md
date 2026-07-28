@@ -6,7 +6,7 @@
 
 | 入出力契約 | 代表的な経路 | 状態とカード |
 |---|---|---|
-| 疎な配合明細 → whole-wire材料成分 | `builtin.deterministic_linear.v1` | 学習済みscalar predictorではない決定論的transform。科学masterとcompiler単位をPackageへ固定し、Stage Aで使用。[Package契約](../model-package-contract.md#許可する実行環境と資産形式) |
+| 疎な配合明細 → whole-wire材料成分 | `builtin.deterministic_linear.v1` | 学習済みscalar predictorではない決定論的transform。科学masterとcompiler単位をPackageへ固定し、Stage Aで使用。[Package契約](../contracts/model-package-contract.md#許可する実行環境と資産形式) |
 | 固定ベクトル → 決定論的スカラー | `builtin.linear.v1` | 利用可能だが、現行のactive Packageでは未使用。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから決定論的スカラーへ) |
 | 固定ベクトル → 許可リスト登録済みsklearn推定器 | `sklearn.skops.v1` | 任意の信頼済み型ランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルから許可リスト登録済みsklearn推定器へ) |
 | 固定ベクトル → ネイティブ木予測 | `lightgbm.booster.v1` | 任意のネイティブランタイム。[既存ランタイムカード](existing-runtimes.md#固定ベクトルからネイティブ木予測へ) |
@@ -43,7 +43,7 @@ Registry、本番TaskDefinition、有効な選択状態は編集しません。
 - `backend/src/material_workbench/adapters/<adapter>.py`
 - `backend/src/material_workbench/modeling/model_packages.py` 内の `RUNTIME_TYPES`、`PredictorSpec` の構造検証、`AdapterRegistry`
 - `backend/tests/` 内のアダプター契約テストと敵対的テスト
-- `docs/model-package-contract.md` 内のランタイム表
+- `docs/contracts/model-package-contract.md` 内のランタイム表
 - この索引と1個の入出力カード
 
 新しいPredictiveSummaryの意味がAPI、スナップショット、UIまで伝達されていない場合は、`Prediction` を更新し、OpenAPI型とTypeScript型を再生成して、表示契約テストを1個追加します。

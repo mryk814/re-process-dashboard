@@ -2,7 +2,7 @@
 chapter_id: "verification-operations"
 level: intermediate
 estimated_minutes: 100
-verified_commit: "d6bc60fe8a879dbb03831accb0ba13d3123bc626"
+verified_commit: "0eaf27b3b70238bb841d2ed04509d499f1afa2f7"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
@@ -316,7 +316,7 @@ commit: <検証したHEAD SHA>
 base: <比較したorigin/main SHA>
 environment: Windows 11, Node <version>, npm <version>, uv <version>
 cwd: <repository root>
-command: npm run verify:full
+command: npm run verify:checkpoint
 started_at / finished_at: <ISO 8601>
 result: exit 0
 counts: pytest <passed>, web unit <passed>, E2E <passed>
@@ -382,7 +382,7 @@ retryで緑にする前に、乱数seed、clock、port、DB、リクエスト順
 
 ### 演習4: CI未開始時の証拠を書く {#exercise-verification-04}
 
-GitHub Actionsが利用上限で開始されず、ローカルの`verify:full`だけが成功した状況を想定します。
+GitHub Actionsが利用上限で開始されず、ローカルの`verify:checkpoint`だけが成功した状況を想定します。
 PRへ貼る検証記録を8行以内で書いてください。
 
 ### 成功条件
@@ -480,7 +480,7 @@ assert current run_id == "run-b"
 commit/base: <HEAD SHA> / <origin/main SHA>
 environment: Windows 11, Node <v>, npm <v>, uv <v>
 cwd: <repository root>
-command: npm run verify:full
+command: npm run verify:checkpoint
 result: exit 0, pytest <n>, web unit <n>, E2E <n>
 artifacts: <path>, SHA-256 <hash>
 GitHub Actions: not started because usage limit was reached

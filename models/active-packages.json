@@ -42,12 +42,12 @@
       "previous": null
     },
     "mpea-room-tensile-v1": {
-      "active": "packages/mpea-room-tensile-ridge-v1",
-      "previous": null
+      "active": "packages/mpea-room-tensile-ridge-v2",
+      "previous": "packages/mpea-room-tensile-ridge-v1"
     },
     "mpea-hardness-process-v1": {
-      "active": "packages/mpea-hardness-ridge-v1",
-      "previous": null
+      "active": "packages/mpea-hardness-ridge-v2",
+      "previous": "packages/mpea-hardness-ridge-v1"
     },
     "welding-stage-c-properties-v1": {
       "active": "packages/welding-stage-c-ridge-v1",

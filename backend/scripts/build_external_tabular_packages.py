@@ -46,13 +46,18 @@ JOBS = {
     "mpea-room-tensile-v1": (
         ROOT / "data/source/external/mpea_ground_truth_18021833.csv",
         ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json",
-        ROOT / "models/packages/mpea-room-tensile-ridge-v1",
+        ROOT / "models/packages/mpea-room-tensile-ridge-v2",
     ),
     "mpea-hardness-process-v1": (
         ROOT / "data/source/external/mpea_ground_truth_18021833.csv",
         ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-hardness-v1.json",
-        ROOT / "models/packages/mpea-hardness-ridge-v1",
+        ROOT / "models/packages/mpea-hardness-ridge-v2",
     ),
+}
+
+PACKAGE_VERSIONS = {
+    "mpea-room-tensile-v1": ("mpea-room-tensile-ridge-v2", "2.0.0"),
+    "mpea-hardness-process-v1": ("mpea-hardness-ridge-v2", "2.0.0"),
 }
 
 
@@ -63,8 +68,19 @@ def main() -> None:
     selected = args.task or list(JOBS)
     for task_id in selected:
         source, profile, destination = JOBS[task_id]
+        package_id, package_version = PACKAGE_VERSIONS.get(
+            task_id,
+            (None, "1.0.0"),
+        )
         print(f"building {task_id} from {source.name}")
-        build(source, profile, destination, replace=True)
+        build(
+            source,
+            profile,
+            destination,
+            replace=True,
+            package_id=package_id,
+            package_version=package_version,
+        )
         print(f"verified {destination}")
 
 

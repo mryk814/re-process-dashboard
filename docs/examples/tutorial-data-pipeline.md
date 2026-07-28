@@ -6,7 +6,7 @@
 
 ## 1. 教材の全体像
 
-正本は [`data/source/material_workbench_tutorial_v1.xlsx`](../data/source/material_workbench_tutorial_v1.xlsx) です。
+正本は [`data/source/material_workbench_tutorial_v1.xlsx`](../../data/source/material_workbench_tutorial_v1.xlsx) です。
 
 | 種類 | 件数 | 覚えるポイント |
 |---|---:|---|
@@ -70,7 +70,7 @@ flowchart LR
 
 ## 3. ProfileはExcelの方言を正規形へ写す
 
-教材専用Profileは [`dataset-input-profile-tutorial.json`](../backend/src/material_workbench/data/dataset-input-profile-tutorial.json) です。
+教材専用Profileは [`dataset-input-profile-tutorial.json`](../../backend/src/material_workbench/data/dataset-input-profile-tutorial.json) です。
 
 このProfileは既存の薄板Task用Profileを継承し、`概要.項目` に `教材データID` があることだけを固有マーカーにします。これにより、同じシート名を持つ別Workbookと自動判定が衝突しません。
 
@@ -128,7 +128,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 焼鈍
 
-実装は [`feature_pipeline.py`](../backend/src/material_workbench/modeling/feature_pipeline.py) です。
+実装は [`feature_pipeline.py`](../../backend/src/material_workbench/modeling/feature_pipeline.py) です。
 
 - 成分値
 - ヒートパターンの最高温度、保持、加熱・冷却挙動
@@ -138,7 +138,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 熱延
 
-実装は [`hot_rolling_feature_pipeline.py`](../backend/src/material_workbench/modeling/hot_rolling_feature_pipeline.py) です。
+実装は [`hot_rolling_feature_pipeline.py`](../../backend/src/material_workbench/modeling/hot_rolling_feature_pipeline.py) です。
 
 - 成分値
 - 熱延工程値

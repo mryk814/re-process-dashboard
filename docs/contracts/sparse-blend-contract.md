@@ -1,7 +1,7 @@
 # 疎な配合候補とDesign Spaceの契約
 
 多段Chainの候補は、原料を固定列へ展開せず `blend.items` の可変長明細を正本とする。
-この契約は [多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) のPhase 1境界を実装したものである。
+この契約は [多段Chainアーキテクチャ](../decisions/multistage-chain-architecture.md) のPhase 1境界を実装したものである。
 
 ## 候補
 

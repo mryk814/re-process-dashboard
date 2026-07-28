@@ -26,7 +26,7 @@ uv run python backend/scripts/verify_model_package.py <package-directory> --exam
 3. `backend/tests/`: golden、deterministic smoke、unknown schema、non-finite、shape、feature order、supportの拒否。
 4. `backend/scripts/`: trainer/export builder。training dependencyをPackageへ漏らさない。
 5. `examples/model-packages/`: inactive Package、hashed smoke、capability、target-specific quality report。
-6. `docs/model-package-contract.md` と `docs/model-runtime-examples/`: runtime表とI/Oカード。
+6. `docs/contracts/model-package-contract.md` と `docs/model-runtime-examples/`: runtime表とI/Oカード。
 7. optional dependencyが必要な場合は`pyproject.toml`のdependency groupと`backend/src/material_workbench/app.py`のavailability map。
 
 API/snapshot/UIを触るのは、新しい意味が既存`Prediction`で保持されない場合だけ。その場合はOpenAPI/TypeScript型を再生成し、擬似std・暗黙normal・永続的な「計算中」を出さないpresentation testを追加する。

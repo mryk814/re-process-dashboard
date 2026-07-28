@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 
 from backend.scripts.compare_annealing_feature_pipelines import compare
+from material_workbench.modeling.numeric_canonicalization import (
+    canonicalize_report_float,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,3 +33,30 @@ def test_committed_process_comparison_report_is_current() -> None:
     )
 
     assert compare(source) == expected
+
+
+def test_process_comparison_emits_canonical_numeric_evidence() -> None:
+    report = compare(ROOT / "data/source/material_workbench_process_v1.xlsx")
+    computed_values = [
+        metric[name]
+        for pipelines in report["target_metrics"].values()
+        for metric in pipelines.values()
+        for name in ("mae", "rmse")
+    ]
+    computed_values.extend(
+        value
+        for correlation in report["line_speed_heat_feature_correlations"]
+        for name, value in correlation.items()
+        if name in {"pearson_r", "absolute_r"}
+    )
+    for stability in report["line_speed_coefficient_stability"].values():
+        computed_values.extend(stability["standardized_ls_coefficients"])
+        computed_values.extend(
+            stability[name] for name in ("sign_agreement", "mean", "std")
+        )
+
+    assert computed_values
+    assert all(
+        value == canonicalize_report_float(value)
+        for value in computed_values
+    )

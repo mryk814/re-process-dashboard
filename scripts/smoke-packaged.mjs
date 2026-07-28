@@ -445,12 +445,14 @@ try {
     timeout: PACKAGED_STARTUP_TIMEOUT_MS,
   });
   await window.getByRole("button", { name: "この内容へ復元" }).click();
+  // 復元成功の通知は自動で閉じる。再起動後の画面見出しを先に待つと、
+  // 遅い端末では通知の表示期間を使い切るため、receiptを先に捕捉する。
+  await window.getByText("Workspaceを復元し、APIの起動確認まで完了しました。")
+    .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   await window.getByRole(
     "heading",
     { name: "ワークスペース", exact: true },
   ).waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
-  await window.getByText("Workspaceを復元し、APIの起動確認まで完了しました。")
-    .waitFor({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   const restoredMarker = mode === "installed"
     ? "packaged-smoke-portable-before-backup"
     : backupMarker;

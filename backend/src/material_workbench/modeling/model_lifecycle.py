@@ -12,7 +12,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from material_workbench.data.dataset_profile import load_dataset_profile
 from material_workbench.data.importer import training_context_key
-from material_workbench.modeling.model_packages import PackageContractError, VerifiedModelPackage
+from material_workbench.modeling.model_packages import (
+    FEATURE_DATASET_DIGEST_FLOAT15,
+    FEATURE_DATASET_DIGEST_LEGACY,
+    FeatureDatasetDigestAlgorithm,
+    PackageContractError,
+    VerifiedModelPackage,
+)
 from material_workbench.contracts.task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
 from material_workbench.task_modules import DataDescriptor, registered_task_modules, task_module
 
@@ -315,8 +321,35 @@ def canonical_training_dataset(
     }
 
 
-def canonical_training_dataset_digest(payload: dict[str, Any]) -> str:
-    return _semantic_digest(payload)
+def _finite_float15_digest_value(payload: Any) -> Any:
+    if isinstance(payload, float):
+        if not math.isfinite(payload):
+            raise ValueError("canonical training dataset digest requires finite floats")
+        normalized = "0" if payload == 0 else format(payload, ".15g")
+        return {"$finite_float15": normalized}
+    if isinstance(payload, dict):
+        return {
+            key: _finite_float15_digest_value(value)
+            for key, value in payload.items()
+        }
+    if isinstance(payload, (list, tuple)):
+        return [_finite_float15_digest_value(value) for value in payload]
+    return payload
+
+
+def canonical_training_dataset_digest(
+    payload: dict[str, Any],
+    *,
+    algorithm: FeatureDatasetDigestAlgorithm = FEATURE_DATASET_DIGEST_LEGACY,
+) -> str:
+    if algorithm == FEATURE_DATASET_DIGEST_LEGACY:
+        return _semantic_digest(payload)
+    if algorithm != FEATURE_DATASET_DIGEST_FLOAT15:
+        raise ValueError(f"unsupported feature dataset digest algorithm: {algorithm}")
+    return _semantic_digest({
+        "algorithm": algorithm,
+        "payload": _finite_float15_digest_value(payload),
+    })
 
 
 def exact_gp_loo_quality(
@@ -421,7 +454,10 @@ def validate_training_provenance(
         contract,
         pipeline_version=package.manifest.feature_pipeline.version,
     )
-    if package.manifest.provenance.feature_dataset_id != canonical_training_dataset_digest(canonical):
+    if package.manifest.provenance.feature_dataset_id != canonical_training_dataset_digest(
+        canonical,
+        algorithm=package.manifest.provenance.feature_dataset_digest_algorithm,
+    ):
         raise PackageContractError("model package canonical training dataset digest does not match the active source")
     validate_training_rows_within_allowed_range(data, contract)
 

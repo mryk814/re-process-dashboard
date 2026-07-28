@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocumentMetadata } from "./check-code-references.mjs";
@@ -74,7 +74,7 @@ function assertUnique(values, label) {
   assert(new Set(values).size === values.length, `${label} contains duplicates.`);
 }
 
-function repositoryFile(path, label) {
+function repositoryPath(path, label) {
   assert(typeof path === "string" && path.length > 0, `${label} must name a file.`);
   const absolute = resolve(repositoryRoot, path);
   const repositoryRelative = relative(repositoryRoot, absolute);
@@ -85,24 +85,60 @@ function repositoryFile(path, label) {
       !isAbsolute(repositoryRelative),
     `${label} escapes repository root: ${path}`,
   );
-  assert(statSync(absolute, { throwIfNoEntry: false })?.isFile(), `${label} does not exist: ${path}`);
-  return absolute;
+  return repositoryRelative.split(sep).join("/");
 }
 
-function qmdFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return qmdFiles(path);
-    return entry.isFile() && entry.name.endsWith(".qmd") ? [path] : [];
+function repositoryFileAtCommit(path, commit, label) {
+  const repositoryRelative = repositoryPath(path, label);
+  const result = spawnSync("git", ["show", `${commit}:${repositoryRelative}`], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
   });
+  assert(
+    result.status === 0,
+    `${label} does not exist at ${commit}: ${path}`,
+  );
+  return result.stdout;
 }
 
-const structuredReferencePaths = new Set(
-  qmdFiles(learningRoot).flatMap((path) => {
-    const metadata = parseDocumentMetadata(readFileSync(path, "utf8"), path);
-    return metadata?.references.map((reference) => reference.path) ?? [];
-  }),
-);
+function repositoryEvidence(path, commit, label) {
+  const repositoryRelative = repositoryPath(path, label);
+  const historical = spawnSync(
+    "git",
+    ["show", `${commit}:${repositoryRelative}`],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    },
+  );
+  if (historical.status === 0) return historical.stdout;
+  fail(`${label} does not exist at ${commit}: ${path}`);
+}
+
+const structuredReferenceCache = new Map();
+function structuredReferencePathsAt(commit) {
+  if (structuredReferenceCache.has(commit)) {
+    return structuredReferenceCache.get(commit);
+  }
+  const qmdPaths = git([
+    "ls-tree",
+    "-r",
+    "--name-only",
+    commit,
+    "docs/learning",
+  ])
+    .split(/\r?\n/)
+    .filter((path) => path.endsWith(".qmd"));
+  const references = new Set(
+    qmdPaths.flatMap((path) => {
+      const text = repositoryFileAtCommit(path, commit, `structured reference ${path}`);
+      const metadata = parseDocumentMetadata(text, path);
+      return metadata?.references.map((reference) => reference.path) ?? [];
+    }),
+  );
+  structuredReferenceCache.set(commit, references);
+  return references;
+}
 
 const files = readdirSync(reviewRoot)
   .filter((name) => /^drift-\d{4}-\d{2}-\d{2}-pr-\d+\.json$/.test(name))
@@ -167,9 +203,20 @@ for (const file of files) {
     assert(typeof claim.reason === "string" && claim.reason.length > 20, `${file}: claim reason is too weak.`);
     assert(Array.isArray(claim.evidence) && claim.evidence.length > 0, `${file}: ${claim.claim_id} has no evidence.`);
     assert(Array.isArray(claim.verification) && claim.verification.length > 0, `${file}: ${claim.claim_id} has no verification.`);
+    // Evidence is a claim made by the immutable review record. Resolve it at
+    // the commit that recorded that review, never from the current worktree.
+    const evidenceCommit = git([
+      "log",
+      "-1",
+      "--format=%H",
+      "--",
+      `docs/learning/drift-reviews/${file}`,
+    ]);
+    assertCommit(evidenceCommit, `${file}: record commit`);
     for (const evidence of claim.evidence) {
-      const evidencePath = repositoryFile(
+      const evidenceText = repositoryEvidence(
         evidence.path,
+        evidenceCommit,
         `${file}: evidence for ${claim.claim_id}`,
       );
       if (evidence.symbol !== null) {
@@ -178,8 +225,8 @@ for (const file of files) {
           `${file}: evidence symbol for ${claim.claim_id} must be null or a non-empty string.`,
         );
         assert(
-          readFileSync(evidencePath, "utf8").includes(evidence.symbol),
-          `${file}: evidence symbol '${evidence.symbol}' was not found in ${evidence.path}.`,
+          evidenceText.includes(evidence.symbol),
+          `${file}: evidence symbol '${evidence.symbol}' was not found in ${evidence.path} at ${evidenceCommit}.`,
         );
       }
     }
@@ -235,6 +282,14 @@ const groupedFiles = readdirSync(reviewRoot)
 
 for (const file of groupedFiles) {
   const record = JSON.parse(readFileSync(join(reviewRoot, file), "utf8"));
+  const recordCommit = git([
+    "log",
+    "-1",
+    "--format=%H",
+    "--",
+    `docs/learning/drift-reviews/${file}`,
+  ]);
+  assertCommit(recordCommit, `${file}: record commit`);
   assert(record.schema_version === 1, `${file}: unsupported schema_version.`);
   assert(record.review_id === file.replace(/\.json$/, ""), `${file}: review_id must match filename.`);
   assert(record.status === "resolved", `${file}: grouped review must be resolved.`);
@@ -285,14 +340,19 @@ for (const file of groupedFiles) {
       JSON.stringify(changedPaths) === JSON.stringify(recordedPaths),
       `${file}: PR #${pullRequest.number} paths differ from the first-parent merge diff.`,
     );
+    const historicalStructuredReferences = structuredReferencePathsAt(
+      recordCommit,
+    );
     const expectedReferencedPaths = changedPaths
-      .filter((path) => structuredReferencePaths.has(path))
+      .filter(
+        (path) => historicalStructuredReferences.has(path),
+      )
       .sort();
     const recordedReferencedPaths = [...pullRequest.referenced_paths].sort();
     assertUnique(recordedReferencedPaths, `${file}: PR #${pullRequest.number} referenced_paths`);
     assert(
       JSON.stringify(expectedReferencedPaths) === JSON.stringify(recordedReferencedPaths),
-      `${file}: PR #${pullRequest.number} referenced_paths must exactly match the current textbook's structured references.\nExpected: ${expectedReferencedPaths.join(", ")}\nFound: ${recordedReferencedPaths.join(", ")}`,
+      `${file}: PR #${pullRequest.number} referenced_paths must exactly match structured references at the record commit.\nExpected: ${expectedReferencedPaths.join(", ")}\nFound: ${recordedReferencedPaths.join(", ")}`,
     );
   }
 
@@ -304,7 +364,13 @@ for (const file of groupedFiles) {
     assert(actions.has(claim.action), `${file}: invalid action for ${claim.claim_id}.`);
     assert(typeof claim.reason === "string" && claim.reason.length > 20, `${file}: claim reason is too weak for ${claim.claim_id}.`);
     assert(Array.isArray(claim.documents) && claim.documents.length > 0, `${file}: ${claim.claim_id} has no documents.`);
-    for (const path of claim.documents) repositoryFile(path, `${file}: ${claim.claim_id}`);
+    for (const path of claim.documents) {
+      repositoryFileAtCommit(
+        path,
+        record.reviewed_against,
+        `${file}: ${claim.claim_id}`,
+      );
+    }
   }
   for (const [key, value] of Object.entries(record.verification)) {
     assert(typeof value === "string" && value.length > 10, `${file}: verification '${key}' is too weak.`);

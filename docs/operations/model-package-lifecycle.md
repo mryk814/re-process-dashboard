@@ -8,7 +8,7 @@ TaskDefinitionとDataset Input Profileを起点に、アプリ共通形式の学
 学習済みartifactは、許可リストへ登録したアダプターだけが読み込みます。
 
 承認済みSource LifecycleからPackage、Project、Actualまでを接続する代表例は
-[CALCE電池データのSourceから実測評価までの参照ループ](reference-data-loop.md)
+[CALCE電池データのSourceから実測評価までの参照ループ](../contracts/reference-data-loop.md)
 を参照してください。この経路でも自動学習・自動active化は行わず、
 Training Snapshot digest、materialization adapter version、materialized training
 assetのSHA-256、training builder revisionごとに新しい不変Packageを作ります。
@@ -23,7 +23,7 @@ Package provenanceがTraining Snapshot digestを参照します。
 
 PowerShellから次の順に実行します。
 `<task>` は `annealed-properties-v1`、`hot-rolled-properties-v1`、`flank-wear-v1` のいずれかです。
-タスクごとのソース、プロファイル、現在使用中のPackageは [タスク一覧](task-inventory.json) で確認できます。
+タスクごとのソース、プロファイル、現在使用中のPackageは [タスク一覧](../contracts/task-inventory.json) で確認できます。
 
 `--source`を省略すると、TaskModuleに登録されたタスク固有の既定ソースを使います。
 `annealed-properties-v1` と `hot-rolled-properties-v1` は既定の工程ワークブック、`flank-wear-v1` は専用の切削摩耗ワークブックへ解決されます。

@@ -47,6 +47,26 @@ function Assert-RepositoryRelativePath {
     }
 }
 
+function Resolve-ComparisonRevision {
+    param(
+        [Parameter(Mandatory = $true)][string]$VerifiedCommit,
+        [Parameter(Mandatory = $true)][string]$PreferredRevision
+    )
+
+    git merge-base --is-ancestor $VerifiedCommit $PreferredRevision
+    if ($LASTEXITCODE -eq 0) {
+        return $PreferredRevision
+    }
+    git merge-base --is-ancestor $VerifiedCommit HEAD
+    if ($LASTEXITCODE -eq 0) {
+        return "HEAD"
+    }
+    throw (
+        "verified commit is not an ancestor of {0} or HEAD: {1}" -f `
+            $PreferredRevision, $VerifiedCommit
+    )
+}
+
 Push-Location $RepositoryRoot
 try {
     git rev-parse --verify "$Against^{commit}" | Out-Null
@@ -79,6 +99,9 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Unknown verified_commit in $($chapter.FullName): $verifiedCommit"
         }
+        $comparisonRevision = Resolve-ComparisonRevision `
+            -VerifiedCommit $verifiedCommit `
+            -PreferredRevision $Against
 
         $references = [System.Collections.Generic.List[string]]::new()
         $insideReferences = $false
@@ -112,7 +135,7 @@ try {
             $literalPathspec = ":(literal)$reference"
             $diff = git diff `
                 --name-status `
-                "$verifiedCommit..$Against" `
+                "$verifiedCommit..$comparisonRevision" `
                 -- `
                 $literalPathspec
             if ($LASTEXITCODE -ne 0) {
@@ -154,6 +177,9 @@ try {
             if (-not $figure.drift_refs -or $figure.drift_refs.Count -eq 0) {
                 throw "No drift_refs for figure $($figure.id)"
             }
+            $comparisonRevision = Resolve-ComparisonRevision `
+                -VerifiedCommit $verifiedCommit `
+                -PreferredRevision $Against
 
             $changed = [System.Collections.Generic.List[string]]::new()
             foreach ($reference in $figure.drift_refs) {
@@ -163,7 +189,7 @@ try {
                 $literalPathspec = ":(literal)$reference"
                 $diff = git diff `
                     --name-status `
-                    "$verifiedCommit..$Against" `
+                    "$verifiedCommit..$comparisonRevision" `
                     -- `
                     $literalPathspec
                 if ($LASTEXITCODE -ne 0) {

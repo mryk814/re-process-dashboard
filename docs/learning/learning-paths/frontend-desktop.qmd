@@ -30,7 +30,7 @@
 | 5 | `CandidateDifferenceActivityView.tsx` | result unionをどうnarrowingするか | 30分 |
 | 6 | `decisionActivityState.ts` | 選択候補が変わった後の応答をどう捨てるか | 20分 |
 | 7 | `e2e/decision-activity.spec.ts` | 利用者の操作と保存結果をどう検証するか | 30分 |
-| 8 | `docs/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
+| 8 | `docs/product/app-charter.md` のローカルAPI境界 | loopbackだけを認証にしない理由 | 20分 |
 | 9 | [型付き契約の章](../chapters/contract-through-stack.qmd)と[演習](../labs/extend-contract.qmd) | Python契約まで戻って変更を設計する | 90分 |
 | 10 | [予測と判断のあいだの章](../chapters/decision-safety.qmd) | 未計算、support、不確実性、警告、提案を別の判断材料として表示する | 150分 |
 | 11 | [revisionとdigestの章](../chapters/revision-and-digest.qmd)と[演習](../labs/trace-revision-conflict.qmd) | 保存queueと遅いresponseを別の順序で判定する | 240分 |
@@ -58,8 +58,8 @@ Electronはbookの主題ではありません。
 Workspace restoreを除く一般的な起動経路は、次の順に境界を確認します。
 
 1. `apps/desktop/src/main.ts` でrendererとsidecarの起動責務を確認する
-2. `docs/app-charter.md` でlaunch tokenとloopback境界を確認する
-3. `docs/windows-distribution.md` でportable user dataと配布物を確認する
+2. `docs/product/app-charter.md` でlaunch tokenとloopback境界を確認する
+3. `docs/operations/windows-distribution.md` でportable user dataと配布物を確認する
 4. `backend/tests/test_windows_packaging_contract.py` で配布契約を確認する
 
 React componentからfilesystemやPython processを直接操作する設計へ寄せないことが、この経路の確認点です。

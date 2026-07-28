@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, dataclass
 import json
+import math
 from pathlib import Path
 import sys
 from typing import Annotated, Any, Literal, Sequence
@@ -36,6 +37,32 @@ class ModelPackageVerificationReport:
 
 class ModelPackageVerificationError(PackageContractError):
     """A package is loadable but is not safe to select as active."""
+
+
+def _smoke_outputs_equivalent(actual: Any, expected: Any) -> bool:
+    """Compare smoke evidence exactly except for platform-scale float noise."""
+
+    if isinstance(actual, BaseModel):
+        actual = actual.model_dump(mode="json")
+    if isinstance(expected, BaseModel):
+        expected = expected.model_dump(mode="json")
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            _smoke_outputs_equivalent(actual[key], expected[key]) for key in actual
+        )
+    if isinstance(actual, (list, tuple)) and isinstance(expected, (list, tuple)):
+        return len(actual) == len(expected) and all(
+            _smoke_outputs_equivalent(left, right)
+            for left, right in zip(actual, expected, strict=True)
+        )
+    if (
+        isinstance(actual, (int, float))
+        and not isinstance(actual, bool)
+        and isinstance(expected, (int, float))
+        and not isinstance(expected, bool)
+    ):
+        return math.isclose(float(actual), float(expected), rel_tol=1e-12, abs_tol=1e-12)
+    return actual == expected
 
 
 @dataclass(frozen=True)
@@ -217,7 +244,7 @@ def verify_model_package_example(package_root: str | Path) -> ExamplePackageVeri
         raise ModelPackageVerificationError(f"unknown smoke predictor: {smoke_input.predictor_id}")
     actual = package.load_predictor(spec.id).predict(smoke_input.features, seed=smoke_input.seed)
     validate_predictive_summary(actual, spec, expected.capability)
-    if actual != expected.summary:
+    if not _smoke_outputs_equivalent(actual, expected.summary):
         raise ModelPackageVerificationError("example smoke output differs from expected summary")
     return ExamplePackageVerificationReport(
         package_root=str(package.root),

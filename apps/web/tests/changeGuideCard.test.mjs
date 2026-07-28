@@ -62,7 +62,7 @@ const entry = {
     },
   ],
   documents: [
-    "docs/decision-activities.md",
+    "docs/contracts/decision-activities.md",
     "docs/learning/chapters/contract-through-stack.qmd",
   ],
   human_review: "新しいActivityか既存Activityの拡張かを判断します。",
@@ -79,6 +79,6 @@ test("Decision Activity guide renders ordered implementation steps and generated
   assert.match(html, /decision_activity_contracts\.py/);
   assert.match(html, /直接編集せず/);
   assert.match(html, /npm run api:generate/);
-  assert.match(html, /docs\/decision-activities\.md/);
+  assert.match(html, /docs\/contracts\/decision-activities\.md/);
   assert.match(html, /contract-through-stack\.qmd/);
 });

@@ -276,7 +276,7 @@ def test_mpea_bundled_task_runs_from_registered_dataset_and_package(client) -> N
         "recrystallization_temp_c", "recrystallization_time_min",
         "aging_temp_c", "aging_time_h",
     }
-    assert payload["model_meta"]["package"]["id"] == "mpea-room-tensile-ridge-v1"
+    assert payload["model_meta"]["package"]["id"] == "mpea-room-tensile-ridge-v2"
     curation = client.get(
         f"/api/projects/{project['id']}/model-package/training-data",
         params={"stage": "curation", "target": "TYS", "limit": 5},

@@ -2,7 +2,7 @@
 chapter_id: "materials-domain-primer"
 level: intermediate
 estimated_minutes: 180
-verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
+verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
 code_references:
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "materials-task-contract"
@@ -58,10 +58,10 @@ code_references:
   - path: "backend/src/material_workbench/tasks/task_definitions/welding-stage-c-properties-v1.json"
     id: "materials-welding-stage-c-task"
     role: "fixture"
-  - path: "docs/welding-stage-b-package.md"
+  - path: "docs/examples/welding-stage-b-package.md"
     id: "materials-welding-stage-b-doc"
     role: "docs"
-  - path: "docs/chain-evaluation.md"
+  - path: "docs/contracts/chain-evaluation.md"
     id: "materials-chain-evaluation-doc"
     role: "docs"
   - path: "backend/tests/test_variable_series.py"
@@ -720,10 +720,10 @@ plausibilityは出力、eligibilityは学習行、学習データの裏付けは
 - IUPAC Gold Bookのmass fraction項目 [@iupac-mass-fraction] は、成分質量と混合物全質量の比を確認する一次参照です。
 - IUPAC Gold Bookのmass percent項目 [@iupac-mass-percent] は、百分率表記と量そのものを混同しないために使います。
 - IUPAC Gold Bookのamount of substance項目 [@iupac-amount-of-substance] は、at%変換で使う物質量の基礎定義を確認する入口です。
-- `docs/feature-engineering.md` は、このrepoで組成と熱履歴をfeatureへ変換する現行契約を説明します。
-- `docs/variable-length-series.md` は、raw series、正規系列、feature representationの保存境界を説明します。
-- `docs/model-package-contract.md` は、plausibility rangeとpreferred display rangeを削除条件から分ける方針を説明します。
-- `docs/welding-stage-b-package.md` と `docs/chain-evaluation.md` は、Welding チェーンのbasisと評価成果物を説明します。
+- `docs/contracts/feature-engineering.md` は、このrepoで組成と熱履歴をfeatureへ変換する現行契約を説明します。
+- `docs/contracts/variable-length-series.md` は、raw series、正規系列、feature representationの保存境界を説明します。
+- `docs/contracts/model-package-contract.md` は、plausibility rangeとpreferred display rangeを削除条件から分ける方針を説明します。
+- `docs/examples/welding-stage-b-package.md` と `docs/contracts/chain-evaluation.md` は、Welding チェーンのbasisと評価成果物を説明します。
 
 ## ドメインレビューで未固定の点
 

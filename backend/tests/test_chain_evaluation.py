@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from material_workbench.application.chain_evaluation import (
@@ -16,6 +18,9 @@ from material_workbench.modeling.chain_evaluation_builder import (
     build_chain_evaluation,
 )
 from material_workbench.modeling.model_lifecycle import resolve_configured_package
+from material_workbench.modeling.numeric_canonicalization import (
+    canonicalize_report_float,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,6 +67,18 @@ def test_committed_chain_evaluation_is_reproducible_and_leakage_safe() -> None:
         and item.outer_test_training_overlap == 0
         for item in committed.fold_evidence
     )
+
+
+def test_report_float_canonicalization_removes_platform_noise() -> None:
+    assert canonicalize_report_float(11.154300133103579) == (
+        canonicalize_report_float(11.154300133103591)
+    )
+    assert canonicalize_report_float(0.05106776556335) == (
+        canonicalize_report_float(0.05106776556334)
+    )
+    assert math.copysign(1.0, canonicalize_report_float(-0.0)) == 1.0
+    with pytest.raises(ValueError, match="must be finite"):
+        canonicalize_report_float(float("nan"), label="chain evaluation MAE")
 
 
 def test_output_specific_cohorts_keep_stage_and_end_to_end_on_same_scale() -> None:

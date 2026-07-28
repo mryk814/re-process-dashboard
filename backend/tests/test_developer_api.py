@@ -25,6 +25,18 @@ def test_change_guide_is_machine_readable_and_requires_human_review(client: Test
     )
     assert profile_command["arguments"][-2:] == ["inspect", "path/to/file.xlsx"]
     assert "--source" not in profile_command["arguments"]
+    verify_edit_commands = [
+        command
+        for item in items
+        for command in item["commands"]
+        if command["arguments"][:2] == ["run", "verify:edit"]
+    ]
+    assert verify_edit_commands
+    assert all(
+        "--" in command["arguments"]
+        and any(argument.startswith("backend/tests/") for argument in command["arguments"])
+        for command in verify_edit_commands
+    )
 
 
 def test_change_guide_exposes_distinct_decision_activity_workflows(
@@ -58,7 +70,7 @@ def test_change_guide_exposes_distinct_decision_activity_workflows(
     assert "e2e/decision-activity.spec.ts" in create["steps"][-1]["paths"]
     assert any("直接編集せず" in warning for warning in create["warnings"])
     assert any("保存済みRun" in warning for warning in change["warnings"])
-    assert "docs/decision-activities.md" in create["documents"]
+    assert "docs/contracts/decision-activities.md" in create["documents"]
     assert "docs/learning/chapters/contract-through-stack.qmd" in change["documents"]
     assert create["commands"][0]["display_text"] == "npm run api:generate"
 

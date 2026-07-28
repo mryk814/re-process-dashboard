@@ -148,7 +148,7 @@ review依頼前に [`数理レビューchecklist`](math-style-guide.qmd#sec-math
 - 参考文献の書誌情報は `references.bib`、教材上の役割と読書案内は `reference-annotations.json` を正本にする。
 - `docs/learning/_build/`は生成物であり、commitしない。
 - generated HTMLとPDFを手編集しない。
-- 既存の `docs/tutorial-data-pipeline.md` は移動せず、必要な学習ルートから参照する。
+- `docs/examples/tutorial-data-pipeline.md` は教材用の具体例として `examples/` に置き、一般契約の正本として扱わない。
 - production codeを教材都合で不自然に変えない。
 
 ## 演習と解答

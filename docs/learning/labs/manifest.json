@@ -189,7 +189,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "復元の途中で止まったWorkspaceを診断する",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "0eaf27b3b70238bb841d2ed04509d499f1afa2f7",
       "expected_minutes": 90,
       "requires": [
         "node",
@@ -262,7 +262,7 @@
       "mode": "executable",
       "category": "math",
       "title": "四つの測定重みから平均を確かめる",
-      "verified_commit": "d6bc60fe8a879dbb03831accb0ba13d3123bc626",
+      "verified_commit": "ef2ad7f82e9b3bf29ddf49f3521b44334ffd8f9b",
       "expected_minutes": 20,
       "requires": [
         "node"
