@@ -6,6 +6,9 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "自分のデータ" })).toBeVisible();
   await expect(page.getByText(/同梱サンプル/).first()).toBeVisible();
+  const bundledSamples = page.locator("details.bundled-dataset-group");
+  await expect(bundledSamples).not.toHaveAttribute("open", "");
+  await expect(page.getByRole("button", { name: /material_workbench_tutorial_v2.*詳細を表示/ })).not.toBeVisible();
 
   const selectedDataset = page.locator(".dataset-context");
   await expect(selectedDataset.getByRole("heading", { name: /material_workbench_tutorial_v2\.xlsx/ })).toBeVisible();
