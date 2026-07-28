@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 
 
-REPORT_SIGNIFICANT_DIGITS = 13
+REPORT_SIGNIFICANT_DIGITS = 12
 
 
 def canonicalize_report_float(
@@ -15,7 +15,7 @@ def canonicalize_report_float(
     """Return a finite, stable decimal representation for committed evidence.
 
     Numerical libraries may differ by a few ULPs across operating systems.
-    Thirteen significant decimal digits preserve substantially more precision
+    Twelve significant decimal digits preserve substantially more precision
     than the source measurements while removing that platform-only noise.
     """
 

@@ -266,7 +266,10 @@
       "estimatedMinutes": "10-30",
       "platform": "human",
       "riskCategories": ["textbook"],
-      "priorEvidence": ["PR #432 full PDF contact-sheet review and browser interaction"],
+      "priorEvidence": [
+        "PR #432 full PDF contact-sheet review and browser interaction",
+        "docs/reports/learning-focused-visual-review-2026-07-28.md"
+      ],
       "manual": true
     }
   },

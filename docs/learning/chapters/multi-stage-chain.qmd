@@ -469,7 +469,7 @@ outer テスト向けステージ Bはouter trainだけで学習します。
 
 {{< code-ref multi-stage-chain-evaluation-test symbol=test_committed_chain_evaluation_is_reproducible_and_leakage_safe >}}は、合成ソースを変更せず評価成果物を再生成し、フォールド evidenceを照合します。
 
-commitするMAEとRMSEは、{{< code-ref multi-stage-chain-evidence-number symbol=canonicalize_report_float >}}で有限値を要求し、13有効桁へ正規化します。
+commitするMAEとRMSEは、{{< code-ref multi-stage-chain-evidence-number symbol=canonicalize_report_float >}}で有限値を要求し、12有効桁へ正規化します。
 これはOSごとの末尾bit差だけを除く成果物境界です。
 source、Package、Profileのdigest、cohort、fold assignment、件数は丸めずexactに照合します。
 

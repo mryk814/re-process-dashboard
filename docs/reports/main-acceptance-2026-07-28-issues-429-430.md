@@ -33,6 +33,6 @@
 - Compose integration: 今回はCompose境界を変更していない。直近証拠は `docker-compose-local-development-2026-07-27.md`。
 - Shared Lab integration: 今回はShared Lab境界を変更していない。直近証拠は `shared-workbench-lab-v1-2026-07-28.md`。
 - model Package release evidence: MPEA 2 Taskをimmutableなv2 Packageへ切り替えた。builder、Windows／Linux verifier、smoke、active／previous、rollback、portable digestの証拠は `model-package-portable-digest-v2-2026-07-28.md` に記録した。JSONでは自動成功へ混ぜず、manual gateの`priorEvidence`として参照する。
-- 教材の全page目視: 今回は文書の役割別移動と参照追従で、本文・図・組版を変更していない。直近証拠はPR #432の全page contact-sheet reviewとbrowser interaction。
+- 教材の全page目視: 全pageの再確認はしていない。追記したModel Package runtimeとMulti-stage chainは `learning-focused-visual-review-2026-07-28.md` でclean build後のdesktop表示を確認した。残るページの直近証拠はPR #432の全page contact-sheet reviewとbrowser interaction。
 
 これらは成功扱いせず、JSONでは `not_run` と理由・既存証拠を記録した。

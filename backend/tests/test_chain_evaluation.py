@@ -73,6 +73,9 @@ def test_report_float_canonicalization_removes_platform_noise() -> None:
     assert canonicalize_report_float(11.154300133103579) == (
         canonicalize_report_float(11.154300133103591)
     )
+    assert canonicalize_report_float(0.05106776556335) == (
+        canonicalize_report_float(0.05106776556334)
+    )
     assert math.copysign(1.0, canonicalize_report_float(-0.0)) == 1.0
     with pytest.raises(ValueError, match="must be finite"):
         canonicalize_report_float(float("nan"), label="chain evaluation MAE")

@@ -12,7 +12,10 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
-from material_workbench.modeling.model_package_verify import verify_model_package_example
+from material_workbench.modeling.model_package_verify import (
+    _smoke_outputs_equivalent,
+    verify_model_package_example,
+)
 from material_workbench.modeling.model_packages import (
     AdapterRegistry,
     ModelPackageLoader,
@@ -500,3 +503,19 @@ def test_checked_in_numpyro_examples_are_all_loadable() -> None:
         assert np.isfinite(result.point_estimate)
         assert result.quantiles["0.05"] <= result.quantiles["0.50"] <= result.quantiles["0.95"]
         assert report.quality_metrics
+
+
+def test_example_smoke_comparison_rejects_semantic_drift_but_ignores_tail_bits() -> None:
+    expected = {"point": 0.3454642902960188, "labels": ["low", "high"]}
+    assert _smoke_outputs_equivalent(
+        {"point": 0.3454642902960191, "labels": ["low", "high"]},
+        expected,
+    )
+    assert not _smoke_outputs_equivalent(
+        {"point": 0.3455, "labels": ["low", "high"]},
+        expected,
+    )
+    assert not _smoke_outputs_equivalent(
+        {"point": 0.3454642902960188, "labels": ["high", "low"]},
+        expected,
+    )
