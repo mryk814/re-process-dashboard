@@ -1,6 +1,6 @@
 # Stage A 配合逆算
 
-Issue #169 は [多段ChainアーキテクチャADR](decisions/multistage-chain-architecture.md)
+Issue #169 は [多段ChainアーキテクチャADR](../decisions/multistage-chain-architecture.md)
 の線形境界だけを実装する。
 
 ## 計算境界

@@ -180,7 +180,7 @@ def run_developer_doctor(
     modules = registered_task_modules()
     contracts = load_task_contracts()
     active = load_active_packages(ACTIVE_PACKAGES_PATH)
-    inventory_path = root / "docs" / "task-inventory.json"
+    inventory_path = root / "docs" / "contracts" / "task-inventory.json"
     try:
         inventory_document = json.loads(inventory_path.read_text(encoding="utf-8"))
         inventory_tasks = {

@@ -58,7 +58,7 @@ def test_change_guide_exposes_distinct_decision_activity_workflows(
     assert "e2e/decision-activity.spec.ts" in create["steps"][-1]["paths"]
     assert any("直接編集せず" in warning for warning in create["warnings"])
     assert any("保存済みRun" in warning for warning in change["warnings"])
-    assert "docs/decision-activities.md" in create["documents"]
+    assert "docs/contracts/decision-activities.md" in create["documents"]
     assert "docs/learning/chapters/contract-through-stack.qmd" in change["documents"]
     assert create["commands"][0]["display_text"] == "npm run api:generate"
 

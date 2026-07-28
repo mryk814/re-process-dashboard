@@ -4,14 +4,14 @@
 
 一つのPrediction Taskを扱うProjectに加え、再利用可能なTask／決定論的transformをbindingした多段Chain Projectを扱います。Chainでは段別実行、変更段以降だけの再計算、段単体／通し評価、中間実測variant、明示的な不確かさ伝播を利用できます。
 
-変更箇所や再生成物を判断するときは [Developer Start Here](docs/developer-start-here.md) から始めてください。現在のProject mode、再利用境界、v1固有前提は [現行システム基準](docs/current-system-baseline.md)、個別文書は [ドキュメント索引](docs/README.md) から参照できます。
+変更箇所や再生成物を判断するときは [Developer Start Here](docs/developer-start-here.md) から始めてください。現在のProject mode、再利用境界、v1固有前提は [現行システム基準](docs/product/current-system-baseline.md)、個別文書は [ドキュメント索引](docs/README.md) から参照できます。
 
 ## Project mode
 
 - **single-task**：Dataset View、Task contract、Model Packageを固定し、候補比較、予測、応答曲線、Snapshot、実測照合、検討アクティビティを行います。
 - **chain**：Chain Revisionを固定し、順序付きStageとbindingを段別に実行します。現在のproduction縦切りは、疎な原料配合から材料成分、溶着金属成分、特性へ進む溶接材料A→B→Cです。
 
-現在のTask、source、Profile、active Package、runtime／application capabilityは [生成済みTask inventory](docs/task-inventory.json) を正本とします。READMEへ件数や全Task一覧を手書きで複製しません。
+現在のTask、source、Profile、active Package、runtime／application capabilityは [生成済みTask inventory](docs/contracts/task-inventory.json) を正本とします。READMEへ件数や全Task一覧を手書きで複製しません。
 
 ## 開発起動
 
@@ -61,7 +61,7 @@ npm run dev:desktop
 終了はアプリのウィンドウを閉じます。Electronは起動ごとに空きloopback portとlaunch tokenを作り、同時起動したAPIだけへ接続します。
 
 自己完結型のユーザー単位installerとフォルダZIPは `npm run package:windows` で生成します。
-Pythonやuvを必要としない配布物、保存先、削除方法、配布版のスモーク確認は [Windows配布](docs/windows-distribution.md) を参照してください。
+Pythonやuvを必要としない配布物、保存先、削除方法、配布版のスモーク確認は [Windows配布](docs/operations/windows-distribution.md) を参照してください。
 
 `npm run package:windows` は既定で前回の `release/` を消してから生成し、検証後は
 installerとフォルダZIPだけを残します。比較のため以前の生成物を残す場合だけ
@@ -73,7 +73,7 @@ installerとフォルダZIPだけを残します。比較のため以前の生�
 ## 確認
 
 検証は変更riskに応じた4段階です。
-正本は [検証gate運用](docs/verification-policy.md) と `scripts/verification-gates.json` です。
+正本は [検証gate運用](docs/operations/verification-policy.md) と `scripts/verification-gates.json` です。
 
 ```powershell
 npm.cmd run verify:edit -- backend/tests/test_screening_score.py
@@ -90,7 +90,7 @@ npm run acceptance:release
 未実行gateは成功扱いせずreportへ`not_run`と理由を残します。Actionsが利用できない場合も、同じrisk policyでローカル証拠と不足分をPR本文へ記録します。
 CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存関係を導入します。
 
-モデルPackageを更新した場合は、対象Taskのbuilderでartifact、品質レポート、manifestを必ず同時に再生成します。新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。
+モデルPackageを更新した場合は、対象Taskのbuilderでartifact、品質レポート、manifestを必ず同時に再生成します。新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/operations/model-package-lifecycle.md) の手順を使います。
 
 `npm run task:inventory:check` はTask登録、source／Profile、active Package、capabilityのdriftを検出します。
 
@@ -107,7 +107,7 @@ npm run api:check     # schema・生成型のdrift検出
 
 ## Docker Composeのlocal fixture
 
-PostgreSQLとS3互換object storageを再現するhybrid開発環境は [Docker Composeによるlocal開発基盤](docs/docker-compose-development.md) を使います。
+PostgreSQLとS3互換object storageを再現するhybrid開発環境は [Docker Composeによるlocal開発基盤](docs/operations/docker-compose-development.md) を使います。
 Electron、Web、FastAPIはhostで動かし、現行のSQLiteとlocal filesを既定のまま維持します。
 
 ```powershell
@@ -123,11 +123,11 @@ npm run compose:down
 ## データ
 
 `data/source/` のExcelとCSVは読取専用の正本として扱います。
-同梱するsourceと、それを使うTask、Profile、active Packageの対応は [生成済みTask inventory](docs/task-inventory.json) で確認できます。
+同梱するsourceと、それを使うTask、Profile、active Packageの対応は [生成済みTask inventory](docs/contracts/task-inventory.json) で確認できます。
 
 外部シート、列、単位、entity、relation、観測familyとアプリ内部の意味との対応は、データ形状に応じたDataset Profileで管理します。Profile schemaを万能な一種類へ押し込まず、すべての派生学習行でtarget eligibility、split group、provenance、除外理由を保持します。
 
-最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/tutorial-data-pipeline.md) を参照してください。新しいsourceの構造と契約を確認する場合は、対応するProfile Workbench／verification commandを使います。
+最小教材を使ってExcelからModel Packageまで追う場合は [開発者向け教材ガイド](docs/examples/tutorial-data-pipeline.md) を参照してください。新しいsourceの構造と契約を確認する場合は、対応するProfile Workbench／verification commandを使います。
 
 ```powershell
 uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --json
@@ -151,10 +151,10 @@ Model Packageはdata-onlyであり、allow-list済みadapterだけが読み込�
 
 同じ外部Predictive Summary契約で、線形モデル、LightGBM、exact GP、posterior linear、静的確率モデルなどのallow-list済みruntimeを利用できます。新しいモデルは [I/O契約別のModel Runtime事例索引](docs/model-runtime-examples/index.md) から近い経路を選びます。
 
-契約と安全境界は [Model Package契約](docs/model-package-contract.md)、特徴量は [Feature Engineering](docs/feature-engineering.md)、Chainは [Chain実行](docs/chain-execution.md) と [多段Chain ADR](docs/decisions/multistage-chain-architecture.md) を参照してください。
+契約と安全境界は [Model Package契約](docs/contracts/model-package-contract.md)、特徴量は [Feature Engineering](docs/contracts/feature-engineering.md)、Chainは [Chain実行](docs/contracts/chain-execution.md) と [多段Chain ADR](docs/decisions/multistage-chain-architecture.md) を参照してください。
 
 ## 現在の拡張境界
 
 現在の実装は、同じ意味・同じ構造のデータ差し替え、新しい標準Tabular Task、Model Package差し替えには強い一方、画像、一般的な可変長系列、新しいCandidate Shape、溶接以外のChain、新しいDecision Activityには明示的な型付き拡張が必要です。
 
-任意pluginや任意JSONで柔軟性を得るのではなく、科学的意味と履歴を厳格に保ったまま、二つ目の異なるユースケースで共通境界を反証します。詳細は [現行システム基準](docs/current-system-baseline.md) を参照してください。
+任意pluginや任意JSONで柔軟性を得るのではなく、科学的意味と履歴を厳格に保ったまま、二つ目の異なるユースケースで共通境界を反証します。詳細は [現行システム基準](docs/product/current-system-baseline.md) を参照してください。

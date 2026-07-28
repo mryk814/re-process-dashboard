@@ -20,6 +20,6 @@ npm run api:generate
 npm run task:inventory
 npm run model:build -- --task <task-id> --source <source> --output models/packages/<new-id>
 npm run model:verify -- --task <task-id> --source <source> --package models/packages/<new-id>
-npm.cmd run verify:focused -- backend/tests/test_task_registry.py backend/tests/test_feature_pipeline.py
+npm.cmd run verify:edit -- backend/tests/test_task_registry.py backend/tests/test_feature_pipeline.py
 ```
 

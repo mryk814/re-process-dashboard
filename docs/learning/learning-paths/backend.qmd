@@ -25,9 +25,9 @@
 
 | 段階 | 読むもの | 確認する問い | 目安 |
 |---|---|---|---:|
-| 1 | `docs/app-charter.md` | 何を自動更新してはいけないか | 15分 |
+| 1 | `docs/product/app-charter.md` | 何を自動更新してはいけないか | 15分 |
 | 2 | `docs/developer-start-here.md` | 変更の正本はどこか | 20分 |
-| 3 | `docs/current-system-baseline.md` | Project、Dataset、Packageをどう固定するか | 25分 |
+| 3 | `docs/product/current-system-baseline.md` | Project、Dataset、Packageをどう固定するか | 25分 |
 | 4 | `backend/src/material_workbench/contracts/decision_activity_contracts.py` | parameterとresultを何で識別するか | 30分 |
 | 5 | `application/decision_activity_registry.py` と `application/decision_activities.py` | 共通serviceがActivity固有分岐を避ける方法 | 40分 |
 | 6 | `api/decision_activities.py` | HTTP境界で型と業務エラーをどう変換するか | 25分 |
@@ -54,7 +54,7 @@ npm run api:check
 
 - Dataset解釈へ進む場合は [ML／dataルート](ml-data.qmd) を読む
 - Reactでunionをnarrowingする箇所へ進む場合は [frontend／desktopルート](frontend-desktop.qmd) を読む
-- 新しいActivityを実装する場合は `docs/decision-activities.md` を正本として使う
+- 新しいActivityを実装する場合は `docs/contracts/decision-activities.md` を正本として使う
 - Candidate保存またはcatalog identityを変更する場合は [revisionとdigestの章](../chapters/revision-and-digest.qmd) を読む
 - SQLite schemaまたは起動migrationを変更する場合は [SQLite migrationの章](../chapters/trust-a-migrated-database.qmd) を読む
 - Projectのarchive、purge、write guardを変更する場合は [Project lifecycleの章](../chapters/separate-archive-from-purge.qmd) を読む

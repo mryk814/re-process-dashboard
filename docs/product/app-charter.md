@@ -71,7 +71,7 @@ Objective Definitionは、このProjectで達成したい目的、hard constrain
 
 production Taskは独立した縦スライスとして持ち、入力schema、特徴量Pipeline、Model Package、支持度参照、候補比較を混在させない。同じTaskはsingle-task ProjectでもChain Stageでも再利用できる。
 
-現行のTask登録内容、source、能力、active Packageは [生成済みTask inventory](task-inventory.json) を唯一の件数・構成一覧とする。
+現行のTask登録内容、source、能力、active Packageは [生成済みTask inventory](../contracts/task-inventory.json) を唯一の件数・構成一覧とする。
 
 Model Packageはdata-onlyであり、allow-list済みadapterだけが読み込む。新しいモデル手法はTaskやUIをモデル実装へ固定せず、共通Predictive Summaryへ変換する。
 
@@ -140,4 +140,4 @@ Activity結果は判断材料であり、自動意思決定ではない。
 - Source Connectorの自動refresh運用：更新、承認、再学習、active化を自動連結せず、利用者が各境界を確認できること。
 - scalar Chainをproduction UIから作成、編集、実行する導線：既存のWelding Chain専用画面を一般editorと呼ばず、Task familyごとの入力体験を検証してから導入すること。
 
-詳細は [現行システム基準](current-system-baseline.md)、[Data LibraryとProject参照境界](decisions/data-library-project-references.md)、[検討アクティビティ](decision-activities.md)、[多段Chainアーキテクチャ](decisions/multistage-chain-architecture.md) を参照する。
+詳細は [現行システム基準](current-system-baseline.md)、[Data LibraryとProject参照境界](../decisions/data-library-project-references.md)、[検討アクティビティ](../contracts/decision-activities.md)、[多段Chainアーキテクチャ](../decisions/multistage-chain-architecture.md) を参照する。

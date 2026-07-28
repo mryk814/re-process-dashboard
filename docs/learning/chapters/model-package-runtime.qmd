@@ -2,7 +2,7 @@
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160
-verified_commit: "77a7320bc201cb9a8cf860c6787cc4cca2203116"
+verified_commit: "df521923742293acb4aeb0ea44938388b9a5554b"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
@@ -105,10 +105,10 @@ code_references:
     symbols:
       - "test_active_package_history_success_does_not_claim_every_switch_used_activate"
       - "test_active_package_history_explains_accepted_null_previous"
-  - path: "docs/model-package-contract.md"
+  - path: "docs/contracts/model-package-contract.md"
     id: "ml-engineering-package-doc"
     role: "docs"
-  - path: "docs/model-package-lifecycle.md"
+  - path: "docs/operations/model-package-lifecycle.md"
     id: "ml-engineering-lifecycle-doc"
     role: "docs"
 

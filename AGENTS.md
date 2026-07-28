@@ -38,7 +38,7 @@ npm.cmd run verify:pr -- backend/tests/test_screening_score.py
 
 複数PRをまとめた節目は`npm run verify:checkpoint`、配布・migration・restore・Packageなど高リスクの受入は`npm run acceptance:release`を使う。通常PRごとにLevel 2／3を要求しない。
 
-4段階の選択、risk matrix、gateの唯一の正本は`docs/verification-policy.md`と`scripts/verification-gates.json`に置く。未実行gateを成功扱いしない。
+4段階の選択、risk matrix、gateの唯一の正本は`docs/operations/verification-policy.md`と`scripts/verification-gates.json`に置く。未実行gateを成功扱いしない。
 
 画面または操作経路を変えた場合は、変更リスクに対応するPlaywright specもfresh serverで実行する。
 
@@ -132,10 +132,10 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 
 ## 詳細ドキュメント
 
-- [docs/app-charter.md](docs/app-charter.md) — 対象範囲、対象外、将来候補
-- [docs/model-package-contract.md](docs/model-package-contract.md) — モデルPackageの契約と読込手順
-- [docs/feature-engineering.md](docs/feature-engineering.md) — 特徴量パイプラインの定義
-- [docs/design-system.md](docs/design-system.md) — UIデザインシステム
+- [docs/product/app-charter.md](docs/product/app-charter.md) — 対象範囲、対象外、将来候補
+- [docs/contracts/model-package-contract.md](docs/contracts/model-package-contract.md) — モデルPackageの契約と読込手順
+- [docs/contracts/feature-engineering.md](docs/contracts/feature-engineering.md) — 特徴量パイプラインの定義
+- [docs/product/design-system.md](docs/product/design-system.md) — UIデザインシステム
 
 ## CIの扱い
 

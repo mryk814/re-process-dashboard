@@ -8,7 +8,7 @@ const source = fileURLToPath(new URL("../src/", import.meta.url));
 const files = globSync("**/*.css", { cwd: source });
 
 /**
- * docs/design-system.md: 補助ラベルは11px以上、badgeは10px以上。SVGの軸目盛りなど
+ * docs/product/design-system.md: 補助ラベルは11px以上、badgeは10px以上。SVGの軸目盛りなど
  * 面積制約が明確な要素だけを例外にする。例外はここへ理由付きで足す。
  */
 const allowed = new Set([]);

@@ -65,7 +65,7 @@ code_references:
 # 教材用コードマップ {#sec-code-map}
 
 このマップは、技術名から実コードへ移るためのreferenceです。
-一覧の件数をproduction能力の正本として使わず、現在値は `docs/task-inventory.json` と `docs/current-system-baseline.md` で確認してください。
+一覧の件数をproduction能力の正本として使わず、現在値は `docs/contracts/task-inventory.json` と `docs/product/current-system-baseline.md` で確認してください。
 
 ## 契約を画面まで通す
 
@@ -76,7 +76,7 @@ code_references:
 - **APIと生成型**：{{< code-ref code-map-activity-api >}}、{{< code-ref code-map-api-types >}}
 - **Frontend**：{{< code-ref code-map-activity-panel >}}、{{< code-ref code-map-frontend-registry >}}
 - **Test**：{{< code-ref code-map-activity-test >}}、{{< code-ref code-map-openapi-test >}}、{{< code-ref code-map-activity-e2e >}}
-- **設計文書**：`docs/decision-activities.md`
+- **設計文書**：`docs/contracts/decision-activities.md`
 
 ### Candidate revision
 
@@ -132,7 +132,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 - **Application**：`backend/src/material_workbench/application/projects.py`、`backend/src/material_workbench/tasks/project_runtime_resolver.py`
 - **API**：`backend/src/material_workbench/api/projects.py`
 - **Frontend**：`apps/web/src/features/projects/`
-- **Testと文書**：`backend/tests/test_projects.py`、`docs/current-system-baseline.md`
+- **Testと文書**：`backend/tests/test_projects.py`、`docs/product/current-system-baseline.md`
 
 ### Typed API error
 
@@ -163,7 +163,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 - **Profile**：`backend/src/material_workbench/data/dataset-input-profile-tutorial.json`
 - **Implementation**：`backend/src/material_workbench/data/importer.py`
 - **成果物**：canonical Dataset Revision
-- **Testと文書**：`backend/tests/test_importer.py`、`docs/dataset-input-profile.md`
+- **Testと文書**：`backend/tests/test_importer.py`、`docs/operations/dataset-input-profile.md`
 
 ### Tabular Profile
 
@@ -177,18 +177,18 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 - **Profile例**：`backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
 - **Implementation**：observation loaderとtraining specification
 - **成果物**：目的変数別training cohort
-- **Testと文書**：`backend/tests/test_observation_profile.py`、`docs/dataset-input-profile.md`
+- **Testと文書**：`backend/tests/test_observation_profile.py`、`docs/operations/dataset-input-profile.md`
 
 ### Feature Pipeline
 
 - **Contract**：Task contractとpipeline version
 - **Implementation**：`backend/src/material_workbench/modeling/feature_pipeline.py`
 - **成果物**：feature matrixとdigest
-- **Testと文書**：`backend/tests/test_feature_pipeline.py`、`docs/feature-engineering.md`
+- **Testと文書**：`backend/tests/test_feature_pipeline.py`、`docs/contracts/feature-engineering.md`
 
 ### Model Package
 
-- **Contract**：`docs/model-package-contract.md`
+- **Contract**：`docs/contracts/model-package-contract.md`
 - **Workflow**：`backend/scripts/model_workflow.py`
 - **成果物**：`models/packages/` 配下のdata-only Package
 - **Test**：`backend/tests/test_model_packages.py` とPackage verify
@@ -205,7 +205,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 - **入力**：Dataset、Profile、Feature Pipelineのdigest
 - **Implementation**：Package builder
 - **成果物**：immutable manifest
-- **Testと文書**：builder test、`docs/model-package-contract.md`
+- **Testと文書**：builder test、`docs/contracts/model-package-contract.md`
 
 ## Projectと判断記録を保存する
 
@@ -214,28 +214,28 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 - **Contract**：`backend/src/material_workbench/contracts/schemas.py`
 - **ServiceとStore**：`backend/src/material_workbench/application/records.py`、`backend/src/material_workbench/persistence/store.py`
 - **UI**：Workbenchの履歴面
-- **Testと文書**：`backend/tests/test_project_history.py`、`docs/app-charter.md`
+- **Testと文書**：`backend/tests/test_project_history.py`、`docs/product/app-charter.md`
 
 ### Actual Measurement
 
 - **Contract**：`backend/src/material_workbench/contracts/schemas.py`
 - **Service**：`backend/src/material_workbench/application/records.py`
 - **UI**：予測と実測の照合
-- **Testと文書**：records関連test、`docs/current-system-baseline.md`
+- **Testと文書**：records関連test、`docs/product/current-system-baseline.md`
 
 ### Objective Definition
 
 - **Contract**：`backend/src/material_workbench/contracts/objective_contracts.py`
 - **Application**：objective serviceとmigration
 - **UI**：Project settingsとDecision Activity
-- **Testと文書**：`backend/tests/test_objective_contracts.py`、`docs/objective-definition.md`
+- **Testと文書**：`backend/tests/test_objective_contracts.py`、`docs/contracts/objective-definition.md`
 
 ### Project Design Space
 
 - **Contract**：`backend/src/material_workbench/contracts/design_space_contracts.py`
 - **Application**：design space validationとmigration
 - **UI**：range設定、探索、counterfactual
-- **Testと文書**：`backend/tests/test_design_space_contracts.py`、`docs/project-design-space.md`
+- **Testと文書**：`backend/tests/test_design_space_contracts.py`、`docs/contracts/project-design-space.md`
 
 ### Screening purpose
 
@@ -263,7 +263,7 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 - **Application**：`backend/src/material_workbench/application/data_lifecycle.py`
 - **Task固有adapter**：`backend/src/material_workbench/application/training_snapshot_adapter.py`
 - **UI**：Data Library
-- **Testと文書**：`backend/tests/test_data_lifecycle.py`、`backend/tests/test_reference_data_loop_acceptance.py`、`e2e/source-lifecycle.spec.ts`、`docs/source-data-lifecycle.md`、`docs/reference-data-loop.md`
+- **Testと文書**：`backend/tests/test_data_lifecycle.py`、`backend/tests/test_reference_data_loop_acceptance.py`、`e2e/source-lifecycle.spec.ts`、`docs/contracts/source-data-lifecycle.md`、`docs/contracts/reference-data-loop.md`
 
 ## Chainと複数段を追う
 
@@ -272,7 +272,7 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 - **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`
 - **Application**：Chain catalogとexecution service
 - **API**：`backend/src/material_workbench/api/chains.py`
-- **Testと文書**：Chain contract test、`docs/chain-execution.md`
+- **Testと文書**：Chain contract test、`docs/contracts/chain-execution.md`
 
 ### Stage binding
 
@@ -301,7 +301,7 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 
 - **Entry**：`apps/desktop/src/main.ts`
 - **Boundary**：renderer、Python sidecar、filesystem
-- **Testと文書**：desktop typecheck、`docs/windows-distribution.md`
+- **Testと文書**：desktop typecheck、`docs/operations/windows-distribution.md`
 
 ### Python sidecar
 
@@ -313,13 +313,13 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 
 - **Entry**：launch token contract
 - **Boundary**：Vite proxyまたはElectron IPC
-- **Testと文書**：`backend/tests/test_launch_token.py`、`docs/app-charter.md`
+- **Testと文書**：`backend/tests/test_launch_token.py`、`docs/product/app-charter.md`
 
 ### Portable user data
 
 - **Entry**：packaging config
 - **Boundary**：`user-data/` とDB lifecycle
-- **Testと文書**：packaging contract、`docs/windows-distribution.md`
+- **Testと文書**：packaging contract、`docs/operations/windows-distribution.md`
 
 ### Workspace bundle
 
@@ -328,14 +328,14 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 - **CLI境界**：`backend/src/sidecar.py` のworkspace maintenance command
 - **Desktop orchestration**：`apps/desktop/src/main.ts`、`apps/desktop/src/preload.ts`
 - **UI**：`apps/web/src/features/workspace/WorkspaceManagerDialog.tsx`
-- **Testと文書**：`backend/tests/test_workspace_bundle.py`、`backend/tests/test_windows_packaging_contract.py`、`scripts/smoke-packaged.mjs`、`docs/workspace-backup.md`
+- **Testと文書**：`backend/tests/test_workspace_bundle.py`、`backend/tests/test_windows_packaging_contract.py`、`scripts/smoke-packaged.mjs`、`docs/operations/workspace-backup.md`
 
 ## 関連Issueと設計記録
 
 型付き契約の章が直接扱う題材は、検討アクティビティの現行実装です。
-設計意図は `docs/decision-activities.md` と、その文書が参照するIssue、PRで確認します。
+設計意図は `docs/contracts/decision-activities.md` と、その文書が参照するIssue、PRで確認します。
 
-Source data lifecycleの章は、`docs/source-data-lifecycle.md`とdata lifecycleのcontract、domain、repository、API、UI、testを照合します。
+Source data lifecycleの章は、`docs/contracts/source-data-lifecycle.md`とdata lifecycleのcontract、domain、repository、API、UI、testを照合します。
 この経路は、外部Source更新が再学習やactive化へ直結しないことを扱います。
 
 Workspace restoreの章は、Issue #252とPR #282を入口に、SQLite snapshot、bundle manifest、staging、desktop process、packaged smokeを照合します。

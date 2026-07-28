@@ -2,11 +2,11 @@
 chapter_id: "source-to-training-evidence"
 level: intermediate
 estimated_minutes: 120
-verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
+verified_commit: "df521923742293acb4aeb0ea44938388b9a5554b"
 code_references:
-  - path: "docs/source-data-lifecycle.md"
+  - path: "docs/contracts/source-data-lifecycle.md"
     role: "docs"
-  - path: "docs/reference-data-loop.md"
+  - path: "docs/contracts/reference-data-loop.md"
     role: "docs"
   - path: "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
     role: "contract"

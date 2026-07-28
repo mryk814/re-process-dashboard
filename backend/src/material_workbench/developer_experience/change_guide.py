@@ -38,9 +38,9 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "api:generate"]),
             command("npm", ["run", "task:inventory"]),
-            command("npm", ["run", "verify:focused"]),
+            command("npm", ["run", "verify:edit"]),
         ],
-        documents=["docs/recipes/add-input-field.md", "docs/feature-engineering.md"],
+        documents=["docs/recipes/add-input-field.md", "docs/contracts/feature-engineering.md"],
         human_review="入力の科学的意味と学習単位を人が決めます。",
     ),
     ChangeGuideEntry(
@@ -53,9 +53,9 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "api:generate"]),
             command("npm", ["run", "model:verify"]),
-            command("npm", ["run", "verify:focused"]),
+            command("npm", ["run", "verify:edit"]),
         ],
-        documents=["docs/model-package-contract.md"],
+        documents=["docs/contracts/model-package-contract.md"],
         human_review="目的変数と品質基準を人が決めます。",
     ),
     ChangeGuideEntry(
@@ -68,9 +68,9 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "model:build"]),
             command("npm", ["run", "model:verify"]),
-            command("npm", ["run", "verify:focused"]),
+            command("npm", ["run", "verify:edit"]),
         ],
-        documents=["docs/feature-engineering.md"],
+        documents=["docs/contracts/feature-engineering.md"],
         human_review="特徴量の妥当性と反復観測の扱いを人がレビューします。",
     ),
     ChangeGuideEntry(
@@ -81,7 +81,7 @@ CHANGE_GUIDE = (
         unchanged=["Dataset Profile", "TaskDefinition"],
         artifacts=["新しいModel Package"],
         commands=[command("npm", ["run", "model:build"]), command("npm", ["run", "model:verify"])],
-        documents=["docs/model-package-lifecycle.md", ".claude/skills/add-model-runtime/SKILL.md"],
+        documents=["docs/operations/model-package-lifecycle.md", ".claude/skills/add-model-runtime/SKILL.md"],
     ),
     ChangeGuideEntry(
         id="task",
@@ -93,7 +93,7 @@ CHANGE_GUIDE = (
         commands=[
             command("npm", ["run", "task:inventory"]),
             command("npm", ["run", "api:generate"]),
-            command("npm", ["run", "verify:focused"]),
+            command("npm", ["run", "verify:edit"]),
         ],
         documents=[".claude/skills/add-prediction-task/SKILL.md"],
         human_review="新Taskか既存Taskのversion更新かを人が判断します。",
@@ -179,7 +179,7 @@ CHANGE_GUIDE = (
                 "npm",
                 [
                     "run",
-                    "verify:focused",
+                    "verify:edit",
                     "--",
                     "backend/tests/test_decision_activities.py",
                     "backend/tests/test_openapi_contract.py",
@@ -196,7 +196,7 @@ CHANGE_GUIDE = (
             command("npm", ["run", "build"]),
         ],
         documents=[
-            "docs/decision-activities.md",
+            "docs/contracts/decision-activities.md",
             "docs/learning/chapters/contract-through-stack.qmd",
             "docs/developer-start-here.md",
         ],
@@ -282,7 +282,7 @@ CHANGE_GUIDE = (
                 "npm",
                 [
                     "run",
-                    "verify:focused",
+                    "verify:edit",
                     "--",
                     "backend/tests/test_decision_activities.py",
                     "backend/tests/test_openapi_contract.py",
@@ -299,7 +299,7 @@ CHANGE_GUIDE = (
             command("npm", ["run", "build"]),
         ],
         documents=[
-            "docs/decision-activities.md",
+            "docs/contracts/decision-activities.md",
             "docs/learning/chapters/contract-through-stack.qmd",
             "docs/developer-start-here.md",
         ],
@@ -313,7 +313,7 @@ CHANGE_GUIDE = (
         unchanged=["Dataset / Profile / Task / Package"],
         artifacts=["frontend build"],
         commands=[command("npm", ["run", "typecheck"]), command("npm", ["run", "build"])],
-        documents=["docs/design-system.md"],
+        documents=["docs/product/design-system.md"],
     ),
     ChangeGuideEntry(
         id="unknown",

@@ -6,7 +6,7 @@
 
 普段の変更は短いloopで確認し、科学的意味、永続化、復旧、Package、配布へ影響する節目だけ重い受入検査を実行します。
 
-gateのID、command、目的、概算時間、platform、risk category、生成する証拠の唯一の正本は [`scripts/verification-gates.json`](../scripts/verification-gates.json) です。
+gateのID、command、目的、概算時間、platform、risk category、生成する証拠の唯一の正本は [`scripts/verification-gates.json`](../../scripts/verification-gates.json) です。
 この文書、README、AGENTS、CIへ個別gate一覧を複製しません。
 
 ```powershell

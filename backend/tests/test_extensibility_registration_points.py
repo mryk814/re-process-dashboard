@@ -28,7 +28,7 @@ TASK_DEFINITION_ROOT = (
     REPOSITORY_ROOT / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions"
 )
 ACTIVE_PACKAGES = REPOSITORY_ROOT / "models" / "active-packages.json"
-TASK_INVENTORY = REPOSITORY_ROOT / "docs" / "task-inventory.json"
+TASK_INVENTORY = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"
 EXTENSIBILITY_INVENTORY = (
     REPOSITORY_ROOT / "docs" / "architecture" / "extensibility-inventory.md"
 )

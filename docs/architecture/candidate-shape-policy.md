@@ -31,7 +31,7 @@
 `inputs: dict[str, Any]` のような逃げ道を作らない。
 形状ごとにpydanticモデルを定義し、`schema_version` を判別子とする
 discriminated unionへ**明示的にallow-list**する。
-Decision Activityのparameter/resultで採った方法（[decision-activities.md](../decision-activities.md)）と同じにする。
+Decision Activityのparameter/resultで採った方法（[decision-activities.md](../contracts/decision-activities.md)）と同じにする。
 
 ```text
 CandidateInputs（union）
@@ -56,7 +56,7 @@ Decision Activityで同じ制約に当たっている。
 
 `blend` / `editor_state` は `SparseBlendCandidateInputs` へ移す。
 Chain Coreは既にcandidate adapter経由でしか候補形状を見ないので
-（[chain-execution.md](../chain-execution.md)）、移動先はadapterが決める。
+（[chain-execution.md](../contracts/chain-execution.md)）、移動先はadapterが決める。
 
 ### 3. shapeごとに4つの意味を定義する
 

@@ -24,7 +24,7 @@ npm run package:windows
 Actionsを使わず、backend、Web／Desktop、clean DBの全E2E、旧DB移行、Windows配布物までを一続きで再確認するときは、コミット済みのcleanなworktreeで次を実行する。
 
 ```powershell
-npm run acceptance:main -- -ReportPath docs/reports/main-acceptance-YYYY-MM-DD.json
+npm run acceptance:release -- -ReportPath docs/reports/main-acceptance-YYYY-MM-DD.json
 ```
 
 このコマンドは各gateのlogを`artifacts/main-acceptance/<run-id>/`へ保存し、対象commit、環境、成功件数、所要時間、installer／folder ZIPのサイズとSHA-256を指定したJSONへ記録する。Playwrightは常駐サーバを再利用せず、実行ごとの一時DBを使う。途中で失敗しても、完了済みgateと失敗箇所を含む部分reportを残す。

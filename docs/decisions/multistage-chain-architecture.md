@@ -378,13 +378,13 @@ design-system.md は「候補比較表では候補名を左側に固定し、入
 ## 検証用の合成データ
 
 方針の検証に使える合成データを `data/source/welding_consumable_multistage_synthetic_dataset.xlsx` として同梱する。
-生成手順、シート構成、埋め込んだ物理的な関係は [合成データの説明](../welding-consumable-sample-dataset.md) を参照する。
+生成手順、シート構成、埋め込んだ物理的な関係は [合成データの説明](../examples/welding-consumable-sample-dataset.md) を参照する。
 観測family別のDataset Profile契約と再生成可能な正規化artifactはIssue #156で接続した。
 Stage A/B/CのTask・Package・Dataset/Profile identityは固定済みであり、
 Issue #165のChain実行基盤がそのRevisionを順序どおりに実行する。
 
 段別のcontent hash、部分再計算、鮮度、immutable snapshotの実装契約は
-[Chain実行と証跡](../chain-execution.md)を参照する。
+[Chain実行と証跡](../contracts/chain-execution.md)を参照する。
 
 段単体と通しを分けるnested grouped評価、output別母数、漏洩防止の証跡は
-[Chainの段単体評価と通し評価](../chain-evaluation.md)を参照する。
+[Chainの段単体評価と通し評価](../contracts/chain-evaluation.md)を参照する。

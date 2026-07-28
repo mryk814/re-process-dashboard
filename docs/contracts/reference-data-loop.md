@@ -36,7 +36,7 @@ CALCE派生CSV（読取専用）
 | 正解値の戻し方 | 保持した一行の`capacity_percent`を、同じProject CandidateのActualとして登録する |
 
 元データの出典、派生方法、解釈上の制約は
-[`data/source/external/battery_README.md`](../data/source/external/battery_README.md)
+[`data/source/external/battery_README.md`](../../data/source/external/battery_README.md)
 を参照する。
 この受入では `CS2_35` の829行すべてをversioned Training Snapshot selection
 policyで学習対象外にする。正常なholdoutを品質不良としてquarantineしない。
