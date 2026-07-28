@@ -130,3 +130,17 @@ test("the fixed reference strip reads in Japanese and keeps digests in one colla
   assert.doesNotMatch(strip, /digest\.slice|\.slice\(0, 1[0-9]\)/);
   assert.match(projectHub, /<ReferenceIdentityDetails items=/);
 });
+
+test("the project overview presents goals and next work before collapsed fixed references", () => {
+  const goalPosition = projectHub.indexOf("project-goal-strip");
+  const nextWorkPosition = projectHub.indexOf('className="project-next-actions"');
+  const fixedReferencesPosition = projectHub.indexOf('className="project-reference-details"');
+
+  assert.ok(goalPosition >= 0, "the goal strip is present");
+  assert.ok(nextWorkPosition > goalPosition, "next work follows the goal");
+  assert.ok(fixedReferencesPosition > nextWorkPosition, "fixed references follow the user actions");
+  assert.match(
+    projectHub,
+    /<details className="project-reference-details">\s*<summary><span>固定参照・再現性<\/span><small>使用中のデータ・予測方法<\/small><\/summary>/,
+  );
+});

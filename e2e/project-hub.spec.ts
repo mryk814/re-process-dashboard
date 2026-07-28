@@ -312,6 +312,35 @@ test("project settings keep one fixed reference display and archiving at the bot
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
+test("project overview leads with goals and next work while fixed references stay collapsed", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+
+  const goal = page.getByRole("region", { name: "プロジェクトの目標値" });
+  const nextWork = page.locator(".project-next-actions");
+  const fixedReferences = page.locator(".project-reference-details");
+  const referenceStrip = fixedReferences.locator(".project-reference-strip");
+
+  await expect(goal).toBeVisible();
+  await expect(nextWork).toBeVisible();
+  await expect(fixedReferences).toBeVisible();
+  await expect(page.getByRole("button", { name: /自分のデータ/ })).toHaveCount(1);
+  await expect(fixedReferences).not.toHaveAttribute("open", "");
+  await expect(referenceStrip).toBeHidden();
+
+  const readingOrder = await page.locator(".project-hub-content").evaluate((content) => {
+    const goalElement = content.querySelector(".project-goal-strip");
+    const nextWorkElement = content.querySelector(".project-next-actions");
+    const referencesElement = content.querySelector(".project-reference-details");
+    if (!goalElement || !nextWorkElement || !referencesElement) return [];
+    return [goalElement, nextWorkElement, referencesElement]
+      .map((element) => Array.from(content.children).indexOf(element));
+  });
+  expect(readingOrder).toEqual([...readingOrder].sort((left, right) => left - right));
+
+  await fixedReferences.locator(":scope > summary").click();
+  await expect(referenceStrip).toBeVisible();
+});
+
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
