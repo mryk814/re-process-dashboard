@@ -24,6 +24,11 @@ function run(label, executable, args, environment = {}) {
 }
 
 run(
+  "Owned E2E database cleanup policy",
+  process.execPath,
+  ["--test", "e2e/owned-database-cleanup.test.mjs"],
+);
+run(
   "API offline, retry, and accessibility",
   process.execPath,
   [

@@ -1,11 +1,7 @@
-import { rm } from "node:fs/promises";
+import { registerOwnedDatabaseCleanup } from "./owned-database-cleanup.mjs";
 
-export default async function globalTeardown() {
+export default function globalTeardown() {
   const database = process.env.PLAYWRIGHT_OWNED_DB_PATH;
   if (!database) return;
-  await Promise.all(
-    [database, `${database}-shm`, `${database}-wal`].map((path) =>
-      rm(path, { force: true }),
-    ),
-  );
+  registerOwnedDatabaseCleanup(database);
 }
