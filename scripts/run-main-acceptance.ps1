@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $verificationCatalogPath = Join-Path $PSScriptRoot "verification-gates.json"
-$verificationCatalog = Get-Content -LiteralPath $verificationCatalogPath -Raw |
+$verificationCatalog = Get-Content -LiteralPath $verificationCatalogPath -Raw -Encoding utf8 |
     ConvertFrom-Json
 $releaseLevel = @($verificationCatalog.levels | Where-Object { $_.id -eq "release" })
 if ($releaseLevel.Count -ne 1) {
