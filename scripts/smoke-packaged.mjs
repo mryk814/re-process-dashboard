@@ -362,6 +362,14 @@ try {
       variable: "process.cycle_index",
     },
   ];
+  const sampleInstallResponse = await authenticatedFetch("/api/sample-gallery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      project_ids: externalTasks.map(({ projectId }) => projectId),
+    }),
+  });
+  assert.equal(sampleInstallResponse.status, 200);
   for (const task of externalTasks) {
     const candidatesResponse = await authenticatedFetch(`/api/projects/${task.projectId}/candidates`);
     assert.equal(candidatesResponse.status, 200);
