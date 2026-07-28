@@ -64,6 +64,16 @@
 .project-list-item small { min-width: 0; overflow: hidden; color: #5f6f82; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .project-list-item.active small { color: #365f96; }
 .project-list-create { width: 100%; margin-top: 12px; font-size: 12px; }
+.sample-gallery-list { margin-top: 12px; border-top: 1px solid #d8e0ea; padding-top: 10px; }
+.sample-gallery-list summary { cursor: pointer; color: #315f58; font-size: 12px; font-weight: 700; }
+.sample-gallery-list summary span { float: right; color: #5f6f82; font-size: 10px; }
+.sample-gallery-items { display: grid; gap: 6px; margin-top: 8px; }
+.sample-gallery-add-all { width: 100%; font-size: 11px; }
+.sample-gallery-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 6px 0; }
+.sample-gallery-item span { display: grid; min-width: 0; gap: 2px; }
+.sample-gallery-item strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.sample-gallery-item small { overflow: hidden; color: #65758a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sample-gallery-item .outline-button { padding: 4px 7px; font-size: 10px; }
 .archived-project-list { margin-top: 12px; border-top: 1px solid #d8e0ea; padding-top: 10px; }
 .archived-project-list summary { cursor: pointer; color: #526276; font-size: 12px; }
 .archived-project-list summary span { float: right; }

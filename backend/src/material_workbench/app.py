@@ -22,6 +22,7 @@ from .api.chains import (
     router as chains_router,
 )
 from .api.data_library import router as data_library_router
+from .api.sample_gallery import router as sample_gallery_router
 from .api.data_lifecycle import router as data_lifecycle_router
 from .api.series_assets import router as series_assets_router
 from .api.ai_reviews import router as ai_reviews_router
@@ -37,7 +38,12 @@ from .api.screening import router as screening_router
 from .api.inference import router as inference_router
 from .api.records import router as records_router
 from .api.transforms import router as transforms_router
-from material_workbench.persistence.demo_seed import initialize_demo_projects
+from material_workbench.persistence.demo_seed import (
+    QUICKSTART_PROJECT_ID,
+    initialize_demo_projects,
+    installed_starter_project_ids,
+    starter_project_ids,
+)
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
 from material_workbench.modeling.model_packages import ModelPackageLoader
@@ -378,13 +384,23 @@ def create_app(
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
             app.state.store = Store(database)
-            explicit_demo_seed = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower() in {"1", "true", "yes"}
+            demo_seed_mode = os.getenv("WORKBENCH_DEMO_SEED", "").strip().lower()
+            selected_starters = set(
+                installed_starter_project_ids(app.state.store, prepared.modules)
+            )
+            selected_starters.add(QUICKSTART_PROJECT_ID)
+            if demo_seed_mode == "all":
+                selected_starters.update(starter_project_ids(prepared.modules))
             initialize_demo_projects(
                 app.state.store,
                 prepared.modules,
                 prepared.runtimes,
                 prepared.task_registry,
-                seed_candidates=not database_existed or explicit_demo_seed,
+                seed_candidates=(
+                    not database_existed
+                    or demo_seed_mode in {"1", "true", "yes", "all"}
+                ),
+                project_ids=selected_starters,
             )
         except Exception as exc:
             _raise_startup_error("database", "ワークスペースDB", exc)
@@ -565,12 +581,20 @@ def create_app(
                         str | None,
                         WeldingChainBootstrapError | None,
                     ]:
+                        selected_starters = set(
+                            installed_starter_project_ids(
+                                app.state.store,
+                                complete.modules,
+                            )
+                        )
+                        selected_starters.add(QUICKSTART_PROJECT_ID)
                         initialize_demo_projects(
                             app.state.store,
                             complete.modules,
                             complete.runtimes,
                             complete.task_registry,
                             seed_candidates=False,
+                            project_ids=selected_starters,
                         )
                         catalog = bootstrap_workspace_catalog(
                             database,
@@ -727,6 +751,7 @@ def create_app(
     app.include_router(chains_router)
     app.include_router(chain_execution_router)
     app.include_router(data_library_router)
+    app.include_router(sample_gallery_router)
     app.include_router(data_lifecycle_router)
     app.include_router(series_assets_router)
     app.include_router(ai_reviews_router)

@@ -23,6 +23,7 @@ import {
   type ApiPreview,
   type ApiProject,
   type ApiProjectCreationOptions,
+  type ApiSampleGalleryItem,
   type ApiSnapshot,
   type ApiSubsystemAvailability,
   type ApiTaskCatalogItem,
@@ -71,6 +72,7 @@ type Props = {
   onProjectChanged: (project: ApiProject) => void;
   onProjectArchived: (projectId: string) => Promise<boolean>;
   onProjectRestored: (projectId: string) => Promise<boolean>;
+  onSampleGalleryInstall: (projectIds: string[]) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (
@@ -177,6 +179,7 @@ export function ProjectHub({
   onProjectChanged,
   onProjectArchived,
   onProjectRestored,
+  onSampleGalleryInstall,
   onSwitch,
   onRestore,
   onNavigate,
@@ -204,6 +207,8 @@ export function ProjectHub({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
+  const [sampleGallery, setSampleGallery] = useState<ApiSampleGalleryItem[]>([]);
+  const [installingSampleId, setInstallingSampleId] = useState("");
   const [restoringProjectId, setRestoringProjectId] = useState("");
   const [restoringCandidateId, setRestoringCandidateId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -301,6 +306,16 @@ export function ProjectHub({
       if (active) setArchivedProjects(items.filter((item) => item.archived_at));
     }).catch(() => {
       if (active) setArchivedProjects([]);
+    });
+    return () => { active = false; };
+  }, [projects]);
+
+  useEffect(() => {
+    let active = true;
+    void workbenchApi.listSampleGallery().then((items) => {
+      if (active) setSampleGallery(items);
+    }).catch(() => {
+      if (active) setSampleGallery([]);
     });
     return () => { active = false; };
   }, [projects]);
@@ -604,13 +619,28 @@ export function ProjectHub({
     }
     return [
       ...(starters.length > 0
-        ? [{ id: "bundled-samples", name: "同梱サンプル", kind: "samples" as const, projects: starters }]
+        ? [{
+            id: "bundled-samples",
+            name: starters.length === 1 ? "クイックスタート" : "同梱サンプル",
+            kind: "samples" as const,
+            projects: starters,
+          }]
         : []),
       ...[...groups.values()].filter((group) => group.projects.length > 0),
       ...unassigned,
     ];
   }, [creationOptions?.project_series, projects]);
   const activeSeriesId = projectGroups.find((group) => group.projects.some((item) => item.id === activeProjectId))?.id ?? `project:${activeProjectId}`;
+  const uninstalledSamples = sampleGallery.filter((item) => !item.installed);
+
+  async function installSamples(projectIds: string[]) {
+    setInstallingSampleId(projectIds.length === 1 ? projectIds[0] : "all");
+    try {
+      await onSampleGalleryInstall(projectIds);
+    } finally {
+      setInstallingSampleId("");
+    }
+  }
 
   useEffect(() => {
     const newGroupIds = projectGroups
@@ -1072,7 +1102,7 @@ export function ProjectHub({
           <small>{projects.length}件</small>
         </div>
         <div className="project-list-items">{projectGroups.map((group) => {
-          if (group.projects.length === 1) {
+          if (group.projects.length === 1 && group.kind !== "samples") {
             return <section className="project-list-group singleton" key={group.id}>{renderProjectListItem(group.projects[0])}</section>;
           }
           const collapsed = collapsedSeriesIds.has(group.id);
@@ -1103,6 +1133,26 @@ export function ProjectHub({
             </section>
           );
         })}</div>
+        {uninstalledSamples.length > 0 && <details className="sample-gallery-list">
+          <summary>サンプルを追加 <span>{uninstalledSamples.length}件</span></summary>
+          <div className="sample-gallery-items">
+            <button
+              type="button"
+              className="outline-button sample-gallery-add-all"
+              disabled={offline || Boolean(installingSampleId) || !uninstalledSamples.some((item) => item.available)}
+              onClick={() => void installSamples([])}
+            >{installingSampleId === "all" ? "追加中…" : "利用可能なサンプルを一括追加"}</button>
+            {uninstalledSamples.map((item) => <div className="sample-gallery-item" key={item.project_id}>
+              <span><strong>{item.name}</strong><small>{item.unavailable_reason || "必要なときだけWorkspaceへ追加します"}</small></span>
+              <button
+                type="button"
+                className="outline-button"
+                disabled={offline || Boolean(installingSampleId) || !item.available}
+                onClick={() => void installSamples([item.project_id])}
+              >{installingSampleId === item.project_id ? "追加中…" : "追加"}</button>
+            </div>)}
+          </div>
+        </details>}
         {archivedProjects.length > 0 && <details className="archived-project-list">
           <summary>アーカイブ済み <span>{archivedProjects.length}件</span></summary>
           <div>{archivedProjects.map((item) => <div className="archived-project-item" key={item.id}>

@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .dependencies import get_task_registry, get_workspace_catalog
+from .dependencies import get_store, get_task_registry, get_workspace_catalog
 from material_workbench.contracts.schemas import (
     DataLibraryDataset,
     DatasetRevisionUpdateInput,
@@ -16,6 +16,7 @@ from material_workbench.contracts.schemas import (
     ProjectCreationOptions,
 )
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
+from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
 from material_workbench.data.profile_document import supported_task_ids
@@ -25,6 +26,7 @@ from material_workbench.modeling.model_packages import ModelPackageLoader, Packa
 router = APIRouter(prefix="/api")
 CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+StoreDependency = Annotated[Store, Depends(get_store)]
 
 
 def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
@@ -36,7 +38,12 @@ def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
     ]
 
 
-def _datasets(catalog: WorkspaceCatalog, *, include_archived: bool = False) -> list[DataLibraryDataset]:
+def _datasets(
+    catalog: WorkspaceCatalog,
+    *,
+    include_archived: bool = False,
+    visible_dataset_ids: set[str] | None = None,
+) -> list[DataLibraryDataset]:
     views = (
         catalog.list_dataset_view_revisions(include_archived=True)
         if include_archived
@@ -44,6 +51,8 @@ def _datasets(catalog: WorkspaceCatalog, *, include_archived: bool = False) -> l
     )
     result: list[DataLibraryDataset] = []
     for dataset in catalog.list_dataset_revisions(include_archived=include_archived):
+        if visible_dataset_ids is not None and dataset.id not in visible_dataset_ids:
+            continue
         asset = catalog.get_data_asset(dataset.data_asset_id, include_archived=True)
         profile = catalog.get_profile_revision(dataset.profile_revision_id, include_archived=True)
         if asset is None or profile is None:
@@ -61,12 +70,75 @@ def _datasets(catalog: WorkspaceCatalog, *, include_archived: bool = False) -> l
     return result
 
 
+def _visible_dataset_ids(catalog: WorkspaceCatalog, store: Store) -> set[str]:
+    referenced_view_ids = {
+        project.dataset_view_revision_id
+        for project in store.list_projects(include_archived=True)
+        if project.dataset_view_revision_id
+    }
+    referenced_dataset_ids = {
+        member.dataset_revision_id
+        for view in catalog.list_dataset_view_revisions(include_archived=True)
+        if view.id in referenced_view_ids
+        for member in view.members
+    }
+    return {
+        dataset.id
+        for dataset in catalog.list_dataset_revisions(include_archived=True)
+        if (
+            dataset.id in referenced_dataset_ids
+            or (
+                (asset := catalog.get_data_asset(
+                    dataset.data_asset_id,
+                    include_archived=True,
+                ))
+                is not None
+                and asset.locator_kind == "managed"
+            )
+        )
+    }
+
+
+def _visible_model_packages(
+    catalog: WorkspaceCatalog,
+    datasets: list[DataLibraryDataset],
+    *,
+    include_archived: bool,
+) -> list[ModelPackageRef]:
+    visible_bindings = {
+        (
+            f"sha256:{dataset.data_asset.sha256}",
+            dataset.profile_revision.profile_digest,
+        )
+        for dataset in datasets
+    }
+    return [
+        package
+        for package in catalog.list_model_package_refs(
+            include_archived=include_archived
+        )
+        if (
+            package.manifest_json.get("provenance", {}).get("training_data_id"),
+            package.manifest_json.get("provenance", {}).get("dataset_profile_id"),
+        )
+        in visible_bindings
+    ]
+
+
 @router.get("/data-library/datasets", response_model=list[DataLibraryDataset])
 def list_datasets(
     catalog: CatalogDependency,
+    store: StoreDependency,
     include_archived: bool = False,
+    include_gallery: bool = False,
 ) -> list[DataLibraryDataset]:
-    return _datasets(catalog, include_archived=include_archived)
+    return _datasets(
+        catalog,
+        include_archived=include_archived,
+        visible_dataset_ids=(
+            None if include_gallery else _visible_dataset_ids(catalog, store)
+        ),
+    )
 
 
 @router.patch("/data-library/datasets/{revision_id}", response_model=DataLibraryDataset)
@@ -113,9 +185,22 @@ def create_dataset_view(
 @router.get("/data-library/model-packages", response_model=list[ModelPackageRef])
 def list_model_packages(
     catalog: CatalogDependency,
+    store: StoreDependency,
     include_archived: bool = False,
+    include_gallery: bool = False,
 ) -> list[ModelPackageRef]:
-    return catalog.list_model_package_refs(include_archived=include_archived)
+    if include_gallery:
+        return catalog.list_model_package_refs(include_archived=include_archived)
+    datasets = _datasets(
+        catalog,
+        include_archived=True,
+        visible_dataset_ids=_visible_dataset_ids(catalog, store),
+    )
+    return _visible_model_packages(
+        catalog,
+        datasets,
+        include_archived=include_archived,
+    )
 
 
 @router.patch("/data-library/model-packages/{reference_id}", response_model=ModelPackageRef)
@@ -158,18 +243,39 @@ def update_model_package(
 def project_creation_options(
     catalog: CatalogDependency,
     registry: RegistryDependency,
+    store: StoreDependency,
 ) -> ProjectCreationOptions:
     visible_task_ids = {
         task_id
         for task_id in registry.available_task_ids
         if registry.entry_for(task_id).application_capability.project_creation
     }
+    datasets = _datasets(
+        catalog,
+        visible_dataset_ids=_visible_dataset_ids(catalog, store),
+    )
+    visible_dataset_ids = {
+        item.dataset_revision.id
+        for item in datasets
+    }
+    visible_views = [
+        view
+        for view in _available_views(catalog)
+        if all(
+            member.dataset_revision_id in visible_dataset_ids
+            for member in view.members
+        )
+    ]
     return ProjectCreationOptions(
-        datasets=_datasets(catalog),
-        dataset_views=_available_views(catalog),
+        datasets=datasets,
+        dataset_views=visible_views,
         model_packages=[
             package
-            for package in catalog.list_model_package_refs()
+            for package in _visible_model_packages(
+                catalog,
+                datasets,
+                include_archived=False,
+            )
             if package.task_id in visible_task_ids
         ],
         project_series=catalog.list_project_series(),

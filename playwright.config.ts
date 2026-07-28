@@ -27,7 +27,7 @@ export default defineConfig({
   // chain-degraded.spec.ts needs the broken evaluation fixtures and ports of
   // playwright.chain-degraded.config.ts. Running it here only produces a
   // connection error against a server this config never starts.
-  testIgnore: ["chain-degraded.spec.ts", "startup-diagnostic.spec.ts"],
+  testIgnore: ["chain-degraded.spec.ts", "startup-diagnostic.spec.ts", "sample-gallery.spec.ts"],
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
@@ -44,6 +44,7 @@ export default defineConfig({
       reuseExistingServer: reuseServer,
       env: {
         WORKBENCH_DB_PATH: database,
+        WORKBENCH_DEMO_SEED: "all",
         ...(brokenHeatTreatmentPackage
           ? { MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }
           : {}),
