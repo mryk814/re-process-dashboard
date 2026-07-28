@@ -2,7 +2,7 @@
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160
-verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
+verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
@@ -281,6 +281,11 @@ golden テストは、代表入力に対するfeature値の意図しない変化
 出力ペイロードは、タスク入力契約ダイジェスト、データセットプロファイルダイジェスト、ソースデータダイジェスト、特徴量パイプライン同一性を持ちます。
 
 {{< code-ref ml-engineering-lifecycle symbol="canonical_training_dataset_digest" >}}は、その意味表現をダイジェストへ固定します。
+
+既存Packageの`canonical-json/v1`はfloatのJSON表現をそのまま固定します。
+新しい`canonical-json-finite-float15/v2`は、有限floatだけを15有効桁のtagged decimalへ正規化し、`-0.0`を`0`としてから固定します。
+これはWindowsとLinuxの数学ライブラリが作る末尾bit差を吸収する境界であり、raw source digest、行、特徴量名・順序、実質的な値の差を許容する仕組みではありません。
+方式を変えるときは既存manifestを上書きせず、新しいPackage IDとversionを発行します。
 
 `npm run model:data`に対応する{{< code-ref ml-engineering-workflow symbol="export_dataset" >}}は、このペイロードを独立成果物として出力します。
 

@@ -2,7 +2,7 @@
 chapter_id: "multi-stage-chain"
 level: advanced
 estimated_minutes: 240
-verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
+verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
 code_references:
   - path: "backend/src/material_workbench/contracts/chain_contracts.py"
     id: "multi-stage-chain-definition-contract"
@@ -66,6 +66,11 @@ code_references:
     role: "application"
     symbols:
       - "ChainEvaluationCatalog"
+  - path: "backend/src/material_workbench/modeling/numeric_canonicalization.py"
+    id: "multi-stage-chain-evidence-number"
+    role: "contract"
+    symbols:
+      - "canonicalize_report_float"
   - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
     id: "multi-stage-chain-candidate-adapter"
     role: "application"
@@ -463,6 +468,10 @@ outer テスト向けステージ Bはouter trainだけで学習します。
 {{< code-ref multi-stage-chain-evaluation-contract symbol=ChainEvaluationFoldEvidence >}}は`inner-grouped-oof`、`outer-train-only`、自己適合違反数0、outer テスト重複数0をフォールドごとに固定します。
 
 {{< code-ref multi-stage-chain-evaluation-test symbol=test_committed_chain_evaluation_is_reproducible_and_leakage_safe >}}は、合成ソースを変更せず評価成果物を再生成し、フォールド evidenceを照合します。
+
+commitするMAEとRMSEは、{{< code-ref multi-stage-chain-evidence-number symbol=canonicalize_report_float >}}で有限値を要求し、13有効桁へ正規化します。
+これはOSごとの末尾bit差だけを除く成果物境界です。
+source、Package、Profileのdigest、cohort、fold assignment、件数は丸めずexactに照合します。
 
 targetごとに欠測と観測familyが違うため、観測数とグループ数もtarget別です。
 
