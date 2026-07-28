@@ -21,8 +21,64 @@ Package provenanceがTraining Snapshot digestを参照します。
 
 ## 標準ルート
 
+### fresh cloneから新しいデータを使うgolden path
+
+まず依存を導入し、`npm run dev`で画面を開きます。
+既定portが使用中なら、launcherが空きportを選んで実際のURLを端末へ表示します。
+Data LibraryでExcel/CSVと既存Profileを登録し、表示されたTask互換性を確認したら一度`Ctrl+C`で停止します。
+
+次の例は、登録済みの熱処理Taskと同じProfileへ適合する新しいデータを学習し、検証済みPackageをtrusted modelsへ昇格して有効化する、PowerShellからコピー可能な一続きの手順です。
+
+```powershell
+uv sync --extra dev
+npm install
+
+$task = "heat-treatment-tradeoff-v1"
+$source = "path\to\new-data.csv"
+$packageId = "heat-treatment-my-data-2026-07"
+$packageVersion = "1.0.0"
+
+npm run model:diagnose -- --task $task --source $source
+
+npm run model:build -- `
+  --task $task `
+  --source $source `
+  --package-id $packageId `
+  --package-version $packageVersion
+
+npm run model:promote -- `
+  --task $task `
+  --source $source `
+  --package "artifacts/model-package-candidates/$packageId" `
+  --activate
+
+npm run task:inventory
+npm run model:status
+npm run dev
+```
+
+`model:diagnose`の`route`が`existing_task_replacement`なら、このまま既存Taskの差替えへ進めます。
+`new_task_or_profile`なら、列名が似ていても既存Profileへ押し込まず、[新しいデータフローの追加](dataset-input-profile.md#新しいデータフローを追加する場合)へ進みます。
+`--profile`を渡した場合は、そのProfileのdigestが登録済みTaskの有効Profileと同じことも確認します。
+
+`model:build`は指定した不変のPackage ID/versionで候補を作り、本番loaderとadapterで検証します。
+`model:promote --activate`は再検証後に`models/packages/<package-id>`へ原子的にコピーし、同じIDの異なる内容を上書きせず、`previous`を残してactive参照を切り替えます。
+再起動後、Data Libraryで登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えます。
+保存済みSnapshotは切替後も再計算されません。
+
+この経路そのものは、repo内のactive設定やPackageを変更しない一時領域で次のsmokeにより自動検証できます。
+
+```powershell
+npm run model:golden-path:smoke
+npm run model:golden-path:clean-clone
+```
+
+後者は現在branchを一時directoryへcloneし、`uv sync --extra dev`、`npm ci`、golden-path smokeを順に実行してから一時directoryを削除します。
+
+### タスク別の標準ルート
+
 PowerShellから次の順に実行します。
-`<task>` は `annealed-properties-v1`、`hot-rolled-properties-v1`、`flank-wear-v1` のいずれかです。
+`<task>` は [タスク一覧](../contracts/task-inventory.json) に登録済みのTask IDです。
 タスクごとのソース、プロファイル、現在使用中のPackageは [タスク一覧](../contracts/task-inventory.json) で確認できます。
 
 `--source`を省略すると、TaskModuleに登録されたタスク固有の既定ソースを使います。
@@ -33,16 +89,18 @@ npm run model:data -- --task <task> --output artifacts/model-data/<task>.json
 
 npm run model:build -- `
   --task <task> `
-  --output models/packages/<new-package-directory> `
+  --package-id <new-package-id> `
+  --package-version <new-package-version> `
   --dataset-output artifacts/model-data/<task>.json
 
 npm run model:verify -- `
   --task <task> `
-  --package models/packages/<new-package-directory>
+  --package artifacts/model-package-candidates/<new-package-id>
 
-npm run model:activate -- `
+npm run model:promote -- `
   --task <task> `
-  --package models/packages/<new-package-directory>
+  --package artifacts/model-package-candidates/<new-package-id> `
+  --activate
 
 npm run task:inventory
 npm run model:status
@@ -61,18 +119,20 @@ npm run model:data -- `
 npm run model:build -- `
   --task flank-wear-v1 `
   --source $source `
-  --output models/packages/<new-package-directory> `
+  --package-id <new-package-id> `
+  --package-version <new-package-version> `
   --dataset-output artifacts/model-data/flank-wear-v1.json
 
 npm run model:verify -- `
   --task flank-wear-v1 `
   --source $source `
-  --package models/packages/<new-package-directory>
+  --package artifacts/model-package-candidates/<new-package-id>
 
-npm run model:activate -- `
+npm run model:promote -- `
   --task flank-wear-v1 `
   --source $source `
-  --package models/packages/<new-package-directory>
+  --package artifacts/model-package-candidates/<new-package-id> `
+  --activate
 
 npm run task:inventory
 ```

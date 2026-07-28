@@ -280,9 +280,26 @@ def _build(source: Path, destination: Path) -> None:
     (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
 
 
-def build(source: Path, destination: Path, *, replace: bool = False) -> None:
+def build(
+    source: Path,
+    destination: Path,
+    *,
+    replace: bool = False,
+    package_id: str = PACKAGE_ID,
+    package_version: str = PACKAGE_VERSION,
+) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
         _build(source, staging)
+        if package_id != PACKAGE_ID or package_version != PACKAGE_VERSION:
+            manifest_path = staging / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["package_id"] = package_id
+            manifest["package_version"] = package_version
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+                newline="\n",
+            )
         verify_model_package(staging, task_id=TASK_ID, source=source)
 
 

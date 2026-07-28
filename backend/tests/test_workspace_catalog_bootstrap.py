@@ -80,6 +80,10 @@ def test_startup_registers_runtime_resources_and_binds_projects(
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        assert client.post(
+            "/api/sample-gallery",
+            json={"project_ids": []},
+        ).status_code == 200
         projects = {item["id"]: item for item in client.get("/api/projects").json()}
         catalog = client.app.state.workspace_catalog
 
@@ -224,6 +228,10 @@ def test_every_replaced_package_id_has_an_explicit_project_upgrade(
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        assert client.post(
+            "/api/sample-gallery",
+            json={"project_ids": []},
+        ).status_code == 200
         catalog = client.app.state.workspace_catalog
         for previous_id in REPLACED_MODEL_PACKAGE_IDS:
             package = ModelPackageLoader().load(ROOT / "models/packages" / previous_id)
@@ -348,6 +356,10 @@ def test_bootstrap_migrates_only_the_replaced_three_output_mpea_binding(
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
+        assert client.post(
+            "/api/sample-gallery",
+            json={"project_ids": []},
+        ).status_code == 200
         current = next(
             item for item in client.get("/api/projects").json()
             if item["task_id"] == "mpea-room-tensile-v1"

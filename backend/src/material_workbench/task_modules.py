@@ -516,34 +516,94 @@ def _welding_stage_b_features(
     return build_tabular_features_from_observation(row, medians, profile)
 
 
-def _build_annealed(source: Path, output: Path, *, replace: bool) -> None:
+def _build_annealed(
+    source: Path,
+    output: Path,
+    *,
+    replace: bool,
+    package_id: str,
+    package_version: str,
+) -> None:
     from build_default_model_package import build
 
-    build(source, output, replace=replace)
+    build(
+        source,
+        output,
+        replace=replace,
+        package_id=package_id,
+        package_version=package_version,
+    )
 
 
-def _build_hot_rolling(source: Path, output: Path, *, replace: bool) -> None:
+def _build_hot_rolling(
+    source: Path,
+    output: Path,
+    *,
+    replace: bool,
+    package_id: str,
+    package_version: str,
+) -> None:
     from build_hot_rolling_model_package import build
 
-    build(source, output, replace=replace)
+    build(
+        source,
+        output,
+        replace=replace,
+        package_id=package_id,
+        package_version=package_version,
+    )
 
 
-def _build_flank_wear(source: Path, output: Path, *, replace: bool) -> None:
+def _build_flank_wear(
+    source: Path,
+    output: Path,
+    *,
+    replace: bool,
+    package_id: str,
+    package_version: str,
+) -> None:
     from build_flank_wear_model_package import build
 
-    build(source, output, replace=replace)
+    build(
+        source,
+        output,
+        replace=replace,
+        package_id=package_id,
+        package_version=package_version,
+    )
 
 
 def _tabular_builder(task_id: str) -> ModelBuilder:
-    def build(source: Path, output: Path, *, replace: bool) -> None:
+    def build(
+        source: Path,
+        output: Path,
+        *,
+        replace: bool,
+        package_id: str,
+        package_version: str,
+    ) -> None:
         from material_workbench.modeling.tabular_model_builder import build as build_package
 
-        build_package(source, _TABULAR_PROFILES[task_id], output, replace=replace)
+        build_package(
+            source,
+            _TABULAR_PROFILES[task_id],
+            output,
+            replace=replace,
+            package_id=package_id,
+            package_version=package_version,
+        )
     return build
 
 
 def _observation_builder(task_id: str) -> ModelBuilder:
-    def build(source: Path, output: Path, *, replace: bool) -> None:
+    def build(
+        source: Path,
+        output: Path,
+        *,
+        replace: bool,
+        package_id: str,
+        package_version: str,
+    ) -> None:
         from material_workbench.modeling.observation_model_builder import build as build_package
 
         build_package(
@@ -551,16 +611,30 @@ def _observation_builder(task_id: str) -> ModelBuilder:
             output,
             declaration=observation_declaration(task_id),
             replace=replace,
+            package_id=package_id,
+            package_version=package_version,
         )
     return build
 
 
 def _build_welding_stage_b(
-    source: Path, output: Path, *, replace: bool
+    source: Path,
+    output: Path,
+    *,
+    replace: bool,
+    package_id: str,
+    package_version: str,
 ) -> None:
     from build_welding_stage_b_assets import build_package
 
-    build_package(source, _WELDING_STAGE_B_PROFILE, output, replace=replace)
+    build_package(
+        source,
+        _WELDING_STAGE_B_PROFILE,
+        output,
+        replace=replace,
+        package_id=package_id,
+        package_version=package_version,
+    )
 
 
 def _standard_response_curve(

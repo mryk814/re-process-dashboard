@@ -73,6 +73,10 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
             _resources=app_resources,
         )
     ) as healthy:
+        assert healthy.post(
+            "/api/sample-gallery",
+            json={"project_ids": []},
+        ).status_code == 200
         projects = healthy.get("/api/projects").json()
         broken_project = next(item for item in projects if item["task_id"] == BROKEN_TASK_ID)
         broken_candidate = healthy.get(

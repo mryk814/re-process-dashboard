@@ -305,6 +305,11 @@ def test_process_source_and_packages_start_and_predict_through_the_api(tmp_path:
         },
     )
     with TestClient(app) as client:
+        installed = client.post(
+            "/api/sample-gallery",
+            json={"project_ids": ["hot-rolling-default"]},
+        )
+        assert installed.status_code == 200
         assert client.get("/api/health").json()["ok"] is True
         assert client.get("/api/projects/default/model-package").json()["id"] == "annealed-gp-stable-ard-process-v2"
         assert client.get("/api/projects/hot-rolling-default/model-package").json()["id"] == "hot-rolled-horseshoe-process-v2"

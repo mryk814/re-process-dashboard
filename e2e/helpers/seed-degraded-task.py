@@ -14,6 +14,11 @@ def main() -> None:
     args = parser.parse_args()
 
     with TestClient(create_app(db_path=args.db)) as client:
+        installed = client.post(
+            "/api/sample-gallery",
+            json={"project_ids": ["heat-treatment-tradeoff-v1-default"]},
+        )
+        installed.raise_for_status()
         options = client.get("/api/project-creation-options").json()
         dataset = next(
             item

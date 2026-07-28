@@ -28,6 +28,8 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
   await page.goto(`/?view=project&project=${project!.id}`);
   await expect(page.getByText("この予測タスクは一時的に利用できません").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "設定を編集" })).toBeVisible();
+  await page.locator(".project-reference-details > summary").click();
+  await page.locator(".project-reference-identity > summary").click();
   await expect(page.getByText(project!.dataset_view_revision_id!, { exact: false }).first()).toBeVisible();
   await expect(page.getByText(project!.model_package_ref_id!, { exact: false }).first()).toBeVisible();
   await expect(page.getByText(project!.model_package_manifest_digest!, { exact: false }).first()).toBeVisible();
