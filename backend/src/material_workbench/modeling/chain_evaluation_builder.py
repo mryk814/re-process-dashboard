@@ -24,6 +24,9 @@ from material_workbench.data.stage_b_training import (
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.numeric_canonicalization import (
+    canonicalize_report_float,
+)
 from material_workbench.modeling.observation_regression import load_observation_data
 from material_workbench.modeling.tabular_model_builder import _fit, _predict
 from material_workbench.modeling.tabular_regression import (
@@ -60,8 +63,14 @@ def _assignment(groups: set[str], folds: int = FOLDS) -> dict[str, int]:
 def _metrics(actual: np.ndarray, predicted: np.ndarray) -> ChainEvaluationMetricValue:
     residual = actual - predicted
     return ChainEvaluationMetricValue(
-        mae=float(np.mean(np.abs(residual))),
-        rmse=float(np.sqrt(np.mean(residual**2))),
+        mae=canonicalize_report_float(
+            np.mean(np.abs(residual)),
+            label="chain evaluation MAE",
+        ),
+        rmse=canonicalize_report_float(
+            np.sqrt(np.mean(residual**2)),
+            label="chain evaluation RMSE",
+        ),
     )
 
 
