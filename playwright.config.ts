@@ -31,7 +31,7 @@ export default defineConfig({
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
-  globalTeardown: ownsDatabase ? "./e2e/global-teardown.ts" : undefined,
+  globalTeardown: ownsDatabase ? "./e2e/global-teardown.mjs" : undefined,
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     channel: "chrome",
