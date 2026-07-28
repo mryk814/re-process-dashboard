@@ -198,7 +198,8 @@
       "estimatedMinutes": "5-30",
       "platform": "human",
       "riskCategories": ["model-package"],
-      "manual": true
+      "manual": true,
+      "priorEvidence": ["docs/reports/model-package-portable-digest-v2-2026-07-28.md"]
     },
     "docs-check": {
       "command": "npm run docs:check",
