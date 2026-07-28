@@ -689,6 +689,32 @@ export function useWorkbenchSession({
     }
   }
 
+  async function installSampleProjects(projectIds: string[]): Promise<boolean> {
+    try {
+      const installed = await workbenchApi.installSampleGallery(projectIds);
+      const available = await workbenchApi.listProjects();
+      projectsRef.current = available;
+      setProjects(available);
+      if (projectIds.length === 1) {
+        const project = installed.find((item) => item.id === projectIds[0]);
+        if (project) await loadProject(project.id);
+      }
+      notifySuccess(
+        projectIds.length === 1
+          ? "サンプルを追加しました"
+          : `${installed.length}件のサンプルを追加しました`,
+      );
+      return true;
+    } catch (cause) {
+      notifyError(
+        cause instanceof Error
+          ? cause.message
+          : "サンプルを追加できませんでした",
+      );
+      return false;
+    }
+  }
+
   function acceptCandidate(candidate: CandidateViewModel) {
     appendCandidate(candidate);
     selectedIdRef.current = candidate.id;
@@ -784,6 +810,7 @@ export function useWorkbenchSession({
     deleteCandidate,
     archiveProject,
     restoreProject,
+    installSampleProjects,
     deleteHeatPoint,
     editor,
     loadError,

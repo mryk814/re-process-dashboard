@@ -43,7 +43,10 @@ EXPECTED_DATASET_IDENTITIES = {
 
 
 def test_data_library_exposes_semantic_dataset_records_and_creation_options(client) -> None:
-    datasets = client.get("/api/data-library/datasets")
+    datasets = client.get(
+        "/api/data-library/datasets",
+        params={"include_gallery": True},
+    )
     assert datasets.status_code == 200
     items = datasets.json()
     assert len(items) == len(EXPECTED_DATASET_IDENTITIES)
@@ -72,7 +75,8 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
     payload = options.json()
-    assert len(payload["dataset_views"]) == len(items)
+    visible_items = client.get("/api/data-library/datasets").json()
+    assert len(payload["dataset_views"]) == len(visible_items)
     assert all(
         view["kind"] == "single" and len(view["members"]) == 1
         for view in payload["dataset_views"]
@@ -83,9 +87,9 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         for member in view["members"]
     } == {
         item["dataset_revision"]["id"]
-        for item in items
+        for item in visible_items
     }
-    assert len(payload["model_packages"]) >= 15
+    assert len(payload["model_packages"]) >= 12
     assert payload["project_series"] == []
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
@@ -115,7 +119,8 @@ def test_unused_dataset_can_be_disabled_and_restored_with_its_views(client) -> N
     projects = client.get("/api/projects").json()
     used_view_ids = {project["dataset_view_revision_id"] for project in projects}
     datasets = client.get(
-        "/api/data-library/datasets", params={"include_archived": True}
+        "/api/data-library/datasets",
+        params={"include_archived": True, "include_gallery": True},
     ).json()
     dataset = next(
         item

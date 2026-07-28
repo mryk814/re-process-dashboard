@@ -1092,4 +1092,6 @@ def test_existing_empty_database_is_not_reseeded(tmp_path, app_resources: _AppRe
 
     with TestClient(create_app(db_path=database, _resources=app_resources)) as existing_client:
         assert existing_client.get("/api/projects/default/candidates").json() == []
-        assert existing_client.get("/api/projects/hot-rolling-default/candidates").json() == []
+        assert existing_client.get(
+            "/api/projects/hot-rolling-default/candidates"
+        ).status_code == 404

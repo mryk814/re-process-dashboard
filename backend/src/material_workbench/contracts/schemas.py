@@ -197,6 +197,19 @@ class DataLibraryDataset(BaseModel):
     dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
 
 
+class SampleGalleryItem(BaseModel):
+    project_id: str
+    task_id: str
+    name: str
+    installed: bool
+    available: bool
+    unavailable_reason: str = ""
+
+
+class SampleGalleryInstallInput(BaseModel):
+    project_ids: list[str] = Field(default_factory=list)
+
+
 class ProfileWorkbenchProfileOption(BaseModel):
     profile_id: str
     source_name: str

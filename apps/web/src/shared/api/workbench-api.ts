@@ -59,6 +59,7 @@ export type ApiDatasetView = components["schemas"]["DatasetViewRevision"];
 export type ApiDatasetViewCreateInput = components["schemas"]["DatasetViewRevisionCreateInput"];
 export type ApiModelPackageRef = components["schemas"]["ModelPackageRef"];
 export type ApiProjectSeries = components["schemas"]["ProjectSeries"];
+export type ApiSampleGalleryItem = components["schemas"]["SampleGalleryItem"];
 export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbenchInspection"];
 export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
@@ -304,6 +305,20 @@ export const workbenchApi = {
     return requireData(await apiClient.GET("/api/projects", {
       params: { query: { include_archived: includeArchived } },
     }), "プロジェクトを取得できませんでした。");
+  },
+  async listSampleGallery() {
+    return requireData(
+      await apiClient.GET("/api/sample-gallery"),
+      "サンプル一覧を取得できませんでした。",
+    );
+  },
+  async installSampleGallery(projectIds: string[] = []) {
+    return requireData(
+      await apiClient.POST("/api/sample-gallery", {
+        body: { project_ids: projectIds },
+      }),
+      "サンプルを追加できませんでした。",
+    );
   },
   async listTaskDefinitions() {
     return requireData(await apiClient.GET("/api/task-definitions"), "予測タスクを取得できませんでした。");

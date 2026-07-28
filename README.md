@@ -38,6 +38,19 @@ npm run dev
 read-onlyで検査します。レビュー状態を固定seedへ戻す場合は、dev serverを止めて
 `npm run workspace:seed` を実行します。このcommandはbranch既定Workspaceだけを
 対象にし、`WORKBENCH_DB_PATH`などで指定した長寿命Workspaceは拒否します。
+fresh Workspaceと`workspace:seed`後の初期状態には、Quickstart Projectを1件だけ
+入れます。ほかの同梱サンプルは画面の「サンプルを追加」から個別・一括で追加できます。
+端末から同じ操作を行う場合は、dev serverを止めて次を実行します。
+
+```powershell
+npm run samples -- list
+npm run samples -- add hot-rolling-default
+npm run samples -- add-all
+```
+
+サンプルのsource、Profile、Model Packageは配布物に保持されますが、追加するまでは
+Project一覧・Data Library・新規Projectの選択肢へ混在しません。既存Workspaceにある
+starter Projectと保存済みProjectの固定参照はそのまま保持します。
 
 本物の判断台帳を明示的に開く場合だけ、`npm run dev:main-workspace` を使います。
 この明示commandは残っているWorkspace環境変数よりmain Workspaceを優先します。

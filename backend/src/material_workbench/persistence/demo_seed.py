@@ -1,7 +1,7 @@
 """Initialize reserved demo projects without mutating an existing user DB."""
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import TYPE_CHECKING
 
 from material_workbench.contracts.schemas import CandidateInput, ProjectInput
@@ -12,6 +12,28 @@ if TYPE_CHECKING:
     from material_workbench.tasks.task_registry import TaskRegistry
 
 
+QUICKSTART_PROJECT_ID = "default"
+
+
+def starter_project_ids(modules: Mapping[str, TaskModule]) -> frozenset[str]:
+    return frozenset(
+        starter.project_id
+        for module in modules.values()
+        if (starter := module.starter_project) is not None
+    )
+
+
+def installed_starter_project_ids(
+    store: Store,
+    modules: Mapping[str, TaskModule],
+) -> frozenset[str]:
+    return frozenset(
+        project_id
+        for project_id in starter_project_ids(modules)
+        if store.get_project(project_id, include_archived=True) is not None
+    )
+
+
 def initialize_demo_projects(
     store: Store,
     modules: Mapping[str, TaskModule],
@@ -19,11 +41,17 @@ def initialize_demo_projects(
     registry: TaskRegistry,
     *,
     seed_candidates: bool,
+    project_ids: Collection[str] | None = None,
 ) -> None:
+    selected = None if project_ids is None else frozenset(project_ids)
     for task_id, module in modules.items():
         starter = module.starter_project
         runtime = runtimes.get(task_id)
-        if starter is None or runtime is None:
+        if (
+            starter is None
+            or runtime is None
+            or (selected is not None and starter.project_id not in selected)
+        ):
             continue
         project_existed = store.get_project(starter.project_id) is not None
         store.ensure_project(
@@ -68,3 +96,38 @@ def initialize_demo_projects(
         ):
             registry.validate_candidate(task_id, candidate)
             store.create_candidate(candidate, starter.project_id)
+
+
+def install_starter_projects(
+    store: Store,
+    registry: TaskRegistry,
+    project_ids: Collection[str],
+) -> list[str]:
+    selected = frozenset(project_ids)
+    unknown = selected - starter_project_ids({
+        task_id: registry.module_for(task_id)
+        for task_id in registry.task_ids
+    })
+    if unknown:
+        raise KeyError(f"unknown starter projects: {sorted(unknown)}")
+    modules = {
+        task_id: registry.module_for(task_id)
+        for task_id in registry.available_task_ids
+    }
+    runtimes = {
+        task_id: registry.runtime_for(task_id)
+        for task_id in registry.available_task_ids
+    }
+    initialize_demo_projects(
+        store,
+        modules,
+        runtimes,
+        registry,
+        seed_candidates=True,
+        project_ids=selected,
+    )
+    return sorted(
+        project_id
+        for project_id in selected
+        if store.get_project(project_id, include_archived=True) is not None
+    )

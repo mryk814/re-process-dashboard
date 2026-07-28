@@ -15615,6 +15615,57 @@
         "title": "RuntimeOperationsCapability",
         "type": "object"
       },
+      "SampleGalleryInstallInput": {
+        "properties": {
+          "project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Project Ids",
+            "type": "array"
+          }
+        },
+        "title": "SampleGalleryInstallInput",
+        "type": "object"
+      },
+      "SampleGalleryItem": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "default": "",
+            "title": "Unavailable Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "task_id",
+          "name",
+          "installed",
+          "available"
+        ],
+        "title": "SampleGalleryItem",
+        "type": "object"
+      },
       "ScreeningCandidateBatchRequest": {
         "properties": {
           "point_indices": {
@@ -19373,6 +19424,16 @@
               "title": "Include Archived",
               "type": "boolean"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_gallery",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Gallery",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -19464,6 +19525,16 @@
             "schema": {
               "default": false,
               "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_gallery",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Gallery",
               "type": "boolean"
             }
           }
@@ -26566,6 +26637,78 @@
           }
         },
         "summary": "Readiness"
+      }
+    },
+    "/api/sample-gallery": {
+      "get": {
+        "operationId": "list_sample_gallery_api_sample_gallery_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SampleGalleryItem"
+                  },
+                  "title": "Response List Sample Gallery Api Sample Gallery Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sample Gallery"
+      },
+      "post": {
+        "operationId": "install_sample_gallery_api_sample_gallery_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SampleGalleryInstallInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  },
+                  "title": "Response Install Sample Gallery Api Sample Gallery Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install Sample Gallery"
       }
     },
     "/api/screening": {

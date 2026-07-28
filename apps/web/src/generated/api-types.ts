@@ -1764,6 +1764,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sample-gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sample Gallery */
+        get: operations["list_sample_gallery_api_sample_gallery_get"];
+        put?: never;
+        /** Install Sample Gallery */
+        post: operations["install_sample_gallery_api_sample_gallery_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/screening": {
         parameters: {
             query?: never;
@@ -7947,6 +7965,29 @@ export interface components {
              */
             target_specific_similarity: boolean;
         };
+        /** SampleGalleryInstallInput */
+        SampleGalleryInstallInput: {
+            /** Project Ids */
+            project_ids?: string[];
+        };
+        /** SampleGalleryItem */
+        SampleGalleryItem: {
+            /** Available */
+            available: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Name */
+            name: string;
+            /** Project Id */
+            project_id: string;
+            /** Task Id */
+            task_id: string;
+            /**
+             * Unavailable Reason
+             * @default
+             */
+            unavailable_reason: string;
+        };
         /** ScreeningCandidateBatchRequest */
         ScreeningCandidateBatchRequest: {
             /** Point Indices */
@@ -9464,6 +9505,7 @@ export interface operations {
         parameters: {
             query?: {
                 include_archived?: boolean;
+                include_gallery?: boolean;
             };
             header?: never;
             path?: never;
@@ -9530,6 +9572,7 @@ export interface operations {
         parameters: {
             query?: {
                 include_archived?: boolean;
+                include_gallery?: boolean;
             };
             header?: never;
             path?: never;
@@ -14461,6 +14504,68 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_sample_gallery_api_sample_gallery_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleGalleryItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    install_sample_gallery_api_sample_gallery_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SampleGalleryInstallInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"][];
                 };
             };
             /** @description Validation Error */

@@ -29,6 +29,11 @@ def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _A
         _resources=app_resources,
     )
     with TestClient(app) as test_client:
+        installed = test_client.post(
+            "/api/sample-gallery",
+            json={"project_ids": []},
+        )
+        installed.raise_for_status()
         shutil.copyfile(database, baseline)
         yield test_client, database, baseline
 
