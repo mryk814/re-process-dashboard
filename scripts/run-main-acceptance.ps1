@@ -120,6 +120,20 @@ function Get-Sha256 {
     }
 }
 
+function Get-NormalizedTextSha256 {
+    param([string]$Path)
+    $text = [IO.File]::ReadAllText($Path)
+    $normalized = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $bytes = [Text.Encoding]::UTF8.GetBytes($normalized)
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $digest = $hasher.ComputeHash($bytes)
+        return ([BitConverter]::ToString($digest) -replace "-", "").ToLowerInvariant()
+    } finally {
+        $hasher.Dispose()
+    }
+}
+
 $testedCommit = (git -C $repositoryRoot rev-parse HEAD).Trim()
 $worktreeChanges = @(git -C $repositoryRoot status --porcelain)
 if ($worktreeChanges.Count -gt 0) {
@@ -231,7 +245,7 @@ $report = [ordered]@{
     changedRiskCategories = @()
     applicability = "current"
     worktreeChangesAtStart = $worktreeChanges
-    verificationCatalogSha256 = (Get-FileHash -LiteralPath $verificationCatalogPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    verificationCatalogSha256 = Get-NormalizedTextSha256 -Path $verificationCatalogPath
     selectedGates = @($selectedGateIds)
     omittedGates = $omittedGates
     clearedInheritedPlaywrightEnvironment = $inheritedPlaywrightEnvironment
