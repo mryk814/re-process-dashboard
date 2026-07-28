@@ -6,27 +6,27 @@
   "categories": [
     {
       "id": "identity-evidence",
-      "title": "IdentityとEvidence"
+      "title": "同一性と証拠"
     },
     {
       "id": "data",
-      "title": "Data"
+      "title": "データ"
     },
     {
       "id": "model",
-      "title": "Model"
+      "title": "モデル"
     },
     {
       "id": "decision",
-      "title": "Decision"
+      "title": "判断"
     },
     {
       "id": "architecture",
-      "title": "Architecture"
+      "title": "アーキテクチャ"
     },
     {
       "id": "ui-testing",
-      "title": "UIとTesting"
+      "title": "UIとテスト"
     }
   ],
   "chapters": [
@@ -47,12 +47,12 @@
     },
     {
       "id": "source-to-training-evidence",
-      "title": "Source更新を学習から切り離す",
+      "title": "ソース更新を学習から切り離す",
       "path": "chapters/source-to-training-evidence.qmd"
     },
     {
       "id": "materials-domain-primer",
-      "title": "材料dataを候補判断へ渡す前に分ける",
+      "title": "材料データを候補判断へ渡す前に分ける",
       "path": "chapters/materials-domain-primer.qmd"
     },
     {
@@ -67,7 +67,7 @@
     },
     {
       "id": "trace-revision-conflict",
-      "title": "演習：二つの順番と遅いresponseを判定する",
+      "title": "演習：二つの順番と遅いレスポンスを判定する",
       "path": "labs/trace-revision-conflict.qmd"
     },
     {
@@ -77,7 +77,7 @@
     },
     {
       "id": "break-and-repair-migration",
-      "title": "演習：migrationの矛盾を再現して診断する",
+      "title": "演習：マイグレーションの矛盾を再現して診断する",
       "path": "labs/break-and-repair-migration.qmd"
     },
     {
@@ -87,24 +87,24 @@
     },
     {
       "id": "trace-project-lifecycle",
-      "title": "演習：Projectの証拠を残したまま作業を終える",
+      "title": "演習：プロジェクトの証拠を残したまま作業を終える",
       "path": "labs/trace-project-lifecycle.qmd"
     },
     {
       "id": "restore-workspace-safely",
-      "title": "Workspaceを切り替える前に復元を確かめる",
+      "title": "ワークスペースを切り替える前に復元を確かめる",
       "path": "chapters/restore-workspace-safely.qmd"
     },
     {
       "id": "trace-workspace-restore",
-      "title": "演習：復元途中のWorkspaceを診断する",
+      "title": "演習：復元途中のワークスペースを診断する",
       "path": "labs/trace-workspace-restore.qmd"
     }
   ],
   "concepts": [
     {
       "id": "logical-identity",
-      "term_ja": "論理identity",
+      "term_ja": "論理同一性",
       "term_en": "logical identity",
       "aliases": [
         "logical ID"
@@ -174,7 +174,7 @@
     },
     {
       "id": "semantic-digest",
-      "term_ja": "意味表現digest",
+      "term_ja": "意味ダイジェスト",
       "term_en": "semantic digest",
       "aliases": [
         "content identity"
@@ -212,7 +212,7 @@
     },
     {
       "id": "byte-digest",
-      "term_ja": "byte digest",
+      "term_ja": "バイトダイジェスト",
       "term_en": "byte digest",
       "aliases": [
         "SHA-256"
@@ -450,7 +450,7 @@
     },
     {
       "id": "request-sequence",
-      "term_ja": "request連番",
+      "term_ja": "リクエスト連番",
       "term_en": "request sequence",
       "aliases": [
         "request generation"
@@ -484,7 +484,7 @@
     },
     {
       "id": "raw-source-snapshot",
-      "term_ja": "Raw Source Snapshot",
+      "term_ja": "生ソーススナップショット",
       "term_en": "Raw Source Snapshot",
       "aliases": [
         "raw snapshot"
@@ -552,7 +552,7 @@
     },
     {
       "id": "composition-basis",
-      "term_ja": "組成basis",
+      "term_ja": "組成基準",
       "term_en": "composition basis",
       "aliases": [
         "mass basis",
@@ -590,7 +590,7 @@
     },
     {
       "id": "nominal-measured-value",
-      "term_ja": "nominal値とmeasured値",
+      "term_ja": "公称値と実測値",
       "term_en": "nominal and measured value",
       "aliases": [
         "design value and observed value"
@@ -628,7 +628,7 @@
     },
     {
       "id": "heat-program",
-      "term_ja": "熱工程program",
+      "term_ja": "熱処理プログラム",
       "term_en": "heat program",
       "aliases": [
         "semantic process program"
@@ -665,7 +665,7 @@
     },
     {
       "id": "raw-sensor-trace",
-      "term_ja": "raw sensor trace",
+      "term_ja": "生センサ時系列",
       "term_en": "raw sensor trace",
       "aliases": [
         "raw series asset"
@@ -703,7 +703,7 @@
     },
     {
       "id": "canonical-series",
-      "term_ja": "canonical series",
+      "term_ja": "正規系列",
       "term_en": "canonical series",
       "aliases": [
         "canonical series revision"
@@ -864,7 +864,7 @@
     },
     {
       "id": "dataset-profile",
-      "term_ja": "Dataset Profile",
+      "term_ja": "データセットプロファイル",
       "term_en": "Dataset Profile",
       "aliases": [
         "input profile"
@@ -897,7 +897,7 @@
     },
     {
       "id": "curation-recipe",
-      "term_ja": "Curation Recipe",
+      "term_ja": "キュレーションレシピ",
       "term_en": "Curation Recipe",
       "aliases": [],
       "category": "data",
@@ -966,7 +966,7 @@
     },
     {
       "id": "split-group",
-      "term_ja": "分割group",
+      "term_ja": "分割グループ",
       "term_en": "split group",
       "aliases": [
         "group split"
@@ -1067,7 +1067,7 @@
     },
     {
       "id": "training-snapshot",
-      "term_ja": "Training Snapshot",
+      "term_ja": "学習用スナップショット",
       "term_en": "Training Snapshot",
       "aliases": [],
       "category": "data",
@@ -1102,7 +1102,7 @@
     },
     {
       "id": "training-cohort",
-      "term_ja": "学習cohort",
+      "term_ja": "学習コホート",
       "term_en": "training cohort",
       "aliases": [
         "target cohort"
@@ -1137,7 +1137,7 @@
     },
     {
       "id": "feature-pipeline",
-      "term_ja": "Feature Pipeline",
+      "term_ja": "特徴量パイプライン",
       "term_en": "Feature Pipeline",
       "aliases": [
         "feature transformation"
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "model-package",
-      "term_ja": "Model Package",
+      "term_ja": "モデルパッケージ",
       "term_en": "Model Package",
       "aliases": [
         "model artifact package"
@@ -1207,7 +1207,7 @@
     },
     {
       "id": "runtime-adapter",
-      "term_ja": "Runtime adapter",
+      "term_ja": "ランタイムアダプタ",
       "term_en": "Runtime adapter",
       "aliases": [],
       "category": "model",
@@ -1239,7 +1239,7 @@
     },
     {
       "id": "runtime-capability",
-      "term_ja": "Runtime Capability",
+      "term_ja": "ランタイム能力",
       "term_en": "Runtime Capability",
       "aliases": [
         "prediction capability"
@@ -1349,7 +1349,7 @@
     },
     {
       "id": "support",
-      "term_ja": "学習dataによる裏付け",
+      "term_ja": "学習データの裏付け",
       "term_en": "support",
       "aliases": [
         "training support"
@@ -1428,7 +1428,7 @@
     },
     {
       "id": "active-package",
-      "term_ja": "Active Package",
+      "term_ja": "有効パッケージ",
       "term_en": "active Package",
       "aliases": [
         "active model"
@@ -1461,7 +1461,7 @@
     },
     {
       "id": "design-space",
-      "term_ja": "Project Design Space",
+      "term_ja": "プロジェクト設計空間",
       "term_en": "Project Design Space",
       "aliases": [
         "Design Space"
@@ -1496,7 +1496,7 @@
     },
     {
       "id": "objective-definition",
-      "term_ja": "Objective Definition",
+      "term_ja": "目的定義",
       "term_en": "Objective Definition",
       "aliases": [
         "objective"
@@ -1661,7 +1661,7 @@
     },
     {
       "id": "batch-selector",
-      "term_ja": "batch選択器",
+      "term_ja": "バッチ選択器",
       "term_en": "Batch Selector",
       "aliases": [],
       "category": "decision",
@@ -1893,7 +1893,7 @@
     },
     {
       "id": "pareto-front",
-      "term_ja": "Pareto前線",
+      "term_ja": "パレート前線",
       "term_en": "Pareto front",
       "aliases": [
         "non-dominated set"
@@ -1928,7 +1928,7 @@
     },
     {
       "id": "decision-activity",
-      "term_ja": "検討Activity",
+      "term_ja": "検討アクティビティ",
       "term_en": "Decision Activity",
       "aliases": [
         "decision support activity"
@@ -1963,7 +1963,7 @@
     },
     {
       "id": "legacy-screening-objective",
-      "term_ja": "旧Screening Objective",
+      "term_ja": "旧スクリーニング目的",
       "term_en": "legacy screening objective",
       "aliases": [],
       "category": "decision",
@@ -2023,7 +2023,7 @@
     },
     {
       "id": "domain-invariant",
-      "term_ja": "domain不変条件",
+      "term_ja": "ドメイン不変条件",
       "term_en": "domain invariant",
       "aliases": [
         "business invariant"
@@ -2058,7 +2058,7 @@
     },
     {
       "id": "application-service",
-      "term_ja": "Application Service",
+      "term_ja": "アプリケーションサービス",
       "term_en": "application service",
       "aliases": [
         "use-case service"
@@ -2092,7 +2092,7 @@
     },
     {
       "id": "repository",
-      "term_ja": "Repository",
+      "term_ja": "リポジトリ",
       "term_en": "repository",
       "aliases": [
         "persistence repository"
@@ -2125,7 +2125,7 @@
     },
     {
       "id": "adapter",
-      "term_ja": "adapter",
+      "term_ja": "アダプタ",
       "term_en": "adapter",
       "aliases": [
         "typed adapter"
@@ -2158,7 +2158,7 @@
     },
     {
       "id": "registry",
-      "term_ja": "Registry",
+      "term_ja": "レジストリ",
       "term_en": "registry",
       "aliases": [
         "allow-list registry"
@@ -2224,7 +2224,7 @@
     },
     {
       "id": "degraded-mode",
-      "term_ja": "縮退mode",
+      "term_ja": "縮退モード",
       "term_en": "degraded mode",
       "aliases": [
         "task-local degradation"
@@ -2290,7 +2290,7 @@
     },
     {
       "id": "discriminated-union",
-      "term_ja": "判別可能union",
+      "term_ja": "判別可能なユニオン型",
       "term_en": "discriminated union",
       "aliases": [
         "tagged union"
@@ -2323,7 +2323,7 @@
     },
     {
       "id": "project-archive",
-      "term_ja": "Project archive",
+      "term_ja": "プロジェクトのアーカイブ",
       "term_en": "Project archive",
       "aliases": [
         "archive"
@@ -2357,7 +2357,7 @@
     },
     {
       "id": "explicit-purge",
-      "term_ja": "明示purge",
+      "term_ja": "明示的パージ",
       "term_en": "explicit purge",
       "aliases": [
         "purge"
@@ -2425,7 +2425,7 @@
     },
     {
       "id": "write-guard",
-      "term_ja": "write guard",
+      "term_ja": "書込みガード",
       "term_en": "write guard",
       "aliases": [
         "generation guard"
@@ -2459,7 +2459,7 @@
     },
     {
       "id": "server-state",
-      "term_ja": "server state",
+      "term_ja": "サーバ状態",
       "term_en": "server state",
       "aliases": [],
       "category": "ui-testing",
@@ -2491,7 +2491,7 @@
     },
     {
       "id": "draft-state",
-      "term_ja": "編集中state",
+      "term_ja": "編集中状態",
       "term_en": "draft state",
       "aliases": [
         "draft input"
@@ -2524,7 +2524,7 @@
     },
     {
       "id": "navigation-state",
-      "term_ja": "navigation state",
+      "term_ja": "ナビゲーション状態",
       "term_en": "navigation state",
       "aliases": [
         "deep-link state"
@@ -2557,7 +2557,7 @@
     },
     {
       "id": "typed-error",
-      "term_ja": "型付きerror",
+      "term_ja": "型付きエラー",
       "term_en": "typed error",
       "aliases": [
         "API error contract"
@@ -2595,7 +2595,7 @@
     },
     {
       "id": "contract-test",
-      "term_ja": "契約test",
+      "term_ja": "契約テスト",
       "term_en": "contract test",
       "aliases": [],
       "category": "ui-testing",
@@ -2627,7 +2627,7 @@
     },
     {
       "id": "integration-test",
-      "term_ja": "統合test",
+      "term_ja": "統合テスト",
       "term_en": "integration test",
       "aliases": [],
       "category": "ui-testing",
@@ -2660,7 +2660,7 @@
     },
     {
       "id": "end-to-end-test",
-      "term_ja": "E2E test",
+      "term_ja": "E2Eテスト",
       "term_en": "end-to-end test",
       "aliases": [
         "Playwright test"
@@ -2694,7 +2694,7 @@
     },
     {
       "id": "migration-smoke",
-      "term_ja": "migration smoke",
+      "term_ja": "マイグレーションスモーク",
       "term_en": "migration smoke",
       "aliases": [
         "migration acceptance"
@@ -2728,7 +2728,7 @@
     },
     {
       "id": "packaged-smoke",
-      "term_ja": "配布物smoke",
+      "term_ja": "配布物スモーク",
       "term_en": "packaged smoke",
       "aliases": [
         "delivery smoke"
@@ -2763,7 +2763,7 @@
     },
     {
       "id": "workspace-bundle",
-      "term_ja": "Workspace bundle",
+      "term_ja": "ワークスペースバンドル",
       "term_en": "Workspace bundle",
       "aliases": [
         "mdwb archive"
@@ -2797,7 +2797,7 @@
     },
     {
       "id": "staged-restore",
-      "term_ja": "段階的restore",
+      "term_ja": "段階的復元",
       "term_en": "staged restore",
       "aliases": [
         "prepare restore"
@@ -2831,7 +2831,7 @@
     },
     {
       "id": "recovery-journal",
-      "term_ja": "復旧journal",
+      "term_ja": "復旧ジャーナル",
       "term_en": "recovery journal",
       "aliases": [],
       "category": "ui-testing",
@@ -2890,7 +2890,7 @@
         "counterfactual"
       ],
       "math_connections": [
-        "判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します。"
+        "判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します"
       ],
       "repo_references": [
         {
@@ -2932,7 +2932,7 @@
         "decision-surface"
       ],
       "math_connections": [
-        "数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です。"
+        "数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です"
       ],
       "repo_references": [
         {

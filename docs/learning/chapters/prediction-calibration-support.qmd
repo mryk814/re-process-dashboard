@@ -92,29 +92,29 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# 予測の広がりと学習dataの裏付けを分ける {#sec-prediction-calibration-support}
+# 予測の広がりと学習データの裏付けを分ける {#sec-prediction-calibration-support}
 
 ## 対象読者と到達点
 
-Model Package、予測API、Robustness Activity、または候補比較を変更する開発者が対象です。
+モデルパッケージ、予測API、Robustness アクティビティ、または候補比較を変更する開発者が対象です。
 読者は、平均、中央値、分位点、標準偏差の定義を知っているものとします。
 
-読了後は、次の問いへ式と実装pathを挙げて答えられる状態を目指します。
+読了後は、次の問いへ式と実装経路を挙げて答えられる状態を目指します。
 
-- 点予測、quantile、内部sampleは、同じ予測分布の何を残すか
-- 固定入力に対するmodel uncertaintyと、入力ばらつきによる予測値の変動は何が違うか
-- nominal coverageとempirical coverageをどう比較するか
-- support distanceとpercentileを、予測が正しい確率と呼べないのはなぜか
-- Robustness Activityは何をsampleし、何を統合していないか
-- どの破綻条件をcontract、test、warningで止めるか
+- 点予測、quantile、内部サンプルは、同じ予測分布の何を残すか
+- 固定入力に対するモデル uncertaintyと、入力ばらつきによる予測値の変動は何が違うか
+- nominal カバレッジとempirical カバレッジをどう比較するか
+- 裏付け距離とpercentileを、予測が正しい確率と呼べないのはなぜか
+- Robustness アクティビティは何をサンプルし、何を統合していないか
+- どの破綻条件を契約、テスト、警告で止めるか
 
 ## 非scope
 
-Gaussian process、Bayesian model、conformal predictionの一般的な入門は扱いません。
-獲得関数、batch proposal、Pareto最適化は、この章の後半に当たる別章へ分けます。
+ガウス過程、ベイズモデル、コンフォーマル予測の一般的な入門は扱いません。
+獲得関数、バッチ proposal、Pareto最適化は、この章の後半に当たる別章へ分けます。
 
-すべてのruntimeに共通するcalibration手法も定めません。
-現行runtimeは、parametric distribution、quantile集合、posterior predictive sample、grouped OOF residualなど、異なる根拠から予測要約を作ります。
+すべてのランタイムに共通するcalibration手法も定めません。
+現行ランタイムは、parametric distribution、quantile集合、posterior predictive サンプル、グループ別 OOF residualなど、異なる根拠から予測要約を作ります。
 
 ## 515.6 MPaだけでは比較を始められない
 
@@ -123,69 +123,69 @@ Gaussian process、Bayesian model、conformal predictionの一般的な入門は
 
 - 代表値が平均か中央値か
 - 固定入力に対する予測分布がどの程度広いか
-- 区間がparametric distribution、quantile model、有限sample、残差較正のどれから得られたか
-- nominal coverageが未使用dataで再現したか
+- 区間がparametric distribution、quantile モデル、有限サンプル、残差較正のどれから得られたか
+- nominal カバレッジが未使用データで再現したか
 - 候補が学習条件の近くにあるか
 - 組成や工程条件が揺れたとき、点予測がどの程度動くか
 
 一つの数値へこれらを押し込むと、広がりの発生源と検証状態を取り戻せません。
-現行アプリは、予測分布の要約、calibration、support、robustnessを別の契約と計算へ置きます。
+現行アプリは、予測分布の要約、calibration、学習データの裏付け、robustnessを別の契約と計算へ置きます。
 
 ## 問いと記号を固定する
 
-候補のcanonical inputを$\mathbf{x}_0$、学習dataを$\mathcal{D}$、予測対象を$Y$とします。
+候補のcanonical 入力を$\mathbf{x}_0$、学習データを$\mathcal{D}$、予測対象を$Y$とします。
 この章の中心となる問いは、固定した$\mathbf{x}_0$に対する予測と、$\mathbf{x}_0$の周りで入力が変動した場合の予測値を分けることです。
 
 | 記号 | 意味 | 型 | 単位 |
 |---|---|---|---|
-| $\mathbf{x}_0$ | 基準Candidateのcanonical input | vector | fieldごとに異なる |
-| $Y$ | 予測対象 | random variable | $\mathrm{MPa}$ |
-| $y$ | 実測値 | scalar | $\mathrm{MPa}$ |
-| $m(\mathbf{x})$ | runtimeが返す点予測 | scalar function | $\mathrm{MPa}$ |
-| $q_{\alpha}(\mathbf{x})$ | 固定入力での$\alpha$ quantile | scalar function | $\mathrm{MPa}$ |
-| $S_r$ | 予測分布またはposterior predictiveの内部sample | random sample | $\mathrm{MPa}$ |
-| $R$ | 内部sample数 | positive integer | $1$ |
-| $L_i$, $U_i$ | observation $i$に対する予測区間の下限と上限 | scalar | $\mathrm{MPa}$ |
-| $\gamma$ | nominal coverage | scalar | $1$ |
-| $\hat{C}_{\gamma}$ | holdoutにおけるempirical coverage | scalar | $1$ |
-| $\mathbf{X}^{(m)}$ | Tolerance Profileから生成した入力sample | random vector | fieldごとに異なる |
-| $M$ | 受理した入力sample数 | positive integer | $1$ |
-| $Z^{(m)}$ | 入力sampleの点予測$m(\mathbf{X}^{(m)})$ | scalar | $\mathrm{MPa}$ |
-| $d(\mathbf{x})$ | 学習参照集合からのsupport distance | scalar | $1$ |
+| $\mathbf{x}_0$ | 基準候補のcanonical 入力 | vector | フィールドごとに異なる |
+| $Y$ | 予測対象 | 確率変数 | $\mathrm{MPa}$ |
+| $y$ | 実測値 | スカラー | $\mathrm{MPa}$ |
+| $m(\mathbf{x})$ | ランタイムが返す点予測 | スカラー function | $\mathrm{MPa}$ |
+| $q_{\alpha}(\mathbf{x})$ | 固定入力での$\alpha$ quantile | スカラー function | $\mathrm{MPa}$ |
+| $S_r$ | 予測分布またはposterior predictiveの内部サンプル | random サンプル | $\mathrm{MPa}$ |
+| $R$ | 内部サンプル数 | positive integer | $1$ |
+| $L_i$, $U_i$ | observation $i$に対する予測区間の下限と上限 | スカラー | $\mathrm{MPa}$ |
+| $\gamma$ | nominal カバレッジ | スカラー | $1$ |
+| $\hat{C}_{\gamma}$ | holdoutにおけるempirical カバレッジ | スカラー | $1$ |
+| $\mathbf{X}^{(m)}$ | Tolerance プロファイルから生成した入力サンプル | random vector | フィールドごとに異なる |
+| $M$ | 受理した入力サンプル数 | positive integer | $1$ |
+| $Z^{(m)}$ | 入力サンプルの点予測$m(\mathbf{X}^{(m)})$ | スカラー | $\mathrm{MPa}$ |
+| $d(\mathbf{x})$ | 学習参照集合からの裏付け距離 | スカラー | $1$ |
 
-$R$はmodelまたはadapter内部のsample数、$M$はRobustness Activityが受理した入力sample数です。
-同じ`sample`という語を使っても、sampleする対象が違います。
+$R$はモデルまたはアダプタ内部のサンプル数、$M$はRobustness アクティビティが受理した入力サンプル数です。
+同じ`sample`という語を使っても、サンプルする対象が違います。
 
-## Predictive Summaryがruntimeの違いを閉じる
+## Predictive 要約がランタイムの違いを閉じる
 
-runtimeは、線形model、Gaussian process、quantile model、posterior drawを同じ内部表現へ変換します。
+ランタイムは、線形モデル、ガウス過程、quantile モデル、事後分布サンプルを同じ内部表現へ変換します。
 この内部表現を**予測要約（Predictive Summary）**と呼びます。
 
-{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}は、次を別fieldで保持します。
+{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}は、次を別フィールドで保持します。
 
-| field | 数学上の対象 | 読者が確認する問い |
+| フィールド | 数学上の対象 | 読者が確認する問い |
 |---|---|---|
-| `target`、`unit`、`target_kind` | $Y$の意味とsupport | 何をどの単位で予測したか |
-| `point_statistic` | 平均、中央値、確率、rate、期待category | 点の意味は何か |
+| `target`、`unit`、`target_kind` | $Y$の意味と取り得る値 | 何をどの単位で予測したか |
+| `point_statistic` | 平均、中央値、確率、rate、期待カテゴリ | 点の意味は何か |
 | `point_estimate` | $m(\mathbf{x}_0)$ | 代表値はいくつか |
 | `quantiles` | $\{q_{\alpha}(\mathbf{x}_0)\}$ | どのlevelの境界があるか |
-| `distribution` | family、support、parameter | どの分布表現を使ったか |
-| `uncertainty_components` | runtimeが分離できる分散または標準偏差 | どの発生源を分けたか |
+| `distribution` | family、台、パラメータ | どの分布表現を使ったか |
+| `uncertainty_components` | ランタイムが分離できる分散または標準偏差 | どの発生源を分けたか |
 | `warnings` | 適用上の制限 | 何をそのまま判断に使えないか |
 
-このcontractは、すべてのruntimeが同じ分布を返すという主張ではありません。
-異なるruntimeが、点、quantile、分布情報、任意の不確実性成分を、同じ意味のfieldへ置くための境界です。
+この契約は、すべてのランタイムが同じ分布を返すという主張ではありません。
+異なるランタイムが、点、quantile、分布情報、任意の不確実性成分を、同じ意味のフィールドへ置くための境界です。
 
-{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}は、target、unit、distribution family、quantile順序、非負support、離散値、Runtime Capabilityとの一致を検査します。
-shapeが正しいだけで、量の意味が矛盾したsummaryを通しません。
+{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}は、target、unit、distribution family、quantile順序、非負の値域、離散値、ランタイム能力との一致を検査します。
+構造が正しいだけで、量の意味が矛盾した要約を通しません。
 
 APIへ出るときは、{{< code-ref prediction-math-api-contract symbol=Prediction >}}が`value`、`lower`、`upper`、`point_statistic`、`predictive_family`、`quantiles`、`uncertainty_components`を保持します。
 `lower`と`upper`は、{{< code-ref prediction-math-summary-contract symbol=predictive_interval >}}が宣言済みquantileの外側を選び、quantileがなければ点予測と同じ値にします。
 
-点予測だけのruntimeで`lower = value = upper`になっても、「不確実性が0」とは解釈しません。
-この状態が表すのは、Predictive Summaryに区間情報がないことです。
+点予測だけのランタイムで`lower = value = upper`になっても、「不確実性が0」とは解釈しません。
+この状態が表すのは、Predictive 要約に区間情報がないことです。
 
-## 点、quantile、sampleを同じものにしない
+## 点、quantile、サンプルを同じものにしない
 
 点予測は、分布を一値へ要約します。
 平均と中央値は同じ分布でも一致しないことがあり、binary targetのevent probabilityやcount targetのrateは物性値の平均と意味が違います。
@@ -204,20 +204,20 @@ $$
 中央90%区間なら、下限を$q_{0.05}(\mathbf{x})$、上限を$q_{0.95}(\mathbf{x})$とします。
 この区間は、入力$\mathbf{x}$と予測分布を固定した条件付きの範囲です。
 
-sampleは、分布から得た有限個の値です。
-sampleから平均、中央値、quantileを計算できますが、有限sample自体と母分布のquantileは同じではありません。
+サンプルは、分布から得た有限個の値です。
+サンプルから平均、中央値、quantileを計算できますが、有限サンプル自体と母分布のquantileは同じではありません。
 
-{{< code-ref prediction-math-posterior-adapter symbol="_DensePosteriorPredictor.predict" >}}は、posterior drawとlikelihoodから内部sampleを作り、点とquantileへ要約します。
-現行{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}は生のsample配列を公開しません。
-Runtime Capabilityが`samples`を宣言すると、現行validatorは契約不一致として拒否します。
+{{< code-ref prediction-math-posterior-adapter symbol="_DensePosteriorPredictor.predict" >}}は、事後分布サンプルとlikelihoodから内部サンプルを作り、点とquantileへ要約します。
+現行{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}は生のサンプル配列を公開しません。
+ランタイム能力が`samples`を宣言すると、現行validatorは契約不一致として拒否します。
 
-したがって、画面またはAPI利用者がPredictive Summaryからposterior sampleを復元することはできません。
-quantileだけから分布形またはsample間の依存を推定しないことが、この境界の帰結です。
+したがって、画面またはAPI利用者がPredictive 要約からposterior サンプルを復元することはできません。
+quantileだけから分布形またはサンプル間の依存を推定しないことが、この境界の帰結です。
 
-## 九つのsampleを手で要約する
+## 九つのサンプルを手で要約する
 
-問いは、posterior predictiveから得た九つのsampleを、点と中央80%のempirical intervalへ要約することです。
-sampleは昇順に並べ、quantileはNumPyの既定と同じ線形補間を使うと仮定します。
+問いは、posterior predictiveから得た九つのサンプルを、点と中央80%のempirical intervalへ要約することです。
+サンプルは昇順に並べ、quantileはNumPyの既定と同じ線形補間を使うと仮定します。
 
 $$
 (470,\ 490,\ 500,\ 505,\ 510,\ 515,\ 525,\ 540,\ 585)\ \mathrm{MPa}
@@ -225,9 +225,9 @@ $$
 
 | 記号 | 意味 | 値 | 単位 |
 |---|---|---:|---|
-| $R$ | predictive sample数 | 9 | $1$ |
-| $\bar{S}$ | sample mean | 未計算 | $\mathrm{MPa}$ |
-| $\tilde{S}$ | sample median | 未計算 | $\mathrm{MPa}$ |
+| $R$ | predictive サンプル数 | 9 | $1$ |
+| $\bar{S}$ | サンプル mean | 未計算 | $\mathrm{MPa}$ |
+| $\tilde{S}$ | サンプル median | 未計算 | $\mathrm{MPa}$ |
 | $\hat{q}_{0.10}$ | empirical 10% quantile | 未計算 | $\mathrm{MPa}$ |
 | $\hat{q}_{0.90}$ | empirical 90% quantile | 未計算 | $\mathrm{MPa}$ |
 
@@ -243,7 +243,7 @@ $$
 515.6\ \mathrm{MPa}.
 $$
 
-九個の中央は五番目なので、sample medianは$510\ \mathrm{MPa}$です。
+九個の中央は五番目なので、サンプル medianは$510\ \mathrm{MPa}$です。
 
 線形補間では、0始まりの位置を$(R-1)\alpha$とします。
 $\alpha=0.10$の位置は$0.8$であり、470と490の間を補間します。
@@ -267,13 +267,13 @@ $$
 $$
 
 この例のmeanは$515.6\ \mathrm{MPa}$、medianは$510\ \mathrm{MPa}$、中央80%のempirical intervalは$[486,\ 549]\ \mathrm{MPa}$です。
-大きいsample $585\ \mathrm{MPa}$の影響でmeanがmedianより高くなっています。
+大きいサンプル $585\ \mathrm{MPa}$の影響でmeanがmedianより高くなっています。
 
 ここから「meanよりmedianが正しい」とは決められません。
-どのpoint statisticを返すかは、predictive family、target kind、判断質問とRuntime Capabilityの契約で決めます。
+どのpoint statisticを返すかは、predictive family、target kind、判断質問とランタイム能力の契約で決めます。
 
-九つのsampleは分布の形を精密に決めるには少なすぎます。
-seedまたはdraw数を変えるとempirical quantileが動く可能性があるため、この手計算例の値を一般的なcoverageとして使いません。
+九つのサンプルは分布の形を精密に決めるには少なすぎます。
+seedまたはdraw数を変えるとempirical quantileが動く可能性があるため、この手計算例の値を一般的なカバレッジとして使いません。
 
 ## 固定入力の不確実性と入力ばらつきを分ける
 
@@ -283,12 +283,12 @@ $$
 p(Y \mid \mathbf{x}_0, \mathcal{D}, \mathcal{M}),
 $$
 
-ここで$\mathcal{M}$はmodel family、parameter、likelihood、学習手順を含むmodel specificationを表します。
+ここで$\mathcal{M}$はモデル family、パラメータ、likelihood、学習手順を含むモデル specificationを表します。
 この分布の広がりを、この章では**model uncertaintyを含むruntime predictive uncertainty**と呼びます。
 
-現行runtimeが返す成分は一様ではありません。
-{{< code-ref prediction-math-uncertainty-adapter symbol="_PosteriorLinearPredictor.predict" >}}は、利用できるPackageでepistemic standard deviation、observation由来のstandard deviation、total predictive standard deviationを分けます。
-別のruntimeはquantileだけを返し、成分を分離しない場合があります。
+現行ランタイムが返す成分は一様ではありません。
+{{< code-ref prediction-math-uncertainty-adapter symbol="_PosteriorLinearPredictor.predict" >}}は、利用できるパッケージでepistemic standard deviation、observation由来のstandard deviation、total predictive standard deviationを分けます。
+別のランタイムはquantileだけを返し、成分を分離しない場合があります。
 
 一方、製造ばらつきでは入力そのものを確率変数として扱います。
 
@@ -304,16 +304,16 @@ m(\mathbf{X}^{(m)}),
 m=1,\ldots,M.
 $$
 
-$q_{\mathrm{tol}}$はTolerance ProfileとTaskまたはProject Design Spaceの制約から決まる入力分布です。
-$Z^{(m)}$は各入力sampleに対する点予測であり、固定入力$\mathbf{x}_0$に対するpredictive sampleではありません。
+$q_{\mathrm{tol}}$はTolerance プロファイルとタスクまたはプロジェクト設計空間の制約から決まる入力分布です。
+$Z^{(m)}$は各入力サンプルに対する点予測であり、固定入力$\mathbf{x}_0$に対するpredictive サンプルではありません。
 
-{{< code-ref prediction-math-robustness-compute symbol=compute >}}は、受理した入力sampleごとに点予測を計算し、その5%、50%、95% quantileを{{< code-ref prediction-math-robustness-contract symbol=InputVariationInterval >}}へ保存します。
+{{< code-ref prediction-math-robustness-compute symbol=compute >}}は、受理した入力サンプルごとに点予測を計算し、その5%、50%、95% quantileを{{< code-ref prediction-math-robustness-contract symbol=InputVariationInterval >}}へ保存します。
 基準入力の`Prediction.lower`と`Prediction.upper`は、{{< code-ref prediction-math-robustness-contract symbol=ModelUncertaintyInterval >}}へ別に保存します。
 
-現行実装は、各$\mathbf{X}^{(m)}$でpredictive distributionをsampleし、二重のMonte Carlo積分を行っていません。
-入力ばらつきintervalとmodel uncertainty intervalの端を足し合わせても、combined predictive intervalにはなりません。
+現行実装は、各$\mathbf{X}^{(m)}$でpredictive distributionをサンプルし、二重のモンテカルロ積分を行っていません。
+入力ばらつきintervalとモデル uncertainty intervalの端を足し合わせても、combined predictive intervalにはなりません。
 
-両者を統合するなら、求めたい量を次のように定義し、入力分布と条件付き予測分布の両方をsampleする必要があります。
+両者を統合するなら、求めたい量を次のように定義し、入力分布と条件付き予測分布の両方をサンプルする必要があります。
 
 **Definition**
 
@@ -326,12 +326,12 @@ q_{\mathrm{tol}}(\mathbf{x}\mid\mathbf{x}_0)
 \mathrm{d}\mathbf{x}.
 $$
 
-この積分は一般概念であり、現行Robustness ActivityのImplementationではありません。
+この積分は一般概念であり、現行Robustness アクティビティのImplementationではありません。
 現行画面が二つの区間を別に表示するのは、未実装の統合分布を暗黙に作らないためです。
 
-## Calibrationは区間のcoverageをdataで調べる
+## Calibrationは区間のカバレッジをデータで調べる
 
-nominal coverage $\gamma$の予測区間$[L_i,U_i]$が、未使用のobservationをどの程度含むかを調べます。
+nominal カバレッジ $\gamma$の予測区間$[L_i,U_i]$が、未使用のobservationをどの程度含むかを調べます。
 
 **Estimator**
 
@@ -343,10 +343,10 @@ $$
 \mathbb{1}\{L_i \le y_i \le U_i\}.
 $$
 
-$G$はholdoutに含まれる独立な評価group数です。
-同じ材料条件の反復測定を別々の独立groupとして数えると、coverageの分母を水増しします。
+$G$はholdoutに含まれる独立な評価グループ数です。
+同じ材料条件の反復測定を別々の独立グループとして数えると、カバレッジの分母を水増しします。
 
-nominal coverageとの差を次で定義します。
+nominal カバレッジとの差を次で定義します。
 
 $$
 \Delta_{\gamma}
@@ -370,31 +370,31 @@ $$
 -0.10.
 $$
 
-このcohortでは、empirical coverageがnominal coverageを10 percentage point下回りました。
-10 groupだけではsampling errorが大きいため、この一値から将来のすべての入力でcoverageが70%になるとは結論しません。
+このcohortでは、empirical カバレッジがnominal カバレッジを10 percentage point下回りました。
+10 グループだけではサンプリングエラーが大きいため、この一値から将来のすべての入力でカバレッジが70%になるとは結論しません。
 
 calibrationは、区間幅を狭くすることではありません。
-極端に広い区間は高いcoverageを得られるため、coverageだけで予測分布の有用性を評価できません。
-sharpness、proper scoring rule、対象cohort、group splitを併せて確認します。
+極端に広い区間は高いカバレッジを得られるため、カバレッジだけで予測分布の有用性を評価できません。
+sharpness、proper scoring rule、対象cohort、グループ splitを併せて確認します。
 
-{{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}は、legacyなRidge経路について`grouped_oof_residual_quantiles`、central 90%、grouping、fold数をmetadataへ残します。
-{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}は、反復測定rowではなくparent conditionでfoldを分け、OOF residualから上下offsetを得ることを確認します。
+{{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}は、旧形式なRidge経路について`grouped_oof_residual_quantiles`、central 90%、grouping、フォールド数をメタデータへ残します。
+{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}は、反復測定行ではなくparent conditionでフォールドを分け、OOF residualから上下offsetを得ることを確認します。
 
-Model Package runtimeでは、distribution familyとquantileがPackage固有の方法から得られます。
-区間が存在することだけを見て、grouped OOF calibration済みだと読み替えません。
-区間のcoverageや意味が異なるPackageを同じ区間として比較しない方針は、{{< code-ref prediction-math-decision >}}に記録されています。
+モデルパッケージランタイムでは、distribution familyとquantileがパッケージ固有の方法から得られます。
+区間が存在することだけを見て、グループ別 OOF calibration済みだと読み替えません。
+区間のカバレッジや意味が異なるパッケージを同じ区間として比較しない方針は、{{< code-ref prediction-math-decision >}}に記録されています。
 
-## Supportは学習条件からの距離を測る
+## 学習データの裏付けは学習条件からの距離を測る
 
-calibrationが「同じ評価条件で区間がどの程度実測値を含んだか」を扱うのに対し、supportは「この入力が学習参照集合からどの程度離れているか」を扱います。
+calibrationが「同じ評価条件で区間がどの程度実測値を含んだか」を扱うのに対し、学習データの裏付けは「この入力が学習参照集合からどの程度離れているか」を扱います。
 
-{{< code-ref prediction-math-api-contract symbol=Support >}}は、status、distance、percentile、message、成分別distance、参照数、二つのthresholdを保持します。
-確率fieldは持ちません。
+{{< code-ref prediction-math-api-contract symbol=Support >}}は、状態、distance、percentile、message、成分別distance、参照数、二つのthresholdを保持します。
+確率フィールドは持ちません。
 
-現行の焼鈍Taskでは、featureを学習dataのmeanとscaleで正規化します。
-組成、工程、組織、heat patternの各group内でmean squared distanceを計算し、group間を同じ重みで平均した後に平方根を取ります。
+現行の焼鈍タスクでは、featureを学習データのmeanとscaleで正規化します。
+組成、工程、組織、heat patternの各グループ内でmean squared distanceを計算し、グループ間を同じ重みで平均した後に平方根を取ります。
 
-**Implementation**
+**実装**
 
 $$
 d_g(\mathbf{x},\mathbf{x}_r)
@@ -420,10 +420,10 @@ d_g(\mathbf{x},\mathbf{x}_r)^2
 }.
 $$
 
-$J_g$はgroup $g$に属するfeature index、$\mathcal{G}$はfeature group集合、$\mathbf{x}_r$は学習参照conditionです。
-この形により、scalar featureが多いgroupだけが距離を支配しにくくなります。
+$J_g$はグループ $g$に属するfeature index、$\mathcal{G}$はfeature グループ集合、$\mathbf{x}_r$は学習参照conditionです。
+この形により、スカラー featureが多いグループだけが距離を支配しにくくなります。
 
-候補のsupport distanceは、参照conditionへの最小距離です。
+候補の裏付け距離は、参照conditionへの最小距離です。
 
 $$
 d_{\min}(\mathbf{x})
@@ -447,27 +447,27 @@ $$
 $$
 
 percentile 100は、参照distance分布の端または外側にいることを表します。
-予測が正しい確率、目標を満たす確率、coverage 100%のいずれでもありません。
+予測が正しい確率、目標を満たす確率、カバレッジ 100%のいずれでもありません。
 
 {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}は、この距離、threshold、percentile、近い観測を一緒に返します。
-targetごとの学習cohortが異なる場合は、同じCandidateでもtargetごとにsupportが変わります。
+targetごとの学習cohortが異なる場合は、同じ候補でもtargetごとに学習データの裏付けが変わります。
 
-supportはfeature representation、scale、group、参照cohort、distance policyに依存します。
+学習データの裏付けはfeature representation、scale、グループ、参照cohort、distance policyに依存します。
 これらを変えた後も同じthresholdを使うと、数値が同じでも意味が変わります。
 
 ## Robustnessは入力分布を通した点予測を集計する
 
-**入力ばらつきに対する頑健性（robustness）**は、基準Candidateの入力をTolerance Profileに従って変動させ、制約を満たした入力で点予測、support、目標達成を集計するDecision Activityです。
+**入力ばらつきに対する頑健性（robustness）**は、基準候補の入力をTolerance プロファイルに従って変動させ、制約を満たした入力で点予測、学習データの裏付け、目標達成を集計する検討アクティビティです。
 
 処理は次の順に進みます。
 
-1. Tolerance ProfileをTask contractとProject Design Spaceで検証する
-2. seed付きgeneratorで入力をsampleする
-3. 組成balanceとTask制約を検証し、不正なsampleをrejectする
-4. 受理した入力について点予測とsupportを計算する
+1. Tolerance プロファイルをタスク契約とプロジェクト設計空間で検証する
+2. seed付きgeneratorで入力をサンプルする
+3. 組成balanceとタスク制約を検証し、不正なサンプルをrejectする
+4. 受理した入力について点予測と学習データの裏付けを計算する
 5. 点予測のquantile、worst observed value、目標達成率を集計する
-6. 入力と点予測の相関をcritical input候補として計算する
-7. requested、accepted、rejected、warning、provenanceを保存する
+6. 入力と点予測の相関をcritical 入力候補として計算する
+7. requested、accepted、rejected、警告、来歴を保存する
 
 受理した$M$個の点予測を$Z^{(1)},\ldots,Z^{(M)}$とします。
 目標が$Y \ge \tau$なら、empirical achievement rateは次です。
@@ -482,59 +482,59 @@ $$
 \mathbb{1}\{Z^{(m)} \ge \tau\}.
 $$
 
-この割合は、指定したTolerance Profile、制約、seed、有限sample、点予測に依存します。
-modelが返す$\Pr(Y \ge \tau \mid \mathbf{x}_0,\mathcal{D})$ではありません。
+この割合は、指定したTolerance プロファイル、制約、seed、有限サンプル、点予測に依存します。
+モデルが返す$\Pr(Y \ge \tau \mid \mathbf{x}_0,\mathcal{D})$ではありません。
 
-{{< code-ref prediction-math-robustness-contract symbol=RobustnessTargetSummary >}}は、base prediction、input variation、model uncertainty、任意のgoal achievement rate、worst observed valueを別fieldにします。
-Projectに目標がない場合、goal achievement rateは0ではなく`null`です。
+{{< code-ref prediction-math-robustness-contract symbol=RobustnessTargetSummary >}}は、base prediction、入力 variation、モデル uncertainty、任意のgoal achievement rate、worst observed valueを別フィールドにします。
+プロジェクトに目標がない場合、goal achievement rateは0ではなく`null`です。
 
-{{< code-ref prediction-math-robustness-contract symbol=RobustnessSummary >}}は、requested sampleとaccepted sampleを分けます。
-制約違反をclipして受理したことにせず、reject数とwarningを証拠に残します。
+{{< code-ref prediction-math-robustness-contract symbol=RobustnessSummary >}}は、requested サンプルとaccepted サンプルを分けます。
+制約違反をclipして受理したことにせず、reject数と警告を証拠に残します。
 
-critical inputに使う相関は、Tolerance Profile内の局所sampleにおける関連です。
-入力を操作した因果効果でも、全Design Spaceでのglobal importanceでもありません。
+critical 入力に使う相関は、Tolerance プロファイル内の局所サンプルにおける関連です。
+入力を操作した因果効果でも、全設計空間でのglobal importanceでもありません。
 
 ## 破綻条件を三種類に分ける
 
 | 種類 | 例 | 現行の停止または表示 |
 |---|---|---|
-| contract違反 | quantile levelが範囲外、quantileが逆順、count quantileが非整数 | Model Package検証で拒否 |
-| 入力分布違反 | toleranceがTask範囲外、truncated rangeが基準値を含まない | Activity開始前に拒否 |
-| sample生成失敗 | 制約を満たす入力を必要数生成できない | accepted数を残しwarning、0件なら失敗 |
-| calibration違反 | 同じparent conditionの反復をtrainとvalidationへ分割 | group splitで防ぐ |
-| support意味違反 | feature scale変更後に旧thresholdを再利用 | support policyとPackageを同じidentityで追跡 |
+| 契約違反 | quantile levelが範囲外、quantileが逆順、count quantileが非整数 | モデルパッケージ検証で拒否 |
+| 入力分布違反 | toleranceがタスク範囲外、truncated rangeが基準値を含まない | アクティビティ開始前に拒否 |
+| サンプル生成失敗 | 制約を満たす入力を必要数生成できない | accepted数を残し警告、0件なら失敗 |
+| calibration違反 | 同じparent conditionの反復をtrainとvalidationへ分割 | グループ splitで防ぐ |
+| 学習データの裏付けに関する意味違反 | 特徴量尺度の変更後に旧しきい値を再利用 | 裏付け判定規則とパッケージを同じ同一性で追跡 |
 | 表示上の誤読 | point-only出力を区間幅0と表示 | interval有無をquantile数で判定 |
-| 統合の誤り | input intervalとmodel intervalの端を加算 | 二つの区間を別labelで表示 |
-| 外挿の誤断定 | `extrapolated`を「必ず誤り」と読む | warningと近い実績を併記 |
+| 統合の誤り | 入力 intervalとモデル intervalの端を加算 | 二つの区間を別ラベルで表示 |
+| 外挿の誤断定 | `extrapolated`を「必ず誤り」と読む | 警告と近い実績を併記 |
 
-quantile crossingを並べ替えて修正すると、runtimeが返した分布の矛盾を隠します。
-現行のquantile adapterとsummary validatorは、crossingまたは逆順を拒否します。
+quantile crossingを並べ替えて修正すると、ランタイムが返した分布の矛盾を隠します。
+現行のquantile アダプタと要約 validatorは、crossingまたは逆順を拒否します。
 
-calibration cohortとproduction cohortが異なる場合、過去のcoverageをそのまま現在の保証へ使えません。
-target、group、期間、設備、測定protocolが変わった場合は、coverageを分けて評価します。
+calibration cohortと本番 cohortが異なる場合、過去のカバレッジをそのまま現在の保証へ使えません。
+target、グループ、期間、設備、測定protocolが変わった場合は、カバレッジを分けて評価します。
 
-supportが`supported`でも、model misspecification、label error、未観測交互作用は残ります。
-supportは入力距離の検査であり、残差または予測分布の検査ではありません。
+学習データの裏付けが`supported`でも、モデル misspecification、ラベルエラー、未観測交互作用は残ります。
+学習データの裏付けは入力距離の検査であり、残差または予測分布の検査ではありません。
 
-## 実装、contract、testを対応付ける
+## 実装、契約、テストを対応付ける
 
-- **点、quantile、distribution** — contractは{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}です。{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}が意味と再現性を確認しますが、任意cohortでのcalibrationは保証しません。
+- **点、quantile、distribution** — 契約は{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}です。{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}が意味と再現性を確認しますが、任意cohortでのcalibrationは保証しません。
 - **quantile順序とtarget support** — {{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}を{{< code-ref prediction-math-package-test symbol=test_predictive_summary_rejects_invalid_noncontinuous_semantics >}}で確認します。分布仮定の科学的妥当性は別の問いです。
-- **APIの点と区間** — {{< code-ref prediction-math-api-contract symbol=Prediction >}}をOpenAPI contract testで固定します。異なる区間が共通のcoverageを持つとは保証しません。
-- **grouped OOF residual** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}を{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}で確認します。すべてのPackage runtimeがcalibratedであるとは限りません。
-- **support distanceとthreshold** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}を同じgrouped OOF testで確認します。supportは予測が正しい確率ではありません。
-- **入力ばらつきinterval** — {{< code-ref prediction-math-robustness-compute symbol=compute >}}を{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}で確認します。model uncertaintyとの統合分布は作りません。
-- **二種類の区間表示** — {{< code-ref prediction-math-presentation symbol=predictionIntervalLabel >}}とRobustness viewをDecision Activity E2Eで確認します。利用者が誤読しないことの完全な保証ではありません。
+- **APIの点と区間** — {{< code-ref prediction-math-api-contract symbol=Prediction >}}をOpenAPI 契約テストで固定します。異なる区間が共通のカバレッジを持つとは保証しません。
+- **grouped OOF residual** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}を{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}で確認します。すべてのパッケージランタイムがcalibratedであるとは限りません。
+- **support distanceとthreshold** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}を同じグループ別 OOF テストで確認します。学習データの裏付けは予測が正しい確率ではありません。
+- **入力ばらつきinterval** — {{< code-ref prediction-math-robustness-compute symbol=compute >}}を{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}で確認します。モデル uncertaintyとの統合分布は作りません。
+- **二種類の区間表示** — {{< code-ref prediction-math-presentation symbol=predictionIntervalLabel >}}とRobustness ビューを検討アクティビティ E2Eで確認します。利用者が誤読しないことの完全な保証ではありません。
 
-{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}は、同じseedで同じPredictive Summaryを返し、target kindに応じてquantile supportを守ることを確認します。
-これはseedを変えた有限sample誤差、model choice、data shiftを検証するtestではありません。
+{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}は、同じseedで同じ予測要約を返し、target kindに応じてquantileの値域を守ることを確認します。
+これはseedを変えた有限サンプル誤差、モデル choice、データ shiftを検証するテストではありません。
 
-{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}は、同じparameterで同じRunを作り、input variationとmodel uncertaintyを別fieldで保存できることを確認します。
-testが通っても、Tolerance Profileが現場の製造ばらつきを正しく表すとは限りません。
+{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}は、同じパラメータで同じ実行記録を作り、入力 variationとモデル uncertaintyを別フィールドで保存できることを確認します。
+テストが通っても、Tolerance プロファイルが現場の製造ばらつきを正しく表すとは限りません。
 
 ## 演習1：点とquantileを計算する {#exercise-prediction-math-01}
 
-次の九つのpredictive sampleを使います。
+次の九つのpredictive サンプルを使います。
 
 $$
 (470,\ 490,\ 500,\ 505,\ 510,\ 515,\ 525,\ 540,\ 585)\ \mathrm{MPa}
@@ -542,8 +542,8 @@ $$
 
 次を計算してください。
 
-1. sample mean
-2. sample median
+1. サンプル mean
+2. サンプル median
 3. 線形補間による10%と90%のempirical quantile
 4. meanとmedianが異なる理由
 5. この九値から主張できないことを二つ
@@ -552,8 +552,8 @@ $$
 
 - 単位を各結果へ付ける
 - quantileの補間位置を示す
-- 点、quantile、sampleを同義にしない
-- 有限sampleと母分布を区別する
+- 点、quantile、サンプルを同義にしない
+- 有限サンプルと母分布を区別する
 
 [演習1の解答](#answer-prediction-math-01)は、回答を固定してから開きます。
 
@@ -568,40 +568,40 @@ medianは五番目の$510\ \mathrm{MPa}$です。
 
 最大値$585\ \mathrm{MPa}$が右側へ離れているため、meanはmedianより高くなります。
 
-この九値だけから、母分布の形、将来dataでの80% coverage、modelの正しさ、入力supportを確定できません。
+この九値だけから、母分布の形、将来データでの80%カバレッジ、モデルの正しさ、入力に対する学習データの裏付けを確定できません。
 
 #### 解答の理由
 
-mean、median、quantileは、同じ有限sampleへ異なる演算を行った結果です。
-sample数、quantile estimator、seedが変われば値も動くため、計算方法を結果と一緒に示します。
+mean、median、quantileは、同じ有限サンプルへ異なる演算を行った結果です。
+サンプル数、quantile estimator、seedが変われば値も動くため、計算方法を結果と一緒に示します。
 
 #### よくある不十分な回答
 
-`中央80%は486から549 MPa`だけでは、線形補間と有限sampleであることが分かりません。
+`中央80%は486から549 MPa`だけでは、線形補間と有限サンプルであることが分かりません。
 `515.6 MPaが最も確からしい`という回答も、meanを返す契約と分布仮定を示していません。
 :::
 
 ## 演習2：二つの区間を統合しない {#exercise-prediction-math-02}
 
-基準入力$\mathbf{x}_0$で、runtime predictive intervalが$[480,\ 540]\ \mathrm{MPa}$でした。
-Tolerance Profileから受理した五つの入力に対する点予測は、次です。
+基準入力$\mathbf{x}_0$で、ランタイム predictive intervalが$[480,\ 540]\ \mathrm{MPa}$でした。
+Tolerance プロファイルから受理した五つの入力に対する点予測は、次です。
 
 $$
 (495,\ 505,\ 525,\ 535,\ 560)\ \mathrm{MPa}
 $$
 
-次のreview案を評価してください。
+次のレビュー案を評価してください。
 
-> model intervalの下限480 MPaとinput variationの最小値495 MPaを足し、上限540 MPaと最大値560 MPaを足す。
+> モデル intervalの下限480 MPaと入力 variationの最小値495 MPaを足し、上限540 MPaと最大値560 MPaを足す。
 > combined intervalは$[975,\ 1100]\ \mathrm{MPa}$である。
 
-誤りの理由と、現行contractで保存すべき二つの値を書いてください。
+誤りの理由と、現行契約で保存すべき二つの値を書いてください。
 
 ### 成功条件
 
 - 固定入力のpredictive distributionと、変動入力の点予測集合を区別する
 - 二つの区間の端を加算できない理由を述べる
-- 統合分布を求める場合に必要なsampleを示す
+- 統合分布を求める場合に必要なサンプルを示す
 - 現行実装が統合分布を計算していないことを書く
 
 [演習2の解答](#answer-prediction-math-02)は、回答を固定してから開きます。
@@ -609,44 +609,44 @@ $$
 ::: {#answer-prediction-math-02 .exercise-solution data-label="演習2の解答"}
 #### 解答例
 
-review案は採用しません。
-$[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定したruntime predictive intervalであり、五つの値は異なる入力に対する点予測です。
+レビュー案は採用しません。
+$[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定したランタイム predictive intervalであり、五つの値は異なる入力に対する点予測です。
 発生源と条件付けが異なる区間の端を足しても、確率分布のquantileにはなりません。
 
-現行contractでは、`model_uncertainty`へ$[480,\ 540]\ \mathrm{MPa}$を保存します。
-`input_variation`には、五つの点予測から決めたquantile、median、coverage labelを保存します。
+現行契約では、`model_uncertainty`へ$[480,\ 540]\ \mathrm{MPa}$を保存します。
+`input_variation`には、五つの点予測から決めたquantile、median、カバレッジラベルを保存します。
 
-combined distributionが必要なら、各入力sample $\mathbf{X}^{(m)}$について$Y^{(m,r)} \sim p(Y\mid\mathbf{X}^{(m)},\mathcal{D})$をsampleし、全sampleから目的のquantileを推定します。
-その計算は現行Robustness Activityにはありません。
+combined distributionが必要なら、各入力サンプル $\mathbf{X}^{(m)}$について$Y^{(m,r)} \sim p(Y\mid\mathbf{X}^{(m)},\mathcal{D})$をサンプルし、全サンプルから目的のquantileを推定します。
+その計算は現行Robustness アクティビティにはありません。
 
 #### 解答の理由
 
 quantileは加法的ではありません。
-独立なrandom variableの和を扱う場合でも、各分布と依存関係を定義せずにquantileの端だけを足すことはできません。
+独立な確率変数の和を扱う場合でも、各分布と依存関係を定義せずにquantileの端だけを足すことはできません。
 
 #### よくある不十分な回答
 
 `広すぎるから誤り`では、数値の大きさしか批判していません。
-`二つを平均する`案も、平均後の量がどのrandom variableを表すか定義できません。
+`二つを平均する`案も、平均後の量がどの確率変数を表すか定義できません。
 :::
 
-## 演習3：Coverageとsupportを説明する {#exercise-prediction-math-03}
+## 演習3：カバレッジと学習データの裏付けを説明する {#exercise-prediction-math-03}
 
 中央80%予測区間を10個のholdout parent conditionで評価し、7個の実測値が区間内に入りました。
-同じcandidateのsupport percentileは95、statusは`caution`です。
+同じcandidateの裏付けパーセンタイルは95、状態は`caution`です。
 
-次の表示案をreviewしてください。
+次の表示案をレビューしてください。
 
-> この候補の予測信頼度は、coverage 70%とsupport 95%を平均した82.5%です。
+> この候補の予測信頼度は、カバレッジ 70%と学習データの裏付け 95%を平均した82.5%です。
 
-calibrationとsupportの各値が答える問いを示し、代わりに表示する説明を書いてください。
+calibrationと学習データの裏付けの各値が答える問いを示し、代わりに表示する説明を書いてください。
 
 ### 成功条件
 
-- empirical coverageを計算する
-- nominal coverageとの差をpercentage pointで示す
-- support percentileを確率と呼ばない
-- coverageとsupportを平均できない理由を述べる
+- empirical カバレッジを計算する
+- nominal カバレッジとの差をpercentage pointで示す
+- 裏付けパーセンタイルを確率と呼ばない
+- カバレッジと学習データの裏付けを平均できない理由を述べる
 - 追加で確認するcohortまたは近傍証拠を示す
 
 [演習3の解答](#answer-prediction-math-03)は、回答を固定してから開きます。
@@ -654,10 +654,10 @@ calibrationとsupportの各値が答える問いを示し、代わりに表示�
 ::: {#answer-prediction-math-03 .exercise-solution data-label="演習3の解答"}
 #### 解答例
 
-empirical coverageは$7/10=0.70$です。
+empirical カバレッジは$7/10=0.70$です。
 nominal 80%より10 percentage point低い結果です。
 
-support percentile 95は、定義したfeature distanceが参照conditionのleave-one-out distance分布で端に近いことを表します。
+裏付けパーセンタイル 95は、定義したfeature distanceが参照conditionのleave-one-out distance分布で端に近いことを表します。
 予測が正しい確率ではありません。
 
 二値は分母と問いが違うため、平均して82.5%という新しい確率を作りません。
@@ -665,66 +665,66 @@ support percentile 95は、定義したfeature distanceが参照conditionのleav
 表示例は次です。
 
 > 中央80%予測区間は、評価した10条件のうち7条件を含みました。
-> この候補の入力距離はsupport percentile 95で、過去条件の密度が低い領域です。
-> 同じTaskと設備のholdout内訳、および近い学習条件を確認してください。
+> この候補の入力距離は裏付けパーセンタイル 95で、過去条件の密度が低い領域です。
+> 同じタスクと設備のholdout内訳、および近い学習条件を確認してください。
 
 #### 解答の理由
 
-coverageは実測値が区間に入った頻度です。
-supportは入力空間での距離順位です。
-異なる量を一つのconfidenceへ畳むと、低いcoverageと遠い入力のどちらが問題か分からなくなります。
+カバレッジは実測値が区間に入った頻度です。
+学習データの裏付けは入力空間での距離順位です。
+異なる量を一つのconfidenceへ畳むと、低いカバレッジと遠い入力のどちらが問題か分からなくなります。
 
 #### よくある不十分な回答
 
-`70%なので使えない`という結論は、holdout数、用途、区間幅、許容するriskを評価していません。
+`70%なので使えない`という結論は、holdout数、用途、区間幅、許容するリスクを評価していません。
 `95%なので高support`という回答は、percentileの向きを逆に読んでいます。
 :::
 
 ## 設計を振り返る
 
-### Predictive Summaryはsample storeではない
+### Predictive 要約はサンプル storeではない
 
-Predictive Summaryは、runtime固有の分布出力を点、quantile、分布情報へ揃えます。
-生のsampleを保存しないため、payloadと比較は小さくなりますが、利用者はsampleから別の統計量を再計算できません。
+Predictive 要約は、ランタイム固有の分布出力を点、quantile、分布情報へ揃えます。
+生のサンプルを保存しないため、ペイロードと比較は小さくなりますが、利用者はサンプルから別の統計量を再計算できません。
 
-raw sampleが必要な機能を追加する場合は、Runtime Capability、size上限、seed、sample identity、保存期間を別に設計します。
-既存`quantiles`へbase64または任意JSONでsampleを埋め込みません。
+raw サンプルが必要な機能を追加する場合は、ランタイム能力、size上限、seed、サンプル同一性、保存期間を別に設計します。
+既存`quantiles`へbase64または任意JSONでサンプルを埋め込みません。
 
 ### Calibrationは一度の合格判定ではない
 
-calibrationは、target、cohort、group split、coverage level、model versionごとに評価します。
-一つのPackageで90% coverageが近くても、別設備、別組成領域、別targetへ自動的に移りません。
+calibrationは、target、cohort、グループ split、カバレッジ level、モデルバージョンごとに評価します。
+一つのパッケージで90% カバレッジが近くても、別設備、別組成領域、別targetへ自動的に移りません。
 
 したがって、`calibrated: true`というbooleanだけを契約へ置く案は採りません。
-method、nominal coverage、empirical coverage、cohort、observation数、split、versionを証拠として残します。
+method、nominal カバレッジ、empirical カバレッジ、cohort、observation数、split、バージョンを証拠として残します。
 
-### Supportはaccuracyの代用品ではない
+### 学習データの裏付けはaccuracyの代用品ではない
 
-support distanceは、学習dataから離れた入力を検出する一つの方法です。
-近い入力でもmodelが誤る場合があり、遠い入力でも予測が偶然当たる場合があります。
+裏付け距離は、学習データから離れた入力を検出する一つの方法です。
+近い入力でもモデルが誤る場合があり、遠い入力でも予測が偶然当たる場合があります。
 
-support warningは予測を無効化するhard constraintではありません。
+学習データの裏付け警告は予測を無効化するハード制約ではありません。
 探索的な参考へ格下げし、近い実績、追加実験、入力rangeの見直しへ接続します。
 
 ### Robustnessは二重の不確実性伝播ではない
 
-現行Robustness Activityは、入力sampleに対する点予測の分布を作ります。
-model predictive distributionを各入力でsampleしていないため、input variationとmodel uncertaintyの統合を主張しません。
+現行Robustness アクティビティは、入力サンプルに対する点予測の分布を作ります。
+モデル predictive distributionを各入力でサンプルしていないため、入力 variationとモデル uncertaintyの統合を主張しません。
 
 この制限を画面上の二つの区間で保つことは、機能不足を隠すためではありません。
 計算していない統合分布を利用者があるものとして読むことを防ぎます。
 
 ## 現行実装の限界
 
-- `PredictiveSummary`は生のpredictive sampleを公開しない
-- uncertainty componentはruntimeによって有無と名前が異なる
-- legacy Ridgeのgrouped OOF intervalとPackage固有quantileは同じcalibration手法ではない
-- `Prediction.lower`と`upper`は外側の宣言quantileであり、coverage levelをfieldとして直接持たない
-- support distance policyは焼鈍Taskのfeature groupへ依存する
-- support thresholdは学習参照conditionのleave-one-out distance分布に依存する
-- Robustnessのinput quantileは有限sampleから計算し、Monte Carlo errorを表示しない
-- Robustnessはinput variationとruntime predictive uncertaintyを統合しない
-- critical inputの相関は局所的な関連であり、因果効果ではない
+- `PredictiveSummary`は生のpredictive サンプルを公開しない
+- uncertainty コンポーネントはランタイムによって有無と名前が異なる
+- 旧形式 Ridgeのグループ別 OOF intervalとパッケージ固有quantileは同じcalibration手法ではない
+- `Prediction.lower`と`upper`は外側の宣言quantileであり、カバレッジ levelをフィールドとして直接持たない
+- 裏付け距離 policyは焼鈍タスクのfeature グループへ依存する
+- 学習データの裏付け thresholdは学習参照conditionのleave-one-out distance分布に依存する
+- Robustnessの入力 quantileは有限サンプルから計算し、モンテカルロエラーを表示しない
+- Robustnessは入力 variationとランタイム predictive uncertaintyを統合しない
+- critical 入力の相関は局所的な関連であり、因果効果ではない
 
 この限界は、すべてを一つの`confidence`へ変換しない理由です。
 不足する証拠を別のまま残すと、次に追加すべき評価または実験を選べます。
@@ -732,13 +732,13 @@ model predictive distributionを各入力でsampleしていないため、input 
 ## 章末チェック {#exercise-prediction-math-chapter-check}
 
 1. `point_statistic`が必要な理由を、meanとmedianを使って説明してください。
-2. quantileと有限sampleの違いを説明してください。
-3. 現行Predictive Summaryがraw sampleを公開しないことを、どのcontractとvalidatorで確認できますか。
-4. model uncertainty intervalとinput variation intervalの条件付けを、それぞれ式で示してください。
-5. nominal 90%区間が20 holdout groupのうち16 groupを含んだ場合、empirical coverageとgapはいくつですか。
-6. support percentile 100をaccuracy 100%と呼べない理由を説明してください。
-7. Robustnessのgoal achievement rateがmodelの目標達成確率ではない理由を説明してください。
-8. input intervalとmodel intervalを統合するために、現行実装へ不足する計算は何ですか。
+2. quantileと有限サンプルの違いを説明してください。
+3. 現行Predictive 要約がraw サンプルを公開しないことを、どの契約とvalidatorで確認できますか。
+4. モデル uncertainty intervalと入力 variation intervalの条件付けを、それぞれ式で示してください。
+5. nominal 90%区間が20 holdout グループのうち16 グループを含んだ場合、empirical カバレッジとgapはいくつですか。
+6. 裏付けパーセンタイル 100をaccuracy 100%と呼べない理由を説明してください。
+7. Robustnessのgoal achievement rateがモデルの目標達成確率ではない理由を説明してください。
+8. 入力 intervalとモデル intervalを統合するために、現行実装へ不足する計算は何ですか。
 
 [章末チェックの解答](#answer-prediction-math-chapter-check)は、回答を固定してから開きます。
 
@@ -746,28 +746,28 @@ model predictive distributionを各入力でsampleしていないため、input 
 #### 解答例
 
 1. meanとmedianは分布の異なる代表値であり、歪んだ分布では一致しないため、点の数値だけでは意味を復元できません。
-2. quantileは分布の累積確率に対応する境界で、有限sampleから計算したempirical quantileはその推定値です。
-3. {{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}にsample fieldがなく、{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}はRuntime Capabilityの`samples`宣言を拒否します。
-4. model uncertaintyは$p(Y\mid\mathbf{x}_0,\mathcal{D},\mathcal{M})$、input variationは$\mathbf{X}^{(m)}\sim q_{\mathrm{tol}}(\mathbf{x}_0)$に対する$Z^{(m)}=m(\mathbf{X}^{(m)})$です。
-5. empirical coverageは$16/20=0.80$、nominal 0.90との差は$-0.10$、すなわち10 percentage point不足です。
+2. quantileは分布の累積確率に対応する境界で、有限サンプルから計算したempirical quantileはその推定値です。
+3. {{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}にサンプルフィールドがなく、{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}はランタイム能力の`samples`宣言を拒否します。
+4. モデル uncertaintyは$p(Y\mid\mathbf{x}_0,\mathcal{D},\mathcal{M})$、入力 variationは$\mathbf{X}^{(m)}\sim q_{\mathrm{tol}}(\mathbf{x}_0)$に対する$Z^{(m)}=m(\mathbf{X}^{(m)})$です。
+5. empirical カバレッジは$16/20=0.80$、nominal 0.90との差は$-0.10$、すなわち10 percentage point不足です。
 6. percentileは参照conditionのdistance順位であり、予測誤差または目標達成を分母にしていません。
-7. RobustnessはTolerance Profileから生成した有限入力sampleの点予測を数え、固定入力のpredictive distributionから目標事象をsampleしていないためです。
-8. 各入力sampleでruntime predictive distributionをsampleし、入力分布について周辺化したsample集合からquantileを計算する処理が不足しています。
+7. RobustnessはTolerance プロファイルから生成した有限入力サンプルの点予測を数え、固定入力のpredictive distributionから目標事象をサンプルしていないためです。
+8. 各入力サンプルでランタイム predictive distributionをサンプルし、入力分布について周辺化したサンプル集合からquantileを計算する処理が不足しています。
 
 #### 解答の理由
 
-八問は、点の意味、分布とsample、contract能力、二つの条件付け、calibration、support、robustness、統合分布という別の境界を確認します。
-一つの「不確実性がある」という説明へまとめると、実装とtestの置き場所を選べません。
+八問は、点の意味、分布とサンプル、契約能力、二つの条件付け、calibration、学習データの裏付け、robustness、統合分布という別の境界を確認します。
+一つの「不確実性がある」という説明へまとめると、実装とテストの置き場所を選べません。
 
 #### よくある不十分な回答
 
-`区間が広いほど不確実`だけでは、固定入力と変動入力、nominal coverageとempirical coverageを区別していません。
+`区間が広いほど不確実`だけでは、固定入力と変動入力、nominal カバレッジとempirical カバレッジを区別していません。
 `supportが低いので区間を広げる`という案も、距離と予測分布を結ぶ較正式を定義していません。
 :::
 
 ## 検証
 
-repository rootで次を実行します。
+リポジトリ rootで次を実行します。
 
 ```powershell
 uv run python -m pytest `
@@ -779,31 +779,31 @@ uv run python -m pytest `
 node docs/learning/check-code-references.mjs
 ```
 
-Model Package testはPredictive Summaryのtarget kind、quantile順序、distribution family、optional uncertainty componentを確認します。
-runtime testはgrouped OOF residualとparent condition supportを確認します。
-Decision Activity testはinput variationとmodel uncertaintyの分離、seedによる再現、Runの保存を確認します。
+モデルパッケージテストはPredictive 要約のtarget kind、quantile順序、distribution family、任意 uncertainty コンポーネントを確認します。
+ランタイムテストはグループ別 OOF residualとparent condition 学習データの裏付けを確認します。
+検討アクティビティテストは入力 variationとモデル uncertaintyの分離、seedによる再現、実行記録の保存を確認します。
 
-これらが通っても、任意のproduction cohortにおけるcalibration、Tolerance Profileの現場妥当性、support distanceと誤差の単調な関係は保証しません。
+これらが通っても、任意の本番 cohortにおけるcalibration、Tolerance プロファイルの現場妥当性、裏付け距離と誤差の単調な関係は保証しません。
 
 ## Further Reading
 
 **Rasmussen and Williams, [*Gaussian Processes for Machine Learning*, Chapter 2](https://gaussianprocess.org/gpml/chapters/RW2.pdf)**
 
-- 推奨箇所：Section 2.2 *Prediction with Noise-free Observations*、Section 2.7 *Incorporating Explicit Basis Functions*
-- 読む問い：固定入力に対するpredictive meanとvarianceは、学習dataへの条件付けからどう得られるか
-- 注意：Gaussian predictive distributionの式を、quantile modelまたはfinite posterior sampleへ無条件に移さない
+- 推奨箇所：節 2.2 *Prediction with Noise-free Observations*、節 2.7 *Incorporating Explicit Basis Functions*
+- 読む問い：固定入力に対するpredictive meanとvarianceは、学習データへの条件付けからどう得られるか
+- 注意：Gaussian predictive distributionの式を、quantile モデルまたはfinite posterior サンプルへ無条件に移さない
 
 **Gneiting and Raftery, [“Strictly Proper Scoring Rules, Prediction, and Estimation”](https://doi.org/10.1198/016214506000001437)**
 
-- 推奨箇所：Section 2 *Proper Scoring Rules*、Section 6 *Quantiles and Prediction Intervals*
-- 読む問い：coverageだけでなく、予測分布全体またはquantileの質をどう評価するか
+- 推奨箇所：節 2 *Proper Scoring Rules*、節 6 *Quantiles and Prediction Intervals*
+- 読む問い：カバレッジだけでなく、予測分布全体またはquantileの質をどう評価するか
 - 注意：scoring ruleの最適性と、現場で候補を採用する効用または安全制約を同一視しない
 
-**NIST, *Artificial Intelligence Risk Management Framework 1.0* [@nist-ai-rmf-1]**
+**NIST, *Artificial Intelligence リスク Management Framework 1.0* [@nist-ai-rmf-1]**
 
 - 推奨箇所：*AI Risks and Trustworthiness*、MAP 2.3、MEASURE 2.5
-- 読む問い：calibration、support、利用条件の限界を、どのcontext of useへ固定するか
-- 注意：frameworkのrisk分類を、一つの予測区間またはsupport statusへ縮約しない
+- 読む問い：calibration、学習データの裏付け、利用条件の限界を、どのcontext of useへ固定するか
+- 注意：frameworkのリスク分類を、一つの予測区間または学習データの裏付け状態へ縮約しない
 
 **Kale、Kay、Hullman, “Visual Reasoning Strategies for Effect Size Judgments and Decisions” [@kale-kay-hullman-2021]**
 

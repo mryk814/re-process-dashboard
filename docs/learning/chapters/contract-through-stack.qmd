@@ -115,22 +115,22 @@ historical_concepts:
 
 読了後は、候補差分の要因分解を題材として、次の問いへ答えられる状態を目指します。
 
-- request bodyの型はどこが正本か
-- Activityごとに異なるparameterとresultを、共通APIがどう扱うか
+- リクエスト bodyの型はどこが正本か
+- アクティビティごとに異なるパラメータと結果を、共通APIがどう扱うか
 - OpenAPIとTypeScript型は何から生成されるか
-- Reactは異なるresult shapeをどう判別するか
-- 保存済みRunは、どの版の候補とモデルから作った結果かをどう保持するか
-- contract、service、API、frontend、E2Eのtestは、それぞれ何を防ぐか
+- Reactは異なる結果構造をどう判別するか
+- 保存済み実行記録は、どの版の候補とモデルから作った結果かをどう保持するか
+- 契約、サービス、API、フロントエンド、E2Eのテストは、それぞれ何を防ぐか
 
-この章は、新しいActivityをproductionへ追加しません。
+この章は、新しいアクティビティを本番へ追加しません。
 既存実装を読み、小さな変更案を演習用に設計するところまでを扱います。
 
 ## 変更が一層で終わらない理由
 
 候補差分の要因分解に「比較理由」という文字列を追加するとします。
-request bodyだけを考えれば、Python modelへfieldを一つ足せば済みそうです。
+リクエスト bodyだけを考えれば、Python モデルへフィールドを一つ足せば済みそうです。
 
-しかし、このアプリではrequestが次の境界を通ります。
+しかし、このアプリではリクエストが次の境界を通ります。
 
 ```text
 React form
@@ -147,47 +147,47 @@ React form
 ```
 
 一層だけを変更すると、別の層が古い意味を保持します。
-たとえばPython modelだけを変えて生成型を更新しなければ、frontendは古いrequest型を使い続けます。
-画面だけにfieldを足せば、backendは余分なfieldを拒否するか、意図せず捨てます。
-保存済みRunのschemaを考えなければ、再起動後の読み出しで現行contractに復元できません。
+たとえばPython モデルだけを変えて生成型を更新しなければ、フロントエンドは古いリクエスト型を使い続けます。
+画面だけにフィールドを足せば、バックエンドは余分なフィールドを拒否するか、意図せず捨てます。
+保存済み実行記録のスキーマを考えなければ、再起動後の読み出しで現行契約に復元できません。
 
-この問題は「同じfieldを何度も書く」ことだけではありません。
+この問題は「同じフィールドを何度も書く」ことだけではありません。
 各層が別の責務を持つため、変更の意味をどの境界まで通すかを決める問題です。
-境界の数ではなく、interfaceが隠す複雑さでmoduleを評価する見方は、Ousterhoutの*Modules Should Be Deep*と比較できます [@ousterhout-philosophy]。
+境界の数ではなく、インタフェースが隠す複雑さでモジュールを評価する見方は、Ousterhoutの*Modules Should Be Deep*と比較できます [@ousterhout-philosophy]。
 
-## 判別可能なunion
+## 判別可能なユニオン型
 
-異なるshapeを一つの入口で受けるとき、値そのものから種類を推測すると判定が曖昧になります。
-`sample_count`があるからロバストネス解析だと推測すると、別のActivityが同名fieldを使った時点で破綻します。
+異なる構造を一つの入口で受けるとき、値そのものから種類を推測すると判定が曖昧になります。
+`sample_count`があるからロバストネス解析だと推測すると、別のアクティビティが同名フィールドを使った時点で破綻します。
 
-そこで、payload自身へ種類を示す固定値を置きます。
-この固定値を**discriminator**と呼び、discriminatorで種類を一意に選べるunionを**discriminated union**と呼びます。
+そこで、ペイロード自身へ種類を示す固定値を置きます。
+この固定値を**discriminator**と呼び、discriminatorで種類を一意に選べるユニオン型を**discriminated union**と呼びます。
 
-検討アクティビティのparameterは、`schema_version`をdiscriminatorにします。^[Pydanticのdiscriminatorは、検証エラーを該当するvariantへ絞る利点もあります。この章では変更経路を主題にするため、エラー表現の比較までは扱いません。]
+検討アクティビティのパラメータは、`schema_version`をdiscriminatorにします。^[Pydanticのdiscriminatorは、検証エラーを該当するバリアントへ絞る利点もあります。この章では変更経路を主題にするため、エラー表現の比較までは扱いません。]
 
-| Activity | parameterの`schema_version` |
+| アクティビティ | パラメータの`schema_version` |
 |---|---|
 | ロバストネス／公差解析 | `robustness-parameters/v1` |
 | 候補差分の要因分解 | `candidate-difference-parameters/v1` |
 | 目標へ届く最小変更 | `counterfactual-parameters/v1` |
 
-resultも同じ考え方で分けます。
-parameterとresultが別の識別子を持つため、requestとresponseを同じ型だと誤認しません。
+結果も同じ考え方で分けます。
+パラメータと結果が別の識別子を持つため、リクエストとレスポンスを同じ型だと誤認しません。
 
-![Decision Activityのparameterとresultをschema_versionで分ける二つのunion](../figures/decision-activity-union.svg){fig-alt="DecisionActivityParametersは三つのparameter契約を、DecisionActivityResultは対応する三つのsummary契約を、それぞれschema_versionで判別する。parameter用とresult用の識別子を取り違えたpayloadと未知の識別子はREJECTとなる。" width="100%"}
+![検討アクティビティのパラメータと結果をschema_versionで分ける二つのユニオン型](../figures/decision-activity-union.svg){fig-alt="DecisionActivityParametersは三つのパラメータ契約を、DecisionActivityResultは対応する三つの要約契約を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。" width="100%"}
 
 ::: {.callout-important title="DESIGN DECISION"}
-`schema_version`は画面表示用のlabelではありません。
-保存済みpayloadの復元と、Python、OpenAPI、TypeScriptの型選択に使う契約上の識別子です。
-表示名を変える事情で更新せず、shapeまたは意味の互換性が変わるときにversionを分けます。
+`schema_version`は画面表示用のラベルではありません。
+保存済みペイロードの復元と、Python、OpenAPI、TypeScriptの型選択に使う契約上の識別子です。
+表示名を変える事情で更新せず、構造または意味の互換性が変わるときにバージョンを分けます。
 :::
 
 ## Python契約が種類を固定する
 
-### parameter model
+### パラメータモデル
 
 正本は {{< code-ref contract-stack-contract label=decision_activity_contracts.py >}} です。
-候補差分のparameter modelは、比較対象の候補IDとrevisionを要求します。
+候補差分のパラメータモデルは、比較対象の候補IDとリビジョンを要求します。
 
 ```python
 class CandidateDifferenceParameters(ContractModel):
@@ -200,9 +200,9 @@ class CandidateDifferenceParameters(ContractModel):
 
 `Literal`は許される文字列を一つへ固定します。
 `comparison_candidate_id`は空文字を拒否し、`comparison_revision`は1以上に制限します。
-これらはpayload単体で判定できる構造条件です。
+これらはペイロード単体で判定できる構造条件です。
 
-三つのparameter modelは、次のunionへまとめられます。
+三つのパラメータモデルは、次のユニオン型へまとめられます。
 
 ```python
 DecisionActivityParameters = Annotated[
@@ -218,20 +218,20 @@ class DecisionActivityRunRequest(ContractModel):
 ```
 
 ここで、`expected_revision`と`comparison_revision`は別の値です。
-前者は操作対象の候補が、画面で見たrevisionから変わっていないことを確認します。
-後者は比較候補のどのrevisionを使うかを固定します。
+前者は操作対象の候補が、画面で見たリビジョンから変わっていないことを確認します。
+後者は比較候補のどのリビジョンを使うかを固定します。
 
-二つを一つの「revision」にまとめると、操作対象の競合検出と比較証拠の再現性を区別できません。
+二つを一つの「リビジョン」にまとめると、操作対象の競合検出と比較証拠の再現性を区別できません。
 
 ### discriminatorを省略できない理由
 
-各parameter modelの`schema_version`にはdefaultがあります。
-それでも、union全体の入力ではdiscriminatorを明示する必要があります。
+各パラメータモデルの`schema_version`には既定があります。
+それでも、ユニオン型全体の入力ではdiscriminatorを明示する必要があります。
 
-Pydanticは、個別modelを選んでdefaultを補う前に、どのmodelで検証するかを決めなければなりません。
+Pydanticは、個別モデルを選んで既定を補う前に、どのモデルで検証するかを決めなければなりません。
 discriminatorがなければ、その選択ができません。
 
-`backend/tests/test_decision_activities.py` は、requestから`schema_version`を削除したときにHTTP 422となることを確認します。
+`backend/tests/test_decision_activities.py` は、リクエストから`schema_version`を削除したときにHTTP 422となることを確認します。
 
 ```python
 payload = _run_payload(candidate["revision"])
@@ -242,13 +242,13 @@ response = client.post(activity_url, json=payload)
 assert response.status_code == 422
 ```
 
-このtestはdefault値の存在を否定していません。
-Pythonコードが{{< code-ref contract-stack-contract symbol=CandidateDifferenceParameters >}}を直接生成する場合にはdefaultを使えます。
-外部payloadをunionとして受ける場合は、種類を明示させるという境界を固定しています。
+このテストは既定値の存在を否定していません。
+Pythonコードが{{< code-ref contract-stack-contract symbol=CandidateDifferenceParameters >}}を直接生成する場合には既定を使えます。
+外部ペイロードをユニオン型として受ける場合は、種類を明示させるという境界を固定しています。
 
-### result model
+### 結果モデル
 
-候補差分のresultは、入力差、予測差、入力ごとの寄与、支持範囲、warningを分けます。
+候補差分の結果は、入力差、予測差、入力ごとの寄与、支持範囲、警告を分けます。
 
 ```python
 class CandidateDifferenceSummary(ContractModel):
@@ -267,21 +267,21 @@ class CandidateDifferenceSummary(ContractModel):
 ```
 
 予測差とモデル不確実性は、同じ数値へ畳み込みません。
-`DifferenceTargetSummary`は、この候補と比較候補のprediction、差、置換で説明できた分、残差を別fieldにします。
+`DifferenceTargetSummary`は、この候補と比較候補のprediction、差、置換で説明できた分、残差を別フィールドにします。
 
 寄与も因果効果とは呼びません。
-実装は「比較候補の入力を一つだけ置換した局所差」を返すため、画面とE2Eはwarningとして「因果効果ではありません」と示します。
+実装は「比較候補の入力を一つだけ置換した局所差」を返すため、画面とE2Eは警告として「因果効果ではありません」と示します。
 
 <span class="evidence-label">CONFIRMED</span>
-現行result contractと画面は、入力置換で説明できた差と残差を別のfieldとして表示します。
+現行結果契約と画面は、入力置換で説明できた差と残差を別のフィールドとして表示します。
 
 <span class="evidence-label">INTERPRETATION</span>
 この分離は、説明できた値だけを過大評価しないための「会計表」として読むと追いやすくなります。
 会計表は教材上の読み方であり、統計的な因果分解を保証する名前ではありません。
 
-## registryが固有処理を閉じ込める
+## レジストリが固有処理を閉じ込める
 
-型だけをunionにしても、共通serviceへ次の分岐が増え続ければ拡張点は中央へ集中します。
+型だけをユニオン型にしても、共通サービスへ次の分岐が増え続ければ拡張点は中央へ集中します。
 
 ```python
 if activity_id == "robustness-analysis-v1":
@@ -291,7 +291,7 @@ elif activity_id == "candidate-difference-v1":
 ```
 
 現行実装は、この形を採りません。
-`backend/src/material_workbench/application/decision_activity_registry.py` は、Activityごとのhandlerをallow-listします。
+`backend/src/material_workbench/application/decision_activity_registry.py` は、アクティビティごとのハンドラを許可リストします。
 
 ```python
 @dataclass(frozen=True)
@@ -302,91 +302,91 @@ class DecisionActivityHandler:
     compute: Callable[[ActivityContext, Any], ActivityComputation]
 ```
 
-handlerは、Activity definition、受け付けるparameter kind、事前準備、計算を一組にします。
-`build_registry()`は固有handlerを集め、`activity_id`の重複とparameter/result kindの衝突を拒否します。
+ハンドラは、アクティビティ定義、受け付けるパラメータ種別、事前準備、計算を一組にします。
+`build_registry()`は固有ハンドラを集め、`activity_id`の重複とパラメータ/結果 kindの衝突を拒否します。
 
-このregistryは任意plugin loaderではありません。
-アプリ本体がimportする実装だけを登録する内部allow-listです。
-Model PackageからPythonコードを読み込まないというリポジトリの安全原則と同じ方向を向いています。
+このレジストリは任意plugin loaderではありません。
+アプリ本体がimportする実装だけを登録する内部許可リストです。
+モデルパッケージからPythonコードを読み込まないというリポジトリの安全原則と同じ方向を向いています。
 
-### 共通serviceの責務
+### 共通サービスの責務
 
-`backend/src/material_workbench/application/decision_activities.py` の`DecisionActivityService`は、Activityの種類に依存しない処理を持ちます。
+`backend/src/material_workbench/application/decision_activities.py` の`DecisionActivityService`は、アクティビティの種類に依存しない処理を持ちます。
 
-1. Project、Candidate、Task runtimeを解決する
-2. handlerをregistryから取得する
-3. requestの`schema_version`がhandlerの`parameters_kind`と一致するか確認する
-4. required resourceが利用できるか確認する
-5. handlerへ準備と計算を委譲する
-6. provenanceとresultを`DecisionActivityRun`へまとめる
-7. immutable Runとして保存する
+1. プロジェクト、候補、タスクランタイムを解決する
+2. ハンドラをレジストリから取得する
+3. リクエストの`schema_version`がハンドラの`parameters_kind`と一致するか確認する
+4. required リソースが利用できるか確認する
+5. ハンドラへ準備と計算を委譲する
+6. 来歴と結果を`DecisionActivityRun`へまとめる
+7. 不変実行記録として保存する
 
-Activity固有の計算は、`decision_activity_difference.py`のような別moduleへ置きます。
-共通serviceは「候補差分ならこの計算」と名指ししません。
+アクティビティ固有の計算は、`decision_activity_difference.py`のような別モジュールへ置きます。
+共通サービスは「候補差分ならこの計算」と名指ししません。
 
-`test_shared_activity_shells_do_not_name_a_specific_activity`は、共通service、API、共通React panelに既知の`activity_id`文字列が混入していないことを検査します。
-通常の動作testだけでは見逃す構造上の退行を、source inspectionで固定しています。
+`test_shared_activity_shells_do_not_name_a_specific_activity`は、共通サービス、API、共通React パネルに既知の`activity_id`文字列が混入していないことを検査します。
+通常の動作テストだけでは見逃す構造上の退行を、ソース inspectionで固定しています。
 
 ::: {.callout-note title="REPOSITORY"}
-このtestが守るのは「固有IDを共通shellへ書かない」という構造です。
-Activityを追加する際に変更箇所が一切増えないことまでは保証しません。
-Python contract union、backend registry、frontend view registryには、新しい種類を明示的に追加します。
+このテストが守るのは「固有IDを共通枠組みへ書かない」という構造です。
+アクティビティを追加する際に変更箇所が一切増えないことまでは保証しません。
+Python 契約ユニオン型、バックエンドレジストリ、フロントエンドビューレジストリには、新しい種類を明示的に追加します。
 :::
 
 ## 業務条件はapplicationで検証する
 
-Pydantic contractは、IDが空でないことやrevisionが1以上であることを検証できます。
-一方、比較候補が実際に存在するか、同じProjectに属するか、操作対象と同じ候補ではないかは、storeとProject文脈を読まなければ判定できません。
+Pydantic 契約は、IDが空でないことやリビジョンが1以上であることを検証できます。
+一方、比較候補が実際に存在するか、同じプロジェクトに属するか、操作対象と同じ候補ではないかは、storeとプロジェクト文脈を読まなければ判定できません。
 
-この条件は、Activity handlerとapplication serviceが検証します。
+この条件は、アクティビティハンドラとアプリケーションサービスが検証します。
 
-たとえば次は、どれもJSON shapeとしては正しいrequestです。
+たとえば次は、どれもJSON 構造としては正しいリクエストです。
 
 - 存在しない`comparison_candidate_id`
-- 別Projectの候補ID
+- 別プロジェクトの候補ID
 - 操作対象と同じ候補ID
 - 入力が完全に同じ別候補
-- 保存後にrevisionが進んだ比較候補
+- 保存後にリビジョンが進んだ比較候補
 
-これらをPydantic validatorへ詰め込むと、contract modelがdatabaseとruntimeに依存します。
-model単体の検証と、実行文脈を必要とするpreconditionが混ざります。
+これらをPydantic validatorへ詰め込むと、契約モデルがデータベースとランタイムに依存します。
+モデル単体の検証と、実行文脈を必要とするpreconditionが混ざります。
 
-`backend/tests/test_decision_activities.py` は、自己比較、同一入力、別Activityのparameterを送る場合を個別に検証します。
+`backend/tests/test_decision_activities.py` は、自己比較、同一入力、別アクティビティのパラメータを送る場合を個別に検証します。
 失敗理由を分けることで、単なる422だけでなく、どの境界が拒否したかを確認できます。
 
-## provenanceが結果の出所を閉じる {#sec-contract-provenance}
+## 来歴が結果の出所を閉じる {#sec-contract-provenance}
 
 候補差分の数値だけを保存しても、後から同じ判断を説明できません。
-候補、モデル、特徴量、Activityのいずれかが変われば、同じ入力に見えても結果の意味が変わるためです。
+候補、モデル、特徴量、アクティビティのいずれかが変われば、同じ入力に見えても結果の意味が変わるためです。
 
 `DecisionActivityProvenance`は次を保存します。
 
-| 分類 | 主なfield |
+| 分類 | 主なフィールド |
 |---|---|
-| Task | `task_id`, `task_contract_digest` |
+| タスク | `task_id`, `task_contract_digest` |
 | 操作対象 | `candidate_id`, `candidate_revision`, `canonical_input_digest` |
-| Model | `model_package_digest`, `model` |
+| モデル | `model_package_digest`, `model` |
 | Feature | `feature_pipeline_digest` |
-| Activity | `activity_id`, `activity_version`, `parameters_digest` |
-| Project設定 | `project_design_space_digest`, `objective_definition_digest` |
+| アクティビティ | `activity_id`, `activity_version`, `parameters_digest` |
+| プロジェクト設定 | `project_design_space_digest`, `objective_definition_digest` |
 
-`DecisionActivityRun`はdefinition、parameters、provenance、resultを同じimmutable recordにします。
-model validatorは、definitionの`result_kind`とresultの`schema_version`が一致することを確認します。
-provenance内のActivity IDとversionもdefinitionへ一致させます。
-^[ここでいうimmutableは「作成済みRunを更新するAPIを設けない」というアプリケーション上の契約です。SQLite file自体が暗号学的に改変不能になる、という意味ではありません。]
+`DecisionActivityRun`はdefinition、parameters、来歴、結果を同じ不変記録にします。
+モデル validatorは、definitionの`result_kind`と結果の`schema_version`が一致することを確認します。
+来歴内のアクティビティ IDとバージョンもdefinitionへ一致させます。
+^[ここでいう不変は「作成済み実行記録を更新するAPIを設けない」というアプリケーション上の契約です。SQLite ファイル自体が暗号学的に改変不能になる、という意味ではありません。]
 
-このvalidatorがなければ、候補差分というlabelのRunへロバストネスresultを格納できてしまいます。
+このvalidatorがなければ、候補差分というラベルの実行記録へロバストネス結果を格納できてしまいます。
 個々の型が正しくても、組合せが誤っている状態です。
 
 ::: {.callout-warning title="PITFALL"}
-保存済みRunを現行modelで読み出せることと、最新モデルで再計算することは別です。
-Runは作成時のPackage digestとresultを保持します。
-最新Packageへ自動追従させると、過去の判断証拠が別の計算へ置き換わります。
+保存済み実行記録を現行モデルで読み出せることと、最新モデルで再計算することは別です。
+実行記録は作成時のパッケージダイジェストと結果を保持します。
+最新パッケージへ自動追従させると、過去の判断証拠が別の計算へ置き換わります。
 :::
 
-## FastAPIがcontractを公開する
+## FastAPIが契約を公開する
 
-`backend/src/material_workbench/api/decision_activities.py` は、requestとresponseへPydantic modelを指定します。
+`backend/src/material_workbench/api/decision_activities.py` は、リクエストとレスポンスへPydantic モデルを指定します。
 
 ```python
 @router.post(
@@ -405,19 +405,19 @@ def run_decision_activity(
     return service.run(project_id, candidate_id, activity_id, payload)
 ```
 
-routerはHTTP path、status、dependency、error変換を担当します。
+routerはHTTP 経路、状態、dependency、エラー変換を担当します。
 候補差分の計算やSQLiteへの保存は担当しません。
-この分担はService Layerの語彙で比較できますが [@fowler-poeaa]、現行実装がpatternの完成例だとはみなしません。
+この分担はサービス層の語彙で比較できますが [@fowler-poeaa]、現行実装がpatternの完成例だとはみなしません。
 
-FastAPIはfunction signatureとPydantic modelからOpenAPI schemaを生成します。
-request bodyからvalidationとAPI documentへ情報が渡る基本経路は、FastAPI公式tutorialでも確認できます [@fastapi-request-body]。
-{{< code-ref contract-stack-contract symbol=DecisionActivityRunRequest >}}の`parameters`は、三つのparameter schemaを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
+FastAPIはfunction signatureとPydantic モデルからOpenAPI スキーマを生成します。
+リクエスト bodyからvalidationとAPI documentへ情報が渡る基本経路は、FastAPI公式tutorialでも確認できます [@fastapi-request-body]。
+{{< code-ref contract-stack-contract symbol=DecisionActivityRunRequest >}}の`parameters`は、三つのパラメータスキーマを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
 
-このOpenAPIはruntimeから毎回frontendへ直接配信して終わりではありません。
-`backend/scripts/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてversion controlします。
+このOpenAPIはランタイムから毎回フロントエンドへ直接配信して終わりではありません。
+`backend/scripts/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてバージョン controlします。
 
-追跡する理由は、backend変更とfrontend生成型の差をPRで確認し、staleなschemaをtestで拒否するためです。
-^[生成物を追跡する運用にはdiffが大きくなる欠点もあります。それでも本リポジトリでは、Python環境を起動せずにfrontend側が契約を検査できることと、契約差分をreviewできることを優先しています。]
+追跡する理由は、バックエンド変更とフロントエンド生成型の差をPRで確認し、staleなスキーマをテストで拒否するためです。
+^[生成物を追跡する運用にはdiffが大きくなる欠点もあります。それでも本リポジトリでは、Python環境を起動せずにフロントエンド側が契約を検査できることと、契約差分をレビューできることを優先しています。]
 `backend/tests/test_openapi_contract.py` は、追跡済みJSONと`app.openapi()`が等しいことを確認します。
 
 ## OpenAPIからTypeScript型を生成する
@@ -448,7 +448,7 @@ CandidateDifferenceParameters: {
 };
 ```
 
-`DecisionActivityRunRequest.parameters`は三つのmodelのunionです。
+`DecisionActivityRunRequest.parameters`は三つのモデルのユニオン型です。
 
 ```typescript
 parameters:
@@ -457,8 +457,8 @@ parameters:
   | components["schemas"]["CounterfactualParameters"];
 ```
 
-frontendが同じunionを手書きしないため、backendへ種類を追加して生成を忘れると`npm run api:check`が失敗します。
-逆に、生成fileを手で直しても、次回生成で消えます。
+フロントエンドが同じユニオン型を手書きしないため、バックエンドへ種類を追加して生成を忘れると`npm run api:check`が失敗します。
+逆に、生成ファイルを手で直しても、次回生成で消えます。
 
 ### checkとgenerateの使い分け
 
@@ -468,12 +468,12 @@ frontendが同じunionを手書きしないため、backendへ種類を追加し
 `npm run api:check`は生成物が最新かを確認し、差分を書き換えません。
 文書作業や、契約を変えていない変更の完了判定に使います。
 
-この章の演習はproduction contractを変更しないため、`api:check`だけを実行します。
+この章の演習は本番契約を変更しないため、`api:check`だけを実行します。
 
 ## API wrapperが画面の言葉へ寄せる
 
 `apps/web/src/shared/api/client.ts`は、生成された`paths`を`openapi-fetch`へ渡します。
-endpoint path、query、request body、response bodyが同じOpenAPIから型付けされます。
+endpoint 経路、query、リクエスト body、レスポンス bodyが同じOpenAPIから型付けされます。
 
 `apps/web/src/shared/api/workbench-api.ts`は、画面が使う型aliasと操作名を置きます。
 
@@ -512,34 +512,34 @@ async runDecisionActivity(
 }
 ```
 
-wrapperはPydantic contractを再定義しません。
-画面向けの名前、共通error message、AbortSignalの接続を担当します。
+wrapperはPydantic 契約を再定義しません。
+画面向けの名前、共通エラー message、AbortSignalの接続を担当します。
 
-## React共通shellと固有view
+## React共通枠組みと固有ビュー
 
-### 共通shell
+### 共通枠組み
 
-{{< code-ref contract-stack-panel label=DecisionActivityPanel.tsx >}}の{{< code-ref contract-stack-panel symbol=DecisionActivityPanel >}}は、Activityに共通する状態を所有します。
+{{< code-ref contract-stack-panel label=DecisionActivityPanel.tsx >}}の{{< code-ref contract-stack-panel symbol=DecisionActivityPanel >}}は、アクティビティに共通する状態を所有します。
 
-- 利用可能なActivityの取得
-- 保存済みRunの取得
-- 選択中Activity
-- 選択中の保存済みRunとURL state
-- loading、running、error
-- requestの中断
-- 選択候補が変わった後のstale response破棄
-- Activity固有viewへのprops受渡し
+- 利用可能なアクティビティの取得
+- 保存済み実行記録の取得
+- 選択中アクティビティ
+- 選択中の保存済み実行記録とURL 状態
+- loading、running、エラー
+- リクエストの中断
+- 選択候補が変わった後の古いレスポンス破棄
+- アクティビティ固有ビューへのprops受渡し
 
-共通shellは、候補差分の入力fieldやresult tableを知りません。
-`decisionActivities/registry.ts`から、選択した`activity_id`に対応するviewを取得します。
+共通枠組みは、候補差分の入力フィールドや結果テーブルを知りません。
+`decisionActivities/registry.ts`から、選択した`activity_id`に対応するビューを取得します。
 
-frontend側にもallow-listが必要な理由は、backendが計算できることと、rendererが結果を意味のある画面で表示できることが別だからです。
-未知Activityへ汎用JSON viewerをfallbackとして出さず、未対応を明示します。
+フロントエンド側にも許可リストが必要な理由は、バックエンドが計算できることと、rendererが結果を意味のある画面で表示できることが別だからです。
+未知アクティビティへ汎用JSON ビューアをfallbackとして出さず、未対応を明示します。
 
-### 固有view
+### 固有ビュー
 
-`CandidateDifferenceActivityView.tsx`は、比較候補の選択と候補差分resultの表示を担当します。
-実行時に次のparameterを組み立てます。
+`CandidateDifferenceActivityView.tsx`は、比較候補の選択と候補差分結果の表示を担当します。
+実行時に次のパラメータを組み立てます。
 
 ```typescript
 void onRun({
@@ -549,16 +549,16 @@ void onRun({
 });
 ```
 
-`onRun`が受ける型は、手書きのinterfaceではありません。
-`decisionActivities/types.ts`が生成request typeから取り出します。
+`onRun`が受ける型は、手書きのインタフェースではありません。
+`decisionActivities/types.ts`が生成リクエスト typeから取り出します。
 
 ```typescript
 export type DecisionActivityParameters =
   ApiDecisionActivityRunRequest["parameters"];
 ```
 
-responseの`result`もunionです。
-viewは`schema_version`を確認して候補差分resultへnarrowingします。
+レスポンスの`result`もユニオン型です。
+ビューは`schema_version`を確認して候補差分結果へnarrowingします。
 
 ```typescript
 function differenceResult(run: ApiDecisionActivityRun) {
@@ -571,24 +571,24 @@ function differenceResult(run: ApiDecisionActivityRun) {
 この条件の後では、TypeScriptが`input_changes`、`contributions`、`target_summaries`の存在を認識します。
 `as CandidateDifferenceSummary`で強制castする必要はありません。
 
-### 数値と適用範囲をTaskの言葉へ変える
+### 数値と適用範囲をタスクの言葉へ変える
 
-候補差分の出力値は、view固有の固定桁数で表示しません。
-`DecisionActivityPanel`はTask DefinitionとProjectの`display_decimals` overrideを固有viewへ渡します。
+候補差分の出力値は、ビュー固有の固定桁数で表示しません。
+`DecisionActivityPanel`はタスク定義とプロジェクトの`display_decimals` overrideを固有ビューへ渡します。
 `CandidateDifferenceActivityView`は`formatTaskNumber()`を使い、目的変数ごとの桁数で予測値、差、寄与、区間を表示します。
 
 入力値の差分は、出力値とは別に最大4桁の汎用formatを使います。
-入力fieldと出力targetは、同じ数値でも表示契約の正本が異なるためです。
+入力フィールドと出力targetは、同じ数値でも表示契約の正本が異なるためです。
 
-support statusも`"supported"`を直接表示しません。
+学習データの裏付け状態も`"supported"`を直接表示しません。
 `supportStatusLabel()`を通し、「範囲内」「要確認」「外挿」という判断に使える表示へ変えます。
-型付きcontractが状態の集合を固定し、presentation helperが利用者向けの語と桁数を固定します。
+型付き契約が状態の集合を固定し、presentation helperが利用者向けの語と桁数を固定します。
 
 ### 検証範囲と表示範囲を分ける
 
-数値の**許容範囲**は、候補を受理できるdomain上の境界です。
+数値の**許容範囲**は、候補を受理できるドメイン上の境界です。
 
-{{< code-ref contract-stack-chain-input-view label=ChainWorkbenchPage.tsx >}}が示すように、validationとHTML inputの`min`／`max`はTask Definitionの`allowed_range`を丸めずに使います。
+{{< code-ref contract-stack-chain-input-view label=ChainWorkbenchPage.tsx >}}が示すように、validationとHTML 入力の`min`／`max`はタスク定義の`allowed_range`を丸めずに使います。
 
 一方、利用者へ見せる範囲はpresentationです。
 
@@ -605,7 +605,7 @@ support statusも`"supported"`を直接表示しません。
 ### 点予測の達成と予測区間を分ける
 
 条件変更案では、`achieved`だけを見ると「この変更で目標達成が保証された」と誤読できます。
-現行contractの`CounterfactualTargetEvaluation`は、判定に使った`predicted_value`に加えて、canonical `prediction`を保存します。
+現行契約の`CounterfactualTargetEvaluation`は、判定に使った`predicted_value`に加えて、canonical `prediction`を保存します。
 閾値または範囲を指定する`at_least`、`at_most`、`between`、`target`では実単位の`shortfall`も保存します。
 値を報告するだけの`reporting_only`と、他候補との比較で決まる`maximize`、`minimize`では、単独候補の不足量を定義しません。
 `achieved`は点予測による判定であり、予測区間全体が目標条件を満たすという判定ではありません。
@@ -613,107 +613,107 @@ support statusも`"supported"`を直接表示しません。
 {{< code-ref contract-stack-counterfactual-presentation symbol=presentCounterfactualTarget >}}は、点予測、達成または未達、利用可能な予測区間を別の表示要素へ分けます。
 Predictionに区間情報がない場合は、「区間情報なし」と明示します。
 binary targetの不足量はパーセントポイント、ordinal targetはカテゴリ差、連続量は特性の実単位で表します。
-{{< code-ref contract-stack-counterfactual-view symbol=CounterfactualActivityView >}}は案全体にも「点予測で目標条件を満たす」と明記し、支持範囲のbadgeと達成判定を同じ意味に見せません。
+{{< code-ref contract-stack-counterfactual-view symbol=CounterfactualActivityView >}}は案全体にも「点予測で目標条件を満たす」と明記し、支持範囲のバッジと達成判定を同じ意味に見せません。
 
-旧versionの保存済みRunにはcanonical `prediction`と`shortfall`がありません。
+旧バージョンの保存済み実行記録にはcanonical `prediction`と`shortfall`がありません。
 画面は要約値を点予測へ格上げせず、「旧記録の要約値」「区間情報なし」と表示します。[^counterfactual-v11]
 
 [^counterfactual-v11]:
-    Activity versionは`1.1.0`へ進み、semantic cache identityも旧`1.0.0`と分かれます。
-    旧Runを読めることと、新しい証拠を持つRunを同一視することは別です。
+    アクティビティバージョンは`1.1.0`へ進み、意味キャッシュ同一性も旧`1.0.0`と分かれます。
+    旧実行記録を読めることと、新しい証拠を持つ実行記録を同一視することは別です。
 
 ### 判断質問の責務境界
 
-共通の`DecisionActivityPanel`は、Activity一覧、保存済みRun、request identity、実行lifecycleを扱います。
-一方、質問文と前提確認は各Activity viewが扱います。
-目標なしRobustnessのように、Project設定によって「目標達成率」と「入力ばらつき」の問いを切り替える処理を共通shellへ置くと、shellが固有Activity IDを知ることになります。
+共通の`DecisionActivityPanel`は、アクティビティ一覧、保存済み実行記録、リクエスト同一性、実行ライフサイクルを扱います。
+一方、質問文と前提確認は各アクティビティビューが扱います。
+目標なしRobustnessのように、プロジェクト設定によって「目標達成率」と「入力ばらつき」の問いを切り替える処理を共通枠組みへ置くと、枠組みが固有アクティビティ IDを知ることになります。
 
-現行実装は、各viewが`availability.definition.question`を表示します。
-Robustness viewだけは、目標がない間は前提説明を出し、利用者が感度だけを見ると確認した後に感度の問いへ切り替えます。
+現行実装は、各ビューが`availability.definition.question`を表示します。
+Robustness ビューだけは、目標がない間は前提説明を出し、利用者が感度だけを見ると確認した後に感度の問いへ切り替えます。
 
-### 保存済みRunをURLへ接続する
+### 保存済み実行記録をURLへ接続する
 
-保存済みRunの選択は、固有viewではなく共通shellが所有します。
-`DecisionActivityPanel`は`activeRunId`と`onSelectRun`を各viewへ渡し、Activityを切り替えた場合は別ActivityのRunを引き継がないよう選択を消します。
-各viewは共通の履歴navigationと「この結果の再現情報」を使い、Runの作成日時、Candidate revision、Task contract、Model Package、Feature pipeline、Training Snapshot、入力digestを同じ読む順序で表示します。
-この表示は新しいprovenanceを計算する経路ではなく、immutable Runに保存された値を監査可能な形へ展開する経路です。
+保存済み実行記録の選択は、固有ビューではなく共通枠組みが所有します。
+`DecisionActivityPanel`は`activeRunId`と`onSelectRun`を各ビューへ渡し、アクティビティを切り替えた場合は別アクティビティの実行記録を引き継がないよう選択を消します。
+各ビューは共通の履歴navigationと「この結果の再現情報」を使い、実行記録の作成日時、候補リビジョン、タスク契約、モデルパッケージ、特徴量パイプライン、学習用スナップショット、入力ダイジェストを同じ読む順序で表示します。
+この表示は新しい来歴を計算する経路ではなく、不変実行記録に保存された値を監査可能な形へ展開する経路です。
 
-選択中ActivityとRun IDは、`apps/web/src/app/navigation.ts`を通してlocationへ含めます。
-共有URLから開いた場合、shellはRun IDを保存済みRunへ照合し、そのRun自身が持つ`activity_id`を優先します。^[URLのActivity IDは入口を早く決めるhintです。Runと矛盾する場合は、保存済みRunが持つdefinitionを正とするため、別Activityの表示へ誤って復元しません。]
+選択中アクティビティと実行記録 IDは、`apps/web/src/app/navigation.ts`を通してlocationへ含めます。
+共有URLから開いた場合、枠組みは実行記録 IDを保存済み実行記録へ照合し、その実行記録自身が持つ`activity_id`を優先します。^[URLのアクティビティ IDは入口を早く決めるhintです。実行記録と矛盾する場合は、保存済み実行記録が持つdefinitionを正とするため、別アクティビティの表示へ誤って復元しません。]
 
-同じCandidate内でブラウザの戻る、進む、または`pushState`によりRun IDだけが変わった場合も、読込済みRun一覧から選択を同期し直します。
-URLが存在しないRunを指す場合は、別Runへfallbackせずalertを表示し、結果viewを隠します。
+同じ候補内でブラウザの戻る、進む、または`pushState`により実行記録 IDだけが変わった場合も、読込済み実行記録一覧から選択を同期し直します。
+URLが存在しない実行記録を指す場合は、別実行記録へfallbackせずalertを表示し、結果ビューを隠します。
 これにより「開けた」という見かけの成功と、URLが指した証拠を復元できたことを分けます。
 
-この状態を共通shellへ持ち上げることで、ロバストネス、候補差分、最小変更が同じ共有linkの契約を使います。
-`apps/web/tests/activityRunNavigation.test.mjs`は、locationへのRun ID保持、候補の作成元Runへの帰還、Run変更時の再同期、未知Runの拒否、各viewが選択stateを重複所有しないことを確認します。
-`e2e/decision-activity.spec.ts`は、同じCandidateの二つの保存Runをブラウザ履歴で往復し、各Runの結果が入れ替わらないことを確認します。
+この状態を共通枠組みへ持ち上げることで、ロバストネス、候補差分、最小変更が同じ共有linkの契約を使います。
+`apps/web/tests/activityRunNavigation.test.mjs`は、locationへの実行記録 ID保持、候補の作成元実行記録への帰還、実行記録変更時の再同期、未知実行記録の拒否、各ビューが選択状態を重複所有しないことを確認します。
+`e2e/decision-activity.spec.ts`は、同じ候補の二つの保存実行記録をブラウザ履歴で往復し、各実行記録の結果が入れ替わらないことを確認します。
 
-### stale response
+### 古いレスポンス
 
-候補AのActivityを実行中に、利用者が候補Bへ切り替える場合があります。
-遅れて候補Aのresponseが届き、候補Bのpanelへ表示されると、型が正しくても内容は誤りです。
+候補Aのアクティビティを実行中に、利用者が候補Bへ切り替える場合があります。
+遅れて候補Aのレスポンスが届き、候補Bのパネルへ表示されると、型が正しくても内容は誤りです。
 
-`DecisionActivityPanel`は、Project ID、Candidate ID、Candidate revisionからrequest identityを作ります。
-request開始時のidentityと現在のidentityが一致する場合だけ、responseをstateへ反映します。
-候補切替時には実行中requestもabortします。
-さらに、Activity一覧と保存済みRunを読み終えたidentityが現在値と一致するまでresult viewを表示しません。
-古いCandidateのRun一覧が一瞬残ることも、遅い実行responseと同じidentity境界で拒否します。
+`DecisionActivityPanel`は、プロジェクト ID、候補 ID、候補リビジョンからリクエスト同一性を作ります。
+リクエスト開始時の同一性と現在の同一性が一致する場合だけ、レスポンスを状態へ反映します。
+候補切替時には実行中リクエストもabortします。
+さらに、アクティビティ一覧と保存済み実行記録を読み終えた同一性が現在値と一致するまで結果ビューを表示しません。
+古い候補の実行記録一覧が一瞬残ることも、遅い実行レスポンスと同じ同一性境界で拒否します。
 
-![Candidate切替後に届いたstale responseをidentity不一致で破棄する時系列](../figures/stale-response-timeline.svg){fig-alt="Candidate A revision 7のrequest開始後にCandidate B revision 3へ切り替える。Aのresponseが届いてもProject、Candidate、revision、request sequenceが現在値と一致しないためSTALEとしてREJECTし、Bのpanelへ反映しない。AbortControllerは通信停止を試みるが、response到着時のidentity checkを置き換えない。" width="100%"}
+![候補切替後に届いた古いレスポンスを同一性不一致で破棄する時系列](../figures/stale-response-timeline.svg){fig-alt="候補Aのリビジョン7でリクエストを始めた後、候補Bのリビジョン3へ切り替える。Aのレスポンスが届いてもプロジェクト、候補、リビジョン、リクエスト連番が現在値と一致しないため、古い応答として拒否し、Bのパネルへ反映しない。AbortControllerは通信停止を試みるが、レスポンス到着時の同一性検査を置き換えない。" width="100%"}
 
-型はpayloadのshapeを守ります。
-request identityはpayloadが現在の画面文脈に属することを守ります。
+型はペイロードの構造を守ります。
+リクエスト同一性はペイロードが現在の画面文脈に属することを守ります。
 二つは別の安全策です。
 
-## 一requestを端から追う
+## 一リクエストを端から追う
 
 候補差分を一度実行するときの流れを、値と責務で追います。
 
-![Decision ActivityのrequestとresponseがPythonからReactまで進む流れ](../figures/decision-activity-contract-flow.svg){fig-alt="React requestからAPI client、FastAPI、Pydantic、application service、Activity handler、保存済みRunを経て、TypeScript unionとReact result viewへ戻る。" width="100%"}
+![検討アクティビティのリクエストとレスポンスがPythonからReactまで進む流れ](../figures/decision-activity-contract-flow.svg){fig-alt="ReactのリクエストからAPIクライアント、FastAPI、Pydantic、アプリケーションサービス、アクティビティハンドラ、保存済み実行記録を経て、TypeScriptのユニオン型とReactの結果ビューへ戻る。" width="100%"}
 
 1. 利用者が「差分を分解」を押す。
-2. React viewは比較候補IDとrevisionをparameterへ入れる。
-3. 共通panelは操作対象候補の`expected_revision`を追加する。
+2. React ビューは比較候補IDとリビジョンをパラメータへ入れる。
+3. 共通パネルは操作対象候補の`expected_revision`を追加する。
 4. `openapi-fetch`は生成されたendpoint型に従ってPOSTする。
 5. FastAPIはbodyを`DecisionActivityRunRequest`として検証する。
-6. serviceは`activity_id`でhandlerを引き、parameter kindを照合する。
-7. handlerは比較候補をrevision付きで解決し、入力差と予測差を計算する。
-8. serviceはTask、Candidate、Package、Feature、Activityのprovenanceを固定する。
-9. storeはRunを保存し、APIは201で同じRunを返す。
-10. React viewはresultの`schema_version`を確認して候補差分の表を描く。
+6. サービスは`activity_id`でハンドラを引き、パラメータ種別を照合する。
+7. ハンドラは比較候補をリビジョン付きで解決し、入力差と予測差を計算する。
+8. サービスはタスク、候補、パッケージ、Feature、アクティビティの来歴を固定する。
+9. storeは実行記録を保存し、APIは201で同じ実行記録を返す。
+10. React ビューは結果の`schema_version`を確認して候補差分の表を描く。
 
 途中のどこかが失敗した場合、すべてを「実行できませんでした」へ潰しません。
-構造validation、業務precondition、not found、revision conflictは、API境界で意味のあるstatusとmessageへ変換します。
+構造validation、業務precondition、not found、リビジョン conflictは、API境界で意味のある状態とmessageへ変換します。
 
-## testが守る境界
+## テストが守る境界
 
 一つのE2Eだけですべてを保証しようとすると、失敗原因が広く、実行も遅くなります。
-現行実装は、壊れ方に近い層へtestを置きます。
+現行実装は、壊れ方に近い層へテストを置きます。
 
-### contractとservice
+### 契約とサービス
 
 `backend/tests/test_decision_activities.py`は、少なくとも次を確認します。
 
-- availabilityが必要resourceの不足理由を返す
-- parameterとresultのschema kindが混ざらない
-- Candidate revisionが古い場合に拒否する
-- 同じ入力から同じRun identityを得る
-- 保存後に同じRunを復元できる
+- availabilityが必要リソースの不足理由を返す
+- パラメータと結果のスキーマ kindが混ざらない
+- 候補リビジョンが古い場合に拒否する
+- 同じ入力から同じ実行記録同一性を得る
+- 保存後に同じ実行記録を復元できる
 - 自己比較と同一入力比較を拒否する
-- 共通shellが固有Activity IDで分岐しない
-- backend registryとfrontend view registryが同じActivity集合を持つ
+- 共通枠組みが固有アクティビティ IDで分岐しない
+- バックエンドレジストリとフロントエンドビューレジストリが同じアクティビティ集合を持つ
 
 これらは、画面の見た目より前に成立すべき契約です。
 
 ### OpenAPI drift
 
-`backend/tests/test_openapi_contract.py`は、FastAPIが現在生成するschemaと、追跡済み`openapi.json`を比較します。
+`backend/tests/test_openapi_contract.py`は、FastAPIが現在生成するスキーマと、追跡済み`openapi.json`を比較します。
 `npm run api:check`は、そのJSONと`api-types.ts`の同期を確認します。
 
 二段階に分けることで、次のどちらが古いかを判別できます。
 
-- Python contractに対してOpenAPI JSONが古い
+- Python 契約に対してOpenAPI JSONが古い
 - OpenAPI JSONに対してTypeScript生成型が古い
 
 ### E2E
@@ -727,15 +727,15 @@ request identityはpayloadが現在の画面文脈に属することを守りま
 5. 「差分を分解」を押す
 6. POSTが201を返す
 7. 置換で説明できた分と残差が見える
-8. 因果効果ではないというwarningが見える
+8. 因果効果ではないという警告が見える
 
 E2Eは、すべての数値を固定しません。
 契約、API、画面が接続され、判断に必要な区別が表示されることを確認します。
 
 ::: {.callout-tip title="CHECKPOINT"}
-Python testが成功しても生成型が古い可能性があります。
+Python テストが成功しても生成型が古い可能性があります。
 TypeScript typecheckが成功しても、利用者が正しいtabから実行できない可能性があります。
-focused test、`api:check`、E2Eは代替関係ではなく、異なる破損を検出します。
+焦点を絞ったテスト、`api:check`、E2Eは代替関係ではなく、異なる破損を検出します。
 :::
 
 ## 現mainで再確認する
@@ -752,8 +752,8 @@ npm run api:check
 
 成功した場合、次を確認できたと解釈します。
 
-- 現行Activity contractとserviceのfocused testが通る
-- 追跡済みOpenAPIがFastAPI contractと一致する
+- 現行アクティビティ契約とサービスの焦点を絞ったテストが通る
+- 追跡済みOpenAPIがFastAPI 契約と一致する
 - 生成TypeScript型が追跡済みOpenAPIと一致する
 
 このcommandだけではReactの実操作を確認していません。
@@ -761,7 +761,7 @@ UIまで変更した場合は、隔離DBを使う既定設定で次も実行し�
 
 ::: {.callout-warning title="現mainの既知E2E failure"}
 2026年7月27日にmerge済みHEAD `f93af87` で再実行し、3件中2件が成功しました。
-この実測時点の失敗はrevision付きoption labelへのtest追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、調査用の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
+この実測時点の失敗はリビジョン付き選択肢ラベルへのテスト追従漏れ [Issue #279](https://github.com/mryk814/re-process-dashboard/issues/279) だけで、調査用の [Issue #280](https://github.com/mryk814/re-process-dashboard/issues/280) に記録された失敗は再現しませんでした。
 Issue #279とIssue #280は現在closedであり、2 passed、1 known failureは過去の検証記録であって現行の期待結果ではありません。
 :::
 
@@ -771,58 +771,58 @@ npx playwright test e2e/decision-activity.spec.ts
 
 ## 変更影響を逆向きに読む
 
-ここまではPython contractから画面へ進みました。
-実際の保守では、画面の違和感やtest failureから正本へ戻る場合もあります。
+ここまではPython 契約から画面へ進みました。
+実際の保守では、画面の違和感やテスト failureから正本へ戻る場合もあります。
 
-たとえば、候補差分画面に新しいfieldが表示されないとします。
-最初から全fileを検索するのではなく、次の順に境界を戻ります。
+たとえば、候補差分画面に新しいフィールドが表示されないとします。
+最初から全ファイルを検索するのではなく、次の順に境界を戻ります。
 
-1. React viewがresultをnarrowingした後、そのfieldを読んでいるか
-2. `ApiDecisionActivityRun`の候補差分resultにfieldがあるか
-3. `api-types.ts`の生成元であるOpenAPI schemaにfieldがあるか
-4. FastAPI response modelのPydantic contractにfieldがあるか
-5. handlerがresult modelへ値を渡しているか
-6. 保存後にRunを復元したときもfieldが残るか
+1. React ビューが結果をnarrowingした後、そのフィールドを読んでいるか
+2. `ApiDecisionActivityRun`の候補差分結果にフィールドがあるか
+3. `api-types.ts`の生成元であるOpenAPI スキーマにフィールドがあるか
+4. FastAPI レスポンスモデルのPydantic 契約にフィールドがあるか
+5. ハンドラが結果モデルへ値を渡しているか
+6. 保存後に実行記録を復元したときもフィールドが残るか
 
-この順序なら、表示だけの欠落か、生成driftか、backend計算の欠落かを早く分けられます。
+この順序なら、表示だけの欠落か、生成driftか、バックエンド計算の欠落かを早く分けられます。
 
-### 画面にはfieldがあるが値が空の場合
+### 画面にはフィールドがあるが値が空の場合
 
-TypeScript型にoptional fieldがあり、画面もそのfieldを読んでいる場合、生成driftではありません。
-Network panelのresponseを確認し、次にhandlerがresultを組み立てる箇所を読みます。
+TypeScript型に任意フィールドがあり、画面もそのフィールドを読んでいる場合、生成driftではありません。
+Network パネルのレスポンスを確認し、次にハンドラが結果を組み立てる箇所を読みます。
 
-空値が許されるcontractなら、「値がないこと」が正常かもしれません。
-たとえばgoalを設定していないProjectでは、目標達成率を計算できません。
+空値が許される契約なら、「値がないこと」が正常かもしれません。
+たとえばgoalを設定していないプロジェクトでは、目標達成率を計算できません。
 この場合は0を補うと意味が変わります。
 画面は未計算と0を分けて表示する必要があります。
 
-現行のRobustness Activityは、ここで処理全体を失敗させません。
-画面はまず、目標達成率にはProjectの目標値が必要だと説明し、目標設定へ移る経路と、目標なしで入力ばらつきだけを見る経路を分けます。
+現行のRobustness アクティビティは、ここで処理全体を失敗させません。
+画面はまず、目標達成率にはプロジェクトの目標値が必要だと説明し、目標設定へ移る経路と、目標なしで入力ばらつきだけを見る経路を分けます。
 後者では入力ばらつき、モデル支持範囲、worst valueを確認できますが、`goal_achievement_rate`は未計算のままです。
 
 この分岐は、同じ計算を説明文だけ変えて見せるものではありません。
 「目標にどの程度届くか」と「入力が揺れたとき予測がどの程度動くか」は、必要な前提が異なる二つの判断質問です。[^goal-less-robustness]
 
 [^goal-less-robustness]:
-    保存済みRunを後から開いたときも、画面は現在のProject設定から達成率を補いません。
+    保存済み実行記録を後から開いたときも、画面は現在のプロジェクト設定から達成率を補いません。
     結果が`null`なら「この解析の実行時に目標が未設定だったため未計算」と表示し、証拠を実行時点の意味のまま読みます。
 
 ### APIが422を返す場合
 
-422をすべてPydantic errorだと決めません。
-このrouterは、形として正しいrequestでも、自己比較や同一入力のような業務precondition違反を422へ変換します。
+422をすべてPydantic エラーだと決めません。
+このrouterは、形として正しいリクエストでも、自己比較や同一入力のような業務precondition違反を422へ変換します。
 
-responseのfield errorがbody pathを示す場合は、Pydantic validationを先に調べます。
-日本語messageが比較条件を示す場合は、application serviceまたはhandlerのvalidationを調べます。
-同じstatusでも、調査する層が異なります。
+レスポンスのフィールドエラーがbody 経路を示す場合は、Pydantic validationを先に調べます。
+日本語messageが比較条件を示す場合は、アプリケーションサービスまたはハンドラのvalidationを調べます。
+同じ状態でも、調査する層が異なります。
 
 ### 保存後だけ読み出せない場合
 
-実行直後のresponseは表示できるのに、再起動後の履歴だけ失敗する場合、通信経路より保存payloadの復元を疑います。
-新しいrequired fieldを同じschema versionへ追加すると、旧Runにfieldがないため現行modelへ復元できない可能性があります。
+実行直後のレスポンスは表示できるのに、再起動後の履歴だけ失敗する場合、通信経路より保存ペイロードの復元を疑います。
+新しいrequired フィールドを同じスキーマバージョンへ追加すると、旧実行記録にフィールドがないため現行モデルへ復元できない可能性があります。
 
-この場合、frontendへfallbackを足して隠しません。
-旧payloadをどう読むか、schema versionを分けるか、migrationを行うかを保存契約として決めます。
+この場合、フロントエンドへfallbackを足して隠しません。
+旧ペイロードをどう読むか、スキーマバージョンを分けるか、マイグレーションを行うかを保存契約として決めます。
 
 ## 典型的な失敗を切り分ける
 
@@ -831,180 +831,180 @@ responseのfield errorがbody pathを示す場合は、Pydantic validationを先
 
 | 症状 | 最初に確認するもの | 次の確認 |
 |---|---|---|
-| `api:check`だけ失敗する | OpenAPIまたは生成型の未更新 | 意図したcontract差分か |
-| pytestでschema validationが失敗する | Pydantic field、literal、validator | 保存fixtureのversion |
-| APIは201だが画面が空 | result narrowingとview registry | response payload |
-| 候補切替後だけ誤表示 | request identityとabort | query keyとrevision |
-| 再起動後だけRunが読めない | 保存payloadと現行model | migration方針 |
-| Activity追加で共通testが失敗 | 共通shellへの固有ID混入 | registry配置 |
-| E2Eでwarningだけ見えない | view copyと条件render | result warnings |
-| 数値は出るが意味が不明 | contract fieldの意味と単位 | docsとUI label |
+| `api:check`だけ失敗する | OpenAPIまたは生成型の未更新 | 意図した契約差分か |
+| pytestでスキーマ validationが失敗する | Pydantic フィールド、literal、validator | 保存フィクスチャのバージョン |
+| APIは201だが画面が空 | 結果の型絞り込みとビューレジストリ | レスポンスペイロード |
+| 候補切替後だけ誤表示 | リクエスト同一性とabort | query キーとリビジョン |
+| 再起動後だけ実行記録が読めない | 保存ペイロードと現行モデル | マイグレーション方針 |
+| アクティビティ追加で共通テストが失敗 | 共通枠組みへの固有ID混入 | レジストリ配置 |
+| E2Eで警告だけ見えない | ビュー コピーと条件render | 結果 warnings |
+| 数値は出るが意味が不明 | 契約フィールドの意味と単位 | docsとUI ラベル |
 
-### 生成fileへ直接修正した場合
+### 生成ファイルへ直接修正した場合
 
-`api-types.ts`を直接直すと、その場のtype errorは消えるかもしれません。
+`api-types.ts`を直接直すと、その場のtype エラーは消えるかもしれません。
 しかし次の`npm run api:generate`で修正は消えます。
-さらにPython contractと通信payloadは変わっていないため、画面が存在しないfieldを期待する状態になります。
+さらにPython 契約と通信ペイロードは変わっていないため、画面が存在しないフィールドを期待する状態になります。
 
-正本へ戻り、Pydantic model、OpenAPI、生成型の順で変更します。
-生成差分が予想より大きい場合は、無関係なcontract変更が混ざっていないか確認します。
+正本へ戻り、Pydantic モデル、OpenAPI、生成型の順で変更します。
+生成差分が予想より大きい場合は、無関係な契約変更が混ざっていないか確認します。
 
-### 共通serviceへ固有分岐を追加した場合
+### 共通サービスへ固有分岐を追加した場合
 
-新Activityの実装中に、共通serviceへ小さな`if`を足すと短く見えます。
-二件目、三件目でも同じ判断をすると、availability、precondition、compute、result処理が中央へ集まります。
+新アクティビティの実装中に、共通サービスへ小さな`if`を足すと短く見えます。
+二件目、三件目でも同じ判断をすると、availability、precondition、compute、結果処理が中央へ集まります。
 
-現行registryが提供する`definition`、`parameters_kind`、`prepare`、`compute`で表現できるかを先に確認します。
-共通lifecycleそのものが変わる場合だけ、共通serviceのcontract変更としてreviewします。
+現行レジストリが提供する`definition`、`parameters_kind`、`prepare`、`compute`で表現できるかを先に確認します。
+共通ライフサイクルそのものが変わる場合だけ、共通サービスの契約変更としてレビューします。
 
-### frontendへ汎用JSON fallbackを追加した場合
+### フロントエンドへ汎用JSON fallbackを追加した場合
 
-backendへ新Activityがあるがfrontend viewがない場合、任意JSONを表示すれば一時的に内容は見えます。
-しかし、単位、warning、操作、結果の意味を利用者へ翻訳できません。
+バックエンドへ新アクティビティがあるがフロントエンドビューがない場合、任意JSONを表示すれば一時的に内容は見えます。
+しかし、単位、警告、操作、結果の意味を利用者へ翻訳できません。
 
-現行panelは未知viewを「未対応」と表示します。
-この停止は機能不足を隠さず、backend capabilityと利用可能なUIを分けます。
-新Activityをproductionへ出す場合は、view registryとActivity固有componentを同じ変更で追加します。
+現行パネルは未知ビューを「未対応」と表示します。
+この停止は機能不足を隠さず、バックエンド能力と利用可能なUIを分けます。
+新アクティビティを本番へ出す場合は、ビューレジストリとアクティビティ固有コンポーネントを同じ変更で追加します。
 
 ## 教材を監査として使う
 
 処理経路を説明できない箇所は、文書の不足だけとは限りません。
-責務が複数moduleへ散らばっている、同じ概念を別名で呼んでいる、testが結果だけを確認して境界を固定していない可能性があります。
+責務が複数モジュールへ散らばっている、同じ概念を別名で呼んでいる、テストが結果だけを確認して境界を固定していない可能性があります。
 
 この章を書く過程では、次の問いで実装を監査しました。
 
-1. parameterの種類を一意に選べるか
-2. resultとdefinitionの組合せを検証するか
-3. 共通serviceが固有Activityを知りすぎていないか
-4. 保存済みRunが再現に必要なdigestを持つか
+1. パラメータの種類を一意に選べるか
+2. 結果とdefinitionの組合せを検証するか
+3. 共通サービスが固有アクティビティを知りすぎていないか
+4. 保存済み実行記録が再現に必要なダイジェストを持つか
 5. OpenAPIと生成型のdriftを別々に検出できるか
-6. 画面がunionを安全にnarrowingするか
-7. 型では防げないstale responseへ対策があるか
+6. 画面がユニオン型を安全にnarrowingするか
+7. 型では防げない古いレスポンスへ対策があるか
 8. E2Eが統計値と表示上の意味を混同していないか
 
 説明を書くために新しい抽象化を作る必要はありませんでした。
-一方、backendとfrontendに別々のallow-listがあること、source inspection testが文字列へ依存すること、保存schemaの長期migrationを変更ごとに判断することは、現在の限界として明示できました。
+一方、バックエンドとフロントエンドに別々の許可リストがあること、ソース inspection テストが文字列へ依存すること、保存スキーマの長期マイグレーションを変更ごとに判断することは、現在の限界として明示できました。
 
-この監査結果は、「すぐに共通registryを自動生成する」という将来案を正当化しません。
-二箇所の明示登録は、利用可能なbackend処理と意味のあるfrontend表示を別々に承認する境界でもあります。
-重複による事故が実測されたときに、自動化の利点と失うreview pointを比較します。
+この監査結果は、「すぐに共通レジストリを自動生成する」という将来案を正当化しません。
+二箇所の明示登録は、利用可能なバックエンド処理と意味のあるフロントエンド表示を別々に承認する境界でもあります。
+重複による事故が実測されたときに、自動化の利点と失うレビュー pointを比較します。
 
-## 契約変更PRをreviewする
+## 契約変更PRをレビューする
 
-契約変更のreviewでは、差分のfile数だけを見ません。
+契約変更のレビューでは、差分のファイル数だけを見ません。
 一つの意味が必要な境界まで届き、不要な境界へ漏れていないかを確認します。
 
 ### 変更前の問い
 
-reviewerは、最初に変更の種類を確定します。
+レビュー担当者は、最初に変更の種類を確定します。
 
-- 既存schema versionの互換な拡張か
-- 保存済みpayloadを読めなくする非互換変更か
-- field名だけでなく意味や単位を変える変更か
-- Activity固有処理か、共通lifecycleの変更か
-- requestだけか、保存済みRunとresponseにも残す情報か
+- 既存スキーマバージョンの互換な拡張か
+- 保存済みペイロードを読めなくする非互換変更か
+- フィールド名だけでなく意味や単位を変える変更か
+- アクティビティ固有処理か、共通ライフサイクルの変更か
+- リクエストだけか、保存済み実行記録とレスポンスにも残す情報か
 
-この分類が曖昧なまま生成fileまで更新すると、機械的には整合していても、旧Runをどう読むかという判断が抜けます。
+この分類が曖昧なまま生成ファイルまで更新すると、機械的には整合していても、旧実行記録をどう読むかという判断が抜けます。
 
 ### 差分の読む順番
 
 次の順でdiffを読むと、正本から派生物へ進めます。
 
-1. Pydantic contractとvalidator
-2. Activity handlerとapplication service
-3. persistenceまたはmigration
-4. FastAPI routeとerror変換
+1. Pydantic 契約とvalidator
+2. アクティビティハンドラとアプリケーションサービス
+3. persistenceまたはマイグレーション
+4. FastAPI ルートとエラー変換
 5. OpenAPI JSON
 6. TypeScript生成型
-7. API wrapperとReact view
-8. focused testとE2E
+7. API wrapperとReact ビュー
+8. 焦点を絞ったテストとE2E
 9. 契約文書と教材
 
 OpenAPI JSONとTypeScript生成型の大きなdiffを最初に読むと、意図した変更と自動展開された差分を区別しにくくなります。
-先にPython contractで意図を確認し、生成差分がその意図だけを反映しているか照合します。
+先にPython 契約で意図を確認し、生成差分がその意図だけを反映しているか照合します。
 
-### reviewで拒否する状態
+### レビューで拒否する状態
 
 次の状態は、buildが成功しても契約変更の完了とはしません。
 
 - 生成型だけを直接修正している
-- 旧Runが読めないのにschema versionとmigrationの判断がない
-- 共通serviceへActivity固有IDの分岐を追加している
-- resultの数値を追加したが、単位または意味が画面で分からない
-- provenanceへ必要なversionまたはdigestが残らない
-- stale response対策を外し、最後に返ったresponseを無条件で表示する
-- focused testがshapeだけを確認し、保存後の復元を確認しない
+- 旧実行記録が読めないのにスキーマバージョンとマイグレーションの判断がない
+- 共通サービスへアクティビティ固有IDの分岐を追加している
+- 結果の数値を追加したが、単位または意味が画面で分からない
+- 来歴へ必要なバージョンまたはダイジェストが残らない
+- 古いレスポンス対策を外し、最後に返ったレスポンスを無条件で表示する
+- 焦点を絞ったテストが構造だけを確認し、保存後の復元を確認しない
 - E2Eが値の存在だけを見て、予測差と残差の区別を確認しない
 
 これらの拒否理由は、抽象的な「設計がよくない」ではありません。
-過去の判断を再現できない、別Activityの処理が中央へ集まる、利用者が数値の意味を誤るという具体的な破損へ結び付きます。
+過去の判断を再現できない、別アクティビティの処理が中央へ集まる、利用者が数値の意味を誤るという具体的な破損へ結び付きます。
 
 ### PR本文へ残す証拠
 
-契約変更PRには、変更したschema version、保存互換性の判断、生成command、focused test、E2Eの要否を記録します。
+契約変更PRには、変更したスキーマバージョン、保存互換性の判断、生成command、焦点を絞ったテスト、E2Eの要否を記録します。
 検証件数は実行時点の証拠として書き、恒久的な仕様にはしません。
 
-教材を更新した場合は、`verified_commit`、参照path、HTML/PDF build、PDF visual reviewも記録します。
+教材を更新した場合は、`verified_commit`、参照経路、HTML/PDF build、PDF visual レビューも記録します。
 この証拠があれば、後続の開発者は「文書だけ更新した」のか「現mainの実装と組版まで確認した」のかを区別できます。
 
 ## 採用理由と代替案
 
-### unionとregistryを採る理由
+### ユニオン型とレジストリを採る理由
 
-Activityごとにparameterとresultのshapeが異なる一方、Runの保存、Project解決、Candidate revision、provenanceは共通です。
-discriminated unionは異なるshapeを保ち、registryは固有計算を共通serviceから分離します。
+アクティビティごとにパラメータと結果の構造が異なる一方、実行記録の保存、プロジェクト解決、候補リビジョン、来歴は共通です。
+判別可能なユニオン型は異なる構造を保ち、レジストリは固有計算を共通サービスから分離します。
 
-代替案として、すべてのActivity fieldをoptionalにした巨大modelがあります。
-このmodelでは、候補差分に`sample_count`が付いた状態や、ロバストネスに比較候補IDが付いた状態を表現できてしまいます。
+代替案として、すべてのアクティビティフィールドを任意にした巨大モデルがあります。
+このモデルでは、候補差分に`sample_count`が付いた状態や、ロバストネスに比較候補IDが付いた状態を表現できてしまいます。
 不正な組合せをvalidatorで列挙するほど、種類を分けた意味が失われます。
 
-別の代替案は、Activityごとに完全に別endpointと別Run tableを持つ方法です。
-Activity間でlifecycleが大きく異なるなら適します。
-現行Activityは、明示実行、Candidate revision、provenance、immutable Runという共通lifecycleを持つため、共通shellを使う利点があります。
+別の代替案は、アクティビティごとに完全に別endpointと別実行記録テーブルを持つ方法です。
+アクティビティ間でライフサイクルが大きく異なるなら適します。
+現行アクティビティは、明示実行、候補リビジョン、来歴、不変実行記録という共通ライフサイクルを持つため、共通枠組みを使う利点があります。
 
 ### 生成型を採る理由
 
-TypeScript interfaceを手書きすれば、frontendだけを見たときは単純です。
-しかし、Python contract変更のたびに別の正本を同期する必要があります。
+TypeScript インタフェースを手書きすれば、フロントエンドだけを見たときは単純です。
+しかし、Python 契約変更のたびに別の正本を同期する必要があります。
 
 生成型は、すべての意味を自動的に正しくする仕組みではありません。
-field名、required、literal、union、endpoint bodyの機械的な同期を担います。
+フィールド名、required、literal、ユニオン型、endpoint bodyの機械的な同期を担います。
 「この寄与を因果効果と呼ばない」といった表示上の意味は、ReactとE2Eで別に守ります。
 
 ### 現在の限界
 
 現行実装には、次の限界があります。
 
-- Pythonとfrontendにそれぞれallow-listがあり、新Activity追加では二箇所を更新する
-- OpenAPIはshapeを伝えるが、統計的な意味の正しさまでは伝えない
-- E2Eは代表的な操作を確認し、全Activityの全error状態を網羅しない
-- source inspection testは構造退行を検出するが、識別子の書き方に依存する
-- 保存済みschemaの長期migration方針は、Activity versionを増やす変更ごとに判断が必要
-- Task Definitionは表示桁数を固定するが、統計値の意味を画面へ自動生成しない
+- Pythonとフロントエンドにそれぞれ許可リストがあり、新アクティビティ追加では二箇所を更新する
+- OpenAPIは構造を伝えるが、統計的な意味の正しさまでは伝えない
+- E2Eは代表的な操作を確認し、全アクティビティの全エラー状態を網羅しない
+- ソース inspection テストは構造退行を検出するが、識別子の書き方に依存する
+- 保存済みスキーマの長期マイグレーション方針は、アクティビティバージョンを増やす変更ごとに判断が必要
+- タスク定義は表示桁数を固定するが、統計値の意味を画面へ自動生成しない
 
 これらは「型があるから完全に安全」という説明を退けます。
-型はshapeと一部の組合せを守り、業務precondition、科学的妥当性、画面文脈、長期migrationは別の境界で扱います。
+型は構造と一部の組合せを守り、業務precondition、科学的妥当性、画面文脈、長期マイグレーションは別の境界で扱います。
 
 ## 章末チェック
 
-次の問いに、pathとtestを挙げて答えてください。
+次の問いに、経路とテストを挙げて答えてください。
 
-1. 候補差分parameterの正本はどこか。
-2. `schema_version`を省略した外部requestが失敗するのはなぜか。
-3. 比較候補が同じProjectに属するかをPydanticだけで検証しないのはなぜか。
-4. 共通serviceがActivity固有IDで分岐しないことを、どのtestが守るか。
-5. FastAPI contractと追跡済みOpenAPIのdriftを、何が検出するか。
+1. 候補差分パラメータの正本はどこか。
+2. `schema_version`を省略した外部リクエストが失敗するのはなぜか。
+3. 比較候補が同じプロジェクトに属するかをPydanticだけで検証しないのはなぜか。
+4. 共通サービスがアクティビティ固有IDで分岐しないことを、どのテストが守るか。
+5. FastAPI 契約と追跡済みOpenAPIのdriftを、何が検出するか。
 6. OpenAPIとTypeScript生成型のdriftを、何が検出するか。
-7. Reactが候補差分resultへnarrowingするとき、どのfieldを使うか。
-8. 型が正しくてもstale responseが誤表示されるのは、どのような場合か。
-9. RunへPackage digestとFeature Pipeline digestを残す理由は何か。
+7. Reactが候補差分結果へnarrowingするとき、どのフィールドを使うか。
+8. 型が正しくても古いレスポンスが誤表示されるのは、どのような場合か。
+9. 実行記録へパッケージダイジェストと特徴量パイプラインダイジェストを残す理由は何か。
 10. E2Eが数値をすべて固定せず、表示上の区別を確認する理由は何か。
 
 [章末チェックの解答](../labs/extend-contract.qmd#answer-contract-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 
-- OpenAPI Specificationの*Schema Object*と*Discriminator Object* [@openapi-311]：PythonからTypeScriptへ運べるshapeを確認します。科学的な表示文脈まで運べるとは解釈しません。
-- Pydanticの*Discriminated Unions* [@pydantic-unions]：variant選択を明示fieldへ固定する方法を読みます。Project ownershipのようなDB依存条件は対象外です。
-- TypeScript Handbookの*Discriminated unions* [@typescript-narrowing]：生成unionをfrontendでnarrowingする経路を確認します。時間的にstaleなresponseの検出は別問題です。
+- OpenAPI Specificationの*Schema Object*と*Discriminator Object* [@openapi-311]：PythonからTypeScriptへ運べる構造を確認します。科学的な表示文脈まで運べるとは解釈しません。
+- Pydanticの*Discriminated Unions* [@pydantic-unions]：バリアント選択を明示フィールドへ固定する方法を読みます。プロジェクト ownershipのようなDB依存条件は対象外です。
+- TypeScript Handbookの*Discriminated unions* [@typescript-narrowing]：生成ユニオン型をフロントエンドでnarrowingする経路を確認します。時間的にstaleなレスポンスの検出は別問題です。
 - PercivalとGregoryの*Repository Pattern*と*Service Layer* [@cosmic-python]：境界の比較語彙を得ます。現行`Store`をpatternどおりに分割する処方箋にはしません。

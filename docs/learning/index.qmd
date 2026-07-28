@@ -1,70 +1,70 @@
 # 実装を読んで変更を通す {.unnumbered}
 
-この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、identity、migration、lifecycle、復元境界、予測から判断への境界を実装から追跡し、自分で変更を検証できる状態を目指します。
+この教材は、Material Decision Workbenchへ参加した開発者が、型付き契約、データの証拠、同一性、マイグレーション、ライフサイクル、復元境界、予測から判断への境界を実装から追跡し、自分で変更を検証できる状態を目指します。
 
 対象読者は、PythonまたはTypeScriptで開発経験があり、このリポジトリの境界にはまだ詳しくない開発者です。
 FastAPI、Pydantic、Reactの入門そのものは扱いません。
 
 一つ目の題材は**検討アクティビティ（Decision Activity）**です。
-候補差分の要因分解を例に、parameterとresultのdiscriminated union、application service、FastAPI、OpenAPI、生成TypeScript型、React表示、pytest、Playwrightを一つの変更経路として読みます。
+候補差分の要因分解を例に、パラメータと結果の判別可能なユニオン型、アプリケーションサービス、FastAPI、OpenAPI、生成TypeScript型、React表示、pytest、Playwrightを一つの変更経路として読みます。
 
-二つ目の題材は**Source data lifecycle**です。
-外部Sourceの四行が、Raw Snapshotでは四行、承認済みDatasetでは三行、Training Snapshotでは二行になる過程を追い、取得、品質判定、承認、学習用途、Model Package active化を分けます。
+二つ目の題材は**ソースデータのライフサイクル（Source data lifecycle）**です。
+外部ソースの四行が、生スナップショットでは四行、承認済みデータセットでは三行、学習用スナップショットでは二行になる過程を追い、取得、品質判定、承認、学習用途、モデルパッケージのアクティブ化を分けます。
 
-三つ目の題材は**Workspace backup／restore**です。
-動作中SQLiteから整合したsnapshotを作り、Data AssetとModel Packageを同梱し、staging検証、DB切替、API health確認、rollbackを経て復元を確定するまでを追います。
+三つ目の題材は**ワークスペースのバックアップと復元（Workspace backup／restore）**です。
+動作中SQLiteから整合したスナップショットを作り、データ資産とモデルパッケージを同梱し、ステージング検証、DB切替、APIヘルスチェック、ロールバックを経て復元を確定するまでを追います。
 
-四つ目の題材は**revisionとdigest**です。
-Candidateの二つの編集を固定例に、logical ID、受理順、内容identity、request sequenceを分け、保存競合と遅いresponseを別の境界で判定します。
+四つ目の題材は**リビジョンとダイジェスト（revision and digest）**です。
+候補の二つの編集を固定例に、論理ID、受理順、内容の同一性、リクエスト連番を分け、保存競合と遅いレスポンスを別の境界で判定します。
 
-五つ目の題材は**SQLite migration**です。
-既存DBへ履歴tableと参照列を加える例から、marker、checksum、実schema、data invariantを照合し、過去の意味を発明せずに起動可否を判断します。
+五つ目の題材は**SQLiteマイグレーション（SQLite migration）**です。
+既存DBへ履歴テーブルと参照列を加える例から、マーカ、チェックサム、実スキーマ、データ不変条件を照合し、過去の意味を発明せずに起動可否を判断します。
 
-六つ目の題材は**Project archiveとpurge**です。
-Projectを通常一覧から外して判断証拠を凍結する操作と、外部provenanceを検査してProject-owned evidenceを物理削除する操作を分けます。
+六つ目の題材は**プロジェクトのアーカイブとパージ（Project archive and purge）**です。
+プロジェクトを通常一覧から外して判断証拠を凍結する操作と、外部来歴を検査してプロジェクト所有の証拠を物理削除する操作を分けます。
 
-七つ目の題材は**Decision Safety**です。
-点予測、予測区間、support、入力ばらつき、警告、提案の採用境界を分け、不完全な証拠からsummaryを確定しない画面と保存contractを読みます。
+七つ目の題材は**判断の安全性（Decision Safety）**です。
+点予測、予測区間、学習データの裏付け、入力ばらつき、警告、提案の採用境界を分け、不完全な証拠から要約を確定しない画面と保存契約を読みます。
 
 ## 読了後にできること
 
 読者は次の作業を自力で行えるようになります。
 
 - 変更の正本となるPython契約を特定する
-- `schema_version`がOpenAPIとTypeScriptの判別可能なunionへ変換される経路を説明する
-- 共通shellとActivity固有実装の責務を分ける
-- contract test、API test、E2Eがそれぞれ防ぐ破損を説明する
+- `schema_version`がOpenAPIとTypeScriptの判別可能なユニオン型へ変換される経路を説明する
+- 共通シェルとアクティビティ固有実装の責務を分ける
+- 契約テスト、APIテスト、E2Eがそれぞれ防ぐ破損を説明する
 - 小さな契約変更の影響範囲を、コードマップから列挙する
 - `npm run api:check`を含む検証を実行する
-- Source更新からTraining Snapshotまでの資産とdigestを区別する
+- ソース更新から学習用スナップショットまでの資産とダイジェストを区別する
 - 品質状態と目的変数への利用可否を別々に判定する
-- 取得が再学習やactive化を起こさないことをtestで確認する
-- logical ID、revision、digest、request sequenceが答える問いを区別する
-- Candidateのlost updateをcompare-and-swapで防ぐ経路を説明する
-- 推論cacheのidentityと保存済み判断証拠のidentityを区別する
-- 遅いresponseをrequest sequenceとidentityで拒否する
-- migration marker、checksum、schema、data invariantを別の証拠として読む
-- transaction内のpartial failureと、migration列の途中停止を区別する
-- foreign keyとapplication invariantの責務を区別する
-- legacy dataをbackfillする条件と、provenance付きで未確定を残す条件を説明する
-- Project archiveで保持する証拠と、失効させる実行権を区別する
-- purge前の確認用ID、外部provenance scan、write guard、foreign keyの責務を区別する
-- Project-owned evidenceとshared artifactの寿命を分ける
-- Workspace bundleと現Workspaceの境界を区別する
-- prepare、commit、health確認、finalize、rollbackの状態遷移を説明する
-- archive改ざん、migration不一致、DB切替失敗を検出するtestを選ぶ
-- 点予測、予測区間、support、入力ばらつきを別の判断材料として読む
+- 取得が再学習やアクティブ化を起こさないことをテストで確認する
+- 論理ID、リビジョン、ダイジェスト、リクエスト連番が答える問いを区別する
+- 候補の更新消失を比較交換（compare-and-swap）で防ぐ経路を説明する
+- 推論キャッシュの同一性と保存済み判断証拠の同一性を区別する
+- 遅いレスポンスをリクエスト連番と同一性で拒否する
+- マイグレーションマーカ、チェックサム、スキーマ、データ不変条件を別の証拠として読む
+- トランザクション内の部分失敗と、マイグレーション列の途中停止を区別する
+- 外部キーとアプリケーション不変条件の責務を区別する
+- レガシーデータを埋め戻す条件と、来歴付きで未確定を残す条件を説明する
+- プロジェクトのアーカイブで保持する証拠と、失効させる実行権を区別する
+- パージ前の確認用ID、外部来歴スキャン、書込みガード、外部キーの責務を区別する
+- プロジェクト所有の証拠と共有成果物の寿命を分ける
+- ワークスペースバンドルと現ワークスペースの境界を区別する
+- 準備、確定、ヘルスチェック、最終化、ロールバックの状態遷移を説明する
+- アーカイブ改ざん、マイグレーション不一致、DB切替失敗を検出するテストを選ぶ
+- 点予測、予測区間、学習データの裏付け、入力ばらつきを別の判断材料として読む
 - `0`、未計算、利用不可、失敗、古い結果を別の証拠状態として扱う
 - 警告を原因、影響、次の行動へ分ける
-- proposal生成、Candidate化、Project decision保存のwrite boundaryを説明する
-- accessibility上の欠落を、判断材料の欠落として批評する
+- 提案生成、候補化、プロジェクト判断保存の書込み境界を説明する
+- アクセシビリティ上の欠落を、判断材料の欠落として批評する
 
 ## この教材に含めないもの
 
 読者がこの教材に期待しそうで、今回は扱わない範囲を明示します。
 
 - FastAPI、React、機械学習の一般的な入門
-- 新しいproduction機能の実装
+- 新しい本番機能の実装
 - 検討アクティビティの統計手法が科学的に妥当かという専門評価
 - リポジトリ内の全技術を網羅する百科事典
 - 自動生成したHTMLやPDFの手編集
@@ -78,16 +78,16 @@ Projectを通常一覧から外して判断証拠を凍結する操作と、外�
 | 変更したい対象 | 入口 |
 |---|---|
 | Python契約、API、生成TypeScript型、React表示 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) |
-| 予測、support、不確実性、警告、提案の採用境界 | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
-| Source取得、品質判定、Training Snapshot | [Source更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
-| Candidate revision、digest、遅いresponse | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
-| SQLite schema、migration、既存DB | [過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd) |
-| Project archive、purge、判断証拠 | [一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd) |
-| Workspace backup、restore、rollback | [Workspaceを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
+| 予測、学習データの裏付け、不確実性、警告、提案の採用境界 | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| ソース取得、品質判定、学習用スナップショット | [ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd) |
+| 候補のリビジョン、ダイジェスト、遅いレスポンス | [順番と内容を別々に識別する](chapters/revision-and-digest.qmd) |
+| SQLiteスキーマ、マイグレーション、既存DB | [過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd) |
+| プロジェクトのアーカイブ、パージ、判断証拠 | [一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd) |
+| ワークスペースのバックアップ、復元、ロールバック | [ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd) |
 
 ::: {.content-visible when-profile="site"}
 ## 教材を編集する場合
 
-統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、[教材drift review](drift-reviews/index.qmd)、評価記録があります。
+統合HTMLの「編集と保守のガイド」には、[教材の設計基準](foundations.qmd)、[書き手のペルソナ](writer-persona.md)、[教材用コードマップ](code-map.qmd)、担当別の学習ルート、組版手順、[教材ドリフトレビュー](drift-reviews/index.qmd)、評価記録があります。
 検索は学習者向け教材と編集と保守のガイドの両方を対象にします。
 :::

@@ -66,157 +66,157 @@ historical_concepts: []
 
 ## 対象読者と到達点
 
-Projectの保存schema、削除操作、provenance、または実行状態を変更する開発者が対象です。
-SQL transaction、foreign key、JSON payloadの基本を読めることを前提にします。
+プロジェクトの保存スキーマ、削除操作、来歴、または実行状態を変更する開発者が対象です。
+SQL transaction、foreign キー、JSON ペイロードの基本を読めることを前提にします。
 
-読了後は、次の問いへ実装pathを挙げて答えられる状態を目指します。
+読了後は、次の問いへ実装経路を挙げて答えられる状態を目指します。
 
-- Project archiveで変わるrowと、残る判断証拠は何か
-- archive時に実行中のChain claimだけを失効させる理由は何か
-- restoreとWorkspace restoreは何が違うか
-- purgeをarchive済みProjectへ限定する理由は何か
-- 別Projectからのprovenance参照を、foreign keyだけでは守れない理由は何か
+- プロジェクトアーカイブで変わる行と、残る判断証拠は何か
+- アーカイブ時に実行中のチェーン claimだけを失効させる理由は何か
+- 復元とワークスペース復元は何が違うか
+- パージをアーカイブ済みプロジェクトへ限定する理由は何か
+- 別プロジェクトからの来歴参照を、foreign キーだけでは守れない理由は何か
 - APIの確認用ID、applicationの参照検査、SQLite triggerは何を分担するか
-- 新しいProject-scoped tableを追加するとき、どのinventoryを更新するか
-- 保持したChain evidenceをProject historyへ戻すとき、どのidentityを照合するか
-- Project Seriesの所属解除が、archiveや続き元の切断と異なる理由は何か
+- 新しいプロジェクト-scoped テーブルを追加するとき、どのinventoryを更新するか
+- 保持したチェーン evidenceをプロジェクト historyへ戻すとき、どの同一性を照合するか
+- プロジェクト Seriesの所属解除が、アーカイブや続き元の切断と異なる理由は何か
 
 ## 扱わない範囲
 
-この章は、Candidate単体のarchive規則、法令ごとの保持期間、複数利用者の認可、媒体の安全な廃棄を扱いません。
-一つのlocal SQLite正本で、Projectを通常作業から外し、必要な場合だけ明示的に物理削除する経路へ絞ります。
+この章は、候補単体のアーカイブ規則、法令ごとの保持期間、複数利用者の認可、媒体の安全な廃棄を扱いません。
+一つのlocal SQLite正本で、プロジェクトを通常作業から外し、必要な場合だけ明示的に物理削除する経路へ絞ります。
 
-現行UIはProjectのarchiveとrestoreを提供しますが、purge UIは提供しません。
-purgeを通常利用者が画面から実行できる機能として説明しません。
+現行UIはプロジェクトのアーカイブと復元を提供しますが、パージ UIは提供しません。
+パージを通常利用者が画面から実行できる機能として説明しません。
 
-## Project Aを片付けたい
+## プロジェクト Aを片付けたい
 
-Project Aには、Candidate、Candidate revision、Snapshot、実測値、Decision Activity、Chain実行結果があります。
-Project BのCandidateは、Project AのSnapshotを派生元として参照しています。
+プロジェクト Aには、候補、候補リビジョン、スナップショット、実測値、検討アクティビティ、チェーン実行結果があります。
+プロジェクト Bの候補は、プロジェクト Aのスナップショットを派生元として参照しています。
 
-Project Aが通常一覧を埋めるため、日常の作業対象から外したいとします。
-この要求へ物理DELETEで応えると、Project Bが示す派生元の証拠まで失います。
+プロジェクト Aが通常一覧を埋めるため、日常の作業対象から外したいとします。
+この要求へ物理DELETEで応えると、プロジェクト Bが示す派生元の証拠まで失います。
 
-反対に、すべてのrowを何も変えずに残すだけでは、Project Aへの新しい書き込みが続きます。
+反対に、すべての行を何も変えずに残すだけでは、プロジェクト Aへの新しい書き込みが続きます。
 終了した検討と進行中の検討を同じ一覧と同じwrite経路で扱うためです。
 
 この固定例では、三つの操作を分けます。
 
-| 操作 | Project A | Project Aの証拠 | 実行権 | Project Bの参照 |
+| 操作 | プロジェクト A | プロジェクト Aの証拠 | 実行権 | プロジェクト Bの参照 |
 |---|---|---|---|---|
-| archive | 通常一覧から外す | 保持する | 新しいwriteを拒否する | 解決できる |
-| restore | 同じProjectをactiveへ戻す | そのまま使う | 新しい操作を受理できる | 解決できる |
-| purge | Project rowを物理削除する | Project-owned evidenceを削除する | 残さない | 参照があれば拒否する |
+| アーカイブ | 通常一覧から外す | 保持する | 新しいwriteを拒否する | 解決できる |
+| 復元 | 同じプロジェクトを有効へ戻す | そのまま使う | 新しい操作を受理できる | 解決できる |
+| パージ | プロジェクト行を物理削除する | プロジェクト所有の証拠を削除する | 残さない | 参照があれば拒否する |
 
 ## 所属解除は証拠の削除ではない
 
-Project Seriesは、同じ目的で続けた検討を一覧上でまとめる任意のmetadataです。
-ProjectをSeriesから外しても、Project、Candidate、判断履歴、Snapshot、続き元の関係は残ります。
-したがって所属解除をarchive、purge、またはcontinuation切断として実装してはいけません。
+プロジェクト Seriesは、同じ目的で続けた検討を一覧上でまとめる任意のメタデータです。
+プロジェクトをSeriesから外しても、プロジェクト、候補、判断履歴、スナップショット、続き元の関係は残ります。
+したがって所属解除をアーカイブ、パージ、またはcontinuation切断として実装してはいけません。
 
 {{< code-ref project-group-move-contract symbol=ProjectGroupMoveInput >}}は、`project_series_id: null`だけを「グループなしへ移動する」という明示操作に使います。
 空文字はselectの未選択と区別できないため422で拒否します。
 {{< code-ref project-history-store symbol="Store.move_project_to_group" >}}は`expected_project_series_id`をcompare-and-swap条件として使うため、解除の直前に別操作が所属を変えた場合も409で止まります。
 
-最後のProjectが抜けて空になったSeriesはarchiveしますが、Project本体はactiveのままです。
-残留ProjectがあればSeriesを閉じません。
+最後のプロジェクトが抜けて空になったSeriesはアーカイブしますが、プロジェクト本体は有効のままです。
+残留プロジェクトがあればSeriesを閉じません。
 この往復と、predecessor／continuationが変わらないことは{{< code-ref project-group-move-test symbol=test_project_leaves_a_group_and_returns_to_another_one >}}で固定し、画面経路は{{< code-ref project-group-move-e2e >}}で確認します。
 
-現行UIは、予測Taskがunavailableでも所属変更のようなmetadata操作を残します。
+現行UIは、予測タスクがunavailableでも所属変更のようなメタデータ操作を残します。
 ただしAPIへ接続できない場合と、設定保存が進行中の場合は操作を止めます。
-所属変更の競合はTaskの推論可否ではなく、`expected_project_series_id`によるcompare-and-swapで検出します。
-また、所属変更専用のaudit recordは増やしません。
+所属変更の競合はタスクの推論可否ではなく、`expected_project_series_id`によるcompare-and-swapで検出します。
+また、所属変更専用のaudit 記録は増やしません。
 これは判断証拠を変更しないという意味であり、所属変更履歴を監査できるという意味ではありません。
 
-| 操作 | Project | Series所属 | Candidate・判断履歴 | 続き元 |
+| 操作 | プロジェクト | Series所属 | 候補・判断履歴 | 続き元 |
 |---|---|---|---|---|
-| 所属解除 | activeのまま | `null`へ変更 | 保持 | 保持 |
-| archive | 通常一覧から外す | rowには保持 | 保持 | 保持 |
-| purge | 物理削除 | 関連cleanup対象 | Project-owned evidenceを削除 | 外部参照があれば拒否 |
+| 所属解除 | 有効のまま | `null`へ変更 | 保持 | 保持 |
+| アーカイブ | 通常一覧から外す | 行には保持 | 保持 | 保持 |
+| パージ | 物理削除 | 関連cleanup対象 | プロジェクト所有の証拠を削除 | 外部参照があれば拒否 |
 
-archiveは、削除の弱い版ではありません。
+アーカイブは、削除の弱い版ではありません。
 可視性と書き込み可能性を変え、判断証拠の寿命は変えない状態遷移です。
 
-purgeは、archiveの次に自動で起きるcleanupでもありません。
+パージは、アーカイブの次に自動で起きるcleanupでもありません。
 削除対象と外部参照を検査した後にだけ進める、別の不可逆操作です。
 
 ## 保持する集合を先に書く
 
-`docs/decisions/sqlite-project-lifecycle-policy.md`は、archiveとpurgeで各artifactをどう扱うかを固定しています。
+`docs/decisions/sqlite-project-lifecycle-policy.md`は、アーカイブとパージで各成果物をどう扱うかを固定しています。
 
 中心となる分類は次の三つです。
 
-| 分類 | 例 | archive | purge |
+| 分類 | 例 | アーカイブ | パージ |
 |---|---|---|---|
-| Project-owned evidence | Candidate、revision、Snapshot、実測、Run、lineage review | 保持 | 削除 |
-| 実行中の権利 | Chain execution claim | 失効 | 削除 |
-| shared artifact | Chain Definition、Chain Revision、Data Library、Project Series | 保持 | 保持または空ならarchive |
+| プロジェクト所有の証拠 | 候補、リビジョン、スナップショット、実測、実行記録、lineage レビュー | 保持 | 削除 |
+| 実行中の権利 | チェーン execution claim | 失効 | 削除 |
+| shared 成果物 | チェーン Definition、チェーンリビジョン、データライブラリ、プロジェクト Series | 保持 | 保持または空ならアーカイブ |
 
-Project-owned evidenceは、そのProjectの判断を再現するために存在します。
-archiveしても判断の来歴を読む必要があるため、rowを残します。
+プロジェクト所有の証拠は、そのプロジェクトの判断を再現するために存在します。
+アーカイブしても判断の来歴を読む必要があるため、行を残します。
 
-Chain execution claimは証拠ではありません。
+チェーン execution claimは証拠ではありません。
 遅れて到着したwriterが「まだ結果を書いてよい」と主張する短命な権利です。
-Projectをarchiveした後まで権利を残すと、画面から外したProjectへ遅い計算結果が入る余地が残ります。
+プロジェクトをアーカイブした後まで権利を残すと、画面から外したプロジェクトへ遅い計算結果が入る余地が残ります。
 
-shared artifactは、一つのProjectだけが所有するとは限りません。
-Projectをpurgeしても、別Projectが同じDataset、Model Package、Chain Definitionを使えるため、Projectと一緒に削除しません。
+shared 成果物は、一つのプロジェクトだけが所有するとは限りません。
+プロジェクトをパージしても、別プロジェクトが同じデータセット、モデルパッケージ、チェーン Definitionを使えるため、プロジェクトと一緒に削除しません。
 
-この分類はtable名から自動で決まりません。
-どのrowが判断証拠で、どのrowが短命な実行権で、どのartifactが共有されるかを設計文書と利用経路から決めます。
+この分類はテーブル名から自動で決まりません。
+どの行が判断証拠で、どの行が短命な実行権で、どの成果物が共有されるかを設計文書と利用経路から決めます。
 
-![active、archive、purge拒否、purge完了を通るProject evidenceの状態](../figures/project-archive-purge-states.svg){fig-alt="Project Aがactiveからarchiveへ進むと、通常一覧とwrite経路から外れるが証拠は残り、実行中claimだけが失効する。Project Bから派生参照があればpurgeを拒否する。外部参照がないProjectだけ、Project-owned evidenceを一つのtransactionで削除し、shared artifactを残す。" width="100%"}
+![有効、アーカイブ、パージ拒否、パージ完了を通るプロジェクト証拠の状態](../figures/project-archive-purge-states.svg){fig-alt="プロジェクトAが有効からアーカイブへ進むと、通常一覧と書込み経路から外れるが証拠は残り、実行中の占有だけが失効する。プロジェクトBから派生参照があればパージを拒否する。外部参照がないプロジェクトだけ、プロジェクト所有の証拠を一つのトランザクションで削除し、共有成果物を残す。" width="100%"}
 
-## archiveは一つのtransactionで状態と実行権を変える
+## アーカイブは一つのtransactionで状態と実行権を変える
 
 `DELETE /api/projects/{project_id}`というHTTP methodは、現行実装では物理削除を意味しません。
 `api/projects.py`の`archive_project()`が`ProjectService.archive()`を経て、`Store.archive_project()`を呼びます。
 
-repositoryは`BEGIN IMMEDIATE`を開始し、次を同じtransactionで行います。
+リポジトリは`BEGIN IMMEDIATE`を開始し、次を同じtransactionで行います。
 
 1. `projects.archived_at`と`updated_at`を更新する。
-2. Project IDで始まる`chain_execution_claims.scope_id`を削除する。
-3. ProjectがProject Seriesに属し、同じSeriesにactive Projectが残らなければ、そのSeriesもarchiveする。
+2. プロジェクト IDで始まる`chain_execution_claims.scope_id`を削除する。
+3. プロジェクトがプロジェクト Seriesに属し、同じSeriesに有効プロジェクトが残らなければ、そのSeriesもアーカイブする。
 
-Candidate、Candidate revision、Snapshot、実測、保存済みRunは削除しません。
-archive後のtable countがほとんど変わらないことは、操作が失敗した証拠ではなく保持policyの結果です。
+候補、候補リビジョン、スナップショット、実測、保存済み実行記録は削除しません。
+アーカイブ後のテーブル countがほとんど変わらないことは、操作が失敗した証拠ではなく保持policyの結果です。
 
-Project Seriesへの所属は任意です。
-ProjectがSeriesに属していなければ、archiveでProject Series rowは変わりません。
+プロジェクト Seriesへの所属は任意です。
+プロジェクトがSeriesに属していなければ、アーカイブでプロジェクト Series 行は変わりません。
 
-ただし、archiveを「何も変えない」とも説明できません。
-Project row、所属している場合のProject Series、実行中claimは変わります。
+ただし、アーカイブを「何も変えない」とも説明できません。
+プロジェクト行、所属している場合のプロジェクト Series、実行中claimは変わります。
 
-`Store.archive_project()`は、すでにarchive済みなら新しい副作用を重ねません。
-同じProjectへ操作を繰り返しても、`archived_at`を毎回更新し直さないidempotentな状態遷移です。
+`Store.archive_project()`は、すでにアーカイブ済みなら新しい副作用を重ねません。
+同じプロジェクトへ操作を繰り返しても、`archived_at`を毎回更新し直さないidempotentな状態遷移です。
 
 ## 一覧から隠すだけでなくwriteを拒否する
 
-通常のProject一覧は`archived_at IS NULL`のrowだけを返します。
-frontendは`include_archived=true`でも一覧を取得し、active一覧と「アーカイブ済み」欄へ分けます。
+通常のプロジェクト一覧は`archived_at IS NULL`の行だけを返します。
+フロントエンドは`include_archived=true`でも一覧を取得し、有効一覧と「アーカイブ済み」欄へ分けます。
 
-UIの確認文は、Projectを一覧から外し、候補、予測履歴、実測データを保持して後から復元できることを示します。
-この文言は、現行repositoryの保持policyと一致します。
+UIの確認文は、プロジェクトを一覧から外し、候補、予測履歴、実測データを保持して後から復元できることを示します。
+この文言は、現行リポジトリの保持policyと一致します。
 
 一覧filterだけでは、API以外のwrite経路を止められません。
-そこで`project_lifecycle_migration.py`は、archive済みProjectに属する主要tableへwrite guard triggerを設置します。
+そこで`project_lifecycle_migration.py`は、アーカイブ済みプロジェクトに属する主要テーブルへwrite guard triggerを設置します。
 
-たとえば、archive済みProjectへCandidateを追加すると、triggerは`RAISE(ABORT, 'project_archived')`でstatementを拒否します。
-Project-owned rowの通常DELETEも同じ理由で拒否します。
+たとえば、アーカイブ済みプロジェクトへ候補を追加すると、triggerは`RAISE(ABORT, 'project_archived')`でstatementを拒否します。
+プロジェクト所有行の通常DELETEも同じ理由で拒否します。
 
-triggerは、applicationがarchive状態の確認を忘れた経路にも不変条件を掛けます。
-一方、現行triggerがすべてのtableとoperationを自動発見するわけではありません。
-対象tableは明示的なlistであり、新しいProject-scoped tableを追加した開発者がguardも更新します。
+triggerは、applicationがアーカイブ状態の確認を忘れた経路にも不変条件を掛けます。
+一方、現行triggerがすべてのテーブルと操作を自動発見するわけではありません。
+対象テーブルは明示的なlistであり、新しいプロジェクト-scoped テーブルを追加した開発者がguardも更新します。
 
-SQLite triggerはrowごとにINSERT、UPDATE、DELETEへ反応し、`RAISE()`で変更を中断できます [@sqlite-create-trigger]。
-保持policyの全体はtriggerへ隠さず、ADR、repositoryのpurge plan、test inventoryにも見える形で残します。
+SQLite triggerは行ごとにINSERT、UPDATE、DELETEへ反応し、`RAISE()`で変更を中断できます [@sqlite-create-trigger]。
+保持policyの全体はtriggerへ隠さず、ADR、リポジトリのパージ plan、テスト inventoryにも見える形で残します。
 
-## archiveは遅いwriterの権利を失効させる
+## アーカイブは遅いwriterの権利を失効させる
 
-Chain実行は、requestごとにgeneration付きclaimを取得します。
-結果保存時には、そのclaimがまだcurrentかを確認します。
+チェーン実行は、リクエストごとにgeneration付きclaimを取得します。
+結果保存時には、そのclaimがまだ現行かを確認します。
 
-Project Aの計算中にarchive操作が入る場合を考えます。
+プロジェクト Aの計算中にアーカイブ操作が入る場合を考えます。
 
 ```text
 writer: claim generation 1を取得
@@ -229,53 +229,53 @@ store:  current claimがないため保存しない
 保存済み`chain_execution_state`は、過去の実行証拠として残ります。
 次の結果を書く権利である`chain_execution_claims`だけを消します。
 
-この区別により、archive前に何が起きたかは読めます。
-同時に、archive後へ遅いresponseが滑り込む経路を閉じます。
+この区別により、アーカイブ前に何が起きたかは読めます。
+同時に、アーカイブ後へ遅いレスポンスが滑り込む経路を閉じます。
 
-archive後にrestoreしても、消したclaimは自動再開しません。
-同じProjectをactiveへ戻すことと、中断した外部計算を再実行することは別の操作です。
+アーカイブ後に復元しても、消したclaimは自動再開しません。
+同じプロジェクトを有効へ戻すことと、中断した外部計算を再実行することは別の操作です。
 
-## restoreは同じDB内の状態遷移である
+## 復元は同じDB内の状態遷移である
 
-`POST /api/projects/{project_id}/restore`は、同じProject rowの`archived_at`を`NULL`へ戻します。
-ProjectがProject Seriesに属していれば、そのSeriesも必要に応じてactiveへ戻します。
+`POST /api/projects/{project_id}/restore`は、同じプロジェクト行の`archived_at`を`NULL`へ戻します。
+プロジェクトがプロジェクト Seriesに属していれば、そのSeriesも必要に応じて有効へ戻します。
 
-Candidate、Snapshot、実測をbackupからcopyし直しません。
-archive中も同じDBに残っていた証拠を、通常経路から再び利用できるようにします。
+候補、スナップショット、実測をバックアップからコピーし直しません。
+アーカイブ中も同じDBに残っていた証拠を、通常経路から再び利用できるようにします。
 
-このProject restoreは、`.mdwb` bundleをstagingし、SQLite databaseと管理対象fileを切り替えるWorkspace restoreとは異なります。
-Project restoreは一つのlifecycle flagを戻す操作であり、Workspace restoreは正本全体の置換です。
+このプロジェクト復元は、`.mdwb` bundleをステージングし、SQLite データベースと管理対象ファイルを切り替えるワークスペース復元とは異なります。
+プロジェクト復元は一つのライフサイクルフラグを戻す操作であり、ワークスペース復元は正本全体の置換です。
 
-同じ「復元」という表示でも、変更する境界を識別子とpathから区別します。
+同じ「復元」という表示でも、変更する境界を識別子と経路から区別します。
 
-## purgeの前に四つのgateを通る
+## パージの前に四つのgateを通る
 
-現行purge endpointは、次の形です。
+現行パージ endpointは、次の形です。
 
 ```text
 DELETE /api/projects/{project_id}/purge
   ?confirm_project_id={project_id}
 ```
 
-最初のgateは、pathのProject IDと確認用Project IDの完全一致です。
+最初のgateは、経路のプロジェクト IDと確認用プロジェクト IDの完全一致です。
 一致しなければ409 `project_purge_confirmation_mismatch`を返します。
 
 この確認は、誤った対象へ操作を送る可能性を減らします。
-利用者の認証、操作権限、多者承認、backupの代わりにはなりません。
+利用者の認証、操作権限、多者承認、バックアップの代わりにはなりません。
 
-repositoryは同じ`BEGIN IMMEDIATE` transaction内で、さらに次を検査します。
+リポジトリは同じ`BEGIN IMMEDIATE` transaction内で、さらに次を検査します。
 
-1. 予約Projectではない。
-2. Projectがarchive済みである。
-3. `predecessor_project_id`で参照する後続Projectがない。
-4. 別ProjectのCandidate revisionが、このProjectのprovenanceを参照していない。
+1. 予約プロジェクトではない。
+2. プロジェクトがアーカイブ済みである。
+3. `predecessor_project_id`で参照する後続プロジェクトがない。
+4. 別プロジェクトの候補リビジョンが、このプロジェクトの来歴を参照していない。
 
-active Projectのpurgeを拒否することで、通常作業中の対象を一段の操作で物理削除できなくします。
-後続Projectと派生Candidateの参照を拒否することで、別の判断記録から来歴をたどれなくなる削除を止めます。
+有効プロジェクトのパージを拒否することで、通常作業中の対象を一段の操作で物理削除できなくします。
+後続プロジェクトと派生候補の参照を拒否することで、別の判断記録から来歴をたどれなくなる削除を止めます。
 
 ## JSON内の参照はapplicationが解決する
 
-Project BのCandidate revisionは、次のようなprovenanceをJSON payloadへ持ち得ます。
+プロジェクト Bの候補リビジョンは、次のような来歴をJSON ペイロードへ持ち得ます。
 
 ```json
 {
@@ -288,107 +288,107 @@ Project BのCandidate revisionは、次のようなprovenanceをJSON payloadへ�
 }
 ```
 
-この`source_ref`は、Project Aへの通常のforeign key columnではありません。
-SQLiteの`PRAGMA foreign_key_check`だけでは、JSON内のSnapshot IDがどのProjectへ属するかを検査できません。
+この`source_ref`は、プロジェクト Aへの通常のforeign キー columnではありません。
+SQLiteの`PRAGMA foreign_key_check`だけでは、JSON内のスナップショット IDがどのプロジェクトへ属するかを検査できません。
 
 `_candidate_provenance_references_project()`は、既知の`source_kind`ごとに参照を解決します。
 
-| `source_kind` | Project Aへの到達方法 |
+| `source_kind` | プロジェクト Aへの到達方法 |
 |---|---|
 | `copy`、`blend_optimization` | `source_ref.project_id` |
 | `screening` | `run_id`から`screening_runs.project_id` |
-| `snapshot` | `snapshot_id`からCandidateとProject |
+| `snapshot` | `snapshot_id`から候補とプロジェクト |
 | `decision_activity` | `run_id`から`decision_activity_runs.project_id` |
 
-purgeは、別Projectに属するすべてのCandidate revision payloadをparseします。
-不正なJSONがあれば「参照なし」と推測せず、data integrity errorとして停止します。
+パージは、別プロジェクトに属するすべての候補リビジョンペイロードをparseします。
+不正なJSONがあれば「参照なし」と推測せず、データ integrity エラーとして停止します。
 
-このscanは、任意のprovenance graphを理解する仕組みではありません。
-新しい`source_kind`を追加した場合は、参照解決、purge gate、testを同時に更新する必要があります。
+このscanは、任意の来歴 graphを理解する仕組みではありません。
+新しい`source_kind`を追加した場合は、参照解決、パージ gate、テストを同時に更新する必要があります。
 
-foreign keyは、正規化した親子rowの存在関係を強制します。
-application scanは、JSONに埋め込んだdomain参照の意味を解決します。
+foreign キーは、正規化した親子行の存在関係を強制します。
+application scanは、JSONに埋め込んだドメイン参照の意味を解決します。
 どちらか一方を「参照整合性」と呼んで全体の保証に広げません。
 
-## purge authorizationは内部の通行証である
+## パージ authorizationは内部の通行証である
 
-archive済みProjectへのDELETEは、write guardが通常は拒否します。
-purge自身も同じguardに止められるため、repositoryはtransaction内で`project_purge_authorizations`へProject IDを一時的に入れます。
+アーカイブ済みプロジェクトへのDELETEは、write guardが通常は拒否します。
+パージ自身も同じguardに止められるため、リポジトリはtransaction内で`project_purge_authorizations`へプロジェクト IDを一時的に入れます。
 
-guardはこのrowがある間だけ、archive済みProject-owned rowのDELETEを許します。
-repositoryは削除後にauthorization rowも消します。
-途中で例外が起きれば、同じtransactionの削除とauthorizationをrollbackします。
+guardはこの行がある間だけ、アーカイブ済みプロジェクト所有行のDELETEを許します。
+リポジトリは削除後にauthorization 行も消します。
+途中で例外が起きれば、同じtransactionの削除とauthorizationをロールバックします。
 
-このtableは利用者の認可記録ではありません。
-誰が、なぜ、いつpurgeを承認したかを残すaudit logでもありません。
-database triggerを、明示されたrepository経路だけが通過するための内部mechanismです。
+このテーブルは利用者の認可記録ではありません。
+誰が、なぜ、いつパージを承認したかを残すaudit logでもありません。
+データベース triggerを、明示されたリポジトリ経路だけが通過するための内部mechanismです。
 
-通常tableである以上、raw SQLで不正なauthorization rowを残す攻撃まで単独で防ぐcapability systemではありません。
+通常テーブルである以上、raw SQLで不正なauthorization 行を残す攻撃まで単独で防ぐ能力 systemではありません。
 local applicationの正規write経路を守る層として読みます。
 
 ## 削除対象を明示順で消す
 
-gateを通ったpurgeは、Project Aに属するCandidate IDを集め、次を一つのtransactionで削除します。
+gateを通ったパージは、プロジェクト Aに属する候補 IDを集め、次を一つのtransactionで削除します。
 
-- Candidateに属する実測とSnapshot
-- Chain analysis variant、distribution、snapshot
-- Chain execution claimとstate
-- Decision Activityとscreening run
-- lineage reviewとobjective revision
-- Candidate revisionとcurrent Candidate
-- Project row
+- 候補に属する実測とスナップショット
+- チェーン analysis バリアント、distribution、スナップショット
+- チェーン execution claimと状態
+- 検討アクティビティとscreening run
+- lineage レビューとobjective リビジョン
+- 候補リビジョンと現行候補
+- プロジェクト行
 
-Project Seriesへの所属がある場合も、そのSeries rowは削除しません。
-active Projectが残らなければarchiveします。
+プロジェクト Seriesへの所属がある場合も、そのSeries 行は削除しません。
+有効プロジェクトが残らなければアーカイブします。
 
-Data Library、Dataset revision、Model Package、Chain Definition、Chain Revisionも削除しません。
-これらはProject-owned evidenceではなく、別Projectが参照し得るshared artifactだからです。
+データライブラリ、データセットリビジョン、モデルパッケージ、チェーン Definition、チェーンリビジョンも削除しません。
+これらはプロジェクト所有の証拠ではなく、別プロジェクトが参照し得るshared 成果物だからです。
 
-SQLiteの`ON DELETE CASCADE`は、親row削除時に子rowを自動削除できます [@sqlite-foreign-keys]。
+SQLiteの`ON DELETE CASCADE`は、親行削除時に子行を自動削除できます [@sqlite-foreign-keys]。
 便利なcleanupとして一律に付けるのではなく、親が子の寿命を本当に所有する関係へ限定します。
-外部の判断証拠が参照するrowへCASCADEを置くと、削除範囲がschemaに固定されます。
+外部の判断証拠が参照する行へCASCADEを置くと、削除範囲がスキーマに固定されます。
 
-現行実装は多くのProject-owned tableを明示SQLで削除します。
-これにより保持対象と削除対象がrepositoryに見えますが、新しいtableをinventoryへ加え忘れる危険もあります。
+現行実装は多くのプロジェクト所有テーブルを明示SQLで削除します。
+これにより保持対象と削除対象がリポジトリに見えますが、新しいテーブルをinventoryへ加え忘れる危険もあります。
 
 ## transactionが保証することを広げない
 
-purge planは一つの`BEGIN IMMEDIATE` transactionで進みます。
-途中のDELETEが失敗すれば、先に消したrowもrollbackされます。
+パージ planは一つの`BEGIN IMMEDIATE` transactionで進みます。
+途中のDELETEが失敗すれば、先に消した行もロールバックされます。
 
 transactionは、削除集合のatomicityを守ります。
-削除対象の選び方がdomain上正しいことや、未知のJSON参照が存在しないことまでは保証しません。
+削除対象の選び方がドメイン上正しいことや、未知のJSON参照が存在しないことまでは保証しません。
 
-commit後に`PRAGMA foreign_key_check`が空なら、宣言済みforeign keyの孤児がないことを確認できます。
-foreign keyを持たない関係、JSON内参照、filesystem上のexportは検査対象外です。
+コミット後に`PRAGMA foreign_key_check`が空なら、宣言済みforeign キーの孤児がないことを確認できます。
+foreign キーを持たない関係、JSON内参照、filesystem上のexportは検査対象外です。
 
-SQLのDELETE成功を、媒体からdataを安全に消去したこととも同一視しません。
+SQLのDELETE成功を、媒体からデータを安全に消去したこととも同一視しません。
 SQLiteは通常のDELETE後にcontentがfree pageへ残り得ることを説明し、`VACUUM`と`secure_delete`を別の機構として扱います [@sqlite-vacuum]。[^sanitization]
 
-[^sanitization]: NIST SP 800-88 Rev.2は、sanitizationを対象dataへ所定の労力水準でアクセスできなくするprocessとして扱います [@nist-sp800-88r2]。
-    Project purgeはapplicationのlogical recordを削除しますが、Workspace backup、export、filesystem snapshot、別媒体を横断するsanitization contractではありません。
+[^sanitization]: NIST SP 800-88 Rev.2は、sanitizationを対象データへ所定の労力水準でアクセスできなくするプロセスとして扱います [@nist-sp800-88r2]。
+    プロジェクトパージはapplicationのlogical 記録を削除しますが、ワークスペースバックアップ、export、filesystem スナップショット、別媒体を横断するsanitization 契約ではありません。
 
-## API、application、repository、databaseを分けて読む
+## API、application、リポジトリ、データベースを分けて読む
 
 現行経路の責務は次のように分かれています。
 
 | 境界 | 現行の主な責務 |
 |---|---|
-| frontend | archiveの保持範囲を説明し、archive済みProjectをrestoreする |
-| API router | endpoint、確認用ID、domain errorからHTTP 409への変換 |
-| application service | Project存在を確認し、repository操作へ接続する |
-| repository | archive状態、外部参照、削除順、transactionを実装する |
-| SQLite trigger | archive済みProjectへの主要なwriteと通常DELETEを拒否する |
-| foreign key | schemaへ宣言された親子参照の孤児を拒否する |
+| フロントエンド | アーカイブの保持範囲を説明し、アーカイブ済みプロジェクトを復元する |
+| API router | endpoint、確認用ID、ドメインエラーからHTTP 409への変換 |
+| アプリケーションサービス | プロジェクト存在を確認し、リポジトリ操作へ接続する |
+| リポジトリ | アーカイブ状態、外部参照、削除順、transactionを実装する |
+| SQLite trigger | アーカイブ済みプロジェクトへの主要なwriteと通常DELETEを拒否する |
+| foreign キー | スキーマへ宣言された親子参照の孤児を拒否する |
 
-`ProjectService`は薄く、purge対象の組立てとprovenance scanは`Store`にあります。
-この実装を、すべてのbusiness policyがapplication serviceへ置かれた模範的なlayer分離として一般化しません。
+`ProjectService`は薄く、パージ対象の組立てと来歴 scanは`Store`にあります。
+この実装を、すべてのbusiness policyがアプリケーションサービスへ置かれた模範的な層分離として一般化しません。
 
-新しい操作を追加するときは、理想的なlayer名から逆算するより、どの不変条件をどのwrite経路でも守る必要があるかを先に書きます。
+新しい操作を追加するときは、理想的な層名から逆算するより、どの不変条件をどのwrite経路でも守る必要があるかを先に書きます。
 
 ## 現mainで再確認する
 
-リポジトリ直下で、archive、claim失効、purge、cross-Project provenanceを確認します。
+リポジトリ直下で、アーカイブ、claim失効、パージ、cross-プロジェクト来歴を確認します。
 
 ```powershell
 uv run python -m pytest `
@@ -397,112 +397,112 @@ uv run python -m pytest `
   backend/tests/test_data_library_api.py::test_project_with_successor_cannot_be_deleted
 ```
 
-中心testの観察点は次です。
+中心テストの観察点は次です。
 
-| test | 観察する境界 |
+| テスト | 観察する境界 |
 |---|---|
-| `test_archive_preserves_chain_evidence_and_purge_removes_all` | archiveで証拠を保持し、purgeでProject-owned rowを削除する |
-| `test_archive_invalidates_an_in_flight_chain_writer` | archive後に古いgenerationで書けない |
-| `test_purge_rejects_non_copy_cross_project_provenance` | Snapshot由来の別Project Candidateがpurgeを止める |
-| {{< code-ref project-chain-history-test symbol=test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain >}} | 三種類のChain evidenceと採用判断がProject historyへ戻り、再open後も固定参照が一致する |
-| Project copy provenanceのpurge test | Candidate copyの来歴を保護する |
-| successor Projectのpurge test | Project Seriesの継続関係を保護する |
+| `test_archive_preserves_chain_evidence_and_purge_removes_all` | アーカイブで証拠を保持し、パージでプロジェクト所有行を削除する |
+| `test_archive_invalidates_an_in_flight_chain_writer` | アーカイブ後に古いgenerationで書けない |
+| `test_purge_rejects_non_copy_cross_project_provenance` | スナップショット由来の別プロジェクト候補がパージを止める |
+| {{< code-ref project-chain-history-test symbol=test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain >}} | 三種類のチェーン evidenceと採用判断がプロジェクト historyへ戻り、再open後も固定参照が一致する |
+| プロジェクトコピー 来歴のパージテスト | 候補コピーの来歴を保護する |
+| successor プロジェクトのパージテスト | プロジェクト Seriesの継続関係を保護する |
 
-backend testの成功は、画面のarchive操作をE2Eで自動検証したことを意味しません。
-現行E2EにはProject archiveとrestoreを主題にした専用testがないため、UIまで保証すると書きません。
+バックエンドテストの成功は、画面のアーカイブ操作をE2Eで自動検証したことを意味しません。
+現行E2Eにはプロジェクトアーカイブと復元を主題にした専用テストがないため、UIまで保証すると書きません。
 
-## 新しいProject-scoped tableを追加する
+## 新しいプロジェクト-scoped テーブルを追加する
 
 `proposal_runs(project_id, payload, created_at)`を追加する想定で考えます。
 
-tableを作り、保存APIを実装しただけではlifecycle policyへ接続できません。
+テーブルを作り、保存APIを実装しただけではライフサイクル policyへ接続できません。
 少なくとも次を決めます。
 
-1. archive後も判断証拠として保持するか。
-2. archive済みProjectへのINSERT、UPDATE、DELETEをguardするか。
-3. purgeで削除するか、shared artifactとして残すか。
-4. 別Projectから参照される場合、purge前にどの参照を検査するか。
-5. Workspace backupとrestoreへ含まれるか。
-6. focused testでarchive前後とpurge後のrow countをどう固定するか。
+1. アーカイブ後も判断証拠として保持するか。
+2. アーカイブ済みプロジェクトへのINSERT、UPDATE、DELETEをguardするか。
+3. パージで削除するか、shared 成果物として残すか。
+4. 別プロジェクトから参照される場合、パージ前にどの参照を検査するか。
+5. ワークスペースバックアップと復元へ含まれるか。
+6. 焦点を絞ったテストでアーカイブ前後とパージ後の行 countをどう固定するか。
 
-`PROJECT_PERSISTENCE`は、Project直結table、Candidate経由table、scope ID経由table、共有保持table、制御table、JSON provenance scanを一つのinventoryにします。
-archive triggerとpurge SQLはこのinventoryを読みます。
-契約testは実SQLite schemaの全tableを分類と照合するため、`proposal_runs(project_id, ...)`だけを追加すると未登録tableとして失敗します。
+`PROJECT_PERSISTENCE`は、プロジェクト直結テーブル、候補経由テーブル、scope ID経由テーブル、共有保持テーブル、制御テーブル、JSON 来歴 scanを一つのinventoryにします。
+アーカイブ triggerとパージ SQLはこのinventoryを読みます。
+契約テストは実SQLite スキーマの全テーブルを分類と照合するため、`proposal_runs(project_id, ...)`だけを追加すると未登録テーブルとして失敗します。
 
 ## 症状から最初の証拠を選ぶ
 
 | 症状 | 最初に見る証拠 | 次に読む場所 |
 |---|---|---|
-| archive済みProjectへ書ける | `archived_at`とtrigger一覧 | Project-scoped tableのguard coverage |
-| archive後に遅い結果が入った | Chain claimのgeneration | claim削除と保存時CAS |
-| purgeが409になる | error code | active、successor、派生provenance、確認用ID |
-| purge後にrowが残る | ownership inventory | repositoryの明示DELETEとshared artifact分類 |
-| foreign key checkは空だが来歴が切れる | Candidate revisionのJSON | `_candidate_provenance_references_project()` |
-| restoreしても計算が再開しない | Projectのactive状態とclaim | restoreと再実行を別操作として扱う |
+| アーカイブ済みプロジェクトへ書ける | `archived_at`とtrigger一覧 | プロジェクト-scoped テーブルのguard カバレッジ |
+| アーカイブ後に遅い結果が入った | チェーン claimのgeneration | claim削除と保存時CAS |
+| パージが409になる | エラー code | 有効、successor、派生来歴、確認用ID |
+| パージ後に行が残る | ownership inventory | リポジトリの明示DELETEとshared 成果物分類 |
+| foreign キー checkは空だが来歴が切れる | 候補リビジョンのJSON | `_candidate_provenance_references_project()` |
+| 復元しても計算が再開しない | プロジェクトの有効状態とclaim | 復元と再実行を別操作として扱う |
 
 「削除できない」だけでは、保護が働いたのか実装が壊れたのかを区別できません。
-HTTP error code、archive状態、参照元revision、transaction後のrowを順に確認します。
+HTTP エラー code、アーカイブ状態、参照元リビジョン、transaction後の行を順に確認します。
 
 ## 設計を振り返る
 
-### archiveを通常操作にする
+### アーカイブを通常操作にする
 
-Projectは、候補比較、予測、実測、判断理由を束ねた証拠の単位です。
+プロジェクトは、候補比較、予測、実測、判断理由を束ねた証拠の単位です。
 日常の片付けへ物理削除を割り当てると、表示上の都合が証拠の寿命を決めます。
 
-通常操作をarchiveにすることで、active一覧の整理と判断証拠の保持を分けます。
-必要なら同じProjectをrestoreできます。
+通常操作をアーカイブにすることで、有効一覧の整理と判断証拠の保持を分けます。
+必要なら同じプロジェクトを復元できます。
 
-### purgeを明示操作にする
+### パージを明示操作にする
 
-purgeは、active状態の確認、外部参照、所有境界を検査する管理操作です。
+パージは、有効状態の確認、外部参照、所有境界を検査する管理操作です。
 確認用IDは一つの誤操作防止策ですが、参照検査とtransactionを置き換えません。
 
 ### retentionとdiscoverabilityを分ける
 
-rowがDBに残ることと、通常UIから見つけられることは別です。
-現行実装では、{{< code-ref project-history-store symbol="Store.project_history" >}}はChain Snapshot、実測conditioned variant、分布runをCandidateごとに読み、Project、Candidate revision、Chain revision、比較元Snapshotのidentityを照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift reviewに残し、本文では現在の判断境界を先に説明します。]
+行がDBに残ることと、通常UIから見つけられることは別です。
+現行実装では、{{< code-ref project-history-store symbol="Store.project_history" >}}はチェーンスナップショット、実測conditioned バリアント、分布runを候補ごとに読み、プロジェクト、候補リビジョン、チェーンリビジョン、比較元スナップショットの同一性を照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift レビューに残し、本文では現在の判断境界を先に説明します。]
 {{< code-ref project-history-ui symbol=ProjectEvidenceHistoryList >}}は、照合を通った三種類の証拠を「候補と判断履歴」へ種類別に新しい順で表示します。
 
-この経路により、activeまたはrestore済みのChain Projectでは、保持したrowへ通常UIから戻れます。
-archive済みProjectは先にrestoreする必要があり、Workspace backupやexportにある別copyまで検索する経路ではありません。
+この経路により、有効または復元済みのチェーンプロジェクトでは、保持した行へ通常UIから戻れます。
+アーカイブ済みプロジェクトは先に復元する必要があり、ワークスペースバックアップやexportにある別コピーまで検索する経路ではありません。
 保持したから利用者が到達できると推測せず、必要なevidenceには検索またはhistory経路を別に設計します。
 
 ## 現行実装の限界
 
-purgeの外部参照検査は、既知のCandidate provenance `source_kind`だけを理解します。
-未知のJSON schemaを自動でgraph探索しません。
+パージの外部参照検査は、既知の候補来歴 `source_kind`だけを理解します。
+未知のJSON スキーマを自動でgraph探索しません。
 
-write guardとpurgeの対象tableは正本inventoryから導出します。
-ただし、Chain execution stateとclaimはdatabase triggerだけで全write経路を覆うわけではなく、正規repositoryのclaim protocolにも依存します。
+write guardとパージの対象テーブルは正本inventoryから導出します。
+ただし、チェーン execution 状態とclaimはデータベース triggerだけで全write経路を覆うわけではなく、正規リポジトリのclaim protocolにも依存します。
 
-Project-owned tableの一部はforeign keyを持ちません。
+プロジェクト所有テーブルの一部はforeign キーを持ちません。
 `PRAGMA foreign_key_check`が空でも、宣言されていない関係の整合性は保証されません。
 
-purgeは別ProjectのCandidate revisionを全件parseします。
-現在の規模では明示性を優先していますが、revision数に比例するscan costを持ちます。
+パージは別プロジェクトの候補リビジョンを全件parseします。
+現在の規模では明示性を優先していますが、リビジョン数に比例するscan コストを持ちます。
 
-purgeはProject-scoped evidenceを削除しますが、Workspace backupやexportを削除しません。
-情報廃棄の要件がある場合は、Project lifecycleとは別の保持とsanitization設計が必要です。
+パージはプロジェクト-scoped evidenceを削除しますが、ワークスペースバックアップやexportを削除しません。
+情報廃棄の要件がある場合は、プロジェクトライフサイクルとは別の保持とsanitization設計が必要です。
 
 ## 章末チェック
 
-1. Project archiveで変わるrowは何か。
-2. archive後に残すevidenceと、失効させるclaimは何が違うか。
-3. restoreが中断したChain実行を自動再開しない理由は何か。
-4. active Projectのpurgeを拒否する理由は何か。
+1. プロジェクトアーカイブで変わる行は何か。
+2. アーカイブ後に残すevidenceと、失効させるclaimは何が違うか。
+3. 復元が中断したチェーン実行を自動再開しない理由は何か。
+4. 有効プロジェクトのパージを拒否する理由は何か。
 5. `confirm_project_id`が保証しないものは何か。
-6. Snapshot provenanceをforeign key checkだけで保護できない理由は何か。
-7. `project_purge_authorizations`は何のためのtableか。
+6. スナップショット来歴をforeign キー checkだけで保護できない理由は何か。
+7. `project_purge_authorizations`は何のためのテーブルか。
 8. `ON DELETE CASCADE`をshared evidenceへ一律に付けない理由は何か。
 9. transaction成功と削除対象の正しさは、どう違うか。
-10. 新しいProject-scoped tableを追加するとき、`PROJECT_PERSISTENCE`のどの所有区分または保持区分へ登録するか。
+10. 新しいプロジェクト-scoped テーブルを追加するとき、`PROJECT_PERSISTENCE`のどの所有区分または保持区分へ登録するか。
 
 [章末チェックの解答](../labs/trace-project-lifecycle.qmd#answer-project-lifecycle-chapter-check)を確認してから、同じページの変更演習へ進みます。
 
 ## Further Reading
 
-- SQLiteの*CREATE TRIGGER* [@sqlite-create-trigger]：archive済みProjectへのwrite guardを読む基礎にします。新しいtableを自動発見する仕組みではありません。
-- SQLiteの*Foreign Key Support* [@sqlite-foreign-keys]：row関係を宣言的に守れる範囲を確認します。未知のJSON参照は検査しません。
-- SQLiteの*How VACUUM works* [@sqlite-vacuum]：logical deleteとdatabase file再構築を分けます。別のbackupやexportは対象外です。
-- NIST SP 800-88 Rev. 2の*Sanitization Methods* [@nist-sp800-88r2]：application purgeとmedia sanitizationを分けます。本章の通常操作を規定する標準ではありません。
+- SQLiteの*CREATE TRIGGER* [@sqlite-create-trigger]：アーカイブ済みプロジェクトへのwrite guardを読む基礎にします。新しいテーブルを自動発見する仕組みではありません。
+- SQLiteの*Foreign Key Support* [@sqlite-foreign-keys]：行関係を宣言的に守れる範囲を確認します。未知のJSON参照は検査しません。
+- SQLiteの*How VACUUM works* [@sqlite-vacuum]：logical deleteとデータベースファイル再構築を分けます。別のバックアップやexportは対象外です。
+- NIST SP 800-88 Rev. 2の*Sanitization Methods* [@nist-sp800-88r2]：application パージとmedia sanitizationを分けます。本章の通常操作を規定する標準ではありません。
