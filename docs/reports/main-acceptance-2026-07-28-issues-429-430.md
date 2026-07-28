@@ -1,16 +1,16 @@
-# Issues #429・#430 Release受入（2026-07-28）
+# Issues #429・#430・#434 Release受入（2026-07-28）
 
 ## 結果
 
 - status: passed
-- tested commit: `17dfbb5da0aee6e6d4dc598cf4a71ef48ccc2163`
-- duration: 1362.111秒
-- 検証カタログ SHA-256: `92c146586c1c098b85778a69e94cc1f807264ccc73826a86a44e9466ccfa3514`
+- tested commit: `888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba`
+- duration: 1362.157秒
+- 検証カタログ SHA-256: `39565b1ca46a2aa2793d43e914ee55b9122ede0b65adeb68e041a6bec1262541`
 - 自動gate: 16/16 passed
 - dependency audit policy・本体監査: passed
 - security boundary tests: passed
 - model Package contract tests: passed
-- full pytest: 959 passed、4 skipped
+- full pytest: 960 passed、4 skipped
 - Web unit: 271 passed
 - default Playwright: 84 passed、1 skipped
 - failure-state E2E: accessibility 16件、startup、degraded、catalog conflictを通過
@@ -25,8 +25,8 @@
 
 | artifact | SHA-256 |
 |---|---|
-| `Material-Decision-Workbench-Setup-0.1.0.exe` | `c35fec5a6cb1830edc69abae594f51b7ffd80638e7645c8c0289cc72f9ca335e` |
-| `Material-Decision-Workbench-folder-0.1.0.zip` | `8097013d8a3fee5889dc07404e94b31177a5d67724cb6ee9f3747f6381a2fcd7` |
+| `Material-Decision-Workbench-Setup-0.1.0.exe` | `8dba55ba86576491338098fb383e92c625e4b4617c2d1acf6e7a32a79dde797b` |
+| `Material-Decision-Workbench-folder-0.1.0.zip` | `4ee8fcc7c50bd466b769a732600970fccb5e09877108514341c5e5907a3c4932` |
 
 ## 今回実行しなかったgate
 
