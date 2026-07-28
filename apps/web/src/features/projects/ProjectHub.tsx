@@ -1178,30 +1178,69 @@ export function ProjectHub({
         </section>
       )}
       {error && <p className="panel-error" role="alert">{error}</p>}
-      {project && (chainIdentity
-        ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
-          <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>{fixedStagePath}</small></div>
-          <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>
-          <div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・データセット・プロファイルを版の中に固定</small></div>
-          {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
-          <ReferenceIdentityDetails items={[["Chain Revision", chainIdentity.chain_revision_digest]]} />
-        </section>
-        : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属">
-          <div><span>参照データセット</span><strong title={fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id ?? undefined}>{fixedDataset?.data_asset.original_filename ?? unresolvedReferenceLabel("Dataset View", project.dataset_view_revision_id)}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : project.dataset_view_revision_id ?? "固定参照なし"}</small></div>
-          <div><span>予測タスク</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div>
-          <div><span>予測モデル</span><strong title={fixedPackage?.package_id ?? project.model_package_ref_id ?? undefined}>{fixedPackage ? modelPackageDisplayName(fixedPackage) : unresolvedReferenceLabel("Model Package", project.model_package_ref_id)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : project.model_package_manifest_digest || undefined}>{fixedPackage ? `学習元: ${fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}` : project.model_package_manifest_digest ? `manifest: ${project.model_package_manifest_digest}` : "manifest digestの記録なし"}</small></div>
-          <div><span>探索範囲（Design Space）</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "この検討では未設定"}</strong><small>{project.design_space ? bindingProvenanceLabel(project.design_space_binding_provenance, "Taskの許容範囲から生成") : "保存済みの探索結果はそのまま参照できます"}</small></div>
-          <div><span>判断基準（Objective）</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : "この検討では未設定"}</strong><small>{project.objective_definition ? bindingProvenanceLabel(project.objective_binding_provenance, "プロジェクト目標から生成") : "探索を実行すると、その時点の判断基準を固定します"}</small></div>
-          {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
-          <ReferenceIdentityDetails items={[
-            ["Dataset View Revision", project.dataset_view_revision_id],
-            ["Model Package Ref", project.model_package_ref_id],
-            ["Model Package manifest", project.model_package_manifest_digest],
-            ["Task contract", project.task_contract_digest],
-            ["Design Space", project.design_space_digest],
-            ["Objective", project.objective_definition_digest],
-          ]} />
-        </section>)}
+      {project && configurableOutputs.length > 0 && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
+        <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
+        <div className="project-goal-values">
+          {configuredTargets.length
+            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
+            : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
+        </div>
+        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+      </section>}
+      <section className="project-next-actions">
+        <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
+        {chainIdentity
+          ? <div className="project-action-grid">
+            <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainOperationsUnavailable })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
+          </div>
+          : <div className="project-action-groups">
+            <section><h4>候補を作る</h4><div className="project-action-grid">
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
+              <button className="project-action-card" disabled={actionBlocked || !supportsLineageCandidate} onClick={() => onNavigate("lineage")}><strong>過去データから候補を探す</strong><span>{supportsLineageCandidate ? "既存の条件と問題から出発する" : "この予測タスクでは利用できません"}</span></button>
+            </div></section>
+            <section><h4>候補を確かめる</h4><div className="project-action-grid">
+              {candidateQuestionActions.map((item) => <button
+                type="button"
+                className="project-action-card"
+                key={item.activityId}
+                disabled={questionState.disabled}
+                onClick={() => onNavigate("candidates", actionCandidateId, { activityId: item.activityId })}
+              ><strong>{item.title}</strong><span>{questionState.reason ?? item.description}</span></button>)}
+            </div></section>
+            <section><h4>結果を残す</h4><div className="project-action-grid">
+              <button type="button" className="project-action-card" disabled={questionState.disabled || !operations?.actual_measurement} onClick={() => onNavigate("candidates", actionCandidateId, { candidateSection: "actuals" })}><strong>実測を記録する</strong><span>{questionState.reason ?? (operations?.actual_measurement ? "選択候補の予測と実測を結び付ける" : "この予測タスクでは利用できません")}</span></button>
+              <button type="button" className="project-action-card" onClick={() => document.getElementById("project-candidate-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}><strong>判断履歴を見る</strong><span>固定した予測・実測・採用理由を時系列で確認する</span></button>
+            </div></section>
+          </div>}
+      </section>
+      {project && <details className="project-reference-details">
+        <summary><span>固定参照・再現性</span><small>使用中のデータ・予測方法</small></summary>
+        {chainIdentity
+          ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
+            <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>{fixedStagePath}</small></div>
+            <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>
+            <div><span>固定Stage</span><strong>{fixedChainRevision?.stages.map((stage) => stage.stage_id).join(" → ") ?? "—"}</strong><small>Package・データセット・プロファイルを版の中に固定</small></div>
+            {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
+            <ReferenceIdentityDetails items={[["Chain Revision", chainIdentity.chain_revision_digest]]} />
+          </section>
+          : <section className="project-reference-strip" aria-label="プロジェクトの参照と所属">
+            <div><span>参照データセット</span><strong title={fixedDataset?.data_asset.original_filename ?? project.dataset_view_revision_id ?? undefined}>{fixedDataset?.data_asset.original_filename ?? unresolvedReferenceLabel("Dataset View", project.dataset_view_revision_id)}</strong><small>{fixedDataset ? `${fixedDataset.profile_revision.name} · r${fixedDataset.profile_revision.revision}` : project.dataset_view_revision_id ?? "固定参照なし"}</small></div>
+            <div><span>予測タスク</span><strong>{taskLabels.get(project.task_id) ?? project.task_id}</strong><small>固定</small></div>
+            <div><span>予測モデル</span><strong title={fixedPackage?.package_id ?? project.model_package_ref_id ?? undefined}>{fixedPackage ? modelPackageDisplayName(fixedPackage) : unresolvedReferenceLabel("Model Package", project.model_package_ref_id)}</strong><small title={fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : project.model_package_manifest_digest || undefined}>{fixedPackage ? `学習元: ${fixedTrainingDataset ? datasetDisplayName(fixedTrainingDataset) : "未登録または記録なし"}` : project.model_package_manifest_digest ? `manifest: ${project.model_package_manifest_digest}` : "manifest digestの記録なし"}</small></div>
+            <div><span>探索範囲（Design Space）</span><strong>{project.design_space ? `${project.design_space.name} · r${project.design_space.revision}` : "この検討では未設定"}</strong><small>{project.design_space ? bindingProvenanceLabel(project.design_space_binding_provenance, "Taskの許容範囲から生成") : "保存済みの探索結果はそのまま参照できます"}</small></div>
+            <div><span>判断基準（Objective）</span><strong>{project.objective_definition ? `${project.objective_definition.name} · r${project.objective_definition.revision}` : "この検討では未設定"}</strong><small>{project.objective_definition ? bindingProvenanceLabel(project.objective_binding_provenance, "プロジェクト目標から生成") : "探索を実行すると、その時点の判断基準を固定します"}</small></div>
+            {showActiveSeriesMembership && <div><span>検討グループ</span><strong>{fixedSeries?.name}</strong><small>{fixedSeriesProjectCount}件の検討をまとめています</small></div>}
+            <ReferenceIdentityDetails items={[
+              ["Dataset View Revision", project.dataset_view_revision_id],
+              ["Model Package Ref", project.model_package_ref_id],
+              ["Model Package manifest", project.model_package_manifest_digest],
+              ["Task contract", project.task_contract_digest],
+              ["Design Space", project.design_space_digest],
+              ["Objective", project.objective_definition_digest],
+            ]} />
+          </section>}
+      </details>}
       {chainIdentity && (
         subsystemAvailabilityError
           ? <section className="chain-evaluation-panel unavailable" role="alert">
@@ -1219,15 +1258,6 @@ export function ProjectHub({
             ? <ChainEvaluationPanel evaluation={chainEvaluation.value} stagePath={fixedStagePath} />
             : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>
       )}
-      {project && configurableOutputs.length > 0 && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
-        <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
-        <div className="project-goal-values">
-          {configuredTargets.length
-            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
-            : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
-        </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
-      </section>}
       {predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "グループなし"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
       <ProjectCreationPanel
@@ -1431,35 +1461,6 @@ export function ProjectHub({
         onRangeTargetChange={setRangeTarget}
         onSave={saveProject}
       />
-
-      <section className="project-next-actions">
-        <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
-        {chainIdentity
-          ? <div className="project-action-grid">
-            <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainOperationsUnavailable })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
-          </div>
-          : <div className="project-action-groups">
-            {project?.starter && <button className="project-action-card sample-start" onClick={() => onNavigate("data-library")}><strong>自分のデータで新しいプロジェクトを作る</strong><span>Excelを登録し、予測タスクとモデルを選んで始める</span></button>}
-            <section><h4>候補を作る</h4><div className="project-action-grid">
-              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
-              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
-              <button className="project-action-card" disabled={actionBlocked || !supportsLineageCandidate} onClick={() => onNavigate("lineage")}><strong>過去データから候補を探す</strong><span>{supportsLineageCandidate ? "既存の条件と問題から出発する" : "この予測タスクでは利用できません"}</span></button>
-            </div></section>
-            <section><h4>候補を確かめる</h4><div className="project-action-grid">
-              {candidateQuestionActions.map((item) => <button
-                type="button"
-                className="project-action-card"
-                key={item.activityId}
-                disabled={questionState.disabled}
-                onClick={() => onNavigate("candidates", actionCandidateId, { activityId: item.activityId })}
-              ><strong>{item.title}</strong><span>{questionState.reason ?? item.description}</span></button>)}
-            </div></section>
-            <section><h4>結果を残す</h4><div className="project-action-grid">
-              <button type="button" className="project-action-card" disabled={questionState.disabled || !operations?.actual_measurement} onClick={() => onNavigate("candidates", actionCandidateId, { candidateSection: "actuals" })}><strong>実測を記録する</strong><span>{questionState.reason ?? (operations?.actual_measurement ? "選択候補の予測と実測を結び付ける" : "この予測タスクでは利用できません")}</span></button>
-              <button type="button" className="project-action-card" onClick={() => document.getElementById("project-candidate-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}><strong>判断履歴を見る</strong><span>固定した予測・実測・採用理由を時系列で確認する</span></button>
-            </div></section>
-          </div>}
-      </section>
 
       <ProjectEvidenceHistoryList
         subtitle={chainIdentity ? "Chainの固定結果・実測分析・不確かさを時系列で表示" : "現在値と固定した予測を分けて表示"}
