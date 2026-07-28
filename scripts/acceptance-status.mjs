@@ -14,7 +14,7 @@ function git(args, { allowFailure = false } = {}) {
   }
   return {
     status: result.status,
-    stdout: result.stdout.trim(),
+    stdout: result.stdout.trimEnd(),
   };
 }
 
@@ -70,7 +70,7 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     process.stderr.write(`Acceptance report not found: ${reportPath}\n`);
     process.exit(2);
   }
-  const report = JSON.parse(readFileSync(reportPath, "utf8"));
+  const report = JSON.parse(readFileSync(reportPath, "utf8").replace(/^\uFEFF/, ""));
   const currentCommit = git(["rev-parse", "HEAD"]).stdout;
   const counts = git([
     "rev-list",
