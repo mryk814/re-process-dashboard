@@ -202,6 +202,7 @@ export function DecisionActivityPanel({
         type="button"
         key={item.definition.activity_id}
         className={item.definition.activity_id === selectedId ? "active" : ""}
+        aria-current={item.definition.activity_id === selectedId ? "page" : undefined}
         onClick={() => {
           setSelectedId(item.definition.activity_id);
           setActiveRunId(null);
@@ -211,7 +212,11 @@ export function DecisionActivityPanel({
       >{item.definition.label}</button>)}
     </nav>}
     {loading ? <p className="empty-evidence">利用条件を確認しています。</p> : selected && !selected.available ? (
-      <div className="activity-unavailable"><strong>現在は利用できません</strong>{selected.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
+      <section className="activity-unavailable" aria-label="実行前に必要な準備">
+        <span className="overline">実行前の確認</span>
+        <strong>このActivityには準備が必要です</strong>
+        <ul>{selected.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+      </section>
     ) : null}
     {error && <p className="panel-error" role="alert">{error}</p>}
     {locationError && <p className="panel-error" role="alert">{locationError}</p>}

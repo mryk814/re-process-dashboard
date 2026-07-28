@@ -72,7 +72,7 @@ export function CandidateDifferenceActivityView({
     <p className="activity-question">{availability.definition.question}</p>
     <section className="activity-settings">
       <div className="panel-title"><h3>比較する候補</h3><span>この候補との予測差を分解します</span></div>
-      <div className="activity-run-settings">
+      <div className="activity-run-settings candidate-difference-run-settings">
         <label>比較候補
           <select
             aria-label="比較候補"
