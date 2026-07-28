@@ -186,13 +186,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
     loadingRemainingPreviews,
     onLoadRemainingPreviews,
   } = props;
-  const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   // A shared link to a saved run opens the panel without a second click.
   const activityPanelOpen = activityOpen || Boolean(activityId || activityRunId);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
+  const [comparisonHeight, setComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.comparisonHeight, 270), 180, 900));
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
@@ -200,14 +200,12 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const effectiveInspectorWidth = clampLayoutValue(inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
   useEffect(() => {
-    if (candidates.length <= 5) setComparisonExpanded(false);
-  }, [candidates.length]);
-  useEffect(() => {
     if (candidateSection !== "actuals" || !operations?.actual_measurement) return;
     actualMeasurementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [candidateSection, operations?.actual_measurement, selected.id]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.comparisonHeight, comparisonHeight), [comparisonHeight]);
   useEffect(() => {
     const updateWidths = () => {
       const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
@@ -264,16 +262,6 @@ export function WorkbenchPage(props: WorkbenchProps) {
             <h2>
               候補比較表 <span>（セルを直接編集）</span>
             </h2>
-            {candidates.length > 5 && (
-              <button
-                type="button"
-                className="comparison-expand-button"
-                aria-expanded={comparisonExpanded}
-                onClick={() => setComparisonExpanded((value) => !value)}
-              >
-                {comparisonExpanded ? "5候補までに戻す" : `全${candidates.length}候補を表示`}
-              </button>
-            )}
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
           <div className="comparison-actions" aria-label="候補操作">
@@ -308,8 +296,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {taskDefinition && <ComparisonTable
           candidates={candidates}
           selectedId={selectedId}
-          comparisonExpanded={comparisonExpanded}
-          onToggleComparisonExpanded={() => setComparisonExpanded((value) => !value)}
+          comparisonHeight={comparisonHeight}
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
@@ -331,6 +318,18 @@ export function WorkbenchPage(props: WorkbenchProps) {
           pendingPreviewCount={previewAvailable ? pendingPreviewCount : 0}
           loadingRemainingPreviews={loadingRemainingPreviews}
           onLoadRemainingPreviews={onLoadRemainingPreviews}
+        />}
+        {taskDefinition && <SplitResizer
+          className="comparison-height-resizer"
+          label="候補比較表の高さを調整"
+          value={comparisonHeight}
+          min={180}
+          max={900}
+          step={20}
+          orientation="horizontal"
+          onChange={setComparisonHeight}
+          onDrag={(startValue, deltaY) => startValue + deltaY}
+          onReset={() => setComparisonHeight(270)}
         />}
         <BlendComparisonPanel
           projectId={projectId}

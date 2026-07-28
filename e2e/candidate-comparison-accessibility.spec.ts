@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
+import { apiBaseUrl } from "./helpers";
 
 test("a narrow candidate input pane reflows fields without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
@@ -21,6 +22,59 @@ test("a narrow candidate input pane reflows fields without horizontal overflow",
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
   expect(layout.columns.split(" ")).toHaveLength(1);
   expect(layout.repeatedUnitCount).toBe(0);
+});
+
+test("comparison table height is adjustable for any candidate count and persists", async ({ page }) => {
+  await page.goto("/?view=candidates&project=default");
+  await page.evaluate(() => {
+    localStorage.setItem("material-workbench:layout:comparison-height:v1", "220");
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+
+  const createdCandidates: Array<{ id: string; revision: number }> = [];
+  for (let index = 0; index < 4; index += 1) {
+    const createdResponse = page.waitForResponse((response) => (
+      response.request().method() === "POST"
+      && new URL(response.url()).pathname.endsWith("/api/projects/default/candidates")
+    ));
+    await page.getByRole("button", { name: "候補を追加", exact: true }).click();
+    const response = await createdResponse;
+    expect(response.status()).toBe(201);
+    createdCandidates.push(await response.json() as { id: string; revision: number });
+  }
+
+  await expect(page.locator(".candidate-name-table tbody tr")).toHaveCount(7);
+  await expect(page.getByRole("button", { name: /全7候補を表示/ })).toHaveCount(0);
+
+  const resizer = page.getByRole("separator", { name: "候補比較表の高さを調整" });
+  const pane = page.locator(".comparison-prediction-scroll");
+  await expect(resizer).toHaveAttribute("aria-orientation", "horizontal");
+  await expect(resizer).toHaveAttribute("aria-valuenow", "220");
+  await expect.poll(() => pane.evaluate((element) => element.clientHeight)).toBe(220);
+
+  const box = await resizer.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 80);
+  await page.mouse.up();
+  await expect(resizer).toHaveAttribute("aria-valuenow", "300");
+  await expect.poll(() => pane.evaluate((element) => element.clientHeight)).toBe(300);
+
+  await resizer.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(resizer).toHaveAttribute("aria-valuenow", "320");
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("material-workbench:layout:comparison-height:v1")
+  ))).toBe("320");
+
+  await page.reload();
+  await expect(page.getByRole("separator", { name: "候補比較表の高さを調整" })).toHaveAttribute("aria-valuenow", "320");
+
+  for (const candidate of createdCandidates) {
+    expect((await page.request.delete(`${apiBaseUrl}/api/projects/default/candidates/${candidate.id}?expected_revision=${candidate.revision}`)).status()).toBe(204);
+  }
 });
 
 test("comparison panes keep candidate rows aligned after text enlargement", async ({ page }) => {
