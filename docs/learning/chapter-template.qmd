@@ -29,7 +29,7 @@ historical_concepts: []
 読者がすでに知っていることと、読了後にできることを書く。
 書き手は「少し先を歩く共同研究者」として、読者と同じ証拠を見ながら進める。
 
-## 非scope
+## 非対象範囲
 
 読者が期待しそうだが、この章では扱わない範囲を書く。
 
@@ -56,7 +56,7 @@ historical_concepts: []
 4. Definition、Assumption、Approximation、Estimator、Algorithm、Implementationの区別
 5. 式
 6. 手計算できる数値例
-7. contract、code、testとの対応
+7. 契約、コード、テストとの対応
 8. 破綻条件
 9. 代替または停止条件
 
@@ -64,22 +64,22 @@ historical_concepts: []
 
 次の順を基本とし、存在しない層を無理に作らない。
 
-本文から検証済みコードを指す場合は、metadataに登録したidを `{{{< code-ref chapter-contract >}}}` で参照する。
+本文から検証済みコードを指す場合は、メタデータに登録したidを `{{{< code-ref chapter-contract >}}}` で参照する。
 symbolへ移る場合は `{{{< code-ref chapter-contract symbol=ContractName >}}}` と書く。
 GitHub URLやline番号を本文へ手書きしない。
 
-1. contract
-2. application service
-3. persistence
+1. 契約
+2. アプリケーションサービス
+3. 永続化
 4. API
-5. generated type
-6. frontend
-7. test
+5. 生成型
+6. フロントエンド
+7. テスト
 
 記述の根拠を必要に応じて区別する。
 
 - `CONFIRMED`：現mainで確認した実装事実
-- `DECISION`：ADR、Issue、契約文書で確認した設計意図
+- `DECISION`：ADR、イシュー、契約文書で確認した設計意図
 - `INTERPRETATION`：教材上の読み方
 - `FUTURE`：未実装の候補
 
@@ -105,7 +105,7 @@ GitHub URLやline番号を本文へ手書きしない。
 
 #### 解答の理由
 
-境界、trade-off、testとの対応を書く。
+境界、トレードオフ、テストとの対応を書く。
 
 #### よくある不十分な回答
 
@@ -118,10 +118,10 @@ GitHub URLやline番号を本文へ手書きしない。
 
 ## 検証
 
-実行場所とcommandを示し、変動しやすい件数を固定的な仕様として書かない。
+実行場所とコマンドを示し、変動しやすい件数を固定的な仕様として書かない。
 
 ## Further Reading
 
 章を完走した読者が考え方を一般化するための資料を二件から四件へ絞る。
-各資料には、推奨sectionの見出し、読む理由、現行repoへ適用するときの注意を一文ずつ添える。
+各資料には、推奨節の見出し、読む理由、現行リポジトリへ適用するときの注意を一文ずつ添える。
 本文の理解に必須の前提、結論、危険、手順をここへ退避しない。

@@ -128,63 +128,63 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# 学習結果を安全にRuntimeへ渡す {#sec-model-package-runtime}
+# 学習結果を安全にランタイムへ渡す {#sec-model-package-runtime}
 
 ## 対象読者と到達点
 
-Feature Pipeline、model builder、Model Package、またはPackage切替手順を変更する開発者が対象です。
+特徴量パイプライン、モデル builder、モデルパッケージ、またはパッケージ切替手順を変更する開発者が対象です。
 
 読者は、教師あり学習、交差検証、MAE、RMSEの基本を知っているものとします。
 
-読了後は、次の問いへ実装pathを挙げて答えられる状態を目指します。
+読了後は、次の問いへ実装経路を挙げて答えられる状態を目指します。
 
-- canonical inputとmodel featureを分ける理由は何か
-- 学習時と推論時で同じFeature Pipelineを使わないと、どのようなskewが生じるか
-- data-only Model Packageのmanifestは何を宣言し、何を実行しないか
-- Runtime Capabilityとmodel classは、なぜ別の契約か
-- build、verify、activate、rollbackの各段階で何を変えるか
-- MAE、RMSE、coverageの間で優劣が割れたとき、どう判断するか
-- 新Packageを採用しないことが、なぜ正常な結果になり得るか
-- artifact loadingの安全性を、security編のtrust boundaryへどう接続するか
+- canonical 入力とモデル featureを分ける理由は何か
+- 学習時と推論時で同じ特徴量パイプラインを使わないと、どのようなskewが生じるか
+- データ-only モデルパッケージのマニフェストは何を宣言し、何を実行しないか
+- ランタイム能力とモデル種別は、なぜ別の契約か
+- build、verify、activate、ロールバックの各段階で何を変えるか
+- MAE、RMSE、カバレッジの間で優劣が割れたとき、どう判断するか
+- 新パッケージを採用しないことが、なぜ正常な結果になり得るか
+- 成果物 loadingの安全性を、security編のtrust boundaryへどう接続するか
 
 ## 非scope
 
-本章は、model構造の網羅的な比較やhyperparameter tuningの手引きではありません。
+本章は、モデル構造の網羅的な比較やhyperparameter tuningの手引きではありません。
 
-cloud registry、online learning、automatic champion selection、enterprise approval workflowも扱いません。
+cloud レジストリ、online learning、automatic champion selection、enterprise approval ワークフローも扱いません。
 
-Package署名の鍵管理とlocal APIの認証は、security編の対象です。
+パッケージ署名の鍵管理とlocal APIの認証は、security編の対象です。
 
 ## 予測式だけでは運用できない
 
-回帰modelを次のように書きます。
+回帰モデルを次のように書きます。
 
 $$
 \hat{y}=f_{\theta}(\phi(\mathbf{x}))
 $$
 
-ここで$\mathbf{x}$はcanonical input、$\phi$はFeature Pipeline、$\theta$は学習済みparameterです。
+ここで$\mathbf{x}$はcanonical 入力、$\phi$は特徴量パイプライン、$\theta$は学習済みパラメータです。
 
-modelの実装だけを保存しても、$\mathbf{x}$の意味、$\phi$の版、出力能力、学習data、品質評価が分かりません。
+モデルの実装だけを保存しても、$\mathbf{x}$の意味、$\phi$の版、出力能力、学習データ、品質評価が分かりません。
 
 反対に、品質指標だけを保存しても、本番で同じ入力変換を再現できるとは限りません。
 
-Material Decision Workbenchは、これらをModel Packageの契約と来歴へ分けて固定します。
+Material Decision Workbenchは、これらをモデルパッケージの契約と来歴へ分けて固定します。
 
 ## 記号を固定する
 
 | 記号 | 意味 | この章での単位 |
 |---|---|---|
-| $\mathbf{x}$ | canonical input | fieldごとに異なる |
-| $\phi_v$ | version $v$のFeature Pipeline | 変換 |
-| $\mathbf{z}$ | modelへ渡すfeature vector、$\phi_v(\mathbf{x})$ | featureごとに異なる |
-| $\mathcal{D}_{\mathrm{train}}$ | canonical training dataset | row集合 |
-| $f_{\theta,m}$ | model class $m$とparameter $\theta$による予測器 | target単位 |
-| $C$ | Runtime Capability | 宣言 |
-| $P$ | Model Package | 不変directory |
-| $H(P)$ | Package manifestのbyte digest | SHA-256 |
-| $Q(P)$ | Packageのquality report | 指標集合 |
-| $A_t$ | Task $t$のactive Package参照 | relative path |
+| $\mathbf{x}$ | canonical 入力 | フィールドごとに異なる |
+| $\phi_v$ | バージョン $v$の特徴量パイプライン | 変換 |
+| $\mathbf{z}$ | モデルへ渡すfeature vector、$\phi_v(\mathbf{x})$ | featureごとに異なる |
+| $\mathcal{D}_{\mathrm{train}}$ | canonical training dataset | 行集合 |
+| $f_{\theta,m}$ | モデル種別 $m$とパラメータ $\theta$による予測器 | target単位 |
+| $C$ | ランタイム能力 | 宣言 |
+| $P$ | モデルパッケージ | 不変ディレクトリ |
+| $H(P)$ | パッケージマニフェストのbyte ダイジェスト | SHA-256 |
+| $Q(P)$ | パッケージのquality report | 指標集合 |
+| $A_t$ | タスク $t$の有効なパッケージ参照 | relative 経路 |
 
 型を意識して書くと、推論は次の合成です。
 
@@ -196,35 +196,35 @@ $$
 \widehat{Y}
 $$
 
-$\mathbf{x}$と$\mathbf{z}$を同じdictとして扱うと、入力契約とmodel都合の列を区別できません。
+$\mathbf{x}$と$\mathbf{z}$を同じdictとして扱うと、入力契約とモデル都合の列を区別できません。
 
-## canonical inputは利用者との契約である
+## canonical 入力は利用者との契約である
 
-canonical inputは、候補が表す組成、工程条件、系列などの科学入力です。
+canonical 入力は、候補が表す組成、工程条件、系列などの科学入力です。
 
-featureは、その入力からmodel用に導出した値です。
+featureは、その入力からモデル用に導出した値です。
 
-たとえば、温度履歴そのものはcanonical inputであり、閾値を超えた時間や冷却速度は導出featureです。
+たとえば、温度履歴そのものはcanonical 入力であり、閾値を超えた時間や冷却速度は導出featureです。
 
-Feature Pipelineを更新すれば、canonical inputを変えずにfeatureの定義や順序を変えられます。
+特徴量パイプラインを更新すれば、canonical 入力を変えずにfeatureの定義や順序を変えられます。
 
-現行Packageは、canonical inputのpath列とoutput feature列を別々に持ちます。
+現行パッケージは、canonical 入力の経路列と出力 feature列を別々に持ちます。
 
-{{< code-ref ml-engineering-package-contract symbol="FeaturePipelineSpec" >}}は、`canonical_input_paths`と`output_features`を別fieldとして宣言します。
+{{< code-ref ml-engineering-package-contract symbol="FeaturePipelineSpec" >}}は、`canonical_input_paths`と`output_features`を別フィールドとして宣言します。
 
-{{< code-ref ml-engineering-package-contract symbol="FeaturePipelineDocument" >}}は、各featureの名前、単位、意味、groupを記録します。
+{{< code-ref ml-engineering-package-contract symbol="FeaturePipelineDocument" >}}は、各featureの名前、単位、意味、グループを記録します。
 
 {{< code-ref ml-engineering-package-contract symbol="PredictorSpec" >}}は、その出力のうち各predictorが使う順序付きsubsetを`feature_names`として宣言します。
 
 この三段階により、次の違いを検査できます。
 
-1. Taskが受け付けるcanonical inputの順序
-2. Pipelineが生成するfeatureの順序
+1. タスクが受け付けるcanonical 入力の順序
+2. パイプラインが生成するfeatureの順序
 3. 各predictorが消費するfeatureの順序
 
 同じ名前が含まれるだけでは足りません。
 
-線形modelでweight vectorが$(w_1,w_2)$なら、feature順序の逆転はmodelを別の関数に変えます。
+線形モデルでweight vectorが$(w_1,w_2)$なら、feature順序の逆転はモデルを別の関数に変えます。
 
 $$
 w_1z_1+w_2z_2
@@ -236,9 +236,9 @@ $$
 
 ## training-serving skewを経路の差として捉える
 
-training-serving skewは、学習dataと本番入力の分布差だけを意味しません。
+training-serving skewは、学習データと本番入力の分布差だけを意味しません。
 
-同じcanonical inputへ異なる変換を適用する実装差もskewです。
+同じcanonical 入力へ異なる変換を適用する実装差もskewです。
 
 学習時の変換を$\phi_{\mathrm{train}}$、推論時を$\phi_{\mathrm{serve}}$とします。
 
@@ -250,154 +250,154 @@ $$
 \phi_{\mathrm{train}}(\mathbf{x})
 $$
 
-$\Delta_{\phi}(\mathbf{x})\ne\mathbf{0}$なら、modelは学習時に見ていない表現を受け取ります。
+$\Delta_{\phi}(\mathbf{x})\ne\mathbf{0}$なら、モデルは学習時に見ていない表現を受け取ります。
 
 列名が一致していても、単位、欠損処理、補間、stage境界、時間原点が違えばskewです。
 
-このrepositoryでは、観測rowとCandidateを同じFeature Pipelineへ通します。
+このリポジトリでは、観測行と候補を同じ特徴量パイプラインへ通します。
 
-{{< code-ref ml-engineering-feature-pipeline symbol="build_feature_bundle_from_observation" >}}は観測rowからCandidateを作り、{{< code-ref ml-engineering-feature-pipeline symbol="build_feature_bundle" >}}を呼びます。
+{{< code-ref ml-engineering-feature-pipeline symbol="build_feature_bundle_from_observation" >}}は観測行から候補を作り、{{< code-ref ml-engineering-feature-pipeline symbol="build_feature_bundle" >}}を呼びます。
 
-{{< code-ref ml-engineering-feature-test symbol="test_annealed_training_row_uses_the_candidate_pipeline" >}}は、学習rowとCandidateから同じfeatureが得られることを確認します。
+{{< code-ref ml-engineering-feature-test symbol="test_annealed_training_row_uses_the_candidate_pipeline" >}}は、学習行と候補から同じfeatureが得られることを確認します。
 
-golden testは、代表入力に対するfeature値の意図しない変化を検出します。
+golden テストは、代表入力に対するfeature値の意図しない変化を検出します。
 
-{{< code-ref ml-engineering-feature-test symbol="test_feature_bundle_golden_for_piecewise_linear_route" >}}は、piecewise linear routeの固定出力を検証します。
+{{< code-ref ml-engineering-feature-test symbol="test_feature_bundle_golden_for_piecewise_linear_route" >}}は、piecewise linear ルートの固定出力を検証します。
 
 同じ関数を呼ぶだけでも十分ではありません。
 
-Pipeline version、feature順序、canonical input順序をPackageへ残し、読み込み時に照合する必要があります。
+パイプラインバージョン、feature順序、canonical 入力順序をパッケージへ残し、読み込み時に照合する必要があります。
 
-{{< code-ref ml-engineering-package-test symbol="test_loader_rejects_pipeline_and_manifest_canonical_input_mismatch" >}}は、manifestとPipeline documentの入力順序が違うPackageを拒否します。
+{{< code-ref ml-engineering-package-test symbol="test_loader_rejects_pipeline_and_manifest_canonical_input_mismatch" >}}は、マニフェストとパイプライン documentの入力順序が違うパッケージを拒否します。
 
 ## canonical training datasetが境界を見える形にする
 
-{{< code-ref ml-engineering-lifecycle symbol="canonical_training_dataset" >}}は、eligibleな観測だけをFeature Pipelineへ通し、featureとoutputを共通schemaへ変換します。
+{{< code-ref ml-engineering-lifecycle symbol="canonical_training_dataset" >}}は、eligibleな観測だけを特徴量パイプラインへ通し、featureと出力を共通スキーマへ変換します。
 
-rowには`observation_id`と`parent_key`が残ります。
+行には`observation_id`と`parent_key`が残ります。
 
-この`parent_key`は、反復測定を別groupへ漏らさない品質評価に使います。
+この`parent_key`は、反復測定を別グループへ漏らさない品質評価に使います。
 
-出力payloadは、Task input contract digest、Dataset Profile digest、source data digest、Feature Pipeline identityを持ちます。
+出力ペイロードは、タスク入力契約ダイジェスト、データセットプロファイルダイジェスト、ソースデータダイジェスト、特徴量パイプライン同一性を持ちます。
 
-{{< code-ref ml-engineering-lifecycle symbol="canonical_training_dataset_digest" >}}は、その意味表現をdigestへ固定します。
+{{< code-ref ml-engineering-lifecycle symbol="canonical_training_dataset_digest" >}}は、その意味表現をダイジェストへ固定します。
 
-`npm run model:data`に対応する{{< code-ref ml-engineering-workflow symbol="export_dataset" >}}は、このpayloadを独立artifactとして出力します。
+`npm run model:data`に対応する{{< code-ref ml-engineering-workflow symbol="export_dataset" >}}は、このペイロードを独立成果物として出力します。
 
-model builderを実行する前にdatasetを確認できるため、誤ったrow選択とmodelの学習失敗を分けて調べられます。
+モデル builderを実行する前にdatasetを確認できるため、誤った行選択とモデルの学習失敗を分けて調べられます。
 
-## Feature Pipelineは学習済みparameterではない
+## 特徴量パイプラインは学習済みパラメータではない
 
-Feature Pipelineには、入力path、変換規則、feature名、単位、順序があります。
+特徴量パイプラインには、入力経路、変換規則、feature名、単位、順序があります。
 
-model artifactには、weight、tree、kernel parameter、posterior drawなどがあります。
+モデル成果物には、weight、tree、kernel パラメータ、事後分布サンプルなどがあります。
 
-両者を一つのopaque binaryへ埋め込むと、入力変換だけをreviewできません。
+両者を一つのopaque binaryへ埋め込むと、入力変換だけをレビューできません。
 
-現行PackageはPipeline documentをJSON artifactとして持ち、model artifactと別々にhashします。
+現行パッケージはパイプライン documentをJSON 成果物として持ち、モデル成果物と別々にhashします。
 
 この分離には二つの目的があります。
 
 一つ目は、training-serving skewを契約違反として検出することです。
 
-二つ目は、Package内の任意コードを実行せずにPipeline identityを検査することです。
+二つ目は、パッケージ内の任意コードを実行せずにパイプライン同一性を検査することです。
 
-## data-only Model Packageを読む
+## データ-only モデルパッケージを読む
 
-{{< code-ref ml-engineering-package-contract symbol="ModelPackageManifest" >}}は、Packageのschemaを閉じたPydantic modelとして定義します。
+{{< code-ref ml-engineering-package-contract symbol="ModelPackageManifest" >}}は、パッケージのスキーマを閉じたPydantic モデルとして定義します。
 
-未知fieldは無視されず、validation errorになります。
+未知フィールドは無視されず、validation エラーになります。
 
-predictive Packageのmanifestは、概ね次の情報を持ちます。
+predictive パッケージのマニフェストは、概ね次の情報を持ちます。
 
 | 領域 | 主な内容 | 用途 |
 |---|---|---|
-| identity | Package ID、version、Task ID | 何を選んだか |
-| contract | input schema、input contract digest、Runtime Capability digest | 何と互換か |
-| Feature Pipeline | ID、version、入出力順序、artifact | 同じ変換を再現できるか |
-| predictor | target、runtime type、model class相当のarchitecture ID、artifact | どのadapterで読むか |
-| provenance | training data、feature dataset、training code revision | 何から作ったか |
-| artifact inventory | path、SHA-256、byte数、media type | 改変と欠落を検出する |
-| evidence | smoke input、expected output、quality report | 本番runtimeで検証する |
+| 同一性 | パッケージ ID、バージョン、タスク ID | 何を選んだか |
+| 契約 | 入力スキーマ、入力契約ダイジェスト、ランタイム能力ダイジェスト | 何と互換か |
+| 特徴量パイプライン | ID、バージョン、入出力順序、成果物 | 同じ変換を再現できるか |
+| predictor | target、ランタイム種別、モデル種別相当のarchitecture ID、成果物 | どのアダプタで読むか |
+| 来歴 | training データ、feature dataset、training code リビジョン | 何から作ったか |
+| 成果物 inventory | 経路、SHA-256、byte数、media type | 改変と欠落を検出する |
+| evidence | smoke 入力、expected 出力、quality report | 本番ランタイムで検証する |
 
-manifestにPython module path、callback、学習scriptはありません。
+マニフェストにPython モジュール経路、callback、学習スクリプトはありません。
 
-`runtime_type`は、Packageから任意moduleをimportする文字列ではありません。
+`runtime_type`は、パッケージから任意モジュールをimportする文字列ではありません。
 
-{{< code-ref ml-engineering-package-contract symbol="AdapterRegistry" >}}が、アプリ本体へ組み込んだadapterのallow-listと完全一致することを要求します。
+{{< code-ref ml-engineering-package-contract symbol="AdapterRegistry" >}}が、アプリ本体へ組み込んだアダプタの許可リストと完全一致することを要求します。
 
-したがって、新しいmodel classを追加するには、アプリ本体のadapterとtestを変更します。
+したがって、新しいモデル種別を追加するには、アプリ本体のアダプタとテストを変更します。
 
-Package directoryを置くだけで任意のPythonコードは増えません。
+パッケージディレクトリを置くだけで任意のPythonコードは増えません。
 
-## Runtime Capabilityとmodel classを混同しない
+## ランタイム能力とモデル種別を混同しない
 
-model classは、線形回帰、GP、LightGBMなど、計算方法の種類です。
+モデル種別は、線形回帰、GP、LightGBMなど、計算方法の種類です。
 
-Runtime Capabilityは、そのruntimeが利用者へ提供できる予測表現と操作の契約です。
+ランタイム能力は、そのランタイムが利用者へ提供できる予測表現と操作の契約です。
 
-{{< code-ref ml-engineering-runtime-capability symbol="TargetRuntimeCapability" >}}は、point statistic、standard deviation、quantile、sample、parametric distribution、supportなどをtargetごとに宣言します。
+{{< code-ref ml-engineering-runtime-capability symbol="TargetRuntimeCapability" >}}は、point statistic、standard deviation、quantile、サンプル、parametric distribution、学習データの裏付けなどをtargetごとに宣言します。
 
-{{< code-ref ml-engineering-runtime-capability symbol="RuntimeOperationsCapability" >}}は、preview、詳細予測、response curve、similarity、snapshotなどの操作を宣言します。
+{{< code-ref ml-engineering-runtime-capability symbol="RuntimeOperationsCapability" >}}は、プレビュー、詳細予測、レスポンス curve、similarity、スナップショットなどの操作を宣言します。
 
-{{< code-ref ml-engineering-runtime-capability symbol="RuntimeCapability" >}}は、これらをTask単位でまとめます。
+{{< code-ref ml-engineering-runtime-capability symbol="RuntimeCapability" >}}は、これらをタスク単位でまとめます。
 
-同じmodel classでも、保存artifactやadapterが違えばcapabilityは変わり得ます。
+同じモデル種別でも、保存成果物やアダプタが違えば能力は変わり得ます。
 
-たとえば、同じ線形平均関数でも、残差scaleを持つPackageは区間を返せますが、point artifactだけのPackageは返せません。
+たとえば、同じ線形平均関数でも、残差scaleを持つパッケージは区間を返せますが、point 成果物だけのパッケージは返せません。
 
-反対に、異なるmodel classが同じcapabilityを満たす場合、APIのshapeを変えずにPackageを切り替えられます。
+反対に、異なるモデル種別が同じ能力を満たす場合、APIの構造を変えずにパッケージを切り替えられます。
 
-Runtime Capability digestは、Packageが現在のTask contractと同じ能力を約束しているかを照合します。
+ランタイム能力ダイジェストは、パッケージが現在のタスク契約と同じ能力を約束しているかを照合します。
 
-{{< code-ref ml-engineering-lifecycle symbol="validate_lifecycle_metadata" >}}は、input contract、Runtime Capability、Dataset Profile、quality reportの整合を検査します。
+{{< code-ref ml-engineering-lifecycle symbol="validate_lifecycle_metadata" >}}は、入力契約、ランタイム能力、データセットプロファイル、quality reportの整合を検査します。
 
-model classの名前だけを比較しても、この互換性は分かりません。
+モデル種別の名前だけを比較しても、この互換性は分かりません。
 
 ## buildは候補を作る操作である
 
-{{< code-ref ml-engineering-workflow symbol="build_package" >}}は、canonical training datasetを出力し、Task固有builderを呼び、最後にPackageをverifyします。
+{{< code-ref ml-engineering-workflow symbol="build_package" >}}は、canonical training datasetを出力し、タスク固有builderを呼び、最後にパッケージをverifyします。
 
-build成功は、active Packageの変更を意味しません。
+build成功は、有効なパッケージの変更を意味しません。
 
-{{< code-ref ml-engineering-lifecycle symbol="staged_package_destination" >}}は、一時directoryへ構築してから完成Packageを切り替えます。
+{{< code-ref ml-engineering-lifecycle symbol="staged_package_destination" >}}は、一時ディレクトリへ構築してから完成パッケージを切り替えます。
 
-途中で学習が失敗すれば、未完成stagingを削除し、既存destinationを保持します。
+途中で学習が失敗すれば、未完成ステージングを削除し、既存destinationを保持します。
 
-checked-in `models/packages/`の既存Packageは、`replace=True`でも上書きできません。
+リポジトリ管理下の `models/packages/`の既存パッケージは、`replace=True`でも上書きできません。
 
-別の学習data、parameter、Pipeline、quality reportを持つ成果物には、新しいPackage IDとdirectoryを使います。
+別の学習データ、パラメータ、パイプライン、quality reportを持つ成果物には、新しいパッケージ IDとディレクトリを使います。
 
-{{< code-ref ml-engineering-lifecycle-test symbol="test_failed_staged_build_preserves_existing_package" >}}は、失敗したbuildが既存Packageを壊さないことを確認します。
+{{< code-ref ml-engineering-lifecycle-test symbol="test_failed_staged_build_preserves_existing_package" >}}は、失敗したbuildが既存パッケージを壊さないことを確認します。
 
-{{< code-ref ml-engineering-lifecycle-test symbol="test_staged_build_cannot_replace_a_checked_in_package" >}}は、登録済みPackageの不変性を確認します。
+{{< code-ref ml-engineering-lifecycle-test symbol="test_staged_build_cannot_replace_a_checked_in_package" >}}は、登録済みパッケージの不変性を確認します。
 
 ## verifyは採用可能性を検査する
 
-{{< code-ref ml-engineering-package-verify symbol="verify_model_package" >}}は、候補Packageをproductionと同じloaderとruntime factoryへ通します。
+{{< code-ref ml-engineering-package-verify symbol="verify_model_package" >}}は、候補パッケージを本番と同じloaderとランタイム factoryへ通します。
 
 検証順序は次のように読めます。
 
-1. manifest schemaとartifact inventoryを検査する
-2. artifactのpath、size、digestを検査し、不変snapshotへコピーする
-3. input contract、Runtime Capability、Dataset Profileを照合する
-4. training dataとcanonical feature datasetの来歴を照合する
-5. Task固有runtimeを構築する
-6. runtime outputがTaskDefinitionのtargetと一致するか確認する
+1. マニフェストスキーマと成果物 inventoryを検査する
+2. 成果物の経路、size、ダイジェストを検査し、不変スナップショットへコピーする
+3. 入力契約、ランタイム能力、データセットプロファイルを照合する
+4. training データとcanonical feature datasetの来歴を照合する
+5. タスク固有ランタイムを構築する
+6. ランタイム出力がTaskDefinitionのtargetと一致するか確認する
 
-{{< code-ref ml-engineering-package-verify symbol="ModelPackageVerificationReport" >}}は、Package identity、manifest digest、Pipeline identity、artifact数、quality reportを返します。
+{{< code-ref ml-engineering-package-verify symbol="ModelPackageVerificationReport" >}}は、パッケージ同一性、マニフェストダイジェスト、パイプライン同一性、成果物数、quality reportを返します。
 
 verify成功は、品質が以前より良いという結論ではありません。
 
 verifyは「この候補を同じ契約の下で安全に比較できる」状態を作ります。
 
-{{< code-ref ml-engineering-lifecycle-test symbol="test_verify_rejects_contract_digest_and_quality_report_corruption" >}}は、contract digestとquality reportの破損を拒否します。
+{{< code-ref ml-engineering-lifecycle-test symbol="test_verify_rejects_contract_digest_and_quality_report_corruption" >}}は、契約ダイジェストとquality reportの破損を拒否します。
 
-{{< code-ref ml-engineering-lifecycle-test symbol="test_checked_in_package_passes_production_runtime_verification" >}}は、登録済みPackageをproduction runtimeで検証します。
+{{< code-ref ml-engineering-lifecycle-test symbol="test_checked_in_package_passes_production_runtime_verification" >}}は、登録済みパッケージを本番ランタイムで検証します。
 
 ## quality metricを一つの順位へ潰さない
 
-現行quality reportは、targetごとにparent condition数、MAE、RMSE、90%区間coverageを持ちます。
+現行quality reportは、targetごとにparent condition数、MAE、RMSE、90%区間カバレッジを持ちます。
 
 MAEは平均的な絶対誤差を示します。
 
@@ -421,7 +421,7 @@ $$
 }
 $$
 
-90%区間coverageは、評価対象が区間へ入った割合です。
+90%区間カバレッジは、評価対象が区間へ入った割合です。
 
 $$
 \widehat{c}_{0.90}
@@ -434,96 +434,96 @@ y_i\in[L_i,U_i]
 \right]
 $$
 
-次の二つのPackageを考えます。
+次の二つのパッケージを考えます。
 
-| Package | MAE | RMSE | 90% coverage |
+| パッケージ | MAE | RMSE | 90% カバレッジ |
 |---|---:|---:|---:|
 | A | 11 MPa | 18 MPa | 0.82 |
 | B | 13 MPa | 15 MPa | 0.90 |
 
-Aは平均的な誤差が小さく、Bは大誤差と区間coverageで優れます。
+Aは平均的な誤差が小さく、Bは大誤差と区間カバレッジで優れます。
 
 この表だけから絶対的な勝者は決まりません。
 
 候補rankingで大誤差を避けたいのか、screeningの平均精度を優先するのか、区間を意思決定へ使うのかで選択が変わります。
 
-coverageが0.90へ近くても、区間が極端に広ければ判断には使いにくくなります。
+カバレッジが0.90へ近くても、区間が極端に広ければ判断には使いにくくなります。
 
-現行共通CLIが品質thresholdを固定しないのは、Task固有の受入判断を一つのscoreへ隠さないためです。
+現行共通CLIが品質thresholdを固定しないのは、タスク固有の受入判断を一つのscoreへ隠さないためです。
 
 品質評価のsplitも比較条件です。
 
-反復観測を持つ材料dataでは、同じparent conditionをtrainとvalidationへ分けると、未知条件への性能を過大評価します。
+反復観測を持つ材料データでは、同じparent conditionをtrainとvalidationへ分けると、未知条件への性能を過大評価します。
 
-quality reportはsplit方式とfold数を明記します。
+quality reportはsplit方式とフォールド数を明記します。
 
 異なるsplitで得たMAEを、小数点だけ見て比較してはいけません。
 
 ## no-adoptは失敗ではない
 
-候補Packageをbuildしてverifyした後でも、activeへ切り替えない判断ができます。
+候補パッケージをbuildしてverifyした後でも、有効へ切り替えない判断ができます。
 
 次のいずれかに該当する場合、no-adoptが合理的です。
 
-- 主要Taskの誤差改善が実質的でない
-- RMSE改善と引き換えにcoverageが許容範囲を外れる
-- 新model classが必要なoptional dependencyを運用環境へ追加する価値がない
-- support外の挙動を説明できない
-- training data、Feature Pipeline、評価splitの変更が同時に入り、差の原因を分離できない
-- smokeは通るが、Task固有の受入基準を満たさない
-- manifestやartifactの信頼元を確認できない
+- 主要タスクの誤差改善が実質的でない
+- RMSE改善と引き換えにカバレッジが許容範囲を外れる
+- 新モデル種別が必要な任意 dependencyを運用環境へ追加する価値がない
+- 学習データの裏付け外の挙動を説明できない
+- training データ、特徴量パイプライン、評価splitの変更が同時に入り、差の原因を分離できない
+- smokeは通るが、タスク固有の受入基準を満たさない
+- マニフェストや成果物の信頼元を確認できない
 
-no-adoptでは、候補Packageを消して既存Packageを書き換える必要はありません。
+no-adoptでは、候補パッケージを消して既存パッケージを書き換える必要はありません。
 
-検証結果と不採用理由を残し、active参照を変更しなければよいからです。
+検証結果と不採用理由を残し、有効参照を変更しなければよいからです。
 
-「新しいmodelを作ったので採用する」というsunk costは、科学的な選択理由になりません。
+「新しいモデルを作ったので採用する」というsunk コストは、科学的な選択理由になりません。
 
 ## activateは参照だけを切り替える
 
-{{< code-ref ml-engineering-workflow symbol="activate_package" >}}は、候補をもう一度verifyしてからactive参照を更新します。
+{{< code-ref ml-engineering-workflow symbol="activate_package" >}}は、候補をもう一度verifyしてから有効参照を更新します。
 
-verifyとactivateを別commandにしているため、review中の候補が自動的に利用者へ出ません。
+verifyとactivateを別commandにしているため、レビュー中の候補が自動的に利用者へ出ません。
 
-{{< code-ref ml-engineering-lifecycle symbol="set_active_package" >}}は、trusted models directory内のPackageだけを受け付けます。
+{{< code-ref ml-engineering-lifecycle symbol="set_active_package" >}}は、trusted models ディレクトリ内のパッケージだけを受け付けます。
 
-新しいrelative pathを`active`へ置き、直前のpathを`previous`へ移します。
+新しいrelative 経路を`active`へ置き、直前の経路を`previous`へ移します。
 
-設定fileは一時fileへ書いてから置換されます。
+設定ファイルは一時ファイルへ書いてから置換されます。
 
-active Packageを切り替えても、保存済み予測Snapshotは最新modelで再計算しません。
+有効なパッケージを切り替えても、保存済み予測スナップショットは最新モデルで再計算しません。
 
-{{< code-ref ml-engineering-lifecycle-test symbol="test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity" >}}は、API shapeを変えずに別Packageを使えることと、保存済みSnapshotが旧manifest identityを保持することを確認します。
+{{< code-ref ml-engineering-lifecycle-test symbol="test_alternate_verified_package_needs_no_api_change_and_snapshot_keeps_old_identity" >}}は、API 構造を変えずに別パッケージを使えることと、保存済みスナップショットが旧マニフェスト同一性を保持することを確認します。
 
-activate後は、processを再起動して新Packageを読み込みます。
+activate後は、プロセスを再起動して新パッケージを読み込みます。
 
-起動済みprocessが保持するruntimeを、設定fileの書換えだけで入れ替えたと考えてはいけません。
+起動済みプロセスが保持するランタイムを、設定ファイルの書換えだけで入れ替えたと考えてはいけません。
 
-### active設定を直接編集しない
+### 有効設定を直接編集しない
 
 `models/active-packages.json`の`active`だけを手編集すると、直前の参照を`previous`へ移す契約を通りません。
 
-新Packageを読み込めても、rollback時の戻し先が未記録または古い参照のまま置き去りになり、採用操作の可逆性が失われます。
+新パッケージを読み込めても、ロールバック時の戻し先が未記録または古い参照のまま置き去りになり、採用操作の可逆性が失われます。
 
-{{< code-ref ml-engineering-active-package-history symbol=check_active_package_history >}}は、git履歴で最後に置き換えられたPackageと現在の`previous`を比較します。
+{{< code-ref ml-engineering-active-package-history symbol=check_active_package_history >}}は、git履歴で最後に置き換えられたパッケージと現在の`previous`を比較します。
 
-置き換えられたPackageが現在も存在し、同じTaskと入力契約でactivate可能なのに`previous`が一致しなければ、直接編集によるdriftとして報告します。
+置き換えられたパッケージが現在も存在し、同じタスクと入力契約でactivate可能なのに`previous`が一致しなければ、直接編集によるdriftとして報告します。
 
-一方、最初の切替前、旧Packageの削除、別Task、入力契約の不一致では`previous: null`が正当な場合があります。
+一方、最初の切替前、旧パッケージの削除、別タスク、入力契約の不一致では`previous: null`が正当な場合があります。
 
-そのため、`null`を一律に失敗させず、rollback targetの存在、Task、contract digestを確認します。
+そのため、`null`を一律に失敗させず、ロールバック targetの存在、タスク、契約ダイジェストを確認します。
 
-契約移行で置き換えた旧Packageが`previous`に残る場合、その参照は切替履歴として保持します。
+契約移行で置き換えた旧パッケージが`previous`に残る場合、その参照は切替履歴として保持します。
 
-ただし、現行Taskの入力契約と一致しないPackageはrollback候補ではありません。
+ただし、現行タスクの入力契約と一致しないパッケージはロールバック候補ではありません。
 
-履歴の正しさと、現在rollbackできることを同じ判定へ潰さないためです。
+履歴の正しさと、現在ロールバックできることを同じ判定へ潰さないためです。
 
-{{< code-ref ml-engineering-active-package-history-test symbol=test_active_pointer_moved_without_recording_previous_is_reported >}}は直接編集相当のdriftを検出し、{{< code-ref ml-engineering-active-package-history-test symbol=test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated >}}は戻せない旧版を誤ってrollback候補にしないことを確認します。
+{{< code-ref ml-engineering-active-package-history-test symbol=test_active_pointer_moved_without_recording_previous_is_reported >}}は直接編集相当のdriftを検出し、{{< code-ref ml-engineering-active-package-history-test symbol=test_null_previous_is_accepted_when_the_replaced_package_cannot_be_activated >}}は戻せない旧版を誤ってロールバック候補にしないことを確認します。
 
 `package_status`、`task:inventory:check`、developer diagnosticsはこの履歴検査を利用します。
 
-{{< code-ref ml-engineering-active-package-diagnostics symbol=active_package_history_check >}}は、rollback可能な直前Packageと`previous`の一致と、rollback不能な旧版を理由付きで受理した状態を分けて表示します。
+{{< code-ref ml-engineering-active-package-diagnostics symbol=active_package_history_check >}}は、ロールバック可能な直前パッケージと`previous`の一致と、ロールバック不能な旧版を理由付きで受理した状態を分けて表示します。
 
 greenでも「すべての切替が`model:activate`経由だった」とは断定しません。
 
@@ -531,17 +531,17 @@ greenでも「すべての切替が`model:activate`経由だった」とは断�
 
 git履歴を読めない配布環境では「未検査」と報告し、履歴が正しいと推測しません。
 
-## rollbackも検証してから切り替える
+## ロールバックも検証してから切り替える
 
-{{< code-ref ml-engineering-workflow symbol="rollback_package" >}}は、`previous`のPackageを先にverifyします。
+{{< code-ref ml-engineering-workflow symbol="rollback_package" >}}は、`previous`のパッケージを先にverifyします。
 
-存在、Task identity、入力契約のいずれかが現行Taskと合わない場合は、active参照を変える前に拒否します。
+存在、タスク同一性、入力契約のいずれかが現行タスクと合わない場合は、有効参照を変える前に拒否します。
 
 検証成功後、{{< code-ref ml-engineering-lifecycle symbol="rollback_active_package" >}}が`active`と`previous`を入れ替えます。
 
-rollbackはmodel parameterを逆変換する操作ではありません。
+ロールバックはモデルパラメータを逆変換する操作ではありません。
 
-不変な旧Packageへの参照を戻す操作です。
+不変な旧パッケージへの参照を戻す操作です。
 
 {{< code-ref ml-engineering-lifecycle-test symbol="test_active_package_switch_and_rollback_are_atomic_and_reversible" >}}は、切替と復帰の状態遷移を確認します。
 
@@ -553,7 +553,7 @@ $$
 (P_{\mathrm{new}},P_{\mathrm{old}})
 $$
 
-rollback後は次になります。
+ロールバック後は次になります。
 
 $$
 (A_t,\operatorname{previous}_t)
@@ -561,92 +561,92 @@ $$
 (P_{\mathrm{old}},P_{\mathrm{new}})
 $$
 
-旧Package本体を上書きしないため、この参照交換が成立します。
+旧パッケージ本体を上書きしないため、この参照交換が成立します。
 
-## artifact loadingをtrust boundaryとして読む
+## 成果物 loadingをtrust boundaryとして読む
 
-Model Packageの安全な読み込みは、ML engineeringとsecurityの接点です。
+モデルパッケージの安全な読み込みは、ML engineeringとsecurityの接点です。
 
-{{< code-ref ml-engineering-package-contract symbol="ModelPackageLoader" >}}は、Package rootを解決し、manifestを閉じたschemaで検証します。
+{{< code-ref ml-engineering-package-contract symbol="ModelPackageLoader" >}}は、パッケージ rootを解決し、マニフェストを閉じたスキーマで検証します。
 
-各artifactについて、package-relative path、通常file、個別size、総size、byte数、SHA-256を確認します。
+各成果物について、package-relative 経路、通常ファイル、個別size、総size、byte数、SHA-256を確認します。
 
-検証中のfileをtemporary directoryへcopyし、そのsnapshotだけを{{< code-ref ml-engineering-package-contract symbol="VerifiedModelPackage" >}}から参照します。
+検証中のファイルを一時ディレクトリへコピーし、そのスナップショットだけを{{< code-ref ml-engineering-package-contract symbol="VerifiedModelPackage" >}}から参照します。
 
-このsnapshotにより、hash検証後に元fileを差し替える競合を避けます。
+このスナップショットにより、hash検証後に元ファイルを差し替える競合を避けます。
 
-{{< code-ref ml-engineering-package-test symbol="test_verified_package_consumes_an_immutable_artifact_snapshot" >}}は、検証後に元artifactを変更しても、verified Packageがsnapshotを読むことを確認します。
+{{< code-ref ml-engineering-package-test symbol="test_verified_package_consumes_an_immutable_artifact_snapshot" >}}は、検証後に元成果物を変更しても、verified パッケージがスナップショットを読むことを確認します。
 
-{{< code-ref ml-engineering-package-test symbol="test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields" >}}は、未知field、path traversal、hash改変を拒否します。
+{{< code-ref ml-engineering-package-test symbol="test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields" >}}は、未知フィールド、経路 traversal、hash改変を拒否します。
 
-{{< code-ref ml-engineering-package-test symbol="test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization" >}}は、Package runtimeから`pickle`、`joblib`、`importlib`、`exec`、`eval`などを排除していることをsource inspectionで確認します。
+{{< code-ref ml-engineering-package-test symbol="test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization" >}}は、パッケージランタイムから`pickle`、`joblib`、`importlib`、`exec`、`eval`などを排除していることをソース inspectionで確認します。
 
-この設計は[#304](https://github.com/mryk814/re-process-dashboard/issues/304)のdata-only Model Package trust boundaryへ直接つながります。
+この設計は[#304](https://github.com/mryk814/re-process-dashboard/issues/304)のデータ-only モデルパッケージ trust boundaryへ直接つながります。
 
 ただし、hash一致はintegrityを示すだけです。
 
-manifestを書いた主体が信頼できるかというauthenticityや、model qualityは別の問いです。
+マニフェストを書いた主体が信頼できるかというauthenticityや、モデル qualityは別の問いです。
 
-digestのcanonicalizationを検討するときは、RFC 8785のJSON Canonicalization Schemeも比較対象になります[@rfc8785]。
+ダイジェストの正規化を検討するときは、RFC 8785のJSON 正規化 Schemeも比較対象になります[@rfc8785]。
 
-security編では、trusted source、署名、path、archive、resource exhaustion、fail-closedを攻撃scenarioから扱います。
+security編では、trusted ソース、署名、経路、アーカイブ、リソース exhaustion、fail-closedを攻撃scenarioから扱います。
 
-## buildからrollbackまでの判断表
+## buildからロールバックまでの判断表
 
 | 段階 | 読むもの | 書き換えるもの | 成功が意味すること | 成功しても意味しないこと |
 |---|---|---|---|---|
-| data | source、Profile、Task contract | canonical dataset artifact | 学習境界を確認できる | modelが良い |
-| build | canonical dataset、builder | 新候補Package | 再現可能な候補を作れた | 採用済み |
-| verify | manifest、artifact、契約、source | 検証reportのみ | 同じruntimeで比較可能 | 旧Packageより高品質 |
-| review | quality、用途、運用cost | 採否記録 | 判断理由が明示された | activate完了 |
-| activate | verified candidate、active config | activeとprevious | 次回起動で選ぶ参照を変更した | 保存済みSnapshotを更新した |
-| rollback | verified previous、active config | activeとprevious | 旧参照へ復帰した | 過去の全判断を再計算した |
+| データ | ソース、プロファイル、タスク契約 | canonical dataset 成果物 | 学習境界を確認できる | モデルが良い |
+| build | canonical dataset、builder | 新候補パッケージ | 再現可能な候補を作れた | 採用済み |
+| verify | マニフェスト、成果物、契約、ソース | 検証reportのみ | 同じランタイムで比較可能 | 旧パッケージより高品質 |
+| レビュー | quality、用途、運用コスト | 採否記録 | 判断理由が明示された | activate完了 |
+| activate | verified candidate、有効 config | 有効とprevious | 次回起動で選ぶ参照を変更した | 保存済みスナップショットを更新した |
+| ロールバック | verified previous、有効 config | 有効とprevious | 旧参照へ復帰した | 過去の全判断を再計算した |
 
-{{< code-ref ml-engineering-workflow symbol="package_status" >}}は、active path、Package ID、version、manifest digestを確認します。
+{{< code-ref ml-engineering-workflow symbol="package_status" >}}は、有効経路、パッケージ ID、バージョン、マニフェストダイジェストを確認します。
 
-## 実装、契約、testを対応付ける
+## 実装、契約、テストを対応付ける
 
-| 問い | Contract | 実装 | Evidence |
+| 問い | 契約 | 実装 | Evidence |
 |---|---|---|---|
-| canonical inputとfeatureは一致するか | `FeaturePipelineSpec` | Feature Pipeline | pipeline mismatch test |
-| 学習と推論で同じ変換か | Pipeline ID、version、feature順序 | observation経由とCandidate経由のbundle生成 | goldenとtraining-row test |
-| Packageは任意コードを含まないか | `ModelPackageManifest`、`PredictorSpec` | `AdapterRegistry` | unsafe deserialization inspection |
-| 現Taskと互換か | input contract、Runtime Capability | lifecycle validation | corruption rejection test |
-| artifactは検証後も不変か | path、bytes、SHA-256 | loader snapshot | immutable snapshot test |
-| build失敗で既存Packageを壊さないか | immutable Package | staged destination | failed build test |
-| 切替を戻せるか | active、previous | activate、rollback | atomic reversible test |
-| 保存済み予測が変わらないか | Package identity provenance | immutable Snapshot | alternate Package test |
+| canonical 入力とfeatureは一致するか | `FeaturePipelineSpec` | 特徴量パイプライン | パイプライン mismatch テスト |
+| 学習と推論で同じ変換か | パイプライン ID、バージョン、feature順序 | observation経由と候補経由のbundle生成 | goldenとtraining-行テスト |
+| パッケージは任意コードを含まないか | `ModelPackageManifest`、`PredictorSpec` | `AdapterRegistry` | 危険な deserialization inspection |
+| 現タスクと互換か | 入力契約、ランタイム能力 | ライフサイクル validation | corruption rejection テスト |
+| 成果物は検証後も不変か | 経路、バイト列、SHA-256 | loader スナップショット | 不変スナップショットテスト |
+| build失敗で既存パッケージを壊さないか | 不変パッケージ | staged destination | failed build テスト |
+| 切替を戻せるか | 有効、previous | activate、ロールバック | atomic reversible テスト |
+| 保存済み予測が変わらないか | パッケージ同一性来歴 | 不変スナップショット | alternate パッケージテスト |
 
 ## 破綻条件を分類する
 
 ### 入力とfeatureの破綻
 
-- canonical input pathの欠落、重複、順序違い
-- Pipeline documentとmanifestのIDまたはversion違い
-- Pipeline outputとpredictor feature順序の違い
+- canonical 入力経路の欠落、重複、順序違い
+- パイプライン documentとマニフェストのIDまたはバージョン違い
+- パイプライン出力とpredictor feature順序の違い
 - 学習時だけの欠損補完や単位変換
 
-これらは、model精度の問題として観察される前にcontract違反で止めます。
+これらは、モデル精度の問題として観察される前に契約違反で止めます。
 
-### Packageの破綻
+### パッケージの破綻
 
-- manifestの未知field
-- 未登録runtime type
-- artifactの欠落、path escape、size超過、hash違い
+- マニフェストの未知フィールド
+- 未登録ランタイム種別
+- 成果物の欠落、経路 escape、size超過、hash違い
 - quality reportのtarget不一致
-- training dataまたはProfile digestの不一致
+- training データまたはプロファイルダイジェストの不一致
 
 これらはverifyまたは起動時検査で止めます。
 
 ### 採用判断の破綻
 
 - 異なるsplitのquality metricを直接比較する
-- MAEだけを見て区間coverageを無視する
-- optional dependencyや推論時間を評価しない
+- MAEだけを見て区間カバレッジを無視する
+- 任意 dependencyや推論時間を評価しない
 - verify成功を品質承認と解釈する
-- candidate作成をactive化と結び付ける
+- candidate作成を有効化と結び付ける
 
-これらは自動validationだけでは止められないため、reviewで用途とtrade-offを記録します。
+これらは自動validationだけでは止められないため、レビューで用途とtrade-offを記録します。
 
 ## 演習1：skewの原因を特定する {#exercise-model-package-runtime-01}
 
@@ -654,19 +654,19 @@ security編では、trusted source、署名、path、archive、resource exhausti
 
 推論時は同じ名前のfeatureを、観測点が900°Cを超えた個数として計算していました。
 
-manifestのfeature名と順序は一致しています。
+マニフェストのfeature名と順序は一致しています。
 
 次を答えてください。
 
 1. これはどの種類のtraining-serving skewか。
 2. feature名と順序の検査だけで検出できない理由は何か。
-3. 現行repositoryのどの境界とtestを参考に防ぐか。
+3. 現行リポジトリのどの境界とテストを参考に防ぐか。
 
 ### 成功条件
 
-- canonical inputとfeatureを区別している
+- canonical 入力とfeatureを区別している
 - 変換意味の差を$\phi_{\mathrm{train}}$と$\phi_{\mathrm{serve}}$で説明している
-- 同一実装、Pipeline version、golden testの三つを挙げている
+- 同一実装、パイプラインバージョン、golden テストの三つを挙げている
 
 [演習1の解答](#answer-model-package-runtime-01)は、回答を固定してから開きます。
 
@@ -674,21 +674,21 @@ manifestのfeature名と順序は一致しています。
 
 #### 解答例
 
-これは、同じcanonical inputへ異なるFeature Pipelineを適用した実装skewです。
+これは、同じcanonical 入力へ異なる特徴量パイプラインを適用した実装skewです。
 
 学習側は時間積分に近い量を作り、推論側は観測密度に依存するcountを作るため、$\phi_{\mathrm{train}}(\mathbf{x})\ne\phi_{\mathrm{serve}}(\mathbf{x})$です。
 
-feature名と順序は出力schemaしか検査せず、計算意味までは証明しません。
+feature名と順序は出力スキーマしか検査せず、計算意味までは証明しません。
 
-観測rowとCandidateを同じ`build_feature_bundle`へ通し、Pipeline versionをPackageへ固定し、代表routeのgolden testを置きます。
+観測行と候補を同じ`build_feature_bundle`へ通し、パイプラインバージョンをパッケージへ固定し、代表ルートのgolden テストを置きます。
 
 #### 解答の理由
 
-modelはfeature名ではなく数値を消費します。
+モデルはfeature名ではなく数値を消費します。
 
-同じlabelの数値が別の定義なら、contractの外形が一致しても予測関数全体は変わります。
+同じラベルの数値が別の定義なら、契約の外形が一致しても予測関数全体は変わります。
 
-現行testでは、学習rowとCandidateの同一pipeline利用と、piecewise linear routeのgolden値を別々に確認しています。
+現行テストでは、学習行と候補の同一パイプライン利用と、piecewise linear ルートのgolden値を別々に確認しています。
 
 #### よくある不十分な回答
 
@@ -700,9 +700,9 @@ modelはfeature名ではなく数値を消費します。
 
 ## 演習2：quality trade-offから採否を決める {#exercise-model-package-runtime-02}
 
-既存Package Oと候補Package Nを、同じgrouped splitで評価しました。
+既存パッケージ Oと候補パッケージ Nを、同じグループ別 splitで評価しました。
 
-| Package | MAE | RMSE | 90% coverage | preview時間 |
+| パッケージ | MAE | RMSE | 90% カバレッジ | プレビュー時間 |
 |---|---:|---:|---:|---:|
 | O | 12 MPa | 17 MPa | 0.89 | 40 ms |
 | N | 10 MPa | 21 MPa | 0.78 | 310 ms |
@@ -717,9 +717,9 @@ modelはfeature名ではなく数値を消費します。
 
 ### 成功条件
 
-- MAE、RMSE、coverage、latencyを別々に解釈している
+- MAE、RMSE、カバレッジ、latencyを別々に解釈している
 - no-adoptを正常な選択肢としている
-- 区間幅、誤差分布、support別評価、Task受入基準のいずれかを追加evidenceに挙げている
+- 区間幅、誤差分布、学習データの裏付け別評価、タスク受入基準のいずれかを追加evidenceに挙げている
 
 [演習2の解答](#answer-model-package-runtime-02)は、回答を固定してから開きます。
 
@@ -727,46 +727,46 @@ modelはfeature名ではなく数値を消費します。
 
 #### 解答例
 
-NはMAEを2 MPa改善しますが、RMSEが4 MPa悪化し、coverageが0.90から大きく外れ、previewも約7.8倍遅くなります。
+NはMAEを2 MPa改善しますが、RMSEが4 MPa悪化し、カバレッジが0.90から大きく外れ、プレビューも約7.8倍遅くなります。
 
 用途が大誤差回避、区間screening、対話操作を重視するため、この時点ではNを採用しません。
 
-追加で、区間幅、worst-case residual、support区分別の誤差とcoverage、latency分布を確認します。
+追加で、区間幅、最悪ケース residual、学習データの裏付け区分別の誤差とカバレッジ、latency分布を確認します。
 
-Nのmodel class自体を棄却するのではなく、原因を分けた新候補を作るか判断します。
+Nのモデル種別自体を棄却するのではなく、原因を分けた新候補を作るか判断します。
 
 #### 解答の理由
 
 単一metricの改善は、用途全体の改善を保証しません。
 
-とくにcoverageを判断へ使う要件があるため、0.78への低下はMAE改善と別に評価する必要があります。
+とくにカバレッジを判断へ使う要件があるため、0.78への低下はMAE改善と別に評価する必要があります。
 
-verify成功は契約互換性を示すだけなので、active参照はOのままにできます。
+verify成功は契約互換性を示すだけなので、有効参照はOのままにできます。
 
 #### よくある不十分な回答
 
-「MAEが最小なのでNを採用する」は、tail error、interval、latencyを無視しています。
+「MAEが最小なのでNを採用する」は、tail エラー、interval、latencyを無視しています。
 
-「Nは完全に失敗した」は、Packageとしての検証成功とTask上の不採用を区別していません。
+「Nは完全に失敗した」は、パッケージとしての検証成功とタスク上の不採用を区別していません。
 
 :::
 
 ## 演習3：安全な切替順序を設計する {#exercise-model-package-runtime-03}
 
-候補Packageのdirectoryは完成しています。
+候補パッケージのディレクトリは完成しています。
 
 担当者は、先に`active-packages.json`を書き換えてからsmokeを試そうとしています。
 
-さらに、失敗時は候補directoryへ旧artifactを上書きして戻す案を出しています。
+さらに、失敗時は候補ディレクトリへ旧成果物を上書きして戻す案を出しています。
 
-現行workflowに沿った順序と、上書き案の問題を説明してください。
+現行ワークフローに沿った順序と、上書き案の問題を説明してください。
 
 ### 成功条件
 
-- build、verify、review、activate、restart、status確認の順序を示している
+- build、verify、レビュー、activate、restart、状態確認の順序を示している
 - `active-packages.json`を直接編集せず、`previous`を契約経由で記録する
-- rollbackが旧Packageへの参照交換であると説明している
-- 保存済みSnapshotを再計算しないことへ触れている
+- ロールバックが旧パッケージへの参照交換であると説明している
+- 保存済みスナップショットを再計算しないことへ触れている
 
 [演習3の解答](#answer-model-package-runtime-03)は、回答を固定してから開きます。
 
@@ -774,59 +774,59 @@ verify成功は契約互換性を示すだけなので、active参照はOのま�
 
 #### 解答例
 
-候補をinactiveのままverifyし、qualityと運用条件をreviewし、採用時だけactivateします。
+候補をinactiveのままverifyし、qualityと運用条件をレビューし、採用時だけactivateします。
 
-activateは再verify後に`active`を候補へ、`previous`を旧Packageへ更新します。
+activateは再verify後に`active`を候補へ、`previous`を旧パッケージへ更新します。
 
 `active-packages.json`を直接編集せず、`model:activate`を通します。
 
-その後processを再起動し、statusと代表予測を確認します。
+その後プロセスを再起動し、状態と代表予測を確認します。
 
-問題があれば`previous`を再verifyしてrollbackし、再起動します。
+問題があれば`previous`を再verifyしてロールバックし、再起動します。
 
-旧artifactを候補directoryへ上書きすると、Package ID、manifest digest、保存済みSnapshotの来歴が指す内容を変えてしまいます。
+旧成果物を候補ディレクトリへ上書きすると、パッケージ ID、マニフェストダイジェスト、保存済みスナップショットの来歴が指す内容を変えてしまいます。
 
 #### 解答の理由
 
-不変Packageと参照切替を分けるから、採用前検証と可逆なrollbackを両立できます。
+不変パッケージと参照切替を分けるから、採用前検証と可逆なロールバックを両立できます。
 
-保存済みSnapshotは作成時のPackage identityを保持し、active切替やrollbackで再計算しません。
+保存済みスナップショットは作成時のパッケージ同一性を保持し、有効切替やロールバックで再計算しません。
 
 #### よくある不十分な回答
 
-「backupを取って上書きする」は、Package identityとartifact内容の不変性を壊します。
+「バックアップを取って上書きする」は、パッケージ同一性と成果物内容の不変性を壊します。
 
 「activate後にverifyすればよい」は、未検証候補を利用者へ露出します。
 
-「JSONの`active`だけ変えれば同じ」は、`previous`を失い、後のrollbackを壊します。
+「JSONの`active`だけ変えれば同じ」は、`previous`を失い、後のロールバックを壊します。
 
 :::
 
 ## 現行実装の限界
 
-共通quality reportは、Taskごとの採用thresholdを持ちません。
+共通quality reportは、タスクごとの採用thresholdを持ちません。
 
-no-adopt理由を構造化して保存する共通approval recordもありません。
+no-adopt理由を構造化して保存する共通approval 記録もありません。
 
-Package署名やremote registryによるauthenticity検証は、現行標準workflowの一部ではありません。
+パッケージ署名やremote レジストリによるauthenticity検証は、現行標準ワークフローの一部ではありません。
 
 build、verify、activate後のrestartは手動であり、hot swapではありません。
 
-Runtime Capabilityは利用可能な表現と操作を宣言しますが、modelが科学的に妥当であることを証明しません。
+ランタイム能力は利用可能な表現と操作を宣言しますが、モデルが科学的に妥当であることを証明しません。
 
-source digestとfeature dataset digestが一致しても、学習cohortの選択方針自体が妥当かは別途reviewが必要です。
+ソースダイジェストとfeature dataset ダイジェストが一致しても、学習cohortの選択方針自体が妥当かは別途レビューが必要です。
 
 ## 章末チェック {#exercise-model-package-runtime-chapter-check}
 
 次の問いへ、本文を見ずに答えてください。
 
-1. canonical input、feature、model artifactを一文ずつ定義してください。
+1. canonical 入力、feature、モデル成果物を一文ずつ定義してください。
 2. training-serving skewを防ぐ三つのcontrolを挙げてください。
-3. Runtime Capabilityとmodel classの違いを説明してください。
+3. ランタイム能力とモデル種別の違いを説明してください。
 4. verify成功が採用を意味しない理由を説明してください。
-5. MAE、RMSE、coverageが別の方向を示す場合の判断方法を述べてください。
-6. activateとrollbackがPackage本体を変更しない理由を述べてください。
-7. loader snapshotが防ぐ競合を説明してください。
+5. MAE、RMSE、カバレッジが別の方向を示す場合の判断方法を述べてください。
+6. activateとロールバックがパッケージ本体を変更しない理由を述べてください。
+7. loader スナップショットが防ぐ競合を説明してください。
 8. integrity、authenticity、qualityを区別してください。
 
 [章末チェックの解答](#answer-model-package-runtime-chapter-check)は、回答を固定してから開きます。
@@ -835,27 +835,27 @@ source digestとfeature dataset digestが一致しても、学習cohortの選択
 
 #### 解答例
 
-canonical inputは利用者とTaskの科学入力契約であり、featureはその入力からPipelineが導出するmodel入力であり、model artifactは学習済みparameterをdataとして保存した成果物です。
+canonical 入力は利用者とタスクの科学入力契約であり、featureはその入力からパイプラインが導出するモデル入力であり、モデル成果物は学習済みパラメータをデータとして保存した成果物です。
 
-skewは、学習と推論で同じPipeline実装を使い、Pipeline identityとfeature順序をPackageへ固定し、golden testで代表入力の値を検査して防ぎます。
+skewは、学習と推論で同じパイプライン実装を使い、パイプライン同一性とfeature順序をパッケージへ固定し、golden テストで代表入力の値を検査して防ぎます。
 
-Runtime Capabilityは提供できる予測表現と操作の契約であり、model classは計算方法の種類です。
+ランタイム能力は提供できる予測表現と操作の契約であり、モデル種別は計算方法の種類です。
 
-verifyはschema、来歴、runtime互換性、smokeを確認しますが、旧Packageより用途に適するとは判定しません。
+verifyはスキーマ、来歴、ランタイム互換性、smokeを確認しますが、旧パッケージより用途に適するとは判定しません。
 
-quality metricは同じsplitで比較し、Task上の損失、区間利用、latencyなどに照らしてtrade-offをreviewします。
+quality metricは同じsplitで比較し、タスク上の損失、区間利用、latencyなどに照らしてtrade-offをレビューします。
 
-activateとrollbackは、不変Packageへの`active`と`previous`参照を交換します。
+activateとロールバックは、不変パッケージへの`active`と`previous`参照を交換します。
 
-loader snapshotは、hash確認後に元artifactを差し替える競合を防ぎます。
+loader スナップショットは、hash確認後に元成果物を差し替える競合を防ぎます。
 
-integrityは内容がdigestと一致すること、authenticityは信頼した主体から来たこと、qualityは用途上の性能を示します。
+integrityは内容がダイジェストと一致すること、authenticityは信頼した主体から来たこと、qualityは用途上の性能を示します。
 
 #### 解答の理由
 
-この八点は、入力変換、data-only Package、capability、品質判断、可逆な運用、安全なloadingという章の境界を一続きに説明します。
+この八点は、入力変換、データ-only パッケージ、能力、品質判断、可逆な運用、安全なloadingという章の境界を一続きに説明します。
 
-どれかを省くと、「同じmodelを動かした」「安全なPackageである」「より良いmodelである」という異なる主張を混同します。
+どれかを省くと、「同じモデルを動かした」「安全なパッケージである」「より良いモデルである」という異なる主張を混同します。
 
 #### よくある不十分な回答
 
@@ -873,7 +873,7 @@ command名だけを列挙しても、各段階が何を保証するかを説明�
 node docs/learning/check-code-references.mjs
 ```
 
-Feature Pipeline、Package loader、lifecycleのfocused testを実行します。
+特徴量パイプライン、パッケージ loader、ライフサイクルの焦点を絞ったテストを実行します。
 
 ```powershell
 uv run python -m pytest `
@@ -896,24 +896,24 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File docs/learning/check-references.ps1
 ```
 
-実Packageのverifyやactivateは、元Excelを変更しません。
+実パッケージのverifyやactivateは、元Excelを変更しません。
 
-ただしactivateは`models/active-packages.json`を書き換えるため、教材のread-only確認で実行してはいけません。
+ただしactivateは`models/active-packages.json`を書き換えるため、教材の読み取り専用確認で実行してはいけません。
 
 ## Further Reading
 
 **D. Sculleyほか, [*Hidden Technical Debt in Machine Learning Systems*](https://papers.nips.cc/paper_files/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html)**
 
-model code以外のdata dependency、pipeline、configuration、外部systemがML systemの保守性を支配する理由を整理します。
+モデル code以外のデータ dependency、パイプライン、configuration、外部systemがML systemの保守性を支配する理由を整理します。
 
 **Google, [*Rules of Machine Learning: Best Practices for ML Engineering*](https://developers.google.com/machine-learning/guides/rules-of-ml)**
 
 training-serving skew、metric設計、既存systemとの比較を、段階的な運用規則として確認します。
 
-**NIST, *Artificial Intelligence Risk Management Framework 1.0* [@nist-ai-rmf-1]**
+**NIST, *Artificial Intelligence リスク Management Framework 1.0* [@nist-ai-rmf-1]**
 
-model performanceだけでなく、context of use、validation、monitoring、human oversightを含めてriskを扱う視点を補います。
+モデル performanceだけでなく、context of use、validation、monitoring、human oversightを含めてリスクを扱う視点を補います。
 
-**RFC 8785, *JSON Canonicalization Scheme* [@rfc8785]**
+**RFC 8785, *JSON 正規化 Scheme* [@rfc8785]**
 
-manifestやcontractの意味表現digestをcross-languageで扱う場合に、JSON canonicalizationが解く範囲を確認します。
+マニフェストや契約の意味表現ダイジェストをcross-languageで扱う場合に、JSON 正規化が解く範囲を確認します。

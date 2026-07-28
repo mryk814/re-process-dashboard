@@ -126,28 +126,28 @@ historical_concepts: []
 
 ## 対象読者と到達点
 
-この章は、予測値や提案を表示する画面を実装またはreviewする開発者を対象にします。
-読者は、点予測、予測区間、support、目標、制約、実測、提案の役割をすでに個別には知っているものとします。
+この章は、予測値や提案を表示する画面を実装またはレビューする開発者を対象にします。
+読者は、点予測、予測区間、学習データの裏付け、目標、制約、実測、提案の役割をすでに個別には知っているものとします。
 
 読了後は、次のことができるようになります。
 
 - 予測を判断へ格上げするために不足している証拠を列挙する
 - `0`、未計算、利用不可、失敗、古い結果を別の状態として扱う
-- モデル不確実性、入力ばらつき、測定ばらつき、Monte Carlo誤差を分ける
-- supportを精度や成功確率のように見せる表示を見つける
+- モデル不確実性、入力ばらつき、測定ばらつき、モンテカルロ誤差を分ける
+- 学習データの裏付けを精度や成功確率のように見せる表示を見つける
 - 警告を原因、影響、次の行動へ分ける
-- algorithmの提案と、人間による候補化または採用判断の境界を確認する
-- accessibility上の欠落を、見た目ではなく判断材料の欠落として批評する
+- アルゴリズムの提案と、人間による候補化または採用判断の境界を確認する
+- アクセシビリティ上の欠落を、見た目ではなく判断材料の欠落として批評する
 
 ## 非scope
 
-この章は一般的なUI component集ではありません。
-配色、余白、animationを網羅せず、判断材料の意味が保たれるかに絞ります。
+この章は一般的なUI コンポーネント集ではありません。
+配色、余白、アニメーションを網羅せず、判断材料の意味が保たれるかに絞ります。
 
 人間の認知biasも包括的には解説しません。
-automation biasと警告疲労は、現在のworkflowで誤採用または見落としが起こる条件を説明する範囲だけ扱います。
+自動化バイアスと警告疲労は、現在のワークフローで誤採用または見落としが起こる条件を説明する範囲だけ扱います。
 
-この章は、model outputから候補を自動採用する仕組みを設計しません。
+この章は、モデル出力から候補を自動採用する仕組みを設計しません。
 現行アプリの境界は、提案を保存し、人間が証拠を確認してから別操作で候補または採用判断を作ることです。
 
 ## 630.3は候補を選ぶ理由にならない
@@ -155,7 +155,7 @@ automation biasと警告疲労は、現在のworkflowで誤採用または見落
 二つの候補を比較しているとします。
 画面の先頭には次の値が並びました。
 
-| 候補 | 引張強さの点予測 | 予測区間 | support | 目標 |
+| 候補 | 引張強さの点予測 | 予測区間 | 学習データの裏付け | 目標 |
 |---|---:|---:|---|---|
 | A | 630.3 MPa | 590.0から670.6 MPa | 要確認 | 620 MPa以上 |
 | B | 625.1 MPa | 615.8から634.2 MPa | 範囲内 | 620 MPa以上 |
@@ -163,19 +163,19 @@ automation biasと警告疲労は、現在のworkflowで誤採用または見落
 点予測だけならAが高く見えます。
 しかし、表にない情報が残っています。
 
-- hard constraintをどちらも満たすか
-- Aのsupportが「要確認」になった距離と近傍観測は何か
-- 区間が同じ定義とcoverageで作られたか
-- 二つの値が同じtarget semantics、試験規格、温度、採取方向、試験片条件で得られる量か
+- ハード制約をどちらも満たすか
+- Aの学習データの裏付けが「要確認」になった距離と近傍観測は何か
+- 区間が同じ定義とカバレッジで作られたか
+- 二つの値が同じtarget 意味、試験規格、温度、採取方向、試験片条件で得られる量か
 - 入力ばらつきに対して結果が安定するか
-- 実験costと変更可能な工程条件は何か
+- 実験コストと変更可能な工程条件は何か
 - 既存実測と保存済み判断へ戻れるか
 
 したがって、`630.3 > 625.1`は予測値の比較であって、候補Aを選ぶという判断ではありません。
 小数点以下の桁を増やしても、この不足は埋まりません。
 
 この区別は「人間が最後に考える」という精神論ではありません。
-画面と保存contractが、予測の出所、適用条件、未確認の証拠、採用操作を別の対象として持つ必要があります。
+画面と保存契約が、予測の出所、適用条件、未確認の証拠、採用操作を別の対象として持つ必要があります。
 
 ## 判断面に置く九つの層
 
@@ -186,15 +186,15 @@ automation biasと警告疲労は、現在のworkflowで誤採用または見落
 
 | 層 | 答える問い | 現行repoの例 |
 |---|---|---|
-| inputs | 何を変更する案か | Candidateのcomposition、process、categorical入力 |
-| predicted outcome | modelは何を予測したか | `PredictiveSummary`の代表値 |
-| predictive interval | model出力の広がりは何か | quantileまたはruntime prediction interval |
+| inputs | 何を変更する案か | 候補の組成、工程条件、カテゴリ入力 |
+| predicted outcome | モデルは何を予測したか | `PredictiveSummary`の代表値 |
+| predictive interval | モデル出力の広がりは何か | quantileまたはランタイム prediction interval |
 | target achievement | どの目標条件へどう照合したか | 点予測による達成、達成確率、未計算 |
-| support | 学習dataによる裏付けからどの程度外れたか | 範囲内、要確認、外挿 |
-| constraints | 入力は実行可能か、予測は採択条件を満たすか | Design Space、hard outcome constraint |
-| input robustness | 入力が揺れたとき結果はどう動くか | Robustness Activity |
-| provenance | どのRun、Package、Snapshotから来たか | Candidate origin、保存済みRun |
-| actual measurement | 当該候補は未観測か、実験後に何が観測されたか | 類似条件の実測、Actual Snapshot |
+| 学習データの裏付け | 学習データの裏付けからどの程度外れたか | 範囲内、要確認、外挿 |
+| constraints | 入力は実行可能か、予測は採択条件を満たすか | 設計空間、ハードな出力制約 |
+| 入力 robustness | 入力が揺れたとき結果はどう動くか | Robustness アクティビティ |
+| 来歴 | どの実行記録、パッケージ、スナップショットから来たか | 候補 origin、保存済み実行記録 |
+| actual measurement | 当該候補は未観測か、実験後に何が観測されたか | 類似条件の実測、Actual スナップショット |
 
 これは九つのwidgetを常時表示するという規則ではありません。
 判断時点で必要な層を欠落させず、同じ色、同じpercent、同じ横棒へ意味を潰さないための点検表です。
@@ -203,8 +203,8 @@ constraintsの層でも、組成合計、工程順序、設備上限などの**�
 後者は予測上の採択条件であり、実測後の受入規格または操作安全の保証ではありません。
 
 実験前の新規候補に当該候補自身の実測はありません。
-類似条件のhistorical actualと「未観測」を分け、実験後は固定Prediction SnapshotとActual Snapshotを対応付けます。
-ただし、現行Actual Snapshotはmean、standard deviation、replicate数などの要約であり、試験片、heatまたはlot、試験protocolの完全な記録ではありません。
+類似条件のhistorical actualと「未観測」を分け、実験後は固定予測スナップショットとActual スナップショットを対応付けます。
+ただし、現行Actual スナップショットはmean、standard deviation、replicate数などの要約であり、試験片、heatまたはlot、試験protocolの完全な記録ではありません。
 
 予測から判断までの関係は、次のように書けます。
 
@@ -222,11 +222,11 @@ g(
 $$
 
 ここで$g$は、現行repoに一つの汎用関数として実装されているわけではありません。
-Screening、Counterfactual、Project decisionは、それぞれ異なる入力と承認境界を持ちます。
-式は「model outputだけをdecisionと呼ばない」という教材上の分解です。
+Screening、Counterfactual、プロジェクト判断は、それぞれ異なる入力と承認境界を持ちます。
+式は「モデル出力だけをdecisionと呼ばない」という教材上の分解です。
 
-NIST AI RMFは、system outputの利用方法とhuman oversightをcontext of useの中で文書化し、開発条件を越える一般化限界も記録するよう求めます[@nist-ai-rmf-1]。
-この章では、その組織的なrisk management全体を実装したとはみなしません。
+NIST AI RMFは、system 出力の利用方法とhuman oversightをcontext of useの中で文書化し、開発条件を越える一般化限界も記録するよう求めます[@nist-ai-rmf-1]。
+この章では、その組織的なリスク management全体を実装したとはみなしません。
 現行repoで追える小さな境界へ、同じ問いを縮小して適用します。
 
 ## 値と証拠状態を分ける
@@ -236,23 +236,23 @@ NIST AI RMFは、system outputの利用方法とhuman oversightをcontext of use
 | 状態 | 意味 | 判断面で必要な次の行動 |
 |---|---|---|
 | `0` | 計算または観測された数値が0 | 値として比較する |
-| missing | 正本に必要な値がない | source、入力、品質判定を確認する |
-| not reported | upstreamが任意fieldを返していない | そのfieldなしで成立する範囲を示す |
+| missing | 正本に必要な値がない | ソース、入力、品質判定を確認する |
+| not reported | upstreamが任意フィールドを返していない | そのフィールドなしで成立する範囲を示す |
 | not applicable | この対象には量を定義しない | 計算を促さず、対象外の理由を示す |
-| unavailable | capabilityまたは依存先が使えない | 原因と復旧方法を示す |
+| unavailable | 能力または依存先が使えない | 原因と復旧方法を示す |
 | uncomputed | 計算可能だが、まだ実行していない | 計算する操作を示す |
-| stale | 以前のidentityに対する結果 | 現在値へ混ぜず、再計算または履歴として開く |
+| stale | 以前の同一性に対する結果 | 現在値へ混ぜず、再計算または履歴として開く |
 | failed | 実行を試みたが完了しなかった | 失敗原因、影響、再試行条件を示す |
 
 この分類を**証拠状態（Evidence State）**と呼びます。
-状態名を表示するだけでは足りず、その状態で何を確定してよいかをsummary側も変える必要があります。
+状態名を表示するだけでは足りず、その状態で何を確定してよいかを要約側も変える必要があります。
 
-{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}は、previewがないcellを「未計算」と表示します。
+{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}は、プレビューがないcellを「未計算」と表示します。
 さらに{{< code-ref decision-safety-summary symbol=buildCandidateDecisionSummary >}}は、すべての候補に有効な区間がそろうまで、区間の共通部分を判定対象へ入れません。
 
 この挙動は[PR #273](https://github.com/mryk814/re-process-dashboard/pull/273)で加わりました。[^pr273]
 初期表示を速くするため、先頭の候補だけを先に計算する設計は残しています。
-その代わり、画面は未計算件数と「残りを計算」を示し、不完全な比較から完成済みのsummaryを作りません。
+その代わり、画面は未計算件数と「残りを計算」を示し、不完全な比較から完成済みの要約を作りません。
 
 [^pr273]:
     PR以前は未計算cellも`—`で表示され、表だけを見ると比較が完了したように読めました。
@@ -260,36 +260,36 @@ NIST AI RMFは、system outputの利用方法とhuman oversightをcontext of use
 
 ### 0と未計算を分ける
 
-Robustnessの`goal_achievement_rate`が`0`なら、制約検査を通った入力sampleの点予測に、目標を満たしたものがなかったという集計結果です。
-値が`null`なら、Projectに目標がなく達成率を計算していません。
+Robustnessの`goal_achievement_rate`が`0`なら、制約検査を通った入力サンプルの点予測に、目標を満たしたものがなかったという集計結果です。
+値が`null`なら、プロジェクトに目標がなく達成率を計算していません。
 
-この二つを同じ「結果なし」にすると、受理sample中の達成0件と未評価を区別できません。
+この二つを同じ「結果なし」にすると、受理サンプル中の達成0件と未評価を区別できません。
 目標がない場合、{{< code-ref decision-safety-robustness-view symbol=RobustnessActivityView >}}は入力ばらつきの結果を残し、達成率だけを「未計算」とします。
 
 ### 利用不可と失敗を分ける
 
-{{< code-ref decision-safety-availability symbol=SubsystemAvailability >}}は、optional subsystemが起動できない場合に`cause`、`impact`、`recovery_hint`を持ちます。
+{{< code-ref decision-safety-availability symbol=SubsystemAvailability >}}は、付加機能サブシステムが起動できない場合に`cause`、`impact`、`recovery_hint`を持ちます。
 これは「計算したが失敗した結果」ではなく、「現在その操作を提供できない状態」です。
 
-利用不可の画面で再試行buttonだけを出すと、依存Packageの欠落など、同じ条件で必ず失敗する操作を繰り返させます。
+利用不可の画面で再試行buttonだけを出すと、依存パッケージの欠落など、同じ条件で必ず失敗する操作を繰り返させます。
 復旧に設定変更が必要なら、その行動を示す必要があります。
 
 ## 不確実性を一つの帯へ混ぜない
 
 「不確実性が大きい」という一文では、何を減らせばよいか決まりません。
-modelと学習dataを見直す、入力公差を変える、反復測定で観測ばらつきを推定する、simulation数を増やすという四つの行動は、別の発生源へ対応します。
+モデルと学習データを見直す、入力公差を変える、反復測定で観測ばらつきを推定する、simulation数を増やすという四つの行動は、別の発生源へ対応します。
 
 ### 記号と単位
 
 | 記号 | 意味 | 単位または値域 |
 |---|---|---|
-| $x$ | 固定した候補入力 | 数値fieldは各単位、categorical fieldはcategory |
-| $X$ | 公差に従って揺らした入力 | 数値fieldは各単位、categorical fieldはcategory |
-| $f(x)$ | 潜在的なmodel出力 | targetの単位 |
+| $x$ | 固定した候補入力 | 数値フィールドは各単位、カテゴリフィールドはカテゴリ |
+| $X$ | 公差に従って揺らした入力 | 数値フィールドは各単位、カテゴリフィールドはカテゴリ |
+| $f(x)$ | 潜在的なモデル出力 | targetの単位 |
 | $Y$ | 観測noiseを含む将来観測 | targetの単位 |
 | $\varepsilon$ | 観測残差 | targetの単位 |
-| $n_a$ | 制約検査を通ったMonte Carlo sample数 | 無次元 |
-| $\hat{p}$ | 受理sampleの点予測による目標達成率 | 無次元、値域$[0,1]$ |
+| $n_a$ | 制約検査を通ったモンテカルロサンプル数 | 無次元 |
+| $\hat{p}$ | 受理サンプルの点予測による目標達成率 | 無次元、値域$[0,1]$ |
 
 固定入力$x$に対する予測分布は、概念的には次で表せます。
 
@@ -297,11 +297,11 @@ $$
 p(Y^\ast \mid x, D, M)
 $$
 
-$D$は学習data、$M$はmodelと推論手続きです。
-この分布から得たquantile区間は、入力$x$を固定したときのruntime predictive intervalです。
+$D$は学習データ、$M$はモデルと推論手続きです。
+この分布から得たquantile区間は、入力$x$を固定したときのランタイム predictive intervalです。
 
-一方、Robustnessは入力を公差分布から動かし、Task制約を通ったsampleだけを受理します。
-その有効分布を$q_{\mathrm{eff}}(X \mid x)$、runtimeの点予測を$m_M(X)$と書くと、現行実装は次の量を作ります。
+一方、Robustnessは入力を公差分布から動かし、タスク制約を通ったサンプルだけを受理します。
+その有効分布を$q_{\mathrm{eff}}(X \mid x)$、ランタイムの点予測を$m_M(X)$と書くと、現行実装は次の量を作ります。
 
 $$
 X^{(i)} \sim q_{\mathrm{eff}}(X \mid x), \qquad
@@ -309,19 +309,19 @@ m_i = m_M(X^{(i)})
 $$
 
 入力ばらつきの区間は、点予測集合$\{m_i\}_{i=1}^{n_a}$の5%、50%、95%分位点から作ります。
-各$X^{(i)}$でpredictive sampleを引いた区間ではありません。
+各$X^{(i)}$でpredictive サンプルを引いた区間ではありません。
 
 {{< code-ref decision-safety-robustness-compute symbol=compute >}}は、変動入力ごとに`Prediction.value`を集めます。
-一方、`model_uncertainty`には、基準入力$x$に対してruntimeが返した予測区間を保存します。
+一方、`model_uncertainty`には、基準入力$x$に対してランタイムが返した予測区間を保存します。
 
-{{< code-ref decision-safety-uncertainty-contract symbol=RobustnessTargetSummary >}}は、`input_variation`と`model_uncertainty`を別fieldにします。
-`input_variation`は受理sampleに対する点予測の中心90%範囲、`model_uncertainty`は基準入力に対してruntimeが返すpredictive intervalです。
-`model_uncertainty`というfield名であっても、Packageによっては観測残差を含む総予測区間であり、epistemic uncertaintyだけを意味しません。
+{{< code-ref decision-safety-uncertainty-contract symbol=RobustnessTargetSummary >}}は、`input_variation`と`model_uncertainty`を別フィールドにします。
+`input_variation`は受理サンプルに対する点予測の中心90%範囲、`model_uncertainty`は基準入力に対してランタイムが返すpredictive intervalです。
+`model_uncertainty`というフィールド名であっても、パッケージによっては観測残差を含む総予測区間であり、epistemic uncertaintyだけを意味しません。
 {{< code-ref decision-safety-robustness-view symbol=RobustnessActivityView >}}も二つを別の行に表示します。
 
-### Monte Carlo誤差
+### モンテカルロ誤差
 
-現行実装の達成率は、受理sampleの点予測が目標を満たした割合です。
+現行実装の達成率は、受理サンプルの点予測が目標を満たした割合です。
 
 $$
 \hat{p}
@@ -331,9 +331,9 @@ $$
 \mathbf{1}\{m_i \text{ が目標を満たす}\}
 $$
 
-この量は、仮定した入力公差分布とTask制約の下での点予測の割合であり、model uncertainty、観測残差、実験再現性を積分した成功確率ではありません。
+この量は、仮定した入力公差分布とタスク制約の下での点予測の割合であり、モデル uncertainty、観測残差、実験再現性を積分した成功確率ではありません。
 
-受理sampleを$q_{\mathrm{eff}}$からの独立sampleとみなす単純化の下で、plug-in標準誤差は次です。
+受理サンプルを$q_{\mathrm{eff}}$からの独立サンプルとみなす単純化の下で、plug-in標準誤差は次です。
 
 $$
 \operatorname{SE}(\hat{p})
@@ -342,51 +342,51 @@ $$
 $$
 
 $\hat{p}=0.61$、$n_a=100$なら、標準誤差は約$0.049$です。
-「61%」という表示桁が細かくても、sample数を無視して61%を固定的な成功確率として読むことはできません。
+「61%」という表示桁が細かくても、サンプル数を無視して61%を固定的な成功確率として読むことはできません。
 
-この近似は、sampleが独立で、同じ有効分布から得られた場合の数値誤差だけを扱います。
-model misspecification、入力分布の誤り、測定biasは含みません。
-さらに、$\hat{p}=0$または$1$ではこの式が標準誤差を0とするため、有限sampleの区間推定にはWilson区間など別の方法が必要です。
+この近似は、サンプルが独立で、同じ有効分布から得られた場合の数値誤差だけを扱います。
+モデル misspecification、入力分布の誤り、測定biasは含みません。
+さらに、$\hat{p}=0$または$1$ではこの式が標準誤差を0とするため、有限サンプルの区間推定にはWilson区間など別の方法が必要です。
 
 ### 測定ばらつき
 
 連続量を加法的に表す単純化では、実測を$Y=f(x)+\varepsilon$と書けます。
-ここで$\varepsilon$は、装置のrepeatabilityだけでなく、未観測工程因子、試料間差、model residualを含み得る観測残差です。
+ここで$\varepsilon$は、装置のrepeatabilityだけでなく、未観測工程因子、試料間差、モデル residualを含み得る観測残差です。
 binary、count、heteroscedasticなtargetでは、この加法表現をそのまま使えません。
 
-modelが`observation_noise_std`を返す場合、{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}は「測定由来」と表示できます。
-しかし、adapterによっては学習残差の標準偏差をこのfieldへ入れるため、純粋な測定誤差と呼ぶにはrepeatabilityまたはreproducibilityの実験設計など追加の根拠が必要です。
-現行UIが分離fieldを表示できることと、任意のPackageで発生源を分解済みであることは別です。
+モデルが`observation_noise_std`を返す場合、{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}は「測定由来」と表示できます。
+しかし、アダプタによっては学習残差の標準偏差をこのフィールドへ入れるため、純粋な測定誤差と呼ぶにはrepeatabilityまたはreproducibilityの実験設計など追加の根拠が必要です。
+現行UIが分離フィールドを表示できることと、任意のパッケージで発生源を分解済みであることは別です。
 
 不確実性表示の実験研究では、平均値を強調すると利用者が不確実性を割り引く場合があり、effect sizeを正確に読む表示とdecision taskで良い成績を出す表示が一致しないことも報告されています[@kale-kay-hullman-2021]。
 したがって、区間を付ければ判断が自動的に改善するとは言えません。
 画面が答える問いに合わせて、点、区間、分布、行動を組み合わせて評価する必要があります。
 
-## supportは正しさの確率ではない
+## 学習データの裏付けは正しさの確率ではない
 
-supportは、候補が学習時の入力または近傍観測からどの程度離れたかを要約します。
+学習データの裏付けは、候補が学習時の入力または近傍観測からどの程度離れたかを要約します。
 予測誤差の事後確率でも、目標達成確率でもありません。
 
 {{< code-ref decision-safety-support-presentation symbol=supportStatusLabel >}}は内部状態を「範囲内」「要確認」「外挿」へ変換します。
 {{< code-ref decision-safety-support-badge symbol=SupportBadge >}}は語と形を併用し、色だけへ意味を預けません。
 
-support percentileが100であっても、「精度100%」を意味しません。
+裏付けパーセンタイルが100であっても、「精度100%」を意味しません。
 参照集合の中で距離が端に位置するという順位情報であり、distanceの定義、feature scaling、reference cohortが変われば意味も変わります。
-supportはtargetごとの学習cohortとfeature representationに依存するため、同じCandidateでもtargetごとに状態が異なり得ます。
-複数targetを一つの状態へ集約する場合は、worst-caseなどの集約規則を表示する必要があります。
+学習データの裏付けはtargetごとの学習cohortとfeature representationに依存するため、同じ候補でもtargetごとに状態が異なり得ます。
+複数targetを一つの状態へ集約する場合は、最悪ケースなどの集約規則を表示する必要があります。
 
 | 読めること | 読めないこと |
 |---|---|
 | 学習入力または近傍観測からの相対的な離れ方 | 予測が正しい確率 |
-| adapterが定めたthresholdに対する状態 | 目標を満たす確率 |
-| 近い実績を追加確認すべきか | model全体のcalibration |
+| アダプタが定めたthresholdに対する状態 | 目標を満たす確率 |
+| 近い実績を追加確認すべきか | モデル全体のcalibration |
 
-したがって、点予測、予測区間、supportは互いの代用になりません。
-点予測が高く、区間が狭く、supportが外挿という組合せもあり得ます。
+したがって、点予測、予測区間、学習データの裏付けは互いの代用になりません。
+点予測が高く、区間が狭く、学習データの裏付けが外挿という組合せもあり得ます。
 
 ## 安全な既定値と明示的な逸脱
 
-safe defaultは、利用者の代わりに結論を決める既定値ではありません。
+安全側の既定値は、利用者の代わりに結論を決める既定値ではありません。
 追加の確認なしに実行しても、意図しない危険側へ入りにくい開始点です。
 
 {{< code-ref decision-safety-safe-range symbol=safeExplorationRange >}}は、Screeningの既定rangeを、許容範囲と学習範囲の共通部分へ置きます。
@@ -394,7 +394,7 @@ safe defaultは、利用者の代わりに結論を決める既定値ではあ�
 利用者がrangeを明示的に広げた場合だけ、外挿を含む設定になります。
 
 この既定値は、各変数のmarginal rangeに対する探索開始点です。
-組成simplex、工程条件の相関、heat patternの組合せに対するjoint support、物理feasibility、設備安全を保証しません。
+組成単体、工程条件の相関、熱処理パターンの組合せ全体に対する学習データの裏付け、物理的な実現可能性、設備安全を保証しません。
 
 目標が未設定のScreeningでは、現行画面は実行前に次の選択を求めます。
 
@@ -406,27 +406,27 @@ safe defaultは、利用者の代わりに結論を決める既定値ではあ�
 目標がない地図を「有望候補探索」と誤認させないため、判断質問を明示する境界です。
 
 [PR #276](https://github.com/mryk814/re-process-dashboard/pull/276)は、この二つを同じ変更で扱いました。[^pr276]
-既定rangeを学習範囲内へ置き、目標がない場合のscore labelを「目標未設定（学習範囲への近さで表示）」へ固定しています。
+既定rangeを学習範囲内へ置き、目標がない場合のscore ラベルを「目標未設定（学習範囲への近さで表示）」へ固定しています。
 
 [^pr276]:
-    safe defaultは全画面へ自動適用される抽象componentではありません。
+    安全側の既定値は全画面へ自動適用される抽象コンポーネントではありません。
     現行の強い実装証拠はScreeningのrangeと目標確認に限られます。
 
 ### progressive disclosure
 
 判断面に九層を置くことは、九層を同じ強さで常時見せることではありません。
-最初に問い、候補件数、状態を示し、seed、digest、完全なprovenanceは必要時に開く構成を取れます。
+最初に問い、候補件数、状態を示し、seed、ダイジェスト、完全な来歴は必要時に開く構成を取れます。
 
-現行の候補比較では、{{< code-ref decision-safety-summary symbol=buildCandidateDecisionSummary >}}が全候補を評価できない間は区間summaryを確定せず、{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}が未計算件数と「残りを計算」を最初の判断面に残します。
-詳細を折りたたむ場合も、この不完全性と完了操作をsummaryへ残し、keyboardで詳細を開いた後に元の候補文脈へ戻れる必要があります。
+現行の候補比較では、{{< code-ref decision-safety-summary symbol=buildCandidateDecisionSummary >}}が全候補を評価できない間は区間要約を確定せず、{{< code-ref decision-safety-comparison symbol=ComparisonTable >}}が未計算件数と「残りを計算」を最初の判断面に残します。
+詳細を折りたたむ場合も、この不完全性と完了操作を要約へ残し、keyboardで詳細を開いた後に元の候補文脈へ戻れる必要があります。
 
 ただし、次の情報は詳細へ隠せません。
 
 - 未計算候補があること
-- supportが外挿であること
-- hard constraint違反
+- 学習データの裏付けが外挿であること
+- ハード制約違反
 - 点予測だけの達成判定であること
-- proposalがまだCandidateでも採用判断でもないこと
+- proposalがまだ候補でも採用判断でもないこと
 
 これらを隠すと、詳細を開かない利用者が別の意味で判断します。
 progressive disclosureは情報を削る手法ではなく、主線と監査線の読む順番を分ける手法です。
@@ -438,7 +438,7 @@ progressive disclosureは情報を削る手法ではなく、主線と監査線�
 
 | 要素 | 問い | 例 |
 |---|---|---|
-| cause | 何が起きたか | 候補の距離がsupport policyのcaution thresholdを超えた |
+| cause | 何が起きたか | 候補の距離が学習データの裏付け policyのcaution thresholdを超えた |
 | impact | 何を確定できないか | 点予測を候補間の優劣へ使う根拠が弱い |
 | next action | 次に何を確認または変更するか | 近い実績を開く、rangeを戻す、追加実験を計画する |
 
@@ -448,29 +448,29 @@ progressive disclosureは情報を削る手法ではなく、主線と監査線�
 > **影響**：`<確定できない判断または停止する操作>`。
 > **次の行動**：`<利用者が実行できる確認または復旧>`。
 
-{{< code-ref decision-safety-availability symbol=SubsystemAvailability >}}は、optional subsystemの停止について、この分解をcontract fieldで持つ良い例です。
-一方、現行repoのすべてのwarningがこのcontractへ統一されているわけではありません。
-Counterfactual proposalなどには文字列warningも残ります。
+{{< code-ref decision-safety-availability symbol=SubsystemAvailability >}}は、付加機能サブシステムの停止について、この分解を契約フィールドで持つ良い例です。
+一方、現行repoのすべての警告がこの契約へ統一されているわけではありません。
+Counterfactual proposalなどには文字列警告も残ります。
 
 ### severityより選択性を守る
 
 警告を増やすだけでは、重要な警告が見つかりやすくなるとは限りません。
-automationを監視する別作業と手動作業が競合する状況では、automation complacencyとautomation biasが専門家にも起こり、単純な練習だけでは解消しないと報告されています[@parasuraman-manzey-2010]。
+automationを監視する別作業と手動作業が競合する状況では、automation complacencyと自動化バイアスが専門家にも起こり、単純な練習だけでは解消しないと報告されています[@parasuraman-manzey-2010]。
 
 したがって、すべての注意を同じpersistent alertへ格上げすると、利用者は重要度を学習できません。
 少なくとも次を分けます。
 
-- **block**：実行または採用を続けるとcontractを破る
+- **block**：実行または採用を続けると契約を破る
 - **warning**：続行可能だが、判断の根拠または適用範囲が弱い
 - **status**：処理の完了、未計算、進行中を伝える
 - **detail**：監査時に必要だが、現在の判断を変えない
 
-{{< code-ref decision-safety-notice symbol=WorkspaceNoticeBanner >}}は、失敗を`alert`として残し、成功receiptを`status`として一定時間後に閉じます。
+{{< code-ref decision-safety-notice symbol=WorkspaceNoticeBanner >}}は、失敗を`alert`として残し、成功完了通知を`status`として一定時間後に閉じます。
 これはalertの数を減らすだけでなく、操作結果と要対応状態の意味を分けます。
 
 ## 提案と採用を別の証拠にする
 
-algorithmがproposalを返した時点では、Candidateも採用判断もまだ作られていません。
+アルゴリズムがproposalを返した時点では、候補も採用判断もまだ作られていません。
 この章では、この別操作を**明示的採用境界（Explicit Adoption Boundary）**と呼びます。
 
 現行Counterfactualの流れは次です。
@@ -485,67 +485,67 @@ algorithmがproposalを返した時点では、Candidateも採用判断もまだ
 → Project decisionを保存
 ```
 
-{{< code-ref decision-safety-promotion symbol="DecisionActivityService.promote_proposal" >}}は、保存済みRunに含まれるproposal IDだけを候補化します。
-任意の入力payloadをpromotion endpointへ渡して、Runにない案をCandidateへ見せかけることはできません。
+{{< code-ref decision-safety-promotion symbol="DecisionActivityService.promote_proposal" >}}は、保存済み実行記録に含まれるproposal IDだけを候補化します。
+任意の入力ペイロードをpromotion endpointへ渡して、実行記録にない案を候補へ見せかけることはできません。
 
-{{< code-ref decision-safety-promotion-test symbol=test_counterfactual_run_pins_evidence_and_promotes_only_the_selected_proposal >}}は、Runを作っただけではCandidate数が増えず、一案を選んだPOSTの後だけCandidateが増えることを確認します。
+{{< code-ref decision-safety-promotion-test symbol=test_counterfactual_run_pins_evidence_and_promotes_only_the_selected_proposal >}}は、実行記録を作っただけでは候補数が増えず、一案を選んだPOSTの後だけ候補が増えることを確認します。
 {{< code-ref decision-safety-activity-e2e >}}も「この案を候補に追加」という利用者操作を別に検査します。
 
-Candidate化は最終採用でもありません。
-{{< code-ref decision-safety-project-decision symbol=ProjectDecisionInput >}}は、Candidate ID、Prediction Snapshot ID、判断理由を一組として要求します。
-さらに、{{< code-ref decision-safety-project-decision-store symbol="Store.update_project_decision" >}}は、Candidateが同じProjectに属し、SnapshotがそのCandidateとProject種別に対応することを保存前に検査します。
+候補化は最終採用でもありません。
+{{< code-ref decision-safety-project-decision symbol=ProjectDecisionInput >}}は、候補 ID、予測スナップショット ID、判断理由を一組として要求します。
+さらに、{{< code-ref decision-safety-project-decision-store symbol="Store.update_project_decision" >}}は、候補が同じプロジェクトに属し、スナップショットがその候補とプロジェクト種別に対応することを保存前に検査します。
 
 したがって、人間が存在するだけではboundaryになりません。
 次の二条件が必要です。
 
-1. proposal生成とCandidate化またはdecision保存が別のwriteである
+1. proposal生成と候補化またはdecision保存が別のwriteである
 2. 後から、どの保存証拠と判断理由で何を選んだか追跡できる
 
-現行`ProjectDecisionInput`はactorまたはsign-offを保存しません。
-さらにProject decisionは、アプリ内で候補と証拠を固定する判断であって、labまたはplantでの実施許可ではありません。
+現行`ProjectDecisionInput`は主体またはsign-offを保存しません。
+さらにプロジェクト判断は、アプリ内で候補と証拠を固定する判断であって、labまたはplantでの実施許可ではありません。
 実験recipe、原料lot、設備可用性、EHS、試験計画、試料数、責任者承認は別の境界です。
 
-NIST AI RMFは、人間とAIの役割、oversight、system outputの利用限界をcontextごとに定義し、文書化するよう求めます[@nist-ai-rmf-1]。
-現行repoの明示操作はその一部に対応しますが、reviewの質やrisk toleranceの妥当性まで保証しません。
+NIST AI RMFは、人間とAIの役割、oversight、system 出力の利用限界をcontextごとに定義し、文書化するよう求めます[@nist-ai-rmf-1]。
+現行repoの明示操作はその一部に対応しますが、レビューの質やリスク toleranceの妥当性まで保証しません。
 
-## provenanceを読める説明へ変える
+## 来歴を読める説明へ変える
 
-Run ID、digest、Package IDをすべて表示しても、利用者が判断経路を理解できるとは限りません。
-provenanceが機械的に追跡可能であることと、現在の問いへ必要な来歴を人が読めることは別です。
+実行記録 ID、ダイジェスト、パッケージ IDをすべて表示しても、利用者が判断経路を理解できるとは限りません。
+来歴が機械的に追跡可能であることと、現在の問いへ必要な来歴を人が読めることは別です。
 
 判断面では、先に次の関係を示します。
 
-- どのCandidate revisionを基準にしたか
-- どのProject目標とDesign Spaceを固定したか
-- どのRunがproposalを作ったか
-- Candidate化後も元proposalへ戻れるか
-- 実測がどのPrediction Snapshotへ対応するか
+- どの候補リビジョンを基準にしたか
+- どのプロジェクト目標と設計空間を固定したか
+- どの実行記録がproposalを作ったか
+- 候補化後も元proposalへ戻れるか
+- 実測がどの予測スナップショットへ対応するか
 
-完全なdigestは詳細へ残せます。
-しかし、「この候補は保存済みCounterfactual Runの案2から作った」という関係は、採用時の判断を変えるため主線へ置きます。
+完全なダイジェストは詳細へ残せます。
+しかし、「この候補は保存済みCounterfactual 実行記録の案2から作った」という関係は、採用時の判断を変えるため主線へ置きます。
 
-## accessibilityを判断の正しさへ接続する
+## アクセシビリティを判断の正しさへ接続する
 
-accessibilityは、同じ内容を一部の利用者にも届ける追加仕上げではありません。
+アクセシビリティは、同じ内容を一部の利用者にも届ける追加仕上げではありません。
 候補と値の対応、状態の違い、動的な完了を読み取れない場合、decision surfaceそのものが欠けます。
 
-W3C WCAG 2.2は、色を唯一の伝達手段にしないこと、errorをtextで特定すること、status messageをfocus移動なしに支援技術へ伝えられることを求めます[@w3c-wcag22]。
+W3C WCAG 2.2は、色を唯一の伝達手段にしないこと、エラーをtextで特定すること、状態 messageをfocus移動なしに支援技術へ伝えられることを求めます[@w3c-wcag22]。
 この章では、適合宣言ではなく、判断材料の対応関係を守る具体的な検査へ接続します。
 
 | 実装 | 防ぐ取り違え |
 |---|---|
-| table rowの`scope="row"` | 予測値がどの候補に属するか |
+| テーブル行の`scope="row"` | 予測値がどの候補に属するか |
 | column headerとaccessible name | 値がどのtargetと状態を表すか |
-| supportの語と形 | 色を見分けられない場合の状態欠落 |
-| `role="status"`と`role="alert"` | 完了receiptと要対応失敗の混同 |
-| text enlargement後のrow同期 | 候補名と別行の予測値の対応ずれ |
-| 候補単位の連続した読み順 | 入力、heat pattern、予測、support、目標達成の所属先 |
+| 学習データの裏付けの語と形 | 色を見分けられない場合の状態欠落 |
+| `role="status"`と`role="alert"` | 完了通知と要対応失敗の混同 |
+| text enlargement後の行同期 | 候補名と別行の予測値の対応ずれ |
+| 候補単位の連続した読み順 | 入力、heat pattern、予測、学習データの裏付け、目標達成の所属先 |
 | 値と区間に付けた単位 | 異なるtargetの数値を同じ尺度として読む誤り |
 | 「未計算」というtext | 空欄、0、失敗との混同 |
 
-{{< code-ref decision-safety-support-test >}}は、support badgeが色だけでなく語と形を持つことを検査します。
-候補比較には、横方向の比較表とは別に、選択候補の入力、固定条件、heat pattern、予測区間、support、目標達成を一続きで読む領域があります。
-この領域の順序は表示上の変動量ではなくTask定義に従うため、同じfieldを候補間で追跡しても意味が入れ替わりません。
+{{< code-ref decision-safety-support-test >}}は、学習データの裏付けバッジが色だけでなく語と形を持つことを検査します。
+候補比較には、横方向の比較表とは別に、選択候補の入力、固定条件、heat pattern、予測区間、学習データの裏付け、目標達成を一続きで読む領域があります。
+この領域の順序は表示上の変動量ではなくタスク定義に従うため、同じフィールドを候補間で追跡しても意味が入れ替わりません。
 
 {{< code-ref decision-safety-accessibility-e2e >}}は、重大な自動検出違反がないこと、候補単位の情報が揃うこと、textを150%へ拡大しても四つのpaneの候補行と固定headerが対応することを実ブラウザで確認します。
 
@@ -554,11 +554,11 @@ screen readerの実機確認、全操作のkeyboard到達、400% zoomに相当�
 
 [^wcag-limit]:
     WCAG 2.2のReflowは、1280 CSS pixel幅を400% zoomしたときに相当する320 CSS pixel幅でも、原則として情報と機能を失わないことを扱います。
-    data tableのように二次元layoutが意味に必要な部分には例外がありますが、周囲の操作や説明まで例外になるわけではありません。
+    データテーブルのように二次元layoutが意味に必要な部分には例外がありますが、周囲の操作や説明まで例外になるわけではありません。
 
 ## UI批評演習
 
-### 演習1：未計算を含むsummaryを止める {#exercise-decision-safety-01}
+### 演習1：未計算を含む要約を止める {#exercise-decision-safety-01}
 
 候補8件の比較画面を考えます。
 初期表示では候補AからEだけpredictionが完了し、FからHはまだ計算していません。
@@ -581,12 +581,12 @@ H  —
 
 1. 現在の表示から誤って確定できる結論
 2. FからHの証拠状態を表す語
-3. summaryを確定する条件と、利用者が比較を完成させる操作
+3. 要約を確定する条件と、利用者が比較を完成させる操作
 
 #### 成功条件
 
 - `0`、失敗、利用不可、未計算を同じ記号にしない
-- 5件だけの区間判定を8件のsummaryとして表示しない
+- 5件だけの区間判定を8件の要約として表示しない
 - performanceのための初期5件制限を撤廃せずに成立する
 - mouse hoverだけに説明を置かない
 - 折りたたみ状態でも未計算件数と完了操作を残す
@@ -598,7 +598,7 @@ H  —
 #### 解答例
 
 FからHの各cellを「未計算」と表示します。
-summaryは「未計算 3候補」に変え、「残りを計算」buttonを置きます。
+要約は「未計算 3候補」に変え、「残りを計算」buttonを置きます。
 
 未計算が1件でもある間は「4 / 4特性で区間が重なる」という全候補向けの文を出しません。
 すべてのcandidateとtargetに有効な区間がそろった後で、共通部分を再計算します。
@@ -616,12 +616,12 @@ summaryは「未計算 3候補」に変え、「残りを計算」buttonを置�
 FからHを灰色にするだけでは、色を見分けられない場合と、印刷または高contrast表示で意味が失われます。
 tooltipだけに「未計算」と置く案も、keyboardまたはtouchで同じ情報へ到達できる保証がありません。
 
-summaryへ「暫定」とだけ付ける案は、何件が未計算で、何をすれば確定するかを示しません。
+要約へ「暫定」とだけ付ける案は、何件が未計算で、何をすれば確定するかを示しません。
 :::
 
-### 演習2：support percentile 100を説明する {#exercise-decision-safety-02}
+### 演習2：裏付けパーセンタイル 100を説明する {#exercise-decision-safety-02}
 
-候補Cのsupport detailに`percentile = 100`があり、点予測は目標を満たしています。
+候補Cの学習データの裏付け詳細に`percentile = 100`があり、点予測は目標を満たしています。
 次の三つの表示案を評価してください。
 
 1. `信頼度 100%`
@@ -633,7 +633,7 @@ summaryへ「暫定」とだけ付ける案は、何件が未計算で、何を�
 #### 成功条件
 
 - percentileとprobabilityを区別する
-- 点予測による達成とsupportを区別する
+- 点予測による達成と学習データの裏付けを区別する
 - 「外挿なら必ず誤り」とは書かない
 - 次に確認する証拠を示す
 
@@ -643,33 +643,33 @@ summaryへ「暫定」とだけ付ける案は、何件が未計算で、何を�
 #### 解答例
 
 3を採用します。
-さらに近い実績とsupport distanceの定義を開く導線を置きます。
+さらに近い実績と裏付け距離の定義を開く導線を置きます。
 
 #### 解答の理由
 
 percentile 100は、参照集合の中で距離が端にあるという順位です。
 予測が正しい確率でも、目標達成確率でもありません。
 
-点予測が目標を満たしていても、外挿なら学習dataによる裏付けが弱いことを別に示す必要があります。
+点予測が目標を満たしていても、外挿なら学習データの裏付けが弱いことを別に示す必要があります。
 
 #### よくある不十分な回答
 
 「危険」とだけ表示すると、何が危険で、予測を破棄すべきか追加確認すべきかが決まりません。
-「使用禁止」とする案は、現行contractが外挿を禁止せず、明示的な判断材料として扱う設計と一致しません。
+「使用禁止」とする案は、現行契約が外挿を禁止せず、明示的な判断材料として扱う設計と一致しません。
 :::
 
-### 演習3：warningを三要素へ書き換える {#exercise-decision-safety-03}
+### 演習3：警告を三要素へ書き換える {#exercise-decision-safety-03}
 
-次のwarningを書き換えてください。
+次の警告を書き換えてください。
 
 > 一部の結果に問題があります。
 
-状況は、候補Bの予測は完了したが、supportが外挿であり、近い学習条件がない場合です。
+状況は、候補Bの予測は完了したが、学習データの裏付けが外挿であり、近い学習条件がない場合です。
 
 #### 成功条件
 
 - cause、impact、next actionを一文ずつ書く
-- modelが誤っていると断定しない
+- モデルが誤っていると断定しない
 - 画面内で実行できる行動を一つ含める
 
 [演習3の解答](#answer-decision-safety-03)は、回答を固定してから開きます。
@@ -677,11 +677,11 @@ percentile 100は、参照集合の中で距離が端にあるという順位で
 ::: {#answer-decision-safety-03 .exercise-solution data-label="演習3の解答"}
 #### 解答例
 
-**原因**：候補Bの距離は、現在のsupport policyでcaution thresholdを超え、外挿と判定されました。
+**原因**：候補Bの距離は、現在の学習データの裏付け policyでcaution thresholdを超え、外挿と判定されました。
 
-**影響**：supportから予測の正しさや目標達成確率は得られず、追加確認なしに点予測で候補間の優劣を確定しにくい状態です。
+**影響**：学習データの裏付けから予測の正しさや目標達成確率は得られず、追加確認なしに点予測で候補間の優劣を確定しにくい状態です。
 
-**次の行動**：「近い実績」とdistanceの定義を開くか、入力をsupport thresholdの内側へ戻して再計算してください。
+**次の行動**：「近い実績」とdistanceの定義を開くか、入力を学習データの裏付け thresholdの内側へ戻して再計算してください。
 
 #### 解答の理由
 
@@ -691,20 +691,20 @@ percentile 100は、参照集合の中で距離が端にあるという順位で
 #### よくある不十分な回答
 
 「注意してください」は、利用者が何を確認すべきか示しません。
-errorへ格上げして操作を禁止する案も、hard constraintとsupport warningを混同します。
+エラーへ格上げして操作を禁止する案も、ハード制約と学習データの裏付け警告を混同します。
 :::
 
 ### 演習4：proposalを自動採用しない {#exercise-decision-safety-04}
 
-Counterfactual Runが、点予測で目標を満たす案を五つ返しました。
-最上位proposalを自動でCandidateへ追加し、そのCandidateをProject decisionへ自動保存する案をreviewしてください。
+Counterfactual 実行記録が、点予測で目標を満たす案を五つ返しました。
+最上位proposalを自動で候補へ追加し、その候補をプロジェクト判断へ自動保存する案をレビューしてください。
 
 #### 成功条件
 
-- Run、proposal、Candidate、Project decisionを別の対象として列挙する
+- 実行記録、proposal、候補、プロジェクト判断を別の対象として列挙する
 - 最低二つのwrite boundaryを示す
-- validatorが保証することと、人間のreviewが担うことを分ける
-- proposal順位を実験cost、utility、feasibility、成功確率と同一視しない
+- validatorが保証することと、人間のレビューが担うことを分ける
+- proposal順位を実験コスト、utility、feasibility、成功確率と同一視しない
 
 [演習4の解答](#answer-decision-safety-04)は、回答を固定してから開きます。
 
@@ -712,45 +712,45 @@ Counterfactual Runが、点予測で目標を満たす案を五つ返しまし�
 #### 解答例
 
 自動保存案は採用しません。
-Runはproposal集合を保存し、利用者が一案を選んだ後にCandidate化します。
-さらにCandidate、固定Prediction Snapshot、判断理由を確認した別操作でProject decisionを保存します。
+実行記録はproposal集合を保存し、利用者が一案を選んだ後に候補化します。
+さらに候補、固定予測スナップショット、判断理由を確認した別操作でプロジェクト判断を保存します。
 
 #### 解答の理由
 
-validatorは、選んだproposalが保存済みRunに存在することと、Project decisionの参照が同じProjectに属することを検査できます。
-どのrisk toleranceを採用し、costと実験可能性をどう評価したかまでは、自動的に保証しません。
-proposalの順位も、原料cost、試料量、工程時間、設備切替、実験成功確率の総合順位ではありません。
+validatorは、選んだproposalが保存済み実行記録に存在することと、プロジェクト判断の参照が同じプロジェクトに属することを検査できます。
+どのリスク toleranceを採用し、コストと実験可能性をどう評価したかまでは、自動的に保証しません。
+proposalの順位も、原料コスト、試料量、工程時間、設備切替、実験成功確率の総合順位ではありません。
 
 #### よくある不十分な回答
 
-確認dialogを一つ挟むだけでは、proposalとCandidateとdecisionが保存上同じ対象のままです。
-後から元Runと判断理由へ戻れないため、明示的採用境界にはなりません。
+確認ダイアログを一つ挟むだけでは、proposalと候補とdecisionが保存上同じ対象のままです。
+後から元実行記録と判断理由へ戻れないため、明示的採用境界にはなりません。
 :::
 
 ## 設計を振り返る
 
 判断面は、情報量を増やすための一覧ではありません。
-異なる根拠を別のまま保ち、未確認の根拠がある間はsummaryを確定しないための構造です。
+異なる根拠を別のまま保ち、未確認の根拠がある間は要約を確定しないための構造です。
 
 現行実装から確認できる強い境界は次です。
 
-- predictionなしを未計算と呼び、全候補summaryを止める
-- input variationとmodel uncertaintyを別fieldにする
-- supportを確率fieldとして持たず、状態語へ変換する
+- predictionなしを未計算と呼び、全候補要約を止める
+- 入力 variationとモデル uncertaintyを別フィールドにする
+- 学習データの裏付けを確率フィールドとして持たず、状態語へ変換する
 - Screeningの既定rangeを学習範囲内へ置く
-- optional subsystemのcause、impact、recovery hintを分ける
-- proposal生成、Candidate化、Project decision保存を別操作にする
-- 候補行、support状態、動的statusをtextとprogrammatic structureで対応付ける
+- 付加機能サブシステムのcause、impact、recovery hintを分ける
+- proposal生成、候補化、プロジェクト判断保存を別操作にする
+- 候補行、学習データの裏付け状態、動的状態をtextとprogrammatic structureで対応付ける
 
 一方、次は現在の限界です。
 
 - missingからfailedまでをrepo全体で一つの共通enumにはしていない
-- risk toleranceとcostはすべての判断面へ統合されていない
-- すべてのwarningがcause、impact、next actionを持つわけではない
-- すべてのruntimeがmodel由来と測定由来の不確実性を分離しない
-- accessibilityの部分testはあるが、WCAG適合監査ではない
+- リスク toleranceとコストはすべての判断面へ統合されていない
+- すべての警告がcause、impact、next actionを持つわけではない
+- すべてのランタイムがモデル由来と測定由来の不確実性を分離しない
+- アクセシビリティの部分テストはあるが、WCAG適合監査ではない
 - 明示操作は、人間が十分な証拠を読んだことまでは保証しない
-- Project decisionは、実験recipe、EHS、設備、試験計画、責任者の実施承認を保存しない
+- プロジェクト判断は、実験recipe、EHS、設備、試験計画、責任者の実施承認を保存しない
 
 この限界を残すことが、教材上の安全性です。
 現在できることを広く言い換えず、どの縦スライスで確認したかを示します。
@@ -758,23 +758,23 @@ proposalの順位も、原料cost、試料量、工程時間、設備切替、�
 ## 章末チェック {#exercise-decision-safety-chapter-check}
 
 1. `0`と未計算を同じ表示にできない理由を、Robustnessの達成率で説明してください。
-2. predictive intervalとinput variation intervalが対応する発生源と、各区間を動かす変更を一つずつ挙げてください。
-3. support percentileを成功確率と呼べない理由を説明してください。
-4. warningの三要素を挙げてください。
-5. proposal生成からProject decisionまでに必要な二つの人間操作を挙げてください。
-6. table row headerが判断の正しさへ影響する理由を説明してください。
+2. predictive intervalと入力 variation intervalが対応する発生源と、各区間を動かす変更を一つずつ挙げてください。
+3. 裏付けパーセンタイルを成功確率と呼べない理由を説明してください。
+4. 警告の三要素を挙げてください。
+5. proposal生成からプロジェクト判断までに必要な二つの人間操作を挙げてください。
+6. テーブル行 headerが判断の正しさへ影響する理由を説明してください。
 
 [章末チェックの解答](#answer-decision-safety-chapter-check)は、回答を固定してから開きます。
 
 ::: {#answer-decision-safety-chapter-check .exercise-solution data-label="章末チェックの解答"}
 #### 解答例
 
-1. `0`は制約検査を通った入力sampleの点予測に目標達成がなかった結果で、未計算はProjectに目標がなく割合を求めていない状態です。
-2. predictive intervalは固定入力に対するruntime予測の広がりであり、model、学習data、観測残差の扱いを変えると動きます。input variation intervalは、公差分布と制約検査を通った入力に対する点予測の広がりであり、入力公差または制約を変えると動きます。
-3. support percentileは、定義したdistanceが参照集合内でどこに位置するかを示し、予測誤差または目標達成の確率を推定していないからです。
+1. `0`は制約検査を通った入力サンプルの点予測に目標達成がなかった結果で、未計算はプロジェクトに目標がなく割合を求めていない状態です。
+2. predictive intervalは固定入力に対するランタイム予測の広がりであり、モデル、学習データ、観測残差の扱いを変えると動きます。入力 variation intervalは、公差分布と制約検査を通った入力に対する点予測の広がりであり、入力公差または制約を変えると動きます。
+3. 裏付けパーセンタイルは、定義したdistanceが参照集合内でどこに位置するかを示し、予測誤差または目標達成の確率を推定していないからです。
 4. cause、impact、next actionです。
-5. proposalを選んでCandidate化する操作と、Candidate、Prediction Snapshot、判断理由を固定してProject decisionを保存する操作です。
-6. row headerが欠けると、拡大、横scroll、支援技術で候補名と予測値の対応を失い、別候補の値として判断する可能性があるからです。
+5. proposalを選んで候補化する操作と、候補、予測スナップショット、判断理由を固定してプロジェクト判断を保存する操作です。
+6. 行 headerが欠けると、拡大、横scroll、支援技術で候補名と予測値の対応を失い、別候補の値として判断する可能性があるからです。
 
 #### 解答の理由
 
@@ -784,12 +784,12 @@ proposalの順位も、原料cost、試料量、工程時間、設備切替、�
 #### よくある不十分な回答
 
 「人間が確認する」とだけ書く回答は、どの保存対象のあいだにwrite boundaryがあるか示しません。
-「accessibilityは全員が使えるため」とだけ書く回答も、候補と値の対応を守るというdecision correctnessへの接続が不足します。
+「アクセシビリティは全員が使えるため」とだけ書く回答も、候補と値の対応を守るというdecision correctnessへの接続が不足します。
 :::
 
 ## 検証
 
-repository rootで次を実行します。
+リポジトリ rootで次を実行します。
 
 ```powershell
 node --test `
@@ -809,18 +809,18 @@ npx playwright test `
   e2e/screening-workbench.spec.ts
 ```
 
-unit testは、未計算を含むsummary、supportの語と形、不確実性表示、safe rangeを確認します。
-backend testは、Robustnessの二種類の区間、proposal promotion、degraded stateを確認します。
-E2Eは、text enlargement後の行対応、proposalからCandidateへの別操作、Screeningの判断質問を実ブラウザで確認します。
+単体テストは、未計算を含む要約、学習データの裏付けの語と形、不確実性表示、safe rangeを確認します。
+バックエンドテストは、Robustnessの二種類の区間、proposal promotion、degraded 状態を確認します。
+E2Eは、text enlargement後の行対応、proposalから候補への別操作、Screeningの判断質問を実ブラウザで確認します。
 
-これらが通っても、任意のmodelに対するcalibration、全画面のWCAG適合、人間の採用判断の妥当性は保証しません。
+これらが通っても、任意のモデルに対するcalibration、全画面のWCAG適合、人間の採用判断の妥当性は保証しません。
 
 ## Further Reading
 
 **NIST AI RMF 1.0 [@nist-ai-rmf-1]**
 
 - 推奨箇所：*AI Risks and Trustworthiness*、*AI RMF Core*
-- 読む問い：system outputの限界とhuman oversightを、どのcontext of useへ固定するか
+- 読む問い：system 出力の限界とhuman oversightを、どのcontext of useへ固定するか
 - 注意：voluntary framework全体への適合を、現行repoの数個のUI境界から宣言しない
 
 **W3C WCAG 2.2 [@w3c-wcag22]**
@@ -832,11 +832,11 @@ E2Eは、text enlargement後の行対応、proposalからCandidateへの別操�
 **Parasuraman and Manzey, “Complacency and Bias in Human Use of Automation” [@parasuraman-manzey-2010]**
 
 - 推奨箇所：*Results*、*Application*
-- 読む問い：提案の採用を独立操作にしても、注意配分とautomation biasはどこに残るか
-- 注意：aviationや医療を含む研究reviewの知見を、材料候補選択の効果量へ直接移さない
+- 読む問い：提案の採用を独立操作にしても、注意配分と自動化バイアスはどこに残るか
+- 注意：aviationや医療を含む研究レビューの知見を、材料候補選択の効果量へ直接移さない
 
 **Kale, Kay, and Hullman, “Visual Reasoning Strategies for Effect Size Judgments and Decisions” [@kale-kay-hullman-2021]**
 
 - 推奨箇所：*Introduction*、*Results*、*Discussion*
 - 読む問い：点推定を強調したとき、区間を併記しても利用者が不確実性を割り引かないか
-- 注意：実験taskで良かったvisual encodingを、現行target、cost、constraintへ評価なしで移植しない
+- 注意：実験taskで良かったvisual encodingを、現行target、コスト、constraintへ評価なしで移植しない

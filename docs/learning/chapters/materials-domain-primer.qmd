@@ -103,13 +103,13 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# 材料dataを候補判断へ渡す前に分ける {#sec-materials-domain-primer}
+# 材料データを候補判断へ渡す前に分ける {#sec-materials-domain-primer}
 
 ## 対象読者と到達点
 
-対象読者は、材料候補、工程条件、試験結果を扱うAPI、data profile、model、またはUIを変更するsoftware developerです。
+対象読者は、材料候補、工程条件、試験結果を扱うAPI、データ profile、モデル、またはUIを変更するsoftware developerです。
 
-材料科学の専門課程を前提にせず、数値列をどの契約へ置くかを判断するための最小限のdomain modelを扱います。
+材料科学の専門課程を前提にせず、数値列をどの契約へ置くかを判断するための最小限のドメインモデルを扱います。
 
 読了後は、次の問いへ契約と具体例を挙げて答えられる状態を目指します。
 
@@ -118,9 +118,9 @@ historical_concepts: []
 - 0、欠損、定量下限未満、未報告を、なぜ同じ値にしてはいけないのか
 - nominal値とmeasured値は、いつ別の事実として保存すべきか
 - 組織観察値を使うと、どの判断時点でleakageになるのか
-- 熱履歴のprogram、raw trace、canonical series、feature representationは何が違うのか
-- plausibility、eligibility、support、feasibilityは、どの段階の判定なのか
-- Welding Chainは、材料の状態が変わる流れをどう表現するのか
+- 熱履歴のprogram、raw トレース、正規系列、feature representationは何が違うのか
+- plausibility、eligibility、学習データの裏付け、feasibilityは、どの段階の判定なのか
+- Welding チェーンは、材料の状態が変わる流れをどう表現するのか
 
 ## 非scope
 
@@ -128,13 +128,13 @@ historical_concepts: []
 
 特定材料に対する最適組成、推奨工程条件、安全限界、または規格適合条件を提示しません。
 
-この章に出る範囲値は現行contractまたは演習用の合成値であり、実材料の妥当性を保証しません。
+この章に出る範囲値は現行契約または演習用の合成値であり、実材料の妥当性を保証しません。
 
-厳密な許容範囲、測定法、試験片、規格版は、対象Taskのdomain reviewerと適用規格で確認してください。
+厳密な許容範囲、測定法、試験片、規格版は、対象タスクのドメインレビュー担当者と適用規格で確認してください。
 
 ## 一つの表へ潰す前に、三つの事実を分ける
 
-材料dataでは、同じrowに元素量、加熱温度、試験温度、引張強さが並ぶことがあります。
+材料データでは、同じ行に元素量、加熱温度、試験温度、引張強さが並ぶことがあります。
 
 列が横に並んでいても、同じ種類の事実とは限りません。
 
@@ -144,23 +144,23 @@ historical_concepts: []
 
 **試験条件（test condition）**は、特性値を観測した条件を表します。
 
-たとえば、試験温度が変われば同じ試験片でも観測値が変わりうるため、試験温度は出力の付帯説明ではなく、予測Taskの入力になりえます。
+たとえば、試験温度が変われば同じ試験片でも観測値が変わりうるため、試験温度は出力の付帯説明ではなく、予測タスクの入力になりえます。
 
 現行の `TaskDefinition` は、数値入力を `composition.*` と `process.*` に分けます。
 
-Welding Stage Cでは、`process.heat_input_kj_per_mm` と `process.preheat_temp_c` に加えて、`process.test_temperature_c` も同じgroupへ明示されています。
+Welding ステージ Cでは、`process.heat_input_kj_per_mm` と `process.preheat_temp_c` に加えて、`process.test_temperature_c` も同じグループへ明示されています。
 
-この実装は工程条件と試験条件を別groupにしていませんが、path、label、unitによって意味を失わないようにしています。
+この実装は工程条件と試験条件を別グループにしていませんが、経路、ラベル、unitによって意味を失わないようにしています。
 
-data modelを設計するときは、少なくとも次の五つを明示します。
+データモデルを設計するときは、少なくとも次の五つを明示します。
 
 | 項目 | 問うこと | 例 |
 |---|---|---|
 | entity | 何の値か | wire、溶着金属、試験片 |
 | quantity | 何を測るか | Ni量、温度、引張強さ |
 | basis | 何を分母にするか | whole wireの全質量、全原子数 |
-| state | どの時点か | 配合時、溶接後、試験時 |
-| provenance | どこから来たか | 設計値、分析値、sensor trace |
+| 状態 | どの時点か | 配合時、溶接後、試験時 |
+| 来歴 | どこから来たか | 設計値、分析値、sensor トレース |
 
 `Ni = 2.0` だけでは、この五つのうちquantityの一部しか伝わりません。
 
@@ -182,10 +182,10 @@ data modelを設計するときは、少なくとも次の五つを明示しま�
 
 | 記号 | 意味 | 型 | 単位 |
 |---|---|---|---|
-| \(w_i\) | 成分 \(i\) のmass fraction | scalar | \(1\) |
-| \(x_i\) | 成分 \(i\) のamount fraction | scalar | \(1\) |
-| \(M_i\) | 成分 \(i\) のmolar mass | scalar | \(\mathrm{g\,mol^{-1}}\) |
-| \(i,j\) | composition componentの添字 | index | \(1\) |
+| \(w_i\) | 成分 \(i\) のmass fraction | スカラー | \(1\) |
+| \(x_i\) | 成分 \(i\) のamount fraction | スカラー | \(1\) |
+| \(M_i\) | 成分 \(i\) のmolar mass | スカラー | \(\mathrm{g\,mol^{-1}}\) |
+| \(i,j\) | 組成コンポーネントの添字 | index | \(1\) |
 
 成分 \(i\) のmass fractionを \(w_i\)、molar massを \(M_i\) とすると、at%に対応するamount fraction \(x_i\) は次式で計算します。
 
@@ -211,13 +211,13 @@ w_i =
 
 変換には、成分集合、各成分のmolar mass、値のbasis、丸め規則が必要です。
 
-同位体組成を含む精密な計算では、採用した相対原子質量のsourceと版も必要です。
+同位体組成を含む精密な計算では、採用した相対原子質量のソースと版も必要です。
 
 ### 手計算できる二成分例
 
 FeとNiだけからなる100 gの合成例で、それぞれ50 mass%と仮定します。
 
-この例では \(M_{\mathrm{Fe}}=55.845\ \mathrm{g\,mol^{-1}}\)、\(M_{\mathrm{Ni}}=58.6934\ \mathrm{g\,mol^{-1}}\) を計算fixtureとして固定します。
+この例では \(M_{\mathrm{Fe}}=55.845\ \mathrm{g\,mol^{-1}}\)、\(M_{\mathrm{Ni}}=58.6934\ \mathrm{g\,mol^{-1}}\) を計算フィクスチャとして固定します。
 
 \[
 \begin{aligned}
@@ -238,13 +238,13 @@ x_{\mathrm{Ni}} &= 1 - x_{\mathrm{Fe}} \approx 0.48757.
 
 `tabular-profile-mpea-literature-tys-v1.json` は組成入力を `at%` とし、14元素の合計を99から101の範囲で確認します。
 
-一方、Welding Stage Bは入力を `mass% whole wire`、出力を `mass% deposited metal` とします。
+一方、Welding ステージ Bは入力を `mass% whole wire`、出力を `mass% deposited metal` とします。
 
-単位の違いだけでなく、Stage Bでは分母となるentityもwhole wireからdeposited metalへ変わります。
+単位の違いだけでなく、ステージ Bでは分母となるentityもwhole wireからdeposited metalへ変わります。
 
 現行の{{< code-ref materials-task-contract symbol=CompositionTotalDefinition >}}は、宣言されたbasisの合計を検査しますが、mass%とat%を相互変換しません。
 
-現行fixtureは{{< code-ref materials-atomic-percent-profile >}}と{{< code-ref materials-welding-stage-b-task >}}でbasisを別々に固定しており、一般的な組成basis変換器は本章の確認範囲にありません。
+現行フィクスチャは{{< code-ref materials-atomic-percent-profile >}}と{{< code-ref materials-welding-stage-b-task >}}でbasisを別々に固定しており、一般的な組成basis変換器は本章の確認範囲にありません。
 
 ### 合計100は完全性を証明しない
 
@@ -254,7 +254,7 @@ x_{\mathrm{Ni}} &= 1 - x_{\mathrm{Fe}} \approx 0.48757.
 
 丸め値の合計が100でも、元素名の対応、basis、試料状態、分析法が誤っている可能性は残ります。
 
-{{< code-ref materials-task-contract symbol=CompositionTotalDefinition >}}は、component path、total、tolerance、unit、必要ならbalance成分を固定します。
+{{< code-ref materials-task-contract symbol=CompositionTotalDefinition >}}は、コンポーネント経路、total、tolerance、unit、必要ならbalance成分を固定します。
 
 これは契約上の整合性検査であり、材料としての妥当性を単独で証明する検査ではありません。
 
@@ -264,20 +264,20 @@ x_{\mathrm{Ni}} &= 1 - x_{\mathrm{Fe}} \approx 0.48757.
 
 | 状態 | 意味 | 推奨する表現 |
 |---|---|---|
-| measured zero | 測定結果として0と判断した | 値0と測定provenance |
-| nominal zero | 配合設計上は添加しない | nominal値0と設計provenance |
+| measured zero | 測定結果として0と判断した | 値0と測定来歴 |
+| nominal zero | 配合設計上は添加しない | nominal値0と設計来歴 |
 | below limit | 検出限界または定量下限を下回る | qualifier、limit、unit |
 | missing | 値が得られていない | nullとreason |
-| not reported | sourceが値を報告していない | nullとsource状態 |
+| not reported | ソースが値を報告していない | nullとソース状態 |
 | not applicable | そのentityには項目が適用されない | nullとapplicability |
 
 `0` は数値であり、`missing` は観測状態です。
 
-この二つを同じにすると、平均、合計、距離、support判定、学習行数が変わります。
+この二つを同じにすると、平均、合計、距離、学習データの裏付け判定、学習行数が変わります。
 
-欠損を0へ補う場合は、Taskごとに意味が成立する明示的な変換として定義し、その変換前の状態を残します。
+欠損を0へ補う場合は、タスクごとに意味が成立する明示的な変換として定義し、その変換前の状態を残します。
 
-元素がsourceに存在しないという事実だけから、含有量0とは結論できません。
+元素がソースに存在しないという事実だけから、含有量0とは結論できません。
 
 `required: true` のcanonical入力が欠けた場合は、暗黙補完せず、curationまたはcandidate validationで止める方が安全です。
 
@@ -293,24 +293,24 @@ x_{\mathrm{Ni}} &= 1 - x_{\mathrm{Fe}} \approx 0.48757.
 
 製造後の問いが「得られた材料から次工程をどうするか」なら、measured値を入力できる場合があります。
 
-どちらを使った予測かはsnapshotへ残し、後から最新のmeasured値で自動置換しません。
+どちらを使った予測かはスナップショットへ残し、後から最新のmeasured値で自動置換しません。
 
-## Taskは判断時点を固定する
+## タスクは判断時点を固定する
 
-予測Taskは、単なる「入力列から出力列への写像」ではありません。
+予測タスクは、単なる「入力列から出力列への写像」ではありません。
 
-Taskは、誰が、どの時点で、何を知っており、何を決めるかを固定します。
+タスクは、誰が、どの時点で、何を知っており、何を決めるかを固定します。
 
-次の二つのTaskは、同じpropertyを予測しても別物です。
+次の二つのタスクは、同じpropertyを予測しても別物です。
 
-1. 組成と工程programから、製造前にpropertyを予測するTask
-2. 製造後に観察したmicrostructureから、試験前にpropertyを予測するTask
+1. 組成と工程programから、製造前にpropertyを予測するタスク
+2. 製造後に観察したmicrostructureから、試験前にpropertyを予測するタスク
 
 **data leakage**は、予測を使う時点では利用できない情報が、学習または評価の入力へ入ることです。
 
-製造後にしか観察できないmicrostructureを1のTaskへ入れると、未来情報のleakageになります。
+製造後にしか観察できないmicrostructureを1のタスクへ入れると、未来情報のleakageになります。
 
-同じmicrostructureでも、2のTaskでは判断時点ですでに観察済みなら、直ちにleakageとはいえません。
+同じmicrostructureでも、2のタスクでは判断時点ですでに観察済みなら、直ちにleakageとはいえません。
 
 問題は列名ではなく、観測時点と利用時点の順序です。
 
@@ -322,11 +322,11 @@ microstructureは、組成、熱履歴、加工履歴などの結果として観
 
 また、画像から推定した相分率と、別の測定法で得た相分率を、同じquantityとして無条件に併合できません。
 
-method、sampling location、resolution、preparation、観察時点をprovenanceへ持たせます。
+method、サンプリング location、resolution、preparation、観察時点を来歴へ持たせます。
 
-group splitも判断時点だけでは防げないleakageを止めます。
+グループ splitも判断時点だけでは防げないleakageを止めます。
 
-同じ試料、同じheat、同じ文献、または同じ系列から派生したrowがtrainとtestへ跨る場合、独立な汎化評価にはなりません。
+同じ試料、同じheat、同じ文献、または同じ系列から派生した行がtrainとテストへ跨る場合、独立な汎化評価にはなりません。
 
 `split-group` は、行単位のrandom splitより先に、実験上の独立単位を定義するために使います。
 
@@ -338,9 +338,9 @@ group splitも判断時点だけでは防げないleakageを止めます。
 
 **raw sensor trace**は、sensorが記録した時刻と測定値を、欠測や順序を含めて保存した一次記録です。
 
-**canonical series**は、raw traceを単位、時刻軸、順序、重複規則に従って正規化した系列です。
+**canonical series**は、raw トレースを単位、時刻軸、順序、重複規則に従って正規化した系列です。
 
-**feature representation**は、canonical seriesをmodelが受け取れる固定表現へ変換した結果です。
+**feature representation**は、正規系列をモデルが受け取れる固定表現へ変換した結果です。
 
 ```{mermaid}
 %%| label: fig-heat-history-representations
@@ -357,78 +357,78 @@ flowchart LR
   C -->|"版を固定したfeature contract"| F
 ```
 
-programとraw traceは同じものではありません。
+programとraw トレースは同じものではありません。
 
-programは意図を表し、raw traceは実現した過程の測定を表します。
+programは意図を表し、raw トレースは実現した過程の測定を表します。
 
-programからraw traceを再構成できるとは限らず、raw traceからprogramの意図を一意に復元できるとも限りません。
+programからraw トレースを再構成できるとは限らず、raw トレースからprogramの意図を一意に復元できるとも限りません。
 
-canonical seriesはraw traceの置換ではありません。
+正規系列はraw トレースの置換ではありません。
 
-現行contractでは、{{< code-ref materials-series-contract symbol=RawSeriesAsset >}}と{{< code-ref materials-series-contract symbol=CanonicalSeriesRevision >}}を別entityとして保持し、{{< code-ref materials-series-curation symbol=canonicalize_series >}}がnormalization recipeを適用します。
+現行契約では、{{< code-ref materials-series-contract symbol=RawSeriesAsset >}}と{{< code-ref materials-series-contract symbol=CanonicalSeriesRevision >}}を別entityとして保持し、{{< code-ref materials-series-curation symbol=canonicalize_series >}}がnormalization recipeを適用します。
 
-feature representationもcanonical seriesの置換ではありません。
+feature representationも正規系列の置換ではありません。
 
-resampling、要約統計、区間積分などは、modelに不要と判断した情報を落とす可能性があります。
+resampling、要約統計、区間積分などは、モデルに不要と判断した情報を落とす可能性があります。
 
-{{< code-ref materials-series-contract symbol=SeriesFeatureContract >}}とcanonical digestを固定すると、どの系列からどの表現を作ったかを追跡できます。
+{{< code-ref materials-series-contract symbol=SeriesFeatureContract >}}とcanonical ダイジェストを固定すると、どの系列からどの表現を作ったかを追跡できます。
 
-{{< code-ref materials-series-test symbol=test_raw_and_canonical_series_remain_separate_and_reproducible >}}と{{< code-ref materials-series-test symbol=test_out_of_order_series_requires_explicit_stable_sort >}}は、rawとcanonicalの分離、順序違反の明示的sort、resampling後のdigestを検査します。
+{{< code-ref materials-series-test symbol=test_raw_and_canonical_series_remain_separate_and_reproducible >}}と{{< code-ref materials-series-test symbol=test_out_of_order_series_requires_explicit_stable_sort >}}は、rawとcanonicalの分離、順序違反の明示的sort、resampling後のダイジェストを検査します。
 
 候補入力の{{< code-ref materials-task-contract symbol=CanonicalHeatPoint >}}は`time_s`と`temperature_c`を持ち、時刻の狭義単調増加を要求します。
 
-これは候補のcanonical heat patternであり、raw sensor trace全体を保存するcontractではありません。
+これは候補のcanonical heat patternであり、raw sensor トレース全体を保存する契約ではありません。
 
 ## 四つの判定を一つの「有効」にしない
 
-候補やrowへ「valid」という一語だけを付けると、判定の責任範囲が分からなくなります。
+候補や行へ「valid」という一語だけを付けると、判定の責任範囲が分からなくなります。
 
-このworkbenchでは、少なくともplausibility、eligibility、support、feasibilityを分けます。
+このworkbenchでは、少なくともplausibility、eligibility、学習データの裏付け、feasibilityを分けます。
 
 | 判定 | 主語 | 問い | 典型的な結果 |
 |---|---|---|---|
-| plausibility | 観測値または予測出力 | quantityとして明らかな異常域ではないか | warning |
-| eligibility | curated row | 特定targetの学習cohortへ入れられるか | includeまたはexclude |
-| support | candidateと学習data | modelが参照した範囲にどれほど近いか | supported、caution、extrapolated |
+| plausibility | 観測値または予測出力 | quantityとして明らかな異常域ではないか | 警告 |
+| eligibility | curated 行 | 特定targetの学習cohortへ入れられるか | includeまたはexclude |
+| 学習データの裏付け | candidateと学習データ | モデルが参照した範囲にどれほど近いか | supported、caution、extrapolated |
 | feasibility | candidate | 明示した設計制約と実行条件を満たすか | feasibleまたはviolation |
 
 ### plausibility
 
-**plausibility**は、値がTaskで定めた広い確認範囲にあるかという判定です。
+**plausibility**は、値がタスクで定めた広い確認範囲にあるかという判定です。
 
-`OutputDefinition.plausibility_range` はoutputごとに定義されます。
+`OutputDefinition.plausibility_range` は出力ごとに定義されます。
 
-Welding Stage Cの引張強さでは0から2000 MPa、破断伸びでは0から100%が現行contractのplausibility rangeです。
+Welding ステージ Cの引張強さでは0から2000 MPa、破断伸びでは0から100%が現行契約のplausibility rangeです。
 
-これらはdemo Taskのcontract値であり、任意の鋼種または試験規格に対する普遍的な材料限界ではありません。
+これらはdemo タスクの契約値であり、任意の鋼種または試験規格に対する普遍的な材料限界ではありません。
 
-plausibility外という理由だけで元dataを削除すると、単位誤り、転記誤り、真の稀な観測を区別できなくなります。
+plausibility外という理由だけで元データを削除すると、単位誤り、転記誤り、真の稀な観測を区別できなくなります。
 
-原値を保持し、warningとreview結果を別に残します。
+原値を保持し、警告とレビュー結果を別に残します。
 
 ### eligibility
 
-**target eligibility**は、そのrowが特定outputを学習するために必要なtargetを持つかという判定です。
+**target eligibility**は、その行が特定出力を学習するために必要なtargetを持つかという判定です。
 
-同じrowでも、TSは報告済みでCHARPY_ENERGYは未報告なら、TSにはeligibleでCHARPY_ENERGYにはineligibleになりえます。
+同じ行でも、TSは報告済みでCHARPY_ENERGYは未報告なら、TSにはeligibleでCHARPY_ENERGYにはineligibleになりえます。
 
-{{< code-ref materials-eligibility-contract symbol=TargetEligibilityStep >}}は対象fieldを明示し、{{< code-ref materials-eligibility-contract symbol=CuratedRow >}}の`target_eligible`はcuration結果へ残ります。
+{{< code-ref materials-eligibility-contract symbol=TargetEligibilityStep >}}は対象フィールドを明示し、{{< code-ref materials-eligibility-contract symbol=CuratedRow >}}の`target_eligible`はcuration結果へ残ります。
 
-eligibilityは値の材料学的な良し悪しではなく、目的を固定したdata選択の状態です。
+eligibilityは値の材料学的な良し悪しではなく、目的を固定したデータ選択の状態です。
 
-### support
+### 学習データの裏付け
 
-**support**は、候補がmodelの学習または参照dataにどの程度支えられているかという情報です。
+**support**は、候補がモデルの学習または参照データにどの程度支えられているかという情報です。
 
-supportが高くても、予測が正しい確率そのものではありません。
+学習データの裏付けが高くても、予測が正しい確率そのものではありません。
 
-supportが低い候補を物理的に製造できないとも限りません。
+学習データの裏付けが低い候補を物理的に製造できないとも限りません。
 
-距離、percentile、近傍数などのmethod、threshold、feature representationが変われば、support判定も変わりえます。
+距離、percentile、近傍数などのmethod、threshold、feature representationが変われば、学習データの裏付け判定も変わりえます。
 
 ### feasibility
 
-**feasibility**は、候補が明示されたDesign Space、組成合計、上下限、関係制約、設備条件などを満たすかという判定です。
+**feasibility**は、候補が明示された設計空間、組成合計、上下限、関係制約、設備条件などを満たすかという判定です。
 
 契約に設備上限がなければ、softwareはその設備上限を知りません。
 
@@ -438,17 +438,17 @@ supportが低い候補を物理的に製造できないとも限りません。
 
 ある候補は、組成合計と設備制約を満たしてfeasibleでも、学習範囲から遠くextrapolatedになりえます。
 
-ある観測rowは、値がplausibleでもtarget欠損により特定modelにはineligibleになりえます。
+ある観測行は、値がplausibleでもtarget欠損により特定モデルにはineligibleになりえます。
 
-ある予測値はplausibility range内でも、入力候補がDesign Space違反なら採用候補にはできません。
+ある予測値はplausibility range内でも、入力候補が設計空間違反なら採用候補にはできません。
 
 UIとAPIは、これらを単一booleanへ集約せず、判定名、理由、基準の版を示します。
 
-## Welding Chainを材料状態のflowとして読む
+## Welding チェーンを材料状態のflowとして読む
 
-**Chain**は、複数の変換または予測Taskを、stage間のbindingで接続した実行契約です。
+**Chain**は、複数の変換または予測タスクを、stage間のバインディングで接続した実行契約です。
 
-Welding Chainでは、単にmodelを三回呼ぶのではなく、材料entityとbasisがstageごとに変わります。
+Welding チェーンでは、単にモデルを三回呼ぶのではなく、材料entityとbasisがstageごとに変わります。
 
 現行の流れは次のように読めます。
 
@@ -475,75 +475,75 @@ Stage C 通常variant              Stage C actual-conditioned variant
   特性の予測snapshot              別の比較snapshot
 ```
 
-Stage Aはscientific masterに基づく決定論的変換です。
+ステージ Aは科学的な正本に基づく決定論的変換です。
 
-Stage Bはwhole wire組成を入力し、deposited metal組成を予測します。
+ステージ Bはwhole wire組成を入力し、deposited metal組成を予測します。
 
-Stage Cはdeposited metal組成、入熱、予熱温度、シャルピー試験温度を入力し、引張特性、衝撃特性、腐食速度などを予測します。
+ステージ Cはdeposited metal組成、入熱、予熱温度、シャルピー試験温度を入力し、引張特性、衝撃特性、腐食速度などを予測します。
 
 この接続で重要なのは、`mass%` という表記だけを合わせないことです。
 
-Stage Bの入力は `mass% whole wire`、出力とStage C入力は `mass% deposited metal` であり、basisを含むport contractが必要です。
+ステージ Bの入力は `mass% whole wire`、出力とステージ C入力は `mass% deposited metal` であり、basisを含むport 契約が必要です。
 
 ### 固定した合成例
 
-次の値はdata flowを説明する合成fixtureであり、実材料の推奨条件ではありません。
+次の値はデータ flowを説明する合成フィクスチャであり、実材料の推奨条件ではありません。
 
 原材料catalogに粉末 `RM-A` と `RM-B` があり、candidate `SYN-001` はそれぞれ60 mass unitと40 mass unitを配合するとします。
 
-Stage Aは固定されたscientific masterを使い、whole wireのnominal組成vector `W_nominal` を決定論的に計算します。
+ステージ Aは固定された科学的な正本を使い、whole wireのnominal組成vector `W_nominal` を決定論的に計算します。
 
-Stage Bは `W_nominal` と固定contextを受け取り、deposited metalの予測組成vector `D_predicted` を返します。
+ステージ Bは `W_nominal` と固定contextを受け取り、deposited metalの予測組成vector `D_predicted` を返します。
 
-Stage Cの通常variantは、`D_predicted`、入熱 `1.2 kJ/mm`、予熱温度 `80 °C`、試験温度 `-20 °C` を入力としてpropertyを予測します。
+ステージ Cの通常バリアントは、`D_predicted`、入熱 `1.2 kJ/mm`、予熱温度 `80 °C`、試験温度 `-20 °C` を入力としてpropertyを予測します。
 
 ここで挙げた工程値はflow確認用の合成値であり、plausibility、feasibility、規格適合を表しません。
 
-後からdeposited metalの全必須成分を実測して `D_measured` を得た場合、actual-conditioned variantは `D_predicted` を部分補完に使いません。
+後からdeposited metalの全必須成分を実測して `D_measured` を得た場合、actual-conditioned バリアントは `D_predicted` を部分補完に使いません。
 
-現行 `ChainExecutionService` は、必要な実測成分が不足していればfail closedし、通常Chainの状態を変更せず別の比較結果を作ります。
+現行 `ChainExecutionService` は、必要な実測成分が不足していればfail closedし、通常チェーンの状態を変更せず別の比較結果を作ります。
 
 この分離により、次の二つの問いを混同せずに比較できます。
 
 1. 製造前に得られた情報だけで何を予測したか
-2. Stage B実測後の情報を使うとStage C予測がどう変わるか
+2. ステージ B実測後の情報を使うとステージ C予測がどう変わるか
 
-### Chainで固定すべきidentity
+### チェーンで固定すべき同一性
 
-再現可能なChain評価には、stageの順序だけでは足りません。
+再現可能なチェーン評価には、stageの順序だけでは足りません。
 
-少なくともChain definition、各stage contract、Model Package、dataset profile、unit conversion、binding、feature pipelineのidentityを固定します。
+少なくともチェーン definition、各stage 契約、モデルパッケージ、dataset profile、unit conversion、バインディング、特徴量パイプラインの同一性を固定します。
 
-{{< code-ref materials-chain-contract symbol=validate_chain_definition >}}は、port、binding、stage contractの整合性を検査します。
+{{< code-ref materials-chain-contract symbol=validate_chain_definition >}}は、port、バインディング、stage 契約の整合性を検査します。
 
-`chain-evaluation.md` は、Stage別評価とend-to-end評価を分け、definition、binding、unit conversion、package、data profile、source、foldをartifactへ残す方針を定めます。
+`chain-evaluation.md` は、ステージ別評価とend-to-end評価を分け、definition、バインディング、unit conversion、package、データ profile、ソース、フォールドを成果物へ残す方針を定めます。
 
 relationの一行を、そのまま独立な学習行とみなしてはいけません。
 
 原材料、製造条件、溶着金属、試験片、反復観測のgrainを分けてから、各stageの学習cohortを構成します。
 
-## 実装時のreview手順
+## 実装時のレビュー手順
 
-材料に関する新しい列またはTaskを追加するときは、次の順でreviewします。
+材料に関する新しい列またはタスクを追加するときは、次の順でレビューします。
 
 1. 判断時点と、利用者がその時点で知りうる情報を記述する
-2. entity、quantity、basis、state、provenanceを決める
-3. composition、process、test condition、observed state、outputのどれかを決める
+2. entity、quantity、basis、状態、来歴を決める
+3. 組成、プロセス、テスト condition、observed 状態、出力のどれかを決める
 4. nominal、measured、derived、predictedを分ける
 5. unit変換と正規化のrecipeを版管理する
 6. 0、missing、below limit、not reportedを別状態にする
-7. plausibility、eligibility、support、feasibilityの責任を分ける
-8. 同じ試料または系列がsplitを跨がないgroup keyを決める
-9. contract、profile、adapter、testの対応pathを残す
-10. domain reviewerへ、basis、範囲、測定条件、因果表現を確認してもらう
+7. plausibility、eligibility、学習データの裏付け、feasibilityの責任を分ける
+8. 同じ試料または系列がsplitを跨がないグループキーを決める
+9. 契約、profile、アダプタ、テストの対応経路を残す
+10. ドメインレビュー担当者へ、basis、範囲、測定条件、因果表現を確認してもらう
 
-domain reviewerへは、「材料として正しいですか」という一問だけを渡しません。
+ドメインレビュー担当者へは、「材料として正しいですか」という一問だけを渡しません。
 
-確認対象を、quantity定義、basis、範囲、欠損解釈、判断時点、測定条件、Chain境界に分けます。
+確認対象を、quantity定義、basis、範囲、欠損解釈、判断時点、測定条件、チェーン境界に分けます。
 
 ## 演習
 
-### 演習1：0と欠損をschemaへ戻す {#exercise-materials-domain-primer-01}
+### 演習1：0と欠損をスキーマへ戻す {#exercise-materials-domain-primer-01}
 
 あるExcel列 `Cu` には、`0`、空欄、`<0.01`、`N/A` が入っています。
 
@@ -553,8 +553,8 @@ domain reviewerへは、「材料として正しいですか」という一問�
 
 ### 成功条件
 
-- 四つのsource表現を、値、qualifier、missing reasonのいずれで保持するか示す
-- `N/A` の意味をsource定義で確認する必要を示す
+- 四つのソース表現を、値、qualifier、missing reasonのいずれで保持するか示す
+- `N/A` の意味をソース定義で確認する必要を示す
 - 空欄を0へ変換すると変わりうる判定を二つ以上挙げる
 
 [演習1の解答](#answer-materials-domain-primer-01)は、回答を固定してから開きます。
@@ -562,111 +562,111 @@ domain reviewerへは、「材料として正しいですか」という一問�
 ::: {#answer-materials-domain-primer-01 .exercise-solution data-label="演習1の解答"}
 #### 解答例
 
-`0` はsourceが測定値0またはnominal値0のどちらを表すかをsource定義で確認し、値とprovenanceを保存します。
+`0` はソースが測定値0またはnominal値0のどちらを表すかをソース定義で確認し、値と来歴を保存します。
 
 空欄はmissingまたはnot reportedとしてnullとreasonを保存します。
 
 `<0.01` は値0へせず、qualifier `below_limit`、limit `0.01`、unit、可能なら検出限界か定量下限かを保存します。
 
-`N/A` はnot applicableかnot availableかをsource定義で確認し、applicabilityまたはmissing reasonへ分けます。
+`N/A` はnot applicableかnot availableかをソース定義で確認し、applicabilityまたはmissing reasonへ分けます。
 
 空欄を0へ変換すると、組成合計とfeasibility判定が変わりえます。
 
-さらに、feature distanceとsupport、curationのeligibility、学習cohortも変わりえます。
+さらに、feature distanceと学習データの裏付け、curationのeligibility、学習cohortも変わりえます。
 
 #### 解答の理由
 
 数値0はquantityの値ですが、空欄、below limit、not applicableは観測または適用の状態です。
 
-状態を値へ潰すと、後段はsourceの意味を復元できず、組成合計や距離を別のdataとして計算します。
+状態を値へ潰すと、後段はソースの意味を復元できず、組成合計や距離を別のデータとして計算します。
 
 #### よくある不十分な回答
 
 空欄と`N/A`をすべてnullにするだけでは、未報告と非適用を区別できません。
 
-`<0.01`を0.005へ置換する回答は、置換modelと利用目的を明示した限定的な解析では選択肢になりえますが、sourceのcanonical値として無条件に確定できません。
+`<0.01`を0.005へ置換する回答は、置換モデルと利用目的を明示した限定的な解析では選択肢になりえますが、ソースのcanonical値として無条件に確定できません。
 :::
 
 ### 演習2：microstructure leakageを判定する {#exercise-materials-domain-primer-02}
 
-model Aは、配合と熱処理programから硬さを予測し、熱処理前の候補選択に使います。
+モデル Aは、配合と熱処理programから硬さを予測し、熱処理前の候補選択に使います。
 
-model Bは、熱処理後に撮影した画像から組織特徴量を抽出し、硬さ試験の優先順位付けに使います。
+モデル Bは、熱処理後に撮影した画像から組織特徴量を抽出し、硬さ試験の優先順位付けに使います。
 
-同じ組織特徴量を両modelへ追加する提案について、leakageの有無と必要なsplit groupを説明してください。
+同じ組織特徴量を両モデルへ追加する提案について、leakageの有無と必要なsplit グループを説明してください。
 
 ### 成功条件
 
-- 二つのmodelの判断時点を明示する
+- 二つのモデルの判断時点を明示する
 - 組織特徴量の列名ではなく、利用時点で観測可能かどうかからleakageを判定する
-- specimen、heat、sourceのうち、独立性の主張に合うsplit groupを一つ以上示す
+- specimen、heat、ソースのうち、独立性の主張に合うsplit グループを一つ以上示す
 
 [演習2の解答](#answer-materials-domain-primer-02)は、回答を固定してから開きます。
 
 ::: {#answer-materials-domain-primer-02 .exercise-solution data-label="演習2の解答"}
 #### 解答例
 
-model Aの利用時点では熱処理後の画像が存在しないため、その組織特徴量を入力へ入れると未来情報のleakageになります。
+モデル Aの利用時点では熱処理後の画像が存在しないため、その組織特徴量を入力へ入れると未来情報のleakageになります。
 
-model Bでは画像取得後が判断時点なので、組織特徴量の利用自体はleakageとは限りません。
+モデル Bでは画像取得後が判断時点なので、組織特徴量の利用自体はleakageとは限りません。
 
-ただし、同じ試料の複数画像、同じheatの複数視野、同じ文献から派生したrowがtrainとtestへ跨がないgroup keyが必要です。
+ただし、同じ試料の複数画像、同じheatの複数視野、同じ文献から派生した行がtrainとテストへ跨がないグループキーが必要です。
 
-group候補はspecimen ID、heat ID、source document IDであり、独立性をどのgrainで主張するかに合わせて選びます。
+グループ候補はspecimen ID、heat ID、ソース document IDであり、独立性をどのgrainで主張するかに合わせて選びます。
 
 #### 解答の理由
 
 leakageは、予測時点で利用できない情報が学習または評価へ入ることで生じます。
 
-同じ特徴量でも判断時点が違えば利用可能性が変わるため、Taskを分けて評価します。
+同じ特徴量でも判断時点が違えば利用可能性が変わるため、タスクを分けて評価します。
 
 #### よくある不十分な回答
 
-「microstructureはすべてleakage」という回答は、画像取得後に判断するmodel Bの時系列を無視しています。
+「microstructureはすべてleakage」という回答は、画像取得後に判断するモデル Bの時系列を無視しています。
 
-row単位のrandom splitだけを提案する回答も、同一specimenの複数画像がtrainとtestへ跨ぐ可能性を止めません。
+行単位のrandom splitだけを提案する回答も、同一specimenの複数画像がtrainとテストへ跨ぐ可能性を止めません。
 :::
 
 ### 演習3：四つの判定を分類する {#exercise-materials-domain-primer-03}
 
-候補Xは組成合計を満たし、全入力がallowed range内ですが、学習dataの最近傍から遠く、予測TSはplausibility range内です。
+候補Xは組成合計を満たし、全入力がallowed range内ですが、学習データの最近傍から遠く、予測TSはplausibility range内です。
 
-一方、この候補から作った過去rowにはCHARPY_ENERGYがありません。
+一方、この候補から作った過去行にはCHARPY_ENERGYがありません。
 
-Xと過去rowについて、plausibility、eligibility、support、feasibilityを分類してください。
+Xと過去行について、plausibility、eligibility、学習データの裏付け、feasibilityを分類してください。
 
 ### 成功条件
 
 - 四つの判定へ、それぞれ異なる主語と理由を与える
-- support statusがmethodとthresholdに依存することを示す
-- feasibilityの主張を、contractに記述された制約へ限定する
+- 学習データの裏付け状態がmethodとthresholdに依存することを示す
+- feasibilityの主張を、契約に記述された制約へ限定する
 
 [演習3の解答](#answer-materials-domain-primer-03)は、回答を固定してから開きます。
 
 ::: {#answer-materials-domain-primer-03 .exercise-solution data-label="演習3の解答"}
 #### 解答例
 
-予測TSはTaskのplausibility range内なので、plausibility判定は通ります。
+予測TSはタスクのplausibility range内なので、plausibility判定は通ります。
 
-過去rowはCHARPY_ENERGY targetを欠くため、そのtargetの学習にはineligibleです。
+過去行はCHARPY_ENERGY targetを欠くため、そのtargetの学習にはineligibleです。
 
-候補Xは学習dataから遠いため、supportはcautionまたはextrapolatedになりえますが、正確なstatusはmethodとthresholdに依存します。
+候補Xは学習データから遠いため、学習データの裏付けはcautionまたはextrapolatedになりえますが、正確な状態はmethodとthresholdに依存します。
 
 候補Xは記述された組成合計とallowed rangeを満たすため、その契約に関してはfeasibleです。
 
-ただし、contractに書かれていない設備条件または材料上の制約まで満たすとは結論できません。
+ただし、契約に書かれていない設備条件または材料上の制約まで満たすとは結論できません。
 
 #### 解答の理由
 
-plausibilityはoutput、eligibilityは学習row、supportはcandidateと参照dataの関係、feasibilityはcandidateと制約の関係を判定します。
+plausibilityは出力、eligibilityは学習行、学習データの裏付けはcandidateと参照データの関係、feasibilityはcandidateと制約の関係を判定します。
 
 主語を分けると、一つの判定結果から別の判定結果を推論できない理由が明確になります。
 
 #### よくある不十分な回答
 
-「Xはvalid、過去rowはinvalid」という回答では、どの判定がどの理由で成立したかを追跡できません。
+「Xはvalid、過去行はinvalid」という回答では、どの判定がどの理由で成立したかを追跡できません。
 
-「allowed range内なのでsupportも高い」という回答も、設計上の範囲と学習dataからの距離を混同しています。
+「allowed range内なので学習データの裏付けも高い」という回答も、設計上の範囲と学習データからの距離を混同しています。
 :::
 
 ## 章末チェック {#exercise-materials-domain-primer-chapter-check}
@@ -677,42 +677,42 @@ plausibilityはoutput、eligibilityは学習row、supportはcandidateと参照da
 2. mass%からat%への変換にmolar massが必要なのはなぜですか。
 3. nominal値とmeasured値を上書き関係にしてはいけないのはなぜですか。
 4. microstructure特徴量がleakageになる条件は何ですか。
-5. semantic process programとraw sensor traceの違いは何ですか。
-6. canonical seriesとfeature representationを別に保存する理由は何ですか。
+5. 意味を持つ工程プログラムとraw sensor トレースの違いは何ですか。
+6. 正規系列とfeature representationを別に保存する理由は何ですか。
 7. plausibility外の値を即削除してはいけないのはなぜですか。
-8. target eligibilityはrow全体で一つとは限らないのはなぜですか。
-9. supportが物理的feasibilityを意味しないのはなぜですか。
-10. Welding Stage Bの入力と出力で、どのbasisが変わりますか。
+8. target eligibilityは行全体で一つとは限らないのはなぜですか。
+9. 学習データの裏付けが物理的feasibilityを意味しないのはなぜですか。
+10. Welding ステージ Bの入力と出力で、どのbasisが変わりますか。
 
-すべての答えに、判断時点、basis、またはcontractのいずれかを含められれば、この章の到達点を満たしています。
+すべての答えに、判断時点、basis、または契約のいずれかを含められれば、この章の到達点を満たしています。
 
 [章末チェックの解答](#answer-materials-domain-primer-chapter-check)は、回答を固定してから開きます。
 
 ::: {#answer-materials-domain-primer-chapter-check .exercise-solution data-label="章末チェックの解答"}
 #### 解答例
 
-1. entity、quantity、basis、state、provenanceが不足しています。
+1. entity、quantity、basis、状態、来歴が不足しています。
 2. mass%は質量を分母とし、at%は物質量を分母とするため、成分ごとのmolar massで換算する必要があります。
 3. nominal値は意図、measured値は観測を表し、差そのものが製造結果の証拠になるためです。
-4. Taskの判断時点でまだ観測できないmicrostructureを入力または評価へ使うとleakageになります。
-5. programは工程意図を表し、raw traceはsensorが観測した実現過程を表します。
-6. feature変換はresamplingや要約によって情報を落としうるため、canonical seriesと変換契約を残して再現性を確保します。
-7. 単位誤り、転記誤り、真の稀な観測を区別するreview証拠まで失うためです。
-8. targetごとに観測の有無が違い、同じrowがTSにはeligibleでもCHARPY_ENERGYにはineligibleになりうるためです。
-9. supportはcandidateと学習dataの関係を表し、設備制約や材料制約を検査しないためです。
+4. タスクの判断時点でまだ観測できないmicrostructureを入力または評価へ使うとleakageになります。
+5. programは工程意図を表し、raw トレースはsensorが観測した実現過程を表します。
+6. feature変換はresamplingや要約によって情報を落としうるため、正規系列と変換契約を残して再現性を確保します。
+7. 単位誤り、転記誤り、真の稀な観測を区別するレビュー証拠まで失うためです。
+8. targetごとに観測の有無が違い、同じ行がTSにはeligibleでもCHARPY_ENERGYにはineligibleになりうるためです。
+9. 学習データの裏付けはcandidateと学習データの関係を表し、設備制約や材料制約を検査しないためです。
 10. `mass% whole wire` から `mass% deposited metal` へ、分母となるentityのbasisが変わります。
 
 #### 解答の理由
 
-十問は、値のidentity、百分率の分母、事実の時点、leakage、系列表現、四判定、Chain basisを別々に確認します。
+十問は、値の同一性、百分率の分母、事実の時点、leakage、系列表現、四判定、チェーン basisを別々に確認します。
 
-回答へ判断時点、basis、contractを入れると、一般的な材料知識ではなく実装境界として説明できます。
+回答へ判断時点、basis、契約を入れると、一般的な材料知識ではなく実装境界として説明できます。
 
 #### よくある不十分な回答
 
 「単位と欠損に注意する」だけでは、どのentityのどの時点の値かを固定できません。
 
-「範囲内なら使える」という回答も、plausibility、eligibility、support、feasibilityを区別していません。
+「範囲内なら使える」という回答も、plausibility、eligibility、学習データの裏付け、feasibilityを区別していません。
 :::
 
 ## Further Reading
@@ -721,22 +721,22 @@ plausibilityはoutput、eligibilityは学習row、supportはcandidateと参照da
 - IUPAC Gold Bookのmass percent項目 [@iupac-mass-percent] は、百分率表記と量そのものを混同しないために使います。
 - IUPAC Gold Bookのamount of substance項目 [@iupac-amount-of-substance] は、at%変換で使う物質量の基礎定義を確認する入口です。
 - `docs/feature-engineering.md` は、このrepoで組成と熱履歴をfeatureへ変換する現行契約を説明します。
-- `docs/variable-length-series.md` は、raw series、canonical series、feature representationの保存境界を説明します。
+- `docs/variable-length-series.md` は、raw series、正規系列、feature representationの保存境界を説明します。
 - `docs/model-package-contract.md` は、plausibility rangeとpreferred display rangeを削除条件から分ける方針を説明します。
-- `docs/welding-stage-b-package.md` と `docs/chain-evaluation.md` は、Welding Chainのbasisと評価artifactを説明します。
+- `docs/welding-stage-b-package.md` と `docs/chain-evaluation.md` は、Welding チェーンのbasisと評価成果物を説明します。
 
-## Domain reviewで未固定の点
+## ドメインレビューで未固定の点
 
-この章は、domain概念とsoftware contractの境界を説明するためのprimerです。
+この章は、ドメイン概念とsoftware 契約の境界を説明するためのprimerです。
 
-次の内容はTaskごとのdomain reviewなしに固定しません。
+次の内容はタスクごとのドメインレビューなしに固定しません。
 
 - 各quantityの物理的に妥当な範囲
 - 測定法ごとの検出限界と定量下限の扱い
 - nominal値とmeasured値の優先規則
-- heat programとsensor traceの許容差
+- heat programとsensor トレースの許容差
 - microstructure descriptorの同等性
 - 試験規格、試験片、方向、温度の適用条件
-- Chain stage間で許容するunit変換とbasis変換
+- チェーン stage間で許容するunit変換とbasis変換
 
-review結果は本文の断定を強めるためではなく、Task contract、dataset profile、curation recipe、test fixtureへ反映します。
+レビュー結果は本文の断定を強めるためではなく、タスク契約、dataset profile、curation recipe、テストフィクスチャへ反映します。

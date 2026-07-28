@@ -82,27 +82,27 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# 共有状態と制約付きActorを一つの境界として設計する {#sec-shared-state-and-bounded-actors}
+# 共有状態と制約付き主体を一つの境界として設計する {#sec-shared-state-and-bounded-actors}
 
 ## 対象読者と到達点
 
-PostgreSQL transaction、補償処理、typed application boundaryを読めるbackend開発者とapplication architectが対象です。
+PostgreSQL transaction、補償処理、typed application boundaryを読めるバックエンド開発者とapplication architectが対象です。
 ローカル専用アプリを共有環境へ広げるときに、単にデータベースを差し替えるだけでは足りない理由を扱います。
-読了後は、操作主体であるActor、変更版であるrevision、保存物であるartifact、証拠付きAI Reviewを同じ境界から説明できます。
+読了後は、操作主体である主体、変更版であるリビジョン、保存物である成果物、証拠付きAI レビューを同じ境界から説明できます。
 また、実装できる範囲と外部権限が必要な範囲を分け、実験の停止理由を失敗ではなく検証結果として記録できます。
 
-前提として、revision、digest、immutable Run、application serviceの役割を理解しているものとします。
-この章は正式な認証基盤、multi-tenant製品、production cloud構成を扱いません。
+前提として、リビジョン、ダイジェスト、不変実行記録、アプリケーションサービスの役割を理解しているものとします。
+この章は正式な認証基盤、multi-tenant製品、本番 cloud構成を扱いません。
 
 ## 共有化で増える行為者
 
-単一利用者のローカルアプリでは、操作した人、画面を開いた人、SQLiteへ書いたprocessが暗黙に同じ主体になります。
+単一利用者のローカルアプリでは、操作した人、画面を開いた人、SQLiteへ書いたプロセスが暗黙に同じ主体になります。
 共有環境では、この暗黙の一致が崩れます。
-二人が同じCandidateを読み、一人が更新した後でもう一人が古い内容を保存する可能性があります。
-AI Actorが証拠を読んでReviewを作り、人間が採否を記録する場合は、読む主体、書く主体、承認する主体も異なります。
+二人が同じ候補を読み、一人が更新した後でもう一人が古い内容を保存する可能性があります。
+AI 主体が証拠を読んでレビューを作り、人間が採否を記録する場合は、読む主体、書く主体、承認する主体も異なります。
 
 したがって、共有化の中心課題はPostgreSQLやobject storageの導入ではありません。
-中心課題は、誰が、どの版を根拠に、どの操作を行い、何を証拠として残したかをapplication contractへ表すことです。
+中心課題は、誰が、どの版を根拠に、どの操作を行い、何を証拠として残したかをapplication 契約へ表すことです。
 
 ```text
 request identity
@@ -113,197 +113,197 @@ request identity
   = shared decision boundary
 ```
 
-## 一つ目の境界はActorとrequest identityである
+## 一つ目の境界は主体とリクエスト同一性である
 
-共有実験のActor contractは、`actor_id`、`actor_kind`、`workspace_id`、capabilityを持ちます。
-このcontractはHuman、AI Agent、serviceを同じ文字列として潰しません。
+共有実験の主体契約は、`actor_id`、`actor_kind`、`workspace_id`、能力を持ちます。
+この契約はHuman、AI Agent、サービスを同じ文字列として潰しません。
 
 {{< code-ref shared-actor-contracts symbol=Actor >}}
 
-repositoryが受け取る`RequestIdentity`は、workspaceとActorに加えてrequest IDとcorrelation IDを持ちます。
+リポジトリが受け取る`RequestIdentity`は、workspaceと主体に加えてリクエスト IDとcorrelation IDを持ちます。
 
 {{< code-ref shared-lab-repository symbol=RequestIdentity >}}
 
-request IDは一回の操作を識別します。
+リクエスト IDは一回の操作を識別します。
 correlation IDは、callerが同じIDを付けたwrite audit eventを関連付ける識別子です。
-現行実験はGETのauditや複数serviceをまたぐ追跡を検証していません。
+現行実験はGETのauditや複数サービスをまたぐ追跡を検証していません。
 
-この実験ではdevelopment headerからActorを解決します。
-これは正式な認証ではなく、Actorをrequest bodyだけで自由に自己申告させないための最小境界です。
-remote environmentでは、このheaderを信頼する前段にOIDCなどの認証とserver-side Actor resolutionが必要です。
+この実験ではdevelopment headerから主体を解決します。
+これは正式な認証ではなく、主体をリクエスト bodyだけで自由に自己申告させないための最小境界です。
+remote environmentでは、このheaderを信頼する前段にOIDCなどの認証とサーバ-side 主体 resolutionが必要です。
 
 ## 二つ目の境界はoptimistic concurrencyである
 
-二つのclientがrevision `r`を読んだ場面を考えます。
-Client Aが`expected_revision=r`で更新すると、新しいrevision `r+1`が作られます。
+二つのclientがリビジョン `r`を読んだ場面を考えます。
+Client Aが`expected_revision=r`で更新すると、新しいリビジョン `r+1`が作られます。
 Client Bが同じ`expected_revision=r`で更新すると、その書込みはHTTP 409のtyped conflictになります。
 
-最後に届いた値を黙って正本へせず、Client Bの判断が古い証拠に基づくことを検出して、最新revisionを読み直す機会を残します。
-repositoryは条件付き更新とtransactionを使い、競合を`SharedRevisionConflict`としてapplicationへ返します。
+最後に届いた値を黙って正本へせず、Client Bの判断が古い証拠に基づくことを検出して、最新リビジョンを読み直す機会を残します。
+リポジトリは条件付き更新とtransactionを使い、競合を`SharedRevisionConflict`としてapplicationへ返します。
 
 {{< code-ref shared-lab-repository symbol=SharedRevisionConflict >}}
 
-Candidateの各revisionは不変なので、採用された状態をrevision履歴から区別できます。
-統合testは二つのActorを同時に走らせ、成功と409が一件ずつになることを確認します。
-その後、敗者が最新revisionを読み、次のrevisionとして保存できることまで確認します。
+候補の各リビジョンは不変なので、採用された状態をリビジョン履歴から区別できます。
+統合テストは二つの主体を同時に走らせ、成功と409が一件ずつになることを確認します。
+その後、敗者が最新リビジョンを読み、次のリビジョンとして保存できることまで確認します。
 
-競合で拒否された試行のpayloadはrevision履歴へ残りません。
-敗者のActor、expected revision、current revision、conflict outcomeはaudit eventへ残ります。
+競合で拒否された試行のペイロードはリビジョン履歴へ残りません。
+敗者の主体、expected リビジョン、現行リビジョン、conflict outcomeはaudit eventへ残ります。
 
 {{< code-ref shared-lab-integration-test symbol=test_two_actor_shared_workbench_scenario >}}
 
-このtestが保証するのは、固定した共有surface上の競合契約です。
-network partition中のoffline edit mergeや任意のdomain objectの自動同期までは保証しません。
+このテストが保証するのは、固定した共有surface上の競合契約です。
+network partition中のoffline edit mergeや任意のドメイン objectの自動同期までは保証しません。
 
 ## 三つ目の境界はDBとobject storageの間にある
 
-PostgreSQLはidentity、relation、current revision、小さなRun metadata、artifact referenceを保持します。
-object storageはdataset snapshotやreportなどのbyte列を保持します。
-役割を分けても、一つのtransaction managerが両方を原子的にcommitできるわけではありません。
+PostgreSQLは同一性、relation、現行リビジョン、小さな実行記録メタデータ、成果物 referenceを保持します。
+object storageはdataset スナップショットやreportなどのbyte列を保持します。
+役割を分けても、一つのtransaction managerが両方を原子的にコミットできるわけではありません。
 
 objectを保存した後にDB登録が失敗すると、参照されないobjectが残る可能性があります。
-DB metadataを先にreadyへすると、実体がないartifactを正しい証拠として見せる可能性があります。
-この実験の`ArtifactService`は、content digestからobject keyを作り、put後にread-backしてdigestを再検証します。
+DB メタデータを先にreadyへすると、実体がない成果物を正しい証拠として見せる可能性があります。
+この実験の`ArtifactService`は、content ダイジェストからobject キーを作り、put後にread-backしてダイジェストを再検証します。
 
 {{< code-ref shared-artifact-service symbol=ArtifactService >}}
 
-検証後にだけmetadataをreadyとして登録します。
-metadata登録が失敗した場合は、新しく作ったobjectだけの補償削除を試みます。
-既存の同一digest objectは、別の参照が使っている可能性があるため削除しません。
+検証後にだけメタデータをreadyとして登録します。
+メタデータ登録が失敗した場合は、新しく作ったobjectだけの補償削除を試みます。
+既存の同一ダイジェスト objectは、別の参照が使っている可能性があるため削除しません。
 
 補償削除自体が失敗した場合はcleanupが必要なエラーとして表面化し、参照されないobjectが残る可能性があります。
 現行実験は自動garbage collectionを実装していません。
 
-read時にもdigestを再計算し、不一致を`ArtifactDigestMismatch`として拒否します。
+read時にもダイジェストを再計算し、不一致を`ArtifactDigestMismatch`として拒否します。
 
 {{< code-ref shared-artifact-service symbol=ArtifactDigestMismatch >}}
 
 この方式は分散transactionを実装していません。
-代わりに、順序、状態、検証、補償の責任を小さなapplication serviceへ閉じ込めています。
+代わりに、順序、状態、検証、補償の責任を小さなアプリケーションサービスへ閉じ込めています。
 
-## 現在のActor境界を対応付ける
+## 現在の主体境界を対応付ける
 
-三つの実験はActorという考え方を共有しますが、同じ認証基盤や同じpersistenceへ統合されていません。
+三つの実験は主体という考え方を共有しますが、同じ認証基盤や同じpersistenceへ統合されていません。
 
-| surface | Actor contract | 現在のresolver | persistence | 状態 |
+| surface | 主体契約 | 現在のresolver | persistence | 状態 |
 |---|---|---|---|---|
-| Shared Lab | `Actor`と`RequestIdentity` | seed済みActor照合 | PostgreSQL | 独立lab |
-| AI Review Run | `AiActorIdentity` | configured provider | SQLite | 実装済み |
+| Shared Lab | `Actor`と`RequestIdentity` | seed済み主体照合 | PostgreSQL | 独立lab |
+| AI レビュー 実行記録 | `AiActorIdentity` | configured provider | SQLite | 実装済み |
 | Human disposition | attribution文字列 | header形式検査 | SQLite | development用 |
-| Dataset approval | local Actor | fixed identity | SQLite | 既存local contract |
+| データセット approval | local 主体 | fixed 同一性 | SQLite | 既存local 契約 |
 
-表を線形に読むと、Shared LabのActorはAI ReviewやDataset approvalをそのまま認可しません。
-正式なremote identityとcapabilityの統合はfuture workです。
+表を線形に読むと、Shared Labの主体はAI レビューやデータセット approvalをそのまま認可しません。
+正式なremote 同一性と能力の統合はfuture workです。
 
 {{< code-ref ai-review-api-attribution symbol=record_ai_review_disposition >}}
 
 {{< code-ref data-lifecycle-fixed-actor symbol=approve_curation_run >}}
 
-## AIをActorとして接続する
+## AIを主体として接続する
 
 AIを画面上の自由なchat欄として追加すると、何を読んだか、どの版を評価したか、何を変更できるかが曖昧になります。
-このケーススタディではAIをHumanと区別されたActorとして扱います。
-`AiActorIdentity`はprovider、model、policy、toolset、workspaceを記録します。
+このケーススタディではAIをHumanと区別された主体として扱います。
+`AiActorIdentity`はprovider、モデル、policy、toolset、workspaceを記録します。
 
 {{< code-ref ai-review-contracts symbol=AiActorIdentity >}}
 
-AI providerはStore、database connection、filesystem pathを受け取りません。
-providerが受け取るのは、allow-listされた読み取り操作だけを持つ`AiReviewToolSurface`です。
+AI providerはStore、データベース connection、filesystem 経路を受け取りません。
+providerが受け取るのは、許可リストされた読み取り操作だけを持つ`AiReviewToolSurface`です。
 
 {{< code-ref ai-review-tool-surface symbol=AiReviewToolSurface >}}
 
-tool surfaceはProject summary、Candidate revision、保存済み予測、実測、Objective、Design Spaceなどをtyped observationとして返します。
-secretらしい値はredactし、Dataset内の文字列やProject noteは`untrusted_data`として分類します。
+tool surfaceはプロジェクト要約、候補リビジョン、保存済み予測、実測、目的、設計空間などをtyped observationとして返します。
+secretらしい値はredactし、データセット内の文字列やプロジェクト noteは`untrusted_data`として分類します。
 
 instructionらしい文字列自体は削除せず、system policyと同じtrust levelへ昇格させません。
-実provider adapterでmessage roleの分離とprompt injection耐性を検証する作業は残っています。
+実provider アダプタでmessage roleの分離とprompt injection耐性を検証する作業は残っています。
 
-trusted adapter codeは同一process内で動くため、OS sandboxでDBやfilesystem accessを禁止しているわけではありません。
-現在保証するのは、provider interfaceがStore、path、任意SQL tool、mutation toolを渡さないことと、scripted fixtureがそのfacadeだけで完了することです。
+trusted アダプタ codeは同一プロセス内で動くため、OS sandboxでDBやfilesystem accessを禁止しているわけではありません。
+現在保証するのは、provider インタフェースがStore、経路、任意SQL tool、mutation toolを渡さないことと、scripted フィクスチャがそのfacadeだけで完了することです。
 
-## 文章ではなく証拠付きresourceを保存する
+## 文章ではなく証拠付きリソースを保存する
 
-AI Reviewの出力はchat transcriptではなく`AiReviewRun`です。
-Runはreview対象revision、input digest、Actor identity、provider provenance、finding、limitation、suggested actionを持ちます。
+AI レビューの出力はchat transcriptではなく`AiReviewRun`です。
+実行記録はレビュー対象リビジョン、入力ダイジェスト、主体同一性、provider 来歴、finding、limitation、suggested actionを持ちます。
 
 {{< code-ref ai-review-contracts symbol=AiReviewRun >}}
 
 各findingは`AiReviewEvidenceReference`を持ちます。
-referenceはresource kind、resource ID、revisionまたはRun ID、field path、観測値digestを結びます。
+referenceはリソース kind、リソース ID、リビジョンまたは実行記録 ID、フィールド経路、観測値ダイジェストを結びます。
 
 {{< code-ref ai-review-contracts symbol=AiReviewEvidenceReference >}}
 
-application serviceは、providerが返したreferenceが実際にtool surfaceから発行されたものかを検証します。
-この対応付けを、この章ではevidence reference bindingと呼びます。
-Design SpaceやObjectiveのrevisionとdigestをRunへ固定する用語集上のbinding provenanceとは別の限定された照合です。
+アプリケーションサービスは、providerが返したreferenceが実際にtool surfaceから発行されたものかを検証します。
+この対応付けを、この章ではevidence reference バインディングと呼びます。
+設計空間や目的のリビジョンとダイジェストを実行記録へ固定する用語集上のバインディング来歴とは別の限定された照合です。
 
 さらに、claimとreasoningに現れる数値literalが、添付した証拠のcanonical value集合に存在するかを照合します。
 
 {{< code-ref ai-review-service symbol=AiReviewService >}}
 
-たとえば、有効なCandidate root referenceを添えても、証拠にない`999999 MPa`という数値主張はvalidになりません。
+たとえば、有効な候補 root referenceを添えても、証拠にない`999999 MPa`という数値主張はvalidになりません。
 
 {{< code-ref ai-review-tests symbol=test_numeric_claim_must_exist_in_attached_canonical_evidence >}}
 
-この照合は自然言語の意味全体、field、unit、対象量との対応を証明しません。
-現在のfixtureは、添付証拠のどこにも存在しない数値literalを有効なreferenceで偽装する経路だけを閉じます。
+この照合は自然言語の意味全体、フィールド、unit、対象量との対応を証明しません。
+現在のフィクスチャは、添付証拠のどこにも存在しない数値literalを有効なreferenceで偽装する経路だけを閉じます。
 
-## failureとprovenanceも保存契約に含める
+## failureと来歴も保存契約に含める
 
-provider timeoutやmalformed outputをcompleted Runとして扱うと、人間は失敗した生成を判断証拠と誤認します。
-そのためRun stateはrunning、completed、partial、invalid、failedを区別します。
-例外本文にはcredentialやresponse bodyが含まれる可能性があるため、永続化するfailure reasonは安定した公開codeだけに限定します。
+provider timeoutやmalformed 出力をcompleted 実行記録として扱うと、人間は失敗した生成を判断証拠と誤認します。
+そのため実行記録状態はrunning、completed、partial、invalid、failedを区別します。
+例外本文には認証情報やレスポンス bodyが含まれる可能性があるため、永続化するfailure reasonは安定した公開codeだけに限定します。
 
 {{< code-ref ai-review-tests symbol=test_provider_exception_detail_is_never_persisted >}}
 
-finalize時にはterminal fieldだけを追加し、running時に固定したActor、model、policy、toolset、input digest、review対象、開始時刻を変更できません。
+finalize時にはterminal フィールドだけを追加し、running時に固定した主体、モデル、policy、toolset、入力ダイジェスト、レビュー対象、開始時刻を変更できません。
 
 {{< code-ref ai-review-tests symbol=test_finalize_rejects_tampered_immutable_running_envelope >}}
 
 これにより、結果を保存する瞬間に由来情報を都合よく差し替える経路をpersistence boundaryで拒否します。
 
-## Human dispositionは別のresourceである
+## Human dispositionは別のリソースである
 
-AI Reviewが作られたことと、人間がその提案を採用したことは別の事実です。
+AI レビューが作られたことと、人間がその提案を採用したことは別の事実です。
 Human dispositionはaccepted、partially accepted、rejected、deferred、supersededを記録します。
 
 {{< code-ref ai-review-contracts symbol=AiReviewDisposition >}}
 
-dispositionは追記専用で、AI Review自体を上書きしません。
-Actorはrequest bodyから受け取らず、未認証の`X-Workbench-Human-Actor` headerを形式検査したdevelopment attributionから記録します。
-AIのwrite allow-listにもHuman dispositionの追加を含めません。
-focused API testはAI Runの作成とHuman dispositionの追記を一つの流れで確認します。
+dispositionは追記専用で、AI レビュー自体を上書きしません。
+主体はリクエスト bodyから受け取らず、未認証の`X-Workbench-Human-Actor` headerを形式検査したdevelopment attributionから記録します。
+AIのwrite 許可リストにもHuman dispositionの追加を含めません。
+focused APIテストはAI 実行記録の作成とHuman dispositionの追記を一つの流れで確認します。
 
 {{< code-ref ai-review-tests symbol=test_scripted_provider_identity_tools_run_and_append_only_disposition >}}
 
-このheaderはseed済みActorとの照合やHuman kindの確認を行わないため、production認証ではありません。
-正式なremote modeでは、認証済みprincipalをActorへ対応付ける追加境界が必要です。
+このheaderはseed済み主体との照合やHuman kindの確認を行わないため、本番認証ではありません。
+正式なremote modeでは、認証済みprincipalを主体へ対応付ける追加境界が必要です。
 
 ## 外部権限がない実験をどう閉じるか
 
 local ComposeではPostgreSQLとS3互換object storageを実際に起動できました。
-一方、AWS temporary deploymentやSnowflake queryにはaccount、credential、region、課金上限、resource削除権限が必要です。
+一方、AWS 一時 deploymentやSnowflake queryにはaccount、認証情報、region、課金上限、リソース削除権限が必要です。
 これらの権限がない状態でcloud固有behaviorをmockしても、IAM、public exposure、料金、teardownを検証した証拠にはなりません。
 
-したがって、cloud spikeではinterface設計と公式仕様の比較を進めつつ、実resourceの作成数を0、実費を0として記録しました。
+したがって、cloud spikeではインタフェース設計と公式仕様の比較を進めつつ、実リソースの作成数を0、実費を0として記録しました。
 これはlocal実験をcloud実証と呼び替えないための判断です。
 
 {{< code-ref cloud-spike-boundary-report >}}
 
-外部権限が得られた後の実験は、budget alert、resource tag、expiration、残存確認までを完了条件に含める必要があります。
+外部権限が得られた後の実験は、budget alert、リソース tag、expiration、残存確認までを完了条件に含める必要があります。
 
 ## この実験で意図的に作らなかったもの
 
 Shared Labは既定のSQLite local modeを置き換えません。
-local Projectの自動同期、member管理画面、offline merge、正式なloginは作っていません。
+local プロジェクトの自動同期、member管理画面、offline merge、正式なloginは作っていません。
 
-AI Reviewはgeneral-purpose chat、autonomous Candidate adoption、retraining、arbitrary code executionを提供しません。
-scripted providerは契約とfailure fixtureを検証するためのtest providerであり、実LLMの有用性を証明しません。
+AI レビューはgeneral-purpose chat、autonomous 候補 adoption、retraining、arbitrary code executionを提供しません。
+scripted providerは契約とfailure フィクスチャを検証するためのテスト providerであり、実LLMの有用性を証明しません。
 
 Snowflakeをapplicationの正本DBとして採用していません。
 境界実験の価値は機能数ではなく、次に広げる際の危険と追加契約を具体化した点にあります。
 
-## 実装とfailure fixtureを観察する
+## 実装とfailure フィクスチャを観察する
 
 次のcommandはリポジトリ直下で実行します。
 
@@ -312,47 +312,47 @@ npm run shared:test
 uv run python -m pytest backend/tests/test_ai_reviews.py -q -n 0
 ```
 
-一つ目の成功条件は、二つのActorによる200/409、artifact digest検証、補償処理、migration再実行が成功し、専用containerとvolumeが削除されることです。
-二つ目の成功条件は、数値grounding、secret非保存、immutable envelope、Human attributionのfixtureがすべてpassすることです。
+一つ目の成功条件は、二つの主体による200/409、成果物ダイジェスト検証、補償処理、マイグレーション再実行が成功し、専用containerとvolumeが削除されることです。
+二つ目の成功条件は、数値grounding、secret非保存、不変 envelope、Human attributionのフィクスチャがすべてpassすることです。
 
-失敗した場合は、最初にShared Lab専用Docker projectのlogと`backend/tests/test_ai_reviews.py`の失敗fixtureを確認します。
-既定local databaseや`data/source/`を書き換えてtestを通してはいけません。
+失敗した場合は、最初にShared Lab専用Docker projectのlogと`backend/tests/test_ai_reviews.py`の失敗フィクスチャを確認します。
+既定local データベースや`data/source/`を書き換えてテストを通してはいけません。
 
 ## 演習1: 競合後の正しいUI遷移を設計する {#exercise-shared-state-and-bounded-actors-01}
 
 Client Bが409を受け取った後の画面遷移を、五つ以内のstepで設計してください。
-自動上書き、確認dialogだけの再送、最新revisionの無条件採用は使わないでください。
+自動上書き、確認ダイアログだけの再送、最新リビジョンの無条件採用は使わないでください。
 
 ### 成功条件
 
-回答は、古いdraft、current revision、差分確認、再実行時のexpected revisionを区別します。
+回答は、古いdraft、現行リビジョン、差分確認、再実行時のexpected リビジョンを区別します。
 
 [演習1の解答](#answer-shared-state-and-bounded-actors-01)は、回答を固定してから開きます。
 
 ::: {#answer-shared-state-and-bounded-actors-01 .exercise-solution data-label="演習1の解答"}
 ### 解答例
 
-UIは409とcurrent revisionを受け取り、利用者の古いdraftを別stateとして保持します。
-次に、古いdraftとcurrent revisionの差分を表示します。
-利用者が差分を確認して必要な値だけをcurrent revisionへ再適用します。
-再送時はcurrent revisionを新しい`expected_revision`として使います。
-成功後は新しいrevisionとActorを表示します。
+UIは409と現行リビジョンを受け取り、利用者の古いdraftを別状態として保持します。
+次に、古いdraftと現行リビジョンの差分を表示します。
+利用者が差分を確認して必要な値だけを現行リビジョンへ再適用します。
+再送時は現行リビジョンを新しい`expected_revision`として使います。
+成功後は新しいリビジョンと主体を表示します。
 
 ### 解答の理由
 
-古いdraftを失わず、他Actorの更新も黙って消さないためです。
+古いdraftを失わず、他主体の更新も黙って消さないためです。
 
 ### よくある不十分な回答
 
-409後に同じrequestを強制再送する回答は、optimistic concurrencyをlast-write-winsへ戻すため不十分です。
+409後に同じリクエストを強制再送する回答は、optimistic concurrencyをlast-write-winsへ戻すため不十分です。
 :::
 
-## 演習2: 現在のActor境界を監査する {#exercise-shared-state-and-bounded-actors-02}
+## 演習2: 現在の主体境界を監査する {#exercise-shared-state-and-bounded-actors-02}
 
-Project summaryの読取り、Review Run作成、Candidate更新、Human disposition追記、Dataset approvalを行にしてください。
-列はAI Actor、Human Actor、service Actorとし、現行実装が実際にenforceする結果を表へ記録してください。
+プロジェクト要約の読取り、レビュー 実行記録作成、候補更新、Human disposition追記、データセット approvalを行にしてください。
+列はAI 主体、Human 主体、サービス主体とし、現行実装が実際にenforceする結果を表へ記録してください。
 
-Shared Lab、AI Review、Data Lifecycleのidentityは統合されていないため、各cellへ対象surfaceとresolverも書いてください。
+Shared Lab、AI レビュー、データライフサイクルの同一性は統合されていないため、各cellへ対象surfaceとresolverも書いてください。
 
 ### 成功条件
 
@@ -364,32 +364,32 @@ Shared Lab、AI Review、Data Lifecycleのidentityは統合されていないた
 ::: {#answer-shared-state-and-bounded-actors-02 .exercise-solution data-label="演習2の解答"}
 ### 解答例
 
-| 操作 | AI Actor | Human Actor | service Actor |
+| 操作 | AI 主体 | Human 主体 | サービス主体 |
 |---|---|---|---|
-| Project summaryの読取り | 許可、AI tool surfaceがconfigured providerへ渡す | Shared Labでは許可、development headerをseed済みActorと照合 | Shared Labの`service-migration`はresolver allow-list外のためidentity invalid |
-| Review Run作成 | 許可、AI Review serviceがprovider identityを固定 | AI APIでは対象外 | AI APIでは対象外 |
-| Candidate更新 | Shared Labの`ai-reviewer`は`candidate:write`がないため拒否 | Shared Labのhuman-a/human-bは許可、request identityとexpected revisionを検証 | Shared Labの`service-migration`はresolver allow-list外のためidentity invalidであり、seed上のcapabilityも空 |
-| Human disposition追記 | 設計上は拒否だが、APIはActor kindを照合せず有効形式のheaderを受理 | APIは未認証headerを形式検査して受理 | 設計上は拒否だが、APIはActor kindを照合しない |
-| Dataset approval | 外部AI identityは対象外 | fixed local Actorへ帰属 | 外部service identityは対象外 |
+| プロジェクト要約の読取り | 許可、AI tool surfaceがconfigured providerへ渡す | Shared Labでは許可、development headerをseed済み主体と照合 | Shared Labの`service-migration`はresolver 許可リスト外のため同一性 invalid |
+| レビュー 実行記録作成 | 許可、AI レビュー サービスがprovider 同一性を固定 | AI APIでは対象外 | AI APIでは対象外 |
+| 候補更新 | Shared Labの`ai-reviewer`は`candidate:write`がないため拒否 | Shared Labのhuman-a/human-bは許可、リクエスト同一性とexpected リビジョンを検証 | Shared Labの`service-migration`はresolver 許可リスト外のため同一性 invalidであり、seed上の能力も空 |
+| Human disposition追記 | 設計上は拒否だが、APIは主体 kindを照合せず有効形式のheaderを受理 | APIは未認証headerを形式検査して受理 | 設計上は拒否だが、APIは主体 kindを照合しない |
+| データセット approval | 外部AI 同一性は対象外 | fixed local 主体へ帰属 | 外部サービス同一性は対象外 |
 
-表を線形に読むと、AI Reviewの意図上の許可表と現在のidentity enforcementには差があります。
-特にHuman dispositionは名前と実装が一致せず、headerをHuman Actorへ認証していません。
-Dataset approvalのfixed local Actorは`LOCAL_WORKSPACE_ACTOR`であり、caller identityを解決しません。
+表を線形に読むと、AI レビューの意図上の許可表と現在の同一性 enforcementには差があります。
+特にHuman dispositionは名前と実装が一致せず、headerをHuman 主体へ認証していません。
+データセット approvalのfixed local 主体は`LOCAL_WORKSPACE_ACTOR`であり、caller 同一性を解決しません。
 
 ### 解答の理由
 
-複数のsubsystemを一枚の理想的なrole表へまとめると、未実装のidentity統合を現在機能として誤認するためです。
+複数のsubsystemを一枚の理想的なrole表へまとめると、未実装の同一性統合を現在機能として誤認するためです。
 
 ### よくある不十分な回答
 
-Actor名だけから許可を推測する回答は、resolverとpersistenceが分かれている現在の境界を監査していません。
+主体名だけから許可を推測する回答は、resolverとpersistenceが分かれている現在の境界を監査していません。
 :::
 
-## 演習3: artifact失敗時の残存状態を判定する {#exercise-shared-state-and-bounded-actors-03}
+## 演習3: 成果物失敗時の残存状態を判定する {#exercise-shared-state-and-bounded-actors-03}
 
-次の四つのfailureへ、object、ready metadata、必要な後処理がどうなるかを書いてください。
+次の四つのfailureへ、object、ready メタデータ、必要な後処理がどうなるかを書いてください。
 
-一つ目はput失敗、二つ目はput成功後のread-back digest不一致、三つ目は新規objectの検証成功後にDB登録失敗、四つ目は既存の同一digest objectがある状態でDB登録失敗です。
+一つ目はput失敗、二つ目はput成功後のread-back ダイジェスト不一致、三つ目は新規objectの検証成功後にDB登録失敗、四つ目は既存の同一ダイジェスト objectがある状態でDB登録失敗です。
 
 ### 成功条件
 
@@ -401,23 +401,23 @@ Actor名だけから許可を推測する回答は、resolverとpersistenceが�
 ::: {#answer-shared-state-and-bounded-actors-03 .exercise-solution data-label="演習3の解答"}
 ### 解答例
 
-| failure | object | ready metadata | 後処理 |
+| failure | object | ready メタデータ | 後処理 |
 |---|---|---|---|
-| put失敗 | 作成されない | 作成されない | storage errorを返す |
-| read-back digest不一致 | 新規objectの削除を試みる | 作成されない | 削除失敗ならcleanup-required errorを返すが、durableなcleanup記録はない |
+| put失敗 | 作成されない | 作成されない | storage エラーを返す |
+| read-back ダイジェスト不一致 | 新規objectの削除を試みる | 作成されない | 削除失敗ならcleanup-required エラーを返すが、durableなcleanup記録はない |
 | 新規object後のDB登録失敗 | 新規objectの削除を試みる | 作成されない | 削除失敗なら参照されないobjectが残り得る |
-| 既存同一digest後のDB登録失敗 | 既存objectを残す | 新しいmetadataは作成されない | 別参照を壊さず登録失敗を返す |
+| 既存同一ダイジェスト後のDB登録失敗 | 既存objectを残す | 新しいメタデータは作成されない | 別参照を壊さず登録失敗を返す |
 
-表を線形に読むと、どの失敗でも未検証metadataをreadyにしません。
+表を線形に読むと、どの失敗でも未検証メタデータをreadyにしません。
 ただし、compensationは別systemへのbest-effort操作なので、孤立objectが絶対に残らないとは保証しません。
 
 ### 解答の理由
 
-DB transactionはobject storageのputとdeleteを原子的にrollbackできないためです。
+DB transactionはobject storageのputとdeleteを原子的にロールバックできないためです。
 
 ### よくある不十分な回答
 
-DB rollbackがobjectも消すとする回答は、二つのpersistence systemのfailure boundaryを区別していません。
+DB ロールバックがobjectも消すとする回答は、二つのpersistence systemのfailure boundaryを区別していません。
 :::
 
 ## 章末チェック {#exercise-shared-state-and-bounded-actors-chapter-check}
@@ -425,20 +425,20 @@ DB rollbackがobjectも消すとする回答は、二つのpersistence systemの
 次の三点を自分の言葉で説明してください。
 第一に、PostgreSQLへ移すだけでは共有化が完了しない理由です。
 第二に、AI findingへreferenceを付けるだけではfactual groundingが完了しない理由です。
-第三に、cloud credentialがないときにmock deploymentを実績として扱わない理由です。
+第三に、cloud 認証情報がないときにmock deploymentを実績として扱わない理由です。
 
 ### 成功条件
 
-回答はActor、revision、observed value、external authorityの語を一度ずつ使います。
+回答は主体、リビジョン、observed value、external 権限の語を一度ずつ使います。
 
 [章末チェックの解答](#answer-shared-state-and-bounded-actors-chapter-check)は、回答を固定してから開きます。
 
 ::: {#answer-shared-state-and-bounded-actors-chapter-check .exercise-solution data-label="章末チェックの解答"}
 ### 解答例
 
-共有化ではActorとrevisionを結び、古い判断による更新を検出する必要があります。
+共有化では主体とリビジョンを結び、古い判断による更新を検出する必要があります。
 AI referenceは存在確認だけでなく、claim中のobserved valueと対応する必要があります。
-cloud実証には外部accountを操作するexternal authorityが必要であり、local mockはIAM、cost、teardownの証拠になりません。
+cloud実証には外部accountを操作するexternal 権限が必要であり、local mockはIAM、コスト、teardownの証拠になりません。
 
 ### 解答の理由
 
@@ -452,19 +452,19 @@ technology名だけを列挙する回答は、どの誤判断を防ぐ境界か�
 ## Further Reading
 
 分散した状態の整合性と競合を深く読むには、transactionとconcurrency controlを扱う章をPrimary explanationとして参照してください[@kleppmann-ddia2]。
-application serviceとrepositoryへ境界を置く考え方は、Repository PatternとService Layerを扱う章が実装へ接続しやすいPrerequisiteです[@cosmic-python]。
+アプリケーションサービスとリポジトリへ境界を置く考え方は、リポジトリ Patternとサービス層を扱う章が実装へ接続しやすいPrerequisiteです[@cosmic-python]。
 
-AI Actorのrisk、測定、governanceを広い枠組みで検討する場合は、GOVERNとMEASUREをAlternative viewpointとして参照してください[@nist-ai-rmf-1]。
-このframeworkは個別toolの安全性を証明しないため、本章のfixtureと置き換えてはいけません。
+AI 主体のリスク、測定、governanceを広い枠組みで検討する場合は、GOVERNとMEASUREをAlternative viewpointとして参照してください[@nist-ai-rmf-1]。
+このframeworkは個別toolの安全性を証明しないため、本章のフィクスチャと置き換えてはいけません。
 
-credential、監査、recoveryを運用まで含めて考える場合は、Design for Least PrivilegeとRecoveryをDeep diveとして読んでください[@google-bsrs]。
-大規模service向けの運用を、この小さなlabへそのまま導入する処方箋にはしません。
+認証情報、監査、recoveryを運用まで含めて考える場合は、Design for Least PrivilegeとRecoveryをDeep diveとして読んでください[@google-bsrs]。
+大規模サービス向けの運用を、この小さなlabへそのまま導入する処方箋にはしません。
 
 ## 三つの境界に共通する設計原則
 
-共有状態では、identity before mutationが競合と監査の前提になります。
-AI Reviewでは、evidence before confidenceが自由文の説得力より先に必要です。
-cloud実験では、authority before evidenceが実測の前提になります。
+共有状態では、同一性 before mutationが競合と監査の前提になります。
+AI レビューでは、evidence before confidenceが自由文の説得力より先に必要です。
+cloud実験では、権限 before evidenceが実測の前提になります。
 
-三つに共通する原則は、機構を追加する前に、誰のどの操作が何を証明するかをcontractへ固定することです。
+三つに共通する原則は、機構を追加する前に、誰のどの操作が何を証明するかを契約へ固定することです。
 この原則を守ると、実験を小さく保ちながら、次の実装者が境界を偶然壊す可能性を下げられます。

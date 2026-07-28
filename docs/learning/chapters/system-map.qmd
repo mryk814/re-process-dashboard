@@ -95,14 +95,14 @@ historical_concepts: []
 対象は、React、Electron、FastAPI、SQLiteの名前は見たことがあっても、このリポジトリでの分担をまだ追えていない読者です。
 PythonまたはTypeScriptのどちらか一方を読めれば始められます。
 
-読了後は、画面で候補を保存したときにrequestがどこを通り、どのstateがSQLiteへ残るかを説明できます。
-さらに、source、生成物、実行時artifact、判断のevidenceを区別し、変更時に読むべき正本を選べるようになります。
+読了後は、画面で候補を保存したときにリクエストがどこを通り、どの状態がSQLiteへ残るかを説明できます。
+さらに、ソース、生成物、実行時成果物、判断のevidenceを区別し、変更時に読むべき正本を選べるようになります。
 
 ## 非scope
 
-予測modelの数理、特徴量設計、個々の画面componentの実装は扱いません。
+予測モデルの数理、特徴量設計、個々の画面コンポーネントの実装は扱いません。
 クラウド配備や複数利用者向け認証も対象外です。
-現行アプリは一台のWindows PCで動くローカルアプリであり、ここで読む信頼境界を公開Web serviceへそのまま移せません。
+現行アプリは一台のWindows PCで動くローカルアプリであり、ここで読む信頼境界を公開Web サービスへそのまま移せません。
 
 ## 保存ボタンの先にあるもの
 
@@ -113,16 +113,16 @@ PythonまたはTypeScriptのどちらか一方を読めれば始められます�
 
 | 実行主体 | この場面での仕事 | 保持するもの |
 |---|---|---|
-| React renderer | 入力を表示し、requestを組み立てる | 選択中のProject、編集中の値、通信状態 |
-| Electron main process | windowとPython processを起動し、Desktop固有操作を仲介する | sidecarのport、起動token、window |
-| Python sidecar | HTTP requestを検証し、application処理を呼ぶ | Task registry、Store、実行中のcache |
-| SQLite | transactionが確定したmetadataと小さなpayloadを保持する | Project、Candidate revision、Snapshot、Run、CAS参照 |
-| Workspace CAS | 大きな不変row payloadをcontent digestで保持する | Raw SnapshotとCuration Runのcanonical NDJSON |
+| React renderer | 入力を表示し、リクエストを組み立てる | 選択中のプロジェクト、編集中の値、通信状態 |
+| Electronメインプロセス | windowとPythonプロセスを起動し、Desktop固有操作を仲介する | sidecarのport、起動token、window |
+| Python sidecar | HTTP リクエストを検証し、application処理を呼ぶ | タスクレジストリ、Store、実行中のキャッシュ |
+| SQLite | transactionが確定したメタデータと小さなペイロードを保持する | プロジェクト、候補リビジョン、スナップショット、実行記録、CAS参照 |
+| ワークスペース CAS | 大きな不変行ペイロードをcontent ダイジェストで保持する | 生スナップショットとCuration 実行記録のcanonical NDJSON |
 
-「画面に見えている値」と「SQLiteへ保存済みの値」は同じstateではありません。
-入力中の値はrendererを閉じれば失われますが、commit済みのCandidate revisionはprocessを再起動しても残ります。
+「画面に見えている値」と「SQLiteへ保存済みの値」は同じ状態ではありません。
+入力中の値はrendererを閉じれば失われますが、コミット済みの候補リビジョンはプロセスを再起動しても残ります。
 
-この違いを追うときは、技術名を暗記するより、requestが境界を越えるたびに次の三点を確認します。
+この違いを追うときは、技術名を暗記するより、リクエストが境界を越えるたびに次の三点を確認します。
 
 1. 誰が入力を作ったか。
 2. 次の層は何を検証してから受け取るか。
@@ -130,11 +130,11 @@ PythonまたはTypeScriptのどちらか一方を読めれば始められます�
 
 ## local WebとDesktopは入口が違う
 
-開発中のlocal Webでは、ViteがReactを配信し、browserがloopback上のFastAPIへrequestを送ります。
-DesktopではElectronがwindowを作り、同時にPython sidecarを子processとして起動します。
+開発中のlocal Webでは、ViteがReactを配信し、browserがloopback上のFastAPIへリクエストを送ります。
+DesktopではElectronがwindowを作り、同時にPython sidecarを子プロセスとして起動します。
 
 {{< code-ref system-map-electron-main symbol=sidecarCommand >}}は、開発時には`uvicorn`を、配布版では同梱した`material-workbench-sidecar.exe`を選びます。
-どちらも利用可能なloopback portとWorkspaceのpathを環境変数でsidecarへ渡します。
+どちらも利用可能なloopback portとワークスペースの経路を環境変数でsidecarへ渡します。
 
 一方、{{< code-ref system-map-electron-main symbol=createMainWindow >}}は開発時にViteのURLを開き、配布版ではbuild済みの`index.html`を開きます。
 Reactの本文を二種類持つのではなく、同じWeb buildへ異なる入口を用意しています。
@@ -143,101 +143,101 @@ ElectronのrendererへNode.jsの全機能は渡していません。
 `contextIsolation`、`sandbox`、`nodeIntegration: false`を設定し、{{< code-ref system-map-electron-preload label=preload.ts >}}がDesktopで必要な小さいAPIだけを`window.workbenchDesktop`へ公開します。
 
 ここで**信頼境界（trust boundary）**という名前を付けます。
-信頼境界は、renderer、loopback API、外部Source、Model Package、restore archiveの間で、入力と権限を持ち越さずに検査し直す境目です。
-単に別processへ移る場所ではなく、「手前で確認済みだから大丈夫」と仮定できない場所を指します。
+信頼境界は、renderer、loopback API、外部ソース、モデルパッケージ、復元アーカイブの間で、入力と権限を持ち越さずに検査し直す境目です。
+単に別プロセスへ移る場所ではなく、「手前で確認済みだから大丈夫」と仮定できない場所を指します。
 
-## loopbackでもrequestを検証する
+## loopbackでもリクエストを検証する
 
 `127.0.0.1`は同じPCを指しますが、同じPC上のすべてのprogramをアプリの一部にはしません。
-browserで開いた別pageもloopbackへrequestを試みられるためです。
+browserで開いた別pageもloopbackへリクエストを試みられるためです。
 
 Electronは起動ごとにrandomなtokenを作ります。
 {{< code-ref system-map-electron-main symbol=configureSidecarRequestHeaders >}}と{{< code-ref system-map-web-client symbol=apiClient >}}は、そのtokenを`X-Workbench-Launch-Token` headerへ付けます。
-FastAPI側の{{< code-ref system-map-local-security symbol=configure_local_access >}}はbrowser originとtokenを照合し、条件を満たさないrequestへ`401`または`403`を返します。
+FastAPI側の{{< code-ref system-map-local-security symbol=configure_local_access >}}はbrowser originとtokenを照合し、条件を満たさないリクエストへ`401`または`403`を返します。
 
 この検査は「localだから安全」という仮定を置き換えます。
 ただし、起動tokenは利用者本人を識別するaccount認証ではなく、現在起動しているrendererとsidecarを結び付けるための値です。
 
-Desktop固有のWorkspace exportやrestoreはHTTPではなくIPCを通ります。
-{{< code-ref system-map-electron-main symbol=assertTrustedWorkspaceSender >}}は、呼出元がmain windowのmain frameであり、期待するfileまたは開発serverのURLから来たことを確認します。
+Desktop固有のワークスペース exportや復元はHTTPではなくIPCを通ります。
+{{< code-ref system-map-electron-main symbol=assertTrustedWorkspaceSender >}}は、呼出元がmain windowのmain frameであり、期待するファイルまたは開発サーバのURLから来たことを確認します。
 HTTPとIPCは別の入口なので、それぞれの境界で検査します。
 
-## Python sidecarがrequestを意味へ変える
+## Python sidecarがリクエストを意味へ変える
 
-{{< code-ref system-map-sidecar symbol=main >}}は、通常起動ではUvicorn上でFastAPIを動かし、Workspace保守commandでは一つのJSON結果を標準出力へ返します。
-同じ実行fileを使いますが、HTTP serverと保守commandは別の入口です。
+{{< code-ref system-map-sidecar symbol=main >}}は、通常起動ではUvicorn上でFastAPIを動かし、ワークスペース保守commandでは一つのJSON結果を標準出力へ返します。
+同じ実行ファイルを使いますが、HTTP サーバと保守commandは別の入口です。
 
-{{< code-ref system-map-fastapi-app symbol=create_app >}}はrouterを登録し、起動時にデータ、Model Package、Task registry、SQLite Storeを準備します。
-requestがrouterへ届くと、Pydantic modelがJSONのfieldと型を検査し、application処理がProjectやCandidateの条件を検査します。
+{{< code-ref system-map-fastapi-app symbol=create_app >}}はrouterを登録し、起動時にデータ、モデルパッケージ、タスクレジストリ、SQLite Storeを準備します。
+リクエストがrouterへ届くと、Pydantic モデルがJSONのフィールドと型を検査し、application処理がプロジェクトや候補の条件を検査します。
 
 ここで**契約（contract）**を導入します。
-契約はrequest、response、保存payload、Taskが満たすshape、意味、versionを固定した約束です。
-field名と型だけでは足りず、Candidate revisionの一致や保存後の不変性など、値の意味も契約に含まれます。
+契約はリクエスト、レスポンス、保存ペイロード、タスクが満たす構造、意味、バージョンを固定した約束です。
+フィールド名と型だけでは足りず、候補リビジョンの一致や保存後の不変性など、値の意味も契約に含まれます。
 
-たとえば{{< code-ref system-map-contracts symbol=Candidate >}}は、候補のidentity、revision、入力、作成時刻をAPI上の一まとまりとして表します。
-予測responseでは{{< code-ref system-map-contracts symbol=PredictionResponse >}}が予測値とmodel情報を分けます。
-Reactはこの形を推測せず、生成済みTypeScript型を使ってrequestとresponseを扱います。
+たとえば{{< code-ref system-map-contracts symbol=Candidate >}}は、候補の同一性、リビジョン、入力、作成時刻をAPI上の一まとまりとして表します。
+予測レスポンスでは{{< code-ref system-map-contracts symbol=PredictionResponse >}}が予測値とモデル情報を分けます。
+Reactはこの形を推測せず、生成済みTypeScript型を使ってリクエストとレスポンスを扱います。
 
-## RepositoryがSQLite表現を閉じ込める
+## リポジトリがSQLite表現を閉じ込める
 
-FastAPIが受け取ったPydantic modelを、そのまま画面のcomponentがSQLへ書くことはありません。
-永続化の担当を一か所へ集めなければ、transaction、migration、参照整合の規則が画面ごとに分かれてしまうからです。
+FastAPIが受け取ったPydantic モデルを、そのまま画面のコンポーネントがSQLへ書くことはありません。
+永続化の担当を一か所へ集めなければ、transaction、マイグレーション、参照整合の規則が画面ごとに分かれてしまうからです。
 
 この保存担当を**Repository**と呼びます。
-ここでいうRepositoryはGit repositoryではなく、保存、取得、transaction境界をSQLite表現へ閉じ込めるcomponentです。
+ここでいうリポジトリはGit リポジトリではなく、保存、取得、transaction境界をSQLite表現へ閉じ込めるコンポーネントです。
 
-現行実装では{{< code-ref system-map-store symbol=Store >}}がWorkspace DBを開き、migrationと整合性検査を行います。
-各操作は接続を取得し、必要なrowを読み書きしてからtransactionを終えます。
-API routerはHTTP statusとrequestの扱いを担当し、Storeはtableとrowの扱いを担当します。
+現行実装では{{< code-ref system-map-store symbol=Store >}}がワークスペース DBを開き、マイグレーションと整合性検査を行います。
+各操作は接続を取得し、必要な行を読み書きしてからtransactionを終えます。
+API routerはHTTP 状態とリクエストの扱いを担当し、Storeはテーブルと行の扱いを担当します。
 
-SQLite fileは単なる出力fileではありません。
-Project、Candidate revision、Snapshot、Runの関係を保持する、現在のWorkspaceの正本です。
-一方、rendererのloading flagや開いているdialogはSQLiteへ保存しない一時stateです。
+SQLite ファイルは単なる出力ファイルではありません。
+プロジェクト、候補リビジョン、スナップショット、実行記録の関係を保持する、現在のワークスペースの正本です。
+一方、rendererのloading フラグや開いているダイアログはSQLiteへ保存しない一時状態です。
 
-## request、state、artifact、evidenceを分ける
+## リクエスト、状態、成果物、evidenceを分ける
 
 同じJSONでも、置かれた場所と寿命によって役割が変わります。
 
 | 種類 | 具体例 | 寿命 | 問い |
 |---|---|---|---|
-| request | Candidate更新payload | 一回の通信 | 何を変更してほしいか |
-| state | rendererの編集中入力、sidecarのregistry、SQLiteのrow | 所有者ごとに異なる | 今どの状態か |
-| artifact | Model Package、OpenAPI JSON、build済みHTML | buildまたは配布単位 | 実行に使う成果物は何か |
-| evidence | 保存済みSnapshot、Run、実測との照合 | 判断を再現する期間 | 何を根拠に判断したか |
+| リクエスト | 候補更新ペイロード | 一回の通信 | 何を変更してほしいか |
+| 状態 | rendererの編集中入力、sidecarのレジストリ、SQLiteの行 | 所有者ごとに異なる | 今どの状態か |
+| 成果物 | モデルパッケージ、OpenAPI JSON、build済みHTML | buildまたは配布単位 | 実行に使う成果物は何か |
+| evidence | 保存済みスナップショット、実行記録、実測との照合 | 判断を再現する期間 | 何を根拠に判断したか |
 
-artifactであれば自動的にevidenceになるわけではありません。
-たとえばModel Packageは予測を実行するartifactですが、どのPackageをどのCandidate revisionへ使ったかを保存しなければ、過去の予測のevidenceは再特定できません。
+成果物であれば自動的にevidenceになるわけではありません。
+たとえばモデルパッケージは予測を実行する成果物ですが、どのパッケージをどの候補リビジョンへ使ったかを保存しなければ、過去の予測のevidenceは再特定できません。
 
 その再特定情報を**来歴（provenance）**と呼びます。
-来歴は、結果を作ったTask、Candidate revision、Model Package、Feature Pipeline、学習データを結び付けます。
-{{< code-ref system-map-contracts symbol=ModelMetadata >}}のような型が、結果とmodel identityを同じresponseへ残します。
+来歴は、結果を作ったタスク、候補リビジョン、モデルパッケージ、特徴量パイプライン、学習データを結び付けます。
+{{< code-ref system-map-contracts symbol=ModelMetadata >}}のような型が、結果とモデル同一性を同じレスポンスへ残します。
 
 「来歴があるなら結果は正しい」を意味しません。
 来歴が答えるのは、結果がどの入力と実装から作られたかです。
-modelの妥当性、calibration、実験条件の適切さは別に検証します。
+モデルの妥当性、calibration、実験条件の適切さは別に検証します。
 
-## byte digestが取り違えを検出する
+## byte ダイジェストが取り違えを検出する
 
-pathとfile名だけではartifactを同定できません。
-同じ`manifest.json`という名前の中身が更新されても、pathは変わらないためです。
+経路とファイル名だけでは成果物を同定できません。
+同じ`manifest.json`という名前の中身が更新されても、経路は変わらないためです。
 
 実際のbyte列へSHA-256を適用した値を**byte digest**と呼びます。
-{{< code-ref system-map-model-package symbol=ModelPackageLoader >}}はmanifestと各artifactをbyte列として読み、宣言されたsizeとSHA-256に一致することを確認してからsnapshotへコピーします。
+{{< code-ref system-map-model-package symbol=ModelPackageLoader >}}はマニフェストと各成果物をbyte列として読み、宣言されたsizeとSHA-256に一致することを確認してからスナップショットへコピーします。
 
-byte digestは、同じbyte列かどうかを高い確度で比較する識別子です。
+byte ダイジェストは、同じbyte列かどうかを高い確度で比較する識別子です。
 「提供者が信頼できる」ことを証明する署名ではありません。
-悪意ある提供者がartifactとdigestを同時に置き換えた場合、digestの一致だけでは真正性を判定できません。
+悪意ある提供者が成果物とダイジェストを同時に置き換えた場合、ダイジェストの一致だけでは真正性を判定できません。
 
 この区別は信頼境界へ戻ります。
-Package loaderはpath traversal、file種別、size、digest、schema、allow-list済みruntimeを段階ごとに検査します。
-一つのdigestが一致したことを理由に、Package内の任意codeを実行しません。
+パッケージ loaderは経路 traversal、ファイル種別、size、ダイジェスト、スキーマ、許可リスト済みランタイムを段階ごとに検査します。
+一つのダイジェストが一致したことを理由に、パッケージ内の任意codeを実行しません。
 
 ## monorepoの正本と生成物
 
-このmonorepoには、開発者が編集する正本と、正本から機械生成するfileが並んでいます。
-見た目が読みやすいfileを編集対象に選ぶと、次の生成で変更が消えます。
+このmonorepoには、開発者が編集する正本と、正本から機械生成するファイルが並んでいます。
+見た目が読みやすいファイルを編集対象に選ぶと、次の生成で変更が消えます。
 
-PythonのPydantic contractがAPI shapeの正本です。
+PythonのPydantic 契約がAPI 構造の正本です。
 {{< code-ref system-map-openapi-export symbol=rendered_schema >}}がFastAPIから{{< code-ref system-map-generated-openapi label=openapi.json >}}を生成し、`openapi-typescript`が{{< code-ref system-map-generated-types label=api-types.ts >}}を生成します。
 
 変更の向きは次のとおりです。
@@ -251,38 +251,38 @@ Pydantic contract
   -> React feature
 ```
 
-APIのfieldを変えるときはPydantic contractから直します。
-`api-types.ts`だけを直す変更は、次回生成で消えるだけでなく、Pythonが返すshapeとも一致しません。
+APIのフィールドを変えるときはPydantic 契約から直します。
+`api-types.ts`だけを直す変更は、次回生成で消えるだけでなく、Pythonが返す構造とも一致しません。
 
 ただし、すべてのJSONが生成物ではありません。
-Model Packageのmanifestは配布artifactの正本であり、SQLite内のSnapshot payloadは保存済みevidenceです。
+モデルパッケージのマニフェストは配布成果物の正本であり、SQLite内のスナップショットペイロードは保存済みevidenceです。
 拡張子ではなく、誰が作り、何から再生成でき、失ったときに同じ意味を復元できるかで区別します。
 
 ## 一つの保存操作を端から追う
 
 候補保存の流れを、境界と残るものに絞ると次のようになります。
 
-1. Reactが編集中入力からCandidate更新requestを作る。
-2. typed Web clientがHTTP requestを送り、Desktopでは起動tokenを付ける。
+1. Reactが編集中入力から候補更新リクエストを作る。
+2. typed Web clientがHTTP リクエストを送り、Desktopでは起動tokenを付ける。
 3. FastAPI middlewareがoriginとtokenを検査する。
-4. Pydantic contractがpayloadのshapeを検査する。
-5. application処理がProject ownershipやrevisionなどの意味を検査する。
-6. StoreがSQLite transaction内でrowを更新する。
-7. FastAPIが保存済みCandidateをresponseとして返す。
-8. Reactがresponseのrevisionを現在の表示stateへ反映する。
+4. Pydantic 契約がペイロードの構造を検査する。
+5. application処理がプロジェクト ownershipやリビジョンなどの意味を検査する。
+6. StoreがSQLite transaction内で行を更新する。
+7. FastAPIが保存済み候補をレスポンスとして返す。
+8. Reactがレスポンスのリビジョンを現在の表示状態へ反映する。
 
-通信が手順2で失敗すれば、SQLite rowは変わりません。
-手順6が成功してresponseだけ失われた場合、rendererの表示とSQLiteは一時的に食い違う可能性があります。
-そのため、再試行や再読込では「画面がどう見えるか」ではなく、serverが返すcurrent revisionを確認します。
+通信が手順2で失敗すれば、SQLite 行は変わりません。
+手順6が成功してレスポンスだけ失われた場合、rendererの表示とSQLiteは一時的に食い違う可能性があります。
+そのため、再試行や再読込では「画面がどう見えるか」ではなく、サーバが返す現行リビジョンを確認します。
 
 ## 演習1：保存失敗の境界を特定する {#exercise-system-map-01}
 
-候補保存を押すと`401 launch_token_required`が返り、SQLiteのCandidate revisionは変化しなかったとします。
+候補保存を押すと`401 launch_token_required`が返り、SQLiteの候補リビジョンは変化しなかったとします。
 次の四点を表にしてください。
 
-1. requestが到達した最後のcomponent
-2. 拒否を判断したcomponent
-3. 変化しなかった永続state
+1. リクエストが到達した最後のコンポーネント
+2. 拒否を判断したコンポーネント
+3. 変化しなかった永続状態
 4. 最初に読むcode reference
 
 ### 成功条件
@@ -292,7 +292,7 @@ HTTP middlewareとStoreを混同せず、拒否がtransaction開始前である�
 
 ### ヒント
 
-`401`を作る場所とSQLiteへ接続する場所は別fileです。
+`401`を作る場所とSQLiteへ接続する場所は別ファイルです。
 
 [演習1の解答](#answer-system-map-01)は、回答を固定してから開きます。
 
@@ -301,38 +301,38 @@ HTTP middlewareとStoreを混同せず、拒否がtransaction開始前である�
 
 | 問い | 回答 |
 |---|---|
-| 最後に到達したcomponent | FastAPI middleware |
-| 拒否を判断したcomponent | `configure_local_access`内のlaunch token検査 |
-| 変化しなかった永続state | SQLite内のCandidate rowとrevision |
+| 最後に到達したコンポーネント | FastAPI middleware |
+| 拒否を判断したコンポーネント | `configure_local_access`内のlaunch token検査 |
+| 変化しなかった永続状態 | SQLite内の候補行とリビジョン |
 | 最初に読む箇所 | `api/security.py`、次に`test_launch_token.py` |
 
 #### 解答の理由
 
-{{< code-ref system-map-local-security symbol=configure_local_access >}}は`/health`と`/api/`へのrequestをrouterより前に検査します。
-tokenが一致しなければmiddlewareがresponseを返すため、application処理と{{< code-ref system-map-store symbol=Store >}}には到達しません。
+{{< code-ref system-map-local-security symbol=configure_local_access >}}は`/health`と`/api/`へのリクエストをrouterより前に検査します。
+tokenが一致しなければmiddlewareがレスポンスを返すため、application処理と{{< code-ref system-map-store symbol=Store >}}には到達しません。
 {{< code-ref system-map-security-test symbol=test_launch_token_protects_api_health_and_downloads >}}は、この拒否境界を実行可能な形で固定しています。
 
-認証後のhealth responseは、現在開いているDB、Data Library、Workspace kindも返します。
+認証後のhealth レスポンスは、現在開いているDB、データライブラリ、ワークスペース kindも返します。
 
-これは利用者と開発者が判断台帳、branch用、明示指定のどのWorkspaceを開いたか確認するための運用情報であり、Project identityの代わりではありません。
+これは利用者と開発者が判断台帳、ブランチ用、明示指定のどのワークスペースを開いたか確認するための運用情報であり、プロジェクト同一性の代わりではありません。
 
 #### よくある不十分な回答
 
-「backendで失敗した」だけでは、contract validation、application validation、persistenceのどこで止まったか分かりません。
-SQLiteを開いてrevisionが変わっていないことだけを確認しても、拒否理由は特定できません。
+「バックエンドで失敗した」だけでは、契約 validation、application validation、persistenceのどこで止まったか分かりません。
+SQLiteを開いてリビジョンが変わっていないことだけを確認しても、拒否理由は特定できません。
 :::
 
 ## 演習2：編集対象を選ぶ {#exercise-system-map-02}
 
 次の変更要求ごとに、最初に編集する正本と、直接編集しない生成物を答えてください。
 
-1. Candidate responseへ必須fieldを追加する。
-2. Model Packageのartifactを差し替える。
-3. 過去の予測が使ったPackageを画面へ表示する。
+1. 候補レスポンスへ必須フィールドを追加する。
+2. モデルパッケージの成果物を差し替える。
+3. 過去の予測が使ったパッケージを画面へ表示する。
 
 ### 成功条件
 
-各回答でcontract、artifact、evidenceのどれを変更するかを明示してください。
+各回答で契約、成果物、evidenceのどれを変更するかを明示してください。
 「JSONだから編集する」のように拡張子だけで判断しないでください。
 
 [演習2の解答](#answer-system-map-02)は、回答を固定してから開きます。
@@ -340,26 +340,26 @@ SQLiteを開いてrevisionが変わっていないことだけを確認しても
 ::: {#answer-system-map-02 .exercise-solution data-label="演習2の解答"}
 #### 解答例
 
-1. Pydantic contractを編集し、OpenAPIとTypeScript型を再生成します。
-2. Package作成元とmanifestの宣言を更新し、artifactのsizeとSHA-256を再計算します。
-3. 保存済み予測evidenceにPackage identityが存在することを確認し、そのprovenanceを返すcontractと表示を接続します。
+1. Pydantic 契約を編集し、OpenAPIとTypeScript型を再生成します。
+2. パッケージ作成元とマニフェストの宣言を更新し、成果物のsizeとSHA-256を再計算します。
+3. 保存済み予測evidenceにパッケージ同一性が存在することを確認し、その来歴を返す契約と表示を接続します。
 
 #### 解答の理由
 
-一件目で`api-types.ts`だけを編集すると、Python contractと生成型が食い違います。
-二件目は実行artifactの更新であり、古いdigestのままなら{{< code-ref system-map-model-package symbol=ModelPackageLoader >}}が拒否します。
-三件目は最新Packageの情報を表示するだけでは不十分です。
-過去の判断に使った版を示すには、保存済みevidenceが固定したprovenanceを読む必要があります。
+一件目で`api-types.ts`だけを編集すると、Python 契約と生成型が食い違います。
+二件目は実行成果物の更新であり、古いダイジェストのままなら{{< code-ref system-map-model-package symbol=ModelPackageLoader >}}が拒否します。
+三件目は最新パッケージの情報を表示するだけでは不十分です。
+過去の判断に使った版を示すには、保存済みevidenceが固定した来歴を読む必要があります。
 
 #### よくある不十分な回答
 
 三件をすべて「APIを変更する」とまとめる回答では、正本と派生物の向きが分かりません。
-Packageのfile名だけを保存する回答も、同じpathの内容変更を区別できないため不足します。
+パッケージのファイル名だけを保存する回答も、同じ経路の内容変更を区別できないため不足します。
 :::
 
-## 演習3：digestの保証範囲を限定する {#exercise-system-map-03}
+## 演習3：ダイジェストの保証範囲を限定する {#exercise-system-map-03}
 
-未知の送信者から受け取ったModel Packageで、すべてのartifact digestがmanifestと一致したとします。
+未知の送信者から受け取ったモデルパッケージで、すべての成果物ダイジェストがマニフェストと一致したとします。
 確認できたこと、確認できていないこと、現行loaderが追加で検査することを一つずつ書いてください。
 
 ### 成功条件
@@ -372,42 +372,42 @@ byte整合性と提供者の真正性を分けてください。
 ::: {#answer-system-map-03 .exercise-solution data-label="演習3の解答"}
 #### 解答例
 
-- 確認できたこと：読んだartifact byte列がmanifestの宣言と一致すること
-- 確認できていないこと：manifestとartifactを作った提供者が信頼できること
-- 追加検査：artifact pathがPackage root外へ出ないこと
+- 確認できたこと：読んだ成果物 byte列がマニフェストの宣言と一致すること
+- 確認できていないこと：マニフェストと成果物を作った提供者が信頼できること
+- 追加検査：成果物経路がパッケージ root外へ出ないこと
 
 #### 解答の理由
 
-SHA-256はbyte列の比較に使えますが、署名者のidentityを含みません。
-送信者がmanifestとartifactを同時に作れるなら、両方を整合させることもできます。
-現行loaderはpath、通常file、size上限、総容量、schema、feature pipeline identity、allow-list済みruntimeも検査します。
+SHA-256はbyte列の比較に使えますが、署名者の同一性を含みません。
+送信者がマニフェストと成果物を同時に作れるなら、両方を整合させることもできます。
+現行loaderは経路、通常ファイル、size上限、総容量、スキーマ、特徴量パイプライン同一性、許可リスト済みランタイムも検査します。
 
 #### よくある不十分な回答
 
-「digestが一致したので安全」は、何に対して安全なのかが特定されていません。
-反対に「digestは無意味」も誤りです。
-破損や別artifactとの取り違えを検出する役割は残ります。
+「ダイジェストが一致したので安全」は、何に対して安全なのかが特定されていません。
+反対に「ダイジェストは無意味」も誤りです。
+破損や別成果物との取り違えを検出する役割は残ります。
 :::
 
 ## 設計を振り返る
 
-現行構成はReact、Electron、FastAPI、SQLiteを別processまたは別層へ分けています。
-この分離には起動、通信、型生成の手間がありますが、rendererへfilesystem権限を渡さず、Pythonのmodel runtimeとSQLite transactionをbackendへ閉じ込められます。
-大きなSource lifecycle rowはSQLiteへ埋め込まずWorkspace CASへ分離しますが、identityと参照整合性はStore／Repositoryが閉じ込めます。
+現行構成はReact、Electron、FastAPI、SQLiteを別プロセスまたは別層へ分けています。
+この分離には起動、通信、型生成の手間がありますが、rendererへfilesystem権限を渡さず、PythonのモデルランタイムとSQLite transactionをバックエンドへ閉じ込められます。
+大きなソースライフサイクル行はSQLiteへ埋め込まずワークスペース CASへ分離しますが、同一性と参照整合性はStore／リポジトリが閉じ込めます。
 
-すべてをElectron main processへ集める案ならprocess間通信は減ります。
-しかし、Pythonの科学計算資産を直接使えず、Desktop固有権限とdomain処理が同じ境界へ集まります。
+すべてをElectronメインプロセスへ集める案ならプロセス間通信は減ります。
+しかし、Pythonの科学計算資産を直接使えず、Desktop固有権限とドメイン処理が同じ境界へ集まります。
 
-反対に、FastAPIを共有serverとして公開する案なら複数PCから接続できます。
-しかし、現行の起動token、local file、single-user SQLiteという前提ではaccount認証、権限、同時更新、配備を扱えません。
+反対に、FastAPIを共有サーバとして公開する案なら複数PCから接続できます。
+しかし、現行の起動token、local ファイル、single-user SQLiteという前提ではaccount認証、権限、同時更新、配備を扱えません。
 現在の境界はlocal applicationの条件に対する選択です。
 
 `shared-state-and-bounded-actors.qmd`で扱うPostgreSQL／object storage Shared Labは、この既定構成を自動置換するものではありません。
-AI Review routerもlocal Storeへ追加された独立surfaceであり、正式なremote identity統合を意味しません。
+AI レビュー routerもlocal Storeへ追加された独立surfaceであり、正式なremote 同一性統合を意味しません。
 
 ## 現mainで再確認する
 
-repository rootで次を実行します。
+リポジトリ rootで次を実行します。
 
 ```powershell
 uv run python -m pytest `
@@ -417,19 +417,19 @@ npm run api:check
 node docs/learning/check-code-references.mjs
 ```
 
-最初のcommandはlocal APIの信頼境界とdigestを含む推論identityを確認します。
+最初のcommandはlocal APIの信頼境界とダイジェストを含む推論同一性を確認します。
 `npm run api:check`はFastAPIからexportしたOpenAPIと生成済みTypeScript型が正本に追従していることを確認します。
-最後のcommandは、この章のcode referenceが`verified_commit`上のfileとsymbolへ解決できることを確認します。
+最後のcommandは、この章のcode referenceが`verified_commit`上のファイルとsymbolへ解決できることを確認します。
 
 失敗した場合は、launch tokenの失敗を`backend/tests/test_launch_token.py`、OpenAPI driftを`backend/scripts/export_openapi.py`、code referenceの欠落を章front matterから確認します。
 
 ## 章末チェック {#exercise-system-map-chapter-check}
 
 1. local WebとElectron Desktopで共通する実行主体は何ですか。
-2. rendererの入力stateとSQLite rowはなぜ別物ですか。
-3. contractはfield名と型以外に何を固定しますか。
-4. RepositoryとGit repositoryはどう違いますか。
-5. provenanceとbyte digestは、それぞれ何を再特定しますか。
+2. rendererの入力状態とSQLite 行はなぜ別物ですか。
+3. 契約はフィールド名と型以外に何を固定しますか。
+4. リポジトリとGit リポジトリはどう違いますか。
+5. 来歴とbyte ダイジェストは、それぞれ何を再特定しますか。
 6. loopback APIにもtrust boundaryが必要なのはなぜですか。
 7. `api-types.ts`を直接編集しない理由は何ですか。
 
@@ -439,26 +439,26 @@ node docs/learning/check-code-references.mjs
 #### 解答例
 
 1. React renderer、Python sidecar、SQLiteです。ElectronはDesktop入口を担当し、local Webをbrowserだけで使う場合には入りません。
-2. rendererの入力は未保存でも存在し、process終了で失われます。SQLite rowはtransaction成功後の永続stateです。
-3. payloadの意味、version、受理条件を固定します。
-4. RepositoryはSQLiteへの保存と取得を閉じ込めるcomponentです。Git repositoryはsource codeと履歴を管理します。
-5. provenanceは結果を作ったTask、revision、Package、Pipeline、学習データを再特定します。byte digestは実際のbyte列を再識別します。
-6. 同じPC上の別pageやprocessもloopbackへ接続できるため、originと起動tokenを検査します。
-7. Python contractとOpenAPIから再生成されるfileであり、直接変更は再生成で消え、backendのresponse shapeも変えないためです。
+2. rendererの入力は未保存でも存在し、プロセス終了で失われます。SQLite 行はtransaction成功後の永続状態です。
+3. ペイロードの意味、バージョン、受理条件を固定します。
+4. リポジトリはSQLiteへの保存と取得を閉じ込めるコンポーネントです。Git リポジトリはソースコードと履歴を管理します。
+5. 来歴は結果を作ったタスク、リビジョン、パッケージ、パイプライン、学習データを再特定します。byte ダイジェストは実際のbyte列を再識別します。
+6. 同じPC上の別pageやプロセスもloopbackへ接続できるため、originと起動tokenを検査します。
+7. Python 契約とOpenAPIから再生成されるファイルであり、直接変更は再生成で消え、バックエンドのレスポンス構造も変えないためです。
 
 #### 解答の理由
 
-requestの流れ、stateの寿命、正本と生成物、信頼境界の四点を別々に説明できれば、この章の到達点を満たします。
+リクエストの流れ、状態の寿命、正本と生成物、信頼境界の四点を別々に説明できれば、この章の到達点を満たします。
 
 #### よくある不十分な回答
 
-component名だけを列挙する回答では、stateがどこで永続化され、どの境界が入力を拒否するかを説明できません。
-「localだから安全」という回答も、loopbackへ接続できる別pageやprocessを考慮していません。
+コンポーネント名だけを列挙する回答では、状態がどこで永続化され、どの境界が入力を拒否するかを説明できません。
+「localだから安全」という回答も、loopbackへ接続できる別pageやプロセスを考慮していません。
 :::
 
 ## Further Reading
 
-- *Architecture Patterns with Python*の「Repository Pattern」と「A Brief Interlude: On Coupling and Abstractions」は、domain処理からpersistence表現を分ける理由を読むための資料です [@cosmic-python]。現行repoの`Store`は同書の構成をそのまま実装したものではないため、名前の一致をclass構造の一致と解釈しません。
-- OpenAPI 3.1.1の「Schema Object」と「Paths Object」は、FastAPI contractが生成物を介してWeb clientへ届く形を確認する資料です [@openapi-311]。specificationは個々のfieldのdomain上の意味までは決めません。
-- *Building Secure and Reliable Systems*の「Design for Least Privilege」と「Understand Your Dependencies」は、renderer、sidecar、Package loaderの信頼境界を一般化する資料です [@google-bsrs]。現行アプリはsingle-user local構成なので、同書の分散service向け対策をそのまま要求しません。
-- *The Turing Way*の「Reproducible Research」と「Research Data Management」は、artifactと判断evidenceを分けて保存する理由を研究softwareへ接続する資料です [@turing-way]。Material Decision Workbench固有のSnapshot contractは現行codeで別に確認します。
+- *Architecture Patterns with Python*の「リポジトリ Pattern」と「A Brief Interlude: On Coupling and Abstractions」は、ドメイン処理からpersistence表現を分ける理由を読むための資料です [@cosmic-python]。現行repoの`Store`は同書の構成をそのまま実装したものではないため、名前の一致をclass構造の一致と解釈しません。
+- OpenAPI 3.1.1の「スキーマ Object」と「Paths Object」は、FastAPI 契約が生成物を介してWeb clientへ届く形を確認する資料です [@openapi-311]。specificationは個々のフィールドのドメイン上の意味までは決めません。
+- *Building Secure and Reliable Systems*の「Design for Least Privilege」と「Understand Your Dependencies」は、renderer、sidecar、パッケージ loaderの信頼境界を一般化する資料です [@google-bsrs]。現行アプリはsingle-user local構成なので、同書の分散サービス向け対策をそのまま要求しません。
+- *The Turing Way*の「Reproducible Research」と「Research データ Management」は、成果物と判断evidenceを分けて保存する理由を研究softwareへ接続する資料です [@turing-way]。Material Decision Workbench固有のスナップショット契約は現行codeで別に確認します。
