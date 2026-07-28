@@ -2,7 +2,7 @@
 chapter_id: "model-package-runtime"
 level: intermediate
 estimated_minutes: 160
-verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
+verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
