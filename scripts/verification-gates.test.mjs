@@ -9,7 +9,10 @@ import {
   requiresBackendPytest,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
-import { inspectAcceptanceReport } from "./acceptance-status.mjs";
+import {
+  inspectAcceptanceReport,
+  normalizedTextSha256,
+} from "./acceptance-status.mjs";
 
 test("catalog declares four distinct levels and complete gate metadata", () => {
   const catalog = loadVerificationCatalog();
@@ -118,6 +121,12 @@ test("dirty worktree and catalog drift cannot be reported as current", () => {
   });
   assert.equal(status.applicability, "invalid");
   assert.equal(status.catalogChanged, true);
+});
+
+test("catalog digest is stable across BOM and line-ending conventions", () => {
+  const lf = '{\n  "levels": []\n}\n';
+  const crlf = '\uFEFF{\r\n  "levels": []\r\n}\r\n';
+  assert.equal(normalizedTextSha256(lf), normalizedTextSha256(crlf));
 });
 
 test("failed reports and dirty evidence-only successors are never accepted", () => {

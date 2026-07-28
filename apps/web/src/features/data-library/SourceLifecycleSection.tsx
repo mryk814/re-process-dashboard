@@ -81,8 +81,14 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [trainingFolds, setTrainingFolds] = useState("2");
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
+  const selectedIdRef = useRef("");
+  const selectConnector = useCallback((connectorId: string) => {
+    // Keep the request guard in sync before React commits the selection.
+    // A slow response for the previous connector can otherwise win the
+    // click-to-render race and briefly replace the newly selected detail.
+    selectedIdRef.current = connectorId;
+    setSelectedId(connectorId);
+  }, []);
 
   const profiles = useMemo(() => {
     const seen = new Set<string>();
@@ -93,15 +99,24 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     });
   }, [datasets]);
 
-  const refreshCatalog = useCallback(async (preferredId?: string) => {
+  const refreshCatalog = useCallback(async (
+    preferredId?: string,
+    selectPreferred = false,
+  ) => {
     const next = await workbenchApi.dataLifecycleCatalog();
     setCatalog(next);
-    setSelectedId((current) => {
-      const preferred = preferredId ?? current;
-      return next.connectors.some((item) => item.id === preferred)
-        ? preferred
-        : next.connectors[0]?.id ?? "";
-    });
+    const current = selectedIdRef.current;
+    const hasCurrent = next.connectors.some((item) => item.id === current);
+    const hasPreferred = next.connectors.some((item) => item.id === preferredId);
+    const nextId = selectPreferred && hasPreferred
+      ? preferredId ?? ""
+      : hasCurrent
+        ? current
+        : hasPreferred
+          ? preferredId ?? ""
+          : next.connectors[0]?.id ?? "";
+    selectedIdRef.current = nextId;
+    setSelectedId(nextId);
     setRecipeId((current) => next.recipes.some((item) => item.id === current) ? current : next.recipes.at(-1)?.id ?? "");
   }, []);
 
@@ -372,7 +387,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
         trigger_policy: "manual_only",
         schedule: null,
       });
-      await refreshCatalog(created.id);
+      await refreshCatalog(created.id, true);
       setNotice("接続先を登録しました。データ取得はまだ実行していません。");
     });
   }
@@ -545,7 +560,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     {notice && <p className="source-notice" role="status">{notice}</p>}
     <div className="source-lifecycle-layout">
       <nav aria-label="接続先の選択">
-        {catalog?.connectors.map((connector) => <button type="button" key={connector.id} className={connector.id === selectedId ? "active" : ""} onClick={() => setSelectedId(connector.id)}>
+        {catalog?.connectors.map((connector) => <button type="button" key={connector.id} className={connector.id === selectedId ? "active" : ""} onClick={() => selectConnector(connector.id)}>
           <strong>{connector.name}</strong><span>{connector.source_locator}</span>
         </button>)}
         {catalog?.connectors.length === 0 && <p>接続先はまだありません。</p>}

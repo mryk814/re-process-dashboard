@@ -32,6 +32,10 @@ function fail(message) {
   throw new Error(message);
 }
 
+function normalizedGeneratedText(value) {
+  return value.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+}
+
 function readJson(filename) {
   return JSON.parse(fs.readFileSync(filename, "utf8"));
 }
@@ -702,7 +706,7 @@ function synchronize(filename, expected) {
     return;
   }
   const actual = fs.existsSync(filename) ? fs.readFileSync(filename, "utf8") : null;
-  if (actual !== expected) {
+  if (actual === null || normalizedGeneratedText(actual) !== normalizedGeneratedText(expected)) {
     fail(`${path.relative(learningRoot, filename)} is stale; run node docs/learning/check-concepts.mjs --write`);
   }
 }
@@ -774,6 +778,9 @@ function runSelfTests() {
   if (linked !== "[証拠](glossary.qmd#concept-evidence)") {
     fail("self-test: cross-page glossary link is incorrect");
   }
+  if (normalizedGeneratedText("\uFEFFline 1\r\nline 2\r\n") !== normalizedGeneratedText("line 1\nline 2\n")) {
+    fail("self-test: generated text normalization did not ignore BOM and line endings");
+  }
   const schema = readJson(schemaPath);
   const invalid = readJson(sourcePath);
   invalid.concepts[0].unexpected = true;
@@ -781,7 +788,7 @@ function runSelfTests() {
     fail("self-test: schema did not reject an unknown property");
   }
   console.log(
-    "Concept checker self-tests passed: schema, duplicate, relation, graph, path, and link invariants.",
+    "Concept checker self-tests passed: schema, duplicate, relation, graph, path, link, and line-ending invariants.",
   );
 }
 

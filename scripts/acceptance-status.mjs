@@ -7,6 +7,13 @@ import {
   evaluateAcceptanceApplicability,
 } from "./verification-gates.mjs";
 
+export function normalizedTextSha256(value) {
+  const normalized = String(value)
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
 function git(args, { allowFailure = false } = {}) {
   const result = spawnSync("git", args, { encoding: "utf8" });
   if (result.status !== 0 && !allowFailure) {
@@ -95,9 +102,9 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     .split(/\r?\n/)
     .filter(Boolean)
     .map((line) => line.slice(3));
-  const currentCatalogSha256 = createHash("sha256")
-    .update(readFileSync(catalogPath))
-    .digest("hex");
+  const currentCatalogSha256 = normalizedTextSha256(
+    readFileSync(catalogPath, "utf8"),
+  );
   const status = inspectAcceptanceReport(report, {
     currentCommit,
     commitsAhead: counts[1],
