@@ -34,49 +34,49 @@
     "TS": {
       "v2": {
         "parent_conditions": 142,
-        "mae": 57.842189043065495,
-        "rmse": 398.97857599999423
+        "mae": 57.8421890430655,
+        "rmse": 398.978575999994
       },
       "v4": {
         "parent_conditions": 142,
-        "mae": 58.517243551766335,
-        "rmse": 399.0031370385747
+        "mae": 58.5172435517663,
+        "rmse": 399.003137038575
       }
     },
     "YS": {
       "v2": {
         "parent_conditions": 142,
-        "mae": 41.67848470869993,
-        "rmse": 295.93260690264054
+        "mae": 41.6784847086999,
+        "rmse": 295.932606902641
       },
       "v4": {
         "parent_conditions": 142,
-        "mae": 42.28801129355991,
-        "rmse": 295.97347410076947
+        "mae": 42.2880112935599,
+        "rmse": 295.973474100769
       }
     },
     "EL": {
       "v2": {
         "parent_conditions": 142,
-        "mae": 2.621743778252616,
-        "rmse": 15.98940029497116
+        "mae": 2.62174377825262,
+        "rmse": 15.9894002949712
       },
       "v4": {
         "parent_conditions": 142,
-        "mae": 2.6389712521902955,
-        "rmse": 15.992795528036178
+        "mae": 2.6389712521903,
+        "rmse": 15.9927955280362
       }
     },
     "lambda": {
       "v2": {
         "parent_conditions": 130,
-        "mae": 4.495745663918253,
-        "rmse": 14.719801107495739
+        "mae": 4.49574566391825,
+        "rmse": 14.7198011074957
       },
       "v4": {
         "parent_conditions": 130,
-        "mae": 5.509594912447095,
-        "rmse": 23.279681201570064
+        "mae": 5.50959491244709,
+        "rmse": 23.2796812015701
       }
     }
   },
@@ -84,86 +84,86 @@
     {
       "feature": "peak_temperature_c",
       "unit": "°C",
-      "pearson_r": -0.6990553049539705,
-      "absolute_r": 0.6990553049539705
+      "pearson_r": -0.699055304953971,
+      "absolute_r": 0.699055304953971
     },
     {
       "feature": "max_heating_rate_c_s",
       "unit": "°C/s",
-      "pearson_r": 0.6942434078996513,
-      "absolute_r": 0.6942434078996513
+      "pearson_r": 0.694243407899651,
+      "absolute_r": 0.694243407899651
     },
     {
       "feature": "peak_minus_ac1_c",
       "unit": "°C",
-      "pearson_r": -0.6813073662959264,
-      "absolute_r": 0.6813073662959264
+      "pearson_r": -0.681307366295926,
+      "absolute_r": 0.681307366295926
     },
     {
       "feature": "peak_minus_ac3_c",
       "unit": "°C",
-      "pearson_r": -0.6460046612312303,
-      "absolute_r": 0.6460046612312303
+      "pearson_r": -0.64600466123123,
+      "absolute_r": 0.64600466123123
     },
     {
       "feature": "cooling_800_to_500_observed",
       "unit": "1",
-      "pearson_r": -0.5898474062829564,
-      "absolute_r": 0.5898474062829564
+      "pearson_r": -0.589847406282956,
+      "absolute_r": 0.589847406282956
     },
     {
       "feature": "cooling_rate_800_to_500_c_s",
       "unit": "°C/s",
-      "pearson_r": -0.46120885742372264,
-      "absolute_r": 0.46120885742372264
+      "pearson_r": -0.461208857423723,
+      "absolute_r": 0.461208857423723
     },
     {
       "feature": "time_above_ac1_s",
       "unit": "s",
-      "pearson_r": -0.4503096119288981,
-      "absolute_r": 0.4503096119288981
+      "pearson_r": -0.450309611928898,
+      "absolute_r": 0.450309611928898
     },
     {
       "feature": "thermal_exposure_above_600c_c_s",
       "unit": "°C·s",
-      "pearson_r": -0.44575596628274217,
-      "absolute_r": 0.44575596628274217
+      "pearson_r": -0.445755966282742,
+      "absolute_r": 0.445755966282742
     },
     {
       "feature": "intercritical_time_s",
       "unit": "s",
-      "pearson_r": -0.4349435457341059,
-      "absolute_r": 0.4349435457341059
+      "pearson_r": -0.434943545734106,
+      "absolute_r": 0.434943545734106
     },
     {
       "feature": "time_at_or_above_700c_s",
       "unit": "s",
-      "pearson_r": -0.42636859945634376,
-      "absolute_r": 0.42636859945634376
+      "pearson_r": -0.426368599456344,
+      "absolute_r": 0.426368599456344
     },
     {
       "feature": "time_at_or_above_95pct_peak_s",
       "unit": "s",
-      "pearson_r": -0.37769941695622306,
-      "absolute_r": 0.37769941695622306
+      "pearson_r": -0.377699416956223,
+      "absolute_r": 0.377699416956223
     },
     {
       "feature": "time_within_10c_of_peak_s",
       "unit": "s",
-      "pearson_r": -0.36226294598941383,
-      "absolute_r": 0.36226294598941383
+      "pearson_r": -0.362262945989414,
+      "absolute_r": 0.362262945989414
     },
     {
       "feature": "time_above_ac3_s",
       "unit": "s",
-      "pearson_r": -0.17200218069965348,
-      "absolute_r": 0.17200218069965348
+      "pearson_r": -0.172002180699653,
+      "absolute_r": 0.172002180699653
     },
     {
       "feature": "thermal_exposure_above_ac3_c_s",
       "unit": "°C·s",
-      "pearson_r": -0.1683362655118098,
-      "absolute_r": 0.1683362655118098
+      "pearson_r": -0.16833626551181,
+      "absolute_r": 0.16833626551181
     },
     {
       "feature": "cooling_reaches_ms",
@@ -174,58 +174,58 @@
     {
       "feature": "reheat_count",
       "unit": "count",
-      "pearson_r": 0.01520395871966479,
-      "absolute_r": 0.01520395871966479
+      "pearson_r": 0.0152039587196648,
+      "absolute_r": 0.0152039587196648
     }
   ],
   "line_speed_coefficient_stability": {
     "TS": {
       "standardized_ls_coefficients": [
-        -3.856043671097565,
+        -3.85604367109757,
         -2.85657202700135,
-        -3.441624428349159,
-        -0.7252863287488553,
-        2.7292975054818718
+        -3.44162442834916,
+        -0.725286328748855,
+        2.72929750548187
       ],
       "sign_agreement": 0.8,
-      "mean": -1.630045789943011,
-      "std": 2.4316132089710627
+      "mean": -1.63004578994301,
+      "std": 2.43161320897106
     },
     "YS": {
       "standardized_ls_coefficients": [
-        -2.5197509119069634,
-        -3.149409969991529,
-        -4.0727815800226805,
-        -0.9591301834896839,
-        0.5749779176579786
+        -2.51975091190696,
+        -3.14940996999153,
+        -4.07278158002268,
+        -0.959130183489684,
+        0.574977917657979
       ],
       "sign_agreement": 0.8,
-      "mean": -2.025218945550576,
-      "std": 1.6491482070026569
+      "mean": -2.02521894555058,
+      "std": 1.64914820700266
     },
     "EL": {
       "standardized_ls_coefficients": [
-        0.3660448442735517,
-        0.3922722167822189,
-        0.2322971121167844,
-        0.16249555633287283,
-        0.05106776556334696
+        0.366044844273552,
+        0.392272216782219,
+        0.232297112116784,
+        0.162495556332873,
+        0.051067765563347
       ],
       "sign_agreement": 1.0,
-      "mean": 0.24083549901375495,
-      "std": 0.12714739710888598
+      "mean": 0.240835499013755,
+      "std": 0.127147397108886
     },
     "lambda": {
       "standardized_ls_coefficients": [
-        -0.05338876207407859,
-        0.1741393090412417,
-        0.11821990214568633,
-        -0.6794352641987433,
-        -0.5124811998940191
+        -0.0533887620740786,
+        0.174139309041242,
+        0.118219902145686,
+        -0.679435264198743,
+        -0.512481199894019
       ],
       "sign_agreement": 0.6,
-      "mean": -0.1905892029959826,
-      "std": 0.3434527161403472
+      "mean": -0.190589202995983,
+      "std": 0.343452716140347
     }
   },
   "interpretation_limit": "The source is synthetic demo data. CV differences, correlations, and coefficients evaluate implementation redundancy and numerical behavior; they are not evidence of metallurgical causality or production accuracy."

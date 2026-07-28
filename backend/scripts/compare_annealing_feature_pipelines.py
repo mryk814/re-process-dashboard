@@ -23,6 +23,9 @@ from material_workbench.modeling.feature_pipeline import (
     build_feature_bundle_v2,
     candidate_from_observation,
 )
+from material_workbench.modeling.numeric_canonicalization import (
+    canonicalize_report_float,
+)
 from material_workbench.modeling.runtime import TARGETS
 
 
@@ -110,8 +113,14 @@ def _cv(
         residual = np.asarray(predictions) - np.asarray(observed)
         metrics[target] = {
             "parent_conditions": len(observed),
-            "mae": float(np.mean(np.abs(residual))),
-            "rmse": float(np.sqrt(np.mean(residual * residual))),
+            "mae": canonicalize_report_float(
+                np.mean(np.abs(residual)),
+                label=f"{target} annealing comparison MAE",
+            ),
+            "rmse": canonicalize_report_float(
+                np.sqrt(np.mean(residual * residual)),
+                label=f"{target} annealing comparison RMSE",
+            ),
         }
     return metrics, fold_coefficients
 
@@ -124,13 +133,19 @@ def _correlations(parent_keys: list[str], v4: dict[str, np.ndarray], line_speeds
         if definition.group != "heat_pattern" or float(np.std(matrix[:, index])) < 1e-12:
             continue
         value = float(np.corrcoef(ls, matrix[:, index])[0, 1])
-        if np.isfinite(value):
-            correlations.append({
-                "feature": definition.name,
-                "unit": definition.unit,
-                "pearson_r": value,
-                "absolute_r": abs(value),
-            })
+        pearson_r = canonicalize_report_float(
+            value,
+            label=f"{definition.name} line-speed correlation",
+        )
+        correlations.append({
+            "feature": definition.name,
+            "unit": definition.unit,
+            "pearson_r": pearson_r,
+            "absolute_r": canonicalize_report_float(
+                abs(value),
+                label=f"{definition.name} absolute line-speed correlation",
+            ),
+        })
     return sorted(correlations, key=lambda item: (-item["absolute_r"], item["feature"]))
 
 
@@ -192,10 +207,25 @@ def compare(source: Path) -> dict[str, Any]:
             else 0.0
         )
         stability[target] = {
-            "standardized_ls_coefficients": values,
-            "sign_agreement": agreement,
-            "mean": float(np.mean(array)),
-            "std": float(np.std(array)),
+            "standardized_ls_coefficients": [
+                canonicalize_report_float(
+                    value,
+                    label=f"{target} standardized line-speed coefficient",
+                )
+                for value in values
+            ],
+            "sign_agreement": canonicalize_report_float(
+                agreement,
+                label=f"{target} line-speed coefficient sign agreement",
+            ),
+            "mean": canonicalize_report_float(
+                np.mean(array),
+                label=f"{target} mean line-speed coefficient",
+            ),
+            "std": canonicalize_report_float(
+                np.std(array),
+                label=f"{target} line-speed coefficient standard deviation",
+            ),
         }
     return {
         "schema_version": SCHEMA_VERSION,
