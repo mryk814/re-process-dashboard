@@ -31,4 +31,3 @@ focused pytestは対象pathを指定しなかったため `not_run`、full pytes
 - 複数PRをまとめた節目ではLevel 2を実行する。
 - 実利用前、配布、schema／restore、Package、教材editionの節目ではLevel 3を実行する。
 - 実行しないgateは成功扱いせず、`not_run` と理由を残す。
-
