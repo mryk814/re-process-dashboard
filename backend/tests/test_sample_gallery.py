@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
+from material_workbench.contracts.schemas import CandidateInput
 
 
 def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
@@ -50,12 +51,72 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
             for item in visible_datasets
         )
 
+        installed_gallery = client.get("/api/sample-gallery").json()
+        installed_item = next(
+            item for item in installed_gallery
+            if item["project_id"] == selected["project_id"]
+        )
+        assert installed_item["removable"] is True
+        assert installed_item["remove_blocked_reason"] == ""
+
+        own_project = client.post(
+            "/api/projects",
+            json={
+                "name": "同じDatasetを使う自分の検討",
+                "task_id": bound["task_id"],
+                "dataset_view_revision_id": bound["dataset_view_revision_id"],
+                "task_contract_digest": bound["task_contract_digest"],
+                "model_package_ref_id": bound["model_package_ref_id"],
+                "model_package_manifest_digest": (
+                    bound["model_package_manifest_digest"]
+                ),
+            },
+        )
+        assert own_project.status_code == 201
+
+        removed = client.delete(
+            f"/api/sample-gallery/{selected['project_id']}"
+        )
+        assert removed.status_code == 204
+        assert client.get(
+            f"/api/projects/{selected['project_id']}",
+        ).status_code == 404
+        assert client.get(f"/api/projects/{own_project.json()['id']}").status_code == 200
+        assert any(
+            selected["task_id"] in item["supported_task_ids"]
+            for item in client.get("/api/data-library/datasets").json()
+        )
+        assert next(
+            item for item in client.get("/api/sample-gallery").json()
+            if item["project_id"] == selected["project_id"]
+        )["installed"] is False
+
         repeated = client.post(
             "/api/sample-gallery",
             json={"project_ids": [selected["project_id"]]},
         )
         assert repeated.status_code == 200
-        assert len(client.get("/api/projects").json()) == 2
+        assert len(client.get("/api/projects").json()) == 3
+
+        candidate = client.get(
+            f"/api/projects/{selected['project_id']}/candidates"
+        ).json()[0]
+        snapshot = client.post(
+            f"/api/projects/{selected['project_id']}/candidates/"
+            f"{candidate['id']}/snapshots"
+        )
+        assert snapshot.status_code == 201
+        protected = client.delete(
+            f"/api/sample-gallery/{selected['project_id']}"
+        )
+        assert protected.status_code == 409
+        assert protected.json()["code"] == "sample_has_saved_work"
+        protected_item = next(
+            item for item in client.get("/api/sample-gallery").json()
+            if item["project_id"] == selected["project_id"]
+        )
+        assert protected_item["removable"] is False
+        assert "保存した予測" in protected_item["remove_blocked_reason"]
 
 
 def test_existing_workspace_does_not_reinstall_removed_gallery_projects(
@@ -85,3 +146,41 @@ def test_existing_workspace_does_not_reinstall_removed_gallery_projects(
         assert [item["id"] for item in client.get("/api/projects").json()] == [
             "default"
         ]
+
+
+def test_sample_removal_rejects_an_edited_candidate(
+    tmp_path,
+    app_resources,
+) -> None:
+    with TestClient(
+        create_app(
+            db_path=tmp_path / "workbench.db",
+            data_library_path=tmp_path / "data-library",
+            _resources=app_resources,
+        )
+    ) as client:
+        selected = next(
+            item for item in client.get("/api/sample-gallery").json()
+            if item["available"]
+        )
+        assert client.post(
+            "/api/sample-gallery",
+            json={"project_ids": [selected["project_id"]]},
+        ).status_code == 200
+        candidate = client.get(
+            f"/api/projects/{selected['project_id']}/candidates"
+        ).json()[0]
+        payload = CandidateInput.model_validate(candidate).model_dump(mode="json")
+        payload["name"] = f"{candidate['name']} 編集"
+        payload["expected_revision"] = candidate["revision"]
+        updated = client.put(
+            f"/api/projects/{selected['project_id']}/candidates/{candidate['id']}",
+            json=payload,
+        )
+        assert updated.status_code == 200
+
+        removed = client.delete(
+            f"/api/sample-gallery/{selected['project_id']}"
+        )
+        assert removed.status_code == 409
+        assert "候補が編集" in removed.json()["message"]

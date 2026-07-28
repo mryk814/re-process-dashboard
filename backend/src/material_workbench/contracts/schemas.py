@@ -204,6 +204,8 @@ class SampleGalleryItem(BaseModel):
     installed: bool
     available: bool
     unavailable_reason: str = ""
+    removable: bool = False
+    remove_blocked_reason: str = ""
 
 
 class SampleGalleryInstallInput(BaseModel):
@@ -1467,6 +1469,7 @@ class ApiError(BaseModel):
         "project_archived",
         "active_project_purge",
         "project_purge_confirmation_mismatch",
+        "sample_has_saved_work",
         "data_integrity_error",
         "validation_error",
         "batch_feasibility_infeasible",

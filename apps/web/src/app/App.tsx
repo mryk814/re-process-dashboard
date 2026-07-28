@@ -463,6 +463,7 @@ function App() {
             onProjectArchived={(projectId) => session.archiveProject(projectId)}
             onProjectRestored={(projectId) => session.restoreProject(projectId)}
             onSampleGalleryInstall={(projectIds) => session.installSampleProjects(projectIds)}
+            onSampleGalleryRemove={(projectId) => session.removeSampleProject(projectId)}
             onSwitch={(projectId) => {
               navigate({ view: "project", projectId }, true);
               void session.loadProject(projectId);

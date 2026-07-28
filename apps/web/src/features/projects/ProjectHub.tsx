@@ -73,6 +73,7 @@ type Props = {
   onProjectArchived: (projectId: string) => Promise<boolean>;
   onProjectRestored: (projectId: string) => Promise<boolean>;
   onSampleGalleryInstall: (projectIds: string[]) => Promise<boolean>;
+  onSampleGalleryRemove: (projectId: string) => Promise<boolean>;
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (
@@ -180,6 +181,7 @@ export function ProjectHub({
   onProjectArchived,
   onProjectRestored,
   onSampleGalleryInstall,
+  onSampleGalleryRemove,
   onSwitch,
   onRestore,
   onNavigate,
@@ -209,6 +211,7 @@ export function ProjectHub({
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
   const [sampleGallery, setSampleGallery] = useState<ApiSampleGalleryItem[]>([]);
   const [installingSampleId, setInstallingSampleId] = useState("");
+  const [removingSampleId, setRemovingSampleId] = useState("");
   const [restoringProjectId, setRestoringProjectId] = useState("");
   const [restoringCandidateId, setRestoringCandidateId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -639,6 +642,15 @@ export function ProjectHub({
       await onSampleGalleryInstall(projectIds);
     } finally {
       setInstallingSampleId("");
+    }
+  }
+
+  async function removeSample(projectId: string) {
+    setRemovingSampleId(projectId);
+    try {
+      await onSampleGalleryRemove(projectId);
+    } finally {
+      setRemovingSampleId("");
     }
   }
 
@@ -1133,23 +1145,35 @@ export function ProjectHub({
             </section>
           );
         })}</div>
-        {uninstalledSamples.length > 0 && <details className="sample-gallery-list">
-          <summary>サンプルを追加 <span>{uninstalledSamples.length}件</span></summary>
+        {sampleGallery.length > 0 && <details className="sample-gallery-list">
+          <summary>同梱サンプルを管理 <span>{sampleGallery.length}件</span></summary>
           <div className="sample-gallery-items">
-            <button
+            {uninstalledSamples.length > 1 && <button
               type="button"
               className="outline-button sample-gallery-add-all"
-              disabled={offline || Boolean(installingSampleId) || !uninstalledSamples.some((item) => item.available)}
+              disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !uninstalledSamples.some((item) => item.available)}
               onClick={() => void installSamples([])}
-            >{installingSampleId === "all" ? "追加中…" : "利用可能なサンプルを一括追加"}</button>
-            {uninstalledSamples.map((item) => <div className="sample-gallery-item" key={item.project_id}>
-              <span><strong>{item.name}</strong><small>{item.unavailable_reason || "必要なときだけWorkspaceへ追加します"}</small></span>
-              <button
-                type="button"
-                className="outline-button"
-                disabled={offline || Boolean(installingSampleId) || !item.available}
-                onClick={() => void installSamples([item.project_id])}
-              >{installingSampleId === item.project_id ? "追加中…" : "追加"}</button>
+            >{installingSampleId === "all" ? "追加中…" : `未追加の${uninstalledSamples.length}件を一括追加`}</button>}
+            {sampleGallery.map((item) => <div className="sample-gallery-item" key={item.project_id}>
+              <span>
+                <strong>{item.name}</strong>
+                <small>{item.installed
+                  ? item.remove_blocked_reason || "Workspaceに追加済み"
+                  : item.unavailable_reason || "必要なときだけWorkspaceへ追加します"}</small>
+              </span>
+              {item.installed ? <button
+                  type="button"
+                  className="outline-button"
+                  disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !item.removable}
+                  title={item.remove_blocked_reason || undefined}
+                  onClick={() => void removeSample(item.project_id)}
+                >{removingSampleId === item.project_id ? "処理中…" : "取り除く"}</button>
+                : <button
+                  type="button"
+                  className="outline-button"
+                  disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !item.available}
+                  onClick={() => void installSamples([item.project_id])}
+                >{installingSampleId === item.project_id ? "追加中…" : "追加"}</button>}
             </div>)}
           </div>
         </details>}
