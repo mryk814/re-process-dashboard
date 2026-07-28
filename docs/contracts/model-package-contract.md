@@ -45,6 +45,7 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
   "provenance": {
     "training_data_id": "sha256:...",
     "feature_dataset_id": "sha256:...",
+    "feature_dataset_digest_algorithm": "canonical-json-finite-float15/v2",
     "training_code_revision": "git:..."
   },
   "artifacts": [],
@@ -54,8 +55,17 @@ PackageはPythonコード、import path、callback、pickle、joblibを含めま
 
 全ての`feature_pipeline.spec`、pipeline artifact、predictor artifactは`artifacts`配列にpath/hash/bytesとして列挙する。
 
-`training_data_id`と`feature_dataset_id`は元ファイルの生byteに対するdigestであり、
-改行の書き換えはPackageを丸ごと無効化する。`data/source`、`models`、
+`training_data_id`は元ファイルの生byteに対するdigestであり、
+改行の書き換えはPackageを丸ごと無効化する。`feature_dataset_id`は、
+ProfileとFeature Pipelineを適用したcanonical training datasetのsemantic digestである。
+`feature_dataset_digest_algorithm`を省略した既存Packageは`canonical-json/v1`、
+新しいPackageは`canonical-json-finite-float15/v2`を使う。v2は有限floatを
+15有効桁のtagged decimalへ正規化し、`-0.0`を`0`としてからdigestを作る。
+これによりlibmの末尾bit差を同じ科学的データとして扱うが、raw source、
+特徴量名・順序、行、値の実質的な差を許容するものではない。方式を変える場合は
+既存manifestを書き換えず、新しいPackage ID／versionを発行する。
+
+`data/source`、`models`、
 `examples/model-packages`配下は`.gitattributes`で変換対象外に固定し、
 `backend/tests/test_source_byte_contracts.py`が新しい成果物の取りこぼしと
 作業ツリーの静かな書き換えを検出する。Windowsで`core.autocrlf=true`のまま

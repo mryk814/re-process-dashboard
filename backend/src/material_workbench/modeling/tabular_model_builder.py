@@ -18,6 +18,7 @@ from material_workbench.modeling.model_lifecycle import (
     staged_package_destination,
     task_input_contract_digest,
 )
+from material_workbench.modeling.model_packages import FEATURE_DATASET_DIGEST_FLOAT15
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import (
     SourceLifecycleProvenance,
@@ -735,7 +736,11 @@ def build_tabular_package_from_data(
         "predictors": predictors,
         "provenance": {
             "training_data_id": f"sha256:{data.source_sha256}",
-            "feature_dataset_id": canonical_training_dataset_digest(canonical),
+            "feature_dataset_id": canonical_training_dataset_digest(
+                canonical,
+                algorithm=FEATURE_DATASET_DIGEST_FLOAT15,
+            ),
+            "feature_dataset_digest_algorithm": FEATURE_DATASET_DIGEST_FLOAT15,
             "training_code_revision": tabular_training_code_revision(
                 profile.model_family
             ),

@@ -1,0 +1,214 @@
+{
+  "id": "mpea-hardness-process-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.Fe",
+    "composition.Ni",
+    "composition.Co",
+    "composition.Mn",
+    "composition.Cr",
+    "composition.Al",
+    "composition.Ti",
+    "composition.Cu",
+    "composition.Si",
+    "composition.V",
+    "composition.Nb",
+    "composition.B",
+    "composition.Mo",
+    "composition.Ta",
+    "process.homogenization_temp_c",
+    "process.homogenization_time_h",
+    "process.rolling_temp_c",
+    "process.rolling_reduction_pct",
+    "process.recrystallization_temp_c",
+    "process.recrystallization_time_min",
+    "process.aging_temp_c",
+    "process.aging_time_h",
+    "categorical.homogenized",
+    "categorical.rolled",
+    "categorical.recrystallized",
+    "categorical.aged"
+  ],
+  "features": [
+    {
+      "name": "composition.Fe",
+      "unit": "at%",
+      "meaning": "composition.Fe raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ni",
+      "unit": "at%",
+      "meaning": "composition.Ni raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Co",
+      "unit": "at%",
+      "meaning": "composition.Co raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mn",
+      "unit": "at%",
+      "meaning": "composition.Mn raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cr",
+      "unit": "at%",
+      "meaning": "composition.Cr raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Al",
+      "unit": "at%",
+      "meaning": "composition.Al raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ti",
+      "unit": "at%",
+      "meaning": "composition.Ti raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cu",
+      "unit": "at%",
+      "meaning": "composition.Cu raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Si",
+      "unit": "at%",
+      "meaning": "composition.Si raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.V",
+      "unit": "at%",
+      "meaning": "composition.V raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Nb",
+      "unit": "at%",
+      "meaning": "composition.Nb raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.B",
+      "unit": "at%",
+      "meaning": "composition.B raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mo",
+      "unit": "at%",
+      "meaning": "composition.Mo raw value",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ta",
+      "unit": "at%",
+      "meaning": "composition.Ta raw value",
+      "group": "composition"
+    },
+    {
+      "name": "categorical.homogenized__no",
+      "unit": "1",
+      "meaning": "categorical.homogenized is no",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.homogenized__yes",
+      "unit": "1",
+      "meaning": "categorical.homogenized is yes",
+      "group": "categorical"
+    },
+    {
+      "name": "process.homogenization_temp_c",
+      "unit": "°C",
+      "meaning": "process.homogenization_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.homogenization_time_h__log1p",
+      "unit": "1",
+      "meaning": "log1p transformed process.homogenization_time_h",
+      "group": "process"
+    },
+    {
+      "name": "categorical.rolled__no",
+      "unit": "1",
+      "meaning": "categorical.rolled is no",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.rolled__yes",
+      "unit": "1",
+      "meaning": "categorical.rolled is yes",
+      "group": "categorical"
+    },
+    {
+      "name": "process.rolling_temp_c",
+      "unit": "°C",
+      "meaning": "process.rolling_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.rolling_reduction_pct",
+      "unit": "%",
+      "meaning": "process.rolling_reduction_pct raw value",
+      "group": "process"
+    },
+    {
+      "name": "categorical.recrystallized__no",
+      "unit": "1",
+      "meaning": "categorical.recrystallized is no",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.recrystallized__yes",
+      "unit": "1",
+      "meaning": "categorical.recrystallized is yes",
+      "group": "categorical"
+    },
+    {
+      "name": "process.recrystallization_temp_c",
+      "unit": "°C",
+      "meaning": "process.recrystallization_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.recrystallization_time_min__log1p",
+      "unit": "1",
+      "meaning": "log1p transformed process.recrystallization_time_min",
+      "group": "process"
+    },
+    {
+      "name": "categorical.aged__no",
+      "unit": "1",
+      "meaning": "categorical.aged is no",
+      "group": "categorical"
+    },
+    {
+      "name": "categorical.aged__yes",
+      "unit": "1",
+      "meaning": "categorical.aged is yes",
+      "group": "categorical"
+    },
+    {
+      "name": "process.aging_temp_c",
+      "unit": "°C",
+      "meaning": "process.aging_temp_c raw value",
+      "group": "process"
+    },
+    {
+      "name": "process.aging_time_h__log1p",
+      "unit": "1",
+      "meaning": "log1p transformed process.aging_time_h",
+      "group": "process"
+    }
+  ]
+}

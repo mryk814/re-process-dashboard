@@ -23,6 +23,10 @@ from material_workbench.modeling.model_lifecycle import (
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import PackageContractError
+from material_workbench.modeling.model_packages import (
+    FEATURE_DATASET_DIGEST_FLOAT15,
+    FEATURE_DATASET_DIGEST_LEGACY,
+)
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -30,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 SOURCE = DEFAULT_SOURCE
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
+MPEA_SOURCE = ROOT / "data" / "source" / "external" / "mpea_ground_truth_18021833.csv"
 PROCESS_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v2"
 PROCESS_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2"
 
@@ -81,6 +86,58 @@ def test_canonical_training_dataset_is_deterministic_and_task_specific() -> None
     )
     assert {key for row in annealed["rows"] for key in row["outputs"]} == {"TS", "YS", "EL", "lambda"}
     assert {key for row in hot["rows"] for key in row["outputs"]} == {"TS"}
+
+
+def test_canonical_training_digest_normalizes_cross_platform_libm_tail_bits() -> None:
+    windows = {"rows": [{"features": {"time__log1p": 1.0986122886681098}}]}
+    linux = {"rows": [{"features": {"time__log1p": 1.0986122886681096}}]}
+
+    digest = canonical_training_dataset_digest(
+        windows,
+        algorithm=FEATURE_DATASET_DIGEST_FLOAT15,
+    )
+    assert digest == canonical_training_dataset_digest(
+        linux,
+        algorithm=FEATURE_DATASET_DIGEST_FLOAT15,
+    )
+    assert digest == "sha256:2bc882df934d2eb2dd6ae50306d8f6943e93b761780fca7ed32084a336a1f9a5"
+    assert canonical_training_dataset_digest(
+        windows,
+        algorithm=FEATURE_DATASET_DIGEST_LEGACY,
+    ) != canonical_training_dataset_digest(
+        linux,
+        algorithm=FEATURE_DATASET_DIGEST_LEGACY,
+    )
+
+
+def test_canonical_training_digest_rejects_non_finite_values() -> None:
+    with pytest.raises(ValueError, match="finite floats"):
+        canonical_training_dataset_digest(
+            {"value": float("nan")},
+            algorithm=FEATURE_DATASET_DIGEST_FLOAT15,
+        )
+
+
+@pytest.mark.parametrize(
+    ("task_id", "package_id"),
+    [
+        ("mpea-room-tensile-v1", "mpea-room-tensile-ridge-v2"),
+        ("mpea-hardness-process-v1", "mpea-hardness-ridge-v2"),
+    ],
+)
+def test_portable_feature_digest_packages_pass_production_verification(
+    task_id: str,
+    package_id: str,
+) -> None:
+    package_root = ROOT / "models" / "packages" / package_id
+    manifest = json.loads((package_root / "manifest.json").read_text(encoding="utf-8"))
+
+    assert (
+        manifest["provenance"]["feature_dataset_digest_algorithm"]
+        == FEATURE_DATASET_DIGEST_FLOAT15
+    )
+    report = verify_model_package(package_root, task_id=task_id, source=MPEA_SOURCE)
+    assert report.package_id == package_id
 
 
 def test_verify_rejects_contract_digest_and_quality_report_corruption(tmp_path: Path) -> None:
