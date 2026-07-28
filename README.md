@@ -72,22 +72,22 @@ installerとフォルダZIPだけを残します。比較のため以前の生�
 
 ## 確認
 
-実装中は変更箇所のテストと型だけを確認します。
-テストパスや`-k`式を`--`以降へ渡せるため、全テストは実行しません。
-Windowsでは`npm.cmd`を使えます。
+検証は変更riskに応じた4段階です。
+正本は [検証gate運用](docs/verification-policy.md) と `scripts/verification-gates.json` です。
 
 ```powershell
-npm.cmd run verify:focused -- backend/tests/test_screening_score.py
+npm.cmd run verify:edit -- backend/tests/test_screening_score.py
+npm.cmd run verify:pr -- backend/tests/test_screening_score.py
 ```
 
-PRをレビュー可能にする直前とマージ前だけ、全体検証を1回実行します。
-pytest、Web unit test、型検査、application build、failure-state E2E、作業ツリー、`origin/main...HEAD` の差分検査を順に実行します。
+全体checkpointとWindows配布を含むrelease acceptanceは、通常のPRごとに実行しません。
 
 ```powershell
-npm run verify:full
+npm run verify:checkpoint
+npm run acceptance:release
 ```
 
-GitHubのPRと`main`へのpushでも同じ全体検証を実行します。Actionsが利用できない場合は、ローカルのfull gateと変更リスクに応じたbrowser／packaged smokeをPR本文へ記録します。
+未実行gateは成功扱いせずreportへ`not_run`と理由を残します。Actionsが利用できない場合も、同じrisk policyでローカル証拠と不足分をPR本文へ記録します。
 CIはNode `22.20.0`、npm `11.4.2`、uv `0.9.15`を固定し、`package-lock.json`と`uv.lock`から依存関係を導入します。
 
 モデルPackageを更新した場合は、対象Taskのbuilderでartifact、品質レポート、manifestを必ず同時に再生成します。新しいPackageの作成、検証、使用対象への切替、ロールバックは [モデルPackageのライフサイクル](docs/model-package-lifecycle.md) の手順を使います。

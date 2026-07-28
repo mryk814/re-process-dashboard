@@ -1,4 +1,4 @@
-name: Full verification
+name: PR verification
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    name: full gate
+    name: normal change gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -43,8 +43,5 @@ jobs:
           npm ci
           uv sync --frozen --extra dev
 
-      - name: Install browser for failure-state E2E
-        run: npx playwright install --with-deps chrome
-
-      - name: Run full verification
-        run: npm run verify:full
+      - name: Run normal PR verification
+        run: npm run verify:pr

@@ -1,0 +1,256 @@
+{
+  "schemaVersion": "verification-gates/v1",
+  "levels": [
+    {
+      "id": "edit",
+      "label": "Level 0: Edit loop",
+      "purpose": "実装中に変更した契約へ最短でフィードバックする。",
+      "estimatedMinutes": "1-5",
+      "platform": "any",
+      "gates": ["focused-pytest", "typecheck"],
+      "acceptsFocusedPytest": true,
+      "evidence": ["対象pytestの結果", "生成契約とTypeScript型検査"]
+    },
+    {
+      "id": "pr",
+      "label": "Level 1: Normal change",
+      "purpose": "通常のPRをレビュー可能にする。対象pytestは指定時だけ追加し、省略時は未実行と表示する。",
+      "estimatedMinutes": "2-6",
+      "platform": "any",
+      "gates": [
+        "docs-check",
+        "web-unit",
+        "desktop-unit",
+        "typecheck",
+        "application-build",
+        "working-tree-diff",
+        "branch-diff"
+      ],
+      "acceptsFocusedPytest": true,
+      "evidence": ["対象pytestまたは未実行表示", "unit test", "型・生成契約", "build", "diff check"]
+    },
+    {
+      "id": "checkpoint",
+      "label": "Level 2: Main checkpoint",
+      "purpose": "複数変更をまとめた節目で、共通の科学・契約・障害経路を広く確認する。",
+      "estimatedMinutes": "8-15",
+      "platform": "any",
+      "gates": [
+        "dependency-audit-policy",
+        "dependency-audit",
+        "full-pytest",
+        "web-unit",
+        "desktop-unit",
+        "typecheck",
+        "application-build",
+        "failure-state-e2e",
+        "docs-check",
+        "working-tree-diff",
+        "branch-diff"
+      ],
+      "acceptsFocusedPytest": false,
+      "evidence": ["dependency policy", "全pytest", "unit test", "型・生成契約", "build", "failure-state E2E", "docs", "diff check"]
+    },
+    {
+      "id": "release",
+      "label": "Level 3: Release / Evidence checkpoint",
+      "purpose": "配布、永続化、復旧、Packageなど実利用前の高リスク境界を証拠化する。",
+      "estimatedMinutes": "20-45",
+      "platform": "windows",
+      "gates": [
+        "dependency-audit-policy",
+        "dependency-audit",
+        "full-pytest",
+        "web-unit",
+        "desktop-unit",
+        "typecheck",
+        "application-build",
+        "default-playwright",
+        "failure-state-e2e",
+        "chain-degraded-e2e",
+        "legacy-workspace",
+        "docs-check",
+        "windows-delivery"
+      ],
+      "acceptsFocusedPytest": false,
+      "evidence": ["機械可読acceptance report", "fresh browser", "legacy migration", "Windows配布物とSHA-256"]
+    }
+  ],
+  "gates": {
+    "focused-pytest": {
+      "command": "uv run --extra dev python -m pytest <paths>",
+      "purpose": "変更したbackend契約だけを検証する。",
+      "estimatedMinutes": "1-5",
+      "platform": "any",
+      "riskCategories": ["backend", "persistence", "model-package"],
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest"], "appendFocusedArgs": true}
+    },
+    "dependency-audit-policy": {
+      "command": "npm run security:audit:test",
+      "purpose": "依存脆弱性allow-listの判定規則を検証する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["security", "dependency"],
+      "runner": {"executable": "npm", "args": ["run", "security:audit:test"]}
+    },
+    "dependency-audit": {
+      "command": "npm run security:audit",
+      "purpose": "production依存と期限付き例外を検査する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["security", "dependency"],
+      "runner": {"executable": "npm", "args": ["run", "security:audit"]}
+    },
+    "full-pytest": {
+      "command": "uv run --extra dev python -m pytest",
+      "purpose": "backendの科学・永続化・API契約を横断検証する。",
+      "estimatedMinutes": "4-7",
+      "platform": "any",
+      "riskCategories": ["backend", "persistence", "model-package"],
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest"]}
+    },
+    "web-unit": {
+      "command": "npm run test -w apps/web",
+      "purpose": "Webの状態・表示契約を検証する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["frontend"],
+      "runner": {"executable": "npm", "args": ["run", "test", "-w", "apps/web"]}
+    },
+    "desktop-unit": {
+      "command": "npm run test -w apps/desktop",
+      "purpose": "Desktop shellの復旧契約を検証する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["desktop", "distribution"],
+      "runner": {"executable": "npm", "args": ["run", "test", "-w", "apps/desktop"]}
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "purpose": "Task inventory、OpenAPI生成型、import境界、TypeScriptを検査する。",
+      "estimatedMinutes": "1-2",
+      "platform": "any",
+      "riskCategories": ["backend", "frontend", "desktop", "contracts"],
+      "runner": {"executable": "npm", "args": ["run", "typecheck"]}
+    },
+    "application-build": {
+      "command": "npm run build",
+      "purpose": "WebとDesktopをproduction設定でbuildする。",
+      "estimatedMinutes": "1-2",
+      "platform": "any",
+      "riskCategories": ["frontend", "desktop", "distribution"],
+      "runner": {"executable": "npm", "args": ["run", "build"]}
+    },
+    "failure-state-e2e": {
+      "command": "npm run test:e2e:failure-states",
+      "purpose": "API断、accessibility、degraded startup、catalog conflictをfresh環境で検証する。",
+      "estimatedMinutes": "2-4",
+      "platform": "any",
+      "riskCategories": ["frontend", "backend", "recovery", "accessibility"],
+      "runner": {"executable": "npm", "args": ["run", "test:e2e:failure-states"]}
+    },
+    "default-playwright": {
+      "command": "npx playwright test",
+      "purpose": "通常の主要画面経路をisolated DBで検証する。",
+      "estimatedMinutes": "4-8",
+      "platform": "any",
+      "riskCategories": ["frontend", "backend", "persistence"],
+      "runner": {"executable": "npx", "args": ["playwright", "test"]}
+    },
+    "chain-degraded-e2e": {
+      "command": "npx playwright test --config playwright.chain-degraded.config.ts",
+      "purpose": "Chain専用runtimeのdegraded経路を検証する。",
+      "estimatedMinutes": "1-3",
+      "platform": "any",
+      "riskCategories": ["chain", "model-package"],
+      "runner": {"executable": "npx", "args": ["playwright", "test", "--config", "playwright.chain-degraded.config.ts"]}
+    },
+    "legacy-workspace": {
+      "command": "uv run --extra dev python -m pytest backend/tests/test_legacy_workspace_acceptance.py -q",
+      "purpose": "既存Workspaceのmigrationと再起動を検証する。",
+      "estimatedMinutes": "1-3",
+      "platform": "any",
+      "riskCategories": ["persistence", "restore"],
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest", "backend/tests/test_legacy_workspace_acceptance.py", "-q"]}
+    },
+    "docs-check": {
+      "command": "npm run docs:check",
+      "purpose": "文書リンク、配置規則、inventoryを検査する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["docs", "textbook"],
+      "runner": {"executable": "npm", "args": ["run", "docs:check"]}
+    },
+    "working-tree-diff": {
+      "command": "git diff --check",
+      "purpose": "未コミット差分の空白・競合markerを検査する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["all"],
+      "runner": {"executable": "git", "args": ["diff", "--check"]}
+    },
+    "branch-diff": {
+      "command": "git diff --check <base>...HEAD",
+      "purpose": "branch全体の空白・競合markerを検査する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["all"],
+      "runner": {"executable": "git", "args": ["diff", "--check", "$BASE...HEAD"]}
+    },
+    "windows-delivery": {
+      "command": "npm run package:windows",
+      "purpose": "installerと移動可能ZIPをbuildし、別配置からsmokeする。",
+      "estimatedMinutes": "8-15",
+      "platform": "windows",
+      "riskCategories": ["distribution", "restore"],
+      "runner": {"executable": "npm", "args": ["run", "package:windows"]}
+    },
+    "compose-integration": {
+      "command": "npm run compose:test",
+      "purpose": "PostgreSQLとobject storageを含むlocal fixtureを検証する。",
+      "estimatedMinutes": "3-8",
+      "platform": "docker",
+      "riskCategories": ["compose", "shared-lab"],
+      "priorEvidence": ["docs/reports/docker-compose-local-development-2026-07-27.md"],
+      "runner": {"executable": "npm", "args": ["run", "compose:test"]}
+    },
+    "shared-lab-integration": {
+      "command": "npm run shared:test",
+      "purpose": "Shared Workbench Labの隔離されたintegrationを検証する。",
+      "estimatedMinutes": "3-8",
+      "platform": "docker",
+      "riskCategories": ["shared-lab"],
+      "priorEvidence": ["docs/reports/shared-workbench-lab-v1-2026-07-28.md"],
+      "runner": {"executable": "npm", "args": ["run", "shared:test"]}
+    },
+    "learning-clean-build": {
+      "command": "powershell -File docs/learning/build.ps1 -Clean",
+      "purpose": "教材HTMLとPDF、参照、概念、Lab、driftをclean生成する。",
+      "estimatedMinutes": "3-6",
+      "platform": "windows",
+      "riskCategories": ["textbook"],
+      "priorEvidence": ["PR #432 clean build: HTML 44 pages, PDF 380 pages"],
+      "runner": {"executable": "powershell", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "docs/learning/build.ps1", "-Clean"]}
+    },
+    "learning-visual-review": {
+      "command": "manual: PDF全pageと主要HTML経路を目視",
+      "purpose": "組版崩れ、欠落、読順、interactive disclosureを確認する。",
+      "estimatedMinutes": "10-30",
+      "platform": "human",
+      "riskCategories": ["textbook"],
+      "priorEvidence": ["PR #432 full PDF contact-sheet review and browser interaction"],
+      "manual": true
+    }
+  },
+  "riskMatrix": [
+    {"risk": "pure-docs", "minimumLevel": "pr", "requiredGates": ["docs-check"], "checkpointOnly": ["learning-clean-build", "learning-visual-review"]},
+    {"risk": "frontend", "minimumLevel": "pr", "requiredGates": ["web-unit", "typecheck", "application-build"], "checkpointOnly": ["default-playwright"]},
+    {"risk": "api-contract", "minimumLevel": "pr", "requiredGates": ["focused-pytest", "typecheck"], "checkpointOnly": ["failure-state-e2e"]},
+    {"risk": "sqlite-migration", "minimumLevel": "release", "requiredGates": ["focused-pytest", "legacy-workspace"], "checkpointOnly": ["default-playwright"]},
+    {"risk": "backup-restore", "minimumLevel": "release", "requiredGates": ["focused-pytest", "legacy-workspace", "windows-delivery"], "checkpointOnly": []},
+    {"risk": "model-package", "minimumLevel": "release", "requiredGates": ["focused-pytest", "chain-degraded-e2e"], "checkpointOnly": ["windows-delivery"]},
+    {"risk": "dependency-packaging", "minimumLevel": "release", "requiredGates": ["dependency-audit", "desktop-unit", "windows-delivery"], "checkpointOnly": []},
+    {"risk": "compose-shared-lab", "minimumLevel": "release", "requiredGates": ["compose-integration", "shared-lab-integration"], "checkpointOnly": []},
+    {"risk": "textbook-edition", "minimumLevel": "release", "requiredGates": ["docs-check", "learning-clean-build", "learning-visual-review"], "checkpointOnly": []}
+  ]
+}
