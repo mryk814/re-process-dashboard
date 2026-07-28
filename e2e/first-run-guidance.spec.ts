@@ -1,14 +1,30 @@
 import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
-test("first launch lands on an identified bundled sample overview", async ({ page }) => {
+test("first launch lands on an identified bundled sample overview", async ({ page, request }) => {
+  const projectsResponse = await request.get(`${apiBaseUrl}/api/projects`);
+  expect(projectsResponse.ok()).toBeTruthy();
+  const starterCount = ((await projectsResponse.json()) as Array<{ starter: boolean }>)
+    .filter((project) => project.starter)
+    .length;
+  expect(starterCount).toBeGreaterThan(1);
+
   await page.goto("/");
 
   await expect(page).toHaveURL(/view=project/);
-  await expect(page.locator('.project-list-item[aria-current="page"]')).toContainText("同梱サンプル");
+  const sampleGroup = page.locator(".project-list-group.bundled-samples");
+  const sampleToggle = sampleGroup.getByRole("button", { name: /同梱サンプル/ }).first();
+  await expect(sampleToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(sampleGroup.locator(".project-list-item")).toHaveCount(starterCount);
+  await expect(page.locator(".project-list-items > .project-list-group:not(.bundled-samples) .project-list-name b")).toHaveCount(0);
+  await expect(page.locator('.project-list-item[aria-current="page"]')).toBeVisible();
   await expect(page.locator(".project-hub-header")).toContainText("同梱サンプル");
   const notice = page.getByRole("region", { name: "同梱サンプルの案内" });
   await expect(notice).toContainText("これは動作確認用の同梱サンプルです");
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect.poll(() => sampleGroup.locator(".project-list-group-projects").evaluate(
+    (element) => element.scrollWidth > element.clientWidth,
+  )).toBe(true);
   await notice.getByRole("button", { name: "自分のデータで始める" }).click();
   await expect(page).toHaveURL(/view=data-library/);
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();

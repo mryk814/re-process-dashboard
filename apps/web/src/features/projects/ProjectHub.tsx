@@ -585,19 +585,27 @@ export function ProjectHub({
     const series = new Map((creationOptions?.project_series ?? []).map((item) => [item.id, item]));
     const groups = new Map((creationOptions?.project_series ?? []).map((item) => [
       item.id,
-      { id: item.id, name: item.name, projects: [] as ApiProject[] },
+      { id: item.id, name: item.name, kind: "series" as const, projects: [] as ApiProject[] },
     ]));
-    const unassigned: Array<{ id: string; name: string; projects: ApiProject[] }> = [];
+    const starters: ApiProject[] = [];
+    const unassigned: Array<{ id: string; name: string; kind: "project"; projects: ApiProject[] }> = [];
     for (const item of projects) {
+      if (item.starter) {
+        starters.push(item);
+        continue;
+      }
       const seriesId = item.project_series_id;
       if (!seriesId || !series.has(seriesId)) {
-        unassigned.push({ id: `project:${item.id}`, name: "", projects: [item] });
+        unassigned.push({ id: `project:${item.id}`, name: "", kind: "project", projects: [item] });
         continue;
       }
       const group = groups.get(seriesId)!;
       group.projects.push(item);
     }
     return [
+      ...(starters.length > 0
+        ? [{ id: "bundled-samples", name: "同梱サンプル", kind: "samples" as const, projects: starters }]
+        : []),
       ...[...groups.values()].filter((group) => group.projects.length > 0),
       ...unassigned,
     ];
@@ -1038,7 +1046,7 @@ export function ProjectHub({
       aria-current={item.id === activeProjectId ? "page" : undefined}
       onClick={() => switchProject(item.id)}
     >
-      <span className="project-list-name"><strong>{item.name}</strong>{item.starter && <b>同梱サンプル</b>}</span>
+      <span className="project-list-name"><strong>{item.name}</strong></span>
       <small>{(() => {
         const itemIdentity = item.scientific_identity;
         if (itemIdentity?.identity_kind === "chain") {
@@ -1070,7 +1078,7 @@ export function ProjectHub({
           const collapsed = collapsedSeriesIds.has(group.id);
           const contentId = `project-series-${group.id}`;
           return (
-            <section className={`project-list-group${collapsed ? " collapsed" : ""}`} key={group.id}>
+            <section className={`project-list-group${group.kind === "samples" ? " bundled-samples" : ""}${collapsed ? " collapsed" : ""}`} key={group.id}>
               <header>
                 <button
                   type="button"
@@ -1084,7 +1092,7 @@ export function ProjectHub({
                     return next;
                   })}
                 >
-                  <span><small>検討グループ</small><strong>{group.name}</strong></span>
+                  <span><small>{group.kind === "samples" ? "STARTER PROJECTS" : "検討グループ"}</small><strong>{group.name}</strong></span>
                   <em>{group.projects.length}件</em>
                   <i aria-hidden="true" />
                 </button>
