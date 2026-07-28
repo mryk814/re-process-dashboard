@@ -125,6 +125,26 @@ test("mixed-unit input groups do not borrow the first field unit for the group h
   assert.doesNotMatch(inspector, /<h3>工程条件<\/h3>.*?<\/div><span>°C<\/span>/);
 });
 
+test("a shared input unit is shown once in the group heading", () => {
+  const definition = {
+    input_groups: [{
+      key: "composition",
+      order: 0,
+      label: "材料成分",
+      fields: [
+        numberField("composition.Fe", "Fe"),
+        numberField("composition.C", "C", 1),
+      ],
+    }],
+    outputs: [],
+    display_decimals: { "composition.Fe": 5, "composition.C": 5 },
+    fixed_context: [],
+  };
+  const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {} });
+  assert.equal((inspector.match(/mass%/g) ?? []).length, 1);
+  assert.match(inspector, /<h3>材料成分<\/h3>.*?<\/div><span>mass%<\/span>/);
+});
+
 test("candidate inspector keeps the candidate identity and one shared training-range legend", () => {
   const definition = {
     input_groups: [{

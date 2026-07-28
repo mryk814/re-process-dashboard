@@ -1,6 +1,28 @@
 import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
 
+test("a narrow candidate input pane reflows fields without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.addInitScript(() => {
+    localStorage.setItem("material-workbench:layout:inspector-width:v1", "260");
+  });
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+
+  const layout = await page.locator(".candidate-inspector").evaluate((inspector) => {
+    const composition = inspector.querySelector<HTMLElement>(".composition-fields");
+    return {
+      clientWidth: inspector.clientWidth,
+      scrollWidth: inspector.scrollWidth,
+      columns: composition ? getComputedStyle(composition).gridTemplateColumns : "",
+      repeatedUnitCount: composition?.querySelectorAll(".slider-field em small").length ?? -1,
+    };
+  });
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+  expect(layout.columns.split(" ")).toHaveLength(1);
+  expect(layout.repeatedUnitCount).toBe(0);
+});
+
 test("comparison panes keep candidate rows aligned after text enlargement", async ({ page }) => {
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();

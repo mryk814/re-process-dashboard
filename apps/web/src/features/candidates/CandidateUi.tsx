@@ -170,9 +170,10 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
   fieldErrors: Array<{ path: string; message: string }>;
   onInput: (path: string, value: number | string | undefined) => void;
 }) {
+  const groupUnit = commonGroupUnit(group.fields);
   return (
     <section className={`inspector-section task-input-group ${group.key}`} data-input-group={group.key}>
-      <div className="section-heading"><div className="section-heading-label"><h3>{inputGroupDisplayLabel(group.label)}</h3></div><span>{commonGroupUnit(group.fields)}</span></div>
+      <div className="section-heading"><div className="section-heading-label"><h3>{inputGroupDisplayLabel(group.label)}</h3></div><span>{groupUnit}</span></div>
       <div className={group.key === "composition" ? "composition-fields" : "task-field-grid"}>
         {group.fields.map((field) => {
           const value = getCandidateInputValue(candidate.raw.inputs, field.path);
@@ -187,7 +188,7 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
           const scale = sliderScale(input, numberValue, inputRanges);
           return (
             <label className="slider-field" key={field.path}>
-              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} /> {field.unit}</em></span>
+              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} />{field.unit && field.unit !== groupUnit ? <small>{field.unit}</small> : null}</em></span>
               {missingOptionalValue
                 ? <small>ヒートパターンの経過時間を使用中</small>
                 : <input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step="any" value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, Number(event.target.value))} />}
