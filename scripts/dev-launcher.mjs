@@ -22,9 +22,13 @@ const childEnvironment = {
   WORKBENCH_DEV_PROXY_TOKEN: launchToken,
   WORKBENCH_DEV_API_URL: `http://127.0.0.1:${apiPort}`,
   WORKBENCH_DEV_WEB_PORT: webPort,
+  VITE_API_URL: `http://127.0.0.1:${webPort}`,
   WORKBENCH_DB_PATH: workspace.database,
   WORKBENCH_DATA_LIBRARY_PATH: workspace.dataLibrary,
   WORKBENCH_WORKSPACE_KIND: workspace.source,
+  WORKBENCH_DEFER_RESOURCES:
+    process.env.WORKBENCH_DEFER_RESOURCES
+    ?? (workspace.source === "branch-default" ? "1" : "0"),
   PYTHONUTF8: "1",
 };
 
@@ -91,7 +95,7 @@ const { result } = concurrently(
   [
     ...(startupDiagnostic ? [] : [{
       name: "api",
-      command: `uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort} --reload`,
+      command: `uv run python -m uvicorn main:app --app-dir backend/src --host 127.0.0.1 --port ${apiPort} --reload --reload-dir backend/src`,
       env: childEnvironment,
       prefixColor: "blue",
     }]),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, Request
 
@@ -19,12 +20,18 @@ from material_workbench.contracts.subsystem_availability import (
 from material_workbench.application.ai_review_provider import AiReviewProvider
 
 
+def get_runtime_context(request: Request) -> Any:
+    """Return one immutable generation of the resources swapped after startup."""
+
+    return getattr(request.app.state, "runtime_context", request.app.state)
+
+
 def get_store(request: Request) -> Store:
     return request.app.state.store
 
 
 def get_task_registry(request: Request) -> TaskRegistry:
-    return request.app.state.task_registry
+    return get_runtime_context(request).task_registry
 
 
 def get_blend_contract_registry(request: Request) -> BlendContractRegistry:
@@ -49,7 +56,7 @@ def get_subsystem_availability(
 
 
 def get_workspace_catalog(request: Request) -> WorkspaceCatalog:
-    return request.app.state.workspace_catalog
+    return get_runtime_context(request).workspace_catalog
 
 
 def get_data_library_root(request: Request) -> Path:
@@ -57,7 +64,7 @@ def get_data_library_root(request: Request) -> Path:
 
 
 def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:
-    return request.app.state.project_runtime_resolver
+    return get_runtime_context(request).project_runtime_resolver
 
 
 def get_inference_work_graph(request: Request) -> InferenceWorkGraph:

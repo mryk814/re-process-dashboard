@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from material_workbench.app import _prepare_app_resources
 from material_workbench.contracts.task_contracts import DataExplorerCapability
 from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
 from material_workbench.modeling.model_packages import PackageContractError
@@ -22,6 +23,19 @@ TASK_IDS = tuple(sorted(registered_task_modules()))
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 REPOSITORY_ROOT = Path(__file__).parents[2]
+
+
+def test_app_resources_can_defer_tasks_without_skipping_their_contracts() -> None:
+    resources = _prepare_app_resources(task_ids=frozenset())
+    registry = resources.task_registry
+
+    assert registry.task_ids == TASK_IDS
+    assert registry.available_task_ids == ()
+    for task_id in TASK_IDS:
+        availability = registry.availability_for(task_id)
+        assert availability.status == "unavailable"
+        assert availability.stage == "runtime"
+        assert "準備" in availability.message
 
 
 def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(client) -> None:

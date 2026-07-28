@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import json
 import logging
@@ -9,7 +10,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Mapping
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from .api.errors import PROJECT_API_ERRORS, install_exception_handlers
@@ -62,6 +64,7 @@ from material_workbench.application.chain_evaluation import (
 )
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from .task_modules import (
+    ANNEALED_TASK_ID,
     PRIMARY_DEFAULT_SOURCE,
     PredictionRuntime,
     TaskModule,
@@ -174,12 +177,23 @@ class _AppResources:
     task_registry: TaskRegistry
 
 
+@dataclass(frozen=True)
+class _RuntimeContext:
+    data: Any
+    task_registry: TaskRegistry
+    workspace_catalog: Any
+    project_runtime_resolver: ProjectRuntimeResolver
+    chain_execution_service: ChainExecutionService
+    chain_uncertainty_service: ChainUncertaintyService | None
+
+
 def _prepare_app_resources(
     source_path: str | Path | None = None,
     *,
     flank_wear_source_path: str | Path | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
+    task_ids: frozenset[str] | None = None,
 ) -> _AppResources:
     """Load workbook and package resources that callers treat as read-only."""
 
@@ -196,6 +210,16 @@ def _prepare_app_resources(
     explorers: dict[str, DataExplorerEntry] = {}
     unavailable: dict[str, TaskAvailability] = {}
     for task_id, module in modules.items():
+        if task_ids is not None and task_id not in task_ids:
+            unavailable[task_id] = TaskAvailability(
+                status="unavailable",
+                stage="runtime",
+                message="起動後にデータとModel Packageを準備しています。",
+                resource_id=task_id,
+                expected_locator=f"task:{task_id}",
+                recovery_hint="準備完了後に自動で利用可能になります。",
+            )
+            continue
         configured_source = Path(module.default_source)
         try:
             explicit_source = (
@@ -311,6 +335,11 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         database_existed = database.exists()
+        defer_resources = (
+            _resources is None
+            and os.getenv("WORKBENCH_DEFER_RESOURCES", "").strip().lower()
+            in {"1", "true", "yes"}
+        )
         app.state.workspace_database = database.expanduser().resolve()
         app.state.workspace_kind = (
             os.getenv("WORKBENCH_WORKSPACE_KIND", "").strip()
@@ -327,6 +356,16 @@ def create_app(
                 flank_wear_source_path=flank_wear_source_path,
                 package_roots=package_roots,
                 active_packages_path=active_packages_path,
+                task_ids=(
+                    frozenset({
+                        os.getenv(
+                            "WORKBENCH_STARTUP_TASK_ID",
+                            ANNEALED_TASK_ID,
+                        )
+                    })
+                    if defer_resources
+                    else None
+                ),
             )
         except Exception as exc:
             _raise_startup_error("resources", "データ・Model Package", exc)
@@ -407,6 +446,19 @@ def create_app(
                     else "依存する決定論的Transformを復旧して再起動してください。"
                 ),
             )
+        elif defer_resources:
+            app.state.subsystem_availability.record_unavailable(
+                subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                kind="chain",
+                resource_id=WELDING_CHAIN_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_catalog",
+                cause="resources_loading",
+                message="起動後にChainのTask resourceを準備しています。",
+                impact="準備中はChain候補の編集と実行を待機します。",
+                recovery_hint="準備完了後に自動で利用可能になります。",
+            )
         else:
             try:
                 chain_revision_id = bootstrap_welding_chain(
@@ -482,7 +534,156 @@ def create_app(
             )
         else:
             app.state.chain_uncertainty_service = None
-        yield
+        app.state.runtime_context = _RuntimeContext(
+            data=app.state.data,
+            task_registry=app.state.task_registry,
+            workspace_catalog=app.state.workspace_catalog,
+            project_runtime_resolver=app.state.project_runtime_resolver,
+            chain_execution_service=app.state.chain_execution_service,
+            chain_uncertainty_service=app.state.chain_uncertainty_service,
+        )
+        app.state.resources_ready = not defer_resources
+        app.state.resources_promoting = False
+        app.state.resources_loading_error = None
+        app.state.active_resource_requests = 0
+        app.state.resource_requests_idle = asyncio.Event()
+        app.state.resource_requests_idle.set()
+        promotion_task: asyncio.Task[None] | None = None
+        if defer_resources:
+            async def promote_remaining_resources() -> None:
+                try:
+                    complete = await asyncio.to_thread(
+                        _prepare_app_resources,
+                        source_path,
+                        flank_wear_source_path=flank_wear_source_path,
+                        package_roots=package_roots,
+                        active_packages_path=active_packages_path,
+                    )
+
+                    def promote() -> tuple[
+                        _RuntimeContext,
+                        str | None,
+                        WeldingChainBootstrapError | None,
+                    ]:
+                        initialize_demo_projects(
+                            app.state.store,
+                            complete.modules,
+                            complete.runtimes,
+                            complete.task_registry,
+                            seed_candidates=False,
+                        )
+                        catalog = bootstrap_workspace_catalog(
+                            database,
+                            complete.task_registry,
+                        )
+                        resolver = ProjectRuntimeResolver(
+                            catalog,
+                            complete.task_registry,
+                        )
+                        transform_catalog = app.state.deterministic_transform_catalog
+                        chain_revision_id = app.state.welding_chain_revision_id
+                        chain_error = None
+                        if transform_catalog is not None:
+                            try:
+                                chain_revision_id = bootstrap_welding_chain(
+                                    store=app.state.store,
+                                    workspace_catalog=catalog,
+                                    task_registry=complete.task_registry,
+                                    transform_catalog=transform_catalog,
+                                )
+                            except WeldingChainBootstrapError as exc:
+                                chain_error = exc
+                        chain_execution = ChainExecutionService(
+                            app.state.store,
+                            complete.task_registry,
+                            transform_catalog,
+                            ChainExecutionCoordinator(),
+                        )
+                        chain_uncertainty = (
+                            ChainUncertaintyService(
+                                app.state.store,
+                                chain_execution,
+                            )
+                            if transform_catalog is not None
+                            else None
+                        )
+                        data = (
+                            complete.data_by_source.get("primary")
+                            or next(iter(complete.data_by_source.values()), None)
+                        )
+                        return (
+                            _RuntimeContext(
+                                data=data,
+                                task_registry=complete.task_registry,
+                                workspace_catalog=catalog,
+                                project_runtime_resolver=resolver,
+                                chain_execution_service=chain_execution,
+                                chain_uncertainty_service=chain_uncertainty,
+                            ),
+                            chain_revision_id,
+                            chain_error,
+                        )
+
+                    app.state.resources_promoting = True
+                    await app.state.resource_requests_idle.wait()
+                    context, chain_revision_id, chain_error = await asyncio.to_thread(
+                        promote
+                    )
+                    # API dependencies read this one immutable generation.
+                    app.state.runtime_context = context
+                    # Mirrors remain for diagnostics and existing test helpers.
+                    app.state.data = context.data
+                    app.state.workspace_catalog = context.workspace_catalog
+                    app.state.project_runtime_resolver = (
+                        context.project_runtime_resolver
+                    )
+                    app.state.chain_execution_service = (
+                        context.chain_execution_service
+                    )
+                    app.state.chain_uncertainty_service = (
+                        context.chain_uncertainty_service
+                    )
+                    app.state.task_registry = context.task_registry
+                    if chain_error is None:
+                        app.state.subsystem_availability.record_available(
+                            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                            kind="chain",
+                            resource_id=WELDING_CHAIN_RESOURCE_ID,
+                            owner_kind="chain",
+                            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                            stage="chain_catalog",
+                        )
+                    else:
+                        _record_optional_failure(
+                            app.state.subsystem_availability,
+                            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                            kind="chain",
+                            resource_id=WELDING_CHAIN_RESOURCE_ID,
+                            owner_kind="chain",
+                            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                            stage="chain_catalog",
+                            label="溶接材料Chain",
+                            impact="このChainの候補編集と実行を停止します。保存済みProject・Run・SnapshotはProject概要から参照できます。",
+                            recovery_hint="Chain Definition、binding、固定Dataset／Package参照を確認して再起動してください。",
+                            exc=chain_error,
+                        )
+                    app.state.welding_chain_revision_id = chain_revision_id
+                    app.state.resources_ready = True
+                except Exception as exc:
+                    logger.exception("deferred resource preparation failed")
+                    app.state.resources_loading_error = str(exc)
+                finally:
+                    app.state.resources_promoting = False
+
+            promotion_task = asyncio.create_task(promote_remaining_resources())
+        try:
+            yield
+        finally:
+            if promotion_task is not None and not promotion_task.done():
+                if app.state.resources_promoting:
+                    await asyncio.shield(promotion_task)
+                else:
+                    promotion_task.cancel()
 
     app = FastAPI(
         title="Material Decision Workbench API",
@@ -490,6 +691,36 @@ def create_app(
         lifespan=lifespan,
         responses={422: PROJECT_API_ERRORS[422]},
     )
+
+    @app.middleware("http")
+    async def gate_resource_promotion(request: Request, call_next):
+        health_paths = {"/health", "/api/health", "/api/readiness"}
+        is_health_request = request.url.path in health_paths
+        if (
+            getattr(request.app.state, "resources_promoting", False)
+            and not is_health_request
+        ):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": (
+                        "追加TaskをWorkspaceへ安全に登録しています。"
+                        "完了後に自動で再試行してください。"
+                    )
+                },
+            )
+        if is_health_request:
+            return await call_next(request)
+
+        request.app.state.active_resource_requests += 1
+        request.app.state.resource_requests_idle.clear()
+        try:
+            return await call_next(request)
+        finally:
+            request.app.state.active_resource_requests -= 1
+            if request.app.state.active_resource_requests == 0:
+                request.app.state.resource_requests_idle.set()
+
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)

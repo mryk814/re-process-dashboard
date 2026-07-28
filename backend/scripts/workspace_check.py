@@ -11,8 +11,8 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.app import _prepare_app_resources
 from material_workbench.developer_experience.workspace_preflight import (
+    CurrentWorkspacePreflightRegistry,
     WorkspacePreflightReport,
     inspect_workspace_compatibility,
 )
@@ -49,11 +49,33 @@ def main() -> int:
     arguments = _parser().parse_args()
     database = Path(arguments.database)
     if database.exists():
-        resources = _prepare_app_resources()
-        report = inspect_workspace_compatibility(
-            database,
-            resources.task_registry,
-        )
+        try:
+            registry = CurrentWorkspacePreflightRegistry()
+        except (OSError, ValueError, KeyError) as exc:
+            report = WorkspacePreflightReport(
+                status="error",
+                code=1,
+                database=str(database.expanduser().resolve()),
+                database_exists=True,
+                findings=[
+                    {
+                        "severity": "error",
+                        "stage": "resource",
+                        "resource_id": "active-task-resources",
+                        "cause": str(exc),
+                        "impact": (
+                            "Task、データ、Model Packageの対応を確定できないため、"
+                            "APIを安全に起動できません。"
+                        ),
+                        "recovery_hint": (
+                            "active-packages.json、TaskDefinition、TaskModuleの"
+                            "対応を確認してから再起動してください。"
+                        ),
+                    }
+                ],
+            )
+        else:
+            report = inspect_workspace_compatibility(database, registry)
     else:
         report = WorkspacePreflightReport(
             status="ok",
