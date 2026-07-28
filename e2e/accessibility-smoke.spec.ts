@@ -208,6 +208,6 @@ test("利用できないDecision Activityをアクセシビリティ検査でき
   await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
     .getByRole("button", { name: "候補差分の要因分解" }).click();
-  await expect(page.getByText("現在は利用できません")).toBeVisible();
+  await expect(page.getByRole("region", { name: "実行前に必要な準備" })).toBeVisible();
   await expectNoBlockingAxeViolations(page, "Decision Activity unavailable");
 });

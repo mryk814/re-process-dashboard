@@ -19,21 +19,21 @@ export function ActivityRunHistory({
   const selectedId = activeRunId ?? runs[0]?.id;
 
   return <nav className="activity-run-history" aria-label={label}>
-    <span>結果</span>
-    {runs.map((run, index) => {
-      const selected = run.id === selectedId;
-      const visibleLabel = index === 0
-        ? `最新結果 · ${new Date(run.created_at).toLocaleString("ja-JP")}`
-        : new Date(run.created_at).toLocaleString("ja-JP");
-      return <button
-        type="button"
-        className={selected ? "active" : ""}
-        aria-current={selected ? "true" : undefined}
-        aria-label={`${index === 0 ? "最新結果" : `保存履歴 ${index}`}、${new Date(run.created_at).toLocaleString("ja-JP")}`}
-        onClick={() => onSelectRun(run.id)}
-        key={run.id}
-      >{visibleLabel}</button>;
-    })}
+    <span className="activity-run-history-title"><strong>保存結果</strong><small>{runs.length}件</small></span>
+    <div className="activity-run-history-items">{runs.map((run, index) => {
+        const selected = run.id === selectedId;
+        const visibleLabel = index === 0
+          ? `最新 · ${new Date(run.created_at).toLocaleString("ja-JP")}`
+          : new Date(run.created_at).toLocaleString("ja-JP");
+        return <button
+          type="button"
+          className={selected ? "active" : ""}
+          aria-current={selected ? "true" : undefined}
+          aria-label={`${index === 0 ? "最新結果" : `保存履歴 ${index}`}、${new Date(run.created_at).toLocaleString("ja-JP")}`}
+          onClick={() => onSelectRun(run.id)}
+          key={run.id}
+        >{visibleLabel}</button>;
+      })}</div>
   </nav>;
 }
 

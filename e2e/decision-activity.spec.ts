@@ -264,6 +264,12 @@ test("candidate difference activity attributes the gap and keeps an explicit res
   await page.getByRole("combobox", { name: "比較候補" }).selectOption(
     `${comparison!.id}@${comparison!.revision}`,
   );
+  const comparisonControl = await page.getByRole("combobox", { name: "比較候補" }).boundingBox();
+  const differenceAction = await page.getByRole("button", { name: "差分を分解" }).boundingBox();
+  expect(comparisonControl).not.toBeNull();
+  expect(differenceAction).not.toBeNull();
+  expect(comparisonControl!.x + comparisonControl!.width).toBeLessThanOrEqual(differenceAction!.x);
+
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/decision-activities/candidate-difference-v1/runs")
@@ -276,6 +282,34 @@ test("candidate difference activity attributes the gap and keeps an explicit res
   await expect(target.getByText("残差（交互作用）", { exact: true })).toBeVisible();
   await expect(page.getByText("入力の相違", { exact: false })).toBeVisible();
   await expect(page.locator(".activity-warnings")).toContainText("因果効果ではありません");
+  const resultCards = page.locator(".activity-targets article");
+  expect(await resultCards.count()).toBeGreaterThanOrEqual(2);
+  const firstCard = await resultCards.nth(0).boundingBox();
+  const secondCard = await resultCards.nth(1).boundingBox();
+  expect(firstCard).not.toBeNull();
+  expect(secondCard).not.toBeNull();
+  expect(Math.abs(firstCard!.y - secondCard!.y)).toBeLessThan(2);
+});
+
+test("Decision Activity controls reflow without page-level overflow on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openDecisionActivities(page);
+  await page.getByRole("navigation", { name: "検討アクティビティの選択" })
+    .getByRole("button", { name: "候補差分の要因分解" }).click();
+
+  const comparisonControl = await page.getByRole("combobox", { name: "比較候補" }).boundingBox();
+  const differenceAction = await page.getByRole("button", { name: "差分を分解" }).boundingBox();
+  expect(comparisonControl).not.toBeNull();
+  expect(differenceAction).not.toBeNull();
+  expect(differenceAction!.y).toBeGreaterThan(comparisonControl!.y);
+
+  const width = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(width.scrollWidth).toBeLessThanOrEqual(width.clientWidth);
 });
 
 test("counterfactual activity runs, compares, promotes one proposal and reloads it", async ({ page, request }) => {

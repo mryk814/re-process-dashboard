@@ -61,6 +61,28 @@ export function CounterfactualActivityView({
   );
   const outputNumber = (target: string, value: number) => formatTaskNumber(value, taskDefinition, `output.${target}`, displayDecimalOverrides);
   const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
+  const settings = <>
+    <div className="panel-title">
+      <h3>変更案の探索</h3>
+      <span>Project目標とDesign Spaceを固定して、現在候補からの変更量を最小化します</span>
+    </div>
+    <div className="counterfactual-run-settings">
+      <label>評価点数<input type="number" min={48} max={512} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label>
+      <label>表示案数<input type="number" min={1} max={10} value={resultCount} onChange={(event) => setResultCount(Number(event.target.value))} /></label>
+      <label>変更項目上限<input type="number" min={1} max={12} value={maxChangedFields} onChange={(event) => setMaxChangedFields(Number(event.target.value))} /></label>
+      <label>乱数シード（seed）<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
+      <button type="button" className="primary-button" disabled={!canRun} onClick={() => void onRun({
+        schema_version: "counterfactual-parameters/v1",
+        sample_count: sampleCount,
+        result_count: resultCount,
+        max_changed_fields: maxChangedFields,
+        categorical_change_penalty: 1,
+        immutable_paths: [],
+        seed,
+      })}>{running ? "探索中…" : "最小変更案を探す"}</button>
+    </div>
+    {!ready && <small>候補の入力を保存すると実行できます。</small>}
+  </>;
 
   async function promote(proposalId: string) {
     if (!activeRun || savingId || savedIds.has(proposalId)) return;
@@ -83,28 +105,12 @@ export function CounterfactualActivityView({
 
   return <>
     <p className="activity-question">{availability.definition.question}</p>
-    <section className="activity-settings">
-      <div className="panel-title">
-        <h3>変更案の探索</h3>
-        <span>Project目標とDesign Spaceを固定して、現在候補からの変更量を最小化します</span>
-      </div>
-      <div className="counterfactual-run-settings">
-        <label>評価点数<input type="number" min={48} max={512} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label>
-        <label>表示案数<input type="number" min={1} max={10} value={resultCount} onChange={(event) => setResultCount(Number(event.target.value))} /></label>
-        <label>変更項目上限<input type="number" min={1} max={12} value={maxChangedFields} onChange={(event) => setMaxChangedFields(Number(event.target.value))} /></label>
-        <label>乱数シード（seed）<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
-        <button type="button" className="primary-button" disabled={!canRun} onClick={() => void onRun({
-          schema_version: "counterfactual-parameters/v1",
-          sample_count: sampleCount,
-          result_count: resultCount,
-          max_changed_fields: maxChangedFields,
-          categorical_change_penalty: 1,
-          immutable_paths: [],
-          seed,
-        })}>{running ? "探索中…" : "最小変更案を探す"}</button>
-      </div>
-      {!ready && <small>候補の入力を保存すると実行できます。</small>}
-    </section>
+    {availability.available
+      ? <section className="activity-settings">{settings}</section>
+      : <details className="activity-settings activity-settings-collapsed">
+          <summary>実行設定を確認</summary>
+          <div className="activity-settings-collapsed-body">{settings}</div>
+        </details>}
 
     <ActivityRunHistory label="保存済み目標到達案" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
