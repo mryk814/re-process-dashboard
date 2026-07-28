@@ -2,7 +2,7 @@
 chapter_id: "restore-workspace-safely"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
+verified_commit: "0eaf27b3b70238bb841d2ed04509d499f1afa2f7"
 code_references:
   - path: "docs/operations/workspace-backup.md"
     role: "docs"
