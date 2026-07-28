@@ -21,12 +21,13 @@ npm install
 npm run dev
 ```
 
-- Web UI: <http://127.0.0.1:5180>
-- API docs（dev proxy経由）: <http://127.0.0.1:5180/docs>
+- Web UI: 端末に表示されたURL（通常は <http://127.0.0.1:5180>）
+- API docs（dev proxy経由）: Web UIのURL + `/docs`
 - Workspace DB: `.dev-workspaces/<branch名>-<短いhash>.db`
 
 停止は起動したターミナルで `Ctrl+C` です。
-既定portが使用中なら、`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`で変更できます。
+既定portが使用中ならlauncherが近い空きportを自動選択し、実際のURLを端末へ表示します。
+探索開始portを変えたい場合は`WORKBENCH_DEV_API_PORT`と`WORKBENCH_DEV_WEB_PORT`を指定できます。
 
 開発起動では、Web UIと既定Task（`annealed-properties-v1`）を先に利用可能にし、
 ほかのTaskのデータ、Model Package、runtimeは整合性検証を省略せずbackgroundで準備します。

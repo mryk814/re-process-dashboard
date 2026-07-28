@@ -224,6 +224,8 @@ def build_package(
     destination: Path,
     *,
     replace: bool = False,
+    package_id: str | None = None,
+    package_version: str = "1.0.0",
 ) -> None:
     source_profile = load_stage_b_profile(profile_path)
     training = build_stage_b_training_data(source, source_profile)
@@ -243,7 +245,8 @@ def build_package(
             staging,
             # Package IDはディレクトリ名に合わせる。Profileの既定値のままだと、
             # 契約が変わって新しい版を作っても同じIDのPackageが2つ残る。
-            package_id=destination.name,
+            package_id=package_id or destination.name,
+            package_version=package_version,
             training_contract=contract,
         )
         verify_model_package(

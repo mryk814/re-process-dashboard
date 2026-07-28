@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { createServer } from "node:net";
 import { resolveDevWorkspace } from "./dev-workspace.mjs";
 
 function port(name, fallback) {
@@ -10,8 +11,47 @@ function port(name, fallback) {
   return value;
 }
 
-const apiPort = port("WORKBENCH_DEV_API_PORT", "8765");
-const webPort = port("WORKBENCH_DEV_WEB_PORT", "5180");
+function isAvailable(candidate) {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", () => resolve(false));
+    server.listen(Number(candidate), "127.0.0.1", () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function availablePort(name, fallback, excluded = new Set()) {
+  const requested = Number(port(name, fallback));
+  for (let candidate = requested; candidate <= Math.min(requested + 50, 65535); candidate += 1) {
+    if (!excluded.has(candidate) && await isAvailable(candidate)) {
+      if (candidate !== requested) {
+        process.stdout.write(
+          `[port] ${requested} は使用中のため ${name}=${candidate} で起動します。\n`,
+        );
+      }
+      return String(candidate);
+    }
+  }
+  throw new Error(
+    `${name}の空きportが見つかりません。`
+    + `PowerShellで $env:${name}="<空きport>"; npm run dev を実行してください。`,
+  );
+}
+
+const checkOnly = process.argv.includes("--check");
+const resolvePortsOnly = process.argv.includes("--resolve-ports");
+const apiPort = checkOnly
+  ? port("WORKBENCH_DEV_API_PORT", "8765")
+  : await availablePort("WORKBENCH_DEV_API_PORT", "8765");
+const webPort = checkOnly
+  ? port("WORKBENCH_DEV_WEB_PORT", "5180")
+  : await availablePort(
+    "WORKBENCH_DEV_WEB_PORT",
+    "5180",
+    new Set([Number(apiPort)]),
+  );
 const workspace = resolveDevWorkspace({
   mainWorkspace: process.argv.includes("--main-workspace"),
 });
@@ -32,7 +72,7 @@ const childEnvironment = {
   PYTHONUTF8: "1",
 };
 
-if (process.argv.includes("--check")) {
+if (checkOnly || resolvePortsOnly) {
   process.stdout.write(JSON.stringify({
     tokenBytes: 32,
     apiProtected: childEnvironment.WORKBENCH_LAUNCH_TOKEN === launchToken,
