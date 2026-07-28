@@ -41,6 +41,12 @@ split into three allow-listed parts:
 
 `Candidate Generator → Acquisition Evaluator → Selector`
 
+GMRによる`p(x | y*)`の直接逆解析は
+[`docs/research/gmr-inverse-candidate-poc.md`](../research/gmr-inverse-candidate-poc.md)
+でresearch-only評価を行い、production採用は保留した。
+合成二経路では複数modeを安全に提示できたが、実Taskのgrouped historical replayを
+通していないため、allow-listやfallbackへは追加していない。
+
 - `latin_hypercube_v1` preserves the previous seeded LHS sequence and goal/
   shortfall ranking.
 - `sobol_ucb_v1` uses a scrambled, seeded Sobol pool and UCB/LCB. The saved
