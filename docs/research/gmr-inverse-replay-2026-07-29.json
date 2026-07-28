@@ -1,0 +1,139 @@
+{
+  "schema_version": "gmr-inverse-replay/v1",
+  "seed": 453,
+  "dataset": {
+    "kind": "synthetic_two-route_process",
+    "train_rows": 280,
+    "replay_rows": 80,
+    "replay_targets": 20,
+    "input_variables": [
+      "normalized_temperature",
+      "normalized_hold_time"
+    ],
+    "target": "normalized_property",
+    "known_modes": [
+      0,
+      1
+    ]
+  },
+  "constraints": {
+    "lower": [
+      -2.3,
+      -1.9
+    ],
+    "upper": [
+      2.3,
+      1.9
+    ],
+    "cross_field": "x0 * x1 <= -0.20"
+  },
+  "goal_tolerance": 1.25,
+  "summary": {
+    "gmr_modes": {
+      "replay_targets": 20,
+      "goal_hit_rate": 1.0,
+      "constraint_pass_rate": 1.0,
+      "mean_pairwise_diversity": 3.9187138485699053,
+      "mean_nearest_distance": 0.01399500548384133,
+      "mean_modes_presented": 2.0,
+      "mean_experiments_to_hit": 1.0,
+      "mean_generation_ms": 0.20037000213051215
+    },
+    "historical_neighbor": {
+      "replay_targets": 20,
+      "goal_hit_rate": 1.0,
+      "constraint_pass_rate": 1.0,
+      "mean_pairwise_diversity": 3.934206194935752,
+      "mean_nearest_distance": 0.0,
+      "mean_modes_presented": 2.0,
+      "mean_experiments_to_hit": 1.0,
+      "mean_generation_ms": 0.0536100022145547
+    },
+    "forward_optimization": {
+      "replay_targets": 20,
+      "goal_hit_rate": 0.35,
+      "constraint_pass_rate": 1.0,
+      "mean_pairwise_diversity": 3.3187151013593934,
+      "mean_nearest_distance": 0.30768060303891365,
+      "mean_modes_presented": 1.85,
+      "mean_experiments_to_hit": 1.4285714285714286,
+      "mean_generation_ms": 0.05023999692639336
+    },
+    "bo_surrogate": {
+      "replay_targets": 20,
+      "goal_hit_rate": 0.45,
+      "constraint_pass_rate": 1.0,
+      "mean_pairwise_diversity": 2.194376133021822,
+      "mean_nearest_distance": 0.381430372825344,
+      "mean_modes_presented": 1.8,
+      "mean_experiments_to_hit": 1.5555555555555556,
+      "mean_generation_ms": 0.04857499880017713
+    },
+    "manual": {
+      "replay_targets": 20,
+      "goal_hit_rate": 0.1,
+      "constraint_pass_rate": 1.0,
+      "mean_pairwise_diversity": 0.0,
+      "mean_nearest_distance": 0.004016937956864969,
+      "mean_modes_presented": 1.0,
+      "mean_experiments_to_hit": 1.0,
+      "mean_generation_ms": 0.04045499808853492
+    }
+  },
+  "example_target": {
+    "target": 88.93046282905235,
+    "candidates": [
+      {
+        "point": [
+          -1.7819980008409586,
+          1.0192411186059196
+        ],
+        "forward_prediction": 88.96992264188572,
+        "true_value": 89.06136770559732,
+        "target_error": 0.1309048765449745,
+        "nearest_distance": 0.023806836409694093,
+        "extrapolation": false,
+        "mode": "negative_temperature",
+        "constraint_reasons": [],
+        "component": 0,
+        "conditional_weight": 0.551788894808579,
+        "conditional_log_density": 4.251290806020837
+      },
+      {
+        "point": [
+          1.747633893551307,
+          -1.4127281772937437
+        ],
+        "forward_prediction": 88.99852392480508,
+        "true_value": 89.05197258645389,
+        "target_error": 0.12150975740154024,
+        "nearest_distance": 0.01088854831690265,
+        "extrapolation": false,
+        "mode": "positive_temperature",
+        "constraint_reasons": [],
+        "component": 1,
+        "conditional_weight": 0.44821110519142104,
+        "conditional_log_density": 4.108353990027654
+      }
+    ],
+    "rejected": 0,
+    "elapsed_ms": 0.22819999139755964
+  },
+  "decision": {
+    "status": "hold",
+    "reason": "複数の高密度経路を高速に提示できるが、合成連続2変数だけの結果であり、カテゴリ・組成和・実データbiasを含むTaskで再検証するまでproduction strategyにはしない",
+    "next_gate": "実TaskのTraining Snapshotを使い、grouped historical replayでforward optimizationとBOに対する非劣性を確認する"
+  },
+  "implementation": {
+    "gmr_candidate_contract": {
+      "point": [
+        0.0,
+        0.0
+      ],
+      "component": 0,
+      "conditional_weight": 1.0,
+      "conditional_log_density": 0.0
+    },
+    "note": "shape example only; production Proposal Strategy registry is unchanged"
+  }
+}
