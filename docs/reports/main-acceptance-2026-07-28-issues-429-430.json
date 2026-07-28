@@ -1,0 +1,352 @@
+﻿{
+    "schemaVersion":  "main-acceptance/v2",
+    "runId":  "20260728T015152Z",
+    "level":  "release",
+    "testedCommit":  "f65dd3d7ede398321ef07dff62737bd01bd28f66",
+    "currentCommitAtInspection":  "f65dd3d7ede398321ef07dff62737bd01bd28f66",
+    "commitsAhead":  0,
+    "changedRiskCategories":  [
+
+                              ],
+    "applicability":  "current",
+    "worktreeChangesAtStart":  [
+
+                               ],
+    "verificationCatalogSha256":  "a2e801a1f4f460fcff3ef335210e9423d7e0e8a6d26fe6320ad2a0273c1eaad2",
+    "selectedGates":  [
+                          "dependency-audit-policy",
+                          "dependency-audit",
+                          "full-pytest",
+                          "web-unit",
+                          "desktop-unit",
+                          "typecheck",
+                          "application-build",
+                          "default-playwright",
+                          "failure-state-e2e",
+                          "chain-degraded-e2e",
+                          "legacy-workspace",
+                          "docs-check",
+                          "windows-delivery",
+                          "learning-clean-build"
+                      ],
+    "omittedGates":  [
+                         {
+                             "id":  "focused-pytest",
+                             "status":  "not_run",
+                             "reason":  "not selected by the release profile or -IncludeGate",
+                             "priorEvidence":  [
+                                                   null
+                                               ]
+                         },
+                         {
+                             "id":  "working-tree-diff",
+                             "status":  "not_run",
+                             "reason":  "not selected by the release profile or -IncludeGate",
+                             "priorEvidence":  [
+                                                   null
+                                               ]
+                         },
+                         {
+                             "id":  "branch-diff",
+                             "status":  "not_run",
+                             "reason":  "not selected by the release profile or -IncludeGate",
+                             "priorEvidence":  [
+                                                   null
+                                               ]
+                         },
+                         {
+                             "id":  "compose-integration",
+                             "status":  "not_run",
+                             "reason":  "not selected by the release profile or -IncludeGate",
+                             "priorEvidence":  [
+                                                   "docs/reports/docker-compose-local-development-2026-07-27.md"
+                                               ]
+                         },
+                         {
+                             "id":  "shared-lab-integration",
+                             "status":  "not_run",
+                             "reason":  "not selected by the release profile or -IncludeGate",
+                             "priorEvidence":  [
+                                                   "docs/reports/shared-workbench-lab-v1-2026-07-28.md"
+                                               ]
+                         },
+                         {
+                             "id":  "learning-visual-review",
+                             "status":  "not_run",
+                             "reason":  "manual evidence is outside the automated release profile",
+                             "priorEvidence":  [
+                                                   "PR #432 full PDF contact-sheet review and browser interaction"
+                                               ]
+                         }
+                     ],
+    "clearedInheritedPlaywrightEnvironment":  {
+
+                                              },
+    "cleanIsolatedPlaywright":  true,
+    "startedAt":  "2026-07-28T01:51:52.3201568Z",
+    "finishedAt":  "2026-07-28T02:14:33.5081662Z",
+    "durationSeconds":  1361.188,
+    "environment":  {
+                        "os":  "Microsoft Windows NT 10.0.26200.0",
+                        "powershell":  "5.1.26100.8894",
+                        "node":  "v24.4.1",
+                        "npm":  "11.4.2",
+                        "uv":  "uv 0.9.15 (5eafae332 2025-12-02)",
+                        "python":  "Python 3.13.5",
+                        "verificationCatalog":  "scripts/verification-gates.json"
+                    },
+    "gates":  [
+                  {
+                      "name":  "dependency-audit-policy",
+                      "status":  "passed",
+                      "command":  "npm.cmd run security:audit:test",
+                      "exitCode":  0,
+                      "durationSeconds":  0.386,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/dependency-audit-policy.log",
+                      "summary":  [
+                                      "Dependency audit policy self-tests passed: 6 cases."
+                                  ]
+                  },
+                  {
+                      "name":  "dependency-audit",
+                      "status":  "passed",
+                      "command":  "npm.cmd run security:audit",
+                      "exitCode":  0,
+                      "durationSeconds":  3.087,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/dependency-audit.log",
+                      "summary":  [
+                                      "Dependency audit passed: production=0; 18 development-only package records map only to GHSA-mh99-v99m-4gvg, GHSA-52cp-r559-cp3m; exceptions expire 2026-08-31 (repository maintainers)."
+                                  ]
+                  },
+                  {
+                      "name":  "full-pytest",
+                      "status":  "passed",
+                      "command":  "uv.exe run --extra dev python -m pytest",
+                      "exitCode":  0,
+                      "durationSeconds":  258.759,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/full-pytest.log",
+                      "summary":  [
+                                      "backend/tests/test_task_registry.py: 2 warnings",
+                                      "backend/tests/test_chain_execution.py: 1 warning",
+                                      "backend/tests/test_dataset_profile.py: 1 warning",
+                                      "backend/tests/test_api.py: 1 warning",
+                                      "backend/tests/test_flank_wear.py: 2 warnings",
+                                      "backend/tests/test_model_lifecycle.py: 4 warnings",
+                                      "backend/tests/test_developer_doctor.py: 2 warnings",
+                                      "backend/tests/test_degraded_startup.py: 3 warnings",
+                                      "backend/tests/test_individual_observation_packages.py: 1 warning",
+                                      "backend/tests/test_external_tabular_tasks.py: 2 warnings",
+                                      "backend/tests/test_task_registry.py: 2 warnings",
+                                      "backend/tests/test_chain_execution.py: 1 warning",
+                                      "backend/tests/test_dataset_profile.py: 1 warning",
+                                      "backend/tests/test_api.py: 1 warning",
+                                      "backend/tests/test_flank_wear.py: 2 warnings",
+                                      "backend/tests/test_model_lifecycle.py: 4 warnings",
+                                      "backend/tests/test_developer_doctor.py: 2 warnings",
+                                      "backend/tests/test_degraded_startup.py: 3 warnings",
+                                      "backend/tests/test_individual_observation_packages.py: 1 warning",
+                                      "960 passed, 2 skipped, 58 warnings in 255.08s (0:04:15)"
+                                  ]
+                  },
+                  {
+                      "name":  "web-unit",
+                      "status":  "passed",
+                      "command":  "npm.cmd run test -w apps/web",
+                      "exitCode":  0,
+                      "durationSeconds":  1.642,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/web-unit.log",
+                      "summary":  [
+                                      "\u003e node --test tests/*.test.mjs",
+                                      "✔ an unrelated subsystem failure does not disable the selected Chain (0.2861ms)",
+                                      "✔ a connection that never opened is treated as startup, not as a failure (0.9916ms)",
+                                      "✔ a served error is a real failure, not a startup wait (0.2319ms)",
+                                      "✔ deleting a row does not bypass a locked remainder (0.2308ms)",
+                                      "✔ omits failed loads and stops without publishing partial results after abort (0.5602ms)",
+                                      "✔ matches availability by explicit Chain ownership and ignores unrelated failures (0.2194ms)",
+                                      "✔ retains stale data when the current refresh fails (0.2151ms)",
+                                      "✔ a delayed Project history failure cannot replace the next Project state (0.8253ms)",
+                                      "✔ chain projects explain single-task-only views instead of failing inside them (0.2317ms)",
+                                      "✔ fails fast for task mismatch, malformed paths, and unsupported field kinds (0.6641ms)",
+                                      "✔ a failure is announced as an alert and never expires on its own (0.7506ms)",
+                                      "✔ a preview failure never becomes the connection state (1.4199ms)",
+                                      "✔ a failed write reports itself without claiming the API is unreachable (1.1797ms)",
+                                      "✔ every notice declares whether it reports success or failure (2.5655ms)",
+                                      "✔ the notice surface is interactive and separates failure from success (1.3632ms)",
+                                      "ℹ tests 271",
+                                      "ℹ pass 271",
+                                      "ℹ fail 0",
+                                      "ℹ skipped 0"
+                                  ]
+                  },
+                  {
+                      "name":  "desktop-unit",
+                      "status":  "passed",
+                      "command":  "npm.cmd run test -w apps/desktop",
+                      "exitCode":  0,
+                      "durationSeconds":  1.769,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/desktop-unit.log",
+                      "summary":  [
+                                      "\u003e npm run build \u0026\u0026 node --test tests/*.test.mjs",
+                                      "✔ restored API health failure rolls back before restarting the original Workspace (2.1782ms)",
+                                      "ℹ tests 1",
+                                      "ℹ pass 1",
+                                      "ℹ fail 0",
+                                      "ℹ skipped 0"
+                                  ]
+                  },
+                  {
+                      "name":  "typecheck",
+                      "status":  "passed",
+                      "command":  "npm.cmd run typecheck",
+                      "exitCode":  0,
+                      "durationSeconds":  18.576,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/typecheck.log",
+                      "summary":  [
+                                      "Frontend import boundaries: OK"
+                                  ]
+                  },
+                  {
+                      "name":  "application-build",
+                      "status":  "passed",
+                      "command":  "npm.cmd run build",
+                      "exitCode":  0,
+                      "durationSeconds":  6.99,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/application-build.log",
+                      "summary":  [
+
+                                  ]
+                  },
+                  {
+                      "name":  "default-playwright",
+                      "status":  "passed",
+                      "command":  "npx.cmd playwright test",
+                      "exitCode":  0,
+                      "durationSeconds":  191.779,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/default-playwright.log",
+                      "summary":  [
+                                      "✔ a database still owned by the web server is reported without failing (0.3462ms)",
+                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.6163ms)",
+                                      "Running 85 tests using 1 worker",
+                                      "  1 skipped",
+                                      "  84 passed (3.2m)"
+                                  ]
+                  },
+                  {
+                      "name":  "failure-state-e2e",
+                      "status":  "passed",
+                      "command":  "npm.cmd run test:e2e:failure-states",
+                      "exitCode":  0,
+                      "durationSeconds":  137.912,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/failure-state-e2e.log",
+                      "summary":  [
+                                      "\u003e material-decision-workbench@0.1.0 test:e2e:failure-states",
+                                      "\u003e node scripts/run-failure-state-e2e.mjs",
+                                      "✔ a database still owned by the web server is reported without failing (0.6919ms)",
+                                      "✔ unexpected cleanup errors fail only an otherwise successful run (0.2311ms)",
+                                      "ℹ tests 4",
+                                      "ℹ pass 4",
+                                      "ℹ fail 0",
+                                      "ℹ skipped 0",
+                                      "Running 16 tests using 1 worker",
+                                      "  16 passed (1.1m)",
+                                      "  ok 1 e2e\\startup-diagnostic.spec.ts:3:5 › catalog preflight failure remains readable while the API is unavailable (1.6s)",
+                                      "  1 passed (3.5s)",
+                                      "  1 passed (21.7s)",
+                                      "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers",
+                                      "backend/tests/test_catalog_failure_e2e.py::test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers"
+                                  ]
+                  },
+                  {
+                      "name":  "chain-degraded-e2e",
+                      "status":  "passed",
+                      "command":  "npx.cmd playwright test --config playwright.chain-degraded.config.ts",
+                      "exitCode":  0,
+                      "durationSeconds":  40.404,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/chain-degraded-e2e.log",
+                      "summary":  [
+                                      "Running 3 tests using 1 worker",
+                                      "  ok 3 e2e\\chain-degraded.spec.ts:118:5 › a failed availability catalog blocks a direct Chain deep link (1.3s)",
+                                      "  3 passed (39.2s)"
+                                  ]
+                  },
+                  {
+                      "name":  "legacy-workspace",
+                      "status":  "passed",
+                      "command":  "uv.exe run --extra dev python -m pytest backend/tests/test_legacy_workspace_acceptance.py -q",
+                      "exitCode":  0,
+                      "durationSeconds":  6.324,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/legacy-workspace.log",
+                      "summary":  [
+
+                                  ]
+                  },
+                  {
+                      "name":  "docs-check",
+                      "status":  "passed",
+                      "command":  "npm.cmd run docs:check",
+                      "exitCode":  0,
+                      "durationSeconds":  1.446,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/docs-check.log",
+                      "summary":  [
+                                      "Relative documentation link check passed.",
+                                      "Documentation structure passed: root contains only README.md and developer-start-here.md, inventory targets exist."
+                                  ]
+                  },
+                  {
+                      "name":  "windows-delivery",
+                      "status":  "passed",
+                      "command":  "npm.cmd run package:windows",
+                      "exitCode":  0,
+                      "durationSeconds":  498.997,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/windows-delivery.log",
+                      "summary":  [
+                                      "\u003e powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
+                                      "379 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6",
+                                      "Folder ZIP extract/run/delete: OK",
+                                      "Per-user installer install/run/uninstall: OK",
+                                      "Installer: C:\\Users\\ootan\\projects\\re-process-dashboard\\release\\Material-Decision-Workbench-Setup-0.1.0.exe",
+                                      "Folder ZIP: C:\\Users\\ootan\\projects\\re-process-dashboard\\release\\Material-Decision-Workbench-folder-0.1.0.zip"
+                                  ]
+                  },
+                  {
+                      "name":  "learning-clean-build",
+                      "status":  "passed",
+                      "command":  "powershell.exe -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1 -Clean",
+                      "exitCode":  0,
+                      "durationSeconds":  192.051,
+                      "log":  "artifacts/main-acceptance/20260728T015152Z/learning-clean-build.log",
+                      "summary":  [
+                                      "Reference validation passed: 57 BibTeX entries, 57 annotations, 57 citations, 0 warning(s).",
+                                      "Exercise solution validation passed: 99 exercises, 117 solution blocks, 18 chapter checks.",
+                                      "Concept checker self-tests passed: schema, duplicate, relation, graph, path, and link invariants.",
+                                      "Concept validation passed: 82 concepts, 105 prerequisite edges, 80 anti-definitions, 14 chapters.",
+                                      "Concept source and generated pages passed regression checks.",
+                                      "Concept order fixture tests passed: profile parsing, violation detail, glossary exclusion, and bridge contract.",
+                                      "Concept order validation passed: _quarto-reader.yml 27 learning units, _quarto-site.yml 27 learning units.",
+                                      "Figure fixture tests passed: registry schema, references, alt metadata, drift paths, SVG accessibility, and raster rejection.",
+                                      "Figure validation passed: 8 registered figures, 8 chapter references.",
+                                      "Lab fixture tests passed: manifest contract, registration, sandbox writes, protected paths, commands, and toy calculation.",
+                                      "Lab validation passed: 8 registered Labs.",
+                                      "Code reference self-test passed: 10 assertions.",
+                                      "Drift review validation passed: 18 PR record(s), 8 grouped record(s).",
+                                      "Learning acceptance review validation passed: 8 records.",
+                                      "Edition 2 observation fixture tests passed: schema execution, record discovery, honest pending state, proxy rejection, participant-task completion, artifact identity, finding references, protocol coverage, and privacy fields.",
+                                      "Edition 2 observation validation passed: 1 template or record file(s)."
+                                  ]
+                  }
+              ],
+    "artifacts":  [
+                      {
+                          "name":  "Material-Decision-Workbench-Setup-0.1.0.exe",
+                          "bytes":  218326198,
+                          "sha256":  "131893d86a19ef287ed739953f76a4c613f953b5644c17c7d9eed5ddd0071ace"
+                      },
+                      {
+                          "name":  "Material-Decision-Workbench-folder-0.1.0.zip",
+                          "bytes":  305039741,
+                          "sha256":  "6c539a58767207a4d4d6124e9065c212a8d4443355dbc9b0d5706c901aeec5e2"
+                      }
+                  ],
+    "status":  "passed",
+    "failure":  null
+}
