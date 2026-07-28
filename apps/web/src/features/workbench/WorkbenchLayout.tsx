@@ -3,6 +3,7 @@ import { type KeyboardEvent, useRef } from "react";
 export const workbenchLayoutStorage = {
   inspectorWidth: "material-workbench:layout:inspector-width:v1",
   curveShare: "material-workbench:layout:curve-share:v1",
+  comparisonHeight: "material-workbench:layout:comparison-height:v1",
 } as const;
 
 export function clampLayoutValue(value: number, min: number, max: number) {
@@ -36,6 +37,7 @@ export function SplitResizer({
   min,
   max,
   step,
+  orientation = "vertical",
   onChange,
   onDrag,
   onReset,
@@ -46,16 +48,19 @@ export function SplitResizer({
   min: number;
   max: number;
   step: number;
+  orientation?: "vertical" | "horizontal";
   onChange: (value: number) => void;
-  onDrag: (startValue: number, deltaX: number) => number;
+  onDrag: (startValue: number, delta: number) => number;
   onReset: () => void;
 }) {
-  const drag = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null);
+  const drag = useRef<{ pointerId: number; startPosition: number; startValue: number } | null>(null);
   const changeByKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
     const amount = event.shiftKey ? step * 4 : step;
-    const next = event.key === "ArrowLeft"
+    const decreaseKey = orientation === "vertical" ? "ArrowLeft" : "ArrowUp";
+    const increaseKey = orientation === "vertical" ? "ArrowRight" : "ArrowDown";
+    const next = event.key === decreaseKey
       ? value - amount
-      : event.key === "ArrowRight"
+      : event.key === increaseKey
         ? value + amount
         : event.key === "Home"
           ? min
@@ -72,21 +77,26 @@ export function SplitResizer({
       role="separator"
       tabIndex={0}
       aria-label={label}
-      aria-orientation="vertical"
+      aria-orientation={orientation}
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={Math.round(value)}
-      title="ドラッグで幅を調整・ダブルクリックで初期幅"
+      title={`ドラッグで${orientation === "vertical" ? "幅" : "高さ"}を調整・ダブルクリックで初期${orientation === "vertical" ? "幅" : "高さ"}`}
       onDoubleClick={onReset}
       onKeyDown={changeByKeyboard}
       onPointerDown={(event) => {
-        drag.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value };
+        drag.current = {
+          pointerId: event.pointerId,
+          startPosition: orientation === "vertical" ? event.clientX : event.clientY,
+          startValue: value,
+        };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
         const current = drag.current;
         if (!current || current.pointerId !== event.pointerId || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-        onChange(clampLayoutValue(onDrag(current.startValue, event.clientX - current.startX), min, max));
+        const position = orientation === "vertical" ? event.clientX : event.clientY;
+        onChange(clampLayoutValue(onDrag(current.startValue, position - current.startPosition), min, max));
       }}
       onPointerUp={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);

@@ -96,8 +96,7 @@
 .selected-candidate-output-list article { min-width: 0; border-radius: 3px; background: #f7faff; padding: 8px; }
 .comparison-grid-viewport { min-width: 0; overflow-x: auto; }
 .comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; width: 100%; min-width: 749px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
-.comparison-pane-scroll { min-width: 0; max-height: 270px; overflow: scroll; background: #fff; }
-.comparison-pane-scroll.expanded { max-height: 70vh; }
+.comparison-pane-scroll { min-width: 0; max-height: var(--comparison-table-height, 270px); overflow: scroll; background: #fff; }
 .comparison-name-scroll { position: sticky; left: 0; z-index: 6; }
 .candidate-name-table,
 .comparison-detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.75rem; }

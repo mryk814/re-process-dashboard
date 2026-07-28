@@ -265,8 +265,7 @@ export function CandidateInspector({
 export function ComparisonTable({
   candidates,
   selectedId,
-  comparisonExpanded,
-  onToggleComparisonExpanded,
+  comparisonHeight,
   taskDefinition,
   previewsByCandidate,
   targetValues,
@@ -291,8 +290,7 @@ export function ComparisonTable({
 }: {
   candidates: CandidateViewModel[];
   selectedId: string;
-  comparisonExpanded: boolean;
-  onToggleComparisonExpanded: () => void;
+  comparisonHeight: number;
   taskDefinition: TaskDefinitionContract;
   previewsByCandidate: Record<string, ApiPreview>;
   targetValues: Record<string, TargetGoal>;
@@ -456,7 +454,7 @@ export function ComparisonTable({
   }, []);
   useLayoutEffect(syncRowHeights, [
     candidates,
-    comparisonExpanded,
+    comparisonHeight,
     displayDecimalOverrides,
     effectiveInputShare,
     previewsByCandidate,
@@ -707,12 +705,15 @@ export function ComparisonTable({
           ref={comparisonGridRef}
           className="comparison-grid"
           aria-label="候補の入力と予測結果比較"
-          style={{ "--comparison-input-share": `${effectiveInputShare}%` } as CSSProperties}
+          style={{
+            "--comparison-input-share": `${effectiveInputShare}%`,
+            "--comparison-table-height": `${comparisonHeight}px`,
+          } as CSSProperties}
         >
-          <div ref={nameScrollRef} className={`comparison-pane-scroll comparison-name-scroll${comparisonExpanded ? " expanded" : ""}`} onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
-          <div id="comparison-input-pane" ref={inputScrollRef} className={`comparison-pane-scroll comparison-input-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
+          <div ref={nameScrollRef} className="comparison-pane-scroll comparison-name-scroll" onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
+          <div id="comparison-input-pane" ref={inputScrollRef} className="comparison-pane-scroll comparison-input-scroll" tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(34)} />
-          <div id="comparison-prediction-pane" ref={predictionScrollRef} className={`comparison-pane-scroll comparison-prediction-scroll${comparisonExpanded ? " expanded" : ""}`} tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
+          <div id="comparison-prediction-pane" ref={predictionScrollRef} className="comparison-pane-scroll comparison-prediction-scroll" tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>
             <table className="comparison-detail-table comparison-prediction-table" aria-label="候補ごとの予測値">
               <thead>
                 <tr>
@@ -779,7 +780,7 @@ export function ComparisonTable({
               </tbody>
             </table>
           </div>
-          <div ref={actionScrollRef} className={`comparison-pane-scroll comparison-action-scroll${comparisonExpanded ? " expanded" : ""}`} aria-label="候補ごとの操作" onScroll={syncVerticalScroll}>
+          <div ref={actionScrollRef} className="comparison-pane-scroll comparison-action-scroll" aria-label="候補ごとの操作" onScroll={syncVerticalScroll}>
             <table className="comparison-action-table">
               <thead><tr><th scope="col" className="comparison-row-header">候補</th><th scope="col">操作</th></tr><tr><th scope="col" className="comparison-row-header">候補</th><th scope="col"><small>候補ごと</small></th></tr></thead>
               <tbody>{candidates.map((candidate) => {
