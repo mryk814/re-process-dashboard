@@ -53,6 +53,82 @@ def inspect_workbook(source: Path, profile_path: Path | None = None) -> dict[str
         workbook.close()
 
 
+def validate_source_profile(source: Path, profile_path: Path) -> dict[str, Any]:
+    """Validate an explicit Profile against its source across all Profile families."""
+
+    source = source.resolve()
+    profile_path = profile_path.resolve()
+    raw_profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    if raw_profile.get("schema_version") not in {
+        "tabular-dataset-profile/v1",
+        "observation-dataset-profile/v1",
+    }:
+        return validate_workbook_profile(source, profile_path)
+
+    from material_workbench.data.profile_document import (
+        lifecycle_profile_for_data,
+        load_profile_document,
+        supported_task_ids,
+    )
+    from material_workbench.task_modules import task_module
+
+    profile = load_profile_document(profile_path)
+    task_ids = supported_task_ids(raw_profile)
+    if not task_ids:
+        raise ValueError("Profile does not declare a Prediction Task")
+    observations_by_task: dict[str, int] = {}
+    all_observations: list[dict[str, Any]] = []
+    for task_id in task_ids:
+        data = task_module(task_id).data_loader(source, profile)
+        eligible = [
+            row
+            for row in data.observations
+            if row.get("eligible")
+            and row.get("task_id", task_id) == task_id
+        ]
+        observations_by_task[task_id] = len(eligible)
+        all_observations.extend(data.observations)
+        if dataset_profile_digest(lifecycle_profile_for_data(data)) != (
+            dataset_profile_digest(profile)
+        ):
+            raise ValueError(
+                f"loaded Profile identity differs from the selected Profile: {task_id}"
+            )
+
+    rejection_counts = Counter(
+        reason
+        for row in all_observations
+        for reason in row.get("exclusion_reasons", ())
+    )
+    return {
+        "ok": True,
+        "registration_ready": any(observations_by_task.values()),
+        "source": str(source),
+        "source_sha256": file_sha256(source),
+        "profile": str(profile_path),
+        "profile_id": getattr(profile, "profile_id", getattr(profile, "id", "")),
+        "profile_digest": dataset_profile_digest(profile),
+        "task_ids": list(task_ids),
+        "entities": len(all_observations),
+        "relations": 0,
+        "observations": len(all_observations),
+        "observations_by_task": observations_by_task,
+        "heat_series_parents": 0,
+        "unresolved_heat_series_by_task": {},
+        "rejected_by_policy": dict(sorted(rejection_counts.items())),
+        "entity_preview": [
+            {
+                "entity_type": "observation",
+                "entity_key": str(row.get("id", row.get("observation_id", index))),
+                "values": {
+                    "eligible": bool(row.get("eligible")),
+                },
+            }
+            for index, row in enumerate(all_observations[:5])
+        ],
+    }
+
+
 def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any]:
     """Validate one explicit effective Profile without runtime/model assumptions."""
 

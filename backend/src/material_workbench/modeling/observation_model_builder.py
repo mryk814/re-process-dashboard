@@ -52,8 +52,9 @@ def _build(
     source: Path,
     destination: Path,
     declaration: ObservationRuntimeDeclaration,
+    profile: object | None = None,
 ) -> None:
-    data = load_observation_data(source, declaration)
+    data = load_observation_data(source, declaration, profile)
     spec = data.spec
     contract = load_task_contracts()[spec.task_id]
     artifact_dir = destination / "model-artifacts"
@@ -209,7 +210,7 @@ def _build(
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
             "training_code_revision": "stage-c-family-ridge-grouped-v1",
-            "dataset_profile_id": dataset_profile_digest(declaration.profile_path),
+            "dataset_profile_id": dataset_profile_digest(data.profile),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -231,9 +232,10 @@ def build(
     replace: bool = False,
     package_id: str = PACKAGE_ID,
     package_version: str = "1.0.0",
+    profile: object | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, staging, declaration)
+        _build(source, staging, declaration, profile)
         manifest_path = staging / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["package_id"] = package_id
@@ -243,4 +245,9 @@ def build(
             encoding="utf-8",
             newline="\n",
         )
-        verify_model_package(staging, task_id=declaration.task_id, source=source)
+        verify_model_package(
+            staging,
+            task_id=declaration.task_id,
+            source=source,
+            profile=profile,
+        )

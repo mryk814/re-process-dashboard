@@ -65,7 +65,7 @@ npm run dev
 製品へ同梱する意図がないファイルをgitへ追加しないでください。
 
 現在の画面経路が受け付けるのは`.xlsx`です。
-CSVはこの画面からDataset登録せず、対応する既存Taskのモデルworkflowで診断、学習します。
+CSVは画面ではなく、対応する表形式Profileを指定してCLIから検証・登録します。
 
 Profileを自分で用意する場合は、元ファイルを変更せず、リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
 
@@ -75,11 +75,17 @@ uv run python backend/scripts/profile_workbench.py inspect C:\path\to\data.xlsx 
 
 uv run python backend/scripts/profile_workbench.py validate C:\path\to\data.xlsx `
   --profile C:\path\to\profile.json
+
+uv run python backend/scripts/profile_workbench.py register C:\path\to\data.csv `
+  --profile C:\path\to\profile.json `
+  --database C:\path\to\workspace.db `
+  --library C:\path\to\data-library
 ```
 
 Profileの書式と登録CLIの詳細は[Dataset Input Profile](dataset-input-profile.md)を参照してください。
-この任意Profile経路は、現在は探索用Datasetの登録までです。
-`model:build`は任意Profileを受け取らないため、Taskに登録済みのProfileと異なるmappingを使った学習はIssue #491の対応範囲です。
+同じProfileパスを`model:diagnose`、`model:build`、`model:verify`、
+`model:promote`へ渡すと、探索と学習で列の解釈が分岐しません。
+Package provenanceには実効Profileのdigestが固定されます。
 追跡済みProfileを編集して同梱する場合は、データ利用ではなくアプリ開発として扱います。
 
 ## 既存Task向けのモデルを学習する
@@ -89,16 +95,18 @@ Profileの書式と登録CLIの詳細は[Dataset Input Profile](dataset-input-pr
 ```powershell
 $task = "heat-treatment-tradeoff-v1"
 $source = "C:\path\to\data.csv"
+$profile = "C:\path\to\profile.json"
 $packageId = "heat-treatment-my-data-2026-07"
 $datasetOutput = "artifacts/model-data/$packageId.json"
 
-npm run model:diagnose -- --task $task --source $source
+npm run model:diagnose -- --task $task --source $source --profile $profile
 
 npm run model:estimators -- --task $task
 
 npm run model:build -- `
   --task $task `
   --source $source `
+  --profile $profile `
   --estimator ridge.v1 `
   --package-id $packageId `
   --package-version 1.0.0 `

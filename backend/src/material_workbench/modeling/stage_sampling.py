@@ -59,6 +59,18 @@ _ALLOWLIST = MappingProxyType(
                 {target: (0.0, None) for target in _STAGE_B_OUTPUTS}
             ),
         ),
+        # v2と同じ学習器・予測artifact。v3はStage B正本Profileのdigestを
+        # canonical training datasetにも固定し、provenanceを一貫させた版。
+        (
+            "welding-consumable-stage-b-ridge-v3",
+            "b22594d3e26f68728bca297efba61e29bb832d5f0aaa80abee46f60f01d72987",
+        ): PackageSamplingCapability(
+            method="independent-residual-normal-bounded-from-q05-q95/v1",
+            output_dependence="independent",
+            output_bounds=MappingProxyType(
+                {target: (0.0, None) for target in _STAGE_B_OUTPUTS}
+            ),
+        ),
         (
             "welding-stage-c-ridge-v1",
             "c6bcbefd7de06afa40d4463196c210dc79d45bcf94a32d22c8a3180660d353b1",

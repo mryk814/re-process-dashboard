@@ -128,8 +128,8 @@ def _point(path: Path, raw: np.ndarray) -> float:
         return max(float(np.expm1(latent)), 0.0)
 
 
-def _build(source: Path, destination: Path) -> None:
-    data = load_flank_wear_data(source)
+def _build(source: Path, destination: Path, profile: object | None = None) -> None:
+    data = load_flank_wear_data(source, profile=profile)
     contract = load_task_contracts()[TASK_ID]
     rows = [
         row for row in data.observations
@@ -268,7 +268,7 @@ def _build(source: Path, destination: Path) -> None:
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset),
             "training_code_revision": TRAINING_CODE_REVISION,
-            "dataset_profile_id": dataset_profile_digest(Path(data.profile_path)),
+            "dataset_profile_id": dataset_profile_digest(data.profile),
         },
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {
@@ -287,9 +287,10 @@ def build(
     replace: bool = False,
     package_id: str = PACKAGE_ID,
     package_version: str = PACKAGE_VERSION,
+    profile: object | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, staging)
+        _build(source, staging, profile)
         if package_id != PACKAGE_ID or package_version != PACKAGE_VERSION:
             manifest_path = staging / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -300,7 +301,12 @@ def build(
                 encoding="utf-8",
                 newline="\n",
             )
-        verify_model_package(staging, task_id=TASK_ID, source=source)
+        verify_model_package(
+            staging,
+            task_id=TASK_ID,
+            source=source,
+            profile=profile,
+        )
 
 
 if __name__ == "__main__":

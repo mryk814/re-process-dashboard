@@ -203,8 +203,8 @@ def _gp_point(artifact_path: Path, raw_features: np.ndarray) -> float:
         return mean + float(cross @ item["alpha"])
 
 
-def _build(source: Path, destination: Path) -> None:
-    data = load_workbook_data(source)
+def _build(source: Path, destination: Path, profile: object | None = None) -> None:
+    data = load_workbook_data(source, profile=profile)
     runtime = ModelRuntime(data, load_package=False)
     artifacts_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
@@ -330,7 +330,7 @@ def _build(source: Path, destination: Path) -> None:
         "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {"id": FEATURE_PIPELINE_ID, "version": FEATURE_PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
         "predictors": predictors,
-        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(Path(data.profile_path))},
+        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(data.profile)},
         "artifacts": [artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input_path.relative_to(destination).as_posix(), "expected": smoke_expected_path.relative_to(destination).as_posix()},
         "quality_report": quality_path.relative_to(destination).as_posix(),
@@ -347,16 +347,22 @@ def build(
     replace: bool = False,
     package_id: str = PACKAGE_ID,
     package_version: str = PACKAGE_VERSION,
+    profile: object | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, staging)
+        _build(source, staging, profile)
         if package_id != PACKAGE_ID or package_version != PACKAGE_VERSION:
             manifest_path = staging / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["package_id"] = package_id
             manifest["package_version"] = package_version
             manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
-        verify_model_package(staging, task_id=TASK_ID, source=source)
+        verify_model_package(
+            staging,
+            task_id=TASK_ID,
+            source=source,
+            profile=profile,
+        )
 
 
 if __name__ == "__main__":

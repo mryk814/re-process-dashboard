@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.data.profile_document import lifecycle_profile_for_data
 from material_workbench.modeling.model_lifecycle import (
     QualityReport,
     canonical_training_dataset,
@@ -326,4 +327,9 @@ def build_standard_model_package(
             package_version=package_version,
             positive_targets=positive_targets,
         )
-        verify_model_package(staging, task_id=task_id, source=source)
+        verify_model_package(
+            staging,
+            task_id=task_id,
+            source=source,
+            profile=lifecycle_profile_for_data(data),
+        )

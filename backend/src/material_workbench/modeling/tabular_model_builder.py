@@ -795,7 +795,12 @@ def build(
             package_version=package_version,
             source_lifecycle=source_lifecycle,
         )
-        verify_model_package(staging, task_id=load_tabular_profile(profile_path).task_id, source=source)
+        verify_model_package(
+            staging,
+            task_id=load_tabular_profile(profile_path).task_id,
+            source=source,
+            profile=profile_path,
+        )
 
 
 # Kept local to avoid exporting profile parsing through the package builder API.
