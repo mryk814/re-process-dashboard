@@ -34,7 +34,7 @@ test("a target that does not use the selected variable is shown as not applicabl
   const source = await readFile(new URL("../src/features/workbench/ResponseCurvePanels.tsx", import.meta.url), "utf8");
 
   assert.match(source, /responseCurveNotApplicable/);
-  assert.match(source, /入力に使わないため応答曲線を作成できません/);
+  assert.match(source, /error\.code === "response_curve_not_applicable"/);
   assert.match(source, /選択した変数をこのモデルの入力に使わないため、応答曲線はありません。/);
   assert.match(source, /resolvedCurveCount = loadedCurveCount \+ notApplicableCount/);
 });

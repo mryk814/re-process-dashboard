@@ -25,6 +25,9 @@ from material_workbench.data.observation_profile import (
 )
 from material_workbench.domain.goal_targets import goal_fields
 from material_workbench.modeling.curve_grid import anchored_curve_grid
+from material_workbench.modeling.response_curve_errors import (
+    ResponseCurveNotApplicableError,
+)
 from material_workbench.modeling.observation_training_spec import (
     ObservationRuntimeDeclaration,
     ObservationTrainingSpec,
@@ -562,7 +565,7 @@ class ObservationRegressionRuntime:
         if target not in self.output_keys:
             raise ValueError(f"unknown response curve target: {target}")
         if variable not in self.spec.target_features[target]:
-            raise ValueError(
+            raise ResponseCurveNotApplicableError(
                 f"{target}のモデルは{variable}を入力に使わないため応答曲線を作成できません"
             )
         values = [

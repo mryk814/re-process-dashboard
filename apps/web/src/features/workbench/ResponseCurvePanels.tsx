@@ -19,6 +19,7 @@ import {
   type ApiPreview,
   type ApiResponseCurve,
 } from "../../shared/api/workbench-api";
+import { ApiClientError } from "../../shared/api/client";
 import {
   curveFamilyScopeIdentity,
   responseCurveSurfaceIdentity,
@@ -83,8 +84,8 @@ function levelColor(index: number, count: number, selectedTone = "#1f5fc4") {
 }
 
 function responseCurveNotApplicable(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.includes("入力に使わないため応答曲線を作成できません");
+  return error instanceof ApiClientError
+    && error.code === "response_curve_not_applicable";
 }
 
 export function CurveFamilyPanel({

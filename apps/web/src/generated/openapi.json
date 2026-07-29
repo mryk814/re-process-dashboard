@@ -959,6 +959,7 @@
               "sample_has_saved_work",
               "data_integrity_error",
               "validation_error",
+              "response_curve_not_applicable",
               "batch_feasibility_infeasible",
               "batch_greedy_search_exhausted",
               "runtime_unavailable",
