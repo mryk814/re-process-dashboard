@@ -17,6 +17,7 @@ import {
   resolveInferenceSurface,
 } from "./inferenceSurfaceState";
 import { similarObservationRowKey } from "./similarObservationIdentity";
+import { HistoricalEvidenceDrawer } from "./HistoricalEvidenceDrawer";
 
 function formatNumber(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -57,6 +58,7 @@ export function SimilarityEvidencePanel({
   const [selectedChoiceKeys, setSelectedChoiceKeys] = useState<Record<string, string>>({});
   const [choiceErrors, setChoiceErrors] = useState<Record<string, string>>({});
   const [selectedTarget, setSelectedTarget] = useState(outputs[0]?.key ?? "");
+  const [detailItem, setDetailItem] = useState<ApiSimilarObservation | null>(null);
   const surfaceRef = useRef(surface);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
   const similarityScope = `${projectId}\u001f${candidate.id}\u001fsimilarity:${selectedTarget}:6`;
@@ -70,6 +72,7 @@ export function SimilarityEvidencePanel({
     setSelectedChoiceKeys({});
     setChoiceErrors({});
     setAddingKey("");
+    setDetailItem(null);
   }, [candidate.id]);
   useEffect(() => {
     if (!outputs.some((output) => output.key === selectedTarget)) {
@@ -183,7 +186,8 @@ export function SimilarityEvidencePanel({
     }
   };
   return (
-    <section className="similar-evidence-panel">
+    <>
+      <section className="similar-evidence-panel">
       <div className="evidence-title">
         <div>
           <h2><span className="reference-data-kicker">参照データ</span>近い実測条件 <span>（モデル学習範囲とは別）</span></h2>
@@ -222,6 +226,7 @@ export function SimilarityEvidencePanel({
                 return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ${output.unit} / ${spread.title}`)}><strong>{value}</strong>{!binary && <small>{spread.text}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
               })}
               <td className="similar-action-cell">
+                <button type="button" className="text-button similar-detail-button" onClick={() => setDetailItem(item)}>実績を見る</button>
                 {item.process_key && candidateOptions[similarObservationRowKey(item)]?.length ? (() => {
                   const entityKey = item.process_key;
                   const rowKey = similarObservationRowKey(item);
@@ -272,6 +277,34 @@ export function SimilarityEvidencePanel({
       ) : (
         <p className="empty-evidence">類似実験を取得しています。</p>
       )}
-    </section>
+      </section>
+      <HistoricalEvidenceDrawer
+        open={detailItem !== null}
+        projectId={projectId}
+        reference={detailItem ? {
+          processKey: detailItem.process_key ?? detailItem.parent_key,
+          compositionKey: detailItem.melt_key,
+          relationContextIds: detailItem.relation_context_ids,
+          observationIds: detailItem.observation_ids ?? [detailItem.observation_id],
+          repeatSummary: detailItem.repeat_summary,
+          observedOutputs: detailItem.outputs,
+          measurementState: "ready",
+          distance: detailItem.distance,
+          source: detailItem.source,
+        } : null}
+        outputs={outputs}
+        taskDefinition={taskDefinition}
+        displayDecimalOverrides={displayDecimalOverrides}
+        onClose={() => setDetailItem(null)}
+        onAddCandidate={detailItem?.process_key ? async (entityKey, processKey, meltKey) => {
+          const added = await onAddCandidate(entityKey, processKey, meltKey);
+          if (added && processKey && meltKey) {
+            const key = `${processKey}\u001f${meltKey}`;
+            setAddedChoiceKeys((current) => current.includes(key) ? current : [...current, key]);
+          }
+          return added;
+        } : undefined}
+      />
+    </>
   );
 }
