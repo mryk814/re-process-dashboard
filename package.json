@@ -40,6 +40,7 @@
     "data:build:welding-stage-c-views": "uv run python backend/scripts/materialize_observation_training_views.py",
     "model:data": "uv run python backend/scripts/model_workflow.py data",
     "model:diagnose": "uv run python backend/scripts/model_workflow.py diagnose",
+    "model:estimators": "uv run python backend/scripts/model_workflow.py estimators",
     "model:build": "uv run --extra runtime-numpyro python backend/scripts/model_workflow.py build",
     "model:verify": "uv run python backend/scripts/model_workflow.py verify",
     "model:promote": "uv run python backend/scripts/model_workflow.py promote",

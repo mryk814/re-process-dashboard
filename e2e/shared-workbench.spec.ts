@@ -266,7 +266,9 @@ for (const task of tasks) {
     await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要", exact: true }).click();
     const restoreResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${disposableId}/restore`));
     const archivedCandidates = page.locator(".archived-candidate-history");
-    await expect(archivedCandidates).toContainText("1件");
+    await expect(archivedCandidates.locator("summary")).toContainText(
+      "一覧から外した候補",
+    );
     await expect(archivedCandidates).not.toHaveAttribute("open", "");
     await archivedCandidates.locator("summary").click();
     const archivedCandidate = archivedCandidates.getByRole("article").filter({ hasText: disposableName });

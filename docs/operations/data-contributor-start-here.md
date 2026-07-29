@@ -94,15 +94,21 @@ $datasetOutput = "artifacts/model-data/$packageId.json"
 
 npm run model:diagnose -- --task $task --source $source
 
+npm run model:estimators -- --task $task
+
 npm run model:build -- `
   --task $task `
   --source $source `
+  --estimator ridge.v1 `
   --package-id $packageId `
   --package-version 1.0.0 `
   --dataset-output $datasetOutput
 ```
 
 `model:build`は学習だけでなく、manifest、provenance、特徴量順序、artifact、smoke predictionを既存の製品ローダーで検証します。
+`model:estimators`に候補があるTaskは、Estimator名を替えてもTask用builderファイルを
+追加する必要はありません。
+一覧にないEstimatorは、予測分布や不確かさの契約を満たさないため拒否されます。
 データ利用者が同じ検証を新しいテストとして書き直す必要はありません。
 
 Packageをアプリの選択肢へ追加する手順と、起動中のアプリへ再読込する方法は[Model Packageのライフサイクル](model-package-lifecycle.md#fresh-cloneから新しいデータを使うgolden-path)を参照してください。

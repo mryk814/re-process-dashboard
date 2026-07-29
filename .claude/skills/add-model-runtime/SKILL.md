@@ -9,11 +9,21 @@ description: 新しい学習済みモデルを、I/O契約に最も近い安全�
 
 ## 既存runtimeを再利用できる場合
 
-adapterやRegistryを増やさない。trainer objectを保存せず、既存の固定artifactへexportするbuilder、inactive fixture Package、I/Oカード、adapter smoke/改竄test、意味に合うquality reportだけを追加する。
+adapterやRegistryを増やさない。
+まずFeature Pipeline後の標準Estimator一覧を確認し、Task固有builderを追加せずに
+既存artifact runtimeへexportできるか確認する。
 
 ```powershell
+npm run model:estimators -- --task <task-id>
+npm run model:build -- --task <task-id> --estimator <estimator-id> --package-id <id> --package-version <version>
 uv run python backend/scripts/verify_model_package.py <package-directory> --example
 ```
+
+`ridge.v1`と`exact-gp-rbf.v1`は、allow-list済みtraining recipe、共通FeatureDataset、
+共通Package assemblerを使う。
+Estimatorの名前、任意import path、trainer objectをPackageへ保存しない。
+Horseshoe、反復観測を保持するheteroscedastic model、target別Feature Viewなど、
+標準固定特徴量の契約に入らないモデルだけを高度なauthoring workflowとして実装する。
 
 このverifyはactivationを行わない。例示のために架空のproduction TaskDefinitionを登録しない。
 

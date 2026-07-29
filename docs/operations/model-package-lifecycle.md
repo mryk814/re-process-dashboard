@@ -67,6 +67,41 @@ npm run model:status
 起動中のData Libraryで「昇格済みモデルを再読込」を実行すると、登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えられます。
 保存済みSnapshotは切替後も再計算されません。
 
+### Feature Pipeline後の標準Estimatorを選ぶ
+
+通常の固定長特徴量から回帰するTaskでは、Task専用builderを増やさず、
+Feature Pipeline後のEstimatorを明示的に選べます。
+
+```powershell
+npm run model:estimators -- --task hot-rolled-properties-v1
+
+npm run model:build -- `
+  --task hot-rolled-properties-v1 `
+  --source data/source/material_workbench_tutorial_v2.xlsx `
+  --estimator exact-gp-rbf.v1 `
+  --package-id hot-rolled-my-gp-2026-07 `
+  --package-version 1.0.0
+```
+
+この経路では既存の`canonical-training-dataset/v1`をFeatureDatasetとして固定し、
+学習器だけをallow-listから選びます。
+特徴量数はFeature Pipelineの出力に従うため、EstimatorごとにTask用Pythonファイルを
+追加しません。
+細かい設定が必要な場合だけ、境界付きJSONを渡します。
+
+```powershell
+  --estimator-options '{"restarts": 3, "seed": 20260730, "max_rows": 500}'
+```
+
+現在の標準Estimatorは`ridge.v1`と`exact-gp-rbf.v1`です。
+TaskのRuntime Capabilityを満たすものだけが一覧へ出ます。
+たとえば標準偏差・正規分布・不確かさ内訳が必須の熱延Taskでは
+`ridge.v1`を選べません。
+Estimatorを省略した場合は、Horseshoeなど従来のTask固有authoring workflowを使います。
+
+`model:build`は候補Packageを作るだけで、active Packageや保存済みProject/Snapshotを
+自動変更しません。
+
 新しいTaskDefinition、TaskModule、runtime adapterをコードへ追加した場合は再起動が必要です。
 `model:activate`または`model:promote --activate`は起動時の既定Packageを切り替える運用コマンドであり、この場合も再起動します。ProjectごとにPackageを選ぶ通常経路ではactive化しません。
 
@@ -142,7 +177,8 @@ npm run model:promote -- `
 npm run task:inventory
 ```
 
-`model:build` はアプリ共通形式のデータセットを出力してから、タスク専用builderで学習とPackage構築を行います。
+`model:build`はアプリ共通形式のFeatureDatasetを出力してから、
+標準EstimatorまたはTask固有の高度なauthoring workflowで学習とPackage構築を行います。
 続いて、そのPackageを本番と同じ推論環境へ読み込み、スモーク結果を再現します。
 `models/packages/`に登録済みのPackageは、`--replace`を指定しても上書きできません。
 契約、学習データ、成果物のどれかが変わる場合は、新しいPackage IDとディレクトリを使います。

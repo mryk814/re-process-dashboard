@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("series library keeps raw, canonical and model representation distinct", async ({ page }) => {
   await page.goto("/?view=data-library");
 
+  await page.getByText("比較セットと系列データ", { exact: true }).click();
   const section = page.locator(".series-library-section");
   await expect(section.getByRole("heading", { name: "系列データ（Series）" })).toBeVisible();
   await expect(section.getByRole("button", { name: /焼鈍温度履歴.*5点/ })).toBeVisible();
