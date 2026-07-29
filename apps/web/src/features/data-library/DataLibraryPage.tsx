@@ -20,6 +20,9 @@ import { SourceLifecycleSection } from "./SourceLifecycleSection";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
+const modelStorageLabel = (item: ApiModelPackageRef) => item.storage_scope === "personal"
+  ? "自分のモデル"
+  : "同梱モデル";
 type UndoAction = { kind: "dataset" | "package"; id: string; archived: boolean; label: string };
 
 export function DataLibraryPage({
@@ -47,6 +50,11 @@ export function DataLibraryPage({
   const [copiedGuide, setCopiedGuide] = useState(false);
   const [refreshingPackages, setRefreshingPackages] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const [refreshWarnings, setRefreshWarnings] = useState<Array<{
+    source: string;
+    reference?: string | null;
+    message: string;
+  }>>([]);
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
@@ -126,6 +134,7 @@ export function DataLibraryPage({
       '$packageId = "$task-local-$(Get-Date -Format yyyyMMdd-HHmmss)"',
       '$packageVersion = "1.0.0"',
       '$datasetOutput = "artifacts/model-data/$packageId.json"',
+      "$modelStore = if ($env:WORKBENCH_MODEL_STORE_PATH) { $env:WORKBENCH_MODEL_STORE_PATH } else { Join-Path $env:LOCALAPPDATA 'Material Decision Workbench\\models' }",
       "",
       "npm run model:diagnose -- --task $task --source $source",
       "",
@@ -139,7 +148,8 @@ export function DataLibraryPage({
       "npm run model:promote -- `",
       "  --task $task `",
       "  --source $source `",
-      '  --package "artifacts/model-package-candidates/$packageId"',
+      '  --package "artifacts/model-package-candidates/$packageId" `',
+      "  --store $modelStore",
       "",
       "npm run task:inventory",
       "npm run model:status",
@@ -251,13 +261,18 @@ export function DataLibraryPage({
   const refreshModelPackages = async () => {
     setRefreshingPackages(true);
     setRefreshMessage("");
+    setRefreshWarnings([]);
     setError("");
     try {
-      await workbenchApi.refreshModelPackageRefs();
+      const result = await workbenchApi.refreshModelPackageRefs();
+      const warnings = result.warnings ?? [];
       await load();
-      setRefreshMessage("昇格済みModel Packageを反映しました。利用可能なものはProject作成で選べます。");
+      setRefreshWarnings(warnings);
+      setRefreshMessage(warnings.length > 0
+        ? `利用できる個人Model Packageを反映しました。${warnings.length}件は検証で除外されました。`
+        : "個人Model Packageを反映しました。利用可能なものはProject作成で選べます。");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "昇格済みModel Packageを再読込できませんでした。");
+      setError(cause instanceof Error ? cause.message : "個人Model Packageを再読込できませんでした。");
     } finally {
       setRefreshingPackages(false);
     }
@@ -406,7 +421,14 @@ export function DataLibraryPage({
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
                 return <article key={item.id}>
-                  <div><strong>{packageDisplayNames.get(item.id)}</strong><span title={item.task_id}>{taskLabel(item.task_id)}</span><small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : decision?.experimental ? "試験モデル" : "利用可能"}</small></div>
+                  <div>
+                    <strong>{packageDisplayNames.get(item.id)}</strong>
+                    <span title={item.task_id}>{taskLabel(item.task_id)}</span>
+                    <span className="package-badges">
+                      <small className={`package-origin ${item.storage_scope}`}>{modelStorageLabel(item)}</small>
+                      <small className={item.archived_at ? "package-state archived" : "package-state"}>{item.archived_at ? "アーカイブ" : decision?.experimental ? "試験モデル" : "利用可能"}</small>
+                    </span>
+                  </div>
                   <dl>
                     <div><dt>使いどころ</dt><dd>{decision?.useCase ?? "—"}</dd></div>
                     <div><dt>学習単位</dt><dd>{decision?.trainingUnit ?? "—"}</dd></div>
@@ -442,16 +464,24 @@ export function DataLibraryPage({
         </section>}
 
         {modelGuideOpen && selectedDataset && <section className="data-library-section model-update-guide" aria-labelledby="model-update-guide-heading">
-          <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデルを追加する</h3><p>リポジトリ直下のPowerShellで診断 → 候補作成 → 検証付き昇格を実行します。アプリは起動したままで構いません。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
+          <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデルを追加する</h3><p>リポジトリ直下のPowerShellで診断 → 候補作成 → リポジトリ外の個人モデルstoreへ昇格します。アプリは起動したままで構いません。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
           <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
-          <ol><li><strong>診断</strong><span>データと予測契約の整合を確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>昇格・反映</strong><span>trusted modelsへ昇格し、下のボタンで再読込</span></li></ol>
+          <ol><li><strong>診断</strong><span>データと予測契約の整合を確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>昇格・反映</strong><span>個人モデルstoreへ昇格し、下のボタンで再読込</span></li></ol>
           <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
-          <div>
+          <div className="model-update-actions">
             <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
-            <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "昇格済みモデルを再読込"}</button>
+            <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人モデルを再読込"}</button>
             <small>保存済み予測は再計算されません。新しい予測タスクやruntime実装を追加した場合だけ、アプリを再起動します。</small>
           </div>
           {refreshMessage && <p role="status">{refreshMessage}</p>}
+          {refreshWarnings.length > 0 && <details className="model-refresh-warnings">
+            <summary>除外されたモデルを確認</summary>
+            <ul>{refreshWarnings.map((warning, index) => <li key={`${warning.source}:${warning.reference ?? index}`}>
+              <strong>{warning.reference ?? "available-packages.json"}</strong>
+              <span>{warning.message}</span>
+              <small title={warning.source}>{warning.source}</small>
+            </li>)}</ul>
+          </details>}
         </section>}
 
         <details className="data-library-secondary">

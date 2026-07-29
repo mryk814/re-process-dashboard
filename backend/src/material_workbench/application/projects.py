@@ -48,11 +48,17 @@ class ProjectHistoryIntegrityError(RuntimeError):
 
 class ProjectService:
     def __init__(
-        self, store: Store, registry: TaskRegistry, catalog: WorkspaceCatalog | None = None
+        self,
+        store: Store,
+        registry: TaskRegistry,
+        catalog: WorkspaceCatalog | None = None,
+        *,
+        available_model_package_ids: set[str] | None = None,
     ) -> None:
         self.store = store
         self.registry = registry
         self.catalog = catalog
+        self.available_model_package_ids = available_model_package_ids
 
     def require(
         self, project_id: str, *, include_archived: bool = False
@@ -425,6 +431,10 @@ class ProjectService:
             item for item in self.catalog.list_model_package_refs()
             if item.task_id == payload.task_id and item.task_contract_digest == task_digest
             and self._package_trained_on_dataset(item, view.members[0])
+            and (
+                self.available_model_package_ids is None
+                or item.id in self.available_model_package_ids
+            )
         ]
         if payload.model_package_ref_id:
             package = self.catalog.get_model_package_ref(payload.model_package_ref_id)

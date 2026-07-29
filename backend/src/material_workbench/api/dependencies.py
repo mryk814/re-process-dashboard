@@ -63,8 +63,16 @@ def get_data_library_root(request: Request) -> Path:
     return request.app.state.data_library_root
 
 
-def get_available_packages_path(request: Request) -> Path:
-    return request.app.state.available_packages_path
+def get_available_packages_paths(request: Request) -> tuple[Path, ...]:
+    return request.app.state.available_packages_paths
+
+
+def get_personal_available_packages_paths(request: Request) -> tuple[Path, ...]:
+    return request.app.state.personal_available_packages_paths
+
+
+def get_model_package_origins(request: Request) -> dict[str, str]:
+    return request.app.state.model_package_origins
 
 
 def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:

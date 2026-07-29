@@ -6085,15 +6085,37 @@ export interface components {
             };
             /** Package Id */
             package_id: string;
+            /**
+             * Storage Scope
+             * @default bundled
+             * @enum {string}
+             */
+            storage_scope: "bundled" | "personal";
             /** Task Contract Digest */
             task_contract_digest: string;
             /** Task Id */
             task_id: string;
         };
+        /** ModelPackageRefreshResult */
+        ModelPackageRefreshResult: {
+            /** Model Packages */
+            model_packages: components["schemas"]["ModelPackageRef"][];
+            /** Warnings */
+            warnings?: components["schemas"]["ModelPackageRegistrationWarning"][];
+        };
         /** ModelPackageRefUpdateInput */
         ModelPackageRefUpdateInput: {
             /** Archived */
             archived: boolean;
+        };
+        /** ModelPackageRegistrationWarning */
+        ModelPackageRegistrationWarning: {
+            /** Message */
+            message: string;
+            /** Reference */
+            reference?: string | null;
+            /** Source */
+            source: string;
         };
         /** ModelPackageStatus */
         ModelPackageStatus: {
@@ -9923,7 +9945,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ModelPackageRef"][];
+                    "application/json": components["schemas"]["ModelPackageRefreshResult"];
                 };
             };
             /** @description Validation Error */

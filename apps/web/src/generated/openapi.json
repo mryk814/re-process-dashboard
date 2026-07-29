@@ -10642,6 +10642,15 @@
             "title": "Package Id",
             "type": "string"
           },
+          "storage_scope": {
+            "default": "bundled",
+            "enum": [
+              "bundled",
+              "personal"
+            ],
+            "title": "Storage Scope",
+            "type": "string"
+          },
           "task_contract_digest": {
             "minLength": 1,
             "title": "Task Contract Digest",
@@ -10677,6 +10686,58 @@
           "archived"
         ],
         "title": "ModelPackageRefUpdateInput",
+        "type": "object"
+      },
+      "ModelPackageRefreshResult": {
+        "properties": {
+          "model_packages": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageRef"
+            },
+            "title": "Model Packages",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageRegistrationWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model_packages"
+        ],
+        "title": "ModelPackageRefreshResult",
+        "type": "object"
+      },
+      "ModelPackageRegistrationWarning": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "message"
+        ],
+        "title": "ModelPackageRegistrationWarning",
         "type": "object"
       },
       "ModelPackageStatus": {
@@ -20082,11 +20143,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ModelPackageRef"
-                  },
-                  "title": "Response Refresh Model Packages Api Data Library Model Packages Refresh Post",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ModelPackageRefreshResult"
                 }
               }
             },

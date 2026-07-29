@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import shutil
 import sqlite3
 
+from fastapi.testclient import TestClient
+
+from material_workbench.app import create_app
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.tasks.task_registry import load_task_contracts
 
@@ -146,7 +152,11 @@ def test_available_package_manifest_can_be_reloaded_without_restart(client) -> N
     refreshed = client.post("/api/data-library/model-packages/refresh")
 
     assert refreshed.status_code == 200, refreshed.text
-    assert removed["id"] in {package["id"] for package in refreshed.json()}
+    assert refreshed.json()["warnings"] == []
+    assert removed["id"] in {
+        package["id"]
+        for package in refreshed.json()["model_packages"]
+    }
     options = client.get("/api/project-creation-options").json()
     assert removed["id"] in {package["id"] for package in options["model_packages"]}
 
@@ -198,6 +208,107 @@ def test_available_package_manifest_can_be_reloaded_without_restart(client) -> N
     )
     assert curve.status_code == 200, curve.text
     assert len(curve.json()["points"]) == 9
+
+
+def test_personal_duplicate_never_replaces_the_bundled_package(
+    app_resources,
+    tmp_path: Path,
+) -> None:
+    app = create_app(db_path=tmp_path / "workbench.db", _resources=app_resources)
+    with TestClient(app) as client:
+        bundled = next(
+            item
+            for item in client.get("/api/project-creation-options").json()[
+                "model_packages"
+            ]
+            if item["storage_scope"] == "bundled"
+        )
+        personal_store = tmp_path / "personal-model-store"
+        copied_package = personal_store / "packages" / bundled["package_id"]
+        shutil.copytree(Path(bundled["locator"]), copied_package)
+        available = personal_store / "available-packages.json"
+        available.write_text(
+            json.dumps({
+                "schema_version": "available-model-packages/v1",
+                "packages": [f"packages/{bundled['package_id']}"],
+            }),
+            encoding="utf-8",
+        )
+        client.app.state.available_packages_paths += (available,)
+        client.app.state.personal_available_packages_paths = (available,)
+
+        refreshed = client.post("/api/data-library/model-packages/refresh")
+
+        assert refreshed.status_code == 200, refreshed.text
+        duplicate = next(
+            item
+            for item in refreshed.json()["model_packages"]
+            if item["id"] == bundled["id"]
+        )
+        assert duplicate["storage_scope"] == "bundled"
+        assert duplicate["locator"] == bundled["locator"]
+
+        shutil.rmtree(copied_package)
+        degraded = client.post("/api/data-library/model-packages/refresh")
+
+        assert degraded.status_code == 200, degraded.text
+        assert len(degraded.json()["warnings"]) == 1
+        option = next(
+            item
+            for item in client.get("/api/project-creation-options").json()[
+                "model_packages"
+            ]
+            if item["id"] == bundled["id"]
+        )
+        assert option["storage_scope"] == "bundled"
+        assert option["locator"] == bundled["locator"]
+
+
+def test_personal_package_cannot_reuse_a_bundled_package_id(
+    app_resources,
+    tmp_path: Path,
+) -> None:
+    app = create_app(db_path=tmp_path / "workbench.db", _resources=app_resources)
+    with TestClient(app) as client:
+        bundled = next(
+            item
+            for item in client.get("/api/project-creation-options").json()[
+                "model_packages"
+            ]
+            if item["storage_scope"] == "bundled"
+        )
+        personal_store = tmp_path / "personal-model-store"
+        copied_package = personal_store / "packages" / bundled["package_id"]
+        shutil.copytree(Path(bundled["locator"]), copied_package)
+        manifest_path = copied_package / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["package_version"] = (
+            f"{manifest['package_version']}-different-content"
+        )
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        available = personal_store / "available-packages.json"
+        available.write_text(
+            json.dumps({
+                "schema_version": "available-model-packages/v1",
+                "packages": [f"packages/{bundled['package_id']}"],
+            }),
+            encoding="utf-8",
+        )
+        client.app.state.available_packages_paths += (available,)
+        client.app.state.personal_available_packages_paths = (available,)
+
+        refreshed = client.post("/api/data-library/model-packages/refresh")
+
+        assert refreshed.status_code == 200, refreshed.text
+        assert len(refreshed.json()["warnings"]) == 1
+        assert "同じpackage_id" in refreshed.json()["warnings"][0]["message"]
+        unchanged = next(
+            item
+            for item in refreshed.json()["model_packages"]
+            if item["id"] == bundled["id"]
+        )
+        assert unchanged["manifest_digest"] == bundled["manifest_digest"]
+        assert unchanged["locator"] == bundled["locator"]
 
 
 def test_unused_dataset_can_be_disabled_and_restored_with_its_views(client) -> None:

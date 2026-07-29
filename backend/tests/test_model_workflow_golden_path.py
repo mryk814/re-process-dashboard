@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import csv
 import json
+import shutil
 import sys
 
 from fastapi.testclient import TestClient
@@ -13,13 +14,14 @@ SCRIPTS = ROOT / "backend" / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
+import model_workflow  # noqa: E402
 from model_workflow import (  # noqa: E402
+    _parser,
     build_package,
     diagnose_source,
     promote_package,
 )
 from material_workbench.app import create_app  # noqa: E402
-from material_workbench.contracts.schemas import ModelPackageRefCreateInput  # noqa: E402
 from material_workbench.data.dataset_registration import (  # noqa: E402
     register_managed_dataset,
 )
@@ -32,11 +34,78 @@ from material_workbench.modeling.model_package_verify import (  # noqa: E402
     verify_model_package,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog  # noqa: E402
-from material_workbench.persistence.workspace_catalog_bootstrap import (  # noqa: E402
-    task_definition_digest,
-)
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+
+
+def test_promote_cli_uses_env_store_and_explicit_override(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    env_store = tmp_path / "env-store"
+    explicit_store = tmp_path / "explicit-store"
+    monkeypatch.setenv("WORKBENCH_MODEL_STORE_PATH", str(env_store))
+    base = [
+        "promote",
+        "--task",
+        "heat-treatment-tradeoff-v1",
+        "--source",
+        "source.csv",
+        "--package",
+        "package",
+    ]
+
+    from_env = _parser().parse_args(base)
+    explicit = _parser().parse_args([*base, "--store", str(explicit_store)])
+
+    assert from_env.store == env_store.resolve()
+    assert explicit.store == explicit_store
+
+
+def test_promote_cli_main_passes_the_selected_store(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    selected_store = tmp_path / "selected-store"
+    captured: dict[str, object] = {}
+
+    def fake_promote(
+        task_id: str,
+        package: Path,
+        source: Path,
+        store: Path,
+        *,
+        profile: Path | None = None,
+    ) -> dict[str, object]:
+        captured.update({
+            "task_id": task_id,
+            "package": package,
+            "source": source,
+            "store": store,
+            "profile": profile,
+        })
+        return {"ok": True}
+
+    monkeypatch.setattr(model_workflow, "promote_package", fake_promote)
+    monkeypatch.setattr(sys, "argv", [
+        "model_workflow.py",
+        "promote",
+        "--task",
+        "heat-treatment-tradeoff-v1",
+        "--source",
+        "source.csv",
+        "--package",
+        "package",
+        "--store",
+        str(selected_store),
+    ])
+
+    assert model_workflow.main() == 0
+    assert captured["store"] == selected_store
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "result": {"ok": True},
+    }
 
 
 def test_model_source_diagnosis_branches_existing_and_new_tasks() -> None:
@@ -163,31 +232,43 @@ def test_explicit_profile_flows_from_diagnosis_through_build_and_verify(
         algorithm=manifest.provenance.feature_dataset_digest_algorithm,
     ) == manifest.provenance.feature_dataset_id
 
-    store_root = tmp_path / "personal-model-store"
-    store_root.mkdir()
-    (store_root / "available-packages.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "available-model-packages/v1",
-                "packages": [],
-            }
-        ),
-        encoding="utf-8",
+    bundled_available_path = ROOT / "models" / "available-packages.json"
+    bundled_active_path = ROOT / "models" / "active-packages.json"
+    bundled_state = (
+        bundled_available_path.read_bytes(),
+        bundled_active_path.read_bytes(),
+        {
+            item.relative_to(ROOT / "models" / "packages").as_posix()
+            for item in (ROOT / "models" / "packages").rglob("*")
+        },
     )
+    store_root = tmp_path / "personal-model-store"
     promotion = promote_package(
         "heat-treatment-tradeoff-v1",
         package,
         source,
-        store_root / "active-packages.json",
-        activate=False,
+        store_root,
         profile=profile,
     )
     promoted_package = Path(promotion["trusted_package"])
     assert promoted_package.is_dir()
+    assert store_root in promoted_package.parents
+    assert (
+        bundled_available_path.read_bytes(),
+        bundled_active_path.read_bytes(),
+        {
+            item.relative_to(ROOT / "models" / "packages").as_posix()
+            for item in (ROOT / "models" / "packages").rglob("*")
+        },
+    ) == bundled_state
 
     database = tmp_path / "workbench.db"
     library = tmp_path / "data-library"
-    app = create_app(db_path=database, data_library_path=library)
+    app = create_app(
+        db_path=database,
+        data_library_path=library,
+        model_store_path=store_root,
+    )
     with TestClient(app) as client:
         registered = register_managed_dataset(
             database=database,
@@ -195,29 +276,32 @@ def test_explicit_profile_flows_from_diagnosis_through_build_and_verify(
             library_root=library,
             profile_path=profile,
         )
-        catalog = WorkspaceCatalog(database)
-        package_ref = catalog.upsert_model_package_ref(
-            ModelPackageRefCreateInput(
-                package_id=manifest.package_id,
-                task_id=manifest.task_id,
-                task_contract_digest=task_definition_digest(
-                    client.app.state.task_registry,
-                    manifest.task_id,
-                ),
-                manifest_digest=ModelPackageLoader().load(
-                    promoted_package
-                ).manifest_sha256,
-                locator=str(promoted_package),
-                manifest_json=manifest.model_dump(mode="json"),
-            )
+        refresh_response = client.post(
+            "/api/data-library/model-packages/refresh"
         )
+        assert refresh_response.status_code == 200, refresh_response.text
+        assert refresh_response.json()["warnings"] == []
+        package_ref = next(
+            item
+            for item in refresh_response.json()["model_packages"]
+            if item["package_id"] == manifest.package_id
+        )
+        assert package_ref["storage_scope"] == "personal"
+        creation_options = client.get("/api/project-creation-options")
+        assert creation_options.status_code == 200, creation_options.text
+        option = next(
+            item
+            for item in creation_options.json()["model_packages"]
+            if item["id"] == package_ref["id"]
+        )
+        assert option["storage_scope"] == "personal"
         project_response = client.post(
             "/api/projects",
             json={
                 "name": "リポジトリ外データのProject smoke",
                 "task_id": manifest.task_id,
                 "dataset_view_revision_id": registered.dataset_view_revision_id,
-                "model_package_ref_id": package_ref.id,
+                "model_package_ref_id": package_ref["id"],
             },
         )
         assert project_response.status_code == 201, project_response.text
@@ -246,6 +330,37 @@ def test_explicit_profile_flows_from_diagnosis_through_build_and_verify(
         assert set(preview_response.json()["predictions"]) == {
             "hardness_hv",
             "charpy_j",
+        }
+
+        shutil.rmtree(promoted_package)
+        degraded_refresh = client.post(
+            "/api/data-library/model-packages/refresh"
+        )
+        assert degraded_refresh.status_code == 200, degraded_refresh.text
+        assert len(degraded_refresh.json()["warnings"]) == 1
+        degraded_options = client.get("/api/project-creation-options").json()
+        assert package_ref["id"] not in {
+            item["id"]
+            for item in degraded_options["model_packages"]
+        }
+        rejected_project = client.post(
+            "/api/projects",
+            json={
+                "name": "削除済み個人Packageを直接指定",
+                "task_id": manifest.task_id,
+                "dataset_view_revision_id": (
+                    registered.dataset_view_revision_id
+                ),
+                "model_package_ref_id": package_ref["id"],
+            },
+        )
+        assert rejected_project.status_code == 422, rejected_project.text
+        assert project_id in {
+            item["id"]
+            for item in client.get(
+                "/api/projects",
+                params={"include_archived": True},
+            ).json()
         }
 
 

@@ -4,7 +4,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
-from .dependencies import get_store, get_task_registry, get_workspace_catalog
+from .dependencies import (
+    get_model_package_origins,
+    get_store,
+    get_task_registry,
+    get_workspace_catalog,
+)
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.projects import (
     ProjectHistoryIntegrityError,
@@ -31,12 +36,24 @@ router = APIRouter()
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
+ModelPackageOriginsDependency = Annotated[
+    dict[str, str],
+    Depends(get_model_package_origins),
+]
 
 
 def get_project_service(
-    store: StoreDependency, registry: RegistryDependency, catalog: CatalogDependency
+    store: StoreDependency,
+    registry: RegistryDependency,
+    catalog: CatalogDependency,
+    package_origins: ModelPackageOriginsDependency,
 ) -> ProjectService:
-    return ProjectService(store, registry, catalog)
+    return ProjectService(
+        store,
+        registry,
+        catalog,
+        available_model_package_ids=set(package_origins),
+    )
 
 
 ProjectServiceDependency = Annotated[ProjectService, Depends(get_project_service)]

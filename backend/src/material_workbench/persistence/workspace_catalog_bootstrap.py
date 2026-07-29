@@ -1,6 +1,7 @@
 """Register bundled resources and bind legacy Projects without inventing history."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,9 +18,13 @@ from material_workbench.data.dataset_registration import (
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.contracts.schemas import (
     ModelPackageRefCreateInput,
+    ModelPackageRegistrationWarning,
 )
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.persistence.workspace_catalog import (
+    CatalogConflictError,
+    WorkspaceCatalog,
+)
 from material_workbench.persistence.sqlite_connection import sqlite_connection
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
 from material_workbench.modeling.model_lifecycle import (
@@ -78,7 +83,12 @@ def task_definition_digest(registry: TaskRegistry, task_id: str) -> str:
     return semantic_digest(definition.model_dump(mode="json"))
 
 
-def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry) -> dict[str, ProjectBinding]:
+def register_runtime_resources(
+    catalog: WorkspaceCatalog,
+    registry: TaskRegistry,
+    *,
+    package_origins: dict[str, str] | None = None,
+) -> dict[str, ProjectBinding]:
     """Register every currently configured task runtime as immutable catalog records."""
 
     bindings: dict[str, ProjectBinding] = {}
@@ -110,6 +120,8 @@ def register_runtime_resources(catalog: WorkspaceCatalog, registry: TaskRegistry
             locator=str(package.root),
             manifest_json=package.manifest.model_dump(mode="json"),
         ))
+        if package_origins is not None:
+            package_origins[package_ref.id] = "bundled"
         bindings[task_id] = ProjectBinding(
             task_id=task_id,
             dataset_view_revision_id=views_by_dataset[registered.dataset_revision_id],
@@ -141,6 +153,11 @@ def register_available_packages(
     catalog: WorkspaceCatalog,
     registry: TaskRegistry,
     path: Path = AVAILABLE_PACKAGES_PATH,
+    *,
+    storage_scope: str = "bundled",
+    package_origins: dict[str, str] | None = None,
+    warnings: list[ModelPackageRegistrationWarning] | None = None,
+    strict: bool = True,
 ) -> int:
     """Register explicit alternatives whose training Dataset is currently available."""
 
@@ -154,7 +171,15 @@ def register_available_packages(
         if not isinstance(references, list) or not all(isinstance(item, str) for item in references):
             raise ValueError("packages must be a string list")
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        raise WorkspaceCatalogBootstrapError(f"利用可能なModel Package一覧を読めません: {exc}") from exc
+        message = f"利用可能なModel Package一覧を読めません: {exc}"
+        if strict:
+            raise WorkspaceCatalogBootstrapError(message) from exc
+        if warnings is not None:
+            warnings.append(ModelPackageRegistrationWarning(
+                source=str(path),
+                message=message,
+            ))
+        return 0
 
     models_root = path.resolve().parent
     available_training = {
@@ -165,45 +190,97 @@ def register_available_packages(
     }
     registered = 0
     for reference in references:
-        relative = Path(reference)
-        if relative.is_absolute():
-            raise WorkspaceCatalogBootstrapError("利用可能なModel Package参照は相対パスで指定してください")
-        package_root = (models_root / relative).resolve()
-        if models_root not in package_root.parents:
-            raise WorkspaceCatalogBootstrapError("利用可能なModel Package参照がmodels外を指しています")
         try:
+            relative = Path(reference)
+            if relative.is_absolute():
+                raise WorkspaceCatalogBootstrapError(
+                    "利用可能なModel Package参照は相対パスで指定してください"
+                )
+            package_root = (models_root / relative).resolve()
+            if models_root not in package_root.parents:
+                raise WorkspaceCatalogBootstrapError(
+                    "利用可能なModel Package参照がmodels外を指しています"
+                )
             package = ModelPackageLoader().load(package_root)
-        except (OSError, PackageContractError) as exc:
-            raise WorkspaceCatalogBootstrapError(f"Model Packageを検証できません: {package_root}: {exc}") from exc
-        training_id = package.manifest.provenance.training_data_id
-        profile_id = package.manifest.provenance.dataset_profile_id
-        if not training_id.startswith("sha256:") or (
-            training_id.removeprefix("sha256:"), profile_id
-        ) not in available_training:
-            continue
-        if package.manifest.task_id not in registry.task_ids:
-            raise WorkspaceCatalogBootstrapError(
-                f"Model PackageのPrediction Taskが登録されていません: {package.manifest.task_id}"
+            training_id = package.manifest.provenance.training_data_id
+            profile_id = package.manifest.provenance.dataset_profile_id
+            if not training_id.startswith("sha256:") or (
+                training_id.removeprefix("sha256:"), profile_id
+            ) not in available_training:
+                continue
+            if package.manifest.task_id not in registry.task_ids:
+                raise WorkspaceCatalogBootstrapError(
+                    "Model PackageのPrediction Taskが登録されていません: "
+                    f"{package.manifest.task_id}"
+                )
+            contract = registry.contract_for(package.manifest.task_id)
+            if (
+                package.manifest.input_contract_digest
+                != task_input_contract_digest(contract.task_definition)
+                or package.manifest.runtime_capability_digest
+                != runtime_capability_digest(contract.runtime_capability)
+            ):
+                raise WorkspaceCatalogBootstrapError(
+                    "Model Packageが現在のPrediction Task契約と一致しません: "
+                    f"{package.manifest.package_id}"
+                )
+            same_id_refs = [
+                item
+                for item in catalog.list_model_package_refs(include_archived=True)
+                if item.package_id == package.manifest.package_id
+            ]
+            if any(
+                item.manifest_digest != package.manifest_sha256
+                for item in same_id_refs
+            ):
+                raise WorkspaceCatalogBootstrapError(
+                    "同じpackage_idのModel Packageが別内容で登録済みです: "
+                    f"{package.manifest.package_id}"
+                )
+            existing = next(
+                (
+                    item
+                    for item in same_id_refs
+                    if item.manifest_digest == package.manifest_sha256
+                ),
+                None,
             )
-        contract = registry.contract_for(package.manifest.task_id)
-        if (
-            package.manifest.input_contract_digest
-            != task_input_contract_digest(contract.task_definition)
-            or package.manifest.runtime_capability_digest
-            != runtime_capability_digest(contract.runtime_capability)
-        ):
-            raise WorkspaceCatalogBootstrapError(
-                f"Model Packageが現在のPrediction Task契約と一致しません: {package.manifest.package_id}"
+            if (
+                storage_scope == "personal"
+                and existing is not None
+                and package_origins is not None
+                and package_origins.get(existing.id) == "bundled"
+            ):
+                continue
+            package_ref = catalog.upsert_model_package_ref(ModelPackageRefCreateInput(
+                package_id=package.manifest.package_id,
+                task_id=package.manifest.task_id,
+                task_contract_digest=task_definition_digest(
+                    registry, package.manifest.task_id
+                ),
+                manifest_digest=package.manifest_sha256,
+                locator=str(package.root),
+                manifest_json=package.manifest.model_dump(mode="json"),
+            ))
+            if package_origins is not None:
+                package_origins[package_ref.id] = storage_scope
+            registered += 1
+        except (OSError, PackageContractError, WorkspaceCatalogBootstrapError, CatalogConflictError) as exc:
+            message = (
+                str(exc)
+                if isinstance(exc, (WorkspaceCatalogBootstrapError, CatalogConflictError))
+                else f"Model Packageを検証できません: {reference}: {exc}"
             )
-        catalog.upsert_model_package_ref(ModelPackageRefCreateInput(
-            package_id=package.manifest.package_id,
-            task_id=package.manifest.task_id,
-            task_contract_digest=task_definition_digest(registry, package.manifest.task_id),
-            manifest_digest=package.manifest_sha256,
-            locator=str(package.root),
-            manifest_json=package.manifest.model_dump(mode="json"),
-        ))
-        registered += 1
+            if strict:
+                if isinstance(exc, WorkspaceCatalogBootstrapError):
+                    raise
+                raise WorkspaceCatalogBootstrapError(message) from exc
+            if warnings is not None:
+                warnings.append(ModelPackageRegistrationWarning(
+                    source=str(path),
+                    reference=reference,
+                    message=message,
+                ))
     return registered
 
 
@@ -487,12 +564,34 @@ def bootstrap_workspace_catalog(
     database: str | Path,
     registry: TaskRegistry,
     *,
-    available_packages_path: Path = AVAILABLE_PACKAGES_PATH,
+    available_packages_paths: Iterable[Path] = (AVAILABLE_PACKAGES_PATH,),
+    personal_available_packages_paths: Iterable[Path] = (),
+    package_origins: dict[str, str] | None = None,
+    warnings: list[ModelPackageRegistrationWarning] | None = None,
 ) -> WorkspaceCatalog:
     catalog = WorkspaceCatalog(database)
-    bindings = register_runtime_resources(catalog, registry)
+    origins = package_origins if package_origins is not None else {}
+    bindings = register_runtime_resources(
+        catalog,
+        registry,
+        package_origins=origins,
+    )
     register_primary_datasets(catalog)
-    register_available_packages(catalog, registry, available_packages_path)
+    personal_paths = {
+        Path(item).resolve()
+        for item in personal_available_packages_paths
+    }
+    for path in dict.fromkeys(Path(item).resolve() for item in available_packages_paths):
+        is_personal = path in personal_paths
+        register_available_packages(
+            catalog,
+            registry,
+            path,
+            storage_scope="personal" if is_personal else "bundled",
+            package_origins=origins,
+            warnings=warnings,
+            strict=not is_personal,
+        )
     bind_legacy_projects(database, catalog, bindings)
     migrate_replaced_model_package_projects(database)
     refresh_replaced_tutorial_projects(database, bindings)

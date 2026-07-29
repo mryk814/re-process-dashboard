@@ -397,7 +397,7 @@ export const workbenchApi = {
   async refreshModelPackageRefs() {
     return requireData(
       await apiClient.POST("/api/data-library/model-packages/refresh"),
-      "昇格済みModel Packageを再読込できませんでした。",
+      "個人Model Packageを再読込できませんでした。",
     );
   },
   async setModelPackageArchived(referenceId: string, archived: boolean) {

@@ -15,13 +15,16 @@ from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset,
     canonical_training_dataset_digest,
     exact_gp_loo_quality,
+    ensure_available_packages_config,
     load_active_packages,
     load_available_packages,
+    personal_model_store_path,
     register_available_package,
     resolve_configured_package,
     rollback_active_package,
     set_active_package,
     staged_package_destination,
+    validate_personal_model_store_path,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import PackageContractError
@@ -39,6 +42,28 @@ PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 MPEA_SOURCE = ROOT / "data" / "source" / "external" / "mpea_ground_truth_18021833.csv"
 PROCESS_ANNEALED_PACKAGE = ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v2"
 PROCESS_HOT_PACKAGE = ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2"
+
+
+def test_personal_model_store_defaults_to_local_app_data(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("WORKBENCH_MODEL_STORE_PATH", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    store = personal_model_store_path()
+    config = ensure_available_packages_config(store)
+
+    assert store == (
+        tmp_path / "Material Decision Workbench" / "models"
+    ).resolve()
+    assert load_available_packages(config).packages == ()
+
+
+@pytest.mark.parametrize("relative", [".", "models", "artifacts/personal-models"])
+def test_personal_model_store_rejects_repository_paths(relative: str) -> None:
+    with pytest.raises(PackageContractError, match="outside the repository"):
+        validate_personal_model_store_path(ROOT / relative)
 
 
 def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
