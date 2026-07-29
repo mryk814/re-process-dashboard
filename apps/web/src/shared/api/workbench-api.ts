@@ -21,6 +21,7 @@ export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnostic
 export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
 export type ApiQuality = components["schemas"]["QualityResponse"];
 export type ApiLineage = components["schemas"]["LineageResponse"];
+export type ApiLineageCandidateOption = components["schemas"]["LineageCandidateOption"];
 export type ApiLineageIndex = components["schemas"]["LineageIndexResponse"];
 export type ApiLineageNodeReview = components["schemas"]["LineageNodeReview"];
 export type ApiLineageNodeReviewInput = components["schemas"]["LineageNodeReviewInput"];

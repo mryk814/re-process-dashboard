@@ -114,7 +114,11 @@ type WorkbenchProps = {
   savingCandidateIds: string[];
   snapshotHistoryState: "loading" | "ready" | "error";
   onAdd: () => void;
-  onAddCandidateFromLineage: (entityKey: string) => Promise<boolean>;
+  onAddCandidateFromLineage: (
+    entityKey: string,
+    processKey?: string,
+    meltKey?: string,
+  ) => Promise<boolean>;
   onImported: (items: Candidate[]) => void;
   onOptimizedCandidate: (candidate: ApiCandidate) => void;
   onProjectChanged: (project: ApiProject) => void | Promise<void>;

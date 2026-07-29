@@ -568,9 +568,18 @@ export function useWorkbenchSession({
     }
   }
 
-  async function addCandidateFromLineage(entityKey: string): Promise<boolean> {
+  async function addCandidateFromLineage(
+    entityKey: string,
+    processKey?: string,
+    meltKey?: string,
+  ): Promise<boolean> {
     try {
-      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(entityKey, activeProjectId));
+      const created = fromApiCandidate(await workbenchApi.createCandidateFromLineage(
+        entityKey,
+        activeProjectId,
+        processKey,
+        meltKey,
+      ));
       appendCandidate(created);
       selectCandidate(created.id);
       notifySuccess("近い過去実績を候補に追加しました");

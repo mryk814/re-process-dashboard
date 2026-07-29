@@ -695,7 +695,7 @@
 .similar-key-header { width: 92px; }
 .similar-output-header { width: 104px; }
 .similar-output-header small { display: block; color: #5f6f82; font-size: 10px; font-weight: 400; }
-.similar-action-header { width: 124px; }
+.similar-action-header { width: 176px; }
 .similar-distance { text-align: left !important; }
 .similar-distance b { display: block; font-variant-numeric: tabular-nums; }
 .similar-key { display: -webkit-box; overflow: hidden; color: #1d4f91; font-size: 10px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -703,8 +703,12 @@
 .similar-output-cell strong { display: block; color: #173f75; font-size: 11px; }
 .similar-output-cell small { display: block; color: #526276; font-size: 10px; white-space: nowrap; }
 .similar-output-cell.empty-cell { color: #526276; text-align: center !important; }
-.similar-action-cell { width: 124px; min-width: 124px; box-sizing: border-box; padding-left: 4px !important; padding-right: 4px !important; }
+.similar-action-cell { width: 176px; min-width: 176px; box-sizing: border-box; padding-left: 4px !important; padding-right: 4px !important; vertical-align: top; }
 .similar-action-cell .candidate-add-button { width: 100%; padding-inline: 4px; }
+.similar-candidate-choice { display: grid; gap: 5px; }
+.similar-candidate-choice label { display: grid; gap: 2px; color: #526276; font-size: 10px; }
+.similar-candidate-choice select { width: 100%; min-width: 0; border: 1px solid #c7d3e1; border-radius: 3px; padding: 4px 22px 4px 5px; background: #fff; color: #173f75; font-size: 10px; }
+.similar-choice-error { display: block; margin-top: 4px; color: #9a3412; font-size: 10px; line-height: 1.3; }
 @media (max-width: 1280px) {
   .workbench-lower-grid { display: block; }
   .lower-panel-resizer { display: none; }
