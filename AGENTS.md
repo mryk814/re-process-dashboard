@@ -8,7 +8,38 @@
 - `models/packages` — 学習済みモデルPackage（データ成果物、コードなし）
 - `data/source` — 元Excel。読取専用の正本
 
-## セットアップと検証
+## 作業レーンを最初に決める
+
+作業者の肩書ではなく、変更する対象でレーンを決める。
+
+### データ利用レーン
+
+既存のPrediction Task、Profile family、Model Runtimeを使い、自分のExcel／CSVを登録、探索、学習、Project利用する作業はデータ利用レーンとする。
+入口は [自分のデータで使い始める](docs/operations/data-contributor-start-here.md)。
+
+このレーンでは、次を既定で要求しない。
+
+- アプリコード向けの新規unit test／E2E
+- GitHub Issue、branch、PR、commit
+- `verify:edit`、`verify:pr`、`verify:checkpoint`
+- source dataや個人用artifactのリポジトリ同梱
+- アプリ全体の敵対的コードレビュー
+
+代わりに、既存のProfile検証、`model:diagnose`、Package build内の契約検証、実際のProjectでのsmokeを使う。
+既存の検証コマンドが失敗した場合は、テストを書いて回避しない。
+データ、Profile、Packageの不整合だけでなく、環境、tooling、アプリの不具合も切り分ける。
+
+リポジトリ外の個人用Profileで、既存Profile schema内の列名やシート名をmappingする作業はこのレーンに含む。
+追跡済みProfileや同梱Dataset／Packageを変更する場合はアプリ開発レーンとする。
+TaskDefinitionの入力・出力、canonical quantity、学習単位、Profile parser／schema、Runtime adapter、API、UI、migrationを変える場合は、その時点からアプリ開発レーンへ移る。
+
+### アプリ開発レーン
+
+アプリ本体、契約、共通tooling、同梱コンテンツを変更する作業はアプリ開発レーンとする。
+入口は [Developer Start Here](docs/developer-start-here.md)。
+以下の検証規約、Issue／PR運用、実装者と異なる観点のレビューは、このレーンに適用する。
+
+## アプリ開発のセットアップと検証
 
 ```powershell
 uv sync --extra dev
@@ -90,7 +121,7 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 - 常駐サーバは起動時にbindしたDataset revisionを持ち続ける。データセットや
   Packageを変更したときは、常駐サーバを再起動しないと古い版を見たままになる
 
-## 進め方
+## アプリ開発の進め方
 
 - 独立して検証できる作業はサブエージェントへ委任し、共有worktreeの所有権を明示する
 - merge前に、実装者と異なる観点の敵対的レビューで穴をつぶす
@@ -124,10 +155,12 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 
 ## AI self-check
 
+- 今回がデータ利用レーンかアプリ開発レーンかを先に判定したか。
+- データ利用レーンへアプリコード用のテスト、Issue、PR、全体gateを要求していないか。
 - 変更対象の正本、生成物、読取専用資源を区別したか。
 - 予測、実測、不確かさ、支持範囲を混同していないか。
 - 保存済みSnapshot、Run、Project identityを暗黙更新していないか。
-- edit loopだけで完了扱いせず、変更riskに対応するLevel 1以上と必要なbrowser証拠を残したか。
+- アプリ開発レーンでは、edit loopだけで完了扱いせず、変更riskに対応するLevel 1以上と必要なbrowser証拠を残したか。
 - Actionsが利用可能かを実行時に確認し、利用できない場合は選択したローカルgateと不足する外部証拠をPRへ記録したか。
 
 ## 詳細ドキュメント
