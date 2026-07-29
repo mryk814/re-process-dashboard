@@ -346,7 +346,7 @@ class HotRollingRuntime:
             ),
             None,
         )
-        if field is None or field.training_range is None or field.allowed_range is None:
+        if field is None or field.allowed_range is None:
             raise ValueError(f"Response-curve variable has no numeric range: {variable}")
         return field, group, name
 
@@ -410,6 +410,32 @@ class HotRollingRuntime:
             raise ValueError(f"{field.label}を動かせる有効な範囲がありません")
         return lower, upper, epsilon
 
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        del stage_name, stage_position_m
+        if target not in self.output_keys:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        self._response_curve_field(variable)
+        output = next(item for item in self.task_definition.outputs if item.key == target)
+        values: list[float] = []
+        for repeats in self.reference_rows:
+            for row in repeats:
+                if not any(key in row["outputs"] for key in output.measurement_keys):
+                    continue
+                bucket = row["composition"] if variable.startswith("composition.") else row["features"]
+                value = bucket.get(variable.split(".", 1)[1])
+                if isinstance(value, (int, float)) and math.isfinite(float(value)):
+                    values.append(float(value))
+        if not values:
+            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+        return min(values), max(values)
+
     def response_curve_result(
         self,
         candidate: Candidate,
@@ -421,14 +447,14 @@ class HotRollingRuntime:
         if target not in self.output_keys:
             raise ValueError(f"Unsupported response-curve target: {target}")
         field, group, name = self._response_curve_field(variable)
-        assert field.training_range is not None
+        training_min, training_max = self.training_range_for(target, variable)
         if axis_range is None:
             lower, upper, epsilon = self._response_curve_bounds(candidate, variable)
-            start = max(lower, field.training_range.min)
-            end = min(upper, field.training_range.max)
+            start = max(lower, training_min)
+            end = min(upper, training_max)
             if end - start < epsilon:
                 current = self._candidate_value(candidate, variable)
-                span = max((field.training_range.max - field.training_range.min) * 0.1, epsilon * 2)
+                span = max((training_max - training_min) * 0.1, epsilon * 2)
                 start = max(lower, current - span)
                 end = min(upper, current + span)
         else:
@@ -478,8 +504,8 @@ class HotRollingRuntime:
                 "max": round(float(end), 4),
                 "current": round(self._candidate_value(candidate, variable), 4),
                 "training_range": {
-                    "min": round(field.training_range.min, 4),
-                    "max": round(field.training_range.max, 4),
+                    "min": round(training_min, 4),
+                    "max": round(training_max, 4),
                 },
             },
             "points": curve,

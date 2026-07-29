@@ -142,25 +142,21 @@ DataDescriptor（宣言済みの共通面）
 サンプリング系も固定seedのため bit一致で再現しました。
 **モデルは変わらないので、実質は契約の押し直しです。**
 
-**`training_range` はTask単位の宣言だがPackage単位の事実です（未解決）**
+**`training_range` はTask単位の参考宣言、runtime表示はPackage単位の事実です**
 
 1つのTaskDefinitionが複数データセットのPackageを持ちます
 （annealed / hot-rolled はどちらも tutorial と process の両workbookでPackageがあります）。
 `training_range` はその両方を同時に正しく記述できません。
 
-さらに `training_range` は**応答曲線の掃引軸**を決めます
-（[modeling/hot_rolling.py:424](../../backend/src/material_workbench/modeling/hot_rolling.py#L424)）。
-両データセットのunionへ広げると、activeなPackageの学習範囲を超えて曲線が伸び、
-支持の外まで外挿します。実測では hot-rolled の仕上げ温度が 931 → 1276 ℃ まで広がりました。
+応答曲線と2変数予測地図は `TrainingRangeProvider` を通じ、選択Packageのprovenanceが
+固定した学習Datasetの目的変数別cohortから軸範囲を導出します。
+TaskDefinitionの `training_range` や `allowed_range` へfallbackしません。
+実測では hot-rolled の仕上げ温度がtutorial Packageで 850〜900 ℃、
+process Packageで 830.762〜1276.129 ℃となり、Package切替へ追従します。
 
-そのため現在は**activeなPackageのデータセットに合わせて**宣言しています。
-別データセットのPackageを有効化すると宣言が実データより狭くなりますが、
-広すぎるより狭すぎるほうが安全側です。
-
-**本来の解決**は、UIが参照する支持範囲をTask契約ではなくPackage側
-（`reference/training_stats.json`）から取ることです。
-そうすれば `training_range` を入力契約から外せて、digestの結合も同時に切れます。
-この状態は `backend/tests/test_training_range_contract.py` が固定しています。
+TaskDefinitionの `training_range` がinput contract digestへ含まれる結合は残っています。
+これは編集時の参考範囲をTask契約から分離する別のschema変更で扱い、runtime表示の
+Package範囲とは混同しません。
 
 **Package構築は登録の後でしかできません（実測済）**
 

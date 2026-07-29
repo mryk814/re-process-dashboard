@@ -453,16 +453,17 @@ TaskDefinitionの `allowed_range` を学習行へ適用しません。
 | 対象 | 扱い | 理由 |
 | --- | --- | --- |
 | `allowed_range` 超過 | **失敗させる**（`validate_training_rows_within_allowed_range`） | 候補は `allowed_range` で検証されるので、そこを超える学習行は候補から到達できない。データと契約の不一致を意味する |
-| `training_range` のずれ | **報告する**（`training_range_drift`） | 宣言はデータの観測結果。作り直すかどうかは科学的契約に対する人の判断 |
+| `training_range` のずれ | **報告する**（`training_range_drift`） | Task側の参考宣言のdrift。runtime表示はPackage学習Datasetから別に導出する |
 
 loaderは行を落としません（暗黙の値判断をしない）。不一致は検証層で明示的に失敗させます。
 
 全13Taskの学習データが `allowed_range` を満たすことを確認したうえで追加したので、
-既存Taskは影響を受けません。一方 `training_range` は
+既存Taskは影響を受けません。一方、TaskDefinition側の `training_range` は
 `annealed-properties-v1`（`composition.Cu`, `process.ls_mpm`）と
 `hot-rolled-properties-v1`（`composition.Cu`, `process.entry_thickness_mm`）で
-**すでに実データからずれていました**。これは予測の誤りではなく契約の記述漏れで、
-直すにはTaskDefinitionとPackageの作り直しが必要なため、
+**すでに実データからずれていました**。runtimeの応答曲線・予測地図は
+`TrainingRangeProvider` が選択Packageの学習Datasetから範囲を導出するため影響を受けません。
+Task側の参考宣言を直すにはTaskDefinitionとPackageの作り直しが必要なため、
 `backend/tests/test_training_range_contract.py` の `KNOWN_TRAINING_RANGE_DRIFT` に
 現状として記録し、増えたら落ちるようにしています。
 

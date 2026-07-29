@@ -170,8 +170,8 @@ def test_stage_c_predicts_curves_restores_snapshot_and_inspects_training_views(
             "points": 11,
         },
     )
-    assert tensile_curve.status_code == 200, tensile_curve.text
-    assert len({point["value"] for point in tensile_curve.json()["points"]}) == 1
+    assert tensile_curve.status_code == 422
+    assert "入力に使わないため応答曲線を作成できません" in tensile_curve.json()["message"]
 
     selected = client.get(
         f"/api/projects/{project_id}/model-package/training-data",

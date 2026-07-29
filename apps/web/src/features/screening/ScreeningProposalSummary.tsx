@@ -1,9 +1,9 @@
 import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 
 const supportPolicyLabels: Record<string, string> = {
-  supported_first: "学習範囲内を優先",
-  exclude_extrapolated: "学習範囲外を除外",
-  allow_with_warning: "学習範囲外も警告付きで表示",
+  supported_first: "近い学習実績がある条件を優先",
+  exclude_extrapolated: "外挿候補を除外",
+  allow_with_warning: "外挿候補も警告付きで表示",
 };
 
 const strategyDecisionLabels: Record<string, string> = {
@@ -13,7 +13,7 @@ const strategyDecisionLabels: Record<string, string> = {
   sobol_ei_v1: "現在の最良値からの改善を重視して順位付け",
   sobol_thompson_v1: "予測分布から候補を抽出",
   sobol_uncertainty_v1: "不確かさが大きい条件を優先",
-  sobol_support_boundary_v1: "学習支持範囲の境界を優先",
+  sobol_support_boundary_v1: "学習実績の支持境界を優先",
 };
 
 const reasonLabels: Record<string, string> = {

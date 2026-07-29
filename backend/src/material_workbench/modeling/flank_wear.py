@@ -509,10 +509,13 @@ class FlankWearRuntime:
             result["warnings"].append(support.message)
         return result
 
-    def _curve_training_values(self, variable: str) -> list[float]:
+    def _curve_training_values(self, target: str, variable: str) -> list[float]:
         values: list[float] = []
+        measurement_key = self.data.measurement_labels[target]
         for rows in self.reference_rows:
             for row in rows:
+                if measurement_key not in row["outputs"]:
+                    continue
                 if variable.startswith("composition."):
                     value = (row["composition"] or {}).get(variable.removeprefix("composition."))
                 else:
@@ -520,6 +523,22 @@ class FlankWearRuntime:
                 if isinstance(value, (int, float)) and math.isfinite(float(value)):
                     values.append(float(value))
         return values
+
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        del stage_name, stage_position_m
+        if target not in self.output_keys:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        values = self._curve_training_values(target, variable)
+        if not values:
+            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+        return min(values), max(values)
 
     def _curve_variable_current(self, candidate: Candidate, variable: str) -> float:
         if variable.startswith("composition."):
@@ -532,15 +551,18 @@ class FlankWearRuntime:
             raise ValueError(f"この予測タスクで応答曲線にできない変数です: {variable}")
         return float(candidate.inputs.process[name])
 
-    def _curve_variable_meta(self, candidate: Candidate, variable: str) -> dict[str, Any]:
+    def _curve_variable_meta(
+        self,
+        candidate: Candidate,
+        target: str,
+        variable: str,
+    ) -> dict[str, Any]:
         definition = load_task_definitions()[TASK_ID]
         field = next((field for group in definition.input_groups for field in group.fields if field.path == variable), None)
         label, unit = (field.label, field.unit or "") if field else (variable.split(".", 1)[1], "")
-        values = self._curve_training_values(variable)
+        training_min, training_max = self.training_range_for(target, variable)
         current = self._curve_variable_current(candidate, variable)
-        if not values:
-            values = [current - max(abs(current) * 0.1, 1.0), current + max(abs(current) * 0.1, 1.0)]
-        low, high = min(values), max(values)
+        low, high = training_min, training_max
         padding = max((high - low) * 0.05, 1e-6)
         lower_bound = -30.0 if variable.endswith("rake_angle_deg") else 0.0
         return {
@@ -550,6 +572,10 @@ class FlankWearRuntime:
             "min": round(max(lower_bound, low - padding), 4),
             "max": round(high + padding, 4),
             "current": round(current, 4),
+            "training_range": {
+                "min": round(training_min, 4),
+                "max": round(training_max, 4),
+            },
         }
 
     @staticmethod
@@ -614,7 +640,7 @@ class FlankWearRuntime:
         definition = load_task_definitions()[TASK_ID]
         axis = definition.curve_axis_path
         assert axis is not None
-        axis_meta = self._curve_variable_meta(candidate, axis)
+        axis_meta = self._curve_variable_meta(candidate, target, axis)
         column = self.data.measurement_labels[target]
         observed = [
             float(row["outputs"][column])
@@ -654,7 +680,7 @@ class FlankWearRuntime:
             vary = _normalize_curve_variable(vary_variable)
             if vary == axis:
                 raise ValueError("曲線の横軸と同じ変数は水準にできません")
-            vary_meta = self._curve_variable_meta(candidate, vary)
+            vary_meta = self._curve_variable_meta(candidate, target, vary)
             unit = f" {vary_meta['unit']}" if vary_meta["unit"] else ""
             series = []
             for level in np.linspace(vary_meta["min"], vary_meta["max"], levels):
@@ -687,7 +713,7 @@ class FlankWearRuntime:
         if target not in self.predictors:
             raise ValueError(f"Unsupported response-curve target: {target}")
         variable = _normalize_curve_variable(variable)
-        meta = self._curve_variable_meta(candidate, variable)
+        meta = self._curve_variable_meta(candidate, target, variable)
         if axis_range is not None:
             meta = {**meta, "min": axis_range[0], "max": axis_range[1]}
         column = self.data.measurement_labels[target]

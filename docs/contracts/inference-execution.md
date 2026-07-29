@@ -18,7 +18,10 @@
 候補名、選択状態、画面の表示状態はキーへ含めません。
 Package、Pipeline、support referenceの意味が変わる場合は、それぞれのdigestを変えて別の仕事として扱います。
 
-`response_contour` は候補revisionをAPI境界とcache identityで固定し、軸範囲を各runtimeが返す学習範囲に限定します。Taskの入力可能域とPackage由来の観測支持域をruntime共通契約として分離する作業は #481 で追跡します。
+`response_contour` は候補revisionをAPI境界とcache identityで固定し、軸範囲を各runtimeの `TrainingRangeProvider` が返す学習範囲に限定します。
+この範囲は選択中Model Packageのprovenanceが固定する学習Datasetについて、目的変数を実際に持つcohortから軸ごとに導出します。
+TaskDefinitionの `allowed_range` は入力可能域であり、学習範囲の代替やfallbackには使いません。
+各軸のmin/maxは多変量の支持領域を意味しないため、格子点の表示可否は別契約の `support_by_target` で判定します。
 カスタム外挿範囲は受け付けません。
 各セルはTask制約を再検証し、制約違反セルは推論しません。
 有効セルでは `Prediction` とtarget別 `Support` を別々に返し、

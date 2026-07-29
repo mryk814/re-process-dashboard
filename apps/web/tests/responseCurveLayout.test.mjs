@@ -30,6 +30,15 @@ test("response curves use an adaptive default and expose calculation-range gaps"
   assert.match(styles, /\.response-curves-panel > \.panel-title h2 span \{ display: inline-block; \}/);
 });
 
+test("a target that does not use the selected variable is shown as not applicable", async () => {
+  const source = await readFile(new URL("../src/features/workbench/ResponseCurvePanels.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /responseCurveNotApplicable/);
+  assert.match(source, /入力に使わないため応答曲線を作成できません/);
+  assert.match(source, /選択した変数をこのモデルの入力に使わないため、応答曲線はありません。/);
+  assert.match(source, /resolvedCurveCount = loadedCurveCount \+ notApplicableCount/);
+});
+
 test("heat-pattern axes keep labels inside the plot and anchor edge ticks inward", async () => {
   const source = await readFile(new URL("../src/features/workbench/HeatPatternPanel.tsx", import.meta.url), "utf8");
 

@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+from material_workbench.data.importer import load_workbook_data
+from material_workbench.modeling.hot_rolling import HotRollingRuntime
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_hot_rolling_task_candidates_and_horseshoe_uncertainty(client) -> None:
@@ -84,10 +92,10 @@ def test_hot_rolling_response_curve_uses_existing_numeric_inputs(client) -> None
     assert curve["variable"]["id"] == "process.finish_temperature_c"
     assert curve["variable"]["label"] == "仕上げ温度"
     assert curve["variable"]["unit"] == "°C"
-    assert curve["variable"]["training_range"] == {"min": 830.762, "max": 931.334}
+    assert curve["variable"]["training_range"] == {"min": 850.0, "max": 900.0}
     assert len(curve["points"]) == 7
-    assert curve["points"][0]["x"] == 830.762
-    assert curve["points"][-1]["x"] == 931.334
+    assert curve["points"][0]["x"] == 850.0
+    assert curve["points"][-1]["x"] == 900.0
     assert all(point["lower"] < point["upper"] for point in curve["points"])
 
     unsupported = client.get(
@@ -116,7 +124,32 @@ def test_hot_rolling_response_curve_uses_existing_numeric_inputs(client) -> None
         },
     )
     assert clipped.status_code == 200
-    assert clipped.json()["variable"]["max"] == 850.0
+    assert clipped.json()["variable"]["max"] == 845.0
+
+
+def test_hot_rolling_training_range_follows_the_selected_package_dataset(client) -> None:
+    tutorial_runtime = client.app.state.task_registry.runtime_for(
+        "hot-rolled-properties-v1"
+    )
+    process_runtime = HotRollingRuntime(
+        load_workbook_data(
+            ROOT / "data/source/material_workbench_process_v1.xlsx",
+            ROOT
+            / "backend/src/material_workbench/data/dataset-input-profile-process-v1.json",
+        ),
+        ROOT / "models/packages/hot-rolled-horseshoe-process-v2",
+    )
+
+    tutorial_range = tutorial_runtime.training_range_for(
+        "TS", "process.finish_temperature_c"
+    )
+    process_range = process_runtime.training_range_for(
+        "TS", "process.finish_temperature_c"
+    )
+
+    assert tutorial_range == (850.0, 900.0)
+    assert process_range != tutorial_range
+    assert process_range == pytest.approx((830.762, 1276.129))
 
 
 def test_hot_rolling_detailed_snapshot_and_actual_use_the_common_project_api(client) -> None:

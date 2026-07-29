@@ -671,6 +671,27 @@ class ModelRuntime:
                 continue
         return values
 
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        model = self.models.get(target)
+        if model is None:
+            raise ValueError(f"Response curve has no calibrated reference model for: {target}")
+        values = self._curve_training_values(
+            model,
+            variable,
+            stage_name,
+            stage_position_m,
+        )
+        if not values:
+            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+        return min(values), max(values)
+
     def _curve_axis(
         self,
         candidate: Candidate,
@@ -775,6 +796,7 @@ class ModelRuntime:
         axis_range: tuple[float, float] | None = None,
         stage_name: str | None = None,
         stage_position_m: float | None = None,
+        target: str | None = None,
     ) -> dict[str, Any]:
         reference = model or next(iter(self.models.values()))
         labels = {"heat.peak_temperature_c": ("焼鈍履歴 最高温度", "°C")}
@@ -793,8 +815,19 @@ class ModelRuntime:
             unit = "min" if field == "time_min" else "°C"
         else:
             label, unit = labels.get(variable, (variable, ""))
-        training_values = self._curve_training_values(reference, variable, stage_name, stage_position_m)
-        training_range = None if not training_values else {"min": round(min(training_values), 4), "max": round(max(training_values), 4)}
+        resolved_target = target or next(
+            key for key, candidate_model in self.models.items() if candidate_model is reference
+        )
+        training_min, training_max = self.training_range_for(
+            resolved_target,
+            variable,
+            stage_name=stage_name,
+            stage_position_m=stage_position_m,
+        )
+        training_range = {
+            "min": round(training_min, 4),
+            "max": round(training_max, 4),
+        }
         axis_min, axis_max = axis_range or self._curve_axis(candidate, reference, variable, stage_name, stage_position_m)
         variable_id = f"{variable}:{stage_name}" if variable == HEAT_STAGE_TEMPERATURE_VARIABLE else variable
         return {"id": variable_id, "label": label, "unit": unit, "min": round(axis_min, 4), "max": round(axis_max, 4), "current": round(self._curve_variable_current(candidate, variable, stage_name, stage_position_m), 4), "training_range": training_range}
@@ -861,7 +894,15 @@ class ModelRuntime:
         output_range = None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)}
         return {
             "target": target,
-            "variable": self.curve_variable(candidate, variable, model, axis_range, stage_name, stage_position_m),
+            "variable": self.curve_variable(
+                candidate,
+                variable,
+                model,
+                axis_range,
+                stage_name,
+                stage_position_m,
+                target,
+            ),
             "points": self.response_curve(candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             "output_range": output_range,
             "point_count": points,

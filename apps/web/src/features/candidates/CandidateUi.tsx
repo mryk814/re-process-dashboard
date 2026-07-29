@@ -290,7 +290,7 @@ export function CandidateInspector({
           >‹</button>}
         </div>
         <h2>{candidate.label}</h2>
-        {hasTrainingRanges && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}
+        {hasTrainingRanges && <small className="training-range-legend"><i aria-hidden="true" />緑帯：既定の検討範囲</small>}
         <small className={`candidate-save-state ${saveState}`}>{saveLabels[saveState]}</small>
         {saveState === "conflict" && <span className="candidate-conflict-actions"><button type="button" onClick={onReload}>再読込</button><button type="button" onClick={onCopyDraft}>変更をコピー</button></span>}
       </div>
