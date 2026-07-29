@@ -171,6 +171,18 @@ class ModelPackageRef(ModelPackageRefCreateInput):
     id: str
     created_at: datetime
     archived_at: datetime | None = None
+    storage_scope: Literal["bundled", "personal"] = "bundled"
+
+
+class ModelPackageRegistrationWarning(BaseModel):
+    source: str
+    reference: str | None = None
+    message: str
+
+
+class ModelPackageRefreshResult(BaseModel):
+    model_packages: list[ModelPackageRef]
+    warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
 
 
 class ProjectSeriesCreateInput(BaseModel):

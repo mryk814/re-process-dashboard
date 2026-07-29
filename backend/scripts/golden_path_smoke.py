@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 from pathlib import Path
-import shutil
 import sys
 from tempfile import TemporaryDirectory
 
@@ -52,19 +51,11 @@ def main() -> int:
         )
 
         models_root = temporary / "models"
-        models_root.mkdir()
-        config = models_root / "active-packages.json"
-        shutil.copy2(ROOT / "models" / "active-packages.json", config)
-        shutil.copy2(
-            ROOT / "models" / "available-packages.json",
-            models_root / "available-packages.json",
-        )
         promoted = promote_package(
             TASK_ID,
             candidate_root,
             SOURCE,
-            config,
-            activate=True,
+            models_root,
         )
 
         module = task_module(TASK_ID)
@@ -99,7 +90,7 @@ def main() -> int:
             "package_version": package.manifest.package_version,
             "canonical_rows": built["dataset"]["rows"],
             "promoted": promoted["promoted"],
-            "activated": promoted["activation"]["active"],
+            "store": promoted["store"],
             "prediction_targets": sorted(prediction["predictions"]),
         }, ensure_ascii=False, indent=2))
     return 0

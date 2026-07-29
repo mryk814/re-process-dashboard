@@ -2,7 +2,9 @@
 
 ## 目的
 
-TaskDefinitionとDataset Input Profileを起点に、アプリ共通形式の学習データセットを確認し、学習、Package構築、実際の推論環境での検証、使用Packageの切替、ロールバックまでを同じ手順で再現します。
+TaskDefinitionとDataset Input Profileを起点に、アプリ共通形式の学習データセットを確認し、学習、Package構築、実際の推論環境での検証、個人用Packageの登録までを同じ手順で再現します。
+
+データ利用者が登録するPackageと、開発者が製品の既定値として切り替えるPackageは別の経路で管理します。
 
 アプリ内学習、任意コードのプラグイン、自動モデル選択、リモートRegistryは扱いません。
 学習済みartifactは、許可リストへ登録したアダプターだけが読み込みます。
@@ -56,9 +58,6 @@ npm run model:promote -- `
   --source $source `
   --profile $profile `
   --package "artifacts/model-package-candidates/$packageId"
-
-npm run task:inventory
-npm run model:status
 ```
 
 `model:diagnose`の`route`が`existing_task_replacement`なら、現在の予測契約を使ってPackage作成へ進めます。
@@ -68,11 +67,39 @@ npm run model:status
 Package provenanceの`dataset_profile_id`はこの実効Profileのdigestです。
 
 `model:build`は指定した不変のPackage ID/versionで候補を作り、本番loaderとadapterで検証します。
-`model:promote`は再検証後に`models/packages/<package-id>`へ原子的にコピーし、同じIDの異なる内容を上書きせず、利用可能Package一覧へ追加します。
+`model:promote`は再検証後に、リポジトリ外の個人用Model Storeへ原子的にコピーします。
+Windowsの既定保存先は`%LOCALAPPDATA%\Material Decision Workbench\models`です。
+同じIDで内容が異なるPackageは上書きせず、個人用の利用可能Package一覧へ追加します。
+この経路は`models/packages/`、`models/available-packages.json`、`models/active-packages.json`を変更しないため、git working treeを汚しません。
+
+保存先を変える場合は、アプリを起動する前に環境変数を設定します。
+
+```powershell
+$env:WORKBENCH_MODEL_STORE_PATH = "D:\material-workbench-models"
+npm run dev
+```
+
+昇格コマンドだけ保存先を変える場合は、`--store`を指定できます。
+
+```powershell
+npm run model:promote -- `
+  --task $task `
+  --source $source `
+  --profile $profile `
+  --package "artifacts/model-package-candidates/$packageId" `
+  --store "D:\material-workbench-models"
+```
+
+起動中のアプリでこのPackageを使う場合は、アプリ側の`WORKBENCH_MODEL_STORE_PATH`にも同じパスを指定してください。
+
 任意Profileで作ったPackageは、登録したDataset Revisionと組にして新しいProjectへ固定します。
-起動時の既定Profileを使う`model:activate`や`model:promote --activate`へは渡しません。
-起動中のData Libraryで「昇格済みモデルを再読込」を実行すると、登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えられます。
+起動中のData Libraryで「個人モデルを再読込」を実行すると、同梱Packageと個人用Model StoreのPackageをまとめて再読込します。
+再起動は不要です。
+登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDatasetとPackageを明示的に選びます。
 保存済みSnapshotは切替後も再計算されません。
+
+`model:activate`は、製品に同梱する既定Packageを切り替えるアプリ開発者向けコマンドです。
+個人用PackageをProjectで使う通常経路では実行しません。
 
 ### Feature Pipeline後の標準Estimatorを選ぶ
 
@@ -110,7 +137,8 @@ Estimatorを省略した場合は、Horseshoeなど従来のTask固有authoring 
 自動変更しません。
 
 新しいTaskDefinition、TaskModule、runtime adapterをコードへ追加した場合は再起動が必要です。
-`model:activate`または`model:promote --activate`は起動時の既定Packageを切り替える運用コマンドであり、この場合も再起動します。ProjectごとにPackageを選ぶ通常経路ではactive化しません。
+`model:activate`は起動時の既定Packageを切り替える開発コマンドであり、この場合も再起動します。
+`model:promote`はactive Packageを変更しません。
 
 この経路そのものは、repo内のactive設定やPackageを変更しない一時領域で次のsmokeにより自動検証できます。
 
@@ -119,7 +147,7 @@ npm run model:golden-path:smoke
 npm run model:golden-path:clean-clone
 ```
 
-後者は現在branchを一時directoryへcloneし、`uv sync --extra dev`、`npm ci`、golden-path smokeを順に実行してから一時directoryを削除します。
+後者は現在branchを一時directoryへcloneし、`uv sync --extra dev`、`npm ci`、golden-path smoke、外部storeの再読込からProject予測までのAPI smokeを順に実行してから一時directoryを削除します。
 
 ### タスク別の標準ルート
 
@@ -149,9 +177,6 @@ npm run model:verify -- `
 npm run model:promote -- `
   --task <task> `
   --package "artifacts/model-package-candidates/$packageId"
-
-npm run task:inventory
-npm run model:status
 ```
 
 切削逃げ面摩耗で、既定値に依存せず使用ソースを記録したい場合は、次のように明示できます。
@@ -180,20 +205,18 @@ npm run model:promote -- `
   --task flank-wear-v1 `
   --source $source `
   --package artifacts/model-package-candidates/<new-package-id>
-
-npm run task:inventory
 ```
 
 `model:build`はアプリ共通形式のFeatureDatasetを出力してから、
 標準EstimatorまたはTask固有の高度なauthoring workflowで学習とPackage構築を行います。
 続いて、そのPackageを本番と同じ推論環境へ読み込み、スモーク結果を再現します。
-`models/packages/`に登録済みのPackageは、`--replace`を指定しても上書きできません。
+個人用Model Storeへ昇格済みのPackageは、`--replace`を指定しても上書きできません。
 契約、学習データ、成果物のどれかが変わる場合は、新しいPackage IDとディレクトリを使います。
 `--replace`を使えるのは、`artifacts/model-package-candidates/`などの未登録の作業出力だけです。
 
 昇格したPackageはData Libraryの明示再読込でProject選択肢へ追加できます。
-起動時の既定Packageを切り替えた場合だけアプリを再起動します。
-`models/available-packages.json`と`models/active-packages.json`は信頼済みPackageだけを参照し、任意の外部パスは保存しません。
+アプリは同梱Packageと個人用Model Storeの利用可能Packageを区別して表示します。
+Projectへ固定するまでは、既存Project、active Package、保存済みSnapshotを変更しません。
 
 ## 焼鈍特性の標準モデル
 
@@ -238,12 +261,15 @@ LightGBMの予測区間は、GPのような入力位置ごとの潜在不確か�
 品質レポートの数値閾値は共通CLIで固定しません。
 各タスクの受入基準としてレビューします。
 
-## activeの切替は必ずコマンドを通す
+## 開発者向けのactive切替
 
 `models/active-packages.json` の `active` を直接編集しないでください。
 `previous` を書くのは `npm run model:activate`（`set_active_package`）だけで、
 手編集した場合は `previous` が置き去りになり、以後 `npm run model:rollback` が
 「no previous active package is recorded」で必ず失敗します。
+
+この操作は、リポジトリに同梱する起動時の既定Packageを変更します。
+データ利用者が個人用Model StoreへPackageを昇格し、Projectで選ぶ操作とは別です。
 
 直接編集は `npm run task:inventory:check` と `npm run dev:doctor` が検出します。
 検査はgit履歴上で `active` が最後に変わった版を取り出し、そこで置き換えられたPackageが
@@ -256,7 +282,7 @@ LightGBMの予測区間は、GPのような入力位置ごとの潜在不確か�
 復旧は旧版への `rollback` ではなく、現行契約を満たすPackageを `model:build` して
 `model:activate` する経路になります。
 
-## ロールバック
+## 開発者向けactive Packageのロールバック
 
 Packageを使用対象へ切り替えると、直前の参照が `previous` に残ります。
 検証後に次のコマンドで入れ替えます。

@@ -25,7 +25,9 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     canonical_training_dataset,
     canonical_training_dataset_digest,
     dataset_profile_digest,
+    ensure_available_packages_config,
     load_active_packages,
+    personal_model_store_path,
     register_available_package,
     resolve_configured_package,
     rollback_active_package,
@@ -278,16 +280,10 @@ def promote_package(
     task_id: str,
     package: Path,
     source: Path,
-    config: Path,
+    store: Path,
     *,
-    activate: bool,
     profile: Path | None = None,
 ) -> dict[str, Any]:
-    if activate and profile is not None:
-        raise ValueError(
-            "任意ProfileのPackageはProjectへ固定して利用してください。"
-            "active Packageは起動時Profileを固定できないため、--activateと併用できません"
-        )
     package = package.resolve(strict=True)
     source = _task_source(task_id, source)
     verify_model_package(
@@ -302,7 +298,8 @@ def promote_package(
         raise PackageContractError(
             "package_id must be a filesystem-safe immutable identifier"
         )
-    trusted_root = config.resolve().parent / "packages"
+    available_config = ensure_available_packages_config(store)
+    trusted_root = available_config.parent / "packages"
     destination = trusted_root / package_id
     promoted = False
     if destination.exists():
@@ -323,27 +320,20 @@ def promote_package(
     )
     available = register_available_package(
         destination,
-        config_path=config.resolve().with_name("available-packages.json"),
+        config_path=available_config,
     )
-    selection = None
-    if activate:
-        updated = set_active_package(task_id, destination, config_path=config)
-        selection = updated.tasks[task_id].model_dump()
     return {
         "task_id": task_id,
         "promoted": promoted,
+        "store": str(available_config.parent),
         "trusted_package": str(destination),
         "package": trusted_report.model_dump(),
-        "activation": selection,
-        "restart_required": activate,
-        "available_package": destination.relative_to(config.resolve().parent).as_posix(),
+        "restart_required": False,
+        "available_package": destination.relative_to(
+            available_config.parent
+        ).as_posix(),
         "available_package_count": len(available.packages),
-        "next": (
-            "npm run dev を停止して再実行し、データライブラリから"
-            "このDataset/TaskでProjectを作成または切り替えてください。"
-            if activate
-            else "起動中のアプリで「昇格済みモデルを再読込」を実行してください。"
-        ),
+        "next": "起動中のアプリで「個人モデルを再読込」を実行してください。",
     }
 
 
@@ -530,8 +520,11 @@ def _parser() -> argparse.ArgumentParser:
     promote.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     promote.add_argument("--profile", type=Path)
     promote.add_argument("--package", type=Path, required=True)
-    promote.add_argument("--config", type=Path, default=ACTIVE_PACKAGES_PATH)
-    promote.add_argument("--activate", action="store_true")
+    promote.add_argument(
+        "--store",
+        type=Path,
+        default=personal_model_store_path(),
+    )
 
     rollback = subparsers.add_parser("rollback", help="Verify and restore the previously active package.")
     rollback.add_argument("--task", required=True, choices=TASKS)
@@ -600,8 +593,7 @@ def main() -> int:
                 arguments.task,
                 arguments.package,
                 arguments.source,
-                arguments.config,
-                activate=arguments.activate,
+                arguments.store,
                 profile=arguments.profile,
             )
         elif arguments.command == "activate":

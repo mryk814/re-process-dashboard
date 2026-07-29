@@ -14,6 +14,7 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(selectedDataset.getByRole("heading", { name: /material_workbench_tutorial_v2\.xlsx/ })).toBeVisible();
   await expect(selectedDataset.getByRole("heading", { name: "このデータで使うモデル" })).toBeVisible();
   await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
+  await expect(selectedDataset.getByText("同梱モデル", { exact: true }).first()).toBeVisible();
 
   await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
   const guide = page.getByRole("region", { name: "モデルを追加する" });
@@ -24,10 +25,29 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(commands).toHaveValue(
     /\$datasetOutput = "artifacts\/model-data\/\$packageId\.json"[\s\S]*--dataset-output \$datasetOutput/,
   );
+  await expect(commands).toHaveValue(
+    /\$modelStore = if \(\$env:WORKBENCH_MODEL_STORE_PATH\)[\s\S]*--store \$modelStore/,
+  );
   await expect(commands).not.toHaveValue(/--activate/);
   await expect(commands).not.toHaveValue(/npm run dev/);
-  await expect(page.getByRole("button", { name: "昇格済みモデルを再読込" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "個人モデルを再読込" })).toBeVisible();
   await expect(guide).toContainText("保存済み予測は再計算されません");
+});
+
+test("Data Library distinguishes personal models from bundled models", async ({ page }) => {
+  await page.route("**/api/data-library/model-packages?*", async (route) => {
+    const response = await route.fetch();
+    const packages = await response.json() as Array<Record<string, unknown>>;
+    await route.fulfill({
+      response,
+      json: packages.map((item) => ({ ...item, storage_scope: "personal" })),
+    });
+  });
+  await page.goto("/?view=data-library");
+
+  const selectedDataset = page.locator(".dataset-context");
+  await expect(selectedDataset.getByText("自分のモデル", { exact: true }).first()).toBeVisible();
+  await expect(selectedDataset.getByText("同梱モデル", { exact: true })).toHaveCount(0);
 });
 
 test("Data Library structure has no page-level horizontal overflow on mobile", async ({ page }) => {

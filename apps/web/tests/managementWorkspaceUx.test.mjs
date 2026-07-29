@@ -54,6 +54,13 @@ test("data library collapses an empty comparison area and moves state changes in
   assert.match(content, /利用停止にする/);
   assert.match(content, /利用可能に戻す/);
   assert.match(content, /件のプロジェクトが参照中のため利用停止できません/);
+  assert.match(content, /item\.storage_scope === "personal"/);
+  assert.match(content, /自分のモデル/);
+  assert.match(content, /同梱モデル/);
+  assert.match(content, /WORKBENCH_MODEL_STORE_PATH/);
+  assert.match(content, /--store \$modelStore/);
+  assert.match(content, /個人モデルを再読込/);
+  assert.doesNotMatch(content, /昇格済みモデルを再読込/);
 });
 
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {

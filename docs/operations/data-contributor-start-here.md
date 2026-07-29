@@ -127,10 +127,15 @@ Packageを使うProjectを作成した後は、データライブラリで対象
 モデル入力行数を確認してください。
 
 Packageをアプリの選択肢へ追加する手順と、起動中のアプリへ再読込する方法は[Model Packageのライフサイクル](model-package-lifecycle.md#fresh-cloneから新しいデータを使うgolden-path)を参照してください。
-現在の`model:promote`はリポジトリ内の`models/packages/`とPackage一覧を更新します。
-製品へ同梱しない個人用Packageも、現状ではworking tree内に置かれます。
-自動的にcommitせず、clean、branch切替、削除の対象を確認する前に`git status`で保護してください。
-リポジトリ外のtrusted storeはIssue #490で追跡しています。
+`model:promote`は検証済みPackageをリポジトリ外の個人用Model Storeへ昇格します。
+Windowsの既定保存先は`%LOCALAPPDATA%\Material Decision Workbench\models`です。
+保存先は`WORKBENCH_MODEL_STORE_PATH`または`model:promote -- --store <path>`で変更できます。
+起動中のアプリで同じ保存先を再読込する場合は、アプリ起動前にも同じ`WORKBENCH_MODEL_STORE_PATH`を設定します。
+
+昇格後はData Libraryで「個人モデルを再読込」を実行します。
+同梱Packageと個人Packageが区別して表示されるため、登録したDatasetと組み合わせて新しいProjectを作るか、既存Projectの設定で明示的に選択します。
+個人利用の通常経路は`models/packages/`やPackage設定を変更せず、git working treeを汚しません。
+`model:activate`は製品へ同梱する既定Packageを切り替えるアプリ開発者向けコマンドです。
 
 ## このレーンで行う確認
 
@@ -139,7 +144,7 @@ Packageをアプリの選択肢へ追加する手順と、起動中のアプリ�
 | Dataset登録 | Profile validate、canonical preview、行数と除外理由、Projectでの表示 | unit test、Playwright、`verify:pr` |
 | 既存Taskでの学習 | `model:diagnose`、`model:build`のPackage検証、品質レポート | 新しいmodel contract test |
 | アプリでの利用 | Package再読込、Project作成、代表候補の予測smoke | アプリ全体のE2E |
-| 個人利用 | source／Packageが意図せずgit対象になっていないこと | Issue、PR、release acceptance |
+| 個人利用 | 個人用Model Storeへの昇格、Data Library再読込、Projectでの明示選択 | Issue、PR、release acceptance |
 
 検証失敗を回避するためにテストを弱めたり、元データを書き換えたりしないでください。
 失敗は、データの意味、Profile mapping、Task契約、Package provenanceのどこが一致しないかを示しています。

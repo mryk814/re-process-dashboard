@@ -45,7 +45,15 @@ from material_workbench.persistence.demo_seed import (
     starter_project_ids,
 )
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH, load_active_packages, resolve_configured_package, validate_active_package_task_set
+from material_workbench.modeling.model_lifecycle import (
+    ACTIVE_PACKAGES_PATH,
+    AVAILABLE_PACKAGES_PATH,
+    load_active_packages,
+    personal_model_store_path,
+    resolve_configured_package,
+    validate_active_package_task_set,
+    validate_personal_model_store_path,
+)
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalogUnavailableError,
@@ -319,6 +327,7 @@ def create_app(
     flank_wear_source_path: str | Path | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
+    model_store_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
     active_transforms_path: str | Path | None = None,
     chain_evaluation_path: str | Path | None = None,
@@ -335,8 +344,31 @@ def create_app(
     configured_active_packages_path = Path(
         active_packages_path or ACTIVE_PACKAGES_PATH
     ).resolve()
-    available_packages_path = configured_active_packages_path.with_name(
-        "available-packages.json"
+    personal_store = (
+        validate_personal_model_store_path(Path(model_store_path))
+        if model_store_path is not None
+        else None
+    )
+    configured_available_packages_paths = tuple(dict.fromkeys((
+        AVAILABLE_PACKAGES_PATH.resolve(),
+        *(
+            (personal_store / "available-packages.json",)
+            if personal_store is not None
+            else (
+                (
+                    configured_active_packages_path.with_name(
+                        "available-packages.json"
+                    ),
+                )
+                if active_packages_path is not None
+                else ()
+            )
+        ),
+    )))
+    configured_personal_available_packages_paths = (
+        (personal_store / "available-packages.json",)
+        if personal_store is not None
+        else ()
     )
     if _resources is not None and any(
         value is not None
@@ -346,6 +378,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        model_package_origins: dict[str, str] = {}
+        model_store_warnings = []
         database_existed = database.exists()
         defer_resources = (
             _resources is None
@@ -414,12 +448,23 @@ def create_app(
             app.state.workspace_catalog = bootstrap_workspace_catalog(
                 database,
                 prepared.task_registry,
-                available_packages_path=available_packages_path,
+                available_packages_paths=configured_available_packages_paths,
+                personal_available_packages_paths=(
+                    configured_personal_available_packages_paths
+                ),
+                package_origins=model_package_origins,
+                warnings=model_store_warnings,
             )
         except Exception as exc:
             _raise_startup_error("catalog", "データ・モデルカタログ", exc)
         app.state.data_library_root = data_library_root.resolve()
-        app.state.available_packages_path = available_packages_path
+        app.state.available_packages_paths = configured_available_packages_paths
+        app.state.personal_available_packages_paths = (
+            configured_personal_available_packages_paths
+        )
+        app.state.model_package_origins = model_package_origins
+        app.state.model_store_warnings = model_store_warnings
+        app.state.model_store_path = personal_store
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )
@@ -610,7 +655,14 @@ def create_app(
                         catalog = bootstrap_workspace_catalog(
                             database,
                             complete.task_registry,
-                            available_packages_path=available_packages_path,
+                            available_packages_paths=(
+                                configured_available_packages_paths
+                            ),
+                            personal_available_packages_paths=(
+                                configured_personal_available_packages_paths
+                            ),
+                            package_origins=model_package_origins,
+                            warnings=model_store_warnings,
                         )
                         resolver = ProjectRuntimeResolver(
                             catalog,
@@ -783,4 +835,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(model_store_path=personal_model_store_path())

@@ -21,6 +21,10 @@ const ownsDatabase = !process.env.PLAYWRIGHT_DB_PATH && !reuseServer;
 const database = process.env.PLAYWRIGHT_DB_PATH
   ?? join(tmpdir(), `material-workbench-e2e-${randomUUID()}.db`);
 if (ownsDatabase) process.env.PLAYWRIGHT_OWNED_DB_PATH = database;
+const ownsModelStore = !process.env.PLAYWRIGHT_MODEL_STORE_PATH && !reuseServer;
+const modelStore = process.env.PLAYWRIGHT_MODEL_STORE_PATH
+  ?? join(tmpdir(), `material-workbench-e2e-models-${randomUUID()}`);
+if (ownsModelStore) process.env.PLAYWRIGHT_OWNED_MODEL_STORE_PATH = modelStore;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -31,7 +35,9 @@ export default defineConfig({
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
-  globalTeardown: ownsDatabase ? "./e2e/global-teardown.mjs" : undefined,
+  globalTeardown: (ownsDatabase || ownsModelStore)
+    ? "./e2e/global-teardown.mjs"
+    : undefined,
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     channel: "chrome",
@@ -44,6 +50,7 @@ export default defineConfig({
       reuseExistingServer: reuseServer,
       env: {
         WORKBENCH_DB_PATH: database,
+        WORKBENCH_MODEL_STORE_PATH: modelStore,
         WORKBENCH_DEMO_SEED: "all",
         ...(brokenHeatTreatmentPackage
           ? { MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }

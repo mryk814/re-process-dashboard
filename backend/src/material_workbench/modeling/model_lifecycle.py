@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -29,7 +30,60 @@ MODELS_ROOT = REPOSITORY_ROOT / "models"
 PACKAGES_ROOT = MODELS_ROOT / "packages"
 ACTIVE_PACKAGES_PATH = MODELS_ROOT / "active-packages.json"
 AVAILABLE_PACKAGES_PATH = MODELS_ROOT / "available-packages.json"
+MODEL_STORE_ENV = "WORKBENCH_MODEL_STORE_PATH"
 DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-profile-tutorial.json"
+
+
+def personal_model_store_path() -> Path:
+    configured = os.getenv(MODEL_STORE_ENV, "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    local_app_data = os.getenv("LOCALAPPDATA", "").strip()
+    if local_app_data:
+        return (
+            Path(local_app_data)
+            / "Material Decision Workbench"
+            / "models"
+        ).resolve()
+    xdg_data_home = os.getenv("XDG_DATA_HOME", "").strip()
+    base = (
+        Path(xdg_data_home).expanduser()
+        if xdg_data_home
+        else Path.home() / ".local" / "share"
+    )
+    return (base / "material-decision-workbench" / "models").resolve()
+
+
+def validate_personal_model_store_path(store_root: Path) -> Path:
+    root = store_root.expanduser().resolve()
+    if root == REPOSITORY_ROOT or REPOSITORY_ROOT in root.parents:
+        raise PackageContractError(
+            "personal model store must be outside the repository"
+        )
+    return root
+
+
+def ensure_available_packages_config(store_root: Path) -> Path:
+    root = validate_personal_model_store_path(store_root)
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "available-packages.json"
+    if not path.exists():
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "available-model-packages/v1",
+                    "packages": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+    else:
+        load_available_packages(path)
+    return path
 
 
 @contextmanager

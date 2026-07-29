@@ -6,7 +6,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import (
-    get_available_packages_path,
+    get_available_packages_paths,
+    get_model_package_origins,
+    get_personal_available_packages_paths,
     get_store,
     get_task_registry,
     get_workspace_catalog,
@@ -17,6 +19,7 @@ from material_workbench.contracts.schemas import (
     DatasetViewRevision,
     DatasetViewRevisionCreateInput,
     ModelPackageRef,
+    ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
     ProjectCreationOptions,
 )
@@ -30,13 +33,41 @@ from material_workbench.persistence.workspace_catalog_bootstrap import (
 )
 from material_workbench.data.profile_document import supported_task_ids
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
-
-
+from material_workbench.modeling.model_lifecycle import MODELS_ROOT
 router = APIRouter(prefix="/api")
 CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 StoreDependency = Annotated[Store, Depends(get_store)]
-AvailablePackagesPathDependency = Annotated[Path, Depends(get_available_packages_path)]
+AvailablePackagesPathsDependency = Annotated[
+    tuple[Path, ...],
+    Depends(get_available_packages_paths),
+]
+PersonalAvailablePackagesPathsDependency = Annotated[
+    tuple[Path, ...],
+    Depends(get_personal_available_packages_paths),
+]
+ModelPackageOriginsDependency = Annotated[
+    dict[str, str],
+    Depends(get_model_package_origins),
+]
+
+
+def _present_model_package(
+    item: ModelPackageRef,
+    package_origins: dict[str, str],
+) -> ModelPackageRef:
+    storage_scope = package_origins.get(item.id)
+    if storage_scope is None:
+        locator = Path(item.locator).resolve()
+        bundled_root = MODELS_ROOT.resolve()
+        storage_scope = (
+            "bundled"
+            if locator == bundled_root or bundled_root in locator.parents
+            else "personal"
+        )
+    return item.model_copy(update={
+        "storage_scope": storage_scope,
+    })
 
 
 def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
@@ -196,43 +227,79 @@ def create_dataset_view(
 def list_model_packages(
     catalog: CatalogDependency,
     store: StoreDependency,
+    package_origins: ModelPackageOriginsDependency,
     include_archived: bool = False,
     include_gallery: bool = False,
 ) -> list[ModelPackageRef]:
     if include_gallery:
-        return catalog.list_model_package_refs(include_archived=include_archived)
+        return [
+            _present_model_package(item, package_origins)
+            for item in catalog.list_model_package_refs(
+                include_archived=include_archived
+            )
+        ]
     datasets = _datasets(
         catalog,
         include_archived=True,
         visible_dataset_ids=_visible_dataset_ids(catalog, store),
     )
-    return _visible_model_packages(
-        catalog,
-        datasets,
-        include_archived=include_archived,
-    )
+    return [
+        _present_model_package(item, package_origins)
+        for item in _visible_model_packages(
+            catalog,
+            datasets,
+            include_archived=include_archived,
+        )
+    ]
 
 
 @router.post(
     "/data-library/model-packages/refresh",
-    response_model=list[ModelPackageRef],
+    response_model=ModelPackageRefreshResult,
 )
 def refresh_model_packages(
     catalog: CatalogDependency,
     registry: RegistryDependency,
-    available_packages_path: AvailablePackagesPathDependency,
-) -> list[ModelPackageRef]:
+    available_packages_paths: AvailablePackagesPathsDependency,
+    personal_available_packages_paths: PersonalAvailablePackagesPathsDependency,
+    package_origins: ModelPackageOriginsDependency,
+) -> ModelPackageRefreshResult:
     """Import the trusted allow-list without replacing existing Project bindings."""
 
+    warnings = []
+    personal_paths = {
+        path.resolve()
+        for path in personal_available_packages_paths
+    }
+    bundled_origins = {
+        reference_id: scope
+        for reference_id, scope in package_origins.items()
+        if scope == "bundled"
+    }
+    refreshed_origins = dict(bundled_origins)
     try:
-        register_available_packages(
-            catalog,
-            registry,
-            available_packages_path,
-        )
+        for path in available_packages_paths:
+            is_personal = path.resolve() in personal_paths
+            register_available_packages(
+                catalog,
+                registry,
+                path,
+                storage_scope="personal" if is_personal else "bundled",
+                package_origins=refreshed_origins,
+                warnings=warnings,
+                strict=not is_personal,
+            )
     except (WorkspaceCatalogBootstrapError, CatalogConflictError) as exc:
         raise HTTPException(409, str(exc)) from exc
-    return catalog.list_model_package_refs(include_archived=True)
+    package_origins.clear()
+    package_origins.update(refreshed_origins)
+    return ModelPackageRefreshResult(
+        model_packages=[
+            _present_model_package(item, package_origins)
+            for item in catalog.list_model_package_refs(include_archived=True)
+        ],
+        warnings=warnings,
+    )
 
 
 @router.patch("/data-library/model-packages/{reference_id}", response_model=ModelPackageRef)
@@ -241,6 +308,7 @@ def update_model_package(
     payload: ModelPackageRefUpdateInput,
     catalog: CatalogDependency,
     registry: RegistryDependency,
+    package_origins: ModelPackageOriginsDependency,
 ) -> ModelPackageRef:
     package = catalog.get_model_package_ref(reference_id, include_archived=True)
     if package is None:
@@ -268,7 +336,7 @@ def update_model_package(
     except CatalogReferenceError as exc:
         raise HTTPException(409, str(exc)) from exc
     assert updated is not None
-    return updated
+    return _present_model_package(updated, package_origins)
 
 
 @router.get("/project-creation-options", response_model=ProjectCreationOptions)
@@ -276,6 +344,7 @@ def project_creation_options(
     catalog: CatalogDependency,
     registry: RegistryDependency,
     store: StoreDependency,
+    package_origins: ModelPackageOriginsDependency,
 ) -> ProjectCreationOptions:
     visible_task_ids = {
         task_id
@@ -302,13 +371,16 @@ def project_creation_options(
         datasets=datasets,
         dataset_views=visible_views,
         model_packages=[
-            package
+            _present_model_package(package, package_origins)
             for package in _visible_model_packages(
                 catalog,
                 datasets,
                 include_archived=False,
             )
-            if package.task_id in visible_task_ids
+            if (
+                package.task_id in visible_task_ids
+                and package.id in package_origins
+            )
         ],
         project_series=catalog.list_project_series(),
         task_contract_digests={

@@ -52,11 +52,23 @@ try {
   run("uv", ["sync", "--extra", "dev"]);
   run("npm.cmd", ["ci"]);
   run("npm.cmd", ["run", "model:golden-path:smoke"]);
+  run("uv", [
+    "run",
+    "pytest",
+    "backend/tests/test_model_workflow_golden_path.py",
+    "-q",
+  ]);
   process.stdout.write(
     JSON.stringify({
       ok: true,
       branch,
-      steps: ["git clone", "uv sync --extra dev", "npm ci", "model:golden-path:smoke"],
+      steps: [
+        "git clone",
+        "uv sync --extra dev",
+        "npm ci",
+        "model:golden-path:smoke",
+        "model workflow API smoke",
+      ],
     }) + "\n",
   );
 } finally {
