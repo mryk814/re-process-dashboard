@@ -269,6 +269,7 @@ class StageMapping(ProfileModel):
 
 class SharedProfile(ProfileModel):
     sheets: Mapping[str, str]
+    column_aliases: Mapping[str, Mapping[str, str]] = Field(default_factory=dict)
     entities: tuple[EntityMapping, ...]
     relation: RelationMapping
     eligibility: tuple[PolicyColumnMapping, ...]
@@ -305,6 +306,11 @@ class DatasetInputProfile(ProfileModel):
         if role not in sheets:
             raise KeyError(f"unknown dataset role: {role}")
         return str(sheets[role])
+
+    def source_column_for(self, role: str, canonical_column: str) -> str:
+        """Return the physical workbook column declared for one canonical column."""
+
+        return str(self.shared.column_aliases.get(role, {}).get(canonical_column, canonical_column))
 
     def stage_category_for(self, raw_name: Any) -> str | None:
         value = str(raw_name or "")
@@ -350,6 +356,8 @@ def load_dataset_profile(
             definitions = {task_id: all_definitions[task_id] for task_id in selected_task_ids}
         tasks = {}
         for task_id, value in raw.get("tasks", {}).items():
+            if task_id not in definitions:
+                continue
             if "task_id" in value:
                 raise DatasetProfileError(
                     [f"{task_id}: nested task_id is forbidden; the tasks object key is authoritative"]
@@ -361,9 +369,17 @@ def load_dataset_profile(
         }
         if unexpected:
             raise DatasetProfileError([f"unknown profile fields: {', '.join(sorted(unexpected))}"])
+        shared = dict(raw["shared"])
+        physical_ranges = shared.get("physical_ranges")
+        if isinstance(physical_ranges, dict):
+            shared["physical_ranges"] = {
+                task_id: ranges
+                for task_id, ranges in physical_ranges.items()
+                if task_id in definitions
+            }
         profile = DatasetInputProfile(
             profile_id=str(raw["id"]),
-            shared=raw["shared"],
+            shared=shared,
             tasks=tasks,
             task_definitions=definitions,
             source_markers=raw.get("source_markers", ()),
@@ -413,6 +429,25 @@ def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str
     sheets = profile.shared.sheets
     if len(set(sheets.values())) != len(sheets):
         errors.append("shared sheet roles must map to unique source sheets")
+    for role, aliases in profile.shared.column_aliases.items():
+        if role not in sheets:
+            errors.append(f"column aliases reference unknown role {role!r}")
+            continue
+        canonical_columns = list(aliases)
+        source_columns = list(aliases.values())
+        if any(not str(value).strip() for value in (*canonical_columns, *source_columns)):
+            errors.append(f"column aliases for role {role!r} must use non-empty names")
+        if len(source_columns) != len(set(source_columns)):
+            errors.append(f"column aliases for role {role!r} must map to unique source columns")
+        unchanged = sorted(
+            canonical for canonical, source in aliases.items()
+            if canonical == source
+        )
+        if unchanged:
+            errors.append(
+                f"column aliases for role {role!r} contain redundant mappings: "
+                + ", ".join(unchanged)
+            )
     entity_types: set[str] = set()
     entity_roles: set[str] = set()
     for entity in profile.shared.entities:
@@ -703,6 +738,55 @@ def _sheet_records(sheet: Any) -> list[dict[str, Any]]:
     ]
 
 
+class _ProfileSheet:
+    def __init__(self, sheet: Any, aliases: Mapping[str, str]) -> None:
+        self._sheet = sheet
+        self._canonical_by_source = {
+            source: canonical for canonical, source in aliases.items()
+        }
+
+    def iter_rows(self, *args: Any, **kwargs: Any) -> Any:
+        rows = self._sheet.iter_rows(*args, **kwargs)
+        min_row = int(kwargs.get("min_row", 1))
+        values_only = bool(kwargs.get("values_only", False))
+        if min_row > 1 or not values_only or not self._canonical_by_source:
+            return rows
+
+        def mapped_rows() -> Iterable[tuple[Any, ...]]:
+            for index, row in enumerate(rows):
+                if index == 0:
+                    yield tuple(
+                        self._canonical_by_source.get(str(value), value)
+                        if value is not None else value
+                        for value in row
+                    )
+                else:
+                    yield row
+
+        return mapped_rows()
+
+
+class _ProfileWorkbook:
+    def __init__(self, workbook: Any, profile: DatasetInputProfile) -> None:
+        self._workbook = workbook
+        self.sheetnames = workbook.sheetnames
+        self._aliases_by_sheet = {
+            profile.sheet_for_role(role): aliases
+            for role, aliases in profile.shared.column_aliases.items()
+        }
+
+    def __getitem__(self, sheet_name: str) -> Any:
+        sheet = self._workbook[sheet_name]
+        aliases = self._aliases_by_sheet.get(sheet_name)
+        return _ProfileSheet(sheet, aliases) if aliases else sheet
+
+
+def _profile_workbook(workbook: Any, profile: DatasetInputProfile) -> Any:
+    if isinstance(workbook, _ProfileWorkbook) or not profile.shared.column_aliases:
+        return workbook
+    return _ProfileWorkbook(workbook, profile)
+
+
 def _measurement_point_fallback_series(
     source_rows: Iterable[Mapping[str, Any]],
     master_rows: Iterable[Mapping[str, Any]],
@@ -780,6 +864,7 @@ def _measurement_point_fallback_series(
 
 
 def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
+    workbook = _profile_workbook(workbook, profile)
     errors: list[str] = []
     required: dict[str, set[str]] = {}
     fallback_series_roles = {
@@ -1320,6 +1405,7 @@ def _normalize_heat_series(points: list[dict[str, Any]]) -> None:
 
 
 def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> CanonicalDataset:
+    workbook = _profile_workbook(workbook, profile)
     preflight_workbook(workbook, profile)
     rows: dict[str, list[dict[str, Any]]] = {}
     for name in workbook.sheetnames:
