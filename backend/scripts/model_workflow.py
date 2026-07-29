@@ -36,6 +36,8 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
 )
 from material_workbench.modeling.model_package_verify import verify_model_package  # noqa: E402
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
+from material_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
+from material_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
 from material_workbench.data.profile_document import supported_task_ids  # noqa: E402
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, registered_task_modules, resolve_task_source, task_module  # noqa: E402
@@ -192,18 +194,53 @@ def build_package(
     package_id: str,
     package_version: str,
     replace: bool,
+    estimator: str | None = None,
+    estimator_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if output.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing model package: {output}")
     source = _task_source(task_id, source)
+    module = task_module(task_id)
+    recipe = None
+    authoring = None
+    if estimator is not None:
+        authoring = module.standard_model_authoring
+        if authoring is None or estimator not in authoring.estimator_ids:
+            supported = (
+                ", ".join(authoring.estimator_ids)
+                if authoring is not None
+                else "none"
+            )
+            raise ValueError(
+                f"{task_id} does not support standard estimator {estimator}; "
+                f"supported: {supported}"
+            )
+        recipe = estimator_recipe(estimator, estimator_options)
     dataset = export_dataset(task_id, source, dataset_output, replace=replace)
-    task_module(task_id).model_builder(
-        source,
-        output,
-        replace=replace,
-        package_id=package_id,
-        package_version=package_version,
-    )
+    if estimator is None:
+        module.model_builder(
+            source,
+            output,
+            replace=replace,
+            package_id=package_id,
+            package_version=package_version,
+        )
+    else:
+        assert authoring is not None
+        assert recipe is not None
+        build_standard_model_package(
+            task_id=task_id,
+            source=source,
+            data=_load_task_data(task_id, source),
+            contract=load_task_contracts()[task_id],
+            candidate_builder=authoring.candidate_builder,
+            recipe=recipe,
+            destination=output,
+            package_id=package_id,
+            package_version=package_version,
+            replace=replace,
+            positive_targets=authoring.positive_targets,
+        )
     report = verify_model_package(output, task_id=task_id, source=source)
     return {"dataset": dataset, "package": report.model_dump()}
 
@@ -348,6 +385,35 @@ def package_status(config: Path) -> dict[str, Any]:
     }
 
 
+def estimator_inventory(task_id: str | None = None) -> dict[str, Any]:
+    selected = (task_id,) if task_id else TASKS
+    return {
+        "schema_version": "standard-estimator-inventory/v1",
+        "tasks": {
+            item: list(
+                task_module(item).standard_model_authoring.estimator_ids
+                if task_module(item).standard_model_authoring is not None
+                else ()
+            )
+            for item in selected
+        },
+        "note": (
+            "Estimator IDs are allow-listed training recipes. "
+            "Omitting --estimator keeps the Task's specialized authoring workflow."
+        ),
+    }
+
+
+def _json_object(value: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(f"invalid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError("estimator options must be a JSON object")
+    return parsed
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build, verify, activate, and roll back trusted Model Packages.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -373,7 +439,24 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--dataset-output", type=Path)
     build.add_argument("--package-id", required=True)
     build.add_argument("--package-version", required=True)
+    build.add_argument(
+        "--estimator",
+        choices=ESTIMATOR_IDS,
+        help="Use an allow-listed standard estimator after the Task Feature Pipeline.",
+    )
+    build.add_argument(
+        "--estimator-options",
+        type=_json_object,
+        default={},
+        help='Optional bounded recipe parameters as JSON, e.g. \'{"restarts": 3}\'.',
+    )
     build.add_argument("--replace", action="store_true")
+
+    estimators = subparsers.add_parser(
+        "estimators",
+        help="List standard estimators supported by each Task.",
+    )
+    estimators.add_argument("--task", choices=TASKS)
 
     verify = subparsers.add_parser("verify", help="Run loader, lifecycle, adapter, and production smoke checks.")
     verify.add_argument("--task", required=True, choices=TASKS)
@@ -439,7 +522,11 @@ def main() -> int:
                 package_id=arguments.package_id,
                 package_version=arguments.package_version,
                 replace=arguments.replace,
+                estimator=arguments.estimator,
+                estimator_options=arguments.estimator_options,
             )
+        elif arguments.command == "estimators":
+            result = estimator_inventory(arguments.task)
         elif arguments.command == "verify":
             result = verify_model_package(arguments.package, task_id=arguments.task, source=_task_source(arguments.task, arguments.source)).model_dump()
         elif arguments.command == "promote":

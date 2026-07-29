@@ -208,6 +208,19 @@ DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
 RuntimeFactory = Callable[[DataDescriptor, VerifiedModelPackage], PredictionRuntime]
 FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]
 ModelBuilder = Callable[..., None]
+TrainingCandidateBuilder = Callable[
+    [dict[str, Any], DataDescriptor],
+    CandidateInput | None,
+]
+
+
+@dataclass(frozen=True)
+class StandardModelAuthoring:
+    """Ordinary fixed-feature estimators supported after Task feature compilation."""
+
+    candidate_builder: TrainingCandidateBuilder
+    estimator_ids: tuple[str, ...]
+    positive_targets: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -237,6 +250,7 @@ class TaskModule:
     feature_row_builder: FeatureRowBuilder
     model_builder: ModelBuilder
     application: ApplicationCapability
+    standard_model_authoring: StandardModelAuthoring | None = None
     data_explorer: DataExplorerCapability | None = None
     starter_project: StarterProject | None = None
     response_curve: ResponseCurveHandler | None = None
@@ -261,6 +275,39 @@ def _declared_composition_medians(
         for key, value in medians.items()
         if key in declared
     }
+
+
+def _annealed_training_candidate(
+    row: dict[str, Any],
+    _data: DataDescriptor,
+) -> CandidateInput | None:
+    from material_workbench.modeling.feature_pipeline import (
+        candidate_from_observation,
+    )
+
+    return candidate_from_observation(row)
+
+
+def _hot_rolling_training_candidate(
+    row: dict[str, Any],
+    _data: DataDescriptor,
+) -> CandidateInput | None:
+    from material_workbench.modeling.hot_rolling_feature_pipeline import (
+        candidate_from_observation,
+    )
+
+    return candidate_from_observation(row)
+
+
+def _tabular_training_candidate(
+    row: dict[str, Any],
+    data: DataDescriptor,
+) -> CandidateInput | None:
+    from material_workbench.modeling.tabular_regression import (
+        candidate_from_observation,
+    )
+
+    return candidate_from_observation(row, data.profile)  # type: ignore[attr-defined]
 
 
 def _annealed_starter_candidates(
@@ -877,6 +924,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_annealed_runtime,
         feature_row_builder=_annealed_features,
         model_builder=_build_annealed,
+        standard_model_authoring=StandardModelAuthoring(
+            _annealed_training_candidate,
+            ("exact-gp-rbf.v1",),
+            frozenset({"lambda"}),
+        ),
         application=_application_capability(
             actual_measurement=True,
             response_curve=True,
@@ -905,6 +957,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_hot_rolling_runtime,
         feature_row_builder=_hot_rolling_features,
         model_builder=_build_hot_rolling,
+        standard_model_authoring=StandardModelAuthoring(
+            _hot_rolling_training_candidate,
+            ("exact-gp-rbf.v1",),
+        ),
         application=_application_capability(
             actual_measurement=True,
             response_curve=True,
@@ -949,6 +1005,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(HEAT_TREATMENT_TASK_ID),
         model_builder=_tabular_builder(HEAT_TREATMENT_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=True,
@@ -973,6 +1033,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(CONCRETE_TASK_ID),
         model_builder=_tabular_builder(CONCRETE_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=True,
@@ -999,6 +1063,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(WEAR_CURVE_TASK_ID),
         model_builder=_tabular_builder(WEAR_CURVE_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=True,
@@ -1072,6 +1140,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_LEGACY_TYS_TASK_ID),
         model_builder=_tabular_builder(MPEA_LEGACY_TYS_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=False,
@@ -1089,6 +1161,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_ROOM_TENSILE_TASK_ID),
         model_builder=_tabular_builder(MPEA_ROOM_TENSILE_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=False,
@@ -1107,6 +1183,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
         model_builder=_tabular_builder(MPEA_HARDNESS_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("ridge.v1",),
+        ),
         application=_application_capability(
             actual_measurement=False,
             response_curve=False,
