@@ -38,7 +38,11 @@ export type ProjectBinding = {
  * data changes, so a pinned `packageId` goes stale on the next revision while
  * the dataset it was trained on stays the same.
  */
-export type BindingSelector = { datasetFilename?: string; packageId?: string };
+export type BindingSelector = {
+  datasetFilename?: string;
+  packageId?: string;
+  includeGallery?: boolean;
+};
 
 /**
  * A Project pins the exact Dataset View and Model Package it was created against,
@@ -56,11 +60,23 @@ export async function resolveProjectBinding(
   const options = await response.json() as CreationOptions;
   const digest = options.task_contract_digests[taskId];
   expect(digest, `task contract digest for ${taskId}`).toBeTruthy();
+  let datasets = options.datasets;
+  let modelPackages = options.model_packages;
+  if (selector.includeGallery) {
+    const [datasetsResponse, modelPackagesResponse] = await Promise.all([
+      request.get(`${apiBaseUrl}/api/data-library/datasets?include_gallery=true`),
+      request.get(`${apiBaseUrl}/api/data-library/model-packages?include_gallery=true`),
+    ]);
+    expect(datasetsResponse.status(), "gallery datasets").toBe(200);
+    expect(modelPackagesResponse.status(), "gallery model packages").toBe(200);
+    datasets = await datasetsResponse.json() as CreationOptions["datasets"];
+    modelPackages = await modelPackagesResponse.json() as CreationOptions["model_packages"];
+  }
 
-  const usable = options.datasets.flatMap((dataset) => {
+  const usable = datasets.flatMap((dataset) => {
     const view = dataset.dataset_views[0];
     if (!view) return [];
-    return options.model_packages
+    return modelPackages
       .filter((item) => (
         item.task_id === taskId
         && item.task_contract_digest === digest
