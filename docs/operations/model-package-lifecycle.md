@@ -38,6 +38,7 @@ $task = "heat-treatment-tradeoff-v1"
 $source = "path\to\new-data.csv"
 $packageId = "heat-treatment-my-data-2026-07"
 $packageVersion = "1.0.0"
+$datasetOutput = "artifacts/model-data/$packageId.json"
 
 npm run model:diagnose -- --task $task --source $source
 
@@ -45,7 +46,8 @@ npm run model:build -- `
   --task $task `
   --source $source `
   --package-id $packageId `
-  --package-version $packageVersion
+  --package-version $packageVersion `
+  --dataset-output $datasetOutput
 
 npm run model:promote -- `
   --task $task `
@@ -87,21 +89,24 @@ PowerShellから次の順に実行します。
 `annealed-properties-v1` と `hot-rolled-properties-v1` は既定の工程ワークブック、`flank-wear-v1` は専用の切削摩耗ワークブックへ解決されます。
 
 ```powershell
-npm run model:data -- --task <task> --output artifacts/model-data/<task>.json
+$packageId = "<new-package-id>"
+$datasetOutput = "artifacts/model-data/$packageId.json"
+
+npm run model:data -- --task <task> --output $datasetOutput
 
 npm run model:build -- `
   --task <task> `
-  --package-id <new-package-id> `
+  --package-id $packageId `
   --package-version <new-package-version> `
-  --dataset-output artifacts/model-data/<task>.json
+  --dataset-output $datasetOutput
 
 npm run model:verify -- `
   --task <task> `
-  --package artifacts/model-package-candidates/<new-package-id>
+  --package "artifacts/model-package-candidates/$packageId"
 
 npm run model:promote -- `
   --task <task> `
-  --package artifacts/model-package-candidates/<new-package-id>
+  --package "artifacts/model-package-candidates/$packageId"
 
 npm run task:inventory
 npm run model:status

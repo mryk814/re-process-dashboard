@@ -617,7 +617,7 @@ def candidate_from_lineage(
                 if len(route.members) == minimum_members
             )
     return CandidateInput(
-        name=f"過去条件 {process_key} / 成分 {melt_key}",
+        name=f"実績 {process_key} / {melt_key}",
         inputs={
             "composition": deepcopy(data.composition[melt_key]),
             "process": process_values,

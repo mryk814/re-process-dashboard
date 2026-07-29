@@ -449,7 +449,7 @@ def test_imported_relations_keep_every_composition_that_shares_one_process(tmp_p
         process_key="AN-01",
         melt_key="ME-SHARED-PROCESS",
     )
-    assert candidate.name == "過去条件 AN-01 / 成分 ME-SHARED-PROCESS"
+    assert candidate.name == "実績 AN-01 / ME-SHARED-PROCESS"
     assert candidate.inputs.composition == data.composition["ME-SHARED-PROCESS"]
 
 
