@@ -4,9 +4,11 @@ import {
   fromApiCandidate,
   type ApplicationCapability,
   type CandidateViewModel as Candidate,
+  type TaskDefinitionContract,
   type TaskOutputDefinition,
 } from "../candidates";
-import { workbenchApi } from "../../shared/api/workbench-api";
+import { workbenchApi, type ApiCandidateOriginEvidence } from "../../shared/api/workbench-api";
+import { HistoricalEvidenceDrawer } from "./HistoricalEvidenceDrawer";
 import { originMeasurements, type OriginMeasurement } from "./originEvidence";
 
 
@@ -14,34 +16,57 @@ export function CandidateOrigin({
   projectId,
   candidate,
   outputs,
+  taskDefinition,
+  displayDecimalOverrides,
   broken,
   onOpen,
 }: {
   projectId: string;
   candidate: Candidate;
   outputs: TaskOutputDefinition[];
+  taskDefinition: TaskDefinitionContract | null;
+  displayDecimalOverrides?: Record<string, number>;
   broken: boolean;
   onOpen: () => void;
 }) {
   const provenance = candidate.raw.provenance as CandidateProvenance;
   const hasOriginNavigation = provenance.source_kind !== "direct" && provenance.source_kind !== "manual";
-  const referenceOrigin = provenance.source_kind === "lineage";
+  const lineageReference = provenance.source_kind === "lineage" ? provenance.source_ref : null;
+  const referenceOrigin = lineageReference !== null;
   const [measurements, setMeasurements] = useState<OriginMeasurement[] | null>(null);
+  const [originEvidence, setOriginEvidence] = useState<ApiCandidateOriginEvidence | null>(null);
+  const [originEvidenceState, setOriginEvidenceState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   useEffect(() => {
+    setEvidenceOpen(false);
     setMeasurements(null);
-    if (provenance.source_kind !== "lineage") return;
+    setOriginEvidence(null);
+    if (provenance.source_kind !== "lineage") {
+      setOriginEvidenceState("idle");
+      return;
+    }
     const controller = new AbortController();
+    setOriginEvidenceState("loading");
     void workbenchApi.candidateOriginEvidence(projectId, candidate.id, controller.signal)
       .then((evidence) => {
-        if (!controller.signal.aborted) setMeasurements(originMeasurements(evidence, outputs));
+        if (!controller.signal.aborted) {
+          setMeasurements(originMeasurements(evidence, outputs));
+          setOriginEvidence(evidence);
+          setOriginEvidenceState("ready");
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setMeasurements([]);
+        if (!controller.signal.aborted) {
+          setMeasurements([]);
+          setOriginEvidence(null);
+          setOriginEvidenceState("error");
+        }
       });
     return () => controller.abort();
   }, [candidate.id, outputs, projectId, provenance]);
   return (
-    <div className={`candidate-origin${broken ? " missing" : ""}${referenceOrigin ? " reference-data" : ""}`}>
+    <>
+      <div className={`candidate-origin${broken ? " missing" : ""}${referenceOrigin ? " reference-data" : ""}`}>
       <span><b>作成元</b>{referenceOrigin && <i>参照データ由来</i>}{provenanceLabel(provenance)}</span>
       {referenceOrigin && (
         <span
@@ -76,12 +101,35 @@ export function CandidateOrigin({
         >
           派生元 revision {provenance.source_ref.candidate_revision} を見る
         </button>
+      ) : referenceOrigin ? (
+        <button type="button" className="outline-button" onClick={() => setEvidenceOpen(true)}>作成元の実績を見る</button>
       ) : hasOriginNavigation ? (
         <button type="button" className="outline-button" onClick={onOpen}>作成元へ戻る</button>
       ) : (
         <small>この候補は比較画面で直接作成されました</small>
       )}
-    </div>
+      </div>
+      <HistoricalEvidenceDrawer
+        open={evidenceOpen}
+        projectId={projectId}
+        reference={lineageReference ? {
+          processKey: originEvidence?.process_key ?? lineageReference.entity_key,
+          compositionKey: originEvidence?.composition_key ?? lineageReference.composition_entity_key,
+          relationContextIds: originEvidence?.relation_context_ids ?? lineageReference.relation_context_ids,
+          observationIds: originEvidence?.observation_ids,
+          repeatSummary: originEvidence?.repeat_summary,
+          measurementState: originEvidenceState === "idle" ? "loading" : originEvidenceState,
+        } : null}
+        outputs={outputs}
+        taskDefinition={taskDefinition}
+        displayDecimalOverrides={displayDecimalOverrides}
+        onClose={() => setEvidenceOpen(false)}
+        onOpenLineage={() => {
+          setEvidenceOpen(false);
+          onOpen();
+        }}
+      />
+    </>
   );
 }
 

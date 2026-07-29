@@ -249,7 +249,12 @@ test("lineage candidate remains in exploration and round-trips through stock", a
   await stock.click();
   await expect(page).toHaveURL(/view=candidates/);
   await expect(page.locator(".candidate-origin")).toContainText("工程系譜 AN-01");
-  await page.getByRole("button", { name: "作成元へ戻る" }).click();
+  await page.getByRole("button", { name: "作成元の実績を見る" }).click();
+  const evidenceDrawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(evidenceDrawer).toBeVisible();
+  await expect(evidenceDrawer).toContainText("AN-01");
+  await expect(page).toHaveURL(/view=candidates/);
+  await evidenceDrawer.getByRole("button", { name: "データ探索で系譜全体を見る" }).click();
   await expect(page).toHaveURL(/view=lineage.*entity=AN-01/);
 
   await page.reload();

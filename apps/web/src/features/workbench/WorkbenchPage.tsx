@@ -287,6 +287,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
           projectId={projectId}
           candidate={selected}
           outputs={taskDefinition?.outputs ?? []}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
           broken={originBroken}
           onOpen={onOpenOrigin}
         />

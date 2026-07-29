@@ -34,6 +34,31 @@ test("similar evidence keeps candidate creation visible at narrow widths", async
   await page.unrouteAll({ behavior: "wait" });
 });
 
+test("similar evidence opens its conditions without leaving candidate comparison", async ({ page }, testInfo) => {
+  await page.goto("/?view=candidates&project=default");
+  const evidence = page.locator(".similar-evidence-panel");
+  const detail = evidence.getByRole("button", { name: "実績を見る" }).first();
+  await detail.scrollIntoViewIfNeeded();
+  const beforeUrl = page.url();
+  const beforeScroll = await page.evaluate(() => window.scrollY);
+
+  await detail.click();
+  const drawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "実測特性" })).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "工程条件" })).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: /上流組成/ })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "この実績を候補にする" })).toBeVisible();
+  expect(page.url()).toBe(beforeUrl);
+  expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll);
+  await drawer.screenshot({ path: testInfo.outputPath("historical-evidence-drawer.png") });
+
+  await drawer.getByRole("button", { name: "過去実績の根拠を閉じる" }).click();
+  await expect(drawer).toBeHidden();
+  await expect(detail).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(beforeScroll);
+});
+
 test("similar evidence asks which upstream condition to inherit when it is ambiguous", async ({ page }) => {
   await page.route("**/api/projects/default/candidates/*/similar?*", async (route) => {
     const response = await route.fetch();
@@ -98,4 +123,22 @@ test("candidate origin actual stays scoped to the selected composition and relat
   await expect(origin).toContainText("作成元実測");
   await expect(origin).toContainText("TS 470");
   await expect(origin).not.toContainText("505");
+
+  await page.getByRole("button", { name: "作成元の実績を見る" }).click();
+  const drawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(drawer).toContainText("HR-02 / 成分 ME-01");
+  await expect(drawer.locator(".historical-measurements")).toContainText("470");
+  await expect(drawer.locator(".historical-measurements")).not.toContainText("505");
+  await expect(drawer.getByRole("heading", { name: "工程条件" })).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: /上流組成 ME-01/ })).toBeVisible();
+
+  await page.route("**/api/projects/hot-rolling-default/candidates/*/origin-evidence", async (route) => {
+    await route.fulfill({ status: 409, json: { code: "origin_mismatch", message: "参照データ不一致" } });
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "作成元の実績を見る" }).click();
+  const unavailableDrawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(unavailableDrawer).toContainText("現在の集約値では代用していません");
+  await expect(unavailableDrawer.locator(".historical-measurements")).not.toContainText("470");
+  await expect(unavailableDrawer.locator(".historical-measurements")).not.toContainText("505");
 });
