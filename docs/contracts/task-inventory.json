@@ -120,6 +120,24 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "blend_tools",
+            "order": 0
+          },
+          {
+            "kind": "actual_measurement",
+            "order": 10
+          },
+          {
+            "kind": "similarity",
+            "order": 20
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 30
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -180,6 +198,34 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "actual_measurement",
+            "order": 0
+          },
+          {
+            "kind": "response_curve",
+            "order": 10
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
+            "axis_paths": [
+              "composition.C",
+              "composition.Mn",
+              "process.ls_mpm"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": true,
         "candidate_excel_export": true,
@@ -230,6 +276,35 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "actual_measurement",
+            "order": 0
+          },
+          {
+            "kind": "response_curve",
+            "order": 10
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
+            "axis_paths": [
+              "process.finish_temperature_c",
+              "process.exit_thickness_mm",
+              "process.hold_temperature_c",
+              "process.hold_time_min"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -285,6 +360,28 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "actual_measurement",
+            "order": 0
+          },
+          {
+            "kind": "curve_family",
+            "order": 10
+          },
+          {
+            "kind": "response_curve",
+            "order": 20
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -335,6 +432,30 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "response_curve",
+            "order": 0
+          },
+          {
+            "kind": "response_contour",
+            "order": 10,
+            "axis_paths": [
+              "process.tempering_temp_c",
+              "process.cooling_rate_c_per_s",
+              "composition.carbon_pct"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 20
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 30
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -385,6 +506,34 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "curve_family",
+            "order": 0
+          },
+          {
+            "kind": "response_curve",
+            "order": 10
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
+            "axis_paths": [
+              "process.age_days",
+              "composition.water_kg_m3",
+              "composition.cement_kg_m3"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -435,6 +584,34 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "curve_family",
+            "order": 0
+          },
+          {
+            "kind": "response_curve",
+            "order": 10
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
+            "axis_paths": [
+              "process.cutting_distance_m",
+              "process.cutting_speed_m_per_min",
+              "process.feed_mm_per_rev"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -485,6 +662,37 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "actual_measurement",
+            "order": 0
+          },
+          {
+            "kind": "curve_family",
+            "order": 10
+          },
+          {
+            "kind": "response_curve",
+            "order": 20
+          },
+          {
+            "kind": "response_contour",
+            "order": 30,
+            "axis_paths": [
+              "process.cycle_index",
+              "process.discharge_rate_c"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 40
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 50
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -535,6 +743,35 @@
         "actual_measurement": true
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "actual_measurement",
+            "order": 0
+          },
+          {
+            "kind": "response_curve",
+            "order": 10
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
+            "axis_paths": [
+              "process.sensor_059",
+              "process.sensor_103",
+              "process.sensor_130",
+              "process.sensor_102"
+            ],
+            "grid_size": 11
+          },
+          {
+            "kind": "similarity",
+            "order": 30
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 40
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -585,6 +822,16 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
         "project_creation": false,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -640,6 +887,16 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -690,6 +947,16 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,
@@ -770,6 +1037,20 @@
         "actual_measurement": false
       },
       "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "response_curve",
+            "order": 0
+          },
+          {
+            "kind": "similarity",
+            "order": 10
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 20
+          }
+        ],
         "project_creation": true,
         "candidate_excel_import": false,
         "candidate_excel_export": false,

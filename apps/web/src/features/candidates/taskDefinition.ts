@@ -35,6 +35,15 @@ const candidateInputGroups = new Set<TaskInputGroup["key"]>([
   "categorical",
   "heat_pattern",
 ]);
+const workbenchSurfaceKinds = new Set([
+  "blend_tools",
+  "actual_measurement",
+  "curve_family",
+  "response_curve",
+  "response_contour",
+  "similarity",
+  "feature_engineering",
+]);
 
 function pathSuffix(group: TaskInputGroup["key"], path: string): string {
   if (group === "heat_pattern") {
@@ -64,6 +73,26 @@ export function validateResolvedTaskDefinition(resolved: ResolvedTaskDefinition)
       const expectedKind = group.key === "heat_pattern" ? "heat_pattern" : group.key === "categorical" ? "categorical" : "number";
       if (field.kind !== expectedKind) {
         throw new Error(`TaskDefinition field kind does not match group: ${group.key} / ${field.path} / ${field.kind}`);
+      }
+    }
+  }
+  const surfaceKinds = new Set<string>();
+  const surfaceOrders = new Set<number>();
+  for (const surface of resolved.application.workbench_surfaces) {
+    if (!workbenchSurfaceKinds.has(surface.kind)) {
+      throw new Error(`Unsupported Workbench Surface: ${surface.kind}`);
+    }
+    if (surfaceKinds.has(surface.kind)) {
+      throw new Error(`Duplicate Workbench Surface: ${surface.kind}`);
+    }
+    if (surfaceOrders.has(surface.order)) {
+      throw new Error(`Duplicate Workbench Surface order: ${surface.order}`);
+    }
+    surfaceKinds.add(surface.kind);
+    surfaceOrders.add(surface.order);
+    if (surface.kind === "response_contour") {
+      if (surface.axis_paths.length < 2 || new Set(surface.axis_paths).size !== surface.axis_paths.length) {
+        throw new Error("Response contour requires at least two unique axes");
       }
     }
   }

@@ -40,6 +40,13 @@ import {
   LiveResponseCurves,
   type ResponseCurveRanges,
 } from "./ResponseCurvePanels";
+import { ResponseContourPanel } from "./ResponseContourPanel";
+import {
+  workbenchSurfaceRegistry,
+  workbenchSurfacesInZone,
+  type WorkbenchSurface,
+  type WorkbenchSurfaceKind,
+} from "./workbenchSurfaceRegistry";
 
 export function WorkbenchEmptyState({
   loading,
@@ -191,6 +198,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onLoadRemainingPreviews,
   } = props;
   const [activityOpen, setActivityOpen] = useState(false);
+  const [activePrimarySurface, setActivePrimarySurface] =
+    useState<WorkbenchSurfaceKind>("response_curve");
   // A shared link to a saved run opens the panel without a second click.
   const activityPanelOpen = activityOpen || Boolean(activityId || activityRunId);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
@@ -203,10 +212,24 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const actualMeasurementRef = useRef<HTMLDivElement>(null);
   const effectiveInspectorWidth = clampLayoutValue(inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
+  const beforeActivitySurfaces = workbenchSurfacesInZone(application, "before_activity");
+  const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
+  const evidenceSurfaces = workbenchSurfacesInZone(application, "analysis_evidence");
+  const afterAnalysisSurfaces = workbenchSurfacesInZone(application, "after_analysis");
+  const selectedPrimarySurface = primarySurfaces.find(
+    (surface) => surface.kind === activePrimarySurface,
+  ) ?? primarySurfaces[0];
   useEffect(() => {
-    if (candidateSection !== "actuals" || !operations?.actual_measurement) return;
+    if (primarySurfaces.some((surface) => surface.kind === activePrimarySurface)) return;
+    if (primarySurfaces[0]) setActivePrimarySurface(primarySurfaces[0].kind);
+  }, [application?.workbench_surfaces, activePrimarySurface]);
+  useEffect(() => {
+    if (
+      candidateSection !== "actuals"
+      || !beforeActivitySurfaces.some((surface) => surface.kind === "actual_measurement")
+    ) return;
     actualMeasurementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [candidateSection, operations?.actual_measurement, selected.id]);
+  }, [candidateSection, application?.workbench_surfaces, selected.id]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.comparisonHeight, comparisonHeight), [comparisonHeight]);
@@ -232,6 +255,73 @@ export function WorkbenchPage(props: WorkbenchProps) {
     updateWidths();
     return () => observer.disconnect();
   }, []);
+
+  const renderSurface = (surface: WorkbenchSurface) => {
+    if (!taskDefinition) return null;
+    switch (surface.kind) {
+      case "blend_tools":
+        return <div className="blend-tools-surface">
+          <BlendComparisonPanel projectId={projectId} candidates={candidates} selected={selected} />
+          <BlendOptimizationPanel projectId={projectId} candidate={selected.raw} onCandidateCreated={onOptimizedCandidate} />
+        </div>;
+      case "actual_measurement":
+        return <div ref={actualMeasurementRef} id="candidate-actuals">
+          <ActualMeasurementPanel
+            projectId={projectId}
+            candidate={selected}
+            taskDefinition={taskDefinition}
+            displayDecimalOverrides={project?.display_decimals}
+            ready={["idle", "saved"].includes(saveState)}
+          />
+        </div>;
+      case "curve_family":
+        return <CurveFamilyPanel
+          projectId={projectId}
+          candidate={selected}
+          taskDefinition={taskDefinition}
+          targetValues={targetValues}
+          ready={["idle", "saved"].includes(saveState)}
+        />;
+      case "response_curve":
+        return <LiveResponseCurves
+          projectId={projectId}
+          project={project}
+          candidates={candidates}
+          candidate={selected}
+          preview={preview}
+          previewsByCandidate={previewsByCandidate}
+          targetValues={targetValues}
+          taskDefinition={taskDefinition}
+          responseCurveRanges={responseCurveRanges}
+          onProjectChanged={onProjectChanged}
+          available
+          ready={["idle", "saved"].includes(saveState)}
+        />;
+      case "response_contour":
+        return <ResponseContourPanel
+          key={`${projectId}:${selected.id}:${taskDefinition.id}`}
+          projectId={projectId}
+          candidate={selected}
+          taskDefinition={taskDefinition}
+          surface={surface}
+          ready={["idle", "saved"].includes(saveState)}
+        />;
+      case "similarity":
+        return <SimilarityEvidencePanel
+          projectId={projectId}
+          candidate={selected}
+          outputs={taskDefinition.outputs}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
+          available
+          targetSpecific={operations?.target_specific_similarity === true}
+          ready={["idle", "saved"].includes(saveState)}
+          onAddCandidate={onAddCandidateFromLineage}
+        />;
+      case "feature_engineering":
+        return <FeatureEngineeringPanel preview={preview} />;
+    }
+  };
   return (
     <div
       ref={workbenchRef}
@@ -338,34 +428,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onDrag={(startValue, deltaY) => startValue + deltaY}
           onReset={() => setComparisonHeight(270)}
         />}
-        <BlendComparisonPanel
-          projectId={projectId}
-          candidates={candidates}
-          selected={selected}
-        />
-        <BlendOptimizationPanel
-          projectId={projectId}
-          candidate={selected.raw}
-          onCandidateCreated={onOptimizedCandidate}
-        />
-        {taskDefinition && operations?.actual_measurement && <div ref={actualMeasurementRef} id="candidate-actuals">
-          <ActualMeasurementPanel
-            projectId={projectId}
-            candidate={selected}
-            taskDefinition={taskDefinition}
-            displayDecimalOverrides={project?.display_decimals}
-            ready={["idle", "saved"].includes(saveState)}
-          />
-        </div>}
-        {taskDefinition?.curve_axis_path && operations?.response_curve ? (
-          <CurveFamilyPanel
-            projectId={projectId}
-            candidate={selected}
-            taskDefinition={taskDefinition}
-            targetValues={targetValues}
-            ready={["idle", "saved"].includes(saveState)}
-          />
-        ) : null}
+        {beforeActivitySurfaces.map((surface) => (
+          <div key={surface.kind} data-workbench-surface={surface.kind}>
+            {renderSurface(surface)}
+          </div>
+        ))}
         {activityPanelOpen && taskDefinition && <DecisionActivityPanel
           projectId={projectId}
           candidate={selected}
@@ -384,30 +451,59 @@ export function WorkbenchPage(props: WorkbenchProps) {
             onActivityStateChange(undefined, undefined);
           }}
         />}
-        <div
+        {(primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
           ref={lowerPanelsRef}
-          className={`workbench-lower-grid${operations?.response_curve ? "" : " no-response-curves"}`}
+          className={`workbench-lower-grid${primarySurfaces.length ? "" : " no-response-curves"}`}
           style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
+          data-workbench-surface-zone="analysis"
         >
-          {operations?.response_curve && (
-              <LiveResponseCurves
-              projectId={projectId}
-              project={project}
-              candidates={candidates}
-              candidate={selected}
-              preview={preview}
-              previewsByCandidate={previewsByCandidate}
-              targetValues={targetValues}
-              taskDefinition={taskDefinition}
-              responseCurveRanges={responseCurveRanges}
-              onProjectChanged={onProjectChanged}
-              available
-              ready={["idle", "saved"].includes(saveState)}
-            />
-          )}
-          {operations?.response_curve && <SplitResizer
+          {selectedPrimarySurface ? <div className="workbench-surface-deck">
+            {primarySurfaces.length > 1 ? <div className="workbench-surface-tabs" role="tablist" aria-label="予測の見方">
+              {primarySurfaces.map((surface) => <button
+                key={surface.kind}
+                id={`workbench-surface-tab-${surface.kind}`}
+                type="button"
+                role="tab"
+                aria-selected={surface.kind === selectedPrimarySurface.kind}
+                aria-controls={`workbench-surface-panel-${surface.kind}`}
+                tabIndex={surface.kind === selectedPrimarySurface.kind ? 0 : -1}
+                className={surface.kind === selectedPrimarySurface.kind ? "active" : ""}
+                onClick={() => setActivePrimarySurface(surface.kind)}
+                onKeyDown={(event) => {
+                  const tabs = Array.from(
+                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [],
+                  );
+                  const current = tabs.indexOf(event.currentTarget);
+                  const next = event.key === "ArrowRight"
+                    ? (current + 1) % tabs.length
+                    : event.key === "ArrowLeft"
+                      ? (current - 1 + tabs.length) % tabs.length
+                      : event.key === "Home"
+                        ? 0
+                        : event.key === "End"
+                          ? tabs.length - 1
+                          : -1;
+                  if (next < 0) return;
+                  event.preventDefault();
+                  tabs[next]?.focus();
+                  tabs[next]?.click();
+                }}
+              >{workbenchSurfaceRegistry[surface.kind].label}</button>)}
+            </div> : null}
+            {primarySurfaces.map((surface) => <div
+              key={surface.kind}
+              id={`workbench-surface-panel-${surface.kind}`}
+              role={primarySurfaces.length > 1 ? "tabpanel" : undefined}
+              aria-labelledby={primarySurfaces.length > 1 ? `workbench-surface-tab-${surface.kind}` : undefined}
+              hidden={surface.kind !== selectedPrimarySurface.kind}
+              data-workbench-surface={surface.kind}
+            >
+              {renderSurface(surface)}
+            </div>)}
+          </div> : null}
+          {primarySurfaces.length > 0 && evidenceSurfaces.length > 0 && <SplitResizer
             className="lower-panel-resizer"
-            label="応答曲線と近い過去実績の幅を調整"
+            label="予測ビューと近い過去実績の幅を調整"
             value={effectiveCurveShare}
             min={curveShareRange.min}
             max={curveShareRange.max}
@@ -416,9 +512,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
             onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(lowerPanelsRef.current?.clientWidth ?? 1, 1)) * 100}
             onReset={() => setCurveShare(50)}
           />}
-          <SimilarityEvidencePanel projectId={projectId} candidate={selected} outputs={taskDefinition?.outputs ?? []} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} available={operations?.similarity === true} targetSpecific={operations?.target_specific_similarity === true} ready={["idle", "saved"].includes(saveState)} onAddCandidate={onAddCandidateFromLineage} />
-        </div>
-        <FeatureEngineeringPanel preview={preview} />
+          {evidenceSurfaces.map((surface) => <div key={surface.kind} data-workbench-surface={surface.kind}>
+            {renderSurface(surface)}
+          </div>)}
+        </div>}
+        {afterAnalysisSurfaces.map((surface) => <div key={surface.kind} data-workbench-surface={surface.kind}>
+          {renderSurface(surface)}
+        </div>)}
       </section>
     </div>
   );

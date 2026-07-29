@@ -22,6 +22,11 @@ function resolvedDefinition() {
       fixed_context: [{ path: "context.line", order: 0, label: "設備", value: "L1" }],
     },
     runtime_capability: { task_id: "task", operations: {} },
+    application: {
+      workbench_surfaces: [
+        { kind: "feature_engineering", order: 0 },
+      ],
+    },
   };
 }
 

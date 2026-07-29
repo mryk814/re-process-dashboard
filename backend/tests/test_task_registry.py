@@ -54,6 +54,36 @@ def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(cl
         assert isinstance(runtime.data, DataDescriptor)
 
 
+def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client) -> None:
+    registry = client.app.state.task_registry
+    contour_tasks: set[str] = set()
+    for task_id in registry.task_ids:
+        surfaces = registry.resolved_definition_for(
+            task_id
+        ).application.workbench_surfaces
+        assert surfaces
+        assert len({surface.kind for surface in surfaces}) == len(surfaces)
+        assert [surface.order for surface in surfaces] == sorted(
+            surface.order for surface in surfaces
+        )
+        assert surfaces[-1].kind == "feature_engineering"
+        for surface in surfaces:
+            if surface.kind == "response_contour":
+                contour_tasks.add(task_id)
+                assert len(surface.axis_paths) >= 2
+                assert surface.grid_size <= 17
+
+    assert contour_tasks == {
+        "annealed-properties-v1",
+        "battery-degradation-v1",
+        "concrete-strength-v1",
+        "heat-treatment-tradeoff-v1",
+        "hot-rolled-properties-v1",
+        "secom-yield-risk-v1",
+        "wear-curve-v1",
+    }
+
+
 def test_active_package_set_rejects_missing_or_unknown_task() -> None:
     active = load_active_packages(ACTIVE_PACKAGES)
     incomplete = active.model_copy(update={"tasks": {TASK_IDS[0]: active.tasks[TASK_IDS[0]]}})

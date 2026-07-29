@@ -48,13 +48,15 @@ test("actual measurement errors preserve API meaning but never expose transport 
   );
 });
 
-test("candidate workbench exposes the actual panel only through the declared operation", async () => {
-  const source = await readFile(
-    new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(source, /operations\?\.actual_measurement/);
-  assert.match(source, /<ActualMeasurementPanel/);
+test("candidate workbench exposes the actual panel through the declared Surface", async () => {
+  const [page, registry] = await Promise.all([
+    readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/features/workbench/workbenchSurfaceRegistry.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(registry, /actual_measurement: \{ zone: "before_activity"/);
+  assert.match(page, /beforeActivitySurfaces\.map/);
+  assert.match(page, /case "actual_measurement"/);
+  assert.match(page, /<ActualMeasurementPanel/);
 });
 
 test("actual panel compares against the immutable registered snapshot", async () => {

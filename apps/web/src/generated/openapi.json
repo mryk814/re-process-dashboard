@@ -1029,8 +1029,38 @@
               }
             ],
             "title": "Sparse Blend Transform Id"
+          },
+          "workbench_surfaces": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "actual_measurement": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "blend_tools": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "curve_family": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "feature_engineering": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "response_contour": "#/components/schemas/ResponseContourSurfaceDefinition",
+                  "response_curve": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "similarity": "#/components/schemas/BasicWorkbenchSurfaceDefinition"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/BasicWorkbenchSurfaceDefinition"
+                },
+                {
+                  "$ref": "#/components/schemas/ResponseContourSurfaceDefinition"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Workbench Surfaces",
+            "type": "array"
           }
         },
+        "required": [
+          "workbench_surfaces"
+        ],
         "title": "ApplicationCapability",
         "type": "object"
       },
@@ -1243,6 +1273,34 @@
           "created_at"
         ],
         "title": "ApprovedTrainingSnapshotSummary",
+        "type": "object"
+      },
+      "BasicWorkbenchSurfaceDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "actual_measurement",
+              "blend_tools",
+              "curve_family",
+              "response_curve",
+              "similarity",
+              "feature_engineering"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "order"
+        ],
+        "title": "BasicWorkbenchSurfaceDefinition",
         "type": "object"
       },
       "BatchCandidatePoolEvidence": {
@@ -15147,13 +15205,7 @@
         "additionalProperties": false,
         "properties": {
           "application": {
-            "$ref": "#/components/schemas/ApplicationCapability",
-            "default": {
-              "candidate_excel_export": false,
-              "candidate_excel_import": false,
-              "project_creation": true,
-              "sparse_blend": false
-            }
+            "$ref": "#/components/schemas/ApplicationCapability"
           },
           "availability": {
             "$ref": "#/components/schemas/TaskAvailability",
@@ -15186,9 +15238,192 @@
         },
         "required": [
           "task_definition",
-          "runtime_capability"
+          "runtime_capability",
+          "application"
         ],
         "title": "ResolvedTaskDefinition",
+        "type": "object"
+      },
+      "ResponseContourCell": {
+        "properties": {
+          "displayable": {
+            "default": false,
+            "title": "Displayable",
+            "type": "boolean"
+          },
+          "invalid_reason": {
+            "default": "",
+            "title": "Invalid Reason",
+            "type": "string"
+          },
+          "prediction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Prediction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "support": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Support"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "ResponseContourCell",
+        "type": "object"
+      },
+      "ResponseContourResponse": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseContourCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "grid_shape": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Grid Shape",
+            "type": "array"
+          },
+          "model_package_manifest_digest": {
+            "title": "Model Package Manifest Digest",
+            "type": "string"
+          },
+          "output_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_id": {
+            "const": "training-range-supported-grid-v1",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "x_axis": {
+            "$ref": "#/components/schemas/CurveVariable"
+          },
+          "x_values": {
+            "items": {
+              "type": "number"
+            },
+            "title": "X Values",
+            "type": "array"
+          },
+          "y_axis": {
+            "$ref": "#/components/schemas/CurveVariable"
+          },
+          "y_values": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Y Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_id",
+          "candidate_id",
+          "candidate_revision",
+          "model_package_manifest_digest",
+          "target",
+          "x_axis",
+          "y_axis",
+          "x_values",
+          "y_values",
+          "cells",
+          "grid_shape",
+          "policy_id"
+        ],
+        "title": "ResponseContourResponse",
+        "type": "object"
+      },
+      "ResponseContourSurfaceDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "axis_paths": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Axis Paths",
+            "type": "array"
+          },
+          "grid_size": {
+            "default": 11,
+            "maximum": 17.0,
+            "minimum": 7.0,
+            "title": "Grid Size",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "response_contour",
+            "title": "Kind",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "order",
+          "axis_paths"
+        ],
+        "title": "ResponseContourSurfaceDefinition",
         "type": "object"
       },
       "ResponseCurveResponse": {
@@ -23380,6 +23615,132 @@
           }
         },
         "summary": "Preview Project Candidate"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/response-contour": {
+      "get": {
+        "operationId": "getCandidateResponseContour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "title": "Expected Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "x_variable",
+            "required": true,
+            "schema": {
+              "title": "X Variable",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "y_variable",
+            "required": true,
+            "schema": {
+              "title": "Y Variable",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 11,
+              "maximum": 17,
+              "minimum": 7,
+              "title": "Points",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseContourResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Response Contour"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/response-curve": {

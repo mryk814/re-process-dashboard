@@ -12,10 +12,17 @@
 | `similarity` | no | yes | yes | limit |
 | `curve` | yes | yes | no | target、variable、point count、range、stage、policy |
 | `curve_family` | yes | yes | no | target、vary、level count、point count、policy |
+| `response_contour` | yes | yes | yes | target、x variable、y variable、point count、policy |
 | `detailed` | yes | yes | yes | target values、policy |
 
 候補名、選択状態、画面の表示状態はキーへ含めません。
 Package、Pipeline、support referenceの意味が変わる場合は、それぞれのdigestを変えて別の仕事として扱います。
+
+`response_contour` は候補revisionをAPI境界とcache identityで固定し、軸範囲を各runtimeが返す学習範囲に限定します。Taskの入力可能域とPackage由来の観測支持域をruntime共通契約として分離する作業は #481 で追跡します。
+カスタム外挿範囲は受け付けません。
+各セルはTask制約を再検証し、制約違反セルは推論しません。
+有効セルでは `Prediction` とtarget別 `Support` を別々に返し、
+`extrapolated` は予測値を保持しても `displayable=false` として色面に描きません。
 
 ## キャッシュと同時要求
 

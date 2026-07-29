@@ -11,7 +11,10 @@ test("engineered material features are inspectable for annealing and hot rolling
   const annealing = page.locator(".feature-engineering-panel");
   await expect(annealing.getByText("内部で作った特徴量")).toBeVisible();
   await expect(annealing).not.toHaveAttribute("open", "");
-  await expect(page.locator(".central-workspace > :last-child")).toHaveClass(/feature-engineering-panel/);
+  await expect(page.locator(".central-workspace > :last-child")).toHaveAttribute(
+    "data-workbench-surface",
+    "feature_engineering",
+  );
   await annealing.locator("summary").click();
   await expect(annealing.getByText("Ac1 目安", { exact: true })).toBeVisible();
   await expect(annealing.getByText("最高温度−Ac3目安", { exact: true })).toBeVisible();
@@ -20,11 +23,59 @@ test("engineered material features are inspectable for annealing and hot rolling
   const hotRolling = page.locator(".feature-engineering-panel");
   await expect(hotRolling.getByText("内部で作った特徴量")).toBeVisible();
   await expect(hotRolling).not.toHaveAttribute("open", "");
-  await expect(page.locator(".central-workspace > :last-child")).toHaveClass(/feature-engineering-panel/);
+  await expect(page.locator(".central-workspace > :last-child")).toHaveAttribute(
+    "data-workbench-surface",
+    "feature_engineering",
+  );
   await hotRolling.locator("summary").click();
   await expect(hotRolling.getByText("総圧下率", { exact: true })).toBeVisible();
   await expect(hotRolling.getByText("仕上温度−Ar3目安", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("feature-engineering-hot-rolling.png"), fullPage: true });
+});
+
+test("Task-declared prediction contour loads on demand and keeps support separate", async ({ page }, testInfo) => {
+  let contourRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/response-contour")) {
+      contourRequests += 1;
+    }
+  });
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("tab", { name: "応答曲線" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "予測地図" })).toHaveAttribute("aria-selected", "false");
+  expect(contourRequests).toBe(0);
+
+  await page.getByRole("tab", { name: "予測地図" }).click();
+  await expect(page.getByRole("heading", { name: "2変数の予測地図" })).toBeVisible();
+  expect(contourRequests).toBe(0);
+  const responsePromise = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/response-contour"),
+  );
+  await page.getByRole("button", { name: "地図を表示" }).click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(200);
+  expect((await response.json()).grid_shape).toEqual([11, 11]);
+  await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
+  await expect(page.getByText(/学習範囲外（値は非表示）/)).toBeVisible();
+  const hiddenCellTitles = await page
+    .locator('.response-contour-panel rect[fill="url(#contour-extrapolated)"] title')
+    .allTextContents();
+  expect(hiddenCellTitles.length).toBeGreaterThan(0);
+  expect(hiddenCellTitles.every((title) => title.includes("予測値は非表示"))).toBeTruthy();
+  await expect(page.getByText("数値で確認", { exact: true })).toBeVisible();
+  expect(contourRequests).toBe(1);
+
+  await page.getByRole("tab", { name: "応答曲線" }).click();
+  await page.getByRole("tab", { name: "予測地図" }).click();
+  await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
+  expect(contourRequests).toBe(1);
+
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expect(page.getByRole("combobox", { name: "横軸" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(720);
+  await page.locator(".response-contour-panel").screenshot({
+    path: testInfo.outputPath("response-contour.png"),
+  });
 });
 
 for (const task of tasks) {

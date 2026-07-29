@@ -8,7 +8,8 @@ from .projects import ProjectService
 from material_workbench.domain.goal_targets import serialize_target_values
 from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
-from material_workbench.contracts.schemas import Candidate, Project
+from material_workbench.contracts.schemas import Candidate, Prediction, Project, Support
+from material_workbench.domain.candidate_inputs import with_declared_balance
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError, TaskUnavailableError
 
@@ -118,6 +119,166 @@ class InferenceService:
             )
         except ValueError as exc:
             raise InferenceValidationError(str(exc)) from exc
+
+    def response_contour(
+        self,
+        project_id: str,
+        candidate_id: str,
+        revision: int,
+        target: str,
+        x_variable: str,
+        y_variable: str,
+        points: int,
+    ) -> dict[str, Any]:
+        project = self.projects.require(project_id)
+        candidate = self.candidates.at_revision(project_id, candidate_id, revision)
+        contract = self.registry.contract_for(project.task_id)
+        definition = contract.task_definition
+        if target not in {item.key for item in definition.outputs}:
+            raise InferenceValidationError("この予測タスクにない予測特性です")
+        if x_variable == y_variable:
+            raise InferenceValidationError("コンターの横軸と縦軸には異なる変数を指定してください")
+        surface = next(
+            (
+                item
+                for item in self.registry.module_for(project.task_id).application.workbench_surfaces
+                if item.kind == "response_contour"
+            ),
+            None,
+        )
+        if surface is None:
+            raise InferenceValidationError("この予測タスクは予測コンターに対応していません")
+        allowed_axes = set(surface.axis_paths)
+        if x_variable not in allowed_axes or y_variable not in allowed_axes:
+            raise InferenceValidationError("この予測タスクでコンター軸にできない変数です")
+        for total in definition.composition_totals:
+            selected = {x_variable, y_variable} & set(total.component_paths)
+            if not selected:
+                continue
+            if total.balance_path is None:
+                raise InferenceValidationError(
+                    "組成合計を固定したまま独立に動かせない変数はコンター軸にできません"
+                )
+            if total.balance_path in {x_variable, y_variable}:
+                raise InferenceValidationError("組成balanceはコンター軸にできません")
+        self.registry.require_available(project.task_id)
+        try:
+            runtime = self.resolver.runtime_for(project)
+            curve_handler = self.registry.response_curve_for(project.task_id)
+
+            def axis_metadata(variable: str) -> dict[str, Any]:
+                payload = curve_handler(
+                    runtime, candidate, target, variable, 3, None, None, None
+                )
+                metadata = dict(payload["variable"])
+                training_range = metadata.get("training_range")
+                if training_range is None:
+                    raise InferenceValidationError(
+                        f"{metadata.get('label', variable)}の学習範囲を確認できません"
+                    )
+                metadata["min"] = float(training_range["min"])
+                metadata["max"] = float(training_range["max"])
+                return metadata
+
+            x_axis = axis_metadata(x_variable)
+            y_axis = axis_metadata(y_variable)
+            x_values = self._uniform_grid(x_axis["min"], x_axis["max"], points)
+            y_values = self._uniform_grid(y_axis["min"], y_axis["max"], points)
+
+            def compute() -> dict[str, Any]:
+                cells: list[dict[str, Any]] = []
+                output_values: list[float] = []
+                for y_value in y_values:
+                    for x_value in x_values:
+                        adjusted = with_declared_balance(
+                            candidate,
+                            {x_variable: x_value, y_variable: y_value},
+                            definition.composition_totals,
+                            definition,
+                        )
+                        try:
+                            self.registry.validate_candidate(project.task_id, adjusted)
+                        except ValueError as exc:
+                            cells.append(
+                                {
+                                    "x": x_value,
+                                    "y": y_value,
+                                    "displayable": False,
+                                    "invalid_reason": str(exc),
+                                }
+                            )
+                            continue
+                        result = runtime.predict_core(
+                            adjusted,
+                            detailed=False,
+                            target_values=project.target_values,
+                        )
+                        prediction = Prediction.model_validate(
+                            result["predictions"][target]
+                        )
+                        support = Support.model_validate(
+                            runtime.support_by_target(adjusted)[target]  # type: ignore[attr-defined]
+                        )
+                        if support.status != "extrapolated":
+                            output_values.append(prediction.value)
+                        cells.append(
+                            {
+                                "x": x_value,
+                                "y": y_value,
+                                "prediction": prediction,
+                                "support": support,
+                                "displayable": support.status != "extrapolated",
+                            }
+                        )
+                return {
+                    "task_id": project.task_id,
+                    "candidate_id": candidate.id,
+                    "candidate_revision": candidate.revision,
+                    "model_package_manifest_digest": project.model_package_manifest_digest,
+                    "target": target,
+                    "x_axis": x_axis,
+                    "y_axis": y_axis,
+                    "x_values": x_values,
+                    "y_values": y_values,
+                    "cells": cells,
+                    "output_range": (
+                        None
+                        if not output_values
+                        else {"min": min(output_values), "max": max(output_values)}
+                    ),
+                    "grid_shape": (len(y_values), len(x_values)),
+                    "policy_id": "training-range-supported-grid-v1",
+                }
+
+            return self.graph.execute(
+                self.key(
+                    project,
+                    candidate,
+                    "response_contour",
+                    parameters={
+                        "target": target,
+                        "x_variable": x_variable,
+                        "y_variable": y_variable,
+                        "points": points,
+                        "candidate_revision": candidate.revision,
+                        "policy_id": "training-range-supported-grid-v1",
+                    },
+                    uses_package=True,
+                    uses_support=True,
+                ),
+                compute,
+            )
+        except InferenceValidationError:
+            raise
+        except ValueError as exc:
+            raise InferenceValidationError(str(exc)) from exc
+
+    @staticmethod
+    def _uniform_grid(minimum: float, maximum: float, points: int) -> list[float]:
+        if not math.isfinite(minimum) or not math.isfinite(maximum) or minimum >= maximum:
+            raise InferenceValidationError("コンター軸の学習範囲が不正です")
+        step = (maximum - minimum) / (points - 1)
+        return [round(minimum + step * index, 8) for index in range(points)]
 
     def similar(
         self,

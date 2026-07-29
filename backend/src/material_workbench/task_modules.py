@@ -16,8 +16,10 @@ from material_workbench.data.dataset_profile import DatasetInputProfile
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.contracts.task_contracts import (
     ApplicationCapability,
+    BasicWorkbenchSurfaceDefinition,
     DataExplorerCapability,
     TaskDefinition,
+    ResponseContourSurfaceDefinition,
 )
 from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
 
@@ -215,7 +217,7 @@ class TaskModule:
     runtime_factory: RuntimeFactory
     feature_row_builder: FeatureRowBuilder
     model_builder: ModelBuilder
-    application: ApplicationCapability = ApplicationCapability()
+    application: ApplicationCapability
     data_explorer: DataExplorerCapability | None = None
     starter_project: StarterProject | None = None
     response_curve: ResponseCurveHandler | None = None
@@ -766,6 +768,60 @@ def _welding_stage_b_starter(
 _EXPLORER = DataExplorerCapability(quality=True, lineage=True, candidate_creation=True)
 _TABULAR_EXPLORER = DataExplorerCapability(quality=True, lineage=False, candidate_creation=False)
 
+
+def _application_capability(
+    *,
+    actual_measurement: bool,
+    response_curve: bool,
+    similarity: bool,
+    curve_family: bool = False,
+    contour_axes: tuple[str, ...] = (),
+    candidate_excel_import: bool = False,
+    candidate_excel_export: bool = False,
+    sparse_blend_transform_id: str | None = None,
+    project_creation: bool = True,
+) -> ApplicationCapability:
+    surfaces: list[
+        BasicWorkbenchSurfaceDefinition | ResponseContourSurfaceDefinition
+    ] = []
+
+    def basic(kind: str) -> None:
+        surfaces.append(
+            BasicWorkbenchSurfaceDefinition(
+                kind=kind,  # type: ignore[arg-type]
+                order=len(surfaces) * 10,
+            )
+        )
+
+    if sparse_blend_transform_id is not None:
+        basic("blend_tools")
+    if actual_measurement:
+        basic("actual_measurement")
+    if curve_family:
+        basic("curve_family")
+    if response_curve:
+        basic("response_curve")
+    if contour_axes:
+        surfaces.append(
+            ResponseContourSurfaceDefinition(
+                kind="response_contour",
+                order=len(surfaces) * 10,
+                axis_paths=contour_axes,
+            )
+        )
+    if similarity:
+        basic("similarity")
+    basic("feature_engineering")
+    return ApplicationCapability(
+        workbench_surfaces=tuple(surfaces),
+        project_creation=project_creation,
+        candidate_excel_import=candidate_excel_import,
+        candidate_excel_export=candidate_excel_export,
+        sparse_blend=sparse_blend_transform_id is not None,
+        sparse_blend_transform_id=sparse_blend_transform_id,
+    )
+
+
 TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
     WELDING_STAGE_B_TASK_ID: TaskModule(
         task_id=WELDING_STAGE_B_TASK_ID,
@@ -779,8 +835,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_welding_stage_b_features,
         model_builder=_build_welding_stage_b,
-        application=ApplicationCapability(
-            sparse_blend=True,
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=False,
+            similarity=True,
             sparse_blend_transform_id="welding-stage-a-v1",
         ),
         starter_project=StarterProject(
@@ -800,7 +858,14 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_annealed_runtime,
         feature_row_builder=_annealed_features,
         model_builder=_build_annealed,
-        application=ApplicationCapability(candidate_excel_import=True, candidate_excel_export=True),
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=True,
+            similarity=True,
+            contour_axes=("composition.C", "composition.Mn", "process.ls_mpm"),
+            candidate_excel_import=True,
+            candidate_excel_export=True,
+        ),
         data_explorer=_EXPLORER,
         starter_project=StarterProject(
             "default",
@@ -821,6 +886,17 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_hot_rolling_runtime,
         feature_row_builder=_hot_rolling_features,
         model_builder=_build_hot_rolling,
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=True,
+            similarity=True,
+            contour_axes=(
+                "process.finish_temperature_c",
+                "process.exit_thickness_mm",
+                "process.hold_temperature_c",
+                "process.hold_time_min",
+            ),
+        ),
         data_explorer=_EXPLORER,
         starter_project=StarterProject("hot-rolling-default", "熱延条件の候補検討", _hot_rolling_starter_candidates),
         response_curve=_standard_response_curve,
@@ -835,6 +911,12 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_flank_wear_runtime,
         feature_row_builder=_flank_wear_features,
         model_builder=_build_flank_wear,
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=True,
+            similarity=True,
+            curve_family=True,
+        ),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
     ),
@@ -848,6 +930,16 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(HEAT_TREATMENT_TASK_ID),
         model_builder=_tabular_builder(HEAT_TREATMENT_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=True,
+            similarity=True,
+            contour_axes=(
+                "process.tempering_temp_c",
+                "process.cooling_rate_c_per_s",
+                "composition.carbon_pct",
+            ),
+        ),
         starter_project=_tabular_starter(HEAT_TREATMENT_TASK_ID, "熱処理の硬さ・靭性"),
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
@@ -862,6 +954,17 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(CONCRETE_TASK_ID),
         model_builder=_tabular_builder(CONCRETE_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=True,
+            similarity=True,
+            curve_family=True,
+            contour_axes=(
+                "process.age_days",
+                "composition.water_kg_m3",
+                "composition.cement_kg_m3",
+            ),
+        ),
         starter_project=_tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
@@ -877,6 +980,17 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(WEAR_CURVE_TASK_ID),
         model_builder=_tabular_builder(WEAR_CURVE_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=True,
+            similarity=True,
+            curve_family=True,
+            contour_axes=(
+                "process.cutting_distance_m",
+                "process.cutting_speed_m_per_min",
+                "process.feed_mm_per_rev",
+            ),
+        ),
         starter_project=_tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
@@ -892,6 +1006,13 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(BATTERY_DEGRADATION_TASK_ID),
         model_builder=_tabular_builder(BATTERY_DEGRADATION_TASK_ID),
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=True,
+            similarity=True,
+            curve_family=True,
+            contour_axes=("process.cycle_index", "process.discharge_rate_c"),
+        ),
         starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
@@ -907,6 +1028,17 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(SECOM_YIELD_TASK_ID),
         model_builder=_tabular_builder(SECOM_YIELD_TASK_ID),
+        application=_application_capability(
+            actual_measurement=True,
+            response_curve=True,
+            similarity=True,
+            contour_axes=(
+                "process.sensor_059",
+                "process.sensor_103",
+                "process.sensor_130",
+                "process.sensor_102",
+            ),
+        ),
         starter_project=_tabular_starter(SECOM_YIELD_TASK_ID, "SECOM工程異常リスク"),
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
@@ -921,7 +1053,12 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_LEGACY_TYS_TASK_ID),
         model_builder=_tabular_builder(MPEA_LEGACY_TYS_TASK_ID),
-        application=ApplicationCapability(project_creation=False),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=False,
+            similarity=True,
+            project_creation=False,
+        ),
     ),
     MPEA_ROOM_TENSILE_TASK_ID: TaskModule(
         task_id=MPEA_ROOM_TENSILE_TASK_ID,
@@ -933,6 +1070,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_ROOM_TENSILE_TASK_ID),
         model_builder=_tabular_builder(MPEA_ROOM_TENSILE_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=False,
+            similarity=True,
+        ),
         starter_project=_tabular_starter(MPEA_ROOM_TENSILE_TASK_ID, "MPEA文献の室温引張特性"),
         data_explorer=_TABULAR_EXPLORER,
     ),
@@ -946,6 +1088,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
         model_builder=_tabular_builder(MPEA_HARDNESS_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=False,
+            similarity=True,
+        ),
         starter_project=_tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
         data_explorer=_TABULAR_EXPLORER,
     ),
@@ -959,6 +1106,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         runtime_factory=_observation_runtime,
         feature_row_builder=_observation_features(WELDING_STAGE_C_TASK_ID),
         model_builder=_observation_builder(WELDING_STAGE_C_TASK_ID),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=True,
+            similarity=True,
+        ),
         starter_project=StarterProject(
             "welding-stage-c-default",
             "溶着金属成分から特性を予測",

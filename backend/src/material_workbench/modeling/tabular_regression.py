@@ -1426,6 +1426,10 @@ class TabularRegressionRuntime:
                 "min": low,
                 "max": high,
                 "current": current,
+                "training_range": {
+                    "min": min(training),
+                    "max": max(training),
+                },
             },
             "points": curve,
             "output_range": {"min": min(observed), "max": max(observed)},
