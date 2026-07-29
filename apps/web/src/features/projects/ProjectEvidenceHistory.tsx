@@ -256,7 +256,7 @@ export function ProjectEvidenceHistoryList({
     onRetry={onRetry}
   >
     {viewState === "ready" && history && <div className="project-history-list">
-      {history.candidates.map((item) => {
+      {history.candidates.filter((item) => !item.candidate.archived_at).map((item) => {
         const preview = currentPreviews[item.candidate.id];
         return <article className="project-history-card" key={item.candidate.id}>
           <header>
@@ -420,6 +420,49 @@ export function ProjectEvidenceHistoryList({
             </>}
         </article>;
       })}
+      {history.candidates.some((item) => item.candidate.archived_at) && <details className="archived-candidate-history">
+        <summary>
+          <span>一覧から外した候補</span>
+          <small>{history.candidates.filter((item) => item.candidate.archived_at).length}件</small>
+        </summary>
+        <div className="archived-candidate-list">
+          {history.candidates.filter((item) => item.candidate.archived_at).map((item) => {
+            const fixedCount = chainMode
+              ? item.chain_snapshots?.length ?? 0
+              : item.snapshots.length;
+            return <article className="archived-candidate-row" key={item.candidate.id}>
+              <div>
+                <strong>{item.candidate.name}</strong>
+                <span>
+                  {formatDate(item.current.updated_at)}
+                  {" · "}
+                  固定結果 {fixedCount}件
+                  {item.actuals.length ? ` · 実測 ${item.actuals.length}件` : ""}
+                  {item.decision ? " · 採用判断あり" : ""}
+                </span>
+              </div>
+              <div className="archived-candidate-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={disabled}
+                  onClick={() => onOpenCandidate(item.candidate.id)}
+                >
+                  履歴を見る
+                </button>
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={disabled || Boolean(restoringCandidateId)}
+                  onClick={() => void onRestoreArchivedCandidate(item.candidate.id)}
+                >
+                  {restoringCandidateId === item.candidate.id ? "復元中…" : "候補へ戻す"}
+                </button>
+              </div>
+            </article>;
+          })}
+        </div>
+      </details>}
     </div>}
   </ProjectEvidenceHistory>;
 }

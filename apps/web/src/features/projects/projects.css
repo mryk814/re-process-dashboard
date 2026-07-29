@@ -193,6 +193,16 @@
 .project-history-card { border: 1px solid #dce4ed; border-radius: 5px; overflow: hidden; }
 .project-history-card > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; background: #f7f9fc; padding: 9px 11px; }
 .project-history-card > header > div { display: flex; align-items: center; gap: 7px; }
+.archived-candidate-history { border: 1px solid #dce4ed; border-radius: 5px; background: #fafbfc; }
+.archived-candidate-history > summary { display: flex; align-items: center; gap: 7px; padding: 8px 11px; color: #526276; font-size: 12px; cursor: pointer; }
+.archived-candidate-history > summary small { border-radius: 999px; background: #e9edf2; padding: 1px 6px; font-size: 10px; }
+.archived-candidate-list { border-top: 1px solid #e2e7ed; }
+.archived-candidate-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 9px 7px 13px; border-top: 1px solid #edf0f4; }
+.archived-candidate-row:first-child { border-top: 0; }
+.archived-candidate-row > div:first-child { display: grid; min-width: 0; gap: 1px; }
+.archived-candidate-row strong { overflow: hidden; color: #435268; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.archived-candidate-row span { color: #718094; font-size: 10px; }
+.archived-candidate-actions { display: flex; flex: none; align-items: center; gap: 6px; }
 .history-current-row, .history-snapshot-row, .history-preview, .project-empty-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 8px 11px; border-top: 1px solid #e5eaf0; font-size: 12px; }
 .history-origin { display: inline-flex; align-items: center; gap: 5px; }
 .history-origin.reference-data { color: #426c66; }
@@ -300,6 +310,8 @@
   .model-decision-card dl { grid-template-columns: 1fr; }
   .project-binding-confirmation header { grid-column: 1; align-items: flex-start; flex-direction: column; }
   .project-history-card > header, .project-hub .project-empty-state { align-items: stretch; flex-direction: column; }
+  .archived-candidate-row { align-items: stretch; flex-direction: column; }
+  .archived-candidate-actions { justify-content: flex-end; }
   .starter-project-notice { align-items: stretch; flex-direction: column; }
   .project-goal-strip { grid-template-columns: 1fr auto; }
   .project-goal-values { grid-column: 1 / -1; grid-row: 2; }

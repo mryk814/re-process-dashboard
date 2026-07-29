@@ -145,7 +145,7 @@ for (const task of tasks) {
     const keptCandidateId = ((await createdResponse.json()) as { id: string }).id;
     await expect(page).toHaveURL(new RegExp(`candidate=${keptCandidateId}`));
 
-    const selectedName = page.locator(".candidate-name-table tbody tr.selected-row input");
+    const selectedName = page.locator(".candidate-name-table tbody tr.selected-row").getByRole("textbox");
     const editedName = `${task.projectId} 共通Workbench`;
     const updateResponse = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().endsWith(`/candidates/${keptCandidateId}`));
     await selectedName.fill(editedName);
@@ -159,7 +159,7 @@ for (const task of tasks) {
     expect(createdDisposableResponse.status()).toBe(201);
     const disposableId = ((await createdDisposableResponse.json()) as { id: string }).id;
     await expect(page).toHaveURL(new RegExp(`candidate=${disposableId}`));
-    const disposableName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+    const disposableName = await page.locator(".candidate-name-table tbody tr.selected-row").getByRole("textbox").inputValue();
     await page.getByRole("button", { name: `${disposableName}を一覧から外す`, exact: true }).click();
     await expect(page.getByRole("group", { name: `${disposableName}を一覧から外す確認` })).toContainText("後でプロジェクト概要から復元できます");
     await page.getByRole("button", { name: "キャンセル", exact: true }).click();
@@ -172,7 +172,13 @@ for (const task of tasks) {
 
     await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要", exact: true }).click();
     const restoreResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${disposableId}/restore`));
-    await page.getByRole("article").filter({ hasText: disposableName }).getByRole("button", { name: "候補へ戻す" }).click();
+    const archivedCandidates = page.locator(".archived-candidate-history");
+    await expect(archivedCandidates).toContainText("1件");
+    await expect(archivedCandidates).not.toHaveAttribute("open", "");
+    await archivedCandidates.locator("summary").click();
+    const archivedCandidate = archivedCandidates.getByRole("article").filter({ hasText: disposableName });
+    await expect(archivedCandidate).toContainText("固定結果 0件");
+    await archivedCandidate.getByRole("button", { name: "候補へ戻す" }).click();
     expect((await restoreResponse).status()).toBe(200);
     await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "候補比較", exact: true }).click();
     await expect(page.getByRole("textbox", { name: `${disposableName}の候補名` })).toBeVisible();
