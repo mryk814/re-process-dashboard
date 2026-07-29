@@ -51,7 +51,8 @@ test("prediction contour is lazy, revision-bound, and keeps support separate fro
   assert.match(source, /cell\.displayable/);
   assert.match(source, /contour-extrapolated/);
   assert.match(source, /数値で確認/);
-  assert.match(source, /学習範囲外（予測値は非表示）/);
+  assert.match(source, /既存実績から遠い（予測値は非表示）/);
+  assert.match(source, /payloadIdentity === requestIdentity/);
   const apiSource = await readFile(
     new URL("../src/shared/api/workbench-api.ts", import.meta.url),
     "utf8",
