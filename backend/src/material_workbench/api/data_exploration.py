@@ -15,6 +15,7 @@ from ..application.data_exploration import (
 )
 from material_workbench.contracts.schemas import (
     Candidate,
+    CandidateOriginEvidence,
     LineageIndexResponse,
     LineageNodeReview,
     LineageNodeReviewInput,
@@ -199,6 +200,22 @@ def lineage(
             limit=limit,
             all_reachable=all_reachable,
         )
+    except DATA_EXPLORATION_ERRORS as exc:
+        _raise_data_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence",
+    response_model=CandidateOriginEvidence,
+    responses=PROJECT_API_ERRORS,
+)
+def candidate_origin_evidence(
+    project_id: str,
+    candidate_id: str,
+    service: DataExplorationServiceDependency,
+) -> CandidateOriginEvidence:
+    try:
+        return service.candidate_origin_evidence(project_id, candidate_id)
     except DATA_EXPLORATION_ERRORS as exc:
         _raise_data_error(exc)
 

@@ -3177,6 +3177,61 @@
         "title": "CandidateInputs",
         "type": "object"
       },
+      "CandidateOriginEvidence": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "composition_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composition Key"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "process_key": {
+            "title": "Process Key",
+            "type": "string"
+          },
+          "relation_context_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relation Context Ids",
+            "type": "array"
+          },
+          "repeat_summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RepeatSummary"
+            },
+            "title": "Repeat Summary",
+            "type": "object"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "task_id",
+          "process_key"
+        ],
+        "title": "CandidateOriginEvidence",
+        "type": "object"
+      },
       "CandidateUpdate": {
         "properties": {
           "blend": {
@@ -22995,6 +23050,84 @@
           }
         },
         "summary": "Get Candidate Derivation Chain"
+      }
+    },
+    "/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence": {
+      "get": {
+        "operationId": "candidate_origin_evidence_api_projects__project_id__candidates__candidate_id__origin_evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateOriginEvidence"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Candidate Origin Evidence"
       }
     },
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {

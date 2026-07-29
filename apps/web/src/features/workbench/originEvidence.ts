@@ -1,4 +1,4 @@
-import type { ApiLineage } from "../../shared/api/workbench-api";
+import type { ApiCandidateOriginEvidence } from "../../shared/api/workbench-api";
 import type { TaskOutputDefinition } from "../candidates";
 
 export type OriginMeasurement = {
@@ -11,19 +11,20 @@ export type OriginMeasurement = {
 };
 
 export function originMeasurements(
-  lineage: ApiLineage,
+  evidence: ApiCandidateOriginEvidence,
   outputs: TaskOutputDefinition[],
 ): OriginMeasurement[] {
+  const summaries = evidence.repeat_summary ?? {};
   return outputs.flatMap((output) => {
     const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
-      .find((key) => lineage.node.property_summary[key]);
-    const summary = summaryKey ? lineage.node.property_summary[summaryKey] : undefined;
+      .find((key) => summaries[key]);
+    const summary = summaryKey ? summaries[summaryKey] : undefined;
     return summary ? [{
       key: output.key,
       label: output.key === "lambda" ? "λ" : output.key,
       mean: summary.mean,
       std: summary.std,
-      count: summary.count,
+      count: summary.n,
       unit: output.unit,
     }] : [];
   });

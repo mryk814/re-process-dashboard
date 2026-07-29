@@ -869,6 +869,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidate Origin Evidence */
+        get: operations["candidate_origin_evidence_api_projects__project_id__candidates__candidate_id__origin_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/predict": {
         parameters: {
             query?: never;
@@ -3270,6 +3287,25 @@ export interface components {
             process: {
                 [key: string]: number;
             };
+        };
+        /** CandidateOriginEvidence */
+        CandidateOriginEvidence: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Composition Key */
+            composition_key?: string | null;
+            /** Observation Ids */
+            observation_ids?: string[];
+            /** Process Key */
+            process_key: string;
+            /** Relation Context Ids */
+            relation_context_ids?: string[];
+            /** Repeat Summary */
+            repeat_summary?: {
+                [key: string]: components["schemas"]["RepeatSummary"];
+            };
+            /** Task Id */
+            task_id: string;
         };
         /** CandidateUpdate */
         CandidateUpdate: {
@@ -11942,6 +11978,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Candidate"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    candidate_origin_evidence_api_projects__project_id__candidates__candidate_id__origin_evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateOriginEvidence"];
                 };
             };
             /** @description Not Found */

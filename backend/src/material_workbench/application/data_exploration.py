@@ -11,6 +11,7 @@ from .projects import ProjectService
 from material_workbench.data.importer import lineage_neighborhood, lineage_node_detail
 from material_workbench.contracts.schemas import (
     Candidate,
+    CandidateOriginEvidence,
     LineageIndexResponse,
     LineageNodeReview,
     LineageNodeReviewInput,
@@ -18,7 +19,11 @@ from material_workbench.contracts.schemas import (
     LineageResponse,
     QualityResponse,
 )
-from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
+from material_workbench.domain.services import (
+    candidate_from_lineage,
+    lineage_candidate_options,
+    lineage_candidate_origin_evidence,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -269,6 +274,27 @@ class DataExplorationService:
             "candidate_options": candidate_options,
             "review": self.store.get_lineage_review(project_id, entity_key),
         })
+
+    def candidate_origin_evidence(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> CandidateOriginEvidence:
+        project = self.projects.require(project_id)
+        candidate = self.candidates.get(project_id, candidate_id, include_archived=True)
+        if candidate.provenance.source_kind != "lineage":
+            raise DataExplorationValidationError("この候補は実績から作成されていません")
+        data = self.explorer(project_id, "lineage").data
+        try:
+            return lineage_candidate_origin_evidence(
+                data,
+                candidate_id=candidate.id,
+                task_id=project.task_id,
+                reference=candidate.provenance.source_ref,
+                task_definition=self.registry.contract_for(project.task_id).task_definition,
+            )
+        except (TaskRegistryError, ValueError) as exc:
+            raise DataExplorationValidationError(str(exc)) from exc
 
     def lineage_reviews(self, project_id: str) -> LineageNodeReviewList:
         self.explorer(project_id, "lineage")

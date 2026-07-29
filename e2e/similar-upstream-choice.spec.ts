@@ -44,3 +44,23 @@ test("similar evidence asks which upstream condition to inherit when it is ambig
   expect(requestUrl.searchParams.get("melt_key")).toBe("ME-02");
   await expect(page.getByRole("status")).toContainText("近い過去実績を候補に追加しました");
 });
+
+test("candidate origin actual stays scoped to the selected composition and relation route", async ({ page }) => {
+  const apiPort = process.env.PLAYWRIGHT_API_PORT ?? "9001";
+  const created = await page.request.post(
+    `http://127.0.0.1:${apiPort}/api/projects/hot-rolling-default/lineage/HR-02/candidate`,
+    { params: { process_key: "HR-02", melt_key: "ME-01" } },
+  );
+  const createdBody = await created.text();
+  if (!created.ok()) {
+    throw new Error(`candidate creation failed (${created.status()}): ${createdBody}`);
+  }
+  const candidate = JSON.parse(createdBody) as { id: string };
+
+  await page.goto(`/?view=candidates&project=hot-rolling-default&candidate=${candidate.id}`);
+
+  const origin = page.locator(".candidate-origin-measurements");
+  await expect(origin).toContainText("作成元実測");
+  await expect(origin).toContainText("TS 470");
+  await expect(origin).not.toContainText("505");
+});

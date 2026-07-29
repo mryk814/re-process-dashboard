@@ -19,6 +19,7 @@ export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
 export type ApiCurveFamily = components["schemas"]["CurveFamilyResponse"];
 export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
 export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
+export type ApiCandidateOriginEvidence = components["schemas"]["CandidateOriginEvidence"];
 export type ApiQuality = components["schemas"]["QualityResponse"];
 export type ApiLineage = components["schemas"]["LineageResponse"];
 export type ApiLineageCandidateOption = components["schemas"]["LineageCandidateOption"];
@@ -632,6 +633,12 @@ export const workbenchApi = {
   },
   async lineage(projectId: string, entityKey: string, limit = 40, allReachable = false, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/lineage/{entity_key}", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { limit, all_reachable: allReachable } }, signal }), "系譜を取得できませんでした。");
+  },
+  async candidateOriginEvidence(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "作成元実測を取得できませんでした。");
   },
   async createCandidateFromLineage(entityKey: string, projectId: string, processKey?: string, meltKey?: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { process_key: processKey, melt_key: meltKey } } }), "候補を作成できませんでした。");

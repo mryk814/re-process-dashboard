@@ -25,11 +25,9 @@ new Function("module", "exports", "require", bundle.outputFiles[0].text)(
 const { originMeasurements } = module.exports;
 
 test("maps source observations with task measurement aliases", () => {
-  const lineage = {
-    node: {
-      property_summary: {
-        "引張強さ": { count: 2, min: 470, mean: 472.5, std: 2.5, median: 472.5, max: 475 },
-      },
+  const evidence = {
+    repeat_summary: {
+      "引張強さ": { n: 2, mean: 472.5, std: 2.5 },
     },
   };
   const outputs = [{
@@ -39,7 +37,7 @@ test("maps source observations with task measurement aliases", () => {
     measurement_keys: ["引張強さ"],
   }];
 
-  assert.deepEqual(originMeasurements(lineage, outputs), [{
+  assert.deepEqual(originMeasurements(evidence, outputs), [{
     key: "TS",
     label: "TS",
     mean: 472.5,

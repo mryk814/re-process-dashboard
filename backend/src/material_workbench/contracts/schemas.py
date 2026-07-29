@@ -733,6 +733,16 @@ class RepeatSummary(BaseModel):
     n: int
 
 
+class CandidateOriginEvidence(BaseModel):
+    candidate_id: str
+    task_id: str
+    process_key: str
+    composition_key: str | None = None
+    relation_context_ids: list[str] = Field(default_factory=list)
+    observation_ids: list[str] = Field(default_factory=list)
+    repeat_summary: dict[str, RepeatSummary] = Field(default_factory=dict)
+
+
 class SimilarObservation(BaseModel):
     observation_id: str = ""
     observation_ids: list[str] = Field(default_factory=list)

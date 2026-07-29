@@ -31,15 +31,15 @@ export function CandidateOrigin({
     setMeasurements(null);
     if (provenance.source_kind !== "lineage") return;
     const controller = new AbortController();
-    void workbenchApi.lineage(projectId, provenance.source_ref.entity_key, 1, false, controller.signal)
-      .then((lineage) => {
-        if (!controller.signal.aborted) setMeasurements(originMeasurements(lineage, outputs));
+    void workbenchApi.candidateOriginEvidence(projectId, candidate.id, controller.signal)
+      .then((evidence) => {
+        if (!controller.signal.aborted) setMeasurements(originMeasurements(evidence, outputs));
       })
       .catch(() => {
         if (!controller.signal.aborted) setMeasurements([]);
       });
     return () => controller.abort();
-  }, [outputs, projectId, provenance]);
+  }, [candidate.id, outputs, projectId, provenance]);
   return (
     <div className={`candidate-origin${broken ? " missing" : ""}${referenceOrigin ? " reference-data" : ""}`}>
       <span><b>作成元</b>{referenceOrigin && <i>参照データ由来</i>}{provenanceLabel(provenance)}</span>

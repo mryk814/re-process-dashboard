@@ -579,3 +579,33 @@ def test_lineage_keeps_partial_observations_without_inventing_outputs(client) ->
     compatible = client.post("/api/projects/hot-rolling-default/lineage/HR-01/candidate")
     assert compatible.status_code == 201
     assert compatible.json()["project_id"] == "hot-rolling-default"
+
+
+def test_candidate_origin_evidence_stays_on_selected_composition_and_relation_route(client) -> None:
+    first_candidate = client.post(
+        "/api/projects/hot-rolling-default/lineage/HR-02/candidate",
+        params={"process_key": "HR-02", "melt_key": "ME-01"},
+    )
+    assert first_candidate.status_code == 201
+    first = client.get(
+        f"/api/projects/hot-rolling-default/candidates/{first_candidate.json()['id']}/origin-evidence",
+    )
+    assert first.status_code == 200
+    assert first.json()["observation_ids"] == ["HT-02"]
+    assert first.json()["repeat_summary"]["TS[MPa]"] == {
+        "mean": 470.0,
+        "std": 0.0,
+        "n": 1,
+    }
+
+    second_candidate = client.post(
+        "/api/projects/hot-rolling-default/lineage/HR-02/candidate",
+        params={"process_key": "HR-02", "melt_key": "ME-02"},
+    )
+    assert second_candidate.status_code == 201
+    second = client.get(
+        f"/api/projects/hot-rolling-default/candidates/{second_candidate.json()['id']}/origin-evidence",
+    )
+    assert second.status_code == 200
+    assert second.json()["observation_ids"] == ["HT-03"]
+    assert second.json()["repeat_summary"]["TS[MPa]"]["mean"] == 505.0

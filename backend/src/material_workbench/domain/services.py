@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from io import BytesIO
+from statistics import fmean, pstdev
 from typing import Any, Callable
 
 import numpy as np
@@ -18,12 +19,14 @@ from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.contracts.schemas import (
     Candidate,
     CandidateInput,
+    CandidateOriginEvidence,
     DEFAULT_SCREENING_SEED,
     HeatPoint,
     LineageCandidateOption,
     ScreeningGoal,
     ScreeningRequest,
 )
+from material_workbench.contracts.task_contracts import LineageReference, TaskDefinition
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.proposal_contracts import ProposalStrategyDefinition
 from material_workbench.contracts.batch_proposal_contracts import BatchProposalDefinition
@@ -635,6 +638,64 @@ def candidate_from_lineage(
                 "relation_context_ids": sorted(relation_context_ids),
                 "data_source_digest": data.source_sha256,
             },
+        },
+    )
+
+
+def lineage_candidate_origin_evidence(
+    data: WorkbookData,
+    *,
+    candidate_id: str,
+    task_id: str,
+    reference: LineageReference,
+    task_definition: TaskDefinition,
+) -> CandidateOriginEvidence:
+    """Aggregate only observations that created this lineage candidate."""
+    if reference.data_source_digest and reference.data_source_digest != data.source_sha256:
+        raise ValueError("候補化した時点の参照データと現在のデータが一致しません")
+    route_ids = set(reference.relation_context_ids)
+    if reference.composition_entity_key is None and not route_ids:
+        raise ValueError("作成元実測を特定するための成分またはrelation経路がありません")
+
+    observations = [
+        observation
+        for observation in data.observations
+        if observation["task_id"] == task_id
+        and observation["parent_key"] == reference.entity_key
+        and (
+            reference.composition_entity_key is None
+            or observation.get("composition_key") == reference.composition_entity_key
+        )
+        and (
+            not route_ids
+            or bool(route_ids.intersection(observation.get("relation_context_ids", ())))
+        )
+    ]
+    declared_measurements = {
+        measurement_key
+        for output in task_definition.outputs
+        for measurement_key in (*output.measurement_keys, output.key, output.label)
+    }
+    values_by_measurement: defaultdict[str, list[float]] = defaultdict(list)
+    for observation in observations:
+        for measurement_key, value in observation.get("outputs", {}).items():
+            if measurement_key in declared_measurements and isinstance(value, (int, float)):
+                values_by_measurement[measurement_key].append(float(value))
+
+    return CandidateOriginEvidence(
+        candidate_id=candidate_id,
+        task_id=task_id,
+        process_key=reference.entity_key,
+        composition_key=reference.composition_entity_key,
+        relation_context_ids=sorted(route_ids),
+        observation_ids=sorted(observation["id"] for observation in observations),
+        repeat_summary={
+            key: {
+                "mean": fmean(values),
+                "std": pstdev(values),
+                "n": len(values),
+            }
+            for key, values in sorted(values_by_measurement.items())
         },
     )
 
