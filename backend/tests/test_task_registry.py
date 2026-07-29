@@ -57,6 +57,7 @@ def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(cl
 def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client) -> None:
     registry = client.app.state.task_registry
     contour_tasks: set[str] = set()
+    prediction_space_tasks: set[str] = set()
     for task_id in registry.task_ids:
         surfaces = registry.resolved_definition_for(
             task_id
@@ -72,6 +73,15 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
                 contour_tasks.add(task_id)
                 assert len(surface.axis_paths) >= 2
                 assert surface.grid_size <= 17
+            if surface.kind == "prediction_space":
+                prediction_space_tasks.add(task_id)
+                assert len(surface.target_keys) >= 2
+                assert set(surface.target_keys) <= {
+                    output.key
+                    for output in registry.contract_for(
+                        task_id
+                    ).task_definition.outputs
+                }
 
     assert contour_tasks == {
         "annealed-properties-v1",
@@ -81,6 +91,14 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
         "hot-rolled-properties-v1",
         "secom-yield-risk-v1",
         "wear-curve-v1",
+    }
+    assert prediction_space_tasks == {
+        "annealed-properties-v1",
+        "flank-wear-v1",
+        "heat-treatment-tradeoff-v1",
+        "mpea-room-tensile-v1",
+        "welding-consumable-stage-b-v1",
+        "welding-stage-c-properties-v1",
     }
 
 

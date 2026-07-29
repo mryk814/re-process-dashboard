@@ -3,9 +3,12 @@ import {
   workbenchApi,
   type ApiChangeGuideEntry,
   type ApiDeveloperOverview,
+  type ApiModelPackage,
   type ApiRuntimeDiagnostics,
 } from "../../shared/api/workbench-api";
+import type { TaskDefinitionContract } from "../candidates";
 import { ChangeGuideCard, CopyCommand } from "./ChangeGuideCard";
+import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { ObservationTrainingInspector } from "./ObservationTrainingInspector";
 
 type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
@@ -45,18 +48,24 @@ export function DeveloperControlCenter({
   initialTab,
   invalidTabId,
   initialGuideId,
+  projectId,
+  taskDefinition,
   onLocationChange,
 }: {
   onOpenProfileWorkbench: () => void;
   initialTab?: DeveloperTab;
   invalidTabId?: string;
   initialGuideId?: string;
+  projectId?: string;
+  taskDefinition: TaskDefinitionContract | null;
   onLocationChange: (tab: DeveloperTab, guideId?: string) => void;
 }) {
   const [tab, setTab] = useState<DeveloperTab>(initialTab ?? "overview");
   const [overview, setOverview] = useState<ApiDeveloperOverview | null>(null);
   const [guide, setGuide] = useState<ApiChangeGuideEntry[]>([]);
   const [doctor, setDoctor] = useState<ApiRuntimeDiagnostics | null>(null);
+  const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
+  const [modelPackageError, setModelPackageError] = useState("");
   const [selectedGuide, setSelectedGuide] = useState(initialGuideId ?? "");
   const [error, setError] = useState("");
   const [diagnosing, setDiagnosing] = useState(false);
@@ -80,6 +89,22 @@ export function DeveloperControlCenter({
   useEffect(() => {
     if (initialGuideId) setSelectedGuide(initialGuideId);
   }, [initialGuideId]);
+  useEffect(() => {
+    if (tab !== "training" || !projectId) return;
+    let live = true;
+    setModelPackage(null);
+    setModelPackageError("");
+    workbenchApi.modelPackage(projectId)
+      .then((value) => {
+        if (live) setModelPackage(value);
+      })
+      .catch((cause) => {
+        if (live) {
+          setModelPackageError(cause instanceof Error ? cause.message : "Model Packageを取得できませんでした。");
+        }
+      });
+    return () => { live = false; };
+  }, [projectId, tab]);
 
   const runDiagnostics = async () => {
     setDiagnosing(true);
@@ -150,7 +175,26 @@ export function DeveloperControlCenter({
       </div> : <p className="empty-evidence">構成を読み込んでいます。</p>}
     </section>}
 
-    {tab === "training" && <ObservationTrainingInspector />}
+    {tab === "training" && <>
+      <section className="developer-section project-training-trace">
+        <div className="observation-training-header">
+          <div>
+            <h3>このProjectでモデルが使ったデータ</h3>
+            <p>元データから採用行、特徴量変換後の実際のモデル入力までを同じ目的変数で追跡します。</p>
+          </div>
+          {projectId && <code>{projectId}</code>}
+        </div>
+        {modelPackageError && <p className="panel-error">{modelPackageError}</p>}
+        {!modelPackage && !modelPackageError && <p className="empty-evidence">固定されたModel Packageを読み込んでいます。</p>}
+        {modelPackage && projectId && <ModelTrainingDataInspector
+          projectId={projectId}
+          modelPackage={modelPackage}
+          taskDefinition={taskDefinition}
+          initiallyOpen
+        />}
+      </section>
+      <ObservationTrainingInspector />
+    </>}
 
     {tab === "guide" && <section className="developer-section change-guide">
       <label>何を変更したいですか？

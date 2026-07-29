@@ -949,7 +949,16 @@ class ModelTrainingDataPage(BaseModel):
     feature_dataset_digest: str
     feature_pipeline_id: str
     feature_pipeline_version: str
-    training_unit: Literal["individual_observation", "parent_condition_mean"]
+    training_unit: Literal[
+        "individual_observation",
+        "parent_condition_mean",
+        "replicate_context_mean",
+        "source_row",
+        "independent source row",
+        "source_row_grouped_by_parent",
+        "wear_measurement_row",
+    ]
+    stage_counts: "ModelTrainingStageCounts"
     total: int
     parent_conditions: int
     offset: int
@@ -957,6 +966,43 @@ class ModelTrainingDataPage(BaseModel):
     columns: list[TrainingDataColumn]
     rows: list[TrainingDataRow]
     curation_summary: ModelTrainingCurationSummary
+
+
+class ModelTrainingStageCounts(BaseModel):
+    source_rows: int
+    selected_rows: int
+    model_rows: int
+
+
+class OutputSpaceObservedValue(BaseModel):
+    mean: float
+    count: int
+    observation_ids: list[str]
+
+
+class OutputSpaceEvidencePoint(BaseModel):
+    context_id: str
+    parent_key: str
+    pairing_relationship: Literal[
+        "same_observations",
+        "overlapping_observations",
+        "distinct_observations",
+    ]
+    x: OutputSpaceObservedValue
+    y: OutputSpaceObservedValue
+
+
+class OutputSpaceEvidenceResponse(BaseModel):
+    x_target: str
+    y_target: str
+    pairing_unit: Literal["condition_mean"] = "condition_mean"
+    source_scope: Literal["model_training_data"] = "model_training_data"
+    source_data_digest: str
+    sampling_policy: Literal["all", "output_space_coverage"]
+    total_contexts: int
+    returned_contexts: int
+    truncated: bool
+    points: list[OutputSpaceEvidencePoint]
 
 
 class SnapshotPayload(BaseModel):

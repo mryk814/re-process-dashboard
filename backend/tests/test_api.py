@@ -1,5 +1,12 @@
 from copy import deepcopy
 
+import pytest
+from fastapi import HTTPException
+
+from material_workbench.api.catalog import (
+    _output_space_evidence_points,
+    _sample_output_space_evidence,
+)
 from material_workbench.contracts.schemas import CandidateInput
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
@@ -206,6 +213,9 @@ def test_model_training_data_exposes_selected_observations_and_actual_model_rows
     selected = selected_response.json()
     assert selected["training_unit"] == "parent_condition_mean"
     assert selected["total"] > selected["parent_conditions"]
+    assert selected["stage_counts"]["source_rows"] >= selected["stage_counts"]["selected_rows"]
+    assert selected["stage_counts"]["selected_rows"] == selected["total"]
+    assert selected["stage_counts"]["model_rows"] == selected["parent_conditions"]
     assert len(selected["rows"]) == 5
     assert "composition.C" in {column["key"] for column in selected["columns"]}
     assert all("output.TS" in row["values"] for row in selected["rows"])
@@ -219,9 +229,113 @@ def test_model_training_data_exposes_selected_observations_and_actual_model_rows
     assert features["total"] == selected["parent_conditions"]
     assert features["columns"][0]["key"] == "parent_key"
     assert features["columns"][1]["key"] == "composition_key"
-    assert features["columns"][2]["key"] == "replicate_count"
+    assert features["columns"][2]["key"] == "observation_ids"
+    assert features["columns"][3]["key"] == "replicate_count"
+    assert all(row["values"]["observation_ids"].startswith("TT-") for row in features["rows"])
     assert any(column["key"].startswith("feature.") for column in features["columns"])
     assert features["feature_dataset_digest"].startswith("sha256:")
+
+
+def test_output_space_evidence_uses_only_conditions_with_both_actuals(client) -> None:
+    response = client.get(
+        "/api/projects/default/model-package/output-space-evidence",
+        params={"x_target": "TS", "y_target": "YS"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pairing_unit"] == "condition_mean"
+    assert payload["source_scope"] == "model_training_data"
+    assert payload["returned_contexts"] == payload["total_contexts"] > 0
+    assert payload["truncated"] is False
+    assert payload["source_data_digest"].startswith("sha256:")
+    assert all(point["x"]["count"] > 0 and point["y"]["count"] > 0 for point in payload["points"])
+    assert all(point["x"]["observation_ids"] for point in payload["points"])
+    assert all(point["y"]["observation_ids"] for point in payload["points"])
+    assert all(point["pairing_relationship"] == "same_observations" for point in payload["points"])
+
+    invalid = client.get(
+        "/api/projects/default/model-package/output-space-evidence",
+        params={"x_target": "TS", "y_target": "TS"},
+    )
+    assert invalid.status_code == 422
+
+
+def test_output_space_pairing_preserves_axis_specific_observation_identity() -> None:
+    rows = [
+        {
+            "observation_id": "x-only",
+            "parent_key": "parent-1",
+            "condition_context_id": "context-1",
+            "outputs": {"X": 10.0},
+        },
+        {
+            "observation_id": "y-only",
+            "parent_key": "parent-1",
+            "condition_context_id": "context-1",
+            "outputs": {"Y": 20.0},
+        },
+    ]
+
+    points = _output_space_evidence_points(rows, x_target="X", y_target="Y")
+
+    assert points == [{
+        "context_id": "context-1",
+        "parent_key": "parent-1",
+        "pairing_relationship": "distinct_observations",
+        "x": {"mean": 10.0, "count": 1, "observation_ids": ["x-only"]},
+        "y": {"mean": 20.0, "count": 1, "observation_ids": ["y-only"]},
+    }]
+
+    with pytest.raises(HTTPException) as caught:
+        _output_space_evidence_points(
+            [
+                rows[0],
+                {**rows[1], "parent_key": "parent-2"},
+            ],
+            x_target="X",
+            y_target="Y",
+        )
+    assert caught.value.status_code == 422
+    assert "multiple validation groups" in str(caught.value.detail)
+
+
+def test_output_space_sampling_keeps_the_full_output_extent() -> None:
+    points = [
+        {
+            "context_id": f"context-{index:03d}",
+            "parent_key": f"parent-{index:03d}",
+            "pairing_relationship": "same_observations",
+            "x": {"mean": float(index), "count": 1, "observation_ids": [f"obs-{index}"]},
+            "y": {"mean": float(index % 7), "count": 1, "observation_ids": [f"obs-{index}"]},
+        }
+        for index in range(250)
+    ]
+    points[-1]["y"]["mean"] = 10_000.0
+
+    sampled = _sample_output_space_evidence(points, 20)
+
+    assert len(sampled) == 20
+    assert min(point["x"]["mean"] for point in sampled) == 0.0
+    assert max(point["x"]["mean"] for point in sampled) == 249.0
+    assert max(point["y"]["mean"] for point in sampled) == 10_000.0
+
+
+def test_model_training_data_preserves_row_and_validation_group_semantics(client) -> None:
+    response = client.get(
+        "/api/projects/battery-degradation-v1-default/model-package/training-data",
+        params={"stage": "features", "target": "capacity_percent"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["training_unit"] == "source_row_grouped_by_parent"
+    assert payload["stage_counts"]["model_rows"] == payload["stage_counts"]["selected_rows"]
+    assert payload["stage_counts"]["model_rows"] > payload["parent_conditions"]
+    assert [column["key"] for column in payload["columns"][:2]] == [
+        "observation_id",
+        "parent_key",
+    ]
 
 
 def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:

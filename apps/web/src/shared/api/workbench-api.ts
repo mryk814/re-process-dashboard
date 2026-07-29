@@ -11,6 +11,7 @@ export type ApiProjectInput = components["schemas"]["ProjectUpdateInput"];
 export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiModelTrainingDataPage = components["schemas"]["ModelTrainingDataPage"];
+export type ApiOutputSpaceEvidence = components["schemas"]["OutputSpaceEvidenceResponse"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
 export type ApiActualMeasurementInput = components["schemas"]["ActualMeasurementInput"];
@@ -486,6 +487,12 @@ export const workbenchApi = {
       params: { path: { project_id: projectId }, query: { stage, target, offset, limit } },
       signal,
     }), "学習データを取得できませんでした。");
+  },
+  async outputSpaceEvidence(projectId: string, xTarget: string, yTarget: string, limit = 200, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/output-space-evidence", {
+      params: { path: { project_id: projectId }, query: { x_target: xTarget, y_target: yTarget, limit } },
+      signal,
+    }), "特性バランスの実績を取得できませんでした。");
   },
   async listCandidates(projectId: string, includeArchived = false) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId }, query: { include_archived: includeArchived } } }), "候補を取得できませんでした。");

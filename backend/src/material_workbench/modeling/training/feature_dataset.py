@@ -16,6 +16,7 @@ class TargetTrainingSet:
     y: np.ndarray
     replicate_contexts: tuple[str, ...]
     validation_groups: tuple[str, ...]
+    observation_ids: tuple[tuple[str, ...], ...]
     repeat_counts: tuple[int, ...]
     observation_variance: float
 
@@ -49,6 +50,7 @@ def compile_target_training_set(
     y_rows: list[float] = []
     replicate_contexts: list[str] = []
     validation_groups: list[str] = []
+    observation_ids: list[tuple[str, ...]] = []
     repeat_counts: list[int] = []
     within_sse = 0.0
     within_df = 0
@@ -91,6 +93,7 @@ def compile_target_training_set(
         y_rows.append(float(values.mean()))
         replicate_contexts.append(replicate_context)
         validation_groups.append(next(iter(parent_keys)))
+        observation_ids.append(tuple(str(row["observation_id"]) for row in rows))
         repeat_counts.append(len(values))
         if len(values) > 1:
             within_sse += float(np.sum((values - values.mean()) ** 2))
@@ -112,6 +115,7 @@ def compile_target_training_set(
         y=y,
         replicate_contexts=tuple(replicate_contexts),
         validation_groups=tuple(validation_groups),
+        observation_ids=tuple(observation_ids),
         repeat_counts=tuple(repeat_counts),
         observation_variance=observation_variance,
     )

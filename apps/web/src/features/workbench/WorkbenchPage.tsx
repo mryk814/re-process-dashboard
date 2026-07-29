@@ -43,6 +43,7 @@ import {
   type ResponseCurveRanges,
 } from "./ResponseCurvePanels";
 import { ResponseContourPanel } from "./ResponseContourPanel";
+import { PredictionSpacePanel } from "./PredictionSpacePanel";
 import {
   workbenchSurfaceRegistry,
   workbenchSurfacesInZone,
@@ -343,6 +344,21 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onProjectChanged={onProjectChanged}
           available
           ready={["idle", "saved"].includes(saveState)}
+        />;
+      case "prediction_space":
+        return <PredictionSpacePanel
+          active={surface.kind === selectedPrimarySurface?.kind}
+          projectId={projectId}
+          candidates={candidates}
+          selectedId={selectedId}
+          taskDefinition={taskDefinition}
+          surface={surface}
+          previewsByCandidate={previewsByCandidate}
+          targetValues={targetValues}
+          pendingPreviewCount={pendingPreviewCount}
+          loadingRemainingPreviews={loadingRemainingPreviews}
+          onLoadRemainingPreviews={onLoadRemainingPreviews}
+          onSelect={onSelect}
         />;
       case "response_contour":
         return <ResponseContourPanel

@@ -1614,6 +1614,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/model-package/output-space-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Output Space Evidence */
+        get: operations["getProjectOutputSpaceEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/model-package/training-data": {
         parameters: {
             query?: never;
@@ -2487,7 +2504,7 @@ export interface components {
             /** Sparse Blend Transform Id */
             sparse_blend_transform_id?: string | null;
             /** Workbench Surfaces */
-            workbench_surfaces: (components["schemas"]["BasicWorkbenchSurfaceDefinition"] | components["schemas"]["ResponseContourSurfaceDefinition"])[];
+            workbench_surfaces: (components["schemas"]["BasicWorkbenchSurfaceDefinition"] | components["schemas"]["PredictionSpaceSurfaceDefinition"] | components["schemas"]["ResponseContourSurfaceDefinition"])[];
         };
         /** ApprovalOverride */
         ApprovalOverride: {
@@ -6184,6 +6201,7 @@ export interface components {
              * @enum {string}
              */
             stage: "curation" | "selected" | "features";
+            stage_counts: components["schemas"]["ModelTrainingStageCounts"];
             /** Target */
             target: string;
             /** Target Label */
@@ -6194,7 +6212,16 @@ export interface components {
              * Training Unit
              * @enum {string}
              */
-            training_unit: "individual_observation" | "parent_condition_mean";
+            training_unit: "individual_observation" | "parent_condition_mean" | "replicate_context_mean" | "source_row" | "independent source row" | "source_row_grouped_by_parent" | "wear_measurement_row";
+        };
+        /** ModelTrainingStageCounts */
+        ModelTrainingStageCounts: {
+            /** Model Rows */
+            model_rows: number;
+            /** Selected Rows */
+            selected_rows: number;
+            /** Source Rows */
+            source_rows: number;
         };
         /** ModelUncertaintyInterval */
         ModelUncertaintyInterval: {
@@ -6500,6 +6527,63 @@ export interface components {
             /** Unit */
             unit: string;
         };
+        /** OutputSpaceEvidencePoint */
+        OutputSpaceEvidencePoint: {
+            /** Context Id */
+            context_id: string;
+            /**
+             * Pairing Relationship
+             * @enum {string}
+             */
+            pairing_relationship: "same_observations" | "overlapping_observations" | "distinct_observations";
+            /** Parent Key */
+            parent_key: string;
+            x: components["schemas"]["OutputSpaceObservedValue"];
+            y: components["schemas"]["OutputSpaceObservedValue"];
+        };
+        /** OutputSpaceEvidenceResponse */
+        OutputSpaceEvidenceResponse: {
+            /**
+             * Pairing Unit
+             * @default condition_mean
+             * @constant
+             */
+            pairing_unit: "condition_mean";
+            /** Points */
+            points: components["schemas"]["OutputSpaceEvidencePoint"][];
+            /** Returned Contexts */
+            returned_contexts: number;
+            /**
+             * Sampling Policy
+             * @enum {string}
+             */
+            sampling_policy: "all" | "output_space_coverage";
+            /** Source Data Digest */
+            source_data_digest: string;
+            /**
+             * Source Scope
+             * @default model_training_data
+             * @constant
+             */
+            source_scope: "model_training_data";
+            /** Total Contexts */
+            total_contexts: number;
+            /** Truncated */
+            truncated: boolean;
+            /** X Target */
+            x_target: string;
+            /** Y Target */
+            y_target: string;
+        };
+        /** OutputSpaceObservedValue */
+        OutputSpaceObservedValue: {
+            /** Count */
+            count: number;
+            /** Mean */
+            mean: number;
+            /** Observation Ids */
+            observation_ids: string[];
+        };
         /** PackageIdentity */
         PackageIdentity: {
             /**
@@ -6641,6 +6725,23 @@ export interface components {
             task_id: string;
             /** Warnings */
             warnings: string[];
+        };
+        /** PredictionSpaceSurfaceDefinition */
+        PredictionSpaceSurfaceDefinition: {
+            /**
+             * Historical Limit
+             * @default 200
+             */
+            historical_limit: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "prediction_space";
+            /** Order */
+            order: number;
+            /** Target Keys */
+            target_keys: string[];
         };
         /** PredictionVsActualResponse */
         PredictionVsActualResponse: {
@@ -14205,6 +14306,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageStatus"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectOutputSpaceEvidence: {
+        parameters: {
+            query: {
+                limit?: number;
+                x_target: string;
+                y_target: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutputSpaceEvidenceResponse"];
                 };
             };
             /** @description Not Found */

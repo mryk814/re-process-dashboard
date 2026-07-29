@@ -1,4 +1,5 @@
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
+import type { TaskDefinitionContract } from "../candidates";
 
 type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 
@@ -6,6 +7,8 @@ export function WorkspaceAdminPage({
   developerTab,
   developerTabError,
   developerGuideId,
+  projectId,
+  taskDefinition,
   onDeveloperLocationChange,
   onOpenProfileWorkbench,
   onOpenStorage,
@@ -13,6 +16,8 @@ export function WorkspaceAdminPage({
   developerTab?: DeveloperTab;
   developerTabError?: string;
   developerGuideId?: string;
+  projectId?: string;
+  taskDefinition: TaskDefinitionContract | null;
   onDeveloperLocationChange: (tab: DeveloperTab, guideId?: string) => void;
   onOpenProfileWorkbench: () => void;
   onOpenStorage: () => void;
@@ -33,6 +38,8 @@ export function WorkspaceAdminPage({
       initialTab={developerTab}
       invalidTabId={developerTabError}
       initialGuideId={developerGuideId}
+      projectId={projectId}
+      taskDefinition={taskDefinition}
       onLocationChange={onDeveloperLocationChange}
     />
   </div>;

@@ -110,6 +110,9 @@
 .model-package-list dd { margin: 3px 0 0; color: #354a62; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .model-package-technical { min-width: 82px; color: #526276; font-size: 11px; }
 .model-package-technical summary { cursor: pointer; white-space: nowrap; }
+.model-package-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.model-package-actions .outline-button { min-height: 29px; padding: 4px 9px; }
+.model-package-actions small { color: #68778a; font-size: 10px; }
 .model-package-technical > p { max-width: 240px; margin: 6px 0 0; color: #526276; line-height: 1.4; white-space: normal; }
 .model-package-technical dl { display: grid; min-width: 190px; margin-top: 7px; border-left: 2px solid #d8e0ea; padding-left: 8px; }
 .library-empty { margin: 8px 0 0; color: #5f6f82; font-size: 11px; }

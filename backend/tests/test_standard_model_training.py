@@ -100,6 +100,12 @@ def test_hot_rolling_compiles_training_context_not_plain_parent() -> None:
     assert len(set(training.validation_groups)) == 6
     assert len(set(row["parent_key"] for row in canonical["rows"])) == 6
     assert sorted(training.repeat_counts) == [1, 1, 1, 1, 1, 1, 2]
+    assert sorted(len(items) for items in training.observation_ids) == [1, 1, 1, 1, 1, 1, 2]
+    assert {
+        observation_id
+        for items in training.observation_ids
+        for observation_id in items
+    } == {row["observation_id"] for row in canonical["rows"]}
 
 
 def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(

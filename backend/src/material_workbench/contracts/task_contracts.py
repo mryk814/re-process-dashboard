@@ -488,6 +488,19 @@ class BasicWorkbenchSurfaceDefinition(ContractModel):
     order: Annotated[int, Field(ge=0)]
 
 
+class PredictionSpaceSurfaceDefinition(ContractModel):
+    kind: Literal["prediction_space"]
+    order: Annotated[int, Field(ge=0)]
+    target_keys: Annotated[tuple[str, ...], Field(min_length=2)]
+    historical_limit: Annotated[int, Field(ge=1, le=200)] = 200
+
+    @model_validator(mode="after")
+    def targets_are_unique(self) -> "PredictionSpaceSurfaceDefinition":
+        if len(self.target_keys) != len(set(self.target_keys)):
+            raise ValueError("prediction space targets must be unique")
+        return self
+
+
 class ResponseContourSurfaceDefinition(ContractModel):
     kind: Literal["response_contour"]
     order: Annotated[int, Field(ge=0)]
@@ -502,7 +515,9 @@ class ResponseContourSurfaceDefinition(ContractModel):
 
 
 WorkbenchSurfaceDefinition = Annotated[
-    BasicWorkbenchSurfaceDefinition | ResponseContourSurfaceDefinition,
+    BasicWorkbenchSurfaceDefinition
+    | PredictionSpaceSurfaceDefinition
+    | ResponseContourSurfaceDefinition,
     Field(discriminator="kind"),
 ]
 
@@ -590,6 +605,14 @@ class ResolvedTaskDefinition(ContractModel):
                 raise ValueError("curve family surface requires a curve axis and response curves")
             if surface.kind == "response_curve" and not operations.response_curve:
                 raise ValueError("response curve surface requires the runtime operation")
+            if surface.kind == "prediction_space":
+                if not operations.preview:
+                    raise ValueError("prediction space surface requires preview")
+                output_keys = {output.key for output in definition.outputs}
+                if any(target not in output_keys for target in surface.target_keys):
+                    raise ValueError(
+                        "prediction space targets must reference task outputs"
+                    )
             if surface.kind == "response_contour":
                 if not operations.preview or not operations.response_curve:
                     raise ValueError(

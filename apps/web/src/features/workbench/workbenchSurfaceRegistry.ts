@@ -17,6 +17,7 @@ export const workbenchSurfaceRegistry: Record<
   actual_measurement: { zone: "before_activity", label: "予測と実測" },
   curve_family: { zone: "before_activity", label: "二変数感度" },
   response_curve: { zone: "analysis_primary", label: "応答曲線" },
+  prediction_space: { zone: "analysis_primary", label: "特性バランス" },
   response_contour: { zone: "analysis_primary", label: "予測地図" },
   similarity: { zone: "analysis_evidence", label: "近い過去実績" },
   feature_engineering: { zone: "after_analysis", label: "モデル入力" },

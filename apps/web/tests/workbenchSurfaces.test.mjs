@@ -13,6 +13,7 @@ test("Workbench Surface registry owns every allow-listed renderer zone", () => {
     "blend_tools",
     "curve_family",
     "feature_engineering",
+    "prediction_space",
     "response_contour",
     "response_curve",
     "similarity",
@@ -25,6 +26,7 @@ test("Task declaration order is canonical within each Surface zone", () => {
     workbench_surfaces: [
       { kind: "similarity", order: 40 },
       { kind: "response_contour", order: 30, axis_paths: ["process.x", "process.y"], grid_size: 11 },
+      { kind: "prediction_space", order: 25, target_keys: ["TS", "YS"], historical_limit: 200 },
       { kind: "response_curve", order: 20 },
       { kind: "actual_measurement", order: 10 },
       { kind: "feature_engineering", order: 50 },
@@ -32,12 +34,24 @@ test("Task declaration order is canonical within each Surface zone", () => {
   };
   assert.deepEqual(
     orderedWorkbenchSurfaces(application).map((surface) => surface.kind),
-    ["actual_measurement", "response_curve", "response_contour", "similarity", "feature_engineering"],
+    ["actual_measurement", "response_curve", "prediction_space", "response_contour", "similarity", "feature_engineering"],
   );
   assert.deepEqual(
     workbenchSurfacesInZone(application, "analysis_primary").map((surface) => surface.kind),
-    ["response_curve", "response_contour"],
+    ["response_curve", "prediction_space", "response_contour"],
   );
+});
+
+test("prediction space is active-only and keeps marginal intervals distinct from joint probability", async () => {
+  const source = await readFile(
+    new URL("../src/features/workbench/PredictionSpacePanel.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /if \(!active \|\| !xTarget \|\| !yTarget/);
+  assert.match(source, /outputSpaceEvidence/);
+  assert.match(source, /prediction-space-interval/);
+  assert.match(source, /2特性を同時に含む確率領域ではありません/);
+  assert.match(source, /予測値や同一試料の相関ではありません/);
 });
 
 test("prediction contour is lazy, revision-bound, and keeps support separate from colour", async () => {
