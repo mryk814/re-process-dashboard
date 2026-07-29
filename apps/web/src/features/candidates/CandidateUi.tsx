@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type UIEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref, type UIEvent } from "react";
 import type { CandidateViewModel } from "./candidateModel";
 import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup, type TaskOutputDefinition } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
@@ -235,8 +235,11 @@ export function CandidateInspector({
   onInput,
   onReload,
   onCopyDraft,
+  onCollapse,
+  collapseButtonRef,
   heatPattern,
   className = "candidate-inspector",
+  hidden = false,
 }: {
   candidate: CandidateViewModel;
   taskDefinition: TaskDefinitionContract;
@@ -246,8 +249,11 @@ export function CandidateInspector({
   onInput: (path: string, value: number | string | undefined) => void;
   onReload: () => void;
   onCopyDraft: () => void;
+  onCollapse?: () => void;
+  collapseButtonRef?: Ref<HTMLButtonElement>;
   heatPattern?: ReactNode;
   className?: string;
+  hidden?: boolean;
 }) {
   const numeric = new Map(numericTaskInputs(taskDefinition).map((input) => [input.path, input]));
   const groups = orderedInputGroups(taskDefinition);
@@ -270,9 +276,19 @@ export function CandidateInspector({
   const unplacedErrors = fieldErrors.filter((error) => !ordinaryPaths.some((path) => error.path.endsWith(path)));
   const hasTrainingRanges = [...numeric.values()].some((field) => field.training_range);
   return (
-    <aside className={className} aria-label="選択候補の入力">
+    <aside className={className} aria-label="選択候補の入力" hidden={hidden}>
       <div className="inspector-heading">
-        <span className="overline">選択候補の入力</span>
+        <div className="inspector-heading-row">
+          <span className="overline">選択候補の入力</span>
+          {onCollapse && <button
+            type="button"
+            className="inspector-collapse-button"
+            ref={collapseButtonRef}
+            aria-label="入力パネルを折りたたむ"
+            title="入力パネルを折りたたむ"
+            onClick={onCollapse}
+          >‹</button>}
+        </div>
         <h2>{candidate.label}</h2>
         {hasTrainingRanges && <small className="training-range-legend"><i aria-hidden="true" />緑帯：学習範囲</small>}
         <small className={`candidate-save-state ${saveState}`}>{saveLabels[saveState]}</small>

@@ -2,6 +2,77 @@ import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
 import { apiBaseUrl } from "./helpers";
 
+test("candidate input pane snaps closed and restores its previous width", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1180, height: 820 });
+  await page.goto("/?view=candidates&project=default");
+  await page.evaluate(() => {
+    localStorage.setItem("material-workbench:layout:inspector-width:v1", "330");
+    localStorage.removeItem("material-workbench:layout:inspector-collapsed:v1");
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+
+  const inspector = page.getByRole("complementary", { name: "選択候補の入力", exact: true });
+  const workspace = page.locator(".central-workspace");
+  const resizer = page.getByRole("separator", { name: "選択候補の入力パネル幅を調整" });
+  await expect(inspector).toBeVisible();
+  await expect(resizer).toHaveAttribute("aria-valuenow", "330");
+  const expandedWorkspaceWidth = await workspace.evaluate((element) => element.clientWidth);
+
+  const box = await resizer.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 - 100, box!.y + 80, { steps: 8 });
+  await page.mouse.up();
+
+  const collapsed = page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" });
+  await expect(collapsed).toBeVisible();
+  await expect(inspector).toHaveCount(0);
+  await expect(resizer).toHaveCount(0);
+  await expect.poll(() => workspace.evaluate((element) => element.clientWidth))
+    .toBeGreaterThan(expandedWorkspaceWidth + 250);
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("material-workbench:layout:inspector-collapsed:v1")
+  ))).toBe("true");
+
+  await page.reload();
+  await expect(page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" })).toBeVisible();
+  await page.locator(".candidate-inspector").evaluate((element) => {
+    element.dataset.preservationProbe = "kept";
+  });
+  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
+  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
+  await expect(resizer).toHaveAttribute("aria-valuenow", "330");
+
+  const collapseButton = page.getByRole("button", { name: "入力パネルを折りたたむ" });
+  await collapseButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "選択候補の入力を開く" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
+  await expect(collapseButton).toBeFocused();
+  await expect(resizer).toHaveAttribute("aria-valuenow", "330");
+  await expect(inspector).toHaveAttribute("data-preservation-probe", "kept");
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("material-workbench:layout:inspector-collapsed:v1")
+  ))).toBe("false");
+  await page.reload();
+  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "入力パネルを折りたたむ" }).click();
+  await expect(page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("candidate-inspector-collapsed.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 800, height: 820 });
+  await expect.poll(() => collapsed.evaluate((element) => element.clientHeight)).toBeLessThan(50);
+  await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await expectNoBlockingAxeViolations(page, "collapsed candidate input pane");
+});
+
 test("a narrow candidate input pane reflows fields without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.addInitScript(() => {
@@ -85,8 +156,8 @@ test("comparison panes keep candidate rows aligned after text enlargement", asyn
   await expect(page.locator(".candidate-name-table thead tr")).toHaveCount(1);
 
   const selectedLabel = await page.locator(
-    ".candidate-name-table tbody tr.selected-row input",
-  ).inputValue();
+    ".candidate-name-table tbody tr.selected-row",
+  ).getByRole("textbox").inputValue();
   await page.getByText("選択候補を1件ずつ読む", { exact: true }).click();
   const readingView = page.getByRole("region", { name: selectedLabel });
   await expect(readingView).toBeVisible();
