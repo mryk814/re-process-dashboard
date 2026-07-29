@@ -11,6 +11,7 @@ import { supportStatusLabel } from "../../shared/supportPresentation";
 import { hasValidTargetGoal, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import { buildCandidateDecisionSummary } from "./decisionSummary";
 import { candidateRemovalConfirmationText } from "./candidateRemovalPresentation";
+import { comparisonValuesDiffer } from "./comparisonReference";
 
 const saveLabels: Record<CandidateSaveState, string> = {
   idle: "",
@@ -35,6 +36,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 const comparisonInputShareStorageKey = "material-workbench:layout:comparison-input-share:v2";
+const comparisonReferenceStoragePrefix = "material-workbench:comparison-reference:v1";
 const prominentHeatPatternInputPaths = new Set(["process.ls_mpm"]);
 
 function storedComparisonInputShare() {
@@ -54,6 +56,29 @@ function saveComparisonInputShare(value: number) {
     window.localStorage.setItem(comparisonInputShareStorageKey, String(value));
   } catch {
     // Layout persistence is optional when local storage is unavailable.
+  }
+}
+
+function comparisonReferenceStorageKey(projectId: string) {
+  return `${comparisonReferenceStoragePrefix}:${projectId}`;
+}
+
+function storedComparisonReference(projectId: string) {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(comparisonReferenceStorageKey(projectId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveComparisonReference(projectId: string, candidateId: string) {
+  try {
+    const key = comparisonReferenceStorageKey(projectId);
+    if (candidateId) window.localStorage.setItem(key, candidateId);
+    else window.localStorage.removeItem(key);
+  } catch {
+    // Comparison emphasis remains usable without persistence.
   }
 }
 
@@ -263,6 +288,7 @@ export function CandidateInspector({
 }
 
 export function ComparisonTable({
+  projectId,
   candidates,
   selectedId,
   comparisonHeight,
@@ -288,6 +314,7 @@ export function ComparisonTable({
   loadingRemainingPreviews,
   onLoadRemainingPreviews,
 }: {
+  projectId: string;
   candidates: CandidateViewModel[];
   selectedId: string;
   comparisonHeight: number;
@@ -314,6 +341,21 @@ export function ComparisonTable({
   onLoadRemainingPreviews: () => void;
 }) {
   const [pendingDeleteCandidateId, setPendingDeleteCandidateId] = useState("");
+  const [referenceCandidateId, setReferenceCandidateId] = useState(() => storedComparisonReference(projectId));
+  useEffect(() => {
+    setReferenceCandidateId(storedComparisonReference(projectId));
+  }, [projectId]);
+  useEffect(() => {
+    if (!referenceCandidateId || candidates.some((candidate) => candidate.id === referenceCandidateId)) return;
+    setReferenceCandidateId("");
+    saveComparisonReference(projectId, "");
+  }, [candidates, projectId, referenceCandidateId]);
+  const referenceCandidate = candidates.find((candidate) => candidate.id === referenceCandidateId);
+  const toggleReferenceCandidate = (candidateId: string) => {
+    const next = referenceCandidateId === candidateId ? "" : candidateId;
+    setReferenceCandidateId(next);
+    saveComparisonReference(projectId, next);
+  };
   const fieldVaries = (path: string) => new Set(candidates.map((candidate) => JSON.stringify(getCandidateInputValue(candidate.raw.inputs, path) ?? null))).size > 1;
   const inputGroups = orderedInputGroups(taskDefinition)
     .filter((group) => group.key !== "heat_pattern")
@@ -516,10 +558,18 @@ export function ComparisonTable({
   };
   const renderField = (candidate: CandidateViewModel, field: (typeof inputFields)[number]) => {
     const current = getCandidateInputValue(candidate.raw.inputs, field.path);
-    if (field.kind === "categorical") return <td className="composition-col" key={field.path}><select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
+    const differsFromReference = Boolean(
+      referenceCandidate
+      && candidate.id !== referenceCandidate.id
+      && comparisonValuesDiffer(current, getCandidateInputValue(referenceCandidate.raw.inputs, field.path)),
+    );
+    const differenceTitle = differsFromReference ? `基準「${referenceCandidate?.label}」と異なります` : undefined;
+    const cellClass = `composition-col${field.kind === "number" ? " numeric-cell" : ""}${differsFromReference ? " reference-difference-cell" : ""}`;
+    const marker = differsFromReference ? <span className="reference-difference-marker" aria-label={differenceTitle} title={differenceTitle}>≠</span> : null;
+    if (field.kind === "categorical") return <td className={cellClass} key={field.path}>{marker}<select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
     const key = `${candidate.id}:${field.path}`;
     const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
-    return <td className="composition-col numeric-cell" key={field.path}><input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
+    return <td className={cellClass} key={field.path}>{marker}<input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
   };
   const outputTargetKind = (key: string) => candidates
     .map((candidate) => previewsByCandidate[candidate.id]?.predictions[key]?.target_kind)
@@ -710,7 +760,7 @@ export function ComparisonTable({
             "--comparison-table-height": `${comparisonHeight}px`,
           } as CSSProperties}
         >
-          <div ref={nameScrollRef} className="comparison-pane-scroll comparison-name-scroll" onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={selected ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th></tr>; })}</tbody></table></div>
+          <div ref={nameScrollRef} className="comparison-pane-scroll comparison-name-scroll" onScroll={syncVerticalScroll}><table className="candidate-name-table" aria-label="候補名"><colgroup><col className="candidate-select-column" /><col /><col className="candidate-reference-column" /></colgroup><thead><tr><th scope="colgroup" colSpan={2}>候補</th><th scope="col">基準</th></tr></thead><tbody>{candidates.map((candidate) => { const selected = candidate.id === selectedId; const reference = candidate.id === referenceCandidateId; return <tr key={candidate.id} data-candidate-id={candidate.id} className={`${selected ? "selected-row" : ""}${reference ? " comparison-reference-row" : ""}`} onClick={() => onSelect(candidate.id)}><td className="candidate-select-cell"><button type="button" className="candidate-select-button" aria-label={`${candidate.label}を選択`} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect(candidate.id); }}><span aria-hidden="true" /></button></td><th scope="row"><input aria-label={`${candidate.label}の候補名`} maxLength={80} value={candidate.label} onFocus={() => onSelect(candidate.id)} onChange={(event) => onName(candidate.id, event.target.value)} /></th><td className="candidate-reference-cell"><input type="checkbox" aria-label={`${candidate.label}を比較の基準にする`} checked={reference} onClick={(event) => event.stopPropagation()} onChange={() => toggleReferenceCandidate(candidate.id)} /></td></tr>; })}</tbody></table></div>
           <div id="comparison-input-pane" ref={inputScrollRef} className="comparison-pane-scroll comparison-input-scroll" tabIndex={0} aria-label="入力条件" onScroll={syncVerticalScroll}><table className="comparison-detail-table comparison-input-table" aria-label="候補ごとの入力条件"><thead><tr><th scope="col" className="comparison-row-header">候補</th>{inputGroups.map((group) => <th scope="colgroup" colSpan={group.fields.length} key={group.key}>{group.label}</th>)}</tr><tr><th scope="col" className="comparison-row-header">候補</th>{inputFields.map((field) => <th scope="col" className="composition-col" key={field.path}>{field.label}<small>{field.unit ?? ""}</small></th>)}</tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th>{inputFields.map((field) => renderField(candidate, field))}</tr>)}</tbody></table></div>
           <ComparisonSplitResizer value={effectiveInputShare} min={inputShareRange.min} max={inputShareRange.max} onChange={setInputShare} onDrag={(startValue, deltaX) => startValue + (deltaX / Math.max(comparisonGridRef.current?.clientWidth ?? 1, 1)) * 100} onReset={() => setInputShare(34)} />
           <div id="comparison-prediction-pane" ref={predictionScrollRef} className="comparison-pane-scroll comparison-prediction-scroll" tabIndex={0} aria-label="予測値" onScroll={syncVerticalScroll}>

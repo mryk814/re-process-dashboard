@@ -298,6 +298,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onLocks={onBlendLocks}
         />}
         {taskDefinition && <ComparisonTable
+          projectId={projectId}
           candidates={candidates}
           selectedId={selectedId}
           comparisonHeight={comparisonHeight}
