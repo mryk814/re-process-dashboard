@@ -94,7 +94,10 @@ test("inference runs only for changed candidates and visible selected curves", a
   const successfulCreatedPreviews = () => inferenceResponses.filter(
     (item) => item.kind === "preview" && item.candidateId === createdCandidateId && item.status === 200,
   ).length;
-  const createdCandidateLabel = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+  const createdCandidateLabel = await page
+    .locator(".candidate-name-table tbody tr.selected-row")
+    .getByRole("textbox")
+    .inputValue();
   const curvesBeforeCreatedPreview = curveRequests;
   await page.waitForTimeout(500);
   expect(curveRequests).toBe(curvesBeforeCreatedPreview);
@@ -144,7 +147,9 @@ test("inference runs only for changed candidates and visible selected curves", a
   const selectedPredictionCells = page.locator(".comparison-prediction-table tbody tr.selected-row .decision-output-cell");
   await expect(selectedPredictionCells.first()).not.toHaveText("—");
 
-  const pendingCandidateName = page.locator(".candidate-name-table tbody tr.selected-row input");
+  const pendingCandidateName = page
+    .locator(".candidate-name-table tbody tr.selected-row")
+    .getByRole("textbox");
   const saveNameDuringPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));
   await pendingCandidateName.fill(`${await pendingCandidateName.inputValue()} 更新中`);
   await page.locator(".table-heading h2").click();
@@ -192,7 +197,9 @@ test("inference runs only for changed candidates and visible selected curves", a
   }, { times: 1 });
   const previewsBeforeConflictRecovery = previewRequests;
   const successfulPreviewsBeforeConflictRecovery = successfulCreatedPreviews();
-  const conflictName = page.locator(".candidate-name-table tbody tr.selected-row input");
+  const conflictName = page
+    .locator(".candidate-name-table tbody tr.selected-row")
+    .getByRole("textbox");
   await conflictName.fill(`${await conflictName.inputValue()} 競合1`);
   await page.locator(".table-heading h2").click();
   await expect.poll(() => conflictHeld).toBe(true);

@@ -514,7 +514,9 @@ test("project hub separates current revision from fixed snapshot and restores a 
   expect(restoredBody.provenance.source_kind).toBe("snapshot");
 
   await page.reload();
-  await expect(page.locator(".candidate-name-table tbody tr.selected-row input")).toHaveValue(/復元/);
+  await expect(
+    page.locator(".candidate-name-table tbody tr.selected-row").getByRole("textbox"),
+  ).toHaveValue(/復元/);
 });
 
 test("new project creation requires an explicit empty or copy choice", async ({ page }) => {
