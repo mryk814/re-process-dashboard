@@ -18,6 +18,7 @@ from material_workbench.task_modules import (
     ResponseCurveHandler,
     SupportProvider,
     TaskModule,
+    TrainingRangeProvider,
     registered_task_modules,
 )
 
@@ -251,6 +252,8 @@ class TaskRegistry:
             )
         if module.response_curve is not None and not callable(getattr(runtime, "response_curve_result", None)):
             raise TaskRegistryError(f"response-curve runtime operation is missing: {task_id}")
+        if module.response_curve is not None and not isinstance(runtime, TrainingRangeProvider):
+            raise TaskRegistryError(f"response-curve runtime has no Package training-range provider: {task_id}")
         declares_family = self._contracts[task_id].task_definition.curve_axis_path is not None
         if declares_family != (module.curve_family is not None):
             raise TaskRegistryError(

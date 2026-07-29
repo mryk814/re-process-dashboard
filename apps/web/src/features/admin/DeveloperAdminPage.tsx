@@ -290,9 +290,9 @@ export function InputRangeSettingsPage({ project, taskDefinition, readOnly = fal
   };
   return <div className="page-panel input-range-settings">
     <div className="page-intro"><div><h2>入力範囲設定</h2><p>スライダーと数値入力で使う実用的な範囲を、プロジェクトごとに設定します。</p></div><div className="project-actions"><button className="outline-button" disabled={readOnly} onClick={resetDefaults}>初期値に戻す</button><button className="primary-button" disabled={readOnly || saving} onClick={() => void save()}>{saving ? "保存中…" : "保存"}</button></div></div>
-    <p className="settings-explanation"><b>許容範囲</b>は現実的な初期値、<b>学習範囲</b>はモデルが見た範囲です。初期値が未定義の項目は、学習範囲を両側へ10%広げます。</p>
+    <p className="settings-explanation"><b>許容範囲</b>は入力可能域、<b>既定の検討範囲</b>はTask側の初期表示です。実際のモデル学習範囲は選択Packageの学習Datasetから実行時に解決します。</p>
     {error && <p className="empty-evidence">{error}</p>}
-    <table className="input-range-table"><thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>初期値</th><th>学習範囲</th></tr></thead><tbody>{inputs.map((input) => {
+    <table className="input-range-table"><thead><tr><th>入力項目</th><th>許容最小</th><th>許容最大</th><th>初期値</th><th>既定の検討範囲</th></tr></thead><tbody>{inputs.map((input) => {
       const range = suggestedInputRange(input);
       const training = input.training_range;
       return <tr key={input.id}><th>{input.label}<small>{input.unit}</small></th><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最小`} value={draft[input.id]?.min ?? ""} onChange={(event) => update(input.id, "min", event.target.value)} /></td><td><input type="number" step="any" disabled={readOnly} aria-label={`${input.label}の許容最大`} value={draft[input.id]?.max ?? ""} onChange={(event) => update(input.id, "max", event.target.value)} /></td><td>{rangeNumber(range.min)}–{rangeNumber(range.max)}</td><td>{training ? `${rangeNumber(training.min)}–${rangeNumber(training.max)}` : "—"}</td></tr>;

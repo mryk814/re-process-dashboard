@@ -165,7 +165,7 @@ test("candidate inspector keeps the candidate identity and one shared training-r
   assert.match(inspector, /<h2>候補A<\/h2>/);
   assert.match(inspector, /<h3>工程条件<\/h3>/);
   assert.doesNotMatch(inspector, /安全に単一値へ正規化できた行/);
-  assert.equal((inspector.match(/緑帯：学習範囲/g) ?? []).length, 1);
+  assert.equal((inspector.match(/緑帯：既定の検討範囲/g) ?? []).length, 1);
 });
 
 test("comparison puts the input group that differs between candidates first", () => {

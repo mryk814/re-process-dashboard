@@ -65,7 +65,7 @@ test("proposal summary leads with a Japanese decision summary and nests reproduc
   });
 
   const headline = html.match(/<div class="screening-proposal-headline">([\s\S]*?)<\/div>/)?.[1] ?? "";
-  assert.match(headline, /引張強さの下限目標を満たす条件を優先（学習範囲内を優先）/);
+  assert.match(headline, /引張強さの下限目標を満たす条件を優先（近い学習実績がある条件を優先）/);
   assert.match(headline, /生成 192件 → 制約内 180件 → 提案 48件（除外 12件）/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
   assert.match(html, /<summary>再現情報<\/summary>/);

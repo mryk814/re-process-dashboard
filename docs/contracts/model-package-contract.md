@@ -173,6 +173,18 @@ TaskDefinitionは予測意味を固定するcontextとfield間制約も保持す
 
 モデルが返せる情報は実行環境ごとに異なるため、UIが推測せずに済むよう、能力をデータとして宣言します。
 目的変数ごとに、代表値の種類（point statistic）、標準偏差、分位点、サンプル、確率分布、不確かさの内訳、学習範囲による裏付け、警告、目標達成確率の計算方式を定義します。
+
+### 学習範囲の解決
+
+応答曲線と2変数予測地図が表示する軸ごとの学習範囲は、manifestへmin/maxを複製しません。
+runtimeは、Model Packageの `provenance.training_data_id` と `dataset_profile_id` が固定した学習Datasetを読み、目的変数を実際に持つ学習cohortから `TrainingRangeProvider` 契約で範囲を導出します。
+したがってPackageを改版して学習Datasetが変わると、同じTaskでも表示範囲は新しいPackageへ追従します。
+
+新しいmanifest fieldは追加していないため、現在同梱しているresponse-curve対応Packageのmigrationは不要です。
+これらはすでにsource digestとProfile digestをprovenanceへ固定しています。
+Profile digestを持たない旧Packageは同じsourceに複数Profileがある場合の学習cohortを一意に解決できないため、Packageを再構築してprovenanceを固定します。
+TaskDefinitionの `training_range` や `allowed_range` へfallbackしません。
+`allowed_range` は候補入力の検証境界、軸ごとの学習範囲は周辺min/max、`support_by_target` は多変量の近傍支持判定として別々に扱います。
 複数目的変数の同時サンプル可否は、タスク実行環境全体の能力として分けます。
 
 能力宣言は「すべて返せる」という共通最小形式を強制するものではない。宣言されていない表現を擬似生成せず、利用可能な表現だけを返す。平均と標準偏差だけから目標達成確率を計算できるのは、`normal_approximation` を明示した場合だけである。

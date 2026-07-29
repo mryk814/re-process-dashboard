@@ -1,12 +1,12 @@
-"""学習データとTaskDefinitionの宣言範囲が食い違ったまま通らないことを固定する。
+"""学習データとTaskDefinitionの入力可能域が食い違ったまま通らないことを固定する。
 
 同じ構造のデータへ差し替えたとき、契約ファイルは変更しなくて済む（ケースE）。
 その代わり、差し替えたデータが宣言範囲を超えた場合は黙って通ってはならない。
 
 - `allowed_range` 超過は**失敗させる**。候補は `allowed_range` で検証されるので、
   そこを超える学習行は候補から到達できず、データと契約の不一致を意味する
-- `training_range` のずれは**報告する**。宣言はデータの観測結果なので、
-  作り直すかどうかは科学的契約に対する人の判断になる
+- TaskDefinitionに残る `training_range` のずれは**報告する**。これは編集時の
+  参考宣言であり、runtimeが表示するPackage学習範囲の正本ではない
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from material_workbench.tasks.task_registry import load_task_contracts
 # 詳細は docs/architecture/extensibility-inventory.md §1.4 を参照。
 KNOWN_TRAINING_RANGE_DRIFT: set[str] = set()
 
-# 1つのTaskDefinitionが複数のデータセットでPackageを持つ。training_range は
+# 1つのTaskDefinitionが複数のデータセットでPackageを持つ。allowed_range は
 # そのすべてを含む必要があるので、同梱している両方のWorkbookに対して検証する。
 SHIPPED_WORKBOOKS = (
     "data/source/material_workbench_tutorial_v2.xlsx",
@@ -119,32 +119,6 @@ def test_allowed_range_holds_for_every_shipped_dataset_of_the_task() -> None:
             )
 
 
-def test_training_range_describes_the_active_dataset_not_every_dataset() -> None:
-    """training_range が「どのデータセットの範囲か」を記録する。
-
-    training_range は応答曲線の掃引軸を決める（hot_rolling.py の
-    response_curve_result）。activeなPackageの学習範囲より広く宣言すると、
-    曲線が支持の外まで伸びる。そのため**activeなPackageのデータセット**に
-    合わせてあり、別データセットで学習したPackageの範囲とは一致しない。
-
-    Task単位の宣言でPackage単位の事実を表しているのが本来の問題で、
-    正しい解決はPackage側のsupport範囲を使うこと。
-    """
-    from pathlib import Path
-
-    from material_workbench.data.importer import load_workbook_data
-
-    root = Path(__file__).resolve().parents[2]
-    active = load_workbook_data(root / SHIPPED_WORKBOOKS[0])
-    other = load_workbook_data(root / SHIPPED_WORKBOOKS[1])
-
-    for task_id in PRIMARY_SOURCE_TASKS:
-        contract = load_task_contracts()[task_id]
-        assert training_range_drift(active, contract) == {}, task_id
-    # 別データセットは宣言範囲を超える。これは既知の設計上の制約。
-    assert training_range_drift(other, load_task_contracts()["hot-rolled-properties-v1"])
-
-
 def test_range_check_ignores_rows_belonging_to_another_task() -> None:
     """1つのWorkbookが複数Taskの観測を持つので、他Taskの行を混ぜないこと。"""
 
@@ -184,4 +158,32 @@ def test_declared_training_range_drift_is_reported_not_hidden(client) -> None:
         "training_rangeのずれが変化しました。増えた場合は差し替えたデータが宣言を"
         f"超えています: 増={sorted(drifted - KNOWN_TRAINING_RANGE_DRIFT)}, "
         f"減={sorted(KNOWN_TRAINING_RANGE_DRIFT - drifted)}"
+    )
+
+
+def test_existing_response_curve_packages_pin_their_training_profile(client) -> None:
+    """TrainingRangeProvider needs no new manifest field or migration.
+
+    Every existing response-curve Package already pins source and Profile through
+    the provenance contract used by ProjectRuntimeResolver.
+    """
+
+    packages = client.get(
+        "/api/data-library/model-packages",
+        params={"include_gallery": True},
+    ).json()
+    contracts = load_task_contracts()
+    response_curve_packages = [
+        item
+        for item in packages
+        if contracts[item["task_id"]].runtime_capability.operations.response_curve
+    ]
+
+    assert response_curve_packages
+    assert all(
+        item["manifest_json"]["provenance"]["training_data_id"].startswith("sha256:")
+        and item["manifest_json"]["provenance"]["dataset_profile_id"].startswith(
+            "sha256:"
+        )
+        for item in response_curve_packages
     )

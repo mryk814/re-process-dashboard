@@ -450,6 +450,15 @@ def test_response_contour_is_revision_bound_and_masks_extrapolated_cells(client)
     assert len(payload["cells"]) == 49
     assert payload["x_axis"]["min"] == payload["x_axis"]["training_range"]["min"]
     assert payload["x_axis"]["max"] == payload["x_axis"]["training_range"]["max"]
+    runtime = client.app.state.task_registry.runtime_for("battery-degradation-v1")
+    assert (
+        payload["x_axis"]["training_range"]["min"],
+        payload["x_axis"]["training_range"]["max"],
+    ) == runtime.training_range_for("capacity_percent", "process.cycle_index")
+    assert (
+        payload["y_axis"]["training_range"]["min"],
+        payload["y_axis"]["training_range"]["max"],
+    ) == runtime.training_range_for("capacity_percent", "process.discharge_rate_c")
     assert all(
         cell["prediction"] is not None and cell["support"] is not None
         for cell in payload["cells"]

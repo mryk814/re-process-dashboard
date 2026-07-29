@@ -1353,6 +1353,41 @@ class TabularRegressionRuntime:
             results.append(result)
         return results
 
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        del stage_name, stage_position_m
+        if target not in self.predictors:
+            raise ValueError(f"Unsupported response-curve target: {target}")
+        item = next(
+            (
+                item
+                for item in self.profile.inputs
+                if item.path == variable and item.kind == "number"
+            ),
+            None,
+        )
+        if item is None:
+            raise ValueError(f"この予測タスクで応答曲線にできない変数です: {variable}")
+        values = [
+            float(
+                (
+                    row["composition"]
+                    if variable.startswith("composition.")
+                    else row["features"]
+                )[variable.split(".", 1)[1]]
+            )
+            for row in self.support_references[target]["rows"]
+        ]
+        if not values:
+            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+        return min(values), max(values)
+
     def response_curve_result(
         self,
         candidate: Candidate,
@@ -1367,12 +1402,9 @@ class TabularRegressionRuntime:
         if item is None:
             raise ValueError(f"この予測タスクで応答曲線にできない変数です: {variable}")
         reference_rows = self.support_references[target]["rows"]
-        training = [
-            float((row["composition"] if variable.startswith("composition.") else row["features"])[variable.split(".", 1)[1]])
-            for row in reference_rows
-        ]
         current = float(_get_path(candidate, variable))
-        low, high = min(training), max(training)
+        training_min, training_max = self.training_range_for(target, variable)
+        low, high = training_min, training_max
         if axis_range is not None:
             low, high = axis_range
         curve = []
@@ -1427,8 +1459,8 @@ class TabularRegressionRuntime:
                 "max": high,
                 "current": current,
                 "training_range": {
-                    "min": min(training),
-                    "max": max(training),
+                    "min": training_min,
+                    "max": training_max,
                 },
             },
             "points": curve,

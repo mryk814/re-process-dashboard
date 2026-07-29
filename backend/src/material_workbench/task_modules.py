@@ -180,6 +180,25 @@ class SupportProvider(Protocol):
     ) -> list[dict[str, Any]]: ...
 
 
+@runtime_checkable
+class TrainingRangeProvider(Protocol):
+    """Package-bound marginal training extent for a response-curve axis.
+
+    This is intentionally separate from ``SupportProvider``: an axis min/max is
+    not multivariate support, and it must never fall back to TaskDefinition's
+    allowed input range.
+    """
+
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]: ...
+
+
 ResponseCurveHandler = Callable[
     [PredictionRuntime, Candidate, str, str, int, tuple[float, float] | None, str | None, float | None],
     dict[str, Any],

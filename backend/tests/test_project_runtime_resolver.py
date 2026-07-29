@@ -230,3 +230,78 @@ def test_project_pinned_package_identity_drives_runtime_and_inference_key(client
     assert first_request_loads == 1
     assert package_loads == first_request_loads
     assert len(client.app.state.project_runtime_resolver._package_cache) == 1
+
+
+def test_project_package_changes_curve_and_contour_training_ranges_together(client) -> None:
+    datasets = client.get(
+        "/api/data-library/datasets", params={"include_gallery": True}
+    ).json()
+    packages = client.get(
+        "/api/data-library/model-packages", params={"include_gallery": True}
+    ).json()
+    dataset = next(
+        item
+        for item in datasets
+        if item["data_asset"]["original_filename"]
+        == "material_workbench_process_v1.xlsx"
+    )
+    package = next(
+        item
+        for item in packages
+        if item["package_id"] == "annealed-gp-stable-ard-process-v2"
+    )
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Package学習範囲の確認",
+            "task_id": "annealed-properties-v1",
+            "dataset_view_revision_id": dataset["dataset_views"][0]["id"],
+            "model_package_ref_id": package["id"],
+        },
+    )
+    assert created.status_code == 201, created.text
+    project_id = created.json()["id"]
+    template = client.get("/api/projects/default/candidates").json()[0]
+    candidate_response = client.post(
+        f"/api/projects/{project_id}/candidates",
+        json={"name": "範囲確認", "inputs": template["inputs"]},
+    )
+    assert candidate_response.status_code == 201, candidate_response.text
+    candidate = candidate_response.json()
+
+    curve = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-curve",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "variable": "composition.C",
+            "points": 7,
+        },
+    )
+    contour = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-contour",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "TS",
+            "x_variable": "composition.C",
+            "y_variable": "composition.Mn",
+            "points": 7,
+        },
+    )
+    assert curve.status_code == 200, curve.text
+    assert contour.status_code == 200, contour.text
+
+    project = client.app.state.store.get_project(project_id)
+    assert project is not None
+    runtime = client.app.state.project_runtime_resolver.runtime_for(project)
+    expected = runtime.training_range_for("TS", "composition.C")
+    curve_range = curve.json()["variable"]["training_range"]
+    contour_range = contour.json()["x_axis"]["training_range"]
+    assert (curve_range["min"], curve_range["max"]) == tuple(
+        round(value, 4) for value in expected
+    )
+    assert contour_range == curve_range
+    tutorial_runtime = client.app.state.task_registry.runtime_for(
+        "annealed-properties-v1"
+    )
+    assert tutorial_runtime.training_range_for("TS", "composition.C") != expected

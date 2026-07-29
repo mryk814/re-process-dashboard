@@ -550,6 +550,30 @@ class ObservationRegressionRuntime:
         result["support"], result["similar"] = support, similar
         return result
 
+    def training_range_for(
+        self,
+        target: str,
+        variable: str,
+        *,
+        stage_name: str | None = None,
+        stage_position_m: float | None = None,
+    ) -> tuple[float, float]:
+        del stage_name, stage_position_m
+        if target not in self.output_keys:
+            raise ValueError(f"unknown response curve target: {target}")
+        if variable not in self.spec.target_features[target]:
+            raise ValueError(
+                f"{target}のモデルは{variable}を入力に使わないため応答曲線を作成できません"
+            )
+        values = [
+            float(row["canonical_inputs"][variable])
+            for row in self._target_rows(target)
+            if variable in row["canonical_inputs"]
+        ]
+        if not values:
+            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+        return min(values), max(values)
+
     def response_curve_result(
         self,
         candidate: Candidate,
@@ -563,10 +587,9 @@ class ObservationRegressionRuntime:
         if variable != "process.test_temperature_c":
             raise ValueError(f"この予測タスクで応答曲線にできない変数です: {variable}")
         rows = self._target_rows(target)
-        curve_rows = self._target_rows("CHARPY_ENERGY")
-        training = [float(row["canonical_inputs"][variable]) for row in curve_rows]
+        training_min, training_max = self.training_range_for(target, variable)
         current = float(candidate.inputs.process["test_temperature_c"])
-        low, high = axis_range or (min(training), max(training))
+        low, high = axis_range or (training_min, training_max)
         curve = []
         for x_value in anchored_curve_grid(low, high, points, current=current):
             adjusted = candidate.model_copy(deep=True)
@@ -605,6 +628,10 @@ class ObservationRegressionRuntime:
                 "min": low,
                 "max": high,
                 "current": current,
+                "training_range": {
+                    "min": training_min,
+                    "max": training_max,
+                },
             },
             "points": curve,
             "output_range": {"min": min(observed), "max": max(observed)},

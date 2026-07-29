@@ -1124,12 +1124,12 @@ export function ScreeningPage({
             </label>
           )}
           <label>
-            学習範囲外の扱い
+            外挿候補の扱い
             <select
               value={supportPolicy}
               onChange={(event) => { setSupportPolicy(event.target.value as typeof supportPolicy); setDraftDirty(true); }}
             >
-              <option value="supported_first">範囲内を優先</option>
+              <option value="supported_first">近い学習実績を優先</option>
               <option value="exclude_extrapolated">外挿を除外</option>
               <option value="allow_with_warning">警告付きで含める</option>
             </select>
@@ -1329,8 +1329,8 @@ export function ScreeningPage({
                     {optionGroups.map((group) => <optgroup key={group.key} label={group.label}>{group.options.map((option) => <option key={option.value} value={option.value} disabled={variables.some((item, rowIndex) => rowIndex !== index && item.field === option.value)}>{option.label}</option>)}</optgroup>)}
                   </select>
                   {option?.trainingRange && <small className={outsideTraining ? "screening-variable-range outside" : "screening-variable-range"}>
-                    学習範囲 {number(option.trainingRange.min, 3)}–{number(option.trainingRange.max, 3)}
-                    {outsideTraining && <b> · 範囲外を含む</b>}
+                    既定の検討範囲 {number(option.trainingRange.min, 3)}–{number(option.trainingRange.max, 3)}
+                    {outsideTraining && <b> · 既定外を含む</b>}
                   </small>}
                 </td>
                 <td>
@@ -1456,7 +1456,7 @@ export function ScreeningPage({
           <div className="screen-legend">
             <span className="opportunity-scale" />
             {colorMetric === "score" ? scoreLabel : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
-            範囲内 <span className="support-key caution" />
+            近い実績 <span className="support-key caution" />
             要確認 <span className="support-key extrapolated" />
             外挿 <span className="selection-key" />
             選択中
@@ -1465,7 +1465,7 @@ export function ScreeningPage({
             className="screen-map"
             viewBox="0 0 600 300"
             role="group"
-            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${scoreLabel}」を表し、枠線が学習範囲を示します。`}
+            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${scoreLabel}」、枠線は学習実績からの外れ方を表します。`}
           >
             {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
             {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
