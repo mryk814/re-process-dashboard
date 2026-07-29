@@ -843,10 +843,18 @@ export function ComparisonTable({
                 return <tr key={candidate.id} data-candidate-id={candidate.id} className={candidate.id === selectedId ? "selected-row" : ""} onClick={() => onSelect(candidate.id)}><th scope="row" className="comparison-row-header">{candidate.label}</th><td>
                   {confirmingDelete
                     ? <div className="candidate-delete-confirmation" role="group" aria-label={`${candidate.label}を一覧から外す確認`} onClick={(event) => event.stopPropagation()}>
-                      <span>{candidateRemovalConfirmationText(candidate.label)}</span>
+                      <span className="candidate-delete-confirmation-message">{candidateRemovalConfirmationText(candidate.label)}</span>
                       <div>
-                        <button type="button" className="danger-button" onClick={() => { setPendingDeleteCandidateId(""); onDelete(candidate.id); }}>一覧から外す</button>
-                        <button type="button" className="outline-button" onClick={() => setPendingDeleteCandidateId("")}>キャンセル</button>
+                        <span className="candidate-delete-recovery-hint" role="img" aria-label="後で復元できます" title="後でプロジェクト概要から復元できます">↩</span>
+                        <button type="button" className="danger-button" aria-label="一覧から外す" title="一覧から外す" autoFocus onClick={() => { setPendingDeleteCandidateId(""); onDelete(candidate.id); }}>外す</button>
+                        <button type="button" className="outline-button" aria-label="キャンセル" title="キャンセル" onClick={() => {
+                          setPendingDeleteCandidateId("");
+                          window.requestAnimationFrame(() => {
+                            actionScrollRef.current
+                              ?.querySelector<HTMLButtonElement>(`tr[data-candidate-id="${candidate.id}"] .candidate-row-delete-button`)
+                              ?.focus();
+                          });
+                        }}>戻る</button>
                       </div>
                     </div>
                     : <div className="candidate-row-actions">

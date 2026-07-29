@@ -263,10 +263,19 @@
 .comparison-action-table tbody tr:hover td { background: #f5f9ff; }
 .comparison-action-table .selected-row td { background: #e7f1ff; border-bottom-color: #9fc2eb; }
 .candidate-row-actions { display: flex; align-items: center; justify-content: center; gap: 3px; }
-.candidate-delete-confirmation { display: grid; gap: 6px; min-width: 230px; max-width: 320px; padding: 7px; color: #5f3029; background: #fff7f5; border: 1px solid #dfb8b0; border-radius: 7px; text-align: left; }
-.candidate-delete-confirmation span { font-size: 11px; line-height: 1.45; }
-.candidate-delete-confirmation div { display: flex; gap: 6px; }
-.candidate-delete-confirmation button { min-height: 28px; padding: 4px 8px; font-size: 11px; }
+.candidate-delete-confirmation { display: flex; min-width: 0; align-items: center; justify-content: center; }
+.candidate-delete-confirmation-message {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.candidate-delete-confirmation div { display: flex; min-width: 0; align-items: center; gap: 3px; }
+.candidate-delete-recovery-hint { color: #786158; font-size: 13px; line-height: 1; cursor: help; }
+.candidate-delete-confirmation button { min-width: 0; min-height: 27px; padding: 3px 6px; font-size: 10px; }
 .candidate-row-icon-button,
 .candidate-row-save-button { height: 27px; min-height: 27px; border-radius: 4px; font-size: 0.625rem; font-weight: 700; }
 .candidate-row-icon-button { width: 27px; padding: 0; }
