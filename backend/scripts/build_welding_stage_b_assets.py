@@ -253,6 +253,7 @@ def build_package(
             staging,
             task_id=source_profile.task_id,
             source=source,
+            profile=source_profile,
         )
 
 

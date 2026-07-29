@@ -435,12 +435,16 @@ def _hot_rolling_starter_candidates(
 def _load_workbook(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
     from material_workbench.data.importer import load_workbook_data
 
+    if profile is not None and not isinstance(profile, DatasetInputProfile):
+        raise ValueError("workbook task requires a workbook Dataset Profile")
     return load_workbook_data(path, profile=profile)
 
 
 def _load_flank_wear(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
     from material_workbench.modeling.flank_wear import load_flank_wear_data
 
+    if profile is not None and not isinstance(profile, DatasetInputProfile):
+        raise ValueError("flank-wear task requires a workbook Dataset Profile")
     return load_flank_wear_data(path, profile=profile)
 
 
@@ -451,7 +455,9 @@ def _tabular_loader(task_id: str) -> DataLoader:
             load_tabular_data,
         )
 
-        selected = profile if isinstance(profile, TabularDatasetProfile) else _TABULAR_PROFILES[task_id]
+        if profile is not None and not isinstance(profile, TabularDatasetProfile):
+            raise ValueError("tabular task requires a tabular Dataset Profile")
+        selected = profile or _TABULAR_PROFILES[task_id]
         return load_tabular_data(path, selected)
     return load
 
@@ -461,7 +467,13 @@ def _observation_loader(task_id: str) -> DataLoader:
         from material_workbench.data.observation_profile import ObservationDatasetProfile
         from material_workbench.modeling.observation_regression import load_observation_data
 
-        selected = profile if isinstance(profile, ObservationDatasetProfile) else None
+        if profile is not None and not isinstance(
+            profile, ObservationDatasetProfile
+        ):
+            raise ValueError(
+                "observation task requires an observation Dataset Profile"
+            )
+        selected = profile
         return load_observation_data(path, observation_declaration(task_id), selected)
     return load
 
@@ -475,11 +487,9 @@ def _load_welding_stage_b(
         load_stage_b_profile,
     )
 
-    selected = (
-        profile
-        if isinstance(profile, StageBWorkbookProfile)
-        else load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
-    )
+    if profile is not None and not isinstance(profile, StageBWorkbookProfile):
+        raise ValueError("Stage B task requires a Stage B Dataset Profile")
+    selected = profile or load_stage_b_profile(_WELDING_STAGE_B_PROFILE)
     return build_stage_b_training_data(
         path,
         selected,
@@ -592,8 +602,10 @@ def _build_annealed(
     replace: bool,
     package_id: str,
     package_version: str,
+    profile_path: Path | None = None,
 ) -> None:
     from build_default_model_package import build
+    from material_workbench.data.profile_document import load_profile_document
 
     build(
         source,
@@ -601,6 +613,7 @@ def _build_annealed(
         replace=replace,
         package_id=package_id,
         package_version=package_version,
+        profile=load_profile_document(profile_path) if profile_path else None,
     )
 
 
@@ -611,8 +624,10 @@ def _build_hot_rolling(
     replace: bool,
     package_id: str,
     package_version: str,
+    profile_path: Path | None = None,
 ) -> None:
     from build_hot_rolling_model_package import build
+    from material_workbench.data.profile_document import load_profile_document
 
     build(
         source,
@@ -620,6 +635,7 @@ def _build_hot_rolling(
         replace=replace,
         package_id=package_id,
         package_version=package_version,
+        profile=load_profile_document(profile_path) if profile_path else None,
     )
 
 
@@ -630,8 +646,10 @@ def _build_flank_wear(
     replace: bool,
     package_id: str,
     package_version: str,
+    profile_path: Path | None = None,
 ) -> None:
     from build_flank_wear_model_package import build
+    from material_workbench.data.profile_document import load_profile_document
 
     build(
         source,
@@ -639,6 +657,7 @@ def _build_flank_wear(
         replace=replace,
         package_id=package_id,
         package_version=package_version,
+        profile=load_profile_document(profile_path) if profile_path else None,
     )
 
 
@@ -650,12 +669,13 @@ def _tabular_builder(task_id: str) -> ModelBuilder:
         replace: bool,
         package_id: str,
         package_version: str,
+        profile_path: Path | None = None,
     ) -> None:
         from material_workbench.modeling.tabular_model_builder import build as build_package
 
         build_package(
             source,
-            _TABULAR_PROFILES[task_id],
+            profile_path or _TABULAR_PROFILES[task_id],
             output,
             replace=replace,
             package_id=package_id,
@@ -672,8 +692,10 @@ def _observation_builder(task_id: str) -> ModelBuilder:
         replace: bool,
         package_id: str,
         package_version: str,
+        profile_path: Path | None = None,
     ) -> None:
         from material_workbench.modeling.observation_model_builder import build as build_package
+        from material_workbench.data.profile_document import load_profile_document
 
         build_package(
             source,
@@ -682,6 +704,11 @@ def _observation_builder(task_id: str) -> ModelBuilder:
             replace=replace,
             package_id=package_id,
             package_version=package_version,
+            profile=(
+                load_profile_document(profile_path)
+                if profile_path is not None
+                else None
+            ),
         )
     return build
 
@@ -693,12 +720,13 @@ def _build_welding_stage_b(
     replace: bool,
     package_id: str,
     package_version: str,
+    profile_path: Path | None = None,
 ) -> None:
     from build_welding_stage_b_assets import build_package
 
     build_package(
         source,
-        _WELDING_STAGE_B_PROFILE,
+        profile_path or _WELDING_STAGE_B_PROFILE,
         output,
         replace=replace,
         package_id=package_id,

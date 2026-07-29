@@ -1,4 +1,4 @@
-"""Inspect or register a workbook Dataset for the Material Decision Workbench."""
+"""Validate or register a Dataset Profile for the Material Decision Workbench."""
 from __future__ import annotations
 
 import argparse
@@ -15,12 +15,12 @@ from material_workbench.data.dataset_profile import (
     materialize_dataset_profile_document,
 )
 from material_workbench.data.dataset_registration import register_managed_dataset
-from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
+from material_workbench.data.profile_workbench import inspect_workbook, validate_source_profile
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Excel + Profile Dataset developer workbench.")
+    parser = argparse.ArgumentParser(description="Dataset + Profile developer workbench.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     inspect_parser = subparsers.add_parser("inspect", help="List sheets/headers and run Profile preflight.")
@@ -66,7 +66,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "inspect":
             result = inspect_workbook(args.source, args.profile)
         elif args.command == "validate":
-            result = validate_workbook_profile(args.source, args.profile)
+            result = validate_source_profile(args.source, args.profile)
         elif args.command == "register":
             result = register_managed_dataset(
                 database=args.database,

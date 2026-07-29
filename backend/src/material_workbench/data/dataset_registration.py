@@ -171,11 +171,13 @@ def register_managed_dataset(
 ) -> DatasetRegistrationResult:
     """Copy a prevalidated source and register it in a workspace catalog."""
 
-    from material_workbench.data.profile_workbench import validate_workbook_profile
+    from material_workbench.data.profile_workbench import validate_source_profile
 
     source = source.resolve()
     profile_path = profile_path.resolve()
-    report = validate_workbook_profile(source, profile_path)
+    report = validate_source_profile(source, profile_path)
+    if not report["registration_ready"]:
+        raise ValueError("Profile validation found no eligible observations")
     digest = str(report["source_sha256"])
     catalog = WorkspaceCatalog(database)
     existing = next((item for item in catalog.list_data_assets(include_archived=True) if item.sha256 == digest), None)

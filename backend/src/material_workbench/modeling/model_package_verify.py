@@ -17,6 +17,10 @@ from material_workbench.contracts.model_example_contracts import ExampleQualityR
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.task_modules import resolve_task_source, task_module
+from material_workbench.data.profile_document import (
+    lifecycle_profile_for_data,
+    load_profile_document,
+)
 
 
 @dataclass(frozen=True)
@@ -262,6 +266,7 @@ def verify_model_package(
     *,
     task_id: str,
     source: str | Path | None = None,
+    profile: Any | None = None,
 ) -> ModelPackageVerificationReport:
     contracts = load_task_contracts()
     if task_id not in contracts:
@@ -272,8 +277,22 @@ def verify_model_package(
             f"task_id mismatch: expected {task_id}, package declares {package.manifest.task_id}"
         )
     module = task_module(task_id)
-    data = module.data_loader(resolve_task_source(task_id, source))
-    quality = validate_lifecycle_metadata(package, contracts[task_id], profile_path=Path(data.profile_path))
+    selected_profile = (
+        load_profile_document(profile)
+        if isinstance(profile, (str, Path))
+        else profile
+        if profile is not None
+        else None
+    )
+    data = module.data_loader(
+        resolve_task_source(task_id, source),
+        selected_profile,
+    )
+    quality = validate_lifecycle_metadata(
+        package,
+        contracts[task_id],
+        profile_path=lifecycle_profile_for_data(data),
+    )
     validate_training_provenance(package, data, contracts[task_id])
 
     runtime = module.runtime_factory(data, package)
@@ -302,6 +321,7 @@ def _parser() -> argparse.ArgumentParser:
     mode.add_argument("--example", action="store_true")
     mode.add_argument("--deterministic-transform", action="store_true")
     parser.add_argument("--source", type=Path, default=Path("data/source/material_workbench_tutorial_v2.xlsx"))
+    parser.add_argument("--profile", type=Path)
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser
 
@@ -318,6 +338,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.package_root,
                 task_id=args.task_id,
                 source=args.source,
+                profile=args.profile,
             )
     except (MissingOptionalDependency, PackageContractError, OSError, ValueError) as exc:
         if args.json_output:

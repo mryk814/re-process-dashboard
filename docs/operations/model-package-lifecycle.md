@@ -36,15 +36,17 @@ npm install
 
 $task = "heat-treatment-tradeoff-v1"
 $source = "path\to\new-data.csv"
+$profile = "path\to\dataset-profile.json"
 $packageId = "heat-treatment-my-data-2026-07"
 $packageVersion = "1.0.0"
 $datasetOutput = "artifacts/model-data/$packageId.json"
 
-npm run model:diagnose -- --task $task --source $source
+npm run model:diagnose -- --task $task --source $source --profile $profile
 
 npm run model:build -- `
   --task $task `
   --source $source `
+  --profile $profile `
   --package-id $packageId `
   --package-version $packageVersion `
   --dataset-output $datasetOutput
@@ -52,6 +54,7 @@ npm run model:build -- `
 npm run model:promote -- `
   --task $task `
   --source $source `
+  --profile $profile `
   --package "artifacts/model-package-candidates/$packageId"
 
 npm run task:inventory
@@ -60,10 +63,14 @@ npm run model:status
 
 `model:diagnose`の`route`が`existing_task_replacement`なら、現在の予測契約を使ってPackage作成へ進めます。
 `new_task_or_profile`なら、列名が似ていても既存Profileへ押し込まず、[新しいデータフローの追加](dataset-input-profile.md#新しいデータフローを追加する場合)へ進みます。
-`--profile`を渡した場合は、そのProfileのdigestが登録済みTaskの有効Profileと同じことも確認します。
+`--profile`を渡した場合は、diagnose、FeatureDataset出力、学習、verify、promoteが
+同じ実効Profileを読みます。Profileが指定Taskを宣言しない場合は、列名が似ていても拒否します。
+Package provenanceの`dataset_profile_id`はこの実効Profileのdigestです。
 
 `model:build`は指定した不変のPackage ID/versionで候補を作り、本番loaderとadapterで検証します。
 `model:promote`は再検証後に`models/packages/<package-id>`へ原子的にコピーし、同じIDの異なる内容を上書きせず、利用可能Package一覧へ追加します。
+任意Profileで作ったPackageは、登録したDataset Revisionと組にして新しいProjectへ固定します。
+起動時の既定Profileを使う`model:activate`や`model:promote --activate`へは渡しません。
 起動中のData Libraryで「昇格済みモデルを再読込」を実行すると、登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えられます。
 保存済みSnapshotは切替後も再計算されません。
 

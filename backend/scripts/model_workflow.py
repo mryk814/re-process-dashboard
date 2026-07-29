@@ -38,7 +38,11 @@ from material_workbench.modeling.model_package_verify import verify_model_packag
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
 from material_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
 from material_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
-from material_workbench.data.profile_document import supported_task_ids  # noqa: E402
+from material_workbench.data.profile_document import (  # noqa: E402
+    lifecycle_profile_for_data,
+    load_profile_document,
+    profile_task_ids,
+)
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, registered_task_modules, resolve_task_source, task_module  # noqa: E402
 
@@ -51,8 +55,24 @@ def _task_source(task_id: str, source: Path) -> Path:
     return resolve_task_source(task_id, source)
 
 
-def _load_task_data(task_id: str, source: Path):
-    return task_module(task_id).data_loader(resolve_task_source(task_id, source))
+def _selected_profile(task_id: str, profile: Path | None) -> Any | None:
+    if profile is None:
+        return None
+    resolved = profile.resolve(strict=True)
+    loaded = load_profile_document(resolved)
+    declared_tasks = profile_task_ids(loaded)
+    if task_id not in declared_tasks:
+        raise ValueError(
+            f"Profile does not declare task {task_id}: {resolved}"
+        )
+    return loaded
+
+
+def _load_task_data(task_id: str, source: Path, profile: Path | None = None):
+    return task_module(task_id).data_loader(
+        resolve_task_source(task_id, source),
+        _selected_profile(task_id, profile),
+    )
 
 
 def _write_json(path: Path, payload: Any, *, replace: bool) -> None:
@@ -71,15 +91,23 @@ def _write_json(path: Path, payload: Any, *, replace: bool) -> None:
     )
 
 
-def export_dataset(task_id: str, source: Path, output: Path, *, replace: bool) -> dict[str, Any]:
+def export_dataset(
+    task_id: str,
+    source: Path,
+    output: Path,
+    *,
+    profile: Path | None = None,
+    replace: bool,
+) -> dict[str, Any]:
     source = _task_source(task_id, source)
-    data = _load_task_data(task_id, source)
+    data = _load_task_data(task_id, source, profile)
     payload = canonical_training_dataset(task_id, data, load_task_contracts()[task_id])
     _write_json(output, payload, replace=replace)
     return {
         "path": str(output.resolve()),
         "rows": len(payload["rows"]),
         "feature_dataset_id": canonical_training_dataset_digest(payload),
+        "dataset_profile_id": payload["dataset_profile_digest"],
     }
 
 
@@ -91,12 +119,9 @@ def diagnose_source(
 ) -> dict[str, Any]:
     source = source.resolve(strict=True)
     profile_tasks: tuple[str, ...] = ()
-    selected_profile_digest: str | None = None
     if profile is not None:
         profile = profile.resolve(strict=True)
-        document = json.loads(profile.read_text(encoding="utf-8"))
-        profile_tasks = supported_task_ids(document)
-        selected_profile_digest = dataset_profile_digest(profile)
+        profile_tasks = profile_task_ids(load_profile_document(profile))
 
     if task_id is None:
         matching = [item for item in profile_tasks if item in TASKS]
@@ -133,7 +158,7 @@ def diagnose_source(
         }
 
     try:
-        data = _load_task_data(task_id, source)
+        data = _load_task_data(task_id, source, profile)
     except (OSError, ValueError) as exc:
         return {
             "route": "new_task_or_profile",
@@ -142,34 +167,15 @@ def diagnose_source(
             "next": "docs/operations/dataset-input-profile.md#新しいデータフローを追加する場合",
         }
 
-    active_profile_path = Path(data.profile_path)
-    active_profile_digest = (
-        dataset_profile_digest(active_profile_path)
-        if active_profile_path.is_file()
-        else None
+    active_profile_digest = dataset_profile_digest(
+        lifecycle_profile_for_data(data)
     )
-    if (
-        selected_profile_digest is not None
-        and active_profile_digest != selected_profile_digest
-    ):
-        return {
-            "route": "new_task_or_profile",
-            **common,
-            "reason": (
-                "選択したProfileは登録済みTaskの有効Profileと異なります。"
-                "暗黙に置き換えず、Profile追加手順へ分岐します。"
-            ),
-            "active_profile": str(active_profile_path),
-            "active_profile_digest": active_profile_digest,
-            "selected_profile_digest": selected_profile_digest,
-            "next": "docs/operations/dataset-input-profile.md#新しいデータフローを追加する場合",
-        }
     return {
         "route": "existing_task_replacement",
         "task_id": task_id,
         "source": str(source),
         "source_sha256": data.source_sha256,
-        "profile": str(active_profile_path),
+        "profile": str(profile.resolve()) if profile else data.profile_path,
         "profile_digest": active_profile_digest,
         "eligible_rows": sum(
             1
@@ -180,7 +186,8 @@ def diagnose_source(
         "next": (
             "npm run model:build -- --task "
             f"{task_id} --source \"{source}\" --package-id <new-id> "
-            "--package-version <new-version>"
+            f"--package-version <new-version>"
+            + (f' --profile "{profile}"' if profile else "")
         ),
     }
 
@@ -196,6 +203,7 @@ def build_package(
     replace: bool,
     estimator: str | None = None,
     estimator_options: dict[str, Any] | None = None,
+    profile: Path | None = None,
 ) -> dict[str, Any]:
     if output.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing model package: {output}")
@@ -216,7 +224,13 @@ def build_package(
                 f"supported: {supported}"
             )
         recipe = estimator_recipe(estimator, estimator_options)
-    dataset = export_dataset(task_id, source, dataset_output, replace=replace)
+    dataset = export_dataset(
+        task_id,
+        source,
+        dataset_output,
+        profile=profile,
+        replace=replace,
+    )
     if estimator is None:
         module.model_builder(
             source,
@@ -224,6 +238,7 @@ def build_package(
             replace=replace,
             package_id=package_id,
             package_version=package_version,
+            profile_path=profile,
         )
     else:
         assert authoring is not None
@@ -231,7 +246,7 @@ def build_package(
         build_standard_model_package(
             task_id=task_id,
             source=source,
-            data=_load_task_data(task_id, source),
+            data=_load_task_data(task_id, source, profile),
             contract=load_task_contracts()[task_id],
             candidate_builder=authoring.candidate_builder,
             recipe=recipe,
@@ -241,7 +256,21 @@ def build_package(
             replace=replace,
             positive_targets=authoring.positive_targets,
         )
-    report = verify_model_package(output, task_id=task_id, source=source)
+    report = verify_model_package(
+        output,
+        task_id=task_id,
+        source=source,
+        profile=profile,
+    )
+    manifest = ModelPackageLoader().load(output).manifest
+    feature_payload = json.loads(dataset_output.read_text(encoding="utf-8"))
+    dataset["feature_dataset_id"] = canonical_training_dataset_digest(
+        feature_payload,
+        algorithm=manifest.provenance.feature_dataset_digest_algorithm,
+    )
+    dataset["feature_dataset_digest_algorithm"] = (
+        manifest.provenance.feature_dataset_digest_algorithm
+    )
     return {"dataset": dataset, "package": report.model_dump()}
 
 
@@ -252,10 +281,21 @@ def promote_package(
     config: Path,
     *,
     activate: bool,
+    profile: Path | None = None,
 ) -> dict[str, Any]:
+    if activate and profile is not None:
+        raise ValueError(
+            "任意ProfileのPackageはProjectへ固定して利用してください。"
+            "active Packageは起動時Profileを固定できないため、--activateと併用できません"
+        )
     package = package.resolve(strict=True)
     source = _task_source(task_id, source)
-    verify_model_package(package, task_id=task_id, source=source)
+    verify_model_package(
+        package,
+        task_id=task_id,
+        source=source,
+        profile=profile,
+    )
     loaded = ModelPackageLoader().load(package)
     package_id = loaded.manifest.package_id
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{1,127}", package_id):
@@ -279,6 +319,7 @@ def promote_package(
         destination,
         task_id=task_id,
         source=source,
+        profile=profile,
     )
     available = register_available_package(
         destination,
@@ -306,8 +347,17 @@ def promote_package(
     }
 
 
-def activate_package(task_id: str, package: Path, source: Path, config: Path) -> dict[str, Any]:
-    report = verify_model_package(package, task_id=task_id, source=_task_source(task_id, source))
+def activate_package(
+    task_id: str,
+    package: Path,
+    source: Path,
+    config: Path,
+) -> dict[str, Any]:
+    report = verify_model_package(
+        package,
+        task_id=task_id,
+        source=_task_source(task_id, source),
+    )
     updated = set_active_package(task_id, package, config_path=config)
     selection = updated.tasks[task_id]
     return {
@@ -421,6 +471,7 @@ def _parser() -> argparse.ArgumentParser:
     data = subparsers.add_parser("data", help="Export the canonical training dataset used by a task pipeline.")
     data.add_argument("--task", required=True, choices=TASKS)
     data.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    data.add_argument("--profile", type=Path)
     data.add_argument("--output", type=Path, required=True)
     data.add_argument("--replace", action="store_true")
 
@@ -435,6 +486,7 @@ def _parser() -> argparse.ArgumentParser:
     build = subparsers.add_parser("build", help="Export canonical data, train, package, and verify one task.")
     build.add_argument("--task", required=True, choices=TASKS)
     build.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    build.add_argument("--profile", type=Path)
     build.add_argument("--output", type=Path)
     build.add_argument("--dataset-output", type=Path)
     build.add_argument("--package-id", required=True)
@@ -461,6 +513,7 @@ def _parser() -> argparse.ArgumentParser:
     verify = subparsers.add_parser("verify", help="Run loader, lifecycle, adapter, and production smoke checks.")
     verify.add_argument("--task", required=True, choices=TASKS)
     verify.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    verify.add_argument("--profile", type=Path)
     verify.add_argument("--package", type=Path, required=True)
 
     activate = subparsers.add_parser("activate", help="Verify then update the trusted active-package reference.")
@@ -475,6 +528,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     promote.add_argument("--task", required=True, choices=TASKS)
     promote.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    promote.add_argument("--profile", type=Path)
     promote.add_argument("--package", type=Path, required=True)
     promote.add_argument("--config", type=Path, default=ACTIVE_PACKAGES_PATH)
     promote.add_argument("--activate", action="store_true")
@@ -502,7 +556,13 @@ def main() -> int:
                 profile=arguments.profile,
             )
         elif arguments.command == "data":
-            result = export_dataset(arguments.task, arguments.source, arguments.output, replace=arguments.replace)
+            result = export_dataset(
+                arguments.task,
+                arguments.source,
+                arguments.output,
+                profile=arguments.profile,
+                replace=arguments.replace,
+            )
         elif arguments.command == "build":
             output = (
                 arguments.output
@@ -524,11 +584,17 @@ def main() -> int:
                 replace=arguments.replace,
                 estimator=arguments.estimator,
                 estimator_options=arguments.estimator_options,
+                profile=arguments.profile,
             )
         elif arguments.command == "estimators":
             result = estimator_inventory(arguments.task)
         elif arguments.command == "verify":
-            result = verify_model_package(arguments.package, task_id=arguments.task, source=_task_source(arguments.task, arguments.source)).model_dump()
+            result = verify_model_package(
+                arguments.package,
+                task_id=arguments.task,
+                source=_task_source(arguments.task, arguments.source),
+                profile=arguments.profile,
+            ).model_dump()
         elif arguments.command == "promote":
             result = promote_package(
                 arguments.task,
@@ -536,9 +602,15 @@ def main() -> int:
                 arguments.source,
                 arguments.config,
                 activate=arguments.activate,
+                profile=arguments.profile,
             )
         elif arguments.command == "activate":
-            result = activate_package(arguments.task, arguments.package, arguments.source, arguments.config)
+            result = activate_package(
+                arguments.task,
+                arguments.package,
+                arguments.source,
+                arguments.config,
+            )
         elif arguments.command == "rollback":
             result = rollback_package(arguments.task, arguments.source, arguments.config)
         else:

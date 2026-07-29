@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from material_workbench.data.dataset_profile import load_dataset_profile
 from material_workbench.data.importer import training_context_key
+from material_workbench.data.profile_document import lifecycle_profile_for_data
 from material_workbench.modeling.model_packages import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
@@ -245,13 +246,23 @@ def canonical_training_dataset(
     specialized = getattr(data, "canonical_training_dataset", None)
     if callable(specialized):
         return specialized(contract, pipeline_version=pipeline_version)
-    profile = getattr(data, "profile", None) or load_dataset_profile(data.profile_path)
-    if getattr(profile, "schema_version", "") == "tabular-dataset-profile/v1":
-        profile_columns = {target.key: (target.key, target.column) for target in profile.outputs}
+    runtime_profile = (
+        getattr(data, "profile", None)
+        or load_dataset_profile(data.profile_path)
+    )
+    lifecycle_profile = lifecycle_profile_for_data(data)
+    if (
+        getattr(runtime_profile, "schema_version", "")
+        == "tabular-dataset-profile/v1"
+    ):
+        profile_columns = {
+            target.key: (target.key, target.column)
+            for target in runtime_profile.outputs
+        }
     else:
         profile_columns = {
             target.key: target.source_columns
-            for observation in profile.tasks[task_id].observations
+            for observation in runtime_profile.tasks[task_id].observations
             for target in observation.targets
         }
     output_columns = {
@@ -317,7 +328,7 @@ def canonical_training_dataset(
         "schema_version": "canonical-training-dataset/v1",
         "task_id": task_id,
         "input_contract_digest": task_input_contract_digest(contract.task_definition),
-        "dataset_profile_digest": dataset_profile_digest(profile),
+        "dataset_profile_digest": dataset_profile_digest(lifecycle_profile),
         "source_data_digest": f"sha256:{data.source_sha256}",
         "feature_pipeline": {
             "id": first_bundle.pipeline_id,

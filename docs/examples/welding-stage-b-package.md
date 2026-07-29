@@ -50,7 +50,7 @@ Stage BのTask、feature pipeline、Packageはその31軸だけを読み、
 
 登録済みPackageは不変です。TaskDefinitionの契約が変わったときは、新しい
 ディレクトリへ作り直して `model:activate` で切り替えます（`<new>` は
-`welding-consumable-stage-b-ridge-v2` のような新しい版名）。
+`welding-consumable-stage-b-ridge-v4` のような新しい版名）。
 
 ```powershell
 npm run model:build -- --task welding-consumable-stage-b-v1 --output models/packages/<new>

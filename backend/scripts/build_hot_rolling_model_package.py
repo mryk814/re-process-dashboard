@@ -239,8 +239,8 @@ def _selection_report(arrays: dict[str, np.ndarray]) -> SparseSelectionReport:
     })
 
 
-def _build(source: Path, destination: Path) -> None:
-    data = load_workbook_data(source)
+def _build(source: Path, destination: Path, profile: object | None = None) -> None:
+    data = load_workbook_data(source, profile=profile)
     contract = load_task_contracts()[TASK_ID]
     output = contract.task_definition.outputs[0]
     column = f"{output.key}[{output.unit}]"
@@ -315,7 +315,7 @@ def _build(source: Path, destination: Path) -> None:
         "runtime_capability_digest": runtime_capability_digest(contract.runtime_capability),
         "feature_pipeline": {"id": PIPELINE_ID, "version": PIPELINE_VERSION, "spec": pipeline_path.relative_to(destination).as_posix(), "canonical_input_paths": list(CANONICAL_INPUT_PATHS), "output_features": list(FEATURE_NAMES), "artifacts": [stats_path.relative_to(destination).as_posix()]},
         "predictors": [{"id": "ts-horseshoe", "target": "TS", "unit": output.unit, "target_kind": "continuous", "runtime_type": "builtin.posterior_linear.v1", "architecture_id": "posterior_linear_v1", "artifact": model_path.relative_to(destination).as_posix(), "predictive_family": "normal", "feature_names": list(FEATURE_NAMES), "config": {"training_unit": "parent_condition_mean", "method": "tiny_demo_ridge_posterior" if tiny_demo else "regularized_horseshoe", "output_representation": "moment_matched_normal"}}],
-        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(Path(data.profile_path))},
+        "provenance": {"training_data_id": f"sha256:{data.source_sha256}", "feature_dataset_id": canonical_training_dataset_digest(canonical_dataset), "training_code_revision": TRAINING_CODE_REVISION, "dataset_profile_id": dataset_profile_digest(data.profile)},
         "artifacts": [_artifact(destination, path) for path in files],
         "smoke_test": {"input": smoke_input.relative_to(destination).as_posix(), "expected": smoke_expected.relative_to(destination).as_posix()},
         "quality_report": quality_path.relative_to(destination).as_posix(),
@@ -330,16 +330,22 @@ def build(
     replace: bool = False,
     package_id: str = PACKAGE_ID,
     package_version: str = PACKAGE_VERSION,
+    profile: object | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
-        _build(source, staging)
+        _build(source, staging, profile)
         if package_id != PACKAGE_ID or package_version != PACKAGE_VERSION:
             manifest_path = staging / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["package_id"] = package_id
             manifest["package_version"] = package_version
             _write_json(manifest_path, manifest)
-        verify_model_package(staging, task_id=TASK_ID, source=source)
+        verify_model_package(
+            staging,
+            task_id=TASK_ID,
+            source=source,
+            profile=profile,
+        )
 
 
 if __name__ == "__main__":
