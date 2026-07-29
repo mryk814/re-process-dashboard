@@ -131,28 +131,30 @@ export function ResponseContourPanel({
                 {outputs.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
               </select>
             </label>
-            <label>横軸
-              <select value={xPath} onChange={(event) => {
-                const next = event.target.value;
-                setXPath(next);
-                if (next === yPath) setYPath(xPath);
-              }}>
-                {axes.map((item) => <option key={item.path} value={item.path}>{item.label}{item.unit ? ` (${item.unit})` : ""}</option>)}
-              </select>
-            </label>
-            <button type="button" className="text-button contour-swap-button" onClick={() => {
-              setXPath(yPath);
-              setYPath(xPath);
-            }} aria-label="横軸と縦軸を入れ替える">↔ 入替</button>
-            <label>縦軸
-              <select value={yPath} onChange={(event) => {
-                const next = event.target.value;
-                setYPath(next);
-                if (next === xPath) setXPath(yPath);
-              }}>
-                {axes.map((item) => <option key={item.path} value={item.path}>{item.label}{item.unit ? ` (${item.unit})` : ""}</option>)}
-              </select>
-            </label>
+            <div className="contour-axis-controls" role="group" aria-label="表示軸">
+              <label>横軸
+                <select value={xPath} onChange={(event) => {
+                  const next = event.target.value;
+                  setXPath(next);
+                  if (next === yPath) setYPath(xPath);
+                }}>
+                  {axes.map((item) => <option key={item.path} value={item.path}>{item.label}{item.unit ? ` (${item.unit})` : ""}</option>)}
+                </select>
+              </label>
+              <button type="button" className="text-button contour-swap-button" onClick={() => {
+                setXPath(yPath);
+                setYPath(xPath);
+              }} aria-label="横軸と縦軸を入れ替える">↔ 入替</button>
+              <label>縦軸
+                <select value={yPath} onChange={(event) => {
+                  const next = event.target.value;
+                  setYPath(next);
+                  if (next === xPath) setXPath(yPath);
+                }}>
+                  {axes.map((item) => <option key={item.path} value={item.path}>{item.label}{item.unit ? ` (${item.unit})` : ""}</option>)}
+                </select>
+              </label>
+            </div>
           </div>
           {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p>
             : loading ? <p className="empty-evidence" role="status">予測地図を計算しています。</p>

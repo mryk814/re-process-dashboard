@@ -56,6 +56,11 @@ test("Task-declared prediction contour loads on demand and keeps support separat
   expect(response.status()).toBe(200);
   expect((await response.json()).grid_shape).toEqual([11, 11]);
   await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
+  const axisGroup = page.getByRole("group", { name: "表示軸" });
+  await expect(axisGroup.getByRole("combobox", { name: "横軸" })).toBeVisible();
+  await expect(axisGroup.getByRole("combobox", { name: "縦軸" })).toBeVisible();
+  await expect(axisGroup.getByRole("button", { name: "横軸と縦軸を入れ替える" })).toBeVisible();
+  expect(await axisGroup.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThan(500);
   await expect(page.getByText(/既存実績から遠い（予測非表示）/)).toBeVisible();
   await expect(page.locator(".response-contour-header p")).toContainText(
     "固定した他の入力まで含めると既存実績から遠い",
@@ -79,16 +84,39 @@ test("Task-declared prediction contour loads on demand and keeps support separat
   await expect(page.getByRole("img", { name: /LS.*Mn.*予測地図/ })).toBeVisible();
   expect(contourRequests).toBe(2);
 
+  const xAxis = axisGroup.getByRole("combobox", { name: "横軸" });
+  const yAxis = axisGroup.getByRole("combobox", { name: "縦軸" });
+  const xBeforeSwap = await xAxis.inputValue();
+  const yBeforeSwap = await yAxis.inputValue();
+  const swappedAxesResponse = page.waitForResponse((candidateResponse) => {
+    const url = new URL(candidateResponse.url());
+    return url.pathname.endsWith("/response-contour")
+      && url.searchParams.get("x_variable") === yBeforeSwap
+      && url.searchParams.get("y_variable") === xBeforeSwap;
+  });
+  await axisGroup.getByRole("button", { name: "横軸と縦軸を入れ替える" }).click();
+  await expect(xAxis).toHaveValue(yBeforeSwap);
+  await expect(yAxis).toHaveValue(xBeforeSwap);
+  expect((await swappedAxesResponse).status()).toBe(200);
+  expect(contourRequests).toBe(3);
+
   await page.getByRole("tab", { name: "応答曲線" }).click();
   await page.getByRole("tab", { name: "予測地図" }).click();
   await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
-  expect(contourRequests).toBe(2);
+  expect(contourRequests).toBe(3);
 
   await page.setViewportSize({ width: 720, height: 900 });
   await expect(page.getByRole("combobox", { name: "横軸" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(720);
   await page.locator(".response-contour-panel").screenshot({
     path: testInfo.outputPath("response-contour.png"),
+  });
+  await page.setViewportSize({ width: 375, height: 900 });
+  await expect.poll(() => axisGroup.evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  )).toBeLessThanOrEqual(0);
+  await page.locator(".response-contour-panel").screenshot({
+    path: testInfo.outputPath("response-contour-narrow.png"),
   });
 });
 
