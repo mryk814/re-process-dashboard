@@ -28,10 +28,11 @@ feature間の依存は図に示した組合せだけを許可し、循環させ�
 - **`main.tsx`**：Reactの起動だけを担当します。
 - **`app/`**：URLの `NavigationIntent`、プロジェクト全体のセッション、画面の構成、候補の作成元からの遷移を担当します。
 - **`features/candidates/`**：候補モデル、TaskDefinition駆動の入力UI、編集、保存、比較表を担当します。
-- **`features/workbench/`**：選択候補を優先するプレビュー、詳細予測、根拠、応答曲線、曲線ファミリー、スナップショット、実測値を担当します。
+- **`features/workbench/`**：選択候補を優先するプレビュー、詳細予測、根拠、応答曲線、特性バランス、曲線ファミリー、スナップショット、実測値を担当します。
   - `workbenchSurfaceRegistry.ts` がallow-list済みSurfaceの配置zoneと表示名を所有します。
   - Taskごとの種類・順序・コンター軸は `ResolvedTaskDefinition.application.workbench_surfaces` から受け取り、`WorkbenchPage`へTask ID分岐を書きません。
   - `ResponseContourPanel` は表示操作後だけ専用APIを読み、候補revision・入力identity・出力・2軸・格子数が変われば古い応答を破棄します。
+  - `PredictionSpacePanel` は既に得た候補previewを再利用し、表示中だけ両出力がそろう学習元条件の実測平均を取得します。軸別区間をjoint uncertaintyとして扱いません。
 - **`features/projects/`**：プロジェクト概要、保存結果、履歴を担当します。
 - **`features/quality/`**：データ品質の一覧、filter、系譜への接続を担当します。
 - **`features/lineage/`**：工程系譜の探索と、実績からの候補作成を担当します。

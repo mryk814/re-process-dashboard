@@ -41,6 +41,7 @@ const workbenchSurfaceKinds = new Set([
   "curve_family",
   "response_curve",
   "response_contour",
+  "prediction_space",
   "similarity",
   "feature_engineering",
 ]);
@@ -93,6 +94,18 @@ export function validateResolvedTaskDefinition(resolved: ResolvedTaskDefinition)
     if (surface.kind === "response_contour") {
       if (surface.axis_paths.length < 2 || new Set(surface.axis_paths).size !== surface.axis_paths.length) {
         throw new Error("Response contour requires at least two unique axes");
+      }
+    }
+    if (surface.kind === "prediction_space") {
+      if (
+        surface.target_keys.length < 2
+        || new Set(surface.target_keys).size !== surface.target_keys.length
+      ) {
+        throw new Error("Prediction space requires at least two unique targets");
+      }
+      const outputKeys = new Set(definition.outputs.map((output) => output.key));
+      if (surface.target_keys.some((target) => !outputKeys.has(target))) {
+        throw new Error("Prediction space targets must reference task outputs");
       }
     }
   }

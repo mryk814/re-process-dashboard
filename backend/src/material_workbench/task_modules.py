@@ -18,6 +18,7 @@ from material_workbench.contracts.task_contracts import (
     ApplicationCapability,
     BasicWorkbenchSurfaceDefinition,
     DataExplorerCapability,
+    PredictionSpaceSurfaceDefinition,
     TaskDefinition,
     ResponseContourSurfaceDefinition,
 )
@@ -840,6 +841,7 @@ def _application_capability(
     actual_measurement: bool,
     response_curve: bool,
     similarity: bool,
+    prediction_space_targets: tuple[str, ...] = (),
     curve_family: bool = False,
     contour_axes: tuple[str, ...] = (),
     candidate_excel_import: bool = False,
@@ -848,7 +850,9 @@ def _application_capability(
     project_creation: bool = True,
 ) -> ApplicationCapability:
     surfaces: list[
-        BasicWorkbenchSurfaceDefinition | ResponseContourSurfaceDefinition
+        BasicWorkbenchSurfaceDefinition
+        | PredictionSpaceSurfaceDefinition
+        | ResponseContourSurfaceDefinition
     ] = []
 
     def basic(kind: str) -> None:
@@ -867,6 +871,14 @@ def _application_capability(
         basic("curve_family")
     if response_curve:
         basic("response_curve")
+    if prediction_space_targets:
+        surfaces.append(
+            PredictionSpaceSurfaceDefinition(
+                kind="prediction_space",
+                order=len(surfaces) * 10,
+                target_keys=prediction_space_targets,
+            )
+        )
     if contour_axes:
         surfaces.append(
             ResponseContourSurfaceDefinition(
@@ -905,6 +917,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=True,
             response_curve=False,
             similarity=True,
+            prediction_space_targets=("C", "Mn", "Si", "Ni", "Cr", "Mo"),
             sparse_blend_transform_id="welding-stage-a-v1",
         ),
         starter_project=StarterProject(
@@ -933,6 +946,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=True,
             response_curve=True,
             similarity=True,
+            prediction_space_targets=("TS", "YS", "EL", "lambda"),
             contour_axes=("composition.C", "composition.Mn", "process.ls_mpm"),
             candidate_excel_import=True,
             candidate_excel_export=True,
@@ -990,6 +1004,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=True,
             response_curve=True,
             similarity=True,
+            prediction_space_targets=("VB_mean", "VB_max"),
             curve_family=True,
         ),
         response_curve=_standard_response_curve,
@@ -1013,6 +1028,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=False,
             response_curve=True,
             similarity=True,
+            prediction_space_targets=("hardness_hv", "charpy_j"),
             contour_axes=(
                 "process.tempering_temp_c",
                 "process.cooling_rate_c_per_s",
@@ -1169,6 +1185,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=False,
             response_curve=False,
             similarity=True,
+            prediction_space_targets=("TYS", "UTS", "EL"),
         ),
         starter_project=_tabular_starter(MPEA_ROOM_TENSILE_TASK_ID, "MPEA文献の室温引張特性"),
         data_explorer=_TABULAR_EXPLORER,
@@ -1209,6 +1226,14 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
             actual_measurement=False,
             response_curve=True,
             similarity=True,
+            prediction_space_targets=(
+                "TS",
+                "YS",
+                "EL",
+                "RA",
+                "CHARPY_ENERGY",
+                "CORROSION_RATE",
+            ),
         ),
         starter_project=StarterProject(
             "welding-stage-c-default",

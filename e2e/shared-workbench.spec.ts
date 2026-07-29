@@ -120,6 +120,71 @@ test("Task-declared prediction contour loads on demand and keeps support separat
   });
 });
 
+test("Task-declared prediction space compares candidates with paired training actuals", async ({ page }, testInfo) => {
+  let evidenceRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/output-space-evidence")) evidenceRequests += 1;
+  });
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("tab", { name: "特性バランス" })).toBeVisible();
+  expect(evidenceRequests).toBe(0);
+
+  const evidenceResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/output-space-evidence"),
+  );
+  await page.getByRole("tab", { name: "特性バランス" }).click();
+  const response = await evidenceResponse;
+  expect(response.status()).toBe(200);
+  const evidence = await response.json() as { total_contexts: number; points: unknown[] };
+  expect(evidence.total_contexts).toBeGreaterThan(0);
+  expect(evidence.points.length).toBe(evidence.total_contexts);
+
+  const panel = page.locator(".prediction-space-panel");
+  await expect(panel.getByRole("heading", { name: "特性のトレードオフ" })).toBeVisible();
+  await expect(panel.getByRole("img", { name: /引張強さと降伏強さ/ })).toBeVisible();
+  await expect(panel.locator(".prediction-space-actual")).toHaveCount(evidence.total_contexts);
+  await expect(panel.locator(".prediction-space-candidate")).toHaveCount(3);
+  await expect(panel.locator(".prediction-space-interval")).toHaveCount(6);
+  await expect(panel.locator("svg [role=button]")).toHaveCount(0);
+  await expect(panel).toContainText("2特性を同時に含む確率領域ではありません");
+  await expect(panel).toContainText("予測値や同一試料の相関ではありません");
+
+  const actualXPositions = await panel.locator(".prediction-space-actual").evaluateAll(
+    (elements) => elements.map((element) => Number(element.getAttribute("x"))),
+  );
+  expect(Math.max(...actualXPositions) - Math.min(...actualXPositions)).toBeGreaterThan(100);
+
+  const xAxis = panel.getByRole("combobox", { name: "横軸" });
+  const yAxis = panel.getByRole("combobox", { name: "縦軸" });
+  await expect(xAxis).toHaveValue("TS");
+  await expect(yAxis).toHaveValue("YS");
+  const swappedResponse = page.waitForResponse((candidateResponse) => {
+    const url = new URL(candidateResponse.url());
+    return url.pathname.endsWith("/output-space-evidence")
+      && url.searchParams.get("x_target") === "YS"
+      && url.searchParams.get("y_target") === "TS";
+  });
+  await panel.getByRole("button", { name: "横軸と縦軸を入れ替え" }).click();
+  expect((await swappedResponse).status()).toBe(200);
+  await expect(xAxis).toHaveValue("YS");
+  await expect(yAxis).toHaveValue("TS");
+  expect(evidenceRequests).toBe(2);
+
+  await panel.getByText("数値で確認", { exact: true }).click();
+  const numericalTable = panel.getByRole("table");
+  await expect(numericalTable).toBeVisible();
+  await expect(numericalTable.getByText("学習実績", { exact: true })).toHaveCount(evidence.total_contexts);
+  await expect(numericalTable).toContainText("ME-");
+  await expect(numericalTable).toContainText("同じ実測行");
+  const candidateButtons = numericalTable.locator(".prediction-space-row-select");
+  await candidateButtons.nth(1).focus();
+  await candidateButtons.nth(1).press("Enter");
+  await expect(candidateButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await page.setViewportSize({ width: 720, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(720);
+  await panel.screenshot({ path: testInfo.outputPath("prediction-space-narrow.png") });
+});
+
 for (const task of tasks) {
   test(`${task.projectId} uses the common candidate, prediction, and snapshot flow`, async ({ page }) => {
     const pageErrors: string[] = [];

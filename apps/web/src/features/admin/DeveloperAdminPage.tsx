@@ -148,6 +148,8 @@ export function DeveloperAdminPage({
         initialTab={developerTab}
         invalidTabId={developerTabError}
         initialGuideId={developerGuideId}
+        projectId={project?.id}
+        taskDefinition={taskDefinition}
         onLocationChange={onDeveloperLocationChange}
       />}
       {visibleSection === "ranges" && <InputRangeSettingsPage project={project} taskDefinition={taskDefinition} readOnly={readOnly} onProjectChanged={onProjectChanged} />}

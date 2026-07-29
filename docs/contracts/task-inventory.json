@@ -130,12 +130,25 @@
             "order": 10
           },
           {
+            "kind": "prediction_space",
+            "order": 20,
+            "target_keys": [
+              "C",
+              "Mn",
+              "Si",
+              "Ni",
+              "Cr",
+              "Mo"
+            ],
+            "historical_limit": 200
+          },
+          {
             "kind": "similarity",
-            "order": 20
+            "order": 30
           },
           {
             "kind": "feature_engineering",
-            "order": 30
+            "order": 40
           }
         ],
         "project_creation": true,
@@ -208,8 +221,19 @@
             "order": 10
           },
           {
-            "kind": "response_contour",
+            "kind": "prediction_space",
             "order": 20,
+            "target_keys": [
+              "TS",
+              "YS",
+              "EL",
+              "lambda"
+            ],
+            "historical_limit": 200
+          },
+          {
+            "kind": "response_contour",
+            "order": 30,
             "axis_paths": [
               "composition.C",
               "composition.Mn",
@@ -219,11 +243,11 @@
           },
           {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -374,12 +398,21 @@
             "order": 20
           },
           {
+            "kind": "prediction_space",
+            "order": 30,
+            "target_keys": [
+              "VB_mean",
+              "VB_max"
+            ],
+            "historical_limit": 200
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -438,8 +471,17 @@
             "order": 0
           },
           {
-            "kind": "response_contour",
+            "kind": "prediction_space",
             "order": 10,
+            "target_keys": [
+              "hardness_hv",
+              "charpy_j"
+            ],
+            "historical_limit": 200
+          },
+          {
+            "kind": "response_contour",
+            "order": 20,
             "axis_paths": [
               "process.tempering_temp_c",
               "process.cooling_rate_c_per_s",
@@ -449,11 +491,11 @@
           },
           {
             "kind": "similarity",
-            "order": 20
+            "order": 30
           },
           {
             "kind": "feature_engineering",
-            "order": 30
+            "order": 40
           }
         ],
         "project_creation": true,
@@ -889,12 +931,22 @@
       "application_capability": {
         "workbench_surfaces": [
           {
+            "kind": "prediction_space",
+            "order": 0,
+            "target_keys": [
+              "TYS",
+              "UTS",
+              "EL"
+            ],
+            "historical_limit": 200
+          },
+          {
             "kind": "similarity",
-            "order": 0
+            "order": 10
           },
           {
             "kind": "feature_engineering",
-            "order": 10
+            "order": 20
           }
         ],
         "project_creation": true,
@@ -1043,12 +1095,25 @@
             "order": 0
           },
           {
+            "kind": "prediction_space",
+            "order": 10,
+            "target_keys": [
+              "TS",
+              "YS",
+              "EL",
+              "RA",
+              "CHARPY_ENERGY",
+              "CORROSION_RATE"
+            ],
+            "historical_limit": 200
+          },
+          {
             "kind": "similarity",
-            "order": 10
+            "order": 20
           },
           {
             "kind": "feature_engineering",
-            "order": 20
+            "order": 30
           }
         ],
         "project_creation": true,

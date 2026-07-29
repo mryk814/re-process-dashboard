@@ -26,10 +26,12 @@ export function DataLibraryPage({
   projects,
   onAddDataset,
   onStartProject,
+  onOpenTrainingData,
 }: {
   projects: ApiProject[];
   onAddDataset: () => void;
   onStartProject: (datasetViewRevisionId: string) => void;
+  onOpenTrainingData: (projectId: string) => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [datasets, setDatasets] = useState<ApiDataLibraryDataset[]>([]);
@@ -411,6 +413,14 @@ export function DataLibraryPage({
                     <div><dt>予測タスク</dt><dd>{taskLabel(item.task_id)}</dd></div>
                     <div><dt>学習時プロファイル</dt><dd>{source ? `${source.profile_revision.name} · r${source.profile_revision.revision}` : "—"}</dd></div>
                   </dl>
+                  {usingProjects[0] && <div className="model-package-actions">
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={() => onOpenTrainingData(usingProjects[0].id)}
+                    >学習データの採否を見る</button>
+                    <small>{usingProjects[0].name}で固定されたPackageを確認</small>
+                  </div>}
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
                   <details className="resource-manage-menu">
                     <summary aria-label={`${packageDisplayNames.get(item.id)}の管理`}>管理</summary>

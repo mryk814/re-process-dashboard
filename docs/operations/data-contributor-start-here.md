@@ -111,6 +111,13 @@ npm run model:build -- `
 一覧にないEstimatorは、予測分布や不確かさの契約を満たさないため拒否されます。
 データ利用者が同じ検証を新しいテストとして書き直す必要はありません。
 
+Packageを使うProjectを作成した後は、データライブラリで対象モデルの
+「学習データの採否を見る」を開けます。
+画面では、元データ、目的変数ごとの採用データ、Feature Pipelineと反復集約を通った
+実際のモデル入力を同じ行数フローで確認できます。
+「思ったよりデータを使っていない」と感じたときは、先にここで不採用理由と
+モデル入力行数を確認してください。
+
 Packageをアプリの選択肢へ追加する手順と、起動中のアプリへ再読込する方法は[Model Packageのライフサイクル](model-package-lifecycle.md#fresh-cloneから新しいデータを使うgolden-path)を参照してください。
 現在の`model:promote`はリポジトリ内の`models/packages/`とPackage一覧を更新します。
 製品へ同梱しない個人用Packageも、現状ではworking tree内に置かれます。

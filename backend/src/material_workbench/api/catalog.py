@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from statistics import fmean
 from typing import Any, Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -19,9 +20,17 @@ from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset_digest,
     validate_lifecycle_metadata,
 )
+from material_workbench.modeling.training.feature_dataset import (
+    compile_target_training_set,
+)
 from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
 from material_workbench.data.importer import training_context_key
-from material_workbench.contracts.schemas import ModelPackageStatus, ModelTrainingDataPage, TaskCatalogItem
+from material_workbench.contracts.schemas import (
+    ModelPackageStatus,
+    ModelTrainingDataPage,
+    OutputSpaceEvidenceResponse,
+    TaskCatalogItem,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
@@ -259,11 +268,41 @@ def model_training_data(
     )
     selected_rows = [row for row in canonical["rows"] if selected_target in row["outputs"]]
     predictor = next(item for item in package.manifest.predictors if item.target == selected_target)
-    training_unit = predictor.config.get("training_unit", "individual_observation")
-    if training_unit not in {"individual_observation", "parent_condition_mean"}:
-        training_unit = "individual_observation"
+    training_unit = str(
+        predictor.config.get("training_unit", "individual_observation")
+    )
+    supported_training_units = {
+        "individual_observation",
+        "parent_condition_mean",
+        "replicate_context_mean",
+        "source_row",
+        "independent source row",
+        "source_row_grouped_by_parent",
+        "wear_measurement_row",
+    }
+    if training_unit not in supported_training_units:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unsupported model training unit: {training_unit}",
+        )
     observations = {str(row["id"]): row for row in data.observations}
     output = next(item for item in contract.task_definition.outputs if item.key == selected_target)
+    compiled_training = (
+        compile_target_training_set(
+            canonical,
+            target=selected_target,
+            unit=output.unit,
+        )
+        if training_unit == "replicate_context_mean"
+        else None
+    )
+    model_row_count = (
+        len(compiled_training.y)
+        if compiled_training is not None
+        else len({training_context_key(row) for row in selected_rows})
+        if training_unit == "parent_condition_mean"
+        else len(selected_rows)
+    )
     curation_rows = [
         (
             row,
@@ -439,6 +478,9 @@ def model_training_data(
                     "parent_key": group_rows[0]["parent_key"],
                     "condition_context_id": context_key,
                     "composition_key": group_rows[0].get("composition_key"),
+                    "observation_ids": [
+                        str(row["observation_id"]) for row in group_rows
+                    ],
                     "replicate_count": len(group_rows),
                     "features": {
                         key: sum(float(row["features"][key]) for row in group_rows) / len(group_rows)
@@ -453,7 +495,70 @@ def model_training_data(
             feature_identifier_columns = [
                 {"key": "parent_key", "label": "親工程条件", "unit": None, "group": "識別"},
                 {"key": "composition_key", "label": "成分キー", "unit": None, "group": "識別"},
+                {"key": "observation_ids", "label": "実測ID", "unit": None, "group": "識別"},
                 {"key": "replicate_count", "label": "個々値数", "unit": "件", "group": "識別"},
+            ]
+        elif training_unit == "replicate_context_mean":
+            assert compiled_training is not None
+            compiled = compiled_training
+            model_rows = [
+                {
+                    "observation_id": context_id,
+                    "parent_key": validation_group,
+                    "replicate_context": context_id,
+                    "validation_group": validation_group,
+                    "observation_ids": list(observation_ids),
+                    "replicate_count": repeat_count,
+                    "features": {
+                        feature_name: float(compiled.x[index, feature_index])
+                        for feature_index, feature_name in enumerate(
+                            compiled.feature_names
+                        )
+                    },
+                    "outputs": {
+                        selected_target: float(compiled.y[index]),
+                    },
+                }
+                for index, (
+                    context_id,
+                    validation_group,
+                    observation_ids,
+                    repeat_count,
+                ) in enumerate(
+                    zip(
+                        compiled.replicate_contexts,
+                        compiled.validation_groups,
+                        compiled.observation_ids,
+                        compiled.repeat_counts,
+                        strict=True,
+                    )
+                )
+            ]
+            feature_identifier_columns = [
+                {
+                    "key": "replicate_context",
+                    "label": "反復コンテキスト",
+                    "unit": None,
+                    "group": "識別",
+                },
+                {
+                    "key": "validation_group",
+                    "label": "検証グループ",
+                    "unit": None,
+                    "group": "識別",
+                },
+                {
+                    "key": "observation_ids",
+                    "label": "実測ID",
+                    "unit": None,
+                    "group": "識別",
+                },
+                {
+                    "key": "replicate_count",
+                    "label": "個々値数",
+                    "unit": "件",
+                    "group": "識別",
+                },
             ]
         columns = [
             *feature_identifier_columns,
@@ -476,7 +581,26 @@ def model_training_data(
                     "parent_key": row["parent_key"],
                     **({"observation_id": row["observation_id"]} if training_unit == "individual_observation" else {}),
                     **({"composition_key": row.get("composition_key")} if training_unit == "parent_condition_mean" else {}),
-                    **({"replicate_count": row["replicate_count"]} if training_unit == "parent_condition_mean" else {}),
+                    **(
+                        {
+                            "replicate_context": row["replicate_context"],
+                            "validation_group": row["validation_group"],
+                        }
+                        if training_unit == "replicate_context_mean"
+                        else {}
+                    ),
+                    **(
+                        {"observation_ids": ", ".join(row["observation_ids"])}
+                        if training_unit
+                        in {"parent_condition_mean", "replicate_context_mean"}
+                        else {}
+                    ),
+                    **(
+                        {"replicate_count": row["replicate_count"]}
+                        if training_unit
+                        in {"parent_condition_mean", "replicate_context_mean"}
+                        else {}
+                    ),
                     **{f"feature.{key}": value for key, value in row["features"].items()},
                     f"output.{selected_target}": row["outputs"][selected_target],
                 },
@@ -492,6 +616,11 @@ def model_training_data(
         "feature_pipeline_id": canonical["feature_pipeline"]["id"],
         "feature_pipeline_version": canonical["feature_pipeline"]["version"],
         "training_unit": training_unit,
+        "stage_counts": {
+            "source_rows": len(data.observations),
+            "selected_rows": len(selected_rows),
+            "model_rows": model_row_count,
+        },
         "total": (
             len(data.observations)
             if stage == "curation"
@@ -510,6 +639,170 @@ def model_training_data(
         "rows": page_rows,
         "curation_summary": curation_summary,
     }
+
+
+@router.get(
+    "/api/projects/{project_id}/model-package/output-space-evidence",
+    response_model=OutputSpaceEvidenceResponse,
+    responses=PROJECT_API_ERRORS,
+    operation_id="getProjectOutputSpaceEvidence",
+)
+def output_space_evidence(
+    project_id: str,
+    store: StoreDependency,
+    registry: RegistryDependency,
+    resolver: ResolverDependency,
+    x_target: Annotated[str, Query(min_length=1)],
+    y_target: Annotated[str, Query(min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 200,
+) -> dict[str, Any]:
+    if x_target == y_target:
+        raise HTTPException(status_code=422, detail="output space axes must be different")
+    project = project_or_404(store, project_id)
+    resolved = resolver.resolve(project)
+    package = resolved.runtime.model_package
+    assert package is not None
+    contract = registry.contract_for(project.task_id)
+    available_targets = {item.target for item in package.manifest.predictors}
+    if x_target not in available_targets or y_target not in available_targets:
+        raise HTTPException(
+            status_code=422,
+            detail="output space axes must be predicted by the model package",
+        )
+    data = resolved.runtime.data
+    validate_lifecycle_metadata(
+        package,
+        contract,
+        profile_path=_lifecycle_profile(data),
+    )
+    canonical = canonical_training_dataset(
+        project.task_id,
+        data,
+        contract,
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
+    points = _output_space_evidence_points(
+        canonical["rows"],
+        x_target=x_target,
+        y_target=y_target,
+    )
+    visible = _sample_output_space_evidence(points, limit)
+    return {
+        "x_target": x_target,
+        "y_target": y_target,
+        "source_data_digest": canonical["source_data_digest"],
+        "sampling_policy": (
+            "output_space_coverage" if len(visible) < len(points) else "all"
+        ),
+        "total_contexts": len(points),
+        "returned_contexts": len(visible),
+        "truncated": len(visible) < len(points),
+        "points": visible,
+    }
+
+
+def _output_space_evidence_points(
+    rows: list[dict[str, Any]],
+    *,
+    x_target: str,
+    y_target: str,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if x_target not in row["outputs"] and y_target not in row["outputs"]:
+            continue
+        grouped.setdefault(training_context_key(row), []).append(row)
+    points = []
+    for context_id, rows in sorted(grouped.items()):
+        x_observations = [
+            (str(row["observation_id"]), float(row["outputs"][x_target]))
+            for row in rows
+            if x_target in row["outputs"]
+        ]
+        y_observations = [
+            (str(row["observation_id"]), float(row["outputs"][y_target]))
+            for row in rows
+            if y_target in row["outputs"]
+        ]
+        if not x_observations or not y_observations:
+            continue
+        parent_keys = {str(row["parent_key"]) for row in rows}
+        if len(parent_keys) != 1:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "output-space context spans multiple validation groups: "
+                    f"{context_id}"
+                ),
+            )
+        x_ids = {observation_id for observation_id, _ in x_observations}
+        y_ids = {observation_id for observation_id, _ in y_observations}
+        relationship = (
+            "same_observations"
+            if x_ids == y_ids
+            else "overlapping_observations"
+            if x_ids & y_ids
+            else "distinct_observations"
+        )
+        points.append({
+            "context_id": context_id,
+            "parent_key": next(iter(parent_keys)),
+            "pairing_relationship": relationship,
+            "x": {
+                "mean": fmean(value for _, value in x_observations),
+                "count": len(x_observations),
+                "observation_ids": sorted(x_ids),
+            },
+            "y": {
+                "mean": fmean(value for _, value in y_observations),
+                "count": len(y_observations),
+                "observation_ids": sorted(y_ids),
+            },
+        })
+    return points
+
+
+def _sample_output_space_evidence(
+    points: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    if len(points) <= limit:
+        return points
+    x_values = [float(point["x"]["mean"]) for point in points]
+    y_values = [float(point["y"]["mean"]) for point in points]
+    x_min, x_max = min(x_values), max(x_values)
+    y_min, y_max = min(y_values), max(y_values)
+    x_span = x_max - x_min or 1.0
+    y_span = y_max - y_min or 1.0
+    normalized = [
+        ((x_value - x_min) / x_span, (y_value - y_min) / y_span)
+        for x_value, y_value in zip(x_values, y_values, strict=True)
+    ]
+    selected: list[int] = []
+    for index in (
+        min(range(len(points)), key=lambda item: (x_values[item], points[item]["context_id"])),
+        max(range(len(points)), key=lambda item: (x_values[item], points[item]["context_id"])),
+        min(range(len(points)), key=lambda item: (y_values[item], points[item]["context_id"])),
+        max(range(len(points)), key=lambda item: (y_values[item], points[item]["context_id"])),
+    ):
+        if index not in selected:
+            selected.append(index)
+    while len(selected) < limit:
+        best_index = -1
+        best_distance = -1.0
+        for index, (point_x, point_y) in enumerate(normalized):
+            if index in selected:
+                continue
+            distance = min(
+                (point_x - normalized[selected_index][0]) ** 2
+                + (point_y - normalized[selected_index][1]) ** 2
+                for selected_index in selected
+            )
+            if distance > best_distance:
+                best_index = index
+                best_distance = distance
+        selected.append(best_index)
+    return [points[index] for index in sorted(selected)]
 
 
 @router.get(

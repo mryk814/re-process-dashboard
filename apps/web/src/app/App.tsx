@@ -508,6 +508,12 @@ function App() {
           projects={projects}
           onAddDataset={() => navigate({ view: "profile-workbench" })}
           onStartProject={startProjectForDataset}
+          onOpenTrainingData={(projectId) => navigate({
+            view: "workspace",
+            projectId,
+            adminSection: "developer",
+            developerTab: "training",
+          })}
         />}
         {tab === "profile-workbench" && <ProfileWorkbenchPage
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
@@ -535,6 +541,8 @@ function App() {
             developerTab={navigation.developerTab}
             developerTabError={navigation.developerTabError}
             developerGuideId={navigation.developerGuideId}
+            projectId={activeProjectId}
+            taskDefinition={taskDefinition}
             onDeveloperLocationChange={(developerTab, developerGuideId) => navigate({
               ...navigationRef.current,
               view: "workspace",

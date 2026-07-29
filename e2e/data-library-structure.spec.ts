@@ -41,3 +41,28 @@ test("Data Library structure has no page-level horizontal overflow on mobile", a
   }));
   expect(width.scrollWidth).toBeLessThanOrEqual(width.clientWidth);
 });
+
+test("Data Library opens the exact model training row trace", async ({ page }, testInfo) => {
+  await page.goto("/?view=data-library");
+  await page.getByRole("button", { name: "学習データの採否を見る" }).first().click();
+
+  await expect(page).toHaveURL(/view=workspace.*admin=developer.*developer_tab=training/);
+  await expect(page.getByRole("heading", { name: "このProjectでモデルが使ったデータ" })).toBeVisible();
+  const inspector = page.locator(".model-training-data");
+  await expect(inspector).toHaveAttribute("open", "");
+  await expect(inspector).toContainText("元データ");
+  await expect(inspector).toContainText("目的変数を採用");
+  await expect(inspector).toContainText("実際のモデル入力");
+
+  await inspector.getByRole("tab", { name: /モデル入力/ }).click();
+  await expect(inspector).toContainText("実際のモデル入力です");
+  await expect(inspector.getByRole("columnheader", { name: /実測ID/ })).toBeVisible();
+  await expect(inspector.locator(".training-data-table tbody").first()).toContainText("TT-");
+  await expect(inspector.locator(".training-data-table tbody tr")).not.toHaveCount(0);
+
+  await page.setViewportSize({ width: 720, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(720);
+  await page.locator(".project-training-trace").screenshot({
+    path: testInfo.outputPath("model-training-row-trace.png"),
+  });
+});

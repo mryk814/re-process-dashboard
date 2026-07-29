@@ -19,12 +19,14 @@ export function ModelTrainingDataInspector({
   projectId,
   modelPackage,
   taskDefinition,
+  initiallyOpen = false,
 }: {
   projectId: string;
   modelPackage: ApiModelPackage;
   taskDefinition: TaskDefinitionContract | null;
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [stage, setStage] = useState<Stage>("selected");
   const [target, setTarget] = useState(modelPackage.predictors[0]?.target ?? "");
   const [offset, setOffset] = useState(0);
@@ -110,11 +112,18 @@ export function ModelTrainingDataInspector({
         </select>
       </label>
       <div className="training-data-tabs" role="tablist" aria-label="学習データの段階">
-        <button type="button" role="tab" aria-selected={stage === "curation"} className={stage === "curation" ? "active" : ""} onClick={() => { setStage("curation"); resetRows(); }}>原値と前処理</button>
-        <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); resetRows(); }}>採用された個々値</button>
-        <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); resetRows(); }}>モデル入力特徴量</button>
+        <button type="button" role="tab" aria-selected={stage === "curation"} className={stage === "curation" ? "active" : ""} onClick={() => { setStage("curation"); resetRows(); }}>元データ{page ? ` ${page.stage_counts.source_rows}` : ""}</button>
+        <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); resetRows(); }}>採用データ{page ? ` ${page.stage_counts.selected_rows}` : ""}</button>
+        <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); resetRows(); }}>モデル入力{page ? ` ${page.stage_counts.model_rows}` : ""}</button>
       </div>
     </div>
+    {page && <div className="training-data-flow" aria-label="学習データの行数変化">
+      <span><small>元データ</small><b>{page.stage_counts.source_rows.toLocaleString("ja-JP")}</b>行</span>
+      <i aria-hidden="true">→</i>
+      <span><small>目的変数を採用</small><b>{page.stage_counts.selected_rows.toLocaleString("ja-JP")}</b>行</span>
+      <i aria-hidden="true">→</i>
+      <span><small>実際のモデル入力</small><b>{page.stage_counts.model_rows.toLocaleString("ja-JP")}</b>行</span>
+    </div>}
     <p className="training-data-note">
       {stage === "curation"
         ? "元データは変更せず、Profileが解釈した値と採否理由を並べています。原値と正規化値が同じ場合も省略しません。"
@@ -122,6 +131,14 @@ export function ModelTrainingDataInspector({
         ? "目的変数に実測があり、学習条件を通過した行です。正規化・結合後、特徴量変換前の入力を表示します。"
         : page?.training_unit === "parent_condition_mean"
           ? "Feature Pipelineで変換後、同じ親工程条件の個々値を平均した実際のモデル入力です。個々値数も併記します。"
+          : page?.training_unit === "replicate_context_mean"
+            ? "学習器と同じcompilerで反復コンテキストを集約した、実際のFeature matrixです。検証グループと個々値数も併記します。"
+          : page?.training_unit === "source_row_grouped_by_parent"
+            ? "各元データ行がモデル入力です。親キーは検証分割にだけ使い、行同士は平均していません。"
+          : page?.training_unit === "wear_measurement_row"
+            ? "工具摩耗の各測定行がモデル入力です。加工run単位のまとまりを保ったまま表示します。"
+          : page?.training_unit === "source_row" || page?.training_unit === "independent source row"
+            ? "元データの各行がそのまま一つのモデル入力です。Feature Pipeline後の数値を特徴量順に表示します。"
           : "Feature Pipelineで変換し、個々の観測ごとにモデルへ渡した数値を特徴量順に表示します。"}
     </p>
     {page && stage === "curation" && <div className="curation-summary" aria-label="前処理結果の集計">

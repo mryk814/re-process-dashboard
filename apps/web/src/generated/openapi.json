@@ -1040,6 +1040,7 @@
                   "blend_tools": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
                   "curve_family": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
                   "feature_engineering": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "prediction_space": "#/components/schemas/PredictionSpaceSurfaceDefinition",
                   "response_contour": "#/components/schemas/ResponseContourSurfaceDefinition",
                   "response_curve": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
                   "similarity": "#/components/schemas/BasicWorkbenchSurfaceDefinition"
@@ -1049,6 +1050,9 @@
               "oneOf": [
                 {
                   "$ref": "#/components/schemas/BasicWorkbenchSurfaceDefinition"
+                },
+                {
+                  "$ref": "#/components/schemas/PredictionSpaceSurfaceDefinition"
                 },
                 {
                   "$ref": "#/components/schemas/ResponseContourSurfaceDefinition"
@@ -10948,6 +10952,9 @@
             "title": "Stage",
             "type": "string"
           },
+          "stage_counts": {
+            "$ref": "#/components/schemas/ModelTrainingStageCounts"
+          },
           "target": {
             "title": "Target",
             "type": "string"
@@ -10963,7 +10970,12 @@
           "training_unit": {
             "enum": [
               "individual_observation",
-              "parent_condition_mean"
+              "parent_condition_mean",
+              "replicate_context_mean",
+              "source_row",
+              "independent source row",
+              "source_row_grouped_by_parent",
+              "wear_measurement_row"
             ],
             "title": "Training Unit",
             "type": "string"
@@ -10978,6 +10990,7 @@
           "feature_pipeline_id",
           "feature_pipeline_version",
           "training_unit",
+          "stage_counts",
           "total",
           "parent_conditions",
           "offset",
@@ -10987,6 +11000,29 @@
           "curation_summary"
         ],
         "title": "ModelTrainingDataPage",
+        "type": "object"
+      },
+      "ModelTrainingStageCounts": {
+        "properties": {
+          "model_rows": {
+            "title": "Model Rows",
+            "type": "integer"
+          },
+          "selected_rows": {
+            "title": "Selected Rows",
+            "type": "integer"
+          },
+          "source_rows": {
+            "title": "Source Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_rows",
+          "selected_rows",
+          "model_rows"
+        ],
+        "title": "ModelTrainingStageCounts",
         "type": "object"
       },
       "ModelUncertaintyInterval": {
@@ -11885,6 +11921,135 @@
         "title": "OutputDefinition",
         "type": "object"
       },
+      "OutputSpaceEvidencePoint": {
+        "properties": {
+          "context_id": {
+            "title": "Context Id",
+            "type": "string"
+          },
+          "pairing_relationship": {
+            "enum": [
+              "same_observations",
+              "overlapping_observations",
+              "distinct_observations"
+            ],
+            "title": "Pairing Relationship",
+            "type": "string"
+          },
+          "parent_key": {
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "x": {
+            "$ref": "#/components/schemas/OutputSpaceObservedValue"
+          },
+          "y": {
+            "$ref": "#/components/schemas/OutputSpaceObservedValue"
+          }
+        },
+        "required": [
+          "context_id",
+          "parent_key",
+          "pairing_relationship",
+          "x",
+          "y"
+        ],
+        "title": "OutputSpaceEvidencePoint",
+        "type": "object"
+      },
+      "OutputSpaceEvidenceResponse": {
+        "properties": {
+          "pairing_unit": {
+            "const": "condition_mean",
+            "default": "condition_mean",
+            "title": "Pairing Unit",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/OutputSpaceEvidencePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "returned_contexts": {
+            "title": "Returned Contexts",
+            "type": "integer"
+          },
+          "sampling_policy": {
+            "enum": [
+              "all",
+              "output_space_coverage"
+            ],
+            "title": "Sampling Policy",
+            "type": "string"
+          },
+          "source_data_digest": {
+            "title": "Source Data Digest",
+            "type": "string"
+          },
+          "source_scope": {
+            "const": "model_training_data",
+            "default": "model_training_data",
+            "title": "Source Scope",
+            "type": "string"
+          },
+          "total_contexts": {
+            "title": "Total Contexts",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "x_target": {
+            "title": "X Target",
+            "type": "string"
+          },
+          "y_target": {
+            "title": "Y Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x_target",
+          "y_target",
+          "source_data_digest",
+          "sampling_policy",
+          "total_contexts",
+          "returned_contexts",
+          "truncated",
+          "points"
+        ],
+        "title": "OutputSpaceEvidenceResponse",
+        "type": "object"
+      },
+      "OutputSpaceObservedValue": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mean",
+          "count",
+          "observation_ids"
+        ],
+        "title": "OutputSpaceObservedValue",
+        "type": "object"
+      },
       "PackageIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -12252,6 +12417,43 @@
           "heat_pattern"
         ],
         "title": "PredictionResponse",
+        "type": "object"
+      },
+      "PredictionSpaceSurfaceDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "historical_limit": {
+            "default": 200,
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Historical Limit",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "prediction_space",
+            "title": "Kind",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "target_keys": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Target Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "order",
+          "target_keys"
+        ],
+        "title": "PredictionSpaceSurfaceDefinition",
         "type": "object"
       },
       "PredictionVsActualResponse": {
@@ -26426,6 +26628,107 @@
           }
         },
         "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/model-package/output-space-evidence": {
+      "get": {
+        "operationId": "getProjectOutputSpaceEvidence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "x_target",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "y_target",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Y Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputSpaceEvidenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Output Space Evidence"
       }
     },
     "/api/projects/{project_id}/model-package/training-data": {
