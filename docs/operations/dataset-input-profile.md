@@ -62,6 +62,9 @@
 - プロファイルが `allow_many` を宣言した既知のソース品質異常は、確認可能な状態で残します。
 - プロファイルは `extends` で別のプロファイルを継承できます。
 - オブジェクトの対応付けは統合し、配列は置換するため、列名を変更したワークブックや新しいワークブックでもアプリ共通契約を複製せずに再利用できます。
+- 継承を解決したstandalone JSONが必要なときは、単独の変換scriptではなく
+  `uv run python backend/scripts/profile_workbench.py materialize <profile> <output>`を使います。
+  既存出力の置換には`--replace`が必要です。
 - ソースに該当する信号が本当に存在しない場合は、`optional_roles`、`optional_technical_fields`、明示的な `policy_defaults` を宣言できます。
 - 既定値はプロファイル契約の一部であり、欠損セルから推測しません。
 - 観測測定値には、単一のソース `column` または優先順を持つ `columns` の一覧を宣言できます。

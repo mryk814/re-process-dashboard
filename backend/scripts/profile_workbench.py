@@ -10,7 +10,10 @@ from typing import Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from material_workbench.data.dataset_profile import DatasetProfileError
+from material_workbench.data.dataset_profile import (
+    DatasetProfileError,
+    materialize_dataset_profile_document,
+)
 from material_workbench.data.dataset_registration import register_managed_dataset
 from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError
@@ -34,7 +37,27 @@ def build_parser() -> argparse.ArgumentParser:
     register_parser.add_argument("--database", type=Path, required=True)
     register_parser.add_argument("--library", type=Path, required=True)
     register_parser.add_argument("--name")
+
+    materialize_parser = subparsers.add_parser(
+        "materialize",
+        help="Resolve Profile inheritance into one standalone JSON document.",
+    )
+    materialize_parser.add_argument("profile", type=Path)
+    materialize_parser.add_argument("output", type=Path)
+    materialize_parser.add_argument("--replace", action="store_true")
     return parser
+
+
+def _materialize_profile(profile: Path, output: Path, *, replace: bool) -> dict[str, object]:
+    if output.exists() and not replace:
+        raise FileExistsError(f"refusing to replace existing profile: {output}")
+    document = materialize_dataset_profile_document(profile)
+    output.write_text(
+        json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return {"profile": str(profile), "output": str(output)}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -44,7 +67,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = inspect_workbook(args.source, args.profile)
         elif args.command == "validate":
             result = validate_workbook_profile(args.source, args.profile)
-        else:
+        elif args.command == "register":
             result = register_managed_dataset(
                 database=args.database,
                 source=args.source,
@@ -52,6 +75,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 profile_path=args.profile,
                 name=args.name,
             ).as_dict()
+        else:
+            result = _materialize_profile(
+                args.profile,
+                args.output,
+                replace=args.replace,
+            )
     except (CatalogConflictError, CatalogReferenceError, DatasetProfileError, OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
         return 1

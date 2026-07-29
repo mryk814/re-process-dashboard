@@ -65,6 +65,10 @@ uv run python backend/scripts/prepare_secom_stress_dataset.py `
   --raw-root C:\path\to\secom
 ```
 
+既定の出力先は`artifacts/derived-data/secom_stress.csv`です。
+検査後に新しいDataset revisionとして昇格するまで、読取専用の`data/source/`は
+書き換えません。
+
 代表センサ選択を再現します。
 
 ```powershell
