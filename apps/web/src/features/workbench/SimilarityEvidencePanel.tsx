@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
-import { workbenchApi, type ApiSimilarObservation } from "../../shared/api/workbench-api";
+import {
+  workbenchApi,
+  type ApiLineageCandidateOption,
+  type ApiSimilarObservation,
+} from "../../shared/api/workbench-api";
 import { assessOutputValues, measurementSpreadText } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { formatTaskNumber } from "../../shared/taskPresentation";
@@ -40,11 +44,18 @@ export function SimilarityEvidencePanel({
   available: boolean;
   targetSpecific: boolean;
   ready: boolean;
-  onAddCandidate: (entityKey: string) => Promise<boolean>;
+  onAddCandidate: (
+    entityKey: string,
+    processKey?: string,
+    meltKey?: string,
+  ) => Promise<boolean>;
 }) {
   const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
   const [addingKey, setAddingKey] = useState("");
-  const [addedKeys, setAddedKeys] = useState<string[]>([]);
+  const [addedChoiceKeys, setAddedChoiceKeys] = useState<string[]>([]);
+  const [candidateOptions, setCandidateOptions] = useState<Record<string, ApiLineageCandidateOption[]>>({});
+  const [selectedChoiceKeys, setSelectedChoiceKeys] = useState<Record<string, string>>({});
+  const [choiceErrors, setChoiceErrors] = useState<Record<string, string>>({});
   const [selectedTarget, setSelectedTarget] = useState(outputs[0]?.key ?? "");
   const surfaceRef = useRef(surface);
   const inputIdentity = candidateInputIdentity(candidate.raw.inputs);
@@ -54,7 +65,10 @@ export function SimilarityEvidencePanel({
     const empty = emptyInferenceSurface<ApiSimilarObservation[]>();
     surfaceRef.current = empty;
     setSurface(empty);
-    setAddedKeys([]);
+    setAddedChoiceKeys([]);
+    setCandidateOptions({});
+    setSelectedChoiceKeys({});
+    setChoiceErrors({});
     setAddingKey("");
   }, [candidate.id]);
   useEffect(() => {
@@ -116,10 +130,57 @@ export function SimilarityEvidencePanel({
   const outputNumber = (value: number, output: TaskOutputDefinition) => taskDefinition
     ? formatTaskNumber(value, taskDefinition, `output.${output.key}`, displayDecimalOverrides)
     : formatNumber(value, 1);
-  const add = async (entityKey: string) => {
-    setAddingKey(entityKey);
+  const choiceKey = (option: ApiLineageCandidateOption) => `${option.process_key}\u001f${option.melt_key}`;
+  const add = async (
+    entityKey: string,
+    option: ApiLineageCandidateOption,
+    rowKey: string,
+  ) => {
+    const key = choiceKey(option);
+    setAddingKey(`${rowKey}\u001f${key}`);
     try {
-      if (await onAddCandidate(entityKey)) setAddedKeys((current) => current.includes(entityKey) ? current : [...current, entityKey]);
+      if (await onAddCandidate(entityKey, option.process_key, option.melt_key)) {
+        setAddedChoiceKeys((current) => current.includes(key) ? current : [...current, key]);
+      }
+    } finally {
+      setAddingKey("");
+    }
+  };
+  const prepareCandidate = async (item: ApiSimilarObservation) => {
+    const entityKey = item.process_key;
+    if (!entityKey) return;
+    const rowKey = similarObservationRowKey(item);
+    setAddingKey(rowKey);
+    setChoiceErrors((current) => ({ ...current, [rowKey]: "" }));
+    try {
+      const lineage = await workbenchApi.lineage(projectId, entityKey);
+      const matchingProcess = (lineage.candidate_options ?? []).filter(
+        (option) => option.process_key === entityKey,
+      );
+      const exact = item.melt_key
+        ? matchingProcess.find((option) => option.melt_key === item.melt_key)
+        : undefined;
+      const options = exact ? [exact] : matchingProcess;
+      if (options.length === 1) {
+        await add(entityKey, options[0], rowKey);
+        return;
+      }
+      if (options.length === 0) {
+        setChoiceErrors((current) => ({
+          ...current,
+          [rowKey]: "この実測から引き継げる上流条件が見つかりません。",
+        }));
+        return;
+      }
+      setCandidateOptions((current) => ({ ...current, [rowKey]: options }));
+      setSelectedChoiceKeys((current) => ({ ...current, [rowKey]: "" }));
+    } catch (cause) {
+      setChoiceErrors((current) => ({
+        ...current,
+        [rowKey]: cause instanceof Error
+          ? cause.message
+          : "候補にする上流条件を取得できませんでした。",
+      }));
     } finally {
       setAddingKey("");
     }
@@ -164,9 +225,46 @@ export function SimilarityEvidencePanel({
                 return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ${output.unit} / ${spread.title}`)}><strong>{value}</strong>{!binary && <small>{spread.text}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
               })}
               {canAddCandidates && <td className="similar-action-cell">
-                <CandidateAddButton compact disabled={!item.process_key || addingKey === item.process_key || addedKeys.includes(item.process_key ?? "")} onClick={() => { if (item.process_key) void add(item.process_key); }}>
-                  {addedKeys.includes(item.process_key ?? "") ? "追加済み" : addingKey === item.process_key ? "追加中…" : "実測から候補化"}
-                </CandidateAddButton>
+                {item.process_key && candidateOptions[similarObservationRowKey(item)]?.length ? (() => {
+                  const entityKey = item.process_key;
+                  const rowKey = similarObservationRowKey(item);
+                  const options = candidateOptions[rowKey];
+                  const selectedKey = selectedChoiceKeys[rowKey] ?? "";
+                  const selectedOption = options.find((option) => choiceKey(option) === selectedKey);
+                  const operationKey = selectedOption ? `${rowKey}\u001f${choiceKey(selectedOption)}` : "";
+                  const added = selectedOption ? addedChoiceKeys.includes(choiceKey(selectedOption)) : false;
+                  return <div className="similar-candidate-choice">
+                    <label>上流条件
+                      <select
+                        aria-label={`${entityKey}の上流条件`}
+                        value={selectedKey}
+                        onChange={(event) => setSelectedChoiceKeys((current) => ({
+                          ...current,
+                          [rowKey]: event.target.value,
+                        }))}
+                      >
+                        <option value="">選択してください</option>
+                        {options.map((option) => <option key={choiceKey(option)} value={choiceKey(option)}>
+                          {option.process_label} {option.process_key} / 成分 {option.melt_key}
+                        </option>)}
+                      </select>
+                    </label>
+                    <CandidateAddButton
+                      compact
+                      disabled={!selectedOption || addingKey === operationKey || added}
+                      onClick={() => { if (selectedOption) void add(entityKey, selectedOption, rowKey); }}
+                    >
+                      {added ? "追加済み" : operationKey && addingKey === operationKey ? "追加中…" : "選んで候補化"}
+                    </CandidateAddButton>
+                  </div>;
+                })() : <CandidateAddButton
+                  compact
+                  disabled={!item.process_key || addingKey.startsWith(similarObservationRowKey(item))}
+                  onClick={() => void prepareCandidate(item)}
+                >
+                  {addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "実測から候補化"}
+                </CandidateAddButton>}
+                {choiceErrors[similarObservationRowKey(item)] && <small className="similar-choice-error" role="alert">{choiceErrors[similarObservationRowKey(item)]}</small>}
               </td>}
             </tr>
           ))}</tbody>
