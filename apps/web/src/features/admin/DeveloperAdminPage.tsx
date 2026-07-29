@@ -3,7 +3,7 @@ import { numericTaskInputs, type ResolvedTaskDefinition, type TaskDefinitionCont
 import { workbenchApi, type ApiModelPackage, type ApiProject } from "../../shared/api/workbench-api";
 import { ModelTrainingDataInspector } from "./ModelTrainingDataInspector";
 import { DeveloperControlCenter } from "./DeveloperControlCenter";
-import { suggestedInputRange } from "./inputRangeDefaults";
+import { suggestedInputRange } from "../../shared/inputRangeDefaults";
 import { formatTaskNumber, orderedTaskItems, taskOutputUnit } from "../../shared/taskPresentation";
 
 export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";

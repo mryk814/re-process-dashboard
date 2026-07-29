@@ -1,4 +1,10 @@
-import type { NumericRange, NumericTaskInput } from "../candidates";
+import type { components } from "../generated/api-types";
+
+type NumericRange = components["schemas"]["NumericRange"];
+type InputRangeSource = Pick<
+  components["schemas"]["InputFieldDefinition"],
+  "path" | "allowed_range" | "default_range" | "training_range"
+>;
 
 function clampRange(range: NumericRange, allowed: NumericRange): NumericRange {
   return {
@@ -7,7 +13,7 @@ function clampRange(range: NumericRange, allowed: NumericRange): NumericRange {
   };
 }
 
-export function suggestedInputRange(input: NumericTaskInput): NumericRange {
+export function suggestedInputRange(input: InputRangeSource): NumericRange {
   if (!input.allowed_range) {
     throw new Error(`数値fieldにallowed_rangeがありません: ${input.path}`);
   }
@@ -29,4 +35,12 @@ export function suggestedInputRange(input: NumericTaskInput): NumericRange {
     min: input.training_range.min - margin,
     max: input.training_range.max + margin,
   }, input.allowed_range);
+}
+
+export function defaultResponseCurveRange(
+  input: InputRangeSource | undefined,
+  projectRange: NumericRange | undefined,
+): NumericRange | undefined {
+  if (projectRange) return projectRange;
+  return input ? suggestedInputRange(input) : undefined;
 }

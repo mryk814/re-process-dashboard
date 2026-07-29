@@ -23,6 +23,7 @@ import {
   curveFamilyScopeIdentity,
   responseCurveSurfaceIdentity,
 } from "./curveSurfaceIdentity";
+import { defaultResponseCurveRange } from "../../shared/inputRangeDefaults";
 import {
   emptyInferenceSurface,
   inferenceSurfaceStatus,
@@ -290,9 +291,12 @@ export function LiveResponseCurves({
   const selectedVariable = variables.find((variable) => variable.id === variableId) ?? variables[0];
   const activeVariableId = selectedVariable?.id ?? variableId;
   const xRangeOverride = responseCurveRanges.x?.[activeVariableId];
+  const selectedInput = numericTaskInputs(taskDefinition).find((input) => input.path === selectedVariable?.requestVariable);
+  const automaticRequestXRange = defaultResponseCurveRange(selectedInput, project?.input_ranges?.[activeVariableId]);
+  const requestedXRange = xRangeOverride ?? automaticRequestXRange;
   const curvePointCount = project?.response_curve_points ?? 17;
   const stageRequestIdentity = selectedVariable?.stageName ? `${selectedVariable.stageName}:${selectedVariable.stagePositionM}` : "scalar";
-  const xRangeIdentity = `${xRangeOverride ? `${xRangeOverride.min}:${xRangeOverride.max}` : "auto"}:${stageRequestIdentity}`;
+  const xRangeIdentity = `${xRangeOverride ? "saved" : automaticRequestXRange ? "practical" : "runtime"}:${requestedXRange ? `${requestedXRange.min}:${requestedXRange.max}` : "auto"}:${stageRequestIdentity}`;
   useEffect(() => {
     if (variables.length && !variables.some((variable) => variable.id === variableId)) setVariableId(variables[0].id);
   }, [variableId, variableIdsIdentity]);
@@ -322,7 +326,7 @@ export function LiveResponseCurves({
         setSurfacesByKey(requestedSurfaces);
         const timer = window.setTimeout(async () => {
           try {
-            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, selectedVariable.requestVariable, curvePointCount, xRangeOverride?.min, xRangeOverride?.max, selectedVariable.stageName, selectedVariable.stagePositionM, controller.signal);
+            const loaded = await workbenchApi.responseCurve(projectId, item.id, item.raw.revision, inputIdentity, output.key, selectedVariable.requestVariable, curvePointCount, requestedXRange?.min, requestedXRange?.max, selectedVariable.stageName, selectedVariable.stagePositionM, controller.signal);
             if (controller.signal.aborted) return;
             const current = surfaceRef.current[storageKey] ?? requested;
             const resolved = resolveInferenceSurface(current, requested.requestSequence, identity, loaded);
@@ -342,7 +346,7 @@ export function LiveResponseCurves({
       }
     }
     return () => { timers.forEach((timer) => window.clearTimeout(timer)); controller.abort(); };
-  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, activeVariableId, xRangeIdentity, curvePointCount, xRangeOverride?.min, xRangeOverride?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
+  }, [available, ready, curveCandidatesKey, outputKeys, projectId, taskDefinition?.id, activeVariableId, xRangeIdentity, curvePointCount, requestedXRange?.min, requestedXRange?.max, selectedVariable?.requestVariable, selectedVariable?.stageName, selectedVariable?.stagePositionM]);
   const curveStates = curveCandidates.flatMap((item) => outputs.map((output) => {
     const inputIdentity = candidateInputIdentity(item.raw.inputs);
     const { storageKey } = responseCurveSurfaceIdentity({
@@ -544,13 +548,13 @@ export function LiveResponseCurves({
             const payloads = payloadsForOutput(output.key);
             const firstPayload = payloads[0];
             const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
-            const chartXRange = xRangeOverride ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
+            const chartXRange = requestedXRange ?? (autoValues.length ? { min: Math.min(...autoValues), max: Math.max(...autoValues) } : undefined);
             const yRange = outputRangeMode === "full"
               ? undefined
               : outputRangeMode === "configured"
                 ? responseCurveRanges.y?.[output.key] ?? output.preferred_display_range ?? firstPayload?.output_range ?? undefined
                 : output.preferred_display_range ?? firstPayload?.output_range ?? undefined;
-            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} yRange={yRange} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
+            return <ResponseCurveMiniChart key={output.key} output={output} series={curveSeries} selectedId={candidate.id} prediction={previewsByCandidate[candidate.id]?.predictions?.[output.key] ?? preview?.predictions?.[output.key]} goalValue={targetValues[output.key]} xRange={chartXRange} trainingRange={firstPayload?.variable.training_range ?? undefined} yRange={yRange} xLabel={firstPayload?.variable.label ?? selectedVariable?.label ?? "設計変数"} xUnit={firstPayload?.variable.unit ?? selectedVariable?.unit ?? ""} />;
           })}
         </div>
       )}
@@ -565,6 +569,7 @@ function ResponseCurveMiniChart({
   prediction,
   goalValue,
   xRange,
+  trainingRange,
   yRange,
   xLabel,
   xUnit,
@@ -575,6 +580,7 @@ function ResponseCurveMiniChart({
   prediction?: NonNullable<ApiPreview["predictions"]>[string];
   goalValue?: TargetGoal;
   xRange?: { min: number; max: number };
+  trainingRange?: { min: number; max: number };
   yRange?: { min: number; max: number };
   xLabel: string;
   xUnit: string;
@@ -626,13 +632,22 @@ function ResponseCurveMiniChart({
     const curveMaxX = Math.max(...item.points.map((point) => point.x));
     return item.currentX < curveMinX || item.currentX > curveMaxX;
   });
+  const visibleTrainingMin = trainingRange ? clampToRange(trainingRange.min, { min: minX, max: maxX }) : minX;
+  const visibleTrainingMax = trainingRange ? clampToRange(trainingRange.max, { min: minX, max: maxX }) : maxX;
+  const hasLowerExtrapolation = Boolean(trainingRange && minX < trainingRange.min);
+  const hasUpperExtrapolation = Boolean(trainingRange && maxX > trainingRange.max);
+  const hasExtrapolation = hasLowerExtrapolation || hasUpperExtrapolation;
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{outsideCurrentCandidates.length > 0 && <span className="curve-current-outside">{outsideCurrentCandidates.length}候補の現在値は計算範囲外</span>}{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
+      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{hasExtrapolation && <span className="curve-extrapolation-summary"><i aria-hidden="true" />網掛けは学習範囲外</span>}{outsideCurrentCandidates.length > 0 && <span className="curve-current-outside">{outsideCurrentCandidates.length}候補の現在値は計算範囲外</span>}{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{binary ? number(tick * 100, 0) : number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="128" stroke="#edf1f6" />)}
+        {hasLowerExtrapolation && <rect className="curve-extrapolation-region" x="30" y="32" width={Math.max(0, x(visibleTrainingMin) - 30)} height="96" />}
+        {hasUpperExtrapolation && <rect className="curve-extrapolation-region" x={x(visibleTrainingMax)} y="32" width={Math.max(0, 282 - x(visibleTrainingMax))} height="96" />}
+        {trainingRange && visibleTrainingMin > minX && visibleTrainingMin < maxX && <line className="curve-training-boundary" x1={x(visibleTrainingMin)} y1="32" x2={x(visibleTrainingMin)} y2="128" />}
+        {trainingRange && visibleTrainingMax > minX && visibleTrainingMax < maxX && <line className="curve-training-boundary" x1={x(visibleTrainingMax)} y1="32" x2={x(visibleTrainingMax)} y2="128" />}
         {series.map((item) => {
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");

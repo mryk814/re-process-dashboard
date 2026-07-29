@@ -672,6 +672,10 @@
 .curve-display-range-toggle { margin-left: auto; font-size: 10px; }
 .curve-clipped-summary { border-radius: 999px; background: #fff1dc; padding: 2px 6px; color: #91550d !important; font-size: 10px; font-weight: 700; }
 .curve-current-outside { flex-basis: 100%; color: #8a5b13 !important; font-size: 10px; }
+.curve-extrapolation-summary { display: inline-flex; align-items: center; gap: 4px; color: #91550d !important; font-size: 10px; }
+.curve-extrapolation-summary i { width: 11px; height: 8px; border: 1px solid #d7a14a; background: repeating-linear-gradient(135deg, #fff8e8 0 3px, #f3dfb7 3px 5px); }
+.curve-extrapolation-region { fill: #e7b85f; opacity: .22; pointer-events: none; }
+.curve-training-boundary { stroke: #b97a18; stroke-width: 1; stroke-dasharray: 3 2; pointer-events: none; }
 .curve-endpoint { pointer-events: none; }
 .curve-clip-indicator { fill: #a15d0a; font-size: 10px; font-weight: 700; }
 .similar-evidence-panel {
