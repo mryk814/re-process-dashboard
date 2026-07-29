@@ -499,6 +499,60 @@
 .candidate-workbench-grid.has-inspector {
   grid-template-columns: var(--candidate-inspector-width, 330px) 9px minmax(0, 1fr);
 }
+.candidate-inspector-collapsed {
+  display: flex;
+  height: calc(100vh - 124px);
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  border-right: 1px solid #d8e0ea;
+  background: #f7f9fc;
+  padding: 10px 6px;
+  color: #526276;
+}
+.candidate-inspector-collapsed[hidden],
+.candidate-inspector[hidden] { display: none; }
+.candidate-inspector-collapsed button {
+  display: grid;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #9fb5ce;
+  border-radius: 4px;
+  background: #fff;
+  color: #1558a6;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+.candidate-inspector-collapsed button:hover { border-color: #1f5fc4; background: #edf4fd; }
+.candidate-inspector-collapsed button:focus-visible { outline: 2px solid #1f5fc4; outline-offset: 2px; }
+.candidate-inspector-collapsed span {
+  color: #526276;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  writing-mode: vertical-rl;
+}
+.collapsed-save-state {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #718096;
+}
+.collapsed-save-state.dirty,
+.collapsed-save-state.saving { background: #c87800; }
+.collapsed-save-state.saved { background: #16815e; }
+.collapsed-save-state.conflict,
+.collapsed-save-state.error {
+  width: 10px;
+  height: 10px;
+  background: #b42318;
+  box-shadow: 0 0 0 3px #ffe4df;
+}
 .candidate-workbench-grid .central-workspace { min-width: 0; }
 .comparison-preview-error { display: inline-flex; align-items: center; gap: 6px; color: #a33b2d; font-size: 11px; }
 .comparison-preview-error button { border: 0; background: transparent; color: #1f5fc4; padding: 2px; font-weight: 700; cursor: pointer; }
@@ -544,6 +598,7 @@
 }
 .split-resizer:focus-visible { outline: 0; }
 .candidate-inspector-resizer { height: calc(100vh - 124px); }
+.candidate-inspector-resizer.collapsed-divider { width: 9px; margin: 0; pointer-events: none; }
 .comparison-height-resizer {
   width: 100%;
   height: 17px;
@@ -959,6 +1014,15 @@
   .candidate-workbench-grid,
   .candidate-workbench-grid.has-inspector { display: block; }
   .candidate-inspector { height: auto; max-height: none; border-right: 0; border-bottom: 1px solid #d8e0ea; }
+  .candidate-inspector-collapsed {
+    height: auto;
+    align-items: center;
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid #d8e0ea;
+    padding: 6px 10px;
+  }
+  .candidate-inspector-collapsed span { letter-spacing: normal; writing-mode: horizontal-tb; }
   .candidate-inspector .heat-point-table-wrap { max-height: 220px; }
   .split-resizer { display: none; }
   .comparison-height-resizer { display: block; }

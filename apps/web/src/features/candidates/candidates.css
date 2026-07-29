@@ -7,6 +7,28 @@
   background: #fff;
   padding: 15px 13px 24px;
 }
+.inspector-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inspector-collapse-button {
+  display: grid;
+  flex: none;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid #c4d1df;
+  border-radius: 4px;
+  background: #fff;
+  color: #31506f;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.inspector-collapse-button:hover { border-color: #1f5fc4; color: #1f5fc4; }
+.inspector-collapse-button:focus-visible { outline: 2px solid #1f5fc4; outline-offset: 2px; }
 .inspector-heading h2 { margin: 4px 0 15px; font-size: 16px; }
 .inspector-section { margin-top: 17px; padding-top: 14px; border-top: 1px solid #d8e0ea; }
 .candidate-inspector .inspector-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }

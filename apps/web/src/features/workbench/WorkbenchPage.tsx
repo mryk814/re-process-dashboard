@@ -14,8 +14,10 @@ import {
 import { CandidateFileControls, CandidateOrigin } from "./CandidateWorkspaceControls";
 import {
   clampLayoutValue,
+  saveLayoutBoolean,
   saveLayoutNumber,
   SplitResizer,
+  storedLayoutBoolean,
   storedLayoutNumber,
   workbenchLayoutStorage,
 } from "./WorkbenchLayout";
@@ -203,6 +205,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
   // A shared link to a saved run opens the panel without a second click.
   const activityPanelOpen = activityOpen || Boolean(activityId || activityRunId);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
+  const [inspectorDragWidth, setInspectorDragWidth] = useState<number | null>(null);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(() => storedLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, false));
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [comparisonHeight, setComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.comparisonHeight, 270), 180, 900));
@@ -210,7 +214,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
   const actualMeasurementRef = useRef<HTMLDivElement>(null);
-  const effectiveInspectorWidth = clampLayoutValue(inspectorWidth, 260, inspectorMax);
+  const inspectorCollapseButtonRef = useRef<HTMLButtonElement>(null);
+  const inspectorExpandButtonRef = useRef<HTMLButtonElement>(null);
+  const inspectorFocusTarget = useRef<"collapse" | "expand" | null>(null);
+  const collapsedInspectorWidth = 44;
+  const effectiveInspectorWidth = inspectorCollapsed
+    ? collapsedInspectorWidth
+    : clampLayoutValue(inspectorDragWidth ?? inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
   const beforeActivitySurfaces = workbenchSurfacesInZone(application, "before_activity");
   const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
@@ -231,6 +241,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
     actualMeasurementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [candidateSection, application?.workbench_surfaces, selected.id]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
+  useEffect(() => saveLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, inspectorCollapsed), [inspectorCollapsed]);
+  useEffect(() => {
+    if (inspectorFocusTarget.current === null) return;
+    const target = inspectorFocusTarget.current === "expand"
+      ? inspectorExpandButtonRef.current
+      : inspectorCollapseButtonRef.current;
+    inspectorFocusTarget.current = null;
+    target?.focus();
+  }, [inspectorCollapsed]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.comparisonHeight, comparisonHeight), [comparisonHeight]);
   useEffect(() => {
@@ -255,6 +274,34 @@ export function WorkbenchPage(props: WorkbenchProps) {
     updateWidths();
     return () => observer.disconnect();
   }, []);
+
+  const collapseInspector = () => {
+    inspectorFocusTarget.current = "expand";
+    setInspectorCollapsed(true);
+  };
+  const expandInspector = () => {
+    inspectorFocusTarget.current = "collapse";
+    setInspectorCollapsed(false);
+  };
+  const resizeInspectorDuringDrag = (nextWidth: number) => {
+    setInspectorDragWidth(clampLayoutValue(nextWidth, 260, inspectorMax));
+  };
+  const finishInspectorResize = (nextWidth: number) => {
+    setInspectorDragWidth(null);
+    if (nextWidth < 260) {
+      collapseInspector();
+      return;
+    }
+    setInspectorWidth(clampLayoutValue(nextWidth, 260, inspectorMax));
+  };
+  const collapsedSaveLabel: Record<CandidateSaveState, string> = {
+    idle: "",
+    dirty: "未保存",
+    saving: "保存中",
+    saved: "保存済み",
+    conflict: "競合",
+    error: "保存失敗",
+  };
 
   const renderSurface = (surface: WorkbenchSurface) => {
     if (!taskDefinition) return null;
@@ -325,7 +372,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
   return (
     <div
       ref={workbenchRef}
-      className={`workbench-grid candidate-workbench-grid${taskDefinition ? " has-inspector" : ""}`}
+      className={`workbench-grid candidate-workbench-grid${taskDefinition ? " has-inspector" : ""}${inspectorCollapsed ? " inspector-collapsed" : ""}`}
       style={{ "--candidate-inspector-width": `${effectiveInspectorWidth}px` } as CSSProperties}
     >
       {taskDefinition && <CandidateInspector
@@ -337,19 +384,53 @@ export function WorkbenchPage(props: WorkbenchProps) {
         onInput={(path, value) => onInput(selected.id, path, value)}
         onReload={onReload}
         onCopyDraft={onCopyDraft}
+        onCollapse={collapseInspector}
+        collapseButtonRef={inspectorCollapseButtonRef}
+        hidden={inspectorCollapsed}
         heatPattern={taskDefinition.input_groups.some((group) => group.key === "heat_pattern") ? <HeatPattern candidates={candidates} candidate={selected} onTimeBasisChange={(basis) => onHeatTimeBasis(selected.id, basis)} onUpdate={onHeat} onAdd={onAddHeat} onDelete={onDeleteHeat} /> : undefined}
       />}
-      {taskDefinition && <SplitResizer
+      {taskDefinition && <aside
+        className="candidate-inspector-collapsed"
+        aria-label={`折りたたまれた選択候補の入力${collapsedSaveLabel[saveState] ? `、${collapsedSaveLabel[saveState]}` : ""}`}
+        title={selected.label}
+        hidden={!inspectorCollapsed}
+      >
+        <button
+          type="button"
+          ref={inspectorExpandButtonRef}
+          aria-label="選択候補の入力を開く"
+          title="選択候補の入力を開く"
+          onClick={expandInspector}
+        >›</button>
+        {collapsedSaveLabel[saveState] && <i
+          className={`collapsed-save-state ${saveState}`}
+          role="status"
+          aria-label={collapsedSaveLabel[saveState]}
+          title={collapsedSaveLabel[saveState]}
+        />}
+        <span aria-hidden="true">入力</span>
+      </aside>}
+      {taskDefinition && !inspectorCollapsed ? <SplitResizer
         className="candidate-inspector-resizer"
         label="選択候補の入力パネル幅を調整"
         value={effectiveInspectorWidth}
         min={260}
+        dragMin={44}
         max={inspectorMax}
         step={10}
-        onChange={setInspectorWidth}
+        onChange={(nextWidth) => {
+          if (nextWidth < 260) collapseInspector();
+          else setInspectorWidth(nextWidth);
+        }}
+        onDragChange={resizeInspectorDuringDrag}
         onDrag={(startValue, deltaX) => startValue + deltaX}
-        onReset={() => setInspectorWidth(330)}
-      />}
+        onDragEnd={finishInspectorResize}
+        onDragCancel={() => setInspectorDragWidth(null)}
+        onReset={() => {
+          setInspectorWidth(330);
+          expandInspector();
+        }}
+      /> : taskDefinition ? <div className="candidate-inspector-resizer collapsed-divider" aria-hidden="true" /> : null}
       <section className="central-workspace">
         <div className="table-heading">
           <div className="table-title">
