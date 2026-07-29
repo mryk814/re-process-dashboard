@@ -9,7 +9,7 @@ from .dependencies import get_inference_work_graph, get_project_runtime_resolver
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.inference import InferenceService, InferenceValidationError
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.contracts.schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseCurveResponse, SimilarObservation
+from material_workbench.contracts.schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseContourResponse, ResponseCurveResponse, SimilarObservation
 from material_workbench.persistence.store import CandidateRevisionConflictError, ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
@@ -70,6 +70,31 @@ def response_curve(project_id: str, candidate_id: str, expected_revision: int, t
 def curve_family(project_id: str, candidate_id: str, expected_revision: int, target: str, service: InferenceServiceDependency, vary: str = "", levels: int = Query(5, ge=2, le=9), points: int = Query(15, ge=3, le=51)) -> dict[str, Any]:
     try:
         return service.curve_family(project_id, candidate_id, expected_revision, target, vary, levels, points)
+    except INFERENCE_ERRORS as exc:
+        _raise_inference_error(exc)
+
+
+@router.get("/api/projects/{project_id}/candidates/{candidate_id}/response-contour", response_model=ResponseContourResponse, responses=PROJECT_API_ERRORS, operation_id="getCandidateResponseContour")
+def response_contour(
+    project_id: str,
+    candidate_id: str,
+    expected_revision: int,
+    target: str,
+    x_variable: str,
+    y_variable: str,
+    service: InferenceServiceDependency,
+    points: int = Query(11, ge=7, le=17),
+) -> dict[str, Any]:
+    try:
+        return service.response_contour(
+            project_id,
+            candidate_id,
+            expected_revision,
+            target,
+            x_variable,
+            y_variable,
+            points,
+        )
     except INFERENCE_ERRORS as exc:
         _raise_inference_error(exc)
 

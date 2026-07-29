@@ -1076,6 +1076,66 @@ class CurveFamilyResponse(BaseModel):
     policy_id: str
 
 
+class ResponseContourCell(BaseModel):
+    x: float
+    y: float
+    prediction: Prediction | None = None
+    support: Support | None = None
+    displayable: bool = False
+    invalid_reason: str = ""
+
+    @model_validator(mode="after")
+    def valid_cells_have_evidence(self) -> "ResponseContourCell":
+        if self.invalid_reason:
+            if self.prediction is not None or self.support is not None or self.displayable:
+                raise ValueError("invalid contour cells cannot carry prediction evidence")
+        elif self.prediction is None or self.support is None:
+            raise ValueError("valid contour cells require prediction and support evidence")
+        elif self.displayable != (self.support.status != "extrapolated"):
+            raise ValueError("contour displayability must follow support status")
+        if not math.isfinite(self.x) or not math.isfinite(self.y):
+            raise ValueError("response contour coordinates must be finite")
+        return self
+
+
+class ResponseContourResponse(BaseModel):
+    task_id: str
+    candidate_id: str
+    candidate_revision: Annotated[int, Field(ge=1)]
+    model_package_manifest_digest: str
+    target: str
+    x_axis: CurveVariable
+    y_axis: CurveVariable
+    x_values: list[float]
+    y_values: list[float]
+    cells: list[ResponseContourCell]
+    output_range: InputRange | None = None
+    grid_shape: tuple[int, int]
+    policy_id: Literal["training-range-supported-grid-v1"]
+
+    @model_validator(mode="after")
+    def grid_is_rectangular(self) -> "ResponseContourResponse":
+        rows, columns = self.grid_shape
+        if rows < 2 or columns < 2:
+            raise ValueError("response contour grid requires at least two points per axis")
+        if rows != len(self.y_values) or columns != len(self.x_values):
+            raise ValueError("response contour grid shape does not match its axes")
+        if len(self.cells) != rows * columns:
+            raise ValueError("response contour cell count does not match its grid")
+        if not all(math.isfinite(value) for value in [*self.x_values, *self.y_values]):
+            raise ValueError("response contour axis values must be finite")
+        if any(left >= right for left, right in zip(self.x_values, self.x_values[1:])):
+            raise ValueError("response contour x values must be strictly increasing")
+        if any(left >= right for left, right in zip(self.y_values, self.y_values[1:])):
+            raise ValueError("response contour y values must be strictly increasing")
+        for index, cell in enumerate(self.cells):
+            expected_x = self.x_values[index % columns]
+            expected_y = self.y_values[index // columns]
+            if not math.isclose(cell.x, expected_x) or not math.isclose(cell.y, expected_y):
+                raise ValueError("response contour cell coordinates do not match its axes")
+        return self
+
+
 class DurationDiagnostic(BaseModel):
     total: float
     last: float

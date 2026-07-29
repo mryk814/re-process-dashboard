@@ -17,6 +17,7 @@ export type ApiActualMeasurementInput = components["schemas"]["ActualMeasurement
 export type ApiPredictionVsActual = components["schemas"]["PredictionVsActualResponse"];
 export type ApiResponseCurve = components["schemas"]["ResponseCurveResponse"];
 export type ApiCurveFamily = components["schemas"]["CurveFamilyResponse"];
+export type ApiResponseContour = components["schemas"]["ResponseContourResponse"];
 export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
 export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
 export type ApiCandidateOriginEvidence = components["schemas"]["CandidateOriginEvidence"];
@@ -525,6 +526,13 @@ export const workbenchApi = {
     return inferenceRequestCache.get(
       inferenceRequestKey(projectId, candidateId, inputIdentity, "curve_family", `${target}${vary}${levels}${points}`),
       async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/curve-family", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, vary, levels, points } }, signal: sharedSignal }), "曲線ビューを取得できませんでした。"),
+      signal,
+    );
+  },
+  async responseContour(projectId: string, candidateId: string, expectedRevision: number, inputIdentity: string, target: string, xVariable: string, yVariable: string, points = 11, signal?: AbortSignal): Promise<ApiResponseContour> {
+    return inferenceRequestCache.get(
+      inferenceRequestKey(projectId, candidateId, inputIdentity, "response_contour", `${expectedRevision}\u001f${target}\u001f${xVariable}\u001f${yVariable}\u001f${points}`),
+      async (sharedSignal) => requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/response-contour", { params: { path: { project_id: projectId, candidate_id: candidateId }, query: { expected_revision: expectedRevision, target, x_variable: xVariable, y_variable: yVariable, points } }, signal: sharedSignal }), "予測コンターを取得できませんでした。"),
       signal,
     );
   },

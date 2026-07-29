@@ -937,6 +937,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/response-contour": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Response Contour */
+        get: operations["getCandidateResponseContour"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/response-curve": {
         parameters: {
             query?: never;
@@ -2469,6 +2486,8 @@ export interface components {
             sparse_blend: boolean;
             /** Sparse Blend Transform Id */
             sparse_blend_transform_id?: string | null;
+            /** Workbench Surfaces */
+            workbench_surfaces: (components["schemas"]["BasicWorkbenchSurfaceDefinition"] | components["schemas"]["ResponseContourSurfaceDefinition"])[];
         };
         /** ApprovalOverride */
         ApprovalOverride: {
@@ -2548,6 +2567,16 @@ export interface components {
              * @default []
              */
             target_cohorts: components["schemas"]["TrainingTargetCohortSummary"][];
+        };
+        /** BasicWorkbenchSurfaceDefinition */
+        BasicWorkbenchSurfaceDefinition: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "actual_measurement" | "blend_tools" | "curve_family" | "feature_engineering" | "response_curve" | "similarity";
+            /** Order */
+            order: number;
         };
         /** BatchCandidatePoolEvidence */
         BatchCandidatePoolEvidence: {
@@ -7824,14 +7853,6 @@ export interface components {
         };
         /** ResolvedTaskDefinition */
         ResolvedTaskDefinition: {
-            /**
-             * @default {
-             *       "candidate_excel_export": false,
-             *       "candidate_excel_import": false,
-             *       "project_creation": true,
-             *       "sparse_blend": false
-             *     }
-             */
             application: components["schemas"]["ApplicationCapability"];
             /**
              * @default {
@@ -7848,6 +7869,74 @@ export interface components {
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];
+        };
+        /** ResponseContourCell */
+        ResponseContourCell: {
+            /**
+             * Displayable
+             * @default false
+             */
+            displayable: boolean;
+            /**
+             * Invalid Reason
+             * @default
+             */
+            invalid_reason: string;
+            prediction?: components["schemas"]["Prediction"] | null;
+            support?: components["schemas"]["Support"] | null;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** ResponseContourResponse */
+        ResponseContourResponse: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Cells */
+            cells: components["schemas"]["ResponseContourCell"][];
+            /** Grid Shape */
+            grid_shape: [
+                number,
+                number
+            ];
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest: string;
+            output_range?: components["schemas"]["InputRange"] | null;
+            /**
+             * Policy Id
+             * @constant
+             */
+            policy_id: "training-range-supported-grid-v1";
+            /** Target */
+            target: string;
+            /** Task Id */
+            task_id: string;
+            x_axis: components["schemas"]["CurveVariable"];
+            /** X Values */
+            x_values: number[];
+            y_axis: components["schemas"]["CurveVariable"];
+            /** Y Values */
+            y_values: number[];
+        };
+        /** ResponseContourSurfaceDefinition */
+        ResponseContourSurfaceDefinition: {
+            /** Axis Paths */
+            axis_paths: string[];
+            /**
+             * Grid Size
+             * @default 11
+             */
+            grid_size: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "response_contour";
+            /** Order */
+            order: number;
         };
         /** ResponseCurveResponse */
         ResponseCurveResponse: {
@@ -12218,6 +12307,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getCandidateResponseContour: {
+        parameters: {
+            query: {
+                expected_revision: number;
+                points?: number;
+                target: string;
+                x_variable: string;
+                y_variable: string;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResponseContourResponse"];
                 };
             };
             /** @description Not Found */

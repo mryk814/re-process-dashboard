@@ -428,3 +428,69 @@ def test_calce_battery_rows_are_real_measurements_without_synthetic_quality_flag
     ).json()
     assert len(candidates) == 3
     assert len({item["inputs"]["process"]["cycle_index"] for item in candidates}) == 1
+
+
+def test_response_contour_is_revision_bound_and_masks_extrapolated_cells(client) -> None:
+    project_id = "battery-degradation-v1-default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    response = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-contour",
+        params={
+            "expected_revision": candidate["revision"],
+            "target": "capacity_percent",
+            "x_variable": "process.cycle_index",
+            "y_variable": "process.discharge_rate_c",
+            "points": 7,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["candidate_revision"] == candidate["revision"]
+    assert payload["grid_shape"] == [7, 7]
+    assert len(payload["cells"]) == 49
+    assert payload["x_axis"]["min"] == payload["x_axis"]["training_range"]["min"]
+    assert payload["x_axis"]["max"] == payload["x_axis"]["training_range"]["max"]
+    assert all(
+        cell["prediction"] is not None and cell["support"] is not None
+        for cell in payload["cells"]
+        if not cell["invalid_reason"]
+    )
+    assert all(
+        cell["displayable"] == (cell["support"]["status"] != "extrapolated")
+        for cell in payload["cells"]
+        if cell["support"] is not None
+    )
+    renamed = client.put(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}",
+        json={
+            "name": "表示名だけ変更",
+            "inputs": candidate["inputs"],
+            "provenance": candidate["provenance"],
+            "expected_revision": candidate["revision"],
+        },
+    ).json()
+    refreshed = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-contour",
+        params={
+            "expected_revision": renamed["revision"],
+            "target": "capacity_percent",
+            "x_variable": "process.cycle_index",
+            "y_variable": "process.discharge_rate_c",
+            "points": 7,
+        },
+    )
+    assert refreshed.status_code == 200, refreshed.text
+    assert refreshed.json()["candidate_revision"] == renamed["revision"]
+
+    stale = client.get(
+        f"/api/projects/{project_id}/candidates/{candidate['id']}/response-contour",
+        params={
+            "expected_revision": renamed["revision"] + 1,
+            "target": "capacity_percent",
+            "x_variable": "process.cycle_index",
+            "y_variable": "process.discharge_rate_c",
+            "points": 7,
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "revision_conflict"

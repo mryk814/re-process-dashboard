@@ -476,7 +476,41 @@ class DataExplorerCapability(ContractModel):
         return self
 
 
+class BasicWorkbenchSurfaceDefinition(ContractModel):
+    kind: Literal[
+        "actual_measurement",
+        "blend_tools",
+        "curve_family",
+        "response_curve",
+        "similarity",
+        "feature_engineering",
+    ]
+    order: Annotated[int, Field(ge=0)]
+
+
+class ResponseContourSurfaceDefinition(ContractModel):
+    kind: Literal["response_contour"]
+    order: Annotated[int, Field(ge=0)]
+    axis_paths: Annotated[tuple[str, ...], Field(min_length=2)]
+    grid_size: Annotated[int, Field(ge=7, le=17)] = 11
+
+    @model_validator(mode="after")
+    def axes_are_unique(self) -> "ResponseContourSurfaceDefinition":
+        if len(self.axis_paths) != len(set(self.axis_paths)):
+            raise ValueError("response contour axis paths must be unique")
+        return self
+
+
+WorkbenchSurfaceDefinition = Annotated[
+    BasicWorkbenchSurfaceDefinition | ResponseContourSurfaceDefinition,
+    Field(discriminator="kind"),
+]
+
+
 class ApplicationCapability(ContractModel):
+    workbench_surfaces: Annotated[
+        tuple[WorkbenchSurfaceDefinition, ...], Field(min_length=1)
+    ]
     project_creation: bool = True
     candidate_excel_import: bool = False
     candidate_excel_export: bool = False
@@ -489,6 +523,12 @@ class ApplicationCapability(ContractModel):
             raise ValueError(
                 "sparse_blend and sparse_blend_transform_id must be declared together"
             )
+        kinds = [surface.kind for surface in self.workbench_surfaces]
+        orders = [surface.order for surface in self.workbench_surfaces]
+        if len(kinds) != len(set(kinds)):
+            raise ValueError("workbench surface kinds must be unique")
+        if len(orders) != len(set(orders)):
+            raise ValueError("workbench surface orders must be unique")
         return self
 
 
@@ -527,7 +567,50 @@ class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
     data_explorer: DataExplorerCapability | None = None
-    application: ApplicationCapability = ApplicationCapability()
+    application: ApplicationCapability
+
+    @model_validator(mode="after")
+    def workbench_surfaces_match_task_capabilities(self) -> "ResolvedTaskDefinition":
+        definition = self.task_definition
+        operations = self.runtime_capability.operations
+        numeric_paths = {
+            field.path
+            for group in definition.input_groups
+            for field in group.fields
+            if field.kind == "number" and field.editable
+        }
+        for surface in self.application.workbench_surfaces:
+            if surface.kind == "actual_measurement" and not operations.actual_measurement:
+                raise ValueError("actual measurement surface requires the runtime operation")
+            if surface.kind == "blend_tools" and not self.application.sparse_blend:
+                raise ValueError("blend tools surface requires sparse blend capability")
+            if surface.kind == "curve_family" and (
+                definition.curve_axis_path is None or not operations.response_curve
+            ):
+                raise ValueError("curve family surface requires a curve axis and response curves")
+            if surface.kind == "response_curve" and not operations.response_curve:
+                raise ValueError("response curve surface requires the runtime operation")
+            if surface.kind == "response_contour":
+                if not operations.preview or not operations.response_curve:
+                    raise ValueError(
+                        "response contour surface requires preview and response-curve operations"
+                    )
+                if any(path not in numeric_paths for path in surface.axis_paths):
+                    raise ValueError(
+                        "response contour axes must reference editable numeric inputs"
+                    )
+                declared_curve_paths = {
+                    item.path
+                    for item in definition.response_curve_variables
+                    if item.kind == "numeric_input" and item.path is not None
+                }
+                if not set(surface.axis_paths) <= declared_curve_paths:
+                    raise ValueError(
+                        "response contour axes must be declared response-curve variables"
+                    )
+            if surface.kind == "similarity" and not operations.similarity:
+                raise ValueError("similarity surface requires the runtime operation")
+        return self
     availability: TaskAvailability = TaskAvailability()
 
     @model_validator(mode="after")

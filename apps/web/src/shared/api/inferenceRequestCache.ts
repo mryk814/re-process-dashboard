@@ -121,7 +121,7 @@ export function inferenceRequestKey(
   projectId: string,
   candidateId: string,
   inputIdentity: string,
-  operation: "preview" | "curve" | "curve_family" | "similarity",
+  operation: "preview" | "curve" | "curve_family" | "response_contour" | "similarity",
   parameter = "",
 ): string {
   return `${candidateInferencePrefix(projectId, candidateId)}${inputIdentity}::${operation}::${parameter}`;
