@@ -10,11 +10,23 @@ from material_workbench.execution.inference_work_graph import InferenceKey, Infe
 from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
 from material_workbench.contracts.schemas import Candidate, Prediction, Project, Support
 from material_workbench.domain.candidate_inputs import with_declared_balance
+from material_workbench.modeling.response_curve_errors import (
+    ResponseCurveNotApplicableError,
+    ResponseCurveTrainingRangeUnavailableError,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError, TaskUnavailableError
 
 
 class InferenceValidationError(ValueError):
+    pass
+
+
+class InferenceResponseCurveNotApplicableError(InferenceValidationError):
+    pass
+
+
+class InferenceResponseCurveTrainingRangeUnavailableError(InferenceValidationError):
     pass
 
 
@@ -99,6 +111,10 @@ class InferenceService:
                 self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "anchored-grid-v1"}, uses_package=True),
                 lambda: handler(runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m),
             )
+        except ResponseCurveNotApplicableError as exc:
+            raise InferenceResponseCurveNotApplicableError(str(exc)) from exc
+        except ResponseCurveTrainingRangeUnavailableError as exc:
+            raise InferenceResponseCurveTrainingRangeUnavailableError(str(exc)) from exc
         except ValueError as exc:
             raise InferenceValidationError(str(exc)) from exc
 

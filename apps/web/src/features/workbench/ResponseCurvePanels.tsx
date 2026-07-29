@@ -19,6 +19,7 @@ import {
   type ApiPreview,
   type ApiResponseCurve,
 } from "../../shared/api/workbench-api";
+import { ApiClientError } from "../../shared/api/client";
 import {
   curveFamilyScopeIdentity,
   responseCurveSurfaceIdentity,
@@ -83,8 +84,39 @@ function levelColor(index: number, count: number, selectedTone = "#1f5fc4") {
 }
 
 function responseCurveNotApplicable(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return message.includes("入力に使わないため応答曲線を作成できません");
+  return error instanceof ApiClientError
+    && error.code === "response_curve_not_applicable";
+}
+
+function responseCurveTrainingRangeUnavailable(error: unknown): boolean {
+  return error instanceof ApiClientError
+    && error.code === "response_curve_training_range_unavailable";
+}
+
+function responseCurveIsUnavailable(error: unknown): boolean {
+  return responseCurveNotApplicable(error)
+    || responseCurveTrainingRangeUnavailable(error);
+}
+
+function responseCurveFailureReason(error: unknown): string {
+  if (!(error instanceof ApiClientError)) {
+    return error instanceof Error && error.message
+      ? error.message
+      : "予期しないエラーが発生しました。";
+  }
+  if (error.kind === "network") {
+    return "APIに接続できません。開発サーバーの起動状態を確認してください。";
+  }
+  if (error.message && error.message !== "応答曲線を取得できませんでした。") {
+    return error.message;
+  }
+  if (error.kind === "validation") {
+    return `選択中の入力条件をAPIが受け付けませんでした（HTTP ${error.status}）。`;
+  }
+  if (error.kind === "server") {
+    return `モデルの計算中にAPIエラーが発生しました（HTTP ${error.status}）。`;
+  }
+  return `APIが応答曲線を返しませんでした（HTTP ${error.status}）。`;
 }
 
 export function CurveFamilyPanel({
@@ -452,15 +484,15 @@ export function LiveResponseCurves({
   const setXDraft = (patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, x: { ...current.x, ...patch } })); setAxisDraftDirty(true); };
   const setYDraft = (key: string, patch: Partial<CurveRangeDraft>) => { setAxisDraft((current) => ({ ...current, y: { ...current.y, [key]: { ...(current.y[key] ?? { min: "", max: "", enabled: false }), ...patch } } })); setAxisDraftDirty(true); };
   const loadedCurveCount = curveStates.filter((state) => state?.data !== null && state?.data !== undefined).length;
-  const notApplicableCount = curveStates.filter((state) => responseCurveNotApplicable(state?.error)).length;
-  const resolvedCurveCount = loadedCurveCount + notApplicableCount;
-  const curveStatus = curveStates.some((state) => state?.error && !responseCurveNotApplicable(state.error))
+  const unavailableCurveCount = curveStates.filter((state) => responseCurveIsUnavailable(state?.error)).length;
+  const resolvedCurveCount = loadedCurveCount + unavailableCurveCount;
+  const curveStatus = curveStates.some((state) => state?.error && !responseCurveIsUnavailable(state.error))
     ? "error"
     : curveStates.some((state) => state?.pending) || resolvedCurveCount < curveStates.length
       ? "refreshing"
       : "latest";
   const curveErrorMessage = curveStates.find(
-    (state) => state?.error && !responseCurveNotApplicable(state.error),
+    (state) => state?.error && !responseCurveIsUnavailable(state.error),
   )?.error;
   const curveStatusLabel = !ready && loadedCurveCount
     ? "入力を保存中"
@@ -538,7 +570,7 @@ export function LiveResponseCurves({
           </div>
         </div>
       )}
-      {!ready && loadedCurveCount === 0 ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence">応答曲線を取得できません。{curveErrorMessage instanceof Error ? ` (${curveErrorMessage.message})` : ""}</p> : (
+      {!ready && loadedCurveCount === 0 ? <p className="empty-evidence">入力を保存後に更新します。</p> : curveStatus === "error" && loadedCurveCount === 0 ? <p className="empty-evidence" role="alert"><b>応答曲線を表示できません。</b><br />理由: {responseCurveFailureReason(curveErrorMessage)}</p> : (
         <div className={`response-curves-grid output-count-${Math.min(outputs.length, 4)}`}>
           {outputs.map((output) => {
             const outputStates = curveCandidates.map((item) => {
@@ -583,6 +615,16 @@ export function LiveResponseCurves({
               return <article key={output.key} className="response-curve-card">
                 <header><b>{output.label}</b><span>対象外</span></header>
                 <p className="empty-evidence">選択した変数をこのモデルの入力に使わないため、応答曲線はありません。</p>
+              </article>;
+            }
+            if (
+              !firstPayload
+              && outputStates.length > 0
+              && outputStates.every((state) => responseCurveTrainingRangeUnavailable(state?.error))
+            ) {
+              return <article key={output.key} className="response-curve-card">
+                <header><b>{output.label}</b><span>範囲なし</span></header>
+                <p className="empty-evidence">この条件では学習範囲を決められないため、自動の応答曲線はありません。</p>
               </article>;
             }
             const autoValues = payloads.flatMap((payload) => [payload.variable.min, payload.variable.max, payload.variable.current]);
