@@ -54,7 +54,7 @@ uv run python backend/scripts/profile_workbench.py validate path/to/file.xlsx --
 ## 検証
 
 ```powershell
-npm.cmd run verify:focused -- backend/tests/test_task_registry.py backend/tests/test_task_contracts.py
+npm.cmd run verify:edit -- backend/tests/test_task_registry.py backend/tests/test_task_contracts.py
 npm run task:inventory:check
 npm run api:check
 npm run typecheck

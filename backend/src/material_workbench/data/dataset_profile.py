@@ -424,6 +424,11 @@ def _load_profile_document(path: Path, seen: tuple[Path, ...] = ()) -> dict[str,
     return _deep_merge_profile(_load_profile_document(base_path, (*seen, resolved)), child)
 
 
+def materialize_dataset_profile_document(path: Path) -> dict[str, Any]:
+    """Resolve Profile inheritance into a standalone JSON-compatible document."""
+    return _load_profile_document(path)
+
+
 def validate_profile(profile: DatasetInputProfile, task_definitions: Mapping[str, Any] | None = None) -> None:
     errors: list[str] = []
     sheets = profile.shared.sheets

@@ -1,7 +1,8 @@
 """多段構造（原料配合→材料成分→溶着金属成分→特性）の合成データを生成する。
 
 `docs/decisions/multistage-chain-architecture.md` の方針を検証するためのデータであり、
-実測値ではない。生成物は `data/source/welding_consumable_multistage_synthetic_dataset.xlsx`。
+実測値ではない。生成物は
+`artifacts/derived-data/welding_consumable_multistage_synthetic_dataset.xlsx`。
 
 段の構造は次のとおり。
 
@@ -27,7 +28,11 @@ import numpy as np
 from openpyxl import Workbook
 
 SEED = 20260725
-OUTPUT_PATH = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = (REPOSITORY_ROOT / "data" / "source").resolve()
+OUTPUT_PATH = Path(
+    "artifacts/derived-data/welding_consumable_multistage_synthetic_dataset.xlsx"
+)
 
 # 原料と材料の成分軸。元素と化合物を同じ軸上に並べ、合計が100%になる。
 ELEMENTS = (
@@ -678,6 +683,12 @@ def build_dataset(rng: np.random.Generator, blend_count: int, run_count: int) ->
 
 
 def write_workbook(sheets: dict[str, list[list[Any]]], output_path: Path) -> None:
+    resolved_output = output_path.resolve()
+    if resolved_output == SOURCE_ROOT or SOURCE_ROOT in resolved_output.parents:
+        raise ValueError(
+            "data/source is read-only; generate under artifacts/derived-data "
+            "and promote the reviewed revision separately"
+        )
     workbook = Workbook()
     workbook.remove(workbook.active)
     for name, rows in sheets.items():

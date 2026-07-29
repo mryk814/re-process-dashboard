@@ -9,13 +9,26 @@ from pathlib import Path
 
 
 PUBLISHED_FEATURE_COUNT = 591
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = (REPOSITORY_ROOT / "data" / "source").resolve()
 
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _reject_source_destination(path: Path) -> None:
+    resolved = path.resolve()
+    if resolved == SOURCE_ROOT or SOURCE_ROOT in resolved.parents:
+        raise ValueError(
+            "data/source is read-only; generate under artifacts/derived-data "
+            "and promote the reviewed revision separately"
+        )
+
+
 def build(raw_root: Path, output: Path, report: Path) -> None:
+    _reject_source_destination(output)
+    _reject_source_destination(report)
     data_path = raw_root / "secom.data"
     labels_path = raw_root / "secom_labels.data"
     feature_rows = [
@@ -118,7 +131,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/source/external/secom_stress.csv"),
+        default=Path("artifacts/derived-data/secom_stress.csv"),
     )
     parser.add_argument(
         "--report",

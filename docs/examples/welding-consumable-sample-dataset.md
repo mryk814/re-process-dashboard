@@ -13,7 +13,11 @@ Stage Bは実測溶着金属成分300観測を正本とする単独Task・Packag
 npm run data:build:welding-sample
 ```
 
-`--blends`、`--runs`、`--seed`、`--output` を指定できます。既定は乱数seed `20260725`、配合120件、施工300件で、同じseedなら同じ内容を再生成します。
+`--blends`、`--runs`、`--seed`、`--output` を指定できます。
+既定は乱数seed `20260725`、配合120件、施工300件で、同じseedなら同じ内容を
+`artifacts/derived-data/`へ再生成します。
+読取専用の`data/source/`への出力は拒否されます。
+差分と契約を確認したrevisionだけを、別の明示的な昇格作業でsourceへ追加します。
 
 ## Stage Cの正規化artifact
 
