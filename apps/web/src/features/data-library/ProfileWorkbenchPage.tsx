@@ -9,6 +9,13 @@ import {
 
 const shortDigest = (value: string) => value.slice(0, 12);
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024)).toLocaleString("ja-JP")} KB`;
+  }
+  return `${(bytes / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB`;
+}
+
 function previewValue(value: unknown, key: string): string {
   if (typeof value !== "object" || value === null) return "—";
   const selected = Reflect.get(value, key);
@@ -177,7 +184,7 @@ export function ProfileWorkbenchPage({
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>
-        <span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? `${(file.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} MB` : ".xlsx · 100 MB以下"}</small></span>
+        <span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? formatFileSize(file.size) : ".xlsx · 100 MB以下"}</small></span>
         <input type="file" disabled={registering || Boolean(registration)} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
       </label>
       <label className="profile-select-field"><span>データセットプロファイル</span><select value={profileSelection} disabled={registering || Boolean(registration)} onChange={(event) => selectProfile(event.target.value)}>

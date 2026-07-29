@@ -21,6 +21,9 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(commands).toHaveValue(
     /npm run model:diagnose[\s\S]*npm run model:build[\s\S]*npm run model:promote/,
   );
+  await expect(commands).toHaveValue(
+    /\$datasetOutput = "artifacts\/model-data\/\$packageId\.json"[\s\S]*--dataset-output \$datasetOutput/,
+  );
   await expect(commands).not.toHaveValue(/--activate/);
   await expect(commands).not.toHaveValue(/npm run dev/);
   await expect(page.getByRole("button", { name: "昇格済みモデルを再読込" })).toBeVisible();

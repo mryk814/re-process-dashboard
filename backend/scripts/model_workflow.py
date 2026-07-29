@@ -426,7 +426,11 @@ def main() -> int:
                 or Path("artifacts/model-package-candidates")
                 / arguments.package_id
             )
-            dataset_output = arguments.dataset_output or Path("artifacts/model-data") / f"{arguments.task}.json"
+            dataset_output = (
+                arguments.dataset_output
+                or Path("artifacts/model-data")
+                / f"{arguments.package_id}.json"
+            )
             result = build_package(
                 arguments.task,
                 arguments.source,
