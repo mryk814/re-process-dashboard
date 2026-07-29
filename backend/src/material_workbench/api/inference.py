@@ -9,6 +9,7 @@ from .dependencies import get_inference_work_graph, get_project_runtime_resolver
 from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.inference import (
     InferenceResponseCurveNotApplicableError,
+    InferenceResponseCurveTrainingRangeUnavailableError,
     InferenceService,
     InferenceValidationError,
 )
@@ -42,6 +43,8 @@ INFERENCE_ERRORS = (ProjectNotFoundError, InferenceValidationError) + CANDIDATE_
 def inference_http_error(exc: Exception) -> Exception:
     if isinstance(exc, InferenceResponseCurveNotApplicableError):
         return DomainApiException(422, "response_curve_not_applicable", str(exc))
+    if isinstance(exc, InferenceResponseCurveTrainingRangeUnavailableError):
+        return DomainApiException(422, "response_curve_training_range_unavailable", str(exc))
     if isinstance(exc, InferenceValidationError):
         return HTTPException(422, str(exc))
     if isinstance(exc, CandidateRevisionConflictError):

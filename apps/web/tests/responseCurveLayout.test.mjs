@@ -35,8 +35,13 @@ test("a target that does not use the selected variable is shown as not applicabl
 
   assert.match(source, /responseCurveNotApplicable/);
   assert.match(source, /error\.code === "response_curve_not_applicable"/);
+  assert.match(source, /error\.code === "response_curve_training_range_unavailable"/);
   assert.match(source, /選択した変数をこのモデルの入力に使わないため、応答曲線はありません。/);
-  assert.match(source, /resolvedCurveCount = loadedCurveCount \+ notApplicableCount/);
+  assert.match(source, /この条件では学習範囲を決められないため、自動の応答曲線はありません。/);
+  assert.match(source, /resolvedCurveCount = loadedCurveCount \+ unavailableCurveCount/);
+  assert.match(source, /理由: \{responseCurveFailureReason\(curveErrorMessage\)\}/);
+  assert.match(source, /APIに接続できません。開発サーバーの起動状態を確認してください。/);
+  assert.doesNotMatch(source, /応答曲線を取得できません。\{/);
 });
 
 test("heat-pattern axes keep labels inside the plot and anchor edge ticks inward", async () => {

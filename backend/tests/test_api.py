@@ -281,8 +281,9 @@ def test_health_and_candidate_prediction_flow_is_deterministic(client) -> None:
         f"/api/projects/default/candidates/{stage_candidate['id']}/response-curve",
         params={"expected_revision": stage_candidate["revision"], "target": "TS", "variable": "heat.stage_temperature_c", "stage_name": "加熱1", "stage_position_m": 480.6667, "points": 5},
     )
-    assert stage_curve.status_code == 200
-    assert stage_curve.json()["variable"]["label"] == "加熱1 温度"
+    assert stage_curve.status_code == 422
+    assert stage_curve.json()["code"] == "response_curve_training_range_unavailable"
+    assert "学習範囲を決められない" in stage_curve.json()["message"]
     point_time = client.get(
         f"/api/projects/default/candidates/{candidate['id']}/response-curve",
         params={**params, "target": "TS", "variable": "heat.1.time_min", "points": 5},

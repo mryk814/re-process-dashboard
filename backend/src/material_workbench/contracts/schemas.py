@@ -1543,6 +1543,7 @@ class ApiError(BaseModel):
         "data_integrity_error",
         "validation_error",
         "response_curve_not_applicable",
+        "response_curve_training_range_unavailable",
         "batch_feasibility_infeasible",
         "batch_greedy_search_exhausted",
         "runtime_unavailable",

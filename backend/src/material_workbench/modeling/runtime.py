@@ -26,6 +26,9 @@ from material_workbench.domain.heat_time import line_speed_scaled_times
 from material_workbench.data.dataset_profile import load_task_definitions
 from material_workbench.data.importer import WorkbookData, composition_names, lineage_reference_keys, training_context_key
 from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
+from material_workbench.modeling.response_curve_errors import (
+    ResponseCurveTrainingRangeUnavailableError,
+)
 from material_workbench.domain.goal_targets import empirical_goal_probability, goal_fields, normal_goal_probability
 from material_workbench.contracts.schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support, TargetRange, TargetValue
 from material_workbench.tasks.task_registry import load_task_contracts
@@ -689,7 +692,9 @@ class ModelRuntime:
             stage_position_m,
         )
         if not values:
-            raise ValueError(f"{target}の学習実績から{variable}の範囲を解決できません")
+            raise ResponseCurveTrainingRangeUnavailableError(
+                f"{target}では選択した条件（{variable}）の学習範囲を決められないため、自動の応答曲線を作成できません"
+            )
         return min(values), max(values)
 
     def _curve_axis(
