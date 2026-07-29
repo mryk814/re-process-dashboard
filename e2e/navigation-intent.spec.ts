@@ -26,7 +26,10 @@ async function processLineageProject(request: APIRequestContext) {
       request,
       "annealed-properties-v1",
       `工程データ系譜E2E ${Date.now()}`,
-      { datasetFilename: "material_workbench_process_v1.xlsx" },
+      {
+        datasetFilename: "material_workbench_process_v1.xlsx",
+        includeGallery: true,
+      },
     );
     processProjectId = project.id;
   }
@@ -426,7 +429,10 @@ test("copied candidate keeps its source even after the source is deleted", async
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   const sourceId = new URL(page.url()).searchParams.get("candidate");
   expect(sourceId).toBeTruthy();
-  const sourceName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+  const sourceName = await page
+    .locator(".candidate-name-table tbody tr.selected-row")
+    .getByRole("textbox")
+    .inputValue();
 
   await page.getByRole("button", { name: `${sourceName}を複製` }).click();
   await expect(page.locator(".candidate-origin")).toContainText("候補コピー");
@@ -453,7 +459,10 @@ test("archived copy source remains navigable", async ({ page, request }) => {
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   const sourceId = new URL(page.url()).searchParams.get("candidate");
   expect(sourceId).toBeTruthy();
-  const sourceName = await page.locator(".candidate-name-table tbody tr.selected-row input").inputValue();
+  const sourceName = await page
+    .locator(".candidate-name-table tbody tr.selected-row")
+    .getByRole("textbox")
+    .inputValue();
 
   await page.getByRole("button", { name: `${sourceName}の詳細予測を保存` }).click();
   await expect(page.getByRole("button", { name: `${sourceName}の詳細予測を保存済み` })).toBeVisible();
