@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { suggestedInputRange } from "../src/features/admin/inputRangeDefaults.ts";
+import { suggestedInputRange } from "../src/shared/inputRangeDefaults.ts";
 
 const input = (overrides = {}) => ({
   id: "composition.C",

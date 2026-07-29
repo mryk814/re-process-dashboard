@@ -21,6 +21,9 @@ test("response curves use an adaptive default and expose calculation-range gaps"
   assert.match(source, /Object\.keys\(responseCurveRanges\.y \?\? \{\}\)\.length \? "configured" : "full"/);
   assert.match(source, /<option value="full">曲線に合わせる<\/option><option value="preferred">基準範囲<\/option>/);
   assert.match(source, /現在値は計算範囲外/);
+  assert.match(source, /網掛けは学習範囲外/);
+  assert.match(source, /className="curve-extrapolation-region"/);
+  assert.match(source, /defaultResponseCurveRange\(selectedInput, project\?\.input_ranges\?\.\[activeVariableId\]\)/);
   assert.match(source, /className="curve-endpoint"/);
   assert.doesNotMatch(workbench, /<UnavailablePanel title="応答曲線"/);
   assert.match(workbench, /no-response-curves/);

@@ -31,9 +31,13 @@ for (const task of tasks) {
   test(`${task.projectId} uses the common candidate, prediction, and snapshot flow`, async ({ page }) => {
     const pageErrors: string[] = [];
     let curveRequests = 0;
+    const curveRequestUrls: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("request", (request) => {
-      if (new URL(request.url()).pathname.endsWith("/response-curve")) curveRequests += 1;
+      if (new URL(request.url()).pathname.endsWith("/response-curve")) {
+        curveRequests += 1;
+        curveRequestUrls.push(request.url());
+      }
     });
 
     await page.goto(`/?view=candidates&project=${task.projectId}`);
@@ -121,6 +125,17 @@ for (const task of tasks) {
       const responseOptions = await responseVariable.locator("option").allTextContents();
       expect(responseOptions).toContain("ラインスピード (mpm)");
       expect(responseOptions.some((label) => label.includes("点目") || label.includes("時間"))).toBe(false);
+      await expect(page.locator(".response-curves-panel .inference-surface-status")).toHaveText("最新");
+      await expect(page.locator(".curve-extrapolation-summary")).toHaveCount(task.outputLabels.length);
+      const carbonCurveRequest = curveRequestUrls.map((url) => new URL(url)).find((url) => (
+        url.searchParams.get("target") === "TS"
+        && url.searchParams.get("variable") === "composition.C"
+      ));
+      expect(carbonCurveRequest?.searchParams.get("range_min")).toBe("0");
+      expect(carbonCurveRequest?.searchParams.get("range_max")).toBe("0.2");
+      const firstCurve = page.getByRole("group", { name: /引張強さの応答曲線/ });
+      await expect(firstCurve.getByRole("img", { name: /C 0\.000/ }).first()).toBeAttached();
+      await expect(firstCurve.getByRole("img", { name: /C 0\.200/ }).first()).toBeAttached();
     }
 
     const createResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/candidates$/.test(new URL(response.url()).pathname));
