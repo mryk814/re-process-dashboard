@@ -46,8 +46,11 @@ test("similar evidence uses task outputs and always keeps the candidate action v
   assert.match(source, /visibleOutputs\.map\(\(output\) => <th className="similar-output-header"/);
   assert.match(source, /<th className="similar-action-header"/);
   assert.match(source, /<td className="similar-action-cell"/);
-  assert.match(source, /実測から候補化/);
+  assert.match(source, /候補にする/);
   assert.doesNotMatch(source, /canAddCandidates/);
+  const styles = await readFile(new URL("../src/features/workbench/workbench.css", import.meta.url), "utf8");
+  assert.match(styles, /\.similar-action-header\s*\{[^}]*position: sticky;[^}]*right: 0;/s);
+  assert.match(styles, /\.similar-action-cell\s*\{[^}]*position: sticky;[^}]*right: 0;/s);
 });
 
 test("charts with focusable points are groups of labelled parts, not one image", async () => {

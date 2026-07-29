@@ -251,7 +251,7 @@ export function SimilarityEvidencePanel({
                       disabled={!selectedOption || addingKey === operationKey || added}
                       onClick={() => { if (selectedOption) void add(entityKey, selectedOption, rowKey); }}
                     >
-                      {added ? "追加済み" : operationKey && addingKey === operationKey ? "追加中…" : "選んで候補化"}
+                      {added ? "追加済み" : operationKey && addingKey === operationKey ? "追加中…" : "選んで追加"}
                     </CandidateAddButton>
                   </div>;
                 })() : <CandidateAddButton
@@ -260,7 +260,7 @@ export function SimilarityEvidencePanel({
                   title={item.process_key ? undefined : "この実測には候補化できる工程条件の対応がありません"}
                   onClick={() => void prepareCandidate(item)}
                 >
-                  {addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "実測から候補化"}
+                  {addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "候補にする"}
                 </CandidateAddButton>}
                 {choiceErrors[similarObservationRowKey(item)] && <small className="similar-choice-error" role="alert">{choiceErrors[similarObservationRowKey(item)]}</small>}
               </td>

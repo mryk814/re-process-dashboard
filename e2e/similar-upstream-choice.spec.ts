@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-test("similar evidence always shows candidate creation even without an upstream mapping", async ({ page }) => {
+test("similar evidence keeps candidate creation visible at narrow widths", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 720, height: 900 });
   await page.route("**/api/projects/default/candidates/*/similar?*", async (route) => {
     const response = await route.fetch();
     const rows = await response.json() as Array<Record<string, unknown>>;
@@ -11,10 +12,25 @@ test("similar evidence always shows candidate creation even without an upstream 
   });
 
   await page.goto("/?view=candidates&project=default");
-  const actions = page.locator(".similar-evidence-panel").getByRole("button", { name: "実測から候補化" });
+  const scroll = page.locator(".similar-table-scroll");
+  const actions = page.locator(".similar-evidence-panel").getByRole("button", { name: "候補にする" });
   await expect(actions.first()).toBeVisible();
   expect(await actions.count()).toBeGreaterThan(0);
   await expect(actions.first()).toBeDisabled();
+  const before = await actions.first().boundingBox();
+  const geometry = await scroll.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(geometry.scrollWidth).toBeGreaterThan(geometry.clientWidth);
+  await scroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+  const after = await actions.first().boundingBox();
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeLessThanOrEqual(1);
+  await page.locator(".similar-evidence-panel").screenshot({
+    path: testInfo.outputPath("sticky-candidate-action.png"),
+  });
   await page.unrouteAll({ behavior: "wait" });
 });
 
@@ -38,7 +54,7 @@ test("similar evidence asks which upstream condition to inherit when it is ambig
 
   await page.goto("/?view=candidates&project=default");
   const evidence = page.locator(".similar-evidence-panel");
-  await evidence.getByRole("button", { name: "実測から候補化" }).click();
+  await evidence.getByRole("button", { name: "候補にする" }).click();
 
   const upstream = evidence.getByRole("combobox", { name: "AN-02の上流条件" });
   await expect(upstream).toBeVisible();
@@ -47,7 +63,7 @@ test("similar evidence asks which upstream condition to inherit when it is ambig
     "焼鈍条件 AN-02 / 成分 ME-01",
     "焼鈍条件 AN-02 / 成分 ME-02",
   ]);
-  const add = evidence.getByRole("button", { name: "選んで候補化" });
+  const add = evidence.getByRole("button", { name: "選んで追加" });
   await expect(add).toBeDisabled();
 
   await upstream.selectOption({ label: "焼鈍条件 AN-02 / 成分 ME-02" });
