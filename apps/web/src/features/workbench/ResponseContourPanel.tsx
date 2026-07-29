@@ -51,6 +51,7 @@ export function ResponseContourPanel({
   const [target, setTarget] = useState(outputs[0]?.key ?? "");
   const [enabled, setEnabled] = useState(false);
   const [payload, setPayload] = useState<ApiResponseContour | null>(null);
+  const [payloadIdentity, setPayloadIdentity] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const requestIdentity = [
@@ -87,10 +88,12 @@ export function ResponseContourPanel({
       ).then((result) => {
         if (controller.signal.aborted) return;
         setPayload(result);
+        setPayloadIdentity(requestIdentity);
         setError("");
       }).catch((cause: unknown) => {
         if (controller.signal.aborted) return;
         setPayload(null);
+        setPayloadIdentity("");
         setError(cause instanceof Error ? cause.message : String(cause));
       }).finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -104,6 +107,7 @@ export function ResponseContourPanel({
 
   if (axes.length < 2 || !outputs.length) return null;
   const output = outputs.find((item) => item.key === target) ?? outputs[0];
+  const visiblePayload = payloadIdentity === requestIdentity ? payload : null;
   const xCurrent = Number(getCandidateInputValue(candidate.raw.inputs, xPath));
   const yCurrent = Number(getCandidateInputValue(candidate.raw.inputs, yPath));
   return (
@@ -111,7 +115,7 @@ export function ResponseContourPanel({
       <div className="panel-title response-contour-header">
         <div>
           <h2 id="response-contour-title">2変数の予測地図</h2>
-          <p>ほかの入力をこの候補に固定し、2つの入力だけを学習範囲内で動かします。</p>
+          <p>各軸は学習データの最小〜最大です。斜線は、固定した他の入力まで含めると既存実績から遠い条件です。</p>
         </div>
         {!enabled ? (
           <button type="button" className="primary-button" onClick={() => setEnabled(true)}>
@@ -153,8 +157,8 @@ export function ResponseContourPanel({
           {!ready ? <p className="empty-evidence">入力を保存後に更新します。</p>
             : loading ? <p className="empty-evidence" role="status">予測地図を計算しています。</p>
               : error ? <p className="empty-evidence" role="alert">{error}</p>
-                : payload ? <ContourFigure
-                  payload={payload}
+                : visiblePayload ? <ContourFigure
+                  payload={visiblePayload}
                   outputLabel={output.label}
                   outputUnit={output.unit}
                   xCurrent={xCurrent}
@@ -218,7 +222,7 @@ function ContourFigure({
           aria-label={`${outputLabel}を${payload.x_axis.label}と${payload.y_axis.label}で見た予測地図`}
           aria-describedby="response-contour-description"
         >
-          <desc id="response-contour-description">色は支持範囲内の予測値だけを表します。各格子の数値と支持状態は、地図の後にある「数値で確認」から確認できます。</desc>
+          <desc id="response-contour-description">色は既存実績に近い条件の予測値だけを表します。斜線は、軸ごとの範囲内でも、固定した他の入力まで含めると既存実績から遠い条件です。</desc>
           <defs>
             <clipPath id="response-contour-clip">
               <rect x={left} y={top} width={plotWidth} height={plotHeight} />
@@ -245,8 +249,8 @@ function ContourFigure({
             const title = cell.invalid_reason
               ? cell.invalid_reason
               : !cell.displayable
-                ? `${payload.x_axis.label} ${format(cell.x)}, ${payload.y_axis.label} ${format(cell.y)}, 学習範囲外（予測値は非表示）`
-                : `${payload.x_axis.label} ${format(cell.x)}, ${payload.y_axis.label} ${format(cell.y)}, ${outputLabel} ${format(cell.prediction!.value)} ${outputUnit}, ${cell.support?.status === "caution" ? "支持範囲に注意" : "支持範囲内"}`;
+                ? `${payload.x_axis.label} ${format(cell.x)}, ${payload.y_axis.label} ${format(cell.y)}, 既存実績から遠い（予測値は非表示）`
+                : `${payload.x_axis.label} ${format(cell.x)}, ${payload.y_axis.label} ${format(cell.y)}, ${outputLabel} ${format(cell.prediction!.value)} ${outputUnit}, ${cell.support?.status === "caution" ? "既存実績からやや遠い" : "近い実績あり"}`;
             return <rect
               key={`${cell.x}-${cell.y}`}
               x={x}
@@ -278,8 +282,8 @@ function ContourFigure({
         <div className="response-contour-legend" aria-label="予測地図の凡例">
           <span className="contour-scale" aria-hidden="true" />
           <span>{values.length ? `${format(min)}–${format(max)} ${outputUnit}` : "表示できる支持範囲内セルなし"}</span>
-          <span><i className="contour-caution-swatch" />支持範囲に注意 {cautionCount}</span>
-          <span><i className="contour-extrapolated-swatch" />学習範囲外（値は非表示） {extrapolatedCount}</span>
+          <span><i className="contour-caution-swatch" />既存実績からやや遠い {cautionCount}</span>
+          <span><i className="contour-extrapolated-swatch" />既存実績から遠い（予測非表示） {extrapolatedCount}</span>
           {invalidCount ? <span><i className="contour-invalid-swatch" />制約外 {invalidCount}</span> : null}
           <span><i className="contour-current-swatch" />現在の候補</span>
         </div>
@@ -288,12 +292,12 @@ function ContourFigure({
         <summary>数値で確認</summary>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>{payload.x_axis.label}</th><th>{payload.y_axis.label}</th><th>{outputLabel}</th><th>支持範囲</th></tr></thead>
+            <thead><tr><th>{payload.x_axis.label}</th><th>{payload.y_axis.label}</th><th>{outputLabel}</th><th>学習実績</th></tr></thead>
             <tbody>{payload.cells.map((cell) => <tr key={`${cell.x}-${cell.y}`}>
               <td>{format(cell.x)}</td>
               <td>{format(cell.y)}</td>
               <td>{cell.displayable && cell.prediction ? `${format(cell.prediction.value)} ${outputUnit}` : "—"}</td>
-              <td>{cell.invalid_reason || (cell.support?.status === "supported" ? "範囲内" : cell.support?.status === "caution" ? "注意" : "学習範囲外")}</td>
+              <td>{cell.invalid_reason || (cell.support?.status === "supported" ? "近い実績あり" : cell.support?.status === "caution" ? "既存実績からやや遠い" : "既存実績から遠い")}</td>
             </tr>)}</tbody>
           </table>
         </div>

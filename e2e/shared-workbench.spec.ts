@@ -56,19 +56,33 @@ test("Task-declared prediction contour loads on demand and keeps support separat
   expect(response.status()).toBe(200);
   expect((await response.json()).grid_shape).toEqual([11, 11]);
   await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
-  await expect(page.getByText(/学習範囲外（値は非表示）/)).toBeVisible();
+  await expect(page.getByText(/既存実績から遠い（予測非表示）/)).toBeVisible();
+  await expect(page.locator(".response-contour-header p")).toContainText(
+    "固定した他の入力まで含めると既存実績から遠い",
+  );
   const hiddenCellTitles = await page
     .locator('.response-contour-panel rect[fill="url(#contour-extrapolated)"] title')
     .allTextContents();
   expect(hiddenCellTitles.length).toBeGreaterThan(0);
-  expect(hiddenCellTitles.every((title) => title.includes("予測値は非表示"))).toBeTruthy();
+  expect(hiddenCellTitles.every((title) => title.includes("既存実績から遠い"))).toBeTruthy();
   await expect(page.getByText("数値で確認", { exact: true })).toBeVisible();
   expect(contourRequests).toBe(1);
+
+  const changedAxisResponse = page.waitForResponse((candidateResponse) => {
+    const url = new URL(candidateResponse.url());
+    return url.pathname.endsWith("/response-contour")
+      && url.searchParams.get("x_variable") === "process.ls_mpm";
+  });
+  await page.getByRole("combobox", { name: "横軸" }).selectOption("process.ls_mpm");
+  await expect(page.getByRole("img", { name: /予測地図/ })).toBeHidden();
+  expect((await changedAxisResponse).status()).toBe(200);
+  await expect(page.getByRole("img", { name: /LS.*Mn.*予測地図/ })).toBeVisible();
+  expect(contourRequests).toBe(2);
 
   await page.getByRole("tab", { name: "応答曲線" }).click();
   await page.getByRole("tab", { name: "予測地図" }).click();
   await expect(page.getByRole("img", { name: /予測地図/ })).toBeVisible();
-  expect(contourRequests).toBe(1);
+  expect(contourRequests).toBe(2);
 
   await page.setViewportSize({ width: 720, height: 900 });
   await expect(page.getByRole("combobox", { name: "横軸" })).toBeVisible();
