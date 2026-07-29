@@ -19579,6 +19579,39 @@
         "summary": "List Model Packages"
       }
     },
+    "/api/data-library/model-packages/refresh": {
+      "post": {
+        "description": "Import the trusted allow-list without replacing existing Project bindings.",
+        "operationId": "refresh_model_packages_api_data_library_model_packages_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelPackageRef"
+                  },
+                  "title": "Response Refresh Model Packages Api Data Library Model Packages Refresh Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Model Packages"
+      }
+    },
     "/api/data-library/model-packages/{reference_id}": {
       "patch": {
         "operationId": "update_model_package_api_data_library_model_packages__reference_id__patch",

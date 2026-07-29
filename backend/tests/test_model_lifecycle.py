@@ -16,6 +16,8 @@ from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset_digest,
     exact_gp_loo_quality,
     load_active_packages,
+    load_available_packages,
+    register_available_package,
     resolve_configured_package,
     rollback_active_package,
     set_active_package,
@@ -46,6 +48,41 @@ def test_grouped_quality_report_requires_an_explicit_fold_count() -> None:
             "split": "grouped-parent-condition-k-fold",
             "targets": [{"target": "TS", "parent_conditions": 2, "mae": 1, "rmse": 1, "interval_coverage_90": 0.9}],
         })
+
+
+def test_trusted_package_can_be_registered_for_live_import(tmp_path: Path) -> None:
+    models_root = tmp_path / "models"
+    package = models_root / "packages" / "example-v1"
+    package.mkdir(parents=True)
+    available_path = models_root / "available-packages.json"
+    available_path.write_text(
+        '{"schema_version":"available-model-packages/v1","packages":[]}\n',
+        encoding="utf-8",
+    )
+
+    first = register_available_package(package, config_path=available_path)
+    second = register_available_package(package, config_path=available_path)
+
+    assert first.packages == ("packages/example-v1",)
+    assert second == first
+    assert load_available_packages(available_path) == first
+
+
+def test_available_package_registration_rejects_path_outside_models(
+    tmp_path: Path,
+) -> None:
+    models_root = tmp_path / "models"
+    models_root.mkdir()
+    available_path = models_root / "available-packages.json"
+    available_path.write_text(
+        '{"schema_version":"available-model-packages/v1","packages":[]}\n',
+        encoding="utf-8",
+    )
+    outside = tmp_path / "outside-package"
+    outside.mkdir()
+
+    with pytest.raises(PackageContractError, match="trusted models directory"):
+        register_available_package(outside, config_path=available_path)
 
 
 def test_sampling_diagnostics_reject_low_effective_sample_size() -> None:

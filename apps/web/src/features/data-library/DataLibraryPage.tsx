@@ -43,6 +43,8 @@ export function DataLibraryPage({
   const [modelGuideOpen, setModelGuideOpen] = useState(false);
   const [guideTaskId, setGuideTaskId] = useState("");
   const [copiedGuide, setCopiedGuide] = useState(false);
+  const [refreshingPackages, setRefreshingPackages] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
@@ -133,12 +135,10 @@ export function DataLibraryPage({
       "npm run model:promote -- `",
       "  --task $task `",
       "  --source $source `",
-      '  --package "artifacts/model-package-candidates/$packageId" `',
-      "  --activate",
+      '  --package "artifacts/model-package-candidates/$packageId"',
       "",
       "npm run task:inventory",
       "npm run model:status",
-      "npm run dev",
     ].join("\n");
   }, [guideTaskId, selectedDataset]);
 
@@ -241,6 +241,21 @@ export function DataLibraryPage({
       setCopiedGuide(true);
     } catch {
       setError("PowerShell手順をコピーできませんでした。テキスト欄を選択してコピーしてください。");
+    }
+  };
+
+  const refreshModelPackages = async () => {
+    setRefreshingPackages(true);
+    setRefreshMessage("");
+    setError("");
+    try {
+      await workbenchApi.refreshModelPackageRefs();
+      await load();
+      setRefreshMessage("昇格済みModel Packageを反映しました。利用可能なものはProject作成で選べます。");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "昇格済みModel Packageを再読込できませんでした。");
+    } finally {
+      setRefreshingPackages(false);
     }
   };
 
@@ -415,11 +430,16 @@ export function DataLibraryPage({
         </section>}
 
         {modelGuideOpen && selectedDataset && <section className="data-library-section model-update-guide" aria-labelledby="model-update-guide-heading">
-          <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデル更新を安全に進める</h3><p>アプリを停止し、リポジトリ直下のPowerShellで診断 → 候補作成 → 検証付き有効化を実行します。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
+          <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデルを追加する</h3><p>リポジトリ直下のPowerShellで診断 → 候補作成 → 検証付き昇格を実行します。アプリは起動したままで構いません。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
           <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
-          <ol><li><strong>診断</strong><span>既存Taskの置換として扱えるか確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>有効化</strong><span>trusted modelsへ昇格し、再起動</span></li></ol>
+          <ol><li><strong>診断</strong><span>データと予測契約の整合を確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>昇格・反映</strong><span>trusted modelsへ昇格し、下のボタンで再読込</span></li></ol>
           <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
-          <div><button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button><small>保存済み予測は再計算されません。`diagnose`が新規Task/Profileを示した場合はbuildへ進まず、契約を追加します。</small></div>
+          <div>
+            <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
+            <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "昇格済みモデルを再読込"}</button>
+            <small>保存済み予測は再計算されません。新しい予測タスクやruntime実装を追加した場合だけ、アプリを再起動します。</small>
+          </div>
+          {refreshMessage && <p role="status">{refreshMessage}</p>}
         </section>}
 
         <details className="data-library-secondary">

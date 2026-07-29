@@ -390,6 +390,12 @@ export const workbenchApi = {
       params: { query: { include_archived: includeArchived } },
     }), "Model Package一覧を取得できませんでした。");
   },
+  async refreshModelPackageRefs() {
+    return requireData(
+      await apiClient.POST("/api/data-library/model-packages/refresh"),
+      "昇格済みModel Packageを再読込できませんでした。",
+    );
+  },
   async setModelPackageArchived(referenceId: string, archived: boolean) {
     return requireData(await apiClient.PATCH("/api/data-library/model-packages/{reference_id}", {
       params: { path: { reference_id: referenceId } },

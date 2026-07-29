@@ -26,6 +26,7 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     canonical_training_dataset_digest,
     dataset_profile_digest,
     load_active_packages,
+    register_available_package,
     resolve_configured_package,
     rollback_active_package,
     set_active_package,
@@ -242,6 +243,10 @@ def promote_package(
         task_id=task_id,
         source=source,
     )
+    available = register_available_package(
+        destination,
+        config_path=config.resolve().with_name("available-packages.json"),
+    )
     selection = None
     if activate:
         updated = set_active_package(task_id, destination, config_path=config)
@@ -253,14 +258,13 @@ def promote_package(
         "package": trusted_report.model_dump(),
         "activation": selection,
         "restart_required": activate,
+        "available_package": destination.relative_to(config.resolve().parent).as_posix(),
+        "available_package_count": len(available.packages),
         "next": (
             "npm run dev を停止して再実行し、データライブラリから"
             "このDataset/TaskでProjectを作成または切り替えてください。"
             if activate
-            else (
-                "npm run model:activate -- --task "
-                f"{task_id} --source \"{source}\" --package \"{destination}\""
-            )
+            else "起動中のアプリで「昇格済みモデルを再読込」を実行してください。"
         ),
     }
 

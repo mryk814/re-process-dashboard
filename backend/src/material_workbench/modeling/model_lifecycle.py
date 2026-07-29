@@ -27,6 +27,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
 PACKAGES_ROOT = MODELS_ROOT / "packages"
 ACTIVE_PACKAGES_PATH = MODELS_ROOT / "active-packages.json"
+AVAILABLE_PACKAGES_PATH = MODELS_ROOT / "available-packages.json"
 DATASET_PROFILE_PATH = Path(__file__).parent.parent / "data" / "dataset-input-profile-tutorial.json"
 
 
@@ -87,6 +88,11 @@ class ActivePackageSelection(LifecycleModel):
 class ActivePackagesConfig(LifecycleModel):
     schema_version: Literal["active-model-packages/v1"]
     tasks: dict[str, ActivePackageSelection]
+
+
+class AvailablePackagesConfig(LifecycleModel):
+    schema_version: Literal["available-model-packages/v1"]
+    packages: tuple[str, ...]
 
 
 class TargetQualityMetric(LifecycleModel):
@@ -565,6 +571,49 @@ def load_active_packages(path: Path = ACTIVE_PACKAGES_PATH) -> ActivePackagesCon
         return ActivePackagesConfig.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise PackageContractError(f"invalid active model package configuration: {exc}") from exc
+
+
+def load_available_packages(
+    path: Path = AVAILABLE_PACKAGES_PATH,
+) -> AvailablePackagesConfig:
+    try:
+        return AvailablePackagesConfig.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as exc:
+        raise PackageContractError(
+            f"invalid available model package configuration: {exc}"
+        ) from exc
+
+
+def register_available_package(
+    package_root: Path,
+    *,
+    config_path: Path = AVAILABLE_PACKAGES_PATH,
+) -> AvailablePackagesConfig:
+    config = load_available_packages(config_path)
+    models_root = config_path.resolve().parent
+    resolved = package_root.resolve(strict=True)
+    if models_root not in resolved.parents:
+        raise PackageContractError(
+            "only packages inside the trusted models directory can be registered"
+        )
+    relative = resolved.relative_to(models_root).as_posix()
+    if relative in config.packages:
+        return config
+    updated = AvailablePackagesConfig(
+        schema_version=config.schema_version,
+        packages=(*config.packages, relative),
+    )
+    temporary = config_path.with_suffix(config_path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(updated.model_dump(mode="json"), ensure_ascii=False, indent=2)
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    temporary.replace(config_path)
+    return updated
 
 
 def validate_active_package_task_set(

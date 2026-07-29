@@ -23,6 +23,7 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.sqlite_connection import sqlite_connection
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
 from material_workbench.modeling.model_lifecycle import (
+    AVAILABLE_PACKAGES_PATH,
     runtime_capability_digest,
     task_input_contract_digest,
 )
@@ -32,7 +33,6 @@ from material_workbench.persistence.chain_catalog_migration import (
 from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
 
 
-AVAILABLE_PACKAGES_PATH = Path("models/available-packages.json")
 PROFILE_ROOT = Path(__file__).parent.parent / "data"
 PRIMARY_DATASET_PROFILES = (
     (PRIMARY_DEFAULT_SOURCE, PROFILE_ROOT / "dataset-input-profile-tutorial.json"),
@@ -483,11 +483,16 @@ def audit_project_bindings(database: str | Path) -> None:
                 raise WorkspaceCatalogBootstrapError(f"Project {row[0]} の{label}参照が不正です")
 
 
-def bootstrap_workspace_catalog(database: str | Path, registry: TaskRegistry) -> WorkspaceCatalog:
+def bootstrap_workspace_catalog(
+    database: str | Path,
+    registry: TaskRegistry,
+    *,
+    available_packages_path: Path = AVAILABLE_PACKAGES_PATH,
+) -> WorkspaceCatalog:
     catalog = WorkspaceCatalog(database)
     bindings = register_runtime_resources(catalog, registry)
     register_primary_datasets(catalog)
-    register_available_packages(catalog, registry)
+    register_available_packages(catalog, registry, available_packages_path)
     bind_legacy_projects(database, catalog, bindings)
     migrate_replaced_model_package_projects(database)
     refresh_replaced_tutorial_projects(database, bindings)

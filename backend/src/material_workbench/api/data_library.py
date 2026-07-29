@@ -5,7 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .dependencies import get_store, get_task_registry, get_workspace_catalog
+from .dependencies import (
+    get_available_packages_path,
+    get_store,
+    get_task_registry,
+    get_workspace_catalog,
+)
 from material_workbench.contracts.schemas import (
     DataLibraryDataset,
     DatasetRevisionUpdateInput,
@@ -18,7 +23,11 @@ from material_workbench.contracts.schemas import (
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError, WorkspaceCatalog
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.persistence.workspace_catalog_bootstrap import (
+    WorkspaceCatalogBootstrapError,
+    register_available_packages,
+    task_definition_digest,
+)
 from material_workbench.data.profile_document import supported_task_ids
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
 
@@ -27,6 +36,7 @@ router = APIRouter(prefix="/api")
 CatalogDependency = Annotated[WorkspaceCatalog, Depends(get_workspace_catalog)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
 StoreDependency = Annotated[Store, Depends(get_store)]
+AvailablePackagesPathDependency = Annotated[Path, Depends(get_available_packages_path)]
 
 
 def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
@@ -201,6 +211,28 @@ def list_model_packages(
         datasets,
         include_archived=include_archived,
     )
+
+
+@router.post(
+    "/data-library/model-packages/refresh",
+    response_model=list[ModelPackageRef],
+)
+def refresh_model_packages(
+    catalog: CatalogDependency,
+    registry: RegistryDependency,
+    available_packages_path: AvailablePackagesPathDependency,
+) -> list[ModelPackageRef]:
+    """Import the trusted allow-list without replacing existing Project bindings."""
+
+    try:
+        register_available_packages(
+            catalog,
+            registry,
+            available_packages_path,
+        )
+    except (WorkspaceCatalogBootstrapError, CatalogConflictError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return catalog.list_model_package_refs(include_archived=True)
 
 
 @router.patch("/data-library/model-packages/{reference_id}", response_model=ModelPackageRef)
