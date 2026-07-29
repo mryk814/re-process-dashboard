@@ -1,6 +1,11 @@
 # Developer Start Here
 
-この文書は「何を変更したいか」から、変更する契約、生成物、検証を決める入口です。
+この文書は、アプリ本体、契約、共通tooling、同梱コンテンツを変更する人の入口です。
+
+既存のPrediction Task、Profile family、Model Runtimeを使って自分のExcel／CSVを登録、探索、学習するだけなら、この文書のテストやPR運用は適用しません。
+[自分のデータで使い始める](operations/data-contributor-start-here.md)へ進んでください。
+
+アプリ開発では「何を変更したいか」から、変更する契約、生成物、検証を決めます。
 
 最初に [現行システム基準](product/current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [contracts/task-inventory.json](contracts/task-inventory.json)、個別契約は [Dataset Input Profile](operations/dataset-input-profile.md)、各Profile、[特徴量](contracts/feature-engineering.md)、[Model Package](contracts/model-package-contract.md)、[Chain実行](contracts/chain-execution.md)、[検討アクティビティ](contracts/decision-activities.md) を正本とします。
 

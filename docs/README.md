@@ -2,7 +2,8 @@
 
 このdirectoryの直下は、文書へ入るための入口だけです。
 
-- [Developer Start Here](developer-start-here.md) — 変更したいことから正本、成果物、検証へ進む
+- [自分のデータで使い始める](operations/data-contributor-start-here.md) — 既存の仕組みへ手元のDataset／Profile／Model Packageを追加する
+- [Developer Start Here](developer-start-here.md) — アプリ、契約、共通toolingを変更する
 - [プロダクト](product/README.md) — 何のアプリか、現在のscope、UIとnavigationの方針
 - [実装契約](contracts/README.md) — identity、invariant、保存・実行・モデル境界
 - [運用手順](operations/README.md) — 開発、検証、build、配布、backup／restore
