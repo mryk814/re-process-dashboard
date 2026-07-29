@@ -103,6 +103,7 @@
 .comparison-action-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; font-size: 0.75rem; }
 .candidate-name-table { background: #fff; box-shadow: 2px 0 0 #cfd9e5; }
 .candidate-name-table .candidate-select-column { width: 32px; }
+.candidate-name-table .candidate-reference-column { width: 44px; }
 .comparison-input-scroll,
 .comparison-prediction-scroll { background: #fff; }
 .comparison-action-scroll { position: sticky; right: 0; z-index: 6; overflow-x: hidden; background: #fff; box-shadow: -2px 0 0 #cfd9e5; }
@@ -180,6 +181,9 @@
 .candidate-name-table thead tr:nth-child(2) th:first-child,
 .candidate-name-table tbody .candidate-select-cell { border-right: 0 !important; }
 .candidate-name-table .candidate-select-cell { padding: 0; text-align: center; }
+.candidate-name-table .candidate-reference-cell { padding: 0; text-align: center; }
+.candidate-reference-cell input { width: 16px; height: 16px; accent-color: #5963a8; cursor: pointer; }
+.candidate-name-table .comparison-reference-row .candidate-reference-cell { background: #f0effa; box-shadow: inset 0 0 0 1px #aaa5d3; }
 .candidate-select-button { display: inline-grid; place-items: center; width: 19px; height: 19px; padding: 0; border: 1.5px solid #9bb0c8; border-radius: 50%; background: #fff; cursor: pointer; }
 .candidate-select-button span { width: 9px; height: 9px; border-radius: 50%; background: transparent; }
 .candidate-select-button:hover { border-color: #1f5fc4; background: #f2f7ff; }
@@ -193,6 +197,11 @@
 .comparison-detail-table input { width: 100%; height: 27px; border: 1px solid transparent; border-radius: 3px; text-align: center; background: transparent; color: #18202c; }
 .comparison-detail-table .numeric-cell,
 .comparison-detail-table .numeric-cell input { text-align: right; font-variant-numeric: tabular-nums; }
+.comparison-input-table td.reference-difference-cell,
+.comparison-input-table .selected-row td.reference-difference-cell { position: relative; background: #f5f0ff; box-shadow: inset 3px 0 0 #7968b7; }
+.reference-difference-cell input,
+.reference-difference-cell select { padding-right: 13px; }
+.reference-difference-marker { position: absolute; z-index: 1; top: 2px; right: 3px; color: #65529f; font-size: 10px; font-weight: 800; line-height: 1; pointer-events: none; }
 .candidate-name-table input { text-align: left; font-weight: 700; }
 .candidate-name-table input:focus,
 .comparison-detail-table input:focus { border-color: #1f5fc4; background: #fff; }
