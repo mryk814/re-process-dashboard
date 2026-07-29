@@ -63,6 +63,10 @@ def get_data_library_root(request: Request) -> Path:
     return request.app.state.data_library_root
 
 
+def get_available_packages_path(request: Request) -> Path:
+    return request.app.state.available_packages_path
+
+
 def get_project_runtime_resolver(request: Request) -> ProjectRuntimeResolver:
     return get_runtime_context(request).project_runtime_resolver
 

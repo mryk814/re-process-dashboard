@@ -16,10 +16,14 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
 
   await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
-  const guide = page.getByRole("region", { name: "モデル更新を安全に進める" });
-  await expect(guide.getByRole("textbox", { name: "PowerShellモデル更新手順" })).toHaveValue(
-    /npm run model:diagnose[\s\S]*npm run model:build[\s\S]*npm run model:promote[\s\S]*--activate/,
+  const guide = page.getByRole("region", { name: "モデルを追加する" });
+  const commands = guide.getByRole("textbox", { name: "PowerShellモデル更新手順" });
+  await expect(commands).toHaveValue(
+    /npm run model:diagnose[\s\S]*npm run model:build[\s\S]*npm run model:promote/,
   );
+  await expect(commands).not.toHaveValue(/--activate/);
+  await expect(commands).not.toHaveValue(/npm run dev/);
+  await expect(page.getByRole("button", { name: "昇格済みモデルを再読込" })).toBeVisible();
   await expect(guide).toContainText("保存済み予測は再計算されません");
 });
 

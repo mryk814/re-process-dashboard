@@ -140,6 +140,26 @@ export interface paths {
         patch: operations["update_model_package_api_data_library_model_packages__reference_id__patch"];
         trace?: never;
     };
+    "/api/data-library/model-packages/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Model Packages
+         * @description Import the trusted allow-list without replacing existing Project bindings.
+         */
+        post: operations["refresh_model_packages_api_data_library_model_packages_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-library/views": {
         parameters: {
             query?: never;
@@ -9649,6 +9669,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    refresh_model_packages_api_data_library_model_packages_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelPackageRef"][];
                 };
             };
             /** @description Validation Error */

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 
 from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.tasks.task_registry import load_task_contracts
 
 
 EXPECTED_DATASET_IDENTITIES = {
@@ -113,6 +114,90 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         == payload["task_contract_digests"][package["task_id"]]
         for package in payload["model_packages"]
     )
+
+
+def test_available_package_manifest_can_be_reloaded_without_restart(client) -> None:
+    projects = client.get("/api/projects", params={"include_archived": True}).json()
+    referenced_ids = {
+        project["model_package_ref_id"]
+        for project in projects
+        if project["model_package_ref_id"]
+    }
+    packages = client.get("/api/project-creation-options").json()["model_packages"]
+    contracts = load_task_contracts()
+    removed = next(
+        package
+        for package in packages
+        if package["id"] not in referenced_ids
+        and contracts[package["task_id"]].task_definition.response_curve_variables
+    )
+
+    with sqlite3.connect(client.app.state.store.path) as conn:
+        conn.execute("DELETE FROM model_package_refs WHERE id=?", (removed["id"],))
+
+    assert removed["id"] not in {
+        package["id"]
+        for package in client.get(
+            "/api/data-library/model-packages",
+            params={"include_archived": True, "include_gallery": True},
+        ).json()
+    }
+
+    refreshed = client.post("/api/data-library/model-packages/refresh")
+
+    assert refreshed.status_code == 200, refreshed.text
+    assert removed["id"] in {package["id"] for package in refreshed.json()}
+    options = client.get("/api/project-creation-options").json()
+    assert removed["id"] in {package["id"] for package in options["model_packages"]}
+
+    dataset = next(
+        item
+        for item in options["datasets"]
+        if (
+            f"sha256:{item['data_asset']['sha256']}"
+            == removed["manifest_json"]["provenance"]["training_data_id"]
+            and item["profile_revision"]["profile_digest"]
+            == removed["manifest_json"]["provenance"]["dataset_profile_id"]
+        )
+    )
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "live package refresh smoke",
+            "task_id": removed["task_id"],
+            "dataset_view_revision_id": dataset["dataset_views"][0]["id"],
+            "model_package_ref_id": removed["id"],
+        },
+    )
+    assert project.status_code == 201, project.text
+
+    fixture = contracts[removed["task_id"]]
+    canonical = fixture.canonical_candidate
+    dumped = canonical.model_dump(mode="json")
+    candidate_payload = {
+        "name": "live package candidate",
+        "inputs": {
+            key: dumped[key]
+            for key in ("composition", "process", "categorical", "heat_pattern")
+        },
+        "provenance": dumped["provenance"],
+    }
+    candidate = client.post(
+        f"/api/projects/{project.json()['id']}/candidates",
+        json=candidate_payload,
+    )
+    assert candidate.status_code == 201, candidate.text
+    curve = client.get(
+        f"/api/projects/{project.json()['id']}/candidates/{candidate.json()['id']}/response-curve",
+        params={
+            "expected_revision": candidate.json()["revision"],
+            "target": fixture.task_definition.outputs[0].key,
+            "variable": fixture.task_definition.response_curve_variables[0].path,
+            "points": 9,
+        },
+    )
+    assert curve.status_code == 200, curve.text
+    assert len(curve.json()["points"]) == 9
 
 
 def test_unused_dataset_can_be_disabled_and_restored_with_its_views(client) -> None:

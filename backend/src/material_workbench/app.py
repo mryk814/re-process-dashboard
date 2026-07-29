@@ -332,6 +332,12 @@ def create_app(
         or os.getenv("WORKBENCH_DATA_LIBRARY_PATH", "")
         or database.parent / "data-library"
     )
+    configured_active_packages_path = Path(
+        active_packages_path or ACTIVE_PACKAGES_PATH
+    ).resolve()
+    available_packages_path = configured_active_packages_path.with_name(
+        "available-packages.json"
+    )
     if _resources is not None and any(
         value is not None
         for value in (source_path, flank_wear_source_path, package_roots, active_packages_path)
@@ -405,10 +411,15 @@ def create_app(
         except Exception as exc:
             _raise_startup_error("database", "ワークスペースDB", exc)
         try:
-            app.state.workspace_catalog = bootstrap_workspace_catalog(database, prepared.task_registry)
+            app.state.workspace_catalog = bootstrap_workspace_catalog(
+                database,
+                prepared.task_registry,
+                available_packages_path=available_packages_path,
+            )
         except Exception as exc:
             _raise_startup_error("catalog", "データ・モデルカタログ", exc)
         app.state.data_library_root = data_library_root.resolve()
+        app.state.available_packages_path = available_packages_path
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )
@@ -599,6 +610,7 @@ def create_app(
                         catalog = bootstrap_workspace_catalog(
                             database,
                             complete.task_registry,
+                            available_packages_path=available_packages_path,
                         )
                         resolver = ProjectRuntimeResolver(
                             catalog,

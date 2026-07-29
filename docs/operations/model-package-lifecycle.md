@@ -25,9 +25,10 @@ Package provenanceがTraining Snapshot digestを参照します。
 
 まず依存を導入し、`npm run dev`で画面を開きます。
 既定portが使用中なら、launcherが空きportを選んで実際のURLを端末へ表示します。
-Data LibraryでExcel/CSVと既存Profileを登録し、表示されたTask互換性を確認したら一度`Ctrl+C`で停止します。
+Data LibraryでExcel/CSVとProfileを登録し、表示された予測互換性を確認します。
+学習とPackage昇格のためにアプリを停止する必要はありません。
 
-次の例は、登録済みの熱処理Taskと同じProfileへ適合する新しいデータを学習し、検証済みPackageをtrusted modelsへ昇格して有効化する、PowerShellからコピー可能な一続きの手順です。
+次の例は、登録済みの熱処理の予測契約へ適合する新しいデータを学習し、検証済みPackageをtrusted modelsへ昇格する、PowerShellからコピー可能な一続きの手順です。
 
 ```powershell
 uv sync --extra dev
@@ -49,22 +50,23 @@ npm run model:build -- `
 npm run model:promote -- `
   --task $task `
   --source $source `
-  --package "artifacts/model-package-candidates/$packageId" `
-  --activate
+  --package "artifacts/model-package-candidates/$packageId"
 
 npm run task:inventory
 npm run model:status
-npm run dev
 ```
 
-`model:diagnose`の`route`が`existing_task_replacement`なら、このまま既存Taskの差替えへ進めます。
+`model:diagnose`の`route`が`existing_task_replacement`なら、現在の予測契約を使ってPackage作成へ進めます。
 `new_task_or_profile`なら、列名が似ていても既存Profileへ押し込まず、[新しいデータフローの追加](dataset-input-profile.md#新しいデータフローを追加する場合)へ進みます。
 `--profile`を渡した場合は、そのProfileのdigestが登録済みTaskの有効Profileと同じことも確認します。
 
 `model:build`は指定した不変のPackage ID/versionで候補を作り、本番loaderとadapterで検証します。
-`model:promote --activate`は再検証後に`models/packages/<package-id>`へ原子的にコピーし、同じIDの異なる内容を上書きせず、`previous`を残してactive参照を切り替えます。
-再起動後、Data Libraryで登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えます。
+`model:promote`は再検証後に`models/packages/<package-id>`へ原子的にコピーし、同じIDの異なる内容を上書きせず、利用可能Package一覧へ追加します。
+起動中のData Libraryで「昇格済みモデルを再読込」を実行すると、登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDataset/Modelを切り替えられます。
 保存済みSnapshotは切替後も再計算されません。
+
+新しいTaskDefinition、TaskModule、runtime adapterをコードへ追加した場合は再起動が必要です。
+`model:activate`または`model:promote --activate`は起動時の既定Packageを切り替える運用コマンドであり、この場合も再起動します。ProjectごとにPackageを選ぶ通常経路ではactive化しません。
 
 この経路そのものは、repo内のactive設定やPackageを変更しない一時領域で次のsmokeにより自動検証できます。
 
@@ -99,8 +101,7 @@ npm run model:verify -- `
 
 npm run model:promote -- `
   --task <task> `
-  --package artifacts/model-package-candidates/<new-package-id> `
-  --activate
+  --package artifacts/model-package-candidates/<new-package-id>
 
 npm run task:inventory
 npm run model:status
@@ -131,8 +132,7 @@ npm run model:verify -- `
 npm run model:promote -- `
   --task flank-wear-v1 `
   --source $source `
-  --package artifacts/model-package-candidates/<new-package-id> `
-  --activate
+  --package artifacts/model-package-candidates/<new-package-id>
 
 npm run task:inventory
 ```
@@ -143,8 +143,9 @@ npm run task:inventory
 契約、学習データ、成果物のどれかが変わる場合は、新しいPackage IDとディレクトリを使います。
 `--replace`を使えるのは、`artifacts/model-package-candidates/`などの未登録の作業出力だけです。
 
-使用Packageの切替後はアプリを再起動します。
-`models/active-packages.json` は信頼済みPackageだけを参照し、任意の外部パスは保存しません。
+昇格したPackageはData Libraryの明示再読込でProject選択肢へ追加できます。
+起動時の既定Packageを切り替えた場合だけアプリを再起動します。
+`models/available-packages.json`と`models/active-packages.json`は信頼済みPackageだけを参照し、任意の外部パスは保存しません。
 
 ## 焼鈍特性の標準モデル
 
