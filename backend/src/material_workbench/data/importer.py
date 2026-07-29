@@ -717,14 +717,14 @@ def load_workbook_data(
         profile_locator = str(selected_profile_path)
     else:
         profile_locator = f"catalog:{profile.profile_id}"
-    anneal_task_id = next(
+    anneal_task_id = next((
         task_id for task_id, task in profile.tasks.items()
         if any(mapping.kind == "ordered_heat_series" for mapping in task.mappings)
-    )
-    hot_task = next(
+    ), None)
+    hot_task = next((
         task_id for task_id, task in profile.tasks.items()
         if any(mapping.role == "hot_rolling" and mapping.path.startswith("process.") for mapping in task.mappings)
-    )
+    ), None)
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         canonical = canonicalize_workbook(wb, profile)
@@ -778,18 +778,23 @@ def load_workbook_data(
         for row in melt_rows
     }
     hot_key = next(entity.key for entity in profile.shared.entities if entity.role == "hot_rolling")
-    hot_rolling_features = {
-        str(row[hot_key]): {
-            **canonical.mapped_values(row, hot_task, ("process.", "categorical.")),
-            "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment") or ""),
+    hot_rolling_features = (
+        {
+            str(row[hot_key]): {
+                **canonical.mapped_values(row, hot_task, ("process.", "categorical.")),
+                "equipment": str(canonical.technical_value(row, "hot_rolling", "equipment") or ""),
+            }
+            for row in canonical.rows("hot_rolling")
         }
-        for row in canonical.rows("hot_rolling")
-    }
+        if hot_task is not None else {}
+    )
     anneal_key = next(entity.key for entity in profile.shared.entities if entity.role == "annealing")
     anneal_history_by_key: dict[str, list[dict[str, float]]] = defaultdict(list)
     anneal_history_by_key.update({identity[1]: [dict(point) for point in points] for identity, points in canonical.heat_series.items()})
     anneal_feature_sheet = profile.shared.sheets.get("anneal_features")
-    if anneal_feature_sheet and anneal_feature_sheet in sheets:
+    if anneal_task_id is None:
+        anneal_features = {}
+    elif anneal_feature_sheet and anneal_feature_sheet in sheets:
         anneal_features = {
             str(canonical.technical_value(row, "anneal_features", "parent_key")): {
                 **canonical.mapped_values(row, anneal_task_id, ("process.", "categorical.")),

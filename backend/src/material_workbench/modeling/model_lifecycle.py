@@ -187,6 +187,11 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
         else:
             profile = load_dataset_profile(profile_path)
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
+    shared = payload.get("shared")
+    if isinstance(shared, dict) and not shared.get("column_aliases"):
+        # The optional alias map was added after existing immutable Packages.
+        # Its empty value carries no semantic change, so preserve their digest.
+        shared.pop("column_aliases", None)
     if isinstance(payload.get("curation_recipe"), dict):
         for rule in payload["curation_recipe"].get("columns", {}).values():
             if isinstance(rule, dict):
