@@ -1,5 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+test("similar evidence always shows candidate creation even without an upstream mapping", async ({ page }) => {
+  await page.route("**/api/projects/default/candidates/*/similar?*", async (route) => {
+    const response = await route.fetch();
+    const rows = await response.json() as Array<Record<string, unknown>>;
+    await route.fulfill({
+      response,
+      json: rows.map((row) => ({ ...row, process_key: null })),
+    });
+  });
+
+  await page.goto("/?view=candidates&project=default");
+  const actions = page.locator(".similar-evidence-panel").getByRole("button", { name: "実測から候補化" });
+  await expect(actions.first()).toBeVisible();
+  expect(await actions.count()).toBeGreaterThan(0);
+  await expect(actions.first()).toBeDisabled();
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 test("similar evidence asks which upstream condition to inherit when it is ambiguous", async ({ page }) => {
   await page.route("**/api/projects/default/candidates/*/similar?*", async (route) => {
     const response = await route.fetch();
@@ -43,6 +61,7 @@ test("similar evidence asks which upstream condition to inherit when it is ambig
   expect(requestUrl.searchParams.get("process_key")).toBe("AN-02");
   expect(requestUrl.searchParams.get("melt_key")).toBe("ME-02");
   await expect(page.getByRole("status")).toContainText("近い過去実績を候補に追加しました");
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("candidate origin actual stays scoped to the selected composition and relation route", async ({ page }) => {

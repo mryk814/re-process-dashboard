@@ -106,10 +106,7 @@ export function SimilarityEvidencePanel({
   const status = inferenceSurfaceStatus(surface);
   const similar = surface.currentIdentity?.startsWith(`${similarityScope}\u001f`) ? surface.data ?? [] : [];
   const hasMeltKey = similar.some((item) => item.melt_key);
-  const canAddCandidates = similar.some((item) => item.process_key);
-  const processLabel = canAddCandidates
-    ? similar.find((item) => item.process_label)?.process_label ?? "参照条件"
-    : "観測キー";
+  const processLabel = similar.find((item) => item.process_label)?.process_label ?? "観測キー";
   const visibleOutputs = targetSpecific ? outputs.filter((output) => output.key === selectedTarget) : outputs;
   const measurementForOutput = (item: ApiSimilarObservation, output: TaskOutputDefinition) => {
     const summaryKey = [...(output.measurement_keys ?? []), output.key, output.label]
@@ -209,7 +206,7 @@ export function SimilarityEvidencePanel({
         <p className="empty-evidence">入力を保存後に近さを更新します。</p>
       ) : similar.length ? (
         <div className="similar-table-scroll"><table className={`similar-table similar-summary-table${hasMeltKey ? "" : " no-melt-key"}`} style={{ "--similar-output-count": Math.max(visibleOutputs.length, 1) } as CSSProperties}>
-          <thead><tr><th className="similar-distance-header">距離</th>{hasMeltKey && <th className="similar-key-header">溶製成績書</th>}<th className="similar-key-header">{processLabel}</th>{visibleOutputs.map((output) => <th className="similar-output-header" key={output.key}>{output.label}<small>{output.unit === "1" ? "" : output.unit}</small></th>)}{canAddCandidates && <th className="similar-action-header" />}</tr></thead>
+          <thead><tr><th className="similar-distance-header">距離</th>{hasMeltKey && <th className="similar-key-header">溶製成績書</th>}<th className="similar-key-header">{processLabel}</th>{visibleOutputs.map((output) => <th className="similar-output-header" key={output.key}>{output.label}<small>{output.unit === "1" ? "" : output.unit}</small></th>)}<th className="similar-action-header" /></tr></thead>
           <tbody>{similar.map((item) => (
             <tr key={similarObservationRowKey(item)}>
               <td className="similar-distance"><b>{item.distance.toFixed(2)}</b><span className="layer-chip historical">参照データ</span></td>
@@ -224,7 +221,7 @@ export function SimilarityEvidencePanel({
                 const spread = measurementSpreadText(summary.std, summary.n, (amount) => outputNumber(amount, output));
                 return <td className={`similar-output-cell${assessment.implausible ? " implausible-output" : ""}`} key={output.key} title={assessment.warning ?? (binary ? `${output.label}: ${value} / n=${summary.n}` : `${output.label}: ${value} ${output.unit} / ${spread.title}`)}><strong>{value}</strong>{!binary && <small>{spread.text}</small>}{assessment.implausible && <small className="output-warning-badge">⚠</small>}</td>;
               })}
-              {canAddCandidates && <td className="similar-action-cell">
+              <td className="similar-action-cell">
                 {item.process_key && candidateOptions[similarObservationRowKey(item)]?.length ? (() => {
                   const entityKey = item.process_key;
                   const rowKey = similarObservationRowKey(item);
@@ -260,12 +257,13 @@ export function SimilarityEvidencePanel({
                 })() : <CandidateAddButton
                   compact
                   disabled={!item.process_key || addingKey.startsWith(similarObservationRowKey(item))}
+                  title={item.process_key ? undefined : "この実測には候補化できる工程条件の対応がありません"}
                   onClick={() => void prepareCandidate(item)}
                 >
                   {addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "実測から候補化"}
                 </CandidateAddButton>}
                 {choiceErrors[similarObservationRowKey(item)] && <small className="similar-choice-error" role="alert">{choiceErrors[similarObservationRowKey(item)]}</small>}
-              </td>}
+              </td>
             </tr>
           ))}</tbody>
         </table></div>

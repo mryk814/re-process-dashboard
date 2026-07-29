@@ -39,15 +39,15 @@ test("heat-pattern axes keep labels inside the plot and anchor edge ticks inward
   assert.match(source, /時間（min）/);
 });
 
-test("similar evidence uses task outputs as comparable columns and omits unusable actions", async () => {
+test("similar evidence uses task outputs and always keeps the candidate action visible", async () => {
   const source = await readFile(new URL("../src/features/workbench/SimilarityEvidencePanel.tsx", import.meta.url), "utf8");
 
   assert.match(source, /モデル入力が近い実測条件です/);
   assert.match(source, /visibleOutputs\.map\(\(output\) => <th className="similar-output-header"/);
-  assert.match(source, /canAddCandidates && <th className="similar-action-header"/);
-  assert.match(source, /canAddCandidates && <td className="similar-action-cell"/);
-  assert.match(source, /\? similar\.find\(\(item\) => item\.process_label\)\?\.process_label \?\? "参照条件"/);
-  assert.match(source, /: "観測キー"/);
+  assert.match(source, /<th className="similar-action-header"/);
+  assert.match(source, /<td className="similar-action-cell"/);
+  assert.match(source, /実測から候補化/);
+  assert.doesNotMatch(source, /canAddCandidates/);
 });
 
 test("charts with focusable points are groups of labelled parts, not one image", async () => {
