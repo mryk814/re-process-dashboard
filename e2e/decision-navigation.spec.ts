@@ -98,7 +98,7 @@ test("saved prediction returns directly to project history", async ({ page, requ
   await expect(page.getByText("固定した予測").first()).toBeVisible();
 });
 
-test("candidate row actions target their own row", async ({ page, request }) => {
+test("candidate row actions target their own row", async ({ page, request }, testInfo) => {
   const projectId = await createIsolatedProject(request);
   const listed = await (await request.get(`${api}/api/projects/${projectId}/candidates`)).json() as Array<{ id: string; name: string }>;
   const first = listed[0];
@@ -117,6 +117,32 @@ test("candidate row actions target their own row", async ({ page, request }) => 
 
   const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && new URL(response.url()).pathname.endsWith(`/candidates/${first.id}`));
   await page.getByRole("button", { name: `${first.name}を一覧から外す` }).click();
+  const confirmation = page.getByRole("group", { name: `${first.name}を一覧から外す確認` });
+  await expect(confirmation).toContainText("後でプロジェクト概要から復元できます");
+  await expect(confirmation.getByRole("img", { name: "後で復元できます" })).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "一覧から外す" })).toBeFocused();
+  const confirmationBox = await confirmation.boundingBox();
+  const actionPaneBox = await page.locator(".comparison-action-scroll").boundingBox();
+  expect(confirmationBox).not.toBeNull();
+  expect(actionPaneBox).not.toBeNull();
+  expect(confirmationBox!.width).toBeLessThanOrEqual(actionPaneBox!.width);
+  expect(await confirmation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  for (const button of await confirmation.getByRole("button").all()) {
+    const buttonBox = await button.boundingBox();
+    expect(buttonBox).not.toBeNull();
+    expect(buttonBox!.x).toBeGreaterThanOrEqual(actionPaneBox!.x);
+    expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(actionPaneBox!.x + actionPaneBox!.width);
+  }
+  const actionRowHeight = await page.locator(`.comparison-action-table tr[data-candidate-id="${first.id}"]`).evaluate((row) => row.getBoundingClientRect().height);
+  const predictionRowHeight = await page.locator(`.comparison-prediction-table tr[data-candidate-id="${first.id}"]`).evaluate((row) => row.getBoundingClientRect().height);
+  expect(Math.abs(actionRowHeight - predictionRowHeight)).toBeLessThanOrEqual(1);
+  await page.locator(".comparison-action-scroll").screenshot({
+    path: testInfo.outputPath("compact-candidate-removal.png"),
+  });
+  await confirmation.getByRole("button", { name: "キャンセル" }).click();
+  const removeButton = page.getByRole("button", { name: `${first.name}を一覧から外す` });
+  await expect(removeButton).toBeFocused();
+  await removeButton.click();
   await page.getByRole("button", { name: "一覧から外す", exact: true }).click();
   expect((await deleteResponse).status()).toBe(204);
   await expect(page).toHaveURL(new RegExp(`candidate=${second.id}`));
