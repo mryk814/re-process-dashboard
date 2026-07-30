@@ -54,7 +54,10 @@ const readProcessTreeMemory = (rootPid) => {
 };
 
 const launchStarted = performance.now();
-const electronApp = await electron.launch({ executablePath, timeout: PACKAGED_STARTUP_TIMEOUT_MS });
+const electronApp = await electron.launch({
+  executablePath,
+  timeout: PACKAGED_STARTUP_TIMEOUT_MS,
+});
 try {
   const window = await electronApp.firstWindow({ timeout: PACKAGED_STARTUP_TIMEOUT_MS });
   await window
@@ -340,37 +343,37 @@ try {
   // decimals, so use the same absolute tolerance as its contract test.
   assert(Math.abs(compositionTotal - 100) <= 2e-5);
   assert(transformResult.powder_blend_cost_yen_per_kg_core > 0);
-  const externalTasks = [
-    {
-      projectId: "heat-treatment-tradeoff-v1-default",
-      target: "hardness_hv",
-      variable: "composition.carbon_pct",
-    },
-    {
-      projectId: "concrete-strength-v1-default",
-      target: "compressive_strength_mpa",
-      variable: "process.age_days",
-    },
-    {
-      projectId: "wear-curve-v1-default",
-      target: "wear_vb_um",
-      variable: "process.cutting_distance_m",
-    },
+  const initialProjectsResponse = await authenticatedFetch("/api/projects");
+  assert.equal(initialProjectsResponse.status, 200);
+  assert.deepEqual(
+    (await initialProjectsResponse.json()).map(({ id }) => id),
+    ["default"],
+  );
+  const galleryResponse = await authenticatedFetch("/api/sample-gallery");
+  assert.equal(galleryResponse.status, 200);
+  assert.deepEqual(
+    new Set((await galleryResponse.json()).map(({ project_id }) => project_id)),
+    new Set([
+      "welding-stage-b-default",
+      "battery-degradation-v1-default",
+      "mpea-room-tensile-v1-default",
+    ]),
+  );
+  const sampleInstallResponse = await authenticatedFetch("/api/sample-gallery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_ids: [] }),
+  });
+  assert.equal(sampleInstallResponse.status, 200);
+  assert.equal((await sampleInstallResponse.json()).length, 3);
+  const responseCurveSamples = [
     {
       projectId: "battery-degradation-v1-default",
       target: "capacity_percent",
       variable: "process.cycle_index",
     },
   ];
-  const sampleInstallResponse = await authenticatedFetch("/api/sample-gallery", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      project_ids: externalTasks.map(({ projectId }) => projectId),
-    }),
-  });
-  assert.equal(sampleInstallResponse.status, 200);
-  for (const task of externalTasks) {
+  for (const task of responseCurveSamples) {
     const candidatesResponse = await authenticatedFetch(`/api/projects/${task.projectId}/candidates`);
     assert.equal(candidatesResponse.status, 200);
     const candidates = await candidatesResponse.json();

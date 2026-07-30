@@ -21,6 +21,19 @@ TaskRegistry / model authoring / startup
 - `builtin_tasks.py`：同梱Taskのloader、runtime factory、capability、starterの明示的配線
 - `catalog.py`：同梱Taskを不変allow-listとして公開し、source pathを解決する
 
+## Starter Projectの公開区分
+
+Task、Dataset、Model Packageの同梱範囲と、ユーザーへ見せるProjectサンプルの
+ポートフォリオは分けます。`StarterProject.distribution`が公開区分の正本です。
+
+- `quickstart`：fresh Workspaceへ最初から入る1件
+- `gallery`：役割が重ならない代表例としてSample Galleryから追加できるもの
+- `legacy_hidden`：既存Workspaceと内部検証のため宣言を残すが、新規追加はできないもの
+
+`WORKBENCH_DEMO_SEED=all`は全Starterを使う内部fixtureです。公開Galleryの一括追加は
+`gallery`だけを対象にし、テスト都合で公開サンプルを増やしません。既存Workspaceに
+入っている`legacy_hidden`は作業を勝手に消さず、未変更ならGallery管理から取り除けます。
+
 旧`task_modules.py`は残しません。
 利用側は必要な責任のmoduleを直接importし、catalogを万能な再export hubにはしません。
 同様に、Projectから固定Dataset／Profile／Packageを解決する処理は

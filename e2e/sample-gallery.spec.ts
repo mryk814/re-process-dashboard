@@ -28,7 +28,7 @@ test("fresh workspace can add, remove, and restore bundled samples", async ({ pa
 
   const gallery = page.locator(".sample-gallery-list");
   await gallery.locator("summary").click();
-  await expect(gallery.locator(".sample-gallery-item")).toHaveCount(10);
+  await expect(gallery.locator(".sample-gallery-item")).toHaveCount(3);
   const firstAvailable = gallery.locator(".sample-gallery-item")
     .filter({ has: page.getByRole("button", { name: "追加", exact: true }) })
     .first();

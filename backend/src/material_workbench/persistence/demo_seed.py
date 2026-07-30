@@ -24,6 +24,19 @@ def starter_project_ids(modules: Mapping[str, TaskModule]) -> frozenset[str]:
     )
 
 
+def gallery_project_ids(modules: Mapping[str, TaskModule]) -> frozenset[str]:
+    """Return the intentionally small user-facing sample portfolio."""
+
+    return frozenset(
+        starter.project_id
+        for module in modules.values()
+        if (
+            (starter := module.starter_project) is not None
+            and starter.distribution == "gallery"
+        )
+    )
+
+
 def installed_starter_project_ids(
     store: Store,
     modules: Mapping[str, TaskModule],

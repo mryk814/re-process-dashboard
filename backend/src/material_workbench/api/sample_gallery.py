@@ -15,7 +15,9 @@ from material_workbench.contracts.schemas import (
 )
 from material_workbench.persistence.demo_seed import (
     QUICKSTART_PROJECT_ID,
+    gallery_project_ids,
     install_starter_projects,
+    starter_project_ids,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.store import (
@@ -75,11 +77,13 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
         starter = registry.module_for(task_id).starter_project
         if starter is None or starter.project_id == QUICKSTART_PROJECT_ID:
             continue
-        availability = registry.availability_for(task_id)
         installed = store.get_project(
             starter.project_id,
             include_archived=True,
         ) is not None
+        if starter.distribution == "legacy_hidden" and not installed:
+            continue
+        availability = registry.availability_for(task_id)
         removal_blocker = (
             _removal_blocker(store, registry, task_id, starter.project_id)
             if installed
@@ -118,17 +122,34 @@ def install_sample_gallery(
 ) -> list[Project]:
     items = _items(store, registry)
     by_project_id = {item.project_id: item for item in items}
+    modules = {
+        task_id: registry.module_for(task_id)
+        for task_id in registry.task_ids
+    }
+    gallery_ids = gallery_project_ids(modules)
+    starter_ids = starter_project_ids(modules)
     requested = (
         set(payload.project_ids)
         if payload.project_ids
-        else {item.project_id for item in items if item.available}
+        else {
+            item.project_id
+            for item in items
+            if item.project_id in gallery_ids and item.available
+        }
     )
-    unknown = sorted(requested - set(by_project_id))
+    unknown = sorted(requested - starter_ids)
     if unknown:
         raise DomainApiException(
             404,
             "not_found",
             f"サンプルが見つかりません: {', '.join(unknown)}",
+        )
+    retired = sorted(requested - gallery_ids)
+    if retired:
+        raise DomainApiException(
+            409,
+            "validation_error",
+            f"現在は新規追加できない旧サンプルです: {', '.join(retired)}",
         )
     unavailable = sorted(
         project_id
@@ -169,11 +190,10 @@ def remove_sample_gallery(
             "sample_has_saved_work",
             item.remove_blocked_reason or "保存済みの作業があるため取り除けません",
         )
-    project = store.get_project(project_id, include_archived=True)
-    if project is not None and project.archived_at is None:
-        store.archive_project(project_id)
     try:
-        store.purge_project(project_id)
+        # Sample removal is one atomic purge. Archiving first would leave a
+        # Project hidden when a successor or derived candidate blocks deletion.
+        store.purge_project(project_id, allow_active=True)
     except (ProjectHasSuccessorsError, ProjectHasDerivedCandidatesError) as exc:
         raise DomainApiException(409, "sample_has_saved_work", str(exc)) from exc
     return Response(status_code=204)

@@ -50,16 +50,18 @@ read-onlyで検査します。レビュー状態を固定seedへ戻す場合は�
 `npm run workspace:seed` を実行します。このcommandはbranch既定Workspaceだけを
 対象にし、`WORKBENCH_DB_PATH`などで指定した長寿命Workspaceは拒否します。
 fresh Workspaceと`workspace:seed`後の初期状態には、Quickstart Projectを1件だけ
-入れます。ほかの同梱サンプルは画面の「サンプルを追加」から個別・一括で追加できます。
+入れます。役割が重ならない同梱サンプル3件（溶接 Stage B、電池容量劣化、
+MPEA室温引張）は、画面の「同梱サンプルを管理」から個別・一括で追加できます。
 端末から同じ操作を行う場合は、dev serverを止めて次を実行します。
 
 ```powershell
 npm run samples -- list
-npm run samples -- add hot-rolling-default
+npm run samples -- add welding-stage-b-default
 npm run samples -- add-all
 ```
 
-サンプルのsource、Profile、Model Packageは配布物に保持されますが、追加するまでは
+ほかのTaskもsource、Profile、Model Packageを配布物に保持しますが、似た役割の
+Projectを並べないためSample Galleryには出しません。同梱サンプルを追加するまでは
 Project一覧・Data Library・新規Projectの選択肢へ混在しません。既存Workspaceにある
 starter Projectと保存済みProjectの固定参照はそのまま保持します。
 
