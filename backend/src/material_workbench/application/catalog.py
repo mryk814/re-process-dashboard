@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
-from statistics import fmean
+from statistics import fmean, pstdev
 from typing import Any, Literal
 
 from material_workbench.modeling.model_lifecycle import (
@@ -15,6 +15,11 @@ from material_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
 from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
+from material_workbench.modeling.training_distance import (
+    EvidenceContextIdentity,
+    evidence_context_id,
+    training_context_distances,
+)
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import (
@@ -636,15 +641,41 @@ def output_space_evidence(
     resolver: ProjectRuntimeResolver,
     x_target: str,
     y_target: str,
+    candidate_id: str,
+    expected_revision: int,
+    distance_filter: Literal["supported", "caution", "all"] = "supported",
     limit: int = 200,
 ) -> dict[str, Any]:
     if x_target == y_target:
         raise CatalogValidationError("output space axes must be different")
     project = _require_project(store, project_id)
+    candidate = store.get_candidate(candidate_id, project_id)
+    if candidate is None:
+        raise CatalogNotFoundError("candidate not found")
+    if candidate.revision != expected_revision:
+        raise CatalogConflictError("candidate revision changed")
     resolved = resolver.resolve(project)
     package = resolved.runtime.model_package
     assert package is not None
     contract = registry.contract_for(project.task_id)
+    definition = registry.resolved_definition_for(project.task_id)
+    prediction_space = next(
+        (
+            surface
+            for surface in definition.application.workbench_surfaces
+            if surface.kind == "prediction_space"
+        ),
+        None,
+    )
+    if (
+        prediction_space is None
+        or x_target not in prediction_space.target_keys
+        or y_target not in prediction_space.target_keys
+    ):
+        raise CatalogValidationError(
+            "output space axes must be declared by the task surface"
+        )
+    evidence_context = prediction_space.evidence_context
     available_targets = {item.target for item in package.manifest.predictors}
     if x_target not in available_targets or y_target not in available_targets:
         raise CatalogValidationError(
@@ -666,18 +697,72 @@ def output_space_evidence(
         canonical["rows"],
         x_target=x_target,
         y_target=y_target,
+        evidence_context=evidence_context,
     )
-    visible = _sample_output_space_evidence(points, limit)
+    try:
+        distance_evidence = training_context_distances(
+            resolved.runtime,
+            candidate,
+            target_keys=(x_target, y_target),
+            allowed_context_ids={point["context_id"] for point in points},
+            evidence_context=evidence_context,
+        )
+    except ValueError as exc:
+        raise CatalogValidationError(str(exc)) from exc
+    distance_by_context = dict(
+        zip(
+            distance_evidence.context_ids,
+            distance_evidence.distances,
+            strict=True,
+        )
+    )
+    enriched = []
+    for point in points:
+        distance = float(distance_by_context[point["context_id"]])
+        status = (
+            "supported"
+            if distance <= distance_evidence.supported_threshold
+            else "caution"
+            if distance <= distance_evidence.caution_threshold
+            else "extrapolated"
+        )
+        enriched.append(
+            {
+                **point,
+                "distance": distance,
+                "distance_status": status,
+            }
+        )
+    eligible = [
+        point
+        for point in enriched
+        if distance_filter == "all"
+        or point["distance_status"] == "supported"
+        or (
+            distance_filter == "caution"
+            and point["distance_status"] in {"supported", "caution"}
+        )
+    ]
+    eligible.sort(key=lambda point: (point["distance"], point["context_id"]))
+    visible = eligible[:limit]
     return {
         "x_target": x_target,
         "y_target": y_target,
+        "evidence_context": evidence_context,
         "source_data_digest": canonical["source_data_digest"],
-        "sampling_policy": (
-            "output_space_coverage" if len(visible) < len(points) else "all"
-        ),
+        "candidate_id": candidate.id,
+        "candidate_revision": candidate.revision,
+        "distance_method": distance_evidence.method,
+        "distance_version": distance_evidence.version,
+        "cohort_digest": distance_evidence.cohort_digest,
+        "supported_threshold": distance_evidence.supported_threshold,
+        "caution_threshold": distance_evidence.caution_threshold,
+        "filter": distance_filter,
+        "eligible_contexts": len(eligible),
+        "sampling_policy": "task_distance",
         "total_contexts": len(points),
         "returned_contexts": len(visible),
-        "truncated": len(visible) < len(points),
+        "truncated": len(visible) < len(eligible),
         "points": visible,
     }
 
@@ -687,12 +772,14 @@ def _output_space_evidence_points(
     *,
     x_target: str,
     y_target: str,
+    evidence_context: EvidenceContextIdentity = "training_context",
 ) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         if x_target not in row["outputs"] and y_target not in row["outputs"]:
             continue
-        grouped.setdefault(training_context_key(row), []).append(row)
+        context_id = evidence_context_id(row, evidence_context)
+        grouped.setdefault(context_id, []).append(row)
     points = []
     for context_id, rows in sorted(grouped.items()):
         x_observations = [
@@ -722,17 +809,44 @@ def _output_space_evidence_points(
             if x_ids & y_ids
             else "distinct_observations"
         )
+        process_keys = {str(row["parent_key"]) for row in rows}
+        composition_keys = {
+            str(row["composition_key"])
+            for row in rows
+            if row.get("composition_key")
+        }
         points.append({
             "context_id": context_id,
             "parent_key": next(iter(parent_keys)),
+            "process_key": (
+                next(iter(process_keys)) if len(process_keys) == 1 else None
+            ),
+            "composition_key": (
+                next(iter(composition_keys))
+                if len(composition_keys) == 1
+                else None
+            ),
+            "relation_context_ids": sorted(
+                {
+                    str(relation_id)
+                    for row in rows
+                    for relation_id in row.get("relation_context_ids", [])
+                }
+            ),
             "pairing_relationship": relationship,
             "x": {
                 "mean": fmean(value for _, value in x_observations),
+                "std": pstdev(value for _, value in x_observations),
+                "min": min(value for _, value in x_observations),
+                "max": max(value for _, value in x_observations),
                 "count": len(x_observations),
                 "observation_ids": sorted(x_ids),
             },
             "y": {
                 "mean": fmean(value for _, value in y_observations),
+                "std": pstdev(value for _, value in y_observations),
+                "min": min(value for _, value in y_observations),
+                "max": max(value for _, value in y_observations),
                 "count": len(y_observations),
                 "observation_ids": sorted(y_ids),
             },
@@ -906,6 +1020,9 @@ class CatalogUseCases:
         *,
         x_target: str,
         y_target: str,
+        candidate_id: str,
+        expected_revision: int,
+        distance_filter: Literal["supported", "caution", "all"],
         limit: int,
     ) -> dict[str, Any]:
         return output_space_evidence(
@@ -915,6 +1032,9 @@ class CatalogUseCases:
             self.resolver,
             x_target,
             y_target,
+            candidate_id,
+            expected_revision,
+            distance_filter,
             limit,
         )
 

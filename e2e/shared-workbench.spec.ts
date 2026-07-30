@@ -135,24 +135,37 @@ test("Task-declared prediction space compares candidates with paired training ac
   await page.getByRole("tab", { name: "特性バランス" }).click();
   const response = await evidenceResponse;
   expect(response.status()).toBe(200);
-  const evidence = await response.json() as { total_contexts: number; points: unknown[] };
+  const evidence = await response.json() as {
+    total_contexts: number;
+    returned_contexts: number;
+    eligible_contexts: number;
+    distance_method: string;
+    distance_version: string;
+    cohort_digest: string;
+    points: unknown[];
+  };
   expect(evidence.total_contexts).toBeGreaterThan(0);
-  expect(evidence.points.length).toBe(evidence.total_contexts);
+  expect(evidence.points.length).toBe(evidence.returned_contexts);
+  expect(evidence.returned_contexts).toBeLessThanOrEqual(evidence.eligible_contexts);
+  expect(evidence.distance_method).not.toBe("");
+  expect(evidence.distance_version).toBe("1.0.0");
+  expect(evidence.cohort_digest).toMatch(/^sha256:/);
 
   const panel = page.locator(".prediction-space-panel");
   await expect(panel.getByRole("heading", { name: "特性のトレードオフ" })).toBeVisible();
-  await expect(panel.getByRole("img", { name: /引張強さと降伏強さ/ })).toBeVisible();
-  await expect(panel.locator(".prediction-space-actual")).toHaveCount(evidence.total_contexts);
+  await expect(panel.getByRole("group", { name: /引張強さと降伏強さ/ })).toBeVisible();
+  await expect(panel.locator(".prediction-space-actual")).toHaveCount(evidence.returned_contexts);
   await expect(panel.locator(".prediction-space-candidate")).toHaveCount(3);
   await expect(panel.locator(".prediction-space-interval")).toHaveCount(6);
-  await expect(panel.locator("svg [role=button]")).toHaveCount(0);
+  await expect(panel.locator("svg [role=button]")).toHaveCount(evidence.returned_contexts);
   await expect(panel).toContainText("2特性を同時に含む確率領域ではありません");
   await expect(panel).toContainText("予測値や同一試料の相関ではありません");
+  await expect(panel).toContainText("2軸共通cohort");
 
   const actualXPositions = await panel.locator(".prediction-space-actual").evaluateAll(
     (elements) => elements.map((element) => Number(element.getAttribute("x"))),
   );
-  expect(Math.max(...actualXPositions) - Math.min(...actualXPositions)).toBeGreaterThan(100);
+  expect(Math.max(...actualXPositions) - Math.min(...actualXPositions)).toBeGreaterThan(20);
 
   const xAxis = panel.getByRole("combobox", { name: "横軸" });
   const yAxis = panel.getByRole("combobox", { name: "縦軸" });
@@ -170,16 +183,37 @@ test("Task-declared prediction space compares candidates with paired training ac
   await expect(yAxis).toHaveValue("TS");
   expect(evidenceRequests).toBe(2);
 
+  const filteredResponse = page.waitForResponse((candidateResponse) => {
+    const url = new URL(candidateResponse.url());
+    return url.pathname.endsWith("/output-space-evidence")
+      && url.searchParams.get("distance_filter") === "caution";
+  });
+  await panel.getByRole("combobox", { name: "実績の範囲" }).selectOption("caution");
+  expect((await filteredResponse).status()).toBe(200);
+  expect(evidenceRequests).toBe(3);
+
   await panel.getByText("数値で確認", { exact: true }).click();
   const numericalTable = panel.getByRole("table");
   await expect(numericalTable).toBeVisible();
-  await expect(numericalTable.getByText("学習実績", { exact: true })).toHaveCount(evidence.total_contexts);
+  await expect(numericalTable.getByText("学習実績", { exact: true })).toHaveCount(
+    await panel.locator(".prediction-space-actual").count(),
+  );
   await expect(numericalTable).toContainText("ME-");
   await expect(numericalTable).toContainText("同じ実測行");
+  await expect(numericalTable).toContainText("実測ばらつき");
   const candidateButtons = numericalTable.locator(".prediction-space-row-select");
   await candidateButtons.nth(1).focus();
   await candidateButtons.nth(1).press("Enter");
   await expect(candidateButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await panel.locator("svg [role=button]").first().focus();
+  await panel.locator("svg [role=button]").first().press("Enter");
+  const evidenceDrawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(evidenceDrawer).toBeVisible();
+  await expect(candidateButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await evidenceDrawer.screenshot({
+    path: testInfo.outputPath("prediction-space-historical-drawer.png"),
+  });
+  await page.getByRole("button", { name: "過去実績の根拠を閉じる" }).click();
   await page.setViewportSize({ width: 720, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(720);
   await panel.screenshot({ path: testInfo.outputPath("prediction-space-narrow.png") });

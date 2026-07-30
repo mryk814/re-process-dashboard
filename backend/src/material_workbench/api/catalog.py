@@ -109,6 +109,9 @@ def output_space_evidence(
     use_cases: CatalogDependency,
     x_target: Annotated[str, Query(min_length=1)],
     y_target: Annotated[str, Query(min_length=1)],
+    candidate_id: Annotated[str, Query(min_length=1)],
+    expected_revision: Annotated[int, Query(ge=1)],
+    distance_filter: Literal["supported", "caution", "all"] = "supported",
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
 ) -> dict[str, Any]:
     try:
@@ -116,6 +119,9 @@ def output_space_evidence(
             project_id,
             x_target=x_target,
             y_target=y_target,
+            candidate_id=candidate_id,
+            expected_revision=expected_revision,
+            distance_filter=distance_filter,
             limit=limit,
         )
     except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:

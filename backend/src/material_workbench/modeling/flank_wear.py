@@ -231,6 +231,7 @@ def _normalize_curve_variable(variable: str) -> str:
 class FlankWearRuntime:
     task_id = TASK_ID
     support_policy_id = SUPPORT_POLICY_ID
+    feature_group_indices = FEATURE_GROUP_INDICES
 
     def __init__(
         self,

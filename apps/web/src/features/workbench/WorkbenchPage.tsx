@@ -359,6 +359,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           loadingRemainingPreviews={loadingRemainingPreviews}
           onLoadRemainingPreviews={onLoadRemainingPreviews}
           onSelect={onSelect}
+          onAddCandidate={onAddCandidateFromLineage}
         />;
       case "response_contour":
         return <ResponseContourPanel

@@ -140,6 +140,7 @@
               "Cr",
               "Mo"
             ],
+            "evidence_context": "training_context",
             "historical_limit": 200
           },
           {
@@ -229,6 +230,7 @@
               "EL",
               "lambda"
             ],
+            "evidence_context": "training_context",
             "historical_limit": 200
           },
           {
@@ -404,6 +406,7 @@
               "VB_mean",
               "VB_max"
             ],
+            "evidence_context": "training_context",
             "historical_limit": 200
           },
           {
@@ -477,6 +480,7 @@
               "hardness_hv",
               "charpy_j"
             ],
+            "evidence_context": "training_context",
             "historical_limit": 200
           },
           {
@@ -938,6 +942,7 @@
               "UTS",
               "EL"
             ],
+            "evidence_context": "training_context",
             "historical_limit": 200
           },
           {
@@ -1105,6 +1110,7 @@
               "CHARPY_ENERGY",
               "CORROSION_RATE"
             ],
+            "evidence_context": "parent_condition",
             "historical_limit": 200
           },
           {

@@ -47,9 +47,12 @@ test("prediction space is active-only and keeps marginal intervals distinct from
     new URL("../src/features/workbench/PredictionSpacePanel.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /if \(!active \|\| !xTarget \|\| !yTarget/);
+  assert.match(source, /if \(!active \|\| !selectedCandidate \|\| !xTarget \|\| !yTarget/);
   assert.match(source, /outputSpaceEvidence/);
+  assert.match(source, /distanceFilter/);
+  assert.match(source, /HistoricalEvidenceDrawer/);
   assert.match(source, /prediction-space-interval/);
+  assert.match(source, /実測ばらつき σ/);
   assert.match(source, /2特性を同時に含む確率領域ではありません/);
   assert.match(source, /予測値や同一試料の相関ではありません/);
 });

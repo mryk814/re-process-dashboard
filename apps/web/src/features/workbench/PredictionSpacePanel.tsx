@@ -11,6 +11,10 @@ import type {
   TaskDefinitionContract,
 } from "../candidates";
 import type { WorkbenchSurface } from "./workbenchSurfaceRegistry";
+import {
+  HistoricalEvidenceDrawer,
+  type HistoricalEvidenceReference,
+} from "./HistoricalEvidenceDrawer";
 
 type PredictionSpaceSurface = Extract<
   WorkbenchSurface,
@@ -97,6 +101,7 @@ export function PredictionSpacePanel({
   loadingRemainingPreviews,
   onLoadRemainingPreviews,
   onSelect,
+  onAddCandidate,
 }: {
   active: boolean;
   projectId: string;
@@ -110,11 +115,20 @@ export function PredictionSpacePanel({
   loadingRemainingPreviews: boolean;
   onLoadRemainingPreviews: () => void;
   onSelect: (id: string) => void;
+  onAddCandidate: (
+    entityKey: string,
+    processKey?: string,
+    meltKey?: string,
+  ) => Promise<boolean>;
 }) {
   const [xTarget, setXTarget] = useState(surface.target_keys[0]);
   const [yTarget, setYTarget] = useState(surface.target_keys[1]);
   const [evidence, setEvidence] = useState<ApiOutputSpaceEvidence | null>(null);
   const [evidenceError, setEvidenceError] = useState("");
+  const [distanceFilter, setDistanceFilter] = useState<"supported" | "caution" | "all">("supported");
+  const [nearestLimit, setNearestLimit] = useState(30);
+  const [detailReference, setDetailReference] = useState<HistoricalEvidenceReference | null>(null);
+  const selectedCandidate = candidates.find((candidate) => candidate.id === selectedId);
 
   useEffect(() => {
     setXTarget(surface.target_keys[0]);
@@ -122,15 +136,18 @@ export function PredictionSpacePanel({
   }, [taskDefinition.id, surface.target_keys.join("\u001f")]);
 
   useEffect(() => {
-    if (!active || !xTarget || !yTarget || xTarget === yTarget) return;
+    if (!active || !selectedCandidate || !xTarget || !yTarget || xTarget === yTarget) return;
     const controller = new AbortController();
     setEvidence(null);
     setEvidenceError("");
     workbenchApi.outputSpaceEvidence(
       projectId,
+      selectedCandidate.id,
+      selectedCandidate.raw.revision,
       xTarget,
       yTarget,
-      surface.historical_limit,
+      distanceFilter,
+      Math.min(nearestLimit, surface.historical_limit),
       controller.signal,
     )
       .then((value) => {
@@ -142,7 +159,17 @@ export function PredictionSpacePanel({
         }
       });
     return () => controller.abort();
-  }, [active, projectId, surface.historical_limit, xTarget, yTarget]);
+  }, [
+    active,
+    projectId,
+    selectedCandidate?.id,
+    selectedCandidate?.raw.revision,
+    surface.historical_limit,
+    distanceFilter,
+    nearestLimit,
+    xTarget,
+    yTarget,
+  ]);
 
   const outputs = surface.target_keys
     .map((key) => taskDefinition.outputs.find((output) => output.key === key))
@@ -197,6 +224,24 @@ export function PredictionSpacePanel({
     setXTarget(yTarget);
     setYTarget(xTarget);
   };
+  const openEvidence = (point: ApiOutputSpaceEvidence["points"][number]) => {
+    setDetailReference({
+      processKey: point.process_key ?? point.parent_key,
+      compositionKey: point.composition_key,
+      relationContextIds: point.relation_context_ids,
+      observationIds: [...new Set([
+        ...point.x.observation_ids,
+        ...point.y.observation_ids,
+      ])],
+      repeatSummary: {
+        [xTarget]: { mean: point.x.mean, std: point.x.std, n: point.x.count },
+        [yTarget]: { mean: point.y.mean, std: point.y.std, n: point.y.count },
+      },
+      measurementState: "ready",
+      distance: point.distance,
+      source: "Model Packageの2軸共通学習cohort",
+    });
+  };
 
   return <section className="prediction-space-panel" aria-labelledby="prediction-space-heading">
     <header className="prediction-space-header">
@@ -207,25 +252,43 @@ export function PredictionSpacePanel({
       <span>{candidatePoints.length} / {candidates.length}候補</span>
     </header>
     <div className="prediction-space-controls">
-      <label>横軸
-        <select value={xTarget} onChange={(event) => {
-          const next = event.target.value;
-          setXTarget(next);
-          if (next === yTarget) setYTarget(xTarget);
-        }}>
-          {outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}
-        </select>
-      </label>
-      <button type="button" className="axis-swap" aria-label="横軸と縦軸を入れ替え" onClick={swapAxes}>↔ 入替</button>
-      <label>縦軸
-        <select value={yTarget} onChange={(event) => {
-          const next = event.target.value;
-          setYTarget(next);
-          if (next === xTarget) setXTarget(yTarget);
-        }}>
-          {outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}
-        </select>
-      </label>
+      <div className="prediction-space-axis-group">
+        <label>横軸
+          <select value={xTarget} onChange={(event) => {
+            const next = event.target.value;
+            setXTarget(next);
+            if (next === yTarget) setYTarget(xTarget);
+          }}>
+            {outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}
+          </select>
+        </label>
+        <button type="button" className="axis-swap" aria-label="横軸と縦軸を入れ替え" onClick={swapAxes}>↔ 入替</button>
+        <label>縦軸
+          <select value={yTarget} onChange={(event) => {
+            const next = event.target.value;
+            setYTarget(next);
+            if (next === xTarget) setXTarget(yTarget);
+          }}>
+            {outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="prediction-space-filter-group">
+        <label>実績の範囲
+          <select value={distanceFilter} onChange={(event) => setDistanceFilter(event.target.value as typeof distanceFilter)}>
+            <option value="supported">近い実績</option>
+            <option value="caution">注意を含む</option>
+            <option value="all">すべて（近い順）</option>
+          </select>
+        </label>
+        <label>表示数
+          <select value={nearestLimit} onChange={(event) => setNearestLimit(Number(event.target.value))}>
+            <option value={30}>上位30</option>
+            <option value={100}>上位100</option>
+            <option value={200}>上位200</option>
+          </select>
+        </label>
+      </div>
       {pendingPreviewCount > 0 && <button
         type="button"
         className="outline-button"
@@ -234,7 +297,7 @@ export function PredictionSpacePanel({
       >{loadingRemainingPreviews ? "計算中…" : `残り${pendingPreviewCount}候補を計算`}</button>}
     </div>
     <div className="prediction-space-chart">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${xOutput.label}と${yOutput.label}の候補予測と学習実績`}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`${xOutput.label}と${yOutput.label}の候補予測と学習実績`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#fbfcfe" stroke="#ccd6e2" />
         {ticks.map((ratio) => {
           const xValue = xRange.min + (xRange.max - xRange.min) * ratio;
@@ -248,7 +311,20 @@ export function PredictionSpacePanel({
         })}
         {goalValues(targetValues[xTarget]).map((value) => <line key={`x-goal-${value}`} x1={x(value)} x2={x(value)} y1={plot.top} y2={plot.top + plotHeight} className="prediction-space-goal" />)}
         {goalValues(targetValues[yTarget]).map((value) => <line key={`y-goal-${value}`} x1={plot.left} x2={plot.left + plotWidth} y1={y(value)} y2={y(value)} className="prediction-space-goal" />)}
-        {evidence?.points.map((point) => <g key={point.context_id}>
+        {evidence?.points.map((point) => <g
+          key={point.context_id}
+          className={`prediction-space-actual-point ${point.distance_status}`}
+          role="button"
+          tabIndex={0}
+          aria-label={`${point.context_id}の実績詳細を開く`}
+          onClick={() => openEvidence(point)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openEvidence(point);
+            }
+          }}
+        >
           <rect
             x={x(point.x.mean) - 3.5}
             y={y(point.y.mean) - 3.5}
@@ -294,8 +370,8 @@ export function PredictionSpacePanel({
       線は各特性の個別予測区間です。2特性を同時に含む確率領域ではありません。
       灰色の四角は同じ学習条件に属する実測の条件平均で、予測値や同一試料の相関ではありません。
       同じ実測行で両特性がそろうか、条件だけが共通の別実測かは数値表に示します。
-      {evidence?.truncated
-        ? ` ${evidence.returned_contexts}/${evidence.total_contexts}条件を、出力空間の広がりを保つよう抽出しています。`
+      {evidence
+        ? ` ${evidence.returned_contexts}/${evidence.eligible_contexts}件を近い順に表示（2軸共通cohort ${evidence.total_contexts}件、距離 ${evidence.distance_method} ${evidence.distance_version}）。`
         : ""}
     </p>
     {selectedPoint && <div className="prediction-space-selected">
@@ -323,11 +399,20 @@ export function PredictionSpacePanel({
         {evidence?.points.map((point) => <tr key={`actual-${point.context_id}`}>
           <td>学習実績</td>
           <th>{point.context_id}</th>
-          <td>{valueText(point.x.mean, xOutput.unit)}<small>{point.x.observation_ids.join(", ")}</small></td>
-          <td>{valueText(point.y.mean, yOutput.unit)}<small>{point.y.observation_ids.join(", ")}</small></td>
-          <td>{pairingLabel(point.pairing_relationship)}<small>n={point.x.count} / {point.y.count}</small></td>
+          <td>{valueText(point.x.mean, xOutput.unit)}<small>実測ばらつき σ {valueText(point.x.std, xOutput.unit)} / n={point.x.count}</small></td>
+          <td>{valueText(point.y.mean, yOutput.unit)}<small>実測ばらつき σ {valueText(point.y.std, yOutput.unit)} / n={point.y.count}</small></td>
+          <td><button type="button" className="text-button" onClick={() => openEvidence(point)}>実績を見る</button><small>{pairingLabel(point.pairing_relationship)} / 距離 {valueText(point.distance, "")}</small></td>
         </tr>)}</tbody>
       </table></div>
     </details>
+    <HistoricalEvidenceDrawer
+      open={detailReference !== null}
+      projectId={projectId}
+      reference={detailReference}
+      outputs={taskDefinition.outputs}
+      taskDefinition={taskDefinition}
+      onClose={() => setDetailReference(null)}
+      onAddCandidate={onAddCandidate}
+    />
   </section>;
 }
