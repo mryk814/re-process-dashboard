@@ -54,9 +54,17 @@ test("annealed screening keeps draft separate and batches multiple points into s
   expect((await runResponse).status()).toBe(201);
   const savedRun = page.locator(".saved-runs button.active");
   await expect(savedRun).not.toContainText(/model |space |objective |strategy /);
-  await page.locator(".screening-run-reproducibility > summary").click();
-  await expect(page.locator(".screening-run-reproducibility")).toContainText("Model Package");
-  await expect(page.locator(".screening-run-reproducibility")).toContainText("Design Space");
+  await expect(page.locator(".saved-runs details")).toHaveCount(0);
+  const reproducibility = page.locator(".screening-run-evidence");
+  const resultsTable = page.locator(".screening-results-table");
+  expect(await page.evaluate(() => {
+    const table = document.querySelector(".screening-results-table");
+    const evidence = document.querySelector(".screening-run-evidence");
+    return Boolean(table && evidence && (table.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
+  await reproducibility.locator("> summary").click();
+  await expect(reproducibility).toContainText("Model Package");
+  await expect(reproducibility).toContainText("Design Space");
   await expect(page.locator(".screening-hidden-variables")).toContainText("Mn");
   await expect(page.getByLabel("X軸")).toBeVisible();
   await expect(page.getByLabel("Y軸")).toBeVisible();
@@ -272,10 +280,10 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText(
     "組成bounded CLR-RMS + 入力群均等",
   );
-  await page.getByText("再現情報", { exact: true }).click();
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("bounded_simplex_goal_v1");
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("生成coverage:");
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("composition.Ni");
+  await page.getByText("計算記録", { exact: true }).click();
+  await expect(page.locator(".screening-run-evidence")).toContainText("bounded_simplex_goal_v1");
+  await expect(page.locator(".screening-run-evidence")).toContainText("生成coverage:");
+  await expect(page.locator(".screening-run-evidence")).toContainText("composition.Ni");
 
   const persistedResponse = await request.get(
     `${api}/api/screening/${run.id}?project_id=${project.id}`,
@@ -328,9 +336,9 @@ test("a late proposal response cannot replace a newer run", async ({ page, reque
   await page.getByLabel("乱数seed").fill("202");
   await runScreening(page);
 
-  await page.getByText("再現情報", { exact: true }).click();
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
+  await page.getByText("計算記録", { exact: true }).click();
+  await expect(page.locator(".screening-run-evidence")).toContainText("seed 202");
   await page.waitForTimeout(900);
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toContainText("seed 202");
+  await expect(page.locator(".screening-run-evidence")).toContainText("seed 202");
   expect(requestCount).toBe(2);
 });

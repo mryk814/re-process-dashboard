@@ -37,6 +37,62 @@ function displayReason(reason: string) {
   return /^[a-z0-9_.:/ -]+$/i.test(reason) ? "その他の制約" : reason;
 }
 
+export function ScreeningRunEvidence({ result }: { result: ApiScreeningRun }) {
+  const strategy = result.proposal_strategy;
+  const objective = result.objective_definition;
+  const incumbentResolution = strategy?.incumbent_resolution;
+  const diagnostics = result.proposal_diagnostics;
+  const packageDigest = result.model_provenance?.package?.manifest_sha256;
+
+  return (
+    <details className="screening-run-evidence">
+      <summary>計算記録</summary>
+      <p>
+        seed {result.seed}
+        {" / "}strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""}
+        {strategy && ` / ${strategy.generator_id} → ${strategy.acquisition_id} → ${strategy.selector_id}`}
+        {strategy?.support_policy && ` / support ${strategy.support_policy}`}
+        {strategy?.fallback_from && ` / fallback ${strategy.fallback_from}`}
+      </p>
+      {strategy?.standard_deviation_methods?.length
+        ? <p>standard deviation methods {strategy.standard_deviation_methods.join(", ")}</p>
+        : null}
+      <p>Model Package <code title={packageDigest ?? "記録なし"}>{packageDigest ?? "記録なし"}</code></p>
+      <p>Design Space <code title={result.design_space_digest ?? "記録なし"}>{result.design_space_digest ?? "記録なし"}</code></p>
+      <p>Objective <code title={result.objective_definition_digest ?? "記録なし"}>{result.objective_definition_digest ?? "記録なし"}</code></p>
+      {objective && <p>Objective revision {objective.revision} / {objective.optimization_kind}</p>}
+      {objective && <p>
+        Objective terms: {objective.terms.map((term) => `${term.output_key}:${term.role}:${term.direction ?? "none"}:${term.unit}`).join(" / ")}
+      </p>}
+      {incumbentResolution?.source === "observed_project_actuals" && (
+        <p>
+          incumbent母集団: Project実測 {incumbentResolution.record_count}件
+          {" / "}actual {incumbentResolution.actual_id}
+          {" / "}filter {incumbentResolution.filter_digest}
+          {" / "}population {incumbentResolution.population_digest}
+        </p>
+      )}
+      {diagnostics && Object.keys(diagnostics.coverage_by_path ?? {}).length > 0 && (
+        <p>
+          生成coverage: {Object.entries(diagnostics.coverage_by_path ?? {})
+            .map(([path, item]) => `${path} ${(item.normalized_span * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%`)
+            .join(" / ")}
+        </p>
+      )}
+      {result.batch_proposal?.candidate_pool && (
+        <p>batch pool digest <code>{result.batch_proposal.candidate_pool.pool_digest}</code></p>
+      )}
+      {result.batch_proposal && (
+        <p>
+          batch selector {result.batch_proposal.selector_id}
+          {" / "}distance {result.batch_proposal.distance_id} {result.batch_proposal.distance_version}
+          {" / "}tie-break pool index
+        </p>
+      )}
+    </details>
+  );
+}
+
 export function ScreeningProposalSummary({
   result,
   targetLabel,
@@ -150,7 +206,7 @@ export function ScreeningProposalSummary({
               ? "予測平均 + 標準偏差（正規近似）"
               : "モデルが出力する予測標準偏差"}
             {strategy.standard_deviation_methods?.length
-              ? " / 標準偏差の算出方法は再現情報に記録"
+              ? " / 標準偏差の算出方法は計算記録に収録"
               : ""}
             {" / 副条件: 満たす点を優先して順位付け"}
           </p>
@@ -181,50 +237,6 @@ export function ScreeningProposalSummary({
         )}
         {(result.proposal_rejections?.length ?? 0) > 0 && (
           <p>除外した生成点 {result.proposal_rejections?.length ?? 0}件も入力値と理由を保存しています。</p>
-        )}
-      </details>
-      <details className="screening-reproducibility">
-        <summary>再現情報</summary>
-        <p>
-          seed {result.seed}
-          {" / "}strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""}
-          {strategy && ` / ${strategy.generator_id} → ${strategy.acquisition_id} → ${strategy.selector_id}`}
-          {strategy?.support_policy && ` / support ${strategy.support_policy}`}
-          {strategy?.fallback_from && ` / fallback ${strategy.fallback_from}`}
-        </p>
-        {strategy?.standard_deviation_methods?.length
-          ? <p>standard deviation methods {strategy.standard_deviation_methods.join(", ")}</p>
-          : null}
-        {result.design_space_digest && <p>Design Space <code title={result.design_space_digest}>{result.design_space_digest}</code></p>}
-        {result.objective_definition_digest && <p>Objective <code title={result.objective_definition_digest}>{result.objective_definition_digest}</code></p>}
-        {objective && <p>Objective revision {objective.revision} / {objective.optimization_kind}</p>}
-        {objective && <p>
-          Objective terms: {objective.terms.map((term) => `${term.output_key}:${term.role}:${term.direction ?? "none"}:${term.unit}`).join(" / ")}
-        </p>}
-        {incumbentResolution?.source === "observed_project_actuals" && (
-          <p>
-            incumbent母集団: Project実測 {incumbentResolution.record_count}件
-            {" / "}actual {incumbentResolution.actual_id}
-            {" / "}filter {incumbentResolution.filter_digest}
-            {" / "}population {incumbentResolution.population_digest}
-          </p>
-        )}
-        {diagnostics && Object.keys(diagnostics.coverage_by_path ?? {}).length > 0 && (
-          <p>
-            生成coverage: {Object.entries(diagnostics.coverage_by_path ?? {})
-              .map(([path, item]) => `${path} ${(item.normalized_span * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%`)
-              .join(" / ")}
-          </p>
-        )}
-        {result.batch_proposal?.candidate_pool && (
-          <p>batch pool digest <code>{result.batch_proposal.candidate_pool.pool_digest}</code></p>
-        )}
-        {result.batch_proposal && (
-          <p>
-            batch selector {result.batch_proposal.selector_id}
-            {" / "}distance {result.batch_proposal.distance_id} {result.batch_proposal.distance_version}
-            {" / "}tie-break pool index
-          </p>
         )}
       </details>
       {result.batch_proposal && (
