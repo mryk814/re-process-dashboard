@@ -18,6 +18,9 @@ from material_workbench.contracts.subsystem_availability import (
     WELDING_TRANSFORM_SUBSYSTEM_ID,
 )
 from material_workbench.application.ai_review_provider import AiReviewProvider
+from material_workbench.application.catalog import CatalogRuntimeState, CatalogUseCases
+from material_workbench.application.data_library import DataLibraryUseCases
+from material_workbench.application.chains import ChainUseCases
 
 
 def get_runtime_context(request: Request) -> Any:
@@ -85,6 +88,51 @@ def get_inference_work_graph(request: Request) -> InferenceWorkGraph:
 
 def get_ai_review_provider(request: Request) -> AiReviewProvider | None:
     return request.app.state.ai_review_provider
+
+
+def get_catalog_use_cases(request: Request) -> CatalogUseCases:
+    state = request.app.state
+    context = get_runtime_context(request)
+    return CatalogUseCases(
+        state=CatalogRuntimeState(
+            resources_ready=bool(getattr(state, "resources_ready", True)),
+            resources_loading_error=getattr(state, "resources_loading_error", None),
+            workspace_database=state.workspace_database,
+            data_library_root=state.data_library_root,
+            workspace_kind=state.workspace_kind,
+        ),
+        store=state.store,
+        registry=context.task_registry,
+        resolver=context.project_runtime_resolver,
+        subsystem_registry=state.subsystem_availability,
+        transform_catalog=state.deterministic_transform_catalog,
+    )
+
+
+def get_data_library_use_cases(request: Request) -> DataLibraryUseCases:
+    state = request.app.state
+    context = get_runtime_context(request)
+    return DataLibraryUseCases(
+        catalog=context.workspace_catalog,
+        registry=context.task_registry,
+        store=state.store,
+        available_packages_paths=state.available_packages_paths,
+        personal_available_packages_paths=state.personal_available_packages_paths,
+        package_origins=state.model_package_origins,
+    )
+
+
+def get_chain_use_cases(request: Request) -> ChainUseCases:
+    state = request.app.state
+    context = get_runtime_context(request)
+    return ChainUseCases(
+        store=state.store,
+        workspace_catalog=context.workspace_catalog,
+        execution_service=context.chain_execution_service,
+        uncertainty_service=context.chain_uncertainty_service,
+        evaluation_catalog=state.chain_evaluation_catalog,
+        subsystem_registry=state.subsystem_availability,
+    )
 
 
 def project_or_404(store: Store, project_id: str) -> Project:
