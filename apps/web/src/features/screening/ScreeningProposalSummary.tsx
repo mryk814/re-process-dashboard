@@ -282,7 +282,7 @@ export function ScreeningProposalSummary({
       )}
       {showAnotherSample && !result.batch_proposal && (
         <button className="outline-button" onClick={onAnotherSample}>
-          {isDesignSpaceMap ? "別の点配置" : "別サンプル"}
+          サンプルを引き直す
         </button>
       )}
     </section>

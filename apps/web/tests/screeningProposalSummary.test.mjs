@@ -79,7 +79,7 @@ test("proposal summary leads with a Japanese decision summary while calculation 
   assert.match(html, /<dt>除外<\/dt>/);
   assert.doesNotMatch(html, /生成した全192件を制約判定/);
   assert.match(html, /title="resource constraint">コスト・設備条件を満たさない/);
-  assert.match(html, />別サンプル</);
+  assert.match(html, />サンプルを引き直す</);
 
   const evidence = renderEvidence({
     purpose: "goal_search",

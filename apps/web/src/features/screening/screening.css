@@ -55,14 +55,18 @@
 .screening-mode-options small { font-size: 10px; line-height: 1.35; }
 .screening-mode-options small { color: #7b6643; font-weight: 700; }
 .screen-map {
-  min-height: 430px;
   position: relative;
   width: 100%;
-  height: auto;
-  margin-top: 18px;
+  height: clamp(280px, 36vw, 350px);
+  margin-top: 8px;
   border: 1px solid #d8e0ea;
   background: linear-gradient(135deg, #f0f5fc, #f9fbfe 42%, #e5effc);
   overflow: hidden;
+  transition: height 160ms ease;
+}
+
+.screen-map.expanded {
+  height: clamp(440px, 56vw, 620px);
 }
 
 .screen-map::before {
@@ -426,9 +430,9 @@
 
 .screen-legend {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-  margin-top: 16px;
   color: #5d6775;
   font-size: 12px;
 }
@@ -452,13 +456,21 @@
 .support-key.caution { border-color: #ee9200; }
 .support-key.extrapolated { border-color: #c43d3d; }
 
-.screening-draft-notice,
-.screening-hidden-variables {
+.screening-draft-notice {
   margin: 8px 0;
   border-left: 3px solid #d28a1a;
   background: #fff8e8;
   padding: 7px 10px;
   color: #76521a;
+  font-size: 11px;
+}
+
+.screening-hidden-variables {
+  margin: 6px 0;
+  border-left: 3px solid #8ba1b9;
+  background: #f5f8fc;
+  padding: 6px 9px;
+  color: #596a7e;
   font-size: 11px;
 }
 
@@ -651,19 +663,40 @@
   margin-right: 10px;
 }
 
+.screening-surface-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  margin-top: 14px;
+  border: 1px solid #d4deea;
+  border-radius: 6px;
+  background: #f7faff;
+  padding: 8px 10px;
+}
+
 .screening-display-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
 }
 
 .screening-display-controls label {
   display: grid;
-  min-width: 180px;
+  min-width: 150px;
   gap: 4px;
   color: #627187;
   font-size: 11px;
+}
+
+.screening-map-size-button {
+  align-self: end;
+  white-space: nowrap;
+}
+
+.screening-surface-header .screen-legend {
+  grid-column: 1 / -1;
+  border-top: 1px solid #dce5ef;
+  padding-top: 7px;
 }
 
 .screening-action-bar {
@@ -1008,8 +1041,11 @@
   .screening-proposal-summary > .outline-button { width: 100%; }
   .screen-legend { flex-wrap: wrap; }
   .screen-map {
-    margin-top: 16px;
-    min-height: 340px;
+    height: 280px;
+    margin-top: 8px;
+  }
+  .screen-map.expanded {
+    height: 440px;
   }
   .screening-results-heading { align-items: flex-start; flex-direction: column; }
   .screening-result-context { justify-content: flex-start; }

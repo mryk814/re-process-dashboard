@@ -258,6 +258,7 @@ export function ScreeningPage({
   const [xAxis, setXAxis] = useState("");
   const [yAxis, setYAxis] = useState("");
   const [colorMetric, setColorMetric] = useState("score");
+  const [chartExpanded, setChartExpanded] = useState(false);
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
   const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
@@ -801,6 +802,9 @@ export function ScreeningPage({
   const focusedPoint = result?.points.find((point) => point.index === focusedPointIndex) ?? null;
   // The server states what the score means for this run; the UI must not upgrade it.
   const scoreLabel = result?.score_contract?.display_label ?? "探索スコア";
+  const colorMetricLabel = colorMetric === "score"
+    ? scoreLabel
+    : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric;
   const hiddenVaryingFields = result ? Object.entries(result.variables).filter(([field, spec]) => spec.mode !== "fixed" && field !== xAxis && field !== yAxis).map(([field]) => field) : [];
   const togglePoint = (index: number) => {
     setFocusedPointIndex(index);
@@ -821,7 +825,7 @@ export function ScreeningPage({
     });
   };
   const actionLabel = screeningMode === "landscape"
-    ? "領域を計算"
+    ? `${samples}点を評価`
     : screeningMode === "opportunity"
       ? "有望候補を探す"
       : "実験バッチを作成";
@@ -859,9 +863,6 @@ export function ScreeningPage({
       <div className="page-intro">
         <div>
           <h2>範囲探索</h2>
-          <p>
-            まず、いま知りたいことを選びます。
-          </p>
         </div>
         <div className="screening-page-actions">
           <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
@@ -883,7 +884,6 @@ export function ScreeningPage({
       <section className="screening-mode-picker" aria-labelledby="screening-mode-heading">
         <div>
           <h3 id="screening-mode-heading">何をしたいですか？</h3>
-          <small>計算方法は目的に合わせて設定します。</small>
         </div>
         <div className="screening-mode-options">
           {screeningModes.map((mode) => {
@@ -1414,10 +1414,28 @@ export function ScreeningPage({
               void run(nextSeed);
             }}
           />
-          <div className="screening-display-controls">
-            <label>X軸<select value={xAxis} onChange={(event) => setXAxis(event.target.value)}>{confirmedVaryingFields.map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
-            <label>Y軸<select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option value="">点番号</option>{confirmedVaryingFields.filter((field) => field !== xAxis).map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
-            <label>色<select value={colorMetric} onChange={(event) => setColorMetric(event.target.value)}><option value="score">{scoreLabel}</option>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
+          <div className="screening-surface-header">
+            <div className="screening-display-controls">
+              <label>横軸<select value={xAxis} onChange={(event) => setXAxis(event.target.value)}>{confirmedVaryingFields.map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
+              <label>縦軸<select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option value="">点番号</option>{confirmedVaryingFields.filter((field) => field !== xAxis).map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
+              <label>色<select value={colorMetric} onChange={(event) => setColorMetric(event.target.value)}><option value="score">{scoreLabel}</option>{outputs.map((output) => <option key={output.key} value={output.key}>{output.label}</option>)}</select></label>
+            </div>
+            <button
+              type="button"
+              className="outline-button screening-map-size-button"
+              aria-expanded={chartExpanded}
+              onClick={() => setChartExpanded((expanded) => !expanded)}
+            >
+              {chartExpanded ? "図を元の大きさに戻す" : "図を拡大"}
+            </button>
+            <div className="screen-legend">
+              <span className="opportunity-scale" />
+              {colorMetricLabel} <span className="support-key supported" />
+              近い実績 <span className="support-key caution" />
+              要確認 <span className="support-key extrapolated" />
+              外挿 <span className="selection-key" />
+              選択中
+            </div>
           </div>
           {hiddenVaryingFields.length > 0 && <p className="screening-hidden-variables"><b>図に出ていない変動条件:</b> {hiddenVaryingFields.map(axisLabel).join(" / ")}。各点の詳細で実値を確認できます。</p>}
           {modeFromRun(result) !== "landscape" && <div className="screening-action-bar" role="status">
@@ -1431,19 +1449,11 @@ export function ScreeningPage({
             <CandidateAddButton disabled={!addableSelectedCount} onClick={() => void persistSelected()}>{addableSelectedCount}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
           </div>}
-          <div className="screen-legend">
-            <span className="opportunity-scale" />
-            {colorMetric === "score" ? scoreLabel : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric} <span className="support-key supported" />
-            近い実績 <span className="support-key caution" />
-            要確認 <span className="support-key extrapolated" />
-            外挿 <span className="selection-key" />
-            選択中
-          </div>
           <svg
-            className="screen-map"
+            className={`screen-map${chartExpanded ? " expanded" : ""}`}
             viewBox="0 0 600 300"
             role="group"
-            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${scoreLabel}」、枠線は学習実績からの外れ方を表します。`}
+            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${colorMetricLabel}」、枠線は学習実績からの外れ方を表します。`}
           >
             {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
             {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
@@ -1477,9 +1487,7 @@ export function ScreeningPage({
                   fill={opportunity(point)}
                   stroke={supportStroke(point.support.status)}
                   strokeWidth="3"
-                  opacity={
-                    point.support.status === "extrapolated" ? ".55" : ".9"
-                  }
+                  opacity=".9"
                   role="button"
                   aria-pressed={selected}
                   tabIndex={focusedPointIndex === point.index || (focusedPointIndex === null && index === 0) ? 0 : -1}
