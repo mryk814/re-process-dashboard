@@ -117,6 +117,15 @@
 .selected-candidate-output-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; }
 .selected-candidate-output-list article { min-width: 0; border-radius: 3px; background: #f7faff; padding: 8px; }
 .comparison-grid-viewport { min-width: 0; overflow-x: auto; }
+
+@media (max-width: 660px) {
+  .comparison-grid-viewport {
+    width: 100%;
+    max-width: 100%;
+    contain: inline-size paint;
+  }
+}
+
 .comparison-grid { display: grid; grid-template-columns: 160px minmax(220px, var(--comparison-input-share, 45%)) 9px minmax(240px, 1fr) 120px; width: 100%; min-width: 749px; align-items: start; border: 1px solid #cfd9e5; border-radius: 4px; }
 .comparison-pane-scroll { min-width: 0; max-height: var(--comparison-table-height, 270px); overflow: scroll; background: #fff; }
 .comparison-name-scroll { position: sticky; left: 0; z-index: 6; }

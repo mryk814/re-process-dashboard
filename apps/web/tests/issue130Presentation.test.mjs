@@ -26,6 +26,16 @@ test("screening renders support and selection as independent visual channels", (
   assert.match(screeningStyles, /\.screen-map-selection-ring \{[\s\S]*?stroke-dasharray:/);
 });
 
+test("screening keeps the first result surface compact and offers an explicit expansion", () => {
+  assert.doesNotMatch(screeningSource, /まず、いま知りたいことを選びます/);
+  assert.match(screeningSource, /`\$\{samples\}点を評価`/);
+  assert.match(screeningSource, /chartExpanded \? "図を元の大きさに戻す" : "図を拡大"/);
+  assert.match(screeningSource, /setChartExpanded\(false\)/);
+  assert.match(screeningSource, /screen-map\$\{chartExpanded \? " expanded" : ""\}/);
+  assert.match(screeningStyles, /\.screen-map \{[\s\S]*?height: clamp\(280px, 36vw, 350px\);/);
+  assert.match(screeningStyles, /\.screen-map\.expanded \{[\s\S]*?height: clamp\(440px, 56vw, 620px\);/);
+});
+
 test("lineage uses one normalized time contract for both heat points and stage intervals", () => {
   assert.match(lineageSource, /function normalizedTimePosition\(time: number, maxTime: number\)/);
   assert.match(lineageSource, /const heatX = \(time: number\) => HEAT_PLOT_LEFT \+ normalizedTimePosition\(time, maxTime\) \* HEAT_PLOT_WIDTH/);

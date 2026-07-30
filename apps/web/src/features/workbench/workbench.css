@@ -1066,6 +1066,7 @@
   }
   .candidate-inspector-collapsed span { letter-spacing: normal; writing-mode: horizontal-tb; }
   .candidate-inspector .heat-point-table-wrap { max-height: 220px; }
+  .candidate-inspector-resizer { display: none; }
   .split-resizer { display: none; }
   .comparison-height-resizer { display: block; }
 }
@@ -1490,7 +1491,7 @@
   .workbench-grid:not(.candidate-workbench-grid) { display: block; min-width: 0; }
   .inspector { border-bottom: 1px solid #d8e0ea; }
   .field-row { grid-template-columns: 58px minmax(100px, 1fr) 104px; }
-  .central-workspace { padding: 14px 10px; }
+  .central-workspace { width: 100%; max-width: 100%; padding: 14px 10px; }
   .chart-grid { display: block; }
   .chart-panel { margin-bottom: 10px; }
 }
