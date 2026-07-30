@@ -244,6 +244,8 @@ export function ProjectHub({
   const initializedSeriesIdsRef = useRef(new Set<string>());
   const previousActiveSeriesIdRef = useRef<string | null>(null);
   const decisionDraftRef = useRef({ key: "", dirty: false });
+  const projectNameDraftProjectRef = useRef("");
+  const projectNameDirtyRef = useRef(false);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
   activeProjectRef.current = activeProjectId;
@@ -311,8 +313,12 @@ export function ProjectHub({
 
   useEffect(() => {
     const selected = projects.find((item) => item.id === activeProjectId);
-    setProjectNameDraft(selected?.name ?? "");
-  }, [activeProjectId]);
+    if (projectNameDraftProjectRef.current !== activeProjectId) {
+      projectNameDraftProjectRef.current = activeProjectId;
+      projectNameDirtyRef.current = false;
+    }
+    if (!projectNameDirtyRef.current) setProjectNameDraft(selected?.name ?? "");
+  }, [activeProjectId, projects.find((item) => item.id === activeProjectId)?.name]);
 
   useEffect(() => {
     let active = true;
@@ -754,6 +760,7 @@ export function ProjectHub({
       const saved = await workbenchApi.updateProject(requestProjectId, nextProject);
       if (activeProjectRef.current !== requestProjectId) return;
       setProject(saved);
+      projectNameDirtyRef.current = false;
       setProjectNameDraft(saved.name);
       onProjectChanged(saved);
     } catch (cause) {
@@ -1225,7 +1232,10 @@ export function ProjectHub({
                   aria-label="プロジェクト名"
                   value={projectNameDraft}
                   disabled={!project || offline || settingsPending}
-                  onChange={(event) => setProjectNameDraft(event.target.value)}
+                  onChange={(event) => {
+                    projectNameDirtyRef.current = true;
+                    setProjectNameDraft(event.target.value);
+                  }}
                 />
               </label>
               {project?.starter && <span className="starter-project-badge">同梱サンプル</span>}

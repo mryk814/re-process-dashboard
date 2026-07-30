@@ -360,8 +360,12 @@ test("project settings keep one fixed reference display and archiving at the bot
   const created = await createdResponse.json() as { id: string };
   await page.goto(`/?view=project&project=${created.id}`);
   await page.getByRole("button", { name: "設定", exact: true }).click();
-  await page.getByRole("navigation", { name: "Project設定カテゴリ" })
-    .getByRole("button", { name: "証拠・管理" }).click();
+  await expect(page).toHaveURL(/view=project-settings/);
+  const evidenceSettings = page.getByRole("navigation", { name: "Project設定カテゴリ" })
+    .getByRole("button", { name: "証拠・管理" });
+  await evidenceSettings.click();
+  await expect(page).toHaveURL(/project_settings=evidence/);
+  await expect(evidenceSettings).toHaveAttribute("aria-current", "page");
   const content = page.locator(".project-hub-content");
   const archiveButton = content.getByRole("button", { name: "プロジェクトをアーカイブ" });
   await expect(archiveButton).toBeVisible();
