@@ -1,7 +1,7 @@
 ---
 level: beginner
 estimated_minutes: 65
-verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "apps/web/src/shared/api/client.ts"
     id: "system-map-web-client"
@@ -62,6 +62,7 @@ code_references:
     role: "application"
     symbols:
       - "TaskModule"
+      - "StarterProject"
   - path: "backend/src/material_workbench/task_composition/catalog.py"
     id: "system-map-task-catalog"
     role: "application"
@@ -229,6 +230,10 @@ SQLite ファイルは単なる出力ファイルではありません。
 TaskModuleは万能なservice locatorではありません。
 契約、データ記述、Runtimeなどの境界を指すだけで、Project操作や永続化transactionを所有しません。
 その依存方向を守ることで、Task固有の意味とアプリ共通の操作を分けられます。
+
+Taskにstarter projectがあることと、fresh Workspaceへ自動配置することも別の判断です。
+{{< code-ref system-map-task-module symbol=StarterProject >}}の`distribution`は、最初から置く`quickstart`、Sample Galleryから追加できる`gallery`、既存Workspaceと内部検証だけに残す`legacy_hidden`を区別します。
+この区分により、Taskの能力を削らずに、利用者へ見せるサンプルの数だけを絞れます。
 
 ## リクエスト、状態、成果物、evidenceを分ける
 

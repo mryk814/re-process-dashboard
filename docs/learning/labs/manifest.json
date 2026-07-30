@@ -17,7 +17,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "migrationの矛盾を再現して診断する",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 75,
       "requires": [
         "python"
@@ -51,7 +51,7 @@
       "mode": "guided",
       "category": "contract",
       "title": "契約変更の影響範囲を予測する",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 60,
       "requires": [
         "node",
@@ -86,7 +86,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "Project Aの証拠を残したまま作業を終える",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 90,
       "requires": [
         "python"
@@ -120,7 +120,7 @@
       "mode": "guided",
       "category": "frontend",
       "title": "二つの編集と遅いresponseを判定する",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 90,
       "requires": [
         "node",
@@ -155,7 +155,7 @@
       "mode": "guided",
       "category": "data",
       "title": "行が学習対象になるまでを追跡する",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 90,
       "requires": [
         "python"
@@ -189,7 +189,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "復元の途中で止まったWorkspaceを診断する",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 90,
       "requires": [
         "node",
@@ -224,7 +224,7 @@
       "mode": "guided",
       "category": "security",
       "title": "Runtime境界を壊してから直す",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 45,
       "requires": [
         "node",
@@ -262,7 +262,7 @@
       "mode": "executable",
       "category": "math",
       "title": "四つの測定重みから平均を確かめる",
-      "verified_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "expected_minutes": 20,
       "requires": [
         "node"

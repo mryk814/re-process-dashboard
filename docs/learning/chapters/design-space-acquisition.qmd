@@ -1,7 +1,7 @@
 ---
 level: advanced
 estimated_minutes: 210
-verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/src/material_workbench/contracts/design_space_contracts.py"
     id: "acquisition-design-space-contract"

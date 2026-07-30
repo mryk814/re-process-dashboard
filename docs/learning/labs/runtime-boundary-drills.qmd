@@ -2,7 +2,7 @@
 chapter_id: "runtime-boundary-drills"
 level: advanced
 estimated_minutes: 45
-verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/tests/test_model_packages.py"
     id: "runtime-drill-package-tests"

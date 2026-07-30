@@ -2,7 +2,7 @@
 chapter_id: "multi-stage-chain"
 level: advanced
 estimated_minutes: 240
-verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/src/material_workbench/contracts/chain_contracts.py"
     id: "multi-stage-chain-definition-contract"

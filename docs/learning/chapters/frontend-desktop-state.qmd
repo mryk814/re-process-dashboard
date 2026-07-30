@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"

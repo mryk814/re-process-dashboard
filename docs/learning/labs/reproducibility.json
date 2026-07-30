@@ -1,7 +1,7 @@
 {
   "schema_version": "learning-lab-reproducibility/v1",
-  "measured_at": "2026-07-30T14:16:11.430Z",
-  "measured_commit": "8c00109f91363d88661df71539732c71bb86ea31",
+  "measured_at": "2026-07-30T14:38:17.798Z",
+  "measured_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
   "methodology": {
     "setup_size": "UTF-8/source file bytes for each Lab document, shared manifest, fixtures, and executable Lab script; dependencies and repository checkout are excluded",
     "runtime": "wall-clock milliseconds on this workstation; only executable Labs have machine runtime",
@@ -12,7 +12,7 @@
     "guided_count": 7,
     "executable_count": 1,
     "sum_of_per_lab_setup_payload_bytes": 217037,
-    "executable_cycle_duration_ms": 2686.75,
+    "executable_cycle_duration_ms": 2229.86,
     "executable_result_hashes_match": true
   },
   "labs": [
@@ -137,23 +137,23 @@
         "cycles": [
           {
             "cycle": 1,
-            "duration_ms": 1398.9,
+            "duration_ms": 1124.77,
             "steps_ms": {
-              "setup": 386.74,
-              "run": 410.81,
-              "verify": 257.45,
-              "reset": 343.9
+              "setup": 318.07,
+              "run": 309.07,
+              "verify": 204.94,
+              "reset": 292.69
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           },
           {
             "cycle": 2,
-            "duration_ms": 1287.85,
+            "duration_ms": 1105.09,
             "steps_ms": {
-              "setup": 356.82,
-              "run": 350.1,
-              "verify": 234.33,
-              "reset": 346.6
+              "setup": 321.18,
+              "run": 286.97,
+              "verify": 184.45,
+              "reset": 312.49
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           }
