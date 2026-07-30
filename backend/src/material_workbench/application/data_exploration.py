@@ -19,7 +19,7 @@ from material_workbench.contracts.schemas import (
     LineageResponse,
     QualityResponse,
 )
-from material_workbench.domain.services import (
+from material_workbench.application.material_lineage_candidates import (
     candidate_from_lineage,
     lineage_candidate_options,
     lineage_candidate_origin_evidence,

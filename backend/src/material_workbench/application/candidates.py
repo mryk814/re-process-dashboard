@@ -22,7 +22,11 @@ from material_workbench.contracts.schemas import (
     CandidateUpdate,
     Project,
 )
-from material_workbench.domain.services import candidate_template_xlsx, candidates_xlsx, import_candidates_xlsx
+from material_workbench.application.candidate_spreadsheet import (
+    candidate_template_xlsx,
+    candidates_xlsx,
+    import_candidates_xlsx,
+)
 from material_workbench.persistence.store import (
     CandidateArchivedError,
     CandidateLimitError,

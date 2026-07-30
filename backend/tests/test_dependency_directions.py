@@ -50,6 +50,7 @@ def _imports(path: Path, *, top_level_only: bool = False) -> set[str]:
 
 def test_removed_integration_hubs_do_not_return() -> None:
     assert not (PACKAGE_ROOT / "task_modules.py").exists()
+    assert not (PACKAGE_ROOT / "domain" / "services.py").exists()
     assert not (PACKAGE_ROOT / "tasks" / "project_runtime_resolver.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_registration.py").exists()
     assert not (
@@ -111,20 +112,59 @@ def test_tasks_and_data_do_not_own_application_transactions() -> None:
     assert offenders == {}
 
 
+def test_proposal_service_has_no_dataset_model_or_material_dependency() -> None:
+    path = PACKAGE_ROOT / "application" / "proposal_service.py"
+    forbidden = (
+        "material_workbench.data",
+        "material_workbench.modeling",
+        "material_workbench.application.candidate_spreadsheet",
+        "material_workbench.application.material_lineage_candidates",
+        "numpy",
+        "openpyxl",
+    )
+    assert sorted(
+        name
+        for name in _imports(path)
+        if name.startswith(forbidden)
+    ) == []
+
+
+def test_material_lineage_candidate_logic_stays_isolated() -> None:
+    path = PACKAGE_ROOT / "application" / "material_lineage_candidates.py"
+    forbidden = (
+        "material_workbench.application.candidate_spreadsheet",
+        "material_workbench.application.proposal_service",
+        "material_workbench.persistence",
+        "material_workbench.tasks",
+        "openpyxl",
+    )
+    assert sorted(
+        name
+        for name in _imports(path)
+        if name.startswith(forbidden)
+    ) == []
+
+
 def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> None:
     removed_modules = {
+        "material_workbench.domain.services",
         "material_workbench.task_modules",
         "material_workbench.tasks.project_runtime_resolver",
         "material_workbench.data.dataset_registration",
         "material_workbench.persistence.workspace_catalog_bootstrap",
     }
     removed_paths = {
+        "backend/src/material_workbench/domain/services.py",
         "backend/src/material_workbench/task_modules.py",
         "backend/src/material_workbench/tasks/project_runtime_resolver.py",
         "backend/src/material_workbench/data/dataset_registration.py",
         "backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py",
     }
-    roots = (PACKAGE_ROOT, PACKAGE_ROOT.parents[1] / "scripts")
+    roots = (
+        PACKAGE_ROOT,
+        PACKAGE_ROOT.parents[1] / "scripts",
+        PACKAGE_ROOT.parents[1] / "tests",
+    )
     offenders: dict[str, list[str]] = {}
     for root in roots:
         for path in root.rglob("*.py"):
@@ -137,6 +177,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
                     if isinstance(node, ast.Constant)
                     and isinstance((value := node.value), str)
                     and value.replace("\\", "/") in removed_paths
+                    and path.resolve() != Path(__file__).resolve()
                 )
             )
             if references:

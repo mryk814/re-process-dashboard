@@ -11,7 +11,13 @@ import pytest
 
 from material_workbench.modeling.feature_pipeline import build_feature_bundle
 from material_workbench.contracts.schemas import CandidateInput, ScreeningRunResponse
-from material_workbench.domain.services import _candidate_xlsx_names, candidate_from_lineage, import_candidates_xlsx
+from material_workbench.application.candidate_spreadsheet import (
+    _candidate_xlsx_names,
+    import_candidates_xlsx,
+)
+from material_workbench.application.material_lineage_candidates import (
+    candidate_from_lineage,
+)
 
 
 PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "data"
@@ -424,7 +430,10 @@ def test_candidate_excel_import_and_exports(client) -> None:
     assert "学習範囲判定" in exported_headers
     assert not {"ls_mpm", "time_s_1", "temperature_c_1", "support_status"} & set(exported_headers)
     exported_workbook.close()
-    round_tripped, errors = import_candidates_xlsx(exported.content)
+    round_tripped, errors = import_candidates_xlsx(
+        exported.content,
+        task_id="annealed-properties-v1",
+    )
     assert not errors
     source = CandidateInput.model_validate({key: value for key, value in response.json()["candidates"][0].items() if key not in {"id", "project_id", "created_at", "updated_at"}})
     restored = next(candidate for candidate in round_tripped if candidate.name == source.name)
@@ -452,7 +461,10 @@ def test_candidate_excel_import_rejects_unknown_heat_time_basis() -> None:
     buffer = BytesIO()
     workbook.save(buffer)
 
-    imported, errors = import_candidates_xlsx(buffer.getvalue())
+    imported, errors = import_candidates_xlsx(
+        buffer.getvalue(),
+        task_id="annealed-properties-v1",
+    )
 
     assert imported == []
     assert errors == [{
@@ -492,10 +504,16 @@ def test_candidate_excel_template_explains_and_round_trips_the_project_contract(
     workbook.save(buffer)
     workbook.close()
 
-    untouched, untouched_errors = import_candidates_xlsx(response.content)
+    untouched, untouched_errors = import_candidates_xlsx(
+        response.content,
+        task_id="annealed-properties-v1",
+    )
     assert not untouched_errors
     assert untouched == []
-    imported, errors = import_candidates_xlsx(buffer.getvalue())
+    imported, errors = import_candidates_xlsx(
+        buffer.getvalue(),
+        task_id="annealed-properties-v1",
+    )
     assert not errors
     assert len(imported) == 1
     assert imported[0].name == "記入例（候補シートへコピーして変更）"
@@ -555,7 +573,10 @@ def test_candidate_xlsx_import_rejects_duplicate_headers() -> None:
     buffer = BytesIO()
     workbook.save(buffer)
 
-    candidates, errors = import_candidates_xlsx(buffer.getvalue())
+    candidates, errors = import_candidates_xlsx(
+        buffer.getvalue(),
+        task_id="annealed-properties-v1",
+    )
 
     assert candidates == []
     assert errors == [{"row": 1, "message": "列名が重複しています: C[mass%]"}]

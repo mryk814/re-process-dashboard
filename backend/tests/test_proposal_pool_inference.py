@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from material_workbench.contracts.schemas import Support
-from material_workbench.domain.services import _evaluate_proposal_pool
+from material_workbench.application.proposal_service import _evaluate_proposal_pool
 
 
 def _support() -> Support:

@@ -13,7 +13,10 @@ from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.contracts.schemas import Candidate, CandidateInput
-from material_workbench.domain.services import _validate_screening_pool, generate_from_design_space
+from material_workbench.application.proposal_service import (
+    _validate_screening_pool,
+    generate_from_design_space,
+)
 
 
 def _battery_space(**updates: object) -> DesignSpaceDefinition:
