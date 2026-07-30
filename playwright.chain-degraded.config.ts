@@ -28,7 +28,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `uv run python backend/scripts/run_chain_degraded_e2e.py --db "${database}" --port ${apiPort} --broken-transform "${brokenTransform}" --broken-evaluation "${brokenEvaluation}"`,
+      command: `uv run python backend/scripts/acceptance/run_chain_degraded_e2e.py --db "${database}" --port ${apiPort} --broken-transform "${brokenTransform}" --broken-evaluation "${brokenEvaluation}"`,
       port: apiPort,
       reuseExistingServer: false,
       env: { PYTHONPATH: resolve("backend", "src") },

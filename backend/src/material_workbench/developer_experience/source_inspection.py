@@ -387,7 +387,7 @@ def inspect_source_against_profiles(
             command(
                 "uv",
                 [
-                    "run", "python", "backend/scripts/profile_workbench.py", "inspect", str(source),
+                    "run", "python", "backend/scripts/operations/profile_workbench.py", "inspect", str(source),
                     *([] if not selected else ["--profile", selected.profile_path]),
                 ],
             ),
@@ -395,12 +395,12 @@ def inspect_source_against_profiles(
                 [
                     command(
                         "uv",
-                        ["run", "python", "backend/scripts/profile_workbench.py", "validate", str(source), "--profile", selected.profile_path],
+                        ["run", "python", "backend/scripts/operations/profile_workbench.py", "validate", str(source), "--profile", selected.profile_path],
                     ),
                     command(
                         "uv",
                         [
-                            "run", "python", "backend/scripts/profile_workbench.py", "register", str(source),
+                            "run", "python", "backend/scripts/operations/profile_workbench.py", "register", str(source),
                             "--profile", selected.profile_path,
                             "--database", "data/workbench.db",
                             "--library", "data/data-library",

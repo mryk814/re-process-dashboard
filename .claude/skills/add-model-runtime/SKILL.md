@@ -16,7 +16,7 @@ adapterやRegistryを増やさない。
 ```powershell
 npm run model:estimators -- --task <task-id>
 npm run model:build -- --task <task-id> --estimator <estimator-id> --package-id <id> --package-version <version>
-uv run python backend/scripts/verify_model_package.py <package-directory> --example
+uv run python backend/scripts/operations/verify_model_package.py <package-directory> --example
 ```
 
 `ridge.v1`と`exact-gp-rbf.v1`は、allow-list済みtraining recipe、共通FeatureDataset、

@@ -95,7 +95,7 @@ const preflight = spawnSync(
   [
     "run",
     "python",
-    "backend/scripts/workspace_check.py",
+    "backend/scripts/operations/workspace_check.py",
     "--database",
     workspace.database,
     "--json",

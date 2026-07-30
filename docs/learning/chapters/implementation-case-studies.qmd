@@ -25,7 +25,7 @@ code_references:
   - path: "docs/reports/shared-multi-output-gp-evaluation.md"
     id: "case-study-multi-output-report"
     role: "docs"
-  - path: "backend/scripts/evaluate_shared_multioutput_gp.py"
+  - path: "backend/scripts/experiments/evaluate_shared_multioutput_gp.py"
     id: "case-study-multi-output-evaluator"
     role: "application"
   - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"

@@ -108,7 +108,7 @@ code_references:
       - "test_adapter_is_selected_from_the_declared_stage_shape"
       - "test_chain_core_modules_do_not_name_domain_specific_symbols"
       - "test_scalar_candidate_input_survives_the_adapter_round_trip"
-  - path: "backend/scripts/spikes/spike_case_d.py"
+  - path: "backend/scripts/experiments/spikes/spike_case_d.py"
     id: "multi-stage-chain-second-case"
     role: "fixture"
     symbols:

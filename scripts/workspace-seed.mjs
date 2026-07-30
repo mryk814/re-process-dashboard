@@ -23,7 +23,7 @@ const result = spawnSync(
   [
     "run",
     "python",
-    "backend/scripts/seed_review_workspace.py",
+    "backend/scripts/operations/seed_review_workspace.py",
     "--database",
     workspace.database,
     "--data-library",

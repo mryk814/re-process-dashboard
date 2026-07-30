@@ -34,7 +34,7 @@ DetailはIssue #313でsummaryとpage queryへ分割し、初期表示から全ro
 ## 再現コマンド
 
 ```powershell
-uv run --extra dev python backend/scripts/benchmark_data_lifecycle.py `
+uv run --extra dev python backend/scripts/experiments/benchmark_data_lifecycle.py `
   --worker case `
   --rows 100000 `
   --shape narrow `

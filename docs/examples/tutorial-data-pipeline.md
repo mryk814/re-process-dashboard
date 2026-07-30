@@ -171,12 +171,12 @@ Packageには次を保存します。
 
 ```powershell
 $env:PYTHONPATH = "backend/src"
-uv run python backend/scripts/build_default_model_package.py `
+uv run python backend/scripts/generators/build_default_model_package.py `
   --source data/source/material_workbench_tutorial_v1.xlsx `
   --output artifacts/model-package-candidates/annealed-gp-stable-ard-tutorial-v2 `
   --package-id annealed-gp-stable-ard-tutorial-v2 --replace
 
-uv run python backend/scripts/build_hot_rolling_model_package.py `
+uv run python backend/scripts/generators/build_hot_rolling_model_package.py `
   --source data/source/material_workbench_tutorial_v1.xlsx `
   --output artifacts/model-package-candidates/hot-rolled-tutorial-v2 `
   --package-id hot-rolled-tutorial-v2 --replace

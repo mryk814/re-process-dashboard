@@ -15,7 +15,7 @@ from material_workbench.modeling.model_packages import ModelPackageLoader, Packa
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend" / "scripts"))
+sys.path.insert(0, str(ROOT / "backend" / "scripts" / "generators"))
 
 import build_quantile_model_example as quantile_builder  # noqa: E402
 import build_additive_model_examples as additive_builder  # noqa: E402

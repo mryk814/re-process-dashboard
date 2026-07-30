@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend.scripts.compare_annealing_feature_pipelines import compare
+from backend.scripts.experiments.compare_annealing_feature_pipelines import compare
 from material_workbench.modeling.numeric_canonicalization import (
     canonicalize_report_float,
 )

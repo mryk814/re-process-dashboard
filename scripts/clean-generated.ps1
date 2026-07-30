@@ -10,7 +10,7 @@ $repositoryPrefix = $repositoryRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) +
 $relativeTargets = if ($ReleaseOnly) {
     @("release")
 } else {
-    @("release", "dist", "build", "output", "test-results", ".playwright-cli")
+    @("release", "dist", "build")
 }
 
 foreach ($relativeTarget in $relativeTargets) {

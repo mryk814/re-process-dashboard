@@ -8,7 +8,7 @@
 - 学習時とランタイムの依存関係はNumPyだけです。
   任意の推定器、コールバック、動的コードには対応しません。
 - このランタイムは利用可能ですが、現行のactive Packageでは使われていません。
-  `backend/scripts/build_default_model_package.py` が生成する焼鈍後特性Packageも、現在は `builtin.exact_gp.v1` を使います。
+  `backend/scripts/generators/build_default_model_package.py` が生成する焼鈍後特性Packageも、現在は `builtin.exact_gp.v1` を使います。
 
 ## 固定ベクトルからネイティブ木予測へ
 
@@ -39,7 +39,7 @@
   組み込みの本番ランタイムはNumPyだけを使い、GPyTorch経路には明示的な任意依存関係があります。
 - 未知のテンソル構造、非有限値、互換性のない形状、未宣言の変換は拒否されます。
   学習器オブジェクトと任意のカーネルには対応しません。
-- 現行active Packageのビルダーとスモークテストは、焼鈍後特性の `backend/scripts/build_default_model_package.py` と逃げ面摩耗の `build_flank_wear_model_package.py` にあります。
+- 現行active Packageのビルダーとスモークテストは、焼鈍後特性の `backend/scripts/generators/build_default_model_package.py` と逃げ面摩耗の `build_flank_wear_model_package.py` にあります。
 
 ## 固定ベクトルから線形事後予測へ
 
@@ -50,7 +50,7 @@
   観測ノイズを標本化して経験分位点を返すため、乱数シードを固定して再現します。
 - どちらの経路も、生の事後ドローをAPIへ公開しません。
   正規近似を使うactive経路と、経験分位点を返す例示経路は、同じ予測表現として扱いません。
-- 熱延後特性のビルダーとスモークテストは `backend/scripts/build_hot_rolling_model_package.py` にあります。
+- 熱延後特性のビルダーとスモークテストは `backend/scripts/generators/build_hot_rolling_model_package.py` にあります。
   未有効化の例は[線形事後予測のカード](sparse-bayesian.md)から構築できます。
 
 ## 固定ベクトルから事後予測へ

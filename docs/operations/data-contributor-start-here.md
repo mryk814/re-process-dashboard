@@ -84,13 +84,13 @@ CSVは画面ではなく、対応する表形式Profileを指定してCLIから�
 Profileを自分で用意する場合も、元ファイルを変更せず、リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
 
 ```powershell
-uv run python backend/scripts/profile_workbench.py inspect C:\path\to\data.xlsx `
+uv run python backend/scripts/operations/profile_workbench.py inspect C:\path\to\data.xlsx `
   --profile C:\path\to\profile.json
 
-uv run python backend/scripts/profile_workbench.py validate C:\path\to\data.xlsx `
+uv run python backend/scripts/operations/profile_workbench.py validate C:\path\to\data.xlsx `
   --profile C:\path\to\profile.json
 
-uv run python backend/scripts/profile_workbench.py register C:\path\to\data.csv `
+uv run python backend/scripts/operations/profile_workbench.py register C:\path\to\data.csv `
   --profile C:\path\to\profile.json `
   --database C:\path\to\workspace.db `
   --library C:\path\to\data-library

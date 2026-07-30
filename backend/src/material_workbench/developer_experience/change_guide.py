@@ -14,7 +14,7 @@ CHANGE_GUIDE = (
         artifacts=["Dataset Revision", "学習し直す場合はModel Package"],
         commands=[
             command("npm", ["run", "dev:doctor", "--", "--source", "path/to/file.xlsx"]),
-            command("uv", ["run", "python", "backend/scripts/profile_workbench.py", "inspect", "path/to/file.xlsx"]),
+            command("uv", ["run", "python", "backend/scripts/operations/profile_workbench.py", "inspect", "path/to/file.xlsx"]),
         ],
         documents=["docs/recipes/add-more-rows.md", "docs/recipes/add-similar-workbook.md"],
     ),

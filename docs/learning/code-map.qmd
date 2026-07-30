@@ -144,7 +144,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### OpenAPI同期
 
 - **正本**：Pydantic response model
-- **Export**：`backend/scripts/export_openapi.py`
+- **Export**：`backend/scripts/operations/export_openapi.py`
 - **生成物**：`apps/web/src/generated/openapi.json`、`apps/web/src/generated/api-types.ts`
 - **Client**：`apps/web/src/shared/api/client.ts`
 - **Test**：`backend/tests/test_openapi_contract.py`、`npm run api:check`
@@ -189,7 +189,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### Model Package
 
 - **Contract**：`docs/contracts/model-package-contract.md`
-- **Workflow**：`backend/scripts/model_workflow.py`
+- **Workflow**：`backend/scripts/operations/model_workflow.py`
 - **成果物**：`models/packages/` 配下のdata-only Package
 - **Test**：`backend/tests/test_model_packages.py` とPackage verify
 

@@ -52,7 +52,7 @@ code_references:
     role: "application"
     symbols:
       - "ModelPackageLoader"
-  - path: "backend/scripts/export_openapi.py"
+  - path: "backend/scripts/operations/export_openapi.py"
     id: "system-map-openapi-export"
     role: "build"
     symbols:
@@ -421,7 +421,7 @@ node docs/learning/check-code-references.mjs
 `npm run api:check`はFastAPIからexportしたOpenAPIと生成済みTypeScript型が正本に追従していることを確認します。
 最後のcommandは、この章のcode referenceが`verified_commit`上のファイルとsymbolへ解決できることを確認します。
 
-失敗した場合は、launch tokenの失敗を`backend/tests/test_launch_token.py`、OpenAPI driftを`backend/scripts/export_openapi.py`、code referenceの欠落を章front matterから確認します。
+失敗した場合は、launch tokenの失敗を`backend/tests/test_launch_token.py`、OpenAPI driftを`backend/scripts/operations/export_openapi.py`、code referenceの欠落を章front matterから確認します。
 
 ## 章末チェック {#exercise-system-map-chapter-check}
 

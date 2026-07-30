@@ -23,7 +23,7 @@
 
 ## 現行mainからの再評価
 
-`backend/scripts/evaluate_shared_multioutput_gp.py` が、現行の
+`backend/scripts/experiments/evaluate_shared_multioutput_gp.py` が、現行の
 `data/source/material_workbench_process_v1.xlsx` とFeature Pipelineから比較を再生成する。
 
 比較条件は次の通り。

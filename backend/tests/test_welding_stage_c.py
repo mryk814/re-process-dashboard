@@ -3,7 +3,7 @@ import sys
 
 from fastapi.testclient import TestClient
 
-from backend.scripts import build_welding_stage_c_model_package as stage_c_builder_cli
+from backend.scripts.generators import build_welding_stage_c_model_package as stage_c_builder_cli
 from material_workbench.data.observation_profile import (
     build_observation_training_dataset,
     load_observation_profile,

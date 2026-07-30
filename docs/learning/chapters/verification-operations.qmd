@@ -77,7 +77,7 @@ code_references:
   - path: "scripts/verify.mjs"
     id: "verification-gate"
     role: "build"
-  - path: "backend/scripts/task_inventory.py"
+  - path: "backend/scripts/operations/task_inventory.py"
     id: "verification-task-inventory"
     role: "build"
     symbols:

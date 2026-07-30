@@ -35,7 +35,7 @@ pageごとに親resource IDと固定digestを返す。
 Training 100,000行、foreign key violation 0、row数一致である。
 
 ```powershell
-uv run --extra dev python backend/scripts/benchmark_data_lifecycle.py `
+uv run --extra dev python backend/scripts/experiments/benchmark_data_lifecycle.py `
   --worker case `
   --rows 100000 `
   --shape narrow `

@@ -79,7 +79,7 @@ GMRが目標達成率で非劣性を保ち、複数mode提示または支持範�
 ## 再実行
 
 ```powershell
-uv run python backend/scripts/evaluate_gmr_inverse.py `
+uv run python backend/scripts/experiments/evaluate_gmr_inverse.py `
   --output docs/research/gmr-inverse-replay-2026-07-29.json
 uv run python -m pytest backend/tests/test_gmr_inverse_research.py -q
 ```

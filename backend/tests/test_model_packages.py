@@ -36,7 +36,13 @@ def test_stage_c_builder_bootstraps_backend_src_outside_repository(tmp_path: Pat
     completed = subprocess.run(
         [
             sys.executable,
-            str(root / "backend" / "scripts" / "build_welding_stage_c_model_package.py"),
+            str(
+                root
+                / "backend"
+                / "scripts"
+                / "generators"
+                / "build_welding_stage_c_model_package.py"
+            ),
             "--help",
         ],
         cwd=tmp_path,

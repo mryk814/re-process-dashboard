@@ -12,7 +12,7 @@
 
 ## 実行状況
 
-5ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/spikes/README.md) を参照してください。
+5ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/experiments/spikes/README.md) を参照してください。
 
 | ケース | 初回実測 | P1実装後 | 一行要約 |
 | --- | --- | --- | --- |
@@ -25,7 +25,7 @@
 再現:
 
 ```bash
-uv run python backend/scripts/spikes/spike_case_d.py
+uv run python backend/scripts/experiments/spikes/spike_case_d.py
 ```
 
 ## 0. 共通ルール
@@ -533,7 +533,7 @@ A（標準表形式Task）          実行済み
 - 手を付けずに済んだ範囲（予測通り）: `ChainDefinition` / binding検証 / `build_chain_revision` /
   store登録 / Chain Project作成 / `welding_chain_bootstrap.py`。`api/chains.py` は
   分岐追加ではなく guard の置き換えのみ
-- 完了条件の確認: **`backend/scripts/spikes/spike_case_d.py` が全19項目OK**
+- 完了条件の確認: **`backend/scripts/experiments/spikes/spike_case_d.py` が全19項目OK**
   （capability宣言、候補保存、2 Stage実行、snapshot保存、名前空間、不確かさ伝播）。
   境界は `backend/tests/test_chain_candidate_adapters.py` で固定し、
   Chain Coreに `welding_context` / `material_composition` 等のdomain symbolが現れたら落ちる

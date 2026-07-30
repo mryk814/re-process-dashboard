@@ -11,7 +11,7 @@ const result = spawnSync(
   [
     "run",
     "python",
-    "backend/scripts/workspace_maintenance.py",
+    "backend/scripts/operations/workspace_maintenance.py",
     "--database",
     workspace.database,
     ...forwarded,

@@ -14,7 +14,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_script(name: str):
-    path = ROOT / "backend" / "scripts" / f"{name}.py"
+    categories = {
+        "profile_workbench": "operations",
+        "developer_doctor": "operations",
+        "build_welding_consumable_sample_dataset": "generators",
+        "prepare_secom_stress_dataset": "generators",
+    }
+    path = (
+        ROOT
+        / "backend"
+        / "scripts"
+        / categories[name]
+        / f"{name}.py"
+    )
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -39,19 +51,21 @@ def test_change_guide_commands_have_an_executable_contract() -> None:
                     separator = command.arguments.index("--")
                     developer_doctor.build_parser().parse_args(command.arguments[separator + 1 :])
 
-            if "backend/scripts/profile_workbench.py" in command.arguments:
-                script_index = command.arguments.index("backend/scripts/profile_workbench.py")
+            if "backend/scripts/operations/profile_workbench.py" in command.arguments:
+                script_index = command.arguments.index("backend/scripts/operations/profile_workbench.py")
                 profile_workbench.build_parser().parse_args(command.arguments[script_index + 1 :])
 
 
 def test_backend_script_inventory_covers_every_command() -> None:
     inventory = (ROOT / "backend/scripts/README.md").read_text(encoding="utf-8")
     scripts = {
-        path.name
-        for path in (ROOT / "backend/scripts").glob("*.py")
+        path.relative_to(ROOT / "backend/scripts").as_posix()
+        for path in (ROOT / "backend/scripts").rglob("*.py")
     }
-    documented = set(re.findall(r"`([a-z0-9_]+\.py)`", inventory))
-    assert scripts <= documented, f"undocumented backend scripts: {sorted(scripts - documented)}"
+    documented = set(re.findall(r"`([a-z0-9_/]+\.py)`", inventory))
+    assert scripts <= documented, (
+        f"undocumented backend scripts: {sorted(scripts - documented)}"
+    )
 
 
 def test_repo_skills_reference_current_commands_and_paths() -> None:
@@ -112,3 +126,15 @@ def test_profile_materialize_is_part_of_profile_workbench(tmp_path: Path) -> Non
     assert profile_workbench.main(
         ["materialize", str(child), str(output), "--replace"]
     ) == 0
+
+
+def test_profile_validate_auto_detects_the_profile(capsys) -> None:
+    profile_workbench = _load_script("profile_workbench")
+    source = ROOT / "data/source/material_workbench_tutorial_v2.xlsx"
+
+    assert profile_workbench.main(["validate", str(source)]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["ok"] is True
+    assert result["profile"]
+    assert result["source_sha256"]

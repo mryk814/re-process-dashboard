@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from backend.scripts.reference_data_loop_acceptance import (
+from backend.scripts.acceptance.reference_data_loop_acceptance import (
     ACTUAL_ROW_KEY,
     HELD_OUT_CELL_ID,
     PROFILE,
@@ -17,7 +17,7 @@ from backend.scripts.reference_data_loop_acceptance import (
     TASK_ID,
     run_reference_data_loop,
 )
-from backend.scripts.prepare_calce_battery_dataset import (
+from backend.scripts.generators.prepare_calce_battery_dataset import (
     require_writable_destination,
 )
 from material_workbench.app import create_app

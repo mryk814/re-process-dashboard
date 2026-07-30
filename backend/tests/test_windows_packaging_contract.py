@@ -66,7 +66,13 @@ def test_windows_packaging_checks_every_registered_default_source(tmp_path: Path
     completed = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "backend" / "scripts" / "task_inventory.py"),
+            str(
+                ROOT
+                / "backend"
+                / "scripts"
+                / "operations"
+                / "task_inventory.py"
+            ),
             "--print-source-paths",
         ],
         cwd=tmp_path,
@@ -186,12 +192,15 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     clean_script = (ROOT / "scripts" / "clean-generated.ps1").read_text(
         encoding="utf-8"
     )
+    evidence_script = (ROOT / "scripts" / "clean-evidence.ps1").read_text(
+        encoding="utf-8"
+    )
     package_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
 
     assert "[switch]$KeepPrevious" in package_script
     assert 'clean-generated.ps1") -ReleaseOnly' in package_script
     assert "if (-not $KeepPrevious)" in package_script
-    assert '"release", "dist", "build", "output", "test-results", ".playwright-cli"' in clean_script
+    assert '"release", "dist", "build"' in clean_script
     assert '"data", "models"' in clean_script
     assert "StartsWith($repositoryPrefix" in clean_script
     assert "win-unpacked" in package_script
@@ -199,6 +208,14 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     assert package_json["scripts"]["clean"].endswith("scripts/clean-generated.ps1")
     assert package_json["scripts"]["clean:dry-run"].endswith(
         "scripts/clean-generated.ps1 -DryRun"
+    )
+    assert '"test-results"' not in clean_script
+    assert '"test-results"' in evidence_script
+    assert '".dev-workspaces"' in evidence_script
+    assert '"data/"' in evidence_script
+    assert '"models/"' in evidence_script
+    assert package_json["scripts"]["clean:evidence"].endswith(
+        "scripts/clean-evidence.ps1"
     )
 
 

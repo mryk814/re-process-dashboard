@@ -48,5 +48,5 @@ APIはProjectが固定したChain RevisionとDataset Viewから元データident
 再生成:
 
 ```powershell
-uv run python backend/scripts/build_welding_chain_evaluation.py
+uv run python backend/scripts/acceptance/build_welding_chain_evaluation.py
 ```

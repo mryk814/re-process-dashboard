@@ -19,7 +19,7 @@ from material_workbench.modeling.model_lifecycle import ActivePackagesConfig
 ROOT = Path(__file__).resolve().parents[2]
 TASK = "hot-rolled-properties-v1"
 OTHER_TASK = "annealed-properties-v1"
-sys.path.insert(0, str(ROOT / "backend" / "scripts"))
+sys.path.insert(0, str(ROOT / "backend" / "scripts" / "operations"))
 
 from model_workflow import DEFAULT_SOURCE, activate_package, rollback_package  # noqa: E402
 

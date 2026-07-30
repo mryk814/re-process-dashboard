@@ -17,8 +17,8 @@ description: 現行TaskModule Registryへ新しい予測Taskを安全に追加�
 
 ```powershell
 npm run dev:doctor -- --source path/to/file.xlsx
-uv run python backend/scripts/profile_workbench.py inspect path/to/file.xlsx
-uv run python backend/scripts/profile_workbench.py validate path/to/file.xlsx --profile <profile>
+uv run python backend/scripts/operations/profile_workbench.py inspect path/to/file.xlsx
+uv run python backend/scripts/operations/profile_workbench.py validate path/to/file.xlsx --profile <profile>
 ```
 
 ## 新しい予測問題を追加

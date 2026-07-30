@@ -41,8 +41,8 @@
 
 ```powershell
 npm run models:build:additive-examples
-uv run python backend/scripts/verify_model_package.py examples/model-packages/additive-terms/point --example
-uv run python backend/scripts/verify_model_package.py examples/model-packages/additive-terms/normal --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/additive-terms/point --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/additive-terms/normal --example
 ```
 
 品質レポートには、固定された合成データに対する学習RMSE、説明の再構成誤差、応答曲線の変動幅が記録されます。

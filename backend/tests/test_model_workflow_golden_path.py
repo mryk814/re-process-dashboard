@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "backend" / "scripts"
+SCRIPTS = ROOT / "backend" / "scripts" / "operations"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
