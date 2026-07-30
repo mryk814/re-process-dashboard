@@ -2,6 +2,8 @@
 
 この文書は、既存の予測タスクへ手元のExcel／CSVを接続し、探索または学習してアプリで使う人の入口です。
 アプリ本体を開発するための手順ではありません。
+AIにread-onlyの仕分けからDataset登録、個人Package、Project作成まで任せる場合は
+[Data Contributor Skill](../../.claude/skills/data-contributor/SKILL.md)を使います。
 
 ## この入口で扱う作業
 
@@ -22,7 +24,7 @@ ProfileとModel Packageの検証は、リポジトリに用意されたコマン
 | 目的 | 作業 | Model Package |
 | --- | --- | --- |
 | 過去データを探索し、類似実績として参照する | Data LibraryへDatasetを登録する | 不要 |
-| 既存モデルと新しい参照データを使う | Datasetを登録し、既存Packageと組み合わせた新Projectを作る | 不要 |
+| 新しい参照データを既存モデルの判断材料にする | Datasetを登録し、Data Library／Data Explorerで別の根拠として参照する | 不要 |
 | 手元のデータでモデルを学習して予測する | Datasetを確認し、既存Task向けPackageを作る | 必要 |
 | 新しい入力や目的変数を追加する | アプリの契約を変更する | [Developer Start Here](../developer-start-here.md)へ移る |
 
@@ -54,7 +56,7 @@ npm run dev
 3. 未知のシート名・列名があれば、Excel側の名前を明示的に対応付ける
 4. 保存したProfileでcanonical previewを再確認する
 5. Data Libraryへ登録する
-6. 登録したDatasetからProjectを作る
+6. Projectで予測する場合だけ、同じsource／ProfileからModel Packageを作ってからProjectを作る
 
 提案された対応は自動確定されません。
 シート、キー、値、単位、relation roleを確認して選んだものだけがProfileへ保存されます。
@@ -68,7 +70,9 @@ npm run dev
 参照・探索用Datasetの登録だけなら、モデルを再学習する必要はありません。
 登録後にアプリを再起動する必要もありません。
 新しいDatasetを登録しても、既存Projectが固定するDataset、Package、保存済みSnapshotは変わりません。
-登録したDatasetを使う新Projectを作るか、Project設定から明示的に参照を切り替えます。
+source SHA-256とProfile digestが一致しない既存Packageを、新しいDatasetへ組み合わせることはできません。
+登録したDatasetをProjectで予測に使う場合は、同じsource／Profileから新Packageを作り、
+そのDataset RevisionとPackageを明示的に選んで新Projectを作ります。
 
 元ファイルは`data/source/`へ置かなくてもかまいません。
 任意のローカルパスから選択でき、登録時に現在のWorkspaceが管理するData Libraryへ内容ハッシュ付きでコピーされます。

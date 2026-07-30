@@ -316,7 +316,7 @@ class DatasetInputProfile(ProfileModel):
     def sheet_for_role(self, role: str) -> str:
         sheets = self.shared.sheets
         if role not in sheets:
-            raise KeyError(f"unknown dataset role: {role}")
+            raise DatasetProfileError([f"unknown dataset role: {role}"])
         return str(sheets[role])
 
     def source_column_for(self, role: str, canonical_column: str) -> str:

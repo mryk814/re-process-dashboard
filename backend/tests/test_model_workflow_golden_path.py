@@ -134,6 +134,25 @@ def test_model_source_diagnosis_branches_existing_and_new_tasks() -> None:
     assert "dataset-input-profile.md" in new_task["next"]
 
 
+def test_model_source_diagnosis_routes_incompatible_workbook_to_profile_setup() -> None:
+    source = (
+        ROOT
+        / "data"
+        / "source"
+        / "cutting_tool_flank_wear_synthetic_dataset.xlsx"
+    )
+
+    diagnosis = diagnose_source(
+        source,
+        task_id="annealed-properties-v1",
+        profile=None,
+    )
+
+    assert diagnosis["route"] == "new_task_or_profile"
+    assert "unknown dataset role: melt" in diagnosis["reason"]
+    assert "dataset-input-profile.md" in diagnosis["next"]
+
+
 def test_explicit_profile_flows_from_diagnosis_through_build_and_verify(
     tmp_path: Path,
 ) -> None:
