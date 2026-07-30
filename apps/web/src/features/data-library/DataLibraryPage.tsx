@@ -111,6 +111,17 @@ export function DataLibraryPage({
   const selectedDataset = filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
     ?? managedDatasets[0]
     ?? bundledDatasets[0];
+  const selectedEffectiveProfile = selectedDataset?.profile_revision.effective_profile_json;
+  const requiresExactProfile = Boolean(
+    selectedEffectiveProfile
+    && "shared" in selectedEffectiveProfile
+    && "tasks" in selectedEffectiveProfile,
+  );
+  const exactProfileMissing = Boolean(
+    selectedDataset
+    && requiresExactProfile
+    && !selectedDataset.profile_locator,
+  );
   const selectedDatasetPackages = selectedDataset
     ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
     : [];
@@ -126,21 +137,23 @@ export function DataLibraryPage({
       : selectedDataset.supported_task_ids[0] ?? "");
   }, [selectedDataset?.dataset_revision.id]);
   const modelGuide = useMemo(() => {
-    if (!selectedDataset || !guideTaskId) return "";
+    if (!selectedDataset || !guideTaskId || exactProfileMissing) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
     return [
       `$task = ${quote(guideTaskId)}`,
       `$source = ${quote(selectedDataset.data_asset.locator)}`,
+      ...(selectedDataset.profile_locator ? [`$profile = ${quote(selectedDataset.profile_locator)}`] : []),
       '$packageId = "$task-local-$(Get-Date -Format yyyyMMdd-HHmmss)"',
       '$packageVersion = "1.0.0"',
       '$datasetOutput = "artifacts/model-data/$packageId.json"',
       "$modelStore = if ($env:WORKBENCH_MODEL_STORE_PATH) { $env:WORKBENCH_MODEL_STORE_PATH } else { Join-Path $env:LOCALAPPDATA 'Material Decision Workbench\\models' }",
       "",
-      "npm run model:diagnose -- --task $task --source $source",
+      `npm run model:diagnose -- --task $task --source $source${selectedDataset.profile_locator ? " --profile $profile" : ""}`,
       "",
       "npm run model:build -- `",
       "  --task $task `",
       "  --source $source `",
+      ...(selectedDataset.profile_locator ? ["  --profile $profile `"] : []),
       "  --package-id $packageId `",
       "  --package-version $packageVersion `",
       "  --dataset-output $datasetOutput",
@@ -148,13 +161,14 @@ export function DataLibraryPage({
       "npm run model:promote -- `",
       "  --task $task `",
       "  --source $source `",
+      ...(selectedDataset.profile_locator ? ["  --profile $profile `"] : []),
       '  --package "artifacts/model-package-candidates/$packageId" `',
       "  --store $modelStore",
       "",
       "npm run task:inventory",
       "npm run model:status",
     ].join("\n");
-  }, [guideTaskId, selectedDataset]);
+  }, [exactProfileMissing, guideTaskId, selectedDataset]);
 
   async function changeDatasetState(item: ApiDataLibraryDataset) {
     const id = item.dataset_revision.id;
@@ -465,23 +479,33 @@ export function DataLibraryPage({
 
         {modelGuideOpen && selectedDataset && <section className="data-library-section model-update-guide" aria-labelledby="model-update-guide-heading">
           <header><div><span className="overline">MODEL UPDATE</span><h3 id="model-update-guide-heading">モデルを追加する</h3><p>リポジトリ直下のPowerShellで診断 → 候補作成 → リポジトリ外の個人モデルstoreへ昇格します。アプリは起動したままで構いません。</p></div><button type="button" className="text-button" aria-label="モデル更新手順を閉じる" onClick={() => setModelGuideOpen(false)}>閉じる</button></header>
-          <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
-          <ol><li><strong>診断</strong><span>データと予測契約の整合を確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>昇格・反映</strong><span>個人モデルstoreへ昇格し、下のボタンで再読込</span></li></ol>
-          <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
-          <div className="model-update-actions">
-            <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
-            <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人モデルを再読込"}</button>
-            <small>保存済み予測は再計算されません。新しい予測タスクやruntime実装を追加した場合だけ、アプリを再起動します。</small>
-          </div>
-          {refreshMessage && <p role="status">{refreshMessage}</p>}
-          {refreshWarnings.length > 0 && <details className="model-refresh-warnings">
-            <summary>除外されたモデルを確認</summary>
-            <ul>{refreshWarnings.map((warning, index) => <li key={`${warning.source}:${warning.reference ?? index}`}>
-              <strong>{warning.reference ?? "available-packages.json"}</strong>
-              <span>{warning.message}</span>
-              <small title={warning.source}>{warning.source}</small>
-            </li>)}</ul>
-          </details>}
+          {exactProfileMissing
+            ? <div className="panel-error" role="alert">
+              <strong>登録時のProfileが見つからないため、モデル更新を開始できません</strong>
+              <p>自動検出へ切り替えると、Dataset登録時と学習時で列や単位の解釈が変わる可能性があります。</p>
+              <p>Profile Workbenchで出力したJSONを個人Profile storeへ戻し、次のファイル名で保存してからページを再読込してください。</p>
+              <code>{selectedDataset.profile_revision.profile_digest.replace(/^sha256:/, "")}.json</code>
+              <small>保存先を変更している場合は、WORKBENCH_PROFILE_STORE_PATHも確認してください。</small>
+            </div>
+            : <>
+              <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
+              <ol><li><strong>診断</strong><span>データと予測契約の整合を確認</span></li><li><strong>候補作成</strong><span>新しい不変Packageを構築・検証</span></li><li><strong>昇格・反映</strong><span>個人モデルstoreへ昇格し、下のボタンで再読込</span></li></ol>
+              <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
+              <div className="model-update-actions">
+                <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
+                <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人モデルを再読込"}</button>
+                <small>保存済み予測は再計算されません。新しい予測タスクやruntime実装を追加した場合だけ、アプリを再起動します。</small>
+              </div>
+              {refreshMessage && <p role="status">{refreshMessage}</p>}
+              {refreshWarnings.length > 0 && <details className="model-refresh-warnings">
+                <summary>除外されたモデルを確認</summary>
+                <ul>{refreshWarnings.map((warning, index) => <li key={`${warning.source}:${warning.reference ?? index}`}>
+                  <strong>{warning.reference ?? "available-packages.json"}</strong>
+                  <span>{warning.message}</span>
+                  <small title={warning.source}>{warning.source}</small>
+                </li>)}</ul>
+              </details>}
+            </>}
         </section>}
 
         <details className="data-library-secondary">

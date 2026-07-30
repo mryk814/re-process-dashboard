@@ -32,6 +32,7 @@ from material_workbench.persistence.workspace_catalog_bootstrap import (
     task_definition_digest,
 )
 from material_workbench.data.profile_document import supported_task_ids
+from material_workbench.data.profile_workbench import profile_locator_for_digest
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
 from material_workbench.modeling.model_lifecycle import MODELS_ROOT
 router = APIRouter(prefix="/api")
@@ -102,6 +103,11 @@ def _datasets(
             dataset_revision=dataset,
             data_asset=asset,
             profile_revision=profile,
+            profile_locator=(
+                str(locator)
+                if (locator := profile_locator_for_digest(profile.profile_digest))
+                else None
+            ),
             supported_task_ids=list(supported_task_ids(profile.effective_profile_json)),
             dataset_views=[
                 view for view in views

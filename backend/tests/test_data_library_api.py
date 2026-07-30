@@ -68,6 +68,21 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     assert all(item["data_asset"]["sha256"] for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
+    tutorial = next(
+        item for item in items
+        if item["data_asset"]["original_filename"] == "material_workbench_tutorial_v2.xlsx"
+    )
+    assert {"shared", "tasks"}.issubset(
+        tutorial["profile_revision"]["effective_profile_json"]
+    )
+    assert Path(tutorial["profile_locator"]).is_file()
+    legacy_tabular = next(
+        item for item in items
+        if item["data_asset"]["original_filename"] == "heat_treatment_tradeoff_samples.csv"
+    )
+    assert "task_id" in legacy_tabular["profile_revision"]["effective_profile_json"]
+    assert "shared" not in legacy_tabular["profile_revision"]["effective_profile_json"]
+    assert legacy_tabular["profile_locator"] is None
     mpea = [
         item for item in items
         if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv"

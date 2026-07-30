@@ -14,6 +14,7 @@ from material_workbench.data.dataset_profile import (
     canonicalize_workbook,
     load_dataset_profile,
     load_task_definitions,
+    materialize_dataset_profile_document,
     preflight_workbook,
 )
 from material_workbench.modeling.feature_pipeline import (
@@ -38,6 +39,142 @@ TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xls
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 SOURCE = TUTORIAL_SOURCE
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial-base.json"
+FLANK_WEAR_PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-flank-wear-v1.json"
+FLANK_WEAR_SOURCE = ROOT / "data" / "source" / "cutting_tool_flank_wear_synthetic_dataset.xlsx"
+
+
+def _replace_numeric_column_unit(
+    workbook: Workbook,
+    sheet_name: str,
+    original_column: str,
+    replacement_column: str,
+    transform,
+) -> None:
+    sheet = workbook[sheet_name]
+    headers = [cell.value for cell in sheet[1]]
+    column = headers.index(original_column) + 1
+    sheet.cell(row=1, column=column, value=replacement_column)
+    for row in range(2, sheet.max_row + 1):
+        value = sheet.cell(row=row, column=column).value
+        if isinstance(value, (int, float)):
+            sheet.cell(row=row, column=column, value=transform(float(value)))
+
+
+def test_non_identity_units_are_applied_to_observations_and_heat_series(
+    tmp_path: Path,
+) -> None:
+    profile = load_dataset_profile(PROFILE)
+    baseline_workbook = load_workbook(TUTORIAL_SOURCE, data_only=True)
+    baseline = canonicalize_workbook(baseline_workbook, profile)
+    baseline_workbook.close()
+
+    workbook = load_workbook(TUTORIAL_SOURCE)
+    _replace_numeric_column_unit(
+        workbook,
+        "熱延引張",
+        "TS[MPa]",
+        "TS[kPa]",
+        lambda value: value * 1000,
+    )
+    _replace_numeric_column_unit(
+        workbook,
+        "焼鈍履歴",
+        "到達時間[s]",
+        "到達時間[min]",
+        lambda value: value / 60,
+    )
+    _replace_numeric_column_unit(
+        workbook,
+        "焼鈍履歴",
+        "実績温度[℃]",
+        "実績温度[K]",
+        lambda value: value + 273.15,
+    )
+    document = materialize_dataset_profile_document(PROFILE)
+    document["shared"]["column_aliases"] = {
+        "hot_tensile": {"TS[MPa]": "TS[kPa]"},
+        "anneal_history": {
+            "到達時間[s]": "到達時間[min]",
+            "実績温度[℃]": "実績温度[K]",
+        },
+    }
+    series = next(
+        mapping
+        for mapping in document["tasks"]["annealed-properties-v1"]["mappings"]
+        if mapping["kind"] == "ordered_heat_series"
+    )
+    series["series_columns"]["time_source_unit"] = "min"
+    series["series_columns"]["value_source_unit"] = "K"
+    profile_path = tmp_path / "converted-profile.json"
+    profile_path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    converted = canonicalize_workbook(workbook, load_dataset_profile(profile_path))
+    workbook.close()
+
+    baseline_observation = next(
+        item for item in baseline.observations
+        if item.task_id == "hot-rolled-properties-v1" and item.targets
+    )
+    converted_observation = next(
+        item for item in converted.observations
+        if item.id == baseline_observation.id
+        and item.task_id == baseline_observation.task_id
+    )
+    assert converted_observation.targets["TS"] == pytest.approx(
+        baseline_observation.targets["TS"]
+    )
+    series_identity = next(iter(baseline.heat_series))
+    baseline_points = baseline.heat_series[series_identity]
+    converted_points = converted.heat_series[series_identity]
+    assert len(converted_points) == len(baseline_points)
+    for baseline_point, converted_point in zip(baseline_points, converted_points):
+        assert converted_point["time_s"] == pytest.approx(baseline_point["time_s"])
+        assert converted_point["temperature_c"] == pytest.approx(
+            baseline_point["temperature_c"]
+        )
+
+
+def test_non_identity_units_are_applied_before_observation_scoped_aggregation(
+    tmp_path: Path,
+) -> None:
+    profile = load_dataset_profile(FLANK_WEAR_PROFILE)
+    baseline_workbook = load_workbook(FLANK_WEAR_SOURCE, data_only=True)
+    baseline = canonicalize_workbook(baseline_workbook, profile)
+    baseline_workbook.close()
+
+    workbook = load_workbook(FLANK_WEAR_SOURCE)
+    _replace_numeric_column_unit(
+        workbook,
+        "逃げ面摩耗履歴",
+        "切削距離[m]",
+        "切削距離[cm]",
+        lambda value: value * 100,
+    )
+    document = materialize_dataset_profile_document(FLANK_WEAR_PROFILE)
+    document["shared"]["column_aliases"] = {
+        "wear_history": {"切削距離[m]": "切削距離[cm]"},
+    }
+    distance_mapping = next(
+        mapping
+        for mapping in document["tasks"]["flank-wear-v1"]["mappings"]
+        if mapping["path"] == "process.cutting_distance_m"
+    )
+    distance_mapping["source_unit"] = "cm"
+    profile_path = tmp_path / "flank-wear-cm-profile.json"
+    profile_path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    converted = canonicalize_workbook(workbook, load_dataset_profile(profile_path))
+    workbook.close()
+
+    identity = next(
+        identity for identity, entity in baseline.entities.items()
+        if "process.cutting_distance_m" in entity.values.get("flank-wear-v1", {})
+    )
+    assert converted.entities[identity].values["flank-wear-v1"][
+        "process.cutting_distance_m"
+    ] == pytest.approx(
+        baseline.entities[identity].values["flank-wear-v1"][
+            "process.cutting_distance_m"
+        ]
+    )
 
 
 def test_tutorial_profile_keeps_relations_repeats_and_partial_targets_explicit() -> None:

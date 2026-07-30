@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import shutil
 
 import pytest
@@ -23,19 +24,27 @@ def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _A
     root = tmp_path_factory.mktemp("shared-client")
     database = root / "workbench.db"
     baseline = root / "baseline.db"
-    app = create_app(
-        db_path=database,
-        data_library_path=root / "data-library",
-        _resources=app_resources,
-    )
-    with TestClient(app) as test_client:
-        installed = test_client.post(
-            "/api/sample-gallery",
-            json={"project_ids": []},
+    previous_profile_store = os.environ.get("WORKBENCH_PROFILE_STORE_PATH")
+    os.environ["WORKBENCH_PROFILE_STORE_PATH"] = str(root / "personal-profiles")
+    try:
+        app = create_app(
+            db_path=database,
+            data_library_path=root / "data-library",
+            _resources=app_resources,
         )
-        installed.raise_for_status()
-        shutil.copyfile(database, baseline)
-        yield test_client, database, baseline
+        with TestClient(app) as test_client:
+            installed = test_client.post(
+                "/api/sample-gallery",
+                json={"project_ids": []},
+            )
+            installed.raise_for_status()
+            shutil.copyfile(database, baseline)
+            yield test_client, database, baseline
+    finally:
+        if previous_profile_store is None:
+            os.environ.pop("WORKBENCH_PROFILE_STORE_PATH", None)
+        else:
+            os.environ["WORKBENCH_PROFILE_STORE_PATH"] = previous_profile_store
 
 
 @pytest.fixture()

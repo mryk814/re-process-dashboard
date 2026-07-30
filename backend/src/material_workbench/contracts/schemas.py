@@ -205,6 +205,7 @@ class DataLibraryDataset(BaseModel):
     dataset_revision: DatasetRevision
     data_asset: DataAsset
     profile_revision: ProfileRevision
+    profile_locator: str | None = None
     supported_task_ids: list[str]
     dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
 
@@ -229,6 +230,7 @@ class ProfileWorkbenchProfileOption(BaseModel):
     source_name: str
     profile_digest: str
     task_ids: list[str]
+    personal: bool = False
 
 
 class ProfileWorkbenchSheetInventory(BaseModel):
@@ -252,6 +254,51 @@ class ProfileWorkbenchValidation(BaseModel):
     entity_preview: list[dict[str, Any]]
 
 
+class ProfileWorkbenchBindingCandidate(BaseModel):
+    source_name: str
+    score: Annotated[float, Field(ge=0, le=1)]
+
+
+class ProfileWorkbenchBindingSlot(BaseModel):
+    slot_id: str
+    binding_type: Literal["sheet", "column"]
+    role: str
+    semantic_kind: Literal[
+        "entity_key",
+        "relation_join",
+        "input",
+        "output",
+        "technical",
+        "policy",
+        "series",
+    ]
+    canonical_name: str
+    expected_source_name: str
+    source_unit: str | None = None
+    canonical_unit: str | None = None
+    source_unit_candidates: list[str] = Field(default_factory=list)
+    required: bool
+    state: Literal["unresolved", "suggested", "confirmed"]
+    selected_source_name: str | None = None
+    candidates: list[ProfileWorkbenchBindingCandidate] = Field(default_factory=list)
+
+
+class ProfileWorkbenchBindingDraft(BaseModel):
+    base_profile_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    complete: bool
+    slots: list[ProfileWorkbenchBindingSlot]
+
+
+class ProfileWorkbenchConfirmedBinding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slot_id: str
+    state: Literal["confirmed"]
+    source_name: Annotated[str, Field(min_length=1)]
+    source_unit: str | None = None
+
+
 class ProfileWorkbenchInspection(BaseModel):
     source_filename: str
     source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -260,6 +307,16 @@ class ProfileWorkbenchInspection(BaseModel):
     auto_detected: bool = False
     profile_error: str | None = None
     validation: ProfileWorkbenchValidation | None = None
+    binding_draft: ProfileWorkbenchBindingDraft | None = None
+
+
+class ProfileWorkbenchDraftSave(BaseModel):
+    profile_id: str
+    profile_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    profile_locator: str
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    base_profile_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    validation: ProfileWorkbenchValidation
 
 
 class ProfileWorkbenchRegistration(BaseModel):

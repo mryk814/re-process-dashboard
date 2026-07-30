@@ -34,7 +34,7 @@ npm run model:diagnose -- --source C:\path\to\data.xlsx
 
 診断が`existing_task_replacement`を示した場合は、この文書の範囲で進められます。
 `new_task_or_profile`を示した場合でも、列名やシート構造だけの違いなら、探索用Datasetは既存Profile schema内のmappingで登録できます。
-そのmappingを使ったモデル学習は現在のCLIでは未接続です。
+Profile Workbenchで保存した同じProfileを、Data Libraryのモデル更新手順が学習まで引き継ぎます。
 入力の意味、目的変数、学習単位、relationの意味が違う場合はアプリ開発です。
 
 ## ExcelをDatasetとして登録して探索する
@@ -50,10 +50,20 @@ npm run dev
 画面で「データライブラリ」から「新しいDatasetを準備」を開き、次の順に進めます。
 
 1. Excelを選ぶ
-2. 既存Profile候補を選ぶ
-3. 構造差分とcanonical previewを確認する
-4. Data Libraryへ登録する
-5. 登録したDatasetからProjectを作る
+2. 既存Taskの意味に合うBase Profileを選ぶ
+3. 未知のシート名・列名があれば、Excel側の名前を明示的に対応付ける
+4. 保存したProfileでcanonical previewを再確認する
+5. Data Libraryへ登録する
+6. 登録したDatasetからProjectを作る
+
+提案された対応は自動確定されません。
+シート、キー、値、単位、relation roleを確認して選んだものだけがProfileへ保存されます。
+列名に`[K]`や`[MPa]`のような単位があれば画面が検出し、canonical unitへ変換できる組合せだけを受け付けます。
+列名に単位がなければ、対応表でExcel側の単位を明示的に選びます。
+未解決の必須項目がある間はDataset登録へ進まず、元Excelも書き換えません。
+保存先はリポジトリ外の`%LOCALAPPDATA%\Material Decision Workbench\profiles`で、
+`WORKBENCH_PROFILE_STORE_PATH`を設定すると変更できます。
+画面の「JSONを出力」は、継承を解決したstandalone Profileを製品へ採用する開発者向け経路です。
 
 参照・探索用Datasetの登録だけなら、モデルを再学習する必要はありません。
 登録後にアプリを再起動する必要もありません。
@@ -67,7 +77,7 @@ npm run dev
 現在の画面経路が受け付けるのは`.xlsx`です。
 CSVは画面ではなく、対応する表形式Profileを指定してCLIから検証・登録します。
 
-Profileを自分で用意する場合は、元ファイルを変更せず、リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
+Profileを自分で用意する場合も、元ファイルを変更せず、リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
 
 ```powershell
 uv run python backend/scripts/profile_workbench.py inspect C:\path\to\data.xlsx `

@@ -501,6 +501,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile-workbench/profiles/{profile_digest}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Profile */
+        get: operations["export_profile_api_profile_workbench_profiles__profile_digest__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile-workbench/profiles/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Profile Draft */
+        post: operations["save_profile_draft_api_profile_workbench_profiles_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile-workbench/register": {
         parameters: {
             query?: never;
@@ -3160,6 +3194,20 @@ export interface components {
             /** Profile Digest */
             profile_digest: string;
         };
+        /** Body_save_profile_draft_api_profile_workbench_profiles_drafts_post */
+        Body_save_profile_draft_api_profile_workbench_profiles_drafts_post: {
+            /** Base Profile Digest */
+            base_profile_digest: string;
+            /**
+             * Bindings Json
+             * @default []
+             */
+            bindings_json: string;
+            /** Expected Source Sha256 */
+            expected_source_sha256: string;
+            /** File */
+            file: string;
+        };
         /** BoundedUniformTolerance */
         BoundedUniformTolerance: {
             /**
@@ -4821,6 +4869,8 @@ export interface components {
             dataset_revision: components["schemas"]["DatasetRevision"];
             /** Dataset Views */
             dataset_views?: components["schemas"]["DatasetViewRevision"][];
+            /** Profile Locator */
+            profile_locator?: string | null;
             profile_revision: components["schemas"]["ProfileRevision"];
             /** Supported Task Ids */
             supported_task_ids: string[];
@@ -6800,6 +6850,76 @@ export interface components {
             /** Revision */
             revision: number;
         };
+        /** ProfileWorkbenchBindingCandidate */
+        ProfileWorkbenchBindingCandidate: {
+            /** Score */
+            score: number;
+            /** Source Name */
+            source_name: string;
+        };
+        /** ProfileWorkbenchBindingDraft */
+        ProfileWorkbenchBindingDraft: {
+            /** Base Profile Digest */
+            base_profile_digest: string;
+            /** Complete */
+            complete: boolean;
+            /** Slots */
+            slots: components["schemas"]["ProfileWorkbenchBindingSlot"][];
+            /** Source Sha256 */
+            source_sha256: string;
+        };
+        /** ProfileWorkbenchBindingSlot */
+        ProfileWorkbenchBindingSlot: {
+            /**
+             * Binding Type
+             * @enum {string}
+             */
+            binding_type: "sheet" | "column";
+            /** Candidates */
+            candidates?: components["schemas"]["ProfileWorkbenchBindingCandidate"][];
+            /** Canonical Name */
+            canonical_name: string;
+            /** Canonical Unit */
+            canonical_unit?: string | null;
+            /** Expected Source Name */
+            expected_source_name: string;
+            /** Required */
+            required: boolean;
+            /** Role */
+            role: string;
+            /** Selected Source Name */
+            selected_source_name?: string | null;
+            /**
+             * Semantic Kind
+             * @enum {string}
+             */
+            semantic_kind: "entity_key" | "relation_join" | "input" | "output" | "technical" | "policy" | "series";
+            /** Slot Id */
+            slot_id: string;
+            /** Source Unit */
+            source_unit?: string | null;
+            /** Source Unit Candidates */
+            source_unit_candidates?: string[];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "unresolved" | "suggested" | "confirmed";
+        };
+        /** ProfileWorkbenchDraftSave */
+        ProfileWorkbenchDraftSave: {
+            /** Base Profile Digest */
+            base_profile_digest: string;
+            /** Profile Digest */
+            profile_digest: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Profile Locator */
+            profile_locator: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            validation: components["schemas"]["ProfileWorkbenchValidation"];
+        };
         /** ProfileWorkbenchInspection */
         ProfileWorkbenchInspection: {
             /**
@@ -6807,6 +6927,7 @@ export interface components {
              * @default false
              */
             auto_detected: boolean;
+            binding_draft?: components["schemas"]["ProfileWorkbenchBindingDraft"] | null;
             /** Profile Error */
             profile_error?: string | null;
             /** Selected Profile Digest */
@@ -6821,6 +6942,11 @@ export interface components {
         };
         /** ProfileWorkbenchProfileOption */
         ProfileWorkbenchProfileOption: {
+            /**
+             * Personal
+             * @default false
+             */
+            personal: boolean;
             /** Profile Digest */
             profile_digest: string;
             /** Profile Id */
@@ -10653,6 +10779,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileWorkbenchProfileOption"][];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    export_profile_api_profile_workbench_profiles__profile_digest__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_digest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Standalone effective Dataset Profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_profile_draft_api_profile_workbench_profiles_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_save_profile_draft_api_profile_workbench_profiles_drafts_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileWorkbenchDraftSave"];
                 };
             };
             /** @description Conflict */
