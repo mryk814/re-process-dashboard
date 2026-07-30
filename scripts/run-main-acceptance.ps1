@@ -181,8 +181,8 @@ try {
 $version = (Get-Content -LiteralPath (Join-Path $repositoryRoot "package.json") -Raw |
     ConvertFrom-Json).version
 $artifactPaths = @(
-    Join-Path $repositoryRoot "release/Material-Decision-Workbench-Setup-$version.exe"
-    Join-Path $repositoryRoot "release/Material-Decision-Workbench-folder-$version.zip"
+    Join-Path $repositoryRoot "release/Evidence-Decision-Workbench-Setup-$version.exe"
+    Join-Path $repositoryRoot "release/Evidence-Decision-Workbench-folder-$version.zip"
 )
 $deliveryPassed = @(
     $results | Where-Object {

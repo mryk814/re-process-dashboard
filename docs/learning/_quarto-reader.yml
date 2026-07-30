@@ -1,7 +1,7 @@
 solution-placement: answer-chapter
 
 book:
-  title: "Material Decision Workbench 実装を読む"
+  title: "Evidence Decision Workbench 実装を読む"
   output-file: "material-decision-workbench-reader"
   chapters:
     - index.qmd

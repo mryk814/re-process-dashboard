@@ -14,6 +14,37 @@ from material_workbench.task_composition.catalog import registered_task_modules
 ROOT = Path(__file__).parents[2]
 
 
+def test_user_facing_product_name_changes_without_moving_stable_identity() -> None:
+    builder_config = (
+        ROOT / "packaging" / "electron-builder.yml"
+    ).read_text(encoding="utf-8")
+    desktop_launcher = (
+        ROOT / "apps" / "desktop" / "src" / "main.ts"
+    ).read_text(encoding="utf-8")
+    packaged_smoke = (
+        ROOT / "scripts" / "smoke-packaged.mjs"
+    ).read_text(encoding="utf-8")
+    portable_readme = (
+        ROOT / "packaging" / "PORTABLE-README.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "appId: jp.local.material-decision-workbench" in builder_config
+    assert "productName: Evidence Decision Workbench" in builder_config
+    assert "executableName: Evidence Decision Workbench" in builder_config
+    assert (
+        "artifactName: Evidence-Decision-Workbench-Setup-${version}.${ext}"
+        in builder_config
+    )
+    assert '"Evidence Decision Workbench.exe"' in packaged_smoke
+    assert "Evidence Decision Workbench - フォルダ版" in portable_readme
+    assert (
+        'join(dirname(app.getPath("appData")), "Local"), '
+        '"Material Decision Workbench")'
+        in desktop_launcher
+    )
+    assert 'extensions: ["mdwb"]' in desktop_launcher
+
+
 def test_windows_bundle_declares_active_model_configuration_and_packages() -> None:
     active_packages = json.loads((ROOT / "models" / "active-packages.json").read_text(encoding="utf-8"))
     available_packages = json.loads((ROOT / "models" / "available-packages.json").read_text(encoding="utf-8"))
@@ -265,6 +296,85 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     ) < packaged_smoke.index(
         '"heading",\n    { name: "ワークスペース", exact: true }'
     )
+
+
+def test_packaged_smoke_covers_a_non_material_decision_journey() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+    upgrade_smoke = (
+        ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
+    ).read_text(encoding="utf-8")
+    for marker in (
+        "flank-wear-v1",
+        "cutting-flank-wear-v1",
+        "/api/screening?project_id=",
+        "robustness-analysis-v1",
+        "/snapshots",
+        "/actuals?expected_revision=",
+        "/decision",
+        "/history",
+        "工具摩耗の実測と予測を確認",
+    ):
+        assert marker in packaged_smoke
+    assert "Domain-neutral acceptance: 工具摩耗" in upgrade_smoke
+    assert "工具摩耗の実測と予測を確認" in upgrade_smoke
+
+
+def test_windows_delivery_upgrades_without_moving_the_legacy_workspace() -> None:
+    delivery_smoke = (
+        ROOT / "scripts" / "smoke-windows-delivery.ps1"
+    ).read_text(encoding="utf-8")
+    windows_upgrade_smoke = (
+        ROOT / "scripts" / "smoke-windows-upgrade.ps1"
+    ).read_text(encoding="utf-8")
+    upgrade_smoke = (
+        ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
+    ).read_text(encoding="utf-8")
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    assert "smoke-windows-upgrade.ps1" in delivery_smoke
+    assignment = (
+        '$workspaceDatabasePath = Join-Path $smokeRoot '
+        '"local-app-data/Material Decision Workbench/workbench.db"'
+    )
+    assert assignment in delivery_smoke
+    assert delivery_smoke.index(assignment) < delivery_smoke.index(
+        "scripts/smoke-packaged.mjs"
+    )
+    assert "-WorkspaceDatabasePath $workspaceDatabasePath" in delivery_smoke
+    assert "Test-Path -LiteralPath $workspaceDatabasePath" in delivery_smoke
+    assert "KeepSmokeOnFailure" in delivery_smoke
+    assert "PreviousInstallerPath" in delivery_smoke
+    assert "AllowUserInstallerState" in delivery_smoke
+    assert "function Assert-NoNonSmokeInstallerState" in delivery_smoke
+    assert "refusing to replace a non-smoke shortcut" in delivery_smoke
+    assert "refusing to replace a non-smoke installer registration" in delivery_smoke
+    assert delivery_smoke.index(
+        "Assert-NoNonSmokeInstallerState -OwnedRoot $installedRoot"
+    ) < delivery_smoke.index("if (Test-Path -LiteralPath $smokeRoot)")
+    assert '"Material Decision Workbench.exe"' in delivery_smoke
+    assert '"Uninstall Material Decision Workbench.exe"' in delivery_smoke
+    assert "legacy installed artifact remained after upgrade" in delivery_smoke
+    assert "legacy shortcut remained after upgrade" in delivery_smoke
+    assert "function Test-SmokeShortcutOwned" in delivery_smoke
+    assert "function Remove-SmokeInstallation" in delivery_smoke
+    assert "Test-SmokeShortcutOwned -ShortcutPath" in delivery_smoke
+    assert "Remove-SmokeInstallation $installedRoot" in delivery_smoke
+    assert 'process.argv[4] ?? "Evidence Decision Workbench.exe"' in packaged_smoke
+    assert "$databaseBeforeUpgrade" in windows_upgrade_smoke
+    assert "$databaseAfterUpgrade" in windows_upgrade_smoke
+    assert "function Get-Sha256Hex" in windows_upgrade_smoke
+    assert "[Security.Cryptography.SHA256]::Create()" in windows_upgrade_smoke
+    assert "Get-FileHash" not in windows_upgrade_smoke
+    assert '-ArgumentList "/S"' in windows_upgrade_smoke
+    assert '"/D=$resolvedInstalledRoot"' not in windows_upgrade_smoke
+    assert "did not inherit the existing install location" in windows_upgrade_smoke
+    assert "smoke-packaged-upgrade.mjs" in windows_upgrade_smoke
+    assert "Evidence Decision Workbench.exe" in upgrade_smoke
+    assert "packaged-smoke-portable-before-backup" in upgrade_smoke
 
 
 def test_desktop_startup_recovery_distinguishes_workspace_and_runtime_failures() -> None:

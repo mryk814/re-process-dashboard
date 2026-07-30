@@ -96,7 +96,7 @@ def create_shared_lab_app(
         resolved_config, repository
     )
     app = FastAPI(
-        title="Material Decision Workbench Shared Lab",
+        title="Evidence Decision Workbench Shared Lab",
         version="1.0.0-experimental",
     )
     app.state.shared_lab_config = resolved_config

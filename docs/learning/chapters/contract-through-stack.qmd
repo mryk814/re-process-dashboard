@@ -111,7 +111,7 @@ historical_concepts:
 
 ## 対象読者と到達点
 
-この章は、PythonまたはTypeScriptで開発した経験があり、Material Decision Workbenchの変更経路を初めて追う開発者を対象にします。
+この章は、PythonまたはTypeScriptで開発した経験があり、Evidence Decision Workbenchの変更経路を初めて追う開発者を対象にします。
 
 読了後は、候補差分の要因分解を題材として、次の問いへ答えられる状態を目指します。
 

@@ -503,4 +503,4 @@ node docs/learning/check-code-references.mjs
 - *Architecture Patterns with Python*の「リポジトリ Pattern」と「A Brief Interlude: On Coupling and Abstractions」は、ドメイン処理から永続化表現を分ける理由を読むための資料です [@cosmic-python]。現行リポジトリの`Store`は同書の構成をそのまま実装したものではないため、名前の一致をクラス構造の一致と解釈しません。
 - OpenAPI 3.1.1の「Schema Object」と「Paths Object」は、FastAPI契約が生成物を介してWeb通信処理へ届く形を確認する資料です [@openapi-311]。この仕様は個々のフィールドのドメイン上の意味までは決めません。
 - *Building Secure and Reliable Systems*の「Design for Least Privilege」と「Understand Your Dependencies」は、画面、補助プロセス、パッケージ読込処理の信頼境界を一般化する資料です [@google-bsrs]。現行アプリは一人が端末内で使う構成なので、同書の分散サービス向け対策をそのまま要求しません。
-- *The Turing Way*の「Reproducible Research」と「Research Data Management」は、成果物と判断根拠を分けて保存する理由を研究ソフトウェアへ接続する資料です [@turing-way]。Material Decision Workbench固有のスナップショット契約は現在のコードで別に確認します。
+- *The Turing Way*の「Reproducible Research」と「Research Data Management」は、成果物と判断根拠を分けて保存する理由を研究ソフトウェアへ接続する資料です [@turing-way]。Evidence Decision Workbench固有のスナップショット契約は現在のコードで別に確認します。

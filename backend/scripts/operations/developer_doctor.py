@@ -17,7 +17,7 @@ from material_workbench.developer_experience import run_developer_doctor  # noqa
 def _render_human(report: dict[str, object]) -> str:
     icons = {"ok": "OK", "warning": "WARN", "error": "ERROR"}
     lines = [
-        f"Material Decision Workbench Developer Doctor: {str(report['status']).upper()}",
+        f"Evidence Decision Workbench Developer Doctor: {str(report['status']).upper()}",
         "",
     ]
     for check in report["checks"]:

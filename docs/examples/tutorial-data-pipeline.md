@@ -1,6 +1,6 @@
 # 最小教材データで追う Data → Profile → Feature → Model
 
-この文書は、Material Decision Workbench がExcelを読み、予測に使える形へ変換するまでを、同梱の最小教材データだけで追う開発者向けガイドです。
+この文書は、Evidence Decision Workbench がExcelを読み、予測に使える形へ変換するまでを、同梱の最小教材データだけで追う開発者向けガイドです。
 
 教材の目的は精度競争ではありません。1件ずつ覚えられる規模で、共有工程、分割relation、反復試験、部分欠損、LSなしの実測ヒートパターン、Model Packageの固定契約を確認することです。
 

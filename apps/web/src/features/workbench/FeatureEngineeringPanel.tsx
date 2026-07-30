@@ -44,7 +44,7 @@ export function FeatureEngineeringPanel({ preview }: { preview: ApiPreview | nul
         <i>{families.join(" · ")}</i>
       </summary>
       <div className="feature-engineering-intro">
-        材料的な見方をモデルへ渡すための補助量です。デモでは、精度や因果の証明ではなく計算パターンを確認します。
+        元の入力からモデルへ渡すために作った補助量です。デモでは、精度や因果の証明ではなく計算パターンを確認します。
       </div>
       <div className="feature-engineering-families">
         {families.map((family) => (

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://material-decision-workbench.local/learning/lab.schema.json",
-  "title": "Material Decision Workbench learning lab manifest",
+  "title": "Evidence Decision Workbench learning lab manifest",
   "type": "object",
   "additionalProperties": false,
   "required": [

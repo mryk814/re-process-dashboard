@@ -1,5 +1,5 @@
 appId: jp.local.material-decision-workbench
-productName: Material Decision Workbench
+productName: Evidence Decision Workbench
 asar: false
 directories:
   output: release
@@ -90,8 +90,8 @@ win:
   icon: packaging/icons/icon.ico
   target:
     - nsis
-  executableName: Material Decision Workbench
-  artifactName: Material-Decision-Workbench-Setup-${version}.${ext}
+  executableName: Evidence Decision Workbench
+  artifactName: Evidence-Decision-Workbench-Setup-${version}.${ext}
 nsis:
   installerIcon: packaging/icons/icon.ico
   uninstallerIcon: packaging/icons/icon.ico

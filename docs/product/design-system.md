@@ -1,4 +1,4 @@
-# Material Decision Workbench デザインシステム
+# Evidence Decision Workbench デザインシステム
 
 この文書は、画面間で共有する視覚規則、レイアウト、操作、表の表示規則を定めます。
 実装上の入口は `apps/web/src/styles.css`、各画面の規則は `apps/web/src/features/*/*.css` です。

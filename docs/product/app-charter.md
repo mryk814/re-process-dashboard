@@ -2,11 +2,28 @@
 
 ## 性格分類
 
-研究開発の意思決定を支える、デスクトップ向けの材料Decision Workbench。
+Evidence Decision Workbench（判断根拠ワークベンチ）は、研究開発の意思決定を
+支えるデスクトップ向けローカルアプリである。
 
 単に予測値を表示するのではなく、候補、予測幅、支持範囲、類似実績、実測、検討Runを同じProject文脈で比較し、判断時点の証拠を再現可能に保存する。
 
 現在の実装前提とv1固有の境界は [現行システム基準](current-system-baseline.md) を参照する。
+domain-neutralな製品核と材料・製造domainの分離は
+[domain-neutralな製品境界](../decisions/domain-neutral-product-boundary.md)を正本とする。
+
+## Core、domain capability、Task
+
+製品は次の三層を区別する。
+
+- **Workbench Core**：Project、Dataset／Profile、Task、Package、Candidate、
+  Prediction／Support、Design Space／Objective、Run、Snapshot、Actualを扱う。
+- **Domain capability**：composition、heat program、sparse blend、材料lineage、
+  Welding Chain等を型付き・allow-list済み能力として追加する。
+- **Task／Example**：焼鈍、熱延、溶接、工具摩耗等の具体的なデータ、入力、出力、
+  科学的制約を縦スライスとして提供する。
+
+Coreを任意plugin基盤や万能domain schemaにしない。
+材料固有の意味を一般語へ薄めず、Taskまたはdomain capabilityとして宣言する。
 
 ## データの重さ
 
@@ -18,7 +35,10 @@ ExcelまたはCSVのsource assetを読取専用の正本として扱う。path�
 
 ## 利用者・配布
 
-材料研究者が自分のWindows PCで使うローカルアプリ。Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度、オフライン利用、配布版の再現性を優先する。
+研究開発者が自分のWindows PCで使うローカルアプリ。
+最初の利用domainと同梱Taskは材料・製造である。
+Electron、React、FastAPIの境界を維持し、将来のWeb化より現在の検討速度、
+オフライン利用、配布版の再現性を優先する。
 
 ## ローカルAPIの信頼境界
 

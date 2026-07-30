@@ -1,4 +1,4 @@
-"""Validate or register a Dataset Profile for the Material Decision Workbench."""
+"""Validate or register a Dataset Profile for Evidence Decision Workbench."""
 from __future__ import annotations
 
 import argparse

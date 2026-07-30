@@ -1,7 +1,7 @@
 [project]
 name = "material-decision-workbench"
 version = "0.1.0"
-description = "Local material candidate comparison and evidence workbench"
+description = "Local candidate comparison and decision evidence workbench"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.116,<1",

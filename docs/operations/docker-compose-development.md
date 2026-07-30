@@ -2,7 +2,7 @@
 
 ## Composeが所有する範囲
 
-この構成は、hostで動くMaterial Decision Workbenchから外部依存を分離して試すための開発fixtureです。
+この構成は、hostで動くEvidence Decision Workbenchから外部依存を分離して試すための開発fixtureです。
 `infra` profileはPostgreSQL、S3互換object storage、bucket初期化、最小schema migrationを起動します。
 
 現行applicationはSQLiteとlocal filesを使い続けます。

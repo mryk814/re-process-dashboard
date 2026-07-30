@@ -370,9 +370,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand" aria-label="Material Decision Workbench">
-          <span className="brand-full">Material Decision Workbench</span>
-          <span className="brand-short" aria-hidden="true">MDW</span>
+        <div className="brand" aria-label="Evidence Decision Workbench">
+          <span className="brand-full">Evidence Decision Workbench</span>
+          <span className="brand-short" aria-hidden="true">EDW</span>
         </div>
         <nav aria-label="ホーム">
           <button

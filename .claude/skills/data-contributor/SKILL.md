@@ -1,6 +1,6 @@
 ---
 name: data-contributor
-description: 新しいExcel／CSVをMaterial Decision Workbenchの既存Prediction Taskへ接続する実務を支援する。既存データの更新版、列名やシート名だけが異なる類似データ、完全に新しい予測問題をread-onlyで仕分け、個人用Profile、Dataset登録、Model Package構築、再読込、Project作成まで進めるときに使う。
+description: 新しいExcel／CSVをEvidence Decision Workbenchの既存Prediction Taskへ接続する実務を支援する。既存データの更新版、列名やシート名だけが異なる類似データ、完全に新しい予測問題をread-onlyで仕分け、個人用Profile、Dataset登録、Model Package構築、再読込、Project作成まで進めるときに使う。
 ---
 
 # Data Contributor

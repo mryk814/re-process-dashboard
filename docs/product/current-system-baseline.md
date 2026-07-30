@@ -9,7 +9,27 @@
 
 ## 1. 現在のプロダクト境界
 
-Material Decision Workbenchは、材料研究者がローカルWindows PCで利用する意思決定支援アプリである。
+Evidence Decision Workbenchは、研究開発者がローカルWindows PCで利用する
+判断根拠ワークベンチである。
+製品核はdomain-neutralであり、最初のdomainと同梱Taskは材料・製造である。
+
+現在の境界は次の三層である。
+
+```text
+Workbench Core
+  Project、Dataset／Profile、Task、Package、Candidate、
+  Prediction／Support、Design Space／Objective、Run、Snapshot、Actual
+
+Domain capability
+  composition、heat program、sparse blend、材料lineage、
+  Welding Chain等の型付き・allow-list済み能力
+
+Task／Example
+  焼鈍、熱延、溶接、工具摩耗、電池、工程異常等の具体的な縦スライス
+```
+
+名称、分類、互換方針は
+[domain-neutralな製品境界](../decisions/domain-neutral-product-boundary.md)を正本とする。
 
 現在、Projectの科学的identityは次の明示的なunionである。
 
@@ -111,7 +131,11 @@ ChainDefinitionはStage順序、external input、Stage間binding、明示的な�
 
 ### Task入力shape
 
-通常Taskのcanonical input groupは主に `composition`、`process`、`categorical`、`heat_pattern` である。画像、スペクトル、グラフ、複数明細集合はproduction契約に含まれない。
+通常Taskの`canonical-candidate/v1` input groupは主に `composition`、`process`、
+`categorical`、`heat_pattern` である。
+これは現在のscalar／材料互換Candidate familyであり、Workbench Coreの万能shapeではない。
+非材料Taskは不要なgroupを空またはnullで保持する。
+画像、スペクトル、グラフ、複数明細集合はproduction契約に含まれない。
 
 一般的な可変長系列は、Candidate入力とは独立したRaw Series／Canonical Series／Feature Representation契約、永続化、API、inspectorを持つ。通常Taskへ自動bindingはせず、Taskごとの縦スライスで明示する。詳細は[可変長系列の契約](../contracts/variable-length-series.md)を参照する。
 

@@ -7,7 +7,7 @@
 
 想定読者は次の三者です。
 
-- PythonまたはTypeScriptの実務経験があり、Material Decision Workbenchへ参加した開発者
+- PythonまたはTypeScriptの実務経験があり、Evidence Decision Workbenchへ参加した開発者
 - 機械学習成果物をアプリへ安全に接続したいMLエンジニア
 - リビジョン、ダイジェスト、来歴を持つローカル業務アプリの設計を学びたい開発者
 
