@@ -1321,37 +1321,19 @@ class ChainExecutionService:
         ):
             raise ChainExecutionError("比較元snapshotのStage C Packageが一致しません")
 
-        required_components = tuple(
-            sorted(
-                binding.target_input_path.removeprefix("composition.")
-                for binding in definition.bindings
-                if binding.target_stage_id == stage_c.stage_id
-                and binding.target_input_path.startswith("composition.")
-                and binding.source.source_kind == "stage_output"
+        adapter = self._adapter_for(revision)
+        try:
+            conditioning = adapter.apply_actual_measurements(
+                definition,
+                stage_c,
+                stage_c_snapshot.canonical_input,
+                actual_records,
             )
-        )
-        measured: dict[str, float] = {}
-        for record in actual_records:
-            for component, value in record.values.items():
-                if component in measured:
-                    raise ChainExecutionError(
-                        f"成分 {component} が複数の実測IDに重複しています"
-                    )
-                measured[component] = value
-        missing = sorted(set(required_components) - set(measured))
-        if missing:
-            raise ChainExecutionError(
-                "Stage Cに必要な実測成分が不足しています（予測値では補完しません）: "
-                + ", ".join(missing)
-            )
-        canonical_input = {
-            **stage_c_snapshot.canonical_input,
-            "composition": {
-                component: measured[component] for component in required_components
-            },
-        }
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+        canonical_input = conditioning.canonical_input
         payload, _outputs = self._run_stage(
-            stage_c, canonical_input, candidate, self._adapter_for(revision)
+            stage_c, canonical_input, candidate, adapter
         )
         measurement_payload = [
             {
@@ -1373,12 +1355,10 @@ class ChainExecutionService:
                 comparison_snapshot_id=comparison_snapshot_id,
                 actual_ids=tuple(sorted(actual_ids)),
                 measurement_digest=semantic_digest(measurement_payload),
-                coverage=required_components,
+                coverage=conditioning.coverage,
                 stage_c_package_manifest_digest=stage_c.package_manifest_digest,
             ),
-            measured_stage_b={
-                component: measured[component] for component in required_components
-            },
+            measured_stage_b=conditioning.measured_values,
             stage_c_input=canonical_input,
             stage_c_result=payload,
             created_at=_now(),

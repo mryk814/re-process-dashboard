@@ -534,19 +534,22 @@ A（標準表形式Task）          実行済み
   3. `ChainSnapshotIdentityV2` を追加し、`design_space` / `commercial_catalog` をadapter提供の
      `domain_references` へ。保存済みv1は不変のまま読める（D-5, D-6）
   4. `GET /chain/candidate-capability` を追加。UIは契約APIを叩く前に必要な入力面を判断する
+  5. `actual_conditioned_variant`の必要実測、重複・不足判定、終端Stage入力への適用も
+     adapterへ移した。scalar fixtureでは収縮率実測を`process.shrinkage_pct`へ適用し、
+     immutable variantをDBから復元できる
 - **実施中に見つかったCoreの欠陥**: `_run_stage` が `CandidateInputs` を組むとき
   `composition` グループの存在を仮定していた（`composition` は必須フィールド）。
   溶接Chainは常に `composition.*` をbindingするため露見していなかった。空dictを既定にして修正
 - 手を付けずに済んだ範囲（予測通り）: `ChainDefinition` / binding検証 / `build_chain_revision` /
   store登録 / Chain Project作成 / `welding_chain_bootstrap.py`。`api/chains.py` は
   分岐追加ではなく guard の置き換えのみ
-- 完了条件の確認: **`backend/scripts/experiments/spikes/spike_case_d.py` が全19項目OK**
-  （capability宣言、候補保存、2 Stage実行、snapshot保存、名前空間、不確かさ伝播）。
+- 完了条件の確認: **`backend/scripts/experiments/spikes/spike_case_d.py` が全20項目OK**
+  （capability宣言、候補保存、2 Stage実行、snapshot保存、中間実測variantとDB復元、
+  名前空間、不確かさ伝播）。
   境界は `backend/tests/test_chain_candidate_adapters.py` で固定し、
   Chain Coreに `welding_context` / `material_composition` 等のdomain symbolが現れたら落ちる
-- **未着手として残す範囲**: `actual_conditioned_variant` の `composition.` prefix前提（inventory §3 #12）と
-  Chain Workbench画面のスカラー候補editor。前者は中間実測が組成であるChainにしか使えない制約として残り、
-  後者はスカラーChainを製品機能として出すときに作る
+- **未着手として残す範囲**: Chain Workbench画面のスカラー候補editor。
+  スカラーChainを製品機能として出すときに作る
 
 ### P1-c｜Canonical Training View境界の明示 — **完了**
 

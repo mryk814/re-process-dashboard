@@ -24,6 +24,7 @@ generation競合制御、provenance、snapshotである。
 - 候補が外部入力として公開する名前空間
 - 候補の妥当性検証と初期候補のdomain payload
 - 決定論的Stageの実行と、その出力形状
+- 中間実測として必要な上流出力、重複・不足判定、終端Stage入力への適用
 - snapshotの解釈に必要な追加revision参照
 
 adapterはallow-listされており、Chain Revisionが宣言したStage構成から選ばれる。
@@ -44,6 +45,14 @@ Task IDやProject名からは選ばない。
 adapterが宣言した `domain_references` を分けて持つ。
 疎配合Chainは `design_space` と `commercial_catalog` をdomain参照として記録する。
 疎配合を使わないChainのsnapshotはdomain参照を持たない。
+
+actual-conditioned variantでは、Coreはactual ID、比較元snapshot、Stage／Packageの
+identityとprovenanceだけを扱う。どの実測keyを必要とし、canonical inputのどこへ
+適用するかはcandidate adapterが型付き結果として返す。`scalar/v1`はbinding先の
+`process`または`composition`へ適用し、`sparse_blend/v1`は現行の材料成分groupを
+置換する。未対応path、重複、不足は予測値で補完せず利用不能理由を返す。
+保存済み`actual-conditioned-variant/v1`の`measured_stage_b`／`stage_c_*`という
+field名は不変recordの読取互換のため維持する。
 
 保存済みの `chain-snapshot-identity/v1` は不変なので、そのまま読める形で残している。
 新しいsnapshotは `chain-snapshot-identity/v2` で保存する。
