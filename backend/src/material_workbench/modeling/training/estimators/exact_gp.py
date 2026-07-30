@@ -10,7 +10,7 @@ from material_workbench.modeling.model_lifecycle import TargetQualityMetric
 from material_workbench.modeling.training.feature_dataset import TargetTrainingSet
 from material_workbench.modeling.training.recipe import ExactGPEstimatorRecipe
 
-from .types import TrainedPredictor
+from .types import TrainedPredictor, standard_training_metadata
 
 
 def _grouped_quality(
@@ -18,12 +18,10 @@ def _grouped_quality(
     alpha: np.ndarray,
     precision: np.ndarray,
 ) -> TargetQualityMetric:
-    indices_by_group: dict[str, list[int]] = {}
-    for index, group in enumerate(data.validation_groups):
-        indices_by_group.setdefault(group, []).append(index)
     residuals = np.empty(len(data.y), dtype=float)
     conditional_variance = np.empty(len(data.y), dtype=float)
-    for indexes in indices_by_group.values():
+    for fold in range(data.folds):
+        indexes = np.flatnonzero(data.fold_ids == fold).tolist()
         block = np.ix_(indexes, indexes)
         conditional_covariance = np.linalg.inv(precision[block])
         residuals[indexes] = conditional_covariance @ alpha[indexes]
@@ -35,7 +33,7 @@ def _grouped_quality(
     z90 = 1.6448536269514722
     return TargetQualityMetric(
         target=data.target,
-        parent_conditions=len(indices_by_group),
+        parent_conditions=len(set(data.validation_groups)),
         mae=float(np.mean(np.abs(residuals))),
         rmse=float(np.sqrt(np.mean(residuals**2))),
         interval_coverage_90=float(
@@ -44,7 +42,7 @@ def _grouped_quality(
                 <= z90 * np.sqrt(conditional_variance)
             )
         ),
-        interval_coverage_method="loo-predictive-interval",
+        interval_coverage_method="grouped-fold-predictive-interval",
         interval_coverage_observations=len(residuals),
     )
 
@@ -194,6 +192,11 @@ def train(
         noise_anchor,
         recipe,
     )
+    diagnostics.update({
+        "folds": data.folds,
+        "cohort_digest": data.cohort_digest,
+        "fold_digest": data.fold_digest,
+    })
     scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
     covariance = outputscale * np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
     covariance.flat[:: len(train_x) + 1] += train_noise
@@ -243,12 +246,22 @@ def train(
             "config": {
                 "training_method": "exact-gp-rbf.v1",
                 "training_unit": "replicate_context_mean",
-                "validation_method": "leave-one-validation-group-out",
+                "validation_method": f"{data.folds}-fold grouped validation",
                 "interval_method": "normal predictive distribution",
                 "kernel": "ARD-RBF",
                 "replicate_noise": "pooled_within_training_context",
                 "optimizer_restarts": recipe.restarts,
                 "seed": recipe.seed,
+                "training": standard_training_metadata(
+                    data,
+                    estimator_id=recipe.estimator_id,
+                    uncertainty="normal predictive distribution",
+                    parameters={
+                        "restarts": recipe.restarts,
+                        "max_rows": recipe.max_rows,
+                        "seed": recipe.seed,
+                    },
+                ),
             },
         },
         artifact=artifact_path,

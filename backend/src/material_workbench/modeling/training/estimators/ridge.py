@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +8,7 @@ from material_workbench.modeling.model_lifecycle import TargetQualityMetric
 from material_workbench.modeling.training.feature_dataset import TargetTrainingSet
 from material_workbench.modeling.training.recipe import RidgeEstimatorRecipe
 
-from .types import TrainedPredictor
+from .types import TrainedPredictor, standard_training_metadata
 
 
 def _fit(x: np.ndarray, y: np.ndarray, alpha: float) -> tuple[np.ndarray, float]:
@@ -24,31 +23,6 @@ def _fit(x: np.ndarray, y: np.ndarray, alpha: float) -> tuple[np.ndarray, float]
     weights = coefficients[1:] / scale
     bias = float(coefficients[0] - weights @ mean)
     return weights, bias
-
-
-def _fold_order(group: str, *, seed: int) -> bytes:
-    payload = f"{seed}:{group}".encode("utf-8")
-    return hashlib.sha256(payload).digest()
-
-
-def _balanced_fold_ids(
-    groups: tuple[str, ...],
-    *,
-    requested_folds: int,
-    seed: int,
-) -> tuple[np.ndarray, int]:
-    unique = sorted(
-        set(groups),
-        key=lambda group: (_fold_order(group, seed=seed), group),
-    )
-    folds = min(requested_folds, len(unique))
-    if folds < 2:
-        raise ValueError("ridge requires at least two independent validation groups")
-    assignment = {
-        group: index % folds
-        for index, group in enumerate(unique)
-    }
-    return np.asarray([assignment[group] for group in groups], dtype=int), folds
 
 
 def _cross_fitted_quantile_coverage(
@@ -72,11 +46,8 @@ def train(
     recipe: RidgeEstimatorRecipe,
     artifact_path: Path,
 ) -> TrainedPredictor:
-    fold_ids, folds = _balanced_fold_ids(
-        data.validation_groups,
-        requested_folds=recipe.folds,
-        seed=recipe.seed,
-    )
+    fold_ids = data.fold_ids
+    folds = data.folds
     predictions = np.empty(len(data.y), dtype=float)
     for fold in sorted(set(fold_ids.tolist())):
         test = fold_ids == fold
@@ -126,6 +97,12 @@ def train(
                 "interval_method": "cross-fitted OOF residual quantiles",
                 "ridge_alpha": recipe.alpha,
                 "seed": recipe.seed,
+                "training": standard_training_metadata(
+                    data,
+                    estimator_id=recipe.estimator_id,
+                    uncertainty="cross-fitted OOF residual quantiles",
+                    parameters={"alpha": recipe.alpha, "seed": recipe.seed},
+                ),
             },
         },
         artifact=artifact_path,
@@ -135,6 +112,8 @@ def train(
             "alpha": recipe.alpha,
             "folds": folds,
             "seed": recipe.seed,
+            "cohort_digest": data.cohort_digest,
+            "fold_digest": data.fold_digest,
         },
         predict=lambda values: float(values @ weights + bias),
     )

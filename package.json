@@ -44,6 +44,7 @@
     "model:diagnose": "uv run python backend/scripts/operations/model_workflow.py diagnose",
     "model:estimators": "uv run python backend/scripts/operations/model_workflow.py estimators",
     "model:build": "uv run --extra runtime-numpyro python backend/scripts/operations/model_workflow.py build",
+    "model:compare": "uv run --extra runtime-numpyro python backend/scripts/operations/model_workflow.py compare",
     "model:verify": "uv run python backend/scripts/operations/model_workflow.py verify",
     "model:promote": "uv run python backend/scripts/operations/model_workflow.py promote",
     "model:activate": "uv run python backend/scripts/operations/model_workflow.py activate",

@@ -22,8 +22,9 @@ from material_workbench.modeling.training.feature_dataset import (
     feature_vector,
 )
 from material_workbench.modeling.training.recipe import (
-    ExactGPEstimatorRecipe,
-    RidgeEstimatorRecipe,
+    ConcreteEstimatorRecipe,
+    LightGBMBinaryEstimatorRecipe,
+    LightGBMRegressionEstimatorRecipe,
     validate_recipe_capability,
 )
 
@@ -80,7 +81,7 @@ def _build(
     data: Any,
     contract: Any,
     candidate_builder: CandidateBuilder,
-    recipe: RidgeEstimatorRecipe | ExactGPEstimatorRecipe,
+    recipe: ConcreteEstimatorRecipe,
     destination: Path,
     package_id: str,
     package_version: str,
@@ -134,21 +135,22 @@ def _build(
         },
     )
     recipe_path = reference_dir / "training-recipe.json"
+    recipe_document = {
+        "schema_version": "model-training-recipe/v1",
+        "task_id": task_id,
+        "estimator": recipe.model_dump(mode="json"),
+        "rows": {
+            "unit": "replicate_context_mean",
+            "replicate_context": (
+                "condition_context_id_else_observation_id"
+            ),
+            "validation_group": "parent_key",
+        },
+        "feature_dataset_id": feature_dataset_id,
+    }
     _write_json(
         recipe_path,
-        {
-            "schema_version": "model-training-recipe/v1",
-            "task_id": task_id,
-            "estimator": recipe.model_dump(mode="json"),
-            "rows": {
-                "unit": "replicate_context_mean",
-                "replicate_context": (
-                    "condition_context_id_else_observation_id"
-                ),
-                "validation_group": "parent_key",
-            },
-            "feature_dataset_id": feature_dataset_id,
-        },
+        recipe_document,
     )
 
     trainer = estimator_trainer(recipe.estimator_id)
@@ -163,18 +165,33 @@ def _build(
         for output in contract.task_definition.outputs
     }
     for target, output in output_by_key.items():
+        target_kind = (
+            "binary"
+            if isinstance(recipe, LightGBMBinaryEstimatorRecipe)
+            else "continuous_positive"
+            if target in positive_targets
+            else "continuous"
+        )
         training_set = compile_target_training_set(
             canonical,
             target=target,
             unit=output.unit,
-            target_kind=(
-                "continuous_positive"
-                if target in positive_targets
-                else "continuous"
-            ),
+            target_kind=target_kind,
+            folds=recipe.folds,
+            seed=recipe.seed,
         )
         training_sets[target] = training_set
-        artifact_path = artifacts_dir / f"{target}.npz"
+        artifact_path = artifacts_dir / (
+            f"{target}.txt"
+            if isinstance(
+                recipe,
+                (
+                    LightGBMRegressionEstimatorRecipe,
+                    LightGBMBinaryEstimatorRecipe,
+                ),
+            )
+            else f"{target}.npz"
+        )
         trained = trainer(training_set, recipe, artifact_path)
         predictor = dict(trained.predictor)
         predictor["artifact"] = artifact_path.relative_to(destination).as_posix()
@@ -184,25 +201,25 @@ def _build(
         trained_by_target[target] = trained
         files.append(artifact_path)
 
+    recipe_document["evaluation"] = {
+        target: {
+            "cohort_digest": training_sets[target].cohort_digest,
+            "fold_digest": training_sets[target].fold_digest,
+            "folds": training_sets[target].folds,
+        }
+        for target in trained_by_target
+    }
+    _write_json(recipe_path, recipe_document)
+
     quality_path = report_dir / "quality-report.json"
     _write_json(
         quality_path,
         QualityReport(
             schema_version="model-quality-report/v1",
-            split=(
-                "leave-one-parent-condition-out"
-                if recipe.estimator_id == "exact-gp-rbf.v1"
-                else "grouped-parent-condition-k-fold"
-            ),
-            **(
-                {
-                    "folds": min(
-                        int(item.diagnostics["folds"])
-                        for item in trained_by_target.values()
-                    )
-                }
-                if isinstance(recipe, RidgeEstimatorRecipe)
-                else {}
+            split="grouped-parent-condition-k-fold",
+            folds=min(
+                int(item.diagnostics["folds"])
+                for item in trained_by_target.values()
             ),
             targets=tuple(qualities),
         ).model_dump(mode="json"),
@@ -232,6 +249,18 @@ def _build(
             },
             "validation_groups": {
                 target: len(set(training_sets[target].validation_groups))
+                for target in trained_by_target
+            },
+            "cohort_digests": {
+                target: training_sets[target].cohort_digest
+                for target in trained_by_target
+            },
+            "fold_digests": {
+                target: training_sets[target].fold_digest
+                for target in trained_by_target
+            },
+            "fold_assignments": {
+                target: dict(training_sets[target].fold_assignments)
                 for target in trained_by_target
             },
             "source_sha256": data.source_sha256,
@@ -308,7 +337,7 @@ def build_standard_model_package(
     data: Any,
     contract: Any,
     candidate_builder: CandidateBuilder,
-    recipe: RidgeEstimatorRecipe | ExactGPEstimatorRecipe,
+    recipe: ConcreteEstimatorRecipe,
     destination: Path,
     package_id: str,
     package_version: str,

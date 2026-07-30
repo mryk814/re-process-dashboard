@@ -27,7 +27,11 @@ for script_root in (OPERATIONS, GENERATORS):
     if str(script_root) not in sys.path:
         sys.path.insert(0, str(script_root))
 
-from model_workflow import build_package, estimator_inventory  # noqa: E402
+from model_workflow import (  # noqa: E402
+    build_package,
+    compare_estimators,
+    estimator_inventory,
+)
 from build_default_model_package import _fit_gp_hyperparameters  # noqa: E402
 
 
@@ -144,6 +148,7 @@ def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
     assert recipe["estimator"] == {
         "estimator_id": "exact-gp-rbf.v1",
         "restarts": 1,
+        "folds": 5,
         "seed": 11,
         "max_rows": 500,
     }
@@ -151,7 +156,7 @@ def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
         "parent_conditions"
     ] == 6
     assert manifest["predictors"][0]["config"]["validation_method"] == (
-        "leave-one-validation-group-out"
+        "5-fold grouped validation"
     )
     assert ACTIVE_PACKAGES_PATH.read_bytes() == active_before
 
@@ -183,7 +188,7 @@ def test_model_workflow_builds_tabular_ridge_through_the_same_assembler(
     } == {"ridge.v1"}
 
 
-def test_omitting_estimator_keeps_the_specialized_builder_path(
+def test_omitting_estimator_uses_the_task_default_training_recipe(
     tmp_path: Path,
 ) -> None:
     package = tmp_path / "heat-treatment-specialized"
@@ -203,7 +208,53 @@ def test_omitting_estimator_keeps_the_specialized_builder_path(
         predictor["runtime_type"]
         for predictor in manifest["predictors"]
     } == {"builtin.linear.v1"}
-    assert not (package / "reference/training-recipe.json").exists()
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+    assert recipe["estimator"]["estimator_id"] == "ridge.v1"
+    assert (
+        task_module("heat-treatment-tradeoff-v1").specialized_package_builder
+        is None
+    )
+
+
+def test_legacy_profile_estimator_fields_do_not_select_new_training(
+    tmp_path: Path,
+) -> None:
+    profile_document = json.loads(
+        (
+            ROOT
+            / "backend/src/material_workbench/data"
+            / "tabular-profile-heat-treatment-v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    profile_document.update({
+        "model_family": "ridge",
+        "ridge_alpha": 321.0,
+    })
+    profile = tmp_path / "legacy-estimator-profile.json"
+    profile.write_text(
+        json.dumps(profile_document, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    package = tmp_path / "profile-independent-recipe"
+
+    build_package(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        package,
+        tmp_path / "profile-independent-feature-dataset.json",
+        package_id="profile-independent-recipe-test",
+        package_version="1.0.0",
+        replace=False,
+        profile=profile,
+    )
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+
+    assert recipe["estimator"]["estimator_id"] == "ridge.v1"
+    assert recipe["estimator"]["alpha"] == 1.0
 
 
 def test_exact_gp_row_limit_fails_without_a_partial_package(
@@ -246,6 +297,12 @@ def test_task_rejects_an_estimator_that_cannot_meet_runtime_capability(
 def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
     assert estimator_inventory(HOT_ROLLING_TASK)["tasks"] == {
         HOT_ROLLING_TASK: ["exact-gp-rbf.v1"]
+    }
+    assert estimator_inventory("heat-treatment-tradeoff-v1")["tasks"] == {
+        "heat-treatment-tradeoff-v1": [
+            "ridge.v1",
+            "lightgbm-regression.v1",
+        ]
     }
 
 
@@ -322,3 +379,97 @@ def test_annealed_standard_gp_preserves_positive_lambda_target(
         for target, target_kind in target_kinds.items()
         if target != "lambda"
     } == {"continuous"}
+
+
+def test_standard_lightgbm_binary_uses_the_allow_list_and_training_metadata(
+    tmp_path: Path,
+) -> None:
+    task_id = "secom-yield-risk-v1"
+    package = tmp_path / "secom-lightgbm"
+    build_package(
+        task_id,
+        resolve_task_source(task_id),
+        package,
+        tmp_path / "secom-feature-dataset.json",
+        package_id="secom-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-binary.v1",
+        estimator_options={"num_boost_round": 2},
+    )
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    predictor = manifest["predictors"][0]
+
+    assert predictor["runtime_type"] == "lightgbm.booster.v1"
+    assert predictor["predictive_family"] == "bernoulli_logit"
+    assert predictor["config"]["training"]["estimator_id"] == (
+        "lightgbm-binary.v1"
+    )
+    assert predictor["config"]["training"]["validation"][
+        "cohort_digest"
+    ].startswith("sha256:")
+    assert predictor["config"]["training"]["validation"][
+        "fold_digest"
+    ].startswith("sha256:")
+
+
+def test_standard_lightgbm_regression_keeps_monotonicity_in_the_recipe(
+    tmp_path: Path,
+) -> None:
+    task_id = "battery-degradation-v1"
+    package = tmp_path / "battery-lightgbm"
+    build_package(
+        task_id,
+        resolve_task_source(task_id),
+        package,
+        tmp_path / "battery-feature-dataset.json",
+        package_id="battery-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-regression.v1",
+        estimator_options={
+            "num_boost_round": 2,
+            "predictive_family": "normal",
+            "monotone_decreasing_features": ["process.cycle_index"],
+        },
+    )
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+
+    assert recipe["estimator"]["monotone_decreasing_features"] == [
+        "process.cycle_index"
+    ]
+    assert manifest["predictors"][0]["predictive_family"] == "normal"
+    assert manifest["predictors"][0]["config"]["residual_std"] > 0
+
+
+def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
+    tmp_path: Path,
+) -> None:
+    active_before = ACTIVE_PACKAGES_PATH.read_bytes()
+    result = compare_estimators(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        tmp_path / "comparison",
+        tmp_path / "feature-dataset.json",
+        estimators=("ridge.v1", "lightgbm-regression.v1"),
+        estimator_options={
+            "lightgbm-regression.v1": {"num_boost_round": 2},
+        },
+        package_prefix="heat-treatment-comparison",
+        package_version="1.0.0",
+    )
+
+    assert result["selection"] is None
+    assert len(result["models"]) == 2
+    for target, identity in result["evaluation"].items():
+        assert target
+        assert identity["cohort_digest"].startswith("sha256:")
+        assert identity["fold_digest"].startswith("sha256:")
+        assert {
+            model["evaluation"][target]["fold_digest"]
+            for model in result["models"]
+        } == {identity["fold_digest"]}
+    assert ACTIVE_PACKAGES_PATH.read_bytes() == active_before

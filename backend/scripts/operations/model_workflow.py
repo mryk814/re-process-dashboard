@@ -214,20 +214,28 @@ def build_package(
     source = _task_source(task_id, source)
     module = task_module(task_id)
     recipe = None
-    authoring = None
-    if estimator is not None:
-        authoring = module.standard_model_authoring
-        if authoring is None or estimator not in authoring.estimator_ids:
+    authoring = module.standard_model_authoring
+    selected_estimator = estimator
+    selected_options = estimator_options
+    if (
+        selected_estimator is None
+        and authoring is not None
+        and authoring.default_estimator_id is not None
+    ):
+        selected_estimator = authoring.default_estimator_id
+        selected_options = authoring.default_options()
+    if selected_estimator is not None:
+        if authoring is None or selected_estimator not in authoring.estimator_ids:
             supported = (
                 ", ".join(authoring.estimator_ids)
                 if authoring is not None
                 else "none"
             )
             raise ValueError(
-                f"{task_id} does not support standard estimator {estimator}; "
+                f"{task_id} does not support standard estimator {selected_estimator}; "
                 f"supported: {supported}"
             )
-        recipe = estimator_recipe(estimator, estimator_options)
+        recipe = estimator_recipe(selected_estimator, selected_options)
     dataset = export_dataset(
         task_id,
         source,
@@ -235,8 +243,12 @@ def build_package(
         profile=profile,
         replace=replace,
     )
-    if estimator is None:
-        module.model_builder(
+    if recipe is None:
+        if module.specialized_package_builder is None:
+            raise ValueError(
+                f"{task_id} has no specialized builder or default Training Recipe"
+            )
+        module.specialized_package_builder(
             source,
             output,
             replace=replace,
@@ -246,7 +258,6 @@ def build_package(
         )
     else:
         assert authoring is not None
-        assert recipe is not None
         build_standard_model_package(
             task_id=task_id,
             source=source,
@@ -276,6 +287,107 @@ def build_package(
         manifest.provenance.feature_dataset_digest_algorithm
     )
     return {"dataset": dataset, "package": report.model_dump()}
+
+
+def compare_estimators(
+    task_id: str,
+    source: Path,
+    output: Path,
+    dataset_output: Path,
+    *,
+    estimators: tuple[str, ...],
+    estimator_options: dict[str, dict[str, Any]] | None,
+    package_prefix: str,
+    package_version: str,
+    profile: Path | None = None,
+) -> dict[str, Any]:
+    if len(estimators) < 2 or len(set(estimators)) != len(estimators):
+        raise ValueError("comparison requires at least two unique estimators")
+    authoring = task_module(task_id).standard_model_authoring
+    unsupported = (
+        set(estimators)
+        - set(authoring.estimator_ids if authoring is not None else ())
+    )
+    if unsupported:
+        raise ValueError(
+            f"{task_id} does not support comparison estimators: "
+            + ", ".join(sorted(unsupported))
+        )
+    output.mkdir(parents=True, exist_ok=True)
+    options = estimator_options or {}
+    unknown_options = set(options) - set(estimators)
+    if unknown_options:
+        raise ValueError(
+            "estimator options reference unselected estimators: "
+            + ", ".join(sorted(unknown_options))
+        )
+    if any(not isinstance(value, dict) for value in options.values()):
+        raise ValueError("each comparison estimator option must be a JSON object")
+
+    entries: list[dict[str, Any]] = []
+    common_feature_dataset_id: str | None = None
+    common_evaluation: dict[str, dict[str, str]] | None = None
+    for estimator_id in estimators:
+        package_id = f"{package_prefix}-{estimator_id.replace('.', '-')}"
+        package_path = output / package_id
+        result = build_package(
+            task_id,
+            source,
+            package_path,
+            dataset_output,
+            package_id=package_id,
+            package_version=package_version,
+            replace=False,
+            estimator=estimator_id,
+            estimator_options=options.get(estimator_id, {}),
+            profile=profile,
+        )
+        feature_dataset_id = str(result["dataset"]["feature_dataset_id"])
+        stats = json.loads(
+            (package_path / "reference" / "training_stats.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        evaluation = {
+            target: {
+                "cohort_digest": str(stats["cohort_digests"][target]),
+                "fold_digest": str(stats["fold_digests"][target]),
+            }
+            for target in sorted(stats["cohort_digests"])
+        }
+        if common_feature_dataset_id is None:
+            common_feature_dataset_id = feature_dataset_id
+            common_evaluation = evaluation
+        elif (
+            feature_dataset_id != common_feature_dataset_id
+            or evaluation != common_evaluation
+        ):
+            raise ValueError(
+                "comparison estimators did not use the same "
+                "FeatureDataset/cohort/fold plan"
+            )
+        entries.append({
+            "estimator_id": estimator_id,
+            "package_id": package_id,
+            "package": str(package_path.resolve()),
+            "quality_report": result["package"]["quality_report"],
+            "evaluation": evaluation,
+        })
+
+    report = {
+        "schema_version": "standard-model-comparison/v1",
+        "task_id": task_id,
+        "feature_dataset_id": common_feature_dataset_id,
+        "evaluation": common_evaluation,
+        "models": entries,
+        "selection": None,
+        "note": (
+            "No automatic winner is selected. Compare target-level quality "
+            "and scientific suitability before promotion."
+        ),
+    }
+    _write_json(output / "comparison.json", report, replace=False)
+    return report
 
 
 def promote_package(
@@ -441,7 +553,8 @@ def estimator_inventory(task_id: str | None = None) -> dict[str, Any]:
         },
         "note": (
             "Estimator IDs are allow-listed training recipes. "
-            "Omitting --estimator keeps the Task's specialized authoring workflow."
+            "Omitting --estimator uses the Task's default Training Recipe when "
+            "one is declared; advanced Tasks keep their specialized workflow."
         ),
     }
 
@@ -495,6 +608,30 @@ def _parser() -> argparse.ArgumentParser:
         help='Optional bounded recipe parameters as JSON, e.g. \'{"restarts": 3}\'.',
     )
     build.add_argument("--replace", action="store_true")
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="Build explicit candidates on one FeatureDataset and fold plan without selecting a winner.",
+    )
+    compare.add_argument("--task", required=True, choices=TASKS)
+    compare.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    compare.add_argument("--profile", type=Path)
+    compare.add_argument("--output", type=Path, required=True)
+    compare.add_argument("--dataset-output", type=Path, required=True)
+    compare.add_argument(
+        "--estimators",
+        nargs="+",
+        required=True,
+        choices=ESTIMATOR_IDS,
+    )
+    compare.add_argument(
+        "--estimator-options",
+        type=_json_object,
+        default={},
+        help="JSON object keyed by selected estimator ID.",
+    )
+    compare.add_argument("--package-prefix", required=True)
+    compare.add_argument("--package-version", required=True)
 
     estimators = subparsers.add_parser(
         "estimators",
@@ -583,6 +720,18 @@ def main() -> int:
             )
         elif arguments.command == "estimators":
             result = estimator_inventory(arguments.task)
+        elif arguments.command == "compare":
+            result = compare_estimators(
+                arguments.task,
+                arguments.source,
+                arguments.output,
+                arguments.dataset_output,
+                estimators=tuple(arguments.estimators),
+                estimator_options=arguments.estimator_options,
+                package_prefix=arguments.package_prefix,
+                package_version=arguments.package_version,
+                profile=arguments.profile,
+            )
         elif arguments.command == "verify":
             result = verify_model_package(
                 arguments.package,
