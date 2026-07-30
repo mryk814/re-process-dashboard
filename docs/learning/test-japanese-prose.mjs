@@ -47,10 +47,46 @@ try {
 
   fs.writeFileSync(
     path.join(root, "chapters", "sample.qmd"),
-    "# 見出し\n\n既存の API に novelword を追加する。\n",
+    "# 見出し\n\n既存のAPIに新しい値を追加する。\n",
   );
   const unknownWord = inspectJapaneseProse({ learningRoot: root });
   assert.deepEqual(unknownWord.errors, []);
+
+  fs.writeFileSync(
+    path.join(root, "chapters", "sample.qmd"),
+    "# 見出し\n\n裸の checkpoint を本文へ置かず、`checkpoint`という識別子として示す。\n",
+  );
+  const bareEnglishWord = inspectJapaneseProse({ learningRoot: root });
+  assert.equal(bareEnglishWord.errors.length, 1);
+  assert.match(bareEnglishWord.errors[0], /checkpoint/u);
+
+  fs.writeFileSync(
+    path.join(root, "index.qmd"),
+    "# はじめに\n\n本文の robustness は検出する。\n",
+  );
+  const rootManuscript = inspectJapaneseProse({ learningRoot: root });
+  assert.match(rootManuscript.errors.join("\n"), /index\.qmd:3/u);
+
+  fs.writeFileSync(
+    path.join(root, "references.qmd"),
+    "# 参考文献\n\n**Example, *Robustness in Practice* [@example]**\n",
+  );
+  const originalTitle = inspectJapaneseProse({ learningRoot: root });
+  assert.doesNotMatch(originalTitle.errors.join("\n"), /references\.qmd/u);
+
+  fs.writeFileSync(
+    path.join(root, "glossary.qmd"),
+    "# 用語集\n\n### 頑健性（robustness）\n\nrobustnessを評価する。\n",
+  );
+  const generatedGlossary = inspectJapaneseProse({ learningRoot: root });
+  assert.match(generatedGlossary.errors.join("\n"), /glossary\.qmd:5/u);
+
+  fs.writeFileSync(
+    path.join(root, "glossary.qmd"),
+    "# 用語集\n\n### 頑健性（robustness）\n\n**別名と検索語**：robust analysis\n",
+  );
+  const glossarySearchTerms = inspectJapaneseProse({ learningRoot: root });
+  assert.doesNotMatch(glossarySearchTerms.errors.join("\n"), /glossary\.qmd/u);
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

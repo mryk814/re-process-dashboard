@@ -310,7 +310,7 @@ foreach ($chapter in $majorChapters) {
     $chapterContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $chapter.FullName
     $furtherReadingMatch = [regex]::Match(
         $chapterContent,
-        '(?ms)^## Further Reading\s*\r?\n(?<body>.*?)(?=^##\s|\z)'
+        '(?ms)^## (?:Further Reading|\u53C2\u8003\u6587\u732E\u3092\u8AAD\u3080)\s*\r?\n(?<body>.*?)(?=^##\s|\z)'
     )
     if (-not $furtherReadingMatch.Success) {
         Add-ValidationError "missing-further-reading" $chapter.FullName

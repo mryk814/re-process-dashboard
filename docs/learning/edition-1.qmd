@@ -31,7 +31,7 @@ Readerへ入れる章は、次をすべて満たします。
 - 現mainで確認した`verified_commit`と構造化`code_references`がある
 - 実装事実、設計判断、教材上の解釈、将来案を区別する
 - 演習に安定したID、成功条件、解答、よくある不十分な回答がある
-- Further Readingが本文の論証を外部資料へ逃がしていない
+- 章末の参考文献が本文の論証を外部資料へ逃がしていない
 - focused testと失敗時の確認先がある
 - 複眼review recordにblocking findingがない
 

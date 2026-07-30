@@ -44,12 +44,12 @@ historical_concepts: []
 
 # 行が学習対象になるまでを追跡する {#sec-lab-source-evidence}
 
-この演習はproduction codeとdataを変更しません。
-既存fixtureの行集合を手で予測し、focused testで実装と照合します。
+この演習は実運用のコードとデータを変更しません。
+既存のテスト用データの行集合を手で予測し、対象を絞ったテストで実装と照合します。
 
 ## 演習1：四行を分類する {#exercise-source-01}
 
-次のSourceとRecipeを使います。
+次のソースと品質整理の規則を使います。
 
 ```json
 [
@@ -60,14 +60,14 @@ historical_concepts: []
 ]
 ```
 
-Recipeは`id`と`x`を必須とし、`target`を学習適格性の判定に使い、`x > 10`へwarningを付けます。
+品質整理の規則は`id`と`x`を必須とし、`target`を学習適格性の判定に使い、`x > 10`へ警告を付けます。
 
 各行について、次を書いてください。
 
-1. Curation後の品質状態
+1. 品質整理後の状態
 2. `target_eligible`
-3. 標準承認のCanonical Datasetへ入るか
-4. Training Snapshotへ入るか
+3. 標準承認された正規データセットへ入るか
+4. 学習用スナップショットへ入るか
 
 ### 成功条件
 
@@ -78,58 +78,58 @@ CとDが除外される理由の違いを説明します。
 ### ヒント
 
 `target_eligible`は目的変数の有無を表します。
-必須入力の欠損によるquarantineと、目的変数がない行の扱いを分けます。
+必須入力の欠損による隔離と、目的変数がない行の扱いを分けます。
 
 [演習1の解答](#answer-source-01)
 
 ::: {#answer-source-01 .exercise-solution data-label="演習1の解答"}
 #### 解答例
 
-| row | 品質状態 | `target_eligible` | Canonical Dataset | Training Snapshot |
+| 行 | 品質状態 | `target_eligible` | 正規データセット | 学習用スナップショット |
 |---|---|---:|---:|---:|
-| A | accepted | true | 入る | 入る |
-| C | quarantined | true | 入らない | 入らない |
-| D | warning | false | 入る | 入らない |
-| E | warning | true | 入る | 入る |
+| A | 承認可能 | `true` | 入る | 入る |
+| C | 隔離 | `true` | 入らない | 入らない |
+| D | 警告 | `false` | 入る | 入らない |
+| E | 警告 | `true` | 入る | 入る |
 
 #### 解答の理由
 
 Cは目的変数を持つため`target_eligible=true`ですが、必須入力`x`がないため標準承認から除外されます。
-Dは品質判定を通ったDatasetの行として保持できますが、目的変数がないため教師あり学習のSnapshotへ入りません。
-warningはCanonical Datasetから一律に除外する状態ではありません。
+Dは品質判定を通ったデータセットの行として保持できますが、目的変数がないため教師あり学習のスナップショットへ入りません。
+警告は、正規データセットから一律に除外する状態ではありません。
 
 #### よくある不十分な回答
 
-「targetがある行はすべてTraining Snapshotへ入る」という回答は、Cの必須入力欠損を見ていません。
-「warningの行はすべて除外する」という回答は、warningとquarantineを同じ状態として扱っています。
-Canonical DatasetとTraining Snapshotを同じ行集合とする回答は、品質判定と学習用途の選択を区別していません。
+「目的変数がある行はすべて学習用スナップショットへ入る」という回答は、Cの必須入力欠損を見ていません。
+「警告の行はすべて除外する」という回答は、警告と隔離を同じ状態として扱っています。
+正規データセットと学習用スナップショットを同じ行集合とする回答は、品質判定と学習用途の選択を区別していません。
 :::
 
 ## 演習2：二種類の変更を分ける {#exercise-source-02}
 
 次の二つの変更案を比べます。
 
-- SourceのAの`x`を2から3へ変える。
-- Recipeの`sum_limit_v1.maximum`を10から15へ変える。
+- ソースのAの`x`を2から3へ変える。
+- 品質整理規則の`sum_limit_v1.maximum`を10から15へ変える。
 
-それぞれで変わる可能性があるdigestを、次から選んでください。
+それぞれで変わる可能性があるダイジェストを、次から選んでください。
 
 - `content_sha256`
 - `snapshot_digest`
 - `recipe_digest`
 - `curation_digest`
 - `dataset_digest`
-- Training Snapshotの`snapshot_digest`
+- 学習用スナップショットの`snapshot_digest`
 
 ### 成功条件
 
-Source変更とRecipe変更について、直接変わるdigestを分けます。
-新しいCuration、承認、Training Snapshotを明示的に作った場合だけ変わる後続digestも区別します。
+ソース変更と品質整理規則の変更について、直接変わるダイジェストを分けます。
+新しい品質整理、承認、学習用スナップショットを明示的に作った場合だけ変わる後続のダイジェストも区別します。
 前の資産が変わると後続資産が自動更新されるかを説明します。
 
 ### ヒント
 
-Raw Snapshot、Recipe、Curation Run、Canonical Dataset、Training Snapshotは別々の不変資産です。
+生スナップショット、品質整理の規則、品質整理の実行記録、正規データセット、学習用スナップショットは別々の不変資産です。
 変更した入力と、その入力を使って新しく作成した資産を順にたどります。
 
 [演習2の解答](#answer-source-02)
@@ -137,39 +137,39 @@ Raw Snapshot、Recipe、Curation Run、Canonical Dataset、Training Snapshotは�
 ::: {#answer-source-02 .exercise-solution data-label="演習2の解答"}
 #### 解答例
 
-Source変更では`content_sha256`と`snapshot_digest`が変わります。
-そのRawへCurationを実行すれば`curation_digest`も変わり、再承認とTraining Snapshotを作れば後続digestも変わります。
+ソース変更では`content_sha256`と`snapshot_digest`が変わります。
+その生スナップショットへ品質整理を実行すれば`curation_digest`も変わり、再承認と学習用スナップショットを作れば後続のダイジェストも変わります。
 
-Recipe変更では`recipe_digest`が変わります。
-同じRawへ新Recipeを適用しても`curation_digest`は変わり、後続の承認記録とTraining Snapshotも別になります。
+整理規則の変更では`recipe_digest`が変わります。
+同じ生スナップショットへ新しい整理規則を適用しても`curation_digest`は変わり、後続の承認記録と学習用スナップショットも別になります。
 
 #### 解答の理由
 
-各digestは、その資産が固定する入力と内容から計算されます。
+各ダイジェストは、その資産が固定する入力と内容から計算されます。
 前の資産を変更しても、既存の後続資産は書き換えられません。
-後続digestが変わるのは、新しいCuration、承認、Training Snapshotを明示的に作った場合です。
+後続のダイジェストが変わるのは、新しい品質整理、承認、学習用スナップショットを明示的に作った場合です。
 
 #### よくある不十分な回答
 
-「Sourceを変えるとすべてのdigestが変わる」という回答は、既存資産と新しく作る資産を区別していません。
-Recipe変更で`content_sha256`が変わるとする回答は、Source bytesと変換規則を混同しています。
+「ソースを変えるとすべてのダイジェストが変わる」という回答は、既存資産と新しく作る資産を区別していません。
+整理規則の変更で`content_sha256`が変わるとする回答は、ソースのバイト列と変換規則を混同しています。
 後続資産が自動更新されるとする回答は、不変資産として保存する履歴を失います。
 :::
 
-## 演習3：Recipe versionを判断する {#exercise-source-03}
+## 演習3：品質整理の規則を改版する {#exercise-source-03}
 
-既存の`quality-feed` version 1で、合計上限を10から15へ変更したいとします。
-同じRecipe IDとversionで登録する案と、version 2を登録する案を比べてください。
+既存の`quality-feed`第1版で、合計上限を10から15へ変更したいとします。
+同じ整理規則IDと版番号で登録する案と、第2版を登録する案を比べてください。
 
 ### 成功条件
 
-二案が既存Curation Runの意味へ与える影響を説明します。
-採用する案と、登録後に必要なCurationを示します。
-同じIDとversionへ異なる内容を登録した場合の現行実装の応答を挙げます。
+二案が既存の品質整理実行記録の意味へ与える影響を説明します。
+採用する案と、登録後に必要な品質整理を示します。
+同じIDと版番号へ異なる内容を登録した場合の現行実装の応答を挙げます。
 
 ### ヒント
 
-既存Curation RunはRecipe IDとversionを参照します。
+既存の品質整理実行記録は、整理規則のIDと版番号を参照します。
 その参照が後から別の規則を指さない条件を考えます。
 
 [演習3の解答](#answer-source-03)
@@ -177,25 +177,25 @@ Recipe変更で`content_sha256`が変わるとする回答は、Source bytesと�
 ::: {#answer-source-03 .exercise-solution data-label="演習3の解答"}
 #### 解答例
 
-同じIDとversionへ異なる内容を登録すると、`DataLifecycleRepository.create_recipe()`が`LifecycleResourceConflictError`を返します。
-上限変更は同じRecipe IDのversion 2として登録します。
-その後、対象Raw Snapshotへversion 2を使ったCuration Runを明示的に作り、品質差分を確認します。
+同じIDと版番号へ異なる内容を登録すると、`DataLifecycleRepository.create_recipe()`が`LifecycleResourceConflictError`を返します。
+上限変更は、同じ整理規則IDの第2版として登録します。
+その後、対象の生スナップショットへ第2版を使った品質整理実行記録を明示的に作り、品質差分を確認します。
 
 #### 解答の理由
 
-同じIDとversionの内容を書き換えると、既存Curation Runが参照する規則の意味まで後から変わります。
-新しいversionを不変資産として登録すれば、version 1の判断根拠を残したまま新しい規則を比較できます。
+同じIDと版番号の内容を書き換えると、既存の品質整理実行記録が参照する規則の意味まで後から変わります。
+新しい版を不変資産として登録すれば、第1版の判断根拠を残したまま新しい規則を比較できます。
 
 #### よくある不十分な回答
 
-「設定値だけなのでversion 1を上書きする」という回答は、過去のCuration Runが使った規則を再現できなくします。
-新しいRecipe IDを必ず作る回答は、同じ規則系列のversion関係を失います。
-version 2を登録するだけの回答は、どのRawへ新しいCurationを実行するかを欠いています。
+「設定値だけなので第1版を上書きする」という回答は、過去の品質整理実行記録が使った規則を再現できなくします。
+新しい整理規則IDを必ず作る回答は、同じ規則系列の版関係を失います。
+第2版を登録するだけの回答は、どの生スナップショットへ新しい品質整理を実行するかを欠いています。
 :::
 
 ## 演習4：比較不能を0件と区別する {#exercise-source-04}
 
-Connectorの`selection.primary_key`を`null`にした場合、二回目の取得で行数も値も変わったとします。
+ソース接続設定の`selection.primary_key`を`null`にした場合、二回目の取得で行数も値も変わったとします。
 
 次の問いへ答えてください。
 
@@ -211,7 +211,7 @@ Connectorの`selection.primary_key`を`null`にした場合、二回目の取得
 
 ### ヒント
 
-二つの行を対応付けるには、取得ごとに同じ行を指せるkeyが必要です。
+二つの行を対応付けるには、取得ごとに同じ行を指せるキーが必要です。
 0件という結果と、件数を計算できない状態を分けます。
 
 [演習4の解答](#answer-source-04)
@@ -219,29 +219,29 @@ Connectorの`selection.primary_key`を`null`にした場合、二回目の取得
 ::: {#answer-source-04 .exercise-solution data-label="演習4の解答"}
 #### 解答例
 
-`comparable`はfalseです。
-行を対応付けるkeyがないため、`added_rows`や`changed_rows`を根拠に「変更なし」とは言えません。
-画面では件数より先に、比較不能であることと`reason`を表示します。
+`comparable`は`false`です。
+行を対応付けるキーがないため、`added_rows`や`changed_rows`を根拠に「変更なし」とは言えません。
+画面では件数より先に、比較不能であることと、その理由を表す`reason`を表示します。
 
 #### 解答の理由
 
 変更件数の計算には、前後の行を同じ対象として対応付ける規則が必要です。
-primary keyがなければ、差が0件なのか、差を数えられないのかを区別できません。
+主キーがなければ、差が0件なのか、差を数えられないのかを区別できません。
 
 #### よくある不十分な回答
 
-「addedが0、changedが0なので変更なし」という回答は、件数を計算できなかった状態を0件へ読み替えています。
+「追加0件、変更0件なので変更なし」という回答は、件数を計算できなかった状態を0件へ読み替えています。
 `comparable=false`だけを表示する回答は、利用者が原因を調べるための`reason`を欠いています。
 行数の差だけで変更内容を説明する回答は、どの行が追加または変更されたかを特定できません。
 :::
 
-## 演習5：override後の学習集合を予測する {#exercise-source-05}
+## 演習5：例外承認後の学習集合を予測する {#exercise-source-05}
 
-演習1のCを、次の承認requestでoverrideします。
+演習1のCを、次の承認リクエストで例外承認します。
 
 ```json
 {
-  "reason": "source ownerへ確認済み",
+  "reason": "ソース所有者へ確認済み",
   "overrides": [
     {
       "row_key": "C",
@@ -251,69 +251,69 @@ primary keyがなければ、差が0件なのか、差を数えられないの�
 }
 ```
 
-Canonical DatasetとTraining Snapshotの行集合を予測してください。
+正規データセットと学習用スナップショットの行集合を予測してください。
 
 ### 成功条件
 
-Canonical DatasetとTraining Snapshotの行集合を別々に答えます。
-Cが各集合へ入る根拠と、DがTraining Snapshotから外れる根拠を説明します。
-override後のCをモデル入力として安全だと断定できる範囲も述べます。
-承認requestに`actor`を入れない理由と、保存されるactorを答えます。
+正規データセットと学習用スナップショットの行集合を別々に答えます。
+Cが各集合へ入る根拠と、Dが学習用スナップショットから外れる根拠を説明します。
+例外承認後のCをモデル入力として安全だと断定できる範囲も述べます。
+承認リクエストに`actor`を入れない理由と、保存される実行主体を答えます。
 
 ### ヒント
 
-overrideは対象rowと理由を固定して承認します。
+例外承認は、対象行と理由を固定して承認します。
 承認後も、品質状態と`target_eligible`の値は別々に使われます。
-公開requestと、serviceが保存するinputのmodelは別です。
+公開リクエストと、サービスが保存する入力モデルは別です。
 
 [演習5の解答](#answer-source-05)
 
 ::: {#answer-source-05 .exercise-solution data-label="演習5の解答"}
 #### 解答例
 
-Canonical DatasetはA、C、D、Eを含みます。
-Cはquarantinedですが、対象と理由を固定したoverrideで承認されます。
+正規データセットはA、C、D、Eを含みます。
+Cは隔離されていますが、対象と理由を固定した例外承認によって含められます。
 
-Training SnapshotはA、C、Eを含みます。
-Cは`target_eligible=true`、Dはfalseだからです。
+学習用スナップショットはA、C、Eを含みます。
+Cは`target_eligible=true`、Dは`false`だからです。
 
-承認requestは`actor`を送りません。
-APIが`local-workspace-user`をactorとして加え、Canonical Dataset Revisionへ保存します。
+承認リクエストは`actor`を送りません。
+APIが`local-workspace-user`を実行主体として加え、正規データセットリビジョンへ保存します。
 
 #### 解答の理由
 
-overrideはCを標準承認の除外状態から明示的に承認しますが、Cの品質状態をacceptedへ書き換えません。
-Training Snapshotは承認済みDatasetから、学習用途のselection policyと`target_eligible`を使って行を選びます。
-欠損した必須入力をTask固有のbuilderがどう扱うかは、data lifecycle contractの外側です。
-actorをserver側で加えるため、clientは任意の利用者になりすまして承認記録を作れません。
+例外承認はCを標準承認の除外状態から明示的に承認しますが、Cの品質状態を承認可能へ書き換えません。
+学習用スナップショットは承認済みデータセットから、学習用途の行選択規則と`target_eligible`を使って行を選びます。
+欠損した必須入力をタスク固有の構築処理がどう扱うかは、データが学習へ進むまでの共通契約の外側です。
+実行主体をサーバー側で加えるため、クライアントは任意の利用者になりすまして承認記録を作れません。
 
 #### よくある不十分な回答
 
-「overrideしたのでCはacceptedになる」という回答は、品質判定の履歴を書き換えています。
-Canonical DatasetとTraining SnapshotをA、C、D、Eとする回答は、Dの`target_eligible=false`を見ていません。
-この結果だけでCをモデル入力として安全だと断定する回答は、Task固有builderの欠損処理を確認していません。
-requestへ`actor`を残す回答は、現行の`DatasetApprovalRequest`では422になります。
-行ごとの理由または全体の承認理由を空白だけで送る回答も、overrideの根拠を固定できないため422になります。
+「例外承認したのでCは承認可能になる」という回答は、品質判定の履歴を書き換えています。
+正規データセットと学習用スナップショットをA、C、D、Eとする回答は、Dの`target_eligible=false`を見ていません。
+この結果だけでCをモデル入力として安全だと断定する回答は、タスク固有の構築処理が欠損をどう扱うか確認していません。
+リクエストへ`actor`を残す回答は、現行の`DatasetApprovalRequest`では422になります。
+行ごとの理由または全体の承認理由を空白だけで送る回答も、例外承認の根拠を固定できないため422になります。
 :::
 
-## 演習6：正常なholdoutを品質不良と分ける {#exercise-source-06}
+## 演習6：評価用の留保を品質不良と分ける {#exercise-source-06}
 
-Canonical Datasetには`cell_id`が`CS2_33`、`CS2_34`、`CS2_35`の行が含まれ、すべて品質条件を満たすとします。
-評価用holdoutとして`CS2_35`だけを学習から外す場合、次の二案を比較してください。
+正規データセットには`cell_id`が`CS2_33`、`CS2_34`、`CS2_35`の行が含まれ、すべて品質条件を満たすとします。
+評価用に`CS2_35`だけを学習から留保する場合、次の二案を比較してください。
 
-1. Curationで`CS2_35`をquarantinedにする。
+1. 品質整理で`CS2_35`を隔離する。
 2. `TrainingSnapshotSelectionPolicy`で`cell_id=CS2_35`を除外する。
 
 ### 成功条件
 
-採用する案と、`CS2_35`をCanonical Datasetへ残す理由を説明します。
-除外規則を再現するために保存する識別子、revision、field、値を挙げます。
-別のholdoutを選ぶ場合に、どの資産を新しく作るかを示します。
+採用する案と、`CS2_35`を正規データセットへ残す理由を説明します。
+除外規則を再現するために保存する識別子、リビジョン、フィールド、値を挙げます。
+別の評価用データを選ぶ場合に、どの資産を新しく作るかを示します。
 
 ### ヒント
 
 品質不良による除外と、評価用途による除外では、同じ行でも理由が異なります。
-Raw SnapshotとCanonical Datasetに残す観測、学習に使う観測を分けます。
+生スナップショットと正規データセットに残す観測、学習に使う観測を分けます。
 
 [演習6の解答](#answer-source-06)
 
@@ -321,42 +321,42 @@ Raw SnapshotとCanonical Datasetに残す観測、学習に使う観測を分け
 #### 解答例
 
 `TrainingSnapshotSelectionPolicy`で`cell_id=CS2_35`を除外します。
-`CS2_35`は品質不良ではなく用途上のholdoutであり、Raw SnapshotとCanonical Datasetには残すべき観測だからです。
-selection policyはID、revision、除外fieldと値を持ち、そのdigestがTraining SnapshotとPackage provenanceへ残ります。
-同じDatasetから別のholdoutを選ぶ場合は、品質判定を書き換えず別のTraining Snapshotとして固定します。
+`CS2_35`は品質不良ではなく評価用に留保した行であり、生スナップショットと正規データセットには残すべき観測だからです。
+行選択規則はID、リビジョン、除外するフィールドと値を持ち、そのダイジェストが学習用スナップショットとパッケージの来歴へ残ります。
+同じデータセットから別の評価用データを選ぶ場合は、品質判定を書き換えず別の学習用スナップショットとして固定します。
 
 #### 解答の理由
 
-Curationは観測の品質状態を記録します。
-Training Snapshotのselection policyは、品質を満たした観測から特定の学習用途へ使う行を選びます。
-二つを分けると、品質の履歴を保ったまま異なるholdoutを再現できます。
+品質整理は観測の品質状態を記録します。
+学習用スナップショットの行選択規則は、品質を満たした観測から特定の学習用途へ使う行を選びます。
+二つを分けると、品質の履歴を保ったまま異なる評価用データを再現できます。
 
 #### よくある不十分な回答
 
-`CS2_35`をquarantinedにする回答は、評価用途の選択を品質不良として記録します。
-「学習から外す」とだけ答える回答は、除外field、値、revisionを固定していません。
-同じTraining Snapshotを書き換えて別holdoutへ使う回答は、過去の学習集合を再現できなくします。
+`CS2_35`を隔離扱いにする回答は、評価用途の選択を品質不良として記録します。
+「学習から外す」とだけ答える回答は、除外する項目、値、リビジョンを固定していません。
+同じ学習用スナップショットを書き換えて別の評価用データへ使う回答は、過去の学習集合を再現できなくします。
 :::
 
-## 演習7：testの置き場所を選ぶ {#exercise-source-07}
+## 演習7：テストの置き場所を選ぶ {#exercise-source-07}
 
-次の退行を、最初に原因へ近いtestへ対応付けてください。
+次の退行を、最初に原因へ近いテストへ対応付けてください。
 
-- 同一内容の再取得でRaw Snapshotが増えた。
-- credentialがSQLiteへ保存された。
-- quarantine理由が消えた。
-- 承認とTraining Snapshotが同時作成された。
-- blocked rowをoverrideできた。
-- clientが承認actorを指定できた。
-- overrideの全体理由または行ごとの理由が空白でも承認できた。
-- 同じrow keyを一つのrequestで複数回overrideできた。
-- 未承認DatasetがProject選択肢へ現れた。
-- 「閲覧」tabを開いた直後にデータ更新UIが見えた。
-- 画面のstage railが承認前後を区別しない。
+- 同一内容の再取得で生スナップショットが増えた。
+- 認証情報がSQLiteへ保存された。
+- 隔離理由が消えた。
+- 承認と学習用スナップショットが同時作成された。
+- 利用禁止行を例外承認できた。
+- クライアントが承認主体を指定できた。
+- 例外承認の全体理由または行ごとの理由が空白でも承認できた。
+- 同じ行キーを一つのリクエストで複数回例外承認できた。
+- 未承認データセットがプロジェクト選択肢へ現れた。
+- 「閲覧」タブを開いた直後にデータ更新画面が見えた。
+- 画面の進行表示が承認前後を区別しない。
 - Pydantic変更後にOpenAPIが古い。
 - OpenAPI変更後にTypeScript型が古い。
-- materialized CSVの行数とprovenanceが違う。
-- 同じ受入commandの二回目で不変資産が増えた。
+- 実体化したCSVの行数と来歴が違う。
+- 同じ受入コマンドの二回目で不変資産が増えた。
 
 候補は次です。
 
@@ -368,55 +368,55 @@ Training Snapshotのselection policyは、品質を満たした観測から特�
 
 ### 成功条件
 
-十五の退行へ、最初に反応させたいtestまたはcheckを対応付けます。
-同じtest fileを選ぶ場合は、対象を絞るtest名または`-k`式も示します。
-複数のtestが反応する退行では、原因に近いtestを先に置く理由を書きます。
+十五の退行へ、最初に反応させたいテストまたは検査を対応付けます。
+同じテストファイルを選ぶ場合は、対象を絞るテスト名または`-k`式も示します。
+複数のテストが反応する退行では、原因に近いテストを先に置く理由を書きます。
 
 ### ヒント
 
-domainとrepositoryの不変条件、Task固有の受入処理、生成型、画面表示を分けます。
-同じ`test_data_lifecycle.py`でも、取得、Curation、承認、Project公開のどこを検査するかを特定します。
-actorとoverride requestのvalidationは、APIへ到達したJSONのshapeも含めて確認します。
+ドメインとリポジトリの不変条件、タスク固有の受入処理、生成型、画面表示を分けます。
+同じ`test_data_lifecycle.py`でも、取得、品質整理、承認、プロジェクト公開のどこを検査するかを特定します。
+実行主体と例外承認リクエストの検証は、APIへ到達したJSONの構造も含めて確認します。
 
 [演習7の解答](#answer-source-07)
 
 ::: {#answer-source-07 .exercise-solution data-label="演習7の解答"}
 #### 解答例
 
-| 退行 | 最初に反応させたいtest |
+| 退行 | 最初に反応させたいテスト |
 |---|---|
-| 同一内容の再取得でRaw Snapshotが増えた | `test_data_lifecycle.py -k multiple_raw_snapshots` |
-| credentialがSQLiteへ保存された | `test_data_lifecycle.py -k tracks_digests` |
-| quarantine理由が消えた | `test_data_lifecycle.py -k curation_keeps` |
-| 承認とTraining Snapshotが同時作成された | `test_data_lifecycle.py -k approval_and_training` |
-| blocked rowをoverrideできた | `test_data_lifecycle.py -k override_is_targeted` |
-| clientが承認actorを指定できた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
-| overrideの全体理由または行ごとの理由が空白でも承認できた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
-| 同じrow keyを一つのrequestで複数回overrideできた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
-| 未承認DatasetがProject選択肢へ現れた | `test_data_lifecycle.py -k tracks_digests` |
-| 「閲覧」tabを開いた直後にデータ更新UIが見えた | `e2e/source-lifecycle.spec.ts` |
-| 画面のstage railが承認前後を区別しない | `e2e/source-lifecycle.spec.ts` |
+| 同一内容の再取得で生スナップショットが増えた | `test_data_lifecycle.py -k multiple_raw_snapshots` |
+| 認証情報がSQLiteへ保存された | `test_data_lifecycle.py -k tracks_digests` |
+| 隔離理由が消えた | `test_data_lifecycle.py -k curation_keeps` |
+| 承認と学習用スナップショットが同時作成された | `test_data_lifecycle.py -k approval_and_training` |
+| 利用禁止行を例外承認できた | `test_data_lifecycle.py -k override_is_targeted` |
+| クライアントが承認主体を指定できた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
+| 例外承認の全体理由または行ごとの理由が空白でも承認できた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
+| 同じ行キーを一つのリクエストで複数回例外承認できた | `test_data_lifecycle.py -k owns_lifecycle_actor` |
+| 未承認データセットがプロジェクトの選択肢へ現れた | `test_data_lifecycle.py -k tracks_digests` |
+| 「閲覧」タブを開いた直後にデータ更新画面が見えた | `e2e/source-lifecycle.spec.ts` |
+| 画面の段階表示が承認前後を区別しない | `e2e/source-lifecycle.spec.ts` |
 | Pydantic変更後にOpenAPIが古い | `backend/tests/test_openapi_contract.py` |
 | OpenAPI変更後にTypeScript型が古い | `npm run api:check` |
-| materialized CSVの行数とprovenanceが違う | `test_reference_data_loop_acceptance.py -k row_count_mismatch` |
-| 同じ受入commandの二回目で不変資産が増えた | `test_reference_data_loop_acceptance.py -k traceable_and_resume_safe` |
+| 実体化したCSVの行数と来歴が違う | `test_reference_data_loop_acceptance.py -k row_count_mismatch` |
+| 同じ受入コマンドの二回目で不変資産が増えた | `test_reference_data_loop_acceptance.py -k traceable_and_resume_safe` |
 
 #### 解答の理由
 
-原因に近いtestを先に置くと、失敗時に調べる資産と境界を絞れます。
-data lifecycleの不変条件は中心test、固定データを使うPackageまでの接続はTask固有acceptance test、画面上の段階表示はE2Eが直接扱います。
-OpenAPI contract testと`npm run api:check`は、異なる二つの生成境界を検査します。
-`test_api_owns_lifecycle_actor_and_requires_override_reason`は、client指定actorの拒否、二種類の理由、重複row keyをAPI contractとしてまとめて確認します。
+原因に近いテストを先に置くと、失敗時に調べる資産と境界を絞れます。
+データが学習へ進むまでの不変条件は中心テスト、固定データを使ってモデルパッケージまで接続する経路はタスク固有の受入テスト、画面上の段階表示はE2Eが直接扱います。
+OpenAPI契約のテストと`npm run api:check`は、異なる二つの生成境界を検査します。
+`test_api_owns_lifecycle_actor_and_requires_override_reason`は、クライアントが指定した実行主体の拒否、二種類の理由、重複する行キーをAPI契約としてまとめて確認します。
 
 #### よくある不十分な回答
 
-すべてをE2Eへ対応付ける回答は、domainとrepositoryに近い退行の原因を画面操作まで広げています。
-test file名だけを挙げる回答は、同じfile内のどの不変条件を確認するかが分かりません。
-OpenAPIの二つのdriftを同じcheckへ置く回答は、PythonからOpenAPI、OpenAPIからTypeScriptという生成順を区別していません。
-actorの拒否をfrontend testだけへ置く回答は、APIへ直接送られた偽のactorを検査できません。
+すべてをE2Eへ対応付ける回答は、ドメインとリポジトリに近い退行の原因を画面操作まで広げています。
+テストファイル名だけを挙げる回答は、同じファイル内のどの不変条件を確認するかが分かりません。
+OpenAPIに関する二つのずれを同じ検査へ置く回答は、PythonからOpenAPI、OpenAPIからTypeScriptという生成順を区別していません。
+主体の拒否を画面側のテストだけへ置く回答は、APIへ直接送られた偽の主体を検査できません。
 :::
 
-## 演習8：現mainを検証する {#exercise-source-08}
+## 演習8：現在の実装を検証する {#exercise-source-08}
 
 リポジトリ直下で実行します。
 
@@ -448,46 +448,46 @@ unexpected_warnings:
 
 ### 成功条件
 
-commandが成功し、取得、Curation、承認actor、override理由、Training Snapshot、Task固有acceptance、OpenAPI driftを扱うtestが収集されたことを確認します。
+コマンドが成功し、取得、品質整理、承認主体、例外承認の理由、学習用スナップショット、タスク固有の受入検査、OpenAPIとの差を扱うテストが収集されたことを確認します。
 `npm run api:check`がOpenAPIとTypeScript生成型の同期を確認したことを記録します。
-E2Eを実行した場合は、隔離DBを使い、「閲覧」と「データ更新」の分離、空の初期入力、override理由、actor表示、stage railを確認します。
-warningは既知か、今回のdata lifecycleに関係する退行かを分類します。
+E2Eを実行した場合は、隔離DBを使い、「閲覧」と「データ更新」の分離、空の初期入力、例外承認の理由、実行主体の表示、段階表示を確認します。
+警告は既知か、今回扱うデータの流れに関係する退行かを分類します。
 
 ### ヒント
 
-pass件数ではなく、各testが固定する資産と境界を記録します。
-中心E2EとTask固有acceptance testが証明しない範囲も確認します。
+成功件数ではなく、各テストが固定する資産と境界を記録します。
+中心となるE2Eとタスク固有の受入テストが証明しない範囲も確認します。
 
 [演習8の解答](#answer-source-08)
 
 ::: {#answer-source-08 .exercise-solution data-label="演習8の解答"}
 #### 解答例
 
-記録には変動するpass件数だけでなく、次の評価rubricを満たす証拠を残します。
+記録には変動する成功件数だけでなく、次の評価基準を満たす証拠を残します。
 
 | 項目 | 十分な記録 |
 |---|---|
-| 取得 | 同一内容の再取得とRaw Snapshot identityを扱うtestが収集され、成功した |
-| Curation | 品質状態、理由、Recipe versionを扱うtestが収集され、成功した |
-| 承認 | server-owned actor、override理由、重複row key、未承認Datasetの非公開を扱うtestが収集され、成功した |
-| Training Snapshot | 承認との分離、target別cohort、完全なgroup割当、legacy v1読取を扱うtestが収集され、成功した |
-| Task固有acceptance | materialized data、Package provenance、再実行時の再利用を扱うtestが収集され、成功した |
-| 生成型 | OpenAPI contract testと`npm run api:check`が成功した |
-| E2E | 実行対象の場合、隔離DBでtab分離、空の初期入力、理由付きoverride、actor表示、stage railを確認した |
-| warning | 既知warningと新しいwarningを分けて記録した |
+| 取得 | 同一内容の再取得と生スナップショットの同一性を扱うテストが収集され、成功した |
+| 品質整理 | 品質状態、理由、整理規則の版を扱うテストが収集され、成功した |
+| 承認 | サーバーが決める実行主体、例外承認の理由、重複する行キー、未承認データセットの非公開を扱うテストが収集され、成功した |
+| 学習用スナップショット | 承認との分離、目的変数別の学習対象、完全なグループ割当、旧第1版の読取を扱うテストが収集され、成功した |
+| タスク固有の受入検査 | 実体化したデータ、パッケージの来歴、再実行時の再利用を扱うテストが収集され、成功した |
+| 生成型 | OpenAPI契約のテストと`npm run api:check`が成功した |
+| E2E | 実行対象の場合、隔離DBでタブの分離、空の初期入力、理由付きの例外承認、実行主体の表示、段階表示を確認した |
+| 警告 | 既知の警告と新しい警告を分けて記録した |
 
 #### 解答の理由
 
-test件数は追加や分割で変わるため、data lifecycleの各境界を検証した証拠として固定できません。
-検査対象を記録すれば、同じpass件数でも目的のtestが収集されていない実行を区別できます。
-中心E2EとTask固有acceptance testは対象範囲が異なるため、片方の成功をもう片方の代用にはできません。
+テスト件数は追加や分割で変わるため、データが学習へ進む各境界を検証した証拠として固定できません。
+検査対象を記録すれば、同じ成功件数でも目的のテストが収集されていない実行を区別できます。
+中心となるE2Eとタスク固有の受入テストは対象範囲が異なるため、片方の成功をもう片方の代用にはできません。
 
 #### よくある不十分な回答
 
-pass件数と終了codeだけを残す回答は、取得からTraining Snapshotまでのどの境界を確認したかを示しません。
-E2Eの成功だけで外部storage SDK、任意Taskの汎用adapter、active Packageの自動切替まで証明したとする回答は、testの範囲を越えています。
-warning欄を空にする回答は、warningがなかったのか、確認しなかったのかを区別できません。
-画面からactor入力が消えたことだけでserver-owned actorを確認したとする回答は、APIへ直接送るrequestの拒否を検査していません。
+成功件数と終了コードだけを残す回答は、取得から学習用スナップショットまでのどの境界を確認したかを示しません。
+E2Eの成功だけで、外部ストレージ用の開発キット、任意タスクの汎用変換処理、有効なモデルパッケージの自動切替まで証明したとする回答は、テストの範囲を越えています。
+警告欄を空にする回答は、警告がなかったのか、確認しなかったのかを区別できません。
+画面から実行主体の入力が消えたことだけで、サーバーが実行主体を決めることを確認したとする回答は、APIへ直接送るリクエストの拒否を検査していません。
 :::
 
 [章末チェックの解答](#answer-source-chapter-check)
@@ -495,29 +495,29 @@ warning欄を空にする回答は、warningがなかったのか、確認しな
 ::: {#answer-source-chapter-check .exercise-solution data-label="章末チェックの解答"}
 #### 解答例
 
-1. Raw SnapshotはSourceから取得した表現を保存し、数値化はversion付きRecipeを適用したCuration結果として別に残すため。
-2. 前者は受け取ったUTF-8 contentのbyte hashで、後者はConnector設定、selection、object version、trigger、内容、行を含む資産identity。
-3. Raw差分は`comparable=false`になり、重複row keyを含むCuration Runは承認を拒否する。
-4. `target_eligible`は目的変数の有無を表し、Cは必須入力欠損によるquarantined状態なので標準承認から除外される。
-5. Dはwarningとして承認できるが、目的変数がないため教師あり学習の対象ではない。
-6. requestには対象row key、空白ではない行ごとの理由、全体の承認理由が必要で、APIが`local-workspace-user`をactorとして加える。
-7. 過去のCuration Runが参照するRecipeの意味を後から変えないため。
+1. 生スナップショットはソースから取得した表現を保存し、数値化は版付きの整理規則を適用した品質整理の結果として別に残すため。
+2. 前者は受け取ったUTF-8内容のバイト列のハッシュで、後者は接続設定、選択条件、取得物の版、取得契機、内容、行を含む資産の同一性。
+3. 生データの差分は`comparable=false`になり、重複する行キーを含む品質整理実行記録は承認を拒否する。
+4. `target_eligible`は目的変数の有無を表し、Cは必須入力欠損による隔離状態なので標準承認から除外される。
+5. Dは警告付きで承認できるが、目的変数がないため教師あり学習の対象ではない。
+6. リクエストには対象の行キー、空白ではない行ごとの理由、全体の承認理由が必要で、APIが`local-workspace-user`を実行主体として加える。
+7. 過去の品質整理実行記録が参照する整理規則の意味を後から変えないため。
 8. `test_api_tracks_digests_without_exposing_unapproved_data_to_projects`と`e2e/source-lifecycle.spec.ts`。
-9. 子payloadの自己申告だけでなく、保存済みの親資産と参照が一致することを確認するため。
-10. holdoutは品質不良ではなく学習用途の選択であり、品質状態の来歴を変えず別Snapshotとして再現するため。
-11. Source lifecycle E2Eは外部storage SDK、Package生成、active化を証明しない。
-    Task固有acceptance testはCALCE固定例のPackage生成、Project、予測、Actualまでを証明するが、任意Taskの汎用adapterやactive Packageの自動切替を証明しない。
-12. Training Snapshot digestはrow和集合、target別cohort、split定義と完全なgroup割当を固定する。
-    Feature Pipeline定義は含めず、Model PackageがFeature PipelineのID、version、入力path、変換、特徴量順序、digestを固定する。
-    Package provenanceはTraining Snapshot digestを参照するため、同じSnapshotで特徴量だけを変えるとPackage digestだけが変わる。
+9. 子ペイロードの自己申告だけでなく、保存済みの親資産と参照が一致することを確認するため。
+10. 評価用の留保は品質不良ではなく学習用途の選択であり、品質状態の来歴を変えず別のスナップショットとして再現するため。
+11. ソースが学習へ進むまでのE2Eは、外部ストレージ用の開発キット、パッケージ生成、モデルの有効化を証明しない。
+    タスク固有の受入テストはCALCE固定例のパッケージ生成、プロジェクト、予測、実測値までを証明するが、任意タスクの汎用変換処理や有効なパッケージの自動切替を証明しない。
+12. 学習用スナップショットのダイジェストは、行の和集合、目的変数別の学習対象、分割定義、完全なグループ割当を固定する。
+    特徴量処理の定義は含めず、モデルパッケージが特徴量処理のID、版、入力経路、変換、特徴量順序、ダイジェストを固定する。
+    パッケージの来歴は学習用スナップショットのダイジェストを参照するため、同じスナップショットで特徴量だけを変えるとパッケージのダイジェストだけが変わる。
 
 #### 解答の理由
 
-章末チェックは、Raw、Curation、承認、Training Snapshot、Packageという別々の資産を対応付けます。
-pathまたはtestを求める問いでは、名前だけでなく、そのfileやtestが固定する境界まで示します。
+章末チェックは、生データ、品質整理、承認、学習用スナップショット、モデルパッケージという別々の資産を対応付けます。
+経路またはテストを求める問いでは、名前だけでなく、そのファイルやテストが固定する境界まで示します。
 
 #### よくある不十分な回答
 
-すべての問いを「digestで再現性を守る」とまとめる回答は、品質状態、承認、学習用途の選択を区別していません。
-test名だけを挙げ、そのtestが証明しない範囲を書かない回答は、E2EとTask固有acceptanceの役割を過大評価します。
+すべての問いを「ダイジェストで再現性を守る」とまとめる回答は、品質状態、承認、学習用途の選択を区別していません。
+テスト名だけを挙げ、そのテストが証明しない範囲を書かない回答は、E2Eとタスク固有の受入検査の役割を過大評価します。
 :::

@@ -15,6 +15,7 @@ const prohibitedTerms = [
   ["クアンタイル", /クアンタイル/gu],
   ["アンサーテンティー", /アンサーテンティー/gu],
   ["ロバストネス", /ロバストネス/gu],
+  ["カバレッジ", /カバレッジ/gu],
 
   // --- 日本語で書ける概念語 ---
   ["scope（→「範囲」「扱わない範囲」）", /(?:非|対象|扱わない)scope/giu],
@@ -43,28 +44,10 @@ const allowedEnglishWords = new Set([
   "Pydantic", "FastAPI", "React", "TypeScript", "JavaScript", "Python",
   "SQLite", "Quarto", "PowerShell", "OpenAPI", "GitHub", "NIST", "WCAG",
   "Playwright", "Material", "Decision", "Workbench", "Ousterhout",
-  "Wilson", "CALCE", "Percival", "Gregory",
+  "Wilson", "CALCE", "Percival", "Gregory", "Google",
   // 略語・頭字語
   "JSON", "JSONL", "HTML", "PDF", "CSS", "HTTP", "POST", "API", "URL",
   "HTTPS", "SHA", "UUID", "MCAR", "MAR", "MNAR", "EHS", "UTF",
-  // 学術用語で原語を残す合意がある語
-  "Screening", "Counterfactual",
-  // 教材固有の概念で日本語名が章内で先に定義されている語
-  "Curation", "Connector", "Recipe", "Training", "Canonical",
-  "Raw", "Actual",
-  // git・CI・ツールの固有語
-  "main", "pytest", "build", "diff",
-  // コード上の識別子として本文に頻出する語（本来バッククォートで囲むべきだが、
-  // 既存章で大量に使われており段階的に修正する）
-  "discriminator", "validator", "router", "endpoint", "literal",
-  "body", "wrapper", "renderer", "command", "method",
-  "override", "format", "location", "hint", "definition",
-  "target", "binary", "ordinal", "presentation", "validation",
-  "precondition", "kind", "plugin", "loader", "inspection",
-  "application", "pattern", "document", "tutorial", "mapping",
-  "generate", "check", "store", "alert", "goal",
-  // Web API・TypeScript固有名
-  "AbortSignal", "AbortController", "Prediction",
 ]);
 
 // 6文字以上の英語名詞＋助詞を検出する。短い語（repo, cell, diff等）は
@@ -76,16 +59,50 @@ const particleChecks = [
   "英語名詞＋日本語助詞の接合",
 ];
 
+// 本文へ裸で置かれた小文字の英単語を検出する。
+// コード識別子、コマンド、画面上の正確なラベルはバッククォートで囲む。
+const lowercaseEnglishPattern = /\b([a-z][a-z-]{3,})\b/gu;
+const allowedLowercaseProperNames = new Set([
+  "skops",
+]);
+const specificallyProhibitedEnglishWords = new Set([
+  "calibration",
+  "complacency",
+  "fallback",
+  "feasibility",
+  "heteroscedastic",
+  "misspecification",
+  "narrowing",
+  "quantile",
+  "quantiles",
+  "robustness",
+  "severity",
+  "uncertainty",
+  "uncertainties",
+  "widget",
+  "widgets",
+]);
+
 function manuscriptFiles(learningRoot) {
+  const authoredRootFiles = [
+    "index.qmd",
+    "references.qmd",
+    // concepts.json の読者向けフィールドはこの二つへ生成される。
+    // 生成物も走査することで、用語正本から本文へ英語混在が戻る経路を塞ぐ。
+    "glossary.qmd",
+    "concept-map.qmd",
+  ]
+    .map((filename) => path.join(learningRoot, filename))
+    .filter((filename) => fs.existsSync(filename));
   const roots = [
     path.join(learningRoot, "chapters"),
     path.join(learningRoot, "labs"),
   ];
-  const files = [];
+  const files = [...authoredRootFiles];
   for (const root of roots) {
     if (!fs.existsSync(root)) continue;
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-      if (entry.isFile() && /\.(?:qmd|md)$/iu.test(entry.name)) {
+      if (entry.isFile() && /\.qmd$/iu.test(entry.name)) {
         files.push(path.join(root, entry.name));
       }
     }
@@ -121,6 +138,10 @@ export function visibleProse(source) {
     }
     if (inFurtherReading && /^##\s+/.test(trimmed)) inFurtherReading = false;
     if (inFurtherReading) continue;
+    // 参考文献案内に置く文献の原題は、正確な検索語として保持する。
+    if (/^\*\*.*\[@[^\]]+\]\*\*$/u.test(trimmed)) continue;
+    // 用語集の原語と別名は、実装や文献を検索するために意図して残す。
+    if (/^\*\*別名と検索語\*\*：/u.test(trimmed)) continue;
     if (trimmed === "$$") {
       inDisplayMath = !inDisplayMath;
       continue;
@@ -130,12 +151,16 @@ export function visibleProse(source) {
     line = line
       .replace(/\{\{<[\s\S]*?>\}\}/gu, " ")
       .replace(/`[^`]*`/gu, " ")
+      .replace(/（[^（）]*[A-Za-z][^（）]*）/gu, " ")
       .replace(/\$[^$]*\$/gu, " ")
       .replace(/\[\^[^\]]+\]/gu, " ")
+      .replace(/\[@[^\]]+\]/gu, " ")
       .replace(/\[[^\]]*\]\([^)]*\)/gu, " ")
-      .replace(/\{#[^}]*\}/gu, " ")
+      .replace(/\\[A-Za-z]+/gu, " ")
+      .replace(/\{[^}]*\}/gu, " ")
       .replace(/https?:\/\/\S+/giu, " ")
       .replace(/<[^>]+>/gu, " ");
+    if (/^\s*:::/u.test(line)) continue;
     output.push({ line: lineNumber, text: line });
   }
   return output;
@@ -169,8 +194,23 @@ export function inspectJapaneseProse({
         const firstWord = word.split(/\s/u)[0];
         if (!allowedEnglishWords.has(firstWord) && !/^[A-Z]{2,}$/u.test(firstWord)) {
           errors.push(
-            `${relative}:${line}: 「${word}${match[2]}」— 英語名詞に日本語助詞を直接つなげず、日本語で言い直すかバッククォートで囲む`,
+            `${relative}:${line}: 「${word}${match[2]}」— 英語名詞に日本語助詞を直接つなげず、日本語で言い直す。正確なコード識別子または画面表示だけは、役割を日本語で示してバッククォートで囲む`,
           );
+        }
+      }
+
+      if (/^(?:chapters|labs)\//u.test(relative)) {
+        lowercaseEnglishPattern.lastIndex = 0;
+        while ((match = lowercaseEnglishPattern.exec(text)) !== null) {
+          const word = match[1];
+          if (
+            !allowedLowercaseProperNames.has(word)
+            && !specificallyProhibitedEnglishWords.has(word)
+          ) {
+            errors.push(
+              `${relative}:${line}: 「${word}」— 裸の英単語を本文の骨格にせず、日本語で書く。正確な識別子、コマンド、画面表示だけはバッククォートで囲む`,
+            );
+          }
         }
       }
     }

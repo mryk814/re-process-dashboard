@@ -34,5 +34,9 @@ node docs/learning/reviews/check-reviews.mjs
 - [Issue #307 Decision Safety／UX](acceptance-2026-07-27-issue-307.json)
 - [Issue #336 Edition 1横断受入](acceptance-2026-07-27-issue-336.json)
 
+## Editorial records
+
+- [日本語本文の全巻見直し（2026-07-31）](prose-review-2026-07-31.md)
+
 このindexは編集者向けです。
 学習者向けPDFへacceptance recordを含めません。

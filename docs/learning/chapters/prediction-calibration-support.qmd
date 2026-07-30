@@ -114,7 +114,7 @@ historical_concepts: []
 獲得関数、一括提案、パレート最適化は、この章の後半に当たる別章へ分けます。
 
 すべてのランタイムに共通する較正手法も定めません。
-現行ランタイムは、パラメトリック分布、分位点集合、事後予測サンプル、グループ別の学習外予測（OOF）残差など、異なる根拠から予測要約を作ります。
+現行ランタイムは、確率分布の族とパラメータ、分位点の集合、事後予測サンプル、グループ別の学習外予測（OOF）残差など、異なる根拠から予測要約を作ります。
 
 ## 515.6 MPaだけでは比較を始められない
 
@@ -154,7 +154,7 @@ historical_concepts: []
 | $d(\mathbf{x})$ | 学習参照集合からの裏付け距離 | スカラー | $1$ |
 
 $R$はモデルまたはアダプタ内部のサンプル数、$M$は頑健性評価が受理した入力サンプル数です。
-同じ`sample`という語を使っても、サンプルする対象が違います。
+コード上で同じ`sample`という語を使っても、抽出する対象は同じではありません。
 
 ## 予測要約がランタイムの違いを閉じる
 
@@ -176,7 +176,7 @@ $R$はモデルまたはアダプタ内部のサンプル数、$M$は頑健性�
 この契約は、すべてのランタイムが同じ分布を返すという主張ではありません。
 異なるランタイムが、点、分位点、分布情報、任意の不確かさ成分を、同じ意味のフィールドへ置くための境界です。
 
-{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}は、予測対象、unit、分布族、分位点順序、非負の値域、離散値、ランタイム能力との一致を検査します。
+{{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}は、予測対象、`unit`、分布族、分位点順序、非負の値域、離散値、ランタイム能力との一致を検査します。
 構造が正しいだけで、量の意味が矛盾した要約を通しません。
 
 APIへ出るときは、{{< code-ref prediction-math-api-contract symbol=Prediction >}}が`value`、`lower`、`upper`、`point_statistic`、`predictive_family`、`quantiles`、`uncertainty_components`を保持します。
@@ -329,7 +329,7 @@ $$
 この積分は一般概念であり、現行の頑健性評価の実装ではありません。
 現行画面が二つの区間を別に表示するのは、未実装の統合分布を暗黙に作らないためです。
 
-## 較正は区間のカバレッジをデータで調べる
+## 較正は区間の経験被覆率をデータで調べる
 
 目標被覆率$\gamma$の予測区間$[L_i,U_i]$が、未使用の観測をどの程度含むかを調べます。
 
@@ -344,7 +344,7 @@ $$
 $$
 
 $G$は未使用評価データに含まれる独立な評価グループ数です。
-同じ材料条件の反復測定を別々の独立グループとして数えると、カバレッジの分母を水増しします。
+同じ材料条件の反復測定を別々の独立グループとして数えると、経験被覆率の分母を水増しします。
 
 目標被覆率との差を次で定義します。
 
@@ -371,18 +371,18 @@ $$
 $$
 
 この評価集団では、経験被覆率が目標被覆率を10パーセントポイント下回りました。
-10 グループだけではサンプリングエラーが大きいため、この一値から将来のすべての入力でカバレッジが70%になるとは結論しません。
+10グループだけではサンプリング誤差が大きいため、この一値から将来のすべての入力で経験被覆率が70%になるとは結論しません。
 
 較正は、区間幅を狭くすることではありません。
-極端に広い区間は高いカバレッジを得られるため、カバレッジだけで予測分布の有用性を評価できません。
+極端に広い区間は高い経験被覆率を得られるため、経験被覆率だけで予測分布の有用性を評価できません。
 区間幅、適正スコアリング規則、対象評価集団、グループ分割を併せて確認します。
 
-{{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}は、旧形式なRidge経路について`grouped_oof_residual_quantiles`、中央 90%、グループ分け、フォールド数をメタデータへ残します。
-{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}は、反復測定行ではなく親条件でフォールドを分け、OOF残差から上下補正量を得ることを確認します。
+{{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}は、旧形式のRidge経路について`grouped_oof_residual_quantiles`、中央90%区間、グループ分け、分割数を付帯情報へ残します。
+{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}は、反復測定行ではなく親条件でデータを分け、学習外予測の残差から上下の補正量を得ることを確認します。
 
 モデルパッケージランタイムでは、分布族と分位点がパッケージ固有の方法から得られます。
-区間が存在することだけを見て、グループ別 OOF 較正済みだと読み替えません。
-区間のカバレッジや意味が異なるパッケージを同じ区間として比較しない方針は、{{< code-ref prediction-math-decision >}}に記録されています。
+区間が存在することだけを見て、グループ別の学習外予測を使って較正済みだと読み替えません。
+区間の経験被覆率や意味が異なるパッケージを同じ区間として比較しない方針は、{{< code-ref prediction-math-decision >}}に記録されています。
 
 ## 学習データの裏付けは学習条件からの距離を測る
 
@@ -447,7 +447,7 @@ $$
 $$
 
 百分位 100は、参照距離分布の端または外側にいることを表します。
-予測が正しい確率、目標を満たす確率、カバレッジ 100%のいずれでもありません。
+予測が正しい確率、目標を満たす確率、実測値を区間に含む割合100%のいずれでもありません。
 
 {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}は、この距離、しきい値、百分位、近い観測を一緒に返します。
 予測対象ごとの学習評価集団が異なる場合は、同じ候補でも予測対象ごとに学習データの裏付けが変わります。
@@ -520,7 +520,7 @@ $$
 
 - **点、分位点、分布** — 契約は{{< code-ref prediction-math-summary-contract symbol=PredictiveSummary >}}です。{{< code-ref prediction-math-package-test symbol=test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic >}}が意味と再現性を確認しますが、任意評価集団での較正は保証しません。
 - **分位点の順序と予測対象の値域** — {{< code-ref prediction-math-summary-contract symbol=validate_predictive_summary >}}を{{< code-ref prediction-math-package-test symbol=test_predictive_summary_rejects_invalid_noncontinuous_semantics >}}で確認します。分布仮定の科学的妥当性は別の問いです。
-- **APIの点と区間** — {{< code-ref prediction-math-api-contract symbol=Prediction >}}をOpenAPI 契約テストで固定します。異なる区間が共通のカバレッジを持つとは保証しません。
+- **APIの点と区間** — {{< code-ref prediction-math-api-contract symbol=Prediction >}}をOpenAPI契約テストで固定します。異なる区間が共通の被覆率を持つとは保証しません。
 - **グループ別の学習外予測残差** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._model_meta" >}}を{{< code-ref prediction-math-runtime-test symbol=test_grouped_oof_calibration_and_parent_condition_support >}}で確認します。すべてのパッケージランタイムが較正済みであるとは限りません。
 - **裏付け距離としきい値** — {{< code-ref prediction-math-runtime symbol="ModelRuntime._support" >}}を同じグループ別の学習外予測テストで確認します。学習データの裏付けは予測が正しい確率ではありません。
 - **入力ばらつき区間** — {{< code-ref prediction-math-robustness-compute symbol=compute >}}を{{< code-ref prediction-math-robustness-test symbol=test_robustness_activity_is_available_deterministic_and_persistent >}}で確認します。モデルの不確かさとの統合分布は作りません。
@@ -568,7 +568,7 @@ $$
 
 最大値$585\ \mathrm{MPa}$が右側へ離れているため、平均は中央値より高くなります。
 
-この九値だけから、母分布の形、将来データでの80%カバレッジ、モデルの正しさ、入力に対する学習データの裏付けを確定できません。
+この九値だけから、母分布の形、将来データでの80%区間の経験被覆率、モデルの正しさ、入力に対する学習データの裏付けを確定できません。
 
 #### 解答の理由
 
@@ -614,7 +614,7 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 発生源と条件付けが異なる区間の端を足しても、確率分布の分位点にはなりません。
 
 現行契約では、`model_uncertainty`へ$[480,\ 540]\ \mathrm{MPa}$を保存します。
-`input_variation`には、五つの点予測から決めた分位点、中央値、カバレッジラベルを保存します。
+`input_variation`には、五つの点予測から決めた分位点、中央値、入力範囲を示すラベルを保存します。
 
 統合分布が必要なら、各入力サンプル $\mathbf{X}^{(m)}$について$Y^{(m,r)} \sim p(Y\mid\mathbf{X}^{(m)},\mathcal{D})$をサンプルし、全サンプルから目的の分位点を推定します。
 その計算は現行の頑健性評価にはありません。
@@ -630,14 +630,14 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 `二つを平均する`案も、平均後の量がどの確率変数を表すか定義できません。
 :::
 
-## 演習3：カバレッジと学習データの裏付けを説明する {#exercise-prediction-math-03}
+## 演習3：経験被覆率と学習データの裏付けを説明する {#exercise-prediction-math-03}
 
 中央80%予測区間を10個の未使用評価条件で評価し、7個の実測値が区間内に入りました。
 同じ候補の裏付け百分位は95、状態は`caution`です。
 
 次の表示案をレビューしてください。
 
-> この候補の予測信頼度は、カバレッジ 70%と学習データの裏付け 95%を平均した82.5%です。
+> この候補の予測信頼度は、経験被覆率70%と学習データの裏付け95%を平均した82.5%です。
 
 較正と学習データの裏付けの各値が答える問いを示し、代わりに表示する説明を書いてください。
 
@@ -646,7 +646,7 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 - 経験被覆率を計算する
 - 目標被覆率との差をパーセントポイントで示す
 - 裏付け百分位を確率と呼ばない
-- カバレッジと学習データの裏付けを平均できない理由を述べる
+- 経験被覆率と学習データの裏付けを平均できない理由を述べる
 - 追加で確認する評価集団または近傍証拠を示す
 
 [演習3の解答](#answer-prediction-math-03)は、回答を固定してから開きます。
@@ -670,9 +670,9 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 
 #### 解答の理由
 
-カバレッジは実測値が区間に入った頻度です。
+経験被覆率は実測値が区間に入った頻度です。
 学習データの裏付けは入力空間での距離順位です。
-異なる量を一つの信頼度へ畳むと、低いカバレッジと遠い入力のどちらが問題か分からなくなります。
+異なる量を一つの信頼度へ畳むと、低い経験被覆率と遠い入力のどちらが問題か分からなくなります。
 
 #### よくある不十分な回答
 
@@ -688,7 +688,7 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 生のサンプルを保存しないため、ペイロードと比較は小さくなりますが、利用者はサンプルから別の統計量を再計算できません。
 
 未加工のサンプルが必要な機能を追加する場合は、ランタイム能力、大きさ上限、乱数シード、サンプル同一性、保存期間を別に設計します。
-既存`quantiles`へbase64または任意JSONでサンプルを埋め込みません。
+既存`quantiles`へ`base64`文字列または任意のJSONとしてサンプルを埋め込みません。
 
 ### 較正は一度の合格判定ではない
 
@@ -718,7 +718,7 @@ $[480,\ 540]\ \mathrm{MPa}$は$\mathbf{x}_0$を固定した、ランタイムが
 
 - `PredictiveSummary`は未加工の予測サンプルを公開しない
 - 不確かさの成分はランタイムによって有無と名前が異なる
-- 旧形式 Ridgeのグループ別 OOF 区間とパッケージ固有分位点は同じ較正手法ではない
+- 旧形式のRidgeが返すグループ別学習外予測区間と、パッケージ固有の分位点は同じ較正手法ではない
 - `Prediction.lower`と`upper`は外側の宣言分位点であり、目標被覆率をフィールドとして直接持たない
 - 裏付け距離の定め方は焼鈍タスクの特徴量グループへ依存する
 - 学習データの裏付けのしきい値は学習参照条件の一個抜き距離分布に依存する
@@ -796,7 +796,7 @@ node docs/learning/check-code-references.mjs
 **Gneiting and Raftery, 219**
 
 - 推奨箇所：節 2 *Proper Scoring Rules*、節 6 *Quantiles and Prediction Intervals*
-- 読む問い：カバレッジだけでなく、予測分布全体または分位点の質をどう評価するか
+- 読む問い：経験被覆率だけでなく、予測分布全体または分位点の質をどう評価するか
 - 注意：スコアリング規則の最適性と、現場で候補を採用する効用または安全制約を同一視しない
 
 **NIST, *Artificial Intelligence Risk Management Framework 1.0* [@nist-ai-rmf-1]**

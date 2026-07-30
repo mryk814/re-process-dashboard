@@ -96,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File docs/learning/build.ps1
 custom rootを使う場合は、bootstrapとbuildの双方へ同じ`-ToolRoot`を渡します。
 buildは現在のprocessでだけ`QUARTO_TYPST`を設定し、終了時に元の値へ戻します。
 
-`check-references.ps1`は、repo path、BibTeX citekey、注釈台帳、本文citation、章末Further Readingをnetworkなしで検査します。
+`check-references.ps1`は、リポジトリ内の経路、BibTeXの引用キー、注釈台帳、本文の引用、章末の参考文献をネットワーク接続なしで検査します。
 実行成功は、URLが現在到達可能であることや、publisherの公式性をnetwork越しに証明しません。
 
 URLを再確認する場合だけ、次の明示commandを実行します。
