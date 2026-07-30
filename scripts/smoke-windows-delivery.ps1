@@ -1,6 +1,7 @@
 param(
     [switch]$KeepSmokeOnFailure,
-    [string]$PreviousInstallerPath
+    [string]$PreviousInstallerPath,
+    [switch]$AllowUserInstallerState
 )
 
 $ErrorActionPreference = "Stop"
@@ -120,6 +121,51 @@ function Remove-SmokeInstallation {
             Remove-Item -LiteralPath $shortcutPath -Force
         }
     }
+}
+
+function Assert-NoNonSmokeInstallerState {
+    param([string]$OwnedRoot)
+
+    foreach ($shortcutPath in @(
+        (Join-Path ([Environment]::GetFolderPath("Desktop")) "Evidence Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Programs")) "Evidence Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Desktop")) "Material Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Programs")) "Material Decision Workbench.lnk")
+    )) {
+        if ((Test-Path -LiteralPath $shortcutPath) -and
+            -not (Test-SmokeShortcutOwned -ShortcutPath $shortcutPath -OwnedRoot $OwnedRoot)) {
+            throw "refusing to replace a non-smoke shortcut: $shortcutPath"
+        }
+    }
+
+    $resolvedRoot = [IO.Path]::GetFullPath($OwnedRoot).TrimEnd("\")
+    foreach ($registryRoot in @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )) {
+        foreach ($entry in @(Get-ItemProperty -Path $registryRoot -ErrorAction SilentlyContinue)) {
+            if ($entry.DisplayName -notin @("Evidence Decision Workbench", "Material Decision Workbench")) {
+                continue
+            }
+            $locationEvidence = @($entry.InstallLocation, $entry.UninstallString) |
+                Where-Object { $_ } |
+                Select-Object -First 1
+            if (-not $locationEvidence -or
+                $locationEvidence.ToString().IndexOf(
+                    $resolvedRoot,
+                    [StringComparison]::OrdinalIgnoreCase
+                ) -lt 0) {
+                throw "refusing to replace a non-smoke installer registration: $($entry.PSPath)"
+            }
+        }
+    }
+}
+
+if ($PreviousInstallerPath -and -not $AllowUserInstallerState) {
+    throw "-PreviousInstallerPath updates the current user's HKCU installer registration and shortcuts. Re-run only in a disposable Windows user or VM with -AllowUserInstallerState."
+}
+if ($PreviousInstallerPath) {
+    Assert-NoNonSmokeInstallerState -OwnedRoot $installedRoot
 }
 
 if (Test-Path -LiteralPath $smokeRoot) {

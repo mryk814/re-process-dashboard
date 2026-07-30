@@ -348,6 +348,10 @@ def test_windows_delivery_upgrades_without_moving_the_legacy_workspace() -> None
     assert "Test-Path -LiteralPath $workspaceDatabasePath" in delivery_smoke
     assert "KeepSmokeOnFailure" in delivery_smoke
     assert "PreviousInstallerPath" in delivery_smoke
+    assert "AllowUserInstallerState" in delivery_smoke
+    assert "function Assert-NoNonSmokeInstallerState" in delivery_smoke
+    assert "refusing to replace a non-smoke shortcut" in delivery_smoke
+    assert "refusing to replace a non-smoke installer registration" in delivery_smoke
     assert '"Material Decision Workbench.exe"' in delivery_smoke
     assert '"Uninstall Material Decision Workbench.exe"' in delivery_smoke
     assert "legacy installed artifact remained after upgrade" in delivery_smoke
