@@ -22,8 +22,8 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button")).toHaveText([
     "概要",
     "データ探索",
-    "範囲探索",
     "候補比較",
+    "範囲探索",
     "候補確認",
   ]);
 

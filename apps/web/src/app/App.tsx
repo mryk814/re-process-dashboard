@@ -29,8 +29,8 @@ const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
-  { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
+  { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidate-review", label: "候補確認", active: ["candidate-review"] },
 ];
 
