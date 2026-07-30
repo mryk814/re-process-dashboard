@@ -83,7 +83,7 @@ const surfaces: Surface[] = [
     prepare: async (page) => {
       await openDecisionActivities(page);
     },
-    ready: heading("ロバストネス／公差解析"),
+    ready: heading("入力ばらつきに強いか"),
   },
 ];
 
@@ -162,7 +162,7 @@ test("Decision Activityの保存結果とnot-foundをアクセシビリティ検
 }) => {
   await page.goto("/?view=candidates&project=default");
   await openDecisionActivities(page);
-  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
   if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("8");
@@ -207,7 +207,7 @@ test("利用できないDecision Activityをアクセシビリティ検査でき
   await page.goto(`/?view=candidates&project=${project.id}`);
   await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
-    .getByRole("button", { name: "候補差分の要因分解" }).click();
+    .getByRole("button", { name: "2案の差は何が効いているか" }).click();
   await expect(page.getByRole("region", { name: "実行前に必要な準備" })).toBeVisible();
   await expectNoBlockingAxeViolations(page, "Decision Activity unavailable");
 });

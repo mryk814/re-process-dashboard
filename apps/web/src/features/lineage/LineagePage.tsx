@@ -124,16 +124,19 @@ export function LineagePage({
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
+  const [candidateAddedCount, setCandidateAddedCount] = useState(0);
   const [selectedCandidateOptions, setSelectedCandidateOptions] = useState<string[]>([]);
   const [candidateCreating, setCandidateCreating] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<LineageGroupSelection | null>(null);
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
+  const activeEntityRef = useRef(entityKey);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
     return definition ? `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}` : raw;
   };
   activeProjectRef.current = projectId;
+  activeEntityRef.current = entityKey;
   const candidateOptions = data?.candidate_options ?? [];
   const candidateOptionKey = (option: (typeof candidateOptions)[number]) => `${option.process_role}\u001f${option.process_key}\u001f${option.melt_key}`;
   const candidateOptionsIdentity = candidateOptions.map(candidateOptionKey).join("\u001e");
@@ -147,6 +150,9 @@ export function LineagePage({
   useEffect(() => {
     setSelectedGroup(null);
     setSelectedCandidateOptions([]);
+    setCandidateAddedCount(0);
+    setCandidateCreating(false);
+    setCandidateError("");
   }, [entityKey]);
   useEffect(() => {
     setSelectedCandidateOptions(candidateOptions.map(candidateOptionKey));
@@ -159,6 +165,9 @@ export function LineagePage({
     setData(null);
     setError("");
     setCandidateError("");
+    setCandidateAddedCount(0);
+    setCandidateCreating(false);
+    setSelectedCandidateOptions([]);
     setReviews([]);
     setReviewLedgerOpen(false);
     setReviewStatus("noted");
@@ -274,7 +283,7 @@ export function LineagePage({
     const selected = candidateOptions.filter((option) => selectedCandidateOptions.includes(candidateOptionKey(option)));
     setCandidateCreating(true);
     setCandidateError("");
-    setCandidateCreating(false);
+    setCandidateAddedCount(0);
     const createdKeys: string[] = [];
     const errors: string[] = [];
     for (const option of selected) {
@@ -285,16 +294,17 @@ export function LineagePage({
           option.process_key,
           option.melt_key,
         ));
-        if (activeProjectRef.current !== requestProjectId) break;
+        if (activeProjectRef.current !== requestProjectId || activeEntityRef.current !== requestEntityKey) break;
         onCandidate(created);
         createdKeys.push(candidateOptionKey(option));
       } catch (cause) {
-        if (activeProjectRef.current !== requestProjectId) break;
+        if (activeProjectRef.current !== requestProjectId || activeEntityRef.current !== requestEntityKey) break;
         errors.push(cause instanceof Error ? cause.message : "候補を作成できませんでした。");
       }
     }
-    if (activeProjectRef.current === requestProjectId) {
+    if (activeProjectRef.current === requestProjectId && activeEntityRef.current === requestEntityKey) {
       setSelectedCandidateOptions((current) => current.filter((key) => !createdKeys.includes(key)));
+      setCandidateAddedCount(createdKeys.length);
       if (errors.length) setCandidateError(`${createdKeys.length}件を追加、${errors.length}件は追加できませんでした。${errors[0]}`);
       setCandidateCreating(false);
     }
@@ -625,6 +635,9 @@ export function LineagePage({
                 <span className={`lineage-detail-action-reason ${supportsCandidateCreation && data.candidate_eligible ? "" : "muted"}`}>
                   {supportsCandidateCreation ? data.candidate_reason : "この予測タスクは系譜からの候補化に対応していません。"}
                 </span>
+                {candidateAddedCount > 0 && <span className="lineage-candidate-added" role="status">
+                  候補ストックに{candidateAddedCount}件追加しました。画面上部の「候補を比較」から確認できます。
+                </span>}
                 {candidateError && <span className="warning">{candidateError}</span>}
               </div>
             </div>

@@ -51,7 +51,12 @@ test("robustness activity distinguishes a higher average candidate from a steadi
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
 
   await openDecisionActivities(page);
-  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
+  await expect(page.locator(".activity-context")).toContainText("基準候補");
+  await expect(page.locator(".activity-context")).toContainText("ロバストネス／公差解析");
+  const activityTop = await page.locator(".decision-activity-panel").evaluate((element) => element.getBoundingClientRect().top);
+  const comparisonTop = await page.getByRole("region", { name: "候補の入力と予測結果比較" }).evaluate((element) => element.getBoundingClientRect().top);
+  expect(activityTop).toBeLessThan(comparisonTop);
   const steadier = await runRobustness(page);
 
   await page.getByRole("button", { name: "高強度案を選択" }).click();
@@ -72,7 +77,7 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await openDecisionActivities(page);
-  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
 
   const runA = await runRobustness(page);
   await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
@@ -85,7 +90,7 @@ test("activity run deep links follow same-candidate history and reject an unknow
   expect(runAUrl).toContain(`activity_run=${runA.runId}`);
 
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
-    .getByRole("button", { name: "ロバストネス／公差解析" }).click();
+    .getByRole("button", { name: "入力ばらつきに強いか" }).click();
   await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("128");
   const runBResponse = page.waitForResponse((response) => (
@@ -166,7 +171,7 @@ test("a delayed activity response cannot overwrite the newly selected candidate"
   await page.goto(`/?view=candidates&project=${project.id}&candidate=${baseCandidate.id}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await openDecisionActivities(page);
-  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   await runRobustness(page);
   await expect(page.locator(".activity-result")).toBeVisible();
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
@@ -199,7 +204,7 @@ test("a delayed activity response cannot overwrite the newly selected candidate"
   await page.getByRole("button", { name: "切替先候補を選択" }).click();
   await expect(page.getByText("選択中: 切替先候補")).toBeVisible();
   await expect(page.locator(".activity-result")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "ロバストネス／公差解析" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   releaseOldResponses();
 
   await expect(page.getByText("選択中: 切替先候補")).toBeVisible();
@@ -258,8 +263,8 @@ test("candidate difference activity attributes the gap and keeps an explicit res
   await openDecisionActivities(page);
   const tabs = page.getByRole("navigation", { name: "検討アクティビティの選択" });
   await expect(tabs).toBeVisible();
-  await tabs.getByRole("button", { name: "候補差分の要因分解" }).click();
-  await expect(page.getByRole("heading", { name: "候補差分の要因分解" })).toBeVisible();
+  await tabs.getByRole("button", { name: "2案の差は何が効いているか" }).click();
+  await expect(page.getByRole("heading", { name: "2案の差は何が効いているか" })).toBeVisible();
 
   await page.getByRole("combobox", { name: "比較候補" }).selectOption(
     `${comparison!.id}@${comparison!.revision}`,
@@ -297,7 +302,7 @@ test("Decision Activity controls reflow without page-level overflow on mobile", 
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
-    .getByRole("button", { name: "候補差分の要因分解" }).click();
+    .getByRole("button", { name: "2案の差は何が効いているか" }).click();
 
   const comparisonControl = await page.getByRole("combobox", { name: "比較候補" }).boundingBox();
   const differenceAction = await page.getByRole("button", { name: "差分を分解" }).boundingBox();
@@ -342,8 +347,8 @@ test("counterfactual activity runs, compares, promotes one proposal and reloads 
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await openDecisionActivities(page);
   const tabs = page.getByRole("navigation", { name: "検討アクティビティの選択" });
-  await tabs.getByRole("button", { name: "目標へ届く最小変更" }).click();
-  await expect(page.getByRole("heading", { name: "目標へ届く最小変更" })).toBeVisible();
+  await tabs.getByRole("button", { name: "目標へ届くには何を変えるか" }).click();
+  await expect(page.getByRole("heading", { name: "目標へ届くには何を変えるか" })).toBeVisible();
 
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -371,7 +376,7 @@ test("counterfactual activity runs, compares, promotes one proposal and reloads 
   await page.getByRole("button", { name: "基準候補を選択" }).click();
   await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
-    .getByRole("button", { name: "目標へ届く最小変更" }).click();
+    .getByRole("button", { name: "目標へ届くには何を変えるか" }).click();
   await expect(page.getByRole("navigation", { name: "保存済み目標到達案" })).toBeVisible();
   await expect(page.locator(".counterfactual-proposal").first()).toBeVisible();
 });

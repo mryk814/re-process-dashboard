@@ -1293,6 +1293,10 @@
 }
 .decision-activity-panel > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin: 0 -16px; padding: 14px 16px 12px; border-bottom: 1px solid #d8e0ea; background: #f7f9fc; }
 .decision-activity-panel h2 { margin: 3px 0 0; font-size: 18px; line-height: 1.35; }
+.activity-context { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 4px 0 0; color: #526276; }
+.activity-context span { color: #29415d; font-size: 12px; font-weight: 700; }
+.activity-context small { font-size: 11px; }
+.activity-context small::before { content: "· "; }
 .decision-activity-panel > header .outline-button { min-height: 36px; }
 .activity-tabs { display: flex; gap: 6px; overflow-x: auto; margin: -14px -16px 0; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; background: #fbfcfe; }
 .activity-tabs { scrollbar-width: thin; scrollbar-color: #9cabbc transparent; }

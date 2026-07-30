@@ -470,6 +470,24 @@ export function WorkbenchPage(props: WorkbenchProps) {
             </div>
           </div>
         </div>
+        {activityPanelOpen && taskDefinition && <DecisionActivityPanel
+          projectId={projectId}
+          candidate={selected}
+          candidates={candidates}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
+          targetValues={targetValues}
+          ready={["idle", "saved"].includes(saveState)}
+          requestedActivityId={activityId}
+          requestedRunId={activityRunId}
+          onStateChange={onActivityStateChange}
+          onConfigureGoals={onConfigureGoals}
+          onCandidateCreated={onOptimizedCandidate}
+          onClose={() => {
+            setActivityOpen(false);
+            onActivityStateChange(undefined, undefined);
+          }}
+        />}
         <CandidateOrigin
           projectId={projectId}
           candidate={selected}
@@ -530,24 +548,6 @@ export function WorkbenchPage(props: WorkbenchProps) {
             {renderSurface(surface)}
           </div>
         ))}
-        {activityPanelOpen && taskDefinition && <DecisionActivityPanel
-          projectId={projectId}
-          candidate={selected}
-          candidates={candidates}
-          taskDefinition={taskDefinition}
-          displayDecimalOverrides={project?.display_decimals}
-          targetValues={targetValues}
-          ready={["idle", "saved"].includes(saveState)}
-          requestedActivityId={activityId}
-          requestedRunId={activityRunId}
-          onStateChange={onActivityStateChange}
-          onConfigureGoals={onConfigureGoals}
-          onCandidateCreated={onOptimizedCandidate}
-          onClose={() => {
-            setActivityOpen(false);
-            onActivityStateChange(undefined, undefined);
-          }}
-        />}
         {(primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
           ref={lowerPanelsRef}
           className={`workbench-lower-grid${primarySurfaces.length ? "" : " no-response-curves"}`}

@@ -245,6 +245,8 @@ test("lineage candidate remains in exploration and round-trips through stock", a
   await page.getByRole("button", { name: "候補ストックへ追加" }).click();
   await expect(page).toHaveURL(/view=lineage/);
   await expect(page).toHaveURL(/candidate=/);
+  await expect(page.locator(".lineage-candidate-added")).toContainText("候補ストックに1件追加しました");
+  await expect(page.locator(".lineage-candidate-added")).toContainText("候補を比較");
   const stockedCandidateId = new URL(page.url()).searchParams.get("candidate");
   expect(stockedCandidateId).toBeTruthy();
   await expect(stock.locator("b")).not.toHaveText(before ?? "");
@@ -271,6 +273,32 @@ test("lineage candidate remains in exploration and round-trips through stock", a
   // but the one lineage stocked is still there with its origin intact.
   await page.goto(`/?view=candidates&project=default&candidate=${stockedCandidateId}`);
   await expect(page.locator(".candidate-origin")).toContainText("工程系譜 AN-01");
+});
+
+test("a delayed lineage candidate cannot leave the next node in a creating state", async ({ page }) => {
+  let releaseRequest!: () => void;
+  const requestHeld = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+  await page.route("**/api/projects/default/lineage/AN-01/candidate**", async (route) => {
+    await requestHeld;
+    await route.continue();
+  });
+  await page.goto("/?view=lineage&project=default&entity=AN-01");
+  const detail = page.getByRole("complementary", { name: "選択ノード詳細" });
+  await detail.getByRole("button", { name: "候補ストックへ追加" }).click();
+  await expect(detail.getByRole("button", { name: "追加中…" })).toBeDisabled();
+
+  await page.getByRole("button", { name: /^AN-02 焼鈍/ }).click();
+  await expect(page).toHaveURL(/entity=AN-02/);
+  await expect(detail.getByRole("heading", { name: "AN-02" })).toBeVisible();
+  const nextCandidateAction = detail.getByRole("button", { name: /候補へ追加|候補ストックへ追加/ });
+  await expect(nextCandidateAction).toBeEnabled();
+  await expect(nextCandidateAction).not.toHaveText("追加中…");
+
+  releaseRequest();
+  await expect(detail.getByRole("heading", { name: "AN-02" })).toBeVisible();
+  await expect(page.locator(".lineage-candidate-added")).toHaveCount(0);
 });
 
 test("lineage opens without a fixed node and renders real selectable edges", async ({ page, request }) => {
