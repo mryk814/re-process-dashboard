@@ -1318,6 +1318,7 @@ export function ScreeningPage({
               return <tr key={`${row.field}-${index}`}>
                 <td>
                   <select
+                    aria-label={`${index + 1}行目の探索変数`}
                     value={row.field}
                     onChange={(event) => {
                       const option = options.find((item) => item.value === event.target.value);
@@ -1335,6 +1336,7 @@ export function ScreeningPage({
                 </td>
                 <td>
                   <select
+                    aria-label={`${option?.label ?? row.field}の指定方法`}
                     value={row.mode}
                     onChange={(event) =>
                       updateVariable(index, {
@@ -1349,6 +1351,13 @@ export function ScreeningPage({
                 </td>
                 <td>
                   <input
+                    aria-label={`${option?.label ?? row.field}の${
+                      row.mode === "fixed"
+                        ? "値"
+                        : row.mode === "range"
+                          ? "最小"
+                          : "列挙値"
+                    }`}
                     value={row.first}
                     placeholder={row.mode === "list" ? "例: GI,GA" : "値"}
                     onChange={(event) =>
@@ -1359,6 +1368,7 @@ export function ScreeningPage({
                 <td>
                   {row.mode === "range" ? (
                     <input
+                      aria-label={`${option?.label ?? row.field}の最大`}
                       value={row.second}
                       onChange={(event) =>
                         updateVariable(index, { second: event.target.value })

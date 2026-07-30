@@ -43,6 +43,14 @@ test("the screening page builds its variable defaults from the safe range", asyn
   assert.match(source, /defaultRange: safeExplorationRange\(field\.default_range, field\.training_range\)/);
 });
 
+test("screening variable rows expose their field, mode, and values by name", async () => {
+  const source = await readFile(new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url), "utf8");
+  assert.match(source, /aria-label=\{`\$\{index \+ 1\}行目の探索変数`\}/);
+  assert.match(source, /aria-label=\{`\$\{option\?\.label \?\? row\.field\}の指定方法`\}/);
+  assert.match(source, /row\.mode === "fixed"[\s\S]*?"値"[\s\S]*?row\.mode === "range"[\s\S]*?"最小"[\s\S]*?"列挙値"/);
+  assert.match(source, /aria-label=\{`\$\{option\?\.label \?\? row\.field\}の最大`\}/);
+});
+
 test("a run without a primary goal asks before ranking anything", async () => {
   const source = await readFile(new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url), "utf8");
   assert.match(source, /screeningMode !== "landscape" && !fixedObjective && !screeningGoalFromDraft\(targetGoal\)/);

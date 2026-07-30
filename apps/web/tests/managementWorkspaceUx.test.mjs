@@ -4,6 +4,21 @@ import { readFile } from "node:fs/promises";
 
 const source = (relativePath) => readFile(new URL(relativePath, import.meta.url), "utf8");
 
+const luminance = (hex) => {
+  const channels = hex.match(/[0-9a-f]{2}/gi).map((value) => {
+    const normalized = Number.parseInt(value, 16) / 255;
+    return normalized <= 0.04045
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+};
+
+const contrast = (foreground, background) => {
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+};
+
 test("developer overview uses a semantic staged flow and collapsible filtered projects", async () => {
   const content = await source("../src/features/admin/DeveloperControlCenter.tsx");
   assert.match(content, /<ol className="developer-flow"/);
@@ -81,6 +96,27 @@ test("data library collapses an empty comparison area and moves state changes in
   assert.match(lifecycle, /Snapshot対象外/);
   assert.match(lifecycle, /policyによる追加除外/);
   assert.doesNotMatch(lifecycle, /<span>追加除外 <b>\{selectedTraining\.excluded_row_count\}/);
+});
+
+test("Data Library onboarding helper text keeps normal-text contrast", async () => {
+  const styles = await source("../src/features/data-library/data-library.css");
+  const helperColor = "#526276";
+  assert.match(
+    styles,
+    /\.data-onboarding-paths > header small \{[^}]*color: #526276;/,
+  );
+  assert.match(
+    styles,
+    /\.data-onboarding-paths button small \{[^}]*color: #526276;/,
+  );
+  assert.ok(
+    contrast(helperColor, "#f7faff") >= 4.5,
+    "section helper text meets WCAG AA on the onboarding background",
+  );
+  assert.ok(
+    contrast(helperColor, "#ffffff") >= 4.5,
+    "button helper text meets WCAG AA on white",
+  );
 });
 
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {
