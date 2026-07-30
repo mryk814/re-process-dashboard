@@ -118,16 +118,30 @@ candidate-level capability gate and semantic Design Space are wired through the
 UI. Raw heat-point exploration therefore remains explicit rather than being
 mislabelled as an engineering-program generator.
 
-`screening-run/v7` pins the user's purpose (`design_space_map`, `goal_search`,
+`screening-run/v8` pins the user's purpose (`design_space_map`, `goal_search`,
 or `experiment_batch`) in addition to Design Space and Objective digests, model/package,
 Feature Pipeline and Dataset provenance, the actual generator/acquisition/
 selector versions, seed, support policy, complete evaluated pool and selection
-rank. A Design Space map deliberately ignores a Project Objective and stores
+rank. For goal search, `samples` is the display count, while
+`proposal.proposal_count` independently requests 1–10 candidates from the
+complete evaluated pool. The Run records generated, valid, evaluated, displayed,
+and proposed counts separately; it also pins the proposal policy, pool digest,
+distance contract, diversity weight, tie-break rule, selected point references,
+and any shortfall reason. `ranked_top_k_v1` and
+`greedy_value_diversity_v1` reuse the experiment-batch selector kernel and
+identity rather than introducing a second implementation. Distance-dependent
+selection fails closed when required axes, conditional constraints, or a
+composition-safe distance contract cannot be represented.
+
+A Design Space map deliberately ignores a Project Objective and stores
 reporting-only output metadata with support-distance evidence. An experiment
 batch stores `source_run_id` and selects from that immutable goal-search pool;
-it does not regenerate a second proposal. Older screening runs remain readable
-without being rewritten, and their display purpose is inferred from goal and
-batch evidence.
+it does not regenerate a second proposal and does not inherit the source Run's
+proposal-selection evidence. Older `screening-run/v1` through
+`screening-run/v7` records remain readable without being rewritten. Their
+display purpose may be inferred from goal and batch evidence, but missing
+displayed/proposed counts and proposal policy are shown as unrecorded rather
+than reconstructed from unrelated legacy fields.
 
 ### Experiment batch selection
 

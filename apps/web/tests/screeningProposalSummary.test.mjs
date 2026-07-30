@@ -50,10 +50,18 @@ test("proposal summary leads with a Japanese decision summary while calculation 
         generated_count: 192,
         valid_count: 180,
         evaluated_count: 48,
+        displayed_count: 48,
+        proposed_count: 5,
         selected_count: 48,
         rejected_count: 12,
         rejection_rate: 0.0625,
         rejected_by_reason: { "resource constraint": 12 },
+      },
+      proposal_selection: {
+        requested_count: 5,
+        actual_count: 5,
+        policy_id: "greedy_value_diversity_v1",
+        selected: [],
       },
       model_provenance: {
         package: { manifest_sha256: "sha256:model-package" },
@@ -70,10 +78,11 @@ test("proposal summary leads with a Japanese decision summary while calculation 
 
   const headline = html.match(/<div class="screening-proposal-headline">([\s\S]*?)<\/div>/)?.[1] ?? "";
   assert.match(headline, /引張強さの下限目標を満たす条件を優先（近い学習実績がある条件を優先）/);
-  assert.match(headline, /生成 192件 → 制約内 180件 → 提案 48件（除外 12件）/);
+  assert.match(headline, /生成 192件 → 制約内 180件 → 評価 48件 → 表示 48件 → 提案 5件（除外 12件）/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
   assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
   assert.match(html, /<dt>順位付け<\/dt>/);
+  assert.match(html, /<dt>提案の選び方<\/dt><dd>条件が重ならないよう選択<\/dd>/);
   assert.match(html, /<dt>学習範囲<\/dt>/);
   assert.match(html, /<dt>副条件<\/dt><dd>なし<\/dd>/);
   assert.match(html, /<dt>除外<\/dt>/);
@@ -102,6 +111,33 @@ test("proposal summary leads with a Japanese decision summary while calculation 
   assert.match(evidence, /strategy latin_hypercube_v1 1\.0\.0/);
   assert.match(evidence, /Model Package <code title="sha256:model-package">sha256:model-package<\/code>/);
   assert.match(evidence, /sha256:1234567890abcdef/);
+});
+
+test("older runs leave display and proposal counts explicitly unrecorded", () => {
+  const html = renderSummary({
+    result: {
+      purpose: "goal_search",
+      target: "TS",
+      seed: 12,
+      proposal_diagnostics: {
+        generated_count: 64,
+        valid_count: 60,
+        evaluated_count: 48,
+        selected_count: 5,
+        rejected_count: 4,
+        rejection_rate: 0.0625,
+        rejected_by_reason: {},
+      },
+    },
+    showAnotherSample: false,
+    onAnotherSample() {},
+    onSaveBatch() {},
+    batchSaveCount: 0,
+  });
+
+  assert.match(html, /評価 48件 → 表示 未記録 → 提案 未記録/);
+  assert.match(html, /<dt>提案の選び方<\/dt><dd>旧記録・未記録<\/dd>/);
+  assert.doesNotMatch(html, /表示 48件|提案 5件/);
 });
 
 test("legacy runs do not present their early-stop rejection count as a rate", () => {

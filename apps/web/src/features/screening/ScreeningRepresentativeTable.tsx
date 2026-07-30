@@ -89,13 +89,18 @@ export function ScreeningRepresentativeTable({
     && result.representative_points.every((point) => point.support.status === result.representative_points[0].support.status)
     ? result.representative_points[0].support.status
     : null;
+  const showsProposals = result.proposal_selection != null;
 
   return (
     <section className="screening-results" aria-labelledby="screening-results-title">
       <div className="screening-results-heading">
         <div>
-          <h3 id="screening-results-title">代表点</h3>
-          <small>変えた条件と予測を比較</small>
+          <h3 id="screening-results-title">{showsProposals ? "提案候補" : "代表点"}</h3>
+          <small>
+            {showsProposals
+              ? "提案された条件を、そのまま選択して候補へ追加できます"
+              : "変えた条件と予測を比較"}
+          </small>
         </div>
         <div className="screening-result-context" aria-label="探索の固定条件">
           <span><small>基準候補</small><b>{baseCandidateLabel}</b></span>
@@ -112,7 +117,7 @@ export function ScreeningRepresentativeTable({
         <div className={`screening-common-support ${commonSupportStatus ?? ""}`} role="note">
           <span className={`support-badge ${commonSupportStatus ?? ""}`}>{supportLabel(commonSupportStatus ?? "")}</span>
           <p>{commonSupportMessage}</p>
-          <small>代表点に共通</small>
+          <small>{showsProposals ? "提案候補に共通" : "代表点に共通"}</small>
         </div>
       )}
       <div className="screening-results-scroll">
