@@ -15,11 +15,13 @@ import pytest
 from material_workbench.application.data_lifecycle import DataLifecycleService
 from material_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
-    _database_evidence,
     commit_workspace_restore,
     create_workspace_backup,
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
+)
+from material_workbench.application.workspace_bundle_manifest import (
+    _database_evidence,
 )
 from material_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,

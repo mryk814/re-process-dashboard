@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import multiprocessing
 import os
+import shutil
 import sqlite3
 import zipfile
 from hashlib import sha256
@@ -12,17 +13,20 @@ from typing import cast
 import pytest
 from openpyxl import Workbook
 
-import material_workbench.application.workspace_bundle as workspace_bundle_module
+import material_workbench.application.workspace_bundle_restore_plan as restore_plan_module
+import material_workbench.application.workspace_bundle_service as restore_service_module
 from material_workbench.application.data_lifecycle import DataLifecycleService
 from material_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
-    _database_evidence,
     cancel_workspace_restore,
     commit_workspace_restore,
     create_workspace_backup,
     finalize_workspace_restore,
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
+)
+from material_workbench.application.workspace_bundle_manifest import (
+    _database_evidence,
 )
 from material_workbench.contracts.schemas import (
     DataAssetCreateInput,
@@ -47,6 +51,29 @@ from material_workbench.tasks.task_registry import TaskRegistry
 
 def _digest(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
+
+
+def _rewrite_manifest(
+    source: Path,
+    destination: Path,
+    mutate,
+) -> None:
+    with (
+        zipfile.ZipFile(source) as original,
+        zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as changed,
+    ):
+        for entry in original.infolist():
+            payload = original.read(entry)
+            if entry.filename == "manifest.json":
+                manifest = json.loads(payload)
+                mutate(manifest)
+                payload = json.dumps(
+                    manifest,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            changed.writestr(entry, payload)
 
 
 def _workspace_with_managed_asset(root: Path) -> tuple[Path, Path, str]:
@@ -197,7 +224,10 @@ def test_workspace_bundle_carries_model_package_bodies(
     assert restored is not None
     restored_root = Path(restored.locator)
     assert target / "data-library" in restored_root.parents
-    assert ModelPackageLoader().load(restored_root).manifest_sha256 == package.manifest_sha256
+    assert (
+        ModelPackageLoader().load(restored_root).manifest_sha256
+        == package.manifest_sha256
+    )
 
 
 def test_workspace_bundle_preserves_profile_declared_relative_evidence_images(
@@ -285,6 +315,98 @@ def test_workspace_bundle_preserves_profile_declared_relative_evidence_images(
     restored_image = Path(restored.locator).parent / "images" / "micrograph.png"
     assert restored_image.read_bytes() == b"synthetic png evidence"
 
+    # Reusing a content-addressed destination is allowed only when the complete
+    # declared tree still matches, not merely when the primary workbook does.
+    restored_image.write_bytes(b"tampered auxiliary evidence")
+    before_database = _digest(target / "workbench.db")
+    retry = _prepare(
+        database=target / "workbench.db",
+        data_library=target / "data-library",
+        source=bundle,
+    )
+    with pytest.raises(WorkspaceBundleError, match="resource file changed"):
+        commit_workspace_restore(
+            database=target / "workbench.db",
+            data_library_root=target / "data-library",
+            restore_token=retry.restore_token,
+        )
+    assert _digest(target / "workbench.db") == before_database
+
+
+def test_restore_rejects_noncanonical_resource_root_before_extraction(
+    tmp_path: Path,
+) -> None:
+    database, library, _ = _workspace_with_managed_asset(tmp_path / "source")
+    bundle = tmp_path / "workspace.mdwb"
+    create_workspace_backup(
+        database=database,
+        data_library_root=library,
+        destination=bundle,
+        app_version="test",
+    )
+    malicious = tmp_path / "root-dot.mdwb"
+
+    def point_resource_at_staging_root(manifest: dict[str, object]) -> None:
+        resources = manifest["bundled_resources"]
+        assert isinstance(resources, list)
+        resource = resources[0]
+        assert isinstance(resource, dict)
+        resource["bundle_root"] = "."
+        resource["files"] = ["workspace/workbench.db"]
+
+    _rewrite_manifest(bundle, malicious, point_resource_at_staging_root)
+    with pytest.raises(WorkspaceBundleError, match="root is not canonical"):
+        _prepare(
+            database=tmp_path / "target" / "workbench.db",
+            data_library=tmp_path / "target" / "data-library",
+            source=malicious,
+        )
+
+
+def test_restore_installs_only_declared_resource_files_from_staging(
+    tmp_path: Path,
+) -> None:
+    source_database, source_library, asset_id = _workspace_with_managed_asset(
+        tmp_path / "source"
+    )
+    bundle = tmp_path / "workspace.mdwb"
+    create_workspace_backup(
+        database=source_database,
+        data_library_root=source_library,
+        destination=bundle,
+        app_version="test",
+    )
+    target = tmp_path / "target"
+    prepared = _prepare(
+        database=target / "workbench.db",
+        data_library=target / "data-library",
+        source=bundle,
+    )
+    resource = next(
+        item
+        for item in prepared.manifest.bundled_resources
+        if item.reference_id == asset_id
+    )
+    next_root = target / ".workspace-restore" / prepared.restore_token / "next"
+    staged_root = next_root / Path(resource.bundle_root)
+    shutil.copyfile(
+        next_root / "workspace" / "workbench.db",
+        staged_root / "undeclared-staged-database.db",
+    )
+
+    commit_workspace_restore(
+        database=target / "workbench.db",
+        data_library_root=target / "data-library",
+        restore_token=prepared.restore_token,
+    )
+    restored = WorkspaceCatalog(target / "workbench.db").get_data_asset(
+        asset_id,
+        include_archived=True,
+    )
+    assert restored is not None
+    installed_root = Path(restored.locator).parent
+    assert not (installed_root / "undeclared-staged-database.db").exists()
+
 
 def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
     client,
@@ -342,8 +464,7 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
         connector.id,
         SourceFetchRequest(
             object_content=(
-                '[{"id":"A","x":1,"target":2},'
-                '{"id":"B","x":3,"target":4}]'
+                '[{"id":"A","x":1,"target":2},{"id":"B","x":3,"target":4}]'
             ),
             object_version="workspace-v1",
         ),
@@ -403,9 +524,7 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
         transform_catalog=client.app.state.deterministic_transform_catalog,
     )
     fixed_references = next(
-        item
-        for item in prepared.diagnostics
-        if item.id == "restored-fixed-references"
+        item for item in prepared.diagnostics if item.id == "restored-fixed-references"
     )
     assert fixed_references.status == "ok", fixed_references.detail
     commit_workspace_restore(
@@ -422,10 +541,7 @@ def test_live_workspace_evidence_matches_after_restore_to_another_user_data(
         item.table: (item.row_count, item.digest)
         for item in backup.manifest.table_evidence
     }
-    actual = {
-        item.table: (item.row_count, item.digest)
-        for item in restored_evidence
-    }
+    actual = {item.table: (item.row_count, item.digest) for item in restored_evidence}
     assert actual == expected
     restored_lifecycle = DataLifecycleService(target / "workbench.db")
     assert restored_lifecycle.repository.get_raw_snapshot(raw.id) == raw
@@ -487,9 +603,10 @@ def test_tampered_bundle_is_rejected_without_changing_current_workspace(
         app_version="test",
     )
     tampered = tmp_path / "tampered.mdwb"
-    with zipfile.ZipFile(bundle) as original, zipfile.ZipFile(
-        tampered, "w", compression=zipfile.ZIP_DEFLATED
-    ) as changed:
+    with (
+        zipfile.ZipFile(bundle) as original,
+        zipfile.ZipFile(tampered, "w", compression=zipfile.ZIP_DEFLATED) as changed,
+    ):
         for entry in original.infolist():
             payload = original.read(entry)
             if entry.filename == "workspace/workbench.db":
@@ -536,7 +653,7 @@ def test_commit_switch_failure_preserves_database_and_data_library(
         path.relative_to(current_library).as_posix()
         for path in current_library.rglob("*")
     )
-    real_replace = workspace_bundle_module.os.replace
+    real_replace = restore_service_module.os.replace
 
     def fail_database_switch(source: str | Path, destination: str | Path) -> None:
         source_path = Path(source)
@@ -549,7 +666,7 @@ def test_commit_switch_failure_preserves_database_and_data_library(
             raise OSError("injected database switch failure")
         real_replace(source, destination)
 
-    monkeypatch.setattr(workspace_bundle_module.os, "replace", fail_database_switch)
+    monkeypatch.setattr(restore_service_module.os, "replace", fail_database_switch)
     with pytest.raises(WorkspaceBundleError, match="current Workspace was preserved"):
         commit_workspace_restore(
             database=current_database,
@@ -558,10 +675,13 @@ def test_commit_switch_failure_preserves_database_and_data_library(
         )
 
     assert _digest(current_database) == before_database
-    assert sorted(
-        path.relative_to(current_library).as_posix()
-        for path in current_library.rglob("*")
-    ) == before_library
+    assert (
+        sorted(
+            path.relative_to(current_library).as_posix()
+            for path in current_library.rglob("*")
+        )
+        == before_library
+    )
 
 
 @pytest.mark.parametrize(
@@ -617,9 +737,7 @@ def test_process_restart_recovers_interrupted_restore_from_journal(
     assert process.exitcode == exit_code
 
     restore_root = (
-        current_database.parent
-        / ".workspace-restore"
-        / prepared.restore_token
+        current_database.parent / ".workspace-restore" / prepared.restore_token
     )
     state = json.loads((restore_root / "state.json").read_text(encoding="utf-8"))
     assert state["previous_database_sha256"] == original_database_digest
@@ -629,10 +747,14 @@ def test_process_restart_recovers_interrupted_restore_from_journal(
         assert not (restore_root / "rollback-workbench.db").exists()
     elif stop_point == "after_current_moved":
         assert not current_database.exists()
-        assert _digest(restore_root / "rollback-workbench.db") == original_database_digest
+        assert (
+            _digest(restore_root / "rollback-workbench.db") == original_database_digest
+        )
     else:
         assert _digest(current_database) == state["commit_database_sha256"]
-        assert _digest(restore_root / "rollback-workbench.db") == original_database_digest
+        assert (
+            _digest(restore_root / "rollback-workbench.db") == original_database_digest
+        )
         assert not (restore_root / "next" / "workspace" / "workbench.db").exists()
 
     recovered = recover_incomplete_workspace_restores(
@@ -665,9 +787,7 @@ def test_process_restart_recovers_interrupted_first_restore_to_empty_workspace(
     source_database, source_library, _ = _workspace_with_managed_asset(
         tmp_path / "source"
     )
-    source_resource_digest = _digest(
-        source_library / "managed" / "source.xlsx"
-    )
+    source_resource_digest = _digest(source_library / "managed" / "source.xlsx")
     bundle = tmp_path / "workspace.mdwb"
     create_workspace_backup(
         database=source_database,
@@ -745,9 +865,10 @@ def test_unknown_bundle_schema_is_rejected_with_an_explicit_reason(
         app_version="test",
     )
     unsupported = tmp_path / "unsupported.mdwb"
-    with zipfile.ZipFile(bundle) as original, zipfile.ZipFile(
-        unsupported, "w", compression=zipfile.ZIP_DEFLATED
-    ) as changed:
+    with (
+        zipfile.ZipFile(bundle) as original,
+        zipfile.ZipFile(unsupported, "w", compression=zipfile.ZIP_DEFLATED) as changed,
+    ):
         for entry in original.infolist():
             payload = original.read(entry)
             if entry.filename == "manifest.json":
@@ -809,10 +930,13 @@ def test_known_older_schema_is_migrated_in_staging(
     )
     connection = sqlite3.connect(staged)
     try:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM schema_migrations "
-            "WHERE id='source-data-lifecycle-v1'"
-        ).fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM schema_migrations "
+                "WHERE id='source-data-lifecycle-v1'"
+            ).fetchone()[0]
+            == 1
+        )
     finally:
         connection.close()
     commit_workspace_restore(
@@ -858,9 +982,9 @@ def test_restore_rejects_when_expanded_bundle_cannot_fit(
         destination=bundle,
         app_version="test",
     )
-    usage_type = type(workspace_bundle_module.shutil.disk_usage(tmp_path))
+    usage_type = type(restore_plan_module.shutil.disk_usage(tmp_path))
     monkeypatch.setattr(
-        workspace_bundle_module.shutil,
+        restore_plan_module.shutil,
         "disk_usage",
         lambda _path: usage_type(total=1024, used=1024, free=0),
     )
@@ -889,7 +1013,9 @@ def test_restore_rejects_an_extreme_compression_ratio(
         )
 
 
-@pytest.mark.parametrize("unsafe_name", ["../outside", "C:/outside", "safe/../../outside"])
+@pytest.mark.parametrize(
+    "unsafe_name", ["../outside", "C:/outside", "safe/../../outside"]
+)
 def test_unsafe_archive_paths_are_rejected_before_extraction(
     tmp_path: Path,
     unsafe_name: str,
@@ -903,9 +1029,10 @@ def test_unsafe_archive_paths_are_rejected_before_extraction(
         app_version="test",
     )
     unsafe = tmp_path / "unsafe.mdwb"
-    with zipfile.ZipFile(bundle) as original, zipfile.ZipFile(
-        unsafe, "w", compression=zipfile.ZIP_DEFLATED
-    ) as changed:
+    with (
+        zipfile.ZipFile(bundle) as original,
+        zipfile.ZipFile(unsafe, "w", compression=zipfile.ZIP_DEFLATED) as changed,
+    ):
         for entry in original.infolist():
             changed.writestr(entry, original.read(entry))
         changed.writestr(unsafe_name, b"escape")

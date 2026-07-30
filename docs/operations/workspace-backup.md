@@ -97,6 +97,11 @@ row payloadもmanifestへsizeとSHA-256を列挙し、DBが参照する全file�
 退避し、findingとともにbundleへ含める。`workspace-bundle/v1`は読込互換を保ち、
 inline rowをstagingでCASへ移した前後のsemantic identityを照合する。
 
+実装のphase境界とtransaction ownerは
+[PersistenceとWorkspace restoreのtransaction境界](../architecture/persistence-transaction-boundaries.md)
+を正本とする。`application.workspace_bundle`はpublic use-caseのfacadeであり、
+archive検査やresource配置を直接呼び出さない。
+
 ## 復元手順
 
 1. bundleのentry数、展開サイズ、圧縮率、パス、symlink、空き容量を検査する。
