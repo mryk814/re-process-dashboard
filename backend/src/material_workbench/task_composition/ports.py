@@ -2,15 +2,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 
 from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.data.dataset_profile import DatasetInputProfile
-
-if TYPE_CHECKING:
-    from material_workbench.modeling.model_packages import VerifiedModelPackage
-
 
 @runtime_checkable
 class DataDescriptor(Protocol):
@@ -30,10 +26,19 @@ class QualitySurface(Protocol):
 
 
 @runtime_checkable
+class ModelPackageDescriptor(Protocol):
+    """The verified-package surface needed by task composition."""
+
+    root: Path
+    manifest: Any
+    manifest_sha256: str
+
+
+@runtime_checkable
 class PredictionRuntime(Protocol):
     task_id: str
     data: DataDescriptor
-    model_package: VerifiedModelPackage | None
+    model_package: ModelPackageDescriptor | None
     support_policy_id: str
 
     @property
@@ -117,7 +122,7 @@ CurveFamilyHandler = Callable[
 ]
 DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
 RuntimeFactory = Callable[
-    [DataDescriptor, "VerifiedModelPackage"],
+    [DataDescriptor, ModelPackageDescriptor],
     PredictionRuntime,
 ]
 FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]

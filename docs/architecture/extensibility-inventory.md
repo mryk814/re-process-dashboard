@@ -117,7 +117,8 @@ DataDescriptor（宣言済みの共通面）
 | 契約 | [docs/contracts/model-package-contract.md](../contracts/model-package-contract.md)、[modeling/model_packages.py](../../backend/src/material_workbench/modeling/model_packages.py) |
 | adapter allow-list | `backend/src/material_workbench/adapters/`（allow-listされたadapter群） |
 | lifecycle | [modeling/model_lifecycle.py](../../backend/src/material_workbench/modeling/model_lifecycle.py)、`models/active-packages.json` |
-| builder | `TaskModule.model_builder` |
+| 標準モデル宣言 | `TaskModule.standard_model_authoring`（学習候補生成、許可estimator、既定estimator） |
+| 特殊Package builder | `TaskModule.specialized_package_builder`（標準経路で表現できないfamilyだけ） |
 | Task固有分岐 | [modeling/model_lifecycle.py:236](../../backend/src/material_workbench/modeling/model_lifecycle.py#L236) に `if task_id == "annealed-properties-v1"` / `elif task_id == "hot-rolled-properties-v1"` が残存 |
 
 **登録点**: `package.adapter_allowlist`、`package.builder`、`package.active_entry`、`package.lifecycle_task_branch`（既存の2件の分岐）
@@ -167,7 +168,7 @@ Package範囲とは混同しません。
 | 場所 | 内容 |
 | --- | --- |
 | [modeling/tabular_model_builder.py:376](../../backend/src/material_workbench/modeling/tabular_model_builder.py#L376) | `load_task_contracts()` をcontract root注入なしで呼ぶ。TaskDefinition JSONが本番 `task_definitions/` にないとPackageを作れない |
-| [modeling/model_lifecycle.py:234](../../backend/src/material_workbench/modeling/model_lifecycle.py#L234) | `task_module()` 経由でmodule-levelの `BUILTIN_TASK_MODULES` を直接読む。`task_composition/builtin_tasks.py` へ登録する前はPackageを作れない |
+| [modeling/model_lifecycle.py](../../backend/src/material_workbench/modeling/model_lifecycle.py) | `task_module()` 経由で [task_composition/catalog.py](../../backend/src/material_workbench/task_composition/catalog.py) の実行時catalogを読む。catalogへ登録する前はPackageを作れない |
 
 未登録Taskのartifactを作れないという安全側の性質でもあるため、負債とは断定しません。
 ただし「Packageを先に作って検証してから登録する」順序は取れません。
@@ -176,7 +177,7 @@ Package範囲とは混同しません。
 
 | 側面 | 正本 |
 | --- | --- |
-| Protocol | [task_composition/builtin_tasks.py:59](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L59) `PredictionRuntime` / `:74` `StageSampleRuntime` / `:90` `SupportProvider` |
+| Protocol | [task_composition/ports.py](../../backend/src/material_workbench/task_composition/ports.py) `PredictionRuntime` / `StageSampleRuntime` / `SupportProvider` |
 | capability宣言 | `RuntimeCapability`（task_definition JSON内） |
 | factory | `TaskModule.runtime_factory`（5系統） |
 | 実装 | `modeling/runtime.py`, `hot_rolling.py`, `flank_wear.py`, `tabular_regression.py`, `observation_regression.py` |
@@ -380,7 +381,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 | 領域 | 状態 |
 | --- | --- |
-| 標準表形式Taskの追加 | **実測済：data-onlyに近い**。既存ファイル変更2件（`task_composition/builtin_tasks.py` の `BUILTIN_TASK_MODULES` と `_TABULAR_PROFILES`、`models/active-packages.json`）、新規Python関数0件、API/UI分岐0件で、preview・response curve・類似観測・品質表示・学習データInspector・ロバストネス・範囲探索がすべて動作。loader / feature builder / model builder / starterは `task_id` でパラメタ化済みのfactory（[task_composition/builtin_tasks.py:207](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L207), [:303](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L303), [:357](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L357), [:420](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L420)）を再利用できる |
+| 標準表形式Taskの追加 | **実測済：data-onlyに近い**。既存ファイル変更2件（`task_composition/builtin_tasks.py` の `BUILTIN_TASK_MODULES` と `_TABULAR_PROFILES`、`models/active-packages.json`）、新規Python関数0件、API/UI分岐0件で、preview・response curve・類似観測・品質表示・学習データInspector・ロバストネス・範囲探索がすべて動作。loader / feature builder / training candidate / starterは `task_id` でパラメタ化済みのfactoryを再利用し、estimatorは `TaskModule.standard_model_authoring` のallow-listから選べる |
 | Profile family | 4系統。**統合不要だが、loader戻り値の共通契約がほぼ空**。Observation familyのProfile契約とTraining View契約は実測で再利用可能（昇格候補） |
 | Observation family実装 | **実測済：契約は汎用、実装は単一インスタンス**。runtimeとbuilderが1 Task / 1 Profileに固定されており、2つ目を追加できない |
 | Candidate Shape | 単一形状。unionではない。共有schemaに焼鈍・溶接固有フィールドが混在。**実測済：可変長系列は7項目すべて表現できない** |

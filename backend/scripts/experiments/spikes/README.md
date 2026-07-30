@@ -48,7 +48,7 @@ rm -f backend/src/material_workbench/tasks/task_definitions/spike-*.json
 - `tabular_model_builder.build_tabular_package_from_data` が `load_task_contracts()` を
   contract root注入なしで呼ぶ
 - `model_lifecycle.canonical_training_dataset` が `task_module()` 経由で
-  module-levelの `TASK_MODULES` を直接読む
+  `task_composition/catalog.py` の実行時catalogを読む
 
 未登録TaskのPackageを作れないという安全側の性質でもあります。詳細は
 [extensibility-spikes.md のケースA](../../../../docs/architecture/extensibility-spikes.md) を参照してください。
