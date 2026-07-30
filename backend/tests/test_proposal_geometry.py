@@ -17,7 +17,7 @@ from material_workbench.contracts.schemas import Candidate, CandidateInput, Scre
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.domain.proposal_generation import generate_candidates
 from material_workbench.domain.proposal_geometry import proposal_distance
-from material_workbench.domain.services import (
+from material_workbench.application.proposal_service import (
     _proposal_coverage,
     _validate_screening_pool,
 )

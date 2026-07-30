@@ -33,7 +33,7 @@ from material_workbench.contracts.batch_proposal_contracts import (
     BatchProposalDefinition,
     BatchSelectorAvailability,
 )
-from material_workbench.domain.services import run_proposal
+from material_workbench.application.proposal_service import run_proposal
 from material_workbench.domain.batch_selector import (
     BatchSelectionError,
     candidate_design_values,
