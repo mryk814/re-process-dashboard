@@ -1,7 +1,7 @@
 {
   "schema_version": "learning-lab-reproducibility/v1",
-  "measured_at": "2026-07-30T14:38:17.798Z",
-  "measured_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+  "measured_at": "2026-07-30T17:57:42.521Z",
+  "measured_commit": "a7bbc29cbd5abbf63b94675232b1d9598d200e73",
   "methodology": {
     "setup_size": "UTF-8/source file bytes for each Lab document, shared manifest, fixtures, and executable Lab script; dependencies and repository checkout are excluded",
     "runtime": "wall-clock milliseconds on this workstation; only executable Labs have machine runtime",
@@ -11,15 +11,15 @@
     "lab_count": 8,
     "guided_count": 7,
     "executable_count": 1,
-    "sum_of_per_lab_setup_payload_bytes": 217037,
-    "executable_cycle_duration_ms": 2229.86,
+    "sum_of_per_lab_setup_payload_bytes": 231309,
+    "executable_cycle_duration_ms": 2269.22,
     "executable_result_hashes_match": true
   },
   "labs": [
     {
       "lab_id": "break-and-repair-migration",
       "mode": "guided",
-      "setup_payload_bytes": 27475,
+      "setup_payload_bytes": 29181,
       "setup_payload_files": [
         "docs/learning/labs/break-and-repair-migration.qmd",
         "docs/learning/labs/manifest.json"
@@ -34,7 +34,7 @@
     {
       "lab_id": "extend-contract",
       "mode": "guided",
-      "setup_payload_bytes": 24485,
+      "setup_payload_bytes": 25742,
       "setup_payload_files": [
         "docs/learning/labs/extend-contract.qmd",
         "docs/learning/labs/manifest.json"
@@ -49,7 +49,7 @@
     {
       "lab_id": "trace-project-lifecycle",
       "mode": "guided",
-      "setup_payload_bytes": 33443,
+      "setup_payload_bytes": 36333,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-project-lifecycle.qmd"
@@ -64,7 +64,7 @@
     {
       "lab_id": "trace-revision-conflict",
       "mode": "guided",
-      "setup_payload_bytes": 29060,
+      "setup_payload_bytes": 30552,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-revision-conflict.qmd"
@@ -79,7 +79,7 @@
     {
       "lab_id": "trace-source-evidence",
       "mode": "guided",
-      "setup_payload_bytes": 35688,
+      "setup_payload_bytes": 38487,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-source-evidence.qmd"
@@ -94,7 +94,7 @@
     {
       "lab_id": "trace-workspace-restore",
       "mode": "guided",
-      "setup_payload_bytes": 31395,
+      "setup_payload_bytes": 34314,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-workspace-restore.qmd"
@@ -109,7 +109,7 @@
     {
       "lab_id": "runtime-boundary-drills",
       "mode": "guided",
-      "setup_payload_bytes": 15083,
+      "setup_payload_bytes": 15936,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/runtime-boundary-drills.qmd"
@@ -124,7 +124,7 @@
     {
       "lab_id": "toy-weighted-mean",
       "mode": "executable",
-      "setup_payload_bytes": 20408,
+      "setup_payload_bytes": 20764,
       "setup_payload_files": [
         "docs/learning/labs/fixtures/toy-weighted-mean.json",
         "docs/learning/labs/manifest.json",
@@ -137,23 +137,23 @@
         "cycles": [
           {
             "cycle": 1,
-            "duration_ms": 1124.77,
+            "duration_ms": 1148.4,
             "steps_ms": {
-              "setup": 318.07,
-              "run": 309.07,
-              "verify": 204.94,
-              "reset": 292.69
+              "setup": 291.62,
+              "run": 343.49,
+              "verify": 206.98,
+              "reset": 306.31
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           },
           {
             "cycle": 2,
-            "duration_ms": 1105.09,
+            "duration_ms": 1120.82,
             "steps_ms": {
-              "setup": 321.18,
-              "run": 286.97,
-              "verify": 184.45,
-              "reset": 312.49
+              "setup": 284.87,
+              "run": 302.43,
+              "verify": 189.59,
+              "reset": 343.93
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           }
