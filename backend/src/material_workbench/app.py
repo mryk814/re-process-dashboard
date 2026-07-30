@@ -1011,7 +1011,7 @@ def create_app(
                     promotion_task.cancel()
 
     app = FastAPI(
-        title="Material Decision Workbench API",
+        title="Evidence Decision Workbench API",
         version="0.1.0",
         lifespan=lifespan,
         responses={422: PROJECT_API_ERRORS[422]},

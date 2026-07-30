@@ -1,4 +1,4 @@
-# Material Decision Workbench 開発教材
+# Evidence Decision Workbench 開発教材
 
 このディレクトリは、Issue #274の試作から育てている開発者向け教材の正本です。
 

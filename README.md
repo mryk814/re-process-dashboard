@@ -1,6 +1,9 @@
-# Material Decision Workbench
+# Evidence Decision Workbench
 
-材料組成、工程条件、切削条件、疎な原料配合の候補を比較し、予測特性、予測幅、学習範囲、類似する過去実験、実測とのずれを同じ判断面で確認するローカルアプリです。
+候補、予測幅、モデルの支持範囲、類似する過去実績、実測とのずれを同じ判断面で
+確認し、判断時点の根拠を再現可能に残すローカルアプリです。
+最初の利用domainと同梱Taskは材料・製造であり、材料組成、工程条件、切削条件、
+疎な原料配合等を具体例として扱います。
 
 一つのPrediction Taskを扱うProjectに加え、再利用可能なTask／決定論的transformをbindingした多段Chain Projectを扱います。Chainでは段別実行、変更段以降だけの再計算、段単体／通し評価、中間実測variant、明示的な不確かさ伝播を利用できます。
 
@@ -14,7 +17,10 @@
 データを追加する人が、アプリ開発用の全テストやPR運用を引き受ける必要はありません。
 既存の仕組みでは表現できず、アプリ側の契約やコードを変える場合だけ開発者向けの入口へ移ります。
 
-現在のProject mode、再利用境界、v1固有前提は [現行システム基準](docs/product/current-system-baseline.md)、個別文書は [ドキュメント索引](docs/README.md) から参照できます。
+現在のProject mode、再利用境界、v1固有前提は [現行システム基準](docs/product/current-system-baseline.md)、
+domain-neutralな製品核と材料・製造domainの境界は
+[domain-neutralな製品境界](docs/decisions/domain-neutral-product-boundary.md)、
+個別文書は [ドキュメント索引](docs/README.md) から参照できます。
 
 ## Project mode
 

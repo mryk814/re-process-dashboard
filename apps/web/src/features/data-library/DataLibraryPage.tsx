@@ -471,7 +471,7 @@ export function DataLibraryPage({
 
 npm run task:scaffold -- create "C:\\path\\to\\new-data.csv" \`
   --task-id my-material-property-v1 \`
-  --label "新しい材料特性" \`
+  --label "新しい予測タスク" \`
   --input "C_pct:composition:carbon_pct:C:%" \`
   --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" \`
   --input "temperature_C:process:temperature_c:温度:°C" \`

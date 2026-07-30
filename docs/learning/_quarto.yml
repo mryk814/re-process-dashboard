@@ -7,9 +7,9 @@ profile:
     - [site, reader]
 
 book:
-  title: "Material Decision Workbench 教材"
+  title: "Evidence Decision Workbench 教材"
   subtitle: "科学的意味と判断証拠を、データ・モデル・探索・UIへ通す"
-  author: "Material Decision Workbench contributors"
+  author: "Evidence Decision Workbench contributors"
   date: last-modified
   search:
     location: sidebar

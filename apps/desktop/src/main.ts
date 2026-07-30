@@ -582,7 +582,7 @@ async function failAndQuit(error: unknown): Promise<void> {
   }
   isQuitting = true;
   const message = error instanceof Error ? error.message : String(error);
-  dialog.showErrorBox("Material Decision Workbench を起動できません", message);
+  dialog.showErrorBox("Evidence Decision Workbench を起動できません", message);
   await stopSidecar();
   app.quit();
 }
@@ -614,7 +614,7 @@ async function prepareRestoreFromNativeDialog(): Promise<WorkspaceOperationResul
     title: "Workspaceバックアップを選択",
     properties: ["openFile"],
     filters: [
-      { name: "Material Decision Workspace", extensions: ["mdwb"] },
+      { name: "Evidence Decision Workspace", extensions: ["mdwb"] },
       { name: "すべてのファイル", extensions: ["*"] },
     ],
   };
@@ -742,7 +742,7 @@ function registerWorkspaceIpc(): void {
       const options: Electron.SaveDialogOptions = {
         title: "Workspaceバックアップを保存",
         defaultPath: `material-workbench-${timestampForFilename()}.mdwb`,
-        filters: [{ name: "Material Decision Workspace", extensions: ["mdwb"] }],
+        filters: [{ name: "Evidence Decision Workspace", extensions: ["mdwb"] }],
       };
       const selection = mainWindow
         ? await dialog.showSaveDialog(mainWindow, options)
@@ -806,7 +806,7 @@ async function recoverStartup(initialError: unknown): Promise<boolean> {
       : ["再試行", "診断ログを開く", "バックアップから復元", "終了"];
     const choice = await dialog.showMessageBox({
       type: "error",
-      title: "Material Decision Workbench を起動できません",
+      title: "Evidence Decision Workbench を起動できません",
       message: workspaceFailure
         ? "ワークスペースの整合性を確認できませんでした。"
         : "ローカルAPIを起動できませんでした。",

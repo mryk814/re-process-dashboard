@@ -34,7 +34,7 @@ await writeFile(resolve(outdir, "index.html"), `<!doctype html>
     <meta name="theme-color" content="#0F1B2D" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <link rel="apple-touch-icon" href="./app-icon.png" />
-    <title>Material Decision Workbench</title>
+    <title>Evidence Decision Workbench</title>
     <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body>
