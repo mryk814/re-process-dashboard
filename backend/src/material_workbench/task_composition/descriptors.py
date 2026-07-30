@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.contracts.task_contracts import (
@@ -48,6 +48,7 @@ class StarterProject:
         [PredictionRuntime, TaskDefinition],
         list[CandidateInput],
     ] | None = None
+    distribution: Literal["quickstart", "gallery", "legacy_hidden"] = "legacy_hidden"
 
 
 @dataclass(frozen=True)

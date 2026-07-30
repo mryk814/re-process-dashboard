@@ -6,6 +6,7 @@ root can depend inward without becoming an import hub for the rest of the app.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -875,6 +876,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             "溶接材料 Stage B",
             _welding_stage_b_starter,
             seed_on_upgrade=True,
+            distribution="gallery",
         ),
     ),
     ANNEALED_TASK_ID: TaskModule(
@@ -909,6 +911,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             _annealed_starter_candidates,
             seed_on_upgrade=True,
             legacy_candidate_factory=_legacy_annealed_starter_candidates,
+            distribution="quickstart",
         ),
         response_curve=_annealed_response_curve,
     ),
@@ -939,7 +942,12 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             input_space_target="TS",
         ),
         data_explorer=_EXPLORER,
-        starter_project=StarterProject("hot-rolling-default", "熱延条件の候補検討", _hot_rolling_starter_candidates),
+        starter_project=StarterProject(
+            "hot-rolling-default",
+            "熱延条件の候補検討",
+            _hot_rolling_starter_candidates,
+            distribution="legacy_hidden",
+        ),
         response_curve=_standard_response_curve,
     ),
     FLANK_WEAR_TASK_ID: TaskModule(
@@ -991,7 +999,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "composition.carbon_pct",
             ),
         ),
-        starter_project=_tabular_starter(HEAT_TREATMENT_TASK_ID, "熱処理の硬さ・靭性"),
+        starter_project=replace(
+            _tabular_starter(HEAT_TREATMENT_TASK_ID, "熱処理の硬さ・靭性"),
+            distribution="legacy_hidden",
+        ),
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
     ),
@@ -1021,7 +1032,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             ),
             input_space_target="compressive_strength_mpa",
         ),
-        starter_project=_tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
+        starter_project=replace(
+            _tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
+            distribution="legacy_hidden",
+        ),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
         data_explorer=_TABULAR_EXPLORER,
@@ -1052,7 +1066,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             ),
             input_space_target="wear_vb_um",
         ),
-        starter_project=_tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
+        starter_project=replace(
+            _tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
+            distribution="legacy_hidden",
+        ),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
         data_explorer=_TABULAR_EXPLORER,
@@ -1087,7 +1104,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             contour_axes=("process.cycle_index", "process.discharge_rate_c"),
             input_space_target="capacity_percent",
         ),
-        starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
+        starter_project=replace(
+            _tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
+            distribution="gallery",
+        ),
         response_curve=_standard_response_curve,
         curve_family=_curve_family,
         data_explorer=_TABULAR_EXPLORER,
@@ -1119,7 +1139,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             ),
             input_space_target="fail_probability",
         ),
-        starter_project=_tabular_starter(SECOM_YIELD_TASK_ID, "SECOM工程異常リスク"),
+        starter_project=replace(
+            _tabular_starter(SECOM_YIELD_TASK_ID, "SECOM工程異常リスク"),
+            distribution="legacy_hidden",
+        ),
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
     ),
@@ -1167,7 +1190,13 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             prediction_space_targets=("TYS", "UTS", "EL"),
             input_space_target="TYS",
         ),
-        starter_project=_tabular_starter(MPEA_ROOM_TENSILE_TASK_ID, "MPEA文献の室温引張特性"),
+        starter_project=replace(
+            _tabular_starter(
+                MPEA_ROOM_TENSILE_TASK_ID,
+                "MPEA文献の室温引張特性",
+            ),
+            distribution="gallery",
+        ),
         data_explorer=_TABULAR_EXPLORER,
     ),
     MPEA_HARDNESS_TASK_ID: TaskModule(
@@ -1191,7 +1220,10 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             similarity=True,
             input_space_target="HV",
         ),
-        starter_project=_tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
+        starter_project=replace(
+            _tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
+            distribution="legacy_hidden",
+        ),
         data_explorer=_TABULAR_EXPLORER,
     ),
     WELDING_STAGE_C_TASK_ID: TaskModule(
@@ -1224,6 +1256,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             "welding-stage-c-default",
             "溶着金属成分から特性を予測",
             _welding_stage_c_starter,
+            distribution="legacy_hidden",
         ),
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,

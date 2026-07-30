@@ -312,14 +312,13 @@ def test_external_sources_are_bundled_with_readme_provenance() -> None:
 
 
 def test_external_starters_are_installed_explicitly_in_an_existing_database(
-    tmp_path: Path, resources
+    tmp_path: Path, resources, monkeypatch
 ) -> None:
     database = tmp_path / "existing-workbench.db"
     Store(database)
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
     app = create_app(db_path=database, _resources=resources)
     with TestClient(app) as client:
-        installed = client.post("/api/sample-gallery", json={"project_ids": []})
-        assert installed.status_code == 200
         for task_id in EXTERNAL_TASKS:
             project_id = f"{task_id}-default"
             candidates = client.get(f"/api/projects/{project_id}/candidates")

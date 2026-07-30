@@ -27,7 +27,10 @@ Electron 43との配布経路を後退させず、修正版の依存木へ進め
 
 ## 配布経路の追従
 
-同梱サンプルを初期Workspaceへ全件入れない契約へ変わったため、packaged smokeは必要な4サンプルだけをSample Gallery APIで追加してから予測曲線を検証します。
+同梱サンプルを初期Workspaceへ全件入れない契約へ変わったため、packaged smokeは
+Quickstart 1件だけで始まることと公開Gallery 3件を確認し、Gallery APIで追加してから
+代表する電池容量劣化の予測曲線を検証します。全Taskの回帰は内部fixtureとPackage契約
+テストが担当します。
 初期画面を重く戻さず、folder版とinstaller版の配布検証を維持しています。
 
 ## 検証
@@ -36,5 +39,5 @@ Electron 43との配布経路を後退させず、修正版の依存木へ進め
 - `npm run security:audit`: production 0 / development 0
 - `npm run api:check`: passed
 - `npm run build`: passed
-- `npm run package:windows`: folder ZIP、NSIS installer、portable/installed smoke、API lifecycle、Sample Gallery追加、4種の予測曲線、install/uninstall、user database保持を確認
+- `npm run package:windows`: folder ZIP、NSIS installer、portable/installed smoke、API lifecycle、公開Sample Gallery 3件の追加、代表予測曲線、install/uninstall、user database保持を確認
 - packaged portable launch to first usable: 27.8秒（sidecar初回起動を含む）

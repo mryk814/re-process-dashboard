@@ -41,7 +41,9 @@ def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _A
     database = root / "workbench.db"
     baseline = root / "baseline.db"
     previous_profile_store = os.environ.get("WORKBENCH_PROFILE_STORE_PATH")
+    previous_demo_seed = os.environ.get("WORKBENCH_DEMO_SEED")
     os.environ["WORKBENCH_PROFILE_STORE_PATH"] = str(root / "personal-profiles")
+    os.environ["WORKBENCH_DEMO_SEED"] = "all"
     try:
         app = create_app(
             db_path=database,
@@ -49,11 +51,10 @@ def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _A
             _resources=app_resources,
         )
         with TestClient(app) as test_client:
-            installed = test_client.post(
-                "/api/sample-gallery",
-                json={"project_ids": []},
-            )
-            installed.raise_for_status()
+            if previous_demo_seed is None:
+                os.environ.pop("WORKBENCH_DEMO_SEED", None)
+            else:
+                os.environ["WORKBENCH_DEMO_SEED"] = previous_demo_seed
             shutil.copyfile(database, baseline)
             yield test_client, database, baseline
     finally:
@@ -61,6 +62,10 @@ def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _A
             os.environ.pop("WORKBENCH_PROFILE_STORE_PATH", None)
         else:
             os.environ["WORKBENCH_PROFILE_STORE_PATH"] = previous_profile_store
+        if previous_demo_seed is None:
+            os.environ.pop("WORKBENCH_DEMO_SEED", None)
+        else:
+            os.environ["WORKBENCH_DEMO_SEED"] = previous_demo_seed
 
 
 @pytest.fixture()

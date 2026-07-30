@@ -4,6 +4,13 @@ from material_workbench.app import create_app
 from material_workbench.contracts.schemas import CandidateInput
 
 
+FEATURED_GALLERY_PROJECT_IDS = {
+    "battery-degradation-v1-default",
+    "mpea-room-tensile-v1-default",
+    "welding-stage-b-default",
+}
+
+
 def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
     tmp_path,
     app_resources,
@@ -27,7 +34,7 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
         } == {"material_workbench_tutorial_v2.xlsx"}
 
         gallery = client.get("/api/sample-gallery").json()
-        assert len(gallery) == 10
+        assert {item["project_id"] for item in gallery} == FEATURED_GALLERY_PROJECT_IDS
         assert all(not item["installed"] for item in gallery)
         selected = next(item for item in gallery if item["available"])
 
@@ -117,6 +124,83 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
         )
         assert protected_item["removable"] is False
         assert "保存した予測" in protected_item["remove_blocked_reason"]
+
+
+def test_installed_legacy_sample_can_be_removed_but_not_reinstalled(
+    tmp_path,
+    app_resources,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
+    legacy_project_id = "hot-rolling-default"
+    with TestClient(
+        create_app(
+            db_path=tmp_path / "workbench.db",
+            data_library_path=tmp_path / "data-library",
+            _resources=app_resources,
+        )
+    ) as client:
+        item = next(
+            item for item in client.get("/api/sample-gallery").json()
+            if item["project_id"] == legacy_project_id
+        )
+        assert item["installed"] is True
+        assert item["removable"] is True
+
+        assert client.delete(
+            f"/api/sample-gallery/{legacy_project_id}"
+        ).status_code == 204
+        assert legacy_project_id not in {
+            item["project_id"]
+            for item in client.get("/api/sample-gallery").json()
+        }
+        rejected = client.post(
+            "/api/sample-gallery",
+            json={"project_ids": [legacy_project_id]},
+        )
+        assert rejected.status_code == 409
+        assert rejected.json()["code"] == "validation_error"
+
+
+def test_sample_removal_is_atomic_when_a_successor_blocks_purge(
+    tmp_path,
+    app_resources,
+) -> None:
+    with TestClient(
+        create_app(
+            db_path=tmp_path / "workbench.db",
+            data_library_path=tmp_path / "data-library",
+            _resources=app_resources,
+        )
+    ) as client:
+        project_id = "battery-degradation-v1-default"
+        assert client.post(
+            "/api/sample-gallery",
+            json={"project_ids": [project_id]},
+        ).status_code == 200
+        project = client.get(f"/api/projects/{project_id}").json()
+        successor = client.post(
+            "/api/projects",
+            json={
+                "name": "サンプルから続ける検討",
+                "task_id": project["task_id"],
+                "dataset_view_revision_id": project["dataset_view_revision_id"],
+                "task_contract_digest": project["task_contract_digest"],
+                "model_package_ref_id": project["model_package_ref_id"],
+                "model_package_manifest_digest": (
+                    project["model_package_manifest_digest"]
+                ),
+                "predecessor_project_id": project_id,
+            },
+        )
+        assert successor.status_code == 201
+
+        rejected = client.delete(f"/api/sample-gallery/{project_id}")
+        assert rejected.status_code == 409
+        assert rejected.json()["code"] == "sample_has_saved_work"
+        active = client.get(f"/api/projects/{project_id}")
+        assert active.status_code == 200
+        assert active.json()["archived_at"] is None
 
 
 def test_existing_workspace_does_not_reinstall_removed_gallery_projects(

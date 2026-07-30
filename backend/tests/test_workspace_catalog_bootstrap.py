@@ -77,13 +77,11 @@ EXPECTED_MODEL_PACKAGES = {
 def test_startup_registers_runtime_resources_and_binds_projects(
     tmp_path: Path,
     app_resources: _AppResources,
+    monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
-        assert client.post(
-            "/api/sample-gallery",
-            json={"project_ids": []},
-        ).status_code == 200
         projects = {item["id"]: item for item in client.get("/api/projects").json()}
         catalog = client.app.state.workspace_catalog
 
@@ -225,13 +223,11 @@ def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(
 def test_every_replaced_package_id_has_an_explicit_project_upgrade(
     tmp_path: Path,
     app_resources: _AppResources,
+    monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
-        assert client.post(
-            "/api/sample-gallery",
-            json={"project_ids": []},
-        ).status_code == 200
         catalog = client.app.state.workspace_catalog
         for previous_id in REPLACED_MODEL_PACKAGE_IDS:
             package = ModelPackageLoader().load(ROOT / "models/packages" / previous_id)
@@ -353,13 +349,11 @@ def test_bootstrap_reuses_digest_equivalent_legacy_profile_json(
 def test_bootstrap_migrates_only_the_replaced_three_output_mpea_binding(
     tmp_path: Path,
     app_resources: _AppResources,
+    monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
-        assert client.post(
-            "/api/sample-gallery",
-            json={"project_ids": []},
-        ).status_code == 200
         current = next(
             item for item in client.get("/api/projects").json()
             if item["task_id"] == "mpea-room-tensile-v1"

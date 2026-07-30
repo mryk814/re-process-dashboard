@@ -62,9 +62,11 @@ def _candidate_update(candidate: dict[str, object]) -> dict[str, object]:
 def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
     tmp_path: Path,
     app_resources,
+    monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
     data_library = tmp_path / "data-library"
+    monkeypatch.setenv("WORKBENCH_DEMO_SEED", "all")
 
     with TestClient(
         create_app(
@@ -73,10 +75,6 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
             _resources=app_resources,
         )
     ) as healthy:
-        assert healthy.post(
-            "/api/sample-gallery",
-            json={"project_ids": []},
-        ).status_code == 200
         projects = healthy.get("/api/projects").json()
         broken_project = next(item for item in projects if item["task_id"] == BROKEN_TASK_ID)
         broken_candidate = healthy.get(

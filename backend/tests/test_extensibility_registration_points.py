@@ -108,6 +108,24 @@ def test_starter_project_ids_are_unique() -> None:
     assert shared == {}, f"starter projectのidが衝突しています: {shared}"
 
 
+def test_public_starter_portfolio_is_explicit_and_stays_small() -> None:
+    """Task追加は、明示しない限りユーザー向けGalleryを増やさない。"""
+
+    by_distribution: dict[str, set[str]] = defaultdict(set)
+    for module in registered_task_modules().values():
+        if module.starter_project is not None:
+            by_distribution[module.starter_project.distribution].add(
+                module.starter_project.project_id
+            )
+
+    assert by_distribution["quickstart"] == {"default"}
+    assert by_distribution["gallery"] == {
+        "battery-degradation-v1-default",
+        "mpea-room-tensile-v1-default",
+        "welding-stage-b-default",
+    }
+
+
 def test_shared_source_env_and_source_kind_agree_on_one_default_source() -> None:
     """同じsource_env / source_kindを名乗るTaskは同じ既定sourceを指す。
 
