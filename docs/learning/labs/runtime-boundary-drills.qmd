@@ -49,14 +49,14 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# Runtime境界を壊してから直す
+# 実行時境界を壊してから直す
 
-このguided Labは、Model Package、Chain、推論cache、Workspace bundleの既存adversarial testを、四つの独立した失敗モードとして実行します。
-すべて合成fixtureとpytestの一時directoryを使い、`data/source/`、production Workspace DB、checked-in Packageを変更しません。
+この実習では、モデルパッケージ、複数段の計算、推論結果の再利用、ワークスペースのバックアップという四つの境界を、既存の敵対的テストで一つずつ壊します。
+すべて合成した検証用データと`pytest`の一時ディレクトリを使い、`data/source/`、実運用のワークスペースデータベース、リポジトリで管理するモデルパッケージは変更しません。
 
-## 1. Model Packageの改ざんと任意codeを拒否する
+## 1. モデルパッケージの改ざんと任意コードを拒否する
 
-repository rootで実行します。
+リポジトリ直下で実行します。
 
 ```powershell
 uv run python -m pytest -n 0 `
@@ -64,11 +64,11 @@ uv run python -m pytest -n 0 `
   backend/tests/test_model_packages.py::test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization
 ```
 
-一つ目はhash、path traversal、未知fieldを別々に拒否します。
-二つ目はruntime経路に動的import、pickle、joblib、任意code実行が入らないことを検査します。
-単に「loadが失敗した」ではなく、どの信頼境界が原因に最も近いかを記録してください。
+一つ目はハッシュ不一致、経路逸脱、未知のフィールドを別々に拒否します。
+二つ目は実行時経路に動的読込み、`pickle`、`joblib`、任意コード実行が入らないことを検査します。
+単に「読込みが失敗した」ではなく、どの信頼境界が原因に最も近いかを記録してください。
 
-## 2. Chainの部分再計算と不確かさ伝播を分ける
+## 2. 複数段計算の部分再計算と不確かさ伝播を分ける
 
 ```powershell
 uv run python -m pytest -n 0 `
@@ -77,10 +77,10 @@ uv run python -m pytest -n 0 `
   backend/tests/test_chain_execution.py::test_failure_retains_previous_downstream_result_and_marks_freshness
 ```
 
-最初のtestはbindingとaffected closure、二つ目は線形toyの解析分散とMonte Carlo、三つ目は失敗後に残す旧resultとfreshnessを検査します。
-三つを一つの「Chainが動くtest」とまとめず、それぞれの非保証も書いてください。
+最初のテストは段同士の結合と変更の影響が届く範囲、二つ目は線形の小例における解析分散とモンテカルロ計算、三つ目は失敗後に残す旧結果と現在入力との対応を検査します。
+三つを一つの「複数段計算が動くテスト」とまとめず、それぞれの非保証も書いてください。
 
-## 3. 同じ推論だけをcoalesceする
+## 3. 同じ推論要求だけを一つの計算へまとめる
 
 ```powershell
 uv run python -m pytest -n 0 `
@@ -91,10 +91,11 @@ uv run python -m pytest -n 0 `
 node --test apps/web/tests/inferenceRequestCache.test.mjs
 ```
 
-backendはsemantic keyと共有Future、frontendはsubscriberごとのabortと最新identityを扱います。
-cache hit、coalesced request、stale responseを同じ件数へ混ぜないでください。
+バックエンドは意味に基づくキーと共有する進行中計算、フロントエンドは待受元ごとの中止と最新の同一性を扱います。
+保存済み結果の再利用、同時要求の集約、古い応答の破棄は、意味の異なる実行経路です。
+同じ件数へまとめず、テスト結果を経路ごとに記録してください。
 
-## 4. Workspace bundleを展開前に拒否する
+## 4. ワークスペースのバックアップを展開前に拒否する
 
 ```powershell
 uv run python -m pytest -n 0 `
@@ -102,25 +103,25 @@ uv run python -m pytest -n 0 `
   backend/tests/test_workspace_bundle.py::test_unsafe_archive_paths_are_rejected_before_extraction
 ```
 
-現在WorkspaceのDBとdata libraryが変わらないこと、unsafe pathを展開前に拒否することを確認します。
-checksum不一致とZIP slipは別の攻撃入力です。
+現在のワークスペースのDBとデータ保管領域が変わらないこと、危険な経路を展開前に拒否することを確認します。
+チェックサム不一致とZIPの展開先逸脱は別の攻撃入力です。
 
 ## 成功条件
 
-- 四つのcommand群が終了code 0になる
-- Package、Chain、cache、bundleについて、各testが保証することと保証しないことを一行ずつ記録する
-- `git status --short -- data/source data models apps/web/src/generated`にLab由来の変更がない
-- 実データ、credential、networkを使っていない
+- 四つのコマンド群が終了コード0になる
+- モデルパッケージ、複数段の計算、推論結果の再利用、ワークスペースのバックアップについて、各テストが保証することと保証しないことを一行ずつ記録する
+- `git status --short -- data/source data models apps/web/src/generated`を実行し、この実習による変更がないことを確かめる
+- 実データ、認証情報、ネットワークを使っていない
 
-## Reset
+## 実習前の状態へ戻す
 
-このLabはrepository内へ成果物を書きません。
-失敗時もpytestとNode processが終了していることを確認し、`artifacts/learning-labs/`またはproduction pathを手動削除しません。
-一時directoryはtest runnerの管理下にあります。
+この実習はリポジトリ内へ成果物を書きません。
+失敗時も`pytest`とNodeのプロセスが終了していることを確認し、`artifacts/learning-labs/`または実運用の経路を手動削除しません。
+一時ディレクトリはテスト実行器の管理下にあります。
 
 ## 次に読む
 
-- [Model PackageとRuntime](../chapters/model-package-runtime.qmd)
-- [複数StageのChain](../chapters/multi-stage-chain.qmd)
+- [モデルパッケージと実行時処理](../chapters/model-package-runtime.qmd)
+- [複数段の計算をつなぐ](../chapters/multi-stage-chain.qmd)
 - [計算の意味を守る性能設計](../chapters/performance-execution.qmd)
-- [Local Appの信頼境界](../chapters/security-trust-boundaries.qmd)
+- [ローカルアプリの信頼境界](../chapters/security-trust-boundaries.qmd)

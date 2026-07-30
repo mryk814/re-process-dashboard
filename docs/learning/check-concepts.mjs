@@ -258,6 +258,14 @@ function renderStatus(status) {
   }[status];
 }
 
+function renderScope(scope) {
+  return {
+    "repo-wide": "リポジトリ全体",
+    subsystem: "一つの機能領域",
+    pattern: "複数箇所に現れる設計パターン",
+  }[scope];
+}
+
 function renderConceptList(ids, conceptsById, page = "") {
   if (ids.length === 0) return "なし";
   return ids
@@ -279,7 +287,7 @@ function renderGlossary(data, concepts, conceptsById, chaptersById) {
     "",
     "# 用語集 {#sec-glossary .unnumbered}",
     "",
-    "画面に表示された「改訂」と、保存競合を防ぐ`revision`は、同じ語で呼べそうに見えても答える問いが違います。",
+    "画面に表示された「改訂」と、保存競合を防ぐ版番号（実装上の`revision`）は、同じ語で呼べそうに見えても答える問いが違います。",
     "この用語集は日本語と英語の対応だけでなく、何を指し、何と混同しやすく、現行実装のどこへ着地するかをまとめます。",
     "",
     "状態は、現行実装で確認した概念を「現行」、実装前の候補を「将来候補」、現在は採用していない過去の案を「履歴」として区別します。",
@@ -302,7 +310,7 @@ function renderGlossary(data, concepts, conceptsById, chaptersById) {
       if (concept.aliases.length > 0) {
         lines.push(`**別名と検索語**：${concept.aliases.join("、")}`, "");
       }
-      lines.push(`**適用範囲**：${concept.scope}`, "");
+      lines.push(`**適用範囲**：${renderScope(concept.scope)}`, "");
       lines.push(
         `**同じではない概念**：${renderConceptList(concept.not_same_as, conceptsById)}`,
         "",
@@ -338,7 +346,7 @@ function renderGlossary(data, concepts, conceptsById, chaptersById) {
           `[${reference.path}](${permalink(data.repository, data.verified_commit, reference)})`,
       );
       lines.push(
-        `**このrepoの実装**：${repoLinks.length > 0 ? repoLinks.join("、") : "現行実装なし"}`,
+        `**このリポジトリの実装**：${repoLinks.length > 0 ? repoLinks.join("、") : "現行実装なし"}`,
         "",
       );
       if (concept.common_misconceptions.length > 0) {
@@ -354,8 +362,8 @@ function renderGlossary(data, concepts, conceptsById, chaptersById) {
           "**表示と言葉の対応**：",
           "",
           `- 一般概念：${concept.ui_mapping.general}`,
-          `- internal term：${concept.ui_mapping.internal}`,
-          `- UI表現：${concept.ui_mapping.ui}`,
+          `- 実装上の用語：${concept.ui_mapping.internal}`,
+          `- 画面上の表現：${concept.ui_mapping.ui}`,
           "",
         );
       }
@@ -390,10 +398,10 @@ function renderMap(data, concepts, conceptsById, chapters) {
     "# 概念の依存から読む {#sec-concept-map}",
     "",
     "用語集を五十音順に引けても、どの概念を先に理解すればよいかは分かりません。",
-    "ここでは、概念そのものと表示上の集まりを分け、直接の前提だけを辺として示します。^[W3C SKOSはconcept、label、collectionを分け、`broader`と`narrower`を直接の階層関係として扱います [@w3c-skos-reference; @w3c-skos-primer]。本教材はRDFを導入せず、この分離だけを小さなJSON schemaへ借りています。]",
+    "ここでは、概念そのものと表示上のまとまりを分け、直接の前提だけを辺として示します。^[W3C SKOSは、概念、表示名、概念のまとまりを分け、`broader`と`narrower`を直接の階層関係として扱います [@w3c-skos-reference; @w3c-skos-primer]。本教材はRDFを導入せず、この分離だけを小さなJSON形式の定義へ借りています。]",
     "",
     "この表の`A → B`は「Aを理解してからBを読む」を表します。",
-    "関連があるだけの概念は前提にしません。^[Referenceは調べるための情報として簡潔で一貫した形にそろえ、説明や手順を混ぜないという分離はDiátaxisのReferenceに倣いました [@diataxis]。Googleの開発者向けstyle guideも、用語の定義ではdescription listと正確な語の選択を勧めています [@google-dev-word-list; @google-dev-lists]。]",
+    "関連があるだけの概念は前提にしません。^[調べるための参照情報は簡潔で一貫した形にそろえ、説明や手順を混ぜないという分離はDiátaxisの参照文書に倣いました [@diataxis]。Googleの開発者向け執筆指針も、用語の定義では定義リストと正確な語の選択を勧めています [@google-dev-word-list; @google-dev-lists]。]",
     "",
     "## 章を読む前に確かめる概念",
     "",
@@ -502,7 +510,7 @@ function renderMap(data, concepts, conceptsById, chapters) {
     lines.push(
       `| ${renderStatus(status)} | ${concepts.filter((concept) => concept.status === status).length} | ${
         {
-          current: "verified commitの実装または契約へリンクする",
+          current: "確認済みのコミットにある実装または契約へリンクする",
           future: "未実装の候補として読み、現行機能へ格上げしない",
           historical: "過去の案または不採用判断として読む",
         }[status]
@@ -511,9 +519,9 @@ function renderMap(data, concepts, conceptsById, chapters) {
   }
   lines.push(
     "",
-    "## UI labelとinternal termを分ける",
+    "## 画面上の言葉と実装上の用語を分ける",
     "",
-    "| 一般概念 | internal term | UI表現 |",
+    "| 一般概念 | 実装上の用語 | 画面上の表現 |",
     "|---|---|---|",
   );
   for (const concept of concepts.filter((item) => item.ui_mapping)) {
@@ -523,7 +531,7 @@ function renderMap(data, concepts, conceptsById, chapters) {
   }
   lines.push(
     "",
-    "この対応表は生のenumを日本語へ置換する辞書ではありません。",
+    "この対応表は、列挙値をそのまま日本語へ置換する辞書ではありません。",
     "利用者が判断するときの語と、保存や通信で使う識別子が答える問いを分けます。",
     "",
   );

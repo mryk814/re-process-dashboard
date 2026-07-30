@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-31-pr-551-552",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15",
+  "reviewed_against": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
+  "pull_requests": [
+    {
+      "number": 551,
+      "merge_commit": "3722d1d611e5732ee3ba0cfe6ee1413dcd6371fc",
+      "classification": "conceptual_update",
+      "reason": "目標探索の全評価点から少数の提案候補を選ぶ契約と処理が加わり、順位上位と多様性を考慮する選択、件数不足、距離を扱えない場合の拒否、再現証拠が保存されるようになった。",
+      "changed_paths": [
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+        "apps/web/src/features/screening/ScreeningRepresentativeTable.tsx",
+        "apps/web/src/features/screening/screening.css",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "apps/web/tests/screeningProposalSummary.test.mjs",
+        "backend/src/material_workbench/application/screening.py",
+        "backend/src/material_workbench/contracts/batch_proposal_contracts.py",
+        "backend/src/material_workbench/contracts/proposal_contracts.py",
+        "backend/src/material_workbench/contracts/schemas.py",
+        "backend/src/material_workbench/domain/proposal_selection.py",
+        "backend/src/material_workbench/domain/services.py",
+        "backend/tests/test_projects.py",
+        "backend/tests/test_proposal_selection.py",
+        "backend/tests/test_proposal_strategies.py",
+        "backend/tests/test_step4_to_6.py",
+        "docs/contracts/curation-and-proposal-architecture.md",
+        "e2e/screening-workbench.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+        "apps/web/src/generated/api-types.ts",
+        "apps/web/src/generated/openapi.json",
+        "backend/src/material_workbench/application/screening.py",
+        "backend/src/material_workbench/contracts/proposal_contracts.py",
+        "backend/src/material_workbench/contracts/schemas.py",
+        "backend/src/material_workbench/domain/proposal_selection.py",
+        "backend/src/material_workbench/domain/services.py",
+        "backend/tests/test_projects.py",
+        "backend/tests/test_proposal_selection.py",
+        "backend/tests/test_proposal_strategies.py",
+        "e2e/screening-workbench.spec.ts"
+      ]
+    },
+    {
+      "number": 552,
+      "merge_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
+      "classification": "conceptual_update",
+      "reason": "探索結果を地図、提案候補または実験バッチ、全評価点へ分け、保存済みの集合と補間表示を区別する画面になった。旧実行記録に存在しない集合は補わず、表示不能として扱う。",
+      "changed_paths": [
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningRepresentativeTable.tsx",
+        "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
+        "apps/web/src/features/screening/screening.css",
+        "apps/web/src/features/screening/screeningInterpolation.ts",
+        "apps/web/tests/issue130Presentation.test.mjs",
+        "apps/web/tests/screeningInterpolation.test.mjs",
+        "apps/web/tests/screeningResultSurfaces.test.mjs",
+        "apps/web/tests/screeningResultTable.test.mjs",
+        "docs/contracts/curation-and-proposal-architecture.md",
+        "e2e/screening-workbench.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
+        "apps/web/src/features/screening/screeningInterpolation.ts",
+        "e2e/screening-workbench.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "evaluated-points-proposals-and-batches",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "reason": "探索章へ全評価点、提案候補、実験バッチの違いを追加し、選択処理を再利用しても提案候補を実験バッチと呼ばない境界を記述した。"
+    },
+    {
+      "claim_id": "proposal-selection-evidence",
+      "classification": "conceptual_update",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/design-space-acquisition.qmd",
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd"
+      ],
+      "reason": "要求件数、実際の件数、候補集合のハッシュ値、距離、同点規則、件数不足を保存する契約と、距離を扱えない設計空間で停止する条件を構造化参照へ加えた。"
+    },
+    {
+      "claim_id": "unaffected-contract-and-safety-boundaries",
+      "classification": "no_content_impact",
+      "action": "updated",
+      "documents": [
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/performance-execution.qmd",
+        "docs/learning/chapters/prediction-calibration-support.qmd",
+        "docs/learning/chapters/revision-and-digest.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd",
+        "docs/learning/chapters/system-map.qmd",
+        "docs/learning/chapters/verification-operations.qmd",
+        "docs/learning/labs/extend-contract.qmd",
+        "docs/learning/labs/trace-project-lifecycle.qmd",
+        "docs/learning/labs/trace-revision-conflict.qmd",
+        "docs/learning/figures/registry.json"
+      ],
+      "reason": "生成型、共通スキーマ、既存テストと図の参照は変わったが、候補の版、完全削除、予測区間、検討アクティビティ、検証段階に関する既存の主張は維持された。変更された識別子と検査条件を確認して確認済みコミットを進めた。"
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #551と#552のfirst-parent差分30件を列挙し、教材の構造化参照と交差する実装、契約、画面、テストを確認した。",
+    "current_main_drift": "変更された章、実習、概念地図、コード地図、図をb8a107a6163cf0a59e633cf6e6a018dcbe9e4834まで確認した。",
+    "focused_evidence": "提案選択、探索結果面、補間、表示表、提案要約の単体テストとスクリーニングE2Eを実装証拠として確認した。",
+    "repository_gates": "教材の全検査、共通ゲート、HTML、PDF、全ページ目視をこの更新で実行する。"
+  },
+  "reviewer_note": "提案候補と実験バッチの選択処理が一部を共有していても、保存上と読者の判断上は別の対象として扱った。"
+}

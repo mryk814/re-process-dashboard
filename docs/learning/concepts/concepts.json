@@ -2,7 +2,7 @@
   "$schema": "./concept.schema.json",
   "schema_version": 1,
   "repository": "mryk814/re-process-dashboard",
-  "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+  "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
   "categories": [
     {
       "id": "identity-evidence",
@@ -67,7 +67,7 @@
     },
     {
       "id": "trace-revision-conflict",
-      "title": "演習：二つの順番と遅いレスポンスを判定する",
+      "title": "演習：二つの順番と古い応答を判定する",
       "path": "labs/trace-revision-conflict.qmd"
     },
     {
@@ -104,7 +104,7 @@
   "concepts": [
     {
       "id": "logical-identity",
-      "term_ja": "論理同一性",
+      "term_ja": "継続対象の同一性",
       "term_en": "logical identity",
       "aliases": [
         "logical ID"
@@ -113,9 +113,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "変更版をまたいで同じ継続対象を指す識別子で、Candidateでは`id`が担います。",
+      "definition": "内容が変わっても同じ候補を指し続けるための識別子で、候補では`id`がこの役割を担います。",
       "anti_definitions": [
-        "内容が同じであることを示すdigestではありません。"
+        "内容が同じであることを示すハッシュ値ではありません。"
       ],
       "not_same_as": [
         "semantic-digest",
@@ -136,7 +136,7 @@
     },
     {
       "id": "revision",
-      "term_ja": "リビジョン",
+      "term_ja": "版番号",
       "term_en": "revision",
       "aliases": [
         "Candidate revision"
@@ -145,9 +145,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "同じ論理対象について受理された変更の順番で、Candidateでは保存競合の検出と過去版参照に使います。",
+      "definition": "同じ対象について受理された変更の順番で、候補では保存競合の検出と過去版の参照に使います。",
       "anti_definitions": [
-        "内容が同じであることを示すhashではありません。"
+        "内容が同じであることを示すハッシュ値ではありません。"
       ],
       "not_same_as": [
         "logical-identity",
@@ -169,12 +169,12 @@
         }
       ],
       "common_misconceptions": [
-        "revision値が大きいほど内容が良い、という尺度ではありません。"
+        "版番号が大きいほど内容が良い、という尺度ではありません。"
       ]
     },
     {
       "id": "semantic-digest",
-      "term_ja": "意味ダイジェスト",
+      "term_ja": "意味内容のハッシュ値",
       "term_en": "semantic digest",
       "aliases": [
         "content identity"
@@ -183,7 +183,7 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "callerが契約で選んだfieldを決定的に正規化して計算する内容identityです。",
+      "definition": "呼び出し側が契約で選んだフィールドを一定の手順で正準化し、内容が同じかを確かめるために計算する値です。",
       "anti_definitions": [
         "科学的意味の同値性を自動証明する値ではありません。"
       ],
@@ -198,7 +198,7 @@
         "binding-provenance"
       ],
       "math_connections": [
-        "同じcanonical byte列へ同じhash関数を適用したときに同じ値になります"
+        "同じ正準バイト列へ同じハッシュ関数を適用したときに同じ値になります"
       ],
       "repo_references": [
         {
@@ -207,12 +207,12 @@
         }
       ],
       "common_misconceptions": [
-        "pathや表示名を含めるかはhash関数ではなくcallerの契約が決めます。"
+        "ファイルの場所や表示名を含めるかは、ハッシュ関数ではなく呼び出し側の契約が決めます。"
       ]
     },
     {
       "id": "byte-digest",
-      "term_ja": "バイトダイジェスト",
+      "term_ja": "バイト列のハッシュ値",
       "term_en": "byte digest",
       "aliases": [
         "SHA-256"
@@ -221,9 +221,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Sourceまたはartifactの実際のbyte列へSHA-256を適用し、破損と取り違えを検出する値です。",
+      "definition": "元資料や成果物を構成する実際のバイト列へSHA-256を適用し、破損や取り違えを検出する値です。",
       "anti_definitions": [
-        "artifact提供者の真正性を認証する署名ではありません。"
+        "成果物の提供者が本人であることを認証する署名ではありません。"
       ],
       "not_same_as": [
         "semantic-digest"
@@ -233,7 +233,7 @@
         "workspace-bundle"
       ],
       "math_connections": [
-        "入力byte列が一bitでも変われば別値になることを期待する暗号学的hashです"
+        "入力したバイト列が1ビットでも変われば別の値になることを期待する暗号学的ハッシュです"
       ],
       "repo_references": [
         {
@@ -254,9 +254,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "保存後に最新状態で上書きせず、実行時の入力identity、契約、結果を一組として残すSnapshotやRunです。",
+      "definition": "保存後に最新状態で上書きせず、実行時の入力の同一性、契約、結果を一組として残す固定記録や実行記録です。",
       "anti_definitions": [
-        "最新Packageで自動再計算されるcacheではありません。"
+        "最新のモデル成果物で自動再計算される一時保存ではありません。"
       ],
       "not_same_as": [
         "server-state"
@@ -279,7 +279,7 @@
     },
     {
       "id": "snapshot",
-      "term_ja": "スナップショット",
+      "term_ja": "保存時点の固定記録",
       "term_en": "snapshot",
       "aliases": [
         "Prediction Snapshot"
@@ -288,9 +288,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "特定Candidate revisionに対する予測とモデルidentityを固定し、後のPackage変更でも再計算しない保存recordです。",
+      "definition": "候補の特定の版に対する予測とモデルの同一性を固定し、後でモデル成果物が変わっても再計算しない保存記録です。",
       "anti_definitions": [
-        "現在の入力を再評価する一時cacheではありません。"
+        "現在の入力を再評価する一時的なキャッシュではありません。"
       ],
       "not_same_as": [
         "server-state"
@@ -322,7 +322,7 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "結果を作ったTask、Candidate revision、Model Package、Feature Pipeline、学習データを再特定する情報です。",
+      "definition": "結果を作ったタスク、候補の版、モデル成果物一式、特徴量変換手順、学習データを後から特定するための情報です。",
       "anti_definitions": [
         "結果が科学的に正しいことの保証ではありません。"
       ],
@@ -344,14 +344,14 @@
     },
     {
       "id": "binding-provenance",
-      "term_ja": "結び付け来歴",
+      "term_ja": "結び付けの来歴",
       "term_en": "binding provenance",
       "aliases": [],
       "category": "identity-evidence",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "RunがProjectのどのDesign SpaceまたはObjective revisionとdigestを使ったかを実行時に固定する情報です。",
+      "definition": "実行記録がプロジェクトのどの設計空間や目的定義の版と意味内容のハッシュ値を使ったかを、その実行時点で固定する情報です。",
       "anti_definitions": [],
       "not_same_as": [
         "provenance"
@@ -371,12 +371,12 @@
         }
       ],
       "common_misconceptions": [
-        "現在のProject設定を読むだけでは、過去Runが使った設定を再現できません。"
+        "現在のプロジェクト設定を読むだけでは、過去の実行が使った設定を再現できません。"
       ]
     },
     {
       "id": "optimistic-concurrency",
-      "term_ja": "楽観的並行制御",
+      "term_ja": "楽観的同時実行制御",
       "term_en": "optimistic concurrency",
       "aliases": [
         "compare-and-swap"
@@ -385,9 +385,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "編集中にlockを保持せず、保存時に`expected_revision`とcurrent revisionを同一UPDATE内で比較してlost updateを拒否する方式です。",
+      "definition": "編集中はロックを保持せず、保存時に`expected_revision`と現在の版番号を同じ`UPDATE`文の中で比較し、ほかの変更を上書きしてしまう更新を拒否する方式です。",
       "anti_definitions": [
-        "複数利用者の編集を自動mergeする方式ではありません。"
+        "複数利用者の編集内容を自動的に統合する方式ではありません。"
       ],
       "not_same_as": [
         "request-sequence"
@@ -399,7 +399,7 @@
         "typed-error"
       ],
       "math_connections": [
-        "更新条件をcurrent revisionとexpected revisionの等値比較として表します"
+        "更新条件を、現在の版番号と期待する版番号の等値比較として表します"
       ],
       "repo_references": [
         {
@@ -425,9 +425,9 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "応答到着時にProject、Candidate、revision、operation identityが現在の画面文脈と一致しないため破棄すべき応答です。",
+      "definition": "応答が届いた時点で、プロジェクト、候補、版番号、操作の同一性が現在の画面文脈と一致せず、採用してはいけない応答です。",
       "anti_definitions": [
-        "HTTPとして失敗した応答だけを指す語ではありません。"
+        "HTTP通信上で失敗した応答だけを指す語ではありません。"
       ],
       "not_same_as": [
         "typed-error"
@@ -450,7 +450,7 @@
     },
     {
       "id": "request-sequence",
-      "term_ja": "リクエスト連番",
+      "term_ja": "要求連番",
       "term_en": "request sequence",
       "aliases": [
         "request generation"
@@ -459,7 +459,7 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "同じ画面identityで開始したrequestを順番に区別し、先に始めたresponseが後の結果を上書きしないようにするfrontend内の連番です。",
+      "definition": "同じ画面文脈で始めた要求を順番に区別し、先に始めた要求への応答が後の結果を上書きしないようにするフロントエンド内の連番です。",
       "anti_definitions": [],
       "not_same_as": [
         "revision",
@@ -484,7 +484,7 @@
     },
     {
       "id": "raw-source-snapshot",
-      "term_ja": "生ソーススナップショット",
+      "term_ja": "生データの固定記録",
       "term_en": "Raw Source Snapshot",
       "aliases": [
         "raw snapshot"
@@ -493,9 +493,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Connectorから取得した選択済みraw record、source byte hash、locator、差分summaryを変更せず固定する取得成果物です。",
+      "definition": "接続機能から取得して選択した生の記録、元資料のバイトハッシュ、取得位置、差分の要約を、変更せず固定する成果物です。",
       "anti_definitions": [
-        "品質確認を終えたCanonical Datasetではありません。"
+        "品質確認を終えた正準データ集合ではありません。"
       ],
       "not_same_as": [
         "training-snapshot"
@@ -517,7 +517,7 @@
     },
     {
       "id": "canonical-input",
-      "term_ja": "正規入力",
+      "term_ja": "正準入力",
       "term_en": "canonical input",
       "aliases": [
         "canonical candidate input"
@@ -526,9 +526,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "source固有の列名、単位、表現をTaskが解釈できるfieldと単位へ変換した候補入力です。",
+      "definition": "元資料に固有の列名、単位、表現を、タスクが解釈できるフィールドと単位へ変換した候補入力です。",
       "anti_definitions": [
-        "source workbookの列名をそのまま共通語にしたものではありません。"
+        "元のワークブックにある列名を、そのまま共通語へ置き換えたものではありません。"
       ],
       "not_same_as": [
         "feature-pipeline"
@@ -540,7 +540,7 @@
         "design-space"
       ],
       "math_connections": [
-        "単位変換は量の次元とscaleを保つ必要があります"
+        "単位変換では量の次元と尺度を保つ必要があります"
       ],
       "repo_references": [
         {
@@ -562,9 +562,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "組成割合の分子と分母がどの量と材料entityを基準にするかを固定する契約で、mass%、at%、whole wire、deposited metalなどを区別します。",
+      "definition": "組成割合の分子と分母が、どの量と材料のどの部分を基準にするかを固定する契約です。質量百分率と原子百分率、線材全体と溶着金属などを区別します。",
       "anti_definitions": [
-        "百分率の列名またはunit文字列だけではありません。"
+        "百分率の列名や単位を表す文字列だけではありません。"
       ],
       "not_same_as": [
         "canonical-input"
@@ -576,7 +576,7 @@
         "design-space"
       ],
       "math_connections": [
-        "mass fractionとamount fractionは成分ごとのmolar massを介して変換し、各basis上の合計制約を持ちます"
+        "質量分率と物質量分率は成分ごとのモル質量を介して変換し、それぞれの基準上で合計に関する制約を持ちます"
       ],
       "repo_references": [
         {
@@ -585,7 +585,7 @@
         }
       ],
       "common_misconceptions": [
-        "50 mass%をunit表示だけ変えて50 at%として扱うことはできません。"
+        "質量百分率50%を単位表示だけ変えて原子百分率50%として扱うことはできません。"
       ]
     },
     {
@@ -599,9 +599,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "配合やsetpointとして意図した値と、分析またはsensorで観測した値を、判断時点とprovenanceを保った別の事実として扱う区別です。",
+      "definition": "配合や設定値として意図した値と、分析やセンサーで観測した値を、判断時点と来歴を保った別の事実として扱う区別です。",
       "anti_definitions": [
-        "measured値でnominal値を上書きして最新化する規則ではありません。"
+        "実測値で公称値を上書きして最新化する規則ではありません。"
       ],
       "not_same_as": [
         "canonical-input"
@@ -614,7 +614,7 @@
         "leakage"
       ],
       "math_connections": [
-        "両者の差は測定誤差だけでなく製造偏差も含み得るため、同じrandom variableとして自動統合しません"
+        "両者の差には測定誤差だけでなく製造偏差も含まれ得るため、同じ確率変数として自動的に統合しません"
       ],
       "repo_references": [
         {
@@ -623,12 +623,12 @@
         }
       ],
       "common_misconceptions": [
-        "measured値が常にすべての予測Taskで優先されるわけではありません。"
+        "実測値が常にすべての予測タスクで優先されるわけではありません。"
       ]
     },
     {
       "id": "heat-program",
-      "term_ja": "熱処理プログラム",
+      "term_ja": "熱処理手順",
       "term_en": "heat program",
       "aliases": [
         "semantic process program"
@@ -637,9 +637,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "ramp、hold、cool、reheatなど、実行したい熱工程の順序と意図を表すsemanticな工程契約です。",
+      "definition": "昇温、保持、冷却、再加熱など、実行したい熱工程の順序と意図を表す工程契約です。",
       "anti_definitions": [
-        "sensorが実際に記録した時系列そのものではありません。"
+        "センサーが実際に記録した時系列そのものではありません。"
       ],
       "not_same_as": [
         "raw-sensor-trace"
@@ -651,7 +651,7 @@
         "canonical-series"
       ],
       "math_connections": [
-        "順序と区間を持つため、温度scalarの順不同集合へ一般には還元できません"
+        "順序と区間を持つため、温度を表す一つの値の順不同集合へ一般には還元できません"
       ],
       "repo_references": [
         {
@@ -660,12 +660,12 @@
         }
       ],
       "common_misconceptions": [
-        "programが同じなら実測温度履歴も同一になるとは限りません。"
+        "熱処理プログラムが同じでも、実測温度の履歴まで同一になるとは限りません。"
       ]
     },
     {
       "id": "raw-sensor-trace",
-      "term_ja": "生センサ時系列",
+      "term_ja": "生のセンサー時系列",
       "term_en": "raw sensor trace",
       "aliases": [
         "raw series asset"
@@ -674,9 +674,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "sensorが記録した時刻と測定値を、欠測、取得順、元単位、取得provenanceとともに保持する一次系列です。",
+      "definition": "センサーが記録した時刻と測定値を、欠測、取得順、元の単位、取得時の来歴とともに保持する一次系列です。",
       "anti_definitions": [
-        "時刻順へ並べ直して重複を解消したcanonical seriesではありません。"
+        "時刻順へ並べ直して重複を解消した正規系列ではありません。"
       ],
       "not_same_as": [
         "heat-program",
@@ -689,7 +689,7 @@
         "feature-representation"
       ],
       "math_connections": [
-        "不規則なsampling intervalとmissing segmentを持ち得る観測列です"
+        "不規則な標本化間隔や欠測区間を持ち得る観測列です"
       ],
       "repo_references": [
         {
@@ -698,12 +698,12 @@
         }
       ],
       "common_misconceptions": [
-        "rawという語は値が誤りという意味ではなく、正規化前の証拠であることを示します。"
+        "「生」という語は値が誤りという意味ではなく、正規化前の証拠であることを示します。"
       ]
     },
     {
       "id": "canonical-series",
-      "term_ja": "正規系列",
+      "term_ja": "正準系列",
       "term_en": "canonical series",
       "aliases": [
         "canonical series revision"
@@ -712,9 +712,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "raw traceへ版付きnormalization recipeを適用し、単位、時刻軸、順序、重複規則を固定した再現可能な系列revisionです。",
+      "definition": "生のセンサー時系列へ版付きの正規化手順を適用し、単位、時刻軸、順序、重複の扱いを固定した再現可能な系列の改訂版です。",
       "anti_definitions": [
-        "元のraw traceを置換または削除する保存形式ではありません。"
+        "元の生センサー時系列を置換したり削除したりする保存形式ではありません。"
       ],
       "not_same_as": [
         "raw-sensor-trace",
@@ -727,7 +727,7 @@
         "semantic-digest"
       ],
       "math_connections": [
-        "normalization後の時刻と値の順序を固定し、後続変換の入力identityにします"
+        "正規化後の時刻と値の順序を固定し、後続変換で入力の同一性を確かめられるようにします"
       ],
       "repo_references": [
         {
@@ -740,7 +740,7 @@
         }
       ],
       "common_misconceptions": [
-        "canonicalであることは欠測がなく物理的に正しいことを保証しません。"
+        "正規系列であることは、欠測がなく物理的に正しいことを保証しません。"
       ]
     },
     {
@@ -754,9 +754,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "canonical seriesをresampling、区間要約、統計量などで、modelが受け取る固定shapeへ変換した版付き表現です。",
+      "definition": "正規系列を再標本化、区間要約、統計量などによって、モデルが受け取る一定の形へ変換した版付き表現です。",
       "anti_definitions": [
-        "canonical seriesに含まれる全情報を保存する可逆表現ではありません。"
+        "正規系列に含まれる全情報を保存する可逆な表現ではありません。"
       ],
       "not_same_as": [
         "canonical-series",
@@ -769,7 +769,7 @@
         "model-package"
       ],
       "math_connections": [
-        "resamplingまたは要約は情報を落とし得るため、変換parameterと出力順序を固定します"
+        "再標本化や要約では情報が失われ得るため、変換条件と出力順序を固定します"
       ],
       "repo_references": [
         {
@@ -782,7 +782,7 @@
         }
       ],
       "common_misconceptions": [
-        "Feature Pipeline全体ではなく、系列に対するその出力表現を指します。"
+        "特徴量変換手順の全体ではなく、系列に対するその出力表現を指します。"
       ]
     },
     {
@@ -796,9 +796,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "観測値または予測出力がTaskで宣言した広い確認範囲から外れていないかを警告する判定です。",
+      "definition": "観測値や予測出力が、タスクで宣言した広い確認範囲から外れていないかを警告する判定です。",
       "anti_definitions": [
-        "学習行への採否、モデルsupport、製造可能性を一括して決めるvalidityではありません。"
+        "学習行への採否、学習データによる裏付け、製造可能性を一括して決める妥当性判定ではありません。"
       ],
       "not_same_as": [
         "target-eligibility",
@@ -812,7 +812,7 @@
         "actionable-warning"
       ],
       "math_connections": [
-        "quantityとunitを固定した下限・上限との比較ですが、普遍的な物理限界とは限りません"
+        "物理量と単位を固定した下限・上限との比較ですが、普遍的な物理限界とは限りません"
       ],
       "repo_references": [
         {
@@ -821,7 +821,7 @@
         }
       ],
       "common_misconceptions": [
-        "範囲外の値を自動clipまたは削除してよいという指示ではありません。"
+        "範囲外の値を自動的に丸めたり削除したりしてよいという指示ではありません。"
       ]
     },
     {
@@ -835,7 +835,7 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "CandidateがDesign Space、組成合計、上下限、関係制約、明示された設備条件を満たすかを判定する性質です。",
+      "definition": "候補が設計空間、組成の合計、上下限、変数間の制約、明示された設備条件を満たすかを判定する性質です。",
       "anti_definitions": [
         "現実の設備、供給、安全、規格を記述なしに保証する判定ではありません。"
       ],
@@ -850,7 +850,7 @@
         "hard-constraint"
       ],
       "math_connections": [
-        "明示されたvariable domainとconstraintが定めるfeasible setへの所属として表します"
+        "明示された変数の定義域と制約が定める実行可能集合への所属として表します"
       ],
       "repo_references": [
         {
@@ -859,12 +859,12 @@
         }
       ],
       "common_misconceptions": [
-        "allowed range内であることだけではjoint constraintまたは設備条件を満たしません。"
+        "各変数が許容範囲内にあるだけでは、変数間の制約や設備条件を満たすとは限りません。"
       ]
     },
     {
       "id": "dataset-profile",
-      "term_ja": "データセットプロファイル",
+      "term_ja": "データセットの対応定義",
       "term_en": "Dataset Profile",
       "aliases": [
         "input profile"
@@ -873,9 +873,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "sourceのsheet、列、entity、relation、observation、単位をcanonicalな意味へ対応付ける版付き解釈です。",
+      "definition": "元資料のシート、列、対象、関係、観測、単位を、正準な意味へ対応付ける版付きの解釈です。",
       "anti_definitions": [
-        "モデル入力を作るFeature Pipelineではありません。"
+        "モデル入力を作る特徴量変換手順ではありません。"
       ],
       "not_same_as": [
         "feature-pipeline"
@@ -897,16 +897,16 @@
     },
     {
       "id": "curation-recipe",
-      "term_ja": "キュレーションレシピ",
+      "term_ja": "データ整備手順",
       "term_en": "Curation Recipe",
       "aliases": [],
       "category": "data",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Raw Snapshotへ適用するallow-list済みtrim、数値変換、必須field、filterを順序付きで固定する版付き処理列です。",
+      "definition": "生データの固定記録へ適用する、許可済みの空白除去、数値変換、必須項目、絞り込みを順序付きで固定した版付き処理列です。",
       "anti_definitions": [
-        "学習時に任意Python式を実行するpluginではありません。"
+        "学習時に任意のPython式を実行するプラグインではありません。"
       ],
       "not_same_as": [
         "feature-pipeline"
@@ -928,16 +928,16 @@
     },
     {
       "id": "target-eligibility",
-      "term_ja": "目的変数利用可否",
+      "term_ja": "目的変数ごとの学習利用可否",
       "term_en": "target eligibility",
       "aliases": [],
       "category": "data",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "source行を消さず、各targetの学習行として利用できるかを理由とともに持つ判定です。",
+      "definition": "元資料の行を消さず、予測対象ごとの学習行として利用できるかを理由とともに持つ判定です。",
       "anti_definitions": [
-        "row全体の品質を一つの真偽値へ潰す判定ではありません。"
+        "行全体の品質を一つの真偽値へ潰す判定ではありません。"
       ],
       "not_same_as": [
         "quarantine"
@@ -949,7 +949,7 @@
         "training-cohort"
       ],
       "math_connections": [
-        "targetごとにindicatorを持つため、cohortの分母が変わります"
+        "予測対象ごとに利用可否を持つため、学習集団の分母が変わります"
       ],
       "repo_references": [
         {
@@ -966,7 +966,7 @@
     },
     {
       "id": "split-group",
-      "term_ja": "分割グループ",
+      "term_ja": "データ分割の単位",
       "term_en": "split group",
       "aliases": [
         "group split"
@@ -975,9 +975,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "同じ親実験に属する観測をtrainとholdoutへ跨がせないため、分割単位を共有させるkeyです。",
+      "definition": "同じ親実験に属する観測を学習側と評価側へまたがせないために、同じ分割単位を持たせる識別子です。",
       "anti_definitions": [
-        "画面表示のための任意group labelではありません。"
+        "画面表示のための任意の群名ではありません。"
       ],
       "not_same_as": [
         "training-cohort"
@@ -989,7 +989,7 @@
         "leakage"
       ],
       "math_connections": [
-        "独立性を観測rowではなく親実験groupへ置く分割です"
+        "独立性を観測行ではなく親実験の群へ置く分割です"
       ],
       "repo_references": [
         {
@@ -1012,7 +1012,7 @@
       "status_note": null,
       "definition": "同じ親実験由来の情報が学習側と評価側へ跨がり、未観測データへの性能より楽観的な評価を作る状態です。",
       "anti_definitions": [
-        "機密情報が外部へ流出するsecurity incidentだけを指す語ではありません。"
+        "機密情報が外部へ流出するセキュリティ事故だけを指す語ではありません。"
       ],
       "not_same_as": [
         "trust-boundary"
@@ -1024,7 +1024,7 @@
         "calibration"
       ],
       "math_connections": [
-        "holdout errorの推定対象と標本の独立性を壊します"
+        "未使用データで求める誤差について、評価対象と標本が独立であるという前提を壊します"
       ],
       "repo_references": [
         {
@@ -1043,9 +1043,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "数値変換不能や必須欠損など意味を一意に決められないrowを、理由付きで保持しつつ通常承認から除外する品質状態です。",
+      "definition": "数値へ変換できない値や必須項目の欠損など、意味を一意に決められない行を、理由付きで保持しながら通常の承認対象から除外する品質状態です。",
       "anti_definitions": [
-        "正常な評価用holdoutを置く場所ではありません。"
+        "正常な評価用の未使用データを置く場所ではありません。"
       ],
       "not_same_as": [
         "target-eligibility"
@@ -1067,16 +1067,16 @@
     },
     {
       "id": "training-snapshot",
-      "term_ja": "学習用スナップショット",
+      "term_ja": "学習データの固定記録",
       "term_en": "Training Snapshot",
       "aliases": [],
       "category": "data",
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "明示承認済みCanonical Datasetから、versioned selection policyとtarget eligibilityで学習行を固定する不変成果物です。",
+      "definition": "明示的に承認した正規データセットから、版を固定した選択方針と予測対象ごとの利用条件に従って学習行を選び、その集合を変更不能にした成果物です。",
       "anti_definitions": [
-        "再学習またはactive Package切替の命令ではありません。"
+        "再学習を始めたり、使用中のモデル成果物を切り替えたりする命令ではありません。"
       ],
       "not_same_as": [
         "raw-source-snapshot",
@@ -1090,7 +1090,7 @@
         "training-cohort"
       ],
       "math_connections": [
-        "学習標本数とtarget別cohortを固定します"
+        "学習標本数と予測対象ごとの学習集団を固定します"
       ],
       "repo_references": [
         {
@@ -1102,7 +1102,7 @@
     },
     {
       "id": "training-cohort",
-      "term_ja": "学習コホート",
+      "term_ja": "予測対象ごとの学習観測集合",
       "term_en": "training cohort",
       "aliases": [
         "target cohort"
@@ -1111,9 +1111,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "一つの目的変数の学習へ使う観測集合で、探索可能なDataset全体やProject参照dataとは一致しない場合があります。",
+      "definition": "一つの目的変数を学習するために使う観測の集合です。探索できるデータセット全体や、プロジェクトから参照できるデータとは一致しない場合があります。",
       "anti_definitions": [
-        "Datasetに存在する全rowの別名ではありません。"
+        "データセットに存在する全行の別名ではありません。"
       ],
       "not_same_as": [
         "training-snapshot"
@@ -1125,7 +1125,7 @@
         "target-eligibility"
       ],
       "math_connections": [
-        "targetごとの標本集合と分母を定めます"
+        "予測対象ごとの標本集合と、評価指標の分母を定めます"
       ],
       "repo_references": [
         {
@@ -1137,7 +1137,7 @@
     },
     {
       "id": "feature-pipeline",
-      "term_ja": "特徴量パイプライン",
+      "term_ja": "特徴量変換手順",
       "term_en": "Feature Pipeline",
       "aliases": [
         "feature transformation"
@@ -1146,9 +1146,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "canonical inputを、JSONで宣言したallow-list済み変換によって順序固定のモデル特徴量へ変える版付き処理です。",
+      "definition": "正規化済みの入力を、JSONで宣言して許可した変換だけで、順序を固定したモデル特徴量へ変える版付き処理です。",
       "anti_definitions": [
-        "source列名をcanonical meaningへ対応付けるDataset Profileではありません。"
+        "元データの列名を正準な意味へ対応付けるデータセットの対応定義ではありません。"
       ],
       "not_same_as": [
         "dataset-profile"
@@ -1160,7 +1160,7 @@
         "model-package"
       ],
       "math_connections": [
-        "特徴量の順序と変換parameterを固定します"
+        "特徴量の順序と変換パラメータを固定します"
       ],
       "repo_references": [
         {
@@ -1172,7 +1172,7 @@
     },
     {
       "id": "model-package",
-      "term_ja": "モデルパッケージ",
+      "term_ja": "モデル成果物一式",
       "term_en": "Model Package",
       "aliases": [
         "model artifact package"
@@ -1181,9 +1181,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "manifest、data-onlyな学習済みartifact、Feature Pipeline、学習来歴、smoke例を一つにした検証可能な成果物です。",
+      "definition": "マニフェスト、コードを含まない学習済み成果物、特徴量変換手順、学習来歴、簡易動作確認用の例を一つにまとめた、検証可能な成果物です。",
       "anti_definitions": [
-        "任意Pythonコードを実行するpluginではありません。"
+        "任意のPythonコードを実行するプラグインではありません。"
       ],
       "not_same_as": [
         "training-snapshot",
@@ -1207,16 +1207,16 @@
     },
     {
       "id": "runtime-adapter",
-      "term_ja": "ランタイムアダプタ",
+      "term_ja": "実行方式の接続部",
       "term_en": "Runtime adapter",
       "aliases": [],
       "category": "model",
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Packageの`runtime_type`をallow-listで解決し、安全なartifactから予測要約を計算するアプリ本体側実装です。",
+      "definition": "モデル成果物一式の`runtime_type`を許可リストから解決し、検証済みの成果物から予測結果の共通表現を計算する、アプリ本体側の実装です。",
       "anti_definitions": [
-        "Package内から動的importする任意codeではありません。"
+        "モデル成果物一式から動的に読み込む任意コードではありません。"
       ],
       "not_same_as": [
         "model-package"
@@ -1239,7 +1239,7 @@
     },
     {
       "id": "runtime-capability",
-      "term_ja": "ランタイム能力",
+      "term_ja": "実行方式が返せる予測情報",
       "term_en": "Runtime Capability",
       "aliases": [
         "prediction capability"
@@ -1248,7 +1248,7 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "targetごとにpoint、quantile、標準偏差、sample、達成確率のうち何を返せるかを明示する機械可読契約です。",
+      "definition": "予測対象ごとに、点予測、分位点、標準偏差、標本、目標達成確率のうち何を返せるかを明示する、機械可読な契約です。",
       "anti_definitions": [
         "宣言されていない表現を近似生成してよいという許可ではありません。"
       ],
@@ -1274,7 +1274,7 @@
     },
     {
       "id": "predictive-summary",
-      "term_ja": "予測要約",
+      "term_ja": "予測結果の共通表現",
       "term_en": "Predictive Summary",
       "aliases": [
         "prediction summary"
@@ -1283,9 +1283,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "runtime固有出力をtarget、単位、代表値、quantile、分布情報へ揃える内部共通表現です。",
+      "definition": "実行方式ごとに異なる出力を、予測対象、単位、代表値、分位点、分布情報へ揃える内部共通表現です。",
       "anti_definitions": [
-        "一つのconfidence scoreへ不確かさを潰した値ではありません。"
+        "不確かさを一つの確信度へ潰した値ではありません。"
       ],
       "not_same_as": [
         "runtime-capability",
@@ -1298,7 +1298,7 @@
         "calibration"
       ],
       "math_connections": [
-        "期待値、median、quantile、sampleを同義にせず別fieldとして扱います"
+        "期待値、中央値、分位点、標本を同義にせず、別々のフィールドとして扱います"
       ],
       "repo_references": [
         {
@@ -1319,9 +1319,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Chain評価などのholdoutで、予測区間の名目被覆率と実測被覆率のずれを評価する性質です。",
+      "definition": "予測区間を評価するとき、学習に使わなかったデータを用い、設定した目標被覆率と実際に区間へ入った経験被覆率のずれを調べる性質です。現行実装では、複数段の計算を評価する機能などで使います。",
       "anti_definitions": [
-        "一つのcoverage値だけでモデル全体の妥当性を保証する判定ではありません。"
+        "一つの被覆率だけでモデル全体の妥当性を保証する判定ではありません。"
       ],
       "not_same_as": [
         "provenance",
@@ -1335,7 +1335,7 @@
         "leakage"
       ],
       "math_connections": [
-        "名目確率と経験被覆率の差をcohortごとに評価します"
+        "目標被覆率と経験被覆率の差を評価集団ごとに調べます"
       ],
       "repo_references": [
         {
@@ -1344,7 +1344,7 @@
         }
       ],
       "common_misconceptions": [
-        "現行では全runtime共通のresponse fieldではなく、評価subsystemで使う概念です。"
+        "現行では、すべての実行方式に共通する応答フィールドではなく、評価機能で使う概念です。"
       ]
     },
     {
@@ -1358,10 +1358,10 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "候補が学習入力範囲や近傍観測からどの程度外れているかを示す距離と警告の要約です。",
+      "definition": "候補が学習時に観測した入力の範囲や近傍とどのような位置関係にあるかを示し、予測を判断へ使う際の注意を与える情報です。現行実装では、実行方式ごとの範囲判定や正規化距離を状態と警告へまとめます。",
       "anti_definitions": [
         "予測が正しい確率ではありません。",
-        "confidence levelやモデル不確実性そのものではありません。"
+        "信頼水準やモデルの不確かさそのものではありません。"
       ],
       "not_same_as": [
         "predictive-summary",
@@ -1384,7 +1384,7 @@
       ],
       "common_misconceptions": [],
       "ui_mapping": {
-        "general": "学習dataによる裏付け",
+        "general": "学習データによる裏付け",
         "internal": "support.status: supported | caution | extrapolated",
         "ui": "範囲内／要確認／外挿"
       }
@@ -1400,7 +1400,7 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "候補入力が学習時に観測した範囲またはadapter固有のsupport境界を外れた状態です。",
+      "definition": "候補入力が、学習時に観測した範囲または実行方式ごとの裏付け境界を外れた状態です。",
       "anti_definitions": [
         "予測値が必ず誤りであるという判定ではありません。"
       ],
@@ -1414,7 +1414,7 @@
         "robustness"
       ],
       "math_connections": [
-        "距離または範囲判定の定義がsubsystemごとに異なります"
+        "距離または範囲判定の定義は、機能ごとに異なります"
       ],
       "repo_references": [
         {
@@ -1423,12 +1423,12 @@
         }
       ],
       "common_misconceptions": [
-        "repo全体で一つの統一距離を使う契約ではありません。"
+        "アプリ全体で一つの統一距離を使う契約ではありません。"
       ]
     },
     {
       "id": "active-package",
-      "term_ja": "有効パッケージ",
+      "term_ja": "使用中のモデル成果物",
       "term_en": "active Package",
       "aliases": [
         "active model"
@@ -1437,9 +1437,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Taskごとに通常推論へ使う検証済みPackageを`models/active-packages.json`で明示選択した状態です。",
+      "definition": "タスクごとに、通常の推論で使う検証済みのモデル成果物一式を`models/active-packages.json`で明示的に選んだ状態です。",
       "anti_definitions": [
-        "Training Snapshot作成時に自動で切り替わる最新モデルではありません。"
+        "学習データの固定記録を作った時点で、自動的に切り替わる最新モデルではありません。"
       ],
       "not_same_as": [
         "model-package"
@@ -1470,9 +1470,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Project内でCandidateが取り得る数値域、category、条件付き有効化、組成合計制約を版付きで定義する契約です。",
+      "definition": "プロジェクト内で候補が取り得る数値範囲、カテゴリ、条件付きの有効化、組成合計制約を、版付きで定義する契約です。",
       "anti_definitions": [
-        "画面requestごとに自由入力する一時rangeではありません。"
+        "画面から要求するたびに自由入力する、一時的な範囲ではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -1484,7 +1484,7 @@
         "candidate-generator"
       ],
       "math_connections": [
-        "feasible setとしてvariable domainとconstraintを定めます"
+        "実行可能集合として、変数の領域と制約を定めます"
       ],
       "repo_references": [
         {
@@ -1505,9 +1505,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "主目的、方向、target、必須制約、incumbentなど判断目標の意味を版付きで固定するProject契約です。",
+      "definition": "主目的、増減の向き、予測対象、必須制約、比較基準となる現時点の候補など、判断目標の意味を版付きで固定するプロジェクト契約です。",
       "anti_definitions": [
-        "モデルが学習したtarget一覧の別名ではありません。"
+        "モデルが学習した予測対象一覧の別名ではありません。"
       ],
       "not_same_as": [
         "design-space"
@@ -1520,7 +1520,7 @@
         "soft-preference"
       ],
       "math_connections": [
-        "maximizeとminimizeの方向、feasibility、基準値を固定します"
+        "最大化と最小化の向き、実行可能性、比較の基準値を固定します"
       ],
       "repo_references": [
         {
@@ -1532,16 +1532,16 @@
     },
     {
       "id": "candidate-generator",
-      "term_ja": "候補生成器",
+      "term_ja": "候補生成処理",
       "term_en": "Candidate Generator",
       "aliases": [],
       "category": "decision",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Design Space内の点をLatin hypercube、Sobol、bounded simplexなど登録済み方式で決定的に生成する処理です。",
+      "definition": "設計空間内の点を、ラテン超方格、Sobol列、上下限付き単体など、登録済みの方式で再現可能に生成する処理です。",
       "anti_definitions": [
-        "予測scoreで候補を順位付けする獲得関数ではありません。"
+        "予測から得た評価値で候補を順位付けする獲得関数ではありません。"
       ],
       "not_same_as": [
         "acquisition-function",
@@ -1555,7 +1555,7 @@
         "acquisition-function"
       ],
       "math_connections": [
-        "feasible setから有限個の評価点を生成します"
+        "実行可能集合から有限個の評価点を生成します"
       ],
       "repo_references": [
         {
@@ -1576,9 +1576,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "予測要約とObjectiveからgoal achievement、UCB、expected improvementの評価値を計算する登録済み関数です。",
+      "definition": "予測要約と目的定義から、目標達成度、信頼上限、期待改善量などの評価値を計算する登録済み関数です。",
       "anti_definitions": [
-        "Candidateを生成するDesign Space samplerではありません。"
+        "候補を生成する設計空間の標本生成器ではありません。"
       ],
       "not_same_as": [
         "candidate-generator",
@@ -1592,7 +1592,7 @@
         "incumbent"
       ],
       "math_connections": [
-        "期待改善量または上側信頼境界など、Objectiveに対応したscalar scoreを計算します"
+        "期待改善量または信頼上限など、目的定義に対応する一つの評価値を計算します"
       ],
       "repo_references": [
         {
@@ -1611,14 +1611,15 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Screening Runが答える問いを、「領域を見る」「有望候補を探す」「保存済み探索から実験batchを組む」の三つに固定する契約です。",
+      "definition": "候補探索の実行が答える問いを、「領域を見る」「有望な提案候補を探す」「保存済みの探索結果から実験候補の組を作る」の三つに固定する契約です。領域を見る実行では提案候補を作らず、目標探索では明示した少数選抜を保存し、実験候補の組を作る実行では元の提案候補を別の集合として扱います。",
       "anti_definitions": [
-        "同じ計算結果を見せ分けるだけの画面tabではありません。",
-        "領域を見るRunは、目標最適化の成否を答えるRunではありません。",
-        "実験batchを組むRunは、元の有望候補Runと独立に候補を再生成するRunではありません。"
+        "同じ計算結果を見せ分けるだけの画面タブではありません。",
+        "領域を見る実行は、目標最適化の成否を答える実行ではありません。",
+        "実験候補の組を作る実行は、元の有望候補探索とは独立に候補を再生成する実行ではありません。"
       ],
       "not_same_as": [
         "objective-definition",
+        "proposal-shortlist-selection",
         "batch-selector"
       ],
       "prerequisites": [
@@ -1626,12 +1627,13 @@
       ],
       "related": [
         "objective-definition",
+        "proposal-shortlist-selection",
         "batch-selector",
         "incumbent",
         "snapshot"
       ],
       "math_connections": [
-        "問いごとに、support distance、Objective score、集合選択へ使える証拠を分けます"
+        "問いごとに、学習データからの距離、目的に対する評価値、集合選択へ使える証拠を分けます"
       ],
       "repo_references": [
         {
@@ -1651,41 +1653,97 @@
           "role": "frontend"
         },
         {
+          "path": "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
+          "role": "frontend"
+        },
+        {
           "path": "e2e/screening-workbench.spec.ts",
           "role": "test"
         }
       ],
       "common_misconceptions": [
-        "実験batchは、保存した有望候補Runの選抜済みpoints、strategy、incumbent、Objective証拠を引き継いで選びます。"
+        "実験候補の組は、保存した有望候補探索で選抜された点、探索戦略、現時点の比較基準、目的定義の証拠を引き継いで選びます。"
+      ]
+    },
+    {
+      "id": "proposal-shortlist-selection",
+      "term_ja": "提案候補の少数選抜",
+      "term_en": "proposal shortlist selection",
+      "aliases": [
+        "proposal selection"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "目標探索でモデルが実際に評価した点から、要求件数、順位価値、条件間の距離、重複回避を明示して、比較に出す少数の提案候補を選ぶ処理です。選択方針、候補集合のハッシュ値、同点規則、実際の件数、件数不足の理由を保存します。",
+      "anti_definitions": [
+        "プロジェクトの候補を作成する操作ではありません。",
+        "固定対照、実験枠、費用を割り当てた実験バッチではありません。",
+        "表示用の補間値を新しい評価点として追加する処理ではありません。"
+      ],
+      "not_same_as": [
+        "batch-selector",
+        "explicit-adoption"
+      ],
+      "prerequisites": [
+        "acquisition-function",
+        "screening-purpose"
+      ],
+      "related": [
+        "design-space",
+        "decision-surface"
+      ],
+      "math_connections": [
+        "候補単独の順位価値と、選択済み候補からの距離を分け、決定論的な同点規則で少数集合を作ります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/proposal_contracts.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/domain/proposal_selection.py",
+          "role": "domain"
+        },
+        {
+          "path": "backend/tests/test_proposal_selection.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "実験候補集合の選択処理と計算の一部を共有しても、保存上の意味と利用者が次にできる操作は同じではありません。"
       ]
     },
     {
       "id": "batch-selector",
-      "term_ja": "バッチ選択器",
+      "term_ja": "実験候補集合の選択処理",
       "term_en": "Batch Selector",
       "aliases": [],
       "category": "decision",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "acquisition順位済みのshortlistから、control、cost、quota、setup、多様性を考慮して実験集合を選ぶ処理です。",
+      "definition": "獲得価値で順位付けした候補一覧から、対照条件、費用、割当て上限、設備準備、多様性を考慮して実験集合を選ぶ処理です。",
       "anti_definitions": [
-        "acquisition score上位を無条件に先頭から取る処理ではありません。",
-        "候補の生成、保存Runの検証、Objective証拠の解決まで担う処理ではありません。"
+        "獲得価値の上位候補を、無条件に先頭から取る処理ではありません。",
+        "候補の生成、保存済み実行の検証、目的定義の証拠の解決まで担う処理ではありません。"
       ],
       "not_same_as": [
         "candidate-generator",
-        "acquisition-function"
+        "acquisition-function",
+        "proposal-shortlist-selection"
       ],
       "prerequisites": [
         "acquisition-function"
       ],
       "related": [
         "hard-constraint",
-        "screening-purpose"
+        "screening-purpose",
+        "proposal-shortlist-selection"
       ],
       "math_connections": [
-        "候補単独のvalueと集合全体のdiversityやresource制約を分けます"
+        "候補単独の価値と、集合全体の多様性や資源制約を分けます"
       ],
       "repo_references": [
         {
@@ -1706,9 +1764,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "observed best、保存Prediction Snapshot、Project decisionのいずれを使うか明示的に解決したObjective比較の基準です。",
+      "definition": "最良の実測値、保存済みの予測固定記録、プロジェクト判断のうち、どれを使うか明示的に解決した、目的比較の基準です。",
       "anti_definitions": [
-        "常にtraining data内の最大実測値を使う固定値ではありません。"
+        "常に学習データ内の最大実測値を使う固定値ではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -1721,7 +1779,7 @@
         "acquisition-function"
       ],
       "math_connections": [
-        "expected improvementでは改善量の基準値になります"
+        "期待改善量では、改善の有無と大きさを測る基準値になります"
       ],
       "repo_references": [
         {
@@ -1742,9 +1800,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Candidate入力をTolerance Profileに従って変動させ、入力ばらつき、worst value、critical inputを計算し、Projectに目標がある特性だけ目標達成率も計算するDecision Activityです。",
+      "definition": "入力が想定範囲でばらついても、予測や判断に重要な結果がどの程度保たれるかを表す性質です。現行実装では、候補入力を公差設定に従って変動させ、予測の広がり、最悪値、結果を大きく左右する入力を求めます。プロジェクトに目標がある特性については、目標達成率も計算します。",
       "anti_definitions": [
-        "モデルparameterの不確かさだけを評価する指標ではありません。",
+        "モデルパラメータの不確かさだけを評価する指標ではありません。",
         "目標未設定時の未計算を、達成率0または解析失敗とみなすものではありません。"
       ],
       "not_same_as": [
@@ -1758,7 +1816,7 @@
         "extrapolation"
       ],
       "math_connections": [
-        "入力分布からMonte Carlo sampleを作り、失敗率と分位点を推定します"
+        "入力分布からモンテカルロ標本を作り、失敗率と分位点を推定します"
       ],
       "repo_references": [
         {
@@ -1787,12 +1845,12 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Design Space内で変更量を正規化し、Objectiveを点予測で満たす候補または満たせない理由を探索し、各案のcanonical Predictionを固定して、利用可能な予測区間を点判定と分けて示すDecision Activityです。",
+      "definition": "設計空間内で入力の変更量を尺度調整し、目的を点予測で満たす候補、または満たせない理由を探索する処理です。各案の正規化済み予測を固定し、利用可能な予測区間は点予測による達成判定と分けて示します。",
       "anti_definitions": [
         "因果介入や達成保証を自動的に意味しません。",
-        "Design Space外の自由な変更ではありません。",
+        "設計空間外まで自由に入力を変える処理ではありません。",
         "「達成」は点予測による判定であり、予測区間全体が目標を満たす保証ではありません。",
-        "Predictionに区間情報がない場合へ、区間を補うものではありません。"
+        "予測に区間情報がない場合に、区間を補うものではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -1805,7 +1863,7 @@
         "robustness"
       ],
       "math_connections": [
-        "変更量をvariable rangeで正規化し、制約付き探索として扱います"
+        "変更量を変数範囲で尺度調整し、制約付き探索として扱います"
       ],
       "repo_references": [
         {
@@ -1836,9 +1894,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "主目的とは別に満たす必要があり、proposal実行時にfeasibilityを判定するObjective termです。",
+      "definition": "主目的とは別に必ず満たす必要があり、提案を作るときに実行可能性を判定する目的定義の一項目です。",
       "anti_definitions": [
-        "違反してもweight次第で採用できるsoft preferenceではありません。"
+        "違反しても重み次第で採用できる選好条件ではありません。"
       ],
       "not_same_as": [
         "soft-preference"
@@ -1850,7 +1908,7 @@
         "batch-selector"
       ],
       "math_connections": [
-        "不等式または許容集合としてfeasibilityを定めます"
+        "不等式または許容集合として実行可能性を定めます"
       ],
       "repo_references": [
         {
@@ -1868,8 +1926,8 @@
       "category": "decision",
       "scope": "subsystem",
       "status": "future",
-      "status_note": "Objective contractと一部Decision Activityには表現がありますが、通常Proposal engineはsoft preferenceを含むObjectiveの実行をまだ受理しません。",
-      "definition": "違反を即座に不適格とせず、候補比較のpenaltyまたは優先度へ反映する条件です。",
+      "status_note": "目的定義の契約と一部の判断検討処理には表現がありますが、通常の提案処理は、選好条件を含む目的定義の実行をまだ受理しません。",
+      "definition": "条件を満たさなくても直ちに不適格とはせず、候補比較の罰則値または優先度へ反映する条件です。",
       "anti_definitions": [
         "満たさなければ候補を必ず除外する必須制約ではありません。"
       ],
@@ -1881,7 +1939,7 @@
       ],
       "related": [],
       "math_connections": [
-        "penaltyまたはutility termとして目的へ加える候補です"
+        "罰則値または効用の項として目的へ加える候補です"
       ],
       "repo_references": [
         {
@@ -1901,7 +1959,7 @@
       "category": "decision",
       "scope": "subsystem",
       "status": "future",
-      "status_note": "現行は`pareto_multi_objective`契約を保存できますが、proposal実行planはこのkindを明示的に拒否します。",
+      "status_note": "現行は`pareto_multi_objective`契約を保存できますが、提案の実行計画は、この種類の目的を明示的に拒否します。",
       "definition": "複数目的で、ほかの候補から全目的について劣らず少なくとも一目的で勝るという支配を受けない候補集合です。",
       "anti_definitions": [
         "重み付き和で最大の一点を言い換えたものではありません。"
@@ -1916,7 +1974,7 @@
         "batch-selector"
       ],
       "math_connections": [
-        "多目的dominance relationから非支配集合を定義します"
+        "多目的の優越関係から、ほかの候補に劣らない候補の集合を定義します"
       ],
       "repo_references": [
         {
@@ -1928,7 +1986,7 @@
     },
     {
       "id": "decision-activity",
-      "term_ja": "検討アクティビティ",
+      "term_ja": "判断の問いを調べる処理",
       "term_en": "Decision Activity",
       "aliases": [
         "decision support activity"
@@ -1937,9 +1995,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "保存済みCandidateと予測証拠を入力に、差分、頑健性、条件変更案など一つの判断質問へ答える型付き計算です。",
+      "definition": "保存済みの候補と予測証拠を入力に、候補間の差、入力ばらつきに対する頑健性、条件変更案など、一つの判断上の問いへ答える型付き計算です。",
       "anti_definitions": [
-        "CandidateやProjectを自動採用する意思決定主体ではありません。"
+        "候補やプロジェクト判断を自動的に採用する意思決定主体ではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -1963,16 +2021,16 @@
     },
     {
       "id": "legacy-screening-objective",
-      "term_ja": "旧スクリーニング目的",
+      "term_ja": "旧形式の探索目的",
       "term_en": "legacy screening objective",
       "aliases": [],
       "category": "decision",
       "scope": "subsystem",
       "status": "historical",
-      "status_note": "互換読込と履歴のためcontractには残りますが、新規ProjectのObjective設計として使う概念ではありません。現行ScreeningのObjective provenance値`legacy_screening`は、領域を見るRunの内部表現にも使われるため、この旧保存形式の別名とは扱いません。",
-      "definition": "現在のObjective Definitionへ移行する前に、Screening専用fieldで判断目標を表していた保存形式です。",
+      "status_note": "互換読込みと履歴のため契約には残りますが、新規プロジェクトの目的設計に使う概念ではありません。現行の候補探索で目的の来歴を表す`legacy_screening`は、領域を見る実行の内部表現にも使われるため、この旧保存形式の別名とは扱いません。",
+      "definition": "現在の目的定義へ移行する前に、候補探索専用のフィールドで判断目標を表していた保存形式です。",
       "anti_definitions": [
-        "新規実装で選ぶ標準Objective kindではありません。"
+        "新規実装で選ぶ標準的な目的の種類ではありません。"
       ],
       "not_same_as": [
         "objective-definition"
@@ -2001,9 +2059,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "request、response、保存payload、Taskが満たすshape、意味、versionをPydantic modelなどで固定した約束です。",
+      "definition": "要求、応答、保存するデータ、タスクについて、許可する構造、意味、版をPydanticモデルなどで固定した約束です。",
       "anti_definitions": [
-        "field名と型だけを並べたschemaではありません。"
+        "フィールド名と型だけを並べたスキーマではありません。"
       ],
       "not_same_as": [
         "domain-invariant"
@@ -2023,7 +2081,7 @@
     },
     {
       "id": "domain-invariant",
-      "term_ja": "ドメイン不変条件",
+      "term_ja": "対象領域の不変条件",
       "term_en": "domain invariant",
       "aliases": [
         "business invariant"
@@ -2032,9 +2090,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "CandidateがDesign Space内にあることなど、保存手段やHTTPから独立して受理後に必ず成立させる条件です。",
+      "definition": "候補が設計空間内にあることなど、保存手段やHTTPから独立して、受理後に必ず成立させる条件です。",
       "anti_definitions": [
-        "Pydanticのshape validationだけで保証できる条件とは限りません。"
+        "Pydanticによる構造検証だけで保証できる条件とは限りません。"
       ],
       "not_same_as": [
         "contract"
@@ -2058,7 +2116,7 @@
     },
     {
       "id": "application-service",
-      "term_ja": "アプリケーションサービス",
+      "term_ja": "業務操作の調整層",
       "term_en": "application service",
       "aliases": [
         "use-case service"
@@ -2067,9 +2125,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "APIから業務操作を受け、domain処理、runtime、repositoryを協調させるuse case単位の層です。",
+      "definition": "APIから業務操作を受け、対象領域の処理、実行時処理、保存処理を協調させる、利用場面ごとの層です。",
       "anti_definitions": [
-        "HTTP parameterをそのままSQLへ渡す薄いwrapperではありません。"
+        "HTTPパラメータをそのままSQLへ渡すだけの薄い包みではありません。"
       ],
       "not_same_as": [
         "repository"
@@ -2092,7 +2150,7 @@
     },
     {
       "id": "repository",
-      "term_ja": "リポジトリ",
+      "term_ja": "永続化部品",
       "term_en": "repository",
       "aliases": [
         "persistence repository"
@@ -2101,9 +2159,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Data LifecycleやSeriesなどの保存、取得、transaction境界をSQLite表現へ閉じ込める永続化componentです。",
+      "definition": "データライフサイクルや系列などの保存、取得、トランザクション境界を、SQLite固有の表現へ閉じ込める永続化部品です。",
       "anti_definitions": [
-        "Git repositoryの意味ではありません。"
+        "Gitで管理するコード置き場の意味ではありません。"
       ],
       "not_same_as": [
         "application-service"
@@ -2125,7 +2183,7 @@
     },
     {
       "id": "adapter",
-      "term_ja": "アダプタ",
+      "term_ja": "形式変換部",
       "term_en": "adapter",
       "aliases": [
         "typed adapter"
@@ -2134,9 +2192,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "外部形式またはTask固有形式を、application coreが扱う既知の契約へ変換するallow-list済み境界実装です。",
+      "definition": "外部形式またはタスク固有形式を、アプリケーションの中核が扱える既知の契約へ変換する、許可リスト登録済みの境界実装です。",
       "anti_definitions": [
-        "任意codeを発見して実行する汎用plugin loaderではありません。"
+        "任意コードを発見して実行する汎用プラグイン読込み機構ではありません。"
       ],
       "not_same_as": [
         "registry"
@@ -2158,7 +2216,7 @@
     },
     {
       "id": "registry",
-      "term_ja": "レジストリ",
+      "term_ja": "許可実装の登録表",
       "term_en": "registry",
       "aliases": [
         "allow-list registry"
@@ -2167,9 +2225,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Activity、Task、runtime、proposal strategyなど、実行を許す実装をIDから引く固定allow-listです。",
+      "definition": "判断の問いを調べる処理、タスク、実行方式、提案戦略など、実行を許す実装をIDから引く固定の許可リストです。",
       "anti_definitions": [
-        "filesystem上のmoduleを自動探索して読み込む仕組みではありません。"
+        "ファイルシステム上のモジュールを自動探索して読み込む仕組みではありません。"
       ],
       "not_same_as": [
         "adapter"
@@ -2200,9 +2258,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Pydantic正本からexportしたOpenAPIとTypeScript型など、手編集せず再生成してdrift検査するfileです。",
+      "definition": "Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せずに再生成し、正本とのずれを検査するファイルです。",
       "anti_definitions": [
-        "正本contractとは独立に修正するsource fileではありません。"
+        "正本となる契約とは独立に修正するソースファイルではありません。"
       ],
       "not_same_as": [
         "contract"
@@ -2224,7 +2282,7 @@
     },
     {
       "id": "degraded-mode",
-      "term_ja": "縮退モード",
+      "term_ja": "一部機能を隔離した起動状態",
       "term_en": "degraded mode",
       "aliases": [
         "task-local degradation"
@@ -2233,9 +2291,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "一部Taskまたはoptional subsystemの契約違反を隔離し、健全なTaskとread-only evidenceを利用可能なまま起動する状態です。",
+      "definition": "一部のタスクまたは任意機能の契約違反を隔離し、健全なタスクと読取り専用の証拠を利用可能なまま起動する状態です。",
       "anti_definitions": [
-        "壊れたTaskを正常として扱うfallbackではありません。"
+        "壊れたタスクを正常として扱う代替経路ではありません。"
       ],
       "not_same_as": [
         "typed-error"
@@ -2266,9 +2324,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "renderer、loopback API、外部Source、Package、restore archiveの間で、入力を再検証して権限や信頼を持ち越さない境目です。",
+      "definition": "画面描画側、ループバック接続のAPI、外部ソース、モデル成果物一式、復元用アーカイブの間で入力を再検証し、権限や信頼をそのまま持ち越さない境目です。",
       "anti_definitions": [
-        "一度digestが一致すれば以後の全入力を信用できるという境界ではありません。"
+        "一度ハッシュ値が一致すれば、以後の全入力を信用できるという境界ではありません。"
       ],
       "not_same_as": [
         "leakage"
@@ -2290,7 +2348,7 @@
     },
     {
       "id": "discriminated-union",
-      "term_ja": "判別可能なユニオン型",
+      "term_ja": "判別子付きユニオン型",
       "term_en": "discriminated union",
       "aliases": [
         "tagged union"
@@ -2299,9 +2357,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "固定fieldの値によって複数modelから一つを選び、variant固有fieldを型として絞り込めるunionです。",
+      "definition": "固定フィールドの値によって複数のモデルから一つを選び、選ばれた種類に固有のフィールドを型として絞り込めるユニオン型です。",
       "anti_definitions": [
-        "optional fieldを一つの巨大modelへ積み上げたshapeではありません。"
+        "任意フィールドを一つの巨大なモデルへ積み上げた構造ではありません。"
       ],
       "not_same_as": [
         "typed-error"
@@ -2323,7 +2381,7 @@
     },
     {
       "id": "project-archive",
-      "term_ja": "プロジェクトのアーカイブ",
+      "term_ja": "プロジェクトを一覧から外す操作",
       "term_en": "Project archive",
       "aliases": [
         "archive"
@@ -2332,9 +2390,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Projectと判断証拠を保持したまま通常一覧とwrite経路から外し、実行中claimを失効させる可逆なlifecycle遷移です。",
+      "definition": "プロジェクトと判断証拠を保持したまま、通常一覧と書込み経路から外し、実行中の処理権を失効させる、元に戻せるライフサイクル遷移です。",
       "anti_definitions": [
-        "Project-owned evidenceをDELETEする操作ではありません。"
+        "プロジェクトが所有する証拠を物理削除する操作ではありません。"
       ],
       "not_same_as": [
         "explicit-purge"
@@ -2357,7 +2415,7 @@
     },
     {
       "id": "explicit-purge",
-      "term_ja": "明示的パージ",
+      "term_ja": "明示的な完全削除",
       "term_en": "explicit purge",
       "aliases": [
         "purge"
@@ -2366,9 +2424,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "archive済みProjectの所有範囲と外部参照を検査した後、Project-owned evidenceを物理DELETEする不可逆なapplication操作です。",
+      "definition": "一覧から外したプロジェクトの所有範囲と外部参照を検査した後、プロジェクトが所有する証拠を物理削除する、元に戻せないアプリケーション操作です。",
       "anti_definitions": [
-        "backup媒体上の残存byteまで消すsanitizationではありません。"
+        "バックアップ媒体に残るバイト列まで消去する処理ではありません。"
       ],
       "not_same_as": [
         "project-archive"
@@ -2400,9 +2458,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "一つのProjectと同じ寿命で削除するrecordと、ほかのProjectも参照するshared artifactを分ける境界です。",
+      "definition": "一つのプロジェクトと同じ寿命で削除する記録と、ほかのプロジェクトも参照する共有成果物を分ける境界です。",
       "anti_definitions": [
-        "foreign keyの向きだけから自動的に決まる境界ではありません。"
+        "外部キーの向きだけから自動的に決まる境界ではありません。"
       ],
       "not_same_as": [
         "trust-boundary"
@@ -2425,7 +2483,7 @@
     },
     {
       "id": "write-guard",
-      "term_ja": "書込みガード",
+      "term_ja": "書き込み防止検査",
       "term_en": "write guard",
       "aliases": [
         "generation guard"
@@ -2434,9 +2492,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Project状態と実行generationをcommit直前に照合し、archive後の古いwriterが証拠を追加することを拒否する検査です。",
+      "definition": "プロジェクト状態と実行世代を保存確定の直前に照合し、一覧から外した後に古い書き込み処理が証拠を追加することを拒否する検査です。",
       "anti_definitions": [
-        "画面buttonを無効化するだけのclient側制御ではありません。"
+        "画面のボタンを無効化するだけのクライアント側制御ではありません。"
       ],
       "not_same_as": [
         "optimistic-concurrency"
@@ -2459,16 +2517,16 @@
     },
     {
       "id": "server-state",
-      "term_ja": "サーバ状態",
+      "term_ja": "サーバー上の確定状態",
       "term_en": "server state",
       "aliases": [],
       "category": "ui-testing",
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "Project、Task、Candidate、revision、operationからidentityを作り、APIが正本として返すWorkbenchの確定状態です。",
+      "definition": "プロジェクト、タスク、候補、版番号、操作から同一性を作り、APIが正本として返すワークベンチの確定状態です。",
       "anti_definitions": [
-        "未保存の入力fieldを含むdraft stateではありません。"
+        "未保存の入力フィールドを含む編集中状態ではありません。"
       ],
       "not_same_as": [
         "draft-state",
@@ -2500,9 +2558,9 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "保存済みCandidateとは分けて保持し、previewへ渡す前に構造参照をserver側で解決する未確定入力です。",
+      "definition": "保存済み候補とは分けて保持し、プレビューへ渡す前に構造参照をサーバー側で解決する未確定入力です。",
       "anti_definitions": [
-        "保存済みCandidate revisionの別表示ではありません。"
+        "保存済み候補の版を別表示したものではありません。"
       ],
       "not_same_as": [
         "server-state"
@@ -2524,7 +2582,7 @@
     },
     {
       "id": "navigation-state",
-      "term_ja": "ナビゲーション状態",
+      "term_ja": "画面位置の状態",
       "term_en": "navigation state",
       "aliases": [
         "deep-link state"
@@ -2533,9 +2591,9 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "選択Project、Candidate、Activity、保存Runなど、URLと画面復元に必要な位置情報です。",
+      "definition": "選択中のプロジェクト、候補、検討中の処理、保存済み実行など、URLから画面を復元するために必要な位置情報です。",
       "anti_definitions": [
-        "Candidateの編集内容そのものを保存するdomain stateではありません。"
+        "候補の編集内容そのものを保存する対象領域の状態ではありません。"
       ],
       "not_same_as": [
         "server-state"
@@ -2557,7 +2615,7 @@
     },
     {
       "id": "typed-error",
-      "term_ja": "型付きエラー",
+      "term_ja": "構造化エラー",
       "term_en": "typed error",
       "aliases": [
         "API error contract"
@@ -2566,9 +2624,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "HTTP statusだけでなく固定code、message、field errors、current Candidateなどを構造化して返す失敗契約です。",
+      "definition": "HTTP状態だけでなく、固定されたエラーコード、メッセージ、フィールドごとの誤り、現在の候補などを構造化して返す失敗契約です。",
       "anti_definitions": [
-        "日本語messageの文字列一致をclient契約にする仕組みではありません。"
+        "日本語メッセージの文字列一致をクライアント契約にする仕組みではありません。"
       ],
       "not_same_as": [
         "stale-response"
@@ -2588,7 +2646,7 @@
       ],
       "common_misconceptions": [],
       "ui_mapping": {
-        "general": "型付きerror",
+        "general": "型付きエラー",
         "internal": "ApiError.code / field_errors",
         "ui": "操作を続けるための理由と回復手段"
       }
@@ -2602,9 +2660,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "Pydantic、OpenAPI、Package、Task間のshapeと意味の一致を境界単位で検査するtestです。",
+      "definition": "Pydantic、OpenAPI、モデル成果物一式、タスク間で、構造と意味が一致することを境界ごとに検査するテストです。",
       "anti_definitions": [
-        "利用者操作全体を通すE2E testの別名ではありません。"
+        "利用者操作全体を通す一連操作のテストの別名ではありません。"
       ],
       "not_same_as": [
         "integration-test",
@@ -2634,9 +2692,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "service、SQLite、migration、APIなど複数層を実際につなぎ、不変条件と保存結果を検査するtestです。",
+      "definition": "サービス、SQLite、移行処理、APIなど複数の層を実際につなぎ、不変条件と保存結果を検査するテストです。",
       "anti_definitions": [
-        "browser操作を必ず含むtestではありません。"
+        "ブラウザ操作を必ず含むテストではありません。"
       ],
       "not_same_as": [
         "contract-test",
@@ -2669,9 +2727,9 @@
       "scope": "repo-wide",
       "status": "current",
       "status_note": null,
-      "definition": "隔離DBでAPIとWebを起動し、利用者操作から保存結果までをPlaywrightで確認するtestです。",
+      "definition": "隔離したデータベースでAPIとウェブ画面を起動し、利用者操作から保存結果までをPlaywrightで確認するテストです。",
       "anti_definitions": [
-        "全domain invariantを網羅的に保証するtestではありません。"
+        "対象領域の不変条件をすべて網羅して保証するテストではありません。"
       ],
       "not_same_as": [
         "integration-test",
@@ -2694,7 +2752,7 @@
     },
     {
       "id": "migration-smoke",
-      "term_ja": "マイグレーションスモーク",
+      "term_ja": "旧データ移行の簡易受入検査",
       "term_en": "migration smoke",
       "aliases": [
         "migration acceptance"
@@ -2703,9 +2761,9 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "旧schemaのfixtureを実際に開き、migration、marker、checksum、参照整合、再起動後の読出しを一続きで確認する検証です。",
+      "definition": "旧スキーマの検証用データを実際に開き、移行処理、完了印、検査値、参照整合、再起動後の読出しを一続きで確認する検証です。",
       "anti_definitions": [
-        "新規の空DBだけでtableが作れることを確かめるtestではありません。"
+        "新規の空データベースだけで表を作れることを確かめるテストではありません。"
       ],
       "not_same_as": [
         "packaged-smoke"
@@ -2728,7 +2786,7 @@
     },
     {
       "id": "packaged-smoke",
-      "term_ja": "配布物スモーク",
+      "term_ja": "配布物の簡易受入検査",
       "term_en": "packaged smoke",
       "aliases": [
         "delivery smoke"
@@ -2737,9 +2795,9 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "実Windows配布物でnative dialog、sidecarまたはmaintenance process、改ざん拒否、復元後再起動を確認するacceptance testです。",
+      "definition": "実際のWindows配布物で、OS標準のダイアログ、補助プロセスまたは保守プロセス、改ざん拒否、復元後の再起動を確認する受入テストです。",
       "anti_definitions": [
-        "unit testや故障注入testの代替ではありません。"
+        "単体テストや故障注入テストの代替ではありません。"
       ],
       "not_same_as": [
         "end-to-end-test",
@@ -2763,7 +2821,7 @@
     },
     {
       "id": "workspace-bundle",
-      "term_ja": "ワークスペースバンドル",
+      "term_ja": "ワークスペース復元用一式",
       "term_en": "Workspace bundle",
       "aliases": [
         "mdwb archive"
@@ -2772,9 +2830,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "整合したSQLite snapshot、管理対象Data Asset、Model Package、migration、table evidenceを一つにしたversion付き`.mdwb` archiveです。",
+      "definition": "整合したSQLiteの固定記録、管理対象のデータ資産、モデル成果物一式、移行情報、表の証拠を一つにまとめた、版付きの`.mdwb`アーカイブです。",
       "anti_definitions": [
-        "任意directoryをそのままzipにしたbackupではありません。"
+        "任意のディレクトリをそのままZIP形式にしたバックアップではありません。"
       ],
       "not_same_as": [
         "staged-restore"
@@ -2797,7 +2855,7 @@
     },
     {
       "id": "staged-restore",
-      "term_ja": "段階的復元",
+      "term_ja": "事前検証付き復元",
       "term_en": "staged restore",
       "aliases": [
         "prepare restore"
@@ -2806,9 +2864,9 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "active Workspaceへ触れる前に、別directoryで展開、migration、digest、参照を検証した復元候補です。",
+      "definition": "現在利用中のワークスペースへ触れる前に、別のディレクトリで展開、移行、ハッシュ値、参照を検証した復元候補です。",
       "anti_definitions": [
-        "archiveを現Workspaceへ直接上書き展開する操作ではありません。"
+        "アーカイブを現在のワークスペースへ直接上書き展開する操作ではありません。"
       ],
       "not_same_as": [
         "workspace-bundle"
@@ -2831,16 +2889,16 @@
     },
     {
       "id": "recovery-journal",
-      "term_ja": "復旧ジャーナル",
+      "term_ja": "復旧記録",
       "term_en": "recovery journal",
       "aliases": [],
       "category": "ui-testing",
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "Workspace復元のprepare、commit、rollbackに必要な途中状態をprocess終了後も識別する短命な記録です。",
+      "definition": "ワークスペース復元の準備、確定、巻戻しに必要な途中状態を、プロセス終了後も識別できるようにする短命な記録です。",
       "anti_definitions": [
-        "Projectの長期判断履歴を保存するledgerではありません。"
+        "プロジェクトの長期的な判断履歴を保存する台帳ではありません。"
       ],
       "not_same_as": [
         "immutable-evidence"
@@ -2862,7 +2920,7 @@
     },
     {
       "id": "decision-surface",
-      "term_ja": "判断面",
+      "term_ja": "判断材料の表示面",
       "term_en": "Decision Surface",
       "aliases": [
         "decision evidence surface"
@@ -2871,10 +2929,10 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "候補の入力、予測、区間、目標達成、support、制約、robustness、provenance、実測を、意味を潰さず判断時点へ対応付ける読取り可能なまとまりです。",
+      "definition": "候補の入力、予測、区間、目標達成、学習データの裏付け、制約、入力ばらつきに対する頑健性、来歴、実測を、意味を潰さず判断時点へ対応付ける、読取り可能なまとまりです。",
       "anti_definitions": [
-        "すべての判断材料を一つのscoreへ畳み込むdashboardではありません。",
-        "九つのwidgetを常時表示するlayout規則ではありません。"
+        "すべての判断材料を一つの評価値へ畳み込む画面ではありません。",
+        "九つの表示部品を常時表示する配置規則ではありません。"
       ],
       "not_same_as": [
         "predictive-summary"
@@ -2887,14 +2945,19 @@
       "related": [
         "decision-activity",
         "robustness",
-        "counterfactual"
+        "counterfactual",
+        "proposal-shortlist-selection"
       ],
       "math_connections": [
-        "判断をmodel outputだけでなくobjective、constraints、risk tolerance、cost、evidenceの関数として分解します"
+        "判断をモデル出力だけでなく、目的、制約、リスク許容度、費用、証拠の関数として分解します"
       ],
       "repo_references": [
         {
           "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
           "role": "frontend"
         },
         {
@@ -2908,7 +2971,7 @@
     },
     {
       "id": "evidence-state",
-      "term_ja": "証拠状態",
+      "term_ja": "証拠の有無と利用可否の状態",
       "term_en": "Evidence State",
       "aliases": [
         "evidence availability state"
@@ -2932,7 +2995,7 @@
         "decision-surface"
       ],
       "math_connections": [
-        "数値0は観測値であり、null、未計算、失敗とは異なる標本空間上の結果です"
+        "数値0は観測値であり、値がない状態、未計算、失敗とは異なる標本空間上の結果です"
       ],
       "repo_references": [
         {
@@ -2951,7 +3014,7 @@
     },
     {
       "id": "actionable-warning",
-      "term_ja": "行動可能な警告",
+      "term_ja": "次の行動を示す警告",
       "term_en": "actionable warning",
       "aliases": [
         "cause impact next action"
@@ -2962,7 +3025,7 @@
       "status_note": null,
       "definition": "原因、判断への影響、利用者が実行できる次の行動を分け、どの結論を止めるかまで示す警告です。",
       "anti_definitions": [
-        "注意してくださいとだけ伝えるpersistent alertではありません。"
+        "「注意してください」とだけ伝える、消えない警告ではありません。"
       ],
       "not_same_as": [
         "evidence-state"
@@ -2990,7 +3053,7 @@
     },
     {
       "id": "explicit-adoption",
-      "term_ja": "明示的採用境界",
+      "term_ja": "提案を候補・判断へ移す明示操作",
       "term_en": "Explicit Adoption Boundary",
       "aliases": [
         "proposal adoption boundary"
@@ -2999,10 +3062,10 @@
       "scope": "pattern",
       "status": "current",
       "status_note": null,
-      "definition": "algorithmが保存したproposalを、利用者が別のwriteでCandidateへ変換し、さらに固定証拠と理由を伴う別操作で判断として保存する境界です。",
+      "definition": "アルゴリズムが保存した提案を、利用者が別の書込みで候補へ変換し、さらに固定した証拠と理由を伴う別操作で判断として保存する境界です。",
       "anti_definitions": [
-        "proposal生成後に最上位案を自動採用する処理ではありません。",
-        "確認dialogを一つ挟むだけの見た目上の区切りではありません。"
+        "提案生成後に最上位案を自動採用する処理ではありません。",
+        "確認ダイアログを一つ挟むだけの見た目上の区切りではありません。"
       ],
       "not_same_as": [
         "decision-activity"
@@ -3032,7 +3095,7 @@
         }
       ],
       "common_misconceptions": [
-        "Candidate化とProject decision保存は同じ採用操作ではありません。"
+        "候補化とプロジェクト判断の保存は、同じ採用操作ではありません。"
       ]
     }
   ]

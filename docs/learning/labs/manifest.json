@@ -51,7 +51,7 @@
       "mode": "guided",
       "category": "contract",
       "title": "契約変更の影響範囲を予測する",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "expected_minutes": 60,
       "requires": [
         "node",
@@ -86,7 +86,7 @@
       "mode": "guided",
       "category": "persistence",
       "title": "Project Aの証拠を残したまま作業を終える",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "expected_minutes": 90,
       "requires": [
         "python"
@@ -120,7 +120,7 @@
       "mode": "guided",
       "category": "frontend",
       "title": "二つの編集と遅いresponseを判定する",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "expected_minutes": 90,
       "requires": [
         "node",
@@ -252,7 +252,7 @@
       "expected_outcomes": [
         "Model Package改ざんと任意code経路を拒否する",
         "Chainの部分再計算、Monte Carlo、failure保持を別々に検証する",
-        "cache hit、coalescing、stale responseを区別する",
+        "計算結果の再利用、同じ要求の集約、古い応答の破棄を区別する",
         "Workspace bundleの改ざんとunsafe pathを展開前に拒否する"
       ]
     },

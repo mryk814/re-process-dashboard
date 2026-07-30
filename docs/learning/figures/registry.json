@@ -6,7 +6,7 @@
       "kind": "timeline",
       "source": "figures/candidate-revision-conflict.svg",
       "chapter": "chapters/revision-and-digest.qmd",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "alt": "二つの編集が候補リビジョンを介して競合する時系列",
       "long_description": "編集者Aと編集者Bがリビジョン7を読み、Aの保存がリビジョン8を作る。Bの古い保存は409となり、現行リビジョン8へ変更フィールドだけを重ねた保存がリビジョン9を作る。",
       "drift_refs": [
@@ -38,9 +38,9 @@
       "kind": "contract-diagram",
       "source": "figures/decision-activity-union.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
-      "alt": "検討アクティビティのパラメータと結果をschema_versionで分ける二つのユニオン型",
-      "long_description": "DecisionActivityParametersは三つのパラメータ契約を、DecisionActivityResultは対応する三つの要約契約を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
+      "alt": "検討アクティビティのパラメータと結果をスキーマの版で分ける二つのユニオン型",
+      "long_description": "パラメータ契約は三つのパラメータ形式を、結果契約は対応する三つの要約形式を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。",
       "drift_refs": [
         "backend/src/material_workbench/contracts/decision_activity_contracts.py",
         "apps/web/src/generated/api-types.ts",
@@ -87,7 +87,7 @@
       "chapter": "chapters/source-to-training-evidence.qmd",
       "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "ソース更新からモデルパッケージ候補までの資産分割",
-      "long_description": "ソースコネクター、生スナップショット、キュレーション実行記録、正規データセットリビジョン、学習用スナップショットを順に作り、別操作でモデルパッケージ候補へ進む。",
+      "long_description": "ソース接続設定、生スナップショット、品質整理実行記録、正規データセットリビジョン、学習用スナップショットを順に作り、別操作でモデルパッケージ候補へ進む。",
       "drift_refs": [
         "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
         "backend/src/material_workbench/application/data_lifecycle.py",
@@ -103,7 +103,7 @@
       "chapter": "chapters/contract-through-stack.qmd",
       "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "候補切替後に届いた古いレスポンスを同一性不一致で破棄する時系列",
-      "long_description": "候補Aのリビジョン7でリクエストを始めた後、候補Bのリビジョン3へ切り替える。Aのレスポンスが届いてもプロジェクト、候補、リビジョン、リクエスト連番が現在値と一致しないため、古い応答として拒否し、Bのパネルへ反映しない。AbortControllerは通信停止を試みるが、レスポンス到着時の同一性検査を置き換えない。",
+      "long_description": "候補Aの版番号7で要求を始めた後、候補Bの版番号3へ切り替える。Aの応答が届いてもプロジェクト、候補、版番号、要求連番が現在値と一致しないため、古い応答として拒否し、Bの表示へ反映しない。通信中止の仕組みは停止を試みるが、応答到着時の同一性検査を置き換えない。",
       "drift_refs": [
         "apps/web/src/features/candidates/useCandidateEditor.ts",
         "apps/web/src/features/workbench/inferenceSurfaceState.ts",

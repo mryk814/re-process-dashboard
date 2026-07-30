@@ -2,7 +2,7 @@
 chapter_id: "frontend-desktop-state"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
+verified_commit: "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15"
 code_references:
   - path: "apps/web/src/features/workbench/workbenchIdentity.ts"
     id: "frontend-state-request-identity"
@@ -158,75 +158,75 @@ historical_concepts: []
 
 ## 対象読者と到達点
 
-React画面、API client、navigation、Electron 枠組み、またはPlaywright テストを変更する開発者が対象です。
+React画面、APIクライアント、画面遷移、デスクトップアプリの枠組み、またはPlaywrightテストを変更する開発者が対象です。
 
-読者は、Reactのコンポーネント、hook、Promise、HTTP リクエストの基礎を知っているものとします。
+読者は、Reactのコンポーネント、フック、`Promise`、HTTP要求の基礎を知っているものとします。
 
-読了後は、次の問いへ実装経路とbrowser evidenceを挙げて答えられる状態を目指します。
+読了後は、次の問いへ実装経路とブラウザ上の証拠を挙げて答えられる状態を目指します。
 
-- サーバ状態、下書き状態、navigation 状態、selection 状態、saved evidence、ランタイム状態は何が違うか
-- TypeScriptのレスポンス型が正しくても、なぜ別候補の結果を表示できるか
+- サーバー状態、下書き状態、画面遷移の状態、選択状態、保存済みの証拠、実行時状態は何が違うか
+- TypeScriptの応答型が正しくても、なぜ別候補の結果を表示できるか
 - AbortControllerとリクエスト同一性は、どの異なる責務を持つか
-- partial 結果から全候補要約を確定してはいけない条件は何か
-- URL、history、local 状態へ何を置くか
-- unavailable、offline、エラー、stale、loadingをどう分けるか
-- Electron renderer、preload、main、Python sidecarのtrust boundaryはどこか
-- 意味 HTMLと実ブラウザテストが、どの情報構造を検証するか
+- 一部だけ得られた結果から、全候補の要約を確定してはいけない条件は何か
+- URL、閲覧履歴、コンポーネント内の状態へ何を置くか
+- 利用不能、接続断、エラー、古い結果、読込み中をどう分けるか
+- デスクトップアプリの画面描画、事前読込み、主プロセス、Python補助プロセスの信頼境界はどこか
+- 意味を表すHTMLと実ブラウザテストが、どの情報構造を検証するか
 
-## 非scope
+## 対象外
 
-本章は、React hookの網羅的な入門ではありません。
+本章は、Reactフックの網羅的な入門ではありません。
 
-CSS framework、状態管理library、Electron APIの一般的な比較も扱いません。
+CSSの枠組み、状態管理ライブラリ、デスクトップアプリ向けAPIの一般的な比較も扱いません。
 
-remote multi-user認証やWeb全般のsecurityは、security編の対象です。
+複数利用者が遠隔利用する場合の認証や、ウェブ全般のセキュリティは、信頼境界を扱う章の対象です。
 
 ## 一つの画面には複数の時間が流れる
 
-候補比較画面で候補 Bを選んだ直後に、候補 Aの遅いレスポンスが到着することがあります。
+候補比較画面で候補Bを選んだ直後に、候補Aへの遅い応答が到着することがあります。
 
-レスポンスのJSON 構造が正しく、値が有限で、TypeScriptの型が一致していても、そのレスポンスは現在の画面には古いものです。
+応答のJSON構造が正しく、値が有限で、TypeScriptの型が一致していても、その応答は現在の画面に対応しない古いものです。
 
 これは型の誤りではなく、同一性と時間の誤りです。
 
 画面が正しいためには、値の型だけでなく、どのリクエストに対する値かを確認する必要があります。
 
-## UI 状態を意味で分類する
+## 画面の状態を意味で分類する
 
-Reactではどの状態も`useState`へ保存できます。
+Reactでは、どの状態も`useState`へ保存できます。
 
-しかし、同じAPIで保持できることと、同じ意味であることは別です。
+しかし、同じ仕組みで保持できることと、同じ意味であることは別です。
 
 | 状態分類 | 例 | 正本 | 再取得 | URL共有 |
 |---|---|---|---|---|
-| サーバ状態 | プロジェクト、候補、タスク契約 | APIとDB | 可能 | 同一性だけ |
-| 下書き状態 | 保存前の入力値、未確定ラベル | browser メモリ | 不可 | 原則しない |
-| navigation 状態 | ビュー、プロジェクト、候補、実行記録 | URLとhistory | URLから復元 | する |
-| selection 状態 | 開いているtab、同一画面内の一時選択 | コンポーネント | 通常不要 | 必要時だけ |
-| saved evidence | スナップショット、アクティビティ実行記録、Actual | DBの不変記録 | 可能 | 記録 ID |
-| ランタイム状態 | loading、エラー、offline、degraded | 実行中プロセス | 状態により異なる | しない |
+| サーバー状態 | プロジェクト、候補、タスク契約 | APIとデータベース | 可能 | 同一性だけ |
+| 下書き状態 | 保存前の入力値、未確定ラベル | ブラウザのメモリ | 不可 | 原則しない |
+| 画面遷移の状態 | ビュー、プロジェクト、候補、実行記録 | URLと閲覧履歴 | URLから復元 | する |
+| 選択状態 | 開いているタブ、同一画面内の一時選択 | コンポーネント | 通常不要 | 必要時だけ |
+| 保存済み証拠 | スナップショット、アクティビティ実行記録、実測 | データベースの不変記録 | 可能 | 記録ID |
+| 実行時状態 | 読込み中、エラー、接続断、縮退動作 | 実行中プロセス | 状態により異なる | しない |
 
 状態分類は、保存場所を機械的に決める表ではありません。
 
 破棄、再取得、共有、履歴復元の意味を判断するための表です。
 
-たとえば、候補 draftをURLへ入れると、未保存の巨大ペイロードがhistoryへ残ります。
+たとえば、候補の下書きをURLへ入れると、未保存の巨大なデータが閲覧履歴へ残ります。
 
-反対に、アクティビティ実行記録 IDをコンポーネント内だけへ置くと、共有linkから同じ判断証拠を開けません。
+反対に、アクティビティ実行記録IDをコンポーネント内だけへ置くと、共有したリンクから同じ判断証拠を開けません。
 
 ## 遅れて届く一覧と利用者の選択を分ける
 
-プロジェクト Series一覧はサーバ状態ですが、設定パネルで利用者が選んだ移動先はselection 状態です。
-一覧のfetchが遅れて完了したとき、一覧そのものをeffectの依存へ入れて選択を初期化すると、利用者が選んだ「グループなし」を現在所属へ戻してしまいます。
+プロジェクト系列の一覧はサーバー状態ですが、設定パネルで利用者が選んだ移動先は選択状態です。
+一覧の取得が遅れて完了したとき、一覧そのものを副作用処理の依存へ入れて選択を初期化すると、利用者が選んだ「グループなし」を現在所属へ戻してしまいます。
 
-これは古いAPI レスポンスを別候補へ採用する古いレスポンスとは違います。
-正しい最新一覧の到着が、所有者の異なるselection 状態を上書きする問題です。
+これは古いAPI応答を別候補へ採用する問題とは違います。
+正しい最新一覧の到着が、所有者の異なる選択状態を上書きする問題です。
 
 {{< code-ref frontend-state-group-selection symbol=ProjectHub >}}は、パネルを開いた時と実際の所属が変わった時だけ選択を初期化します。
 一覧の到着では初期化しません。
 選択値から「未選択」「所属解除」「別グループへの移動」を導く規則は、{{< code-ref frontend-state-group-selection-state symbol=projectGroupMembershipState >}}へ分離しています。
 この依存境界は{{< code-ref frontend-state-group-selection-test >}}で振る舞いとして固定しています。
-現行browser テストは通常の所属解除を確認しますが、一覧の意図的な遅延までは注入していません。
+現行のブラウザテストは通常の所属解除を確認しますが、一覧の意図的な遅延までは注入していません。
 
 ## サーバ状態と下書き状態を分ける
 
@@ -234,20 +234,20 @@ Reactではどの状態も`useState`へ保存できます。
 
 下書き状態は、そのリビジョンを基準に利用者が編集中の値です。
 
-保存リクエストは、draftだけでなく基準リビジョンを送ります。
+保存要求は、下書きだけでなく基準リビジョンを送ります。
 
-別の操作でサーバリビジョンが進んでいれば、バックエンドはconflictを返せます。
+別の操作でサーバー上のリビジョンが進んでいれば、バックエンドは競合を返せます。
 
-画面側がサーバ状態へdraftを即時混合すると、次の二つを区別できません。
+画面側がサーバー状態へ下書きを即時に混ぜると、次の二つを区別できません。
 
 - 保存済みで再取得できる値
-- まだlocalにしかない値
+- まだコンポーネント内にしかない値
 
 予測リクエスト同一性も同じです。
 
-表示名だけのdraft変更とcanonical 入力変更は、同じ候補リビジョン更新になり得ますが、推論結果を無効化する意味は違います。
+表示名だけの下書き変更と正規化済み入力の変更は、同じ候補リビジョン更新になり得ますが、推論結果を無効化する意味は違います。
 
-{{< code-ref frontend-state-request-cache symbol="candidateInputIdentity" >}}は、canonical 入力をキー順に正規化して入力同一性を作ります。
+{{< code-ref frontend-state-request-cache symbol="candidateInputIdentity" >}}は、正規化済みの入力をキー順に並べて入力同一性を作ります。
 
 {{< code-ref frontend-state-prediction symbol="useWorkbenchPrediction" >}}は、候補リビジョンだけでなく入力同一性を使ってプレビューの鮮度を判定します。
 
@@ -255,7 +255,7 @@ Reactではどの状態も`useState`へ保存できます。
 
 ## リクエスト同一性を形式化する
 
-一般のリクエスト同一性を次のtupleで表します。
+一般の要求同一性を次の組で表します。
 
 $$
 I
@@ -272,7 +272,7 @@ $$
 
 $p$はプロジェクト ID、$t$はタスク ID、$c$は候補 ID、$r$は候補リビジョン、$o$は操作、$h(\theta)$はパラメータ同一性です。
 
-プレビューでは、display-only リビジョンよりcanonical 入力同一性が重要な場合があります。
+プレビューでは、表示だけを変えたリビジョンより、正規化済み入力の同一性が重要な場合があります。
 
 $$
 I_{\mathrm{preview}}
@@ -304,7 +304,7 @@ $$
 4. $R_2$が先に完了し、Bを表示する
 5. $R_1$が遅れて完了する
 
-$R_1$のbodyが正しい`ApiPreview`でも、Bの画面へ反映してはいけません。
+$R_1$の応答本文が正しい`ApiPreview`でも、Bの画面へ反映してはいけません。
 
 反映規則は次です。
 
@@ -320,13 +320,13 @@ $s_i$はリクエスト連番です。
 
 同一性が同じリクエストを短時間に再実行する場合、連番が新旧を区別します。
 
-{{< code-ref frontend-state-surface symbol="requestInferenceSurface" >}}は、リクエスト開始時に連番を増やし、requested 同一性を保存します。
+{{< code-ref frontend-state-surface symbol="requestInferenceSurface" >}}は、要求開始時に連番を増やし、要求時の同一性を保存します。
 
-{{< code-ref frontend-state-surface symbol="resolveInferenceSurface" >}}と{{< code-ref frontend-state-surface symbol="rejectInferenceSurface" >}}は、連番と同一性が一致しないレスポンスを状態へ反映しません。
+{{< code-ref frontend-state-surface symbol="resolveInferenceSurface" >}}と{{< code-ref frontend-state-surface symbol="rejectInferenceSurface" >}}は、連番と同一性が一致しない応答を状態へ反映しません。
 
-{{< code-ref frontend-state-surface-test >}}は、古いリクエストのレスポンスが新しいリクエストを上書きしないことを確認します。
+{{< code-ref frontend-state-surface-test >}}は、古い要求への応答が新しい要求の結果を上書きしないことを確認します。
 
-## staleは消すだけでなく表示する
+## 古い結果は消すだけでなく、古いと表示する
 
 入力変更のたびに既存結果を空にすると、画面が跳ね、比較中の文脈が失われます。
 
@@ -336,36 +336,36 @@ $s_i$はリクエスト連番です。
 
 | 状態 | データ | リクエスト | 表示の意味 |
 |---|---|---|---|
-| latest | 現同一性 | 完了 | 最新 |
-| refreshing | なし、または同同一性 | 実行中 | 更新中 |
-| stale | 旧同一性 | 新同一性を実行中 | 旧結果を明示して保持 |
+| 最新 | 現在の同一性 | 完了 | 最新 |
+| 更新中 | なし、または同じ同一性 | 実行中 | 更新中 |
+| 古い結果 | 以前の同一性 | 新しい同一性を実行中 | 旧結果を明示して保持 |
 | エラー | 旧結果がある場合もある | 最新リクエスト失敗 | 更新失敗、旧結果 |
 
-旧結果を残す場合、ラベル、色、screen reader向けtextでstaleを明示します。
+旧結果を残す場合、ラベル、色、画面読上げソフト向けの文字で、以前の入力に対する結果だと明示します。
 
-dash記号だけでは、未計算、欠損、利用不可、失敗、非該当を区別できません。
+横線記号だけでは、未計算、欠損、利用不可、失敗、非該当を区別できません。
 
-## AbortControllerの役割と限界
+## `AbortController`の役割と限界
 
-AbortControllerは、利用者が不要になったnetwork リクエストを打ち切るために使います。
+`AbortController`は、利用者が不要になった通信要求を打ち切るために使います。
 
-cleanupでabortすれば、unmount後の不要な通信と状態更新を減らせます。
+終了処理で中止すれば、コンポーネントを破棄した後の不要な通信と状態更新を減らせます。
 
-しかし、abortだけでは古いレスポンス防止は完結しません。
+しかし、通信の中止だけでは、古い応答を反映しないための対策は完結しません。
 
 理由は三つあります。
 
-1. レスポンスがabort前に完了している場合がある
-2. fetchを中止してもバックエンド計算が必ず停止するとは限らない
-3. 同じupstream リクエストを複数callerが共有している場合がある
+1. 応答が中止前に完了している場合がある
+2. 通信を中止してもバックエンド計算が必ず停止するとは限らない
+3. 同じ上流要求を複数の呼出し元が共有している場合がある
 
-{{< code-ref frontend-state-request-cache symbol="InferenceRequestCache" >}}は、同じキーのリクエストをcoalesceします。
+{{< code-ref frontend-state-request-cache symbol="InferenceRequestCache" >}}は、同じキーで同時に届いた要求を一つの計算へまとめます。
 
-一つのcallerが離れても、別callerが待っている間はupstreamをabortしません。
+一つの呼出し元が離れても、別の呼出し元が待っている間は上流要求を中止しません。
 
-全subscriberが離れたときだけ共有controllerをabortします。
+待っていた呼出し元がすべて離れたときだけ、共有する中止制御を実行します。
 
-{{< code-ref frontend-state-cache-test >}}は、一callerのabort、全callerのabort、invalidation、late プレビュー拒否を分けて検証します。
+{{< code-ref frontend-state-cache-test >}}は、一つの呼出し元による中止、全呼出し元による中止、保存済み結果の無効化、遅れて届いたプレビューの拒否を分けて検証します。
 
 したがって、基本形は次の併用です。
 
@@ -387,11 +387,11 @@ identity + request sequence
 
 {{< code-ref frontend-state-activity-panel symbol="DecisionActivityPanel" >}}は、リクエスト開始時同一性を保存し、レスポンス時に現在同一性と比較します。
 
-保存済み実行記録 IDをdeep linkから受け取っても、その実行記録自身が宣言するアクティビティ IDを正本にします。
+保存済み実行記録IDを直接開くURLから受け取っても、その実行記録自身が宣言するアクティビティIDを正本にします。
 
-URL パラメータは参照のhintであり、保存済みevidenceの同一性を上書きしません。
+URLパラメータは参照先を探す手掛かりであり、保存済みの証拠が持つ同一性を上書きしません。
 
-## partial 結果を集合として扱う
+## 一部だけ得られた結果を集合として扱う
 
 候補集合を$C$、プレビュー取得済み集合を$P$とします。
 
@@ -407,11 +407,11 @@ $$
 P=C
 $$
 
-$P\ne C$のとき、取得済み行を表示してもよいですが、「全候補中のbest」を確定表示してはいけません。
+$P\ne C$のとき、取得済み行を表示してもよいですが、「全候補中の最良」を確定表示してはいけません。
 
 未計算行を0として扱うと、数値の意味を壊します。
 
-空欄やdashだけにすると、未計算と欠損を区別できません。
+空欄や横線記号だけにすると、未計算と欠損を区別できません。
 
 明示的な「未計算」状態と、残りを計算する操作が必要です。
 
@@ -419,47 +419,47 @@ $P\ne C$のとき、取得済み行を表示してもよいですが、「全候
 
 候補数を$n$、同時実行上限を$k$とします。
 
-無制限に$n$件を開始すると、browser、Python ランタイム、メモリへ同時負荷が集中します。
+無制限に$n$件を開始すると、ブラウザ、Pythonの実行処理、メモリへ同時負荷が集中します。
 
-{{< code-ref frontend-state-bounded-loader symbol="loadSelectedFirstBounded" >}}は、選択候補を先に完了させ、その後のbackground プレビューを最大$k$ workerで読みます。
+{{< code-ref frontend-state-bounded-loader symbol="loadSelectedFirstBounded" >}}は、選択候補を先に完了させ、その後の背後で行うプレビューを最大$k$個の実行単位で読みます。
 
-現行sessionは$k=2$を使います。
+現行の処理単位は$k=2$を使います。
 
-{{< code-ref frontend-state-session symbol="useWorkbenchSession" >}}は、初期プレビューをbounded setへ限定し、残りの全件計算を明示操作へ分けます。
+{{< code-ref frontend-state-session symbol="useWorkbenchSession" >}}は、初期プレビューを上限付きの候補集合へ限定し、残りの全件計算を明示操作へ分けます。
 
 残りの計算では、各結果を到着順に反映して行を埋めます。
 
-一方、loader全体がabortされた場合は、完了前のpartial collectionをpublishしません。
+一方、読込み処理全体が中止された場合は、完了前の一部結果を公開しません。
 
-{{< code-ref frontend-state-bounded-test >}}は、選択候補優先、peak concurrency、abort後のpartial publish拒否を確認します。
+{{< code-ref frontend-state-bounded-test >}}は、選択候補の優先、同時実行数の最大値、中止後に一部結果を公開しないことを確認します。
 
-progressive renderingとcomplete 要約は両立します。
+段階的な描画と、全件がそろった後の要約は両立します。
 
-行単位では届いた結果を表示し、集合全体の結論にはcomplete条件を付けます。
+行単位では届いた結果を表示し、集合全体の結論には完了条件を付けます。
 
-## deep linkは現在地の契約である
+## 直接開くURLは現在地の契約である
 
-{{< code-ref frontend-state-navigation symbol="readNavigationIntent" >}}は、URL queryからビュー、プロジェクト、候補、entity、quality issue、Screening 実行記録、アクティビティ実行記録、スナップショットなどを読みます。
+{{< code-ref frontend-state-navigation symbol="readNavigationIntent" >}}は、URLの問い合わせ部分から表示種別、プロジェクト、候補、対象、品質上の課題、絞込みの実行記録、アクティビティ実行記録、スナップショットなどを読みます。
 
-{{< code-ref frontend-state-navigation symbol="navigationUrl" >}}は、同じNavigation IntentをURLへ直列化します。
+{{< code-ref frontend-state-navigation symbol="navigationUrl" >}}は、同じ画面遷移の意図をURLへ直列化します。
 
 URLへ置くのは、再取得可能な同一性と表示位置です。
 
-次はURLへ置きません。
+次の情報はURLへ置きません。
 
-- launch tokenや認証情報
+- 起動トークンや認証情報
 - 候補全ペイロード
-- 保存前draft
-- 大きなprediction 結果
-- 一時的なloadingやエラー object
+- 保存前の下書き
+- 大きな予測結果
+- 一時的な読込み状態やエラー情報
 
-URLでアクティビティ実行記録 IDを共有すれば、受け手はDBから保存済みevidenceを再取得できます。
+URLでアクティビティ実行記録IDを共有すれば、受け手はデータベースから保存済みの証拠を再取得できます。
 
-来歴から元実行記録やスナップショットへ戻る導線も、同じnavigation 契約を使います。
+来歴から元の実行記録やスナップショットへ戻る導線も、同じ画面遷移契約を使います。
 
-## pushStateとreplaceStateを使い分ける
+## `pushState`と`replaceState`を使い分ける
 
-利用者が別ビューや別evidenceへ移動した操作は、戻る履歴として残すため`pushState`を使います。
+利用者が別の表示や別の証拠へ移動した操作は、戻る履歴として残すため`pushState`を使います。
 
 初期URLの補正、削除済み候補から既定候補への補正、同じ画面内の選択同期は、余分な戻る履歴を作らないため`replaceState`を使います。
 
@@ -469,29 +469,29 @@ URLでアクティビティ実行記録 IDを共有すれば、受け手はDBか
 
 {{< code-ref frontend-state-navigation symbol="withView" >}}は、ビューを変えたときに意味を失うパラメータを落とします。
 
-たとえば、lineageのentityはCandidates ビューへ持ち越しません。
+たとえば、来歴画面の対象IDは候補画面へ持ち越しません。
 
-historyをlocal 状態の副作用として扱わず、Navigation Intentから復元できるようにします。
+閲覧履歴をコンポーネント内状態の副作用として扱わず、画面遷移の意図から復元できるようにします。
 
-## loading、エラー、offline、unavailable、degradedを分ける
+## 読込み中、エラー、接続断、利用不能、縮退動作を分ける
 
 | 状態 | 原因 | 再試行 | 読取 | 書込 |
 |---|---|---|---|---|
-| loading | リクエスト実行中 | 待つ | 旧結果があれば明示 | 通常抑制 |
-| starting | local APIがExcelとモデルパッケージを読込中 | 最大20秒まで自動 | 枠組み内の説明 | 停止 |
-| リクエストエラー | 一操作の失敗 | 操作単位 | 他surfaceは維持 | 関係操作だけ停止 |
-| offline | APIへ接続不可 | 接続後 | browser内の表示だけ | 停止 |
-| unavailable | タスクやsubsystemの固定依存が欠落 | 修復後 | 保存済みevidence | 対象機能を停止 |
-| degraded | 付加機能サブシステムだけ失敗 | 修復後 | core機能と履歴 | 利用可能範囲のみ |
+| 読込み中 | 要求を実行中 | 待つ | 旧結果があれば明示 | 通常抑制 |
+| 起動中 | ローカルAPIがExcelとモデルパッケージを読込中 | 最大20秒まで自動 | 枠組み内の説明 | 停止 |
+| 要求エラー | 一操作の失敗 | 操作単位 | 他の操作面は維持 | 関係操作だけ停止 |
+| 接続断 | APIへ接続不可 | 接続後 | ブラウザ内の表示だけ | 停止 |
+| 利用不能 | タスクや付加機能の固定依存が欠落 | 修復後 | 保存済み証拠 | 対象機能を停止 |
+| 縮退動作 | 付加機能だけ失敗 | 修復後 | 中核機能と履歴 | 利用可能範囲のみ |
 
-{{< code-ref frontend-state-api-client symbol="ApiClientError" >}}は、network、not found、conflict、validation、サーバを区別します。
+{{< code-ref frontend-state-api-client symbol="ApiClientError" >}}は、通信失敗、対象なし、競合、入力検証、サーバー内部の失敗を区別します。
 
-{{< code-ref frontend-state-api-client symbol="requireData" >}}は、バックエンドのドメインエラー code、フィールドエラー、availabilityを保持します。
+{{< code-ref frontend-state-api-client symbol="requireData" >}}は、バックエンドのドメインエラーコード、フィールドエラー、利用可能性を保持します。
 
 {{< code-ref frontend-state-app symbol="ConnectionBanner" >}}は、API断を全体の接続状態として表示し、再試行を提供します。
-接続不能だけが続く最初の20秒はstartingとして自動再試行し、HTTP エラーや時間超過を「待てばよい起動中」と誤表示しません。
-ワークスペース preflightが診断JSONを残した場合は、一般的なoffline表示ではなく、stage、リソース、cause、impact、復旧先を表示します。
-この区別により、通常の起動待ち、復旧が必要なfail-closed、原因を特定できないAPI断を別の利用者行動へ対応させます。
+接続不能だけが続く最初の20秒は起動中として自動再試行し、HTTPエラーや時間超過を「待てばよい起動中」と誤表示しません。
+ワークスペースの起動前検査が診断JSONを残した場合は、一般的な接続断表示ではなく、失敗した段階、資源、原因、影響、復旧先を表示します。
+この区別により、通常の起動待ち、復旧が必要な安全側への停止、原因を特定できないAPI断を、別の利用者行動へ対応させます。
 
 {{< code-ref frontend-state-app symbol="TaskUnavailablePanel" >}}は、予測タスクが使えなくてもプロジェクト概要と保存済み判断履歴を読めることを説明します。
 
@@ -499,15 +499,15 @@ historyをlocal 状態の副作用として扱わず、Navigation Intentから�
 
 {{< code-ref frontend-state-degraded-e2e >}}は、壊れたパッケージを持つタスクでも、固定参照と読み取り専用診断を開けることを確認します。
 
-付加機能サブシステムの失敗でアプリ全体を止めると、障害調査に必要な保存済みevidenceまで隠します。
+付加機能の失敗でアプリ全体を止めると、障害調査に必要な保存済み証拠まで隠します。
 
-fatalとdegradedの境界は、証拠を安全に読めるか、誤った新規計算を許すかで決めます。
+起動不能と縮退動作の境界は、証拠を安全に読めるか、誤った新規計算を許してしまうかで決めます。
 
-チェーンプロジェクトでは、template一覧、固定リビジョン、subsystem availabilityの三つが揃うまで実行可否を決められません。
-{{< code-ref frontend-state-active-chain symbol=resolveActiveChainContext >}}は、この途中状態を`loading`や`unresolved`として区別し、availability取得失敗を`error`として閉じます。
-{{< code-ref frontend-state-chain-degraded-e2e >}}は、確認中と取得失敗のどちらでもチェーン APIを先に呼ばず、保存済みのプロジェクト概要だけを残すfail-closedを確認します。
+チェーンプロジェクトでは、ひな型一覧、固定リビジョン、付加機能の利用可能性の三つがそろうまで、実行可否を決められません。
+{{< code-ref frontend-state-active-chain symbol=resolveActiveChainContext >}}は、この途中状態を`loading`や`unresolved`として区別し、利用可能性の取得失敗を`error`として閉じます。
+{{< code-ref frontend-state-chain-degraded-e2e >}}は、確認中と取得失敗のどちらでもチェーンAPIを先に呼ばず、保存済みのプロジェクト概要だけを残して安全側へ閉じることを確認します。
 
-## Electronのプロセス境界を描く
+## デスクトップアプリのプロセス境界を描く
 
 ```{mermaid}
 flowchart TB
@@ -520,111 +520,111 @@ flowchart TB
   S --> D["SQLite / Data / Model Package"]
 ```
 
-rendererは表示と利用者操作を担当します。
+画面描画側は表示と利用者操作を担当します。
 
-preloadは、rendererへ必要最小限のbridgeだけを公開します。
+事前読込み処理は、画面描画側へ必要最小限の橋渡し機能だけを公開します。
 
-メインプロセスは、ネイティブダイアログ、workspace操作、sidecar ライフサイクルを所有します。
+主プロセスは、OS標準のダイアログ、ワークスペース操作、補助プロセスの生存期間を所有します。
 
-Python sidecarは、ドメイン契約、計算、SQLite persistenceを所有します。
+Python補助プロセスは、ドメイン契約、計算、SQLiteへの永続化を所有します。
 
 この境界を越えるデータは、すべて信頼済みとは限りません。
 
-rendererのXSSからNode API全体へ到達できないようにします。
+画面描画側のスクリプト注入からNode.js API全体へ到達できないようにします。
 
-## BrowserWindowを安全側へ固定する
+## 画面用ウィンドウを安全側へ固定する
 
-{{< code-ref frontend-state-desktop-main symbol="createMainWindow" >}}は、`contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`、`webSecurity: true`でBrowserWindowを作ります。
+{{< code-ref frontend-state-desktop-main symbol="createMainWindow" >}}は、`contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`、`webSecurity: true`で`BrowserWindow`を作ります。
 
-{{< code-ref frontend-state-desktop-preload >}}は、ランタイム configとワークスペース操作の関数だけを`contextBridge`で公開します。
+{{< code-ref frontend-state-desktop-preload >}}は、実行時設定とワークスペース操作の関数だけを`contextBridge`で公開します。
 
-`fs`、`child_process`、任意IPC channelをrendererへ渡しません。
+`fs`、`child_process`、任意のIPC経路を画面描画側へ渡しません。
 
-{{< code-ref frontend-state-desktop-main symbol="assertTrustedWorkspaceSender" >}}は、ワークスペース IPCの送信元がmain frameであり、packaged renderer 経路または許可したdev originと一致することを確認します。
+{{< code-ref frontend-state-desktop-main symbol="assertTrustedWorkspaceSender" >}}は、ワークスペースIPCの送信元が主フレームであり、配布物の画面経路または許可した開発用の送信元と一致することを確認します。
 
-UIでbuttonを隠すだけでは、IPC呼出しのauthorizationになりません。
+画面でボタンを隠すだけでは、IPC呼出しを認可したことにはなりません。
 
 メインプロセス境界でも送信元を検証します。
 
-## local APIはloopbackだけで信頼しない
+## ローカルAPIはループバック接続だけで信頼しない
 
-sidecarは`127.0.0.1`へbindします。
+補助プロセスは`127.0.0.1`で接続を待ち受けます。
 
-しかし、同じPCで開いた悪意あるWeb pageもloopbackへリクエストを試せます。
+しかし、同じパソコンで開いた悪意あるウェブページも、ループバック接続へ要求を送れます。
 
-{{< code-ref frontend-state-desktop-main symbol="startSidecar" >}}は、起動ごとにrandomなlaunch tokenを環境変数でsidecarへ渡します。
+{{< code-ref frontend-state-desktop-main symbol="startSidecar" >}}は、起動ごとに無作為な起動トークンを環境変数で補助プロセスへ渡します。
 
-preloadからrendererへ渡したtokenは、{{< code-ref frontend-state-api-client >}}が`X-Workbench-Launch-Token` headerへ注入します。
+事前読込み処理から画面描画側へ渡したトークンは、{{< code-ref frontend-state-api-client >}}が`X-Workbench-Launch-Token`ヘッダーへ注入します。
 
-tokenをURLへ置かないため、browser historyや一般的なURL logへ残しません。
+トークンをURLへ置かないため、ブラウザの閲覧履歴や一般的なURL記録へ残しません。
 
-{{< code-ref frontend-state-local-api-security symbol="configure_local_access" >}}は、Originとlaunch tokenを別々に検査します。
+{{< code-ref frontend-state-local-api-security symbol="configure_local_access" >}}は、送信元と起動トークンを別々に検査します。
 
-CORSはbrowserがレスポンスを読めるoriginを制御しますが、authenticationそのものではありません。
+CORSはブラウザが応答を読める送信元を制御しますが、認証そのものではありません。
 
-launch tokenは、起動中Desktop instanceからのリクエストであることを追加で確認します。
+起動トークンは、起動中のデスクトップアプリからの要求であることを追加で確認します。
 
-## sidecar ライフサイクルはDesktop 状態である
+## 補助プロセスの生存期間はデスクトップアプリの状態である
 
-{{< code-ref frontend-state-desktop-main symbol="waitForHealthySidecar" >}}は、token付きhealth リクエストが成功するまで起動完了としません。
+{{< code-ref frontend-state-desktop-main symbol="waitForHealthySidecar" >}}は、トークン付きの健全性確認が成功するまで起動完了としません。
 
-{{< code-ref frontend-state-desktop-main symbol="stopSidecar" >}}は、Desktopが起動したプロセスツリーだけを停止します。
+{{< code-ref frontend-state-desktop-main symbol="stopSidecar" >}}は、デスクトップアプリが起動したプロセスツリーだけを停止します。
 
-Windowsでは`uv`が子Pythonプロセスを作るため、root PIDを指定したtree shutdownが必要です。
+Windows環境では`uv`が子Pythonプロセスを作るため、親プロセスの識別子を指定してプロセスツリー全体を停止する必要があります。
 
-起動失敗では、stageとsidecar logを診断情報として残します。
+起動失敗では、失敗した段階と補助プロセスのログを診断情報として残します。
 
-sidecarが予期せず終了した場合、計算不能のrendererをそのまま残さず、利用者へ起動障害として示します。
+補助プロセスが予期せず終了した場合、計算不能の画面をそのまま残さず、利用者へ起動障害として示します。
 
 ## アクセシビリティは情報構造のテストである
 
-色と位置だけで候補行を対応付けると、screen reader、zoom、font enlargementで関係が失われます。
+色と位置だけで候補行を対応付けると、画面読上げ、拡大表示、文字拡大で関係が失われます。
 
-{{< code-ref frontend-state-comparison symbol="ComparisonTable" >}}は、複数paneの各テーブルに候補名の`<th scope="row">`を持たせます。
+{{< code-ref frontend-state-comparison symbol="ComparisonTable" >}}は、複数の区画にある各テーブルへ、候補名を示す`<th scope="row">`を持たせます。
 
 列グループには`scope="colgroup"`、個別列には`scope="col"`を使います。
 
-選択buttonは`aria-label`と`aria-pressed`を持ちます。
+選択ボタンは`aria-label`と`aria-pressed`を持ちます。
 
-これにより、視覚的な横並びだけでなく、各cellと候補の意味 associationを作ります。
+これにより、視覚的な横並びだけでなく、各セルと候補の意味上の対応を作ります。
 
-横比較だけでは、screen readerが一つの候補に属する入力と出力を続けて読むことが困難です。
+横比較だけでは、画面読上げ機能が一つの候補に属する入力と出力を続けて読むことが困難です。
 
-そのため、選択候補を一件ずつ読む領域は、タスク定義順の入力、固定条件、heat pattern、単位付き予測、区間、学習データの裏付け、目標達成を一つの意味 flowへ並べます。
+そのため、選択候補を一件ずつ読む領域は、タスク定義順の入力、固定条件、加熱パターン、単位付き予測、区間、学習データの裏付け、目標達成を一つの意味の流れに並べます。
 
-WCAG 2.2は、情報と関係をprogrammatically determinableにすることを求めます[@w3c-wcag22]。
+WCAG 2.2は、情報と関係をプログラムから判定可能にすることを求めます[@w3c-wcag22]。
 
 {{< code-ref frontend-state-accessibility-e2e >}}は、重大な自動検出違反がないことを検査します。
 
-同じテストはroot font sizeを150%へ上げ、読み上げ用の文字が実際に拡大し、四つのpaneで同じ候補行の高さと位置が揃い、二段目の固定headerが一段目と重ならないことも確認します。
+同じテストは基準文字サイズを150%へ上げ、読み上げ用の文字が実際に拡大し、四つの区画で同じ候補行の高さと位置が揃い、二段目の固定見出しが一段目と重ならないことも確認します。
 
 アクセシビリティテストは、見た目の追加検査ではありません。
 
-テーブルと読み上げ領域の意味、文字拡大、layout同期という設計契約を検証します。
+テーブルと読み上げ領域の意味、文字拡大、配置の同期という設計契約を検証します。
 
 ## 実ブラウザで競合を再現する
 
-単体テストだけでは、fetch、React effect、URL更新、DOM反映の組合せを確認できません。
+単体テストだけでは、通信、Reactの副作用、URL更新、DOM反映の組合せを確認できません。
 
-{{< code-ref frontend-state-race-e2e >}}は、Playwrightのルートでプレビュー レスポンスを保留します。
+{{< code-ref frontend-state-race-e2e >}}は、Playwrightでプレビュー応答を保留します。
 
 その間に候補を作成または入力を変更し、別同一性へ移動します。
 
-保留レスポンスを解放した後、次を確認します。
+保留した応答を解放した後、次を確認します。
 
 - URLの候補同一性が新しいままである
-- レスポンス curveが新候補を示す
+- 応答の曲線が新候補を示す
 - 古いプレビューが新しい行を上書きしない
-- 表示名だけの保存ではpending inferenceを無駄に再実行しない
-- プレビュー失敗後も旧結果をdashへ戻さず、エラーを明示する
+- 表示名だけの保存では進行中の推論を無駄に再実行しない
+- プレビュー失敗後も旧結果を空欄へ戻さず、エラーを明示する
 
 競合テストでは、単にリクエスト数を数えるだけでは不十分です。
 
-最終DOMがどの同一性を表示しているかを検査します。
+最終的なDOMがどの同一性を表示しているかを検査します。
 
-## 競合を調べるbrowser lab
+## ブラウザ上で競合を調べる
 
-既定のE2E サーバを毎回新規起動して、実DBとランタイムを分離します。
+既定のE2Eサーバーを毎回新規起動して、実行ごとのDBとランタイムを分離します。
 
 ```powershell
 npx playwright test e2e/inference-p0.spec.ts
@@ -638,64 +638,64 @@ npx playwright test e2e/inference-p0.spec.ts --trace on
 
 失敗後はトレースビューアで、次の順に確認します。
 
-1. 保留されたプレビュー リクエストの候補 IDと入力同一性
+1. 保留されたプレビューリクエストの候補IDと入力同一性
 2. URLが新候補へ変わった時刻
 3. 新リクエストの開始と完了
-4. 旧レスポンス解放後のDOM
-5. alert、stale ラベル、prediction cell
+4. 旧応答を解放した後のDOM
+5. 警告、古い結果を示す表示、予測セル
 
 常駐サーバ再利用は反復調査に使えますが、完了判定には使いません。
 
 共有DBの二回目実行や古いデータセットリビジョンが、競合とは別の失敗を作るためです。
 
-## 実装、状態、evidenceを対応付ける
+## 実装、状態、証拠を対応付ける
 
-| 問い | 実装 | unit evidence | browser evidence |
+| 問い | 実装 | 単体テストの証拠 | ブラウザテストの証拠 |
 |---|---|---|---|
-| リクエストは現在の候補か | リクエストキー、入力同一性 | 同一性とlate レスポンステスト | delayed プレビュー |
-| abortで共有リクエストを壊さないか | subscriber付きキャッシュ | one callerとall caller テスト | プレビュー再利用 |
-| 旧結果をどう残すか | inference surface 状態 | staleとエラー テスト | failure後のcell |
-| partial計算を抑制するか | bounded loader | peak concurrency テスト | 初期表示 |
-| URLから復元できるか | Navigation Intent | navigation テスト | backとforward |
-| API断を区別するか | ApiClientError、banner | presentation テスト | offline E2E |
-| タスク障害を局所化するか | availability パネル | presentation テスト | degraded E2E |
-| テーブル関係が意味的か | `th` scope、ARIA | ソーステスト | zoomと行 alignment |
-| Desktop権限を限定するか | preload、送信元検証 | packaging 契約 | packaged smoke |
+| リクエストは現在の候補か | リクエストキー、入力同一性 | 同一性と遅延応答のテスト | 遅延プレビュー |
+| 中止で共有リクエストを壊さないか | 待受元を数えるキャッシュ | 一つの呼出元と全呼出元が離脱するテスト | プレビュー再利用 |
+| 旧結果をどう残すか | 推論表示面の状態 | 古い結果とエラーのテスト | 失敗後のセル |
+| 一部だけの計算を抑制するか | 同時実行数を制限した読込み | 最大同時実行数のテスト | 初期表示 |
+| URLから復元できるか | 画面遷移の意図 | 画面遷移テスト | 戻る・進む操作 |
+| API断を区別するか | ApiClientError、通知帯 | 表示変換テスト | 接続断のE2E |
+| タスク障害を局所化するか | 利用可否パネル | 表示変換テスト | 縮退動作のE2E |
+| テーブル関係が意味的か | `th`の適用範囲、ARIA | ソーステスト | 文字拡大と行位置の整合 |
+| デスクトップ権限を限定するか | プリロード処理、送信元検証 | 配布契約 | 配布物の簡易動作確認 |
 
 ## 破綻条件を分類する
 
 ### 同一性の破綻
 
-- 候補 IDだけでキーを作り、リビジョンまたは入力同一性を含めない
+- 候補IDだけでキーを作り、リビジョンまたは入力同一性を含めない
 - 操作をキーへ含めず、プレビューとスナップショットを同じ状態へ入れる
-- レスポンス反映時に現在同一性を再確認しない
-- URLの実行記録 IDをレスポンス自身の来歴より優先する
+- 応答反映時に現在同一性を再確認しない
+- URLの実行記録IDを応答自身の来歴より優先する
 
 ### 時間の破綻
 
-- abort済みだからレスポンスは来ないと仮定する
+- 中止済みだから応答は来ないと仮定する
 - 同同一性の再リクエストを連番なしで区別する
-- loading開始時に旧結果を消し、画面を不必要に空にする
-- stale結果を最新と同じ表示にする
+- 読込み開始時に旧結果を消し、画面を不必要に空にする
+- 古い結果を最新と同じ表示にする
 
-### completenessの破綻
+### 計算済み範囲の破綻
 
 - 未計算を0または欠損として集計する
-- partial setで全候補bestを確定する
-- 無制限fan-outでAPIを飽和させる
-- abort後の途中collectionを別プロジェクトへpublishする
+- 一部だけの集合で全候補中の最良を確定する
+- 無制限に呼出しを分岐させてAPIを飽和させる
+- 中止後の途中結果を別プロジェクトへ公開する
 
-### trust boundaryの破綻
+### 信頼境界の破綻
 
-- rendererへNode API全体を公開する
+- 画面描画側へNode API全体を公開する
 - IPC 送信元を検証しない
-- loopback bindだけをauthenticationと考える
-- launch tokenをURLまたはlogへ出す
-- 付加機能サブシステム障害で保存済みevidenceまで隠す
+- ループバックで待ち受けることだけを認証と考える
+- 起動トークンをURLまたはログへ出す
+- 付加機能サブシステム障害で保存済みの証拠まで隠す
 
-## 演習1：AbortControllerだけのbugを直す {#exercise-frontend-desktop-state-01}
+## 演習1：`AbortController`だけでは防げない競合を直す {#exercise-frontend-desktop-state-01}
 
-次のコンポーネントは候補変更時に旧リクエストをabortします。
+次の部品は候補変更時に旧リクエストを中止します。
 
 ```tsx
 useEffect(() => {
@@ -708,14 +708,14 @@ useEffect(() => {
 
 次を答えてください。
 
-1. この実装で古いレスポンスが残る条件は何か。
+1. この実装で古い応答が残る条件は何か。
 2. リクエスト同一性へ何を含めるか。
-3. レスポンス反映条件を擬似codeで示す。
+3. 応答の反映条件を擬似コードで示す。
 
 ### 成功条件
 
-- abort前に完了したレスポンスやバックエンド継続へ触れている
-- 候補 IDだけでなくリビジョンまたは入力同一性、操作を含めている
+- 中止前に完了した応答やバックエンド側の処理継続へ触れている
+- 候補IDだけでなくリビジョンまたは入力同一性、操作を含めている
 - 同一性とリクエスト連番の両方を比較している
 
 [演習1の解答](#answer-frontend-desktop-state-01)は、回答を固定してから開きます。
@@ -724,7 +724,7 @@ useEffect(() => {
 
 #### 解答例
 
-旧fetchがabort前に完了し、Promise callbackが実行待ちの場合、AのレスポンスがBの状態へ反映され得ます。
+旧通信が中止前に完了し、非同期処理の後続部分が実行待ちの場合、Aの応答がBの状態へ反映され得ます。
 
 同一性にはプロジェクト、タスク、候補、入力同一性、操作を含めます。
 
@@ -743,21 +743,21 @@ if (
 
 #### 解答の理由
 
-AbortControllerは不要な通信を減らしますが、レスポンスの意味を判定しません。
+`AbortController`は不要な通信を減らしますが、応答の意味を判定しません。
 
 現在状態へコミットできるかは、リクエスト開始時と反映時の同一性を比較して決めます。
 
 #### よくある不十分な回答
 
-「cleanupでabortしているので安全」は、完了済みレスポンスとPromise schedulingを考慮していません。
+「後始末で中止しているので安全」は、完了済みの応答と非同期処理の実行順を考慮していません。
 
 「候補 IDを比較する」だけでは、同候補の入力変更や操作違いを区別できません。
 
 :::
 
-## 演習2：partial comparisonを設計する {#exercise-frontend-desktop-state-02}
+## 演習2：一部だけ取得できた比較画面を設計する {#exercise-frontend-desktop-state-02}
 
-候補が20件あり、初期表示では選択中1件とbackground 4件だけを計算します。
+候補が20件あり、初期表示では選択中1件と背後で読み込む4件だけを計算します。
 
 取得済み5件の中では候補 Cが最高値でした。
 
@@ -765,9 +765,9 @@ AbortControllerは不要な通信を減らしますが、レスポンスの意�
 
 ### 成功条件
 
-- $P\subset C$とcomplete条件を使っている
-- 取得済み行のprogressive表示を許している
-- 「全20件のbest」を確定せず、残りの計算導線を示している
+- $P\subset C$と、全件計算済みになる条件を使っている
+- 取得済みの行から順に表示することを許している
+- 「全20件中の最良」を確定せず、残りの計算導線を示している
 
 [演習2の解答](#answer-frontend-desktop-state-02)は、回答を固定してから開きます。
 
@@ -775,44 +775,44 @@ AbortControllerは不要な通信を減らしますが、レスポンスの意�
 
 #### 解答例
 
-計算済み5件のpredictionは行へ表示し、残り15件は「未計算」と表示します。
+計算済み5件の予測は行へ表示し、残り15件は「未計算」と表示します。
 
 「計算済み5件ではCが最高」と範囲を限定した説明は可能です。
 
-$P\ne C$なので、「20件中のbest」や全候補rankingは確定しません。
+$P\ne C$なので、「20件中の最良」や全候補の順位は確定しません。
 
 「残り15件を計算」操作を示し、$P=C$になった後に全体要約を確定します。
 
 #### 解答の理由
 
-progressive renderingは待ち時間を短くしますが、集合全体のcompletenessを変えません。
+取得済みの行から順に表示すると待ち時間は短くなりますが、集合全体が計算済みかどうかは変わりません。
 
-未計算を0や欠損としてrankingへ入れると、存在しない測定値を作ります。
+未計算を0や欠損として順位付けへ入れると、存在しない測定値を作ります。
 
 #### よくある不十分な回答
 
-「Cを暫定bestとして大きく表示する」だけでは、利用者が暫定範囲を見落とします。
+「Cを計算済み範囲での最良として大きく表示する」だけでは、利用者が対象範囲を見落とします。
 
 「全件揃うまで何も表示しない」は、行単位で使える結果まで隠します。
 
 :::
 
-## 演習3：deep linkの保存場所を選ぶ {#exercise-frontend-desktop-state-03}
+## 演習3：直接開くURLに何を保存するか選ぶ {#exercise-frontend-desktop-state-03}
 
-次の情報を、URL、local コンポーネント状態、サーバ evidenceのどこへ置くか分類してください。
+次の情報を、URL、コンポーネント内状態、サーバーに保存する証拠のどこへ置くか分類してください。
 
-1. プロジェクト ID
-2. アクティビティ実行記録 ID
-3. 保存前のslider値
-4. launch token
+1. プロジェクトID
+2. アクティビティ実行記録ID
+3. 保存前のスライダー値
+4. 起動トークン
 5. スナップショットペイロード
-6. loading フラグ
+6. 読込み中を表すフラグ
 
 ### 成功条件
 
 - URLには再取得可能な同一性だけを置いている
-- draftとランタイム状態をURLへ置いていない
-- launch tokenをURLへ置かない理由を説明している
+- 下書きと実行時状態をURLへ置いていない
+- 起動トークンをURLへ置かない理由を説明している
 
 [演習3の解答](#answer-frontend-desktop-state-03)は、回答を固定してから開きます。
 
@@ -820,33 +820,33 @@ progressive renderingは待ち時間を短くしますが、集合全体のcompl
 
 #### 解答例
 
-プロジェクト IDとアクティビティ実行記録 IDはURLへ置き、サーバ evidenceを再取得するキーにします。
+プロジェクトIDとアクティビティ実行記録IDはURLへ置き、サーバー上の証拠を再取得するキーにします。
 
-保存前slider値は下書き状態、loading フラグはランタイム状態としてコンポーネント側へ置きます。
+保存前のスライダー値は下書き状態、読込み中を表すフラグは実行時状態としてコンポーネント側へ置きます。
 
-スナップショットペイロードはサーバ evidenceへ保存し、URLにはスナップショット IDだけを置きます。
+スナップショットの内容はサーバー上の証拠として保存し、URLにはスナップショットIDだけを置きます。
 
-launch tokenはpreloadからAPI clientへ渡し、headerへ入れます。
+起動トークンはプリロード処理からAPI利用処理へ渡し、ヘッダーへ入れます。
 
-URLへ置くとhistory、コピー、diagnostic logへ漏れるため禁止します。
+URLへ置くと閲覧履歴、コピー、診断ログへ漏れるため禁止します。
 
 #### 解答の理由
 
-deep linkは現在地を再構成する契約であり、状態ペイロードの保管場所ではありません。
+深いリンクは現在地を再構成する契約であり、状態全体の保管場所ではありません。
 
-secretと巨大ペイロードを除外し、再取得可能な同一性へ限定します。
+認証情報と巨大なデータを除外し、再取得可能な同一性へ限定します。
 
 #### よくある不十分な回答
 
-「共有したいものはすべてURLへ置く」は、draft、secret、ペイロード sizeを区別していません。
+「共有したいものはすべてURLへ置く」は、下書き、認証情報、データ容量を区別していません。
 
-「すべてlocal 状態へ置く」は、reload、back、共有linkから現在地を復元できません。
+「すべて部品内の状態へ置く」は、再読込み、戻る操作、共有リンクから現在地を復元できません。
 
 :::
 
-## 演習4：Electron bridgeをレビューする {#exercise-frontend-desktop-state-04}
+## 演習4：デスクトップアプリの橋渡し境界を検討する {#exercise-frontend-desktop-state-04}
 
-preloadが次を公開する変更案をレビューしてください。
+プリロード処理が次を公開する変更案を検討してください。
 
 ```ts
 contextBridge.exposeInMainWorld("desktop", {
@@ -860,9 +860,9 @@ contextBridge.exposeInMainWorld("desktop", {
 
 ### 成功条件
 
-- renderer compromiseからファイル、プロセス、任意IPCへ到達するリスクを挙げている
-- intent単位の関数だけをpreloadへ公開している
-- main側の送信元検証を残している
+- 画面描画側が侵害された場合に、ファイル、プロセス、任意IPCへ到達する危険を挙げている
+- 目的を限定した関数だけをプリロード処理へ公開している
+- 主プロセス側の送信元検証を残している
 
 [演習4の解答](#answer-frontend-desktop-state-04)は、回答を固定してから開きます。
 
@@ -870,25 +870,25 @@ contextBridge.exposeInMainWorld("desktop", {
 
 #### 解答例
 
-このbridgeは、rendererのスクリプト injectionから任意ファイル読書き、プロセス起動、未公開IPC channelへ到達させます。
+この橋渡しは、画面描画側へのスクリプト注入から、任意ファイルの読書き、プロセス起動、未公開IPC経路へ到達させます。
 
-`exportWorkspace()`や`prepareWorkspaceRestore()`のように、利用者intent単位の関数だけを公開します。
+`exportWorkspace()`や`prepareWorkspaceRestore()`のように、利用者の目的を限定した関数だけを公開します。
 
-ネイティブファイル経路はメインプロセスのダイアログで選び、rendererから任意経路を渡しません。
+端末上のファイル経路は主プロセスのダイアログで選び、画面描画側から任意経路を渡しません。
 
-メインプロセスでは、呼出元がmain frameとtrusted renderer URLであることを検証します。
+主プロセスでは、呼出元が主フレームであり、信頼済みの画面URLであることを検証します。
 
 #### 解答の理由
 
-context isolationを有効にしても、preloadが強いobjectを丸ごと渡せば境界は狭くなりません。
+文脈の分離を有効にしても、事前読込み処理が強い権限を持つオブジェクトを丸ごと渡せば境界は狭くなりません。
 
-bridgeのsurfaceとmain側authorizationを両方制限する必要があります。
+橋渡しで公開する操作と、主プロセス側の認可を両方制限する必要があります。
 
 #### よくある不十分な回答
 
 「TypeScript型を付ける」は、ランタイム権限を制限しません。
 
-「rendererでbuttonを隠す」は、スクリプトからのIPC呼出しを防ぎません。
+「画面描画側でボタンを隠す」は、スクリプトからのIPC呼出しを防ぎません。
 
 :::
 
@@ -896,16 +896,16 @@ bridgeのsurfaceとmain側authorizationを両方制限する必要がありま�
 
 次の問いへ、本文を見ずに答えてください。
 
-1. UI 状態を六種類に分類してください。
-2. 古いレスポンスが型安全でも誤りになる理由を説明してください。
-3. AbortControllerと同一性 checkの責務を分けてください。
+1. UI状態を六種類に分類してください。
+2. 古い応答が型安全でも誤りになる理由を説明してください。
+3. AbortControllerと同一性検査の責務を分けてください。
 4. リクエスト連番が必要な場合を説明してください。
-5. partial 結果で全体要約を確定できる条件を書いてください。
-6. pushStateとreplaceStateの使い分けを説明してください。
-7. offline、unavailable、degradedを区別してください。
-8. Electronの四つのプロセス境界を説明してください。
-9. CORSとlaunch tokenの違いを説明してください。
-10. アクセシビリティ E2Eが検証する情報構造を説明してください。
+5. 一部だけの結果から全体要約を確定できる条件を書いてください。
+6. 履歴へ追加する操作と現在の履歴を置換する操作の使い分けを説明してください。
+7. API接続断、タスク利用不可、付加機能だけを止めた縮退状態を区別してください。
+8. デスクトップアプリの四つのプロセス境界を説明してください。
+9. CORSと起動トークンの違いを説明してください。
+10. アクセシビリティE2Eが検証する情報構造を説明してください。
 
 [章末チェックの解答](#answer-frontend-desktop-state-chapter-check)は、回答を固定してから開きます。
 
@@ -913,25 +913,25 @@ bridgeのsurfaceとmain側authorizationを両方制限する必要がありま�
 
 #### 解答例
 
-状態は、サーバ、draft、navigation、selection、saved evidence、ランタイムへ分類します。
+状態は、サーバー、下書き、画面遷移、選択、保存済みの証拠、実行時状態へ分類します。
 
-レスポンス型が正しくても、現在と別プロジェクト、候補、リビジョン、入力、操作の結果なら表示同一性が誤っています。
+応答の型が正しくても、現在と別のプロジェクト、候補、リビジョン、入力、操作の結果なら表示同一性が誤っています。
 
-AbortControllerは不要な通信を減らし、同一性 checkは到着結果をコミットできるか決めます。
+`AbortController`は不要な通信を減らし、同一性検査は到着結果を表示状態へ反映できるか決めます。
 
 同同一性の再試行を新旧で区別するときリクエスト連番が必要です。
 
 全候補要約は、計算済み集合$P$が候補集合$C$と一致するときだけ確定します。
 
-利用者の移動はpushState、現在地の補正や同画面選択同期はreplaceStateを使います。
+利用者の移動は履歴へ追加し、現在地の補正や同じ画面内の選択同期は現在の履歴を置換します。
 
-offlineはAPI接続断、unavailableはタスクや固定依存の利用不可、degradedは付加機能サブシステムだけを停止した状態です。
+API接続断はAPIへ届かない状態、タスク利用不可はタスクや固定依存を使えない状態、縮退状態は付加機能サブシステムだけを停止した状態です。
 
-rendererは表示、preloadは限定bridge、mainはネイティブ権限とライフサイクル、sidecarはドメイン計算とpersistenceを所有します。
+画面描画側は表示、プリロード処理は限定した橋渡し、主プロセスは端末の権限と生存期間、補助プロセスは領域固有の計算と永続化を所有します。
 
-CORSはbrowser originの読取制御であり、launch tokenは起動中Desktop instanceからのリクエストを確認します。
+CORSはブラウザ上の要求元に対する読取り制御であり、起動トークンは起動中のデスクトップアプリからのリクエストを確認します。
 
-アクセシビリティ E2Eは、テーブル headerの意味 association、文字拡大、複数paneの行同一性とalignmentを検証します。
+アクセシビリティE2Eは、テーブル見出しの意味上の対応、文字拡大、複数区画の行同一性と位置揃えを検証します。
 
 #### 解答の理由
 
@@ -941,37 +941,37 @@ CORSはbrowser originの読取制御であり、launch tokenは起動中Desktop 
 
 #### よくある不十分な回答
 
-「useEffectでcleanupする」「型を付ける」だけでは、同一性、completeness、trust boundaryを説明していません。
+「副作用処理の後始末をする」「型を付ける」だけでは、同一性、計算済み範囲、信頼境界を説明していません。
 
-「エラーを表示する」だけでは、offline、unavailable、degraded、staleの復旧方法と読取可能範囲を区別していません。
+「エラーを表示する」だけでは、API接続断、タスク利用不可、縮退状態、古い結果の復旧方法と読取可能範囲を区別していません。
 
 :::
 
 ## 現行実装の限界
 
-状態分類は複数hookへ分散しており、一つの状態 machine定義から自動生成されてはいません。
+状態分類は複数のフックへ分散しており、一つの状態機械の定義から自動生成されてはいません。
 
-すべてのsurfaceが共通`InferenceSurfaceState`を使うわけではなく、同一性 guardの実装形が複数あります。
+すべての表示面が共通の`InferenceSurfaceState`を使うわけではなく、同一性を守る実装形が複数あります。
 
-AbortSignalはHTTP リクエストを中止しますが、実行開始済みのPython計算へ一貫したcancellation protocolを提供しません。
+`AbortSignal`はHTTP要求を中止しますが、実行開始済みのPython計算へ一貫した中止手順を提供しません。
 
-partial completenessは画面ごとの実装判断であり、API レスポンス共通フィールドにはなっていません。
+集合全体が計算済みかどうかは画面ごとの実装判断であり、API応答の共通フィールドにはなっていません。
 
-Electron rendererへ渡したlaunch tokenはレンダラープロセス内では利用可能であり、renderer compromiseそのものを無害化しません。
+デスクトップアプリの画面描画側へ渡した起動トークンは、そのプロセス内では利用可能であり、画面描画側の侵害そのものを無害化しません。
 
-パッケージ版のnavigation policy、external link制御、CSPを含むsecurity全体は、security編で追加検証が必要です。
+パッケージ版の画面遷移方針、外部リンク制御、CSPを含む安全設計全体は、安全性を扱う章で追加検証が必要です。
 
-アクセシビリティ E2Eは代表的なcomparison テーブルを扱いますが、全画面のkeyboard順序やscreen reader出力を網羅しません。
+アクセシビリティE2Eは代表的な比較テーブルを扱いますが、全画面のキーボード操作順や画面読上げ出力を網羅しません。
 
 ## 検証
 
-構造化code referenceを検査します。
+構造化されたコード参照を検査します。
 
 ```powershell
 node docs/learning/check-code-references.mjs
 ```
 
-非同期同一性、surface 状態、bounded loaderの焦点を絞ったテストを実行します。
+非同期同一性、表示面の状態、同時実行数を制限した読込みに焦点を絞ったテストを実行します。
 
 ```powershell
 node --test `
@@ -981,7 +981,7 @@ node --test `
   apps/web/tests/boundedPreviewLoader.test.mjs
 ```
 
-競合、offline、アクセシビリティの実ブラウザテストを、新規サーバで実行します。
+競合、API接続断、アクセシビリティの実ブラウザテストを、新規サーバーで実行します。
 
 ```powershell
 npx playwright test `
@@ -990,7 +990,7 @@ npx playwright test `
   e2e/candidate-comparison-accessibility.spec.ts
 ```
 
-degraded タスク E2Eは、専用のbroken パッケージフィクスチャを設定したprojectで実行します。
+縮退状態のタスクE2Eは、専用の壊れたパッケージフィクスチャを設定したプロジェクトで実行します。
 
 ```powershell
 npx playwright test e2e/degraded-task.spec.ts
@@ -1006,20 +1006,20 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File docs/learning/check-references.ps1
 ```
 
-## Further Reading
+## 参考文献を読む
 
 **React, [*Synchronizing with Effects*](https://react.dev/learn/synchronizing-with-effects)**
 
-effectの開始、cleanup、外部systemとの同期を、renderから分離する基本を確認します。
+副作用処理の開始、後始末、外部システムとの同期を、画面描画から分離する基本を確認します。
 
 **Electron, [*Security*](https://www.electronjs.org/docs/latest/tutorial/security)**
 
-context isolation、sandbox、Node integration、navigation、IPC 送信元 validationをDesktop trust boundaryと照合します。
+文脈の分離、隔離環境、Node.jsとの統合、画面遷移、IPC送信元の検証を、デスクトップアプリの信頼境界と照合します。
 
-**W3C, *Web Content アクセシビリティ Guidelines 2.2* [@w3c-wcag22]**
+**W3C, *Web Content Accessibility Guidelines (WCAG) 2.2* [@w3c-wcag22]**
 
-意味 relation、keyboard access、text resizingを、見た目ではなくprogrammatic structureとして確認します。
+情報同士の意味上の関係、キーボードによる操作、文字拡大を、見た目ではなくプログラムから判定できる構造として確認します。
 
-**NIST, *Artificial Intelligence リスク Management Framework 1.0* [@nist-ai-rmf-1]**
+**NIST, *Artificial Intelligence Risk Management Framework (AI RMF 1.0)* [@nist-ai-rmf-1]**
 
-system 出力の利用条件、human oversight、障害時のリスク communicationを、意思決定surfaceの状態表示へ接続します。
+システム出力を使う条件、人による監督、障害時のリスク伝達を、判断材料の表示面における状態表示へ接続します。

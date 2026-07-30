@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-31-pr-554",
+  "status": "reviewed-no-change",
+  "recorded_after_the_fact": true,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 554,
+    "url": "https://github.com/ootang2010/re-process-dashboard/pull/554",
+    "merge_commit": "e37ddbd89124be31e1ef59ad8e4736f3d9eff8c4"
+  },
+  "reviewed_against": "e37ddbd89124be31e1ef59ad8e4736f3d9eff8c4",
+  "previous_verified_commit": "30c3a582f3ceaba5d66376cffbd47d8c5a22a394",
+  "new_verified_commit": null,
+  "implementation_commit": null,
+  "changes": [
+    {
+      "path": "backend/scripts/README.md",
+      "semantic_impact": "wording-only",
+      "material_impact": [
+        "maintainer-guide"
+      ],
+      "affected_claims": [
+        "sampling-research-command-inventory"
+      ],
+      "action": "no-change",
+      "reason": "既存の調査スクリプトと報告書への索引を保守者向け一覧へ追加しただけで、処理、教材の説明、実行手順は変わらない。"
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "sampling-research-command-inventory",
+      "statement": "候補生成法の比較スクリプトが保守者向け一覧から参照できるようになったが、調査処理と教材の主張は変わらない。",
+      "classification": "no_content_impact",
+      "material_impact": [
+        "maintainer-guide"
+      ],
+      "action": "no-change",
+      "reason": "探索章はすでに調査処理、検査、報告書を直接参照しており、一覧への一行追加から新しい学習内容は生じない。",
+      "evidence": [
+        {
+          "path": "backend/scripts/README.md",
+          "symbol": null
+        }
+      ],
+      "verification": [
+        "git diff e37ddbd89124be31e1ef59ad8e4736f3d9eff8c4^1 e37ddbd89124be31e1ef59ad8e4736f3d9eff8c4 -- backend/scripts/README.md"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "PR #554の変更1件を確認した。",
+    "focused_tests": "文書索引だけの変更であるため追加試験は不要と判断した。",
+    "api_check": "API、契約、処理の変更がないことを差分で確認した。",
+    "code_reference_check": "教材は索引ではなく調査処理、検査、報告書を直接参照している。",
+    "html_build": "教材の全検査とともに実行する。",
+    "pdf_build": "教材の全検査とともに実行する。",
+    "visual_review": "生成PDFの全ページを確認する。"
+  },
+  "reviewer_note": "保守者向け索引の追記であり、読者向け本文へ反映すべき意味変更はない。"
+}

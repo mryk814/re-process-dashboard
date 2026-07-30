@@ -113,74 +113,74 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# Local Appの信頼境界を検証する {#sec-security-trust-boundaries}
+# ローカルアプリの信頼境界を検証する {#sec-security-trust-boundaries}
 
 ## 対象読者と到達点
 
-モデルパッケージ、local API、Electron、ワークスペースバンドル、ソース Connectorを変更する開発者が対象です。
+モデルパッケージ、ローカルAPI、Electron、ワークスペースバンドル、元データ接続機能を変更する開発者が対象です。
 
-読者は、経路、HTTP header、ダイジェスト、アーカイブの基本を知っているものとします。
+読者は、経路、HTTPヘッダー、ダイジェスト、アーカイブの基本を知っているものとします。
 
-読了後は、次の問いへcontrol、テスト、残余リスクを挙げて答えられる状態を目指します。
+読了後は、次の問いへ対策、テスト、残余リスクを挙げて答えられる状態を目指します。
 
-- single-user local appでも、どの入力を信頼してはいけないか
-- データ-only モデルパッケージは、任意code実行をどう防ぐか
-- 経路 traversal、symlink、ZIP bombをどの順で拒否するか
-- ダイジェスト、許可リスト、署名、qualityは何が違うか
-- loopback、CORS、Origin、launch tokenは何を保証するか
-- preloadとIPCの権限をどう狭めるか
+- 一人で使うローカルアプリでも、どの入力を信頼してはいけないか
+- データだけを収めるモデルパッケージは、任意のコード実行をどう防ぐか
+- 経路逸脱、シンボリックリンク、極端に圧縮されたZIPをどの順で拒否するか
+- ダイジェスト、許可リスト、署名、品質は何が違うか
+- ループバック接続、CORS、Origin、起動時トークンは何を保証するか
+- プリロード処理とIPCの権限をどう狭めるか
 - ワークスペース復元で現ワークスペースをいつ置換してよいか
 - ソース認証情報を永続契約から分離する理由は何か
-- 現行controlが保証しないことは何か
+- 現行の対策が保証しないことは何か
 
-## 非scope
+## 本章で扱わない範囲
 
-enterprise IAM、remote zero trust、暗号アルゴリズムの数学的詳細、penetration testingの網羅は扱いません。
+企業向けの認証・権限管理、遠隔接続を含むゼロトラスト構成、暗号アルゴリズムの数学的詳細、網羅的な侵入試験は扱いません。
 
-OS accountが完全に侵害された状況や、管理者権限を持つ攻撃者への防御も保証しません。
+OSの利用者アカウントが完全に侵害された状況や、管理者権限を持つ攻撃者への防御も保証しません。
 
-本章はsecurity controlを列挙するだけでなく、どのtrust assumptionの下で機能するかを明記します。
+本章は安全対策を列挙するだけでなく、どの信頼の仮定の下で機能するかを明記します。
 
-## threat assumptionsを先に固定する
+## 想定する脅威を先に固定する
 
-Material Decision Workbenchは、single-userのlocal appです。
+Material Decision Workbenchは、一人で使うローカルアプリです。
 
-通常の利用者と、Desktop配布物のapplication codeは信頼します。
+通常の利用者と、デスクトップ配布物に含まれるアプリケーションコードは信頼します。
 
 次は信頼しません。
 
 - 外部から選んだデータファイル
 - モデルパッケージディレクトリの内容
 - ワークスペースバンドル
-- ソース Connectorが取得するobject
-- rendererへ到達した文字列やURL
-- localhostへリクエストする別Web page
+- ソース接続機能が取得するデータ
+- 画面描画側へ到達した文字列やURL
+- ローカルホストへリクエストする別のウェブページ
 - 付加機能サブシステムの成果物
-- sizeや構造が極端な入力
+- 容量や構造が極端な入力
 
-攻撃者だけでなく、破損ファイル、古い成果物、誤設定もthreat 主体として扱います。
+攻撃者だけでなく、破損ファイル、古い成果物、誤設定も脅威を生む主体として扱います。
 
-local appでは、悪意と事故を同じ拒否境界で止められることがあります。
+ローカルアプリでは、悪意ある入力と偶発的な破損を、同じ拒否境界で止められることがあります。
 
-## threat モデルの書式
+## 脅威モデルの書式
 
 各境界を次の九項目で記録します。
 
 | 項目 | 問い |
 |---|---|
-| Asset | 守るデータ、プロセス、判断証拠は何か |
+| 保護対象 | 守るデータ、プロセス、判断証拠は何か |
 | 主体 | 誰または何が入力を作るか |
-| Entry point | どのAPI、ファイル、IPCから入るか |
-| Trust assumption | 何を信頼するか |
-| Threat | 何が壊れるか |
-| Control | どこで拒否または隔離するか |
-| Evidence | どのテストがcontrolを確認するか |
-| Residual リスク | 何が残るか |
-| Recovery | 失敗後に何を維持し、どう戻すか |
+| 入口 | どのAPI、ファイル、IPCから入るか |
+| 信頼の仮定 | 何を信頼するか |
+| 脅威 | 何が壊れるか |
+| 対策 | どこで拒否または隔離するか |
+| 証拠 | どのテストが対策を確認するか |
+| 残余リスク | 何が残るか |
+| 復旧 | 失敗後に何を維持し、どう戻すか |
 
-「hashを確認する」だけでは、どのassetとthreatに効くか分かりません。
+「ハッシュを確認する」だけでは、どの保護対象と脅威に効くか分かりません。
 
-controlを境界へ結び付けて初めて、過剰な期待を避けられます。
+対策を境界へ結び付けて初めて、過剰な期待を避けられます。
 
 ## 信頼境界の全体像
 
@@ -200,99 +200,99 @@ flowchart LR
   S --> D
 ```
 
-境界を越えるたびに、スキーマ、同一性、経路、size、権限のいずれかを再検証します。
+境界を越えるたびに、スキーマ、同一性、経路、容量、権限のいずれかを再検証します。
 
 一度検証した入力から派生したものを、別境界で無条件に信頼しません。
 
-## データ-only モデルパッケージ
+## データだけを収めるモデルパッケージ
 
 モデルパッケージは、学習済みパラメータと契約データを持つディレクトリです。
 
-Python ソース、callback、任意import 経路を実行単位として受け付けません。
+Pythonソース、コールバック、任意の読み込み先を実行単位として受け付けません。
 
-{{< code-ref security-package symbol="ModelPackageManifest" >}}は、パッケージ同一性、特徴量パイプライン、predictor、来歴、成果物 inventory、smoke、quality reportを閉じたスキーマで定義します。
+{{< code-ref security-package symbol="ModelPackageManifest" >}}は、パッケージ同一性、特徴量パイプライン、予測器、来歴、成果物一覧、簡易動作確認、品質報告を閉じたスキーマで定義します。
 
-未知フィールドは無視せず、validation エラーにします。
+未知フィールドは無視せず、検証エラーにします。
 
 {{< code-ref security-package symbol="PredictorSpec" >}}の`runtime_type`は、パッケージが自由に指定するモジュール経路ではありません。
 
-{{< code-ref security-package symbol="AdapterRegistry" >}}は、applicationへ組み込んだアダプタ setとapproved ランタイム種別 setの完全一致を要求します。
+{{< code-ref security-package symbol="AdapterRegistry" >}}は、アプリケーションへ組み込んだアダプタの集合と、許可済みの実行方式の集合が完全に一致することを要求します。
 
-パッケージが`malicious.module.run`と書いても、importして実行する経路はありません。
+パッケージが`malicious.module.run`と書いても、それを読み込んで実行する経路はありません。
 
-新しいランタイムを増やすには、application codeとテストの変更が必要です。
+新しいランタイムを増やすには、アプリケーションコードとテストの変更が必要です。
 
 この許可リストは柔軟性を失うだけの制約ではありません。
 
-変更レビューの場所を、untrusted パッケージからtrusted applicationへ移します。
+変更を審査する場所を、信頼しないパッケージから信頼するアプリケーションへ移します。
 
-## 危険な deserializationを避ける
+## 危険な逆直列化を避ける
 
-pickleやjoblibは、object復元時にcode実行へ到達し得ます。
+`pickle`や`joblib`は、オブジェクト復元時にコード実行へ到達し得ます。
 
-モデルパッケージをuntrusted 入力として扱う場合、任意object deserializationはデータ-only境界と両立しません。
+モデルパッケージを信頼しない入力として扱う場合、任意オブジェクトの逆直列化は、データだけを収めるという境界と両立しません。
 
-現行アダプタは、JSON、NPZ、LightGBM text、制限したskops型など、アダプタごとに検証可能なformatを読みます。
+現行アダプタは、JSON、NPZ、LightGBM形式のテキスト、制限したskops型など、アダプタごとに検証可能な形式を読みます。
 
 {{< code-ref security-package-test symbol="test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization" >}}は、パッケージランタイムソースから`pickle`、`joblib`、`importlib`、`exec`、`eval`などを検出します。
 
-ソース inspection テストだけで将来の全脆弱性を防げるわけではありません。
+ソース検査だけで将来の全脆弱性を防げるわけではありません。
 
-しかし、データ-onlyというarchitecture invariantの退行を早期に検出できます。
+しかし、データだけを収めるという設計上の不変条件が崩れたことを早期に検出できます。
 
-## パッケージ経路、size、ダイジェストを検証する
+## パッケージ経路、容量、ダイジェストを検証する
 
-{{< code-ref security-package symbol="ArtifactSpec" >}}は、package-relative 経路、SHA-256、byte数を宣言します。
+{{< code-ref security-package symbol="ArtifactSpec" >}}は、パッケージ内の相対経路、SHA-256、バイト数を宣言します。
 
-絶対経路、`..`を含む経路、個別上限を超えるsizeはスキーマで拒否します。
+絶対経路、`..`を含む経路、個別上限を超える容量はスキーマで拒否します。
 
 {{< code-ref security-package symbol="ModelPackageLoader" >}}は、次の順で成果物を検査します。
 
 1. マニフェストを閉じたスキーマで読む
-2. 成果物数と宣言総sizeを上限と比較する
-3. 各経路をパッケージ rootからresolveする
-4. resolved 経路がパッケージ root内の通常ファイルか確認する
-5. ストリームコピー中に実byte数と総byte数を監視する
-6. 宣言byte数とSHA-256を照合する
-7. 一時スナップショットだけをVerified パッケージへ渡す
+2. 成果物数と宣言された総容量を上限と比較する
+3. 各経路をパッケージの基点から解決する
+4. 解決後の経路がパッケージ内の通常ファイルか確認する
+5. 逐次コピー中に実際のバイト数と総バイト数を監視する
+6. 宣言されたバイト数とSHA-256を照合する
+7. 一時スナップショットだけを検証済みパッケージとして渡す
 
-経路文字列の検査とresolved 経路の検査を両方行います。
+経路文字列の検査と、解決後の経路の検査を両方行います。
 
-symlinkやfilesystemの解決結果がroot外を指す場合、文字列が相対経路でも拒否する必要があるからです。
+シンボリックリンクやファイルシステムの解決結果がパッケージ外を指す場合、文字列が相対経路でも拒否する必要があるからです。
 
-{{< code-ref security-package-test symbol="test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields" >}}は、未知フィールド、`../`、hash改変を一つのadversarial テストで確認します。
+{{< code-ref security-package-test symbol="test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields" >}}は、未知フィールド、`../`、ハッシュ改変を一つの敵対的テストで確認します。
 
 ## 検証後の差替えを防ぐ
 
-ファイルをhashした後、アダプタが元経路を開き直すと、その間にファイルを差し替えられます。
+ファイルのハッシュを計算した後、アダプタが元の経路を開き直すと、その間にファイルを差し替えられます。
 
-このtime-of-check to time-of-useの競合をTOCTOUと呼びます。
+この「検査時点と利用時点のずれ」による競合をTOCTOUと呼びます。
 
 {{< code-ref security-package symbol="VerifiedModelPackage" >}}は、検証中にコピーした一時スナップショットの経路だけを返します。
 
 {{< code-ref security-package-test symbol="test_verified_package_consumes_an_immutable_artifact_snapshot" >}}は、検証後に元成果物を変更しても、読み込まれるバイト列が変わらないことを確認します。
 
-スナップショットはauthenticityを証明しません。
+スナップショットは作成者の真正性を証明しません。
 
-検証した内容と使用する内容を一致させるcontrolです。
+検証した内容と使用する内容を一致させる対策です。
 
 ## NPZもアーカイブとして検査する
 
-NPZはZIP containerです。
+NPZはZIP形式の容器です。
 
-外側の成果物 byte数が小さくても、展開後のarrayが巨大になる場合があります。
+外側の成果物が小さくても、展開後の配列が巨大になる場合があります。
 
-アダプタは、compression ratio、entry、array 構造、draw数などを検査します。
+アダプタは、圧縮率、格納項目、配列構造、標本数などを検査します。
 
-{{< code-ref security-package-test symbol="test_numpyro_posterior_rejects_archive_bombs_and_excessive_draws" >}}は、極端なcompression ratioと過大drawを拒否します。
+{{< code-ref security-package-test symbol="test_numpyro_posterior_rejects_archive_bombs_and_excessive_draws" >}}は、極端な圧縮率と過大な標本数を拒否します。
 
-リソース limitは性能調整だけではありません。
+資源の上限は性能調整だけではありません。
 
-untrusted データがメモリとCPUを独占するリソース exhaustionへのsecurity controlでもあります。
+信頼しないデータがメモリとCPUを独占する資源枯渇への安全対策でもあります。
 
 ## ダイジェストが保証する範囲
 
-成果物 $a$のbyte ダイジェストを次とします。
+成果物 $a$のバイト列に対するダイジェストを次とします。
 
 $$
 d(a)=\operatorname{SHA256}(\operatorname{bytes}(a))
@@ -300,244 +300,244 @@ $$
 
 再計算した$d(a)$がマニフェスト値と一致すれば、読んだバイト列はマニフェストが指すバイト列と一致します。
 
-これはintegrityの検査です。
+これは内容の完全性の検査です。
 
 次は保証しません。
 
 - マニフェストを書いた主体が信頼できる
 - モデルが高品質である
-- training データが適法または妥当である
-- 成果物 formatのparserに脆弱性がない
+- 学習データが適法または妥当である
+- 成果物形式の解析処理に脆弱性がない
 - SHA-256計算前からファイルが安全である
 
-署名は、trusted キーとの対応によりauthenticityを追加できます。
+署名は、信頼する鍵との対応により作成者の真正性を追加できます。
 
-署名があってもqualityや科学妥当性は保証しません。
+署名があっても品質や科学的妥当性は保証しません。
 
-JSONの意味表現をcross-languageでダイジェスト化する場合、RFC 8785の正規化が比較対象になります[@rfc8785]。
+JSONの意味表現を異なる言語間で同じようにダイジェスト化する場合、RFC 8785の正規化が比較対象になります[@rfc8785]。
 
-現行パッケージマニフェストダイジェストはbyte列の同一性であり、署名ワークフローではありません。
+現行パッケージマニフェストのダイジェストはバイト列の同一性を確かめるものであり、署名の手順ではありません。
 
-## local APIの主体を考える
+## ローカルAPIの操作主体を考える
 
-FastAPIが`127.0.0.1`へbindしていても、主体がDesktop rendererだけとは限りません。
+FastAPIが`127.0.0.1`で待ち受けていても、要求元がデスクトップ画面だけとは限りません。
 
-同じPCのbrowserで開いたWeb pageは、localhostへのリクエストを試みられます。
+同じPCのブラウザで開いたウェブページは、ローカルホストへのリクエストを試みられます。
 
-別プロセスもloopbackへ接続できます。
+別プロセスもループバックへ接続できます。
 
-したがって、loopbackはnetwork exposureを狭めますが、requester 同一性を証明しません。
+したがって、ループバックは通信できる範囲を狭めますが、要求元の同一性を証明しません。
 
 ## OriginとCORS
 
-{{< code-ref security-local-api symbol="configure_local_access" >}}は、loopback origin、設定済みorigin、packaged ファイル rendererの`Origin: null`を区別します。
+{{< code-ref security-local-api symbol="configure_local_access" >}}は、ループバックからの要求元、設定済みの要求元、配布物のファイルから開いた画面が送る`Origin: null`を区別します。
 
-未知originはmiddlewareで403にします。
+未知の要求元はミドルウェアで403にします。
 
-CORS middlewareは、許可methodとheaderをbrowserへ返します。
+CORSミドルウェアは、許可するメソッドとヘッダーをブラウザへ返します。
 
-CORSはbrowserがレスポンスをスクリプトへ公開する条件であり、authenticationではありません。
+CORSはブラウザが応答をスクリプトへ公開する条件であり、認証ではありません。
 
-non-browser clientはCORS enforcementに従う必要がありません。
+ブラウザ以外のクライアントはCORSの制約に従う必要がありません。
 
-{{< code-ref security-local-api-test symbol="test_file_origin_is_rejected_without_desktop_launch_token" >}}は、launch tokenなしの構成で`Origin: null`を拒否します。
+{{< code-ref security-local-api-test symbol="test_file_origin_is_rejected_without_desktop_launch_token" >}}は、起動トークンなしの構成で`Origin: null`を拒否します。
 
-{{< code-ref security-local-api-test symbol="test_local_web_origin_allows_parallel_development_ports" >}}は、開発用loopback originをportに依存せず許可します。
+{{< code-ref security-local-api-test symbol="test_local_web_origin_allows_parallel_development_ports" >}}は、開発用のループバック要求元をポートに依存せず許可します。
 
-開発時の利便性とpackaged時の境界を同じ規則だと考えてはいけません。
+開発時の利便性と配布時の境界を同じ規則だと考えてはいけません。
 
-## launch token
+## 起動時だけ有効なトークン
 
-Electron mainはプロセス起動時にrandom launch tokenを生成します。
+デスクトップアプリの主プロセスは、起動時に無作為な起動トークンを生成します。
 
-{{< code-ref security-desktop-main symbol="sidecarEnvironment" >}}は、token、loopback host、選択portをPython sidecarの環境変数へ渡します。
+{{< code-ref security-desktop-main symbol="sidecarEnvironment" >}}は、トークン、ループバックのホスト名、選択したポートをPython補助プロセスの環境変数へ渡します。
 
-preloadはランタイム configをrendererへ限定公開します。
+プリロード処理は実行時設定を画面描画側へ限定公開します。
 
-web API clientはtokenを`X-Workbench-Launch-Token` headerへ入れます。
+ウェブ側のAPI利用処理は、トークンを`X-Workbench-Launch-Token`ヘッダーへ入れます。
 
-{{< code-ref security-local-api symbol="configure_local_access" >}}は、healthと`/api/` リクエストのtokenをconstant-time comparisonで検査します。
+{{< code-ref security-local-api symbol="configure_local_access" >}}は、稼働確認と`/api/`へのリクエストに含まれるトークンを、比較時間から値を推測されにくい方法で検査します。
 
-tokenをURL queryへ置かないため、history、コピーしたlink、一般的なaccess logへ残りにくくなります。
+トークンをURLの問い合わせ部分へ置かないため、閲覧履歴、コピーしたリンク、一般的なアクセス記録へ残りにくくなります。
 
-launch tokenも万能ではありません。
+起動トークンも万能ではありません。
 
-レンダラープロセスが侵害されれば、renderer内のtokenを使って許可APIへリクエストできます。
+画面描画プロセスが侵害されれば、その中のトークンを使って許可済みAPIへリクエストできます。
 
-tokenは、任意local Web pageとDesktop instanceを分けるcontrolです。
+トークンは、任意のローカルなウェブページと起動中のデスクトップアプリを分ける対策です。
 
-renderer compromiseへの主controlは、BrowserWindow、preload、IPC surfaceの制限です。
+画面描画プロセスの侵害に対する主な対策は、画面ウィンドウを表す`BrowserWindow`、プリロード処理、IPCで公開する操作の制限です。
 
-## Electron rendererを低権限に保つ
+## デスクトップアプリの画面描画側を低権限に保つ
 
-{{< code-ref security-desktop-main symbol="createMainWindow" >}}は、context isolation、sandbox、web securityを有効にし、Node integrationを無効にします。
+{{< code-ref security-desktop-main symbol="createMainWindow" >}}は、文脈の分離、サンドボックス、ウェブ安全機能を有効にし、Node連携を無効にします。
 
-rendererへ`fs`、`child_process`、raw `ipcRenderer`を公開しません。
+画面描画側へ`fs`、`child_process`、未加工の`ipcRenderer`を公開しません。
 
-{{< code-ref security-desktop-preload >}}は、API base URL、launch token、ワークスペース操作のintent単位関数だけを`contextBridge`で公開します。
+{{< code-ref security-desktop-preload >}}は、APIの基点URL、起動トークン、目的を限定したワークスペース操作関数だけを`contextBridge`で公開します。
 
-preloadで強いNode objectを丸ごと渡すと、context isolationを有効にしても権限面は広がります。
+プリロード処理で強い権限を持つNodeオブジェクトを丸ごと渡すと、文脈を分離していても権限面は広がります。
 
-bridgeは「何でもできるobject」ではなく、「何をするかが固定された関数」にします。
+橋渡し層は「何でもできるオブジェクト」ではなく、「何をするかが固定された関数」にします。
 
-## IPC 送信元をmain側で検証する
+## IPC送信元を主プロセス側で検証する
 
-rendererでbuttonを隠すことはauthorizationではありません。
+画面描画側でボタンを隠すことは、操作の認可にはなりません。
 
-スクリプトはUIを経由せずIPCを呼べるため、main側でcallerを検証します。
+スクリプトはUIを経由せずIPCを呼べるため、主プロセス側で呼出元を検証します。
 
-{{< code-ref security-desktop-main symbol="assertTrustedWorkspaceSender" >}}は、送信元、main frame、URLを確認します。
+{{< code-ref security-desktop-main symbol="assertTrustedWorkspaceSender" >}}は、送信元、最上位フレーム、URLを確認します。
 
-packaged時は`file:` protocolだけでなく、読み込んだファイルのresolved 経路がrenderer entryと一致するか確認します。
+配布時は`file:`プロトコルだけでなく、読み込んだファイルの解決後の経路が画面の入口ファイルと一致するか確認します。
 
-query付きdeep linkを許すため、navigation query全体ではなくdocument 経路を信頼対象にします。
+問い合わせ付きの深いリンクを許すため、画面遷移の問い合わせ全体ではなく文書の経路を信頼対象にします。
 
 {{< code-ref security-desktop-test symbol="test_workspace_ipc_trusts_the_packaged_document_path_not_its_navigation_query" >}}は、この境界をソース契約として確認します。
 
-{{< code-ref security-desktop-main symbol="registerWorkspaceIpc" >}}は、ワークスペース export、prepare、confirm、cancel、noticeの各ハンドラで送信元検証を呼びます。
+{{< code-ref security-desktop-main symbol="registerWorkspaceIpc" >}}は、ワークスペースの書き出し、復元準備、確定、取消し、通知の各処理で送信元検証を呼びます。
 
 ## ワークスペースバンドルをアーカイブとして疑う
 
-ワークスペースバンドルはSQLite スナップショット、管理対象リソース、ソースライフサイクルのcontent-addressed 行ペイロードを運びます。
+ワークスペースバンドルはSQLiteスナップショット、管理対象リソース、内容のダイジェストで識別するソース履歴の行データを運びます。
 
 復元ファイルは利用者が選びますが、内容を信頼できるとは限りません。
 
-threatには次があります。
+想定する脅威には次があります。
 
-- `../`や絶対経路によるZIP slip
-- Windows drive 経路、reserved name、backslashの解釈差
-- duplicate entryによる上書き
-- symlinkによるdestination外参照
-- 極端なentry数、展開size、compression ratio
+- `../`や絶対経路による展開先からの逸脱
+- Windows環境に固有のドライブ経路、予約名、逆斜線の解釈差
+- 重複項目による上書き
+- シンボリックリンクによる展開先外への参照
+- 極端な項目数、展開容量、圧縮率
 - マニフェストにないファイル
-- マニフェストのsizeまたはダイジェストと異なるバイト列
-- DBが参照する行ペイロードの欠損、余剰、CAS ダイジェスト不一致
+- マニフェストの容量またはダイジェストと異なるバイト列
+- DBが参照する行データの欠損、余剰、内容ダイジェストの不一致
 - 正しいファイルでも、DB内固定参照が解決できない状態
 
-## extraction前にinventoryを検査する
+## 展開前に内容一覧を検査する
 
-{{< code-ref security-workspace-archive symbol="_validate_archive_name" >}}は、絶対経路、`..`、backslash、drive prefix、colon、Windows reserved nameを拒否します。
+{{< code-ref security-workspace-archive symbol="_validate_archive_name" >}}は、絶対経路、`..`、逆斜線、ドライブ接頭辞、コロン、Windows環境の予約名を拒否します。
 
-{{< code-ref security-workspace-archive symbol="_inspect_bundle" >}}は、entry数、重複、展開総size、個別size、symlink、compression ratio、マニフェスト sizeを検査します。
+{{< code-ref security-workspace-archive symbol="_inspect_bundle" >}}は、項目数、重複、展開後の総容量、個別容量、シンボリックリンク、圧縮率、マニフェスト容量を検査します。
 
-この段階ではdestinationへ展開しません。
+この段階では展開先へ書き込みません。
 
-{{< code-ref security-workspace-test symbol="test_unsafe_archive_paths_are_rejected_before_extraction" >}}は、危険な経路を持つbundleがステージングファイルを作る前に拒否されることを確認します。
+{{< code-ref security-workspace-test symbol="test_unsafe_archive_paths_are_rejected_before_extraction" >}}は、危険な経路を持つバンドルが一時ファイルを作る前に拒否されることを確認します。
 
-{{< code-ref security-workspace-test symbol="test_restore_rejects_an_extreme_compression_ratio" >}}は、ZIP bomb相当のentryを拒否します。
+{{< code-ref security-workspace-test symbol="test_restore_rejects_an_extreme_compression_ratio" >}}は、極端に圧縮されたZIP項目を拒否します。
 
-Python `zipfile`のAPI仕様とsecurity noteは、アーカイブ parserの一般的な挙動を確認する一次資料です[@python-zipfile]。
+Pythonの`zipfile`に関するAPI仕様と安全上の注意は、アーカイブ解析処理の一般的な挙動を確認する一次資料です[@python-zipfile]。
 
-libraryの`extractall()`へ安全性を委ねず、application 契約でinventoryを検査します。
+ライブラリの`extractall()`へ安全性を委ねず、アプリケーション契約で内容一覧を検査します。
 
-## ストリーム extractionで宣言値を再確認する
+## 逐次展開しながら宣言値を再確認する
 
 {{< code-ref security-workspace-archive symbol="_stream_extract" >}}は、マニフェスト記録だけを`xb`で新規ファイルへストリーム展開します。
 
-書込中に宣言sizeを超えたら停止します。
+書込中に宣言容量を超えたら停止します。
 
-完了後に実sizeとSHA-256を照合します。
+完了後に実容量とSHA-256を照合します。
 
-マニフェストにないentryや、entryのないマニフェスト記録も拒否します。
+マニフェストにない項目や、対応する項目のないマニフェスト記録も拒否します。
 
-{{< code-ref security-workspace-archive symbol="_validate_resource_manifest" >}}は、各リソースのroot、ファイル ownership、primary ファイル、inventory ダイジェストを検査します。
+{{< code-ref security-workspace-archive symbol="_validate_resource_manifest" >}}は、各リソースの基点、ファイルの所属、主ファイル、内容一覧のダイジェストを検査します。
 
 一つのファイルが「どのリソースにも属さない」状態を許しません。
 
-## prepare、コミット、ロールバックを分ける
+## 復元準備、確定、巻き戻しを分ける
 
-{{< code-ref security-workspace-plan symbol="prepare_workspace_restore" >}}は、bundleをステージングへ展開し、スキーママイグレーション、テーブル evidence、固定参照を検証します。
+{{< code-ref security-workspace-plan symbol="prepare_workspace_restore" >}}は、バックアップを一時領域へ展開し、スキーマ移行、テーブルの証拠、固定参照を検証します。
 
-prepare中は現ワークスペースを置換しません。
+復元準備中は現ワークスペースを置換しません。
 
 {{< code-ref security-workspace-service symbol="commit_workspace_restore" >}}は、準備済みデータベースとリソースを再検証し、切替を行います。
 
-失敗時は現データベースとデータ libraryを保持するか、ロールバック可能な状態を残します。
+失敗時は現データベースとデータ保管領域を保持するか、巻き戻せる状態を残します。
 
 {{< code-ref security-workspace-service symbol="rollback_workspace_restore" >}}は、コミット前のデータベースへ戻します。
 
-{{< code-ref security-workspace-test symbol="test_tampered_bundle_is_rejected_without_changing_current_workspace" >}}は、改変bundleで現ワークスペースダイジェストが変わらないことを確認します。
+{{< code-ref security-workspace-test symbol="test_tampered_bundle_is_rejected_without_changing_current_workspace" >}}は、改変されたバンドルで現ワークスペースのダイジェストが変わらないことを確認します。
 
 {{< code-ref security-workspace-test symbol="test_commit_switch_failure_preserves_database_and_data_library" >}}は、切替途中の失敗で現データベースと管理対象リソースを保持することを確認します。
 
-安全なparseだけでなく、安全な失敗が必要です。
+安全な解析だけでなく、安全に失敗することが必要です。
 
 ## 認証情報を永続契約へ入れない
 
-ソース Connectorは、locator、selection、scheduleなどの再現可能なconfigurationを保存します。
+ソース接続機能は、取得場所、選択範囲、取得予定などの再現可能な設定を保存します。
 
 認証情報は再現性のある科学的同一性ではなく、短命なアクセス権限です。
 
-{{< code-ref security-connector-contract symbol="SourceConnectorCreateInput" >}}は、URLのusername、password、token、signature、SASなどのsensitive query キーを拒否します。
+{{< code-ref security-connector-contract symbol="SourceConnectorCreateInput" >}}は、URLに含まれる利用者名、パスワード、トークン、署名、SASなど、認証情報に関わる問い合わせキーを拒否します。
 
-signed URLをlocatorへ保存すると、DB、バックアップ、export、エラー messageへsecretが複製されます。
+署名付きURLを取得場所として保存すると、DB、バックアップ、書き出し、エラーメッセージへ認証情報が複製されます。
 
-{{< code-ref security-connector-contract symbol="SourceFetchRequest" >}}にも認証情報フィールドはありません。
+{{< code-ref security-connector-contract symbol="SourceFetchRequest" >}}にも認証情報を入れるフィールドはありません。
 
-{{< code-ref security-connector-api symbol="fetch_source" >}}は、認証情報をスキーマ非公開の`X-Source-Credential` headerとして一リクエストだけ受けます。
+{{< code-ref security-connector-api symbol="fetch_source" >}}は、認証情報をスキーマに公開しない`X-Source-Credential`ヘッダーとして、一回の要求に限って受け取ります。
 
-現行local ファイルアダプタは認証情報を使わないためアダプタ境界で破棄します。
-元データはリクエスト bodyへ展開せず登録済みlocatorからchunk取得しますが、認証情報を実際に消費するremote アダプタとsecret providerはまだありません。
+現行のローカルファイル用アダプタは認証情報を使わないため、アダプタ境界で破棄します。
+元データはリクエスト本文へ展開せず、登録済みの取得場所から分割取得しますが、認証情報を実際に消費する遠隔アダプタと認証情報の供給機能はまだありません。
 
-{{< code-ref security-connector-test symbol="test_failure_retry_and_duplicate_fetch_do_not_store_credentials" >}}は、失敗、retry、duplicate fetch後もsecretが記録とSQLite バイト列へ残らないことを確認します。
+{{< code-ref security-connector-test symbol="test_failure_retry_and_duplicate_fetch_do_not_store_credentials" >}}は、失敗、再試行、重複取得の後も認証情報が記録とSQLiteのバイト列へ残らないことを確認します。
 
-「logに出さない」だけでは不十分です。
+「ログに出さない」だけでは不十分です。
 
-スキーマ、URL、retry 記録、DB、レスポンスのすべてから認証情報を分離します。
+スキーマ、URL、再試行記録、DB、応答のすべてから認証情報を分離します。
 
-## fail-closedとdegraded mode
+## 安全を確認できないときに閉じる動作と縮退動作
 
-すべてのfailureでapplication全体を終了する必要はありません。
+すべての失敗でアプリケーション全体を終了する必要はありません。
 
-| failure | 方針 | 理由 |
+| 失敗 | 方針 | 理由 |
 |---|---|---|
-| ワークスペース DBを安全に開けない | fatal | 正本を読めない |
-| 復元 bundleが危険な | fail-closed、現ワークスペース維持 | 入替えない |
-| 有効モデルパッケージが不正 | 対象タスク unavailable | 誤推論を止める |
-| 任意チェーン成果物が不正 | subsystem degraded | core evidenceを読める |
-| ソース fetchが失敗 | attemptを失敗記録、既存スナップショット維持 | 正本を置換しない |
-| API token不一致 | リクエスト拒否 | callerを許可できない |
+| ワークスペースDBを安全に開けない | 致命的失敗として停止 | 正本を読めない |
+| 復元バンドルが危険 | 安全を確認できないため拒否し、現ワークスペースを維持 | 入れ替えない |
+| 有効モデルパッケージが不正 | 対象タスクを利用不可にする | 誤推論を止める |
+| 任意チェーン成果物が不正 | 該当する部分機能を停止 | 中核となる証拠は読める |
+| ソース取得が失敗 | 試行を失敗として記録し、既存スナップショットを維持 | 正本を置換しない |
+| APIトークン不一致 | リクエスト拒否 | 呼出元を許可できない |
 
-degraded modeは、validationを省略して続行するmodeではありません。
+縮退動作は、検証を省略して続行する仕組みではありません。
 
-危険なwriteまたは計算を止め、安全に読める範囲だけを残すmodeです。
+危険な書込みまたは計算を止め、安全に読める範囲だけを残す動作です。
 
-NIST AI RMFは、systemの利用context、failure、human oversight、リスクレスポンスを一体で扱います[@nist-ai-rmf-1]。
+NIST AI RMFは、システムを使う状況、失敗、人による監督、リスクへの対応を一体で扱います[@nist-ai-rmf-1]。
 
 ## 非保証を明示する
 
-現行controlは、次を保証しません。
+現行の対策は、次を保証しません。
 
-- host OSとuser accountが侵害されていないこと
-- trusted application binary自体が改変されていないこと
+- ホストOSと利用者アカウントが侵害されていないこと
+- 信頼するアプリケーションの実行ファイル自体が改変されていないこと
 - マニフェストの作成者が真正であること
-- hash一致パッケージのモデル quality
-- renderer compromise後のlaunch token秘匿
-- parser libraryに未知の脆弱性がないこと
+- ハッシュが一致するパッケージのモデル品質
+- 画面描画プロセスが侵害された後も起動トークンが秘匿されること
+- 解析ライブラリに未知の脆弱性がないこと
 - 認証情報を受け取る将来アダプタがメモリから即時消去すること
-- リソース limit内の高コスト計算が常に軽いこと
+- 資源上限内の高コスト計算が常に軽いこと
 - バックアップファイルの保管先が暗号化されていること
 
-非保証はcontrolの欠陥一覧ではありません。
+非保証は対策の欠陥一覧ではありません。
 
 次の設計判断と運用責任の境界です。
 
-## 境界、control、evidenceを対応付ける
+## 境界、対策、証拠を対応付ける
 
-| 境界 | Threat | Control | Evidence |
+| 境界 | 脅威 | 対策 | 証拠 |
 |---|---|---|---|
-| パッケージマニフェスト | 任意ランタイム指定 | closed スキーマ、アダプタ許可リスト | 危険な deserialization テスト |
-| パッケージ成果物 | traversal、改変、TOCTOU | resolve、size、ダイジェスト、スナップショット | loader adversarial tests |
-| NPZ | decompression、過大array | ratio、構造、draw上限 | アーカイブ bomb テスト |
-| local API | malicious local page | Origin、CORS、launch token | API security tests |
-| preload | rendererからNode権限 | narrow bridge、sandbox | packaging 契約 |
-| IPC | untrusted frame | 送信元、main frame、document 経路 | IPC 経路テスト |
-| ワークスペース ZIP | ZIP slip、bomb、tamper | inventory、ストリーム、ダイジェスト、ステージング | bundle adversarial tests |
-| ソース Connector | 認証情報 persistence | header-only、locator rejection | 認証情報 persistence テスト |
+| パッケージマニフェスト | 任意ランタイム指定 | 閉じたスキーマ、アダプタ許可リスト | 危険な逆直列化のテスト |
+| パッケージ成果物 | 経路逸脱、改変、検証時と利用時の差し替え | 経路解決、容量、ダイジェスト、スナップショット | 読込み処理の敵対的テスト |
+| NPZ | 展開による容量増大、過大な配列 | 圧縮率、構造、標本数の上限 | 極端に圧縮されたアーカイブのテスト |
+| ローカルAPI | 悪意あるローカルページ | Origin、CORS、起動トークン | APIの安全性テスト |
+| プリロード処理 | 画面描画側からNodeの権限を利用 | 狭い橋渡し、サンドボックス | 配布契約 |
+| IPC | 信頼しないフレーム | 送信元、最上位フレーム、文書経路 | IPC経路テスト |
+| ワークスペースZIP | 展開先からの逸脱、展開容量攻撃、改変 | 内容一覧、逐次読込み、ダイジェスト、一時領域 | バックアップの敵対的テスト |
+| ソース接続機能 | 認証情報の永続化 | ヘッダーだけで受け取り、認証情報を含む取得場所を拒否 | 認証情報が残らないことのテスト |
 
-## 演習1：hash一致パッケージを評価する {#exercise-security-trust-boundaries-01}
+## 演習1：ハッシュが一致するパッケージを評価する {#exercise-security-trust-boundaries-01}
 
-外部から受け取ったパッケージは、マニフェストに記載された全成果物 hashと一致しました。
+外部から受け取ったパッケージは、マニフェストに記載された全成果物のハッシュと一致しました。
 
 署名はなく、作成者も確認できません。
 
@@ -545,9 +545,9 @@ NIST AI RMFは、systemの利用context、failure、human oversight、リスク�
 
 ### 成功条件
 
-- integrity、authenticity、qualityを分けている
-- 許可リストランタイムでverifyする必要へ触れている
-- hash一致だけで有効化しないと判断している
+- 内容の完全性、作成者の真正性、モデル品質を分けている
+- 許可リストにあるランタイムで検証する必要へ触れている
+- ハッシュの一致だけで有効化しないと判断している
 
 [演習1の解答](#answer-security-trust-boundaries-01)は、回答を固定してから開きます。
 
@@ -555,11 +555,11 @@ NIST AI RMFは、systemの利用context、failure、human oversight、リスク�
 
 #### 解答例
 
-確認できたのは、読んだ成果物バイト列がマニフェストの宣言と一致するintegrityです。
+確認できたのは、読んだ成果物のバイト列がマニフェストの宣言と一致するという、内容の完全性です。
 
-作成者のauthenticity、training データ、モデル quality、意図したタスクとの互換性は未確認です。
+作成者の真正性、学習データ、モデル品質、意図したタスクとの互換性は未確認です。
 
-application 許可リストのアダプタでloadし、契約、来歴、quality report、smokeをverifyします。
+アプリケーションの許可リストにあるアダプタで読み込み、契約、来歴、品質報告、簡易動作を検証します。
 
 信頼元を確認できないため、その結果だけでも有効化しません。
 
@@ -567,19 +567,19 @@ application 許可リストのアダプタでloadし、契約、来歴、quality
 
 ダイジェストは内容の一致を示しますが、正しい主体が正しいモデルを作ったとは示しません。
 
-許可リストはcode実行面を狭めますが、悪いパラメータや誤ったデータの品質を改善しません。
+許可リストはコード実行の範囲を狭めますが、悪いパラメータや誤ったデータの品質を改善しません。
 
 #### よくある不十分な回答
 
-「SHA-256が一致したので安全」は、authenticityとqualityを混同しています。
+「SHA-256が一致したので安全」は、作成者の真正性とモデル品質を混同しています。
 
-「署名がないのでhash検査も無意味」は、integrity controlの価値を無視しています。
+「署名がないのでハッシュ検査も無意味」は、内容の完全性を確かめる価値を無視しています。
 
 :::
 
 ## 演習2：悪意あるワークスペースバンドルを分類する {#exercise-security-trust-boundaries-02}
 
-次のentryを持つbundleを考えます。
+次の項目を持つバンドルを考えます。
 
 ```text
 manifest.json
@@ -594,8 +594,8 @@ resources/padding.bin
 
 ### 成功条件
 
-- extraction前の経路検査を最初に挙げている
-- compression ratio、総size、個別sizeを区別している
+- 展開前の経路検査を最初に挙げている
+- 圧縮率、総容量、個別容量を区別している
 - 現ワークスペースを変更しないことを復旧条件にしている
 
 [演習2の解答](#answer-security-trust-boundaries-02)は、回答を固定してから開きます。
@@ -604,39 +604,39 @@ resources/padding.bin
 
 #### 解答例
 
-まずentry inventoryを読み、`../workbench.db`を危険なアーカイブ経路としてextraction前に拒否します。
+まず内容一覧を読み、`../workbench.db`を危険なアーカイブ経路として展開前に拒否します。
 
-経路を修正した場合でも、`padding.bin`はcompression ratioが200を超えるため拒否します。
+経路を修正した場合でも、`padding.bin`は圧縮率が200を超えるため拒否します。
 
-さらにentry数、個別展開size、総展開size、マニフェスト sizeを上限と比較します。
+さらに項目数、個別の展開容量、展開後の総容量、マニフェスト容量を上限と比較します。
 
-prepare ステージング以外へ書かず、拒否時に現データベースとデータ libraryを変更しません。
+復元準備用の一時領域以外へ書かず、拒否時に現データベースとデータ保管領域を変更しません。
 
 #### 解答の理由
 
-経路 traversalをストリーム extraction後に検出すると、既にdestination外へ書いている可能性があります。
+経路逸脱を逐次展開の後に検出すると、既に展開先の外へ書いている可能性があります。
 
-複数のリソース limitは、異なるbomb形状を止めます。
+複数の資源上限は、異なる形の容量攻撃を止めます。
 
 #### よくある不十分な回答
 
-「ZIP libraryへ任せる」は、application固有のWindows 経路、ownership、size 契約を検査していません。
+「ZIPライブラリへ任せる」は、アプリケーション固有のWindows経路、所属、容量の契約を検査していません。
 
-「展開してからhashを見る」は、経路 traversalとディスク exhaustionを先に許します。
+「展開してからハッシュを見る」は、経路逸脱とディスク枯渇を先に許します。
 
 :::
 
-## 演習3：localhost APIをレビューする {#exercise-security-trust-boundaries-03}
+## 演習3：ローカルホストのAPIをレビューする {#exercise-security-trust-boundaries-03}
 
-開発者が「127.0.0.1へbindしているので、Origin checkとlaunch tokenを削除できる」と提案しました。
+開発者が「127.0.0.1で待ち受けているので、Origin検査と起動トークンを削除できる」と提案しました。
 
-反例と、二つのcontrolの役割を説明してください。
+反例と、二つの対策の役割を説明してください。
 
 ### 成功条件
 
-- malicious local Web pageまたは別local プロセスを主体に挙げている
-- CORSとauthenticationを分けている
-- launch tokenの残余リスクへ触れている
+- 悪意あるローカルなウェブページまたは別のローカルプロセスを主体に挙げている
+- CORSと認証を分けている
+- 起動トークンの残余リスクへ触れている
 
 [演習3の解答](#answer-security-trust-boundaries-03)は、回答を固定してから開きます。
 
@@ -644,33 +644,33 @@ prepare ステージング以外へ書かず、拒否時に現データベース
 
 #### 解答例
 
-browserで開いた別originのpageや別local プロセスも、127.0.0.1へ接続できます。
+ブラウザで開いた別の要求元のページや、別のローカルプロセスも、127.0.0.1へ接続できます。
 
-Origin checkとCORSは、browser originからの読取やリクエストを制限します。
+Origin検査とCORSは、ブラウザ上の要求元からの読取りやリクエストを制限します。
 
-launch tokenは、起動中Desktop instanceが渡したsecretを持つリクエストか確認します。
+起動トークンは、起動中のデスクトップアプリが渡した秘密値を持つリクエストか確認します。
 
-non-browser clientはCORSに従わないため、tokenを削除できません。
+ブラウザ以外のクライアントはCORSに従わないため、トークンを削除できません。
 
-rendererが侵害されればtokenを利用され得るため、preloadとIPC境界も必要です。
+画面描画側が侵害されればトークンを利用され得るため、プリロード処理とIPCの境界も必要です。
 
 #### 解答の理由
 
-network locationとcaller 同一性は別の属性です。
+通信先の場所と呼出元の同一性は別の属性です。
 
-複数controlは同じthreatの重複ではなく、browser policy、Desktop instance、renderer権限という別境界を守ります。
+複数の対策は同じ脅威への重複ではなく、ブラウザの方針、デスクトップアプリの実体、画面描画側の権限という別々の境界を守ります。
 
 #### よくある不十分な回答
 
-「localhostは外部から見えない」は、同じhost上の主体をthreat モデルから落としています。
+「ローカルホストは外部から見えない」は、同じ端末上の主体を脅威モデルから落としています。
 
-「CORSがあるので認証済み」は、non-browser clientを考慮していません。
+「CORSがあるので認証済み」は、ブラウザ以外のクライアントを考慮していません。
 
 :::
 
 ## 演習4：認証情報の置き場所を直す {#exercise-security-trust-boundaries-04}
 
-ソース Connectorへ次のlocatorを保存する案をレビューしてください。
+ソース接続機能へ次の取得場所を保存する案を検討してください。
 
 ```text
 s3://user:password@bucket/data.json?X-Amz-Signature=abc
@@ -680,9 +680,9 @@ s3://user:password@bucket/data.json?X-Amz-Signature=abc
 
 ### 成功条件
 
-- locator persistenceを拒否している
-- リクエスト headerまたは外部secret providerへ認証情報を移している
-- retry 記録へ認証情報を複製しないと説明している
+- 認証情報を含む取得場所の永続化を拒否している
+- リクエストヘッダーまたは外部の認証情報供給機能へ認証情報を移している
+- 再試行記録へ認証情報を複製しないと説明している
 
 [演習4の解答](#answer-security-trust-boundaries-04)は、回答を固定してから開きます。
 
@@ -690,25 +690,25 @@ s3://user:password@bucket/data.json?X-Amz-Signature=abc
 
 #### 解答例
 
-username、password、署名queryを含むlocatorは保存しません。
+利用者名、パスワード、署名用の問い合わせを含む取得場所は保存しません。
 
-認証情報-freeなobject 同一性だけをConnectorへ保存します。
+認証情報を含まない取得対象の同一性だけを接続機能へ保存します。
 
-実行時に認証情報をheaderまたはOS側secret providerから一リクエストだけアダプタへ渡します。
+実行時に認証情報をヘッダーまたはOS側の認証情報供給機能から、一回のリクエストに限ってアダプタへ渡します。
 
-retry 記録にはattempt 同一性、エラー code、object バージョンを残し、認証情報を残しません。
+再試行記録には試行の同一性、エラーコード、取得対象の版を残し、認証情報を残しません。
 
 #### 解答の理由
 
-保存locatorはDB、バックアップ、exportへ複製されます。
+保存した取得場所はDB、バックアップ、書き出しへ複製されます。
 
 再試行に必要なのは何を取得したかという同一性であり、過去のアクセス権限そのものではありません。
 
 #### よくある不十分な回答
 
-「URLを暗号化してDBへ保存する」は、復号権限、バックアップ複製、log流出の境界を増やします。
+「URLを暗号化してDBへ保存する」は、復号権限、バックアップ複製、ログ流出の境界を増やします。
 
-「エラー logだけmaskする」は、DBとレスポンスの永続契約へsecretが残る問題を解決しません。
+「エラーログだけ伏せ字にする」は、DBと応答の永続契約へ認証情報が残る問題を解決しません。
 
 :::
 
@@ -716,18 +716,18 @@ retry 記録にはattempt 同一性、エラー code、object バージョンを
 
 次の問いへ、本文を見ずに答えてください。
 
-1. local appで信頼しない入力を五つ挙げてください。
-2. データ-only モデルパッケージとアダプタ許可リストの関係を説明してください。
-3. 経路文字列検査とresolved 経路検査の両方が必要な理由を述べてください。
-4. ダイジェスト、署名、qualityを区別してください。
+1. ローカルアプリで信頼しない入力を五つ挙げてください。
+2. データだけを収めるモデルパッケージとアダプタ許可リストの関係を説明してください。
+3. 経路文字列の検査と解決後の経路検査の両方が必要な理由を述べてください。
+4. ダイジェスト、署名、品質を区別してください。
 5. パッケージスナップショットが防ぐ競合を説明してください。
-6. ワークスペース ZIPをextraction前に検査する項目を挙げてください。
-7. prepareとコミットを分ける理由を説明してください。
-8. loopback、CORS、Origin、launch tokenを区別してください。
-9. preloadとmain IPCの両方で権限を狭める理由を述べてください。
-10. ソース認証情報をretry 記録へ保存しない理由を述べてください。
-11. fail-closedとdegraded modeの違いを説明してください。
-12. 現行controlの非保証を三つ挙げてください。
+6. ワークスペースZIPを展開前に検査する項目を挙げてください。
+7. 復元準備と確定を分ける理由を説明してください。
+8. ループバック接続、CORS、Origin、起動トークンを区別してください。
+9. プリロード処理と主プロセス側のIPC処理の両方で権限を狭める理由を述べてください。
+10. ソース認証情報を再試行記録へ保存しない理由を述べてください。
+11. 安全を確認できないときに閉じる動作と縮退動作の違いを説明してください。
+12. 現行の対策が保証しないことを三つ挙げてください。
 
 [章末チェックの解答](#answer-security-trust-boundaries-chapter-check)は、回答を固定してから開きます。
 
@@ -735,39 +735,39 @@ retry 記録にはattempt 同一性、エラー code、object バージョンを
 
 #### 解答例
 
-外部ファイル、モデルパッケージ、ワークスペースバンドル、ソース object、localhost requester、renderer入力を信頼しません。
+外部ファイル、モデルパッケージ、ワークスペースバンドル、ソースから取得したデータ、ローカルホストへの要求元、画面描画側への入力を信頼しません。
 
-パッケージはcodeを持たずランタイム種別を宣言し、application側許可リストアダプタだけがデータ成果物を読みます。
+パッケージはコードを持たずランタイム種別を宣言し、アプリケーション側の許可リストにあるアダプタだけがデータ成果物を読みます。
 
-経路文字列が相対でもsymlink解決後にroot外を指し得るため、resolved 経路も確認します。
+経路文字列が相対でも、シンボリックリンクの解決後に基点の外を指し得るため、解決後の経路も確認します。
 
-ダイジェストはintegrity、署名はtrusted キーに基づくauthenticity、qualityは用途上の性能を扱います。
+ダイジェストは内容の完全性、署名は信頼する鍵に基づく作成者の真正性、品質は用途上の性能を扱います。
 
-パッケージスナップショットはhash確認後に元ファイルを差し替えるTOCTOUを防ぎます。
+パッケージスナップショットは、ハッシュ確認後に元ファイルを差し替えるTOCTOUを防ぎます。
 
-ワークスペース ZIPでは経路、重複、symlink、entry数、個別size、総size、compression ratio、マニフェストをextraction前に検査します。
+ワークスペースZIPでは、経路、重複、シンボリックリンク、項目数、個別容量、総容量、圧縮率、マニフェストを展開前に検査します。
 
-prepareでステージング検証を完了してからコミットすることで、危険な bundleが現ワークスペースを置換するのを防ぎます。
+一時領域で復元準備の検証を完了してから確定することで、危険なバンドルが現ワークスペースを置換するのを防ぎます。
 
-loopbackはnetwork範囲、CORSはbrowser レスポンス policy、Originはリクエスト元Web context、launch tokenはDesktop instanceのsecretを扱います。
+ループバック接続は通信範囲、CORSはブラウザが応答を読める条件、要求元情報はウェブ文脈、起動トークンはデスクトップアプリの実体だけが知る秘密を扱います。
 
-preloadでbridgeを狭め、mainで送信元を再検証することで、rendererからネイティブ権限へ直接到達させません。
+プリロード処理で橋渡しを狭め、主プロセスで送信元を再検証することで、画面描画側から端末の強い権限へ直接到達させません。
 
-認証情報は再現同一性ではなくアクセス権限であり、retry、DB、バックアップへ複製しません。
+認証情報は再現同一性ではなくアクセス権限であり、再試行記録、DB、バックアップへ複製しません。
 
-fail-closedは危険な操作を拒否し、degraded modeは危険な機能だけを止めて安全なreadを残します。
+安全を確認できないときに閉じる設計は危険な操作を拒否し、縮退動作は危険な機能だけを止めて安全な読取りを残します。
 
-非保証には、OS侵害、パッケージ作成者のauthenticity、モデル quality、未知parser脆弱性、renderer侵害後のtoken秘匿があります。
+非保証には、OS侵害、パッケージ作成者の真正性、モデル品質、解析処理の未知の脆弱性、画面描画側が侵害された後のトークン秘匿があります。
 
 #### 解答の理由
 
-この十二点は、ファイル、プロセス、HTTP、IPC、persistenceをまたぐtrust boundaryを、controlと非保証の両方から説明します。
+この十二点は、ファイル、プロセス、HTTP、IPC、永続化をまたぐ信頼境界を、対策と非保証の両方から説明します。
 
-security controlを一つの「安全」ラベルへまとめないことが、レビュー可能な設計につながります。
+安全対策を一つの「安全」ラベルへまとめないことが、検討可能な設計につながります。
 
 #### よくある不十分な回答
 
-「hash、CORS、sandboxがあるので安全」は、各controlの主体、asset、残余リスクを説明していません。
+「ハッシュ、CORS、サンドボックスがあるので安全」は、各対策の主体、保護対象、残余リスクを説明していません。
 
 「怪しいファイルを開かない」は、正常に見える破損ファイルと自動処理経路をテストできません。
 
@@ -777,27 +777,27 @@ security controlを一つの「安全」ラベルへまとめないことが、�
 
 モデルパッケージとワークスペースバンドルに標準の署名検証はありません。
 
-launch tokenはrendererへ渡るため、renderer compromise後のAPI abuseを防ぎません。
+起動トークンは画面描画側へ渡るため、画面描画プロセスが侵害された後のAPI悪用を防ぎません。
 
-Content Security Policyとexternal navigation policyを含むrenderer防御の全体は、本章のfocused code referenceだけでは証明しません。
+コンテンツセキュリティ方針（Content Security Policy）と外部への画面遷移方針を含む画面描画側の防御全体は、本章で参照した一部のコードだけでは証明しません。
 
-ソース認証情報を実際に使う本番 Connector アダプタとsecret providerは未実装です。
+ソース認証情報を実際に使う本番用の接続アダプタと認証情報供給機能は未実装です。
 
-リソース limitは既知の上限を設けますが、上限内で高コストな入力を完全には排除しません。
+資源上限は既知の上限を設けますが、その範囲内にある高コストな入力を完全には排除しません。
 
-ソース inspection テストは、ランタイム dependency内部の危険な behaviorまで証明しません。
+ソース検査は、ランタイム依存関係の内部にある危険な挙動まで証明しません。
 
-host OS、filesystem ACL、バックアップ保管先の暗号化はapplication外の運用境界です。
+ホストOS、ファイルシステムのアクセス制御、バックアップ保管先の暗号化はアプリケーション外の運用境界です。
 
 ## 検証
 
-構造化code referenceを検査します。
+構造化されたコード参照を検査します。
 
 ```powershell
 node docs/learning/check-code-references.mjs
 ```
 
-モデルパッケージ、local API、ワークスペースバンドル、認証情報、Desktop境界の焦点を絞ったテストを実行します。
+モデルパッケージ、ローカルAPI、ワークスペースバンドル、認証情報、デスクトップ境界に焦点を絞ったテストを実行します。
 
 ```powershell
 uv run python -m pytest `
@@ -818,22 +818,22 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File docs/learning/check-references.ps1
 ```
 
-security テストは、実際のuser データや有効なパッケージを書き換えない一時フィクスチャで実行します。
+安全性テストは、実際の利用者データや有効なパッケージを書き換えない一時フィクスチャで実行します。
 
-## Further Reading
+## 参考文献を読む
 
 **Electron, [*Security*](https://www.electronjs.org/docs/latest/tutorial/security)**
 
-context isolation、sandbox、Node integration、navigation、IPC 送信元 validationを、現行Desktop境界と比較します。
+文脈の分離、サンドボックス、Node連携、画面遷移、IPC送信元の検証を、現行のデスクトップ境界と比較します。
 
 **Python, *zipfile: Work with ZIP archives* [@python-zipfile]**
 
-ZIP メタデータ、extraction、経路の扱いを確認し、application側validationの前提を明確にします。
+ZIPのメタデータ、展開、経路の扱いを確認し、アプリケーション側で行う検証の前提を明確にします。
 
-**RFC 8785, *JSON 正規化 Scheme* [@rfc8785]**
+**RFC 8785, *JSON Canonicalization Scheme* [@rfc8785]**
 
-byte ダイジェストと意味表現ダイジェストを区別し、cross-language マニフェスト signingの将来設計を検討します。
+バイト列のダイジェストと意味表現のダイジェストを区別し、異なる言語間でマニフェストへ署名する将来設計を検討します。
 
-**NIST, *Artificial Intelligence リスク Management Framework 1.0* [@nist-ai-rmf-1]**
+**NIST, *Artificial Intelligence Risk Management Framework 1.0* [@nist-ai-rmf-1]**
 
-security、validity、reliability、human oversight、incident レスポンスをcontext of useの中で扱います。
+安全性、妥当性、信頼性、人による監督、事故への対応を、利用状況の中で扱います。

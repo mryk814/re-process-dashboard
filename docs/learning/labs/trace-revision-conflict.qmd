@@ -2,7 +2,7 @@
 chapter_id: "trace-revision-conflict"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
+verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
   - path: "backend/src/material_workbench/contracts/schemas.py"
     role: "contract"
@@ -41,19 +41,19 @@ future_concepts: []
 historical_concepts: []
 ---
 
-# 二つの編集と遅いresponseを判定する {#sec-lab-revision-digest}
+# 二つの編集と遅い応答を判定する {#sec-lab-revision-digest}
 
-この演習はproduction codeとactive databaseを変更しません。
-既存testの固定例を手で追い、整数のrevision、内容digest、request sequenceを使い分けます。
+この演習は本番コードと使用中のデータベースを変更しません。
+既存テストの固定例を手で追い、整数の版番号、内容のハッシュ値、要求の開始順を使い分けます。
 
 ## 演習1：四つの識別子を対応付ける {#exercise-revision-01}
 
-次の問いへ、Candidate ID、revision、semantic digest、request sequenceのどれを使うか対応付けてください。
+次の問いへ、候補ID、版番号、意味内容のハッシュ値、要求の開始順のどれを使うか対応付けてください。
 
-1. 同じCandidateを継続して編集しているか。
-2. current Candidateが編集開始時から変わっていないか。
-3. 二つのcanonical inputが同じ内容か。
-4. 同じidentityで開始した二回のrequestのどちらが新しいか。
+1. 同じ候補を継続して編集しているか。
+2. 現行候補が編集開始時から変わっていないか。
+3. 二つの正準入力が同じ内容か。
+4. 同じ同一性で開始した二回の要求のどちらが新しいか。
 
 ### 成功条件
 
@@ -67,33 +67,33 @@ historical_concepts: []
 
 | 問い | 識別子 | 理由 |
 |---|---|---|
-| 継続対象 | Candidate ID | revisionが進んでも変わらない |
-| 編集開始後の変化 | revision | 同じCandidate内の受理順を表す |
-| canonical inputの内容 | semantic digest | 選んだcanonical representationへ基づく |
-| 同じidentityのrequest順 | request sequence | identityが同じでも開始順を区別する |
+| 継続対象 | 候補ID | 版が進んでも変わらない |
+| 編集開始後の変化 | 版番号 | 同じ候補内の受理順を表す |
+| 正準入力の内容 | 意味内容のハッシュ値 | 選んだ正準表現へ基づく |
+| 同じ対象への要求順 | 要求の開始順 | 対象が同じでも開始順を区別する |
 
 #### 解答の理由
 
-四つの識別子は、対象、受理順、内容、request開始順という異なる問いに答えます。
+四つの識別子は、対象、受理順、内容、要求開始順という異なる問いに答えます。
 
 #### よくある不十分な回答
 
-revisionとrequest sequenceをどちらも単なる連番として扱う回答では、serverの保存順とclientのrequest順を区別できません。
+リビジョンと要求の連番をどちらも単なる連番として扱う回答では、サーバーの保存順とクライアントの要求順を区別できません。
 :::
 
 ## 演習2：二つの保存結果を予測する {#exercise-revision-02}
 
-Candidate `A`のcurrent stateはrevision 4、name `基準`、speed 100です。
-Client XとClient Yは同じrevision 4を読みました。
+候補`A`の現行状態は第4版で、名前は`基準`、速度は100です。
+利用者Xと利用者Yは同じ第4版を読みました。
 
-- Xはspeedを110へ変え、`expected_revision=4`で保存する。
-- Xの保存成功後、Yはnameを`候補Y`へ変え、`expected_revision=4`で保存する。
+- Xは速度を110へ変え、`expected_revision=4`で保存する。
+- Xの保存成功後、Yは名前を`候補Y`へ変え、`expected_revision=4`で保存する。
 
-各requestのstatus、server revision、最終payloadを予測してください。
+各要求の状態、サーバの版番号、最終内容を予測してください。
 
 ### 成功条件
 
-XとYのstatus、server revision、最終payloadを示し、Yが失敗する理由を説明できれば成功です。
+XとYの状態、サーバの版番号、最終内容を示し、Yが失敗する理由を説明できれば成功です。
 
 [演習2の解答](#answer-revision-02)
 
@@ -101,15 +101,15 @@ XとYのstatus、server revision、最終payloadを示し、Yが失敗する理�
 
 #### 解答例
 
-Xは200となり、serverはrevision 5、name `基準`、speed 110になります。
-Yは409 `revision_conflict`となり、serverはrevision 5のままです。
+Xは200となり、サーバー上の候補はリビジョン5、名前`基準`、速度110になります。
+Yは409 `revision_conflict`となり、サーバー上の候補はリビジョン5のままです。
 
-Yの古いpayloadを受け入れてrevision 6を作ると、Xのspeed 110を100へ戻すためです。
-409 responseの`current_candidate`はrevision 5を返します。
+Yの古い内容を受け入れてリビジョン6を作ると、Xが設定した速度110を100へ戻すためです。
+409応答の`current_candidate`はリビジョン5を返します。
 
 #### 解答の理由
 
-compare-and-swapは、読取り時のrevisionと保存時のrevisionが一致する場合だけ更新を受理します。
+比較交換は、読み取り時のリビジョンと保存時のリビジョンが一致する場合だけ更新を受理します。
 
 #### よくある不十分な回答
 
@@ -129,7 +129,7 @@ WHERE id = ?
 
 ### 成功条件
 
-Yの保存結果と最終revisionを予測し、transactionだけでは防げない理由を説明できれば成功です。
+Yの保存結果と最終リビジョンを予測し、トランザクションだけでは防げない理由を説明できれば成功です。
 
 [演習3の解答](#answer-revision-03)
 
@@ -137,24 +137,24 @@ Yの保存結果と最終revisionを予測し、transactionだけでは防げな
 
 #### 解答例
 
-Yのupdateもrowへ一致し、後着payloadでrevision 6を作ります。
-Yが読んだspeed 100を送っていれば、Xのspeed 110は失われます。
+Yの更新も同じ行へ一致し、後着の内容でリビジョン6を作ります。
+Yが読んだ速度100を送っていれば、Xの速度110は失われます。
 
-transactionがあっても、このlost updateは防げません。
-transactionは各writeをatomicにしますが、Yのpayloadが古いことを自動判定しないためです。
+トランザクションがあっても、この更新消失は防げません。
+トランザクションは各書き込みを一体として扱いますが、Yの内容が古いことを自動判定しないためです。
 
 #### 解答の理由
 
-更新条件からrevisionを外すと、古い読取り結果も同じrowへ一致します。
+更新条件からリビジョンを外すと、古い読み取り結果も同じ行へ一致します。
 
 #### よくある不十分な回答
 
-transactionがあるから安全だとする回答は、atomicityとstale write検出を混同しています。
+トランザクションがあるから安全だとする回答は、原子性と古い値による書き込みの検出を混同しています。
 :::
 
-## 演習4：安全にrebaseできるfieldを分ける {#exercise-revision-04}
+## 演習4：安全に変更を重ね直せる項目を分ける {#exercise-revision-04}
 
-base、draft、currentは次です。
+編集開始時、編集中、現行の値は次です。
 
 ```json
 {
@@ -177,7 +177,7 @@ base、draft、currentは次です。
 
 ### 成功条件
 
-rebase後のJSONを示し、保持される変更と上書きされる変更をfield単位で説明できれば成功です。
+変更を重ね直した後のJSONを示し、保持される変更と上書きされる変更をフィールド単位で説明できれば成功です。
 
 [演習4の解答](#answer-revision-04)
 
@@ -192,37 +192,37 @@ rebase後のJSONを示し、保持される変更と上書きされる変更をf
 }
 ```
 
-draftがbaseから変えたのはnameだけです。
-currentのspeed 110を保ち、nameだけを重ねます。
+下書きが基準から変えたのは名前だけです。
+現行版の速度110を保ち、名前だけを重ねます。
 
-同じspeed fieldをdraftとcurrentの双方が変更した場合、この関数は三者競合を検出せず、draftのspeedをcurrentへ重ねます。
-後続queued saveではdraftが後勝ちになるため、利用者の意図を保ったと一般化できません。
+同じ速度項目を編集中の値と現行版の双方が変更した場合、この関数は三者競合を検出せず、編集中の速度を現行版へ重ねます。
+後続の保存待ち処理では編集中の値が後勝ちになるため、利用者の意図を保ったと一般化できません。
 
 #### 解答の理由
 
-baseからdraftへの差分だけをcurrentへ重ねるため、current側だけで変わったspeedは残ります。
+基準版から編集中の値への差分だけを現行版へ重ねるため、現行版側だけで変わった速度は残ります。
 
 #### よくある不十分な回答
 
-結果のJSONだけを示し、同じfieldを双方が変更した場合の限界に触れない回答です。
+結果のJSONだけを示し、同じフィールドを双方が変更した場合の限界に触れない回答です。
 :::
 
-## 演習5：過去revisionが必要な理由を追う {#exercise-revision-05}
+## 演習5：過去の版が必要な理由を追う {#exercise-revision-05}
 
-Candidate `source`はrevision 1からrevision 2へ更新されました。
-別Candidate `derived`は`source`のrevision 1からcopyされています。
-その後、`source`はactive一覧からarchiveされました。
+候補`source`は第1版から第2版へ更新されました。
+別の候補`derived`は`source`の第1版から複製されています。
+その後、`source`は有効な候補の一覧からアーカイブされました。
 
-次のうち、`derived`の由来表示へ必要なrecordを選んでください。
+次のうち、`derived`の由来表示へ必要な記録を選んでください。
 
-- current `candidates` rowだけ
+- 現行の`candidates`行だけ
 - `candidate_revisions(source, 1)`
 - `candidate_revisions(source, 2)`だけ
-- 最新Candidate一覧のlabel
+- 最新候補一覧の表示名
 
 ### 成功条件
 
-必要なrecordを一つ選び、archive後もそのrecordが必要な理由を説明できれば成功です。
+必要な記録を一つ選び、アーカイブ後もその記録が必要な理由を説明できれば成功です。
 
 [演習5の解答](#answer-revision-05)
 
@@ -231,22 +231,22 @@ Candidate `source`はrevision 1からrevision 2へ更新されました。
 #### 解答例
 
 必要なのは`candidate_revisions(source, 1)`です。
-derived provenanceは作成時のrevision 1を固定しているため、revision 2やcurrent一覧へ読み替えません。
+派生元の来歴は作成時の第1版を固定しているため、第2版や現行一覧へ読み替えません。
 
-active sourceがarchiveされても、revision 1のimmutable rowは残ります。
+有効だった派生元がアーカイブされても、第1版の変更しない行は残ります。
 
 #### 解答の理由
 
-provenanceは派生時点のsource revisionを固定し、current stateから独立した証拠にします。
+来歴は派生時点の派生元の版を固定し、現行状態から独立した証拠にします。
 
 #### よくある不十分な回答
 
-最新のsource rowを選ぶ回答では、派生後の編集を派生時点の内容として表示してしまいます。
+コピー元の最新行を選ぶ回答では、派生後の編集を派生時点の内容として表示してしまいます。
 :::
 
-## 演習6：semantic digestを手で分類する {#exercise-revision-06}
+## 演習6：意味内容のハッシュ値を手で分類する {#exercise-revision-06}
 
-次のpayload AからDについて、同じsemantic digestになる組を選んでください。
+次の内容AからDについて、同じ意味内容のダイジェストになる組を選んでください。
 
 ```json
 {"a":1,"b":[2,3]}
@@ -266,7 +266,7 @@ provenanceは派生時点のsource revisionを固定し、current stateから独
 
 ### 成功条件
 
-同じdigestになる組を選び、object key順、array順、数値表現の扱いを説明できれば成功です。
+同じハッシュ値になる組を選び、オブジェクトのキー順、配列の要素順、数値表現の扱いを説明できれば成功です。
 
 [演習6の解答](#answer-revision-06)
 
@@ -274,39 +274,39 @@ provenanceは派生時点のsource revisionを固定し、current stateから独
 
 #### 解答例
 
-AとBは同じdigestです。
-object keyはsortされるため、入力時のkey順を同一視します。
+AとBは同じダイジェストです。
+オブジェクトのキーは並べ替えられるため、入力時のキー順を同一視します。
 
-Cはarray順が違うため別digestです。
-DはPython JSON serializationで`1.0`と`1`の表現が異なるため別digestです。
+Cは配列の順が違うため別のダイジェストです。
+DはPythonによるJSON直列化で`1.0`と`1`の表現が異なるため、別のダイジェストです。
 
-「数値として等しい」と「このcanonical representationが同じ」は別の判定です。
+「数値として等しい」と「この正準表現が同じ」は別の判定です。
 
 #### 解答の理由
 
-digestは抽象的な値の等価性ではなく、選択したcanonical representationの一致を判定します。
+ダイジェストは抽象的な値の等価性ではなく、選択した正準表現の一致を判定します。
 
 #### よくある不十分な回答
 
-JSONとして同じ意味に見えるという理由だけで、array順や数値表現まで同一視する回答です。
+JSONとして同じ意味に見えるという理由だけで、配列順や数値表現まで同一視する回答です。
 :::
 
-## 演習7：digest対象から外してよいfieldを批判する {#exercise-revision-07}
+## 演習7：ハッシュ値の計算対象から外してよい項目を批判する {#exercise-revision-07}
 
-現行`InferenceKey`が表す推論cache identityの候補として次があります。
+現行`InferenceKey`が表す推論キャッシュの同一性の候補として次があります。
 
-- canonical input
-- Candidate表示名
-- Model Package digest
-- Feature Pipeline digest
-- support digest
-- 画面で選択中のtab
+- 正準入力
+- 候補の表示名
+- モデルパッケージのハッシュ値
+- 特徴量パイプラインのハッシュ値
+- 学習データの裏付けを表すハッシュ値
+- 画面で選択中のタブ
 
-現行の推論内容を変えるfieldと、display-only stateを分けてください。
+現行の推論内容を変えるフィールドと、表示だけに使う状態を分けてください。
 
 ### 成功条件
 
-六つの候補を二分類し、必要なfieldを外す危険と表示fieldを含める費用を説明できれば成功です。
+六つの候補を二分類し、必要なフィールドを外す危険と表示用フィールドを含める費用を説明できれば成功です。
 
 [演習7の解答](#answer-revision-07)
 
@@ -314,35 +314,35 @@ JSONとして同じ意味に見えるという理由だけで、array順や数�
 
 #### 解答例
 
-| 分類 | field |
+| 分類 | 項目 |
 |---|---|
-| 推論内容を変える | canonical input、Model Package digest、Feature Pipeline digest、support digest |
-| この推論cacheではdisplay-only | Candidate表示名、選択中tab |
+| 推論内容を変える | 正準入力、モデルパッケージ、特徴量パイプライン、学習データの裏付けを表す各ハッシュ値 |
+| この推論結果の再利用では表示だけに使う | 候補の表示名、選択中のタブ |
 
-表示名とtabを含めると、同じ計算を不要に別cache entryへ分けます。
-PackageまたはPipeline digestを外すと、異なる計算資源を同じidentityとして再利用します。
-ただし、保存済みDecision Activity RunはCandidate revisionを別の証拠identityへ含めます。
+表示名とタブを含めると、同じ計算を不要に別の再利用単位へ分けます。
+パッケージまたはパイプラインのダイジェストを外すと、異なる計算資源を同じものとして再利用します。
+ただし、保存済みの検討記録は、候補の版を別の証拠の同一性へ含めます。
 
 #### 解答の理由
 
-cache identityには計算結果を変える入力だけを含め、表示状態は分離する必要があります。
+キャッシュの同一性には計算結果を変える入力だけを含め、表示状態は分離する必要があります。
 
 #### よくある不十分な回答
 
-候補を分類するだけで、過剰なcache分割と誤ったcache再利用のどちらが起きるかを説明しない回答です。
+候補を分類するだけで、計算結果の再利用を細かく分けすぎる場合と、誤って再利用する場合のどちらが起きるかを説明しない回答です。
 :::
 
-## 演習8：byte digestとsemantic digestを選ぶ {#exercise-revision-08}
+## 演習8：バイト列と意味内容のハッシュ値を選ぶ {#exercise-revision-08}
 
-次の照合へ使うdigestを選び、理由を書いてください。
+次の照合に使うダイジェストを選び、理由を書いてください。
 
-1. `.mdwb`内のworkbookが一byteも変わっていないか。
-2. JSON objectのkey順を無視して同じparameterか。
-3. 別PCへrestoreした後、locator path以外のtable evidenceが同じか。
+1. `.mdwb`内のワークブックが一バイトも変わっていないか。
+2. JSONオブジェクトのキー順を無視して同じ引数か。
+3. 別のPCへ復元した後、所在を示す経路以外の表形式の証拠が同じか。
 
 ### 成功条件
 
-三つの照合へdigest種別を対応付け、hashへ渡す表現の違いを説明できれば成功です。
+三つの照合へハッシュ値の種類を対応付け、計算へ渡す表現の違いを説明できれば成功です。
 
 [演習8の解答](#answer-revision-08)
 
@@ -350,35 +350,35 @@ cache identityには計算結果を変える入力だけを含め、表示状態
 
 #### 解答例
 
-1はfile bytesのdigestです。
-2はsemantic digestです。
-3はlocatorなどを明示的に正規化したevidence digestです。
+1はファイルのバイト列のダイジェストです。
+2は意味内容のダイジェストです。
+3は所在情報などを明示的に正規化した証拠のダイジェストです。
 
-三つともSHA-256を使えますが、hashへ渡す表現が違います。
+三つともSHA-256を使えますが、ハッシュ関数へ渡す表現が違います。
 
 #### 解答の理由
 
-同じhash algorithmを使っても、byte列、canonical JSON、正規化済みevidenceでは同一性の意味が異なります。
+同じハッシュ算法を使っても、バイト列、正準JSON、正規化済みの証拠では、同一性の意味が異なります。
 
 #### よくある不十分な回答
 
-すべてSHA-256とだけ答え、何をhashするかを区別しない回答です。
+すべてSHA-256とだけ答え、何をハッシュ値の計算対象にするかを区別しない回答です。
 :::
 
-## 演習9：遅いresponseを捨てる {#exercise-revision-09}
+## 演習9：遅い応答を捨てる {#exercise-revision-09}
 
-画面stateはrevision 7のpreviewを表示しています。
-次の順にrequestが始まりました。
+画面状態はリビジョン7のプレビューを表示しています。
+次の順に要求が始まりました。
 
-1. sequence 12、identity `candidate-a@8`
-2. sequence 13、identity `candidate-a@9`
+1. 開始順12、対象`candidate-a@8`
+2. 開始順13、対象`candidate-a@9`
 
-responseはsequence 13、sequence 12の順に到着します。
-各responseを受理するか答えてください。
+応答は開始順13、開始順12の順に到着します。
+各応答を受理するか答えてください。
 
 ### 成功条件
 
-二つのresponseの採否を示し、同じidentityを再requestする場合にもsequenceが必要な理由を説明できれば成功です。
+二つの応答の採否を示し、同じ同一性で再び要求する場合にも連番が必要な理由を説明できれば成功です。
 
 [演習9の解答](#answer-revision-09)
 
@@ -386,31 +386,31 @@ responseはsequence 13、sequence 12の順に到着します。
 
 #### 解答例
 
-sequence 13はcurrent requestとsequence、identityが一致するため受理します。
-sequence 12はcurrent `requestSequence`と一致しないため捨てます。
+開始順13は現行の要求と開始順、対象が一致するため受理します。
+開始順12は現行の`requestSequence`と一致しないため捨てます。
 
-identity比較だけでも今回は違いを検出できますが、同じidentityを二回refreshする場合にsequenceが必要です。
+同一性の比較だけでも今回は違いを検出できますが、同じ同一性で二回更新する場合には連番が必要です。
 
 #### 解答の理由
 
-responseの内容だけでなく、current requestとして最後に開始したsequenceとの一致を確認する必要があります。
+応答の内容だけでなく、現行要求として最後に開始した順番との一致を確認する必要があります。
 
 #### よくある不十分な回答
 
-identityだけを比較すれば常に十分だとする回答は、同じidentityの再requestを区別できません。
+同一性だけを比較すれば常に十分だとする回答は、同じ同一性による再要求を区別できません。
 :::
 
-## 演習10：staleとerrorを分ける {#exercise-revision-10}
+## 演習10：古い表示と読込失敗を分ける {#exercise-revision-10}
 
-revision 7のdataを表示中にrevision 8をrequestしました。
+第7版のデータを表示中に第8版を要求しました。
 次の二時点で`InferenceSurfaceStatus`を答えてください。
 
-1. revision 8のresponseを待っている。
-2. revision 8のrequestが失敗し、revision 7のdataが残った。
+1. 第8版の応答を待っている。
+2. 第8版の要求が失敗し、第7版のデータが残った。
 
 ### 成功条件
 
-二時点のstatusを答え、旧dataの有無よりcurrent requestの状態を優先する理由を説明できれば成功です。
+二時点の状態を答え、旧データの有無より現在の要求の状態を優先する理由を説明できれば成功です。
 
 [演習10の解答](#answer-revision-10)
 
@@ -418,34 +418,34 @@ revision 7のdataを表示中にrevision 8をrequestしました。
 
 #### 解答例
 
-1は`stale`です。
-表示中dataのidentityとrequested identityが違います。
+1は古い可能性がある状態です。
+表示中データの同一性と、要求した対象の同一性が違います。
 
 2は`error`です。
-旧dataを保持していても、current refreshが失敗した事実を先に示します。
+旧データを保持していても、現行値の再読込が失敗した事実を先に示します。
 
 #### 解答の理由
 
-表示値のidentityと、現在のrefreshが進行中か失敗したかは別の状態です。
+表示値の同一性と、現在の更新が進行中か失敗したかは別の状態です。
 
 #### よくある不十分な回答
 
-旧dataが残っているため二時点とも成功扱いにする回答では、利用者へ更新失敗を伝えられません。
+旧データが残っているため二時点とも成功扱いにする回答では、利用者へ更新失敗を伝えられません。
 :::
 
-## 演習11：最初に反応させるtestを選ぶ {#exercise-revision-11}
+## 演習11：最初に反応させるテストを選ぶ {#exercise-revision-11}
 
-次の退行を、最初に検出したいtestへ対応付けてください。
+次の退行を、最初に検出したいテストへ対応付けてください。
 
-- 古いrevisionの二回目保存が成功した
-- archive後にcopy元revisionを読めなくなった
-- Package digestを変えても推論keyが同じ
-- 同じCandidateのqueued saveが並列に走った
-- 遅いresponseが新しいrequestを上書きした
+- 古いリビジョンによる二回目の保存が成功した
+- アーカイブ後にコピー元のリビジョンを読めなくなった
+- パッケージのハッシュ値を変えても推論キーが同じ
+- 同じ候補の保存待ち処理が並列に走った
+- 遅い応答が新しい要求を上書きした
 
 ### 成功条件
 
-五つの退行を最初に検出するtestへ対応付け、各testが守る境界を説明できれば成功です。
+五つの退行を最初に検出するテストへ対応付け、各テストが守る境界を説明できれば成功です。
 
 [演習11の解答](#answer-revision-11)
 
@@ -453,24 +453,24 @@ revision 7のdataを表示中にrevision 8をrequestしました。
 
 #### 解答例
 
-| 退行 | 最初のtest |
+| 退行 | 最初のテスト |
 |---|---|
-| 古いrevision保存 | `test_candidate_safety.py -k atomic_compare_and_swap` |
-| copy元revision消失 | `test_candidate_safety.py -k immutable_and_copy` |
-| 推論keyのPackage漏れ | `test_inference_work_graph.py -k identity_changes` |
-| queued save並列化 | `latestSaveQueue.test.mjs` |
-| 遅いresponse誤採用 | `inferenceSurfaceState.test.mjs`または`workbenchIdentity.test.mjs` |
+| 古いリビジョンでの保存 | `test_candidate_safety.py -k atomic_compare_and_swap` |
+| コピー元リビジョンの消失 | `test_candidate_safety.py -k immutable_and_copy` |
+| 推論キーからのパッケージ情報の漏れ | `test_inference_work_graph.py -k identity_changes` |
+| 保存待ち処理の並列化 | `latestSaveQueue.test.mjs` |
+| 古い応答の誤採用 | `inferenceSurfaceState.test.mjs`または`workbenchIdentity.test.mjs` |
 
 #### 解答の理由
 
-退行に最も近いcontract testを先に反応させると、失敗の原因を狭く保てます。
+退行に最も近い契約テストを先に反応させると、失敗の原因を狭く保てます。
 
 #### よくある不十分な回答
 
 全体E2Eだけを挙げる回答では、どの境界が壊れたかを切り分けにくくなります。
 :::
 
-## 演習12：現mainを検証する {#exercise-revision-12}
+## 演習12：現在の実装を検証する {#exercise-revision-12}
 
 リポジトリ直下で次を実行します。
 
@@ -500,7 +500,7 @@ unexpected_warnings:
 
 ### 成功条件
 
-実行commitと日時を記録し、三つのcommandが終了code 0となり、対象testが収集されたことを確認できれば成功です。
+実行したコミットと日時を記録し、三つのコマンドが終了コード0となり、対象テストが収集されたことを確認できれば成功です。
 
 [演習12の解答](#answer-revision-12)
 
@@ -508,23 +508,23 @@ unexpected_warnings:
 
 #### 解答例
 
-次のrubricをすべて満たした記録を解答とします。
+次の採点基準をすべて満たした記録を解答とします。
 
 | 観点 | 合格条件 |
 |---|---|
 | 再現性 | `verified_commit`と`date`が記録されている |
-| Python | commandが終了code 0で、compare-and-swap、immutable history、digestの対象testが収集されている |
-| Frontend | commandが終了code 0で、save queueとresponse guardの対象testが収集されている |
-| API | `npm run api:check`が終了code 0である |
+| Python | コマンドが終了コード0で、条件付き更新、不変な履歴、ハッシュ値の対象テストが収集されている |
+| フロントエンド | コマンドが終了コード0で、保存の待機列と応答採用条件の対象テストが収集されている |
+| API | `npm run api:check`が終了コード0である |
 | 警告 | `unexpected_warnings`が空、または判断への影響が説明されている |
 
 #### 解答の理由
 
-test件数は実装の増減で変わるため、守るcontractと実行結果を評価します。
+テスト件数は実装の増減で変わるため、守る契約と実行結果を評価します。
 
 #### よくある不十分な回答
 
-成功件数だけを記録し、目的のtestが収集されたかを確認しない回答です。
+成功件数だけを記録し、目的のテストが収集されたかを確認しない回答です。
 :::
 
 ## 章末チェック
@@ -535,20 +535,20 @@ test件数は実装の増減で変わるため、守るcontractと実行結果�
 
 #### 解答例
 
-1. IDは継続対象を、revisionは同じ対象内の受理順を表す。
-2. revision確認後、update前に別writerがcurrent rowを変える窓が開く。
-3. draftとcurrent stateを比較し、再読込または限定的なrebaseを行うため。
-4. active sourceをarchiveしても、派生Candidateと判断証拠が固定した過去revisionを読めるようにするため。
-5. object key順だけが違う場合は同じdigestになる。
-6. domain上必要なfieldを知るcallerが決める。
-7. 受理順を表すのはrevisionである。
-8. 同じidentityを再requestした場合も、古いresponseを区別するため。
-9. 旧identityの値であることと、refresh中または失敗中であること。
-10. compare-and-swapは古い保存、immutable historyは過去版消失、renderer guardは遅いresponseの誤採用を防ぐ。
+1. IDは継続対象を、リビジョンは同じ対象内の受理順を表す。
+2. リビジョン確認後、更新前に別の書き込み処理が現行行を変える窓が開く。
+3. 編集中の値と現行状態を比較し、再読み込みまたは限定的な付け替えを行うため。
+4. 有効だった派生元をアーカイブしても、派生候補と判断証拠が固定した過去の版を読めるようにするため。
+5. オブジェクトのキー順だけが違う場合は同じハッシュ値になる。
+6. 対象領域で必要な項目を知る呼び出し側が決める。
+7. 受理順を表すのはリビジョンである。
+8. 同じ同一性で再要求した場合も、古い応答を区別するため。
+9. 旧い同一性の値であることと、更新中または失敗中であること。
+10. 条件付き更新は古い保存、不変な履歴は過去版の消失、画面側の応答採用条件は遅い応答の誤採用を防ぐ。
 
 #### 解答の理由
 
-各回答は、対象のidentity、保存の受理条件、履歴の不変性、非同期responseの採否を別々の境界として説明しています。
+各回答は、対象の同一性、保存の受理条件、履歴の不変性、非同期応答の採否を別々の境界として説明しています。
 
 #### よくある不十分な回答
 

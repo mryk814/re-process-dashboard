@@ -97,6 +97,14 @@ GitHub repositoryのfull nameは `code-reference-config.json` だけへ定義す
 ## 文章と構成
 
 - 書き手の立ち位置と声は [`writer-persona.md`](writer-persona.md) に従う。
+- 日本語の本文では、定着した日本語の専門用語を優先する。コードや論文が英語だからという理由だけで、英単語を普通名詞や形容詞として文へ混ぜない。
+- 英語のまま残すのは、コード識別子、ファイルパス、APIフィールド、製品名、ライブラリ名、画面上の正確な表示、文献の原題に限る。識別子や正確な表示はバッククォートで囲み、日本語の説明と区別する。
+- 英語の名詞に日本語の助詞（の、を、が、は、に、へ、で）を直接つなげない。「constraintsの層」ではなく「制約の層」、「scoreへ畳み込む」ではなく「総合点へ畳み込む」と書く。コード上の名前を指すなら `constraints` のようにバッククォートで囲む。
+- 実装の型名・クラス名を本文で使う場合は、コード識別子（バッククォートで囲む）と概念名（日本語で説明する）のどちらとして扱うかを段落の先頭で確定する。同じ語を両方の役割で使い分けない。`Connector設定`のようなバッククォートなしの宙ぶらりん表記を避ける。
+- 文献検索に原語が役立つ用語は、初出だけ「日本語（英語）」と示してよい。その後は日本語へ統一する。日本語訳が読者に対象を想起させない場合は、先に具体的な対象や操作を説明してから名前を付ける。
+- 代表的な訳語は、`quantile`を「分位点」、`uncertainty`を「不確かさ」、`nominal coverage`を「目標被覆率」、`empirical coverage`を「経験被覆率」、`calibration`を「較正」、`robustness`を「頑健性」、`progressive disclosure`を「段階的開示」、`feasibility`を「実行可能性」、`tolerance`（リスクの文脈）を「許容度」、`narrowing`を「型の絞り込み」、`fallback`を「退避表示」または「代替手段」とする。文脈に応じて「入力ばらつきに対する頑健性」のように対象を補う。
+- 新しい章、追記、改稿では、本文へ着手する前に [`write-learning-chapter`](../../.claude/skills/write-learning-chapter/SKILL.md) を使う。英語の概念名を起点に翻訳せず、読者が見る具体物、区別する関係、誤判断、読了後の行為を日本語で定めてから段落を書く。
+- `node docs/learning/check-japanese-prose.mjs`は、執筆後に既知の逆戻りを検出する安全網として使う。禁止語リスト（統計・ML用語の英語混在）と、バッククォート外の英語名詞＋日本語助詞の接合を検出する。この検査に通ることを、自然な日本語または教育的に良い文章の証明にしない。検出漏れがあった場合は許可リストではなく禁止パターンの追加を検討する。
 - 章は「問題、一般概念、実装を読む、演習、設計を振り返る」の順を基本とする。
 - tutorial、how-to、reference、explanationの役割を混ぜない。
 - 対象読者、前提知識、読了後にできること、非scopeを冒頭で示す。
@@ -110,7 +118,7 @@ GitHub repositoryのfull nameは `code-reference-config.json` だけへ定義す
 - 脚注を読まなくても論証が成立するようにする。結論、前提、危険、操作手順を脚注へ隠さない。
 - 脚注は「あると嬉しい」情報だけに使い、一つの脚注へ複数の話題を詰め込まない。
 - 脚注は、直近の主張の誤読を防ぐ限定、用語の来歴、一次資料への導線、現在の問いに接続する補足と脇道の実務知識に使う。
-- 脚注へ置く補足は、本文なしでも論証が成立し、現在の問いとの接続を一文で説明できるものに限る。章を越えて一般化する資料はFurther Readingへ置く。
+- 脚注へ置く補足は、本文なしでも論証が成立し、現在の問いとの接続を一文で説明できるものに限る。章を越えて一般化する資料は章末の「参考文献を読む」へ置く。
 - 日本語本文で空虚な強調、同じ結論の言い換え、過剰な予告と総括を避ける。
 
 文章と構成を新しく決める場合は、公式教材または公式style guideを事前調査する。
@@ -204,6 +212,8 @@ node docs/learning/test-figures.mjs
 node docs/learning/check-figures.mjs
 node docs/learning/test-labs.mjs
 node docs/learning/check-labs.mjs
+node docs/learning/test-japanese-prose.mjs
+node docs/learning/check-japanese-prose.mjs
 node docs/learning/check-lab-reproducibility.mjs
 node docs/learning/test-repository-reference-states.mjs
 node docs/learning/check-repository-reference-states.mjs
