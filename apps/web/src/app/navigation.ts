@@ -2,6 +2,7 @@ import type { CandidateSection } from "../shared/projectActionQuestions";
 
 export const WORKBENCH_VIEWS = [
   "project",
+  "project-settings",
   "candidates",
   "candidate-review",
   "workspace",
@@ -34,7 +35,7 @@ export type NavigationIntent = Readonly<{
   developerTab?: DeveloperTab;
   developerTabError?: string;
   developerGuideId?: string;
-  projectSettings?: "targets" | "ranges" | "display" | "task";
+  projectSettings?: "general" | "targets" | "scientific" | "ranges" | "display" | "task" | "evidence";
   dataLibraryTab?: "update";
   sourceConnectorId?: string;
   sourceStage?: "raw" | "curation" | "approval" | "training";
@@ -59,6 +60,13 @@ export function isLegacyCandidateActivityNavigation(search = window.location.sea
     && (params.has("activity") || params.has("activity_run"));
 }
 
+export function isLegacyProjectSettingsNavigation(search = window.location.search): boolean {
+  const params = new URLSearchParams(search);
+  const view = params.get("view");
+  return (view === "settings" && ["ranges", "display", "task"].includes(params.get("admin") ?? ""))
+    || (view === "project" && params.has("project_settings"));
+}
+
 export function readNavigationIntent(
   search = window.location.search,
 ): NavigationIntent {
@@ -71,8 +79,15 @@ export function readNavigationIntent(
     || adminSection === "task"
     ? adminSection
     : undefined;
+  const requestedProjectSettings = params.get("project_settings");
+  const projectSettings = legacyProjectSection
+    ?? (["general", "targets", "scientific", "ranges", "display", "task", "evidence"].includes(requestedProjectSettings ?? "")
+      ? requestedProjectSettings as NavigationIntent["projectSettings"]
+      : undefined);
   const normalizedView: WorkbenchView = requestedView === "settings"
-    ? legacyProjectSection ? "project" : adminSection === "quality" ? "quality" : "workspace"
+    ? legacyProjectSection ? "project-settings" : adminSection === "quality" ? "quality" : "workspace"
+    : requestedView === "project" && projectSettings
+      ? "project-settings"
     : requestedView === "candidates" && (params.has("activity") || params.has("activity_run"))
       ? "candidate-review"
     : VIEW_SET.has(requestedView)
@@ -98,10 +113,7 @@ export function readNavigationIntent(
       : developerTab && DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab as DeveloperTab : undefined,
     developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
     developerGuideId: params.get("developer_guide") || undefined,
-    projectSettings: legacyProjectSection
-      ?? (["targets", "ranges", "display", "task"].includes(params.get("project_settings") ?? "")
-        ? params.get("project_settings") as NavigationIntent["projectSettings"]
-        : undefined),
+    projectSettings,
     dataLibraryTab: params.get("tab") === "update" ? "update" : undefined,
     sourceConnectorId: params.get("connector") || undefined,
     sourceStage: SOURCE_STAGES.has(params.get("stage") ?? "")
@@ -133,7 +145,9 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "workspace" && intent.adminSection) params.set("admin", intent.adminSection);
   if (intent.adminSection === "developer" && intent.developerTab) params.set("developer_tab", intent.developerTab);
   if (intent.adminSection === "developer" && intent.developerGuideId) params.set("developer_guide", intent.developerGuideId);
-  if (intent.projectSettings) params.set("project_settings", intent.projectSettings);
+  if (intent.view === "project-settings" && intent.projectSettings) {
+    params.set("project_settings", intent.projectSettings);
+  }
   if (intent.view === "data-library" && intent.dataLibraryTab) params.set("tab", intent.dataLibraryTab);
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
@@ -171,7 +185,7 @@ export function withView(
     developerTab: view === "workspace" && current.adminSection === "developer" ? current.developerTab : undefined,
     developerTabError: undefined,
     developerGuideId: view === "workspace" && current.adminSection === "developer" ? current.developerGuideId : undefined,
-    projectSettings: view === "project" ? current.projectSettings : undefined,
+    projectSettings: view === "project-settings" ? current.projectSettings : undefined,
     dataLibraryTab: view === "data-library" ? current.dataLibraryTab : undefined,
     sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,
     sourceStage: view === "data-library" ? current.sourceStage : undefined,
