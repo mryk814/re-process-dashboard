@@ -133,19 +133,14 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await countStages.nth(4).focus();
   await expect(countStages.nth(4)).toBeFocused();
   await expect(page.getByRole("heading", { name: "提案候補" })).toBeVisible();
-  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
-  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
   await expect(page.locator('input[aria-label^="点 "]:checked')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "2件を候補へ追加" })).toBeEnabled();
   const firstProposalCheckbox = page.locator('input[aria-label^="点 "]').first();
   await firstProposalCheckbox.focus();
   await firstProposalCheckbox.press("Space");
   await expect(firstProposalCheckbox).not.toBeChecked();
-  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
-  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(1);
   await firstProposalCheckbox.press("Space");
   await expect(firstProposalCheckbox).toBeChecked();
-  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
   const savedRun = page.locator(".saved-runs button.active");
   await expect(savedRun).not.toContainText(/model |space |objective |strategy /);
   await expect(page.locator(".saved-runs details")).toHaveCount(0);
@@ -156,10 +151,14 @@ test("annealed screening keeps draft separate and batches multiple points into s
     const evidence = document.querySelector(".screening-run-evidence");
     return Boolean(table && evidence && (table.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING));
   })).toBe(true);
+  await page.getByRole("button", { name: "地図", exact: true }).click();
+  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
+  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
   await reproducibility.locator("> summary").click();
   await expect(reproducibility).toContainText("Model Package");
   await expect(reproducibility).toContainText("Design Space");
-  await expect(page.locator(".screening-hidden-variables")).toContainText("Mn");
+  await expect(page.locator(".screening-slice-context")).toContainText("Mn");
+  await expect(page.locator(".screening-slice-context")).toContainText("固定断面ではありません");
   await expect(page.getByLabel("横軸")).toBeVisible();
   await expect(page.getByLabel("縦軸")).toBeVisible();
   await expect(page.locator(".screening-display-controls").getByLabel("色")).toBeVisible();
@@ -188,7 +187,6 @@ test("annealed screening keeps draft separate and batches multiple points into s
   expect((await rerunResponse).status()).toBe(201);
   await expect(page.getByText(/未実行の条件変更/)).toHaveCount(0);
 
-  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
   await expect(page.locator('input[aria-label^="点 "]:checked')).toHaveCount(2);
   const batchResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/candidates"));
   await page.getByRole("button", { name: "2件を候補へ追加" }).click();
@@ -245,11 +243,22 @@ test("saved exploration can be inspected through evidence and deleted when unuse
     && new URL(response.url()).pathname === "/api/screening"
   ));
   await runScreening(page);
-  expect((await runResponse).status()).toBe(201);
+  const completedRunResponse = await runResponse;
+  expect(completedRunResponse.status()).toBe(201);
+  const completedRun = await completedRunResponse.json() as {
+    points: Array<unknown>;
+    proposal_diagnostics: { evaluated_count: number; proposed_count: number };
+  };
 
-  const table = page.locator(".screening-results-table");
-  await expect(table).not.toHaveClass(/has-selection/);
-  expect(await table.locator(".screening-point-column").first().evaluate((element) => getComputedStyle(element).left)).toBe("0px");
+  await expect(page.getByRole("button", {
+    name: `提案候補 ${completedRun.proposal_diagnostics.proposed_count}`,
+    exact: true,
+  })).toBeDisabled();
+  await expect(page.locator(".screening-interpolation-status")).toContainText("inverse_distance_weighted_display v1.0.0");
+  expect(await page.locator(".screen-map-interpolation-cell").count()).toBeGreaterThan(100);
+  await expect(page.locator(".screen-map-evaluated-marker")).toHaveCount(
+    completedRun.proposal_diagnostics.evaluated_count - completedRun.points.length,
+  );
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("動かした条件:");
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).not.toContainText("全変動条件:");
 
@@ -259,6 +268,21 @@ test("saved exploration can be inspected through evidence and deleted when unuse
   await expect(page.getByLabel("過去実績の根拠", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("過去実績の根拠", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /全評価点/ }).click();
+  const table = page.locator(".screening-evaluated-table");
+  await expect(table).toBeVisible();
+  await expect(table.locator("tbody tr")).toHaveCount(100);
+  await expect(page.getByRole("button", { name: /次の100件を表示/ })).toBeVisible();
+  for (const width of [900, 600, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".screening-result-tabs")).toBeVisible();
+    expect(await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    )).toBe(true);
+  }
+  expect(await page.locator(".screening-evaluated-scroll").evaluate(
+    (element) => element.scrollWidth > element.clientWidth,
+  )).toBe(true);
 
   const savedRun = page.locator(".saved-run-item").first();
   await savedRun.getByRole("button", { name: "削除", exact: true }).click();
@@ -271,6 +295,7 @@ test("saved exploration can be inspected through evidence and deleted when unuse
   expect((await deleteResponse).status()).toBe(204);
   await expect(page.locator(".saved-run-item")).toHaveCount(0);
   await expect(page.locator(".screening-results-table")).toHaveCount(0);
+  await expect(page.locator(".screening-evaluated-table")).toHaveCount(0);
 });
 
 test("hot rolling screening accepts task-defined process fields", async ({ page, request }) => {

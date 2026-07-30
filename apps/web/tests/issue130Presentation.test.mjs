@@ -18,10 +18,13 @@ test("screening separates selection criteria from project goals and maps counts 
   assert.match(screeningStyles, /\.screening-primary-settings > label \{[\s\S]*?min-width: 0;/);
 });
 
-test("screening renders support and selection as independent visual channels", () => {
+test("screening limits the map to metric, proposal, and selection channels", () => {
   assert.match(screeningSource, /<span className="selection-key" \/>/);
   assert.match(screeningSource, /className="screen-map-selection-ring"/);
-  assert.match(screeningSource, /stroke=\{supportStroke\(point\.support\.status\)\}/);
+  assert.match(screeningSource, /className="screen-map-proposal-marker"/);
+  assert.match(screeningSource, /stroke="#345b85"/);
+  assert.doesNotMatch(screeningSource, /supportStroke/);
+  assert.match(screeningSource, /point\.support\.message/);
   assert.match(screeningSource, /aria-pressed=\{selected\}/);
   assert.match(screeningStyles, /\.screen-map-selection-ring \{[\s\S]*?stroke-dasharray:/);
 });
@@ -34,6 +37,18 @@ test("screening keeps the first result surface compact and offers an explicit ex
   assert.match(screeningSource, /screen-map\$\{chartExpanded \? " expanded" : ""\}/);
   assert.match(screeningStyles, /\.screen-map \{[\s\S]*?height: clamp\(280px, 36vw, 350px\);/);
   assert.match(screeningStyles, /\.screen-map\.expanded \{[\s\S]*?height: clamp\(440px, 56vw, 620px\);/);
+});
+
+test("screening separates map, proposals, and evaluated evidence surfaces", () => {
+  assert.match(screeningSource, /<ScreeningResultSurfaceTabs/);
+  assert.match(screeningSource, /resultSurface === "map"/);
+  assert.match(screeningSource, /resultSurface === "proposals"/);
+  assert.match(screeningSource, /resultSurface === "evaluated"/);
+  assert.match(screeningSource, /inverse_distance_weighted_display|interpolation\.method/);
+  assert.match(screeningSource, /modelの追加予測ではありません/);
+  assert.match(screeningSource, /固定断面ではありません/);
+  assert.match(screeningStyles, /\.screening-result-tabs \{/);
+  assert.match(screeningStyles, /\.screening-map-layout \{[\s\S]*?grid-template-columns:/);
 });
 
 test("lineage uses one normalized time contract for both heat points and stage intervals", () => {

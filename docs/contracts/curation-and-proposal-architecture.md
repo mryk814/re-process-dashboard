@@ -143,6 +143,31 @@ display purpose may be inferred from goal and batch evidence, but missing
 displayed/proposed counts and proposal policy are shown as unrecorded rather
 than reconstructed from unrelated legacy fields.
 
+### Result surfaces and display interpolation
+
+The 範囲探索 UI presents one saved Run through three separate result surfaces.
+They share the same immutable Run identity, but do not collapse evidence with
+different meanings into one table or chart.
+
+- `地図` shows the relationship between two numeric input axes.
+- `提案候補` shows only points selected by the proposal policy.
+- `全評価点` is the auditable table of the complete evaluated pool.
+
+The map may render a display-only contour using versioned inverse-distance
+weighting over values already stored in the complete evaluated pool. This is an
+interpolation for reading the saved Run, not an additional model prediction.
+The UI records the interpolation method, version and grid size beside the map.
+All evaluated points remain visible on top of the interpolated cells, while the
+proposal and current selection are separate overlays.
+
+Interpolation fails closed to the evaluated points when any required evidence
+is missing or unsafe. In particular, it is disabled for legacy Runs without the
+complete pool, rejected or constrained holes, sparse or irregular coverage,
+outputs absent from the complete pool, and Runs varying more than two inputs.
+A Run with three or more varying inputs is not presented as a fixed slice:
+the user must fix the remaining inputs and execute a new Run before a 2D
+interpolation can be shown.
+
 ### Experiment batch selection
 
 The `experiment_batch` purpose uses `batch-proposal-definition/v1` to select an experiment batch from an
