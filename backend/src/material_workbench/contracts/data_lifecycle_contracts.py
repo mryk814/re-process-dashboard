@@ -774,6 +774,7 @@ class ApprovedTrainingSnapshotSummary(ContractModel):
     approved_row_count: Annotated[int, Field(ge=0)] = 0
     included_row_count: Annotated[int, Field(ge=0)] = 0
     excluded_row_count: Annotated[int, Field(ge=0)] = 0
+    policy_excluded_row_count: Annotated[int, Field(ge=0)] = 0
     reason_counting: Literal["multi_label"] = "multi_label"
     exclusion_reasons: tuple[
         TrainingSnapshotExclusionReasonSummary, ...

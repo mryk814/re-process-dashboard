@@ -2643,6 +2643,11 @@ export interface components {
              * @default 0
              */
             included_row_count: number;
+            /**
+             * Policy Excluded Row Count
+             * @default 0
+             */
+            policy_excluded_row_count: number;
             /** Purpose */
             purpose: string;
             /**

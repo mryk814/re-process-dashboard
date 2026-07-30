@@ -140,6 +140,7 @@ def summarize_training(
         approved_row_count=len(approved_keys),
         included_row_count=len(included_keys),
         excluded_row_count=len(excluded_keys),
+        policy_excluded_row_count=len(policy_excluded_keys),
         exclusion_reasons=tuple(reasons),
         snapshot_digest=snapshot.snapshot_digest,
         created_at=snapshot.created_at,

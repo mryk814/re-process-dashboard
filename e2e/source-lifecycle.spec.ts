@@ -209,7 +209,8 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(selectionAudit).toContainText("exclude-unmeasured-holdout · revision 3");
   await expect(selectionAudit).toContainText("承認済み 3");
   await expect(selectionAudit).toContainText("Snapshot採用 2");
-  await expect(selectionAudit).toContainText("追加除外 1");
+  await expect(selectionAudit).toContainText("Snapshot対象外 1");
+  await expect(selectionAudit).toContainText("policyによる追加除外 1行");
   await expect(selectionAudit).toContainText("id が A-03");
 
   const secondFetch = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}/fetch`, {

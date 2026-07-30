@@ -61,6 +61,26 @@ test("data library collapses an empty comparison area and moves state changes in
   assert.match(content, /--store \$modelStore/);
   assert.match(content, /個人モデルを再読込/);
   assert.doesNotMatch(content, /昇格済みモデルを再読込/);
+  for (const field of [
+    "connector_id",
+    "training_snapshot_id",
+    "training_snapshot_digest",
+    "training_selection_policy_digest",
+  ]) {
+    assert.match(
+      content,
+      new RegExp(`typeof identity\\.${field} === "string"`),
+      `${field} is required before exposing the Package to Snapshot link`,
+    );
+  }
+  assert.match(content, /snapshotDetail\.snapshot\.snapshot_digest === link\.snapshotDigest/);
+  assert.match(content, /snapshotDetail\.snapshot\.selection_policy_digest === link\.selectionPolicyDigest/);
+  assert.doesNotMatch(content, /!link\.snapshotDigest|!link\.selectionPolicyDigest/);
+  const lifecycle = await source("../src/features/data-library/SourceLifecycleSection.tsx");
+  assert.match(lifecycle, /Snapshot採用 \/ 対象外/);
+  assert.match(lifecycle, /Snapshot対象外/);
+  assert.match(lifecycle, /policyによる追加除外/);
+  assert.doesNotMatch(lifecycle, /<span>追加除外 <b>\{selectedTraining\.excluded_row_count\}/);
 });
 
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {

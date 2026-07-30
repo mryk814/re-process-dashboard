@@ -614,7 +614,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             </>}
             {selectedTraining && <>
               <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
-              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>採用 / 追加除外</dt><dd>{selectedTraining.included_row_count} / {selectedTraining.excluded_row_count}行</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
+              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>Snapshot採用 / 対象外</dt><dd>{selectedTraining.included_row_count} / {selectedTraining.excluded_row_count}行</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
               <section className="training-selection-audit" aria-label="学習行の選択方針">
                 <header>
                   <strong>学習行の選択方針</strong>
@@ -628,8 +628,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
                 <div className="training-selection-counts">
                   <span>承認済み <b>{selectedTraining.approved_row_count}</b></span>
                   <span>Snapshot採用 <b>{selectedTraining.included_row_count}</b></span>
-                  <span>追加除外 <b>{selectedTraining.excluded_row_count}</b></span>
+                  <span>Snapshot対象外 <b>{selectedTraining.excluded_row_count}</b></span>
                 </div>
+                {selectedTraining.selection_policy && <p>policyによる追加除外 <b>{selectedTraining.policy_excluded_row_count}行</b></p>}
                 {selectedTraining.exclusion_reasons.length > 0
                   ? <ul>{selectedTraining.exclusion_reasons.map((reason) => <li key={reason.code}>
                     <span>{reason.label}</span><b>{reason.count}行</b>

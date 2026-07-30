@@ -27,8 +27,8 @@ type UndoAction = { kind: "dataset" | "package"; id: string; archived: boolean; 
 type PackageTrainingSnapshotLink = {
   connectorId: string;
   snapshotId: string;
-  snapshotDigest?: string;
-  selectionPolicyDigest?: string;
+  snapshotDigest: string;
+  selectionPolicyDigest: string;
 };
 
 function packageTrainingSnapshotLink(
@@ -39,17 +39,15 @@ function packageTrainingSnapshotLink(
   const lifecycle = (provenance as Record<string, unknown>).source_lifecycle;
   if (!lifecycle || typeof lifecycle !== "object") return null;
   const identity = lifecycle as Record<string, unknown>;
-  return typeof identity.connector_id === "string"
-    && typeof identity.training_snapshot_id === "string"
+  return typeof identity.connector_id === "string" && identity.connector_id.length > 0
+    && typeof identity.training_snapshot_id === "string" && identity.training_snapshot_id.length > 0
+    && typeof identity.training_snapshot_digest === "string" && identity.training_snapshot_digest.length > 0
+    && typeof identity.training_selection_policy_digest === "string" && identity.training_selection_policy_digest.length > 0
     ? {
       connectorId: identity.connector_id,
       snapshotId: identity.training_snapshot_id,
-      snapshotDigest: typeof identity.training_snapshot_digest === "string"
-        ? identity.training_snapshot_digest
-        : undefined,
-      selectionPolicyDigest: typeof identity.training_selection_policy_digest === "string"
-        ? identity.training_selection_policy_digest
-        : undefined,
+      snapshotDigest: identity.training_snapshot_digest,
+      selectionPolicyDigest: identity.training_selection_policy_digest,
     }
     : null;
 }
@@ -138,10 +136,8 @@ export function DataLibraryPage({
       const belongsToConnector = connectorDetail.training_snapshots.some(
         (item) => item.id === link.snapshotId,
       );
-      const snapshotDigestMatches = !link.snapshotDigest
-        || snapshotDetail.snapshot.snapshot_digest === link.snapshotDigest;
-      const policyDigestMatches = !link.selectionPolicyDigest
-        || snapshotDetail.snapshot.selection_policy_digest === link.selectionPolicyDigest;
+      const snapshotDigestMatches = snapshotDetail.snapshot.snapshot_digest === link.snapshotDigest;
+      const policyDigestMatches = snapshotDetail.snapshot.selection_policy_digest === link.selectionPolicyDigest;
       if (!belongsToConnector || !snapshotDigestMatches || !policyDigestMatches) {
         throw new Error("Model Packageが固定した学習Snapshotの識別情報が一致しません。");
       }

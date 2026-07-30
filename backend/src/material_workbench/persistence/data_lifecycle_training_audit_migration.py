@@ -16,7 +16,7 @@ from material_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 MIGRATION_ID = "training-snapshot-selection-audit-v1"
-MIGRATION_CHECKSUM = "persist-policy-counts-and-reasons-v1"
+MIGRATION_CHECKSUM = "persist-policy-and-total-counts-v2"
 
 
 def migrate_training_snapshot_selection_audit(database: str | Path) -> None:

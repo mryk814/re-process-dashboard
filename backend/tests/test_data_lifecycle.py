@@ -679,6 +679,7 @@ def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
                 "approved_row_count",
                 "included_row_count",
                 "excluded_row_count",
+                "policy_excluded_row_count",
                 "reason_counting",
                 "exclusion_reasons",
             }
@@ -705,6 +706,7 @@ def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
     )
     assert persisted_summary["included_row_count"] == 4
     assert persisted_summary["excluded_row_count"] == 1
+    assert persisted_summary["policy_excluded_row_count"] == 1
 
     Store(database)
     reloaded = DataLifecycleService(database)
@@ -720,6 +722,7 @@ def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
     assert policy_summary.approved_row_count == 5
     assert policy_summary.included_row_count == 4
     assert policy_summary.excluded_row_count == 1
+    assert policy_summary.policy_excluded_row_count == 1
     assert [item.model_dump() for item in policy_summary.exclusion_reasons] == [
         {
             "code": "policy:0:lot",
@@ -754,7 +757,7 @@ def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
         assert connection.execute(
             "SELECT checksum FROM schema_migrations "
             "WHERE id='training-snapshot-selection-audit-v1'"
-        ).fetchone() == ("persist-policy-counts-and-reasons-v1",)
+        ).fetchone() == ("persist-policy-and-total-counts-v2",)
 
     three_fold = service.create_training_snapshot(
         revision.id,

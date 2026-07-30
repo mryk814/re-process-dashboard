@@ -1270,6 +1270,12 @@
             "title": "Included Row Count",
             "type": "integer"
           },
+          "policy_excluded_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Policy Excluded Row Count",
+            "type": "integer"
+          },
           "purpose": {
             "title": "Purpose",
             "type": "string"

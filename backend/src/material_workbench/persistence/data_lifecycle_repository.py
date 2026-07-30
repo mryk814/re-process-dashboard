@@ -574,6 +574,7 @@ class DataLifecycleRepository:
             "approved_row_count",
             "included_row_count",
             "excluded_row_count",
+            "policy_excluded_row_count",
             "reason_counting",
             "exclusion_reasons",
         }
