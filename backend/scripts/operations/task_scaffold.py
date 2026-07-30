@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import sys
@@ -47,6 +47,39 @@ def _field(raw: str, *, output: bool) -> ScaffoldField:
     )
 
 
+def _ranges(
+    raw_values: list[str],
+    *,
+    output: bool,
+) -> dict[str, tuple[tuple[float, float], ...]]:
+    expected = 5 if output else 7
+    result: dict[str, tuple[tuple[float, float], ...]] = {}
+    for raw in raw_values:
+        parts = raw.split(":")
+        if len(parts) != expected:
+            shape = (
+                "column:plausible_min:plausible_max:display_min:display_max"
+                if output
+                else (
+                    "column:allowed_min:allowed_max:default_min:default_max:"
+                    "training_min:training_max"
+                )
+            )
+            raise argparse.ArgumentTypeError(f"expected {shape}")
+        column = parts[0]
+        try:
+            numbers = tuple(float(value) for value in parts[1:])
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"range values must be numeric: {column}"
+            ) from exc
+        result[column] = tuple(
+            (numbers[index], numbers[index + 1])
+            for index in range(0, len(numbers), 2)
+        )
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Create external data-only Task scaffolds without arbitrary code."
@@ -78,6 +111,31 @@ def main(argv: list[str] | None = None) -> int:
         choices=("ridge.v1", "lightgbm-regression.v1"),
         default="ridge.v1",
     )
+    create_parser.add_argument(
+        "--input-range",
+        action="append",
+        default=[],
+        help=(
+            "column:allowed_min:allowed_max:default_min:default_max:"
+            "training_min:training_max"
+        ),
+    )
+    create_parser.add_argument(
+        "--output-range",
+        action="append",
+        default=[],
+        help="column:plausible_min:plausible_max:display_min:display_max",
+    )
+    create_parser.add_argument(
+        "--grain-confirmation",
+        required=True,
+        choices=("one-row-one-observation",),
+    )
+    create_parser.add_argument(
+        "--relation-confirmation",
+        required=True,
+        choices=("no-relations",),
+    )
     create_parser.add_argument("--store", type=Path)
     args = parser.parse_args(argv)
 
@@ -97,11 +155,34 @@ def main(argv: list[str] | None = None) -> int:
             *(_field(item, output=False) for item in args.input),
             *(_field(item, output=True) for item in args.output),
         ]
+        input_ranges = _ranges(args.input_range, output=False)
+        output_ranges = _ranges(args.output_range, output=True)
+        fields = [
+            (
+                replace(
+                    field,
+                    plausible_range=output_ranges.get(field.column, (None, None))[0],
+                    display_range=output_ranges.get(field.column, (None, None))[1],
+                )
+                if field.role == "output"
+                else replace(
+                    field,
+                    allowed_range=input_ranges.get(field.column, (None, None, None))[0],
+                    default_range=input_ranges.get(field.column, (None, None, None))[1],
+                    training_range=input_ranges.get(field.column, (None, None, None))[2],
+                )
+                if field.role != "categorical"
+                else field
+            )
+            for field in fields
+        ]
         result = create_task_scaffold(
             source=args.source,
             task_id=args.task_id,
             label=args.label,
             fields=fields,
+            grain_confirmation=args.grain_confirmation,
+            relation_confirmation=args.relation_confirmation,
             estimator_id=args.estimator,
             sheet=args.sheet,
             store=args.store,

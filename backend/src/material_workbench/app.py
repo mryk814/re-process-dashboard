@@ -4,11 +4,13 @@ import asyncio
 import os
 import json
 import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Mapping
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -60,6 +62,7 @@ from material_workbench.modeling.transform_catalog import (
     load_deterministic_transform_catalog,
 )
 from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.application.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.application.ai_review_provider import AiReviewProvider
@@ -203,6 +206,20 @@ class _RuntimeContext:
     project_runtime_resolver: ProjectRuntimeResolver
     chain_execution_service: ChainExecutionService
     chain_uncertainty_service: ChainUncertaintyService | None
+
+
+def _backup_sqlite(source: Path, destination: Path) -> None:
+    """Create one logical SQLite snapshot without copying a live journal."""
+
+    destination.unlink(missing_ok=True)
+    source_connection = sqlite3.connect(source)
+    destination_connection = sqlite3.connect(destination)
+    try:
+        source_connection.backup(destination_connection)
+        destination_connection.commit()
+    finally:
+        destination_connection.close()
+        source_connection.close()
 
 
 def _prepare_app_resources(
@@ -635,12 +652,19 @@ def create_app(
         task_resource_refresh_lock = asyncio.Lock()
 
         async def refresh_task_resources() -> TaskResourceRefreshResult:
-            """Prepare a new immutable runtime generation and swap it atomically."""
+            """Stage Task, Package, and DB changes before one generation swap."""
 
             async with task_resource_refresh_lock:
                 previous_task_ids = set(
                     app.state.runtime_context.task_registry.available_task_ids
                 )
+                previous_model_package_ids = {
+                    item.id
+                    for item in (
+                        app.state.runtime_context.workspace_catalog
+                        .list_model_package_refs(include_archived=True)
+                    )
+                }
                 complete = await asyncio.to_thread(
                     _prepare_app_resources,
                     source_path,
@@ -649,18 +673,16 @@ def create_app(
                     active_packages_path=active_packages_path,
                 )
                 refresh_warnings: list[Any] = []
+                refreshed_origins = dict(model_package_origins)
+                workspace_database = Path(app.state.workspace_database)
+                staged_database = workspace_database.with_name(
+                    f".{workspace_database.name}.task-refresh-{uuid4().hex}.db"
+                )
+                rollback_database = workspace_database.with_name(
+                    f".{workspace_database.name}.task-refresh-rollback-{uuid4().hex}.db"
+                )
 
-                def assemble() -> _RuntimeContext:
-                    catalog = bootstrap_workspace_catalog(
-                        database,
-                        complete.task_registry,
-                        available_packages_paths=configured_available_packages_paths,
-                        personal_available_packages_paths=(
-                            configured_personal_available_packages_paths
-                        ),
-                        package_origins=model_package_origins,
-                        warnings=refresh_warnings,
-                    )
+                def context_for(catalog: WorkspaceCatalog) -> _RuntimeContext:
                     resolver = ProjectRuntimeResolver(
                         catalog,
                         complete.task_registry,
@@ -695,9 +717,39 @@ def create_app(
 
                 app.state.resources_promoting = True
                 try:
-                    context = await asyncio.to_thread(assemble)
-                    # Dependencies capture one context per request, so ongoing
-                    # work completes against the old immutable generation.
+                    # The refresh request is not counted as a resource reader.
+                    # New requests receive 503 while existing readers finish
+                    # against the context captured by middleware.
+                    await app.state.resource_requests_idle.wait()
+
+                    def stage() -> None:
+                        _backup_sqlite(workspace_database, staged_database)
+                        staged_catalog = bootstrap_workspace_catalog(
+                            staged_database,
+                            complete.task_registry,
+                            available_packages_paths=(
+                                configured_available_packages_paths
+                            ),
+                            personal_available_packages_paths=(
+                                configured_personal_available_packages_paths
+                            ),
+                            package_origins=refreshed_origins,
+                            warnings=refresh_warnings,
+                        )
+                        # Constructors and every contract check must succeed
+                        # before the live database can be replaced.
+                        context_for(staged_catalog)
+
+                    await asyncio.to_thread(stage)
+                    _backup_sqlite(workspace_database, rollback_database)
+                    os.replace(staged_database, workspace_database)
+                    try:
+                        live_catalog = WorkspaceCatalog(workspace_database)
+                        context = context_for(live_catalog)
+                    except Exception:
+                        os.replace(rollback_database, workspace_database)
+                        raise
+
                     app.state.runtime_context = context
                     app.state.data = context.data
                     app.state.workspace_catalog = context.workspace_catalog
@@ -711,14 +763,27 @@ def create_app(
                         context.chain_uncertainty_service
                     )
                     app.state.task_registry = context.task_registry
+                    model_package_origins.clear()
+                    model_package_origins.update(refreshed_origins)
                     app.state.model_store_warnings = refresh_warnings
                     app.state.resources_ready = True
                 finally:
+                    staged_database.unlink(missing_ok=True)
+                    rollback_database.unlink(missing_ok=True)
                     app.state.resources_promoting = False
                 task_ids = set(context.task_registry.available_task_ids)
+                model_package_ids = {
+                    item.id
+                    for item in context.workspace_catalog.list_model_package_refs()
+                }
                 return TaskResourceRefreshResult(
                     task_ids=sorted(task_ids),
                     added_task_ids=sorted(task_ids - previous_task_ids),
+                    model_package_ids=sorted(model_package_ids),
+                    added_model_package_ids=sorted(
+                        model_package_ids - previous_model_package_ids
+                    ),
+                    warnings=refresh_warnings,
                 )
 
         app.state.refresh_task_resources = refresh_task_resources
@@ -886,6 +951,9 @@ def create_app(
     async def gate_resource_promotion(request: Request, call_next):
         health_paths = {"/health", "/api/health", "/api/readiness"}
         is_health_request = request.url.path in health_paths
+        is_resource_refresh = (
+            request.url.path == "/api/data-library/tasks/refresh"
+        )
         if (
             getattr(request.app.state, "resources_promoting", False)
             and not is_health_request
@@ -900,6 +968,12 @@ def create_app(
                 },
             )
         if is_health_request:
+            return await call_next(request)
+
+        # Every dependency in this request resolves the same immutable
+        # generation even if a refresh completes while the handler is running.
+        request.state.runtime_context = request.app.state.runtime_context
+        if is_resource_refresh:
             return await call_next(request)
 
         request.app.state.active_resource_requests += 1

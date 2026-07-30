@@ -188,6 +188,9 @@ class ModelPackageRefreshResult(BaseModel):
 class TaskResourceRefreshResult(BaseModel):
     task_ids: list[str]
     added_task_ids: list[str] = Field(default_factory=list)
+    model_package_ids: list[str] = Field(default_factory=list)
+    added_model_package_ids: list[str] = Field(default_factory=list)
+    warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
 
 
 class ProjectSeriesCreateInput(BaseModel):

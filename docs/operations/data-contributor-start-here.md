@@ -181,12 +181,22 @@ npm run task:scaffold -- create C:\path\to\new-data.csv `
   --task-id my-material-property-v1 `
   --label "新しい材料特性" `
   --input "C_pct:composition:carbon_pct:C:%" `
+  --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" `
   --input "temperature_C:process:temperature_c:温度:°C" `
+  --input-range "temperature_C:20:1500:650:900:700:820" `
   --output "strength_MPa:strength:強度:MPa:at_least" `
+  --output-range "strength_MPa:0:2000:250:600" `
+  --grain-confirmation one-row-one-observation `
+  --relation-confirmation no-relations `
   --estimator ridge.v1
 ```
 
 入力／出力、canonical key、表示名、単位、目標方向は人が明示します。
+`inspect`の最小値・最大値は観測要約であり、物理的な許容範囲や通常使う範囲を意味しません。
+`--input-range`では物理的な許容範囲、通常使う範囲、確認した学習範囲を別々に指定します。
+学習範囲はinspect結果と一致させて明示的に確認します。
+出力の妥当範囲と表示範囲も`--output-range`で確認します。
+標準scaffoldは一行一観測・relationなしだけを扱います。
 未解決項目、非数値の数値列、値が一種類しかない数値列があればdraftで止まり、runtime用`bundle.json`を作りません。
 readyになった出力の`source`と`profile`を変えずに、表示された
 `model:build`、`model:verify`、`model:promote`を実行します。

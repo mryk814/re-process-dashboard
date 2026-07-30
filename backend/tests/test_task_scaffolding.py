@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import csv
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
+import sys
+from threading import Event
+import time
 
+import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
@@ -11,16 +17,31 @@ from material_workbench.app import _prepare_app_resources, create_app
 from material_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
+from material_workbench.api.dependencies import get_runtime_context
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
     create_task_scaffold,
     inspect_task_source,
+    link_promoted_package,
+)
+from material_workbench.task_composition.external_tasks import (
+    external_task_bundles,
 )
 from material_workbench.task_composition.catalog import (
     registered_task_modules,
 )
 from material_workbench.task_composition.builtin_tasks import ANNEALED_TASK_ID
 from material_workbench.tasks.task_registry import load_task_contracts
+
+
+ROOT = Path(__file__).resolve().parents[2]
+OPERATIONS = ROOT / "backend" / "scripts" / "operations"
+if str(OPERATIONS) not in sys.path:
+    sys.path.insert(0, str(OPERATIONS))
+
+from model_workflow import build_package, promote_package  # noqa: E402
+from task_scaffold import main as task_scaffold_main  # noqa: E402
 
 
 TASK_ID = "demo-strength-v1"
@@ -46,8 +67,18 @@ def _source(path: Path) -> Path:
 
 def _fields() -> list[ScaffoldField]:
     return [
-        ScaffoldField("carbon", "composition", "carbon_pct", "C", "%"),
-        ScaffoldField("temperature", "process", "temperature_c", "温度", "°C"),
+        ScaffoldField(
+            "carbon", "composition", "carbon_pct", "C", "%",
+            allowed_range=(0.0, 2.0),
+            default_range=(0.05, 0.5),
+            training_range=(0.1, 0.39),
+        ),
+        ScaffoldField(
+            "temperature", "process", "temperature_c", "温度", "°C",
+            allowed_range=(20.0, 1500.0),
+            default_range=(650.0, 900.0),
+            training_range=(700.0, 816.0),
+        ),
         ScaffoldField("route", "categorical", "route", "工程", None),
         ScaffoldField(
             "strength",
@@ -56,6 +87,8 @@ def _fields() -> list[ScaffoldField]:
             "強度",
             "MPa",
             "at_least",
+            plausible_range=(0.0, 2000.0),
+            display_range=(250.0, 600.0),
         ),
     ]
 
@@ -86,6 +119,109 @@ def test_inspect_new_excel_selects_sheet_without_modifying_source(
     assert source.read_bytes() == before
 
 
+@pytest.mark.parametrize(
+    "contents, message",
+    [
+        ("", "no header"),
+        ("carbon,carbon\n0.1,0.2\n0.2,0.3\n0.3,0.4\n", "unique"),
+        (",strength\n0.1,300\n0.2,320\n0.3,340\n", "non-empty"),
+    ],
+)
+def test_inspect_csv_rejects_missing_or_ambiguous_headers(
+    tmp_path: Path,
+    contents: str,
+    message: str,
+) -> None:
+    source = tmp_path / "invalid.csv"
+    source.write_text(contents, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        inspect_task_source(source)
+
+
+def test_scaffold_rejects_bundled_task_identity(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="同梱Task ID"):
+        create_task_scaffold(
+            source=_source(tmp_path / "source.csv"),
+            task_id=ANNEALED_TASK_ID,
+            label="上書き禁止",
+            fields=_fields(),
+            grain_confirmation="one-row-one-observation",
+            relation_confirmation="no-relations",
+            store=tmp_path / "personal-tasks",
+        )
+
+
+def test_cli_requires_explicit_ranges_and_review_contract(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = _source(tmp_path / "source.csv")
+    store = tmp_path / "tasks"
+    common = [
+        "create",
+        str(source),
+        "--task-id",
+        "cli-property-v1",
+        "--label",
+        "CLI確認",
+        "--input",
+        "carbon:composition:carbon_pct:C:%",
+        "--input",
+        "temperature:process:temperature_c:温度:°C",
+        "--input",
+        "route:categorical:route:工程:",
+        "--output",
+        "strength:strength_mpa:強度:MPa:at_least",
+        "--grain-confirmation",
+        "one-row-one-observation",
+        "--relation-confirmation",
+        "no-relations",
+        "--store",
+        str(store),
+    ]
+    assert task_scaffold_main(common) == 0
+    draft = json.loads(capsys.readouterr().out)
+    assert draft["state"] == "draft"
+    assert any("許容範囲" in item for item in draft["unresolved"])
+
+    assert task_scaffold_main([
+        *common,
+        "--input-range",
+        "carbon:0:2:0.05:0.5:0.1:0.39",
+        "--input-range",
+        "temperature:20:1500:650:900:700:816",
+        "--output-range",
+        "strength:0:2000:250:600",
+    ]) == 0
+    ready = json.loads(capsys.readouterr().out)
+    assert ready["state"] == "ready"
+
+
+def test_task_store_validation_applies_to_load_and_link(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    unsafe = ROOT / ".unsafe-personal-tasks"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(unsafe))
+
+    with pytest.raises(ValueError, match="outside the repository"):
+        external_task_bundles()
+    with pytest.raises(ValueError, match="outside the repository"):
+        link_promoted_package("anything-v1", tmp_path / "package")
+    model_store = tmp_path / "models"
+    with pytest.raises(ValueError, match="outside the repository"):
+        promote_package(
+            "anything-v1",
+            tmp_path / "missing-package",
+            tmp_path / "missing-source.csv",
+            model_store,
+        )
+    assert not model_store.exists()
+
+
 def test_scaffold_keeps_unresolved_meaning_out_of_the_runtime_store(
     tmp_path: Path,
 ) -> None:
@@ -110,16 +246,23 @@ def test_scaffold_keeps_unresolved_meaning_out_of_the_runtime_store(
                 "MPa",
             ),
         ],
+        grain_confirmation="one-row-one-observation",
+        relation_confirmation="no-relations",
         store=tmp_path / "personal-tasks",
     )
 
     assert result.state == "draft"
     assert result.task_definition_path is None
     assert "単位を明示してください: carbon" in result.unresolved
+    assert "物理的な許容範囲を明示してください: carbon" in result.unresolved
+    assert "出力の妥当範囲を明示してください: strength" in result.unresolved
     assert not (result.root / "bundle.json").exists()
     safety = json.loads((result.root / "scaffold.json").read_text(encoding="utf-8"))
     assert safety["safety"] == {
         "meaning_and_units_confirmed": False,
+        "grain_confirmation": "one-row-one-observation",
+        "relation_confirmation": "no-relations",
+        "ranges_explicitly_confirmed": False,
         "loads_python_code": False,
         "adapter_family": "tabular-regression",
         "store_scope": "personal",
@@ -129,6 +272,8 @@ def test_scaffold_keeps_unresolved_meaning_out_of_the_runtime_store(
         task_id="draft-property-v1",
         label="意味を確定",
         fields=_fields(),
+        grain_confirmation="one-row-one-observation",
+        relation_confirmation="no-relations",
         store=tmp_path / "personal-tasks",
     )
     assert resolved.state == "ready"
@@ -157,6 +302,20 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
         model_store_path=tmp_path / "personal-models",
         _resources=resources,
     )
+    held_request_started = Event()
+    release_held_request = Event()
+
+    @app.get("/api/test-only/runtime-generation")
+    def runtime_generation(request: Request) -> dict[str, object]:
+        first = get_runtime_context(request)
+        held_request_started.set()
+        assert release_held_request.wait(timeout=60)
+        second = get_runtime_context(request)
+        return {
+            "same_generation": first is second,
+            "task_ids": list(first.task_registry.available_task_ids),
+        }
+
     with TestClient(app) as client:
         assert TASK_ID not in client.get("/api/task-definitions").json()
         result = create_task_scaffold(
@@ -164,17 +323,14 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             task_id=TASK_ID,
             label="デモ強度",
             fields=_fields(),
+            grain_confirmation="one-row-one-observation",
+            relation_confirmation="no-relations",
             store=task_store,
         )
         assert result.state == "ready"
         assert TASK_ID in registered_task_modules()
         assert TASK_ID in load_task_contracts()
         assert result.profile_path is not None
-
-        from backend.scripts.operations.model_workflow import (
-            build_package,
-            promote_package,
-        )
 
         candidate = tmp_path / "candidate"
         dataset_output = tmp_path / "feature-dataset.json"
@@ -206,9 +362,103 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             profile_path=result.profile_path,
             name="新しいデモデータ",
         )
-        refreshed = client.post("/api/data-library/tasks/refresh")
+        database_digest_before_failed_refresh = file_sha256(database)
+        real_bootstrap = app_module.bootstrap_workspace_catalog
+
+        def fail_staged_bootstrap(*_args, **_kwargs):
+            raise RuntimeError("injected staged refresh failure")
+
+        monkeypatch.setattr(
+            app_module,
+            "bootstrap_workspace_catalog",
+            fail_staged_bootstrap,
+        )
+        failed = client.post("/api/data-library/tasks/refresh")
+        assert failed.status_code == 409, failed.text
+        assert app.state.resources_promoting is False
+        assert file_sha256(database) == database_digest_before_failed_refresh
+        task_definitions_after_failure = client.get("/api/task-definitions")
+        assert task_definitions_after_failure.status_code == 200
+        assert TASK_ID not in task_definitions_after_failure.json()
+        monkeypatch.setattr(
+            app_module,
+            "bootstrap_workspace_catalog",
+            real_bootstrap,
+        )
+        catalog_ids_before_live_failure = {
+            item.id
+            for item in app.state.workspace_catalog.list_model_package_refs(
+                include_archived=True,
+            )
+        }
+        real_workspace_catalog = app_module.WorkspaceCatalog
+
+        def fail_live_catalog(*_args, **_kwargs):
+            raise RuntimeError("injected live context failure")
+
+        monkeypatch.setattr(
+            app_module,
+            "WorkspaceCatalog",
+            fail_live_catalog,
+        )
+        failed_after_staging = client.post(
+            "/api/data-library/tasks/refresh",
+        )
+        assert failed_after_staging.status_code == 409
+        assert app.state.resources_promoting is False
+        assert {
+            item.id
+            for item in app.state.workspace_catalog.list_model_package_refs(
+                include_archived=True,
+            )
+        } == catalog_ids_before_live_failure
+        assert TASK_ID not in app.state.runtime_context.task_registry.task_ids
+        monkeypatch.setattr(
+            app_module,
+            "WorkspaceCatalog",
+            real_workspace_catalog,
+        )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            held = executor.submit(
+                client.get,
+                "/api/test-only/runtime-generation",
+            )
+            if not held_request_started.wait(timeout=10):
+                response = held.result(timeout=1)
+                pytest.fail(
+                    f"held request did not start: {response.status_code} "
+                    f"{response.text}"
+                )
+            refreshing = executor.submit(
+                client.post,
+                "/api/data-library/tasks/refresh",
+            )
+            deadline = time.monotonic() + 60
+            while (
+                not app.state.resources_promoting
+                and time.monotonic() < deadline
+            ):
+                time.sleep(0.05)
+            assert app.state.resources_promoting
+            assert not refreshing.done()
+            release_held_request.set()
+            held_response = held.result(timeout=10)
+            assert held_response.status_code == 200
+            assert held_response.json()["same_generation"] is True
+            assert TASK_ID not in held_response.json()["task_ids"]
+            refreshed = refreshing.result(timeout=60)
+
         assert refreshed.status_code == 200, refreshed.text
         assert TASK_ID in refreshed.json()["added_task_ids"]
+        assert refreshed.json()["model_package_ids"] == sorted(
+            item["id"]
+            for item in client.get(
+                "/api/data-library/model-packages?include_gallery=true",
+            ).json()
+        )
+        assert refreshed.json()["added_model_package_ids"]
+        assert refreshed.json()["warnings"] == []
 
         options = client.get("/api/project-creation-options")
         assert options.status_code == 200, options.text

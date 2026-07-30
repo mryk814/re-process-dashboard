@@ -58,6 +58,11 @@ class ScaffoldField:
     label: str
     unit: str | None
     goal_direction: Literal["at_least", "at_most", "target"] = "target"
+    allowed_range: tuple[float, float] | None = None
+    default_range: tuple[float, float] | None = None
+    training_range: tuple[float, float] | None = None
+    plausible_range: tuple[float, float] | None = None
+    display_range: tuple[float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -98,7 +103,15 @@ def _tabular_rows(source: Path, sheet: str | None) -> tuple[str | None, list[dic
     suffix = source.suffix.lower()
     if suffix == ".csv":
         with source.open("r", encoding="utf-8-sig", newline="") as stream:
-            return None, [dict(row) for row in csv.DictReader(stream)]
+            reader = csv.DictReader(stream)
+            raw_names = reader.fieldnames
+            if raw_names is None:
+                raise ValueError("CSV has no header row")
+            names = [str(value).strip() if value is not None else "" for value in raw_names]
+            if any(not name for name in names) or len(names) != len(set(names)):
+                raise ValueError("header names must be non-empty and unique")
+            reader.fieldnames = names
+            return None, [dict(row) for row in reader]
     if suffix != ".xlsx":
         raise ValueError("Task scaffold accepts .csv or .xlsx")
     workbook = load_workbook(source, read_only=True, data_only=True)
@@ -178,10 +191,23 @@ def inspect_task_source(source: Path, *, sheet: str | None = None) -> SourceInsp
     )
 
 
-def _expanded_range(minimum: float, maximum: float) -> dict[str, float]:
-    span = maximum - minimum
-    padding = span * 0.1 if span > 0 else max(abs(minimum) * 0.1, 1.0)
-    return {"min": minimum - padding, "max": maximum + padding}
+def _range_payload(bounds: tuple[float, float]) -> dict[str, float]:
+    return {"min": bounds[0], "max": bounds[1]}
+
+
+def _valid_range(bounds: tuple[float, float] | None) -> bool:
+    return (
+        bounds is not None
+        and all(math.isfinite(value) for value in bounds)
+        and bounds[0] < bounds[1]
+    )
+
+
+def _contains(
+    outer: tuple[float, float],
+    inner: tuple[float, float],
+) -> bool:
+    return outer[0] <= inner[0] and inner[1] <= outer[1]
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -208,18 +234,36 @@ def create_task_scaffold(
     task_id: str,
     label: str,
     fields: Sequence[ScaffoldField],
+    grain_confirmation: Literal["one-row-one-observation"],
+    relation_confirmation: Literal["no-relations"],
     estimator_id: str = "ridge.v1",
     sheet: str | None = None,
     store: Path | None = None,
 ) -> TaskScaffoldResult:
     if _TASK_ID.fullmatch(task_id) is None:
         raise ValueError("task id must look like material-property-v1")
+    from material_workbench.task_composition.builtin_tasks import (
+        BUILTIN_TASK_MODULES,
+    )
+
+    if task_id in BUILTIN_TASK_MODULES:
+        raise ValueError(
+            f"個人Taskは同梱Task IDを置き換えられません: {task_id}"
+        )
     if not label.strip():
         raise ValueError("task label is required")
     if estimator_id not in SUPPORTED_ESTIMATORS:
         raise ValueError(
             f"unsupported scaffold estimator: {estimator_id}; "
             f"choose one of {', '.join(SUPPORTED_ESTIMATORS)}"
+        )
+    if grain_confirmation != "one-row-one-observation":
+        raise ValueError(
+            "学習一行を確認してください。標準scaffoldはone-row-one-observationだけを扱います"
+        )
+    if relation_confirmation != "no-relations":
+        raise ValueError(
+            "relationを確認してください。relationがあるデータは専用Task設計が必要です"
         )
     inspection = inspect_task_source(source, sheet=sheet)
     by_name = {column.name: column for column in inspection.columns}
@@ -271,6 +315,46 @@ def create_task_scaffold(
             unresolved.append(f"単位を明示してください: {field.column}")
         if not field.label.strip():
             unresolved.append(f"表示名を明示してください: {field.column}")
+        if field.role in {"composition", "process"}:
+            if not _valid_range(field.allowed_range):
+                unresolved.append(f"物理的な許容範囲を明示してください: {field.column}")
+            if not _valid_range(field.default_range):
+                unresolved.append(f"通常使う範囲を明示してください: {field.column}")
+            if not _valid_range(field.training_range):
+                unresolved.append(f"学習範囲を確認してください: {field.column}")
+            if (
+                _valid_range(field.allowed_range)
+                and _valid_range(field.default_range)
+                and not _contains(field.allowed_range, field.default_range)
+            ):
+                unresolved.append(f"通常使う範囲が許容範囲外です: {field.column}")
+            if (
+                _valid_range(field.allowed_range)
+                and _valid_range(field.training_range)
+                and not _contains(field.allowed_range, field.training_range)
+            ):
+                unresolved.append(f"学習範囲が許容範囲外です: {field.column}")
+            observed = (column.minimum, column.maximum)
+            if (
+                _valid_range(field.training_range)
+                and observed[0] is not None
+                and observed[1] is not None
+                and field.training_range != observed
+            ):
+                unresolved.append(
+                    f"学習範囲はinspect結果と一致させて確認してください: {field.column}"
+                )
+        if field.role == "output":
+            if not _valid_range(field.plausible_range):
+                unresolved.append(f"出力の妥当範囲を明示してください: {field.column}")
+            if not _valid_range(field.display_range):
+                unresolved.append(f"出力の表示範囲を明示してください: {field.column}")
+            if (
+                _valid_range(field.plausible_range)
+                and _valid_range(field.display_range)
+                and not _contains(field.plausible_range, field.display_range)
+            ):
+                unresolved.append(f"出力の表示範囲が妥当範囲外です: {field.column}")
 
     root = validate_personal_task_store_path(store) / task_id
     replaced_draft: Path | None = None
@@ -317,6 +401,9 @@ def create_task_scaffold(
             "unresolved": unresolved,
             "safety": {
                 "meaning_and_units_confirmed": not unresolved,
+                "grain_confirmation": grain_confirmation,
+                "relation_confirmation": relation_confirmation,
+                "ranges_explicitly_confirmed": not unresolved,
                 "loads_python_code": False,
                 "adapter_family": "tabular-regression",
                 "store_scope": "personal",
@@ -374,8 +461,9 @@ def create_task_scaffold(
                     })
                 else:
                     assert column.minimum is not None and column.maximum is not None
-                    training = {"min": column.minimum, "max": column.maximum}
-                    allowed = _expanded_range(column.minimum, column.maximum)
+                    assert field.training_range is not None
+                    assert field.allowed_range is not None
+                    assert field.default_range is not None
                     definition = {
                         "path": path,
                         "kind": "number",
@@ -384,9 +472,9 @@ def create_task_scaffold(
                         "unit": field.unit,
                         "required": True,
                         "editable": True,
-                        "default_range": training,
-                        "allowed_range": allowed,
-                        "training_range": training,
+                        "default_range": _range_payload(field.default_range),
+                        "allowed_range": _range_payload(field.allowed_range),
+                        "training_range": _range_payload(field.training_range),
                     }
                     candidate[role][field.key] = float(column.median)
                     profile_inputs.append({
@@ -415,18 +503,16 @@ def create_task_scaffold(
         for field in outputs:
             column = by_name[field.column]
             assert column.minimum is not None and column.maximum is not None
-            plausible = _expanded_range(column.minimum, column.maximum)
+            assert field.plausible_range is not None
+            assert field.display_range is not None
             output_definitions.append({
                 "key": field.key,
                 "label": field.label.strip(),
                 "unit": field.unit,
                 "goal_direction": field.goal_direction,
                 "measurement_keys": [field.key],
-                "plausibility_range": plausible,
-                "preferred_display_range": {
-                    "min": column.minimum,
-                    "max": column.maximum,
-                },
+                "plausibility_range": _range_payload(field.plausible_range),
+                "preferred_display_range": _range_payload(field.display_range),
             })
             profile_outputs.append({
                 "key": field.key,
@@ -525,6 +611,8 @@ def create_task_scaffold(
             "estimator_id": estimator_id,
             "package_path": None,
             "loads_python_code": False,
+            "grain_confirmation": grain_confirmation,
+            "relation_confirmation": relation_confirmation,
         })
         if replaced_draft is not None:
             shutil.rmtree(replaced_draft)
@@ -551,7 +639,7 @@ def link_promoted_package(
     *,
     store: Path | None = None,
 ) -> bool:
-    root = (store or personal_task_store_path()).expanduser().resolve()
+    root = validate_personal_task_store_path(store)
     if not root.exists():
         return False
     bundle_path = root / task_id / "bundle.json"

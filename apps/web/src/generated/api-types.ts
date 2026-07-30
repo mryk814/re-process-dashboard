@@ -9873,10 +9873,16 @@ export interface components {
         };
         /** TaskResourceRefreshResult */
         TaskResourceRefreshResult: {
+            /** Added Model Package Ids */
+            added_model_package_ids?: string[];
             /** Added Task Ids */
             added_task_ids?: string[];
+            /** Model Package Ids */
+            model_package_ids?: string[];
             /** Task Ids */
             task_ids: string[];
+            /** Warnings */
+            warnings?: components["schemas"]["ModelPackageRegistrationWarning"][];
         };
         /** ToleranceProfile */
         ToleranceProfile: {

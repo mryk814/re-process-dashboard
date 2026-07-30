@@ -8,7 +8,7 @@ from typing import Any
 from material_workbench.contracts.task_contracts import TaskContractFixture
 from material_workbench.developer_experience.task_scaffolding import (
     TASK_BUNDLE_SCHEMA_VERSION,
-    personal_task_store_path,
+    validate_personal_task_store_path,
 )
 from material_workbench.modeling.tabular_regression import load_tabular_profile
 from material_workbench.modeling.training.recipe import estimator_recipe
@@ -37,13 +37,17 @@ def _bundle_payload(path: Path) -> dict[str, Any]:
         raise ValueError(f"external Task bundle is not ready: {path}")
     if payload.get("loads_python_code") is not False:
         raise ValueError(f"external Task bundle cannot load Python code: {path}")
+    if payload.get("grain_confirmation") != "one-row-one-observation":
+        raise ValueError(f"external Task grain is not confirmed: {path}")
+    if payload.get("relation_confirmation") != "no-relations":
+        raise ValueError(f"external Task relations are not confirmed: {path}")
     return payload
 
 
 def external_task_bundles(
     store: Path | None = None,
 ) -> dict[str, tuple[TaskModule, TaskContractFixture]]:
-    root = (store or personal_task_store_path()).expanduser().resolve()
+    root = validate_personal_task_store_path(store)
     if not root.exists():
         return {}
     result: dict[str, tuple[TaskModule, TaskContractFixture]] = {}

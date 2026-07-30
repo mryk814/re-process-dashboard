@@ -20080,6 +20080,13 @@
       },
       "TaskResourceRefreshResult": {
         "properties": {
+          "added_model_package_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added Model Package Ids",
+            "type": "array"
+          },
           "added_task_ids": {
             "items": {
               "type": "string"
@@ -20087,11 +20094,25 @@
             "title": "Added Task Ids",
             "type": "array"
           },
+          "model_package_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Package Ids",
+            "type": "array"
+          },
           "task_ids": {
             "items": {
               "type": "string"
             },
             "title": "Task Ids",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageRegistrationWarning"
+            },
+            "title": "Warnings",
             "type": "array"
           }
         },

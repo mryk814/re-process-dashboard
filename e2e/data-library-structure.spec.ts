@@ -38,6 +38,24 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
 });
 
 test("Data Library separates update, mapping, and new Task onboarding", async ({ page }, testInfo) => {
+  let combinedRefreshes = 0;
+  let legacyModelRefreshes = 0;
+  await page.route("**/api/data-library/tasks/refresh", async (route) => {
+    combinedRefreshes += 1;
+    await route.fulfill({
+      json: {
+        task_ids: ["demo-property-v1"],
+        added_task_ids: ["demo-property-v1"],
+        model_package_ids: ["model-package-ref-demo"],
+        added_model_package_ids: ["model-package-ref-demo"],
+        warnings: [],
+      },
+    });
+  });
+  await page.route("**/api/data-library/model-packages/refresh", async (route) => {
+    legacyModelRefreshes += 1;
+    await route.fulfill({ json: { model_packages: [], warnings: [] } });
+  });
   await page.goto("/?view=data-library");
 
   const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
@@ -50,7 +68,12 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await expect(newTask).toContainText("任意コードは生成せず");
   await expect(newTask).toContainText("再読込し、そのままProjectを作成");
   await expect(newTask).not.toContainText("再起動");
-  await expect(newTask.getByRole("button", { name: "個人Taskとモデルを再読込" })).toBeVisible();
+  const refresh = newTask.getByRole("button", { name: "個人Taskとモデルを再読込" });
+  await expect(refresh).toBeVisible();
+  await refresh.click();
+  await expect(newTask.getByRole("status")).toContainText("新しいTask 1件");
+  expect(combinedRefreshes).toBe(1);
+  expect(legacyModelRefreshes).toBe(0);
   await newTask.screenshot({ path: testInfo.outputPath("new-task-onboarding.png") });
 
   await paths.getByRole("button", { name: /更新版/ }).click();

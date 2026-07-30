@@ -46,10 +46,15 @@ npm run task:scaffold -- create $source `
   --task-id <new-task-id> `
   --label "<表示名>" `
   --input "<column>:<composition|process|categorical>:<key>:<label>:<unit>" `
-  --output "<column>:<key>:<label>:<unit>:<at_least|at_most|target>"
+  --input-range "<column>:<allowed_min>:<allowed_max>:<default_min>:<default_max>:<training_min>:<training_max>" `
+  --output "<column>:<key>:<label>:<unit>:<at_least|at_most|target>" `
+  --output-range "<column>:<plausible_min>:<plausible_max>:<display_min>:<display_max>" `
+  --grain-confirmation one-row-one-observation `
+  --relation-confirmation no-relations
 ```
 
 draftの`unresolved`が空になるまでbuildへ進まない。
+inspectのmin/maxは観測要約であり、物理範囲へ自動採用しない。
 ready結果が示すsource／Profileを、後続のbuild、verify、promoteで同じまま使う。
 個人Task storeはリポジトリ外とし、任意コードやpickleを追加しない。
 
