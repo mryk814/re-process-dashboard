@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "template": false,
+  "review_id": "drift-2026-07-31-pr-553",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "trigger": {
+    "kind": "pull_request",
+    "number": 553,
+    "url": "https://github.com/ootang2010/re-process-dashboard/pull/553",
+    "merge_commit": "30c3a582f3ceaba5d66376cffbd47d8c5a22a394"
+  },
+  "reviewed_against": "30c3a582f3ceaba5d66376cffbd47d8c5a22a394",
+  "previous_verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
+  "new_verified_commit": "30c3a582f3ceaba5d66376cffbd47d8c5a22a394",
+  "implementation_commit": "30c3a582f3ceaba5d66376cffbd47d8c5a22a394",
+  "changes": [
+    {
+      "path": "backend/scripts/experiments/evaluate_sampling_strategies.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "one-shot-and-sequential-sampling"
+      ],
+      "action": "updated",
+      "reason": "一括生成と逐次追加を同じ予算で比較する再実行可能な調査入口が加わった。"
+    },
+    {
+      "path": "backend/src/material_workbench/research/sampling_experiment.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "one-shot-and-sequential-sampling",
+        "generated-and-feasible-counts"
+      ],
+      "action": "updated",
+      "reason": "候補集合の系列と改訂を不変に保存し、生成数、実行可能な一意点数、棄却率を分けて比較する調査処理が加わった。"
+    },
+    {
+      "path": "backend/tests/test_sampling_experiment.py",
+      "semantic_impact": "behavioral",
+      "material_impact": [
+        "learner-text",
+        "code-link",
+        "test-command"
+      ],
+      "affected_claims": [
+        "one-shot-and-sequential-sampling"
+      ],
+      "action": "updated",
+      "reason": "Sobol列の逐次追加と一括生成の集合一致、既存改訂と保存済み提案の不変性が検査されるようになった。"
+    },
+    {
+      "path": "docs/research/sampling-strategy-comparison-2026-07-31.json",
+      "semantic_impact": "evidence-invalidating",
+      "material_impact": [
+        "learner-text"
+      ],
+      "affected_claims": [
+        "one-shot-and-sequential-sampling",
+        "generated-and-feasible-counts"
+      ],
+      "action": "updated",
+      "reason": "合成条件ごとの全反復と候補集合の識別情報が機械可読な証拠として保存された。"
+    },
+    {
+      "path": "docs/research/sampling-strategy-comparison.md",
+      "semantic_impact": "wording-only",
+      "material_impact": [
+        "learner-text",
+        "code-link"
+      ],
+      "affected_claims": [
+        "one-shot-and-sequential-sampling",
+        "generated-and-feasible-counts"
+      ],
+      "action": "updated",
+      "reason": "合成条件に限ること、本番経路を変えていないこと、方式間の一般的優位を主張しないことを含む判断記録が加わった。"
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "one-shot-and-sequential-sampling",
+      "statement": "一括生成と逐次追加では再現に必要な証拠が異なり、今回の合成条件ではSobol列だけが64点と追加64点の集合を一括128点と一致させた。",
+      "classification": "conceptual_update",
+      "material_impact": [
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "action": "updated",
+      "reason": "候補生成法の一般的優劣ではなく、逐次追加時の集合同一性と保存証拠の違いとして教材へ反映した。",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/research/sampling_experiment.py",
+          "symbol": "append_revision"
+        },
+        {
+          "path": "backend/tests/test_sampling_experiment.py",
+          "symbol": "test_sequential_revision_preserves_identity_and_immutable_boundary"
+        },
+        {
+          "path": "docs/research/sampling-strategy-comparison.md"
+        }
+      ],
+      "verification": [
+        "uv run --extra dev python -m pytest backend/tests/test_sampling_experiment.py -q"
+      ]
+    },
+    {
+      "claim_id": "generated-and-feasible-counts",
+      "statement": "制約による棄却が多い条件では生成数から評価可能な候補数を保証できず、生成数、実行可能な一意点数、棄却率を分けて扱う必要がある。",
+      "classification": "conceptual_update",
+      "material_impact": [
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "action": "updated",
+      "reason": "128点生成に対して実行可能な一意点数が中央値9.5から11点だった調査結果を、合成条件に限った注意として記述した。",
+      "evidence": [
+        {
+          "path": "backend/src/material_workbench/research/sampling_experiment.py",
+          "symbol": "evaluate_sampling"
+        },
+        {
+          "path": "docs/research/sampling-strategy-comparison-2026-07-31.json"
+        }
+      ],
+      "verification": [
+        "uv run --extra dev python backend/scripts/experiments/evaluate_sampling_strategies.py --budget 128 --output docs/research/sampling-strategy-comparison-2026-07-31.json"
+      ]
+    }
+  ],
+  "verification": {
+    "drift_detection": "PR #553の変更5件を列挙し、探索章へ影響する主張を確認した。",
+    "focused_tests": "backend/tests/test_sampling_experiment.pyを実行する。",
+    "api_check": "本番APIと画面を変更しない調査であることを差分と報告書から確認した。",
+    "code_reference_check": "探索章から調査処理、検査、報告書を構造化参照する。",
+    "html_build": "教材の全検査とともに実行する。",
+    "pdf_build": "教材の全検査とともに実行する。",
+    "visual_review": "生成PDFの全ページを確認する。"
+  },
+  "reviewer_note": "この調査は合成した設計空間に限る。Sobol列の一般的な優位や、本番への採用済み状態としては扱わない。"
+}

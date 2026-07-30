@@ -61,6 +61,7 @@ code_references:
     role: "contract"
     symbols:
       - "ScreeningRunResponse"
+      - "ProjectDecisionInput"
   - path: "apps/web/src/features/screening/ScreeningResultSurfaces.tsx"
     id: "decision-safety-screening-surfaces"
     role: "frontend"
@@ -77,11 +78,6 @@ code_references:
     role: "application"
     symbols:
       - "DecisionActivityService.promote_proposal"
-  - path: "backend/src/material_workbench/contracts/schemas.py"
-    id: "decision-safety-project-decision"
-    role: "contract"
-    symbols:
-      - "ProjectDecisionInput"
   - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
     id: "decision-safety-project-decision-store"
     role: "persistence"
@@ -536,7 +532,7 @@ $\hat{p}=0.61$、$n_a=100$なら、標準誤差は約$0.049$です。
 {{< code-ref decision-safety-activity-e2e >}}も「この案を候補に追加」という利用者操作を別に検査します。
 
 候補化は最終採用でもありません。
-{{< code-ref decision-safety-project-decision symbol=ProjectDecisionInput >}}は、候補 ID、予測スナップショット ID、判断理由を一組として要求します。
+{{< code-ref decision-safety-screening-contract symbol=ProjectDecisionInput >}}は、候補 ID、予測スナップショット ID、判断理由を一組として要求します。
 さらに、{{< code-ref decision-safety-project-decision-store symbol="WorkbenchUnitOfWork.update_project_decision" >}}は、候補が同じプロジェクトに属し、スナップショットがその候補とプロジェクト種別に対応することを保存前に検査します。
 
 したがって、人間が処理の途中にいるだけでは判断の境界になりません。

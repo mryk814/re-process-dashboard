@@ -1,7 +1,7 @@
 ---
 level: advanced
 estimated_minutes: 210
-verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
+verified_commit: "30c3a582f3ceaba5d66376cffbd47d8c5a22a394"
 code_references:
   - path: "backend/src/material_workbench/contracts/design_space_contracts.py"
     id: "acquisition-design-space-contract"
@@ -76,6 +76,19 @@ code_references:
   - path: "backend/tests/test_batch_proposal.py"
     id: "acquisition-batch-test"
     role: "test"
+  - path: "backend/src/material_workbench/research/sampling_experiment.py"
+    id: "acquisition-sampling-research"
+    role: "application"
+    symbols:
+      - "create_initial_revision"
+      - "append_revision"
+      - "run_comparison"
+  - path: "backend/tests/test_sampling_experiment.py"
+    id: "acquisition-sampling-research-test"
+    role: "test"
+  - path: "docs/research/sampling-strategy-comparison.md"
+    id: "acquisition-sampling-research-report"
+    role: "docs"
   - path: "apps/web/src/features/screening/ScreeningPage.tsx"
     id: "acquisition-screening-ui"
     role: "frontend"
@@ -355,6 +368,28 @@ Sobol列は低食い違い列を使い、直方体内を偏りなく埋めるこ
 どちらも「有望な点」を直接生成しません。
 
 候補集合を作った後、予測と獲得価値の評価が各点へ価値を与えます。
+
+### 一括生成と逐次追加は同じ問題ではない
+
+候補を一度に作る場合と、保存済みの候補へ後から点を足す場合では、再現に必要な証拠が異なります。
+
+合成した設計空間を用いた調査では、ラテン超方格とSobol列の一括生成に、一方が常に優れるといえる差はありませんでした。
+
+一方、Sobol列は64点へ64点を足した集合が、最初から128点を作った集合と一致しました。
+
+ラテン超方格では、追加分を別の層化標本として作るため、一括生成とは別の集合になります。
+
+この結果は、Sobol列がどの実問題でも優れることを示しません。
+
+{{< code-ref acquisition-sampling-research symbol=append_revision >}}と{{< code-ref acquisition-sampling-research-report >}}は、合成条件に限った調査であり、本番の候補生成処理や画面は変更していません。
+
+逐次追加を本番へ導入するなら、方式名と乱数の種だけでなく、候補集合の系列、改訂、追加位置、生成数、実行可能な一意点数を保存する必要があります。
+
+とくに制約による棄却が多い設計空間では、128点を生成しても実際に評価できた点が中央値で10点前後にとどまりました。
+
+したがって、要求した生成数を、評価できる候補数と読み替えてはいけません。
+
+生成数、実行可能な一意点数、棄却率を分けて示すことが、探索費用と支持範囲を判断する前提です。
 
 ### 生成と検証を分ける
 
