@@ -1,4 +1,5 @@
 from copy import deepcopy
+from itertools import combinations
 
 import pytest
 
@@ -516,6 +517,96 @@ def test_every_prediction_space_task_serves_distance_evidence(
         )
         assert {point["context_id"] for point in actual_points} == expected_ids
         assert payload["total_contexts"] == len(expected_ids)
+
+
+def test_welding_stage_c_prediction_space_pairs_every_target_on_weld_run(
+    client,
+) -> None:
+    task_id = "welding-stage-c-properties-v1"
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    surface = next(
+        item
+        for item in task["definition"]["application"]["workbench_surfaces"]
+        if item["kind"] == "prediction_space"
+    )
+    assert surface["evidence_context"] == "parent_condition"
+    project = next(
+        (
+            item
+            for item in client.get("/api/projects").json()
+            if item["task_id"] == task_id
+        ),
+        None,
+    )
+    if project is None:
+        created = client.post(
+            "/api/projects",
+            json={"name": "Stage C prediction-space regression", "task_id": task_id},
+        )
+        assert created.status_code == 201, created.text
+        project = created.json()
+        created_candidate = client.post(
+            f"/api/projects/{project['id']}/candidates",
+            json=task["starter_candidate"],
+        )
+        assert created_candidate.status_code == 201, created_candidate.text
+        candidate = created_candidate.json()
+    else:
+        candidate = client.get(
+            f"/api/projects/{project['id']}/candidates"
+        ).json()[0]
+
+    stored_project = client.app.state.store.get_project(project["id"])
+    resolved = client.app.state.project_runtime_resolver.resolve(stored_project)
+    package = resolved.runtime.model_package
+    canonical = canonical_training_dataset(
+        task_id,
+        resolved.runtime.data,
+        client.app.state.task_registry.contract_for(task_id),
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
+    outputs_by_parent: dict[str, set[str]] = {}
+    for row in canonical["rows"]:
+        outputs_by_parent.setdefault(str(row["parent_key"]), set()).update(
+            row["outputs"]
+        )
+
+    results = {}
+    for x_target, y_target in combinations(surface["target_keys"], 2):
+        expected_contexts = {
+            parent_key
+            for parent_key, outputs in outputs_by_parent.items()
+            if x_target in outputs and y_target in outputs
+        }
+        response = client.get(
+            f"/api/projects/{project['id']}/model-package/output-space-evidence",
+            params={
+                "x_target": x_target,
+                "y_target": y_target,
+                "candidate_id": candidate["id"],
+                "expected_revision": candidate["revision"],
+                "distance_filter": "all",
+                "limit": 200,
+            },
+        )
+        assert response.status_code == 200, (
+            f"{x_target} x {y_target}: {response.text}"
+        )
+        payload = response.json()
+        assert payload["evidence_context"] == "parent_condition"
+        assert payload["total_contexts"] == len(expected_contexts) > 0
+        assert {
+            point["context_id"] for point in payload["points"]
+        } <= expected_contexts
+        results[(x_target, y_target)] = payload["total_contexts"]
+
+    assert results[("TS", "CHARPY_ENERGY")] > 0
+    assert results[("TS", "CORROSION_RATE")] > 0
+    assert results[("CHARPY_ENERGY", "CORROSION_RATE")] > 0
 
 
 def test_model_training_data_preserves_row_and_validation_group_semantics(client) -> None:

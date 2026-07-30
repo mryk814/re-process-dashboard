@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import Any, Sequence
+from typing import Any, Literal, Sequence
 
 import numpy as np
 
@@ -27,14 +27,24 @@ class TrainingDistanceEvidence:
     caution_threshold: float
 
 
-def _context_id(row: dict[str, Any]) -> str:
+EvidenceContextIdentity = Literal["training_context", "parent_condition"]
+
+
+def evidence_context_id(
+    row: dict[str, Any],
+    identity: EvidenceContextIdentity,
+) -> str:
     value = (
-        row.get("condition_context_id")
-        or row.get("observation_id")
-        or row.get("id")
+        row.get("parent_key")
+        if identity == "parent_condition"
+        else (
+            row.get("condition_context_id")
+            or row.get("observation_id")
+            or row.get("id")
+        )
     )
     if value is None or not str(value).strip():
-        raise ValueError("training distance row has no replicate context")
+        raise ValueError(f"training distance row has no {identity} identity")
     return str(value)
 
 
@@ -85,13 +95,17 @@ def _runtime_vectors(
     runtime: Any,
     candidate: Any,
     target_keys: Sequence[str],
+    evidence_context: EvidenceContextIdentity,
 ) -> tuple[tuple[str, ...], np.ndarray, np.ndarray, dict[str, tuple[int, ...]] | None]:
     from material_workbench.modeling.flank_wear import FlankWearRuntime
 
     groups: dict[str, tuple[int, ...]] | None = None
     if getattr(runtime, "support_reference", None) is not None:
         reference = runtime.support_reference
-        context_ids = tuple(_context_id(row) for row in reference.parent_rows)
+        context_ids = tuple(
+            evidence_context_id(row, evidence_context)
+            for row in reference.parent_rows
+        )
         vectors = np.asarray(reference.parent_vectors, dtype=float)
         query = reference.normalized(runtime.vector_for_candidate(candidate))
         groups = dict(getattr(runtime, "feature_group_indices", {}))
@@ -101,7 +115,9 @@ def _runtime_vectors(
         )
 
         rows = [row for run_rows in runtime.reference_rows for row in run_rows]
-        context_ids = tuple(_context_id(row) for row in rows)
+        context_ids = tuple(
+            evidence_context_id(row, evidence_context) for row in rows
+        )
         raw = np.vstack(
             [
                 build_flank_wear_features_from_observation(
@@ -116,7 +132,10 @@ def _runtime_vectors(
         ) / runtime.reference_scale
         groups = dict(runtime.feature_group_indices)
     elif hasattr(runtime, "reference_vectors") and hasattr(runtime, "reference_rows"):
-        context_ids = tuple(_context_id(rows[0]) for rows in runtime.reference_rows)
+        context_ids = tuple(
+            evidence_context_id(rows[0], evidence_context)
+            for rows in runtime.reference_rows
+        )
         vectors = np.asarray(runtime.reference_vectors, dtype=float)
         query = (
             runtime.vector(candidate) - runtime.reference_mean
@@ -135,7 +154,9 @@ def _runtime_vectors(
             )
         reference = runtime.support_references[distance_target]
         rows = reference["rows"]
-        context_ids = tuple(_context_id(row) for row in rows)
+        context_ids = tuple(
+            evidence_context_id(row, evidence_context) for row in rows
+        )
         vectors = np.asarray(reference["vectors"], dtype=float)
         from material_workbench.modeling.observation_regression import (
             ObservationRegressionRuntime,
@@ -171,9 +192,10 @@ def training_context_distances(
     *,
     target_keys: Sequence[str],
     allowed_context_ids: set[str],
+    evidence_context: EvidenceContextIdentity = "training_context",
 ) -> TrainingDistanceEvidence:
     context_ids, vectors, query, groups = _runtime_vectors(
-        runtime, candidate, target_keys
+        runtime, candidate, target_keys, evidence_context
     )
     context_ids, vectors = _collapse_contexts(context_ids, vectors)
     indexes = [

@@ -6699,6 +6699,11 @@ export interface components {
             /** Eligible Contexts */
             eligible_contexts: number;
             /**
+             * Evidence Context
+             * @enum {string}
+             */
+            evidence_context: "training_context" | "parent_condition";
+            /**
              * Filter
              * @enum {string}
              */
@@ -6896,6 +6901,12 @@ export interface components {
         };
         /** PredictionSpaceSurfaceDefinition */
         PredictionSpaceSurfaceDefinition: {
+            /**
+             * Evidence Context
+             * @default training_context
+             * @enum {string}
+             */
+            evidence_context: "training_context" | "parent_condition";
             /**
              * Historical Limit
              * @default 200

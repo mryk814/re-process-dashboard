@@ -12208,6 +12208,14 @@
             "title": "Eligible Contexts",
             "type": "integer"
           },
+          "evidence_context": {
+            "enum": [
+              "training_context",
+              "parent_condition"
+            ],
+            "title": "Evidence Context",
+            "type": "string"
+          },
           "filter": {
             "enum": [
               "supported",
@@ -12273,6 +12281,7 @@
         "required": [
           "x_target",
           "y_target",
+          "evidence_context",
           "source_data_digest",
           "candidate_id",
           "candidate_revision",
@@ -12705,6 +12714,15 @@
       "PredictionSpaceSurfaceDefinition": {
         "additionalProperties": false,
         "properties": {
+          "evidence_context": {
+            "default": "training_context",
+            "enum": [
+              "training_context",
+              "parent_condition"
+            ],
+            "title": "Evidence Context",
+            "type": "string"
+          },
           "historical_limit": {
             "default": 200,
             "maximum": 200.0,

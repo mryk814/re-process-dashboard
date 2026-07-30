@@ -492,6 +492,9 @@ class PredictionSpaceSurfaceDefinition(ContractModel):
     kind: Literal["prediction_space"]
     order: Annotated[int, Field(ge=0)]
     target_keys: Annotated[tuple[str, ...], Field(min_length=2)]
+    evidence_context: Literal["training_context", "parent_condition"] = (
+        "training_context"
+    )
     historical_limit: Annotated[int, Field(ge=1, le=200)] = 200
 
     @model_validator(mode="after")

@@ -9,7 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    runtime_checkable,
+)
 
 from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.data.dataset_profile import DatasetInputProfile
@@ -852,6 +860,9 @@ def _application_capability(
     response_curve: bool,
     similarity: bool,
     prediction_space_targets: tuple[str, ...] = (),
+    prediction_space_evidence_context: Literal[
+        "training_context", "parent_condition"
+    ] = "training_context",
     curve_family: bool = False,
     contour_axes: tuple[str, ...] = (),
     candidate_excel_import: bool = False,
@@ -887,6 +898,7 @@ def _application_capability(
                 kind="prediction_space",
                 order=len(surfaces) * 10,
                 target_keys=prediction_space_targets,
+                evidence_context=prediction_space_evidence_context,
             )
         )
     if contour_axes:
@@ -1264,6 +1276,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
                 "CHARPY_ENERGY",
                 "CORROSION_RATE",
             ),
+            prediction_space_evidence_context="parent_condition",
         ),
         starter_project=StarterProject(
             "welding-stage-c-default",

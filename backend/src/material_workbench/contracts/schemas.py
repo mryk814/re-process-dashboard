@@ -1072,6 +1072,7 @@ class OutputSpaceEvidencePoint(BaseModel):
 class OutputSpaceEvidenceResponse(BaseModel):
     x_target: str
     y_target: str
+    evidence_context: Literal["training_context", "parent_condition"]
     pairing_unit: Literal["condition_mean"] = "condition_mean"
     source_scope: Literal["model_training_data"] = "model_training_data"
     source_data_digest: str

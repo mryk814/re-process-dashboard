@@ -15,7 +15,11 @@ from material_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
 from material_workbench.modeling.model_packages import PREDICTOR_RUNTIME_TYPES
-from material_workbench.modeling.training_distance import training_context_distances
+from material_workbench.modeling.training_distance import (
+    EvidenceContextIdentity,
+    evidence_context_id,
+    training_context_distances,
+)
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import (
@@ -654,6 +658,24 @@ def output_space_evidence(
     package = resolved.runtime.model_package
     assert package is not None
     contract = registry.contract_for(project.task_id)
+    definition = registry.resolved_definition_for(project.task_id)
+    prediction_space = next(
+        (
+            surface
+            for surface in definition.application.workbench_surfaces
+            if surface.kind == "prediction_space"
+        ),
+        None,
+    )
+    if (
+        prediction_space is None
+        or x_target not in prediction_space.target_keys
+        or y_target not in prediction_space.target_keys
+    ):
+        raise CatalogValidationError(
+            "output space axes must be declared by the task surface"
+        )
+    evidence_context = prediction_space.evidence_context
     available_targets = {item.target for item in package.manifest.predictors}
     if x_target not in available_targets or y_target not in available_targets:
         raise CatalogValidationError(
@@ -675,6 +697,7 @@ def output_space_evidence(
         canonical["rows"],
         x_target=x_target,
         y_target=y_target,
+        evidence_context=evidence_context,
     )
     try:
         distance_evidence = training_context_distances(
@@ -682,6 +705,7 @@ def output_space_evidence(
             candidate,
             target_keys=(x_target, y_target),
             allowed_context_ids={point["context_id"] for point in points},
+            evidence_context=evidence_context,
         )
     except ValueError as exc:
         raise CatalogValidationError(str(exc)) from exc
@@ -724,6 +748,7 @@ def output_space_evidence(
     return {
         "x_target": x_target,
         "y_target": y_target,
+        "evidence_context": evidence_context,
         "source_data_digest": canonical["source_data_digest"],
         "candidate_id": candidate.id,
         "candidate_revision": candidate.revision,
@@ -747,14 +772,13 @@ def _output_space_evidence_points(
     *,
     x_target: str,
     y_target: str,
+    evidence_context: EvidenceContextIdentity = "training_context",
 ) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         if x_target not in row["outputs"] and y_target not in row["outputs"]:
             continue
-        context_id = str(
-            row.get("condition_context_id") or row["observation_id"]
-        )
+        context_id = evidence_context_id(row, evidence_context)
         grouped.setdefault(context_id, []).append(row)
     points = []
     for context_id, rows in sorted(grouped.items()):
