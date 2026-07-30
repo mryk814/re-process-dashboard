@@ -13,7 +13,12 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from material_workbench.app import _prepare_app_resources, create_app
+from material_workbench.app import (
+    _prepare_app_resources,
+    _preserve_live_sqlite_generation,
+    _restore_live_sqlite_generation,
+    create_app,
+)
 from material_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
@@ -117,6 +122,38 @@ def test_inspect_new_excel_selects_sheet_without_modifying_source(
         "strength",
     ]
     assert source.read_bytes() == before
+
+
+def test_live_sqlite_generation_restore_preserves_main_wal_and_shm_bytes(
+    tmp_path: Path,
+) -> None:
+    live = tmp_path / "workspace.db"
+    preserved = tmp_path / ".workspace.rollback.db"
+    original = {
+        live: b"original-main",
+        Path(f"{live}-wal"): b"original-wal",
+        Path(f"{live}-shm"): b"original-shm",
+        Path(f"{live}-journal"): b"original-journal",
+    }
+    for path, payload in original.items():
+        path.write_bytes(payload)
+
+    _preserve_live_sqlite_generation(live, preserved)
+    live.write_bytes(b"replacement-main")
+    Path(f"{live}-wal").write_bytes(b"replacement-wal")
+    _restore_live_sqlite_generation(preserved, live)
+
+    for path, payload in original.items():
+        assert path.read_bytes() == payload
+    assert not any(
+        path.exists()
+        for path in (
+            preserved,
+            Path(f"{preserved}-wal"),
+            Path(f"{preserved}-shm"),
+            Path(f"{preserved}-journal"),
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -391,6 +428,7 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
                 include_archived=True,
             )
         }
+        database_digest_before_live_failure = file_sha256(database)
         real_workspace_catalog = app_module.WorkspaceCatalog
 
         def fail_live_catalog(*_args, **_kwargs):
@@ -406,6 +444,7 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
         )
         assert failed_after_staging.status_code == 409
         assert app.state.resources_promoting is False
+        assert file_sha256(database) == database_digest_before_live_failure
         assert {
             item.id
             for item in app.state.workspace_catalog.list_model_package_refs(
@@ -413,6 +452,16 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             )
         } == catalog_ids_before_live_failure
         assert TASK_ID not in app.state.runtime_context.task_registry.task_ids
+        task_definitions_after_live_failure = client.get(
+            "/api/task-definitions"
+        )
+        assert task_definitions_after_live_failure.status_code == 200
+        assert TASK_ID not in task_definitions_after_live_failure.json()
+        assert not list(
+            database.parent.glob(
+                f".{database.name}.task-refresh-rollback-*.db*"
+            )
+        )
         monkeypatch.setattr(
             app_module,
             "WorkspaceCatalog",
@@ -459,6 +508,11 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
         )
         assert refreshed.json()["added_model_package_ids"]
         assert refreshed.json()["warnings"] == []
+        assert not list(
+            database.parent.glob(
+                f".{database.name}.task-refresh-rollback-*.db*"
+            )
+        )
 
         options = client.get("/api/project-creation-options")
         assert options.status_code == 200, options.text

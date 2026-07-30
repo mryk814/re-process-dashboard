@@ -222,6 +222,64 @@ def _backup_sqlite(source: Path, destination: Path) -> None:
         source_connection.close()
 
 
+_SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _sqlite_generation_paths(database: Path) -> tuple[Path, ...]:
+    return (
+        database,
+        *(Path(f"{database}{suffix}") for suffix in _SQLITE_SIDECAR_SUFFIXES),
+    )
+
+
+def _remove_sqlite_generation(database: Path) -> None:
+    for path in _sqlite_generation_paths(database):
+        path.unlink(missing_ok=True)
+
+
+def _preserve_live_sqlite_generation(
+    source: Path,
+    destination: Path,
+) -> None:
+    """Move the byte-exact live SQLite generation to a private name.
+
+    Readers are already idle and middleware blocks new requests while this
+    runs. The main file and every sidecar remain one preserved generation.
+    """
+
+    _remove_sqlite_generation(destination)
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source_path, destination_path in zip(
+            _sqlite_generation_paths(source),
+            _sqlite_generation_paths(destination),
+            strict=True,
+        ):
+            if source_path.exists():
+                os.replace(source_path, destination_path)
+                moved.append((source_path, destination_path))
+    except Exception:
+        for source_path, destination_path in reversed(moved):
+            if destination_path.exists():
+                os.replace(destination_path, source_path)
+        raise
+
+
+def _restore_live_sqlite_generation(
+    preserved: Path,
+    destination: Path,
+) -> None:
+    """Restore preserved sidecars, then atomically republish the main file."""
+
+    _remove_sqlite_generation(destination)
+    preserved_paths = _sqlite_generation_paths(preserved)
+    destination_paths = _sqlite_generation_paths(destination)
+    for index in range(1, len(preserved_paths)):
+        if preserved_paths[index].exists():
+            os.replace(preserved_paths[index], destination_paths[index])
+    os.replace(preserved_paths[0], destination_paths[0])
+
+
 def _prepare_app_resources(
     source_path: str | Path | None = None,
     *,
@@ -741,13 +799,19 @@ def create_app(
                         context_for(staged_catalog)
 
                     await asyncio.to_thread(stage)
-                    _backup_sqlite(workspace_database, rollback_database)
-                    os.replace(staged_database, workspace_database)
+                    _preserve_live_sqlite_generation(
+                        workspace_database,
+                        rollback_database,
+                    )
                     try:
+                        os.replace(staged_database, workspace_database)
                         live_catalog = WorkspaceCatalog(workspace_database)
                         context = context_for(live_catalog)
                     except Exception:
-                        os.replace(rollback_database, workspace_database)
+                        _restore_live_sqlite_generation(
+                            rollback_database,
+                            workspace_database,
+                        )
                         raise
 
                     app.state.runtime_context = context
@@ -768,8 +832,8 @@ def create_app(
                     app.state.model_store_warnings = refresh_warnings
                     app.state.resources_ready = True
                 finally:
-                    staged_database.unlink(missing_ok=True)
-                    rollback_database.unlink(missing_ok=True)
+                    _remove_sqlite_generation(staged_database)
+                    _remove_sqlite_generation(rollback_database)
                     app.state.resources_promoting = False
                 task_ids = set(context.task_registry.available_task_ids)
                 model_package_ids = {
