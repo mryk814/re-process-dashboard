@@ -107,6 +107,9 @@ snapshotを扱う。
 candidate adapterへ置く。
 現行の`sparse_blend/v1`と材料成分を使うactual-conditioned分析は
 domain capabilityであり、Core一般能力とは呼ばない。
+actual-conditioned経路に残る`composition.*`の直接解釈は
+[#555](https://github.com/mryk814/re-process-dashboard/issues/555)で
+candidate adapterへ移す。
 
 ## 互換方針
 

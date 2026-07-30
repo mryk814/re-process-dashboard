@@ -326,14 +326,31 @@ def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> No
     delivery_smoke = (
         ROOT / "scripts" / "smoke-windows-delivery.ps1"
     ).read_text(encoding="utf-8")
+    windows_upgrade_smoke = (
+        ROOT / "scripts" / "smoke-windows-upgrade.ps1"
+    ).read_text(encoding="utf-8")
     upgrade_smoke = (
         ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
     ).read_text(encoding="utf-8")
 
-    assert "local-app-data/Material Decision Workbench/workbench.db" in delivery_smoke
-    assert "$databaseBeforeUpgrade" in delivery_smoke
-    assert "$databaseAfterUpgrade" in delivery_smoke
-    assert "smoke-packaged-upgrade.mjs" in delivery_smoke
+    assert "smoke-windows-upgrade.ps1" in delivery_smoke
+    assignment = (
+        '$workspaceDatabasePath = Join-Path $smokeRoot '
+        '"local-app-data/Material Decision Workbench/workbench.db"'
+    )
+    assert assignment in delivery_smoke
+    assert delivery_smoke.index(assignment) < delivery_smoke.index(
+        "scripts/smoke-packaged.mjs"
+    )
+    assert "-WorkspaceDatabasePath $workspaceDatabasePath" in delivery_smoke
+    assert "Test-Path -LiteralPath $workspaceDatabasePath" in delivery_smoke
+    assert "KeepSmokeOnFailure" in delivery_smoke
+    assert "$databaseBeforeUpgrade" in windows_upgrade_smoke
+    assert "$databaseAfterUpgrade" in windows_upgrade_smoke
+    assert "function Get-Sha256Hex" in windows_upgrade_smoke
+    assert "[Security.Cryptography.SHA256]::Create()" in windows_upgrade_smoke
+    assert "Get-FileHash" not in windows_upgrade_smoke
+    assert "smoke-packaged-upgrade.mjs" in windows_upgrade_smoke
     assert "Evidence Decision Workbench.exe" in upgrade_smoke
     assert "packaged-smoke-portable-before-backup" in upgrade_smoke
 

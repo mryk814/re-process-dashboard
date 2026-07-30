@@ -1,3 +1,7 @@
+param(
+    [switch]$KeepSmokeOnFailure
+)
+
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -8,6 +12,7 @@ $zipPath = Join-Path $releaseRoot "Evidence-Decision-Workbench-folder-$version.z
 $installerPath = Join-Path $releaseRoot "Evidence-Decision-Workbench-Setup-$version.exe"
 $extractedRoot = Join-Path $smokeRoot "extracted"
 $installedRoot = Join-Path $smokeRoot "installed"
+$workspaceDatabasePath = Join-Path $smokeRoot "local-app-data/Material Decision Workbench/workbench.db"
 
 function Stop-PackagedProcessesUnder {
     param([string]$RootPath)
@@ -72,6 +77,7 @@ if (Test-Path -LiteralPath $smokeRoot) {
 }
 New-Item -ItemType Directory -Path $smokeRoot | Out-Null
 
+$completed = $false
 try {
     Expand-Archive -LiteralPath $zipPath -DestinationPath $extractedRoot
     $portableAppRoot = (Get-ChildItem -LiteralPath $extractedRoot -Directory | Select-Object -First 1).FullName
@@ -89,18 +95,7 @@ try {
 
     # appIdとlegacy user-data pathを維持した状態で上書きinstallし、
     # rename後も既存Workspaceが同じ場所から開けることを確認する。
-    $legacyDatabase = Join-Path $smokeRoot "local-app-data/Material Decision Workbench/workbench.db"
-    $databaseBeforeUpgrade = (Get-FileHash -LiteralPath $legacyDatabase -Algorithm SHA256).Hash
-    $upgrade = Start-Process -FilePath $installerPath -ArgumentList "/S", "/D=$installedRoot" -Wait -PassThru
-    if ($upgrade.ExitCode -ne 0) {
-        throw "upgrade installer exited with code $($upgrade.ExitCode)"
-    }
-    $databaseAfterUpgrade = (Get-FileHash -LiteralPath $legacyDatabase -Algorithm SHA256).Hash
-    if ($databaseAfterUpgrade -ne $databaseBeforeUpgrade) {
-        throw "installer upgrade modified the existing Workspace database"
-    }
-    node (Join-Path $repositoryRoot "scripts/smoke-packaged-upgrade.mjs") $installedRoot
-    if ($LASTEXITCODE -ne 0) { throw "installed upgrade smoke failed with code $LASTEXITCODE" }
+    & (Join-Path $PSScriptRoot "smoke-windows-upgrade.ps1") -InstallerPath $installerPath -InstalledRoot $installedRoot -WorkspaceDatabasePath $workspaceDatabasePath
     Stop-PackagedProcessesUnder $installedRoot
 
     $uninstallerPath = Join-Path $installedRoot "Uninstall Evidence Decision Workbench.exe"
@@ -114,16 +109,20 @@ try {
     if (Test-Path -LiteralPath (Join-Path $installedRoot "Evidence Decision Workbench.exe")) {
         throw "installed executable remained after uninstall"
     }
-    $retainedDatabase = $legacyDatabase
-    if (-not (Test-Path -LiteralPath $retainedDatabase)) {
+    if (-not (Test-Path -LiteralPath $workspaceDatabasePath)) {
         throw "user database was removed by uninstall"
     }
 
     Write-Host "Folder ZIP extract/run/delete: OK"
     Write-Host "Per-user installer install/upgrade/run/uninstall: OK"
+    $completed = $true
 } finally {
     if (Test-Path -LiteralPath $smokeRoot) {
         Stop-PackagedProcessesUnder $smokeRoot
-        Remove-SmokeTree $smokeRoot
+        if ($completed -or -not $KeepSmokeOnFailure) {
+            Remove-SmokeTree $smokeRoot
+        } else {
+            Write-Host "Smoke Workspace retained for focused diagnosis: $smokeRoot"
+        }
     }
 }
