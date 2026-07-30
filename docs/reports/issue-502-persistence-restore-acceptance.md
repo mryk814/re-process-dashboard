@@ -76,12 +76,33 @@ tampered bundle拒否、portableからinstalledへの実 .mdwb restore成功
 | `Material-Decision-Workbench-Setup-0.1.0.exe` | `A129F1E12A7E7445210C184D8E771192B43284C99944FA67DE73F5E8BDC506D4` |
 | `Material-Decision-Workbench-folder-0.1.0.zip` | `C13EA28803325DDA53954F5F2AD0AD10A40E6FB0161E574702BE964DB84A12D4` |
 
+Release acceptance on commit `c115b1125696108f24827c0fb63de3205358b4d3`:
+
+```text
+dependency audit policy / dependency audit: passed
+security boundary tests: passed
+model package contract tests: passed
+full pytest: 1067 passed, 4 skipped
+web: 286 passed
+desktop: 1 passed
+typecheck / application build: passed
+legacy Workspace migration / restore: 1 passed
+failure-state: cleanup policy 4, accessibility/API offline 16,
+  startup diagnostic 1, degraded task 1, catalog conflict 1 passed
+chain-degraded: 3 passed
+```
+
+統合`acceptance:release`はdefault Playwrightで停止した。結果は
+95 passed / 1 skipped / 10 failedで、下記baselineと同一である。
+このため、本変更のrequired gateであるlegacy WorkspaceとWindows delivery、
+および停止後のfailure-state / chain-degradedは個別に実行した。
+
 ## Browser suite context
 
 既定Playwright全体は、本変更前のdetached baselineでも既知失敗が残るため、
 Issue #502のrestore受入判定には使わない。比較実行ではbaselineが
-95 passed / 1 skipped / 10 failed、本branchが98 passed / 1 skipped / 7 failedで、
-本branch固有の新規失敗は0件だった。
+95 passed / 1 skipped / 10 failedで、最終release runも
+95 passed / 1 skipped / 10 failedだった。本branch固有の新規失敗は0件である。
 
 この変更の正本となる受入証拠は、legacy Workspace acceptance、
 Workspace Bundle adversarial tests、Level 1、およびportable / installed appからの
