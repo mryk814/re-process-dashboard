@@ -29,7 +29,7 @@
         "backend/tests/test_proposal_selection.py",
         "backend/tests/test_proposal_strategies.py",
         "backend/tests/test_step4_to_6.py",
-        "docs/decisions/curation-and-proposal-architecture.md",
+        "docs/contracts/curation-and-proposal-architecture.md",
         "e2e/screening-workbench.spec.ts"
       ],
       "referenced_paths": [
@@ -62,7 +62,7 @@
         "apps/web/tests/screeningInterpolation.test.mjs",
         "apps/web/tests/screeningResultSurfaces.test.mjs",
         "apps/web/tests/screeningResultTable.test.mjs",
-        "docs/decisions/curation-and-proposal-architecture.md",
+        "docs/contracts/curation-and-proposal-architecture.md",
         "e2e/screening-workbench.spec.ts"
       ],
       "referenced_paths": [
