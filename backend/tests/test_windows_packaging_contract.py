@@ -195,6 +195,7 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     evidence_script = (ROOT / "scripts" / "clean-evidence.ps1").read_text(
         encoding="utf-8"
     )
+    root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
     package_json = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
 
     assert "[switch]$KeepPrevious" in package_script
@@ -217,6 +218,9 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     assert package_json["scripts"]["clean:evidence"].endswith(
         "scripts/clean-evidence.ps1"
     )
+    assert "`npm run clean`" in root_readme
+    assert "`npm run clean:evidence`" in root_readme
+    assert "Workspace、`data/source/`、`models/packages/`" in root_readme
 
 
 def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:

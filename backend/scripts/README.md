@@ -101,4 +101,4 @@ Spikeの再現手順と中断時のcleanupは
 
 どのcleanupも `data/source/`、`models/packages/`、`data/workbench.db`、
 `.dev-workspaces/`全体を対象にしません。Workspace pruneはmain、現branch、登録済み
-worktreeと、`--database`でpathを明示しない実行を拒否します。
+worktree、branchへ対応づかないDBと、`--database`でpathを明示しない実行を拒否します。

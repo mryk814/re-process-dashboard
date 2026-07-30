@@ -62,8 +62,8 @@ npm run workspace:list
 ```
 
 path、対応branch、最終更新時刻、DB/WAL/SHMの合計sizeと保護理由を表示する。
-`main`、現在branch、登録済みgit worktreeはprune不可である。削除済みbranchなど
-対応branchが不明なDBも、pathを一覧から明示した場合に限りpruneできる。
+`main`、現在branch、登録済みgit worktree、対応branchが不明なDBはprune不可である。
+孤児DBは自動判定で消さず、必要なら由来を確認して手動で退避する。
 削除するときはdev serverを止め、一覧に表示された未参照DBのpathを省略せず指定する。
 
 ```powershell

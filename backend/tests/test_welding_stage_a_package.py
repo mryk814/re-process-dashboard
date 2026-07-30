@@ -27,7 +27,7 @@ from material_workbench.modeling.model_packages import ModelPackageLoader, Packa
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend/scripts"))
+sys.path.insert(0, str(ROOT / "backend/scripts/generators"))
 
 import build_welding_stage_a_package as package_builder  # noqa: E402
 

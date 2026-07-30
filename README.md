@@ -73,6 +73,11 @@ starter Projectと保存済みProjectの固定参照はそのまま保持しま�
 branch Workspaceの容量確認はread-onlyの`npm run workspace:list`を使います。
 削除はdev serverを止め、一覧で`prunable`になったDBを
 `npm run workspace:prune -- --database <表示された絶対path>`へ明示した場合だけ行えます。
+対応branchが不明なDBは、pathを指定してもpruneを拒否します。
+
+`npm run clean`は`release`、`dist`、`build`だけを対象にします。Playwrightや
+test／acceptanceの証拠を消す操作は別の`npm run clean:evidence`です。
+どちらもWorkspace、`data/source/`、`models/packages/`を対象にしません。
 
 ## デスクトップアプリとして起動
 

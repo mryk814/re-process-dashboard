@@ -120,6 +120,8 @@ def _protection_reasons(
         reasons.append("current-branch")
     if branch is not None and branch in context.worktree_branches:
         reasons.append("registered-worktree")
+    if branch is None:
+        reasons.append("unrecognized-database")
     return reasons
 
 

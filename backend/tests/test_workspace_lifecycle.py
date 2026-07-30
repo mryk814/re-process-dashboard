@@ -102,7 +102,7 @@ def test_workspace_prune_refuses_the_current_detached_checkout(
     assert database.exists()
 
 
-def test_workspace_prune_accepts_an_explicit_orphan_but_refuses_outside_database(
+def test_workspace_prune_refuses_unrecognized_and_outside_database(
     tmp_path: Path,
 ) -> None:
     unknown = tmp_path / ".dev-workspaces" / "manual.db"
@@ -112,16 +112,16 @@ def test_workspace_prune_accepts_an_explicit_orphan_but_refuses_outside_database
     outside.parent.mkdir()
     outside.write_bytes(b"saved")
 
-    result = prune_branch_workspace(
-        tmp_path,
-        database=unknown,
-        context=_context(),
-    )
+    with pytest.raises(WorkspacePruneRefused, match="unrecognized-database"):
+        prune_branch_workspace(
+            tmp_path,
+            database=unknown,
+            context=_context(),
+        )
     with pytest.raises(WorkspacePruneRefused, match="\\.dev-workspaces"):
         prune_branch_workspace(tmp_path, database=outside, context=_context())
 
-    assert result["branch"] is None
-    assert not unknown.exists()
+    assert unknown.read_bytes() == b"saved"
     assert outside.read_bytes() == b"saved"
 
 
