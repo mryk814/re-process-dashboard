@@ -1,7 +1,7 @@
 ---
 level: advanced
 estimated_minutes: 210
-verified_commit: "85172ec51de503ad2e870c9197a4b38448555bc4"
+verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
   - path: "backend/src/material_workbench/contracts/design_space_contracts.py"
     id: "acquisition-design-space-contract"
@@ -55,6 +55,16 @@ code_references:
     role: "domain"
     symbols:
       - "select_experiment_batch"
+  - path: "backend/src/material_workbench/contracts/proposal_contracts.py"
+    id: "acquisition-proposal-selection-contract"
+    role: "contract"
+    symbols:
+      - "ProposalSelectionEvidence"
+  - path: "backend/src/material_workbench/domain/proposal_selection.py"
+    id: "acquisition-proposal-selection"
+    role: "domain"
+    symbols:
+      - "select_proposal_shortlist"
   - path: "backend/src/material_workbench/application/decision_activity_counterfactual.py"
     id: "acquisition-counterfactual"
     role: "application"
@@ -69,6 +79,20 @@ code_references:
   - path: "apps/web/src/features/screening/ScreeningPage.tsx"
     id: "acquisition-screening-ui"
     role: "frontend"
+  - path: "apps/web/src/features/screening/ScreeningResultSurfaces.tsx"
+    id: "acquisition-screening-surfaces"
+    role: "frontend"
+    symbols:
+      - "screeningSelectionSurface"
+      - "initialScreeningResultSurface"
+  - path: "apps/web/src/features/screening/screeningInterpolation.ts"
+    id: "acquisition-screening-interpolation"
+    role: "frontend"
+    symbols:
+      - "buildScreeningInterpolation"
+  - path: "backend/tests/test_proposal_selection.py"
+    id: "acquisition-proposal-selection-test"
+    role: "test"
 
 chapter_id: "design-space-acquisition"
 prerequisite_concepts:
@@ -81,6 +105,7 @@ introduced_concepts:
   - "objective-definition"
   - "candidate-generator"
   - "acquisition-function"
+  - "proposal-shortlist-selection"
   - "batch-selector"
   - "incumbent"
   - "hard-constraint"
@@ -639,6 +664,33 @@ EIは改善量の期待値を返します。
 
 一括選択処理は、個々の点の評点と候補集合全体の条件を分けて扱います。
 
+### 全評価点、提案候補、実験バッチを分ける
+
+探索処理がモデルで調べたすべての点は、まだ提案でも実験計画でもありません。
+
+現行実装は、次の三つを別の集合として保存し、画面でも切り替えて表示します。
+
+- **全評価点**：モデルが実際に予測と探索価値を計算した条件
+- **提案候補**：目標探索で、評価済み点から少数へ絞った条件
+- **実験バッチ**：実験枠、固定対照、重複回避、費用を含めて割り当てた条件
+
+{{< code-ref acquisition-proposal-selection symbol=select_proposal_shortlist >}}は、要求件数、実際の件数、選択方針、候補集合のハッシュ値、距離の定義、同点時の規則、件数不足の理由を{{< code-ref acquisition-proposal-selection-contract symbol=ProposalSelectionEvidence >}}へ保存します。
+
+順位上位から選ぶ方針では多様性の重みを使いません。
+多様性を考慮する方針では、条件間の距離を表せない設計空間を黙って順位上位へ戻さず、利用できない理由を返します。
+
+内部では実験バッチと同じ許可済み選択器を再利用しますが、提案候補を実験バッチと呼び替えません。
+提案候補には実験枠の割当てや実施承認がなく、人間が候補化または実験計画へ進める前の比較材料だからです。
+
+{{< code-ref acquisition-screening-surfaces symbol=initialScreeningResultSurface >}}は、提案候補または実験バッチが保存されていればその表示を最初に開き、保存されていなければ地図を開きます。
+旧形式の実行記録に全評価点や提案候補がない場合も、存在するように補って表示しません。
+
+地図に滑らかな面を描くための補間値は、保存済みの評価点でも新しいモデル予測でもありません。
+{{< code-ref acquisition-screening-interpolation symbol=buildScreeningInterpolation >}}は、数値の二軸を完全な格子として評価し、固定した残りの条件が一致し、制約で抜けた領域がなく、表示に十分な密度がある場合だけ、近い評価点を距離で重み付けして表示用の面を作ります。
+
+三つ以上の変数が動く場合、値が欠ける場合、点が疎な場合、制約で穴が開く場合、旧形式の実行記録で必要な証拠がない場合は補間せず、保存済みの評価点だけを表示します。
+補間した面を追加の評価点や提案候補として件数へ含めてはいけません。
+
 現行許可リストで本番有効なのは、順位上位からの選択と、探索価値と多様性を用いる逐次選択です。
 
 クラスタ代表点、局所的な罰則、バッチ版Thompson抽出、候補の組を同時に評価する獲得関数は登録されていますが、実運用では無効です。
@@ -749,9 +801,10 @@ $$
 - **UCBまたはLCB** — `upper_confidence_bound`を`acquisition_value`で計算します。`test_ucb_and_expected_improvement_rank_promising_uncertain_points`が順位を確認し、正規分布の平均と標準偏差を前提とします。
 - **EI** — `expected_improvement`と現時点の最良値を裏付ける証拠を`acquisition_value`へ渡します。`test_expected_improvement_margin_changes_maximize_and_minimize_scores`が目的方向を確認し、$\sigma>0$と現時点の最良値を必要とします。
 - **PI** — 本番レジストリには未登録で、教材上の比較だけです。
-- **貪欲バッチ** — `greedy_value_diversity_v1`を`select_experiment_batch`で計算します。`test_diversity_selector_includes_a_different_region`が多様性を確認しますが、ヒューリスティックであり同時事後分布は使いません。
+- **提案候補の選択** — `ranked_top_k_v1`または`greedy_value_diversity_v1`を`select_proposal_shortlist`で計算します。{{< code-ref acquisition-proposal-selection-test >}}が件数、重複、決定論的な同点処理、距離を扱えない条件での拒否を確認します。
+- **貪欲バッチ** — `greedy_value_diversity_v1`を`select_experiment_batch`で計算します。`test_diversity_selector_includes_a_different_region`が多様性を確認しますが、発見的手法であり同時事後分布は使いません。
 - **同時q獲得関数** — `joint_q_acquisition_v1`は利用可否の判定だけを持ちます。`test_batch_selector_registry_does_not_claim_joint_methods_without_capability`が、同時サンプルのない本番では無効になることを確認します。
-- **画面** — `ScreeningPage`が提案戦略、選択器、候補集合、選択理由を扱います。一連操作のテストとAPIテストが、有効な戦略だけを選択可能にすることを確認します。
+- **画面** — `ScreeningPage`が提案戦略と選択条件を扱い、`ScreeningResultSurfaces`が地図、提案候補または実験バッチ、全評価点を分けます。一連操作のテストとAPIテストが、有効な戦略だけを選択可能にし、保存済み集合の意味を混ぜないことを確認します。
 
 {{< code-ref acquisition-strategy-registry symbol=strategy_availability >}}は、出力種別、平均、標準偏差、サンプル、同時サンプル、現時点の最良値、目的方向を検査します。
 

@@ -6,7 +6,7 @@
       "kind": "timeline",
       "source": "figures/candidate-revision-conflict.svg",
       "chapter": "chapters/revision-and-digest.qmd",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "alt": "二つの編集が候補リビジョンを介して競合する時系列",
       "long_description": "編集者Aと編集者Bがリビジョン7を読み、Aの保存がリビジョン8を作る。Bの古い保存は409となり、現行リビジョン8へ変更フィールドだけを重ねた保存がリビジョン9を作る。",
       "drift_refs": [
@@ -38,7 +38,7 @@
       "kind": "contract-diagram",
       "source": "figures/decision-activity-union.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
+      "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
       "alt": "検討アクティビティのパラメータと結果をschema_versionで分ける二つのユニオン型",
       "long_description": "DecisionActivityParametersは三つのパラメータ契約を、DecisionActivityResultは対応する三つの要約契約を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。",
       "drift_refs": [

@@ -1,5 +1,5 @@
 ---
-verified_commit: "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15"
+verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
   - path: "apps/web/src/app/navigation.ts"
     role: "frontend"
@@ -10,6 +10,8 @@ code_references:
   - path: "apps/web/src/features/screening/ScreeningPage.tsx"
     role: "frontend"
   - path: "apps/web/src/features/screening/ScreeningProposalSummary.tsx"
+    role: "frontend"
+  - path: "apps/web/src/features/screening/ScreeningResultSurfaces.tsx"
     role: "frontend"
   - path: "apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx"
     role: "frontend"
@@ -81,6 +83,8 @@ code_references:
     role: "domain"
   - path: "backend/src/material_workbench/domain/proposal_generation.py"
     role: "domain"
+  - path: "backend/src/material_workbench/domain/proposal_selection.py"
+    role: "domain"
   - path: "backend/src/material_workbench/domain/series_curation.py"
     role: "domain"
   - path: "backend/src/material_workbench/execution/inference_work_graph.py"
@@ -106,6 +110,8 @@ code_references:
   - path: "backend/tests/test_decision_activities.py"
     role: "test"
   - path: "backend/tests/test_openapi_contract.py"
+    role: "test"
+  - path: "backend/tests/test_proposal_selection.py"
     role: "test"
   - path: "docs/decisions/calibrated-decision-support.md"
     role: "docs"
@@ -135,7 +141,7 @@ code_references:
 |---|---|---|---|
 | [型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd) | [契約](glossary.qmd#concept-contract) | [業務操作の調整層](glossary.qmd#concept-application-service)、[契約テスト](glossary.qmd#concept-contract-test)、[判断の問いを調べる処理](glossary.qmd#concept-decision-activity)、[判別子付きユニオン型](glossary.qmd#concept-discriminated-union)、[生成成果物](glossary.qmd#concept-generated-artifact)、[許可実装の登録表](glossary.qmd#concept-registry)、[構造化エラー](glossary.qmd#concept-typed-error) | [較正](glossary.qmd#concept-calibration)、[条件変更案](glossary.qmd#concept-counterfactual)、[E2Eテスト](glossary.qmd#concept-end-to-end-test)、[外挿](glossary.qmd#concept-extrapolation)、[統合テスト](glossary.qmd#concept-integration-test)、[画面位置の状態](glossary.qmd#concept-navigation-state)、[予測結果の共通表現](glossary.qmd#concept-predictive-summary)、[来歴](glossary.qmd#concept-provenance)、[入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[実行方式が返せる予測情報](glossary.qmd#concept-runtime-capability)、[古い応答](glossary.qmd#concept-stale-response)、[学習データの裏付け](glossary.qmd#concept-support) |
 | [演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd) | [業務操作の調整層](glossary.qmd#concept-application-service)、[契約](glossary.qmd#concept-contract)、[判別子付きユニオン型](glossary.qmd#concept-discriminated-union)、[生成成果物](glossary.qmd#concept-generated-artifact) | なし | [契約テスト](glossary.qmd#concept-contract-test)、[判断の問いを調べる処理](glossary.qmd#concept-decision-activity)、[構造化エラー](glossary.qmd#concept-typed-error) |
-| [予測と判断のあいだを設計する](chapters/decision-safety.qmd) | [予測結果の共通表現](glossary.qmd#concept-predictive-summary)、[学習データの裏付け](glossary.qmd#concept-support)、[目的定義](glossary.qmd#concept-objective-definition)、[判断の問いを調べる処理](glossary.qmd#concept-decision-activity) | [判断材料の表示面](glossary.qmd#concept-decision-surface)、[証拠の有無と利用可否の状態](glossary.qmd#concept-evidence-state)、[次の行動を示す警告](glossary.qmd#concept-actionable-warning)、[提案を候補・判断へ移す明示操作](glossary.qmd#concept-explicit-adoption) | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[条件変更案](glossary.qmd#concept-counterfactual)、[探索目的](glossary.qmd#concept-screening-purpose)、[外挿](glossary.qmd#concept-extrapolation) |
+| [予測と判断のあいだを設計する](chapters/decision-safety.qmd) | [予測結果の共通表現](glossary.qmd#concept-predictive-summary)、[学習データの裏付け](glossary.qmd#concept-support)、[目的定義](glossary.qmd#concept-objective-definition)、[判断の問いを調べる処理](glossary.qmd#concept-decision-activity) | [判断材料の表示面](glossary.qmd#concept-decision-surface)、[証拠の有無と利用可否の状態](glossary.qmd#concept-evidence-state)、[次の行動を示す警告](glossary.qmd#concept-actionable-warning)、[提案を候補・判断へ移す明示操作](glossary.qmd#concept-explicit-adoption) | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness)、[条件変更案](glossary.qmd#concept-counterfactual)、[探索目的](glossary.qmd#concept-screening-purpose)、[提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection)、[外挿](glossary.qmd#concept-extrapolation) |
 | [ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd) | [契約](glossary.qmd#concept-contract)、[来歴](glossary.qmd#concept-provenance) | [使用中のモデル成果物](glossary.qmd#concept-active-package)、[正準入力](glossary.qmd#concept-canonical-input)、[データ整備手順](glossary.qmd#concept-curation-recipe)、[データセットの対応定義](glossary.qmd#concept-dataset-profile)、[特徴量変換手順](glossary.qmd#concept-feature-pipeline)、[データ漏洩](glossary.qmd#concept-leakage)、[モデル成果物一式](glossary.qmd#concept-model-package)、[隔離](glossary.qmd#concept-quarantine)、[生データの固定記録](glossary.qmd#concept-raw-source-snapshot)、[データ分割の単位](glossary.qmd#concept-split-group)、[目的変数ごとの学習利用可否](glossary.qmd#concept-target-eligibility)、[予測対象ごとの学習観測集合](glossary.qmd#concept-training-cohort)、[学習データの固定記録](glossary.qmd#concept-training-snapshot) | [業務操作の調整層](glossary.qmd#concept-application-service)、[バイト列のハッシュ値](glossary.qmd#concept-byte-digest)、[永続化部品](glossary.qmd#concept-repository)、[意味内容のハッシュ値](glossary.qmd#concept-semantic-digest) |
 | [材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd) | [正準入力](glossary.qmd#concept-canonical-input)、[データセットの対応定義](glossary.qmd#concept-dataset-profile)、[特徴量変換手順](glossary.qmd#concept-feature-pipeline) | [組成基準](glossary.qmd#concept-composition-basis)、[公称値と実測値](glossary.qmd#concept-nominal-measured-value)、[熱処理手順](glossary.qmd#concept-heat-program)、[生のセンサー時系列](glossary.qmd#concept-raw-sensor-trace)、[正準系列](glossary.qmd#concept-canonical-series)、[特徴表現](glossary.qmd#concept-feature-representation)、[値の妥当範囲](glossary.qmd#concept-plausibility)、[実行可能性](glossary.qmd#concept-feasibility)、[目的変数ごとの学習利用可否](glossary.qmd#concept-target-eligibility)、[データ漏洩](glossary.qmd#concept-leakage) | [学習データの裏付け](glossary.qmd#concept-support)、[プロジェクト設計空間](glossary.qmd#concept-design-space)、[予測対象ごとの学習観測集合](glossary.qmd#concept-training-cohort)、[来歴](glossary.qmd#concept-provenance) |
 | [演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd) | [データ整備手順](glossary.qmd#concept-curation-recipe)、[データセットの対応定義](glossary.qmd#concept-dataset-profile)、[来歴](glossary.qmd#concept-provenance)、[目的変数ごとの学習利用可否](glossary.qmd#concept-target-eligibility)、[学習データの固定記録](glossary.qmd#concept-training-snapshot) | なし | [隔離](glossary.qmd#concept-quarantine)、[永続化部品](glossary.qmd#concept-repository)、[予測対象ごとの学習観測集合](glossary.qmd#concept-training-cohort) |
@@ -208,6 +214,8 @@ code_references:
 | [目的定義](glossary.qmd#concept-objective-definition) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
 | [予測結果の共通表現](glossary.qmd#concept-predictive-summary) | [獲得関数](glossary.qmd#concept-acquisition-function) | 未配置 |
 | [プロジェクト設計空間](glossary.qmd#concept-design-space) | [探索目的](glossary.qmd#concept-screening-purpose) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [獲得関数](glossary.qmd#concept-acquisition-function) | [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | [予測と判断のあいだを設計する](chapters/decision-safety.qmd) |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) | 未配置 |
 | [目的定義](glossary.qmd#concept-objective-definition) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
 | [保存時点の固定記録](glossary.qmd#concept-snapshot) | [現時点の基準候補](glossary.qmd#concept-incumbent) | 未配置 |
@@ -350,12 +358,19 @@ code_references:
 | [獲得関数](glossary.qmd#concept-acquisition-function) | 関連する | [現時点の基準候補](glossary.qmd#concept-incumbent) |
 | [獲得関数](glossary.qmd#concept-acquisition-function) | 同じではない | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [目的定義](glossary.qmd#concept-objective-definition) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [現時点の基準候補](glossary.qmd#concept-incumbent) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 関連する | [保存時点の固定記録](glossary.qmd#concept-snapshot) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 同じではない | [目的定義](glossary.qmd#concept-objective-definition) |
+| [探索目的](glossary.qmd#concept-screening-purpose) | 同じではない | [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) |
 | [探索目的](glossary.qmd#concept-screening-purpose) | 同じではない | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) |
+| [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | 関連する | [プロジェクト設計空間](glossary.qmd#concept-design-space) |
+| [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | 関連する | [判断材料の表示面](glossary.qmd#concept-decision-surface) |
+| [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | 同じではない | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) |
+| [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) | 同じではない | [提案を候補・判断へ移す明示操作](glossary.qmd#concept-explicit-adoption) |
 | [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) | 関連する | [必須制約](glossary.qmd#concept-hard-constraint) |
+| [実験候補集合の選択処理](glossary.qmd#concept-batch-selector) | 関連する | [提案候補の少数選抜](glossary.qmd#concept-proposal-shortlist-selection) |
 | [現時点の基準候補](glossary.qmd#concept-incumbent) | 同じではない | [目的定義](glossary.qmd#concept-objective-definition) |
 | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness) | 同じではない | [較正](glossary.qmd#concept-calibration) |
 | [条件変更案](glossary.qmd#concept-counterfactual) | 関連する | [入力ばらつきに対する頑健性](glossary.qmd#concept-robustness) |
@@ -425,7 +440,7 @@ code_references:
 
 | 状態 | 件数 | 読み方 |
 |---|---:|---|
-| 現行 | 79 | 確認済みのコミットにある実装または契約へリンクする |
+| 現行 | 80 | 確認済みのコミットにある実装または契約へリンクする |
 | 将来候補 | 2 | 未実装の候補として読み、現行機能へ格上げしない |
 | 履歴 | 1 | 過去の案または不採用判断として読む |
 

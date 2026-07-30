@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15"
+verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
   - path: "apps/web/src/features/candidates/CandidateUi.tsx"
     id: "decision-safety-comparison"
@@ -56,6 +56,22 @@ code_references:
     role: "frontend"
     symbols:
       - "safeExplorationRange"
+  - path: "backend/src/material_workbench/contracts/schemas.py"
+    id: "decision-safety-screening-contract"
+    role: "contract"
+    symbols:
+      - "ScreeningRunResponse"
+  - path: "apps/web/src/features/screening/ScreeningResultSurfaces.tsx"
+    id: "decision-safety-screening-surfaces"
+    role: "frontend"
+    symbols:
+      - "screeningSelectionSurface"
+      - "initialScreeningResultSurface"
+  - path: "apps/web/src/features/screening/screeningInterpolation.ts"
+    id: "decision-safety-screening-interpolation"
+    role: "frontend"
+    symbols:
+      - "buildScreeningInterpolation"
   - path: "backend/src/material_workbench/application/decision_activities.py"
     id: "decision-safety-promotion"
     role: "application"
@@ -117,6 +133,7 @@ reinforced_concepts:
   - "robustness"
   - "counterfactual"
   - "screening-purpose"
+  - "proposal-shortlist-selection"
   - "extrapolation"
 future_concepts: []
 historical_concepts: []
@@ -206,6 +223,27 @@ historical_concepts: []
 類似条件の過去の実測と「未観測」を分け、実験後は固定した予測スナップショットと実測スナップショットを対応付けます。
 ただし、現行の実測スナップショットは、平均、標準偏差、反復数などの要約です。
 試験片、熱処理または製造ロット、試験手順の完全な記録ではありません。
+
+### 探索画面の四つの集合を混ぜない
+
+探索画面では、次の四つを同じ「候補」として数えません。
+
+| 集合 | 意味 | 判断でしてよいこと |
+|---|---|---|
+| 全評価点 | モデルが実際に予測と探索価値を計算した条件 | 評価済みの範囲と順位を調べる |
+| 地図に表示した点 | 読みやすさのため地図へ載せた評価点 | 表示から詳細へ移る |
+| 提案候補 | 目標探索で、評価済み点から少数へ絞った条件 | 比較対象として検討する |
+| 実験バッチ | 固定対照、割当て、費用を含めて実験枠へ置いた条件 | 実験計画の証拠を確認する |
+
+{{< code-ref decision-safety-screening-contract symbol=ScreeningRunResponse >}}は、地図へ表示した件数と提案候補の件数を別に保存します。
+領域を見る探索では提案候補を0件とし、目標探索では明示的な選択結果を要求し、保存済み探索から実験バッチを作る場合は元の提案候補をそのまま引き継ぎません。
+
+{{< code-ref decision-safety-screening-surfaces symbol=screeningSelectionSurface >}}も、提案候補、実験バッチ、全評価点を別の表示面へ置きます。
+旧形式の実行記録から提案候補を推測しないため、証拠がない場合は「利用できない」と分かる表示になります。
+
+{{< code-ref decision-safety-screening-interpolation symbol=buildScreeningInterpolation >}}が作る滑らかな面は表示用の補間です。
+完全な二次元格子、固定断面、制約で抜けた領域がないことなどを確認できない場合は、保存済みの評価点だけへ戻ります。
+補間値を新しいモデル予測、全評価点、提案候補のいずれとしても数えません。
 
 予測から判断までの関係は、次のように書けます。
 
@@ -475,6 +513,9 @@ $\hat{p}=0.61$、$n_a=100$なら、標準誤差は約$0.049$です。
 
 アルゴリズムが提案を返した時点では、候補も採用判断もまだ作られていません。
 この章では、この別操作を**提案を候補・判断へ移す明示操作**と呼びます。
+
+ここでいう候補化は、保存済みの案からプロジェクトの候補を新しく作る書き込みです。
+スクリーニング実行の中で全評価点から提案候補を少数へ絞る処理は、同じ実行記録の表示集合を作る処理であり、プロジェクト候補の作成でも実験採用でもありません。
 
 現行の反実仮想検討の流れは次です。
 

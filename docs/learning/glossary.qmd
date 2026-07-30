@@ -31,7 +31,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/model_packages.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/model_packages.py)
 
 ### 意味内容のハッシュ値（semantic digest） {#concept-semantic-digest}
 
@@ -55,7 +55,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/execution/inference_work_graph.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/execution/inference_work_graph.py)
+**このリポジトリの実装**：[backend/src/material_workbench/execution/inference_work_graph.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/execution/inference_work_graph.py)
 
 **よくある誤解**：
 
@@ -83,7 +83,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/persistence/store.py)
+**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/persistence/store.py)
 
 **表示と言葉の対応**：
 
@@ -111,7 +111,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 ### 結び付けの来歴（binding provenance） {#concept-binding-provenance}
 
@@ -127,7 +127,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/proposal_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/proposal_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/proposal_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/proposal_contracts.py)
 
 **よくある誤解**：
 
@@ -153,7 +153,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[apps/web/src/features/workbench/decisionActivityState.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/decisionActivityState.ts)
+**このリポジトリの実装**：[apps/web/src/features/workbench/decisionActivityState.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/decisionActivityState.ts)
 
 ### 版番号（revision） {#concept-revision}
 
@@ -177,7 +177,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 **よくある誤解**：
 
@@ -203,7 +203,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)、[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/persistence/store.py)
+**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/persistence/store.py)
 
 ### 保存時点の固定記録（snapshot） {#concept-snapshot}
 
@@ -225,7 +225,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 ### 要求連番（request sequence） {#concept-request-sequence}
 
@@ -245,7 +245,7 @@
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[apps/web/src/features/workbench/inferenceSurfaceState.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/inferenceSurfaceState.ts)
+**このリポジトリの実装**：[apps/web/src/features/workbench/inferenceSurfaceState.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/inferenceSurfaceState.ts)
 
 ### 来歴（provenance） {#concept-provenance}
 
@@ -267,7 +267,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)、[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 ## データ
 
@@ -291,7 +291,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/data/dataset_profile.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/data/dataset_profile.py)
+**このリポジトリの実装**：[backend/src/material_workbench/data/dataset_profile.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/data/dataset_profile.py)
 
 ### データ整備手順（Curation Recipe） {#concept-curation-recipe}
 
@@ -311,7 +311,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
 
 ### データ分割の単位（split group） {#concept-split-group}
 
@@ -335,7 +335,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/data/observation_profile.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/data/observation_profile.py)
+**このリポジトリの実装**：[backend/src/material_workbench/data/observation_profile.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/data/observation_profile.py)
 
 ### データ漏洩（data leakage） {#concept-leakage}
 
@@ -359,7 +359,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/chain_evaluation_builder.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/chain_evaluation_builder.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/chain_evaluation_builder.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/chain_evaluation_builder.py)
 
 ### 隔離（quarantine） {#concept-quarantine}
 
@@ -379,7 +379,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/domain/data_lifecycle.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/data_lifecycle.py)
+**このリポジトリの実装**：[backend/src/material_workbench/domain/data_lifecycle.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/data_lifecycle.py)
 
 ### 学習データの固定記録（Training Snapshot） {#concept-training-snapshot}
 
@@ -401,7 +401,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
 
 ### 公称値と実測値（nominal and measured value） {#concept-nominal-measured-value}
 
@@ -425,7 +425,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 **よくある誤解**：
 
@@ -453,7 +453,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/series_contracts.py)、[backend/src/material_workbench/domain/series_curation.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/series_curation.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/series_contracts.py)、[backend/src/material_workbench/domain/series_curation.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/series_curation.py)
 
 **よくある誤解**：
 
@@ -481,7 +481,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 ### 生データの固定記録（Raw Source Snapshot） {#concept-raw-source-snapshot}
 
@@ -503,7 +503,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
 
 ### 生のセンサー時系列（raw sensor trace） {#concept-raw-sensor-trace}
 
@@ -527,7 +527,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/series_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/series_contracts.py)
 
 **よくある誤解**：
 
@@ -555,7 +555,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 **よくある誤解**：
 
@@ -583,7 +583,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 **よくある誤解**：
 
@@ -611,7 +611,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 **よくある誤解**：
 
@@ -637,7 +637,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/data_lifecycle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/data_lifecycle_contracts.py)
 
 **表示と言葉の対応**：
 
@@ -667,7 +667,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/training_snapshot_adapter.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/training_snapshot_adapter.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/training_snapshot_adapter.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/training_snapshot_adapter.py)
 
 ## モデル
 
@@ -691,7 +691,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/model_packages.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/model_packages.py)
 
 ### 外挿（extrapolation） {#concept-extrapolation}
 
@@ -715,7 +715,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activity_robustness.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activity_robustness.py)
 
 **よくある誤解**：
 
@@ -743,7 +743,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/chain_evaluation_builder.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/chain_evaluation_builder.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/chain_evaluation_builder.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/chain_evaluation_builder.py)
 
 **よくある誤解**：
 
@@ -772,7 +772,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 **表示と言葉の対応**：
 
@@ -800,7 +800,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_lifecycle.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/model_lifecycle.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_lifecycle.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/model_lifecycle.py)
 
 ### 実行方式が返せる予測情報（Runtime Capability） {#concept-runtime-capability}
 
@@ -824,7 +824,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/task_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/task_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/task_contracts.py)
 
 ### 実行方式の接続部（Runtime adapter） {#concept-runtime-adapter}
 
@@ -844,7 +844,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/runtime.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/runtime.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/runtime.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/runtime.py)
 
 ### 特徴表現（feature representation） {#concept-feature-representation}
 
@@ -868,7 +868,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/series_contracts.py)、[backend/src/material_workbench/domain/series_curation.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/series_curation.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/series_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/series_contracts.py)、[backend/src/material_workbench/domain/series_curation.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/series_curation.py)
 
 **よくある誤解**：
 
@@ -896,7 +896,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/feature_pipeline.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/feature_pipeline.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/feature_pipeline.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/feature_pipeline.py)
 
 ### 予測結果の共通表現（Predictive Summary） {#concept-predictive-summary}
 
@@ -920,7 +920,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/modeling/model_packages.py)
+**このリポジトリの実装**：[backend/src/material_workbench/modeling/model_packages.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/modeling/model_packages.py)
 
 ## 判断
 
@@ -948,7 +948,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/objective_execution.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/objective_execution.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/objective_execution.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/objective_execution.py)
 
 ### プロジェクト設計空間（Project Design Space） {#concept-design-space}
 
@@ -972,7 +972,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/design_space_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/design_space_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/design_space_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/design_space_contracts.py)
 
 ### 獲得関数（Acquisition Function） {#concept-acquisition-function}
 
@@ -996,7 +996,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/domain/proposal_acquisition.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/proposal_acquisition.py)
+**このリポジトリの実装**：[backend/src/material_workbench/domain/proposal_acquisition.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/proposal_acquisition.py)
 
 ### 旧形式の探索目的（legacy screening objective） {#concept-legacy-screening-objective}
 
@@ -1018,7 +1018,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/objective_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/objective_contracts.py)
 
 ### 現時点の基準候補（incumbent） {#concept-incumbent}
 
@@ -1042,7 +1042,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/screening.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/screening.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/screening.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/screening.py)
 
 ### 候補生成処理（Candidate Generator） {#concept-candidate-generator}
 
@@ -1064,7 +1064,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/domain/proposal_generation.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/proposal_generation.py)
+**このリポジトリの実装**：[backend/src/material_workbench/domain/proposal_generation.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/proposal_generation.py)
 
 ### 実験候補集合の選択処理（Batch Selector） {#concept-batch-selector}
 
@@ -1074,7 +1074,7 @@
 
 **適用範囲**：一つの機能領域
 
-**同じではない概念**：[候補生成処理](#concept-candidate-generator)、[獲得関数](#concept-acquisition-function)
+**同じではない概念**：[候補生成処理](#concept-candidate-generator)、[獲得関数](#concept-acquisition-function)、[提案候補の少数選抜](#concept-proposal-shortlist-selection)
 
 **前提概念**：[獲得関数](#concept-acquisition-function)
 
@@ -1087,7 +1087,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/domain/batch_selector.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/batch_selector.py)
+**このリポジトリの実装**：[backend/src/material_workbench/domain/batch_selector.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/batch_selector.py)
 
 ### 実行可能性（feasibility） {#concept-feasibility}
 
@@ -1111,7 +1111,7 @@
 
 **学ぶ章**：[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/design_space_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/design_space_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/design_space_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/design_space_contracts.py)
 
 **よくある誤解**：
 
@@ -1139,7 +1139,7 @@
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/candidates/CandidateUi.tsx)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/candidates/CandidateUi.tsx)
 
 **よくある誤解**：
 
@@ -1171,7 +1171,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_counterfactual.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activity_counterfactual.py)、[apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx)、[apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/tests/test_counterfactual_activity.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_counterfactual.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activity_counterfactual.py)、[apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/decisionActivities/CounterfactualActivityView.tsx)、[apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/decisionActivities/counterfactualPresentation.ts)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_counterfactual_activity.py)
 
 ### 選好条件（soft preference） {#concept-soft-preference}
 
@@ -1195,17 +1195,17 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/objective_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/objective_contracts.py)
 
 ### 探索目的（Screening purpose） {#concept-screening-purpose}
 
-候補探索の実行が答える問いを、「領域を見る」「有望候補を探す」「保存済みの探索結果から実験候補の組を作る」の三つに固定する契約です。
+候補探索の実行が答える問いを、「領域を見る」「有望な提案候補を探す」「保存済みの探索結果から実験候補の組を作る」の三つに固定する契約です。領域を見る実行では提案候補を作らず、目標探索では明示した少数選抜を保存し、実験候補の組を作る実行では元の提案候補を別の集合として扱います。
 
 **状態**：現行
 
 **適用範囲**：一つの機能領域
 
-**同じではない概念**：[目的定義](#concept-objective-definition)、[実験候補集合の選択処理](#concept-batch-selector)
+**同じではない概念**：[目的定義](#concept-objective-definition)、[提案候補の少数選抜](#concept-proposal-shortlist-selection)、[実験候補集合の選択処理](#concept-batch-selector)
 
 **前提概念**：[プロジェクト設計空間](#concept-design-space)
 
@@ -1219,7 +1219,7 @@
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)、[backend/src/material_workbench/application/screening.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/screening.py)、[apps/web/src/features/screening/ScreeningPage.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/screening/ScreeningPage.tsx)、[apps/web/src/features/screening/ScreeningProposalSummary.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/screening/ScreeningProposalSummary.tsx)、[e2e/screening-workbench.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/e2e/screening-workbench.spec.ts)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)、[backend/src/material_workbench/application/screening.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/screening.py)、[apps/web/src/features/screening/ScreeningPage.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/screening/ScreeningPage.tsx)、[apps/web/src/features/screening/ScreeningProposalSummary.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/screening/ScreeningProposalSummary.tsx)、[apps/web/src/features/screening/ScreeningResultSurfaces.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/screening/ScreeningResultSurfaces.tsx)、[e2e/screening-workbench.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/e2e/screening-workbench.spec.ts)
 
 **よくある誤解**：
 
@@ -1246,11 +1246,41 @@
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activities.py)、[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/tests/test_counterfactual_activity.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activities.py)、[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)、[backend/tests/test_counterfactual_activity.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_counterfactual_activity.py)
 
 **よくある誤解**：
 
 - 候補化とプロジェクト判断の保存は、同じ採用操作ではありません。
+
+### 提案候補の少数選抜（proposal shortlist selection） {#concept-proposal-shortlist-selection}
+
+目標探索でモデルが実際に評価した点から、要求件数、順位価値、条件間の距離、重複回避を明示して、比較に出す少数の提案候補を選ぶ処理です。選択方針、候補集合のハッシュ値、同点規則、実際の件数、件数不足の理由を保存します。
+
+**状態**：現行
+
+**別名と検索語**：proposal selection
+
+**適用範囲**：一つの機能領域
+
+**同じではない概念**：[実験候補集合の選択処理](#concept-batch-selector)、[提案を候補・判断へ移す明示操作](#concept-explicit-adoption)
+
+**前提概念**：[獲得関数](#concept-acquisition-function)、[探索目的](#concept-screening-purpose)
+
+**この語が意味しないもの**：
+
+- プロジェクトの候補を作成する操作ではありません。
+- 固定対照、実験枠、費用を割り当てた実験バッチではありません。
+- 表示用の補間値を新しい評価点として追加する処理ではありません。
+
+**数理との接続**：候補単独の順位価値と、選択済み候補からの距離を分け、決定論的な同点規則で少数集合を作ります。
+
+**学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
+
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/proposal_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/proposal_contracts.py)、[backend/src/material_workbench/domain/proposal_selection.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/proposal_selection.py)、[backend/tests/test_proposal_selection.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_proposal_selection.py)
+
+**よくある誤解**：
+
+- 実験候補集合の選択処理と計算の一部を共有しても、保存上の意味と利用者が次にできる操作は同じではありません。
 
 ### 入力ばらつきに対する頑健性（robustness） {#concept-robustness}
 
@@ -1275,7 +1305,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activity_robustness.py)、[apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx)、[e2e/decision-activity.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/e2e/decision-activity.spec.ts)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_robustness.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activity_robustness.py)、[apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/decisionActivities/RobustnessActivityView.tsx)、[e2e/decision-activity.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/e2e/decision-activity.spec.ts)
 
 ### 判断の問いを調べる処理（Decision Activity） {#concept-decision-activity}
 
@@ -1297,7 +1327,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)、[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/decision_activity_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/decision_activity_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/decision_activity_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/decision_activity_contracts.py)
 
 ### 判断材料の表示面（Decision Surface） {#concept-decision-surface}
 
@@ -1322,7 +1352,7 @@
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/candidates/CandidateUi.tsx)、[docs/decisions/calibrated-decision-support.md](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/docs/decisions/calibrated-decision-support.md)
+**このリポジトリの実装**：[apps/web/src/features/candidates/CandidateUi.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/candidates/CandidateUi.tsx)、[apps/web/src/features/screening/ScreeningResultSurfaces.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/screening/ScreeningResultSurfaces.tsx)、[docs/decisions/calibrated-decision-support.md](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/docs/decisions/calibrated-decision-support.md)
 
 **よくある誤解**：
 
@@ -1348,7 +1378,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/objective_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/objective_contracts.py)
 
 ### 目的定義（Objective Definition） {#concept-objective-definition}
 
@@ -1372,7 +1402,7 @@
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/objective_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/objective_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/objective_contracts.py)
 
 ## アーキテクチャ
 
@@ -1396,7 +1426,7 @@
 
 **学ぶ章**：[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/projects.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/projects.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/projects.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/projects.py)
 
 ### 一部機能を隔離した起動状態（degraded mode） {#concept-degraded-mode}
 
@@ -1418,7 +1448,7 @@
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/subsystem_availability.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/subsystem_availability.py)
 
 ### 永続化部品（repository） {#concept-repository}
 
@@ -1440,7 +1470,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)、[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/persistence/data_lifecycle_repository.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/persistence/data_lifecycle_repository.py)
+**このリポジトリの実装**：[backend/src/material_workbench/persistence/data_lifecycle_repository.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/persistence/data_lifecycle_repository.py)
 
 ### 許可実装の登録表（registry） {#concept-registry}
 
@@ -1462,7 +1492,7 @@
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_registry.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activity_registry.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activity_registry.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activity_registry.py)
 
 ### 業務操作の調整層（application service） {#concept-application-service}
 
@@ -1484,7 +1514,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)、[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/decision_activities.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/decision_activities.py)
 
 ### 契約（contract） {#concept-contract}
 
@@ -1506,7 +1536,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)、[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 ### 形式変換部（adapter） {#concept-adapter}
 
@@ -1528,7 +1558,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：今後の章候補（未配置）
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/training_snapshot_adapter.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/training_snapshot_adapter.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/training_snapshot_adapter.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/training_snapshot_adapter.py)
 
 ### 所有境界（ownership boundary） {#concept-ownership-boundary}
 
@@ -1550,7 +1580,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)
 
-**このリポジトリの実装**：[docs/decisions/sqlite-project-lifecycle-policy.md](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/docs/decisions/sqlite-project-lifecycle-policy.md)
+**このリポジトリの実装**：[docs/decisions/sqlite-project-lifecycle-policy.md](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/docs/decisions/sqlite-project-lifecycle-policy.md)
 
 ### 書き込み防止検査（write guard） {#concept-write-guard}
 
@@ -1572,7 +1602,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/persistence/store.py)
+**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/persistence/store.py)
 
 ### 信頼境界（trust boundary） {#concept-trust-boundary}
 
@@ -1594,7 +1624,7 @@ APIから業務操作を受け、対象領域の処理、実行時処理、保�
 
 **学ぶ章**：[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/api/security.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/api/security.py)
+**このリポジトリの実装**：[backend/src/material_workbench/api/security.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/api/security.py)
 
 ### 生成成果物（generated artifact） {#concept-generated-artifact}
 
@@ -1616,7 +1646,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)
 
-**このリポジトリの実装**：[apps/web/src/generated/api-types.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/generated/api-types.ts)
+**このリポジトリの実装**：[apps/web/src/generated/api-types.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/generated/api-types.ts)
 
 ### 対象領域の不変条件（domain invariant） {#concept-domain-invariant}
 
@@ -1640,7 +1670,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/domain/design_space_validation.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/domain/design_space_validation.py)
+**このリポジトリの実装**：[backend/src/material_workbench/domain/design_space_validation.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/domain/design_space_validation.py)
 
 ### 判別子付きユニオン型（discriminated union） {#concept-discriminated-union}
 
@@ -1662,7 +1692,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/decision_activity_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/decision_activity_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/decision_activity_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/decision_activity_contracts.py)
 
 ### 明示的な完全削除（explicit purge） {#concept-explicit-purge}
 
@@ -1684,7 +1714,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[一覧から外すことと証拠を消すことを分ける](chapters/separate-archive-from-purge.qmd)、[演習：プロジェクトの証拠を残したまま作業を終える](labs/trace-project-lifecycle.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/persistence/store.py)
+**このリポジトリの実装**：[backend/src/material_workbench/persistence/store.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/persistence/store.py)
 
 ## UIとテスト
 
@@ -1708,7 +1738,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[e2e/decision-activity.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/e2e/decision-activity.spec.ts)
+**このリポジトリの実装**：[e2e/decision-activity.spec.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/e2e/decision-activity.spec.ts)
 
 ### サーバー上の確定状態（server state） {#concept-server-state}
 
@@ -1728,7 +1758,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[apps/web/src/features/workbench/workbenchIdentity.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/workbench/workbenchIdentity.ts)
+**このリポジトリの実装**：[apps/web/src/features/workbench/workbenchIdentity.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/workbench/workbenchIdentity.ts)
 
 ### ワークスペース復元用一式（Workspace bundle） {#concept-workspace-bundle}
 
@@ -1750,7 +1780,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/workspace_bundle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/workspace_bundle_contracts.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/workspace_bundle_contracts.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/workspace_bundle_contracts.py)
 
 ### 画面位置の状態（navigation state） {#concept-navigation-state}
 
@@ -1772,7 +1802,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)
 
-**このリポジトリの実装**：[apps/web/src/app/navigation.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/app/navigation.ts)
+**このリポジトリの実装**：[apps/web/src/app/navigation.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/app/navigation.ts)
 
 ### 旧データ移行の簡易受入検査（migration smoke） {#concept-migration-smoke}
 
@@ -1794,7 +1824,7 @@ Pydanticの正本から出力したOpenAPIとTypeScript型など、手編集せ�
 
 **学ぶ章**：[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[backend/tests/test_candidate_migration.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/tests/test_candidate_migration.py)
+**このリポジトリの実装**：[backend/tests/test_candidate_migration.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_candidate_migration.py)
 
 ### 契約テスト（contract test） {#concept-contract-test}
 
@@ -1814,7 +1844,7 @@ Pydantic、OpenAPI、モデル成果物一式、タスク間で、構造と意�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)
 
-**このリポジトリの実装**：[backend/tests/test_openapi_contract.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/tests/test_openapi_contract.py)
+**このリポジトリの実装**：[backend/tests/test_openapi_contract.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_openapi_contract.py)
 
 ### 構造化エラー（typed error） {#concept-typed-error}
 
@@ -1836,7 +1866,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[演習：契約変更の影響範囲を予測する](labs/extend-contract.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/schemas.py)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/schemas.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/schemas.py)
 
 **表示と言葉の対応**：
 
@@ -1864,7 +1894,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/workspace_bundle.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/workspace_bundle.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/workspace_bundle.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/workspace_bundle.py)
 
 ### 次の行動を示す警告（actionable warning） {#concept-actionable-warning}
 
@@ -1886,7 +1916,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[予測と判断のあいだを設計する](chapters/decision-safety.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx)
+**このリポジトリの実装**：[backend/src/material_workbench/contracts/subsystem_availability.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/contracts/subsystem_availability.py)、[apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx)
 
 **よくある誤解**：
 
@@ -1910,7 +1940,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[型付き契約をPythonからReactまで通す](chapters/contract-through-stack.qmd)、[過去のDBを現在の契約で信用する](chapters/trust-a-migrated-database.qmd)、[演習：マイグレーションの矛盾を再現して診断する](labs/break-and-repair-migration.qmd)、[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)
 
-**このリポジトリの実装**：[backend/tests/test_decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/tests/test_decision_activities.py)
+**このリポジトリの実装**：[backend/tests/test_decision_activities.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/tests/test_decision_activities.py)
 
 ### 配布物の簡易受入検査（packaged smoke） {#concept-packaged-smoke}
 
@@ -1932,7 +1962,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[scripts/smoke-packaged.mjs](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/scripts/smoke-packaged.mjs)
+**このリポジトリの実装**：[scripts/smoke-packaged.mjs](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/scripts/smoke-packaged.mjs)
 
 ### 復旧記録（recovery journal） {#concept-recovery-journal}
 
@@ -1952,7 +1982,7 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[ワークスペースを切り替える前に復元を確かめる](chapters/restore-workspace-safely.qmd)、[演習：復元途中のワークスペースを診断する](labs/trace-workspace-restore.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/application/workspace_bundle.py](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/backend/src/material_workbench/application/workspace_bundle.py)
+**このリポジトリの実装**：[backend/src/material_workbench/application/workspace_bundle.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/application/workspace_bundle.py)
 
 ### 編集中状態（draft state） {#concept-draft-state}
 
@@ -1974,4 +2004,4 @@ HTTP状態だけでなく、固定されたエラーコード、メッセージ�
 
 **学ぶ章**：[順番と内容を別々に識別する](chapters/revision-and-digest.qmd)、[演習：二つの順番と古い応答を判定する](labs/trace-revision-conflict.qmd)
 
-**このリポジトリの実装**：[apps/web/src/features/candidates/useCandidateEditor.ts](https://github.com/mryk814/re-process-dashboard/blob/a53da6bf165c9c33038cda2f3976e1e4c9a1bb15/apps/web/src/features/candidates/useCandidateEditor.ts)
+**このリポジトリの実装**：[apps/web/src/features/candidates/useCandidateEditor.ts](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/apps/web/src/features/candidates/useCandidateEditor.ts)

@@ -2,7 +2,7 @@
   "$schema": "./concept.schema.json",
   "schema_version": 1,
   "repository": "mryk814/re-process-dashboard",
-  "verified_commit": "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15",
+  "verified_commit": "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834",
   "categories": [
     {
       "id": "identity-evidence",
@@ -1611,7 +1611,7 @@
       "scope": "subsystem",
       "status": "current",
       "status_note": null,
-      "definition": "候補探索の実行が答える問いを、「領域を見る」「有望候補を探す」「保存済みの探索結果から実験候補の組を作る」の三つに固定する契約です。",
+      "definition": "候補探索の実行が答える問いを、「領域を見る」「有望な提案候補を探す」「保存済みの探索結果から実験候補の組を作る」の三つに固定する契約です。領域を見る実行では提案候補を作らず、目標探索では明示した少数選抜を保存し、実験候補の組を作る実行では元の提案候補を別の集合として扱います。",
       "anti_definitions": [
         "同じ計算結果を見せ分けるだけの画面タブではありません。",
         "領域を見る実行は、目標最適化の成否を答える実行ではありません。",
@@ -1619,6 +1619,7 @@
       ],
       "not_same_as": [
         "objective-definition",
+        "proposal-shortlist-selection",
         "batch-selector"
       ],
       "prerequisites": [
@@ -1626,6 +1627,7 @@
       ],
       "related": [
         "objective-definition",
+        "proposal-shortlist-selection",
         "batch-selector",
         "incumbent",
         "snapshot"
@@ -1651,12 +1653,66 @@
           "role": "frontend"
         },
         {
+          "path": "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
+          "role": "frontend"
+        },
+        {
           "path": "e2e/screening-workbench.spec.ts",
           "role": "test"
         }
       ],
       "common_misconceptions": [
         "実験候補の組は、保存した有望候補探索で選抜された点、探索戦略、現時点の比較基準、目的定義の証拠を引き継いで選びます。"
+      ]
+    },
+    {
+      "id": "proposal-shortlist-selection",
+      "term_ja": "提案候補の少数選抜",
+      "term_en": "proposal shortlist selection",
+      "aliases": [
+        "proposal selection"
+      ],
+      "category": "decision",
+      "scope": "subsystem",
+      "status": "current",
+      "status_note": null,
+      "definition": "目標探索でモデルが実際に評価した点から、要求件数、順位価値、条件間の距離、重複回避を明示して、比較に出す少数の提案候補を選ぶ処理です。選択方針、候補集合のハッシュ値、同点規則、実際の件数、件数不足の理由を保存します。",
+      "anti_definitions": [
+        "プロジェクトの候補を作成する操作ではありません。",
+        "固定対照、実験枠、費用を割り当てた実験バッチではありません。",
+        "表示用の補間値を新しい評価点として追加する処理ではありません。"
+      ],
+      "not_same_as": [
+        "batch-selector",
+        "explicit-adoption"
+      ],
+      "prerequisites": [
+        "acquisition-function",
+        "screening-purpose"
+      ],
+      "related": [
+        "design-space",
+        "decision-surface"
+      ],
+      "math_connections": [
+        "候補単独の順位価値と、選択済み候補からの距離を分け、決定論的な同点規則で少数集合を作ります"
+      ],
+      "repo_references": [
+        {
+          "path": "backend/src/material_workbench/contracts/proposal_contracts.py",
+          "role": "contract"
+        },
+        {
+          "path": "backend/src/material_workbench/domain/proposal_selection.py",
+          "role": "domain"
+        },
+        {
+          "path": "backend/tests/test_proposal_selection.py",
+          "role": "test"
+        }
+      ],
+      "common_misconceptions": [
+        "実験候補集合の選択処理と計算の一部を共有しても、保存上の意味と利用者が次にできる操作は同じではありません。"
       ]
     },
     {
@@ -1675,14 +1731,16 @@
       ],
       "not_same_as": [
         "candidate-generator",
-        "acquisition-function"
+        "acquisition-function",
+        "proposal-shortlist-selection"
       ],
       "prerequisites": [
         "acquisition-function"
       ],
       "related": [
         "hard-constraint",
-        "screening-purpose"
+        "screening-purpose",
+        "proposal-shortlist-selection"
       ],
       "math_connections": [
         "候補単独の価値と、集合全体の多様性や資源制約を分けます"
@@ -2887,7 +2945,8 @@
       "related": [
         "decision-activity",
         "robustness",
-        "counterfactual"
+        "counterfactual",
+        "proposal-shortlist-selection"
       ],
       "math_connections": [
         "判断をモデル出力だけでなく、目的、制約、リスク許容度、費用、証拠の関数として分解します"
@@ -2895,6 +2954,10 @@
       "repo_references": [
         {
           "path": "apps/web/src/features/candidates/CandidateUi.tsx",
+          "role": "frontend"
+        },
+        {
+          "path": "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
           "role": "frontend"
         },
         {
