@@ -752,7 +752,10 @@ def _output_space_evidence_points(
     for row in rows:
         if x_target not in row["outputs"] and y_target not in row["outputs"]:
             continue
-        grouped.setdefault(training_context_key(row), []).append(row)
+        context_id = str(
+            row.get("condition_context_id") or row["observation_id"]
+        )
+        grouped.setdefault(context_id, []).append(row)
     points = []
     for context_id, rows in sorted(grouped.items()):
         x_observations = [
@@ -782,13 +785,21 @@ def _output_space_evidence_points(
             if x_ids & y_ids
             else "distinct_observations"
         )
+        process_keys = {str(row["parent_key"]) for row in rows}
+        composition_keys = {
+            str(row["composition_key"])
+            for row in rows
+            if row.get("composition_key")
+        }
         points.append({
             "context_id": context_id,
             "parent_key": next(iter(parent_keys)),
-            "process_key": next(iter(parent_keys)),
+            "process_key": (
+                next(iter(process_keys)) if len(process_keys) == 1 else None
+            ),
             "composition_key": (
-                str(rows[0]["composition_key"])
-                if rows[0].get("composition_key")
+                next(iter(composition_keys))
+                if len(composition_keys) == 1
                 else None
             ),
             "relation_context_ids": sorted(

@@ -109,6 +109,9 @@ def output_space_evidence(
     use_cases: CatalogDependency,
     x_target: Annotated[str, Query(min_length=1)],
     y_target: Annotated[str, Query(min_length=1)],
+    candidate_id: Annotated[str, Query(min_length=1)],
+    expected_revision: Annotated[int, Query(ge=1)],
+    distance_filter: Literal["supported", "caution", "all"] = "supported",
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
 ) -> dict[str, Any]:
     try:

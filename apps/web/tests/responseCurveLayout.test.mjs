@@ -71,12 +71,17 @@ test("charts with focusable points are groups of labelled parts, not one image",
   const files = [
     "../src/features/workbench/ResponseCurvePanels.tsx",
     "../src/features/workbench/HeatPatternPanel.tsx",
+    "../src/features/workbench/PredictionSpacePanel.tsx",
     "../src/features/lineage/LineagePage.tsx",
     "../src/features/screening/ScreeningPage.tsx",
   ];
   for (const file of files) {
     const content = await readFile(new URL(file, import.meta.url), "utf8");
-    if (!content.includes("svg-chart-hit-target") && !content.includes("screen-map-point")) continue;
+    if (
+      !content.includes("svg-chart-hit-target")
+      && !content.includes("screen-map-point")
+      && !content.includes("prediction-space-actual-point")
+    ) continue;
     assert.match(content, /role="group"/, `${file} exposes its chart as a group`);
     assert.doesNotMatch(
       content,

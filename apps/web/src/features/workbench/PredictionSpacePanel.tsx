@@ -297,7 +297,7 @@ export function PredictionSpacePanel({
       >{loadingRemainingPreviews ? "計算中…" : `残り${pendingPreviewCount}候補を計算`}</button>}
     </div>
     <div className="prediction-space-chart">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${xOutput.label}と${yOutput.label}の候補予測と学習実績`}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`${xOutput.label}と${yOutput.label}の候補予測と学習実績`}>
         <rect x={plot.left} y={plot.top} width={plotWidth} height={plotHeight} fill="#fbfcfe" stroke="#ccd6e2" />
         {ticks.map((ratio) => {
           const xValue = xRange.min + (xRange.max - xRange.min) * ratio;

@@ -13,9 +13,6 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from material_workbench.data.importer import training_context_key
-
-
 DISTANCE_CONTRACT_VERSION = "1.0.0"
 
 
@@ -31,10 +28,14 @@ class TrainingDistanceEvidence:
 
 
 def _context_id(row: dict[str, Any]) -> str:
-    try:
-        return training_context_key(row)
-    except (KeyError, TypeError, ValueError):
-        return str(row.get("parent_key") or row.get("id"))
+    value = (
+        row.get("condition_context_id")
+        or row.get("observation_id")
+        or row.get("id")
+    )
+    if value is None or not str(value).strip():
+        raise ValueError("training distance row has no replicate context")
+    return str(value)
 
 
 def _collapse_contexts(
@@ -85,6 +86,8 @@ def _runtime_vectors(
     candidate: Any,
     target_keys: Sequence[str],
 ) -> tuple[tuple[str, ...], np.ndarray, np.ndarray, dict[str, tuple[int, ...]] | None]:
+    from material_workbench.modeling.flank_wear import FlankWearRuntime
+
     groups: dict[str, tuple[int, ...]] | None = None
     if getattr(runtime, "support_reference", None) is not None:
         reference = runtime.support_reference
@@ -92,6 +95,26 @@ def _runtime_vectors(
         vectors = np.asarray(reference.parent_vectors, dtype=float)
         query = reference.normalized(runtime.vector_for_candidate(candidate))
         groups = dict(getattr(runtime, "feature_group_indices", {}))
+    elif isinstance(runtime, FlankWearRuntime):
+        from material_workbench.modeling.flank_wear_feature_pipeline import (
+            build_flank_wear_features_from_observation,
+        )
+
+        rows = [row for run_rows in runtime.reference_rows for row in run_rows]
+        context_ids = tuple(_context_id(row) for row in rows)
+        raw = np.vstack(
+            [
+                build_flank_wear_features_from_observation(
+                    row, runtime.composition_defaults
+                ).values
+                for row in rows
+            ]
+        )
+        vectors = (raw - runtime.reference_mean) / runtime.reference_scale
+        query = (
+            runtime.vector(candidate) - runtime.reference_mean
+        ) / runtime.reference_scale
+        groups = dict(runtime.feature_group_indices)
     elif hasattr(runtime, "reference_vectors") and hasattr(runtime, "reference_rows"):
         context_ids = tuple(_context_id(rows[0]) for rows in runtime.reference_rows)
         vectors = np.asarray(runtime.reference_vectors, dtype=float)
@@ -114,20 +137,25 @@ def _runtime_vectors(
         rows = reference["rows"]
         context_ids = tuple(_context_id(row) for row in rows)
         vectors = np.asarray(reference["vectors"], dtype=float)
-        if hasattr(runtime, "profile"):
-            from material_workbench.modeling.tabular_regression import (
-                build_tabular_features,
-            )
+        from material_workbench.modeling.observation_regression import (
+            ObservationRegressionRuntime,
+            candidate_feature_values,
+        )
+        from material_workbench.modeling.tabular_regression import (
+            TabularRegressionRuntime,
+            build_tabular_features,
+        )
 
+        if isinstance(runtime, TabularRegressionRuntime):
             raw = build_tabular_features(candidate, runtime.profile).values
-        else:
-            from material_workbench.modeling.observation_regression import (
-                candidate_feature_values,
-            )
-
+        elif isinstance(runtime, ObservationRegressionRuntime):
             values = candidate_feature_values(candidate, runtime.spec)
             raw = np.asarray(
                 [values[name] for name in runtime.spec.target_features[distance_target]]
+            )
+        else:
+            raise ValueError(
+                f"{runtime.task_id}のtarget別距離feature contractは未登録です"
             )
         query = (raw - reference["mean"]) / reference["scale"]
     else:

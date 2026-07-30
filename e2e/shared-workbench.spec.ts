@@ -153,7 +153,7 @@ test("Task-declared prediction space compares candidates with paired training ac
 
   const panel = page.locator(".prediction-space-panel");
   await expect(panel.getByRole("heading", { name: "特性のトレードオフ" })).toBeVisible();
-  await expect(panel.getByRole("img", { name: /引張強さと降伏強さ/ })).toBeVisible();
+  await expect(panel.getByRole("group", { name: /引張強さと降伏強さ/ })).toBeVisible();
   await expect(panel.locator(".prediction-space-actual")).toHaveCount(evidence.returned_contexts);
   await expect(panel.locator(".prediction-space-candidate")).toHaveCount(3);
   await expect(panel.locator(".prediction-space-interval")).toHaveCount(6);

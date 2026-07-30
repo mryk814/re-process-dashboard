@@ -7,6 +7,7 @@ from material_workbench.application.catalog import (
     _output_space_evidence_points,
 )
 from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 
@@ -388,6 +389,133 @@ def test_output_space_pairing_preserves_axis_specific_observation_identity() -> 
             y_target="Y",
         )
     assert "multiple validation groups" in str(caught.value)
+
+
+def test_output_space_mpea_rows_remain_individual_training_contexts() -> None:
+    rows = [
+        {
+            "observation_id": "mpea-row-1",
+            "parent_key": "paper-1",
+            "outputs": {"TYS": 500.0, "UTS": 720.0},
+        },
+        {
+            "observation_id": "mpea-row-2",
+            "parent_key": "paper-1",
+            "outputs": {"TYS": 530.0, "UTS": 750.0},
+        },
+        {
+            "observation_id": "mpea-row-3",
+            "parent_key": "paper-1",
+            "outputs": {"TYS": 560.0},
+        },
+    ]
+
+    points = _output_space_evidence_points(
+        rows,
+        x_target="TYS",
+        y_target="UTS",
+    )
+
+    assert [point["context_id"] for point in points] == [
+        "mpea-row-1",
+        "mpea-row-2",
+    ]
+    assert all(point["parent_key"] == "paper-1" for point in points)
+
+
+@pytest.mark.parametrize(
+    "task_id",
+    (
+        "welding-consumable-stage-b-v1",
+        "annealed-properties-v1",
+        "flank-wear-v1",
+        "heat-treatment-tradeoff-v1",
+        "mpea-room-tensile-v1",
+        "welding-stage-c-properties-v1",
+    ),
+)
+def test_every_prediction_space_task_serves_distance_evidence(
+    client,
+    task_id: str,
+) -> None:
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    existing = next(
+        (
+            project
+            for project in client.get("/api/projects").json()
+            if project["task_id"] == task_id
+        ),
+        None,
+    )
+    if existing is not None:
+        project_id = existing["id"]
+        candidate_payload = client.get(
+            f"/api/projects/{project_id}/candidates"
+        ).json()[0]
+    else:
+        created = client.post(
+            "/api/projects",
+            json={"name": f"{task_id} output-space smoke", "task_id": task_id},
+        )
+        assert created.status_code == 201, created.text
+        project_id = created.json()["id"]
+        candidate = client.post(
+            f"/api/projects/{project_id}/candidates",
+            json=task["starter_candidate"],
+        )
+        assert candidate.status_code == 201, candidate.text
+        candidate_payload = candidate.json()
+    surface = next(
+        item
+        for item in task["definition"]["application"]["workbench_surfaces"]
+        if item["kind"] == "prediction_space"
+    )
+    response = client.get(
+        f"/api/projects/{project_id}/model-package/output-space-evidence",
+        params={
+            "x_target": surface["target_keys"][0],
+            "y_target": surface["target_keys"][1],
+            "candidate_id": candidate_payload["id"],
+            "expected_revision": candidate_payload["revision"],
+            "distance_filter": "all",
+            "limit": 1,
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["candidate_id"] == candidate_payload["id"]
+    assert payload["total_contexts"] > 0
+    assert payload["eligible_contexts"] == payload["total_contexts"]
+    assert payload["returned_contexts"] == 1
+    assert payload["distance_method"]
+    assert payload["cohort_digest"].startswith("sha256:")
+    if task_id == "mpea-room-tensile-v1":
+        project = client.app.state.store.get_project(project_id)
+        resolved = client.app.state.project_runtime_resolver.resolve(project)
+        package = resolved.runtime.model_package
+        canonical = canonical_training_dataset(
+            task_id,
+            resolved.runtime.data,
+            client.app.state.task_registry.contract_for(task_id),
+            pipeline_version=package.manifest.feature_pipeline.version,
+        )
+        expected_ids = {
+            str(row["observation_id"])
+            for row in canonical["rows"]
+            if surface["target_keys"][0] in row["outputs"]
+            and surface["target_keys"][1] in row["outputs"]
+        }
+        actual_points = _output_space_evidence_points(
+            canonical["rows"],
+            x_target=surface["target_keys"][0],
+            y_target=surface["target_keys"][1],
+        )
+        assert {point["context_id"] for point in actual_points} == expected_ids
+        assert payload["total_contexts"] == len(expected_ids)
 
 
 def test_model_training_data_preserves_row_and_validation_group_semantics(client) -> None:
