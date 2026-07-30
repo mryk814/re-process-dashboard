@@ -7,8 +7,8 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $version = (Get-Content -LiteralPath (Join-Path $repositoryRoot "package.json") -Raw | ConvertFrom-Json).version
 $releaseRoot = Join-Path $repositoryRoot "release"
-$portableRoot = Join-Path $releaseRoot "Material-Decision-Workbench-folder"
-$portableZip = Join-Path $releaseRoot "Material-Decision-Workbench-folder-$version.zip"
+$portableRoot = Join-Path $releaseRoot "Evidence-Decision-Workbench-folder"
+$portableZip = Join-Path $releaseRoot "Evidence-Decision-Workbench-folder-$version.zip"
 
 Push-Location $repositoryRoot
 try {
@@ -25,8 +25,8 @@ try {
     $releasePrefix = $releaseRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     $staleArtifacts = @(
         (Join-Path $releaseRoot "win-unpacked")
-        (Join-Path $releaseRoot "Material-Decision-Workbench-Setup-$version.exe")
-        (Join-Path $releaseRoot "Material-Decision-Workbench-Setup-$version.exe.blockmap")
+        (Join-Path $releaseRoot "Evidence-Decision-Workbench-Setup-$version.exe")
+        (Join-Path $releaseRoot "Evidence-Decision-Workbench-Setup-$version.exe.blockmap")
         (Join-Path $releaseRoot "latest.yml")
         $portableRoot
         $portableZip
@@ -92,7 +92,7 @@ try {
             Remove-Item -LiteralPath $expandedDirectory -Recurse -Force
         }
     }
-    Write-Host "Installer: $(Join-Path $releaseRoot "Material-Decision-Workbench-Setup-$version.exe")"
+    Write-Host "Installer: $(Join-Path $releaseRoot "Evidence-Decision-Workbench-Setup-$version.exe")"
     Write-Host "Folder ZIP: $portableZip"
 } finally {
     Pop-Location

@@ -14,6 +14,37 @@ from material_workbench.task_composition.catalog import registered_task_modules
 ROOT = Path(__file__).parents[2]
 
 
+def test_user_facing_product_name_changes_without_moving_stable_identity() -> None:
+    builder_config = (
+        ROOT / "packaging" / "electron-builder.yml"
+    ).read_text(encoding="utf-8")
+    desktop_launcher = (
+        ROOT / "apps" / "desktop" / "src" / "main.ts"
+    ).read_text(encoding="utf-8")
+    packaged_smoke = (
+        ROOT / "scripts" / "smoke-packaged.mjs"
+    ).read_text(encoding="utf-8")
+    portable_readme = (
+        ROOT / "packaging" / "PORTABLE-README.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "appId: jp.local.material-decision-workbench" in builder_config
+    assert "productName: Evidence Decision Workbench" in builder_config
+    assert "executableName: Evidence Decision Workbench" in builder_config
+    assert (
+        "artifactName: Evidence-Decision-Workbench-Setup-${version}.${ext}"
+        in builder_config
+    )
+    assert '"Evidence Decision Workbench.exe"' in packaged_smoke
+    assert "Evidence Decision Workbench - フォルダ版" in portable_readme
+    assert (
+        'join(dirname(app.getPath("appData")), "Local"), '
+        '"Material Decision Workbench")'
+        in desktop_launcher
+    )
+    assert 'extensions: ["mdwb"]' in desktop_launcher
+
+
 def test_windows_bundle_declares_active_model_configuration_and_packages() -> None:
     active_packages = json.loads((ROOT / "models" / "active-packages.json").read_text(encoding="utf-8"))
     available_packages = json.loads((ROOT / "models" / "available-packages.json").read_text(encoding="utf-8"))
@@ -265,6 +296,22 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     ) < packaged_smoke.index(
         '"heading",\n    { name: "ワークスペース", exact: true }'
     )
+
+
+def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> None:
+    delivery_smoke = (
+        ROOT / "scripts" / "smoke-windows-delivery.ps1"
+    ).read_text(encoding="utf-8")
+    upgrade_smoke = (
+        ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
+    ).read_text(encoding="utf-8")
+
+    assert "local-app-data/Material Decision Workbench/workbench.db" in delivery_smoke
+    assert "$databaseBeforeUpgrade" in delivery_smoke
+    assert "$databaseAfterUpgrade" in delivery_smoke
+    assert "smoke-packaged-upgrade.mjs" in delivery_smoke
+    assert "Evidence Decision Workbench.exe" in upgrade_smoke
+    assert "packaged-smoke-portable-before-backup" in upgrade_smoke
 
 
 def test_desktop_startup_recovery_distinguishes_workspace_and_runtime_failures() -> None:

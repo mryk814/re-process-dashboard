@@ -4,8 +4,8 @@
 
 同じ `win-unpacked` ステージングから、次の2つを生成する。
 
-- `Material-Decision-Workbench-Setup-<version>.exe`: 管理者権限を要求しないper-user installer
-- `Material-Decision-Workbench-folder-<version>.zip`: 内部確認・開発者共有向けの展開式フォルダ版
+- `Evidence-Decision-Workbench-Setup-<version>.exe`: 管理者権限を要求しないper-user installer
+- `Evidence-Decision-Workbench-folder-<version>.zip`: 内部確認・開発者共有向けの展開式フォルダ版
 
 どちらもPython、uv、repository checkoutを必要としない。FastAPI sidecar、使用するExcel、検証済みModel Packageを同梱する。コード署名、GitHub Releases、自動更新は現段階では行わず、信頼できる社内経路から手動配布する。
 
@@ -40,7 +40,10 @@ npm run acceptance:release -- -ReportPath docs/reports/main-acceptance-YYYY-MM-D
 
 ## 保存先と削除
 
-installer版は `%LOCALAPPDATA%\Material Decision Workbench` にDBとログを保存する。アンインストール時に利用データを自動削除しない。完全に消す場合は、アンインストール後にこのフォルダを利用者が明示的に削除する。
+installer版は、既存Workspaceとの互換のため、旧製品名を含む
+`%LOCALAPPDATA%\Material Decision Workbench` にDBとログを保存する。
+アンインストール時に利用データを自動削除しない。
+完全に消す場合は、アンインストール後にこのフォルダを利用者が明示的に削除する。
 
 フォルダ版は展開先の `user-data/` にDBとログを保存する。削除するときはアプリを終了し、展開したフォルダを丸ごと削除できる。`portable.marker` が保存先切替の印であり、削除・移動しない。
 

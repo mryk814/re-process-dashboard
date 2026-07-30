@@ -9,12 +9,12 @@ import { _electron as electron } from "playwright";
 
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-const appRoot = resolve(process.argv[2] ?? join(repositoryRoot, "release", "Material-Decision-Workbench-folder"));
+const appRoot = resolve(process.argv[2] ?? join(repositoryRoot, "release", "Evidence-Decision-Workbench-folder"));
 const mode = process.argv[3] ?? "portable";
 assert(["portable", "installed"].includes(mode));
 const smokeRoot = join(repositoryRoot, "release", "smoke");
 if (mode === "installed") process.env.LOCALAPPDATA = join(smokeRoot, "local-app-data");
-const executablePath = join(appRoot, "Material Decision Workbench.exe");
+const executablePath = join(appRoot, "Evidence Decision Workbench.exe");
 const artifacts = join(repositoryRoot, "artifacts");
 await mkdir(artifacts, { recursive: true });
 let database;
