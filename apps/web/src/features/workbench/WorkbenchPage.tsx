@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import {
   CandidateInspector,
@@ -82,7 +82,7 @@ export function WorkbenchEmptyState({
 }
 
 type WorkbenchProps = {
-  mode: "comparison" | "review";
+  mode: "comparison" | "review" | "explore";
   candidates: Candidate[];
   projectId: string;
   project: ApiProject | null;
@@ -144,6 +144,7 @@ type WorkbenchProps = {
   pendingPreviewCount: number;
   loadingRemainingPreviews: boolean;
   onLoadRemainingPreviews: () => void;
+  children?: ReactNode;
 };
 
 export function WorkbenchPage(props: WorkbenchProps) {
@@ -202,6 +203,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     pendingPreviewCount,
     loadingRemainingPreviews,
     onLoadRemainingPreviews,
+    children,
   } = props;
   const [activePrimarySurface, setActivePrimarySurface] =
     useState<WorkbenchSurfaceKind>("response_curve");
@@ -212,6 +214,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [comparisonHeight, setComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.comparisonHeight, 270), 180, 900));
   const [reviewComparisonHeight, setReviewComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.reviewComparisonHeight, 210), 180, 900));
+  const [exploreComparisonHeight, setExploreComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.exploreComparisonHeight, 210), 180, 900));
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
@@ -224,8 +227,16 @@ export function WorkbenchPage(props: WorkbenchProps) {
     ? collapsedInspectorWidth
     : clampLayoutValue(inspectorDragWidth ?? inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
-  const activeComparisonHeight = mode === "review" ? reviewComparisonHeight : comparisonHeight;
-  const setActiveComparisonHeight = mode === "review" ? setReviewComparisonHeight : setComparisonHeight;
+  const activeComparisonHeight = mode === "review"
+    ? reviewComparisonHeight
+    : mode === "explore"
+      ? exploreComparisonHeight
+      : comparisonHeight;
+  const setActiveComparisonHeight = mode === "review"
+    ? setReviewComparisonHeight
+    : mode === "explore"
+      ? setExploreComparisonHeight
+      : setComparisonHeight;
   const beforeActivitySurfaces = workbenchSurfacesInZone(application, "before_activity");
   const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
   const evidenceSurfaces = workbenchSurfacesInZone(application, "analysis_evidence");
@@ -257,6 +268,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.comparisonHeight, comparisonHeight), [comparisonHeight]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.reviewComparisonHeight, reviewComparisonHeight), [reviewComparisonHeight]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.exploreComparisonHeight, exploreComparisonHeight), [exploreComparisonHeight]);
   useEffect(() => {
     const updateWidths = () => {
       const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
@@ -470,7 +482,14 @@ export function WorkbenchPage(props: WorkbenchProps) {
         <div className="table-heading">
           <div className="table-title">
             <h2>
-              {mode === "comparison" ? "候補比較表" : "確認する候補"} <span>（セルを直接編集）</span>
+              {mode === "comparison"
+                ? "候補比較表"
+                : mode === "review"
+                  ? "確認する候補"
+                  : "探索の基準候補"}{" "}
+              <span>
+                {mode === "explore" ? "（選択中の候補から条件を動かす）" : "（セルを直接編集）"}
+              </span>
             </h2>
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
@@ -523,6 +542,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           pendingPreviewCount={previewAvailable ? pendingPreviewCount : 0}
           loadingRemainingPreviews={loadingRemainingPreviews}
           onLoadRemainingPreviews={onLoadRemainingPreviews}
+          context={mode === "explore" ? "explore" : "comparison"}
         />}
         {taskDefinition && <SplitResizer
           className="comparison-height-resizer"
@@ -534,8 +554,9 @@ export function WorkbenchPage(props: WorkbenchProps) {
           orientation="horizontal"
           onChange={setActiveComparisonHeight}
           onDrag={(startValue, deltaY) => startValue + deltaY}
-          onReset={() => setActiveComparisonHeight(mode === "review" ? 210 : 270)}
+          onReset={() => setActiveComparisonHeight(mode === "comparison" ? 270 : 210)}
         />}
+        {mode === "explore" && children}
         {mode === "review" && taskDefinition && <DecisionActivityPanel
           projectId={projectId}
           candidate={selected}

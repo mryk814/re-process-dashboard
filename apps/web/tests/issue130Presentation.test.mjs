@@ -15,7 +15,7 @@ test("screening separates selection criteria from project goals and maps counts 
   assert.match(screeningSource, /<dt>新規<\/dt>/);
   assert.match(screeningSource, /<dt>今回追加可能<\/dt>/);
   assert.match(screeningSource, /\{addableSelectedCount\}件を候補へ追加/);
-  assert.match(screeningStyles, /\.screening-base-candidate \{[\s\S]*?min-width: 0;/);
+  assert.match(screeningStyles, /\.screening-primary-settings > label \{[\s\S]*?min-width: 0;/);
 });
 
 test("screening renders support and selection as independent visual channels", () => {
