@@ -164,9 +164,7 @@ function Assert-NoNonSmokeInstallerState {
 if ($PreviousInstallerPath -and -not $AllowUserInstallerState) {
     throw "-PreviousInstallerPath updates the current user's HKCU installer registration and shortcuts. Re-run only in a disposable Windows user or VM with -AllowUserInstallerState."
 }
-if ($PreviousInstallerPath) {
-    Assert-NoNonSmokeInstallerState -OwnedRoot $installedRoot
-}
+Assert-NoNonSmokeInstallerState -OwnedRoot $installedRoot
 
 if (Test-Path -LiteralPath $smokeRoot) {
     Stop-PackagedProcessesUnder $smokeRoot
