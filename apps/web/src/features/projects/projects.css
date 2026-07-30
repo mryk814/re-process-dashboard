@@ -180,7 +180,7 @@
 .project-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .project-start-options label { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; border: 1px solid #d8e0ea; border-radius: 5px; padding: 11px; color: #20344b; }
 .project-start-options label span { grid-column: 2; color: #5f6f82; font-size: 11px; }
-.project-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.project-action-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
 .project-action-groups { display: grid; gap: 14px; }
 .project-action-groups > section { display: grid; gap: 7px; }
 .project-action-groups h4 { margin: 0; color: #40546b; font-size: 11px; }
@@ -302,7 +302,7 @@
   .project-list-item { width: 190px; }
   .project-list-create { width: auto; }
   .project-hub-content { padding: 16px; }
-  .project-action-grid, .project-start-options { grid-template-columns: 1fr; }
+  .project-start-options { grid-template-columns: 1fr; }
   .project-group-choice > div { grid-template-columns: 1fr; }
   .project-binding-flow, .project-reference-strip { grid-template-columns: 1fr 1fr; }
   .project-binding-flow .project-dataset-choice { grid-column: 1 / -1; }
@@ -321,6 +321,7 @@
   .chain-evaluation-kinds { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
+  .project-action-grid { grid-template-columns: 1fr; }
   .target-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
