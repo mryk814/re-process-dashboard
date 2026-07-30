@@ -2,7 +2,7 @@
 chapter_id: "security-trust-boundaries"
 level: intermediate
 estimated_minutes: 170
-verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "security-package"
@@ -51,8 +51,8 @@ code_references:
     symbols:
       - "test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection"
       - "test_workspace_ipc_trusts_the_packaged_document_path_not_its_navigation_query"
-  - path: "backend/src/material_workbench/application/workspace_bundle.py"
-    id: "security-workspace"
+  - path: "backend/src/material_workbench/application/workspace_bundle_archive.py"
+    id: "security-workspace-archive"
     role: "application"
     symbols:
       - "_validate_archive_name"
@@ -60,7 +60,15 @@ code_references:
       - "_stream_extract"
       - "_validate_resource_manifest"
       - "_extract_verified_bundle"
+  - path: "backend/src/material_workbench/application/workspace_bundle_restore_plan.py"
+    id: "security-workspace-plan"
+    role: "application"
+    symbols:
       - "prepare_workspace_restore"
+  - path: "backend/src/material_workbench/application/workspace_bundle_service.py"
+    id: "security-workspace-service"
+    role: "application"
+    symbols:
       - "commit_workspace_restore"
       - "rollback_workspace_restore"
   - path: "backend/tests/test_workspace_bundle.py"
@@ -408,9 +416,9 @@ threatには次があります。
 
 ## extraction前にinventoryを検査する
 
-{{< code-ref security-workspace symbol="_validate_archive_name" >}}は、絶対経路、`..`、backslash、drive prefix、colon、Windows reserved nameを拒否します。
+{{< code-ref security-workspace-archive symbol="_validate_archive_name" >}}は、絶対経路、`..`、backslash、drive prefix、colon、Windows reserved nameを拒否します。
 
-{{< code-ref security-workspace symbol="_inspect_bundle" >}}は、entry数、重複、展開総size、個別size、symlink、compression ratio、マニフェスト sizeを検査します。
+{{< code-ref security-workspace-archive symbol="_inspect_bundle" >}}は、entry数、重複、展開総size、個別size、symlink、compression ratio、マニフェスト sizeを検査します。
 
 この段階ではdestinationへ展開しません。
 
@@ -424,7 +432,7 @@ libraryの`extractall()`へ安全性を委ねず、application 契約でinventor
 
 ## ストリーム extractionで宣言値を再確認する
 
-{{< code-ref security-workspace symbol="_stream_extract" >}}は、マニフェスト記録だけを`xb`で新規ファイルへストリーム展開します。
+{{< code-ref security-workspace-archive symbol="_stream_extract" >}}は、マニフェスト記録だけを`xb`で新規ファイルへストリーム展開します。
 
 書込中に宣言sizeを超えたら停止します。
 
@@ -432,21 +440,21 @@ libraryの`extractall()`へ安全性を委ねず、application 契約でinventor
 
 マニフェストにないentryや、entryのないマニフェスト記録も拒否します。
 
-{{< code-ref security-workspace symbol="_validate_resource_manifest" >}}は、各リソースのroot、ファイル ownership、primary ファイル、inventory ダイジェストを検査します。
+{{< code-ref security-workspace-archive symbol="_validate_resource_manifest" >}}は、各リソースのroot、ファイル ownership、primary ファイル、inventory ダイジェストを検査します。
 
 一つのファイルが「どのリソースにも属さない」状態を許しません。
 
 ## prepare、コミット、ロールバックを分ける
 
-{{< code-ref security-workspace symbol="prepare_workspace_restore" >}}は、bundleをステージングへ展開し、スキーママイグレーション、テーブル evidence、固定参照を検証します。
+{{< code-ref security-workspace-plan symbol="prepare_workspace_restore" >}}は、bundleをステージングへ展開し、スキーママイグレーション、テーブル evidence、固定参照を検証します。
 
 prepare中は現ワークスペースを置換しません。
 
-{{< code-ref security-workspace symbol="commit_workspace_restore" >}}は、準備済みデータベースとリソースを再検証し、切替を行います。
+{{< code-ref security-workspace-service symbol="commit_workspace_restore" >}}は、準備済みデータベースとリソースを再検証し、切替を行います。
 
 失敗時は現データベースとデータ libraryを保持するか、ロールバック可能な状態を残します。
 
-{{< code-ref security-workspace symbol="rollback_workspace_restore" >}}は、コミット前のデータベースへ戻します。
+{{< code-ref security-workspace-service symbol="rollback_workspace_restore" >}}は、コミット前のデータベースへ戻します。
 
 {{< code-ref security-workspace-test symbol="test_tampered_bundle_is_rejected_without_changing_current_workspace" >}}は、改変bundleで現ワークスペースダイジェストが変わらないことを確認します。
 

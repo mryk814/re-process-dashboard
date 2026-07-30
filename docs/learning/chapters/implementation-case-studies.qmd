@@ -2,7 +2,7 @@
 chapter_id: "implementation-case-studies"
 level: advanced
 estimated_minutes: 150
-verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "case-study-package-loader"

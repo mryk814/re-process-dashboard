@@ -1,8 +1,8 @@
 ---
 chapter_id: "source-to-training-evidence"
 level: intermediate
-estimated_minutes: 120
-verified_commit: "446158357815fb416e0c2f30e1b91ac2200092dd"
+estimated_minutes: 135
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "docs/contracts/source-data-lifecycle.md"
     role: "docs"
@@ -20,6 +20,18 @@ code_references:
     symbols:
       - "LocalFileSourceIngress"
       - "load_source_object"
+  - path: "backend/src/material_workbench/data/profile_workbench.py"
+    id: "source-evidence-profile-workbench"
+    role: "application"
+    symbols:
+      - "create_source_binding_draft"
+      - "save_source_binding_profile"
+      - "validate_workbook_profile"
+  - path: "backend/src/material_workbench/application/dataset_registration.py"
+    id: "source-evidence-dataset-registration"
+    role: "application"
+    symbols:
+      - "register_managed_dataset"
   - path: "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
     role: "persistence"
   - path: "backend/src/material_workbench/persistence/row_payload_store.py"
@@ -540,6 +552,19 @@ Pydantic モデルのself-validatorは、ペイロード内部の件数やダイ
 意味が変わったRecipeには新しいバージョンが必要です。
 
 ## APIと画面は停止点を見せる
+
+### 同じProfileを探索と学習へ渡す
+
+列名やシート名が違うだけで既存Taskの意味を使える場合、元Excelを変更したり新しいparserを書いたりする必要はありません。
+{{< code-ref source-evidence-profile-workbench symbol=create_source_binding_draft >}}は、既存Profileが要求する項目と実ファイルのsheet／columnを照合し、候補をdraftとして返します。
+候補は自動確定されず、利用者が確認したmappingだけを{{< code-ref source-evidence-profile-workbench symbol=save_source_binding_profile >}}がリポジトリ外の個人Profileへ保存します。
+
+{{< code-ref source-evidence-profile-workbench symbol=validate_workbook_profile >}}は、そのProfileでcanonical previewを構築できるかを検査します。
+{{< code-ref source-evidence-dataset-registration symbol=register_managed_dataset >}}は検査済みsourceを現在のWorkspaceが管理するData Libraryへコピーし、source SHA-256とProfile digestをDataset Revisionへ固定します。
+
+探索と学習で同じProfileを渡す理由は、列の解釈を二度決めないためです。
+新しいDatasetを登録しても、既存Project、Package、保存済みSnapshotは暗黙更新しません。
+新Datasetで予測する場合は、同じsource／Profileから新Packageを作り、そのDataset RevisionとPackageを明示的に選びます。
 
 FastAPIは五つの資産を一括作成するendpointを持ちません。
 Connector登録、取得、Recipe登録、Curation、承認、学習用スナップショット作成が別々のPOSTです。

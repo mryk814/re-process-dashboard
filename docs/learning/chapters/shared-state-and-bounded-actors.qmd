@@ -2,7 +2,7 @@
 chapter_id: "shared-state-and-bounded-actors"
 level: advanced
 estimated_minutes: 100
-verified_commit: "ec8b7caddd4a8852a4b27fbf5a70a8d5a05bba2c"
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "backend/src/material_workbench/shared_lab/contracts.py"
     id: "shared-actor-contracts"

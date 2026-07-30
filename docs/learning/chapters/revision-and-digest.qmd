@@ -2,7 +2,7 @@
 chapter_id: "revision-and-digest"
 level: intermediate
 estimated_minutes: 150
-verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "backend/src/material_workbench/contracts/schemas.py"
     role: "contract"

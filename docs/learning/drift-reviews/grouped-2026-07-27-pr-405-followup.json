@@ -21,7 +21,7 @@
         "apps/web/src/generated/api-types.ts",
         "apps/web/src/generated/openapi.json",
         "apps/web/tests/trainingSnapshotPresentation.test.mjs",
-        "backend/scripts/acceptance/reference_data_loop_acceptance.py",
+        "backend/scripts/reference_data_loop_acceptance.py",
         "backend/src/material_workbench/api/data_lifecycle.py",
         "backend/src/material_workbench/application/data_lifecycle.py",
         "backend/src/material_workbench/application/training_snapshot_adapter.py",
@@ -82,8 +82,6 @@
         "backend/src/material_workbench/domain/data_lifecycle.py",
         "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
         "backend/tests/test_data_lifecycle.py",
-        "docs/model-package-lifecycle.md",
-        "docs/source-data-lifecycle.md",
         "e2e/source-lifecycle.spec.ts"
       ]
     }

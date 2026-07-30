@@ -2,7 +2,7 @@
 chapter_id: "separate-archive-from-purge"
 level: intermediate
 estimated_minutes: 105
-verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
+verified_commit: "8c00109f91363d88661df71539732c71bb86ea31"
 code_references:
   - path: "docs/decisions/sqlite-project-lifecycle-policy.md"
     role: "docs"
@@ -15,12 +15,16 @@ code_references:
     role: "contract"
     symbols:
       - "ProjectGroupMoveInput"
-  - path: "backend/src/material_workbench/persistence/store.py"
+  - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
     id: "project-history-store"
     role: "persistence"
     symbols:
-      - "Store.project_history"
-      - "Store.move_project_to_group"
+      - "WorkbenchUnitOfWork.project_history"
+  - path: "backend/src/material_workbench/persistence/project_repository.py"
+    id: "project-group-store"
+    role: "persistence"
+    symbols:
+      - "ProjectRepository.move_project_to_group"
   - path: "backend/src/material_workbench/persistence/project_lifecycle_migration.py"
     role: "persistence"
   - path: "apps/web/src/features/projects/ProjectEvidenceHistory.tsx"
@@ -116,7 +120,7 @@ SQL transaction、foreign キー、JSON ペイロードの基本を読めるこ�
 
 {{< code-ref project-group-move-contract symbol=ProjectGroupMoveInput >}}は、`project_series_id: null`だけを「グループなしへ移動する」という明示操作に使います。
 空文字はselectの未選択と区別できないため422で拒否します。
-{{< code-ref project-history-store symbol="Store.move_project_to_group" >}}は`expected_project_series_id`をcompare-and-swap条件として使うため、解除の直前に別操作が所属を変えた場合も409で止まります。
+{{< code-ref project-group-store symbol="ProjectRepository.move_project_to_group" >}}は`expected_project_series_id`をcompare-and-swap条件として使うため、解除の直前に別操作が所属を変えた場合も409で止まります。
 
 最後のプロジェクトが抜けて空になったSeriesはアーカイブしますが、プロジェクト本体は有効のままです。
 残留プロジェクトがあればSeriesを閉じません。
@@ -461,7 +465,7 @@ HTTP エラー code、アーカイブ状態、参照元リビジョン、transac
 ### retentionとdiscoverabilityを分ける
 
 行がDBに残ることと、通常UIから見つけられることは別です。
-現行実装では、{{< code-ref project-history-store symbol="Store.project_history" >}}はチェーンスナップショット、実測conditioned バリアント、分布runを候補ごとに読み、プロジェクト、候補リビジョン、チェーンリビジョン、比較元スナップショットの同一性を照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift レビューに残し、本文では現在の判断境界を先に説明します。]
+現行実装では、{{< code-ref project-history-store symbol="WorkbenchUnitOfWork.project_history" >}}はチェーンスナップショット、実測conditioned バリアント、分布runを候補ごとに読み、プロジェクト、候補リビジョン、チェーンリビジョン、比較元スナップショットの同一性を照合します。^[この発見経路はPR #322で加わりました。変更履歴は教材drift レビューに残し、本文では現在の判断境界を先に説明します。]
 {{< code-ref project-history-ui symbol=ProjectEvidenceHistoryList >}}は、照合を通った三種類の証拠を「候補と判断履歴」へ種類別に新しい順で表示します。
 
 この経路により、有効または復元済みのチェーンプロジェクトでは、保持した行へ通常UIから戻れます。
