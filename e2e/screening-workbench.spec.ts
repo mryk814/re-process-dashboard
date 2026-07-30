@@ -119,6 +119,19 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await runScreening(page);
   expect((await runRequest).postDataJSON().proposal.proposal_count).toBe(2);
   expect((await runResponse).status()).toBe(201);
+  const countStages = page.locator(".screening-count-stage");
+  await expect(countStages).toHaveCount(5);
+  await expect(countStages.nth(0)).toHaveAttribute("title", "sampling planで生成した条件数");
+  await expect(countStages.nth(1)).toHaveAttribute("title", "Design SpaceとTaskの制約を通過した条件数");
+  await expect(countStages.nth(2)).toHaveAttribute("title", "予測modelで評価した条件数");
+  await expect(countStages.nth(3)).toHaveAttribute("title", "chartとtableへ表示した条件数");
+  await expect(countStages.nth(4)).toHaveAttribute("title", "候補確認へ提案した条件数");
+  await expect(countStages.nth(4)).toHaveAttribute(
+    "aria-describedby",
+    "screening-count-proposed-description",
+  );
+  await countStages.nth(4).focus();
+  await expect(countStages.nth(4)).toBeFocused();
   await expect(page.getByRole("heading", { name: "提案候補" })).toBeVisible();
   await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
   await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);

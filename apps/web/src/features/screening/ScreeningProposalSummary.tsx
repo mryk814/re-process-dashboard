@@ -160,25 +160,55 @@ export function ScreeningProposalSummary({
   const supportPolicyLabel = supportPolicyLabels[strategy?.support_policy ?? ""]
     ?? "支持範囲を確認";
   const proposalSelection = result.proposal_selection;
-  const countSummary = diagnostics
+  const countStages = diagnostics
     ? [
-        `生成 ${diagnostics.generated_count}件`,
-        `制約内 ${diagnostics.valid_count}件`,
-        `評価 ${diagnostics.evaluated_count}件`,
-        diagnostics.displayed_count == null
-          ? "表示 未記録"
-          : `表示 ${diagnostics.displayed_count}件`,
+        {
+          id: "generated",
+          label: "生成",
+          value: `${diagnostics.generated_count}件`,
+          description: "sampling planで生成した条件数",
+        },
+        {
+          id: "valid",
+          label: "制約内",
+          value: `${diagnostics.valid_count}件`,
+          description: "Design SpaceとTaskの制約を通過した条件数",
+        },
+        {
+          id: "evaluated",
+          label: "評価",
+          value: `${diagnostics.evaluated_count}件`,
+          description: "予測modelで評価した条件数",
+        },
+        {
+          id: "displayed",
+          label: "表示",
+          value: diagnostics.displayed_count == null
+            ? "未記録"
+            : `${diagnostics.displayed_count}件`,
+          description: "chartとtableへ表示した条件数",
+        },
         ...(isExperimentBatch
-          ? [`実験バッチ ${result.batch_proposal?.selected.length ?? 0}件`]
+          ? [{
+              id: "batch",
+              label: "実験バッチ",
+              value: `${result.batch_proposal?.selected.length ?? 0}件`,
+              description: "実験バッチとして選択した条件数",
+            }]
           : isDesignSpaceMap
             ? []
             : [
-                diagnostics.proposed_count == null
-                  ? "提案 未記録"
-                  : `提案 ${diagnostics.proposed_count}件`,
+                {
+                  id: "proposed",
+                  label: "提案",
+                  value: diagnostics.proposed_count == null
+                    ? "未記録"
+                    : `${diagnostics.proposed_count}件`,
+                  description: "候補確認へ提案した条件数",
+                },
               ]),
-      ].join(" → ")
-    : null;
+      ]
+    : [];
   const secondaryConditionCount = objective?.terms.filter(
     (term) => term.role === "hard_outcome_constraint" || term.role === "soft_preference",
   ).length ?? 0;
@@ -193,8 +223,27 @@ export function ScreeningProposalSummary({
       <div className="screening-proposal-headline">
         <b>{proposalIntent}（{supportPolicyLabel}）</b>
         {diagnostics
-          ? <span>
-              {countSummary}
+          ? <span className="screening-count-stages" aria-label="探索件数の内訳">
+              {countStages.map((stage, index) => {
+                const descriptionId = `screening-count-${stage.id}-description`;
+                return (
+                <span key={stage.label}>
+                  {index > 0 && <span className="screening-count-separator" aria-hidden="true">→</span>}
+                  <span
+                    className="screening-count-stage"
+                    title={stage.description}
+                    aria-label={`${stage.label}: ${stage.value}`}
+                    aria-describedby={descriptionId}
+                    tabIndex={0}
+                  >
+                    <b>{stage.label}</b> {stage.value}
+                    <span id={descriptionId} className="screening-count-description">
+                      {stage.description}
+                    </span>
+                  </span>
+                </span>
+                );
+              })}
               {diagnostics.rejected_count > 0 && `（除外 ${diagnostics.rejected_count}件）`}
             </span>
           : <span>除外 {legacyRejectionCount}（旧記録・生成総数なし）</span>}

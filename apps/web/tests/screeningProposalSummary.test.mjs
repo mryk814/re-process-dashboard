@@ -78,7 +78,19 @@ test("proposal summary leads with a Japanese decision summary while calculation 
 
   const headline = html.match(/<div class="screening-proposal-headline">([\s\S]*?)<\/div>/)?.[1] ?? "";
   assert.match(headline, /引張強さの下限目標を満たす条件を優先（近い学習実績がある条件を優先）/);
-  assert.match(headline, /生成 192件 → 制約内 180件 → 評価 48件 → 表示 48件 → 提案 5件（除外 12件）/);
+  assert.match(headline, /<b>生成<\/b> 192件/);
+  assert.match(headline, /<b>制約内<\/b> 180件/);
+  assert.match(headline, /<b>評価<\/b> 48件/);
+  assert.match(headline, /<b>表示<\/b> 48件/);
+  assert.match(headline, /<b>提案<\/b> 5件/);
+  assert.equal((headline.match(/class="screening-count-separator"/g) ?? []).length, 4);
+  assert.match(headline, /title="sampling planで生成した条件数"/);
+  assert.match(headline, /aria-label="生成: 192件" aria-describedby="screening-count-generated-description" tabindex="0"/);
+  assert.match(headline, /title="Design SpaceとTaskの制約を通過した条件数"/);
+  assert.match(headline, /title="予測modelで評価した条件数"/);
+  assert.match(headline, /title="chartとtableへ表示した条件数"/);
+  assert.match(headline, /title="候補確認へ提案した条件数"/);
+  assert.match(headline, /id="screening-count-proposed-description" class="screening-count-description">候補確認へ提案した条件数/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
   assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
   assert.match(html, /<dt>順位付け<\/dt>/);
@@ -135,9 +147,11 @@ test("older runs leave display and proposal counts explicitly unrecorded", () =>
     batchSaveCount: 0,
   });
 
-  assert.match(html, /評価 48件 → 表示 未記録 → 提案 未記録/);
+  assert.match(html, /aria-label="表示: 未記録" aria-describedby="screening-count-displayed-description"/);
+  assert.match(html, /aria-label="提案: 未記録" aria-describedby="screening-count-proposed-description"/);
+  assert.equal((html.match(/class="screening-count-stage"/g) ?? []).length, 5);
   assert.match(html, /<dt>提案の選び方<\/dt><dd>旧記録・未記録<\/dd>/);
-  assert.doesNotMatch(html, /表示 48件|提案 5件/);
+  assert.doesNotMatch(html, /aria-label="表示: 48件|aria-label="提案: 5件/);
 });
 
 test("legacy runs do not present their early-stop rejection count as a rate", () => {
