@@ -1,6 +1,6 @@
 # AGENTS.md
 
-材料組成・工程条件の候補を比較し、予測特性・不確かさ・類似過去実験を確認するローカルアプリ（Material Decision Workbench）。
+入力条件の候補を比較し、予測特性・不確かさ・類似過去実績を確認するローカルアプリ（Evidence Decision Workbench／判断根拠ワークベンチ）。
 
 - `apps/web` — React + TypeScript + Vite（UI）
 - `apps/desktop` — Electron shell（Python APIを同時起動）
