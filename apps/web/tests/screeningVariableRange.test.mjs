@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { safeExplorationRange } from "../src/features/screening/screeningVariableRange.ts";
+import { screeningVariableError } from "../src/features/screening/screeningVariableValidation.ts";
 
 test("the default exploration range is the overlap of practical and training range", () => {
   assert.deepEqual(
@@ -38,6 +39,37 @@ test("a degenerate range never becomes the default", () => {
   assert.equal(safeExplorationRange({ min: 5, max: 5 }, { min: 3, max: 3 }), undefined);
 });
 
+test("variable validation preserves Task numeric and categorical constraints", () => {
+  assert.equal(
+    screeningVariableError(
+      { mode: "range", first: "-1", second: "5" },
+      { categorical: false, choices: [], allowedRange: { min: 0, max: 10 } },
+    ),
+    "許容範囲 0–10 内で入力してください。",
+  );
+  assert.equal(
+    screeningVariableError(
+      { mode: "list", first: "GI,XX", second: "" },
+      { categorical: true, choices: ["GI", "GA"] },
+    ),
+    "選択肢にない値「XX」が含まれています。",
+  );
+  assert.equal(
+    screeningVariableError(
+      { mode: "range", first: "5", second: "1" },
+      { categorical: false, choices: [], allowedRange: { min: 0, max: 10 } },
+    ),
+    "最小値は最大値より小さくしてください。",
+  );
+  assert.equal(
+    screeningVariableError(
+      { mode: "fixed", first: "1,2", second: "" },
+      { categorical: false, choices: [] },
+    ),
+    "数値を入力してください。",
+  );
+});
+
 test("the screening page builds its variable defaults from the safe range", async () => {
   const source = await readFile(new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url), "utf8");
   assert.match(source, /defaultRange: safeExplorationRange\(field\.default_range, field\.training_range\)/);
@@ -49,6 +81,21 @@ test("screening variable rows expose their field, mode, and values by name", asy
   assert.match(source, /aria-label=\{`\$\{option\?\.label \?\? row\.field\}の指定方法`\}/);
   assert.match(source, /row\.mode === "fixed"[\s\S]*?"値"[\s\S]*?row\.mode === "range"[\s\S]*?"最小"[\s\S]*?"列挙値"/);
   assert.match(source, /aria-label=\{`\$\{option\?\.label \?\? row\.field\}の最大`\}/);
+  assert.match(source, /aria-label=\{`\$\{option\?\.label \?\? row\.field\}を削除`\}/);
+  assert.match(source, /pendingVariableFocusIndex\.current = variables\.length/);
+  assert.match(source, /pendingVariableFocusIndex\.current = Math\.min\(index, variables\.length - 2\)/);
+  assert.match(source, /aria-describedby=\{variableErrors\[index\] \? errorId : undefined\}/);
+  assert.match(source, /role="alert">\{variableErrors\[index\]\}/);
+  assert.match(source, /<th>学習範囲<\/th>/);
+  assert.match(source, /学習範囲外を含む/);
+});
+
+test("the compact variable table wins over shared quality-table spacing", async () => {
+  const styles = await readFile(new URL("../src/features/screening/screening.css", import.meta.url), "utf8");
+  assert.match(styles, /\.screening-variable-editor \.variable-table th,[\s\S]*?padding: 3px 5px;/);
+  assert.match(styles, /\.screening-variable-editor \.variable-table thead th \{[\s\S]*?position: sticky;/);
+  assert.match(styles, /\.screening-variable-editor > \.screening-add-variable \{[\s\S]*?width: auto;/);
+  assert.match(styles, /\.screening-variable-table-scroll \{[\s\S]*?max-height: 320px;[\s\S]*?overflow: auto;/);
 });
 
 test("a run without a primary goal asks before ranking anything", async () => {

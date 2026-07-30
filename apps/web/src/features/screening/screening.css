@@ -212,19 +212,22 @@
 }
 
 .screening-variable-table-scroll {
+  position: relative;
+  max-height: 320px;
   max-width: 100%;
-  overflow-x: auto;
+  overflow: auto;
+  overscroll-behavior-inline: contain;
 }
 
 .screening-variable-table-scroll .variable-table {
-  min-width: 720px;
+  min-width: 690px;
 }
 
 .screening-variable-heading {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 8px 11px;
+  padding: 6px 9px;
   border-bottom: 1px solid #d8e1eb;
   background: #f3f7fc;
 }
@@ -239,9 +242,11 @@
   font-size: 11px;
 }
 
-.screening-variable-editor > .outline-button {
-  width: calc(100% - 16px);
-  margin: 8px;
+.screening-variable-editor > .screening-add-variable {
+  width: auto;
+  min-height: 28px;
+  margin: 4px 7px;
+  padding: 3px 9px;
 }
 
 .screening-target input,
@@ -337,14 +342,67 @@
 
 .screening-run-footer .primary-button { min-width: 160px; }
 
-.variable-table th,
-.variable-table td {
-  padding: 7px;
+.screening-variable-editor .variable-table th,
+.screening-variable-editor .variable-table td {
+  height: 38px;
+  padding: 3px 5px;
+  vertical-align: middle;
+}
+
+.screening-variable-editor .variable-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 28px;
+  color: #4f6075;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.screening-variable-editor .variable-table th:first-child,
+.screening-variable-editor .variable-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+}
+
+.screening-variable-editor .variable-table input,
+.screening-variable-editor .variable-table select {
+  height: 31px;
+  padding: 3px 6px;
+}
+
+.screening-variable-editor .variable-table th:first-child {
+  z-index: 3;
+  background: #f5f7fa;
+}
+
+.screening-variable-editor .variable-table tr.invalid td {
+  border-bottom: 0;
+  background: #fffaf2;
+}
+
+.screening-variable-editor .variable-table tr.invalid td:first-child {
+  background: #fffaf2;
+}
+
+.screening-variable-editor .variable-table input[aria-invalid="true"],
+.screening-variable-editor .variable-table select[aria-invalid="true"] {
+  border-color: #bb6800;
+}
+
+.screening-variable-editor .screening-variable-error-row td {
+  height: auto;
+  border-bottom-color: #e6cda8;
+  padding: 1px 8px 5px;
+  background: #fffaf2;
+  color: #8b530b;
+  font-size: 10px;
 }
 
 .screening-variable-range {
   display: block;
-  margin-top: 4px;
   color: #47736c;
   font-size: 10px;
   white-space: nowrap;
@@ -354,12 +412,28 @@
 .screening-variable-range b { font-weight: 700; }
 
 .variable-table td:first-child {
-  min-width: 190px;
+  min-width: 180px;
+}
+
+.variable-table th:nth-child(2),
+.variable-table td:nth-child(2) {
+  min-width: 88px;
 }
 
 .variable-table td:nth-child(3),
 .variable-table td:nth-child(4) {
-  min-width: 130px;
+  min-width: 115px;
+}
+
+.variable-table td:nth-child(5) {
+  min-width: 125px;
+}
+
+.variable-table th:last-child,
+.variable-table td:last-child {
+  width: 42px;
+  min-width: 42px;
+  text-align: center;
 }
 
 .saved-runs {

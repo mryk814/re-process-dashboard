@@ -25,10 +25,74 @@ async function createProject(request: APIRequestContext, taskId: string) {
   );
 }
 
+test("screening variable editor stays compact, validates rows, and contains narrow-width scrolling", async ({ page, request }) => {
+  const project = await createProject(request, "annealed-properties-v1");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/?view=explore&project=${project.id}`);
+
+  const editor = page.locator(".screening-variable-editor");
+  const rows = editor.locator("tbody > tr:not(.screening-variable-error-row)");
+  const addButton = editor.getByRole("button", { name: "変数を追加" });
+  await expect(rows).toHaveCount(2);
+  expect((await editor.boundingBox())!.height).toBeLessThan(190);
+
+  for (let expected = 3; expected <= 10; expected += 1) {
+    await addButton.click();
+    await expect(rows).toHaveCount(expected);
+    await expect(rows.nth(expected - 1).getByRole("combobox").first()).toBeFocused();
+  }
+  expect((await editor.boundingBox())!.height).toBeLessThan(540);
+  const tableScroll = editor.locator(".screening-variable-table-scroll");
+  await tableScroll.evaluate((element) => { element.scrollTop = 160; });
+  const stickyOffset = await page.evaluate(() => {
+    const scroller = document.querySelector(".screening-variable-table-scroll")!.getBoundingClientRect();
+    const heading = document.querySelector(".variable-table thead th")!.getBoundingClientRect();
+    return Math.abs(scroller.top - heading.top);
+  });
+  expect(stickyOffset).toBeLessThanOrEqual(2);
+
+  const lastDelete = rows.last().getByRole("button", { name: /を削除/ });
+  await lastDelete.focus();
+  await lastDelete.press("Enter");
+  await expect(rows).toHaveCount(9);
+  await expect(rows.nth(8).getByRole("combobox").first()).toBeFocused();
+  await addButton.click();
+  await expect(rows).toHaveCount(10);
+
+  await rows.first().getByRole("combobox").nth(1).selectOption("range");
+  const firstMinimum = rows.first().getByRole("textbox").first();
+  const firstMaximum = rows.first().getByRole("textbox").nth(1);
+  await firstMinimum.fill("10");
+  await firstMaximum.fill("5");
+  await expect(page.getByRole("alert").filter({ hasText: "最小値は最大値より小さくしてください。" })).toBeVisible();
+  await expect(page.locator(".screening-run-footer .primary-button")).toBeDisabled();
+  await firstMinimum.fill("0.05");
+  await firstMaximum.fill("0.1");
+  await expect(page.getByRole("alert").filter({ hasText: "最小値は最大値より小さくしてください。" })).toHaveCount(0);
+  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expect((await editor.boundingBox())!.height).toBeLessThan(540);
+
+  // A 900px window at 150% page zoom exposes a 600px CSS layout viewport.
+  await page.setViewportSize({ width: 600, height: 600 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await expect(addButton).toBeVisible();
+
+  await page.setViewportSize({ width: 375, height: 900 });
+  await expect(page.getByRole("button", { name: "選択候補の入力を開く" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expect((await page.locator(".central-workspace").boundingBox())!.y).toBeLessThan(260);
+  expect(await editor.locator(".screening-variable-table-scroll").evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+});
+
 test("annealed screening keeps draft separate and batches multiple points into stock", async ({ page, request }) => {
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
   await expect(page.getByRole("heading", { name: "範囲探索" })).toBeVisible();
+  await expect(page.getByText("まず、いま知りたいことを選びます。")).toHaveCount(0);
+  await expect(page.locator(".screening-run-footer").getByRole("button", { name: "64点を評価" })).toBeVisible();
   const modes = page.locator(".screening-mode-options");
   await expect(modes.getByRole("button", { name: /領域を見る/ })).toBeVisible();
   await expect(modes.getByRole("button", { name: /領域を見る/ })).toHaveAttribute("aria-pressed", "true");
@@ -66,9 +130,16 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(reproducibility).toContainText("Model Package");
   await expect(reproducibility).toContainText("Design Space");
   await expect(page.locator(".screening-hidden-variables")).toContainText("Mn");
-  await expect(page.getByLabel("X軸")).toBeVisible();
-  await expect(page.getByLabel("Y軸")).toBeVisible();
+  await expect(page.getByLabel("横軸")).toBeVisible();
+  await expect(page.getByLabel("縦軸")).toBeVisible();
   await expect(page.locator(".screening-display-controls").getByLabel("色")).toBeVisible();
+  await expect(page.getByRole("button", { name: "サンプルを引き直す" })).toBeVisible();
+  const compactMapHeight = (await page.locator(".screen-map").boundingBox())!.height;
+  expect(compactMapHeight).toBeLessThanOrEqual(351);
+  await page.getByRole("button", { name: "図を拡大" }).click();
+  await expect(page.locator(".screen-map")).toHaveClass(/expanded/);
+  expect((await page.locator(".screen-map").boundingBox())!.height).toBeGreaterThan(compactMapHeight);
+  await page.getByRole("button", { name: "図を元の大きさに戻す" }).click();
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("引張強さ");
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("降伏強さ");
   await rows.nth(2).locator("input").nth(0).fill("0.9");
@@ -194,7 +265,7 @@ test("hot rolling screening accepts task-defined process fields", async ({ page,
   expect(body.points[0].inputs["process.soaking_temperature_c"]).toBeGreaterThanOrEqual(1170);
   expect(body.points[0].inputs["process.finish_temperature_c"]).toBeGreaterThanOrEqual(850);
   expect(Object.keys(body.points[0].predictions)).toEqual(["TS"]);
-  await expect(page.getByLabel("X軸")).toHaveValue("process.soaking_temperature_c");
+  await expect(page.getByLabel("横軸")).toHaveValue("process.soaking_temperature_c");
 });
 
 test("a purpose-less legacy goal run reopens as opportunity search", async ({ page, request }) => {
@@ -271,7 +342,7 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
   await batchMode.click();
   await expect(
     page.getByRole("region", { name: "探索条件と提案診断" })
-      .getByRole("button", { name: "別サンプル" }),
+      .getByRole("button", { name: "サンプルを引き直す" }),
   ).toHaveCount(0);
   await page.getByLabel("バッチ選抜").selectOption("ranked_top_k_v1");
 

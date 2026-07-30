@@ -258,6 +258,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
   useEffect(() => saveLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, inspectorCollapsed), [inspectorCollapsed]);
   useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 820px)");
+    const collapseAtNarrowWidth = () => {
+      if (narrow.matches) setInspectorCollapsed(true);
+    };
+    collapseAtNarrowWidth();
+    narrow.addEventListener("change", collapseAtNarrowWidth);
+    return () => narrow.removeEventListener("change", collapseAtNarrowWidth);
+  }, []);
+  useEffect(() => {
     if (inspectorFocusTarget.current === null) return;
     const target = inspectorFocusTarget.current === "expand"
       ? inspectorExpandButtonRef.current

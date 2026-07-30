@@ -713,10 +713,14 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
     gap: 6px;
   }
   .project-nav {
+    width: 100%;
     max-width: 100%;
     overflow-x: auto;
+    contain: inline-size paint;
   }
   .context-bar h1 {
+    width: 100%;
+    max-width: 100%;
     font-size: 19px;
   }
   .run-actions {

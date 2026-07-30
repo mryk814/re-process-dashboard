@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -24,6 +24,7 @@ import {
 } from "./ScreeningGoalEditor";
 import { ScreeningProposalSummary, ScreeningRunEvidence } from "./ScreeningProposalSummary";
 import { safeExplorationRange } from "./screeningVariableRange";
+import { screeningVariableError } from "./screeningVariableValidation";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
 import { HistoricalEvidenceDrawer } from "../workbench";
@@ -221,6 +222,7 @@ export function ScreeningPage({
             choices: field.choices,
             defaultRange: safeExplorationRange(field.default_range, field.training_range),
             trainingRange: field.training_range,
+            allowedRange: field.allowed_range,
           }];
           return (baseCandidate?.raw.inputs.heat_pattern ?? []).flatMap((point, index) => [
             {
@@ -230,6 +232,7 @@ export function ScreeningPage({
               choices: [] as string[],
               defaultRange: { min: Math.max(0, point.temperature_c - 50), max: point.temperature_c + 50 },
               trainingRange: undefined,
+              allowedRange: undefined,
             },
             {
               value: `heat_pattern.${index}.time_s`,
@@ -238,6 +241,7 @@ export function ScreeningPage({
               choices: [] as string[],
               defaultRange: { min: Math.max(0, point.time_s - 10), max: point.time_s + 10 },
               trainingRange: undefined,
+              allowedRange: undefined,
             },
           ]);
         }),
@@ -262,6 +266,8 @@ export function ScreeningPage({
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
   const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
+  const variableSelectRefs = useRef<Array<HTMLSelectElement | null>>([]);
+  const pendingVariableFocusIndex = useRef<number | null>(null);
   const runRequestSequence = useRef(0);
   const activeProjectRef = useRef(projectId);
   activeProjectRef.current = projectId;
@@ -370,6 +376,12 @@ export function ScreeningPage({
       .catch(() => undefined);
   }, [projectId]);
   useEffect(() => {
+    const index = pendingVariableFocusIndex.current;
+    if (index == null) return;
+    pendingVariableFocusIndex.current = null;
+    variableSelectRefs.current[index]?.focus();
+  }, [variables.length]);
+  useEffect(() => {
     let active = true;
     setCandidateCapacity(null);
     setCandidateCapacityError("");
@@ -412,6 +424,7 @@ export function ScreeningPage({
     setXAxis(varying[0] ?? "");
     setYAxis(varying[1] ?? "");
     setColorMetric("score");
+    setChartExpanded(false);
     setSelectedPointIndices([]);
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
     setDetailItem(null);
@@ -829,6 +842,17 @@ export function ScreeningPage({
     : screeningMode === "opportunity"
       ? "有望候補を探す"
       : "実験バッチを作成";
+  const variableErrors = variables.map((row) => {
+    const option = options.find((item) => item.value === row.field);
+    return screeningVariableError(row, {
+      categorical: option?.kind === "categorical",
+      choices: option?.choices ?? [],
+      allowedRange: option?.allowedRange ?? undefined,
+    });
+  });
+  const activeVariableError = screeningMode === "batch"
+    ? null
+    : variableErrors.find((message) => message != null) ?? null;
   const primaryGoalReady = Boolean(
     fixedObjective?.terms.some(
       (term) => term.role === "primary_objective" && term.direction != null,
@@ -841,10 +865,12 @@ export function ScreeningPage({
   const actionDisabled = running
     || !baseCandidateId
     || !baseCandidate
+    || Boolean(activeVariableError)
     || Boolean(activeObjectiveUnsupportedReason)
     || (screeningMode !== "landscape" && !primaryGoalReady)
     || (screeningMode === "batch" && !opportunitySourceRun);
-  const actionTitle = activeObjectiveUnsupportedReason
+  const actionTitle = activeVariableError
+    || activeObjectiveUnsupportedReason
     || (screeningMode !== "landscape" && !primaryGoalReady
       ? "主目標を入力してください"
       : screeningMode === "batch" && !opportunitySourceRun
@@ -1270,6 +1296,7 @@ export function ScreeningPage({
               <th>指定</th>
               <th>値 / 最小</th>
               <th>最大</th>
+              <th>学習範囲</th>
               <th />
             </tr>
           </thead>
@@ -1283,9 +1310,12 @@ export function ScreeningPage({
                 && Number.isFinite(first)
                 && Number.isFinite(second)
                 && (first < option.trainingRange.min || second > option.trainingRange.max);
-              return <tr key={`${row.field}-${index}`}>
+              const errorId = `screening-variable-error-${index}`;
+              return <Fragment key={`${row.field}-${index}`}>
+              <tr className={variableErrors[index] ? "invalid" : ""}>
                 <td>
                   <select
+                    ref={(element) => { variableSelectRefs.current[index] = element; }}
                     aria-label={`${index + 1}行目の探索変数`}
                     value={row.field}
                     onChange={(event) => {
@@ -1297,10 +1327,6 @@ export function ScreeningPage({
                   >
                     {optionGroups.map((group) => <optgroup key={group.key} label={group.label}>{group.options.map((option) => <option key={option.value} value={option.value} disabled={variables.some((item, rowIndex) => rowIndex !== index && item.field === option.value)}>{option.label}</option>)}</optgroup>)}
                   </select>
-                  {option?.trainingRange && <small className={outsideTraining ? "screening-variable-range outside" : "screening-variable-range"}>
-                    既定の検討範囲 {number(option.trainingRange.min, 3)}–{number(option.trainingRange.max, 3)}
-                    {outsideTraining && <b> · 既定外を含む</b>}
-                  </small>}
                 </td>
                 <td>
                   <select
@@ -1326,6 +1352,8 @@ export function ScreeningPage({
                           ? "最小"
                           : "列挙値"
                     }`}
+                    aria-describedby={variableErrors[index] ? errorId : undefined}
+                    aria-invalid={Boolean(variableErrors[index])}
                     value={row.first}
                     placeholder={row.mode === "list" ? "例: GI,GA" : "値"}
                     onChange={(event) =>
@@ -1337,6 +1365,8 @@ export function ScreeningPage({
                   {row.mode === "range" ? (
                     <input
                       aria-label={`${option?.label ?? row.field}の最大`}
+                      aria-describedby={variableErrors[index] ? errorId : undefined}
+                      aria-invalid={Boolean(variableErrors[index])}
                       value={row.second}
                       onChange={(event) =>
                         updateVariable(index, { second: event.target.value })
@@ -1347,10 +1377,21 @@ export function ScreeningPage({
                   )}
                 </td>
                 <td>
+                  {option?.trainingRange
+                    ? <small className={outsideTraining ? "screening-variable-range outside" : "screening-variable-range"}>
+                        {number(option.trainingRange.min, 3)}–{number(option.trainingRange.max, 3)}
+                        {outsideTraining && <b> · 学習範囲外を含む</b>}
+                      </small>
+                    : "—"}
+                </td>
+                <td>
                   <button
                     className="icon-delete"
+                    type="button"
+                    aria-label={`${option?.label ?? row.field}を削除`}
                     disabled={variables.length === 1}
                     onClick={() => {
+                      pendingVariableFocusIndex.current = Math.min(index, variables.length - 2);
                       setDraftDirty(true);
                       setVariables((rows) =>
                         rows.filter((_, rowIndex) => rowIndex !== index),
@@ -1360,17 +1401,23 @@ export function ScreeningPage({
                     ×
                   </button>
                 </td>
-              </tr>;
+              </tr>
+              {variableErrors[index] && <tr className="screening-variable-error-row">
+                <td colSpan={6}><span id={errorId} role="alert">{variableErrors[index]}</span></td>
+              </tr>}
+              </Fragment>;
             })}
           </tbody>
             </table>
           </div>
           <button
-          className="outline-button"
+          className="outline-button screening-add-variable"
+          type="button"
           disabled={!options.some((option) => !variables.some((row) => row.field === option.value))}
           onClick={() => {
             const option = options.find((item) => !variables.some((row) => row.field === item.value));
             if (!option) return;
+            pendingVariableFocusIndex.current = variables.length;
             setDraftDirty(true);
             setVariables((rows) => [...rows, { field: option.value, mode: option.kind === "categorical" ? "list" : "range", first: option.kind === "categorical" ? option.choices.join(",") : String(option.defaultRange?.min ?? ""), second: option.kind === "categorical" ? "" : String(option.defaultRange?.max ?? "") }]);
           }}

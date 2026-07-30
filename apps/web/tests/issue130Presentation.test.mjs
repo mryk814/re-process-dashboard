@@ -30,6 +30,7 @@ test("screening keeps the first result surface compact and offers an explicit ex
   assert.doesNotMatch(screeningSource, /まず、いま知りたいことを選びます/);
   assert.match(screeningSource, /`\$\{samples\}点を評価`/);
   assert.match(screeningSource, /chartExpanded \? "図を元の大きさに戻す" : "図を拡大"/);
+  assert.match(screeningSource, /setChartExpanded\(false\)/);
   assert.match(screeningSource, /screen-map\$\{chartExpanded \? " expanded" : ""\}/);
   assert.match(screeningStyles, /\.screen-map \{[\s\S]*?height: clamp\(280px, 36vw, 350px\);/);
   assert.match(screeningStyles, /\.screen-map\.expanded \{[\s\S]*?height: clamp\(440px, 56vw, 620px\);/);
