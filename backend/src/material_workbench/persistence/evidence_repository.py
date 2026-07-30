@@ -3,49 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Mapping
-from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
-from material_workbench.persistence.sqlite_connection import (
-    initialize_sqlite,
-    sqlite_connection,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.project_lifecycle_migration import (
-    install_project_archive_write_guards,
-    migrate_project_lifecycle,
-    remove_project_archive_write_guards,
-)
-from material_workbench.persistence.project_persistence_inventory import (
-    PROJECT_PERSISTENCE,
-)
-from material_workbench.contracts.chain_contracts import (
-    ChainDefinition,
-    ChainProjectIdentity,
-    ChainRevision,
-    SingleTaskProjectIdentity,
-    StageContractSurface,
-    validate_chain_revision,
-)
-from material_workbench.contracts.chain_execution_contracts import (
-    ActualConditionedVariant,
-    ChainExecution,
-    ChainSnapshot,
-)
-from material_workbench.contracts.chain_uncertainty_contracts import (
-    ChainDistributionRun,
-)
+from datetime import datetime
+from typing import Any
 from material_workbench.contracts.schemas import (
     ActualMeasurement,
-    ActualMeasurementInput,
-    Candidate,
-    CandidateInput,
-    Project,
-    ProjectCreateInput,
-    ProjectGroupMoveInput,
-    ProjectInput,
-    ProjectUpdateInput,
     LineageNodeReview,
     LineageNodeReviewInput,
 )
@@ -53,58 +14,11 @@ from material_workbench.contracts.ai_review_contracts import (
     AiReviewDisposition,
     AiReviewRun,
 )
-from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
-from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
-from material_workbench.persistence.ai_review_migration import migrate_ai_reviews
-from material_workbench.persistence.project_design_space_migration import (
-    migrate_project_design_spaces,
-)
-from material_workbench.contracts.objective_contracts import (
-    ObjectiveDefinition,
-    ObjectiveDefinitionRevision,
-)
-from material_workbench.persistence.project_objective_migration import (
-    migrate_project_objectives,
-)
-from material_workbench.persistence.project_starter_migration import (
-    migrate_project_starter_identity,
-)
-from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
-from material_workbench.persistence.series_asset_migration import migrate_series_assets
-from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
-from material_workbench.persistence.workspace_maintenance_migration import (
-    migrate_workspace_maintenance_events,
-)
-from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
-from material_workbench.persistence.chain_analysis_variant_migration import (
-    migrate_chain_analysis_variant,
-)
-from material_workbench.persistence.chain_execution_cas_migration import (
-    migrate_chain_execution_cas,
-)
-from material_workbench.persistence.chain_uncertainty_migration import (
-    migrate_chain_uncertainty,
-)
-from material_workbench.persistence.data_lifecycle_migration import (
-    migrate_data_lifecycle,
-)
-from material_workbench.persistence.data_lifecycle_payload_migration import (
-    migrate_data_lifecycle_payloads,
-)
-from material_workbench.persistence.data_lifecycle_summary_migration import (
-    migrate_data_lifecycle_summaries,
-)
-from material_workbench.persistence.data_lifecycle_training_audit_migration import (
-    migrate_training_snapshot_selection_audit,
-)
-from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 from material_workbench.persistence.store_support import (
-    ActiveProjectPurgeError, CandidateArchivedError, CandidateCopyConflictError,
-    CandidateLimitError, CandidateRevisionConflictError, ChainCatalogConflictError,
-    InvalidProjectDecisionError, PROTECTED_PROJECT_IDS, ProjectGroupConflictError,
-    ProjectGroupUnavailableError, ProjectHasDerivedCandidatesError,
-    ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError,
-    StoreDataIntegrityError, _now, _single_task_identity_json, _target_values_json,
+    InvalidProjectDecisionError,
+    ProjectNotFoundError,
+    StoreDataIntegrityError,
+    _now,
 )
 
 
@@ -120,6 +34,7 @@ class EvidenceRepository:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
+
     def list_lineage_reviews(self, project_id: str) -> list[LineageNodeReview]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -128,6 +43,7 @@ class EvidenceRepository:
                 (project_id,),
             ).fetchall()
         return [self._lineage_review(row) for row in rows]
+
     def get_lineage_review(
         self, project_id: str, entity_key: str
     ) -> LineageNodeReview | None:
@@ -137,6 +53,7 @@ class EvidenceRepository:
                 (project_id, entity_key),
             ).fetchone()
         return self._lineage_review(row) if row else None
+
     def upsert_lineage_review(
         self,
         project_id: str,
@@ -163,6 +80,7 @@ class EvidenceRepository:
                 ),
             )
         return self.get_lineage_review(project_id, entity_key)  # type: ignore[return-value]
+
     def delete_lineage_review(self, project_id: str, entity_key: str) -> bool:
         with self._connect() as conn:
             result = conn.execute(
@@ -170,8 +88,11 @@ class EvidenceRepository:
                 (project_id, entity_key),
             )
         return bool(result.rowcount)
+
     @staticmethod
-    def _validate_decision(conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str) -> None:
+    def _validate_decision(
+        conn: sqlite3.Connection, project_id: str, candidate_id: str, snapshot_id: str
+    ) -> None:
         if not candidate_id:
             return
         project_row = conn.execute(
@@ -181,15 +102,23 @@ class EvidenceRepository:
         if project_row is None:
             raise InvalidProjectDecisionError("プロジェクトが見つかりません")
         try:
-            identity_kind = json.loads(
-                project_row["scientific_identity_json"]
-            ).get("identity_kind")
+            identity_kind = json.loads(project_row["scientific_identity_json"]).get(
+                "identity_kind"
+            )
         except (TypeError, json.JSONDecodeError, AttributeError) as exc:
             raise InvalidProjectDecisionError(
                 "プロジェクトの固定identityを確認できません"
             ) from exc
-        if conn.execute("SELECT 1 FROM candidates WHERE id=? AND project_id=?", (candidate_id, project_id)).fetchone() is None:
-            raise InvalidProjectDecisionError("採用候補は同じプロジェクトから選択してください")
+        if (
+            conn.execute(
+                "SELECT 1 FROM candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            is None
+        ):
+            raise InvalidProjectDecisionError(
+                "採用候補は同じプロジェクトから選択してください"
+            )
         if identity_kind == "chain":
             snapshot = conn.execute(
                 "SELECT 1 FROM chain_snapshot_records "
@@ -205,37 +134,128 @@ class EvidenceRepository:
             raise InvalidProjectDecisionError(
                 "プロジェクト種別に対応する判断時点のSnapshotが見つかりません"
             )
-    def create_snapshot(self, candidate_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        snapshot = {"id": str(uuid.uuid4()), "candidate_id": candidate_id, "created_at": _now(), "payload": payload}
+
+    def create_snapshot(
+        self, candidate_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        snapshot = {
+            "id": str(uuid.uuid4()),
+            "candidate_id": candidate_id,
+            "created_at": _now(),
+            "payload": payload,
+        }
         with self._connect() as conn:
-            conn.execute("INSERT INTO snapshots VALUES (?, ?, ?, ?)", (snapshot["id"], candidate_id, json.dumps(payload, ensure_ascii=False, sort_keys=True), snapshot["created_at"]))
+            conn.execute(
+                "INSERT INTO snapshots VALUES (?, ?, ?, ?)",
+                (
+                    snapshot["id"],
+                    candidate_id,
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                    snapshot["created_at"],
+                ),
+            )
         return snapshot
+
     def list_snapshots(self, candidate_id: str) -> list[dict[str, Any]]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM snapshots WHERE candidate_id = ? ORDER BY created_at DESC", (candidate_id,)).fetchall()
-        return [{"id": row["id"], "candidate_id": row["candidate_id"], "created_at": row["created_at"], "payload": json.loads(row["payload"])} for row in rows]
+            rows = conn.execute(
+                "SELECT * FROM snapshots WHERE candidate_id = ? ORDER BY created_at DESC",
+                (candidate_id,),
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "candidate_id": row["candidate_id"],
+                "created_at": row["created_at"],
+                "payload": json.loads(row["payload"]),
+            }
+            for row in rows
+        ]
+
     def get_snapshot(self, snapshot_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)).fetchone()
-        return {"id": row["id"], "candidate_id": row["candidate_id"], "created_at": row["created_at"], "payload": json.loads(row["payload"])} if row else None
-    def create_screening_run(self, payload: dict[str, Any], project_id: str = "default") -> dict[str, Any]:
-        run = {"id": str(uuid.uuid4()), "project_id": project_id, "created_at": _now(), **payload}
+            row = conn.execute(
+                "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
+            ).fetchone()
+        return (
+            {
+                "id": row["id"],
+                "candidate_id": row["candidate_id"],
+                "created_at": row["created_at"],
+                "payload": json.loads(row["payload"]),
+            }
+            if row
+            else None
+        )
+
+    def create_screening_run(
+        self, payload: dict[str, Any], project_id: str = "default"
+    ) -> dict[str, Any]:
+        run = {
+            "id": str(uuid.uuid4()),
+            "project_id": project_id,
+            "created_at": _now(),
+            **payload,
+        }
         with self._connect() as conn:
-            if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+            if (
+                conn.execute(
+                    "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+                ).fetchone()
+                is None
+            ):
                 raise ProjectNotFoundError(project_id)
-            conn.execute("INSERT INTO screening_runs VALUES (?, ?, ?, ?)", (run["id"], project_id, json.dumps(payload, ensure_ascii=False, sort_keys=True), run["created_at"]))
+            conn.execute(
+                "INSERT INTO screening_runs VALUES (?, ?, ?, ?)",
+                (
+                    run["id"],
+                    project_id,
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                    run["created_at"],
+                ),
+            )
         return run
-    def get_screening_run(self, run_id: str, project_id: str | None = None) -> dict[str, Any] | None:
+
+    def get_screening_run(
+        self, run_id: str, project_id: str | None = None
+    ) -> dict[str, Any] | None:
         with self._connect() as conn:
             if project_id is None:
-                row = conn.execute("SELECT * FROM screening_runs WHERE id = ?", (run_id,)).fetchone()
+                row = conn.execute(
+                    "SELECT * FROM screening_runs WHERE id = ?", (run_id,)
+                ).fetchone()
             else:
-                row = conn.execute("SELECT * FROM screening_runs WHERE id = ? AND project_id = ?", (run_id, project_id)).fetchone()
-        return {"id": row["id"], "project_id": row["project_id"], "created_at": row["created_at"], **json.loads(row["payload"])} if row else None
+                row = conn.execute(
+                    "SELECT * FROM screening_runs WHERE id = ? AND project_id = ?",
+                    (run_id, project_id),
+                ).fetchone()
+        return (
+            {
+                "id": row["id"],
+                "project_id": row["project_id"],
+                "created_at": row["created_at"],
+                **json.loads(row["payload"]),
+            }
+            if row
+            else None
+        )
+
     def list_screening_runs(self, project_id: str = "default") -> list[dict[str, Any]]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM screening_runs WHERE project_id = ? ORDER BY created_at DESC", (project_id,)).fetchall()
-        return [{"id": row["id"], "project_id": row["project_id"], "created_at": row["created_at"], **json.loads(row["payload"])} for row in rows]
+            rows = conn.execute(
+                "SELECT * FROM screening_runs WHERE project_id = ? ORDER BY created_at DESC",
+                (project_id,),
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "project_id": row["project_id"],
+                "created_at": row["created_at"],
+                **json.loads(row["payload"]),
+            }
+            for row in rows
+        ]
+
     @staticmethod
     def _decision_activity_run(row: sqlite3.Row) -> dict[str, Any]:
         return {
@@ -245,6 +265,7 @@ class EvidenceRepository:
             "created_at": row["created_at"],
             **json.loads(row["payload"]),
         }
+
     def create_decision_activity_run(
         self,
         *,
@@ -259,10 +280,13 @@ class EvidenceRepository:
         created_at = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if conn.execute(
-                "SELECT 1 FROM candidates WHERE id=? AND project_id=?",
-                (candidate_id, project_id),
-            ).fetchone() is None:
+            if (
+                conn.execute(
+                    "SELECT 1 FROM candidates WHERE id=? AND project_id=?",
+                    (candidate_id, project_id),
+                ).fetchone()
+                is None
+            ):
                 raise ProjectNotFoundError(project_id)
             conn.execute(
                 "INSERT OR IGNORE INTO decision_activity_runs("
@@ -286,6 +310,7 @@ class EvidenceRepository:
         if row is None:
             raise StoreDataIntegrityError("検討アクティビティを保存できませんでした")
         return self._decision_activity_run(row)
+
     def get_decision_activity_run_by_identity(
         self, semantic_identity: str
     ) -> dict[str, Any] | None:
@@ -295,6 +320,7 @@ class EvidenceRepository:
                 (semantic_identity,),
             ).fetchone()
         return self._decision_activity_run(row) if row else None
+
     def get_decision_activity_run(
         self, run_id: str, project_id: str
     ) -> dict[str, Any] | None:
@@ -304,6 +330,7 @@ class EvidenceRepository:
                 (run_id, project_id),
             ).fetchone()
         return self._decision_activity_run(row) if row else None
+
     def list_decision_activity_runs(
         self, project_id: str, candidate_id: str | None = None
     ) -> list[dict[str, Any]]:
@@ -316,9 +343,11 @@ class EvidenceRepository:
         with self._connect() as conn:
             rows = conn.execute(query, parameters).fetchall()
         return [self._decision_activity_run(row) for row in rows]
+
     @staticmethod
     def _ai_review_run(row: sqlite3.Row) -> AiReviewRun:
         return AiReviewRun.model_validate_json(row["payload"])
+
     def finalize_ai_review_run(self, run: AiReviewRun) -> AiReviewRun:
         if run.state == "running" or run.completed_at is None:
             raise ValueError("AI review finalization requires a terminal run")
@@ -346,9 +375,7 @@ class EvidenceRepository:
             existing_envelope = existing.model_dump(
                 mode="json", exclude=terminal_fields
             )
-            submitted_envelope = run.model_dump(
-                mode="json", exclude=terminal_fields
-            )
+            submitted_envelope = run.model_dump(mode="json", exclude=terminal_fields)
             if submitted_envelope != existing_envelope:
                 raise StoreDataIntegrityError(
                     "AI Review Runのimmutable envelopeが変わっています"
@@ -373,6 +400,7 @@ class EvidenceRepository:
             if updated.rowcount != 1:
                 raise StoreDataIntegrityError("AI Review Runを確定できませんでした")
         return run
+
     def get_ai_review_run(
         self, project_id: str, review_run_id: str
     ) -> AiReviewRun | None:
@@ -383,6 +411,7 @@ class EvidenceRepository:
                 (project_id, review_run_id),
             ).fetchone()
         return self._ai_review_run(row) if row else None
+
     def list_ai_review_runs(
         self, project_id: str, candidate_id: str | None = None
     ) -> list[AiReviewRun]:
@@ -395,6 +424,7 @@ class EvidenceRepository:
         with self._connect() as conn:
             rows = conn.execute(query, parameters).fetchall()
         return [self._ai_review_run(row) for row in rows]
+
     def append_ai_review_disposition(
         self, disposition: AiReviewDisposition
     ) -> AiReviewDisposition:
@@ -421,6 +451,7 @@ class EvidenceRepository:
                 ),
             )
         return disposition
+
     def list_ai_review_dispositions(
         self, project_id: str, review_run_id: str
     ) -> list[AiReviewDisposition]:
@@ -430,15 +461,35 @@ class EvidenceRepository:
                 "WHERE project_id=? AND review_run_id=? ORDER BY recorded_at",
                 (project_id, review_run_id),
             ).fetchall()
-        return [
-            AiReviewDisposition.model_validate_json(row["payload"]) for row in rows
-        ]
+        return [AiReviewDisposition.model_validate_json(row["payload"]) for row in rows]
+
     @staticmethod
     def _actual(row: sqlite3.Row) -> ActualMeasurement:
-        return ActualMeasurement(id=row["id"], candidate_id=row["candidate_id"], snapshot_id=row["snapshot_id"], property=row["property"], mean=row["mean"], std=row["std"], replicates=row["replicates"], unit=row["unit"], experiment_no=row["experiment_no"], measured_at=row["measured_at"], note=row["note"], created_at=datetime.fromisoformat(row["created_at"]))
+        return ActualMeasurement(
+            id=row["id"],
+            candidate_id=row["candidate_id"],
+            snapshot_id=row["snapshot_id"],
+            property=row["property"],
+            mean=row["mean"],
+            std=row["std"],
+            replicates=row["replicates"],
+            unit=row["unit"],
+            experiment_no=row["experiment_no"],
+            measured_at=row["measured_at"],
+            note=row["note"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+        )
+
     def list_actuals(self, candidate_id: str) -> list[ActualMeasurement]:
         with self._connect() as conn:
-            return [self._actual(row) for row in conn.execute("SELECT * FROM actual_measurements WHERE candidate_id=? ORDER BY created_at", (candidate_id,))]
+            return [
+                self._actual(row)
+                for row in conn.execute(
+                    "SELECT * FROM actual_measurements WHERE candidate_id=? ORDER BY created_at",
+                    (candidate_id,),
+                )
+            ]
+
     def list_project_actuals(self, project_id: str) -> list[ActualMeasurement]:
         """Return the complete, stable incumbent population for one Project."""
 
@@ -451,6 +502,11 @@ class EvidenceRepository:
                 (project_id,),
             ).fetchall()
         return [self._actual(row) for row in rows]
+
     def delete_actual(self, actual_id: str) -> bool:
         with self._connect() as conn:
-            return bool(conn.execute("DELETE FROM actual_measurements WHERE id=?", (actual_id,)).rowcount)
+            return bool(
+                conn.execute(
+                    "DELETE FROM actual_measurements WHERE id=?", (actual_id,)
+                ).rowcount
+            )

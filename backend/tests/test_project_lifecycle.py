@@ -124,31 +124,41 @@ def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:
             project["id"],
         )
     with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
-        store.delete_candidate(
-            candidate["id"], project["id"], candidate["revision"]
-        )
+        store.delete_candidate(candidate["id"], project["id"], candidate["revision"])
     with sqlite_connection(store.path) as connection:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM candidate_revisions WHERE project_id=?",
-            (project["id"],),
-        ).fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM candidate_revisions WHERE project_id=?",
+                (project["id"],),
+            ).fetchone()[0]
+            == 1
+        )
         for table in (
             "chain_snapshot_records",
             "chain_distribution_runs",
             "chain_analysis_variant_records",
         ):
-            assert connection.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE project_id=?",
-                (project["id"],),
-            ).fetchone()[0] == 1
-        assert connection.execute(
-            "SELECT COUNT(*) FROM chain_execution_state WHERE scope_id=?",
-            (scope_id,),
-        ).fetchone()[0] == 1
-        assert connection.execute(
-            "SELECT COUNT(*) FROM chain_execution_claims WHERE scope_id=?",
-            (scope_id,),
-        ).fetchone()[0] == 0
+            assert (
+                connection.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE project_id=?",
+                    (project["id"],),
+                ).fetchone()[0]
+                == 1
+            )
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM chain_execution_claims WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()[0]
+            == 0
+        )
         with pytest.raises(sqlite3.IntegrityError, match="project_archived"):
             connection.execute(
                 "INSERT INTO chain_execution_claims VALUES (?,?,?,?)",
@@ -167,19 +177,28 @@ def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:
 
     active_purge = client.post(f"/api/projects/{project['id']}/restore")
     assert active_purge.status_code == 200
-    assert client.delete(
-        f"/api/projects/{project['id']}/purge",
-        params={"confirm_project_id": project["id"]},
-    ).status_code == 409
+    assert (
+        client.delete(
+            f"/api/projects/{project['id']}/purge",
+            params={"confirm_project_id": project["id"]},
+        ).status_code
+        == 409
+    )
     assert client.delete(f"/api/projects/{project['id']}").status_code == 204
-    assert client.delete(
-        f"/api/projects/{project['id']}/purge",
-        params={"confirm_project_id": "wrong"},
-    ).status_code == 409
-    assert client.delete(
-        f"/api/projects/{project['id']}/purge",
-        params={"confirm_project_id": project["id"]},
-    ).status_code == 204
+    assert (
+        client.delete(
+            f"/api/projects/{project['id']}/purge",
+            params={"confirm_project_id": "wrong"},
+        ).status_code
+        == 409
+    )
+    assert (
+        client.delete(
+            f"/api/projects/{project['id']}/purge",
+            params={"confirm_project_id": project["id"]},
+        ).status_code
+        == 204
+    )
 
     with sqlite_connection(store.path) as connection:
         for table in (
@@ -191,14 +210,20 @@ def test_archive_preserves_chain_evidence_and_purge_removes_all(client) -> None:
             "chain_analysis_variant_records",
         ):
             column = "id" if table == "projects" else "project_id"
-            assert connection.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {column}=?",
-                (project["id"],),
-            ).fetchone()[0] == 0
-        assert connection.execute(
-            "SELECT COUNT(*) FROM chain_execution_state WHERE scope_id=?",
-            (scope_id,),
-        ).fetchone()[0] == 0
+            assert (
+                connection.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE {column}=?",
+                    (project["id"],),
+                ).fetchone()[0]
+                == 0
+            )
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()[0]
+            == 0
+        )
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
@@ -236,6 +261,50 @@ def test_archive_invalidates_an_in_flight_chain_writer(client) -> None:
     )
 
 
+def test_archive_rolls_back_claim_revocation_when_project_update_fails(client) -> None:
+    project = client.post(
+        "/api/projects", json=_project(client, "Chain archive atomicity")
+    ).json()
+    candidate = client.post(
+        f"/api/projects/{project['id']}/candidates",
+        json=_candidate("実行候補"),
+    ).json()
+    store = client.app.state.store
+    request_id = "request-before-failed-archive"
+    assert (
+        store.claim_chain_execution(
+            project["id"],
+            candidate["id"],
+            candidate["revision"],
+            request_id,
+        )
+        == 1
+    )
+    with sqlite_connection(store.path) as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_test_archive "
+            "BEFORE UPDATE OF archived_at ON projects "
+            f"WHEN NEW.id='{project['id']}' "
+            "BEGIN SELECT RAISE(ABORT,'injected_archive_failure'); END"
+        )
+    try:
+        with pytest.raises(sqlite3.IntegrityError, match="injected_archive_failure"):
+            store.archive_project(project["id"])
+    finally:
+        with sqlite_connection(store.path) as connection:
+            connection.execute("DROP TRIGGER reject_test_archive")
+
+    assert store.get_project(project["id"]).archived_at is None
+    assert (
+        store.chain_execution_generation(
+            project["id"],
+            candidate["id"],
+            request_id,
+        )
+        == 1
+    )
+
+
 def test_purge_rejects_non_copy_cross_project_provenance(client) -> None:
     source_project = client.post(
         "/api/projects", json=_project(client, "Snapshot証跡元")
@@ -266,13 +335,14 @@ def test_purge_rejects_non_copy_cross_project_provenance(client) -> None:
             "source_ref": {"snapshot_id": snapshot_id},
         },
     }
-    assert client.post(
-        f"/api/projects/{dependent_project['id']}/candidates",
-        json=dependent_payload,
-    ).status_code == 201
-    assert client.delete(
-        f"/api/projects/{source_project['id']}"
-    ).status_code == 204
+    assert (
+        client.post(
+            f"/api/projects/{dependent_project['id']}/candidates",
+            json=dependent_payload,
+        ).status_code
+        == 201
+    )
+    assert client.delete(f"/api/projects/{source_project['id']}").status_code == 204
     rejected = client.delete(
         f"/api/projects/{source_project['id']}/purge",
         params={"confirm_project_id": source_project["id"]},

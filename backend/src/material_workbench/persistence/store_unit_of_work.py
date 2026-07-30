@@ -1,36 +1,16 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Mapping
-from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
-from material_workbench.persistence.sqlite_connection import (
-    initialize_sqlite,
-    sqlite_connection,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.project_lifecycle_migration import (
-    install_project_archive_write_guards,
-    migrate_project_lifecycle,
-    remove_project_archive_write_guards,
-)
+from typing import Any
 from material_workbench.persistence.project_persistence_inventory import (
     PROJECT_PERSISTENCE,
 )
 from material_workbench.contracts.chain_contracts import (
-    ChainDefinition,
     ChainProjectIdentity,
-    ChainRevision,
-    SingleTaskProjectIdentity,
-    StageContractSurface,
-    validate_chain_revision,
 )
 from material_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
-    ChainExecution,
     ChainSnapshot,
 )
 from material_workbench.contracts.chain_uncertainty_contracts import (
@@ -43,79 +23,47 @@ from material_workbench.contracts.schemas import (
     CandidateInput,
     Project,
     ProjectCreateInput,
-    ProjectGroupMoveInput,
-    ProjectInput,
     ProjectUpdateInput,
-    LineageNodeReview,
-    LineageNodeReviewInput,
 )
 from material_workbench.contracts.ai_review_contracts import (
-    AiReviewDisposition,
     AiReviewRun,
-)
-from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
-from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
-from material_workbench.persistence.ai_review_migration import migrate_ai_reviews
-from material_workbench.persistence.project_design_space_migration import (
-    migrate_project_design_spaces,
 )
 from material_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
-    ObjectiveDefinitionRevision,
 )
-from material_workbench.persistence.project_objective_migration import (
-    migrate_project_objectives,
-)
-from material_workbench.persistence.project_starter_migration import (
-    migrate_project_starter_identity,
-)
-from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
-from material_workbench.persistence.series_asset_migration import migrate_series_assets
-from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
-from material_workbench.persistence.workspace_maintenance_migration import (
-    migrate_workspace_maintenance_events,
-)
-from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
-from material_workbench.persistence.chain_analysis_variant_migration import (
-    migrate_chain_analysis_variant,
-)
-from material_workbench.persistence.chain_execution_cas_migration import (
-    migrate_chain_execution_cas,
-)
-from material_workbench.persistence.chain_uncertainty_migration import (
-    migrate_chain_uncertainty,
-)
-from material_workbench.persistence.data_lifecycle_migration import (
-    migrate_data_lifecycle,
-)
-from material_workbench.persistence.data_lifecycle_payload_migration import (
-    migrate_data_lifecycle_payloads,
-)
-from material_workbench.persistence.data_lifecycle_summary_migration import (
-    migrate_data_lifecycle_summaries,
-)
-from material_workbench.persistence.data_lifecycle_training_audit_migration import (
-    migrate_training_snapshot_selection_audit,
-)
-from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 from material_workbench.persistence.store_support import (
-    ActiveProjectPurgeError, CandidateArchivedError, CandidateCopyConflictError,
-    CandidateLimitError, CandidateRevisionConflictError, ChainCatalogConflictError,
-    InvalidProjectDecisionError, PROTECTED_PROJECT_IDS, ProjectGroupConflictError,
-    ProjectGroupUnavailableError, ProjectHasDerivedCandidatesError,
-    ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError,
-    StoreDataIntegrityError, _now, _single_task_identity_json, _target_values_json,
+    ActiveProjectPurgeError,
+    CandidateArchivedError,
+    CandidateCopyConflictError,
+    CandidateRevisionConflictError,
+    ChainCatalogConflictError,
+    PROTECTED_PROJECT_IDS,
+    ProjectHasDerivedCandidatesError,
+    ProjectHasSuccessorsError,
+    ProjectNotFoundError,
+    ProtectedProjectError,
+    StoreDataIntegrityError,
+    _now,
+    _single_task_identity_json,
+    _target_values_json,
 )
 
 
 class WorkbenchUnitOfWork:
-    def create_project(self, payload: ProjectCreateInput, initial_candidate: CandidateInput | None = None) -> Project:
+    def create_project(
+        self,
+        payload: ProjectCreateInput,
+        initial_candidate: CandidateInput | None = None,
+    ) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         scientific_identity_json = _single_task_identity_json(payload)
         identity_provenance = json.loads(scientific_identity_json)["binding_provenance"]
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
+            if (
+                initial_candidate is not None
+                and initial_candidate.provenance.source_kind == "copy"
+            ):
                 reference = initial_candidate.provenance.source_ref
                 source = conn.execute(
                     "SELECT candidate_revisions.revision, projects.task_id "
@@ -131,12 +79,14 @@ class WorkbenchUnitOfWork:
                     ),
                 ).fetchone()
                 if source is None:
-                    raise CandidateCopyConflictError("コピー元候補またはrevisionが一致しません")
+                    raise CandidateCopyConflictError(
+                        "コピー元候補またはrevisionが一致しません"
+                    )
                 if source["task_id"] != payload.task_id:
-                    raise CandidateCopyConflictError("異なる予測タスクの候補はコピーできません")
-            project_series_id = self._project_series_id_for_create(
-                conn, payload, now
-            )
+                    raise CandidateCopyConflictError(
+                        "異なる予測タスクの候補はコピーできません"
+                    )
+            project_series_id = self._project_series_id_for_create(conn, payload, now)
             conn.execute(
                 "INSERT INTO projects(id,name,description,purpose,task_id,target_values,input_ranges,"
                 "response_curve_ranges,response_curve_points,heat_stage_positions_m,display_decimals,notes,decision_candidate_id,"
@@ -148,16 +98,49 @@ class WorkbenchUnitOfWork:
                 "created_at,updated_at) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
-                    project_id, payload.name, payload.description, payload.purpose, payload.task_id,
+                    project_id,
+                    payload.name,
+                    payload.description,
+                    payload.purpose,
+                    payload.task_id,
                     _target_values_json(payload.target_values),
-                    json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
-                    json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps(
+                        {
+                            key: value.model_dump()
+                            for key, value in payload.input_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        {
+                            axis: {
+                                key: value.model_dump() for key, value in ranges.items()
+                            }
+                            for axis, ranges in payload.response_curve_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
                     payload.response_curve_points,
-                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
-                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True), payload.notes,
-                    payload.decision_candidate_id, payload.decision_snapshot_id, payload.decision_note,
-                    payload.dataset_view_revision_id, payload.task_contract_digest, payload.model_package_ref_id,
-                    payload.model_package_manifest_digest, project_series_id, payload.predecessor_project_id,
+                    json.dumps(
+                        payload.heat_stage_positions_m,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        payload.display_decimals, ensure_ascii=False, sort_keys=True
+                    ),
+                    payload.notes,
+                    payload.decision_candidate_id,
+                    payload.decision_snapshot_id,
+                    payload.decision_note,
+                    payload.dataset_view_revision_id,
+                    payload.task_contract_digest,
+                    payload.model_package_ref_id,
+                    payload.model_package_manifest_digest,
+                    project_series_id,
+                    payload.predecessor_project_id,
                     payload.continuation_reason,
                     identity_provenance,
                     scientific_identity_json,
@@ -205,7 +188,14 @@ class WorkbenchUnitOfWork:
                 candidate_id = str(uuid.uuid4())
                 conn.execute(
                     "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                    (candidate_id, project_id, initial_candidate.name, initial_candidate.model_dump_json(), now, now),
+                    (
+                        candidate_id,
+                        project_id,
+                        initial_candidate.name,
+                        initial_candidate.model_dump_json(),
+                        now,
+                        now,
+                    ),
                 )
                 row = conn.execute(
                     "SELECT * FROM candidates WHERE id=?",
@@ -213,6 +203,7 @@ class WorkbenchUnitOfWork:
                 ).fetchone()
                 self._record_candidate_revision(conn, row)
         return self.get_project(project_id)  # type: ignore[return-value]
+
     def create_chain_project(
         self,
         payload: ProjectCreateInput,
@@ -220,7 +211,10 @@ class WorkbenchUnitOfWork:
         initial_candidate: CandidateInput | None = None,
     ) -> Project:
         revision = self.get_chain_revision(identity.chain_revision_id)
-        if revision is None or revision.revision_digest != identity.chain_revision_digest:
+        if (
+            revision is None
+            or revision.revision_digest != identity.chain_revision_digest
+        ):
             raise ChainCatalogConflictError(
                 "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
             )
@@ -234,7 +228,10 @@ class WorkbenchUnitOfWork:
             )
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            if initial_candidate is not None and initial_candidate.provenance.source_kind == "copy":
+            if (
+                initial_candidate is not None
+                and initial_candidate.provenance.source_kind == "copy"
+            ):
                 reference = initial_candidate.provenance.source_ref
                 source = conn.execute(
                     "SELECT projects.scientific_identity_json,candidates.revision "
@@ -256,9 +253,7 @@ class WorkbenchUnitOfWork:
                     raise CandidateCopyConflictError(
                         "コピー元候補のChain Revisionまたはcandidate revisionが一致しません"
                     )
-            project_series_id = self._project_series_id_for_create(
-                conn, payload, now
-            )
+            project_series_id = self._project_series_id_for_create(conn, payload, now)
             conn.execute(
                 "INSERT INTO projects("
                 "id,name,description,purpose,task_id,target_values,input_ranges,"
@@ -279,21 +274,32 @@ class WorkbenchUnitOfWork:
                     "",
                     _target_values_json(payload.target_values),
                     json.dumps(
-                        {key: value.model_dump() for key, value in payload.input_ranges.items()},
+                        {
+                            key: value.model_dump()
+                            for key, value in payload.input_ranges.items()
+                        },
                         ensure_ascii=False,
                         sort_keys=True,
                     ),
                     json.dumps(
                         {
-                            axis: {key: value.model_dump() for key, value in ranges.items()}
+                            axis: {
+                                key: value.model_dump() for key, value in ranges.items()
+                            }
                             for axis, ranges in payload.response_curve_ranges.items()
                         },
                         ensure_ascii=False,
                         sort_keys=True,
                     ),
                     payload.response_curve_points,
-                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
-                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
+                    json.dumps(
+                        payload.heat_stage_positions_m,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        payload.display_decimals, ensure_ascii=False, sort_keys=True
+                    ),
                     payload.notes,
                     payload.decision_candidate_id,
                     payload.decision_snapshot_id,
@@ -333,8 +339,7 @@ class WorkbenchUnitOfWork:
                         payload.objective_definition.digest,
                         payload.objective_definition.revision,
                         payload.objective_definition.model_dump_json(),
-                        payload.objective_binding_provenance
-                        or "generated_default",
+                        payload.objective_binding_provenance or "generated_default",
                         now,
                     ),
                 )
@@ -353,6 +358,7 @@ class WorkbenchUnitOfWork:
                     ),
                 )
         return self.get_project(project_id)  # type: ignore[return-value]
+
     def update_project(
         self,
         project_id: str,
@@ -364,7 +370,12 @@ class WorkbenchUnitOfWork:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            self._validate_decision(conn, project_id, payload.decision_candidate_id, payload.decision_snapshot_id)
+            self._validate_decision(
+                conn,
+                project_id,
+                payload.decision_candidate_id,
+                payload.decision_snapshot_id,
+            )
             result = conn.execute(
                 "UPDATE projects SET name=?, description=?, purpose=?, target_values=?, "
                 "input_ranges=?, response_curve_ranges=?, response_curve_points=?, "
@@ -373,16 +384,44 @@ class WorkbenchUnitOfWork:
                 "objective_definition_digest=?, objective_binding_provenance=?, updated_at=? "
                 "WHERE id=?",
                 (
-                    payload.name, payload.description, payload.purpose,
+                    payload.name,
+                    payload.description,
+                    payload.purpose,
                     _target_values_json(payload.target_values),
-                    json.dumps({key: value.model_dump() for key, value in payload.input_ranges.items()}, ensure_ascii=False, sort_keys=True),
-                    json.dumps({axis: {key: value.model_dump() for key, value in ranges.items()} for axis, ranges in payload.response_curve_ranges.items()}, ensure_ascii=False, sort_keys=True),
+                    json.dumps(
+                        {
+                            key: value.model_dump()
+                            for key, value in payload.input_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        {
+                            axis: {
+                                key: value.model_dump() for key, value in ranges.items()
+                            }
+                            for axis, ranges in payload.response_curve_ranges.items()
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
                     payload.response_curve_points,
-                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
-                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
-                    payload.notes, payload.decision_candidate_id, payload.decision_snapshot_id,
+                    json.dumps(
+                        payload.heat_stage_positions_m,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        payload.display_decimals, ensure_ascii=False, sort_keys=True
+                    ),
+                    payload.notes,
+                    payload.decision_candidate_id,
+                    payload.decision_snapshot_id,
                     payload.decision_note,
-                    objective_definition.model_dump_json() if objective_definition else None,
+                    objective_definition.model_dump_json()
+                    if objective_definition
+                    else None,
                     objective_definition.digest if objective_definition else None,
                     objective_binding_provenance,
                     now,
@@ -419,6 +458,48 @@ class WorkbenchUnitOfWork:
                         "同じObjective digestに異なる定義があります"
                     )
         return self.get_project(project_id) if result.rowcount else None
+
+    def archive_project(self, project_id: str) -> Project | None:
+        """Archive a Project and revoke Chain claims in one transaction."""
+        if project_id in PROTECTED_PROJECT_IDS:
+            raise ProtectedProjectError("予約プロジェクトはアーカイブできません")
+        now = _now()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            project_row = conn.execute(
+                "SELECT project_series_id,archived_at FROM projects WHERE id=?",
+                (project_id,),
+            ).fetchone()
+            if project_row is None:
+                return None
+            if project_row["archived_at"] is None:
+                # Revocation and archive state are indivisible: a writer may
+                # never observe an archived Project with a live claim.
+                conn.execute(
+                    "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
+                    (f"{project_id}:%",),
+                )
+                conn.execute(
+                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
+                    (now, now, project_id),
+                )
+                series_id = project_row["project_series_id"]
+                if series_id:
+                    conn.execute(
+                        "UPDATE project_series SET archived_at=?,updated_at=? "
+                        "WHERE id=? AND archived_at IS NULL "
+                        "AND NOT EXISTS ("
+                        "SELECT 1 FROM projects "
+                        "WHERE projects.project_series_id=project_series.id "
+                        "AND projects.archived_at IS NULL"
+                        ")",
+                        (now, now, series_id),
+                    )
+            row = conn.execute(
+                "SELECT * FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
+        return self._project(row)
+
     def purge_project(self, project_id: str) -> bool:
         if project_id in PROTECTED_PROJECT_IDS:
             raise ProtectedProjectError("予約プロジェクトは完全削除できません")
@@ -435,7 +516,8 @@ class WorkbenchUnitOfWork:
                     "完全削除する前にプロジェクトをアーカイブしてください"
                 )
             successor = conn.execute(
-                "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1", (project_id,)
+                "SELECT id FROM projects WHERE predecessor_project_id=? LIMIT 1",
+                (project_id,),
             ).fetchone()
             if successor is not None:
                 raise ProjectHasSuccessorsError(
@@ -452,7 +534,9 @@ class WorkbenchUnitOfWork:
                     raise StoreDataIntegrityError(
                         f"候補 {derived_row['id']} の派生元を確認できません"
                     ) from exc
-                if isinstance(payload, dict) and self._candidate_provenance_references_project(
+                if isinstance(
+                    payload, dict
+                ) and self._candidate_provenance_references_project(
                     conn, payload, project_id
                 ):
                     raise ProjectHasDerivedCandidatesError(
@@ -461,7 +545,9 @@ class WorkbenchUnitOfWork:
                     )
             candidate_ids = [
                 row["id"]
-                for row in conn.execute("SELECT id FROM candidates WHERE project_id=?", (project_id,)).fetchall()
+                for row in conn.execute(
+                    "SELECT id FROM candidates WHERE project_id=?", (project_id,)
+                ).fetchall()
             ]
             conn.execute(
                 "INSERT INTO project_purge_authorizations(project_id) VALUES (?)",
@@ -471,8 +557,7 @@ class WorkbenchUnitOfWork:
                 placeholders = ",".join("?" for _ in candidate_ids)
                 for table in PROJECT_PERSISTENCE.candidate_tables:
                     conn.execute(
-                        f"DELETE FROM {table} "
-                        f"WHERE candidate_id IN ({placeholders})",
+                        f"DELETE FROM {table} WHERE candidate_id IN ({placeholders})",
                         candidate_ids,
                     )
             for table in PROJECT_PERSISTENCE.scope_tables:
@@ -504,6 +589,7 @@ class WorkbenchUnitOfWork:
                     (now, now, series_id),
                 )
             return True
+
     def project_has_persisted_evidence(self, project_id: str) -> bool:
         """Return whether removing a starter would discard user-created evidence.
 
@@ -544,7 +630,10 @@ class WorkbenchUnitOfWork:
                     if row is not None:
                         return True
         return False
-    def update_project_decision(self, project_id: str, candidate_id: str, snapshot_id: str, note: str) -> Project | None:
+
+    def update_project_decision(
+        self, project_id: str, candidate_id: str, snapshot_id: str, note: str
+    ) -> Project | None:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -554,10 +643,13 @@ class WorkbenchUnitOfWork:
                 (candidate_id, snapshot_id, note, now, project_id),
             )
         return self.get_project(project_id) if result.rowcount else None
+
     def project_history(self, project_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
             conn.execute("BEGIN")
-            project_row = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+            project_row = conn.execute(
+                "SELECT * FROM projects WHERE id=?", (project_id,)
+            ).fetchone()
             if project_row is None:
                 return None
             candidate_rows = conn.execute(
@@ -599,9 +691,7 @@ class WorkbenchUnitOfWork:
             else None
         )
         if chain_identity is None and (
-            chain_snapshot_rows
-            or chain_variant_rows
-            or chain_distribution_rows
+            chain_snapshot_rows or chain_variant_rows or chain_distribution_rows
         ):
             raise StoreDataIntegrityError(
                 "single-Task ProjectにChain証拠が混在しています"
@@ -615,29 +705,55 @@ class WorkbenchUnitOfWork:
             try:
                 payload = json.loads(row["payload"])
             except (TypeError, json.JSONDecodeError) as exc:
-                raise StoreDataIntegrityError(f"snapshot {row['id']} を読み取れません") from exc
-            version = payload.get("snapshot_schema_version") if isinstance(payload, dict) else None
+                raise StoreDataIntegrityError(
+                    f"snapshot {row['id']} を読み取れません"
+                ) from exc
+            version = (
+                payload.get("snapshot_schema_version")
+                if isinstance(payload, dict)
+                else None
+            )
             if version != "prediction-snapshot-v2":
-                raise StoreDataIntegrityError(f"snapshot {row['id']} の形式を解釈できません")
+                raise StoreDataIntegrityError(
+                    f"snapshot {row['id']} の形式を解釈できません"
+                )
             raw_candidate = payload.get("raw_candidate")
-            candidate_revision = raw_candidate.get("revision") if version == "prediction-snapshot-v2" and isinstance(raw_candidate, dict) else None
+            candidate_revision = (
+                raw_candidate.get("revision")
+                if version == "prediction-snapshot-v2"
+                and isinstance(raw_candidate, dict)
+                else None
+            )
             prediction = payload.get("prediction")
-            if not isinstance(prediction, dict) or not isinstance(prediction.get("predictions"), dict):
-                raise StoreDataIntegrityError(f"snapshot {row['id']} の予測要約を読み取れません")
-            snapshots_by_candidate.setdefault(row["candidate_id"], []).append({
-                "id": row["id"],
-                "candidate_id": row["candidate_id"],
-                "created_at": row["created_at"],
-                "candidate_revision": candidate_revision,
-                "prediction_summary": prediction["predictions"],
-                "model_ref": payload.get("provenance"),
-            })
+            if not isinstance(prediction, dict) or not isinstance(
+                prediction.get("predictions"), dict
+            ):
+                raise StoreDataIntegrityError(
+                    f"snapshot {row['id']} の予測要約を読み取れません"
+                )
+            snapshots_by_candidate.setdefault(row["candidate_id"], []).append(
+                {
+                    "id": row["id"],
+                    "candidate_id": row["candidate_id"],
+                    "created_at": row["created_at"],
+                    "candidate_revision": candidate_revision,
+                    "prediction_summary": prediction["predictions"],
+                    "model_ref": payload.get("provenance"),
+                }
+            )
         actuals_by_candidate: dict[str, list[ActualMeasurement]] = {}
         for row in actual_rows:
-            snapshot_ids = {item["id"] for item in snapshots_by_candidate.get(row["candidate_id"], [])}
+            snapshot_ids = {
+                item["id"]
+                for item in snapshots_by_candidate.get(row["candidate_id"], [])
+            }
             if row["snapshot_id"] not in snapshot_ids:
-                raise StoreDataIntegrityError(f"actual {row['id']} の固定snapshotが見つかりません")
-            actuals_by_candidate.setdefault(row["candidate_id"], []).append(self._actual(row))
+                raise StoreDataIntegrityError(
+                    f"actual {row['id']} の固定snapshotが見つかりません"
+                )
+            actuals_by_candidate.setdefault(row["candidate_id"], []).append(
+                self._actual(row)
+            )
         chain_snapshots_by_candidate: dict[str, list[ChainSnapshot]] = {}
         chain_snapshots_by_id: dict[str, ChainSnapshot] = {}
         for row in chain_snapshot_rows:
@@ -651,8 +767,7 @@ class WorkbenchUnitOfWork:
                 snapshot.snapshot_id != row["id"]
                 or row["project_id"] != project.id
                 or snapshot.identity.candidate_id != row["candidate_id"]
-                or snapshot.identity.candidate_revision
-                != row["candidate_revision"]
+                or snapshot.identity.candidate_revision != row["candidate_revision"]
                 or row["candidate_id"] not in candidate_ids
                 or chain_identity is None
                 or snapshot.identity.chain_revision_id
@@ -663,13 +778,11 @@ class WorkbenchUnitOfWork:
                 raise StoreDataIntegrityError(
                     f"Chain snapshot {row['id']} の固定参照が一致しません"
                 )
-            chain_snapshots_by_candidate.setdefault(
-                row["candidate_id"], []
-            ).append(snapshot)
+            chain_snapshots_by_candidate.setdefault(row["candidate_id"], []).append(
+                snapshot
+            )
             chain_snapshots_by_id[snapshot.snapshot_id] = snapshot
-        chain_variants_by_candidate: dict[
-            str, list[ActualConditionedVariant]
-        ] = {}
+        chain_variants_by_candidate: dict[str, list[ActualConditionedVariant]] = {}
         for row in chain_variant_rows:
             try:
                 variant = ActualConditionedVariant.model_validate_json(
@@ -687,8 +800,7 @@ class WorkbenchUnitOfWork:
                 or variant.project_id != row["project_id"]
                 or row["project_id"] != project.id
                 or variant.identity.base_candidate_id != row["candidate_id"]
-                or variant.identity.base_candidate_revision
-                != row["candidate_revision"]
+                or variant.identity.base_candidate_revision != row["candidate_revision"]
                 or variant.identity.comparison_snapshot_id
                 != row["comparison_snapshot_id"]
                 or row["candidate_id"] not in candidate_ids
@@ -706,17 +818,13 @@ class WorkbenchUnitOfWork:
                 raise StoreDataIntegrityError(
                     f"実測variant {row['id']} の固定参照が一致しません"
                 )
-            chain_variants_by_candidate.setdefault(
-                row["candidate_id"], []
-            ).append(variant)
-        chain_distributions_by_candidate: dict[
-            str, list[ChainDistributionRun]
-        ] = {}
+            chain_variants_by_candidate.setdefault(row["candidate_id"], []).append(
+                variant
+            )
+        chain_distributions_by_candidate: dict[str, list[ChainDistributionRun]] = {}
         for row in chain_distribution_rows:
             try:
-                run = ChainDistributionRun.model_validate_json(
-                    row["payload_json"]
-                )
+                run = ChainDistributionRun.model_validate_json(row["payload_json"])
             except (TypeError, ValueError) as exc:
                 raise StoreDataIntegrityError(
                     f"Chain分布run {row['id']} を読み取れません"
@@ -726,34 +834,32 @@ class WorkbenchUnitOfWork:
                 or run.project_id != row["project_id"]
                 or row["project_id"] != project.id
                 or run.provenance.candidate_id != row["candidate_id"]
-                or run.provenance.candidate_revision
-                != row["candidate_revision"]
+                or run.provenance.candidate_revision != row["candidate_revision"]
                 or row["candidate_id"] not in candidate_ids
                 or chain_identity is None
-                or run.provenance.chain_revision_id
-                != chain_identity.chain_revision_id
-                or run.provenance.chain_revision_digest
-                != row["chain_revision_digest"]
+                or run.provenance.chain_revision_id != chain_identity.chain_revision_id
+                or run.provenance.chain_revision_digest != row["chain_revision_digest"]
                 or run.provenance.chain_revision_digest
                 != chain_identity.chain_revision_digest
             ):
                 raise StoreDataIntegrityError(
                     f"Chain分布run {row['id']} の固定参照が一致しません"
                 )
-            chain_distributions_by_candidate.setdefault(
-                row["candidate_id"], []
-            ).append(run)
+            chain_distributions_by_candidate.setdefault(row["candidate_id"], []).append(
+                run
+            )
         items = []
         for row in candidate_rows:
             candidate = self._candidate(row)
             decision = None
-            if project.decision_candidate_id == candidate.id and project.decision_snapshot_id:
+            if (
+                project.decision_candidate_id == candidate.id
+                and project.decision_snapshot_id
+            ):
                 fixed_snapshot_ids = (
                     {
                         item.snapshot_id
-                        for item in chain_snapshots_by_candidate.get(
-                            candidate.id, []
-                        )
+                        for item in chain_snapshots_by_candidate.get(candidate.id, [])
                     }
                     if chain_identity is not None
                     else {
@@ -762,29 +868,37 @@ class WorkbenchUnitOfWork:
                     }
                 )
                 if project.decision_snapshot_id not in fixed_snapshot_ids:
-                    raise StoreDataIntegrityError("採用判断の固定snapshotが見つかりません")
+                    raise StoreDataIntegrityError(
+                        "採用判断の固定snapshotが見つかりません"
+                    )
                 decision = {
                     "candidate_id": candidate.id,
                     "snapshot_id": project.decision_snapshot_id,
                     "note": project.decision_note,
                 }
-            items.append({
-                "candidate": candidate,
-                "current": {"revision": candidate.revision, "updated_at": candidate.updated_at},
-                "snapshots": snapshots_by_candidate.get(candidate.id, []),
-                "chain_snapshots": chain_snapshots_by_candidate.get(
-                    candidate.id, []
-                ),
-                "chain_analysis_variants": chain_variants_by_candidate.get(
-                    candidate.id, []
-                ),
-                "chain_distribution_runs": chain_distributions_by_candidate.get(
-                    candidate.id, []
-                ),
-                "actuals": actuals_by_candidate.get(candidate.id, []),
-                "decision": decision,
-            })
+            items.append(
+                {
+                    "candidate": candidate,
+                    "current": {
+                        "revision": candidate.revision,
+                        "updated_at": candidate.updated_at,
+                    },
+                    "snapshots": snapshots_by_candidate.get(candidate.id, []),
+                    "chain_snapshots": chain_snapshots_by_candidate.get(
+                        candidate.id, []
+                    ),
+                    "chain_analysis_variants": chain_variants_by_candidate.get(
+                        candidate.id, []
+                    ),
+                    "chain_distribution_runs": chain_distributions_by_candidate.get(
+                        candidate.id, []
+                    ),
+                    "actuals": actuals_by_candidate.get(candidate.id, []),
+                    "decision": decision,
+                }
+            )
         return {"project": project, "candidates": items}
+
     def update_chain_candidate(
         self,
         candidate_id: str,
@@ -832,6 +946,7 @@ class WorkbenchUnitOfWork:
             )
             updated = self._candidate(row)
         return updated, generation
+
     def insert_chain_snapshot(
         self, project_id: str, snapshot: ChainSnapshot
     ) -> ChainSnapshot:
@@ -869,6 +984,7 @@ class WorkbenchUnitOfWork:
                 ),
             )
         return snapshot
+
     def create_ai_review_run(self, run: AiReviewRun) -> AiReviewRun:
         if run.state != "running":
             raise ValueError("new AI review run must start in running state")
@@ -899,6 +1015,7 @@ class WorkbenchUnitOfWork:
                 ),
             )
         return run
+
     def create_snapshot_and_actual(
         self,
         project_id: str,
@@ -915,7 +1032,12 @@ class WorkbenchUnitOfWork:
                 (candidate_id, project_id),
             ).fetchone()
             if candidate_row is None:
-                if conn.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
+                if (
+                    conn.execute(
+                        "SELECT 1 FROM projects WHERE id=?", (project_id,)
+                    ).fetchone()
+                    is None
+                ):
                     raise ProjectNotFoundError(project_id)
                 raise StoreDataIntegrityError("候補が実測の保存前に削除されました")
             current = self._candidate(candidate_row)

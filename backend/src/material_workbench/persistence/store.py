@@ -19,7 +19,9 @@ from material_workbench.persistence.chain_repository import ChainRepository
 from material_workbench.persistence.chain_uncertainty_migration import (
     migrate_chain_uncertainty,
 )
-from material_workbench.persistence.data_lifecycle_migration import migrate_data_lifecycle
+from material_workbench.persistence.data_lifecycle_migration import (
+    migrate_data_lifecycle,
+)
 from material_workbench.persistence.data_lifecycle_payload_migration import (
     migrate_data_lifecycle_payloads,
 )

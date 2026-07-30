@@ -3,9 +3,6 @@
 from material_workbench.application.workspace_bundle_backup import (
     create_workspace_backup,
 )
-from material_workbench.application.workspace_bundle_manifest import (
-    _database_evidence,
-)
 from material_workbench.application.workspace_bundle_restore_plan import (
     prepare_workspace_restore,
 )

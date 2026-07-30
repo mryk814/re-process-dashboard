@@ -1,49 +1,29 @@
 from __future__ import annotations
 
 import json
-import os
-import re
 import shutil
 import sqlite3
-import stat
 import tempfile
-import zipfile
-from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
-from typing import Callable
-from uuid import uuid4
 from openpyxl import load_workbook
 from material_workbench.data.evidence_images import (
     EvidenceImageError,
     resolve_evidence_image,
 )
-from material_workbench.contracts.chain_contracts import (
-    semantic_digest,
-    task_contract_surface,
-    validate_chain_revision,
-)
 from material_workbench.contracts.workspace_bundle_contracts import (
-    WorkspaceBackupResult,
     WorkspaceBundleDiagnostic,
     WorkspaceBundleFile,
     WorkspaceBundleManifest,
     WorkspaceBundleMigration,
     WorkspaceBundlePackageReference,
     WorkspaceBundleResource,
-    WorkspaceRestoreCommitResult,
-    WorkspaceRestorePrepared,
-    WorkspaceRestoreResolution,
     WorkspaceTableEvidence,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.transform_catalog import (
-    DeterministicTransformCatalog,
-)
 from material_workbench.persistence.sqlite_connection import (
     connect_sqlite,
-    validate_sqlite_foreign_keys,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.row_payload_store import (
@@ -54,25 +34,14 @@ from material_workbench.persistence.row_payload_store import (
 from material_workbench.persistence.data_lifecycle_payload_storage import (
     QuarantinedPayloadReference,
     StoredLifecycleRowResource,
-    hydrate_curation_run,
-    hydrate_raw_snapshot,
 )
-from material_workbench.contracts.data_lifecycle_contracts import (
-    CurationRun,
-    RawSourceSnapshot,
-)
-from material_workbench.persistence.welding_chain_bootstrap import (
-    welding_stage_a_surface,
-)
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.workspace_bundle_shared import (
-    DATABASE_ARCHIVE_PATH, LIFECYCLE_ROW_TABLES, MANIFEST_ARCHIVE_PATH,
-    MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES, MAX_COMPRESSION_RATIO, MAX_ENTRY_BYTES,
-    MAX_MANIFEST_BYTES, MIN_FREE_SPACE_RESERVE, RESOURCE_ARCHIVE_ROOT,
-    RESTORE_EXPIRY_HOURS, ROW_PAYLOAD_ARCHIVE_ROOT, WINDOWS_RESERVED_NAMES,
-    WorkspaceBundleError, _canonical_digest, _file_digest, _json_value,
+    RESOURCE_ARCHIVE_ROOT,
+    ROW_PAYLOAD_ARCHIVE_ROOT,
+    WorkspaceBundleError,
+    _canonical_digest,
+    _file_digest,
+    _json_value,
 )
 
 
@@ -136,8 +105,7 @@ def _table_evidence(
         rows = [
             _normalized_row(table, columns, row)
             for row in connection.execute(
-                f'SELECT {select_columns} FROM '
-                f'"{table.replace(chr(34), chr(34) * 2)}"'
+                f'SELECT {select_columns} FROM "{table.replace(chr(34), chr(34) * 2)}"'
             )
         ]
         rows.sort(key=lambda row: json.dumps(row, ensure_ascii=False, sort_keys=True))
@@ -209,8 +177,7 @@ def _database_evidence(
     integrity_failures = [str(row[0]) for row in integrity_rows if row[0] != "ok"]
     if integrity_failures:
         raise WorkspaceBundleError(
-            "Workspace DB integrity_check failed: "
-            + "; ".join(integrity_failures[:10])
+            "Workspace DB integrity_check failed: " + "; ".join(integrity_failures[:10])
         )
     if foreign_keys:
         raise WorkspaceBundleError(
@@ -317,7 +284,9 @@ def _file_record(path: Path, archive_path: str) -> WorkspaceBundleFile:
 
 def _copy_file_verified(source: Path, destination: Path, digest: str) -> None:
     if not source.is_file() or source.is_symlink():
-        raise WorkspaceBundleError(f"Workspace resource is not a regular file: {source}")
+        raise WorkspaceBundleError(
+            f"Workspace resource is not a regular file: {source}"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
     if _file_digest(destination) != digest.removeprefix("sha256:"):
@@ -343,9 +312,7 @@ def _copy_package_verified(
     verified = ModelPackageLoader().load(source)
     expected = manifest_digest.removeprefix("sha256:")
     if verified.manifest_sha256 != expected:
-        raise WorkspaceBundleError(
-            f"Model Package manifest digest mismatch: {source}"
-        )
+        raise WorkspaceBundleError(f"Model Package manifest digest mismatch: {source}")
     shutil.copytree(
         source,
         destination,
@@ -391,7 +358,9 @@ def _declared_evidence_files(
     try:
         for sheet_name, column_name in sorted(declarations):
             if sheet_name not in workbook.sheetnames:
-                warnings.add(f"{source.name}: evidence image sheet is missing: {sheet_name}")
+                warnings.add(
+                    f"{source.name}: evidence image sheet is missing: {sheet_name}"
+                )
                 continue
             sheet = workbook[sheet_name]
             rows = sheet.iter_rows(values_only=True)
@@ -440,7 +409,11 @@ def _resource_bundle_digest(
 ) -> str:
     return _canonical_digest(
         [
-            {"path": record.path, "sha256": record.sha256, "size_bytes": record.size_bytes}
+            {
+                "path": record.path,
+                "sha256": record.sha256,
+                "size_bytes": record.size_bytes,
+            }
             for record in sorted(records, key=lambda item: item.path)
         ]
     )
@@ -553,11 +526,11 @@ def _snapshot_resources(
             safe_digest = digest.removeprefix("sha256:")
             relative_root = f"model-packages/sha256/{safe_digest}"
             destination = staging / relative_root
-            _copy_package_verified(
-                Path(str(row["locator"])), destination, digest
-            )
+            _copy_package_verified(Path(str(row["locator"])), destination, digest)
             paths: list[str] = []
-            for path in sorted(item for item in destination.rglob("*") if item.is_file()):
+            for path in sorted(
+                item for item in destination.rglob("*") if item.is_file()
+            ):
                 relative = path.relative_to(staging).as_posix()
                 archive_path = f"{RESOURCE_ARCHIVE_ROOT}/{relative}"
                 file_records[archive_path] = _file_record(path, archive_path)
@@ -609,9 +582,7 @@ def _row_payload_references(
                 f"FROM {table} ORDER BY id"
             ).fetchall()
             for row in rows:
-                wrapper = StoredLifecycleRowResource.model_validate_json(
-                    row["payload"]
-                )
+                wrapper = StoredLifecycleRowResource.model_validate_json(row["payload"])
                 expected_resource_kind = (
                     "raw_source_snapshot"
                     if table == "raw_source_snapshots"
@@ -684,9 +655,7 @@ def _quarantined_payload_references(
             for row in connection.execute(
                 f'SELECT id,payload FROM "{table}" ORDER BY id'
             ):
-                wrapper = StoredLifecycleRowResource.model_validate_json(
-                    row["payload"]
-                )
+                wrapper = StoredLifecycleRowResource.model_validate_json(row["payload"])
                 if wrapper.unavailable_reason is None:
                     continue
                 reference = wrapper.quarantined_payload
@@ -719,8 +688,7 @@ def _snapshot_row_payloads(
             source_store.verify(reference)
         except RowPayloadError as exc:
             raise WorkspaceBundleError(
-                "Lifecycle row payload cannot be backed up: "
-                f"{reference.sha256}"
+                f"Lifecycle row payload cannot be backed up: {reference.sha256}"
             ) from exc
         source = source_store.path_for(reference)
         archive_path = (
@@ -741,8 +709,7 @@ def _snapshot_row_payloads(
             or _file_digest(source) != reference.sha256
         ):
             raise WorkspaceBundleError(
-                "Lifecycle payload quarantine cannot be backed up: "
-                f"{reference.path}"
+                f"Lifecycle payload quarantine cannot be backed up: {reference.path}"
             )
         archive_path = f"workspace/{reference.path}"
         destination = staging / Path(archive_path)
@@ -750,11 +717,7 @@ def _snapshot_row_payloads(
         records.append(_file_record(destination, archive_path))
     quarantine_root = source_store.database.parent / "row-payloads" / "quarantine"
     actual_quarantine_paths = (
-        {
-            path.resolve()
-            for path in quarantine_root.rglob("*.json")
-            if path.is_file()
-        }
+        {path.resolve() for path in quarantine_root.rglob("*.json") if path.is_file()}
         if quarantine_root.exists()
         else set()
     )

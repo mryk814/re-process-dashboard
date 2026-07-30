@@ -2,29 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import uuid
-from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, Mapping
-from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
-from material_workbench.persistence.sqlite_connection import (
-    initialize_sqlite,
-    sqlite_connection,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.project_lifecycle_migration import (
-    install_project_archive_write_guards,
-    migrate_project_lifecycle,
-    remove_project_archive_write_guards,
-)
-from material_workbench.persistence.project_persistence_inventory import (
-    PROJECT_PERSISTENCE,
-)
 from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
-    ChainProjectIdentity,
     ChainRevision,
-    SingleTaskProjectIdentity,
     StageContractSurface,
     validate_chain_revision,
 )
@@ -36,75 +17,10 @@ from material_workbench.contracts.chain_execution_contracts import (
 from material_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
 )
-from material_workbench.contracts.schemas import (
-    ActualMeasurement,
-    ActualMeasurementInput,
-    Candidate,
-    CandidateInput,
-    Project,
-    ProjectCreateInput,
-    ProjectGroupMoveInput,
-    ProjectInput,
-    ProjectUpdateInput,
-    LineageNodeReview,
-    LineageNodeReviewInput,
-)
-from material_workbench.contracts.ai_review_contracts import (
-    AiReviewDisposition,
-    AiReviewRun,
-)
-from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
-from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
-from material_workbench.persistence.ai_review_migration import migrate_ai_reviews
-from material_workbench.persistence.project_design_space_migration import (
-    migrate_project_design_spaces,
-)
-from material_workbench.contracts.objective_contracts import (
-    ObjectiveDefinition,
-    ObjectiveDefinitionRevision,
-)
-from material_workbench.persistence.project_objective_migration import (
-    migrate_project_objectives,
-)
-from material_workbench.persistence.project_starter_migration import (
-    migrate_project_starter_identity,
-)
-from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
-from material_workbench.persistence.series_asset_migration import migrate_series_assets
-from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
-from material_workbench.persistence.workspace_maintenance_migration import (
-    migrate_workspace_maintenance_events,
-)
-from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
-from material_workbench.persistence.chain_analysis_variant_migration import (
-    migrate_chain_analysis_variant,
-)
-from material_workbench.persistence.chain_execution_cas_migration import (
-    migrate_chain_execution_cas,
-)
-from material_workbench.persistence.chain_uncertainty_migration import (
-    migrate_chain_uncertainty,
-)
-from material_workbench.persistence.data_lifecycle_migration import (
-    migrate_data_lifecycle,
-)
-from material_workbench.persistence.data_lifecycle_payload_migration import (
-    migrate_data_lifecycle_payloads,
-)
-from material_workbench.persistence.data_lifecycle_summary_migration import (
-    migrate_data_lifecycle_summaries,
-)
-from material_workbench.persistence.data_lifecycle_training_audit_migration import (
-    migrate_training_snapshot_selection_audit,
-)
-from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 from material_workbench.persistence.store_support import (
-    ActiveProjectPurgeError, CandidateArchivedError, CandidateCopyConflictError,
-    CandidateLimitError, CandidateRevisionConflictError, ChainCatalogConflictError,
-    InvalidProjectDecisionError, PROTECTED_PROJECT_IDS, ProjectGroupConflictError,
-    ProjectGroupUnavailableError, ProjectHasDerivedCandidatesError,
-    ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError,
-    StoreDataIntegrityError, _now, _single_task_identity_json, _target_values_json,
+    ChainCatalogConflictError,
+    StoreDataIntegrityError,
+    _now,
 )
 
 
@@ -141,6 +57,7 @@ class ChainRepository:
                 ),
             )
         return record_id
+
     def list_chain_definitions(self) -> list[ChainDefinition]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -148,9 +65,9 @@ class ChainRepository:
                 "ORDER BY chain_id,created_at"
             ).fetchall()
         return [
-            ChainDefinition.model_validate_json(row["definition_json"])
-            for row in rows
+            ChainDefinition.model_validate_json(row["definition_json"]) for row in rows
         ]
+
     def get_chain_definition(
         self, chain_id: str, definition_digest: str
     ) -> ChainDefinition | None:
@@ -165,6 +82,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     def register_chain_revision(
         self,
         revision: ChainRevision,
@@ -233,15 +151,14 @@ class ChainRepository:
                 ),
             )
         return record_id
+
     def list_chain_revisions(self) -> list[ChainRevision]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT revision_json FROM chain_revisions ORDER BY chain_id,revision"
             ).fetchall()
-        return [
-            ChainRevision.model_validate_json(row["revision_json"])
-            for row in rows
-        ]
+        return [ChainRevision.model_validate_json(row["revision_json"]) for row in rows]
+
     def get_chain_revision(self, revision_id: str) -> ChainRevision | None:
         with self._connect() as conn:
             row = conn.execute(
@@ -253,6 +170,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     def get_chain_stage_memo(self, memo_key: str) -> dict[str, Any] | None:
         with self._connect() as conn:
             row = conn.execute(
@@ -266,6 +184,7 @@ class ChainRepository:
             "canonical_input": json.loads(row["canonical_input_json"]),
             "result": json.loads(row["result_json"]),
         }
+
     def put_chain_stage_memo(
         self,
         *,
@@ -314,9 +233,11 @@ class ChainRepository:
                     _now(),
                 ),
             )
+
     @staticmethod
     def chain_execution_scope(project_id: str, candidate_id: str) -> str:
         return f"{project_id}:{candidate_id}"
+
     def get_chain_execution(
         self, project_id: str, candidate_id: str
     ) -> ChainExecution | None:
@@ -331,6 +252,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     @staticmethod
     def _claim_chain_execution(
         conn: sqlite3.Connection,
@@ -352,6 +274,7 @@ class ChainRepository:
             (scope_id, request_id, generation, _now()),
         )
         return generation
+
     def claim_chain_execution(
         self,
         project_id: str,
@@ -376,6 +299,7 @@ class ChainRepository:
             if candidate is None:
                 return None
             return self._claim_chain_execution(conn, scope_id, request_id)
+
     def chain_execution_generation(
         self, project_id: str, candidate_id: str, request_id: str
     ) -> int | None:
@@ -387,6 +311,7 @@ class ChainRepository:
                 (scope_id, request_id),
             ).fetchone()
         return int(row["generation"]) if row is not None else None
+
     def save_chain_execution_if_current(
         self, execution: ChainExecution, generation: int
     ) -> bool:
@@ -417,6 +342,7 @@ class ChainRepository:
                 ),
             )
         return True
+
     def get_chain_snapshot(
         self,
         snapshot_id: str,
@@ -438,6 +364,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     def insert_chain_distribution_run(
         self,
         run: ChainDistributionRun,
@@ -477,8 +404,7 @@ class ChainRepository:
                 or point.status != "latest"
                 or point.request_id != run.provenance.point_execution_request_id
                 or point.candidate_revision != run.provenance.candidate_revision
-                or point.chain_revision_digest
-                != run.provenance.chain_revision_digest
+                or point.chain_revision_digest != run.provenance.chain_revision_digest
                 or any(stage.status != "latest" for stage in point.stages)
             ):
                 raise StoreDataIntegrityError(
@@ -500,9 +426,8 @@ class ChainRepository:
                 ),
             )
         return run
-    def get_chain_distribution_run(
-        self, run_id: str
-    ) -> ChainDistributionRun | None:
+
+    def get_chain_distribution_run(self, run_id: str) -> ChainDistributionRun | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT payload_json FROM chain_distribution_runs WHERE id=?",
@@ -513,6 +438,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     def latest_chain_distribution_run(
         self, project_id: str, candidate_id: str
     ) -> ChainDistributionRun | None:
@@ -528,6 +454,7 @@ class ChainRepository:
             if row is not None
             else None
         )
+
     def list_chain_snapshots(
         self, project_id: str, candidate_id: str
     ) -> list[ChainSnapshot]:
@@ -537,10 +464,8 @@ class ChainRepository:
                 "WHERE project_id=? AND candidate_id=? ORDER BY created_at DESC",
                 (project_id, candidate_id),
             ).fetchall()
-        return [
-            ChainSnapshot.model_validate_json(row["payload_json"])
-            for row in rows
-        ]
+        return [ChainSnapshot.model_validate_json(row["payload_json"]) for row in rows]
+
     def insert_chain_analysis_variant(
         self, variant: ActualConditionedVariant
     ) -> ActualConditionedVariant:
@@ -575,6 +500,7 @@ class ChainRepository:
                 ),
             )
         return variant
+
     def list_chain_analysis_variants(
         self, project_id: str, candidate_id: str
     ) -> list[ActualConditionedVariant]:
@@ -588,6 +514,7 @@ class ChainRepository:
             ActualConditionedVariant.model_validate_json(row["payload_json"])
             for row in rows
         ]
+
     def get_chain_analysis_variant(
         self, variant_id: str
     ) -> ActualConditionedVariant | None:

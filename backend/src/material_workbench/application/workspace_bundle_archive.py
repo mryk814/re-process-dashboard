@@ -1,80 +1,39 @@
 from __future__ import annotations
 
-import json
-import os
 import re
 import shutil
-import sqlite3
 import stat
-import tempfile
 import zipfile
-from datetime import UTC, datetime, timedelta
-from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
-from typing import Callable
-from uuid import uuid4
-from openpyxl import load_workbook
-from material_workbench.data.evidence_images import (
-    EvidenceImageError,
-    resolve_evidence_image,
-)
-from material_workbench.contracts.chain_contracts import (
-    semantic_digest,
-    task_contract_surface,
-    validate_chain_revision,
-)
 from material_workbench.contracts.workspace_bundle_contracts import (
-    WorkspaceBackupResult,
-    WorkspaceBundleDiagnostic,
     WorkspaceBundleFile,
     WorkspaceBundleManifest,
-    WorkspaceBundleMigration,
-    WorkspaceBundlePackageReference,
-    WorkspaceBundleResource,
-    WorkspaceRestoreCommitResult,
-    WorkspaceRestorePrepared,
-    WorkspaceRestoreResolution,
-    WorkspaceTableEvidence,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.transform_catalog import (
-    DeterministicTransformCatalog,
-)
-from material_workbench.persistence.sqlite_connection import (
-    connect_sqlite,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.store import Store
 from material_workbench.persistence.row_payload_store import (
-    RowPayloadError,
     RowPayloadReference,
     RowPayloadStore,
 )
-from material_workbench.persistence.data_lifecycle_payload_storage import (
-    QuarantinedPayloadReference,
-    StoredLifecycleRowResource,
-    hydrate_curation_run,
-    hydrate_raw_snapshot,
-)
-from material_workbench.contracts.data_lifecycle_contracts import (
-    CurationRun,
-    RawSourceSnapshot,
-)
-from material_workbench.persistence.welding_chain_bootstrap import (
-    welding_stage_a_surface,
-)
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.workspace_bundle_shared import (
-    DATABASE_ARCHIVE_PATH, LIFECYCLE_ROW_TABLES, MANIFEST_ARCHIVE_PATH,
-    MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES, MAX_COMPRESSION_RATIO, MAX_ENTRY_BYTES,
-    MAX_MANIFEST_BYTES, MIN_FREE_SPACE_RESERVE, RESOURCE_ARCHIVE_ROOT,
-    RESTORE_EXPIRY_HOURS, ROW_PAYLOAD_ARCHIVE_ROOT, WINDOWS_RESERVED_NAMES,
-    WorkspaceBundleError, _canonical_digest, _file_digest, _json_value,
+    MANIFEST_ARCHIVE_PATH,
+    MAX_BUNDLE_BYTES,
+    MAX_BUNDLE_ENTRIES,
+    MAX_COMPRESSION_RATIO,
+    MAX_ENTRY_BYTES,
+    MAX_MANIFEST_BYTES,
+    MIN_FREE_SPACE_RESERVE,
+    ROW_PAYLOAD_ARCHIVE_ROOT,
+    WINDOWS_RESERVED_NAMES,
+    WorkspaceBundleError,
+    _file_digest,
+    canonical_resource_bundle_root,
 )
-from material_workbench.application.workspace_bundle_manifest import _quarantined_payload_references, _resource_bundle_digest, _row_payload_references
+from material_workbench.application.workspace_bundle_manifest import (
+    _quarantined_payload_references,
+    _resource_bundle_digest,
+    _row_payload_references,
+)
+
 
 def _validate_archive_name(name: str) -> None:
     path = PurePosixPath(name)
@@ -159,20 +118,14 @@ def _stream_extract(
     )
     available_free = shutil.disk_usage(destination).free
     if available_free < required_free:
-        raise WorkspaceBundleError(
-            "Workspace bundleの展開に必要な空き容量がありません"
-        )
+        raise WorkspaceBundleError("Workspace bundleの展開に必要な空き容量がありません")
     expected = {MANIFEST_ARCHIVE_PATH, *(record.path for record in records)}
     if set(entries) != expected:
-        raise WorkspaceBundleError(
-            "Workspace bundle entries do not match the manifest"
-        )
+        raise WorkspaceBundleError("Workspace bundle entries do not match the manifest")
     for record in records:
         entry = entries.get(record.path)
         if entry is None or entry.file_size != record.size_bytes:
-            raise WorkspaceBundleError(
-                f"Workspace bundle size mismatch: {record.path}"
-            )
+            raise WorkspaceBundleError(f"Workspace bundle size mismatch: {record.path}")
         target = destination / Path(record.path)
         target.parent.mkdir(parents=True, exist_ok=True)
         digest = sha256()
@@ -207,7 +160,27 @@ def _validate_resource_manifest(manifest: WorkspaceBundleManifest) -> None:
             raise WorkspaceBundleError(
                 f"Workspace bundle resource has no files: {resource.reference_id}"
             )
-        root = PurePosixPath(resource.bundle_root)
+        expected_root = canonical_resource_bundle_root(resource)
+        if resource.bundle_root != expected_root:
+            raise WorkspaceBundleError(
+                f"Workspace resource root is not canonical: {resource.reference_id}"
+            )
+        root = PurePosixPath(expected_root)
+        if len(resource.files) != len(set(resource.files)):
+            raise WorkspaceBundleError(
+                f"Workspace resource inventory contains duplicates: "
+                f"{resource.reference_id}"
+            )
+        owned_records = {
+            path
+            for path in records
+            if (PurePosixPath(path) != root and root in PurePosixPath(path).parents)
+        }
+        if set(resource.files) != owned_records:
+            raise WorkspaceBundleError(
+                "Workspace resource inventory is not the complete canonical tree: "
+                f"{resource.reference_id}"
+            )
         selected: list[WorkspaceBundleFile] = []
         for path in resource.files:
             candidate = PurePosixPath(path)
@@ -225,7 +198,10 @@ def _validate_resource_manifest(manifest: WorkspaceBundleManifest) -> None:
             selected.append(record)
             covered.add(path)
         if resource.kind == "data_asset":
-            if resource.primary_file is None or resource.primary_file not in resource.files:
+            if (
+                resource.primary_file is None
+                or resource.primary_file not in resource.files
+            ):
                 raise WorkspaceBundleError(
                     f"Data Asset primary file is invalid: {resource.reference_id}"
                 )
@@ -279,10 +255,7 @@ def _validate_staged_row_payloads(
     store = RowPayloadStore(staged_database)
     for reference in references:
         store.verify(reference)
-    if (
-        manifest.schema_version == "workspace-bundle/v2"
-        or manifest.row_payload_files
-    ):
+    if manifest.schema_version == "workspace-bundle/v2" or manifest.row_payload_files:
         expected = {_row_payload_archive_path(reference) for reference in references}
         for reference in _quarantined_payload_references(staged_database):
             path = staged_database.parent / Path(reference.path)
@@ -293,8 +266,7 @@ def _validate_staged_row_payloads(
                 or _file_digest(path) != reference.sha256
             ):
                 raise WorkspaceBundleError(
-                    "Lifecycle payload quarantine is unavailable: "
-                    f"{reference.path}"
+                    f"Lifecycle payload quarantine is unavailable: {reference.path}"
                 )
             expected.add(f"workspace/{reference.path}")
         declared = {record.path for record in manifest.row_payload_files}

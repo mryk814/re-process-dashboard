@@ -3,108 +3,29 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import datetime
 from typing import Any, Mapping
-from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
-from material_workbench.persistence.sqlite_connection import (
-    initialize_sqlite,
-    sqlite_connection,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.project_lifecycle_migration import (
-    install_project_archive_write_guards,
-    migrate_project_lifecycle,
-    remove_project_archive_write_guards,
-)
-from material_workbench.persistence.project_persistence_inventory import (
-    PROJECT_PERSISTENCE,
-)
 from material_workbench.contracts.chain_contracts import (
-    ChainDefinition,
-    ChainProjectIdentity,
-    ChainRevision,
     SingleTaskProjectIdentity,
-    StageContractSurface,
-    validate_chain_revision,
-)
-from material_workbench.contracts.chain_execution_contracts import (
-    ActualConditionedVariant,
-    ChainExecution,
-    ChainSnapshot,
-)
-from material_workbench.contracts.chain_uncertainty_contracts import (
-    ChainDistributionRun,
 )
 from material_workbench.contracts.schemas import (
-    ActualMeasurement,
-    ActualMeasurementInput,
-    Candidate,
-    CandidateInput,
     Project,
     ProjectCreateInput,
     ProjectGroupMoveInput,
     ProjectInput,
-    ProjectUpdateInput,
-    LineageNodeReview,
-    LineageNodeReviewInput,
-)
-from material_workbench.contracts.ai_review_contracts import (
-    AiReviewDisposition,
-    AiReviewRun,
-)
-from material_workbench.persistence.lineage_review_migration import migrate_lineage_reviews
-from material_workbench.persistence.decision_activity_migration import migrate_decision_activity_runs
-from material_workbench.persistence.ai_review_migration import migrate_ai_reviews
-from material_workbench.persistence.project_design_space_migration import (
-    migrate_project_design_spaces,
 )
 from material_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
     ObjectiveDefinitionRevision,
 )
-from material_workbench.persistence.project_objective_migration import (
-    migrate_project_objectives,
-)
-from material_workbench.persistence.project_starter_migration import (
-    migrate_project_starter_identity,
-)
-from material_workbench.persistence.candidate_revision_migration import migrate_candidate_revisions
-from material_workbench.persistence.series_asset_migration import migrate_series_assets
-from material_workbench.persistence.workspace_catalog_migration import migrate_workspace_catalog
-from material_workbench.persistence.workspace_maintenance_migration import (
-    migrate_workspace_maintenance_events,
-)
-from material_workbench.persistence.chain_catalog_migration import migrate_chain_catalog
-from material_workbench.persistence.chain_analysis_variant_migration import (
-    migrate_chain_analysis_variant,
-)
-from material_workbench.persistence.chain_execution_cas_migration import (
-    migrate_chain_execution_cas,
-)
-from material_workbench.persistence.chain_uncertainty_migration import (
-    migrate_chain_uncertainty,
-)
-from material_workbench.persistence.data_lifecycle_migration import (
-    migrate_data_lifecycle,
-)
-from material_workbench.persistence.data_lifecycle_payload_migration import (
-    migrate_data_lifecycle_payloads,
-)
-from material_workbench.persistence.data_lifecycle_summary_migration import (
-    migrate_data_lifecycle_summaries,
-)
-from material_workbench.persistence.data_lifecycle_training_audit_migration import (
-    migrate_training_snapshot_selection_audit,
-)
-from material_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJECT
 from material_workbench.persistence.store_support import (
-    ActiveProjectPurgeError, CandidateArchivedError, CandidateCopyConflictError,
-    CandidateLimitError, CandidateRevisionConflictError, ChainCatalogConflictError,
-    InvalidProjectDecisionError, PROTECTED_PROJECT_IDS, ProjectGroupConflictError,
-    ProjectGroupUnavailableError, ProjectHasDerivedCandidatesError,
-    ProjectHasSuccessorsError, ProjectNotFoundError, ProtectedProjectError,
-    StoreDataIntegrityError, _now, _single_task_identity_json, _target_values_json,
+    PROTECTED_PROJECT_IDS,
+    ProjectGroupConflictError,
+    ProjectGroupUnavailableError,
+    ProjectNotFoundError,
+    ProtectedProjectError,
+    _now,
+    _target_values_json,
 )
 
 
@@ -142,9 +63,7 @@ class ProjectRepository:
                 else None
             ),
             design_space_digest=row["design_space_digest"],
-            design_space_binding_provenance=row[
-                "design_space_binding_provenance"
-            ],
+            design_space_binding_provenance=row["design_space_binding_provenance"],
             objective_definition=(
                 json.loads(row["objective_definition_json"])
                 if row["objective_definition_json"]
@@ -166,6 +85,7 @@ class ProjectRepository:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
+
     def list_projects(self, *, include_archived: bool = False) -> list[Project]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -174,6 +94,7 @@ class ProjectRepository:
                 + "ORDER BY created_at, id"
             ).fetchall()
         return [self._project(row) for row in rows]
+
     def get_project(
         self,
         project_id: str = "default",
@@ -187,6 +108,7 @@ class ProjectRepository:
                 (project_id,),
             ).fetchone()
         return self._project(row) if row else None
+
     @staticmethod
     def _project_series_id_for_create(
         conn: sqlite3.Connection,
@@ -214,10 +136,9 @@ class ProjectRepository:
             (payload.project_series_id,),
         ).fetchone()
         if available is None:
-            raise ProjectGroupUnavailableError(
-                "選択した検討グループを利用できません"
-            )
+            raise ProjectGroupUnavailableError("選択した検討グループを利用できません")
         return payload.project_series_id
+
     def ensure_project(
         self,
         project_id: str,
@@ -228,7 +149,9 @@ class ProjectRepository:
         existing = self.get_project(project_id)
         if existing is not None:
             if existing.task_id != payload.task_id:
-                raise ValueError(f"reserved project {project_id} belongs to another task")
+                raise ValueError(
+                    f"reserved project {project_id} belongs to another task"
+                )
             if starter and not existing.starter:
                 with self._connect() as conn:
                     conn.execute(
@@ -249,21 +172,32 @@ class ProjectRepository:
                     payload.task_id,
                     _target_values_json(payload.target_values),
                     json.dumps(
-                        {key: value.model_dump() for key, value in payload.input_ranges.items()},
+                        {
+                            key: value.model_dump()
+                            for key, value in payload.input_ranges.items()
+                        },
                         ensure_ascii=False,
                         sort_keys=True,
                     ),
                     json.dumps(
                         {
-                            axis: {key: value.model_dump() for key, value in ranges.items()}
+                            axis: {
+                                key: value.model_dump() for key, value in ranges.items()
+                            }
                             for axis, ranges in payload.response_curve_ranges.items()
                         },
                         ensure_ascii=False,
                         sort_keys=True,
                     ),
                     payload.response_curve_points,
-                    json.dumps(payload.heat_stage_positions_m, ensure_ascii=False, sort_keys=True),
-                    json.dumps(payload.display_decimals, ensure_ascii=False, sort_keys=True),
+                    json.dumps(
+                        payload.heat_stage_positions_m,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        payload.display_decimals, ensure_ascii=False, sort_keys=True
+                    ),
                     payload.notes,
                     "",
                     "",
@@ -279,6 +213,7 @@ class ProjectRepository:
                 ),
             )
         return self.get_project(project_id)  # type: ignore[return-value]
+
     def list_project_objective_revisions(
         self,
         project_id: str,
@@ -303,7 +238,10 @@ class ProjectRepository:
             )
             for row in rows
         ]
-    def move_project_to_group(self, project_id: str, payload: ProjectGroupMoveInput) -> Project:
+
+    def move_project_to_group(
+        self, project_id: str, payload: ProjectGroupMoveInput
+    ) -> Project:
         now = _now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -323,10 +261,14 @@ class ProjectRepository:
                     (payload.project_series_id,),
                 ).fetchone()
                 if target_group is None or target_group["archived_at"] is not None:
-                    raise ProjectGroupUnavailableError("移動先の検討グループを利用できません")
+                    raise ProjectGroupUnavailableError(
+                        "移動先の検討グループを利用できません"
+                    )
             if current_group_id == payload.project_series_id:
                 return self._project(
-                    conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+                    conn.execute(
+                        "SELECT * FROM projects WHERE id=?", (project_id,)
+                    ).fetchone()
                 )
             conn.execute(
                 "UPDATE projects SET project_series_id=?,updated_at=? WHERE id=?",
@@ -339,47 +281,11 @@ class ProjectRepository:
                     "AND NOT EXISTS (SELECT 1 FROM projects WHERE project_series_id=?)",
                     (now, now, current_group_id, current_group_id),
                 )
-            row = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
-        return self._project(row)
-    def archive_project(self, project_id: str) -> Project | None:
-        if project_id in PROTECTED_PROJECT_IDS:
-            raise ProtectedProjectError("予約プロジェクトはアーカイブできません")
-        now = _now()
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            project_row = conn.execute(
-                "SELECT project_series_id,archived_at FROM projects WHERE id=?",
-                (project_id,),
-            ).fetchone()
-            if project_row is None:
-                return None
-            if project_row["archived_at"] is None:
-                # Revoke in-flight Chain claims while the Project is still writable;
-                # archive guards reject every subsequent scope-table mutation.
-                conn.execute(
-                    "DELETE FROM chain_execution_claims WHERE scope_id LIKE ?",
-                    (f"{project_id}:%",),
-                )
-                conn.execute(
-                    "UPDATE projects SET archived_at=?,updated_at=? WHERE id=?",
-                    (now, now, project_id),
-                )
-                series_id = project_row["project_series_id"]
-                if series_id:
-                    conn.execute(
-                        "UPDATE project_series SET archived_at=?,updated_at=? "
-                        "WHERE id=? AND archived_at IS NULL "
-                        "AND NOT EXISTS ("
-                        "SELECT 1 FROM projects "
-                        "WHERE projects.project_series_id=project_series.id "
-                        "AND projects.archived_at IS NULL"
-                        ")",
-                        (now, now, series_id),
-                    )
             row = conn.execute(
                 "SELECT * FROM projects WHERE id=?", (project_id,)
             ).fetchone()
         return self._project(row)
+
     def restore_project(self, project_id: str) -> Project | None:
         if project_id in PROTECTED_PROJECT_IDS:
             raise ProtectedProjectError("予約プロジェクトは復元操作の対象外です")
@@ -406,6 +312,7 @@ class ProjectRepository:
                 "SELECT * FROM projects WHERE id=?", (project_id,)
             ).fetchone()
         return self._project(restored)
+
     @staticmethod
     def _candidate_provenance_references_project(
         conn: sqlite3.Connection,

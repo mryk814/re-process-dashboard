@@ -1,81 +1,80 @@
 from __future__ import annotations
 
-import json
 import os
-import re
 import shutil
-import sqlite3
-import stat
-import tempfile
-import zipfile
-from datetime import UTC, datetime, timedelta
-from functools import lru_cache
-from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Callable
 from uuid import uuid4
-from openpyxl import load_workbook
-from material_workbench.data.evidence_images import (
-    EvidenceImageError,
-    resolve_evidence_image,
-)
-from material_workbench.contracts.chain_contracts import (
-    semantic_digest,
-    task_contract_surface,
-    validate_chain_revision,
-)
 from material_workbench.contracts.workspace_bundle_contracts import (
-    WorkspaceBackupResult,
-    WorkspaceBundleDiagnostic,
     WorkspaceBundleFile,
     WorkspaceBundleManifest,
-    WorkspaceBundleMigration,
-    WorkspaceBundlePackageReference,
     WorkspaceBundleResource,
-    WorkspaceRestoreCommitResult,
-    WorkspaceRestorePrepared,
-    WorkspaceRestoreResolution,
-    WorkspaceTableEvidence,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.transform_catalog import (
-    DeterministicTransformCatalog,
-)
 from material_workbench.persistence.sqlite_connection import (
     connect_sqlite,
     validate_sqlite_foreign_keys,
 )
-from material_workbench.persistence.store import Store
 from material_workbench.persistence.row_payload_store import (
-    RowPayloadError,
-    RowPayloadReference,
     RowPayloadStore,
 )
-from material_workbench.persistence.data_lifecycle_payload_storage import (
-    QuarantinedPayloadReference,
-    StoredLifecycleRowResource,
-    hydrate_curation_run,
-    hydrate_raw_snapshot,
-)
-from material_workbench.contracts.data_lifecycle_contracts import (
-    CurationRun,
-    RawSourceSnapshot,
-)
-from material_workbench.persistence.welding_chain_bootstrap import (
-    welding_stage_a_surface,
-)
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.workspace_bundle_shared import (
-    DATABASE_ARCHIVE_PATH, LIFECYCLE_ROW_TABLES, MANIFEST_ARCHIVE_PATH,
-    MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES, MAX_COMPRESSION_RATIO, MAX_ENTRY_BYTES,
-    MAX_MANIFEST_BYTES, MIN_FREE_SPACE_RESERVE, RESOURCE_ARCHIVE_ROOT,
-    RESTORE_EXPIRY_HOURS, ROW_PAYLOAD_ARCHIVE_ROOT, WINDOWS_RESERVED_NAMES,
-    WorkspaceBundleError, _canonical_digest, _file_digest, _json_value,
+    WorkspaceBundleError,
+    _file_digest,
 )
-from material_workbench.application.workspace_bundle_manifest import _row_payload_references
-from material_workbench.application.workspace_bundle_restore_plan import _final_resource_path, _staged_resource_root, _write_state
+from material_workbench.application.workspace_bundle_manifest import (
+    _resource_bundle_digest,
+    _row_payload_references,
+)
+from material_workbench.application.workspace_bundle_restore_plan import (
+    _final_resource_path,
+    _staged_resource_root,
+    _write_state,
+)
+
+
+def _validate_resource_tree(
+    root: Path,
+    resource: WorkspaceBundleResource,
+    records: dict[str, WorkspaceBundleFile],
+) -> None:
+    expected_relative: set[str] = set()
+    verified: list[WorkspaceBundleFile] = []
+    bundle_root = PurePosixPath(resource.bundle_root)
+    for archive_path in resource.files:
+        record = records[archive_path]
+        relative = PurePosixPath(archive_path).relative_to(bundle_root)
+        relative_text = relative.as_posix()
+        expected_relative.add(relative_text)
+        target = root / Path(relative_text)
+        if not target.is_file() or target.is_symlink():
+            raise WorkspaceBundleError(
+                f"Installed Workspace resource file is missing: {archive_path}"
+            )
+        if (
+            target.stat().st_size != record.size_bytes
+            or _file_digest(target) != record.sha256
+        ):
+            raise WorkspaceBundleError(
+                f"Installed Workspace resource file changed: {archive_path}"
+            )
+        verified.append(record)
+    actual_relative = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() or path.is_symlink()
+    }
+    if actual_relative != expected_relative:
+        raise WorkspaceBundleError(
+            f"Installed Workspace resource tree has undeclared files: "
+            f"{resource.reference_id}"
+        )
+    if _resource_bundle_digest(tuple(verified)) != resource.bundle_digest:
+        raise WorkspaceBundleError(
+            f"Installed Workspace resource inventory digest mismatch: "
+            f"{resource.reference_id}"
+        )
+
 
 def _install_resources(
     *,
@@ -87,6 +86,7 @@ def _install_resources(
     staged_database = root / "next" / Path(manifest.database.path)
     connection = connect_sqlite(staged_database)
     installed: list[str] = []
+    records = {record.path: record for record in manifest.data_library_files}
     try:
         connection.execute("BEGIN IMMEDIATE")
         for resource in manifest.bundled_resources:
@@ -94,15 +94,26 @@ def _install_resources(
             final_root = _final_resource_path(data_library_root, resource)
             if not final_root.exists():
                 final_root.parent.mkdir(parents=True, exist_ok=True)
-                temporary = final_root.with_name(f".{final_root.name}.{uuid4().hex}.tmp")
-                shutil.copytree(source_root, temporary)
+                temporary = final_root.with_name(
+                    f".{final_root.name}.{uuid4().hex}.tmp"
+                )
+                temporary.mkdir()
                 try:
+                    bundle_root = PurePosixPath(resource.bundle_root)
+                    for archive_path in resource.files:
+                        relative = PurePosixPath(archive_path).relative_to(bundle_root)
+                        source = source_root / Path(relative.as_posix())
+                        destination = temporary / Path(relative.as_posix())
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(source, destination)
+                    _validate_resource_tree(temporary, resource, records)
                     os.replace(temporary, final_root)
                     installed.append(
                         final_root.relative_to(data_library_root).as_posix()
                     )
                 finally:
                     shutil.rmtree(temporary, ignore_errors=True)
+            _validate_resource_tree(final_root, resource, records)
             if resource.kind == "data_asset":
                 if resource.primary_file is None:
                     raise WorkspaceBundleError(
@@ -112,7 +123,9 @@ def _install_resources(
                     PurePosixPath(resource.bundle_root)
                 )
                 locator = final_root / Path(relative_file.as_posix())
-                if _file_digest(locator) != resource.content_digest.removeprefix("sha256:"):
+                if _file_digest(locator) != resource.content_digest.removeprefix(
+                    "sha256:"
+                ):
                     raise WorkspaceBundleError(
                         f"Installed Data Asset digest mismatch: {resource.reference_id}"
                     )
@@ -122,7 +135,9 @@ def _install_resources(
                 )
             else:
                 verified = ModelPackageLoader().load(final_root)
-                if verified.manifest_sha256 != resource.content_digest.removeprefix("sha256:"):
+                if verified.manifest_sha256 != resource.content_digest.removeprefix(
+                    "sha256:"
+                ):
                     raise WorkspaceBundleError(
                         f"Installed Model Package digest mismatch: {resource.reference_id}"
                     )
@@ -148,6 +163,7 @@ def _install_row_payloads(
     source_store = RowPayloadStore(staged_database)
     destination_store = RowPayloadStore(database)
     installed: list[str] = []
+
     def install_file(source: Path, destination: Path, digest: str) -> None:
         if destination.exists():
             if _file_digest(destination) != digest:
@@ -156,9 +172,7 @@ def _install_row_payloads(
                 )
             return
         destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary = destination.with_name(
-            f".{destination.name}.{uuid4().hex}.tmp"
-        )
+        temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
         try:
             shutil.copyfile(source, temporary)
             if _file_digest(temporary) != digest:
@@ -168,9 +182,7 @@ def _install_row_payloads(
             with temporary.open("r+b") as copied:
                 os.fsync(copied.fileno())
             os.replace(temporary, destination)
-            installed.append(
-                destination.relative_to(database.parent).as_posix()
-            )
+            installed.append(destination.relative_to(database.parent).as_posix())
             state["installed_row_payload_files"] = list(installed)
             _write_state(restore_root, state)
             if fault_injector is not None:
@@ -185,22 +197,16 @@ def _install_row_payloads(
             destination = destination_store.path_for(reference)
             install_file(source, destination, reference.sha256)
             destination_store.verify(reference)
-        quarantine_root = (
-            staged_database.parent / "row-payloads" / "quarantine"
-        )
+        quarantine_root = staged_database.parent / "row-payloads" / "quarantine"
         if quarantine_root.exists():
-            destination_root = (
-                database.parent / "row-payloads" / "quarantine"
-            )
+            destination_root = database.parent / "row-payloads" / "quarantine"
             for source in sorted(quarantine_root.rglob("*.json")):
                 digest = _file_digest(source)
                 if source.stem != digest:
                     raise WorkspaceBundleError(
                         "Lifecycle payload quarantine digest does not match its name"
                     )
-                destination = destination_root / source.relative_to(
-                    quarantine_root
-                )
+                destination = destination_root / source.relative_to(quarantine_root)
                 install_file(source, destination, digest)
     except Exception:
         _cleanup_installed_row_payloads(database, installed)

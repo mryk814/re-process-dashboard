@@ -1,81 +1,32 @@
 from __future__ import annotations
 
-import json
 import os
-import re
-import shutil
-import sqlite3
-import stat
 import tempfile
 import zipfile
-from datetime import UTC, datetime, timedelta
-from functools import lru_cache
-from hashlib import sha256
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Callable
 from uuid import uuid4
-from openpyxl import load_workbook
-from material_workbench.data.evidence_images import (
-    EvidenceImageError,
-    resolve_evidence_image,
-)
-from material_workbench.contracts.chain_contracts import (
-    semantic_digest,
-    task_contract_surface,
-    validate_chain_revision,
-)
 from material_workbench.contracts.workspace_bundle_contracts import (
     WorkspaceBackupResult,
     WorkspaceBundleDiagnostic,
-    WorkspaceBundleFile,
     WorkspaceBundleManifest,
-    WorkspaceBundleMigration,
-    WorkspaceBundlePackageReference,
-    WorkspaceBundleResource,
-    WorkspaceRestoreCommitResult,
-    WorkspaceRestorePrepared,
-    WorkspaceRestoreResolution,
-    WorkspaceTableEvidence,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.modeling.transform_catalog import (
-    DeterministicTransformCatalog,
-)
-from material_workbench.persistence.sqlite_connection import (
-    connect_sqlite,
-    validate_sqlite_foreign_keys,
-)
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.row_payload_store import (
-    RowPayloadError,
-    RowPayloadReference,
-    RowPayloadStore,
-)
-from material_workbench.persistence.data_lifecycle_payload_storage import (
-    QuarantinedPayloadReference,
-    StoredLifecycleRowResource,
-    hydrate_curation_run,
-    hydrate_raw_snapshot,
-)
-from material_workbench.contracts.data_lifecycle_contracts import (
-    CurationRun,
-    RawSourceSnapshot,
-)
-from material_workbench.persistence.welding_chain_bootstrap import (
-    welding_stage_a_surface,
-)
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.workspace_bundle_shared import (
-    DATABASE_ARCHIVE_PATH, LIFECYCLE_ROW_TABLES, MANIFEST_ARCHIVE_PATH,
-    MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES, MAX_COMPRESSION_RATIO, MAX_ENTRY_BYTES,
-    MAX_MANIFEST_BYTES, MIN_FREE_SPACE_RESERVE, RESOURCE_ARCHIVE_ROOT,
-    RESTORE_EXPIRY_HOURS, ROW_PAYLOAD_ARCHIVE_ROOT, WINDOWS_RESERVED_NAMES,
-    WorkspaceBundleError, _canonical_digest, _file_digest, _json_value,
+    DATABASE_ARCHIVE_PATH,
+    MANIFEST_ARCHIVE_PATH,
+    RESOURCE_ARCHIVE_ROOT,
+    WorkspaceBundleError,
+    _file_digest,
 )
 from material_workbench.application.workspace_bundle_archive import _inspect_bundle
-from material_workbench.application.workspace_bundle_manifest import _database_evidence, _file_record, _logical_database_backup, _snapshot_resources, _snapshot_row_payloads
+from material_workbench.application.workspace_bundle_manifest import (
+    _database_evidence,
+    _file_record,
+    _logical_database_backup,
+    _snapshot_resources,
+    _snapshot_row_payloads,
+)
+
 
 def _safe_backup_destination(
     raw: str | Path,
@@ -129,9 +80,7 @@ def create_workspace_backup(
             staged_database=staged_database,
             staging=staging,
         )
-        database_record = _file_record(
-            staged_database, DATABASE_ARCHIVE_PATH
-        )
+        database_record = _file_record(staged_database, DATABASE_ARCHIVE_PATH)
         manifest = WorkspaceBundleManifest(
             bundle_id=f"workspace-bundle-{uuid4()}",
             created_at=datetime.now(UTC),

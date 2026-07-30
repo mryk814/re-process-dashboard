@@ -2,40 +2,21 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
-import sqlite3
-import stat
-import tempfile
-import zipfile
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
 from hashlib import sha256
-from pathlib import Path, PurePosixPath
-from typing import Callable
+from pathlib import Path
 from uuid import uuid4
-from openpyxl import load_workbook
-from material_workbench.data.evidence_images import (
-    EvidenceImageError,
-    resolve_evidence_image,
-)
 from material_workbench.contracts.chain_contracts import (
     semantic_digest,
     task_contract_surface,
     validate_chain_revision,
 )
 from material_workbench.contracts.workspace_bundle_contracts import (
-    WorkspaceBackupResult,
     WorkspaceBundleDiagnostic,
-    WorkspaceBundleFile,
     WorkspaceBundleManifest,
-    WorkspaceBundleMigration,
-    WorkspaceBundlePackageReference,
     WorkspaceBundleResource,
-    WorkspaceRestoreCommitResult,
     WorkspaceRestorePrepared,
-    WorkspaceRestoreResolution,
-    WorkspaceTableEvidence,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.modeling.transform_catalog import (
@@ -47,12 +28,10 @@ from material_workbench.persistence.sqlite_connection import (
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.row_payload_store import (
-    RowPayloadError,
     RowPayloadReference,
     RowPayloadStore,
 )
 from material_workbench.persistence.data_lifecycle_payload_storage import (
-    QuarantinedPayloadReference,
     StoredLifecycleRowResource,
     hydrate_curation_run,
     hydrate_raw_snapshot,
@@ -68,14 +47,22 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.workspace_bundle_shared import (
-    DATABASE_ARCHIVE_PATH, LIFECYCLE_ROW_TABLES, MANIFEST_ARCHIVE_PATH,
-    MAX_BUNDLE_BYTES, MAX_BUNDLE_ENTRIES, MAX_COMPRESSION_RATIO, MAX_ENTRY_BYTES,
-    MAX_MANIFEST_BYTES, MIN_FREE_SPACE_RESERVE, RESOURCE_ARCHIVE_ROOT,
-    RESTORE_EXPIRY_HOURS, ROW_PAYLOAD_ARCHIVE_ROOT, WINDOWS_RESERVED_NAMES,
-    WorkspaceBundleError, _canonical_digest, _file_digest, _json_value,
+    LIFECYCLE_ROW_TABLES,
+    RESTORE_EXPIRY_HOURS,
+    WorkspaceBundleError,
+    _file_digest,
 )
-from material_workbench.application.workspace_bundle_archive import _extract_verified_bundle, _validate_staged_row_payloads
-from material_workbench.application.workspace_bundle_manifest import _current_migration_inventory, _database_evidence, _migration_inventory, _validate_migration_inventory
+from material_workbench.application.workspace_bundle_archive import (
+    _extract_verified_bundle,
+    _validate_staged_row_payloads,
+)
+from material_workbench.application.workspace_bundle_manifest import (
+    _current_migration_inventory,
+    _database_evidence,
+    _migration_inventory,
+    _validate_migration_inventory,
+)
+
 
 def _lifecycle_semantic_evidence(database: Path) -> dict[str, str]:
     connection = connect_sqlite(database)
@@ -112,9 +99,7 @@ def _lifecycle_semantic_evidence(database: Path) -> dict[str, str]:
             for row in rows:
                 stored = str(row["payload"])
                 try:
-                    wrapper = StoredLifecycleRowResource.model_validate_json(
-                        stored
-                    )
+                    wrapper = StoredLifecycleRowResource.model_validate_json(stored)
                 except Exception:
                     try:
                         resource = model.model_validate_json(stored)
@@ -135,9 +120,7 @@ def _lifecycle_semantic_evidence(database: Path) -> dict[str, str]:
                             )
                         payload = {
                             "resource_id": str(row["id"]),
-                            "quarantined_sha256": (
-                                wrapper.quarantined_payload.sha256
-                            ),
+                            "quarantined_sha256": (wrapper.quarantined_payload.sha256),
                         }
                     else:
                         values = (
@@ -244,9 +227,7 @@ def _validate_restored_references(
         if identity.identity_kind == "chain":
             revision = store.get_chain_revision(identity.chain_revision_id)
             if revision is None:
-                unresolved.append(
-                    f"{project.id}: 固定されたChain Revisionがありません"
-                )
+                unresolved.append(f"{project.id}: 固定されたChain Revisionがありません")
                 continue
             revision_payload = revision.model_dump(
                 mode="json", exclude={"revision_digest"}
@@ -255,9 +236,7 @@ def _validate_restored_references(
                 revision.revision_digest != identity.chain_revision_digest
                 or revision.revision_digest != semantic_digest(revision_payload)
             ):
-                unresolved.append(
-                    f"{project.id}: Chain Revision digestが一致しません"
-                )
+                unresolved.append(f"{project.id}: Chain Revision digestが一致しません")
                 continue
             definition = store.get_chain_definition(
                 revision.chain_id, revision.chain_definition_digest
@@ -280,14 +259,10 @@ def _validate_restored_references(
                         transform_entry = transform_catalog.entry(stage.contract_id)
                         surface = welding_stage_a_surface(transform_entry.package)
                     except Exception as exc:
-                        unresolved.append(
-                            f"{project.id}/{stage.stage_id}: {exc}"
-                        )
+                        unresolved.append(f"{project.id}/{stage.stage_id}: {exc}")
                         continue
                     surfaces[(stage.stage_kind, stage.contract_id)] = surface
-                    actual_package = (
-                        f"sha256:{transform_entry.package.manifest_sha256}"
-                    )
+                    actual_package = f"sha256:{transform_entry.package.manifest_sha256}"
                     if surface.contract_digest != stage.contract_digest:
                         unresolved.append(
                             f"{project.id}/{stage.stage_id}: "
@@ -303,18 +278,14 @@ def _validate_restored_references(
                     contract = task_registry.contract_for(stage.contract_id)
                     entry = task_registry.entry_for(stage.contract_id)
                 except Exception as exc:
-                    unresolved.append(
-                        f"{project.id}/{stage.stage_id}: {exc}"
-                    )
+                    unresolved.append(f"{project.id}/{stage.stage_id}: {exc}")
                     continue
                 actual_contract = semantic_digest(
                     contract.task_definition.model_dump(mode="json")
                 )
-                surfaces[(stage.stage_kind, stage.contract_id)] = (
-                    task_contract_surface(
-                        contract.task_definition,
-                        contract_digest=actual_contract,
-                    )
+                surfaces[(stage.stage_kind, stage.contract_id)] = task_contract_surface(
+                    contract.task_definition,
+                    contract_digest=actual_contract,
                 )
                 if actual_contract != stage.contract_digest:
                     unresolved.append(
@@ -329,8 +300,7 @@ def _validate_restored_references(
                     for ref in package_refs
                     if ref.task_id == stage.contract_id
                     and ref.task_contract_digest == stage.contract_digest
-                    and f"sha256:{ref.manifest_digest}"
-                    == stage.package_manifest_digest
+                    and f"sha256:{ref.manifest_digest}" == stage.package_manifest_digest
                 ]
                 if len(matching_refs) != 1:
                     unresolved.append(
@@ -441,9 +411,7 @@ def prepare_workspace_restore(
     next_root.mkdir(parents=True, exist_ok=False)
     source_path = Path(source).expanduser().resolve()
     try:
-        manifest, manifest_digest = _extract_verified_bundle(
-            source_path, next_root
-        )
+        manifest, manifest_digest = _extract_verified_bundle(source_path, next_root)
         staged_database = next_root / Path(manifest.database.path)
         _validate_migration_inventory(staged_database, manifest)
         legacy_lifecycle_evidence = (
@@ -519,7 +487,9 @@ def prepare_workspace_restore(
 
 
 def _restore_root(database: Path, token: str) -> Path:
-    if len(token) != 32 or any(character not in "0123456789abcdef" for character in token):
+    if len(token) != 32 or any(
+        character not in "0123456789abcdef" for character in token
+    ):
         raise WorkspaceBundleError("Invalid restore token")
     root = database.parent / ".workspace-restore" / token
     if not root.is_dir():
