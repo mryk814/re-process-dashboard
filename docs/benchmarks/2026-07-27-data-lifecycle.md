@@ -114,7 +114,7 @@ benchmarkのためのproduction schema変更は行っていない。
 ## 再現コマンド
 
 ```powershell
-uv run --extra dev python backend/scripts/benchmark_data_lifecycle.py `
+uv run --extra dev python backend/scripts/experiments/benchmark_data_lifecycle.py `
   --scales 1000 10000 100000 `
   --shapes narrow representative `
   --repeats 3 `
@@ -127,7 +127,7 @@ uv run --extra dev python backend/scripts/benchmark_data_lifecycle.py `
 
 npm.cmd run package:windows
 
-uv run --extra dev python backend/scripts/benchmark_data_lifecycle.py `
+uv run --extra dev python backend/scripts/experiments/benchmark_data_lifecycle.py `
   --reuse-core-report artifacts/data-lifecycle-benchmark/core-report.json `
   --packaged-results artifacts/data-lifecycle-packaged-portable.json `
   --packaged-results artifacts/data-lifecycle-packaged-installed.json `

@@ -27,7 +27,7 @@ CALCE派生CSV（読取専用）
 |---|---|
 | 公開データ所有者 | University of Maryland CALCE Battery Research Group |
 | リポジトリ内派生物 | `data/source/external/battery_calce_cs2_cycles.csv` |
-| 派生処理 | `backend/scripts/prepare_calce_battery_dataset.py` |
+| 派生処理 | `backend/scripts/generators/prepare_calce_battery_dataset.py` |
 | 更新方法 | CALCE公式ZIPのdigestを確認し、`artifacts/derived-data/`へ再生成して差分をレビューする。生成スクリプトは`data/source/`への書込みを拒否する |
 | 一行の意味 | 一つの完全な放電サイクル |
 | row identity | `cell_id\|source_file\|source_local_cycle`。再生成される通算`cycle_index`は識別子にしない |
@@ -87,7 +87,7 @@ Actual登録後の予測対実測は、実測登録時に固定した予測と�
 リポジトリ直下で、隔離された作業先を指定して実行する。
 
 ```powershell
-uv run --extra dev python backend/scripts/reference_data_loop_acceptance.py `
+uv run --extra dev python backend/scripts/acceptance/reference_data_loop_acceptance.py `
   --workspace artifacts/reference-data-loop
 ```
 

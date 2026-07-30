@@ -275,11 +275,11 @@ def run_developer_doctor(
         checks.extend([
             _command_check(
                 root, "task-inventory", "Task inventory",
-                ["uv", "run", "python", "backend/scripts/task_inventory.py", "--check"],
+                ["uv", "run", "python", "backend/scripts/operations/task_inventory.py", "--check"],
             ),
             _command_check(
                 root, "openapi", "OpenAPI schema",
-                ["uv", "run", "python", "backend/scripts/export_openapi.py", "--check"],
+                ["uv", "run", "python", "backend/scripts/operations/export_openapi.py", "--check"],
             ),
             _command_check(
                 root, "typescript-api", "TypeScript API types",

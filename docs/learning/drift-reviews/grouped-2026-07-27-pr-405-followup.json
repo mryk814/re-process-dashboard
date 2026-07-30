@@ -21,7 +21,7 @@
         "apps/web/src/generated/api-types.ts",
         "apps/web/src/generated/openapi.json",
         "apps/web/tests/trainingSnapshotPresentation.test.mjs",
-        "backend/scripts/reference_data_loop_acceptance.py",
+        "backend/scripts/acceptance/reference_data_loop_acceptance.py",
         "backend/src/material_workbench/api/data_lifecycle.py",
         "backend/src/material_workbench/application/data_lifecycle.py",
         "backend/src/material_workbench/application/training_snapshot_adapter.py",

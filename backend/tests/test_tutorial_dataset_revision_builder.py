@@ -7,7 +7,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend" / "scripts"))
+sys.path.insert(0, str(ROOT / "backend" / "scripts" / "generators"))
 
 import build_tutorial_dataset_revision as builder  # noqa: E402
 

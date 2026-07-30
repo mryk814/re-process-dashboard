@@ -11,4 +11,4 @@
 - `zero_inflated_poisson_log/`: `count` 出力の `zero_inflated_poisson_log` 尤度
 - `ordinal_logit/`: `ordinal` 出力の `ordinal_logit` 尤度
 
-検証例: `uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/bernoulli_logit --example`
+検証例: `uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/numpyro/bernoulli_logit --example`

@@ -82,7 +82,7 @@ code_references:
     symbols:
       - "test_pool_evaluator_preserves_scalar_order_and_adds_support"
       - "test_pool_evaluator_rejects_invalid_batch_contract"
-  - path: "backend/scripts/benchmark_proposal_pool.py"
+  - path: "backend/scripts/experiments/benchmark_proposal_pool.py"
     id: "performance-pool-benchmark"
     role: "build"
     symbols:

@@ -22,7 +22,7 @@ Arbinログの累積`Discharge_Capacity(Ah)`について、同一workbook内の�
 容量維持率の基準は、セルごとに保持された最初の5サイクルの容量中央値です。
 workbookはセル内でSHA-256により重複排除し、観測日時順に通算サイクル番号を付けています。
 
-再生成手順と元ZIPのdigestは、`backend/scripts/prepare_calce_battery_dataset.py`
+再生成手順と元ZIPのdigestは、`backend/scripts/generators/prepare_calce_battery_dataset.py`
 および`docs/reports/battery-calce-cs2-derivation.json`にあります。
 スクリプトの既定出力は`artifacts/derived-data/`であり、`data/source/`配下への
 書込みは拒否されます。再生成物を正本へ採用するときは、row identity・件数・digest・

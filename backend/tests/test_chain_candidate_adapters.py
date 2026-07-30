@@ -1,7 +1,7 @@
 """Chain Coreとcandidate adapterの境界を固定する。
 
 Chain Coreは候補の形状を仮定してはならない。疎配合を前提にしないChainが
-成立することの受入テストは backend/scripts/spikes/spike_case_d.py が担う。
+成立することの受入テストは backend/scripts/experiments/spikes/spike_case_d.py が担う。
 ここでは境界そのものを軽量に固定する。
 """
 from __future__ import annotations

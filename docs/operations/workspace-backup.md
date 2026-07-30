@@ -55,6 +55,25 @@ npm run workspace:maintenance -- inspect
 `data/workbench.db`を対象にするため、判断台帳へ保守操作を行う前に
 `inspect`の表示パスを必ず確認する。
 
+branch Workspaceの一覧はDBをread-onlyで扱う次のcommandで確認する。
+
+```powershell
+npm run workspace:list
+```
+
+path、対応branch、最終更新時刻、DB/WAL/SHMの合計sizeと保護理由を表示する。
+`main`、現在branch、登録済みgit worktree、対応branchが不明なDBはprune不可である。
+孤児DBは自動判定で消さず、必要なら由来を確認して手動で退避する。
+削除するときはdev serverを止め、一覧に表示された未参照DBのpathを省略せず指定する。
+
+```powershell
+npm run workspace:prune -- --database C:\path\to\repo\.dev-workspaces\<name>.db
+```
+
+`npm run clean`はbuild生成物、`npm run clean:evidence`はtest／Playwright／
+acceptance evidenceだけを対象にする。どちらもWorkspace、`data/source/`、
+`models/packages/`を削除しない。branch DBの削除は`workspace:prune`に限定する。
+
 ## bundle v2
 
 `workspace-bundle/v2` は次を含む。

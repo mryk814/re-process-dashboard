@@ -11,7 +11,7 @@
 
 - Windows 11、ローカル開発環境
 - 同じcanonical candidateを複製してruntime単体を計測
-- `uv run python backend/scripts/benchmark_proposal_pool.py --count 256 --repeats 2`
+- `uv run python backend/scripts/experiments/benchmark_proposal_pool.py --count 256 --repeats 2`
 - 値は2回の中央値。起動時のDataset／Package読込時間は含めない
 
 ## 修正後の計測

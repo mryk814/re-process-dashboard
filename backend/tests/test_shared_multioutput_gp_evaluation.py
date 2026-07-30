@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from backend.scripts.evaluate_shared_multioutput_gp import (
+from backend.scripts.experiments.evaluate_shared_multioutput_gp import (
     TARGET_ORDER,
     _checked_variance,
     _coregionalization,

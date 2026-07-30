@@ -15,7 +15,7 @@ const result = spawnSync(
   [
     "run",
     "python",
-    "backend/scripts/sample_gallery.py",
+    "backend/scripts/operations/sample_gallery.py",
     ...process.argv.slice(2),
     "--database",
     workspace.database,

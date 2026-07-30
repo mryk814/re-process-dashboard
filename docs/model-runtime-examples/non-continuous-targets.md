@@ -31,9 +31,9 @@
 
 ```powershell
 npm run models:build:examples
-uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/bernoulli_logit --example
-uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/poisson_log --example
-uv run python backend/scripts/verify_model_package.py examples/model-packages/numpyro/ordinal_logit --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/numpyro/bernoulli_logit --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/numpyro/poisson_log --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/numpyro/ordinal_logit --example
 ```
 
 各モデルパッケージには、ハッシュ化されたスモークテストの入力と期待出力、一致する `TargetRuntimeCapability`、明示的な契約数が含まれます。

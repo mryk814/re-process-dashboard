@@ -17,7 +17,7 @@ code_references:
     role: "application"
   - path: "backend/src/material_workbench/api/decision_activities.py"
     role: "api"
-  - path: "backend/scripts/export_openapi.py"
+  - path: "backend/scripts/operations/export_openapi.py"
     role: "build"
   - path: "apps/web/src/generated/openapi.json"
     role: "generated"
@@ -414,7 +414,7 @@ FastAPIはfunction signatureとPydantic モデルからOpenAPI スキーマを�
 {{< code-ref contract-stack-contract symbol=DecisionActivityRunRequest >}}の`parameters`は、三つのパラメータスキーマを持つ`oneOf`と、`schema_version`のdiscriminator mappingになります。
 
 このOpenAPIはランタイムから毎回フロントエンドへ直接配信して終わりではありません。
-`backend/scripts/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてバージョン controlします。
+`backend/scripts/operations/export_openapi.py`がJSONを安定した順序で書き出し、`apps/web/src/generated/openapi.json`としてバージョン controlします。
 
 追跡する理由は、バックエンド変更とフロントエンド生成型の差をPRで確認し、staleなスキーマをテストで拒否するためです。
 ^[生成物を追跡する運用にはdiffが大きくなる欠点もあります。それでも本リポジトリでは、Python環境を起動せずにフロントエンド側が契約を検査できることと、契約差分をレビューできることを優先しています。]
@@ -432,7 +432,7 @@ npm run api:generate
 
 ```text
 Pydantic/FastAPI
-  -> backend/scripts/export_openapi.py
+  -> backend/scripts/operations/export_openapi.py
   -> apps/web/src/generated/openapi.json
   -> openapi-typescript
   -> apps/web/src/generated/api-types.ts

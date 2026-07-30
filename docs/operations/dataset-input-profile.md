@@ -63,7 +63,7 @@
 - プロファイルは `extends` で別のプロファイルを継承できます。
 - オブジェクトの対応付けは統合し、配列は置換するため、列名を変更したワークブックや新しいワークブックでもアプリ共通契約を複製せずに再利用できます。
 - 継承を解決したstandalone JSONが必要なときは、単独の変換scriptではなく
-  `uv run python backend/scripts/profile_workbench.py materialize <profile> <output>`を使います。
+  `uv run python backend/scripts/operations/profile_workbench.py materialize <profile> <output>`を使います。
   既存出力の置換には`--replace`が必要です。
 - ソースに該当する信号が本当に存在しない場合は、`optional_roles`、`optional_technical_fields`、明示的な `policy_defaults` を宣言できます。
 - 既定値はプロファイル契約の一部であり、欠損セルから推測しません。
@@ -127,8 +127,8 @@ LSは `焼鈍条件-3CGL` から取得しますが、キャッシュ済みの数
 このコマンドは元ワークブックへ書き込みません。
 
 ```powershell
-uv run python backend/scripts/verify_dataset_source.py data/source/material_workbench_process_v1.xlsx
-uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json --json
+uv run python backend/scripts/operations/profile_workbench.py validate data/source/material_workbench_process_v1.xlsx
+uv run python backend/scripts/operations/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
 ```
 
 ### Profile Workbench
@@ -136,15 +136,15 @@ uv run python backend/scripts/verify_dataset_source.py path/to/new-source.xlsx -
 新しいExcelのシート・列と、選択されたProfileでの正規化結果をまとめて確認できます。
 
 ```powershell
-uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx
-uv run python backend/scripts/profile_workbench.py inspect path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
-uv run python backend/scripts/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
+uv run python backend/scripts/operations/profile_workbench.py inspect path/to/new-source.xlsx
+uv run python backend/scripts/operations/profile_workbench.py inspect path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
+uv run python backend/scripts/operations/profile_workbench.py validate path/to/new-source.xlsx --profile backend/src/material_workbench/data/dataset-input-profile-new.json
 ```
 
 Profileが確定したら、元Excelを変更せずmanaged libraryへ内容ハッシュ単位でコピーし、Data Asset、Profile Revision、Dataset Revision、単一Dataset Viewをまとめて登録します。
 
 ```powershell
-uv run python backend/scripts/profile_workbench.py register path/to/new-source.xlsx `
+uv run python backend/scripts/operations/profile_workbench.py register path/to/new-source.xlsx `
   --profile backend/src/material_workbench/data/dataset-input-profile-new.json `
   --database path/to/workspace.db `
   --library path/to/data-library

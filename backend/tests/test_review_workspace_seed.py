@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
-from backend.scripts.seed_review_workspace import seed_review_workspace
+from backend.scripts.operations.seed_review_workspace import seed_review_workspace
 
 
 def test_review_workspace_seed_uses_bundle_restore_and_becomes_ready(

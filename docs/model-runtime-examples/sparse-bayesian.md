@@ -5,8 +5,8 @@
 
 | 経路 | 状態 | 予測表現 | ビルダー |
 |---|---|---|---|
-| 熱延後特性 | active | 事後予測の平均と分散をモーメントマッチングした正規分布 | `backend/scripts/build_hot_rolling_model_package.py` |
-| 疎ベイズ検査例 | 未有効化 | 観測ノイズを標本化した経験分位点 | `backend/scripts/build_posterior_linear_model_example.py` |
+| 熱延後特性 | active | 事後予測の平均と分散をモーメントマッチングした正規分布 | `backend/scripts/generators/build_hot_rolling_model_package.py` |
+| 疎ベイズ検査例 | 未有効化 | 観測ノイズを標本化した経験分位点 | `backend/scripts/generators/build_posterior_linear_model_example.py` |
 
 ## 使用する場面
 
@@ -54,7 +54,7 @@
 
 ```powershell
 npm run models:build:posterior-linear-example
-uv run python backend/scripts/verify_model_package.py examples/model-packages/posterior-linear --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/posterior-linear --example
 ```
 
 構築コマンドは任意の依存関係であるNumPyroを使って学習し、数値配列を出力して、NumPyの本番用アダプターで検証する。

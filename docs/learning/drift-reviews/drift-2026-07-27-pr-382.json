@@ -16,7 +16,7 @@
   "implementation_commit": null,
   "changes": [
     {
-      "path": "backend/scripts/model_workflow.py",
+      "path": "backend/scripts/operations/model_workflow.py",
       "semantic_impact": "behavioral",
       "material_impact": ["learner-text", "code-link", "exercise", "test-command"],
       "affected_claims": ["active-package-switch-history", "rollback-target-validation"],
@@ -24,7 +24,7 @@
       "reason": "Status now reports active-package history, and rollback explains missing previous references with the detected change."
     },
     {
-      "path": "backend/scripts/task_inventory.py",
+      "path": "backend/scripts/operations/task_inventory.py",
       "semantic_impact": "behavioral",
       "material_impact": ["learner-text", "test-command"],
       "affected_claims": ["active-package-switch-history"],
@@ -90,7 +90,7 @@
           "symbol": "test_active_pointer_moved_without_recording_previous_is_reported"
         },
         {
-          "path": "backend/scripts/model_workflow.py",
+          "path": "backend/scripts/operations/model_workflow.py",
           "symbol": "package_status"
         }
       ],

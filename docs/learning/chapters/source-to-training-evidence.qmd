@@ -479,7 +479,7 @@ E2Eも、再学習、モデル検証、有効化が別の操作だと画面へ�
 学習用スナップショットは残る2,302行を固定します。
 品質に問題がない行をquarantineへ偽装せず、学習用途の選択として別の証拠へ残すためです。
 
-`backend/scripts/reference_data_loop_acceptance.py`は、このスナップショットからデータ-only パッケージ、固定参照を持つプロジェクト、予測スナップショット、Actualまでを一つの受入経路として実行します。
+`backend/scripts/acceptance/reference_data_loop_acceptance.py`は、このスナップショットからデータ-only パッケージ、固定参照を持つプロジェクト、予測スナップショット、Actualまでを一つの受入経路として実行します。
 同じcommandを再実行した場合は、ダイジェストが一致する不変資産を再利用し、別内容を同じmaterialized CSVまたはパッケージディレクトリへ上書きしません。
 
 ::: {.callout-note title="CONFIRMED"}

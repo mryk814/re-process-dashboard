@@ -6,8 +6,8 @@
 
 1. `backend/src/material_workbench/` の責任分割より、いくつかの巨大ファイルの
    内部責任が大きくなっている。
-2. `backend/scripts/` で、日常のCLI、成果物authoring、受入、benchmark、完了済み調査が
-   同じ見た目で並び、寿命を判断できない。
+2. `backend/scripts/` では、日常のCLI、成果物authoring、受入、benchmarkの寿命を
+   directoryと索引で継続して管理する必要がある。
 
 さらに静的なtop-level import graphでは、
 `adapters/tasks/task_modules/domain/persistence/contracts/data/modeling` が
@@ -73,9 +73,10 @@ Taskごとのdefinitionを再び各層へ散らさず、TaskModule単位で分�
 
 ## Backend scripts
 
-平坦な一覧だけでは用途を判断できなかったため、
+平坦な一覧だけでは用途を判断できなかったため、#503で
 [`backend/scripts/README.md`](../../backend/scripts/README.md) を正本として
-日常入口、authoring、acceptance、research、spikeへ分類しました。
+`operations/`、`generators/`、`acceptance/`、`experiments/`へ配置し、
+全commandのowner、output、referenceを索引化しました。
 
 呼出し箇所の検索だけでは、次のような誤判定が起きます。
 
@@ -83,12 +84,12 @@ Taskごとのdefinitionを再び各層へ散らさず、TaskModule単位で分�
   `material_workbench_tutorial_v2.xlsx` の再生成根拠になる。
 - `build_annealed_lightgbm_model_package.py` はactive runtimeでなくても、
   追跡中のLightGBM Packageを再生成する。
-- `materialize_dataset_profile.py` は小さいがprivate functionへ依存していたため、
-  公開関数と`profile_workbench.py materialize`へ統合し、単独scriptを削除した。
+- `materialize_dataset_profile.py` と `verify_dataset_source.py` は
+  `operations/profile_workbench.py`へ統合し、重複scriptを削除した。
 - research scriptは文書から参照されるものとtestから直接importされるものがある。
 
-したがって、この時点では一括削除や一括directory移動を行いません。
-次の段階で、CLI処理をsource packageへ移して薄くした後に用途別directoryへ移します。
+したがって、呼出し頻度を根拠とする一括削除は行いません。
+directory移動は寿命を明示するために行い、CLIの再利用処理はsource packageへ置きます。
 
 一方、現行契約に一致しないv1 Packageを固定していた`npm run dev:process`と
 `scripts/dev-process-v1.ps1`は、正式入口として壊れており他の案内からも参照されないため
@@ -96,8 +97,7 @@ Taskごとのdefinitionを再び各層へ散らさず、TaskModule単位で分�
 また、Dataset authoring scriptの既定出力を`artifacts/derived-data/`へ移し、
 `data/source/`への書込みを拒否するようにしました。
 
-残る寿命管理とcleanup tierは
-[#503](https://github.com/mryk814/re-process-dashboard/issues/503)で追跡します。
+build cleanup、evidence cleanup、明示的Workspace pruneも別commandへ分離しました。
 
 ## Agent guidance
 
@@ -121,7 +121,4 @@ Taskごとのdefinitionを再び各層へ散らさず、TaskModule単位で分�
    APIから具象persistence/modelingへの依存をapplication use-caseへ移す。
 3. [#502](https://github.com/mryk814/re-process-dashboard/issues/502):
    `persistence/store.py`と`workspace_bundle.py`をtransaction境界ごとに分割する。
-4. [#503](https://github.com/mryk814/re-process-dashboard/issues/503):
-   残るscriptの寿命とcleanup tierを運用へ落とす。
-
-一括でdirectoryを移す変更は、参照更新量の割に責任が改善されないため行いません。
+scriptの追加・削除では、`backend/scripts/README.md`の寿命と索引を同時に更新します。

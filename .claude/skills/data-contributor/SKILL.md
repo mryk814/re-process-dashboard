@@ -18,7 +18,7 @@ $task = "<existing-task-id>"
 $profile = "C:\path\to\personal-profile.json"
 
 npm run dev:doctor -- --source $source
-uv run python backend/scripts/profile_workbench.py inspect $source
+uv run python backend/scripts/operations/profile_workbench.py inspect $source
 npm run model:diagnose -- --task $task --source $source --profile $profile
 ```
 
@@ -70,7 +70,7 @@ $packageId = "<new-immutable-package-id>"
 $packageVersion = "1.0.0"
 $package = "artifacts/model-package-candidates/$packageId"
 
-uv run python backend/scripts/profile_workbench.py validate $source --profile $profile
+uv run python backend/scripts/operations/profile_workbench.py validate $source --profile $profile
 npm run model:diagnose -- --task $task --source $source --profile $profile
 npm run model:estimators -- --task $task
 

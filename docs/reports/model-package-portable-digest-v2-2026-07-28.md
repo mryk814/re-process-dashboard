@@ -25,7 +25,7 @@ runtime予測値や一般のsemantic digestは丸めない。
 ## 生成・検証
 
 ```powershell
-uv run --extra dev python backend/scripts/build_external_tabular_packages.py mpea-room-tensile-v1 mpea-hardness-process-v1
+uv run --extra dev python backend/scripts/generators/build_external_tabular_packages.py mpea-room-tensile-v1 mpea-hardness-process-v1
 npm run task:inventory
 npm run task:inventory:check
 ```

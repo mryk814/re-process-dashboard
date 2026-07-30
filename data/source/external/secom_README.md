@@ -29,7 +29,7 @@ UCIのページは591 featuresと記載していますが、配布された`seco
 
 再生成手順と診断は、次のファイルにあります。
 
-- `backend/scripts/prepare_secom_stress_dataset.py`
-- `backend/scripts/analyze_secom_sensor_selection.py`
+- `backend/scripts/generators/prepare_secom_stress_dataset.py`
+- `backend/scripts/experiments/analyze_secom_sensor_selection.py`
 - `docs/reports/secom-stress-diagnostic.json`
 - `docs/reports/secom-sensor-selection.json`

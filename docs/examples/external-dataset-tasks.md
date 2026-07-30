@@ -54,14 +54,14 @@ SECOMはpass / failを目的変数とする二値分類Taskです。
 CALCEの公式ZIPを一時ディレクトリへ配置して、派生CSVを作ります。
 
 ```powershell
-uv run python backend/scripts/prepare_calce_battery_dataset.py `
+uv run python backend/scripts/generators/prepare_calce_battery_dataset.py `
   --raw-root C:\path\to\calce-zips
 ```
 
 UCIの`secom.data`と`secom_labels.data`を展開して、診断用CSVを作ります。
 
 ```powershell
-uv run python backend/scripts/prepare_secom_stress_dataset.py `
+uv run python backend/scripts/generators/prepare_secom_stress_dataset.py `
   --raw-root C:\path\to\secom
 ```
 
@@ -72,19 +72,19 @@ uv run python backend/scripts/prepare_secom_stress_dataset.py `
 代表センサ選択を再現します。
 
 ```powershell
-uv run python backend/scripts/analyze_secom_sensor_selection.py
+uv run python backend/scripts/experiments/analyze_secom_sensor_selection.py
 ```
 
 電池またはSECOM Packageを再学習するときは、LightGBM runtimeを有効にします。
 
 ```powershell
 uv run --extra runtime-lightgbm python `
-  backend/scripts/build_external_tabular_packages.py battery-degradation-v1
+  backend/scripts/generators/build_external_tabular_packages.py battery-degradation-v1
 ```
 
 ```powershell
 uv run --extra runtime-lightgbm python `
-  backend/scripts/build_external_tabular_packages.py secom-yield-risk-v1
+  backend/scripts/generators/build_external_tabular_packages.py secom-yield-risk-v1
 ```
 
 生成時に、元データSHA-256、Profile digest、入力契約digest、学習表digest、smoke predictionをmanifestへ固定します。

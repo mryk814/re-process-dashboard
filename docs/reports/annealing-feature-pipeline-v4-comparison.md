@@ -8,6 +8,11 @@ Feature Pipeline v4は、実時間のヒートパターンを正本とし、raw 
 この比較は、v4が合成デモデータ上で高精度だと示すものではない。
 同じ親条件分割で数値挙動を比較し、LSの重複と係数の安定性を確認するために行った。
 再生成可能な数値は [比較レポートJSON](annealing-feature-pipeline-v4-comparison.json) に保存している。
+次で再生成する。
+
+```powershell
+uv run python backend/scripts/experiments/compare_annealing_feature_pipelines.py --output docs/reports/annealing-feature-pipeline-v4-comparison.json
+```
 
 ## 評価条件
 

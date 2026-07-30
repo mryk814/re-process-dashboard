@@ -33,7 +33,7 @@
 
 ```powershell
 npm run models:build:quantile-example
-uv run python backend/scripts/verify_model_package.py examples/model-packages/quantile-linear --example
+uv run python backend/scripts/operations/verify_model_package.py examples/model-packages/quantile-linear --example
 ```
 
 品質レポートは、親条件ブロックごとにまとめた固定の不均一分散を持つ合成観測値を使い、分位点別のピンボール損失、中央値のMAE、区間の被覆率と幅、交差数を計算する。

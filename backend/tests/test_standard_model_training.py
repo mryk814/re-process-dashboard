@@ -21,9 +21,11 @@ from material_workbench.tasks.task_registry import load_task_contracts
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "backend" / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+OPERATIONS = ROOT / "backend" / "scripts" / "operations"
+GENERATORS = ROOT / "backend" / "scripts" / "generators"
+for script_root in (OPERATIONS, GENERATORS):
+    if str(script_root) not in sys.path:
+        sys.path.insert(0, str(script_root))
 
 from model_workflow import build_package, estimator_inventory  # noqa: E402
 from build_default_model_package import _fit_gp_hyperparameters  # noqa: E402

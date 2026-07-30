@@ -53,7 +53,7 @@ try {
         "models/evaluations/welding-consumable-a-b-c-v1.json"
         "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
     )
-    $sourceInventoryJson = uv run python backend/scripts/task_inventory.py --print-source-paths
+    $sourceInventoryJson = uv run python backend/scripts/operations/task_inventory.py --print-source-paths
     if ($LASTEXITCODE -ne 0) { throw "source inventory failed with exit code $LASTEXITCODE" }
     $requiredPackagedFiles += $sourceInventoryJson | ConvertFrom-Json
     $activePackages = Get-Content -LiteralPath (Join-Path $repositoryRoot "models/active-packages.json") -Raw | ConvertFrom-Json

@@ -57,7 +57,7 @@ code_references:
       - "TargetRuntimeCapability"
       - "RuntimeOperationsCapability"
       - "RuntimeCapability"
-  - path: "backend/scripts/model_workflow.py"
+  - path: "backend/scripts/operations/model_workflow.py"
     id: "ml-engineering-workflow"
     role: "application"
     symbols:

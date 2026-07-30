@@ -30,7 +30,7 @@
 4. 本番での有効化を検討する前に、例示用検証器を実行します。
 
 ```powershell
-uv run python backend/scripts/verify_model_package.py <package-directory> --example
+uv run python backend/scripts/operations/verify_model_package.py <package-directory> --example
 ```
 
 ## 変更対象ファイルの対応表
