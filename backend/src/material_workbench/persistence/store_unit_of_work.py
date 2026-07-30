@@ -500,7 +500,12 @@ class WorkbenchUnitOfWork:
             ).fetchone()
         return self._project(row)
 
-    def purge_project(self, project_id: str) -> bool:
+    def purge_project(
+        self,
+        project_id: str,
+        *,
+        allow_active: bool = False,
+    ) -> bool:
         if project_id in PROTECTED_PROJECT_IDS:
             raise ProtectedProjectError("予約プロジェクトは完全削除できません")
         with self._connect() as conn:
@@ -511,7 +516,7 @@ class WorkbenchUnitOfWork:
             ).fetchone()
             if project_row is None:
                 return False
-            if project_row["archived_at"] is None:
+            if project_row["archived_at"] is None and not allow_active:
                 raise ActiveProjectPurgeError(
                     "完全削除する前にプロジェクトをアーカイブしてください"
                 )

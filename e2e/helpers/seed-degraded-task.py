@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -12,13 +13,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", type=Path, required=True)
     args = parser.parse_args()
+    os.environ["WORKBENCH_DEMO_SEED"] = "all"
 
     with TestClient(create_app(db_path=args.db)) as client:
-        installed = client.post(
-            "/api/sample-gallery",
-            json={"project_ids": ["heat-treatment-tradeoff-v1-default"]},
-        )
-        installed.raise_for_status()
         options = client.get("/api/project-creation-options").json()
         dataset = next(
             item

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from material_workbench.persistence.candidate_migration import HOT_PROJECT_ID
 from material_workbench.contracts.chain_contracts import (
     SingleTaskProjectIdentity,
 )
@@ -47,7 +46,7 @@ def _single_task_identity_json(payload: ProjectCreateInput) -> str:
     return identity.model_dump_json()
 
 
-PROTECTED_PROJECT_IDS = frozenset({"default", HOT_PROJECT_ID})
+PROTECTED_PROJECT_IDS = frozenset({"default"})
 
 
 class ProjectNotFoundError(LookupError):
