@@ -15,24 +15,26 @@ async function navigationModule(search) {
 }
 
 test("a saved activity run is part of the location", async () => {
-  const { readNavigationIntent, navigationUrl } = await navigationModule(
+  const { isLegacyCandidateActivityNavigation, readNavigationIntent, navigationUrl } = await navigationModule(
     "?view=candidates&project=p1&candidate=c1&activity=robustness-analysis-v1&activity_run=activity-abc",
   );
   const intent = readNavigationIntent();
-  assert.equal(intent.view, "candidates");
+  assert.equal(intent.view, "candidate-review");
   assert.equal(intent.activityId, "robustness-analysis-v1");
   assert.equal(intent.activityRunId, "activity-abc");
+  assert.equal(isLegacyCandidateActivityNavigation(), true);
   const url = navigationUrl(intent);
   assert.match(url, /activity=robustness-analysis-v1/);
   assert.match(url, /activity_run=activity-abc/);
 });
 
-test("the activity state stays with the comparison view", async () => {
+test("the activity state stays with the candidate review view", async () => {
   const { readNavigationIntent, withView } = await navigationModule(
     "?view=candidates&project=p1&activity=robustness-analysis-v1&activity_run=activity-abc",
   );
   const intent = readNavigationIntent();
-  assert.equal(withView(intent, "candidates").activityRunId, "activity-abc");
+  assert.equal(withView(intent, "candidate-review").activityRunId, "activity-abc");
+  assert.equal(withView(intent, "candidates").activityRunId, undefined);
   assert.equal(withView(intent, "project").activityRunId, undefined);
   assert.equal(withView(intent, "explore").activityId, undefined);
 });
@@ -46,6 +48,7 @@ test("a candidate made by an activity navigates back to that run", async () => {
   );
   assert.match(activityCase, /candidateId: provenance\.source_ref\.base_candidate_id/);
   assert.match(activityCase, /activityRunId: provenance\.source_ref\.run_id/);
+  assert.match(activityCase, /view: "candidate-review"/);
 });
 
 test("the panel resolves a requested run to the activity that owns it", async () => {
@@ -130,9 +133,9 @@ test("all saved activity runs and their provenance stay reachable", async () => 
   assert.match(evidence, /記録なし/);
 });
 
-test("a shared link opens the activity panel without a second click", async () => {
+test("candidate review owns the always-visible activity panel", async () => {
   const page = await source("../src/features/workbench/WorkbenchPage.tsx");
-  assert.match(page, /const activityPanelOpen = activityOpen \|\| Boolean\(activityId \|\| activityRunId\)/);
+  assert.match(page, /mode === "review" && taskDefinition && <DecisionActivityPanel/);
   assert.match(page, /requestedRunId=\{activityRunId\}/);
-  assert.match(page, /onActivityStateChange\(undefined, undefined\)/);
+  assert.doesNotMatch(page, /activityPanelOpen/);
 });

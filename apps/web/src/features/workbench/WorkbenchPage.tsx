@@ -36,7 +36,7 @@ import { BlendComparisonPanel } from "./BlendComparisonPanel";
 import { BlendOptimizationPanel } from "./BlendOptimizationPanel";
 import { BlendEditorPanel } from "./BlendEditorPanel";
 import { HeatPattern } from "./HeatPatternPanel";
-import { activityToggleLabel, type CandidateSection } from "../../shared/projectActionQuestions";
+import type { CandidateSection } from "../../shared/projectActionQuestions";
 import {
   CurveFamilyPanel,
   LiveResponseCurves,
@@ -82,6 +82,7 @@ export function WorkbenchEmptyState({
 }
 
 type WorkbenchProps = {
+  mode: "comparison" | "review";
   candidates: Candidate[];
   projectId: string;
   project: ApiProject | null;
@@ -147,6 +148,7 @@ type WorkbenchProps = {
 
 export function WorkbenchPage(props: WorkbenchProps) {
   const {
+    mode,
     candidates,
     projectId,
     project,
@@ -201,17 +203,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
     loadingRemainingPreviews,
     onLoadRemainingPreviews,
   } = props;
-  const [activityOpen, setActivityOpen] = useState(false);
   const [activePrimarySurface, setActivePrimarySurface] =
     useState<WorkbenchSurfaceKind>("response_curve");
-  // A shared link to a saved run opens the panel without a second click.
-  const activityPanelOpen = activityOpen || Boolean(activityId || activityRunId);
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorDragWidth, setInspectorDragWidth] = useState<number | null>(null);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => storedLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, false));
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [comparisonHeight, setComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.comparisonHeight, 270), 180, 900));
+  const [reviewComparisonHeight, setReviewComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.reviewComparisonHeight, 210), 180, 900));
   const [curveShareRange, setCurveShareRange] = useState({ min: 30, max: 70 });
   const workbenchRef = useRef<HTMLDivElement>(null);
   const lowerPanelsRef = useRef<HTMLDivElement>(null);
@@ -224,6 +224,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
     ? collapsedInspectorWidth
     : clampLayoutValue(inspectorDragWidth ?? inspectorWidth, 260, inspectorMax);
   const effectiveCurveShare = clampLayoutValue(curveShare, curveShareRange.min, curveShareRange.max);
+  const activeComparisonHeight = mode === "review" ? reviewComparisonHeight : comparisonHeight;
+  const setActiveComparisonHeight = mode === "review" ? setReviewComparisonHeight : setComparisonHeight;
   const beforeActivitySurfaces = workbenchSurfacesInZone(application, "before_activity");
   const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
   const evidenceSurfaces = workbenchSurfacesInZone(application, "analysis_evidence");
@@ -254,6 +256,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
   }, [inspectorCollapsed]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.curveShare, curveShare), [curveShare]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.comparisonHeight, comparisonHeight), [comparisonHeight]);
+  useEffect(() => saveLayoutNumber(workbenchLayoutStorage.reviewComparisonHeight, reviewComparisonHeight), [reviewComparisonHeight]);
   useEffect(() => {
     const updateWidths = () => {
       const workbenchWidth = workbenchRef.current?.clientWidth ?? 0;
@@ -467,43 +470,17 @@ export function WorkbenchPage(props: WorkbenchProps) {
         <div className="table-heading">
           <div className="table-title">
             <h2>
-              候補比較表 <span>（セルを直接編集）</span>
+              {mode === "comparison" ? "候補比較表" : "確認する候補"} <span>（セルを直接編集）</span>
             </h2>
           </div>
           {previewError && <span className="comparison-preview-error" role="alert">{previewError}{operations?.preview && <button type="button" onClick={onRetryPreview}>再試行</button>}</span>}
-          <div className="comparison-actions" aria-label="候補操作">
-            <button type="button" className="comparison-panel-toggle" aria-expanded={activityPanelOpen} onClick={() => {
-              if (activityPanelOpen) {
-                setActivityOpen(false);
-                onActivityStateChange(undefined, undefined);
-                return;
-              }
-              setActivityOpen(true);
-            }}>{activityToggleLabel(activityId, activityPanelOpen)}</button>
+          {mode === "comparison" && <div className="comparison-actions" aria-label="候補操作">
             <div className="comparison-data-actions">
               <CandidateFileControls projectId={projectId} capability={application} onImported={onImported} />
               <CandidateAddButton onClick={onAdd}>候補を追加</CandidateAddButton>
             </div>
-          </div>
+          </div>}
         </div>
-        {activityPanelOpen && taskDefinition && <DecisionActivityPanel
-          projectId={projectId}
-          candidate={selected}
-          candidates={candidates}
-          taskDefinition={taskDefinition}
-          displayDecimalOverrides={project?.display_decimals}
-          targetValues={targetValues}
-          ready={["idle", "saved"].includes(saveState)}
-          requestedActivityId={activityId}
-          requestedRunId={activityRunId}
-          onStateChange={onActivityStateChange}
-          onConfigureGoals={onConfigureGoals}
-          onCandidateCreated={onOptimizedCandidate}
-          onClose={() => {
-            setActivityOpen(false);
-            onActivityStateChange(undefined, undefined);
-          }}
-        />}
         <CandidateOrigin
           projectId={projectId}
           candidate={selected}
@@ -524,7 +501,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           projectId={projectId}
           candidates={candidates}
           selectedId={selectedId}
-          comparisonHeight={comparisonHeight}
+          comparisonHeight={activeComparisonHeight}
           taskDefinition={taskDefinition}
           previewsByCandidate={previewsByCandidate}
           targetValues={targetValues}
@@ -550,21 +527,35 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {taskDefinition && <SplitResizer
           className="comparison-height-resizer"
           label="候補比較表の高さを調整"
-          value={comparisonHeight}
+          value={activeComparisonHeight}
           min={180}
           max={900}
           step={20}
           orientation="horizontal"
-          onChange={setComparisonHeight}
+          onChange={setActiveComparisonHeight}
           onDrag={(startValue, deltaY) => startValue + deltaY}
-          onReset={() => setComparisonHeight(270)}
+          onReset={() => setActiveComparisonHeight(mode === "review" ? 210 : 270)}
         />}
-        {beforeActivitySurfaces.map((surface) => (
+        {mode === "review" && taskDefinition && <DecisionActivityPanel
+          projectId={projectId}
+          candidate={selected}
+          candidates={candidates}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
+          targetValues={targetValues}
+          ready={["idle", "saved"].includes(saveState)}
+          requestedActivityId={activityId}
+          requestedRunId={activityRunId}
+          onStateChange={onActivityStateChange}
+          onConfigureGoals={onConfigureGoals}
+          onCandidateCreated={onOptimizedCandidate}
+        />}
+        {mode === "comparison" && beforeActivitySurfaces.map((surface) => (
           <div key={surface.kind} data-workbench-surface={surface.kind}>
             {renderSurface(surface)}
           </div>
         ))}
-        {(primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
+        {mode === "comparison" && (primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
           ref={lowerPanelsRef}
           className={`workbench-lower-grid${primarySurfaces.length ? "" : " no-response-curves"}`}
           style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
@@ -629,7 +620,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
             {renderSurface(surface)}
           </div>)}
         </div>}
-        {afterAnalysisSurfaces.map((surface) => <div key={surface.kind} data-workbench-surface={surface.kind}>
+        {mode === "comparison" && afterAnalysisSurfaces.map((surface) => <div key={surface.kind} data-workbench-surface={surface.kind}>
           {renderSurface(surface)}
         </div>)}
       </section>

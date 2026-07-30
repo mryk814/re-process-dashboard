@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  activityToggleLabel,
+  candidateQuestionActions,
   candidateQuestionState,
 } from "../src/shared/projectActionQuestions.ts";
 
@@ -29,14 +29,10 @@ test("candidate questions explain why they are disabled before a candidate exist
   });
 });
 
-test("the comparison toggle names the selected user question", () => {
-  assert.equal(
-    activityToggleLabel("robustness-analysis-v1", false),
-    "「入力ばらつきに強いか」を開く",
-  );
-  assert.equal(
-    activityToggleLabel("counterfactual-target-reach-v1", true),
-    "「目標へ届くには何を変えるか」を閉じる",
+test("candidate review exposes the three user questions", () => {
+  assert.deepEqual(
+    candidateQuestionActions.map((item) => item.title),
+    ["入力ばらつきに強いか", "2案の差は何が効いているか", "目標へ届くには何を変えるか"],
   );
 });
 

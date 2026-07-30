@@ -4,17 +4,17 @@ import { apiBaseUrl } from "./helpers";
 test("overview questions deep-link to each decision activity and actual entry", async ({ page }) => {
   const overview = "/?view=project&project=default";
   const questions = [
-    ["入力ばらつきに強いか", "robustness-analysis-v1", "ロバストネス／公差解析"],
-    ["2案の差は何が効いているか", "candidate-difference-v1", "候補差分の要因分解"],
-    ["目標へ届くには何を変えるか", "counterfactual-target-reach-v1", "目標へ届く最小変更"],
+    ["入力ばらつきに強いか", "robustness-analysis-v1"],
+    ["2案の差は何が効いているか", "candidate-difference-v1"],
+    ["目標へ届くには何を変えるか", "counterfactual-target-reach-v1"],
   ] as const;
 
-  for (const [question, activityId, panelHeading] of questions) {
+  for (const [question, activityId] of questions) {
     await page.goto(overview);
     await page.getByRole("button", { name: new RegExp(question) }).click();
-    await expect(page).toHaveURL(new RegExp(`activity=${activityId}`));
-    await expect(page.getByRole("heading", { name: panelHeading })).toBeVisible();
-    await expect(page.locator(".comparison-panel-toggle")).toContainText(question);
+    await expect(page).toHaveURL(new RegExp(`view=candidate-review.*activity=${activityId}`));
+    await expect(page.getByRole("heading", { name: question })).toBeVisible();
+    await expect(page.locator(".decision-activity-panel")).toBeVisible();
   }
 
   await page.goto(overview);

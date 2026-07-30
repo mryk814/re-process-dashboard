@@ -25,7 +25,7 @@ export function provenanceNavigation(
       };
     case "decision_activity":
       return {
-        view: "candidates",
+        view: "candidate-review",
         projectId,
         candidateId: provenance.source_ref.base_candidate_id,
         activityRunId: provenance.source_ref.run_id,

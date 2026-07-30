@@ -24,6 +24,7 @@ test("primary navigation follows the decision flow and separates developer admin
     "データ探索",
     "範囲探索",
     "候補比較",
+    "候補確認",
   ]);
 
   await page.getByRole("button", { name: "データ探索", exact: true }).click();

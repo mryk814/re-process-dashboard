@@ -34,12 +34,3 @@ const activityQuestionLabels = new Map<string, string>(
 export function activityQuestionLabel(activityId: string | undefined): string | undefined {
   return activityId ? activityQuestionLabels.get(activityId) : undefined;
 }
-
-export function activityToggleLabel(
-  activityId: string | undefined,
-  open: boolean,
-): string {
-  const question = activityQuestionLabel(activityId);
-  if (open) return question ? `「${question}」を閉じる` : "候補の確かめ方を閉じる";
-  return question ? `「${question}」を開く` : "候補を確かめる";
-}

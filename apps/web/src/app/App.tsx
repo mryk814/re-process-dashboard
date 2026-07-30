@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
-import { isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
+import { isLegacyCandidateActivityNavigation, isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
   chainStagePath,
@@ -31,6 +31,7 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
+  { id: "candidate-review", label: "候補確認", active: ["candidate-review"] },
 ];
 
 function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
@@ -178,7 +179,13 @@ function App() {
       );
     },
     onCandidateSelected: (projectId, candidateId) => {
-      navigate({ view: "candidates", projectId, candidateId }, true);
+      navigate({
+        view: navigationRef.current.view === "candidate-review"
+          ? "candidate-review"
+          : "candidates",
+        projectId,
+        candidateId,
+      }, true);
     },
     onOpenProvenance: (provenance) => {
       const intent = provenanceNavigation(provenance, session.activeProjectId);
@@ -231,7 +238,7 @@ function App() {
   // anything. They stay reachable by deep link, and must explain themselves
   // instead of failing inside a single-task surface.
   const chainScopedTab = chainProject
-    && (tab === "explore" || tab === "lineage" || tab === "quality");
+    && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "candidate-review");
   const dataExplorer = taskUnavailable ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
@@ -244,7 +251,11 @@ function App() {
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
-    navigate({ view: "candidates", projectId: activeProjectId, candidateId }, replace);
+    navigate({
+      view: tab === "candidate-review" ? "candidate-review" : "candidates",
+      projectId: activeProjectId,
+      candidateId,
+    }, replace);
   }
 
   function rememberCandidate(candidateId: string) {
@@ -262,7 +273,9 @@ function App() {
     navigate({
       ...intent,
       projectId: activeProjectId,
-      candidateId: item.id === "candidates" ? selectedId || undefined : intent.candidateId,
+      candidateId: item.id === "candidates" || item.id === "candidate-review"
+        ? selectedId || undefined
+        : intent.candidateId,
     });
   }
 
@@ -274,7 +287,7 @@ function App() {
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
-      if (isLegacyQualityAdminNavigation()) {
+      if (isLegacyQualityAdminNavigation() || isLegacyCandidateActivityNavigation()) {
         window.history.replaceState({}, "", navigationUrl(intent));
       }
       navigationRef.current = intent;
@@ -291,7 +304,11 @@ function App() {
     const current = navigationRef.current;
     rememberNavigation(current);
     const params = new URLSearchParams(window.location.search);
-    if (!params.has("view") || params.get("view") === "settings") {
+    if (
+      !params.has("view")
+      || params.get("view") === "settings"
+      || isLegacyCandidateActivityNavigation()
+    ) {
       window.history.replaceState({}, "", navigationUrl(current));
     }
   }, []);
@@ -427,6 +444,7 @@ function App() {
               <button
                 type="button"
                 className={item.active.includes(tab) ? "project-nav-button active" : "project-nav-button"}
+                aria-current={item.active.includes(tab) ? "page" : undefined}
                 onClick={() => navigateProjectView(item)}
                 key={item.id}
               >
@@ -603,9 +621,10 @@ function App() {
             }, true)}
           />
         )}
-        {tab === "candidates" && !chainProject && !taskUnavailable &&
+        {(tab === "candidates" || tab === "candidate-review") && !chainProject && !taskUnavailable &&
           (selected ? (
             <WorkbenchPage
+              mode={tab === "candidate-review" ? "review" : "comparison"}
               candidates={candidates}
               projectId={activeProjectId}
               project={activeProject ?? null}
@@ -664,7 +683,7 @@ function App() {
               candidateSection={navigation.candidateSection}
               onActivityStateChange={(activityId, activityRunId) => navigate({
                 ...navigationRef.current,
-                view: "candidates",
+                view: "candidate-review",
                 projectId: activeProjectId,
                 candidateId: selectedId || undefined,
                 activityId,

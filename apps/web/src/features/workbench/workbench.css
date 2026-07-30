@@ -20,18 +20,6 @@
   gap: 10px;
   flex-wrap: wrap;
 }
-.comparison-panel-toggle {
-  min-height: 30px;
-  border: 0;
-  border-bottom: 1px solid #8fa6c2;
-  padding: 4px 2px;
-  background: transparent;
-  color: #315d91;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.comparison-panel-toggle[aria-expanded="true"] { border-color: #1f5fc4; color: #174f98; }
 .comparison-data-actions { display: flex; align-items: center; gap: 6px; padding-left: 10px; border-left: 1px solid #d8e0ea; }
 .comparison-data-actions .file-controls { margin: 0; }
 
@@ -1640,7 +1628,6 @@
 .activity-context span { color: #29415d; font-size: 12px; font-weight: 700; }
 .activity-context small { font-size: 11px; }
 .activity-context small::before { content: "· "; }
-.decision-activity-panel > header .outline-button { min-height: 36px; }
 .activity-tabs { display: flex; gap: 6px; overflow-x: auto; margin: -14px -16px 0; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; background: #fbfcfe; }
 .activity-tabs { scrollbar-width: thin; scrollbar-color: #9cabbc transparent; }
 .activity-tabs::-webkit-scrollbar { height: 4px; }
