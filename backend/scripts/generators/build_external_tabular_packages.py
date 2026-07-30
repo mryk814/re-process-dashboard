@@ -8,7 +8,7 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.modeling.tabular_model_builder import build
+from model_workflow import build_package
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -56,8 +56,8 @@ JOBS = {
 }
 
 PACKAGE_VERSIONS = {
-    "mpea-room-tensile-v1": ("mpea-room-tensile-ridge-v2", "2.0.0"),
-    "mpea-hardness-process-v1": ("mpea-hardness-ridge-v2", "2.0.0"),
+    "mpea-room-tensile-v1": "2.0.0",
+    "mpea-hardness-process-v1": "2.0.0",
 }
 
 
@@ -68,17 +68,16 @@ def main() -> None:
     selected = args.task or list(JOBS)
     for task_id in selected:
         source, profile, destination = JOBS[task_id]
-        package_id, package_version = PACKAGE_VERSIONS.get(
-            task_id,
-            (None, "1.0.0"),
-        )
+        package_version = PACKAGE_VERSIONS.get(task_id, "1.0.0")
         print(f"building {task_id} from {source.name}")
-        build(
+        build_package(
+            task_id,
             source,
-            profile,
             destination,
+            ROOT / "artifacts/model-data" / f"{destination.name}.json",
+            profile=profile,
             replace=True,
-            package_id=package_id,
+            package_id=destination.name,
             package_version=package_version,
         )
         print(f"verified {destination}")

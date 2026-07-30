@@ -3,6 +3,8 @@
 from .recipe import (
     ESTIMATOR_IDS,
     ExactGPEstimatorRecipe,
+    LightGBMBinaryEstimatorRecipe,
+    LightGBMRegressionEstimatorRecipe,
     RidgeEstimatorRecipe,
     estimator_recipe,
 )
@@ -10,6 +12,8 @@ from .recipe import (
 __all__ = [
     "ESTIMATOR_IDS",
     "ExactGPEstimatorRecipe",
+    "LightGBMBinaryEstimatorRecipe",
+    "LightGBMRegressionEstimatorRecipe",
     "RidgeEstimatorRecipe",
     "estimator_recipe",
 ]

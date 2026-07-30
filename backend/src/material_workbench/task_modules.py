@@ -208,7 +208,7 @@ CurveFamilyHandler = Callable[[PredictionRuntime, Candidate, str, str | None, in
 DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
 RuntimeFactory = Callable[[DataDescriptor, VerifiedModelPackage], PredictionRuntime]
 FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]
-ModelBuilder = Callable[..., None]
+SpecializedPackageBuilder = Callable[..., None]
 TrainingCandidateBuilder = Callable[
     [dict[str, Any], DataDescriptor],
     CandidateInput | None,
@@ -222,6 +222,11 @@ class StandardModelAuthoring:
     candidate_builder: TrainingCandidateBuilder
     estimator_ids: tuple[str, ...]
     positive_targets: frozenset[str] = frozenset()
+    default_estimator_id: str | None = None
+    default_estimator_options: tuple[tuple[str, Any], ...] = ()
+
+    def default_options(self) -> dict[str, Any]:
+        return dict(self.default_estimator_options)
 
 
 @dataclass(frozen=True)
@@ -249,8 +254,8 @@ class TaskModule:
     data_loader: DataLoader
     runtime_factory: RuntimeFactory
     feature_row_builder: FeatureRowBuilder
-    model_builder: ModelBuilder
     application: ApplicationCapability
+    specialized_package_builder: SpecializedPackageBuilder | None = None
     standard_model_authoring: StandardModelAuthoring | None = None
     data_explorer: DataExplorerCapability | None = None
     starter_project: StarterProject | None = None
@@ -661,30 +666,7 @@ def _build_flank_wear(
     )
 
 
-def _tabular_builder(task_id: str) -> ModelBuilder:
-    def build(
-        source: Path,
-        output: Path,
-        *,
-        replace: bool,
-        package_id: str,
-        package_version: str,
-        profile_path: Path | None = None,
-    ) -> None:
-        from material_workbench.modeling.tabular_model_builder import build as build_package
-
-        build_package(
-            source,
-            profile_path or _TABULAR_PROFILES[task_id],
-            output,
-            replace=replace,
-            package_id=package_id,
-            package_version=package_version,
-        )
-    return build
-
-
-def _observation_builder(task_id: str) -> ModelBuilder:
+def _observation_builder(task_id: str) -> SpecializedPackageBuilder:
     def build(
         source: Path,
         output: Path,
@@ -811,7 +793,7 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
             )
             indexes = (
                 (len(comparable) // 4, len(comparable) // 2, len(comparable) - 1)
-                if data.profile.model_family == "lightgbm_binary"
+                if task_id == SECOM_YIELD_TASK_ID
                 else (len(comparable) // 4, len(comparable) // 2, len(comparable) * 3 // 4)
             )
             selected = [comparable[index] for index in indexes]
@@ -940,7 +922,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_load_welding_stage_b,
         runtime_factory=_tabular_runtime,
         feature_row_builder=_welding_stage_b_features,
-        model_builder=_build_welding_stage_b,
+        specialized_package_builder=_build_welding_stage_b,
         application=_application_capability(
             actual_measurement=True,
             response_curve=False,
@@ -964,7 +946,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_load_workbook,
         runtime_factory=_annealed_runtime,
         feature_row_builder=_annealed_features,
-        model_builder=_build_annealed,
+        specialized_package_builder=_build_annealed,
         standard_model_authoring=StandardModelAuthoring(
             _annealed_training_candidate,
             ("exact-gp-rbf.v1",),
@@ -998,7 +980,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_load_workbook,
         runtime_factory=_hot_rolling_runtime,
         feature_row_builder=_hot_rolling_features,
-        model_builder=_build_hot_rolling,
+        specialized_package_builder=_build_hot_rolling,
         standard_model_authoring=StandardModelAuthoring(
             _hot_rolling_training_candidate,
             ("exact-gp-rbf.v1",),
@@ -1027,7 +1009,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_load_flank_wear,
         runtime_factory=_flank_wear_runtime,
         feature_row_builder=_flank_wear_features,
-        model_builder=_build_flank_wear,
+        specialized_package_builder=_build_flank_wear,
         application=_application_capability(
             actual_measurement=True,
             response_curve=True,
@@ -1047,10 +1029,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(HEAT_TREATMENT_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(HEAT_TREATMENT_TASK_ID),
-        model_builder=_tabular_builder(HEAT_TREATMENT_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1076,10 +1058,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(CONCRETE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(CONCRETE_TASK_ID),
-        model_builder=_tabular_builder(CONCRETE_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1106,10 +1088,10 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(WEAR_CURVE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(WEAR_CURVE_TASK_ID),
-        model_builder=_tabular_builder(WEAR_CURVE_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1136,7 +1118,19 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(BATTERY_DEGRADATION_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(BATTERY_DEGRADATION_TASK_ID),
-        model_builder=_tabular_builder(BATTERY_DEGRADATION_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("lightgbm-regression.v1",),
+            default_estimator_id="lightgbm-regression.v1",
+            default_estimator_options=(
+                ("num_boost_round", 200),
+                ("predictive_family", "normal"),
+                (
+                    "monotone_decreasing_features",
+                    ("process.cycle_index",),
+                ),
+            ),
+        ),
         application=_application_capability(
             actual_measurement=True,
             response_curve=True,
@@ -1158,7 +1152,12 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(SECOM_YIELD_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(SECOM_YIELD_TASK_ID),
-        model_builder=_tabular_builder(SECOM_YIELD_TASK_ID),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            ("lightgbm-binary.v1",),
+            default_estimator_id="lightgbm-binary.v1",
+            default_estimator_options=(("num_boost_round", 100),),
+        ),
         application=_application_capability(
             actual_measurement=True,
             response_curve=True,
@@ -1183,10 +1182,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(MPEA_LEGACY_TYS_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_LEGACY_TYS_TASK_ID),
-        model_builder=_tabular_builder(MPEA_LEGACY_TYS_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
+            default_estimator_options=(("alpha", 1000.0),),
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1204,10 +1204,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(MPEA_ROOM_TENSILE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_ROOM_TENSILE_TASK_ID),
-        model_builder=_tabular_builder(MPEA_ROOM_TENSILE_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
+            default_estimator_options=(("alpha", 1000.0),),
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1227,10 +1228,11 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_tabular_loader(MPEA_HARDNESS_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
-        model_builder=_tabular_builder(MPEA_HARDNESS_TASK_ID),
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            ("ridge.v1",),
+            ("ridge.v1", "lightgbm-regression.v1"),
+            default_estimator_id="ridge.v1",
+            default_estimator_options=(("alpha", 1000.0),),
         ),
         application=_application_capability(
             actual_measurement=False,
@@ -1249,7 +1251,7 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         data_loader=_observation_loader(WELDING_STAGE_C_TASK_ID),
         runtime_factory=_observation_runtime,
         feature_row_builder=_observation_features(WELDING_STAGE_C_TASK_ID),
-        model_builder=_observation_builder(WELDING_STAGE_C_TASK_ID),
+        specialized_package_builder=_observation_builder(WELDING_STAGE_C_TASK_ID),
         application=_application_capability(
             actual_measurement=False,
             response_curve=True,

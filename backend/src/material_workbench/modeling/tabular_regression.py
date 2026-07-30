@@ -187,8 +187,10 @@ class TabularDatasetProfile(BaseModel):
     group_column: str | None = None
     curve_axis_path: str | None = None
     interaction_axis_path: str | None = None
-    model_family: Literal["ridge", "lightgbm_monotone", "lightgbm_binary"] = "ridge"
-    ridge_alpha: float = Field(default=1.0, gt=0)
+    # Compatibility-only fields for previously issued Profile documents.
+    # New Profiles keep estimator choices in a model-training-recipe/v1.
+    model_family: Literal["ridge", "lightgbm_monotone", "lightgbm_binary"] | None = None
+    ridge_alpha: float | None = Field(default=None, gt=0)
     num_boost_round: int | None = Field(default=None, ge=1)
     monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
@@ -221,11 +223,32 @@ class TabularDatasetProfile(BaseModel):
         numeric_paths = {item.path for item in self.inputs if item.kind == "number"}
         if not set(self.monotone_decreasing_paths) <= numeric_paths:
             raise ValueError("monotone paths must identify numeric inputs")
-        if (self.model_family == "lightgbm_monotone") != bool(self.monotone_decreasing_paths):
+        has_legacy_training = any((
+            self.model_family is not None,
+            self.ridge_alpha is not None,
+            self.num_boost_round is not None,
+            bool(self.monotone_decreasing_paths),
+        ))
+        if has_legacy_training and self.model_family is None:
+            raise ValueError(
+                "legacy estimator settings require model_family; "
+                "new settings belong in a Training Recipe"
+            )
+        if (
+            self.model_family is not None
+            and (self.model_family == "lightgbm_monotone")
+            != bool(self.monotone_decreasing_paths)
+        ):
             raise ValueError("only lightgbm_monotone accepts monotone_decreasing_paths")
-        if self.model_family != "ridge" and self.ridge_alpha != 1:
+        if (
+            self.model_family not in {None, "ridge"}
+            and self.ridge_alpha not in {None, 1}
+        ):
             raise ValueError("ridge_alpha is only valid for ridge")
-        if (self.model_family.startswith("lightgbm")) != (self.num_boost_round is not None):
+        if (
+            self.model_family is not None
+            and self.model_family.startswith("lightgbm")
+        ) != (self.num_boost_round is not None):
             raise ValueError("LightGBM profiles require a fixed num_boost_round")
         if self.curation_recipe is not None:
             declared = set(self.curation_recipe.columns)

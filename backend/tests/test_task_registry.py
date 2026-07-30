@@ -50,7 +50,13 @@ def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(cl
         module = registered_task_modules()[task_id]
         runtime = registry.runtime_for(task_id)
         assert module.task_id == task_id
-        assert callable(module.model_builder)
+        assert (
+            callable(module.specialized_package_builder)
+            or (
+                module.standard_model_authoring is not None
+                and module.standard_model_authoring.default_estimator_id is not None
+            )
+        )
         assert isinstance(runtime.data, DataDescriptor)
 
 

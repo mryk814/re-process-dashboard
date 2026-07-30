@@ -165,6 +165,16 @@ TaskDefinitionは利用者が扱う入力group、field、output、単位、目�
 
 Packageのpredictor targetは対応するTaskDefinitionのoutputに含まれなければならない。TaskDefinitionを変更して既存Packageの意味を暗黙に変えず、互換性のない変更はschema versionまたはtask idを更新する。
 
+標準Estimatorで作るpredictorは`config.training`へ
+`standard-training-metadata/v1`を保存する。
+ここにはEstimator ID、学習単位、不確かさの作り方、境界付きparameter、
+target別cohort digest、共有fold-plan digestを含める。
+表示側はarchitecture名から学習方法を推測せず、このmetadataから名称と注意事項を作る。
+既存Packageのflatな`training_unit`などは互換読込するが、新Packageの正本ではない。
+qualityをfold比較に使う場合、外側foldの目的値をmodel fit、hyperparameter推定、
+残差bank、確率calibratorのいずれにも含めない。最終artifactだけを全cohortでfitし、
+deploy用校正値は各行を未観測にしたouter OOF予測から作る。
+
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
 TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1では設備・試験片方向を固定contextにせず、仕上げ温度は均熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。

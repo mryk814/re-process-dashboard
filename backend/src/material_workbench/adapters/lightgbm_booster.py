@@ -29,11 +29,32 @@ class _LightGBMPredictor:
             if isinstance(residual_std, (int, float)) and math.isfinite(float(residual_std))
             else None
         )
+        lower_offset = spec.config.get("lower_offset")
+        upper_offset = spec.config.get("upper_offset")
+        self.interval_offsets = (
+            (float(lower_offset), float(upper_offset))
+            if (
+                isinstance(lower_offset, (int, float))
+                and isinstance(upper_offset, (int, float))
+                and math.isfinite(float(lower_offset))
+                and math.isfinite(float(upper_offset))
+                and float(lower_offset) <= float(upper_offset)
+            )
+            else None
+        )
         if spec.predictive_family == "normal" and (
             self.residual_std is None or self.residual_std <= 0
         ):
             raise PackageContractError(
                 "normal LightGBM predictors require a positive finite residual_std"
+            )
+        if (
+            spec.predictive_family == "empirical_quantiles"
+            and self.interval_offsets is None
+        ):
+            raise PackageContractError(
+                "empirical LightGBM predictors require finite ordered "
+                "lower_offset and upper_offset"
             )
 
     def _summary(self, value: float) -> PredictiveSummary:
@@ -90,13 +111,19 @@ class _LightGBMPredictor:
                     "total_predictive_std": self.residual_std,
                 },
             )
+        assert self.interval_offsets is not None
+        lower_offset, upper_offset = self.interval_offsets
         return PredictiveSummary(
             target=self.spec.target,
             target_kind=self.spec.target_kind,
             unit=self.spec.unit,
             point_statistic="mean",
             point_estimate=value,
-            quantiles={"0.50": value},
+            quantiles={
+                "0.05": value + lower_offset,
+                "0.50": value,
+                "0.95": value + upper_offset,
+            },
             distribution={"family": "empirical_quantiles", "support": "runtime_defined"},
         )
 

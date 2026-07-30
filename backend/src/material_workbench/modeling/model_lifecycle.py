@@ -159,7 +159,10 @@ class TargetQualityMetric(LifecycleModel):
     interval_coverage_method: Literal[
         "cross-fitted-oof-residual-quantiles",
         "cross-fitted-oof-normal-scale",
+        "nested-grouped-oof-residual-quantiles",
+        "nested-grouped-oof-normal-scale",
         "loo-predictive-interval",
+        "grouped-fold-predictive-interval",
         "posterior-predictive-interval",
     ] | None = None
     interval_coverage_observations: Annotated[int, Field(ge=1)] | None = None
@@ -262,7 +265,12 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
     # active profile does not use them.
     if payload.get("curation_recipe") is None:
         payload.pop("curation_recipe", None)
-    if payload.get("ridge_alpha") == 1.0:
+    if payload.get("schema_version") == "tabular-dataset-profile/v1":
+        # Training selection moved to model-training-recipe/v1. Preserve the
+        # semantic defaults used by immutable Profile/Package digests.
+        if payload.get("model_family") is None:
+            payload["model_family"] = "ridge"
+    if payload.get("ridge_alpha") in {None, 1.0}:
         payload.pop("ridge_alpha", None)
     shared = payload.get("shared")
     if isinstance(shared, dict):

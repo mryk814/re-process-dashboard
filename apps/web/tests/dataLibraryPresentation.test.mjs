@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
+  modelPackageDecisionSummary,
   modelPackageDisplayName,
   modelPackageDisplayNames,
   projectDatasetChoices,
@@ -71,6 +72,42 @@ test("uses model-family names instead of Package ids", () => {
       predictors: [{ runtime_type: "builtin.linear.v1", architecture_id: "linear_v1" }],
     },
   }), "線形回帰");
+});
+
+test("uses standard training metadata for model labels and decision wording", () => {
+  const modelPackage = {
+    package_id: "opaque-package-id",
+    manifest_json: {
+      predictors: [{
+        runtime_type: "builtin.linear.v1",
+        config: {
+          training: {
+            schema_version: "standard-training-metadata/v1",
+            estimator_id: "ridge.v1",
+            training_unit: "replicate_context_mean",
+            uncertainty: "cross-fitted OOF residual quantiles",
+            validation: {
+              method: "grouped-k-fold",
+              folds: 5,
+              cohort_digest: "sha256:cohort",
+              fold_digest: "sha256:fold",
+            },
+            parameters: { alpha: 1 },
+          },
+        },
+      }],
+    },
+  };
+
+  assert.equal(modelPackageDisplayName(modelPackage), "Ridge回帰");
+  assert.deepEqual(modelPackageDecisionSummary(modelPackage), {
+    label: "Ridge回帰",
+    useCase: "解釈しやすい線形基準と比較したいとき",
+    trainingUnit: "同一条件の反復平均",
+    uncertainty: "cross-fitted OOF residual quantiles",
+    experimental: false,
+    caution: "自動winnerは選ばず、同一評価条件で候補モデルを比較します。",
+  });
 });
 
 test("shows Package versions and disambiguates repeated family/version labels", () => {

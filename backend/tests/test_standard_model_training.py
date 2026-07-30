@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import sys
 from pathlib import Path
@@ -10,6 +11,10 @@ from pydantic import ValidationError
 
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
+from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.training.estimators import exact_gp
+from material_workbench.modeling.training.estimators import lightgbm
+from material_workbench.modeling.training.estimators import ridge
 from material_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
@@ -27,13 +32,32 @@ for script_root in (OPERATIONS, GENERATORS):
     if str(script_root) not in sys.path:
         sys.path.insert(0, str(script_root))
 
-from model_workflow import build_package, estimator_inventory  # noqa: E402
+from model_workflow import (  # noqa: E402
+    build_package,
+    compare_estimators,
+    estimator_inventory,
+)
 from build_default_model_package import _fit_gp_hyperparameters  # noqa: E402
 
 
 HOT_ROLLING_TASK = "hot-rolled-properties-v1"
 SOURCE = ROOT / "data/source/material_workbench_tutorial_v2.xlsx"
 HEAT_SOURCE = ROOT / "data/source/external/heat_treatment_tradeoff_samples.csv"
+
+
+def _training_set(task_id: str, target: str, unit: str):
+    module = task_module(task_id)
+    data = module.data_loader(resolve_task_source(task_id), None)
+    canonical = canonical_training_dataset(
+        task_id,
+        data,
+        load_task_contracts()[task_id],
+    )
+    return compile_target_training_set(
+        canonical,
+        target=target,
+        unit=unit,
+    )
 
 
 def test_stable_gp_training_is_deterministic_scaled_ard_multistart() -> None:
@@ -110,6 +134,149 @@ def test_hot_rolling_compiles_training_context_not_plain_parent() -> None:
     } == {row["observation_id"] for row in canonical["rows"]}
 
 
+def test_exact_gp_outer_fold_does_not_observe_held_out_targets() -> None:
+    data = _training_set(HOT_ROLLING_TASK, "TS", "MPa")
+    recipe = estimator_recipe(
+        "exact-gp-rbf.v1",
+        {"restarts": 1, "folds": 5, "seed": 19},
+    )
+    predictions, variances = exact_gp._honest_grouped_predictions(data, recipe)
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+    changed = replace(data, y=changed_y)
+
+    changed_predictions, changed_variances = (
+        exact_gp._honest_grouped_predictions(changed, recipe)
+    )
+
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        changed_variances[held_out],
+        variances[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+
+def test_ridge_outer_prediction_does_not_observe_held_out_targets() -> None:
+    data = _training_set("heat-treatment-tradeoff-v1", "hardness_hv", "HV")
+    predictions, _ = ridge._honest_grouped_evaluation(data, alpha=1.0)
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+
+    changed_predictions, _ = ridge._honest_grouped_evaluation(
+        replace(data, y=changed_y),
+        alpha=1.0,
+    )
+
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+
+class _MeanBooster:
+    def __init__(self, value: float) -> None:
+        self.value = value
+
+    def predict(self, x: np.ndarray, **_: object) -> np.ndarray:
+        return np.full(len(x), self.value, dtype=float)
+
+
+def test_lightgbm_nested_evaluation_does_not_observe_outer_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_train(
+        _: np.ndarray,
+        y: np.ndarray,
+        **options: object,
+    ) -> _MeanBooster:
+        objective = options["objective"]
+        value = float(np.mean(y))
+        if objective == "binary":
+            value = min(max(value, 0.05), 0.95)
+        return _MeanBooster(value)
+
+    monkeypatch.setattr(lightgbm, "_train_booster", fake_train)
+
+    regression = _training_set(
+        "heat-treatment-tradeoff-v1",
+        "hardness_hv",
+        "HV",
+    )
+    regression_recipe = estimator_recipe(
+        "lightgbm-regression.v1",
+        {"num_boost_round": 2},
+    )
+    regression_predictions, _ = lightgbm._honest_regression_evaluation(
+        regression,
+        regression_recipe,
+        [0] * len(regression.feature_names),
+    )
+    held_out = regression.fold_ids == 0
+    changed_y = regression.y.copy()
+    changed_y[held_out] += 10_000
+    changed_predictions, _ = lightgbm._honest_regression_evaluation(
+        replace(regression, y=changed_y),
+        regression_recipe,
+        [0] * len(regression.feature_names),
+    )
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        regression_predictions[held_out],
+        rtol=0,
+        atol=1e-12,
+    )
+
+    binary = _training_set(
+        "secom-yield-risk-v1",
+        "fail_probability",
+        "1",
+    )
+    binary_recipe = estimator_recipe(
+        "lightgbm-binary.v1",
+        {"num_boost_round": 2},
+    )
+    _, calibrated = lightgbm._honest_binary_evaluation(binary, binary_recipe)
+    binary_held_out = binary.fold_ids == 0
+    changed_binary_y = binary.y.copy()
+    changed_binary_y[binary_held_out] = 1 - changed_binary_y[binary_held_out]
+    _, changed_calibrated = lightgbm._honest_binary_evaluation(
+        replace(binary, y=changed_binary_y),
+        binary_recipe,
+    )
+    np.testing.assert_allclose(
+        changed_calibrated[binary_held_out],
+        calibrated[binary_held_out],
+        rtol=0,
+        atol=1e-12,
+    )
+
+
+def test_lightgbm_auc_is_tie_aware_and_row_order_invariant() -> None:
+    y = np.asarray([0.0, 1.0, 0.0, 1.0, 1.0, 0.0])
+    all_tied = np.full(len(y), 0.25)
+
+    assert lightgbm._auc(y, all_tied) == pytest.approx(0.5)
+
+    probabilities = np.asarray([0.1, 0.5, 0.5, 0.9, 0.5, 0.1])
+    expected = lightgbm._auc(y, probabilities)
+    permutation = np.asarray([4, 0, 5, 2, 1, 3])
+    assert lightgbm._auc(
+        y[permutation],
+        probabilities[permutation],
+    ) == pytest.approx(expected)
+
+
 def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
     tmp_path: Path,
 ) -> None:
@@ -144,6 +311,7 @@ def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
     assert recipe["estimator"] == {
         "estimator_id": "exact-gp-rbf.v1",
         "restarts": 1,
+        "folds": 5,
         "seed": 11,
         "max_rows": 500,
     }
@@ -151,7 +319,7 @@ def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
         "parent_conditions"
     ] == 6
     assert manifest["predictors"][0]["config"]["validation_method"] == (
-        "leave-one-validation-group-out"
+        "5-fold grouped validation"
     )
     assert ACTIVE_PACKAGES_PATH.read_bytes() == active_before
 
@@ -183,7 +351,7 @@ def test_model_workflow_builds_tabular_ridge_through_the_same_assembler(
     } == {"ridge.v1"}
 
 
-def test_omitting_estimator_keeps_the_specialized_builder_path(
+def test_omitting_estimator_uses_the_task_default_training_recipe(
     tmp_path: Path,
 ) -> None:
     package = tmp_path / "heat-treatment-specialized"
@@ -203,7 +371,53 @@ def test_omitting_estimator_keeps_the_specialized_builder_path(
         predictor["runtime_type"]
         for predictor in manifest["predictors"]
     } == {"builtin.linear.v1"}
-    assert not (package / "reference/training-recipe.json").exists()
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+    assert recipe["estimator"]["estimator_id"] == "ridge.v1"
+    assert (
+        task_module("heat-treatment-tradeoff-v1").specialized_package_builder
+        is None
+    )
+
+
+def test_legacy_profile_estimator_fields_do_not_select_new_training(
+    tmp_path: Path,
+) -> None:
+    profile_document = json.loads(
+        (
+            ROOT
+            / "backend/src/material_workbench/data"
+            / "tabular-profile-heat-treatment-v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    profile_document.update({
+        "model_family": "ridge",
+        "ridge_alpha": 321.0,
+    })
+    profile = tmp_path / "legacy-estimator-profile.json"
+    profile.write_text(
+        json.dumps(profile_document, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    package = tmp_path / "profile-independent-recipe"
+
+    build_package(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        package,
+        tmp_path / "profile-independent-feature-dataset.json",
+        package_id="profile-independent-recipe-test",
+        package_version="1.0.0",
+        replace=False,
+        profile=profile,
+    )
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+
+    assert recipe["estimator"]["estimator_id"] == "ridge.v1"
+    assert recipe["estimator"]["alpha"] == 1.0
 
 
 def test_exact_gp_row_limit_fails_without_a_partial_package(
@@ -246,6 +460,12 @@ def test_task_rejects_an_estimator_that_cannot_meet_runtime_capability(
 def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
     assert estimator_inventory(HOT_ROLLING_TASK)["tasks"] == {
         HOT_ROLLING_TASK: ["exact-gp-rbf.v1"]
+    }
+    assert estimator_inventory("heat-treatment-tradeoff-v1")["tasks"] == {
+        "heat-treatment-tradeoff-v1": [
+            "ridge.v1",
+            "lightgbm-regression.v1",
+        ]
     }
 
 
@@ -322,3 +542,132 @@ def test_annealed_standard_gp_preserves_positive_lambda_target(
         for target, target_kind in target_kinds.items()
         if target != "lambda"
     } == {"continuous"}
+
+
+def test_standard_lightgbm_binary_uses_the_allow_list_and_training_metadata(
+    tmp_path: Path,
+) -> None:
+    task_id = "secom-yield-risk-v1"
+    package = tmp_path / "secom-lightgbm"
+    build_package(
+        task_id,
+        resolve_task_source(task_id),
+        package,
+        tmp_path / "secom-feature-dataset.json",
+        package_id="secom-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-binary.v1",
+        estimator_options={"num_boost_round": 2},
+    )
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    predictor = manifest["predictors"][0]
+
+    assert predictor["runtime_type"] == "lightgbm.booster.v1"
+    assert predictor["predictive_family"] == "bernoulli_logit"
+    assert predictor["config"]["training"]["estimator_id"] == (
+        "lightgbm-binary.v1"
+    )
+    assert predictor["config"]["training"]["validation"][
+        "cohort_digest"
+    ].startswith("sha256:")
+    assert predictor["config"]["training"]["validation"][
+        "fold_digest"
+    ].startswith("sha256:")
+
+
+def test_standard_lightgbm_regression_keeps_monotonicity_in_the_recipe(
+    tmp_path: Path,
+) -> None:
+    task_id = "battery-degradation-v1"
+    package = tmp_path / "battery-lightgbm"
+    build_package(
+        task_id,
+        resolve_task_source(task_id),
+        package,
+        tmp_path / "battery-feature-dataset.json",
+        package_id="battery-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-regression.v1",
+        estimator_options={
+            "num_boost_round": 2,
+            "predictive_family": "normal",
+            "monotone_decreasing_features": ["process.cycle_index"],
+        },
+    )
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+
+    assert recipe["estimator"]["monotone_decreasing_features"] == [
+        "process.cycle_index"
+    ]
+    assert manifest["predictors"][0]["predictive_family"] == "normal"
+    assert manifest["predictors"][0]["config"]["residual_std"] > 0
+
+
+def test_standard_lightgbm_empirical_adapter_returns_fitted_interval(
+    tmp_path: Path,
+) -> None:
+    task_id = "heat-treatment-tradeoff-v1"
+    package = tmp_path / "heat-lightgbm"
+    build_package(
+        task_id,
+        HEAT_SOURCE,
+        package,
+        tmp_path / "heat-feature-dataset.json",
+        package_id="heat-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-regression.v1",
+        estimator_options={"num_boost_round": 2},
+    )
+    loaded = ModelPackageLoader().load(package)
+    spec = loaded.manifest.predictors[0]
+    predictor = loaded.load_predictor(spec.id)
+    summary = predictor.predict({
+        feature_name: 0.0
+        for feature_name in spec.feature_names
+    })
+
+    assert spec.predictive_family == "empirical_quantiles"
+    assert set(summary.quantiles) == {"0.05", "0.50", "0.95"}
+    assert summary.quantiles["0.05"] < summary.quantiles["0.95"]
+    assert summary.quantiles["0.05"] == pytest.approx(
+        summary.point_estimate + float(spec.config["lower_offset"])
+    )
+    assert summary.quantiles["0.95"] == pytest.approx(
+        summary.point_estimate + float(spec.config["upper_offset"])
+    )
+
+
+def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
+    tmp_path: Path,
+) -> None:
+    active_before = ACTIVE_PACKAGES_PATH.read_bytes()
+    result = compare_estimators(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        tmp_path / "comparison",
+        tmp_path / "feature-dataset.json",
+        estimators=("ridge.v1", "lightgbm-regression.v1"),
+        estimator_options={
+            "lightgbm-regression.v1": {"num_boost_round": 2},
+        },
+        package_prefix="heat-treatment-comparison",
+        package_version="1.0.0",
+    )
+
+    assert result["selection"] is None
+    assert len(result["models"]) == 2
+    for target, identity in result["evaluation"].items():
+        assert target
+        assert identity["cohort_digest"].startswith("sha256:")
+        assert identity["fold_digest"].startswith("sha256:")
+        assert {
+            model["evaluation"][target]["fold_digest"]
+            for model in result["models"]
+        } == {identity["fold_digest"]}
+    assert ACTIVE_PACKAGES_PATH.read_bytes() == active_before

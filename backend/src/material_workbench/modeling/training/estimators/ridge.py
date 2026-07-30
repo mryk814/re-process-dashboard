@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +8,7 @@ from material_workbench.modeling.model_lifecycle import TargetQualityMetric
 from material_workbench.modeling.training.feature_dataset import TargetTrainingSet
 from material_workbench.modeling.training.recipe import RidgeEstimatorRecipe
 
-from .types import TrainedPredictor
+from .types import TrainedPredictor, standard_training_metadata
 
 
 def _fit(x: np.ndarray, y: np.ndarray, alpha: float) -> tuple[np.ndarray, float]:
@@ -26,45 +25,55 @@ def _fit(x: np.ndarray, y: np.ndarray, alpha: float) -> tuple[np.ndarray, float]
     return weights, bias
 
 
-def _fold_order(group: str, *, seed: int) -> bytes:
-    payload = f"{seed}:{group}".encode("utf-8")
-    return hashlib.sha256(payload).digest()
-
-
-def _balanced_fold_ids(
-    groups: tuple[str, ...],
-    *,
-    requested_folds: int,
-    seed: int,
-) -> tuple[np.ndarray, int]:
-    unique = sorted(
-        set(groups),
-        key=lambda group: (_fold_order(group, seed=seed), group),
-    )
-    folds = min(requested_folds, len(unique))
-    if folds < 2:
-        raise ValueError("ridge requires at least two independent validation groups")
-    assignment = {
-        group: index % folds
-        for index, group in enumerate(unique)
-    }
-    return np.asarray([assignment[group] for group in groups], dtype=int), folds
-
-
-def _cross_fitted_quantile_coverage(
-    residuals: np.ndarray,
-    fold_ids: np.ndarray,
-) -> float:
-    covered = np.zeros(len(residuals), dtype=bool)
-    for fold in sorted(set(fold_ids.tolist())):
-        evaluate = fold_ids == fold
-        calibrate = ~evaluate
-        lower, upper = np.quantile(residuals[calibrate], (0.05, 0.95))
-        covered[evaluate] = (
-            (residuals[evaluate] >= lower)
-            & (residuals[evaluate] <= upper)
+def _honest_grouped_evaluation(
+    data: TargetTrainingSet,
+    alpha: float,
+) -> tuple[np.ndarray, float]:
+    if data.folds < 3:
+        raise ValueError(
+            f"{data.target}: nested interval evaluation requires at least three folds"
         )
-    return float(np.mean(covered))
+    predictions = np.empty(len(data.y), dtype=float)
+    covered = np.zeros(len(data.y), dtype=bool)
+    for outer_fold in range(data.folds):
+        evaluate = data.fold_ids == outer_fold
+        outer_train = ~evaluate
+        weights, bias = _fit(
+            data.x[outer_train],
+            data.y[outer_train],
+            alpha,
+        )
+        predictions[evaluate] = data.x[evaluate] @ weights + bias
+
+        calibration_residuals: list[np.ndarray] = []
+        for inner_fold in range(data.folds):
+            if inner_fold == outer_fold:
+                continue
+            calibrate = outer_train & (data.fold_ids == inner_fold)
+            inner_train = outer_train & ~calibrate
+            if not calibrate.any() or inner_train.sum() < 2:
+                raise ValueError(
+                    f"{data.target}: ridge nested fold has insufficient rows"
+                )
+            inner_weights, inner_bias = _fit(
+                data.x[inner_train],
+                data.y[inner_train],
+                alpha,
+            )
+            calibration_residuals.append(
+                data.y[calibrate]
+                - (data.x[calibrate] @ inner_weights + inner_bias)
+            )
+        lower, upper = np.quantile(
+            np.concatenate(calibration_residuals),
+            (0.05, 0.95),
+        )
+        outer_residuals = data.y[evaluate] - predictions[evaluate]
+        covered[evaluate] = (
+            (outer_residuals >= lower)
+            & (outer_residuals <= upper)
+        )
+    return predictions, float(np.mean(covered))
 
 
 def train(
@@ -72,19 +81,8 @@ def train(
     recipe: RidgeEstimatorRecipe,
     artifact_path: Path,
 ) -> TrainedPredictor:
-    fold_ids, folds = _balanced_fold_ids(
-        data.validation_groups,
-        requested_folds=recipe.folds,
-        seed=recipe.seed,
-    )
-    predictions = np.empty(len(data.y), dtype=float)
-    for fold in sorted(set(fold_ids.tolist())):
-        test = fold_ids == fold
-        train_rows = ~test
-        if train_rows.sum() < 2:
-            raise ValueError(f"{data.target}: ridge fold has fewer than two training rows")
-        weights, bias = _fit(data.x[train_rows], data.y[train_rows], recipe.alpha)
-        predictions[test] = data.x[test] @ weights + bias
+    folds = data.folds
+    predictions, coverage = _honest_grouped_evaluation(data, recipe.alpha)
     residuals = data.y - predictions
     lower, upper = np.quantile(residuals, (0.05, 0.95))
     weights, bias = _fit(data.x, data.y, recipe.alpha)
@@ -101,11 +99,8 @@ def train(
         parent_conditions=len(set(data.validation_groups)),
         mae=float(np.mean(np.abs(residuals))),
         rmse=float(np.sqrt(np.mean(residuals**2))),
-        interval_coverage_90=_cross_fitted_quantile_coverage(
-            residuals,
-            fold_ids,
-        ),
-        interval_coverage_method="cross-fitted-oof-residual-quantiles",
+        interval_coverage_90=coverage,
+        interval_coverage_method="nested-grouped-oof-residual-quantiles",
         interval_coverage_observations=len(residuals),
     )
     return TrainedPredictor(
@@ -123,9 +118,15 @@ def train(
                 "training_method": "ridge.v1",
                 "training_unit": "replicate_context_mean",
                 "validation_method": f"{folds}-fold grouped validation CV",
-                "interval_method": "cross-fitted OOF residual quantiles",
+                "interval_method": "nested grouped OOF residual quantiles",
                 "ridge_alpha": recipe.alpha,
                 "seed": recipe.seed,
+                "training": standard_training_metadata(
+                    data,
+                    estimator_id=recipe.estimator_id,
+                    uncertainty="nested grouped OOF residual quantiles",
+                    parameters={"alpha": recipe.alpha, "seed": recipe.seed},
+                ),
             },
         },
         artifact=artifact_path,
@@ -135,6 +136,9 @@ def train(
             "alpha": recipe.alpha,
             "folds": folds,
             "seed": recipe.seed,
+            "cohort_digest": data.cohort_digest,
+            "fold_digest": data.fold_digest,
+            "evaluation": "outer-fold-refit-with-inner-calibration",
         },
         predict=lambda values: float(values @ weights + bias),
     )
