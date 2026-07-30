@@ -353,6 +353,7 @@ def main() -> int:
     findings: list[str] = []
     installed: list[Path] = []
     original_modules = app_module.registered_task_modules
+    original_builtin_modules = app_module.BUILTIN_TASK_MODULES
     original_table = task_catalog.TASK_MODULES
 
     x_csv = SCRATCH / "stage_x.csv"
@@ -397,6 +398,7 @@ def main() -> int:
                 ),
             )
         app_module.registered_task_modules = lambda: modules
+        app_module.BUILTIN_TASK_MODULES = modules
         task_catalog.TASK_MODULES = MappingProxyType(modules)
 
         from operations.model_workflow import build_package
@@ -452,6 +454,7 @@ def main() -> int:
         return _report(findings)
     finally:
         app_module.registered_task_modules = original_modules
+        app_module.BUILTIN_TASK_MODULES = original_builtin_modules
         task_catalog.TASK_MODULES = original_table
         for task_id in (STAGE_X, STAGE_Y):
             _TABULAR_PROFILES.pop(task_id, None)
@@ -732,6 +735,49 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                         and identity["domain_references"] == [],
                         identity,
                     )
+                    predicted_shrinkage = executed.json()["stages"][0]["result"][
+                        "predictions"
+                    ]["shrinkage_pct"]["value"]
+                    variant = client.post(
+                        f"/api/projects/{project_id}/chain/candidates/"
+                        f"{saved['id']}/analysis-variants",
+                        json={
+                            "candidate_revision": saved["revision"],
+                            "comparison_snapshot_id": snapshot.json()["snapshot_id"],
+                            "actual_records": [
+                                {
+                                    "actual_id": "MOLD-001",
+                                    "values": {
+                                        "shrinkage_pct": predicted_shrinkage + 0.01
+                                    },
+                                }
+                            ],
+                        },
+                    )
+                    _check(
+                        findings,
+                        "中間実測をprocess入力へ適用したvariantを作成する",
+                        variant.status_code == 201
+                        and variant.json()["stage_c_input"]["process"][
+                            "shrinkage_pct"
+                        ]
+                        == predicted_shrinkage + 0.01
+                        and "composition" not in variant.json()["stage_c_input"],
+                        variant.text[:400],
+                    )
+                    if variant.status_code == 201:
+                        from material_workbench.persistence.store import Store
+
+                        restored = Store(
+                            client.app.state.store.path
+                        ).get_chain_analysis_variant(variant.json()["variant_id"])
+                        _check(
+                            findings,
+                            "scalar Chainのactual-conditioned variantをDBから復元する",
+                            restored is not None
+                            and restored.model_dump(mode="json") == variant.json(),
+                            restored,
+                        )
 
         from material_workbench.contracts.schemas import CandidateInput, CandidateInputs
 
@@ -839,7 +885,7 @@ def _report(findings: list[str]) -> int:
         print("なし（Chain Coreの変更なしで二段Chainが成立した）")
     for item in findings:
         print(f"- {item}")
-    return 0
+    return 1 if findings else 0
 
 
 if __name__ == "__main__":

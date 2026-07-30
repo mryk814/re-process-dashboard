@@ -20,9 +20,17 @@ from material_workbench.application.chain_candidate_adapters import (
     candidate_adapter_for,
 )
 from material_workbench.contracts.chain_contracts import (
+    ChainBinding,
+    ChainDefinition,
     ChainRevision,
     ChainSnapshotIdentityV2,
+    ChainStage,
     ChainStageRevision,
+    StageOutputBindingSource,
+    UnitConversion,
+)
+from material_workbench.contracts.chain_execution_contracts import (
+    IntermediateActualRecord,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
 
@@ -126,6 +134,151 @@ def test_scalar_adapter_rejects_a_sparse_blend_and_declares_no_domain_reference(
         adapter.run_deterministic_stage(_revision("task").stages[0], candidate)
 
 
+def test_scalar_adapter_applies_complete_intermediate_actuals_to_process_input() -> None:
+    adapter = ScalarChainAdapter()
+    definition = ChainDefinition(
+        chain_id="molding-chain",
+        label="成形から平面度",
+        stages=(
+            ChainStage(stage_id="X", stage_kind="task", contract_id="molding"),
+            ChainStage(stage_id="Y", stage_kind="task", contract_id="flatness"),
+        ),
+        bindings=(
+            ChainBinding(
+                target_stage_id="Y",
+                target_input_path="process.shrinkage_pct",
+                source=StageOutputBindingSource(
+                    source_kind="stage_output",
+                    stage_id="X",
+                    output_key="shrinkage_pct",
+                ),
+            ),
+        ),
+    )
+    target_stage = _revision("task", "task").stages[1].model_copy(
+        update={"stage_id": "Y"}
+    )
+    base = {
+        "composition": {},
+        "process": {"shrinkage_pct": 0.8, "anneal_temperature_c": 120.0},
+        "categorical": {},
+    }
+
+    result = adapter.apply_actual_measurements(
+        definition,
+        target_stage,
+        base,
+        (
+            IntermediateActualRecord(
+                actual_id="MOLD-001",
+                values={"shrinkage_pct": 0.91},
+            ),
+        ),
+    )
+
+    assert result.coverage == ("shrinkage_pct",)
+    assert result.measured_values == {"shrinkage_pct": 0.91}
+    assert result.canonical_input == {
+        "composition": {},
+        "process": {"shrinkage_pct": 0.91, "anneal_temperature_c": 120.0},
+        "categorical": {},
+    }
+    assert base["process"]["shrinkage_pct"] == 0.8
+
+    converted_definition = definition.model_copy(
+        update={
+            "bindings": (
+                definition.bindings[0].model_copy(
+                    update={
+                        "target_input_path": "process.temperature_k",
+                        "source": StageOutputBindingSource(
+                            source_kind="stage_output",
+                            stage_id="X",
+                            output_key="temperature_c",
+                        ),
+                        "conversion": UnitConversion(
+                            conversion_id="celsius-to-kelvin",
+                            source_unit="°C",
+                            target_unit="K",
+                            factor=1.0,
+                            offset=273.15,
+                        ),
+                    }
+                ),
+            )
+        }
+    )
+    converted = adapter.apply_actual_measurements(
+        converted_definition,
+        target_stage,
+        {
+            "composition": {},
+            "process": {"temperature_k": 300.0},
+            "categorical": {},
+        },
+        (
+            IntermediateActualRecord(
+                actual_id="MOLD-TEMP-001",
+                values={"temperature_c": 25.0},
+            ),
+        ),
+    )
+    assert converted.measured_values == {"temperature_c": 25.0}
+    assert converted.canonical_input["process"]["temperature_k"] == pytest.approx(
+        298.15
+    )
+
+    with pytest.raises(ChainCandidateAdapterError, match="予測値では補完しません"):
+        adapter.apply_actual_measurements(
+            definition,
+            target_stage,
+            base,
+            (
+                IntermediateActualRecord(
+                    actual_id="MOLD-002",
+                    values={"unrelated": 1.0},
+                ),
+            ),
+        )
+    with pytest.raises(ChainCandidateAdapterError, match="複数の実測ID"):
+        adapter.apply_actual_measurements(
+            definition,
+            target_stage,
+            base,
+            (
+                IntermediateActualRecord(
+                    actual_id="MOLD-003",
+                    values={"shrinkage_pct": 0.89},
+                ),
+                IntermediateActualRecord(
+                    actual_id="MOLD-004",
+                    values={"shrinkage_pct": 0.90},
+                ),
+            ),
+        )
+    unsupported_definition = definition.model_copy(
+        update={
+            "bindings": (
+                definition.bindings[0].model_copy(
+                    update={"target_input_path": "categorical.shrinkage_class"}
+                ),
+            )
+        }
+    )
+    with pytest.raises(ChainCandidateAdapterError, match="適用できない"):
+        adapter.apply_actual_measurements(
+            unsupported_definition,
+            target_stage,
+            base,
+            (
+                IntermediateActualRecord(
+                    actual_id="MOLD-005",
+                    values={"shrinkage_pct": 0.90},
+                ),
+            ),
+        )
+
+
 def test_snapshot_identity_v2_needs_no_sparse_blend_reference() -> None:
     identity = ChainSnapshotIdentityV2(
         chain_revision_id="chain:r1",
@@ -172,6 +325,16 @@ def test_core_prepare_candidate_delegates_shape_validation_to_the_adapter() -> N
 
     assert "adapter.prepare_candidate" in source
     assert "blend" not in source
+
+
+def test_core_actual_conditioning_delegates_measurement_semantics_to_the_adapter() -> None:
+    source = inspect.getsource(
+        chain_execution.ChainExecutionService.actual_conditioned_variant
+    )
+
+    assert "adapter.apply_actual_measurements" in source
+    assert "composition." not in source
+    assert "実測成分" not in source
 
 
 def test_scalar_candidate_input_survives_the_adapter_round_trip() -> None:

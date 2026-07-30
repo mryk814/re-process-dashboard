@@ -14,6 +14,7 @@ shape, not from a task id.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
@@ -24,9 +25,14 @@ from material_workbench.contracts.blend_contracts import (
     validate_sparse_blend,
 )
 from material_workbench.contracts.chain_contracts import (
+    ChainDefinition,
     ChainDomainReference,
     ChainRevision,
     ChainStageRevision,
+    UnitConversion,
+)
+from material_workbench.contracts.chain_execution_contracts import (
+    IntermediateActualRecord,
 )
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
@@ -34,6 +40,81 @@ from material_workbench.modeling.transform_catalog import DeterministicTransform
 
 class ChainCandidateAdapterError(ValueError):
     """The candidate does not satisfy the shape this Chain Revision requires."""
+
+
+@dataclass(frozen=True)
+class ActualConditioningResult:
+    """Typed adapter result for one immutable actual-conditioned variant."""
+
+    coverage: tuple[str, ...]
+    measured_values: dict[str, float]
+    canonical_input: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _ActualMeasurementBinding:
+    measurement_key: str
+    target_input_path: str
+    conversion: UnitConversion | None
+
+
+def _actual_measurement_bindings(
+    definition: ChainDefinition,
+    target_stage: ChainStageRevision,
+) -> tuple[_ActualMeasurementBinding, ...]:
+    bindings = tuple(
+        _ActualMeasurementBinding(
+            measurement_key=binding.source.output_key,
+            target_input_path=binding.target_input_path,
+            conversion=binding.conversion,
+        )
+        for binding in definition.bindings
+        if binding.target_stage_id == target_stage.stage_id
+        and binding.source.source_kind == "stage_output"
+    )
+    if not bindings:
+        raise ChainCandidateAdapterError(
+            "終端Stageへ適用できる中間実測項目がありません"
+        )
+    return bindings
+
+
+def _collect_actual_values(
+    bindings: tuple[_ActualMeasurementBinding, ...],
+    actual_records: tuple[IntermediateActualRecord, ...],
+    *,
+    item_label: str,
+    missing_message: str,
+) -> tuple[tuple[str, ...], dict[str, float]]:
+    required = tuple(sorted({binding.measurement_key for binding in bindings}))
+    measured: dict[str, float] = {}
+    for record in actual_records:
+        for key, value in record.values.items():
+            if key in measured:
+                raise ChainCandidateAdapterError(
+                    f"{item_label} {key} が複数の実測IDに重複しています"
+                )
+            measured[key] = value
+    missing = sorted(set(required) - set(measured))
+    if missing:
+        raise ChainCandidateAdapterError(
+            f"{missing_message}（予測値では補完しません）: " + ", ".join(missing)
+        )
+    return required, measured
+
+
+def _set_nested_value(target: dict[str, Any], path: str, value: float) -> None:
+    parts = path.split(".")
+    if len(parts) != 2 or parts[0] not in {"composition", "process"}:
+        raise ChainCandidateAdapterError(
+            f"中間実測を適用できないcanonical input pathです: {path}"
+        )
+    group = target.get(parts[0])
+    if not isinstance(group, dict):
+        raise ChainCandidateAdapterError(
+            f"中間実測の適用先groupがcanonical inputにありません: {parts[0]}"
+        )
+    group[parts[1]] = value
 
 
 def _scalar_candidate_path(
@@ -143,6 +224,15 @@ class ChainCandidateAdapter(Protocol):
     def deterministic_outputs(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Recover binding-visible outputs from a stored deterministic payload."""
 
+    def apply_actual_measurements(
+        self,
+        definition: ChainDefinition,
+        target_stage: ChainStageRevision,
+        base_canonical_input: Mapping[str, Any],
+        actual_records: tuple[IntermediateActualRecord, ...],
+    ) -> ActualConditioningResult:
+        """Validate measured upstream outputs and apply them to the target input."""
+
 
 class ScalarChainAdapter:
     """A Chain whose candidate is only scalar and categorical process inputs."""
@@ -200,6 +290,39 @@ class ScalarChainAdapter:
     def deterministic_outputs(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         raise ChainCandidateAdapterError(
             "このChainには決定論的Stageがありません"
+        )
+
+    def apply_actual_measurements(
+        self,
+        definition: ChainDefinition,
+        target_stage: ChainStageRevision,
+        base_canonical_input: Mapping[str, Any],
+        actual_records: tuple[IntermediateActualRecord, ...],
+    ) -> ActualConditioningResult:
+        bindings = _actual_measurement_bindings(definition, target_stage)
+        coverage, measured = _collect_actual_values(
+            bindings,
+            actual_records,
+            item_label="実測項目",
+            missing_message="終端Stageに必要な実測項目が不足しています",
+        )
+        canonical_input = deepcopy(dict(base_canonical_input))
+        for binding in bindings:
+            value = measured[binding.measurement_key]
+            if binding.conversion is not None:
+                value = (
+                    value * binding.conversion.factor
+                    + binding.conversion.offset
+                )
+            _set_nested_value(
+                canonical_input,
+                binding.target_input_path,
+                value,
+            )
+        return ActualConditioningResult(
+            coverage=coverage,
+            measured_values={key: measured[key] for key in coverage},
+            canonical_input=canonical_input,
         )
 
 
@@ -343,6 +466,53 @@ class SparseBlendChainAdapter:
                 "決定論的Stageの結果をbindingへ戻せません"
             )
         return {**composition, **auxiliary}
+
+    def apply_actual_measurements(
+        self,
+        definition: ChainDefinition,
+        target_stage: ChainStageRevision,
+        base_canonical_input: Mapping[str, Any],
+        actual_records: tuple[IntermediateActualRecord, ...],
+    ) -> ActualConditioningResult:
+        upstream_bindings = _actual_measurement_bindings(definition, target_stage)
+        unsupported = sorted(
+            binding.target_input_path
+            for binding in upstream_bindings
+            if not binding.target_input_path.startswith("composition.")
+        )
+        if unsupported:
+            raise ChainCandidateAdapterError(
+                "疎配合Chainの中間実測を適用できないcanonical input pathです: "
+                + ", ".join(unsupported)
+            )
+        bindings = tuple(
+            _ActualMeasurementBinding(
+                measurement_key=binding.target_input_path.removeprefix(
+                    "composition."
+                ),
+                target_input_path=binding.target_input_path,
+                conversion=None,
+            )
+            for binding in upstream_bindings
+        )
+        coverage, measured = _collect_actual_values(
+            bindings,
+            actual_records,
+            item_label="成分",
+            missing_message="Stage Cに必要な実測成分が不足しています",
+        )
+        canonical_input = deepcopy(dict(base_canonical_input))
+        canonical_input["composition"] = {
+            binding.target_input_path.removeprefix("composition."): measured[
+                binding.measurement_key
+            ]
+            for binding in bindings
+        }
+        return ActualConditioningResult(
+            coverage=coverage,
+            measured_values={key: measured[key] for key in coverage},
+            canonical_input=canonical_input,
+        )
 
 
 def candidate_adapter_for(
