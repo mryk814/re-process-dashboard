@@ -1203,12 +1203,35 @@
         "title": "ApprovedTrainingSnapshot",
         "type": "object"
       },
+      "ApprovedTrainingSnapshotDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/ApprovedTrainingSnapshot"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ApprovedTrainingSnapshotSummary"
+          }
+        },
+        "required": [
+          "snapshot",
+          "summary"
+        ],
+        "title": "ApprovedTrainingSnapshotDetail",
+        "type": "object"
+      },
       "ApprovedTrainingSnapshotSummary": {
         "additionalProperties": false,
         "properties": {
           "actor": {
             "title": "Actor",
             "type": "string"
+          },
+          "approved_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Approved Row Count",
+            "type": "integer"
           },
           "canonical_dataset_revision_id": {
             "title": "Canonical Dataset Revision Id",
@@ -1223,12 +1246,44 @@
             "title": "Dataset Digest",
             "type": "string"
           },
+          "excluded_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Excluded Row Count",
+            "type": "integer"
+          },
+          "exclusion_reasons": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TrainingSnapshotExclusionReasonSummary"
+            },
+            "title": "Exclusion Reasons",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "string"
           },
+          "included_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Included Row Count",
+            "type": "integer"
+          },
+          "policy_excluded_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Policy Excluded Row Count",
+            "type": "integer"
+          },
           "purpose": {
             "title": "Purpose",
+            "type": "string"
+          },
+          "reason_counting": {
+            "const": "multi_label",
+            "default": "multi_label",
+            "title": "Reason Counting",
             "type": "string"
           },
           "row_count": {
@@ -1243,6 +1298,27 @@
             ],
             "title": "Schema Version",
             "type": "string"
+          },
+          "selection_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingSnapshotSelectionPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selection_policy_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Policy Digest"
           },
           "snapshot_digest": {
             "title": "Snapshot Digest",
@@ -19742,6 +19818,33 @@
         "title": "TrainingSnapshotCreateRequest",
         "type": "object"
       },
+      "TrainingSnapshotExclusionReasonSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "count"
+        ],
+        "title": "TrainingSnapshotExclusionReasonSummary",
+        "type": "object"
+      },
       "TrainingSnapshotSelectionPolicy": {
         "additionalProperties": false,
         "properties": {
@@ -19885,6 +19988,12 @@
           "cohort_digest": {
             "title": "Cohort Digest",
             "type": "string"
+          },
+          "excluded_row_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Excluded Row Count",
+            "type": "integer"
           },
           "row_count": {
             "minimum": 0.0,
@@ -21034,6 +21143,45 @@
           }
         },
         "summary": "Create Recipe"
+      }
+    },
+    "/api/data-lifecycle/training-snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "training_snapshot_detail_api_data_lifecycle_training_snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedTrainingSnapshotDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Training Snapshot Detail"
       }
     },
     "/api/developer/change-guide": {

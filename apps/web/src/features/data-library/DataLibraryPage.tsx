@@ -24,6 +24,33 @@ const modelStorageLabel = (item: ApiModelPackageRef) => item.storage_scope === "
   ? "自分のモデル"
   : "同梱モデル";
 type UndoAction = { kind: "dataset" | "package"; id: string; archived: boolean; label: string };
+type PackageTrainingSnapshotLink = {
+  connectorId: string;
+  snapshotId: string;
+  snapshotDigest: string;
+  selectionPolicyDigest: string;
+};
+
+function packageTrainingSnapshotLink(
+  item: ApiModelPackageRef,
+): PackageTrainingSnapshotLink | null {
+  const provenance = item.manifest_json.provenance;
+  if (!provenance || typeof provenance !== "object") return null;
+  const lifecycle = (provenance as Record<string, unknown>).source_lifecycle;
+  if (!lifecycle || typeof lifecycle !== "object") return null;
+  const identity = lifecycle as Record<string, unknown>;
+  return typeof identity.connector_id === "string" && identity.connector_id.length > 0
+    && typeof identity.training_snapshot_id === "string" && identity.training_snapshot_id.length > 0
+    && typeof identity.training_snapshot_digest === "string" && identity.training_snapshot_digest.length > 0
+    && typeof identity.training_selection_policy_digest === "string" && identity.training_selection_policy_digest.length > 0
+    ? {
+      connectorId: identity.connector_id,
+      snapshotId: identity.training_snapshot_id,
+      snapshotDigest: identity.training_snapshot_digest,
+      selectionPolicyDigest: identity.training_selection_policy_digest,
+    }
+    : null;
+}
 
 export function DataLibraryPage({
   projects,
@@ -58,6 +85,7 @@ export function DataLibraryPage({
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
+  const [openingTrainingSnapshotId, setOpeningTrainingSnapshotId] = useState("");
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const [activeTab, setActiveTab] = useState<"browse" | "update">(() => {
     const params = new URLSearchParams(window.location.search);
@@ -95,6 +123,41 @@ export function DataLibraryPage({
       for (const key of ["tab", "connector", "stage", "revision"]) url.searchParams.delete(key);
     }
     window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  };
+
+  const openTrainingSnapshot = async (link: PackageTrainingSnapshotLink) => {
+    setOpeningTrainingSnapshotId(link.snapshotId);
+    setError("");
+    try {
+      const [snapshotDetail, connectorDetail] = await Promise.all([
+        workbenchApi.approvedTrainingSnapshot(link.snapshotId),
+        workbenchApi.sourceConnectorDetail(link.connectorId),
+      ]);
+      const belongsToConnector = connectorDetail.training_snapshots.some(
+        (item) => item.id === link.snapshotId,
+      );
+      const snapshotDigestMatches = snapshotDetail.snapshot.snapshot_digest === link.snapshotDigest;
+      const policyDigestMatches = snapshotDetail.snapshot.selection_policy_digest === link.selectionPolicyDigest;
+      if (!belongsToConnector || !snapshotDigestMatches || !policyDigestMatches) {
+        throw new Error("Model Packageが固定した学習Snapshotの識別情報が一致しません。");
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "data-library");
+      url.searchParams.set("tab", "update");
+      url.searchParams.set("connector", link.connectorId);
+      url.searchParams.set("stage", "training");
+      url.searchParams.set("revision", link.snapshotId);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}?${url.searchParams.toString()}${url.hash}`,
+      );
+      setActiveTab("update");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "固定した学習Snapshotを確認できませんでした。");
+    } finally {
+      setOpeningTrainingSnapshotId("");
+    }
   };
 
   const comparisonSets = options?.dataset_views.filter((view) => view.kind === "cohort_comparison") ?? [];
@@ -434,6 +497,7 @@ export function DataLibraryPage({
                 const source = trainingDataset(item, datasets);
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
+                const trainingSnapshotLink = packageTrainingSnapshotLink(item);
                 return <article key={item.id}>
                   <div>
                     <strong>{packageDisplayNames.get(item.id)}</strong>
@@ -457,6 +521,12 @@ export function DataLibraryPage({
                     >学習データの採否を見る</button>
                     <small>{usingProjects[0].name}で固定されたPackageを確認</small>
                   </div>}
+                  {trainingSnapshotLink && <button
+                    type="button"
+                    className="text-button model-package-snapshot-link"
+                    disabled={openingTrainingSnapshotId === trainingSnapshotLink.snapshotId}
+                    onClick={() => void openTrainingSnapshot(trainingSnapshotLink)}
+                  >{openingTrainingSnapshotId === trainingSnapshotLink.snapshotId ? "Snapshotを確認中…" : "固定した学習Snapshotを見る"}</button>}
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
                   <details className="resource-manage-menu">
                     <summary aria-label={`${packageDisplayNames.get(item.id)}の管理`}>管理</summary>

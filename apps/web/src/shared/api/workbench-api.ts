@@ -99,6 +99,7 @@ export type ApiCurationRecipeInput = components["schemas"]["CurationRecipeCreate
 export type ApiCurationRunInput = components["schemas"]["CurationRunCreateInput"];
 export type ApiDatasetApprovalInput = components["schemas"]["DatasetApprovalRequest"];
 export type ApiTrainingSnapshotInput = components["schemas"]["TrainingSnapshotCreateRequest"];
+export type ApiTrainingSnapshotDetail = components["schemas"]["ApprovedTrainingSnapshotDetail"];
 
 const path = (projectId: string, suffix = "") =>
   `/api/projects/${encodeURIComponent(projectId)}${suffix}`;
@@ -176,6 +177,11 @@ export const workbenchApi = {
       params: { path: { revision_id: revisionId } },
       body,
     }), "Training Snapshotを作成できませんでした。");
+  },
+  async approvedTrainingSnapshot(snapshotId: string) {
+    return requireData(await apiClient.GET("/api/data-lifecycle/training-snapshots/{snapshot_id}", {
+      params: { path: { snapshot_id: snapshotId } },
+    }), "Training Snapshotの詳細を取得できませんでした。");
   },
   async listSeriesAssets() {
     return requireData(await apiClient.GET("/api/series-assets"), "系列データを取得できませんでした。");

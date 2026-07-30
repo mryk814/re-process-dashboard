@@ -348,6 +348,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-lifecycle/training-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Training Snapshot Detail */
+        get: operations["training_snapshot_detail_api_data_lifecycle_training_snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/change-guide": {
         parameters: {
             query?: never;
@@ -2586,10 +2603,20 @@ export interface components {
              */
             target_cohorts: components["schemas"]["TrainingTargetCohort"][];
         };
+        /** ApprovedTrainingSnapshotDetail */
+        ApprovedTrainingSnapshotDetail: {
+            snapshot: components["schemas"]["ApprovedTrainingSnapshot"];
+            summary: components["schemas"]["ApprovedTrainingSnapshotSummary"];
+        };
         /** ApprovedTrainingSnapshotSummary */
         ApprovedTrainingSnapshotSummary: {
             /** Actor */
             actor: string;
+            /**
+             * Approved Row Count
+             * @default 0
+             */
+            approved_row_count: number;
             /** Canonical Dataset Revision Id */
             canonical_dataset_revision_id: string;
             /**
@@ -2599,10 +2626,36 @@ export interface components {
             created_at: string;
             /** Dataset Digest */
             dataset_digest: string;
+            /**
+             * Excluded Row Count
+             * @default 0
+             */
+            excluded_row_count: number;
+            /**
+             * Exclusion Reasons
+             * @default []
+             */
+            exclusion_reasons: components["schemas"]["TrainingSnapshotExclusionReasonSummary"][];
             /** Id */
             id: string;
+            /**
+             * Included Row Count
+             * @default 0
+             */
+            included_row_count: number;
+            /**
+             * Policy Excluded Row Count
+             * @default 0
+             */
+            policy_excluded_row_count: number;
             /** Purpose */
             purpose: string;
+            /**
+             * Reason Counting
+             * @default multi_label
+             * @constant
+             */
+            reason_counting: "multi_label";
             /** Row Count */
             row_count: number;
             /**
@@ -2610,6 +2663,9 @@ export interface components {
              * @enum {string}
              */
             schema_version: "approved-training-snapshot/v1" | "approved-training-snapshot/v2";
+            selection_policy?: components["schemas"]["TrainingSnapshotSelectionPolicy"] | null;
+            /** Selection Policy Digest */
+            selection_policy_digest?: string | null;
             /** Snapshot Digest */
             snapshot_digest: string;
             split?: components["schemas"]["TrainingSplitDefinition"] | null;
@@ -9654,6 +9710,15 @@ export interface components {
             /** Targets */
             targets: components["schemas"]["TrainingTargetDefinition"][];
         };
+        /** TrainingSnapshotExclusionReasonSummary */
+        TrainingSnapshotExclusionReasonSummary: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+        };
         /** TrainingSnapshotSelectionPolicy */
         TrainingSnapshotSelectionPolicy: {
             /** Exclusions */
@@ -9711,6 +9776,11 @@ export interface components {
         TrainingTargetCohortSummary: {
             /** Cohort Digest */
             cohort_digest: string;
+            /**
+             * Excluded Row Count
+             * @default 0
+             */
+            excluded_row_count: number;
             /** Row Count */
             row_count: number;
             /** Split Digest */
@@ -10470,6 +10540,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurationRecipe"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    training_snapshot_detail_api_data_lifecycle_training_snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedTrainingSnapshotDetail"];
                 };
             };
             /** @description Validation Error */
