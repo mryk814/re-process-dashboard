@@ -92,6 +92,55 @@ test("representative points use labeled varying columns and one shared support m
   assert.doesNotMatch(html, /screening-results-table has-selection/);
 });
 
+test("proposal surface renders only policy-selected points", () => {
+  const points = [0, 1, 2].map((index) => ({
+    index,
+    inputs: { "composition.C": 0.1 + index * 0.02 },
+    prediction: prediction(500 + index * 10),
+    predictions: {},
+    support: { status: "supported", message: "範囲内", percentile: 20, reference_count: 12 },
+  }));
+  const html = renderTable({
+    result: {
+      purpose: "goal_search",
+      target: "TS",
+      variables: { "composition.C": { mode: "range", min: 0.1, max: 0.2 } },
+      representative_points: points,
+      proposal_selection: { selected: [{ point_index: 1 }] },
+    },
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa" }],
+    options: [{ value: "composition.C", label: "C (mass%)" }],
+    baseCandidateLabel: "基準案A",
+    selectedPointIndices: [1],
+    stockedPointIndices: new Set(),
+    selectionLimitReached: false,
+    onToggle() {},
+  });
+  assert.match(html, /<h3 id="screening-results-title">提案候補<\/h3>/);
+  assert.match(html, /点 2を選択/);
+  assert.doesNotMatch(html, /点 1を選択|点 3を選択/);
+  assert.equal((html.match(/<tbody><tr/g) ?? []).length, 1);
+
+  const emptyHtml = renderTable({
+    result: {
+      purpose: "goal_search",
+      target: "TS",
+      variables: { "composition.C": { mode: "range", min: 0.1, max: 0.2 } },
+      representative_points: points,
+      proposal_selection: { selected: [] },
+    },
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa" }],
+    options: [{ value: "composition.C", label: "C (mass%)" }],
+    baseCandidateLabel: "基準案A",
+    selectedPointIndices: [],
+    stockedPointIndices: new Set(),
+    selectionLimitReached: false,
+    onToggle() {},
+  });
+  assert.match(emptyHtml, /このRunでは提案条件を選べませんでした/);
+  assert.doesNotMatch(emptyHtml, /screening-results-table/);
+});
+
 test("sticky point column only offsets when the selection column is present", async () => {
   const source = await readFile(
     new URL("../src/features/screening/screening.css", import.meta.url),
