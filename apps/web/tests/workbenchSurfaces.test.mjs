@@ -13,6 +13,7 @@ test("Workbench Surface registry owns every allow-listed renderer zone", () => {
     "blend_tools",
     "curve_family",
     "feature_engineering",
+    "input_space",
     "prediction_space",
     "response_contour",
     "response_curve",
@@ -28,18 +29,31 @@ test("Task declaration order is canonical within each Surface zone", () => {
       { kind: "response_contour", order: 30, axis_paths: ["process.x", "process.y"], grid_size: 11 },
       { kind: "prediction_space", order: 25, target_keys: ["TS", "YS"], historical_limit: 200 },
       { kind: "response_curve", order: 20 },
+      { kind: "input_space", order: 35, distance_target_key: "TS", seed: 508, landmark_limit: 96, historical_limit: 240 },
       { kind: "actual_measurement", order: 10 },
       { kind: "feature_engineering", order: 50 },
     ],
   };
   assert.deepEqual(
     orderedWorkbenchSurfaces(application).map((surface) => surface.kind),
-    ["actual_measurement", "response_curve", "prediction_space", "response_contour", "similarity", "feature_engineering"],
+    ["actual_measurement", "response_curve", "prediction_space", "response_contour", "input_space", "similarity", "feature_engineering"],
   );
   assert.deepEqual(
     workbenchSurfacesInZone(application, "analysis_primary").map((surface) => surface.kind),
-    ["response_curve", "prediction_space", "response_contour"],
+    ["response_curve", "prediction_space", "response_contour", "input_space"],
   );
+});
+
+test("input space is lazy and keeps island support separate from candidate novelty", async () => {
+  const source = await readFile(
+    new URL("../src/features/workbench/InputSpacePanel.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /if \(!active \|\| !ready \|\| !selected\) return/);
+  assert.match(source, /island_distance/);
+  assert.match(source, /candidate_novelty/);
+  assert.match(source, /図上の距離ではなくTask距離で判定します/);
+  assert.match(source, /HistoricalEvidenceDrawer/);
 });
 
 test("prediction space is active-only and keeps marginal intervals distinct from joint probability", async () => {

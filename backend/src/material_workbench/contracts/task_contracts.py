@@ -504,6 +504,33 @@ class PredictionSpaceSurfaceDefinition(ContractModel):
         return self
 
 
+class InputSpaceSurfaceDefinition(ContractModel):
+    kind: Literal["input_space"]
+    order: Annotated[int, Field(ge=0)]
+    distance_target_key: Annotated[str, Field(min_length=1)]
+    evidence_context: Literal["training_context", "parent_condition"] = (
+        "training_context"
+    )
+    embedding_method: Literal["landmark-classical-mds-oos"] = (
+        "landmark-classical-mds-oos"
+    )
+    embedding_version: Literal["1.0.0"] = "1.0.0"
+    seed: Annotated[int, Field(ge=0, le=2**31 - 1)] = 508
+    landmark_limit: Annotated[int, Field(ge=12, le=160)] = 96
+    historical_limit: Annotated[int, Field(ge=20, le=400)] = 240
+
+    @model_validator(mode="after")
+    def historical_cohort_contains_every_landmark(
+        self,
+    ) -> "InputSpaceSurfaceDefinition":
+        if self.historical_limit < self.landmark_limit:
+            raise ValueError(
+                "input space historical_limit must be greater than or equal "
+                "to landmark_limit"
+            )
+        return self
+
+
 class ResponseContourSurfaceDefinition(ContractModel):
     kind: Literal["response_contour"]
     order: Annotated[int, Field(ge=0)]
@@ -519,6 +546,7 @@ class ResponseContourSurfaceDefinition(ContractModel):
 
 WorkbenchSurfaceDefinition = Annotated[
     BasicWorkbenchSurfaceDefinition
+    | InputSpaceSurfaceDefinition
     | PredictionSpaceSurfaceDefinition
     | ResponseContourSurfaceDefinition,
     Field(discriminator="kind"),
@@ -615,6 +643,14 @@ class ResolvedTaskDefinition(ContractModel):
                 if any(target not in output_keys for target in surface.target_keys):
                     raise ValueError(
                         "prediction space targets must reference task outputs"
+                    )
+            if surface.kind == "input_space":
+                if not operations.preview:
+                    raise ValueError("input space surface requires preview")
+                output_keys = {output.key for output in definition.outputs}
+                if surface.distance_target_key not in output_keys:
+                    raise ValueError(
+                        "input space distance target must reference a task output"
                     )
             if surface.kind == "response_contour":
                 if not operations.preview or not operations.response_curve:

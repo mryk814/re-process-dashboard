@@ -1665,6 +1665,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/model-package/input-space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Input Space Embedding */
+        get: operations["getProjectInputSpace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/model-package/output-space-evidence": {
         parameters: {
             query?: never;
@@ -2555,7 +2572,7 @@ export interface components {
             /** Sparse Blend Transform Id */
             sparse_blend_transform_id?: string | null;
             /** Workbench Surfaces */
-            workbench_surfaces: (components["schemas"]["BasicWorkbenchSurfaceDefinition"] | components["schemas"]["PredictionSpaceSurfaceDefinition"] | components["schemas"]["ResponseContourSurfaceDefinition"])[];
+            workbench_surfaces: (components["schemas"]["BasicWorkbenchSurfaceDefinition"] | components["schemas"]["InputSpaceSurfaceDefinition"] | components["schemas"]["PredictionSpaceSurfaceDefinition"] | components["schemas"]["ResponseContourSurfaceDefinition"])[];
         };
         /** ApprovalOverride */
         ApprovalOverride: {
@@ -5819,6 +5836,160 @@ export interface components {
             max: number;
             /** Min */
             min: number;
+        };
+        /** InputSpaceCandidatePoint */
+        InputSpaceCandidatePoint: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Novelty */
+            candidate_novelty?: number | null;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Island Distance */
+            island_distance: number;
+            /**
+             * Island Status
+             * @enum {string}
+             */
+            island_status: "supported" | "caution" | "extrapolated";
+            /** Label */
+            label: string;
+            /** Nearest Candidate Id */
+            nearest_candidate_id?: string | null;
+            /** Nearest Training Context Id */
+            nearest_training_context_id: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** InputSpaceEmbeddingResponse */
+        InputSpaceEmbeddingResponse: {
+            /** Candidate Points */
+            candidate_points: components["schemas"]["InputSpaceCandidatePoint"][];
+            /** Captured Positive Eigenvalue Ratio */
+            captured_positive_eigenvalue_ratio: number;
+            /** Caution Threshold */
+            caution_threshold: number;
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Displayed Training Contexts */
+            displayed_training_contexts: number;
+            /** Distance Method */
+            distance_method: string;
+            /** Distance Target Key */
+            distance_target_key: string;
+            /** Distance Version */
+            distance_version: string;
+            /**
+             * Embedding Method
+             * @constant
+             */
+            embedding_method: "landmark-classical-mds-oos";
+            /**
+             * Embedding Version
+             * @constant
+             */
+            embedding_version: "1.0.0";
+            /**
+             * Evidence Context
+             * @enum {string}
+             */
+            evidence_context: "training_context" | "parent_condition";
+            /** Landmark Count */
+            landmark_count: number;
+            /** Seed */
+            seed: number;
+            /** Selected Candidate Id */
+            selected_candidate_id: string;
+            /** Selected Candidate Revision */
+            selected_candidate_revision: number;
+            /** Source Data Digest */
+            source_data_digest: string;
+            /**
+             * Source Scope
+             * @default model_training_data
+             * @constant
+             */
+            source_scope: "model_training_data";
+            /** Supported Threshold */
+            supported_threshold: number;
+            /** Total Training Contexts */
+            total_training_contexts: number;
+            /** Training Points */
+            training_points: components["schemas"]["InputSpaceTrainingPoint"][];
+            /** Vector Space Digest */
+            vector_space_digest: string;
+        };
+        /** InputSpaceSurfaceDefinition */
+        InputSpaceSurfaceDefinition: {
+            /** Distance Target Key */
+            distance_target_key: string;
+            /**
+             * Embedding Method
+             * @default landmark-classical-mds-oos
+             * @constant
+             */
+            embedding_method: "landmark-classical-mds-oos";
+            /**
+             * Embedding Version
+             * @default 1.0.0
+             * @constant
+             */
+            embedding_version: "1.0.0";
+            /**
+             * Evidence Context
+             * @default training_context
+             * @enum {string}
+             */
+            evidence_context: "training_context" | "parent_condition";
+            /**
+             * Historical Limit
+             * @default 240
+             */
+            historical_limit: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "input_space";
+            /**
+             * Landmark Limit
+             * @default 96
+             */
+            landmark_limit: number;
+            /** Order */
+            order: number;
+            /**
+             * Seed
+             * @default 508
+             */
+            seed: number;
+        };
+        /** InputSpaceTrainingPoint */
+        InputSpaceTrainingPoint: {
+            /** Composition Key */
+            composition_key?: string | null;
+            /** Context Id */
+            context_id: string;
+            /** Landmark */
+            landmark: boolean;
+            /** Observation Ids */
+            observation_ids?: string[];
+            /** Parent Key */
+            parent_key: string;
+            /** Process Key */
+            process_key?: string | null;
+            /** Relation Context Ids */
+            relation_context_ids?: string[];
+            /** Repeat Summary */
+            repeat_summary?: {
+                [key: string]: components["schemas"]["RepeatSummary"];
+            };
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /** InputVariationInterval */
         InputVariationInterval: {
@@ -14706,6 +14877,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageStatus"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectInputSpace: {
+        parameters: {
+            query: {
+                candidate_id: string;
+                expected_revision: number;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InputSpaceEmbeddingResponse"];
                 };
             };
             /** @description Not Found */

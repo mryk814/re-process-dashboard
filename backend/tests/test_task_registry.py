@@ -10,7 +10,10 @@ from pathlib import Path
 import pytest
 
 from material_workbench.app import _prepare_app_resources
-from material_workbench.contracts.task_contracts import DataExplorerCapability
+from material_workbench.contracts.task_contracts import (
+    DataExplorerCapability,
+    InputSpaceSurfaceDefinition,
+)
 from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.contracts.schemas import ProjectInput
@@ -24,6 +27,30 @@ TASK_IDS = tuple(sorted(registered_task_modules()))
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 REPOSITORY_ROOT = Path(__file__).parents[2]
+
+
+def test_input_space_display_cohort_must_contain_every_landmark() -> None:
+    with pytest.raises(
+        ValueError,
+        match="historical_limit must be greater than or equal to landmark_limit",
+    ):
+        InputSpaceSurfaceDefinition(
+            kind="input_space",
+            order=1,
+            distance_target_key="target",
+            landmark_limit=96,
+            historical_limit=80,
+        )
+
+
+def test_flank_wear_surfaces_use_independent_run_contexts() -> None:
+    module = registered_task_modules()["flank-wear-v1"]
+    surfaces = {
+        surface.kind: surface
+        for surface in module.application.workbench_surfaces
+    }
+    assert surfaces["input_space"].evidence_context == "parent_condition"
+    assert surfaces["prediction_space"].evidence_context == "parent_condition"
 
 
 def test_app_resources_can_defer_tasks_without_skipping_their_contracts() -> None:
@@ -64,6 +91,7 @@ def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(cl
 def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client) -> None:
     registry = client.app.state.task_registry
     contour_tasks: set[str] = set()
+    input_space_tasks: set[str] = set()
     prediction_space_tasks: set[str] = set()
     for task_id in registry.task_ids:
         surfaces = registry.resolved_definition_for(
@@ -89,6 +117,16 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
                         task_id
                     ).task_definition.outputs
                 }
+            if surface.kind == "input_space":
+                input_space_tasks.add(task_id)
+                assert surface.distance_target_key in {
+                    output.key
+                    for output in registry.contract_for(
+                        task_id
+                    ).task_definition.outputs
+                }
+                assert surface.embedding_method == "landmark-classical-mds-oos"
+                assert surface.embedding_version == "1.0.0"
 
     assert contour_tasks == {
         "annealed-properties-v1",
@@ -107,6 +145,7 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
         "welding-consumable-stage-b-v1",
         "welding-stage-c-properties-v1",
     }
+    assert input_space_tasks == set(TASK_IDS) - {"mpea-literature-tys-v1"}
 
 
 def test_active_package_set_rejects_missing_or_unknown_task() -> None:

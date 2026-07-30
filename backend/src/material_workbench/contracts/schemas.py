@@ -1092,6 +1092,56 @@ class OutputSpaceEvidenceResponse(BaseModel):
     points: list[OutputSpaceEvidencePoint]
 
 
+class InputSpaceTrainingPoint(BaseModel):
+    context_id: str
+    parent_key: str
+    process_key: str | None = None
+    composition_key: str | None = None
+    relation_context_ids: list[str] = Field(default_factory=list)
+    observation_ids: list[str] = Field(default_factory=list)
+    repeat_summary: dict[str, RepeatSummary] = Field(default_factory=dict)
+    x: float
+    y: float
+    landmark: bool
+
+
+class InputSpaceCandidatePoint(BaseModel):
+    candidate_id: str
+    candidate_revision: int
+    label: str
+    x: float
+    y: float
+    island_distance: float
+    island_status: Literal["supported", "caution", "extrapolated"]
+    nearest_training_context_id: str
+    candidate_novelty: float | None = None
+    nearest_candidate_id: str | None = None
+
+
+class InputSpaceEmbeddingResponse(BaseModel):
+    source_scope: Literal["model_training_data"] = "model_training_data"
+    source_data_digest: str
+    distance_target_key: str
+    evidence_context: Literal["training_context", "parent_condition"]
+    distance_method: str
+    distance_version: str
+    cohort_digest: str
+    vector_space_digest: str
+    supported_threshold: float
+    caution_threshold: float
+    embedding_method: Literal["landmark-classical-mds-oos"]
+    embedding_version: Literal["1.0.0"]
+    seed: int
+    landmark_count: int
+    total_training_contexts: int
+    displayed_training_contexts: int
+    captured_positive_eigenvalue_ratio: float
+    selected_candidate_id: str
+    selected_candidate_revision: int
+    training_points: list[InputSpaceTrainingPoint]
+    candidate_points: list[InputSpaceCandidatePoint]
+
+
 class SnapshotPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     prediction: PredictionResponse | None = None

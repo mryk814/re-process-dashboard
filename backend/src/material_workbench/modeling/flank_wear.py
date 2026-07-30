@@ -313,9 +313,18 @@ class FlankWearRuntime:
         self.reference_scale = raw.std(axis=0)
         self.reference_scale[self.reference_scale < 1e-9] = 1.0
         self.reference_vectors = (raw - self.reference_mean) / self.reference_scale
-        pairwise = np.sqrt(((self.reference_vectors[:, None, :] - self.reference_vectors[None, :, :]) ** 2).mean(axis=2))
-        np.fill_diagonal(pairwise, np.inf)
-        self.loo_nearest = pairwise.min(axis=1) if len(self.reference_vectors) > 1 else np.array([0.0])
+        if len(self.reference_vectors) > 1:
+            self.loo_nearest = np.empty(len(self.reference_vectors), dtype=float)
+            for index, vector in enumerate(self.reference_vectors):
+                distances = self._distance(self.reference_vectors, vector)
+                distances[index] = np.inf
+                self.loo_nearest[index] = float(distances.min())
+        else:
+            self.loo_nearest = np.array([0.0])
+        self.supported_threshold, self.caution_threshold = (
+            float(value)
+            for value in np.quantile(self.loo_nearest, (0.80, 0.95))
+        )
 
     def vector(self, candidate: CandidateInput) -> np.ndarray:
         return build_flank_wear_features(candidate, self.composition_defaults).values
@@ -351,7 +360,8 @@ class FlankWearRuntime:
         distances = self._distance(self.reference_vectors, normalized)
         nearest_index = int(np.argmin(distances))
         nearest = float(distances[nearest_index])
-        supported_limit, caution_limit = (float(value) for value in np.quantile(self.loo_nearest, (0.80, 0.95)))
+        supported_limit = self.supported_threshold
+        caution_limit = self.caution_threshold
         if nearest <= supported_limit:
             status, message = "supported", "近い摩耗試験条件に有効な実測があります"
         elif nearest <= caution_limit:

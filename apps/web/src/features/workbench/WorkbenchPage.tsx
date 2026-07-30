@@ -44,6 +44,7 @@ import {
 } from "./ResponseCurvePanels";
 import { ResponseContourPanel } from "./ResponseContourPanel";
 import { PredictionSpacePanel } from "./PredictionSpacePanel";
+import { InputSpacePanel } from "./InputSpacePanel";
 import {
   workbenchSurfaceRegistry,
   workbenchSurfacesInZone,
@@ -358,6 +359,20 @@ export function WorkbenchPage(props: WorkbenchProps) {
           pendingPreviewCount={pendingPreviewCount}
           loadingRemainingPreviews={loadingRemainingPreviews}
           onLoadRemainingPreviews={onLoadRemainingPreviews}
+          onSelect={onSelect}
+          onAddCandidate={onAddCandidateFromLineage}
+        />;
+      case "input_space":
+        return <InputSpacePanel
+          active={surface.kind === selectedPrimarySurface?.kind}
+          ready={candidates.every((candidate) =>
+            ["idle", "saved"].includes(saveStates[candidate.id] ?? "idle")
+          )}
+          projectId={projectId}
+          candidates={candidates}
+          selectedId={selectedId}
+          taskDefinition={taskDefinition}
+          surface={surface}
           onSelect={onSelect}
           onAddCandidate={onAddCandidateFromLineage}
         />;

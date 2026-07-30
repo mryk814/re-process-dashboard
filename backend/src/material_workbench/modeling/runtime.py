@@ -132,6 +132,8 @@ class SupportReference:
     parent_rows: list[dict[str, Any]]
     parent_observation_rows: list[list[dict[str, Any]]]
     loo_nearest_distances: np.ndarray
+    supported_threshold: float
+    caution_threshold: float
 
     def normalized(self, x: np.ndarray) -> np.ndarray:
         return (x - self.feature_mean) / self.feature_scale
@@ -297,8 +299,7 @@ class ModelRuntime:
         candidate = candidate_from_observation(row)
         return None if candidate is None else self._feature_builder(candidate, self.data.medians).values.copy()
 
-    @staticmethod
-    def _support_reference(rows: list[dict[str, Any]], x: np.ndarray, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> SupportReference:
+    def _support_reference(self, rows: list[dict[str, Any]], x: np.ndarray, mean: np.ndarray | None = None, scale: np.ndarray | None = None) -> SupportReference:
         mean = x.mean(axis=0) if mean is None else mean
         scale = x.std(axis=0) if scale is None else scale.copy()
         scale[scale < 1e-9] = 1.0
@@ -310,10 +311,32 @@ class ModelRuntime:
         parent_vectors = np.vstack([normalized[grouped_indexes[group]].mean(axis=0) for group in ordered_groups])
         parent_rows = [rows[grouped_indexes[group][0]] for group in ordered_groups]
         parent_observation_rows = [[rows[index] for index in grouped_indexes[group]] for group in ordered_groups]
-        pairwise = np.sqrt(((parent_vectors[:, None, :] - parent_vectors[None, :, :]) ** 2).mean(axis=2))
-        np.fill_diagonal(pairwise, np.inf)
-        loo_nearest = pairwise.min(axis=1) if len(parent_vectors) > 1 else np.array([0.0])
-        return SupportReference(mean, scale, parent_vectors, parent_rows, parent_observation_rows, loo_nearest)
+        if len(parent_vectors) > 1:
+            loo_nearest = np.empty(len(parent_vectors), dtype=float)
+            for index, vector in enumerate(parent_vectors):
+                distances = _rms_distance(
+                    parent_vectors,
+                    vector,
+                    groups=self.feature_group_indices,
+                )
+                distances[index] = np.inf
+                loo_nearest[index] = float(distances.min())
+        else:
+            loo_nearest = np.array([0.0])
+        supported, caution = (
+            float(value)
+            for value in np.quantile(loo_nearest, (0.80, 0.95))
+        )
+        return SupportReference(
+            mean,
+            scale,
+            parent_vectors,
+            parent_rows,
+            parent_observation_rows,
+            loo_nearest,
+            supported,
+            caution,
+        )
 
     def _fit(self) -> None:
         prepared_all = [(row, self._vector_for_observation(row)) for row in self.data.observations]
@@ -363,7 +386,8 @@ class ModelRuntime:
         nearest = float(distances[nearest_index])
         loo = reference.loo_nearest_distances
         percentile = float((loo <= nearest).mean() * 100)
-        supported_limit, caution_limit = (float(value) for value in np.quantile(loo, (0.80, 0.95)))
+        supported_limit = reference.supported_threshold
+        caution_limit = reference.caution_threshold
         if nearest <= supported_limit:
             status, message = "supported", "独立した過去条件の近傍に実測があります"
         elif nearest <= caution_limit:
