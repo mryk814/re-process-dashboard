@@ -1,25 +1,14 @@
-"""Allow-listed task integration points owned by the application.
+"""Built-in task compositions.
 
-This is deliberately an internal registry, not a plugin loader. Adding a task
-requires adding one explicit ``TaskModule`` here so startup, model workflow,
-package verification, and optional operations all see the same task set.
+This module owns the explicit application wiring for bundled tasks.  Protocols,
+descriptors, and catalog lookup live in separate modules so this composition
+root can depend inward without becoming an import hub for the rest of the app.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
-from typing import (
-    Any,
-    Callable,
-    Literal,
-    Mapping,
-    Protocol,
-    Sequence,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, Literal
 
-from material_workbench.modeling.model_packages import VerifiedModelPackage
 from material_workbench.data.dataset_profile import DatasetInputProfile
 from material_workbench.contracts.schemas import Candidate, CandidateInput
 from material_workbench.contracts.task_contracts import (
@@ -30,7 +19,21 @@ from material_workbench.contracts.task_contracts import (
     TaskDefinition,
     ResponseContourSurfaceDefinition,
 )
-from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
+from material_workbench.task_composition.descriptors import (
+    StandardModelAuthoring,
+    StarterProject,
+    TaskModule,
+)
+from material_workbench.task_composition.ports import (
+    DataDescriptor,
+    DataLoader,
+    FeatureRowBuilder,
+    PredictionRuntime,
+    SpecializedPackageBuilder,
+)
+
+if TYPE_CHECKING:
+    from material_workbench.modeling.model_packages import VerifiedModelPackage
 
 ANNEALED_TASK_ID = "annealed-properties-v1"
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"
@@ -47,7 +50,7 @@ WELDING_STAGE_C_TASK_ID = "welding-stage-c-properties-v1"
 WELDING_STAGE_B_TASK_ID = "welding-consumable-stage-b-v1"
 PRIMARY_DEFAULT_SOURCE = Path("data/source/material_workbench_tutorial_v2.xlsx")
 PROCESS_SOURCE = Path("data/source/material_workbench_process_v1.xlsx")
-_DATA_ROOT = Path(__file__).parent / "data"
+_DATA_ROOT = Path(__file__).parent.parent / "data"
 _WELDING_STAGE_B_PROFILE = _DATA_ROOT / "welding-stage-b-profile-v1.json"
 
 
@@ -97,178 +100,6 @@ _TABULAR_PROFILES = {
     MPEA_ROOM_TENSILE_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-room-tensile-v1.json",
     MPEA_HARDNESS_TASK_ID: _DATA_ROOT / "tabular-profile-mpea-hardness-v1.json",
 }
-
-
-@runtime_checkable
-class DataDescriptor(Protocol):
-    """The common surface every Dataset Profile family's loader must return.
-
-    Profile documents stay family-specific on purpose. What must not be
-    family-specific is this boundary: model builders, the training-data
-    Inspector and quality aggregation read only what is declared here.
-    """
-
-    source_path: str
-    source_sha256: str
-    profile_path: str
-    profile_id: str
-    observations: list[dict[str, Any]]
-    medians: dict[str, float]
-
-
-@runtime_checkable
-class QualitySurface(Protocol):
-    """The quality面 the Data Explorer reads.
-
-    This used to be an undeclared structural dependency: ``DataExplorationService``
-    read these three attributes while ``DataDescriptor`` said nothing about them,
-    so a loader could silently fail to provide them. A Task may only declare
-    ``DataExplorerCapability(quality=True)`` if its descriptor satisfies this.
-    """
-
-    quality: list[dict[str, Any]]
-    detected_quality: list[dict[str, Any]]
-    technical_columns: dict[tuple[str, str], str]
-
-
-@runtime_checkable
-class PredictionRuntime(Protocol):
-    task_id: str
-    data: DataDescriptor
-    model_package: VerifiedModelPackage | None
-    support_policy_id: str
-
-    @property
-    def output_keys(self) -> frozenset[str]: ...
-
-    def predict(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
-
-    def predict_core(self, candidate: Any, **kwargs: Any) -> dict[str, Any]: ...
-
-
-@runtime_checkable
-class BatchPredictionRuntime(Protocol):
-    """Optional ordered preview surface for proposal-pool evaluation."""
-
-    @property
-    def supports_batch_prediction(self) -> bool: ...
-
-    def predict_batch(
-        self,
-        candidates: Sequence[Any],
-        **kwargs: Any,
-    ) -> list[dict[str, Any]]: ...
-
-
-@runtime_checkable
-class StageSampleRuntime(Protocol):
-    """Optional Chain-only sampling surface; point prediction stays separate."""
-
-    chain_sampling_method: str
-    chain_sample_bounds: Mapping[str, tuple[float | None, float | None]]
-
-    def sample_core(
-        self,
-        candidate: Any,
-        *,
-        sample_count: int,
-        seed: int,
-    ) -> StageSampleResult: ...
-
-
-@runtime_checkable
-class SupportProvider(Protocol):
-    def evidence(self, candidate: Any) -> tuple[Any, list[dict[str, Any]]]: ...
-
-    def support_summary(self, candidate: Any) -> Any: ...
-
-    def support_by_target(self, candidate: Any) -> dict[str, Any]: ...
-
-    def similarity(
-        self, candidate: Any, limit: int = 6, target: str | None = None
-    ) -> list[dict[str, Any]]: ...
-
-
-@runtime_checkable
-class TrainingRangeProvider(Protocol):
-    """Package-bound marginal training extent for a response-curve axis.
-
-    This is intentionally separate from ``SupportProvider``: an axis min/max is
-    not multivariate support, and it must never fall back to TaskDefinition's
-    allowed input range.
-    """
-
-    def training_range_for(
-        self,
-        target: str,
-        variable: str,
-        *,
-        stage_name: str | None = None,
-        stage_position_m: float | None = None,
-    ) -> tuple[float, float]: ...
-
-
-ResponseCurveHandler = Callable[
-    [PredictionRuntime, Candidate, str, str, int, tuple[float, float] | None, str | None, float | None],
-    dict[str, Any],
-]
-CurveFamilyHandler = Callable[[PredictionRuntime, Candidate, str, str | None, int, int], dict[str, Any]]
-DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]
-RuntimeFactory = Callable[[DataDescriptor, VerifiedModelPackage], PredictionRuntime]
-FeatureRowBuilder = Callable[[dict[str, Any], dict[str, float]], Any]
-SpecializedPackageBuilder = Callable[..., None]
-TrainingCandidateBuilder = Callable[
-    [dict[str, Any], DataDescriptor],
-    CandidateInput | None,
-]
-
-
-@dataclass(frozen=True)
-class StandardModelAuthoring:
-    """Ordinary fixed-feature estimators supported after Task feature compilation."""
-
-    candidate_builder: TrainingCandidateBuilder
-    estimator_ids: tuple[str, ...]
-    positive_targets: frozenset[str] = frozenset()
-    default_estimator_id: str | None = None
-    default_estimator_options: tuple[tuple[str, Any], ...] = ()
-
-    def default_options(self) -> dict[str, Any]:
-        return dict(self.default_estimator_options)
-
-
-@dataclass(frozen=True)
-class StarterProject:
-    project_id: str
-    name: str
-    candidate_factory: Callable[
-        [PredictionRuntime, TaskDefinition],
-        list[CandidateInput],
-    ]
-    seed_on_upgrade: bool = False
-    legacy_candidate_factory: Callable[
-        [PredictionRuntime, TaskDefinition],
-        list[CandidateInput],
-    ] | None = None
-
-
-@dataclass(frozen=True)
-class TaskModule:
-    task_id: str
-    package_override_env: str
-    source_env: str
-    source_kind: str
-    default_source: Path
-    data_loader: DataLoader
-    runtime_factory: RuntimeFactory
-    feature_row_builder: FeatureRowBuilder
-    application: ApplicationCapability
-    specialized_package_builder: SpecializedPackageBuilder | None = None
-    standard_model_authoring: StandardModelAuthoring | None = None
-    data_explorer: DataExplorerCapability | None = None
-    starter_project: StarterProject | None = None
-    response_curve: ResponseCurveHandler | None = None
-    curve_family: CurveFamilyHandler | None = None
 
 
 def _declared_composition_medians(
@@ -922,7 +753,7 @@ def _application_capability(
     )
 
 
-TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
+BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
     WELDING_STAGE_B_TASK_ID: TaskModule(
         task_id=WELDING_STAGE_B_TASK_ID,
         package_override_env="MATERIAL_WORKBENCH_WELDING_STAGE_B_MODEL_PACKAGE",
@@ -1286,28 +1117,4 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType({
         response_curve=_standard_response_curve,
         data_explorer=_TABULAR_EXPLORER,
     ),
-})
-
-
-def registered_task_modules() -> Mapping[str, TaskModule]:
-    return TASK_MODULES
-
-
-def task_module(task_id: str) -> TaskModule:
-    try:
-        return TASK_MODULES[task_id]
-    except KeyError as exc:
-        raise ValueError(f"unknown registered task: {task_id}") from exc
-
-
-def resolve_task_source(task_id: str, source: str | Path | None = None) -> Path:
-    module = task_module(task_id)
-    selected = Path(source) if source is not None else module.default_source
-    # The workflow CLI historically supplied the primary workbook as its global
-    # default. A dedicated-source task owns its own default instead.
-    if module.source_kind != "primary" and selected == PRIMARY_DEFAULT_SOURCE:
-        selected = module.default_source
-    if selected.is_absolute() or selected.exists():
-        return selected
-    repository_source = Path(__file__).resolve().parents[3] / selected
-    return repository_source if repository_source.exists() else selected
+}

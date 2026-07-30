@@ -21,7 +21,7 @@ from material_workbench.data.dataset_profile import (
     source_units_for,
     unit_conversion,
 )
-from material_workbench.data.dataset_registration import file_sha256
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.data.importer import detect_dataset_profile_path
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 
@@ -678,7 +678,7 @@ def validate_source_profile(source: Path, profile_path: Path) -> dict[str, Any]:
         load_profile_document,
         supported_task_ids,
     )
-    from material_workbench.task_modules import task_module
+    from material_workbench.task_composition.catalog import task_module
 
     profile = load_profile_document(profile_path)
     task_ids = supported_task_ids(raw_profile)

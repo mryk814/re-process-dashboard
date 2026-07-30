@@ -8,7 +8,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from material_workbench.modeling.observation_model_builder import build
-from material_workbench.task_modules import observation_declaration
+from material_workbench.task_composition.builtin_tasks import observation_declaration
 
 
 TASK_ID = "welding-stage-c-properties-v1"

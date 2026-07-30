@@ -24,7 +24,7 @@ from material_workbench.modeling.model_lifecycle import (
     resolve_configured_package,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.task_modules import registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

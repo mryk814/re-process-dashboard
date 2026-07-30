@@ -17,7 +17,8 @@ from starlette.responses import FileResponse
 from .dependencies import get_data_library_root, get_workspace_catalog
 from .errors import PROJECT_API_ERRORS
 from material_workbench.data.dataset_profile import DatasetProfileError, load_dataset_profile
-from material_workbench.data.dataset_registration import file_sha256, register_managed_dataset
+from material_workbench.application.dataset_registration import register_managed_dataset
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 from material_workbench.data.profile_workbench import (
     create_source_binding_draft,

@@ -1,6 +1,6 @@
 ---
 name: add-prediction-task
-description: 現行TaskModule Registryへ新しい予測Taskを安全に追加する。似たExcelの追加ではなく、入力・出力・学習単位が異なる予測問題が対象。
+description: 現行Task composition catalogへ新しい予測Taskを安全に追加する。似たExcelの追加ではなく、入力・出力・学習単位が異なる予測問題が対象。
 ---
 
 # Add Prediction Task
@@ -30,12 +30,15 @@ uv run python backend/scripts/operations/profile_workbench.py validate path/to/f
 3. Feature Pipeline、固定feature order、golden test
 4. Runtime / support / PredictiveSummary
 5. data-only Model Package builderとallow-list済みadapter
-6. `backend/src/material_workbench/task_modules.py` の`TaskModule` entry
+6. `backend/src/material_workbench/task_composition/builtin_tasks.py` の`TaskModule` entry
 7. `models/active-packages.json`
 8. contract / loader / golden / Package smoke / APIまたはE2E
 9. `npm run task:inventory` と、API変更時の `npm run api:generate`
 
-`TaskModule`はsource解決、loader、runtime factory、builder、application capability、Data Explorer capability、response curve / curve family handlerを所有する正本である。`TaskRegistry`がTaskDefinition、runtime、capability、Packageとの集合一致と契約一致を起動時に検証する。
+`TaskModule`の型は`task_composition/descriptors.py`、Runtime／Dataset portは
+`task_composition/ports.py`、同梱Taskの配線は`task_composition/builtin_tasks.py`、
+参照用allow-listは`task_composition/catalog.py`を正本とする。
+`TaskRegistry`がTaskDefinition、runtime、capability、Packageとの集合一致と契約一致を起動時に検証する。
 
 ## 禁止する旧配線
 
@@ -61,4 +64,4 @@ npm run typecheck
 npm run build
 ```
 
-迷ったら現行の `task_modules.py`、`TaskRegistry`、`flank-wear-v1` 実装を同じcommitの正本として読む。古いSkillや過去PRの配線を復元しない。
+迷ったら現行の `task_composition/`、`TaskRegistry`、`flank-wear-v1` 実装を同じcommitの正本として読む。古いSkillや過去PRの配線を復元しない。

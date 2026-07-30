@@ -14,7 +14,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from material_workbench.data.dataset_profile import DatasetInputProfile, load_dataset_profile
 from material_workbench.modeling.hot_rolling_feature_pipeline import PROCESS_NAMES
 from material_workbench.data.importer import WorkbookData, composition_names
-from material_workbench.task_modules import BatchPredictionRuntime, PredictionRuntime
+from material_workbench.task_composition.ports import BatchPredictionRuntime, PredictionRuntime
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.contracts.schemas import (
     Candidate,

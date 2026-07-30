@@ -53,7 +53,7 @@ from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.store import CandidateLimitError, Store
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
 class ScreeningNotFoundError(LookupError):

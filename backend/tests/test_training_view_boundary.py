@@ -12,9 +12,11 @@ import re
 import pytest
 
 from material_workbench.application import data_exploration
-from material_workbench.task_modules import (
+from material_workbench.task_composition.ports import (
     DataDescriptor,
     QualitySurface,
+)
+from material_workbench.task_composition.catalog import (
     registered_task_modules,
 )
 

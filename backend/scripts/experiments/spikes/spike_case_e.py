@@ -110,7 +110,7 @@ def main() -> int:
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_modules import registered_task_modules, resolve_task_source
+    from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     findings: list[str] = []

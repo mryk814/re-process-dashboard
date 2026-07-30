@@ -31,7 +31,7 @@ from material_workbench.app import create_app
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.domain.services import candidate_from_lineage, lineage_candidate_options
 from material_workbench.contracts.task_contracts import TaskDefinition
-from material_workbench.task_modules import registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
 
 
 ROOT = Path(__file__).resolve().parents[2]

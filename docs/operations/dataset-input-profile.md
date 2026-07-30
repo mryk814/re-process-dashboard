@@ -120,7 +120,9 @@ LSは `焼鈍条件-3CGL` から取得しますが、キャッシュ済みの数
 5. 対象を絞った契約テスト、特徴量ゴールデン、ソース事前検証、Packageスモーク、APIまたはE2Eテストを1本追加します。すべて通過した後で、そのタスクのPackageを `models/active-packages.json` に追加します。
 
 現在の本番用TaskModule一覧は [生成済みTask inventory](../contracts/task-inventory.json) を参照します。
-新しいタスクでは、`task_modules.py` の許可リストへ明示的なエントリーを一つ追加します。
+新しいタスクでは、`task_composition/builtin_tasks.py` の同梱Task一覧へ
+明示的なエントリーを一つ追加します。参照側は
+`task_composition/catalog.py` の不変catalogだけを読みます。
 起動、Package検証、モデル処理、ソースとプロファイルの選択、能力宣言、生成済みインベントリは、すべてこのエントリーから解決します。
 プロファイルとTaskDefinitionだけを追加して、未対応タスクを実行可能に見せてはいけません。
 

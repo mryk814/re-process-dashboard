@@ -41,7 +41,7 @@ from material_workbench.persistence.store import (
     StoreDataIntegrityError,
 )
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

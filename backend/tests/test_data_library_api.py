@@ -8,7 +8,7 @@ import sqlite3
 from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
-from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.application.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

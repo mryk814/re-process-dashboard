@@ -61,7 +61,7 @@ from material_workbench.modeling.transform_catalog import (
 )
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
-from material_workbench.persistence.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.application.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.application.ai_review_provider import AiReviewProvider
 from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
@@ -76,12 +76,14 @@ from material_workbench.application.chain_evaluation import (
     ChainEvaluationCatalog,
     DEFAULT_CHAIN_EVALUATION_PATH,
 )
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
-from .task_modules import (
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
+from .task_composition.builtin_tasks import (
     ANNEALED_TASK_ID,
     PRIMARY_DEFAULT_SOURCE,
-    PredictionRuntime,
-    TaskModule,
+)
+from .task_composition.descriptors import TaskModule
+from .task_composition.ports import PredictionRuntime
+from .task_composition.catalog import (
     registered_task_modules,
 )
 from material_workbench.contracts.task_contracts import TaskAvailability

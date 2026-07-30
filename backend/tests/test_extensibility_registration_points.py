@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from material_workbench.modeling.model_lifecycle import load_active_packages
-from material_workbench.task_modules import registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

@@ -10,15 +10,17 @@ from material_workbench.modeling.model_packages import FeaturePipelineSpec, Veri
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition
-from material_workbench.task_modules import (
+from material_workbench.task_composition.ports import (
     CurveFamilyHandler,
     DataDescriptor,
     PredictionRuntime,
     QualitySurface,
     ResponseCurveHandler,
     SupportProvider,
-    TaskModule,
     TrainingRangeProvider,
+)
+from material_workbench.task_composition.descriptors import TaskModule
+from material_workbench.task_composition.catalog import (
     registered_task_modules,
 )
 

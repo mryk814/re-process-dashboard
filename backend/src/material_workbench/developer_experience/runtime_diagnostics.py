@@ -29,7 +29,7 @@ from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.persistence.workspace_catalog_migration import (
     MIGRATION_ID as WORKSPACE_CATALOG_MIGRATION_ID,
 )
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,

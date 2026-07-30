@@ -67,7 +67,7 @@ from material_workbench.persistence.welding_chain_bootstrap import (
     welding_stage_a_surface,
 )
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry
 
 

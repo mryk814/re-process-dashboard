@@ -28,7 +28,7 @@ from material_workbench.modeling.model_packages import (
 from material_workbench.persistence.workspace_catalog import (
     model_package_reference_labels,
 )
-from material_workbench.task_modules import registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
 from material_workbench.tasks.task_registry import TaskRegistryError, load_task_contracts
 
 

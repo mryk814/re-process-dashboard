@@ -127,7 +127,7 @@ Package構築が**登録の後**でしか動きません。順序が逆にでき
 これは安全側の設計（未登録Taskのartifactを作れない）でもあるため、**負債とは断定しません**。
 ただし「Packageを先に作って検証してから登録する」手順は取れないので、`add-prediction-task` Skillの手順順序と一致していることを確認しておく必要があります。
 
-**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（[task_modules.py:457](../../backend/src/material_workbench/task_modules.py#L457)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
+**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin_tasks.py](../../backend/src/material_workbench/task_composition/builtin_tasks.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
 
 ## 2. ケースB：複数sheet・複数観測family
 

@@ -28,7 +28,7 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
 )
 from material_workbench.contracts.schemas import CandidateInputs
 from material_workbench.persistence.store import Store, StoreDataIntegrityError
-from material_workbench.task_modules import StageSampleRuntime
+from material_workbench.task_composition.ports import StageSampleRuntime
 
 
 def _method_label(method: str) -> str:

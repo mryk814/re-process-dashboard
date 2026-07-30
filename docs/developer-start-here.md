@@ -8,6 +8,8 @@
 アプリ開発では「何を変更したいか」から、変更する契約、生成物、検証を決めます。
 
 最初に [現行システム基準](product/current-system-baseline.md) で、現在のProject mode、再利用できる境界、v1固有前提を確認してください。実装一覧は [contracts/task-inventory.json](contracts/task-inventory.json)、個別契約は [Dataset Input Profile](operations/dataset-input-profile.md)、各Profile、[特徴量](contracts/feature-engineering.md)、[Model Package](contracts/model-package-contract.md)、[Chain実行](contracts/chain-execution.md)、[検討アクティビティ](contracts/decision-activities.md) を正本とします。
+Prediction Taskの配線を変更するときは
+[Task compositionの依存方向](architecture/task-composition.md)も確認してください。
 
 実装を読みながら学ぶ場合は、[開発教材](learning/README.md)のコードマップと三つの学習ルートを使います。最初の試作章は、検討アクティビティの契約をPydanticからOpenAPI、TypeScript、React、テストまで追います。
 
@@ -23,7 +25,7 @@
 | 入力の意味を追加 | TaskDefinition、Profile、Feature Pipeline | 既存Package | 新契約、新Package |
 | 出力を追加 | TaskDefinition、観測mapping、Package、Runtime、UI | 旧Snapshot | 新契約、新Package |
 | モデル手法だけ変更 | builder、Package、必要ならadapter | Profile、TaskDefinition | 新Package |
-| 全く別の予測問題 | Task縦一式、`task_modules.py` | 既存Task | 新Task一式 |
+| 全く別の予測問題 | Task縦一式、`task_composition/builtin_tasks.py` | 既存Task | 新Task一式 |
 | 新しいCandidate Shape | candidate contract、persistence、diff／copy／snapshot、入力UI | 既存shape | 型付きshape一式 |
 | 新しいDecision Activity | Activity definition、parameter／result contract、service、UI | Task固有ID分岐 | 新Activity一式 |
 | 新しいChain | Chain Definition／Revision、binding、必要なdomain adapter | 再利用するTask | 新Chain Revisionと検証fixture |
@@ -95,7 +97,7 @@ Profile継承、単位変換追加、新カテゴリ値、既存Feature Pipeline
 | 8 | 特徴量変更 | Feature Pipeline、builder、Package | source、旧Package | Pipeline version、新Package | feature golden、Package verify | 列順だけ合わせて旧artifactを流用する |
 | 9 | モデル手法だけ変更 | builder、Package、必要ならallow-list adapter | Profile、Task、Feature Pipeline | 新Package | build、verify、smoke | 任意コードやunsafe artifactを入れる |
 | 10 | 同じTaskで新データ学習 | Dataset登録、builder | Task、意味が同じPipeline | Dataset Revision、新Package | cohort、split、quality | 既存Projectを自動で最新へ移す |
-| 11 | 新しい標準Tabular Task | data-only Task／Profile／Package、TaskModule entry | 既存Task | 新Task一式 | inventory、contract、smoke、API／E2E | 複数の中央`if task_id`へ配線する |
+| 11 | 新しい標準Tabular Task | data-only Task／Profile／Package、built-in Task composition | 既存Task | 新Task一式 | inventory、contract、smoke、API／E2E | 複数の中央`if task_id`へ配線する |
 | 12 | 新しい特殊Task | Task縦一式と明示integration | 既存標準経路 | 新Task一式 | end-to-end fixture | 無理にTabular Profileへ押し込む |
 | 13 | 新しいDecision Activity | typed parameter／result、registry、service、UI | TaskDefinition | Activity version、OpenAPI | availability、identity、stale response | 既存Activity型を直接流用する |
 | 14 | 新しいChain | Stage surface、binding、Revision、domain adapter | Task内部 | Chain Definition／Revision | 別ユースケースfixture、partial recompute | 溶接固有candidate前提をChain Coreへ増やす |
@@ -163,7 +165,7 @@ Feature Pipelineの意味や順序が変わればversionとPackageを新しく�
 - Project scientific identity
 - Candidate Shape
 - Dataset Profile family
-- TaskModule integration point
+- Task composition descriptor／catalog
 - Runtime／Application Capability
 - Decision Activity parameter／result
 - Chain Stage kind、binding、candidate adapter

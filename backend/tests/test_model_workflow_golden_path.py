@@ -22,7 +22,7 @@ from model_workflow import (  # noqa: E402
     promote_package,
 )
 from material_workbench.app import create_app  # noqa: E402
-from material_workbench.data.dataset_registration import (  # noqa: E402
+from material_workbench.application.dataset_registration import (  # noqa: E402
     register_managed_dataset,
 )
 from material_workbench.modeling.model_lifecycle import (  # noqa: E402

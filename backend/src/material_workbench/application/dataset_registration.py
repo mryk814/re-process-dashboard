@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from hashlib import sha256
 from pathlib import Path
 import shutil
 from typing import Any, Literal
 from uuid import uuid4
 
 from material_workbench.data.dataset_profile import load_dataset_profile
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 from material_workbench.contracts.schemas import DataAssetCreateInput, DatasetRevisionCreateInput, ProfileRevisionCreateInput
@@ -18,14 +18,6 @@ from material_workbench.persistence.workspace_catalog import CatalogConflictErro
 CANONICAL_DATASET_CONTRACT_DIGEST = semantic_digest({"id": "canonical-dataset/v1"})
 CANONICALIZATION_CONTRACT_DIGEST = semantic_digest({"id": "workbook-canonicalizer/v1"})
 EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def profile_revision_number(catalog: WorkspaceCatalog, profile_id: str, profile_digest: str) -> int:

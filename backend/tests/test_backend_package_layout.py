@@ -8,7 +8,6 @@ def test_backend_package_root_only_contains_entry_and_extension_modules() -> Non
     assert {path.name for path in PACKAGE_ROOT.glob("*.py")} == {
         "__init__.py",
         "app.py",
-        "task_modules.py",
     }
 
 
@@ -24,6 +23,7 @@ def test_backend_responsibility_packages_are_present() -> None:
         "modeling",
         "persistence",
         "tasks",
+        "task_composition",
     }
     assert expected <= {
         path.name

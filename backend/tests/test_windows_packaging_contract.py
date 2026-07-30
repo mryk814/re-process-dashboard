@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from sidecar import configure_standard_streams
-from material_workbench.task_modules import registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
 
 
 ROOT = Path(__file__).parents[2]

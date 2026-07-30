@@ -38,7 +38,7 @@ from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
 from material_workbench.persistence.store import Store
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 
 
