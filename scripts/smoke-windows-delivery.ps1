@@ -1,5 +1,6 @@
 param(
-    [switch]$KeepSmokeOnFailure
+    [switch]$KeepSmokeOnFailure,
+    [string]$PreviousInstallerPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -71,6 +72,56 @@ function Remove-SmokeTree {
     }
 }
 
+function Test-SmokeShortcutOwned {
+    param(
+        [string]$ShortcutPath,
+        [string]$OwnedRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $ShortcutPath)) {
+        return $false
+    }
+    $shell = New-Object -ComObject WScript.Shell
+    $targetPath = $shell.CreateShortcut($ShortcutPath).TargetPath
+    if (-not $targetPath) {
+        return $false
+    }
+    $resolvedRoot = [IO.Path]::GetFullPath($OwnedRoot).TrimEnd("\") + "\"
+    return [IO.Path]::GetFullPath($targetPath).StartsWith(
+        $resolvedRoot,
+        [StringComparison]::OrdinalIgnoreCase
+    )
+}
+
+function Remove-SmokeInstallation {
+    param([string]$InstalledRootPath)
+
+    Stop-PackagedProcessesUnder $InstalledRootPath
+    foreach ($uninstallerName in @(
+        "Uninstall Evidence Decision Workbench.exe",
+        "Uninstall Material Decision Workbench.exe"
+    )) {
+        $uninstallerPath = Join-Path $InstalledRootPath $uninstallerName
+        if (Test-Path -LiteralPath $uninstallerPath) {
+            $uninstaller = Start-Process -FilePath $uninstallerPath -ArgumentList "/S" -Wait -PassThru
+            if ($uninstaller.ExitCode -ne 0) {
+                Write-Warning "smoke cleanup uninstaller exited with code $($uninstaller.ExitCode): $uninstallerPath"
+            }
+            break
+        }
+    }
+    foreach ($shortcutPath in @(
+        (Join-Path ([Environment]::GetFolderPath("Desktop")) "Evidence Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Programs")) "Evidence Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Desktop")) "Material Decision Workbench.lnk"),
+        (Join-Path ([Environment]::GetFolderPath("Programs")) "Material Decision Workbench.lnk")
+    )) {
+        if (Test-SmokeShortcutOwned -ShortcutPath $shortcutPath -OwnedRoot $InstalledRootPath) {
+            Remove-Item -LiteralPath $shortcutPath -Force
+        }
+    }
+}
+
 if (Test-Path -LiteralPath $smokeRoot) {
     Stop-PackagedProcessesUnder $smokeRoot
     Remove-SmokeTree $smokeRoot
@@ -85,11 +136,21 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "folder smoke failed with code $LASTEXITCODE" }
     Stop-PackagedProcessesUnder $portableAppRoot
 
-    $installer = Start-Process -FilePath $installerPath -ArgumentList "/S", "/D=$installedRoot" -Wait -PassThru
+    $initialInstallerPath = if ($PreviousInstallerPath) {
+        (Resolve-Path -LiteralPath $PreviousInstallerPath).Path
+    } else {
+        $installerPath
+    }
+    $initialExecutableName = if ($PreviousInstallerPath) {
+        "Material Decision Workbench.exe"
+    } else {
+        "Evidence Decision Workbench.exe"
+    }
+    $installer = Start-Process -FilePath $initialInstallerPath -ArgumentList "/S", "/D=$installedRoot" -Wait -PassThru
     if ($installer.ExitCode -ne 0) {
         throw "installer exited with code $($installer.ExitCode)"
     }
-    node (Join-Path $repositoryRoot "scripts/smoke-packaged.mjs") $installedRoot installed
+    node (Join-Path $repositoryRoot "scripts/smoke-packaged.mjs") $installedRoot installed $initialExecutableName
     if ($LASTEXITCODE -ne 0) { throw "installed smoke failed with code $LASTEXITCODE" }
     Stop-PackagedProcessesUnder $installedRoot
 
@@ -97,6 +158,25 @@ try {
     # rename後も既存Workspaceが同じ場所から開けることを確認する。
     & (Join-Path $PSScriptRoot "smoke-windows-upgrade.ps1") -InstallerPath $installerPath -InstalledRoot $installedRoot -WorkspaceDatabasePath $workspaceDatabasePath
     Stop-PackagedProcessesUnder $installedRoot
+    if ($PreviousInstallerPath) {
+        $legacyShortcutPaths = @(
+            (Join-Path ([Environment]::GetFolderPath("Desktop")) "Material Decision Workbench.lnk"),
+            (Join-Path ([Environment]::GetFolderPath("Programs")) "Material Decision Workbench.lnk")
+        )
+        foreach ($legacyArtifact in @(
+            "Material Decision Workbench.exe",
+            "Uninstall Material Decision Workbench.exe"
+        )) {
+            if (Test-Path -LiteralPath (Join-Path $installedRoot $legacyArtifact)) {
+                throw "legacy installed artifact remained after upgrade: $legacyArtifact"
+            }
+        }
+        foreach ($legacyShortcutPath in $legacyShortcutPaths) {
+            if (Test-SmokeShortcutOwned -ShortcutPath $legacyShortcutPath -OwnedRoot $installedRoot) {
+                throw "legacy shortcut remained after upgrade: $legacyShortcutPath"
+            }
+        }
+    }
 
     $uninstallerPath = Join-Path $installedRoot "Uninstall Evidence Decision Workbench.exe"
     if (-not (Test-Path -LiteralPath $uninstallerPath)) {
@@ -114,10 +194,15 @@ try {
     }
 
     Write-Host "Folder ZIP extract/run/delete: OK"
-    Write-Host "Per-user installer install/upgrade/run/uninstall: OK"
+    if ($PreviousInstallerPath) {
+        Write-Host "Legacy installer to renamed installer upgrade/run/uninstall: OK"
+    } else {
+        Write-Host "Per-user installer install/reinstall/run/uninstall: OK"
+    }
     $completed = $true
 } finally {
     if (Test-Path -LiteralPath $smokeRoot) {
+        Remove-SmokeInstallation $installedRoot
         Stop-PackagedProcessesUnder $smokeRoot
         if ($completed -or -not $KeepSmokeOnFailure) {
             Remove-SmokeTree $smokeRoot

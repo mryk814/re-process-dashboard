@@ -14,7 +14,7 @@ const mode = process.argv[3] ?? "portable";
 assert(["portable", "installed"].includes(mode));
 const smokeRoot = join(repositoryRoot, "release", "smoke");
 if (mode === "installed") process.env.LOCALAPPDATA = join(smokeRoot, "local-app-data");
-const executablePath = join(appRoot, "Evidence Decision Workbench.exe");
+const executablePath = join(appRoot, process.argv[4] ?? "Evidence Decision Workbench.exe");
 const artifacts = join(repositoryRoot, "artifacts");
 await mkdir(artifacts, { recursive: true });
 let database;

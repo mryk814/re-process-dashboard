@@ -153,9 +153,10 @@ uv run python backend/scripts/generators/build_flank_wear_model_package.py `
 
 そのうえで、アプリが固定した同梱Packageを使うProjectを作り、
 予測、範囲探索、Activity、Snapshot、Actual、Decisionを通す。
-packaged smokeでは同じProjectをWorkspace backupから復元し、
-表示名を変更したinstallerの再インストール後にも旧user data上のDBと判断証拠が
-保持されることを確認する。
+packaged smokeでは同じProjectをWorkspace backupから復元する。
+旧版installerを`-PreviousInstallerPath`で指定するrename upgrade smokeでは、
+表示名を変更したinstallerへの更新後にも旧user data上のDBと判断証拠が保持され、
+旧exeと旧uninstallerが残らないことを確認する。
 
 ## 採用しなかった案
 

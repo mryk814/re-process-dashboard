@@ -1,6 +1,6 @@
 ---
 name: write-learning-chapter
-description: Material Decision Workbenchの日本語教材を新規執筆、追記、全面改稿するときに使う。コード上の英語をそのまま本文の語彙にせず、読者が対象と関係を日本語で理解できる章、演習、解答、図の説明、読書案内を書く。
+description: Evidence Decision Workbenchの日本語教材を新規執筆、追記、全面改稿するときに使う。コード上の英語をそのまま本文の語彙にせず、読者が対象と関係を日本語で理解できる章、演習、解答、図の説明、読書案内を書く。
 ---
 
 # 日本語で教材を書く

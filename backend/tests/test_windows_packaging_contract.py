@@ -305,7 +305,6 @@ def test_packaged_smoke_covers_a_non_material_decision_journey() -> None:
     upgrade_smoke = (
         ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
     ).read_text(encoding="utf-8")
-
     for marker in (
         "flank-wear-v1",
         "cutting-flank-wear-v1",
@@ -322,7 +321,7 @@ def test_packaged_smoke_covers_a_non_material_decision_journey() -> None:
     assert "工具摩耗の実測と予測を確認" in upgrade_smoke
 
 
-def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> None:
+def test_windows_delivery_upgrades_without_moving_the_legacy_workspace() -> None:
     delivery_smoke = (
         ROOT / "scripts" / "smoke-windows-delivery.ps1"
     ).read_text(encoding="utf-8")
@@ -332,6 +331,9 @@ def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> No
     upgrade_smoke = (
         ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
     ).read_text(encoding="utf-8")
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
 
     assert "smoke-windows-upgrade.ps1" in delivery_smoke
     assignment = (
@@ -345,11 +347,24 @@ def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> No
     assert "-WorkspaceDatabasePath $workspaceDatabasePath" in delivery_smoke
     assert "Test-Path -LiteralPath $workspaceDatabasePath" in delivery_smoke
     assert "KeepSmokeOnFailure" in delivery_smoke
+    assert "PreviousInstallerPath" in delivery_smoke
+    assert '"Material Decision Workbench.exe"' in delivery_smoke
+    assert '"Uninstall Material Decision Workbench.exe"' in delivery_smoke
+    assert "legacy installed artifact remained after upgrade" in delivery_smoke
+    assert "legacy shortcut remained after upgrade" in delivery_smoke
+    assert "function Test-SmokeShortcutOwned" in delivery_smoke
+    assert "function Remove-SmokeInstallation" in delivery_smoke
+    assert "Test-SmokeShortcutOwned -ShortcutPath" in delivery_smoke
+    assert "Remove-SmokeInstallation $installedRoot" in delivery_smoke
+    assert 'process.argv[4] ?? "Evidence Decision Workbench.exe"' in packaged_smoke
     assert "$databaseBeforeUpgrade" in windows_upgrade_smoke
     assert "$databaseAfterUpgrade" in windows_upgrade_smoke
     assert "function Get-Sha256Hex" in windows_upgrade_smoke
     assert "[Security.Cryptography.SHA256]::Create()" in windows_upgrade_smoke
     assert "Get-FileHash" not in windows_upgrade_smoke
+    assert '-ArgumentList "/S"' in windows_upgrade_smoke
+    assert '"/D=$resolvedInstalledRoot"' not in windows_upgrade_smoke
+    assert "did not inherit the existing install location" in windows_upgrade_smoke
     assert "smoke-packaged-upgrade.mjs" in windows_upgrade_smoke
     assert "Evidence Decision Workbench.exe" in upgrade_smoke
     assert "packaged-smoke-portable-before-backup" in upgrade_smoke
