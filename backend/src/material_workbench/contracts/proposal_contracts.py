@@ -23,6 +23,10 @@ ProposalDistanceId = Literal[
     "scalar_axis_rms",
     "group_weighted_bounded_clr_rms",
 ]
+ProposalSelectionPolicyId = Literal[
+    "ranked_top_k_v1",
+    "greedy_value_diversity_v1",
+]
 
 
 class ProposalIncumbentResolution(ContractModel):
@@ -110,6 +114,11 @@ class ProposalStrategyRequest(ContractModel):
     ] = "supported_first"
     fallback_policy: Literal["reject", "deterministic_goal"] = "reject"
     incumbent_value: float | None = Field(default=None, allow_inf_nan=False)
+    proposal_count: Annotated[int, Field(ge=1, le=10)] = 5
+    selection_policy: ProposalSelectionPolicyId = "ranked_top_k_v1"
+    diversity_weight: Annotated[
+        float, Field(ge=0, le=10, allow_inf_nan=False)
+    ] = 0.75
 
 
 class ProposalStrategyDefinition(ContractModel):
@@ -169,3 +178,75 @@ class ProposalRejectedCandidate(ContractModel):
     pool_index: Annotated[int, Field(ge=0)]
     inputs: dict[str, float | str]
     reason: Annotated[str, Field(min_length=1)]
+
+
+class ProposalSelectedPoint(ContractModel):
+    point_index: Annotated[int, Field(ge=0)]
+    pool_index: Annotated[int, Field(ge=0)]
+    order: Annotated[int, Field(ge=1)]
+    acquisition_component: float = Field(allow_inf_nan=False)
+    diversity_component: Annotated[float, Field(ge=0, allow_inf_nan=False)]
+    combined_score: float = Field(allow_inf_nan=False)
+    canonical_identity_digest: Annotated[str, Field(pattern=r"^sha256:")]
+
+
+class ProposalSelectionEvidence(ContractModel):
+    """Immutable evidence for the shortlist shown as proposed candidates."""
+
+    schema_version: Literal["proposal-selection/v1"] = "proposal-selection/v1"
+    requested_count: Annotated[int, Field(ge=1, le=10)]
+    actual_count: Annotated[int, Field(ge=0, le=10)]
+    eligible_count: Annotated[int, Field(ge=0)]
+    unique_count: Annotated[int, Field(ge=0)]
+    policy_id: ProposalSelectionPolicyId
+    policy_version: Annotated[str, Field(min_length=1)]
+    tie_break_rule: Literal[
+        "combined_score_desc_then_pool_index_asc"
+    ]
+    value_component_identity: Literal["acquisition_rank_utility"]
+    candidate_pool_digest: Annotated[str, Field(pattern=r"^sha256:")]
+    distance_id: ProposalDistanceId
+    distance_version: Annotated[str, Field(min_length=1)]
+    distance_parameters: dict[str, float | str | bool] = Field(default_factory=dict)
+    requested_diversity_weight: Annotated[
+        float, Field(ge=0, le=10, allow_inf_nan=False)
+    ]
+    effective_diversity_weight: Annotated[
+        float, Field(ge=0, le=10, allow_inf_nan=False)
+    ]
+    near_duplicate_threshold: Annotated[
+        float, Field(ge=0, le=1, allow_inf_nan=False)
+    ]
+    selected: tuple[ProposalSelectedPoint, ...]
+    shortfall_reason: str | None = None
+
+    @model_validator(mode="after")
+    def count_matches_selection(self) -> "ProposalSelectionEvidence":
+        if self.actual_count != len(self.selected):
+            raise ValueError("proposal actual_countがselected件数と一致しません")
+        if self.actual_count > self.requested_count:
+            raise ValueError("proposal actual_countがrequested_countを超えています")
+        if self.unique_count > self.eligible_count:
+            raise ValueError("proposal unique_countがeligible_countを超えています")
+        if self.actual_count > self.unique_count:
+            raise ValueError("proposal actual_countがunique_countを超えています")
+        if self.actual_count < self.requested_count and not self.shortfall_reason:
+            raise ValueError("proposal不足時は理由を保存してください")
+        if self.actual_count == self.requested_count and self.shortfall_reason:
+            raise ValueError("proposal件数を満たす場合は不足理由を保存しません")
+        if [item.order for item in self.selected] != list(
+            range(1, self.actual_count + 1)
+        ):
+            raise ValueError("proposal selection orderが連続していません")
+        if (
+            self.policy_id == "ranked_top_k_v1"
+            and self.effective_diversity_weight != 0
+        ):
+            raise ValueError("上位順ではdiversity weightを適用しません")
+        if (
+            self.policy_id == "greedy_value_diversity_v1"
+            and self.effective_diversity_weight
+            != self.requested_diversity_weight
+        ):
+            raise ValueError("多様性policyのrequested/effective weightが一致しません")
+        return self

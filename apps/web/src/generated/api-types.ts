@@ -7892,6 +7892,83 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ProposalSelectedPoint */
+        ProposalSelectedPoint: {
+            /** Acquisition Component */
+            acquisition_component: number;
+            /** Canonical Identity Digest */
+            canonical_identity_digest: string;
+            /** Combined Score */
+            combined_score: number;
+            /** Diversity Component */
+            diversity_component: number;
+            /** Order */
+            order: number;
+            /** Point Index */
+            point_index: number;
+            /** Pool Index */
+            pool_index: number;
+        };
+        /**
+         * ProposalSelectionEvidence
+         * @description Immutable evidence for the shortlist shown as proposed candidates.
+         */
+        ProposalSelectionEvidence: {
+            /** Actual Count */
+            actual_count: number;
+            /** Candidate Pool Digest */
+            candidate_pool_digest: string;
+            /**
+             * Distance Id
+             * @enum {string}
+             */
+            distance_id: "scalar_axis_rms" | "group_weighted_bounded_clr_rms";
+            /** Distance Parameters */
+            distance_parameters?: {
+                [key: string]: number | string | boolean;
+            };
+            /** Distance Version */
+            distance_version: string;
+            /** Effective Diversity Weight */
+            effective_diversity_weight: number;
+            /** Eligible Count */
+            eligible_count: number;
+            /** Near Duplicate Threshold */
+            near_duplicate_threshold: number;
+            /**
+             * Policy Id
+             * @enum {string}
+             */
+            policy_id: "ranked_top_k_v1" | "greedy_value_diversity_v1";
+            /** Policy Version */
+            policy_version: string;
+            /** Requested Count */
+            requested_count: number;
+            /** Requested Diversity Weight */
+            requested_diversity_weight: number;
+            /**
+             * Schema Version
+             * @default proposal-selection/v1
+             * @constant
+             */
+            schema_version: "proposal-selection/v1";
+            /** Selected */
+            selected: components["schemas"]["ProposalSelectedPoint"][];
+            /** Shortfall Reason */
+            shortfall_reason?: string | null;
+            /**
+             * Tie Break Rule
+             * @constant
+             */
+            tie_break_rule: "combined_score_desc_then_pool_index_asc";
+            /** Unique Count */
+            unique_count: number;
+            /**
+             * Value Component Identity
+             * @constant
+             */
+            value_component_identity: "acquisition_rank_utility";
+        };
         /** ProposalStrategyAvailability */
         ProposalStrategyAvailability: {
             /** Available */
@@ -7990,6 +8067,11 @@ export interface components {
         /** ProposalStrategyRequest */
         ProposalStrategyRequest: {
             /**
+             * Diversity Weight
+             * @default 0.75
+             */
+            diversity_weight: number;
+            /**
              * Exploration Parameter
              * @default 2
              */
@@ -8007,6 +8089,17 @@ export interface components {
              * @default 4
              */
             pool_multiplier: number;
+            /**
+             * Proposal Count
+             * @default 5
+             */
+            proposal_count: number;
+            /**
+             * Selection Policy
+             * @default ranked_top_k_v1
+             * @enum {string}
+             */
+            selection_policy: "ranked_top_k_v1" | "greedy_value_diversity_v1";
             /**
              * Strategy Id
              * @default latin_hypercube_v1
@@ -8787,10 +8880,14 @@ export interface components {
             coverage_by_path?: {
                 [key: string]: components["schemas"]["ProposalCoverageEvidence"];
             };
+            /** Displayed Count */
+            displayed_count?: number | null;
             /** Evaluated Count */
             evaluated_count: number;
             /** Generated Count */
             generated_count: number;
+            /** Proposed Count */
+            proposed_count?: number | null;
             /** Rejected By Reason */
             rejected_by_reason?: {
                 [key: string]: number;
@@ -8931,9 +9028,12 @@ export interface components {
             objective_definition?: components["schemas"]["ObjectiveDefinition"] | null;
             /**
              * @default {
+             *       "diversity_weight": 0.75,
              *       "exploration_parameter": 2,
              *       "fallback_policy": "reject",
              *       "pool_multiplier": 4,
+             *       "proposal_count": 5,
+             *       "selection_policy": "ranked_top_k_v1",
              *       "strategy_id": "latin_hypercube_v1",
              *       "support_policy": "supported_first"
              *     }
@@ -9022,6 +9122,7 @@ export interface components {
             proposal_pool?: components["schemas"]["ProposalCandidateEvaluation"][];
             /** Proposal Rejections */
             proposal_rejections?: components["schemas"]["ProposalRejectedCandidate"][];
+            proposal_selection?: components["schemas"]["ProposalSelectionEvidence"] | null;
             proposal_strategy?: components["schemas"]["ScreeningProposalStrategy"] | null;
             /** Purpose */
             purpose?: ("design_space_map" | "goal_search" | "experiment_batch") | null;
@@ -9041,7 +9142,7 @@ export interface components {
              * @default screening-run/v1
              * @enum {string}
              */
-            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5" | "screening-run/v6" | "screening-run/v7";
+            schema_version: "screening-run/v1" | "screening-run/v2" | "screening-run/v3" | "screening-run/v4" | "screening-run/v5" | "screening-run/v6" | "screening-run/v7" | "screening-run/v8";
             score_contract: components["schemas"]["ScreeningScoreContract"];
             /** Secondary Goals */
             secondary_goals?: {

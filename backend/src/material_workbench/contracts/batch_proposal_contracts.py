@@ -79,7 +79,7 @@ class BatchProposalDefinition(ContractModel):
     )
     selector_id: BatchSelectorId = "greedy_value_diversity_v1"
     batch_size: Annotated[int, Field(ge=1, le=32)] = 8
-    candidate_pool_size: Annotated[int, Field(ge=1, le=128)] = 32
+    candidate_pool_size: Annotated[int, Field(ge=1, le=2048)] = 32
     diversity_weight: Annotated[
         float, Field(ge=0, le=10, allow_inf_nan=False)
     ] = 0.75

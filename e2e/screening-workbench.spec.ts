@@ -104,6 +104,7 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.locator("optgroup[label='焼鈍条件']")).toHaveCount(2);
   await expect(page.locator("optgroup[label='焼鈍履歴'] option[value='heat_pattern.1.temperature_c']")).toHaveCount(2);
   await modes.getByRole("button", { name: /有望候補を探す/ }).click();
+  await page.getByLabel("提案件数").fill("2");
 
   await page.getByRole("button", { name: "変数を追加" }).click();
   const rows = page.locator(".variable-table tbody tr");
@@ -113,9 +114,38 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.getByLabel(/主目標: .*の下限/).fill("500");
   await page.getByLabel("副条件: 降伏強さの下限").fill("350");
 
+  const runRequest = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/api/screening");
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await runScreening(page);
+  expect((await runRequest).postDataJSON().proposal.proposal_count).toBe(2);
   expect((await runResponse).status()).toBe(201);
+  const countStages = page.locator(".screening-count-stage");
+  await expect(countStages).toHaveCount(5);
+  await expect(countStages.nth(0)).toHaveAttribute("title", "sampling planで生成した条件数");
+  await expect(countStages.nth(1)).toHaveAttribute("title", "Design SpaceとTaskの制約を通過した条件数");
+  await expect(countStages.nth(2)).toHaveAttribute("title", "予測modelで評価した条件数");
+  await expect(countStages.nth(3)).toHaveAttribute("title", "chartとtableへ表示した条件数");
+  await expect(countStages.nth(4)).toHaveAttribute("title", "候補確認へ提案した条件数");
+  await expect(countStages.nth(4)).toHaveAttribute(
+    "aria-describedby",
+    "screening-count-proposed-description",
+  );
+  await countStages.nth(4).focus();
+  await expect(countStages.nth(4)).toBeFocused();
+  await expect(page.getByRole("heading", { name: "提案候補" })).toBeVisible();
+  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
+  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
+  await expect(page.locator('input[aria-label^="点 "]:checked')).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "2件を候補へ追加" })).toBeEnabled();
+  const firstProposalCheckbox = page.locator('input[aria-label^="点 "]').first();
+  await firstProposalCheckbox.focus();
+  await firstProposalCheckbox.press("Space");
+  await expect(firstProposalCheckbox).not.toBeChecked();
+  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
+  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(1);
+  await firstProposalCheckbox.press("Space");
+  await expect(firstProposalCheckbox).toBeChecked();
+  await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
   const savedRun = page.locator(".saved-runs button.active");
   await expect(savedRun).not.toContainText(/model |space |objective |strategy /);
   await expect(page.locator(".saved-runs details")).toHaveCount(0);
@@ -138,7 +168,8 @@ test("annealed screening keeps draft separate and batches multiple points into s
   expect(compactMapHeight).toBeLessThanOrEqual(351);
   await page.getByRole("button", { name: "図を拡大" }).click();
   await expect(page.locator(".screen-map")).toHaveClass(/expanded/);
-  expect((await page.locator(".screen-map").boundingBox())!.height).toBeGreaterThan(compactMapHeight);
+  await expect.poll(async () => (await page.locator(".screen-map").boundingBox())!.height)
+    .toBeGreaterThan(compactMapHeight);
   await page.getByRole("button", { name: "図を元の大きさに戻す" }).click();
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("引張強さ");
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("降伏強さ");
@@ -157,9 +188,8 @@ test("annealed screening keeps draft separate and batches multiple points into s
   expect((await rerunResponse).status()).toBe(201);
   await expect(page.getByText(/未実行の条件変更/)).toHaveCount(0);
 
-  const pointChecks = page.locator('input[aria-label^="点 "]');
-  await pointChecks.nth(0).check();
-  await pointChecks.nth(1).check();
+  await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
+  await expect(page.locator('input[aria-label^="点 "]:checked')).toHaveCount(2);
   const batchResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/candidates"));
   await page.getByRole("button", { name: "2件を候補へ追加" }).click();
   expect((await batchResponse).status()).toBe(201);

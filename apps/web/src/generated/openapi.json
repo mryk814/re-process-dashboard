@@ -1565,7 +1565,7 @@
           },
           "candidate_pool_size": {
             "default": 32,
-            "maximum": 128.0,
+            "maximum": 2048.0,
             "minimum": 1.0,
             "title": "Candidate Pool Size",
             "type": "integer"
@@ -15166,6 +15166,202 @@
         "title": "ProposalRejectedCandidate",
         "type": "object"
       },
+      "ProposalSelectedPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_component": {
+            "title": "Acquisition Component",
+            "type": "number"
+          },
+          "canonical_identity_digest": {
+            "pattern": "^sha256:",
+            "title": "Canonical Identity Digest",
+            "type": "string"
+          },
+          "combined_score": {
+            "title": "Combined Score",
+            "type": "number"
+          },
+          "diversity_component": {
+            "minimum": 0.0,
+            "title": "Diversity Component",
+            "type": "number"
+          },
+          "order": {
+            "minimum": 1.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "point_index": {
+            "minimum": 0.0,
+            "title": "Point Index",
+            "type": "integer"
+          },
+          "pool_index": {
+            "minimum": 0.0,
+            "title": "Pool Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "point_index",
+          "pool_index",
+          "order",
+          "acquisition_component",
+          "diversity_component",
+          "combined_score",
+          "canonical_identity_digest"
+        ],
+        "title": "ProposalSelectedPoint",
+        "type": "object"
+      },
+      "ProposalSelectionEvidence": {
+        "additionalProperties": false,
+        "description": "Immutable evidence for the shortlist shown as proposed candidates.",
+        "properties": {
+          "actual_count": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Actual Count",
+            "type": "integer"
+          },
+          "candidate_pool_digest": {
+            "pattern": "^sha256:",
+            "title": "Candidate Pool Digest",
+            "type": "string"
+          },
+          "distance_id": {
+            "enum": [
+              "scalar_axis_rms",
+              "group_weighted_bounded_clr_rms"
+            ],
+            "title": "Distance Id",
+            "type": "string"
+          },
+          "distance_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Distance Parameters",
+            "type": "object"
+          },
+          "distance_version": {
+            "minLength": 1,
+            "title": "Distance Version",
+            "type": "string"
+          },
+          "effective_diversity_weight": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Effective Diversity Weight",
+            "type": "number"
+          },
+          "eligible_count": {
+            "minimum": 0.0,
+            "title": "Eligible Count",
+            "type": "integer"
+          },
+          "near_duplicate_threshold": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Near Duplicate Threshold",
+            "type": "number"
+          },
+          "policy_id": {
+            "enum": [
+              "ranked_top_k_v1",
+              "greedy_value_diversity_v1"
+            ],
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "minLength": 1,
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "requested_count": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Requested Count",
+            "type": "integer"
+          },
+          "requested_diversity_weight": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Requested Diversity Weight",
+            "type": "number"
+          },
+          "schema_version": {
+            "const": "proposal-selection/v1",
+            "default": "proposal-selection/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selected": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalSelectedPoint"
+            },
+            "title": "Selected",
+            "type": "array"
+          },
+          "shortfall_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall Reason"
+          },
+          "tie_break_rule": {
+            "const": "combined_score_desc_then_pool_index_asc",
+            "title": "Tie Break Rule",
+            "type": "string"
+          },
+          "unique_count": {
+            "minimum": 0.0,
+            "title": "Unique Count",
+            "type": "integer"
+          },
+          "value_component_identity": {
+            "const": "acquisition_rank_utility",
+            "title": "Value Component Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_count",
+          "actual_count",
+          "eligible_count",
+          "unique_count",
+          "policy_id",
+          "policy_version",
+          "tie_break_rule",
+          "value_component_identity",
+          "candidate_pool_digest",
+          "distance_id",
+          "distance_version",
+          "requested_diversity_weight",
+          "effective_diversity_weight",
+          "near_duplicate_threshold",
+          "selected"
+        ],
+        "title": "ProposalSelectionEvidence",
+        "type": "object"
+      },
       "ProposalStrategyAvailability": {
         "additionalProperties": false,
         "properties": {
@@ -15373,6 +15569,13 @@
       "ProposalStrategyRequest": {
         "additionalProperties": false,
         "properties": {
+          "diversity_weight": {
+            "default": 0.75,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Diversity Weight",
+            "type": "number"
+          },
           "exploration_parameter": {
             "default": 2.0,
             "exclusiveMinimum": 0.0,
@@ -15405,6 +15608,22 @@
             "minimum": 2.0,
             "title": "Pool Multiplier",
             "type": "integer"
+          },
+          "proposal_count": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Proposal Count",
+            "type": "integer"
+          },
+          "selection_policy": {
+            "default": "ranked_top_k_v1",
+            "enum": [
+              "ranked_top_k_v1",
+              "greedy_value_diversity_v1"
+            ],
+            "title": "Selection Policy",
+            "type": "string"
           },
           "strategy_id": {
             "default": "latin_hypercube_v1",
@@ -17313,6 +17532,18 @@
             "title": "Coverage By Path",
             "type": "object"
           },
+          "displayed_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Count"
+          },
           "evaluated_count": {
             "minimum": 0.0,
             "title": "Evaluated Count",
@@ -17322,6 +17553,18 @@
             "minimum": 1.0,
             "title": "Generated Count",
             "type": "integer"
+          },
+          "proposed_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Count"
           },
           "rejected_by_reason": {
             "additionalProperties": {
@@ -17665,9 +17908,12 @@
           "proposal": {
             "$ref": "#/components/schemas/ProposalStrategyRequest",
             "default": {
+              "diversity_weight": 0.75,
               "exploration_parameter": 2.0,
               "fallback_policy": "reject",
               "pool_multiplier": 4,
+              "proposal_count": 5,
+              "selection_policy": "ranked_top_k_v1",
               "strategy_id": "latin_hypercube_v1",
               "support_policy": "supported_first"
             }
@@ -17912,6 +18158,16 @@
             "title": "Proposal Rejections",
             "type": "array"
           },
+          "proposal_selection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalSelectionEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "proposal_strategy": {
             "anyOf": [
               {
@@ -17973,7 +18229,8 @@
               "screening-run/v4",
               "screening-run/v5",
               "screening-run/v6",
-              "screening-run/v7"
+              "screening-run/v7",
+              "screening-run/v8"
             ],
             "title": "Schema Version",
             "type": "string"

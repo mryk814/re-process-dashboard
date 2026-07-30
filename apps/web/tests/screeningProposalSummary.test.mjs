@@ -50,10 +50,18 @@ test("proposal summary leads with a Japanese decision summary while calculation 
         generated_count: 192,
         valid_count: 180,
         evaluated_count: 48,
+        displayed_count: 48,
+        proposed_count: 5,
         selected_count: 48,
         rejected_count: 12,
         rejection_rate: 0.0625,
         rejected_by_reason: { "resource constraint": 12 },
+      },
+      proposal_selection: {
+        requested_count: 5,
+        actual_count: 5,
+        policy_id: "greedy_value_diversity_v1",
+        selected: [],
       },
       model_provenance: {
         package: { manifest_sha256: "sha256:model-package" },
@@ -70,10 +78,23 @@ test("proposal summary leads with a Japanese decision summary while calculation 
 
   const headline = html.match(/<div class="screening-proposal-headline">([\s\S]*?)<\/div>/)?.[1] ?? "";
   assert.match(headline, /引張強さの下限目標を満たす条件を優先（近い学習実績がある条件を優先）/);
-  assert.match(headline, /生成 192件 → 制約内 180件 → 提案 48件（除外 12件）/);
+  assert.match(headline, /<b>生成<\/b> 192件/);
+  assert.match(headline, /<b>制約内<\/b> 180件/);
+  assert.match(headline, /<b>評価<\/b> 48件/);
+  assert.match(headline, /<b>表示<\/b> 48件/);
+  assert.match(headline, /<b>提案<\/b> 5件/);
+  assert.equal((headline.match(/class="screening-count-separator"/g) ?? []).length, 4);
+  assert.match(headline, /title="sampling planで生成した条件数"/);
+  assert.match(headline, /aria-label="生成: 192件" aria-describedby="screening-count-generated-description" tabindex="0"/);
+  assert.match(headline, /title="Design SpaceとTaskの制約を通過した条件数"/);
+  assert.match(headline, /title="予測modelで評価した条件数"/);
+  assert.match(headline, /title="chartとtableへ表示した条件数"/);
+  assert.match(headline, /title="候補確認へ提案した条件数"/);
+  assert.match(headline, /id="screening-count-proposed-description" class="screening-count-description">候補確認へ提案した条件数/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
   assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
   assert.match(html, /<dt>順位付け<\/dt>/);
+  assert.match(html, /<dt>提案の選び方<\/dt><dd>条件が重ならないよう選択<\/dd>/);
   assert.match(html, /<dt>学習範囲<\/dt>/);
   assert.match(html, /<dt>副条件<\/dt><dd>なし<\/dd>/);
   assert.match(html, /<dt>除外<\/dt>/);
@@ -102,6 +123,35 @@ test("proposal summary leads with a Japanese decision summary while calculation 
   assert.match(evidence, /strategy latin_hypercube_v1 1\.0\.0/);
   assert.match(evidence, /Model Package <code title="sha256:model-package">sha256:model-package<\/code>/);
   assert.match(evidence, /sha256:1234567890abcdef/);
+});
+
+test("older runs leave display and proposal counts explicitly unrecorded", () => {
+  const html = renderSummary({
+    result: {
+      purpose: "goal_search",
+      target: "TS",
+      seed: 12,
+      proposal_diagnostics: {
+        generated_count: 64,
+        valid_count: 60,
+        evaluated_count: 48,
+        selected_count: 5,
+        rejected_count: 4,
+        rejection_rate: 0.0625,
+        rejected_by_reason: {},
+      },
+    },
+    showAnotherSample: false,
+    onAnotherSample() {},
+    onSaveBatch() {},
+    batchSaveCount: 0,
+  });
+
+  assert.match(html, /aria-label="表示: 未記録" aria-describedby="screening-count-displayed-description"/);
+  assert.match(html, /aria-label="提案: 未記録" aria-describedby="screening-count-proposed-description"/);
+  assert.equal((html.match(/class="screening-count-stage"/g) ?? []).length, 5);
+  assert.match(html, /<dt>提案の選び方<\/dt><dd>旧記録・未記録<\/dd>/);
+  assert.doesNotMatch(html, /aria-label="表示: 48件|aria-label="提案: 5件/);
 });
 
 test("legacy runs do not present their early-stop rejection count as a rate", () => {
