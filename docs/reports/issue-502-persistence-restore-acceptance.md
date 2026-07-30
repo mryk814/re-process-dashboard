@@ -45,7 +45,36 @@ uv run --extra dev python -m pytest \
 36 passed
 ```
 
-Level 1、portable / installed Windows smoke、最終artifact digestは最終commitで追記する。
+Level 1:
+
+```text
+npm.cmd run verify:pr -- \
+  backend/tests/test_workspace_bundle.py \
+  backend/tests/test_persistence_boundaries.py \
+  backend/tests/test_project_lifecycle.py \
+  backend/tests/test_legacy_workspace_acceptance.py
+
+36 backend passed
+286 web passed
+1 desktop passed
+docs-check / typecheck / application-build / diff gates passed
+```
+
+Windows delivery:
+
+```text
+npm.cmd run package:windows
+
+Setup、folder ZIP生成成功
+portable smoke成功
+installed smoke成功
+tampered bundle拒否、portableからinstalledへの実 .mdwb restore成功
+```
+
+| artifact | SHA-256 |
+|---|---|
+| `Material-Decision-Workbench-Setup-0.1.0.exe` | `A129F1E12A7E7445210C184D8E771192B43284C99944FA67DE73F5E8BDC506D4` |
+| `Material-Decision-Workbench-folder-0.1.0.zip` | `C13EA28803325DDA53954F5F2AD0AD10A40E6FB0161E574702BE964DB84A12D4` |
 
 ## Browser suite context
 
