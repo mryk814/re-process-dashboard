@@ -233,7 +233,18 @@ def _auc(y: np.ndarray, probabilities: np.ndarray) -> float:
     negatives = ~positives
     order = np.argsort(probabilities, kind="stable")
     ranks = np.empty(len(y), dtype=float)
-    ranks[order] = np.arange(1, len(y) + 1)
+    sorted_probabilities = probabilities[order]
+    start = 0
+    while start < len(order):
+        stop = start + 1
+        while (
+            stop < len(order)
+            and sorted_probabilities[stop] == sorted_probabilities[start]
+        ):
+            stop += 1
+        # Average the one-based ranks occupied by this tie group.
+        ranks[order[start:stop]] = (start + 1 + stop) / 2.0
+        start = stop
     return float(
         (
             ranks[positives].sum()

@@ -262,6 +262,21 @@ def test_lightgbm_nested_evaluation_does_not_observe_outer_targets(
     )
 
 
+def test_lightgbm_auc_is_tie_aware_and_row_order_invariant() -> None:
+    y = np.asarray([0.0, 1.0, 0.0, 1.0, 1.0, 0.0])
+    all_tied = np.full(len(y), 0.25)
+
+    assert lightgbm._auc(y, all_tied) == pytest.approx(0.5)
+
+    probabilities = np.asarray([0.1, 0.5, 0.5, 0.9, 0.5, 0.1])
+    expected = lightgbm._auc(y, probabilities)
+    permutation = np.asarray([4, 0, 5, 2, 1, 3])
+    assert lightgbm._auc(
+        y[permutation],
+        probabilities[permutation],
+    ) == pytest.approx(expected)
+
+
 def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
     tmp_path: Path,
 ) -> None:
