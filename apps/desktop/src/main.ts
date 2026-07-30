@@ -741,7 +741,7 @@ function registerWorkspaceIpc(): void {
     return exclusiveWorkspaceOperation(async (): Promise<WorkspaceOperationResult> => {
       const options: Electron.SaveDialogOptions = {
         title: "Workspaceバックアップを保存",
-        defaultPath: `material-workbench-${timestampForFilename()}.mdwb`,
+        defaultPath: `evidence-decision-workbench-${timestampForFilename()}.mdwb`,
         filters: [{ name: "Evidence Decision Workspace", extensions: ["mdwb"] }],
       };
       const selection = mainWindow

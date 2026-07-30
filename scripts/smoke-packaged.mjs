@@ -391,6 +391,164 @@ try {
     assert.equal(curveResponse.status, 200);
     assert.equal((await curveResponse.json()).points.length, 9);
   }
+
+  // A non-material journey proves that the shared Project/Candidate/Run
+  // surfaces do not depend on the annealing or welding examples.
+  const taskCatalogResponse = await authenticatedFetch("/api/task-definitions");
+  assert.equal(taskCatalogResponse.status, 200);
+  const taskCatalog = await taskCatalogResponse.json();
+  const flankTask = taskCatalog.find(
+    (item) => item.definition.task_definition.id === "flank-wear-v1",
+  );
+  assert(flankTask);
+  const datasetsResponse = await authenticatedFetch(
+    "/api/data-library/datasets?include_gallery=true",
+  );
+  assert.equal(datasetsResponse.status, 200);
+  assert(
+    (await datasetsResponse.json()).some(
+      (item) => item.profile_revision.profile_id === "cutting-flank-wear-v1",
+    ),
+  );
+  const flankProjectResponse = await authenticatedFetch("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Domain-neutral acceptance: 工具摩耗",
+      task_id: "flank-wear-v1",
+      target_values: { VB_max: 200 },
+    }),
+  });
+  assert.equal(flankProjectResponse.status, 201);
+  const flankProject = await flankProjectResponse.json();
+  assert(flankProject.dataset_view_revision_id);
+  assert(flankProject.model_package_ref_id);
+  const flankCandidateResponse = await authenticatedFetch(
+    `/api/projects/${flankProject.id}/candidates`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(flankTask.starter_candidate),
+    },
+  );
+  assert.equal(flankCandidateResponse.status, 201);
+  const flankCandidate = await flankCandidateResponse.json();
+  const flankCandidateUrl = (
+    `/api/projects/${flankProject.id}/candidates/${flankCandidate.id}`
+  );
+  const flankPreview = await authenticatedFetch(
+    `${flankCandidateUrl}/preview?expected_revision=${flankCandidate.revision}`,
+    { method: "POST" },
+  );
+  assert.equal(flankPreview.status, 200);
+  assert.deepEqual(
+    new Set(Object.keys((await flankPreview.json()).predictions)),
+    new Set(["VB_mean", "VB_max"]),
+  );
+  const flankScreening = await authenticatedFetch(
+    `/api/screening?project_id=${flankProject.id}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        purpose: "design_space_map",
+        base_candidate_id: flankCandidate.id,
+        base_inputs: flankCandidate.inputs,
+        samples: 48,
+        seed: 543,
+        target: "VB_max",
+        proposal: { support_policy: "allow_with_warning" },
+        variables: {
+          "process.cutting_speed_mpm": {
+            mode: "range",
+            min: 150,
+            max: 250,
+          },
+        },
+      }),
+    },
+  );
+  assert.equal(flankScreening.status, 201);
+  assert.equal((await flankScreening.json()).project_id, flankProject.id);
+  const flankActivity = await authenticatedFetch(
+    `${flankCandidateUrl}/decision-activities/robustness-analysis-v1/runs`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        expected_revision: flankCandidate.revision,
+        parameters: {
+          schema_version: "robustness-parameters/v1",
+          sample_count: 8,
+          seed: 543,
+          tolerance_profile: {
+            fields: {
+              "process.cutting_speed_mpm": {
+                kind: "absolute",
+                amount: 1,
+              },
+            },
+          },
+        },
+      }),
+    },
+  );
+  assert.equal(flankActivity.status, 201);
+  const flankSnapshot = await authenticatedFetch(
+    `${flankCandidateUrl}/snapshots`,
+    { method: "POST" },
+  );
+  assert.equal(flankSnapshot.status, 201);
+  const flankSnapshotPayload = await flankSnapshot.json();
+  const flankActual = await authenticatedFetch(
+    `${flankCandidateUrl}/actuals?expected_revision=${flankCandidate.revision}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        property: "VB_max",
+        mean: 188,
+        std: 4,
+        replicates: 3,
+        unit: "µm",
+        experiment_no: "DOMAIN-NEUTRAL-543",
+      }),
+    },
+  );
+  assert.equal(flankActual.status, 201);
+  const flankActualPayload = await flankActual.json();
+  const flankDecision = await authenticatedFetch(
+    `/api/projects/${flankProject.id}/decision`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        candidate_id: flankCandidate.id,
+        snapshot_id: flankActualPayload.snapshot_id ?? flankSnapshotPayload.id,
+        note: "工具摩耗の実測と予測を確認",
+      }),
+    },
+  );
+  assert.equal(flankDecision.status, 200);
+  const flankHistory = await authenticatedFetch(
+    `/api/projects/${flankProject.id}/history`,
+  );
+  assert.equal(flankHistory.status, 200);
+  const flankHistoryPayload = await flankHistory.json();
+  const flankHistoryItem = flankHistoryPayload.candidates.find(
+    (item) => item.candidate.id === flankCandidate.id,
+  );
+  assert(flankHistoryItem);
+  assert.equal(flankHistoryItem.actuals.length, 1);
+  assert(flankHistoryItem.snapshots.length >= 1);
+  assert.equal(flankHistoryItem.decision.note, "工具摩耗の実測と予測を確認");
+  const flankActivityRuns = await authenticatedFetch(
+    `/api/projects/${flankProject.id}/decision-activity-runs`
+      + `?candidate_id=${flankCandidate.id}`,
+  );
+  assert.equal(flankActivityRuns.status, 200);
+  assert.equal((await flankActivityRuns.json()).length, 1);
+
   assert.equal((await fetch(`${runtime.apiBaseUrl}/health`)).status, 401);
   assert.equal((await fetch(`${runtime.apiBaseUrl}/health`, {
     headers: { "X-Workbench-Launch-Token": runtime.launchToken },
@@ -468,6 +626,33 @@ try {
     ? "packaged-smoke-portable-before-backup"
     : backupMarker;
   assert.equal((await readSmokeProject()).notes, restoredMarker);
+  const restoredProjects = await (
+    await authenticatedFetch("/api/projects")
+  ).json();
+  const restoredFlankProject = restoredProjects.find(
+    (project) => project.name === "Domain-neutral acceptance: 工具摩耗",
+  );
+  assert(restoredFlankProject);
+  const restoredFlankHistory = await (
+    await authenticatedFetch(`/api/projects/${restoredFlankProject.id}/history`)
+  ).json();
+  const restoredFlankItem = restoredFlankHistory.candidates.find(
+    (item) => item.candidate.name === flankTask.starter_candidate.name,
+  );
+  assert(restoredFlankItem);
+  assert.equal(restoredFlankItem.actuals.length, 1);
+  assert(restoredFlankItem.snapshots.length >= 1);
+  assert.equal(
+    restoredFlankItem.decision.note,
+    "工具摩耗の実測と予測を確認",
+  );
+  const restoredFlankActivities = await (
+    await authenticatedFetch(
+      `/api/projects/${restoredFlankProject.id}/decision-activity-runs`
+        + `?candidate_id=${restoredFlankItem.candidate.id}`,
+    )
+  ).json();
+  assert.equal(restoredFlankActivities.length, 1);
 
   const layout = await window.evaluate(() => ({
     innerWidth: window.innerWidth,

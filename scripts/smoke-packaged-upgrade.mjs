@@ -36,6 +36,33 @@ try {
     (await projectResponse.json()).notes,
     "packaged-smoke-portable-before-backup",
   );
+  const projectsResponse = await fetch(`${runtime.apiBaseUrl}/api/projects`, {
+    headers: { "X-Workbench-Launch-Token": runtime.launchToken },
+  });
+  assert.equal(projectsResponse.status, 200);
+  const flankProject = (await projectsResponse.json()).find(
+    (project) => project.name === "Domain-neutral acceptance: 工具摩耗",
+  );
+  assert(flankProject);
+  const historyResponse = await fetch(
+    `${runtime.apiBaseUrl}/api/projects/${flankProject.id}/history`,
+    { headers: { "X-Workbench-Launch-Token": runtime.launchToken } },
+  );
+  assert.equal(historyResponse.status, 200);
+  const history = await historyResponse.json();
+  const candidate = history.candidates.find(
+    (item) => item.actuals.length === 1 && item.decision !== null,
+  );
+  assert(candidate);
+  assert(candidate.snapshots.length >= 1);
+  assert.equal(candidate.decision.note, "工具摩耗の実測と予測を確認");
+  const activitiesResponse = await fetch(
+    `${runtime.apiBaseUrl}/api/projects/${flankProject.id}/decision-activity-runs`
+      + `?candidate_id=${candidate.candidate.id}`,
+    { headers: { "X-Workbench-Launch-Token": runtime.launchToken } },
+  );
+  assert.equal(activitiesResponse.status, 200);
+  assert.equal((await activitiesResponse.json()).length, 1);
 } finally {
   await electronApp.close();
 }

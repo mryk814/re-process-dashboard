@@ -137,6 +137,23 @@ Snapshot、Actual、判断履歴、backup／restoreを通し、Core画面へ材�
 共通header、共通説明、共通model入力surfaceに現れる材料語彙だけを
 generic UI leakとして扱う。
 
+同梱Packageを読み込めることだけでmodel lifecycleの証拠とはしない。
+正本Excelは変更せず、次のgeneratorを一時出力先へ実行し、
+`flank-wear-gp-2026-07`の2 predictor、7 artifact、quality reportを再生成する。
+generatorの最後に、Task contract、Profile、source、artifact digest、
+smoke predictionを`verify_model_package`で照合する。
+
+```powershell
+uv run python backend/scripts/generators/build_flank_wear_model_package.py `
+  --output $env:TEMP\evidence-decision-workbench-flank-package
+```
+
+そのうえで、アプリが固定した同梱Packageを使うProjectを作り、
+予測、範囲探索、Activity、Snapshot、Actual、Decisionを通す。
+packaged smokeでは同じProjectをWorkspace backupから復元し、
+表示名を変更したinstallerの再インストール後にも旧user data上のDBと判断証拠が
+保持されることを確認する。
+
 ## 採用しなかった案
 
 - **Material Decision Workbenchを維持**: 実装済みの非材料TaskとCoreの性格を

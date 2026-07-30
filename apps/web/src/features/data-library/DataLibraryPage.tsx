@@ -470,7 +470,7 @@ export function DataLibraryPage({
         <pre><code>{`npm run task:scaffold -- inspect "C:\\path\\to\\new-data.csv"
 
 npm run task:scaffold -- create "C:\\path\\to\\new-data.csv" \`
-  --task-id my-material-property-v1 \`
+  --task-id my-prediction-task-v1 \`
   --label "新しい予測タスク" \`
   --input "C_pct:composition:carbon_pct:C:%" \`
   --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" \`
@@ -483,9 +483,9 @@ npm run task:scaffold -- create "C:\\path\\to\\new-data.csv" \`
   --estimator ridge.v1
 
 # create結果のsource / profileを同じまま使う
-npm run model:build -- --task my-material-property-v1 ...
-npm run model:verify -- --task my-material-property-v1 ...
-npm run model:promote -- --task my-material-property-v1 ...`}</code></pre>
+npm run model:build -- --task my-prediction-task-v1 ...
+npm run model:verify -- --task my-prediction-task-v1 ...
+npm run model:promote -- --task my-prediction-task-v1 ...`}</code></pre>
         <div className="model-update-actions">
           <button className="primary-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
           <small>アプリは起動したままで構いません。検証済みのdata-only contractだけを読み込みます。</small>

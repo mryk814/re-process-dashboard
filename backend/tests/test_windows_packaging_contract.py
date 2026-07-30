@@ -298,6 +298,30 @@ def test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection() -
     )
 
 
+def test_packaged_smoke_covers_a_non_material_decision_journey() -> None:
+    packaged_smoke = (ROOT / "scripts" / "smoke-packaged.mjs").read_text(
+        encoding="utf-8"
+    )
+    upgrade_smoke = (
+        ROOT / "scripts" / "smoke-packaged-upgrade.mjs"
+    ).read_text(encoding="utf-8")
+
+    for marker in (
+        "flank-wear-v1",
+        "cutting-flank-wear-v1",
+        "/api/screening?project_id=",
+        "robustness-analysis-v1",
+        "/snapshots",
+        "/actuals?expected_revision=",
+        "/decision",
+        "/history",
+        "工具摩耗の実測と予測を確認",
+    ):
+        assert marker in packaged_smoke
+    assert "Domain-neutral acceptance: 工具摩耗" in upgrade_smoke
+    assert "工具摩耗の実測と予測を確認" in upgrade_smoke
+
+
 def test_windows_delivery_reinstalls_without_moving_the_legacy_workspace() -> None:
     delivery_smoke = (
         ROOT / "scripts" / "smoke-windows-delivery.ps1"
