@@ -61,7 +61,8 @@ test("chain projects are labelled by template, revision, and stages instead of u
 test("chain projects explain single-task-only views instead of failing inside them", () => {
   assert.match(app, /const chainScopedTab = chainProject/);
   assert.match(app, /ChainModeUnavailablePanel/);
-  assert.match(app, /tab === "explore" && !taskUnavailable && !chainProject/);
+  assert.match(app, /tab === "candidate-review" \|\| tab === "explore"/);
+  assert.match(app, /&& !chainProject && !taskUnavailable/);
   assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject/);
   assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject/);
   assert.doesNotMatch(app, /tab === "settings"/);

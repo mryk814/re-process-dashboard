@@ -22,3 +22,14 @@ test("comparison table keeps the optional reference separate from candidate sele
   assert.match(source, /reference-difference-marker/);
   assert.match(source, /candidates\.some\(\(candidate\) => candidate\.id === referenceCandidateId\)/);
 });
+
+test("range exploration reuses candidate selection without exposing a second reference meaning", async () => {
+  const tableSource = await readFile(new URL("../src/features/candidates/CandidateUi.tsx", import.meta.url), "utf8");
+  const workbenchSource = await readFile(new URL("../src/features/workbench/WorkbenchPage.tsx", import.meta.url), "utf8");
+  const screeningSource = await readFile(new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url), "utf8");
+  assert.match(workbenchSource, /context=\{mode === "explore" \? "explore" : "comparison"\}/);
+  assert.match(tableSource, /context === "explore" \? "探索の基準" : "候補"/);
+  assert.match(tableSource, /context === "comparison" && <th scope="col">基準<\/th>/);
+  assert.doesNotMatch(screeningSource, /<select[\s\S]{0,180}value=\{baseCandidateId\}/);
+  assert.match(screeningSource, /選択中の候補から動かします/);
+});

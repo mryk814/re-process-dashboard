@@ -92,6 +92,40 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
 });
 
+test("range exploration uses the shared candidate table without leaving the screen", async ({ page }) => {
+  await page.goto("/?view=explore&project=default");
+
+  await expect(page.getByRole("heading", { name: /探索の基準候補/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "探索の基準候補と入力・予測" })).toBeVisible();
+  await expect(page.getByLabel(/を比較の基準にする/)).toHaveCount(0);
+
+  await page.getByRole("button", { name: "高強度案を選択", exact: true }).click();
+
+  await expect(page).toHaveURL(/view=explore/);
+  await expect(page).toHaveURL(/candidate=/);
+  await expect(page.getByRole("button", { name: "高強度案を選択", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "高強度案", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "延性重視案を選択", exact: true }).click();
+  const selectedCandidateId = new URL(page.url()).searchParams.get("candidate");
+  await page.locator(".screening-mode-options").getByRole("button", { name: /有望候補を探す/ }).click();
+  await page.getByLabel(/主目標: .*の下限/).fill("500");
+  const runRequest = page.waitForRequest((request) =>
+    request.method() === "POST" && new URL(request.url()).pathname === "/api/screening"
+  );
+  const runResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening"
+  );
+  await page.locator(".screening-run-footer .primary-button").click();
+  expect((await runRequest).postDataJSON().base_candidate_id).toBe(selectedCandidateId);
+  expect((await runResponse).status()).toBe(201);
+  await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeEnabled();
+
+  await page.getByRole("button", { name: "基準候補を選択", exact: true }).click();
+  await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
+  await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
+});
+
 test("hot rolling screening accepts task-defined process fields", async ({ page, request }) => {
   const project = await createProject(request, "hot-rolled-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);

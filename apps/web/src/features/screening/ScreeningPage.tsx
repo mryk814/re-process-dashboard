@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { fromApiCandidate, setCandidateInputValue, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
+import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
   type ApiCandidateCapacity,
@@ -7,12 +7,12 @@ import {
   type ApiProposalStrategyAvailability,
   type ApiScreeningRun,
 } from "../../shared/api/workbench-api";
+import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { formatTaskNumber } from "../../shared/taskPresentation";
 import { supportStatusLabel } from "../../shared/supportPresentation";
-import { ScreeningBaseEditor } from "./ScreeningBaseEditor";
 import {
   emptyScreeningGoal,
   screeningGoalFromDraft,
@@ -25,25 +25,6 @@ import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
 import { safeExplorationRange } from "./screeningVariableRange";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
-
-function cloneScreeningCandidate(candidate: Candidate): Candidate {
-  return {
-    ...candidate,
-    raw: {
-      ...candidate.raw,
-      inputs: {
-        ...candidate.raw.inputs,
-        composition: { ...candidate.raw.inputs.composition },
-        process: { ...candidate.raw.inputs.process },
-        categorical: candidate.raw.inputs.categorical ? { ...candidate.raw.inputs.categorical } : candidate.raw.inputs.categorical,
-        heat_pattern: candidate.raw.inputs.heat_pattern === null
-          ? null
-          : candidate.raw.inputs.heat_pattern?.map((point) => ({ ...point })),
-      },
-    },
-    heat: candidate.heat.map((point) => ({ ...point })),
-  };
-}
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -160,9 +141,9 @@ export function ScreeningPage({
   resolvedTaskDefinition,
   initialRunId,
   onRunChange,
+  onSelectCandidate,
   onCandidate,
   onCompare,
-  onCreateStarter,
   onConfigureGoals,
 }: {
   projectId: string;
@@ -173,9 +154,9 @@ export function ScreeningPage({
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
   initialRunId?: string;
   onRunChange: (runId: string) => void;
+  onSelectCandidate: (candidateId: string) => void;
   onCandidate: (candidate: Candidate) => void;
   onCompare: () => void;
-  onCreateStarter: () => void;
   onConfigureGoals: () => void;
 }) {
   type VariableRow = {
@@ -210,10 +191,7 @@ export function ScreeningPage({
   const [targetGoal, setTargetGoal] = useState<ScreeningGoalDraft>({ direction: "at_least", lower: "500", upper: "" });
   const [secondaryGoals, setSecondaryGoals] = useState<Record<string, ScreeningGoalDraft>>({});
   const [baseCandidateId, setBaseCandidateId] = useState(selectedId);
-  const baseCandidateSource = candidates.find((candidate) => candidate.id === baseCandidateId);
-  const [baseCandidate, setBaseCandidate] = useState<Candidate>();
-  const [baseEditorVersion, setBaseEditorVersion] = useState(0);
-  const pendingBaseInputs = useRef<ApiScreeningRun["base_inputs"]>(undefined);
+  const baseCandidate = candidates.find((candidate) => candidate.id === baseCandidateId);
   const balancePaths = new Set(
     resolvedTaskDefinition?.task_definition.composition_totals
       ?.map((constraint) => constraint.balance_path)
@@ -368,17 +346,6 @@ export function ScreeningPage({
     if (!candidates.some((candidate) => candidate.id === baseCandidateId)) setBaseCandidateId(candidates[0]?.id ?? "");
   }, [candidates, baseCandidateId]);
   useEffect(() => {
-    if (!baseCandidateSource) {
-      pendingBaseInputs.current = undefined;
-      return setBaseCandidate(undefined);
-    }
-    const inputs = pendingBaseInputs.current;
-    pendingBaseInputs.current = undefined;
-    setBaseCandidate(inputs
-      ? fromApiCandidate({ ...baseCandidateSource.raw, inputs })
-      : cloneScreeningCandidate(baseCandidateSource));
-  }, [baseCandidateId, baseCandidateSource?.id]);
-  useEffect(() => {
     const requestProjectId = projectId;
     runRequestSequence.current += 1;
     setResult(null);
@@ -427,18 +394,6 @@ export function ScreeningPage({
         rowIndex === index ? { ...row, ...patch } : row,
       ),
     ));
-  const updateBaseInput = (path: string, value: number | string) => {
-    setBaseCandidate((current) => current ? { ...current, raw: { ...current.raw, inputs: setCandidateInputValue(current.raw.inputs, path, value) } } : current);
-    setDraftDirty(true);
-  };
-  const updateBaseHeat = (index: number, field: "time" | "temperature" | "stageName", raw: number | string) => {
-    setBaseCandidate((current) => {
-      if (!current) return current;
-      const next = { ...current, heat: current.heat.map((point, pointIndex) => pointIndex === index ? { ...point, [field]: raw } : point) };
-      return { ...next, raw: { ...next.raw, inputs: toApiCandidate(next).inputs } };
-    });
-    setDraftDirty(true);
-  };
   const applyResult = (run: ScreenResult) => {
     setResult(run);
     const varying = Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field]) => field);
@@ -449,13 +404,25 @@ export function ScreeningPage({
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
     setDraftDirty(false);
   };
+  const candidateContextDirty = Boolean(
+    result
+    && (
+      result.base_candidate_id !== baseCandidateId
+      || (
+        result.base_inputs
+        && baseCandidate
+        && candidateInputIdentity(toApiCandidate(baseCandidate).inputs) !== candidateInputIdentity(result.base_inputs)
+      )
+    ),
+  );
+  const effectiveDraftDirty = draftDirty || candidateContextDirty;
   const displayedOpportunityRun = result && modeFromRun(result) === "opportunity"
     ? result
     : result?.source_run_id
       ? savedRuns.find((run) => run.id === result.source_run_id)
       : undefined;
   const opportunitySourceRun = displayedOpportunityRun
-    && !draftDirty
+    && !effectiveDraftDirty
     && displayedOpportunityRun.proposal_strategy != null
     && displayedOpportunityRun.project_id === projectId
     && displayedOpportunityRun.project_design_space_digest === project?.design_space_digest
@@ -609,17 +576,9 @@ export function ScreeningPage({
     applyResult(run);
     if (run.base_candidate_id) {
       const source = candidates.find((candidate) => candidate.id === run.base_candidate_id);
-      if (!source) {
-        pendingBaseInputs.current = undefined;
-      } else if (run.base_candidate_id === baseCandidateId) {
-        setBaseCandidate(run.base_inputs
-          ? fromApiCandidate({ ...source.raw, inputs: run.base_inputs })
-          : cloneScreeningCandidate(source));
-        setBaseEditorVersion((version) => version + 1);
-      } else if (source) {
-        pendingBaseInputs.current = run.base_inputs;
-        setBaseEditorVersion((version) => version + 1);
+      if (source && run.base_candidate_id !== baseCandidateId) {
         setBaseCandidateId(run.base_candidate_id);
+        onSelectCandidate(run.base_candidate_id);
       }
     }
     setTarget(run.target);
@@ -857,23 +816,8 @@ export function ScreeningPage({
     setScreeningMode(mode);
     setError("");
   };
-  if (!candidates.length) return (
-    <div className="page-panel explore-page">
-      <div className="page-intro">
-        <div>
-          <h2>範囲探索</h2>
-          <p>探索の基準になる候補を1件作ると、予測タスクが定める入力範囲から条件を検討できます。</p>
-        </div>
-        <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
-      </div>
-      <div className="project-empty-state">
-        <p>まだ基準候補がありません。</p>
-        <CandidateAddButton disabled={!candidateCapacity || remainingCandidateCapacity === 0} onClick={onCreateStarter}>基準候補を作って探索を始める</CandidateAddButton>
-      </div>
-    </div>
-  );
   return (
-    <div className="page-panel explore-page">
+    <div className="explore-page">
       <div className="page-intro">
         <div>
           <h2>範囲探索</h2>
@@ -924,7 +868,7 @@ export function ScreeningPage({
           })}
         </div>
       </section>
-      {draftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
+      {effectiveDraftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
       {savedRuns.length > 0 && (
         <section className="saved-runs">
           <h3>保存済み探索</h3>
@@ -962,23 +906,8 @@ export function ScreeningPage({
         </section>
       )}
       <div className="screening-settings">
-        <div className="screening-primary-settings">
-          <div className="screening-base-candidate">
-            <label>
-              基準候補
-              <select
-                value={baseCandidateId}
-                disabled={screeningMode === "batch"}
-                onChange={(event) => { setBaseCandidateId(event.target.value); setDraftDirty(true); }}
-              >
-                {candidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {screeningMode !== "landscape" && (
-            <label>
+        {screeningMode !== "landscape" && <div className="screening-primary-settings">
+          <label>
               選別する特性
               <select
                 value={target}
@@ -998,8 +927,7 @@ export function ScreeningPage({
               >
                 {outputs.map((output) => <option key={output.key} value={output.key}>{output.label} ({output.unit})</option>)}
               </select>
-            </label>
-          )}
+          </label>
           {screeningMode === "batch" && (
             <label>
               バッチ件数
@@ -1016,7 +944,7 @@ export function ScreeningPage({
               />
             </label>
           )}
-        </div>
+        </div>}
         {screeningMode === "batch" && opportunitySourceRun && (
           <section className="screening-batch-source" aria-label="バッチ元の有望候補Run">
             <div>
@@ -1285,14 +1213,11 @@ export function ScreeningPage({
             <button type="button" className="text-button" onClick={onConfigureGoals}>Projectの目標値を設定</button>
           </div>
         )}
-        {screeningMode !== "batch" && baseCandidate && taskDefinition && (
-            <ScreeningBaseEditor key={`${baseCandidate.id}:${baseEditorVersion}`} candidate={baseCandidate} taskDefinition={taskDefinition} displayDecimalOverrides={project?.display_decimals} onInput={updateBaseInput} onHeat={updateBaseHeat} />
-        )}
         {screeningMode !== "batch" && (
         <section className="screening-variable-editor" aria-label="探索で動かす項目">
           <div className="screening-variable-heading">
             <h3>探索で動かす項目</h3>
-            <small>ここで指定した項目だけ、上の基準値から動かします。</small>
+            <small>ここで指定した項目だけ、選択中の候補から動かします。</small>
           </div>
           <div className="screening-variable-table-scroll">
             <table className="quality-table variable-table">

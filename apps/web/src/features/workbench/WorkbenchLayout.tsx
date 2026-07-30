@@ -6,6 +6,7 @@ export const workbenchLayoutStorage = {
   curveShare: "material-workbench:layout:curve-share:v1",
   comparisonHeight: "material-workbench:layout:comparison-height:v1",
   reviewComparisonHeight: "material-workbench:layout:review-comparison-height:v1",
+  exploreComparisonHeight: "material-workbench:layout:explore-comparison-height:v1",
 } as const;
 
 export function clampLayoutValue(value: number, min: number, max: number) {

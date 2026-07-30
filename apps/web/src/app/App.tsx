@@ -179,9 +179,10 @@ function App() {
       );
     },
     onCandidateSelected: (projectId, candidateId) => {
+      const currentView = navigationRef.current.view;
       navigate({
-        view: navigationRef.current.view === "candidate-review"
-          ? "candidate-review"
+        view: currentView === "candidate-review" || currentView === "explore"
+          ? currentView
           : "candidates",
         projectId,
         candidateId,
@@ -252,7 +253,11 @@ function App() {
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
     navigate({
-      view: tab === "candidate-review" ? "candidate-review" : "candidates",
+      view: tab === "candidate-review"
+        ? "candidate-review"
+        : tab === "explore"
+          ? "explore"
+          : "candidates",
       projectId: activeProjectId,
       candidateId,
     }, replace);
@@ -621,10 +626,10 @@ function App() {
             }, true)}
           />
         )}
-        {(tab === "candidates" || tab === "candidate-review") && !chainProject && !taskUnavailable &&
+        {(tab === "candidates" || tab === "candidate-review" || tab === "explore") && !chainProject && !taskUnavailable &&
           (selected ? (
             <WorkbenchPage
-              mode={tab === "candidate-review" ? "review" : "comparison"}
+              mode={tab === "candidate-review" ? "review" : tab === "explore" ? "explore" : "comparison"}
               candidates={candidates}
               projectId={activeProjectId}
               project={activeProject ?? null}
@@ -704,7 +709,35 @@ function App() {
                 projectId: activeProjectId,
                 projectSettings: "ranges",
               })}
-            />
+            >
+              {tab === "explore" && <ScreeningPage
+                projectId={activeProjectId}
+                project={activeProject}
+                candidates={candidates}
+                selectedId={selectedId}
+                taskDefinition={taskDefinition}
+                resolvedTaskDefinition={resolvedTaskDefinition}
+                initialRunId={navigation.screeningRunId}
+                onRunChange={(screeningRunId) => navigate({
+                  ...navigationRef.current,
+                  view: "explore",
+                  projectId: activeProjectId,
+                  screeningRunId,
+                }, true)}
+                onSelectCandidate={(candidateId) => selectCandidate(candidateId)}
+                onCandidate={(candidate) => {
+                  const count = session.acceptCandidate(candidate);
+                  rememberCandidate(candidate.id);
+                  session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
+                }}
+                onConfigureGoals={() => navigate({
+                  view: "project",
+                  projectId: activeProjectId,
+                  projectSettings: "targets",
+                })}
+                onCompare={() => navigate({ view: "candidates", projectId: activeProjectId }, true)}
+              />}
+            </WorkbenchPage>
           ) : (
             <WorkbenchEmptyState
               loading={apiState === "loading"}
@@ -771,30 +804,6 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "explore" && !taskUnavailable && !chainProject && (
-          <ScreeningPage
-            projectId={activeProjectId}
-            project={activeProject}
-            candidates={candidates}
-            selectedId={selectedId}
-            taskDefinition={taskDefinition}
-            resolvedTaskDefinition={resolvedTaskDefinition}
-            initialRunId={navigation.screeningRunId}
-            onRunChange={(screeningRunId) => navigate({ view: "explore", projectId: activeProjectId, screeningRunId }, true)}
-            onCandidate={(candidate) => {
-              const count = session.acceptCandidate(candidate);
-              rememberCandidate(candidate.id);
-              session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
-            }}
-            onConfigureGoals={() => navigate({
-              view: "project",
-              projectId: activeProjectId,
-              projectSettings: "targets",
-            })}
-            onCompare={() => navigate({ view: "candidates", projectId: activeProjectId }, true)}
-            onCreateStarter={() => void session.createStarterCandidate()}
-          />
-        )}
         <WorkspaceManagerDialog
           open={workspaceDialogOpen}
           onClose={() => {
