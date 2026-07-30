@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data Contributor"
+  short_description: "Safely connect new material datasets"
+  default_prompt: "Use $data-contributor to diagnose and connect my new dataset without changing application code."

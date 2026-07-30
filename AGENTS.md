@@ -16,6 +16,8 @@
 
 既存のPrediction Task、Profile family、Model Runtimeを使い、自分のExcel／CSVを登録、探索、学習、Project利用する作業はデータ利用レーンとする。
 入口は [自分のデータで使い始める](docs/operations/data-contributor-start-here.md)。
+AIに新しいデータの仕分けと接続を任せる場合は
+[Data Contributor Skill](.claude/skills/data-contributor/SKILL.md)を使う。
 
 このレーンでは、次を既定で要求しない。
 
