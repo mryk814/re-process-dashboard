@@ -12100,8 +12100,32 @@
       },
       "OutputSpaceEvidencePoint": {
         "properties": {
+          "composition_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composition Key"
+          },
           "context_id": {
             "title": "Context Id",
+            "type": "string"
+          },
+          "distance": {
+            "title": "Distance",
+            "type": "number"
+          },
+          "distance_status": {
+            "enum": [
+              "supported",
+              "caution",
+              "extrapolated"
+            ],
+            "title": "Distance Status",
             "type": "string"
           },
           "pairing_relationship": {
@@ -12117,6 +12141,24 @@
             "title": "Parent Key",
             "type": "string"
           },
+          "process_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Key"
+          },
+          "relation_context_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relation Context Ids",
+            "type": "array"
+          },
           "x": {
             "$ref": "#/components/schemas/OutputSpaceObservedValue"
           },
@@ -12129,13 +12171,52 @@
           "parent_key",
           "pairing_relationship",
           "x",
-          "y"
+          "y",
+          "distance",
+          "distance_status"
         ],
         "title": "OutputSpaceEvidencePoint",
         "type": "object"
       },
       "OutputSpaceEvidenceResponse": {
         "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "caution_threshold": {
+            "title": "Caution Threshold",
+            "type": "number"
+          },
+          "cohort_digest": {
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "distance_method": {
+            "title": "Distance Method",
+            "type": "string"
+          },
+          "distance_version": {
+            "title": "Distance Version",
+            "type": "string"
+          },
+          "eligible_contexts": {
+            "title": "Eligible Contexts",
+            "type": "integer"
+          },
+          "filter": {
+            "enum": [
+              "supported",
+              "caution",
+              "all"
+            ],
+            "title": "Filter",
+            "type": "string"
+          },
           "pairing_unit": {
             "const": "condition_mean",
             "default": "condition_mean",
@@ -12154,10 +12235,7 @@
             "type": "integer"
           },
           "sampling_policy": {
-            "enum": [
-              "all",
-              "output_space_coverage"
-            ],
+            "const": "task_distance",
             "title": "Sampling Policy",
             "type": "string"
           },
@@ -12170,6 +12248,10 @@
             "default": "model_training_data",
             "title": "Source Scope",
             "type": "string"
+          },
+          "supported_threshold": {
+            "title": "Supported Threshold",
+            "type": "number"
           },
           "total_contexts": {
             "title": "Total Contexts",
@@ -12192,6 +12274,15 @@
           "x_target",
           "y_target",
           "source_data_digest",
+          "candidate_id",
+          "candidate_revision",
+          "distance_method",
+          "distance_version",
+          "cohort_digest",
+          "supported_threshold",
+          "caution_threshold",
+          "filter",
+          "eligible_contexts",
           "sampling_policy",
           "total_contexts",
           "returned_contexts",
@@ -12207,8 +12298,16 @@
             "title": "Count",
             "type": "integer"
           },
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
           "mean": {
             "title": "Mean",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
             "type": "number"
           },
           "observation_ids": {
@@ -12217,10 +12316,17 @@
             },
             "title": "Observation Ids",
             "type": "array"
+          },
+          "std": {
+            "title": "Std",
+            "type": "number"
           }
         },
         "required": [
           "mean",
+          "std",
+          "min",
+          "max",
           "count",
           "observation_ids"
         ],
@@ -27247,6 +27353,41 @@
             "schema": {
               "minLength": 1,
               "title": "Y Target",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Expected Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "distance_filter",
+            "required": false,
+            "schema": {
+              "default": "supported",
+              "enum": [
+                "supported",
+                "caution",
+                "all"
+              ],
+              "title": "Distance Filter",
               "type": "string"
             }
           },

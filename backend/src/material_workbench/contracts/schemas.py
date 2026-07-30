@@ -1045,6 +1045,9 @@ class ModelTrainingStageCounts(BaseModel):
 
 class OutputSpaceObservedValue(BaseModel):
     mean: float
+    std: float
+    min: float
+    max: float
     count: int
     observation_ids: list[str]
 
@@ -1052,6 +1055,9 @@ class OutputSpaceObservedValue(BaseModel):
 class OutputSpaceEvidencePoint(BaseModel):
     context_id: str
     parent_key: str
+    process_key: str | None = None
+    composition_key: str | None = None
+    relation_context_ids: list[str] = Field(default_factory=list)
     pairing_relationship: Literal[
         "same_observations",
         "overlapping_observations",
@@ -1059,6 +1065,8 @@ class OutputSpaceEvidencePoint(BaseModel):
     ]
     x: OutputSpaceObservedValue
     y: OutputSpaceObservedValue
+    distance: float
+    distance_status: Literal["supported", "caution", "extrapolated"]
 
 
 class OutputSpaceEvidenceResponse(BaseModel):
@@ -1067,7 +1075,16 @@ class OutputSpaceEvidenceResponse(BaseModel):
     pairing_unit: Literal["condition_mean"] = "condition_mean"
     source_scope: Literal["model_training_data"] = "model_training_data"
     source_data_digest: str
-    sampling_policy: Literal["all", "output_space_coverage"]
+    candidate_id: str
+    candidate_revision: int
+    distance_method: str
+    distance_version: str
+    cohort_digest: str
+    supported_threshold: float
+    caution_threshold: float
+    filter: Literal["supported", "caution", "all"]
+    eligible_contexts: int
+    sampling_policy: Literal["task_distance"]
     total_contexts: int
     returned_contexts: int
     truncated: bool

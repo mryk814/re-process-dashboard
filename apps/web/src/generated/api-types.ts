@@ -6657,8 +6657,17 @@ export interface components {
         };
         /** OutputSpaceEvidencePoint */
         OutputSpaceEvidencePoint: {
+            /** Composition Key */
+            composition_key?: string | null;
             /** Context Id */
             context_id: string;
+            /** Distance */
+            distance: number;
+            /**
+             * Distance Status
+             * @enum {string}
+             */
+            distance_status: "supported" | "caution" | "extrapolated";
             /**
              * Pairing Relationship
              * @enum {string}
@@ -6666,11 +6675,34 @@ export interface components {
             pairing_relationship: "same_observations" | "overlapping_observations" | "distinct_observations";
             /** Parent Key */
             parent_key: string;
+            /** Process Key */
+            process_key?: string | null;
+            /** Relation Context Ids */
+            relation_context_ids?: string[];
             x: components["schemas"]["OutputSpaceObservedValue"];
             y: components["schemas"]["OutputSpaceObservedValue"];
         };
         /** OutputSpaceEvidenceResponse */
         OutputSpaceEvidenceResponse: {
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Caution Threshold */
+            caution_threshold: number;
+            /** Cohort Digest */
+            cohort_digest: string;
+            /** Distance Method */
+            distance_method: string;
+            /** Distance Version */
+            distance_version: string;
+            /** Eligible Contexts */
+            eligible_contexts: number;
+            /**
+             * Filter
+             * @enum {string}
+             */
+            filter: "supported" | "caution" | "all";
             /**
              * Pairing Unit
              * @default condition_mean
@@ -6683,9 +6715,9 @@ export interface components {
             returned_contexts: number;
             /**
              * Sampling Policy
-             * @enum {string}
+             * @constant
              */
-            sampling_policy: "all" | "output_space_coverage";
+            sampling_policy: "task_distance";
             /** Source Data Digest */
             source_data_digest: string;
             /**
@@ -6694,6 +6726,8 @@ export interface components {
              * @constant
              */
             source_scope: "model_training_data";
+            /** Supported Threshold */
+            supported_threshold: number;
             /** Total Contexts */
             total_contexts: number;
             /** Truncated */
@@ -6707,10 +6741,16 @@ export interface components {
         OutputSpaceObservedValue: {
             /** Count */
             count: number;
+            /** Max */
+            max: number;
             /** Mean */
             mean: number;
+            /** Min */
+            min: number;
             /** Observation Ids */
             observation_ids: string[];
+            /** Std */
+            std: number;
         };
         /** PackageIdentity */
         PackageIdentity: {
@@ -14698,6 +14738,9 @@ export interface operations {
     getProjectOutputSpaceEvidence: {
         parameters: {
             query: {
+                candidate_id: string;
+                distance_filter?: "supported" | "caution" | "all";
+                expected_revision: number;
                 limit?: number;
                 x_target: string;
                 y_target: string;

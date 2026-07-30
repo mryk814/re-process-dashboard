@@ -701,15 +701,22 @@
 .prediction-space-header h2 { margin: 0; font-size: 15px; }
 .prediction-space-header p { margin: 2px 0 0; color: #617087; font-size: 10px; }
 .prediction-space-header > span { flex: 0 0 auto; border-radius: 999px; background: #edf2f8; padding: 3px 8px; color: #526276; font-size: 10px; font-weight: 700; }
-.prediction-space-controls { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr) auto; align-items: end; gap: 7px; padding: 8px 11px; border-bottom: 1px solid #e8edf3; background: #f8fafc; }
+.prediction-space-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px 12px; padding: 8px 11px; border-bottom: 1px solid #e8edf3; background: #f8fafc; }
+.prediction-space-axis-group { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr); align-items: end; gap: 7px; flex: 1 1 340px; max-width: 520px; }
+.prediction-space-filter-group { display: grid; grid-template-columns: minmax(115px, 1fr) minmax(90px, 1fr); align-items: end; gap: 7px; flex: 0 1 270px; }
 .prediction-space-controls label { display: grid; min-width: 0; gap: 3px; color: #617087; font-size: 10px; }
 .prediction-space-controls select { width: 100%; min-width: 0; height: 29px; border: 1px solid #c5d1df; border-radius: 3px; padding: 2px 6px; background: #fff; color: #1d3147; font-size: 11px; }
 .prediction-space-controls .axis-swap { min-height: 29px; border: 0; background: transparent; color: #1f5fc4; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.prediction-space-controls > .outline-button { margin-left: auto; }
 .prediction-space-chart { min-width: 0; padding: 5px 8px 0; }
 .prediction-space-chart svg { display: block; width: 100%; height: auto; min-height: 260px; }
 .prediction-space-chart text { fill: #526276; font-size: 11px; }
 .prediction-space-goal { stroke: #d18b00; stroke-width: 1.4; stroke-dasharray: 5 3; }
 .prediction-space-actual { fill: #fff; stroke: #7b8795; stroke-width: 1.4; }
+.prediction-space-actual-point { cursor: pointer; outline: none; }
+.prediction-space-actual-point.caution .prediction-space-actual { stroke: #91550d; }
+.prediction-space-actual-point.extrapolated .prediction-space-actual { stroke: #b42318; stroke-dasharray: 2 1; }
+.prediction-space-actual-point:focus-visible .prediction-space-actual { stroke: #1f5fc4; stroke-width: 3; }
 .prediction-space-candidate { outline: none; }
 .prediction-space-candidate circle:not(.prediction-space-selection-ring),
 .prediction-space-candidate path { fill: #2272cf; stroke: #fff; stroke-width: 1.5; }

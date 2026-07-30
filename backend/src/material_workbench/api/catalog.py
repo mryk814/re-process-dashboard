@@ -116,6 +116,9 @@ def output_space_evidence(
             project_id,
             x_target=x_target,
             y_target=y_target,
+            candidate_id=candidate_id,
+            expected_revision=expected_revision,
+            distance_filter=distance_filter,
             limit=limit,
         )
     except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:

@@ -524,9 +524,28 @@ export const workbenchApi = {
       signal,
     }), "学習データを取得できませんでした。");
   },
-  async outputSpaceEvidence(projectId: string, xTarget: string, yTarget: string, limit = 200, signal?: AbortSignal) {
+  async outputSpaceEvidence(
+    projectId: string,
+    candidateId: string,
+    candidateRevision: number,
+    xTarget: string,
+    yTarget: string,
+    distanceFilter: "supported" | "caution" | "all",
+    limit = 200,
+    signal?: AbortSignal,
+  ) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/output-space-evidence", {
-      params: { path: { project_id: projectId }, query: { x_target: xTarget, y_target: yTarget, limit } },
+      params: {
+        path: { project_id: projectId },
+        query: {
+          x_target: xTarget,
+          y_target: yTarget,
+          candidate_id: candidateId,
+          expected_revision: candidateRevision,
+          distance_filter: distanceFilter,
+          limit,
+        },
+      },
       signal,
     }), "特性バランスの実績を取得できませんでした。");
   },
