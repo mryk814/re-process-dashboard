@@ -3,6 +3,7 @@ import type { CandidateSection } from "../shared/projectActionQuestions";
 export const WORKBENCH_VIEWS = [
   "project",
   "candidates",
+  "candidate-review",
   "workspace",
   "quality",
   "lineage",
@@ -52,6 +53,12 @@ export function isLegacyQualityAdminNavigation(search = window.location.search):
   return params.get("view") === "settings" && params.get("admin") === "quality";
 }
 
+export function isLegacyCandidateActivityNavigation(search = window.location.search): boolean {
+  const params = new URLSearchParams(search);
+  return params.get("view") === "candidates"
+    && (params.has("activity") || params.has("activity_run"));
+}
+
 export function readNavigationIntent(
   search = window.location.search,
 ): NavigationIntent {
@@ -66,6 +73,8 @@ export function readNavigationIntent(
     : undefined;
   const normalizedView: WorkbenchView = requestedView === "settings"
     ? legacyProjectSection ? "project" : adminSection === "quality" ? "quality" : "workspace"
+    : requestedView === "candidates" && (params.has("activity") || params.has("activity_run"))
+      ? "candidate-review"
     : VIEW_SET.has(requestedView)
       ? requestedView as WorkbenchView
       : "project";
@@ -154,8 +163,8 @@ export function withView(
     qualitySheet: view === "quality" || view === "lineage" ? current.qualitySheet : undefined,
     qualityKey: view === "quality" || view === "lineage" ? current.qualityKey : undefined,
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
-    activityId: view === "candidates" ? current.activityId : undefined,
-    activityRunId: view === "candidates" ? current.activityRunId : undefined,
+    activityId: view === "candidate-review" ? current.activityId : undefined,
+    activityRunId: view === "candidate-review" ? current.activityRunId : undefined,
     candidateSection: view === "candidates" ? current.candidateSection : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "workspace" ? current.adminSection : undefined,

@@ -77,7 +77,7 @@ type Props = {
   onSwitch: (projectId: string) => void;
   onRestore: (candidate: CandidateViewModel) => void;
   onNavigate: (
-    view: "candidates" | "lineage" | "explore" | "data-library",
+    view: "candidates" | "candidate-review" | "lineage" | "explore" | "data-library",
     candidateId?: string,
     options?: { activityId?: string; candidateSection?: CandidateSection },
   ) => void;
@@ -1279,7 +1279,7 @@ export function ProjectHub({
                 className="project-action-card"
                 key={item.activityId}
                 disabled={questionState.disabled}
-                onClick={() => onNavigate("candidates", actionCandidateId, { activityId: item.activityId })}
+                onClick={() => onNavigate("candidate-review", actionCandidateId, { activityId: item.activityId })}
               ><strong>{item.title}</strong><span>{questionState.reason ?? item.description}</span></button>)}
             </div></section>
             <section><h4>結果を残す</h4><div className="project-action-grid">

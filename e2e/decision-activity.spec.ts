@@ -15,17 +15,19 @@ type RobustnessReading = {
 async function openDecisionActivities(page: import("@playwright/test").Page) {
   const panel = page.locator(".decision-activity-panel");
   if (!(await panel.isVisible())) {
-    await page.getByRole("button", {
-      name: /候補を確かめる|」を開く$/,
-    }).click();
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+      .getByRole("button", { name: "候補確認", exact: true }).click();
   }
   await expect(panel).toBeVisible();
 }
 
 async function runRobustness(page: import("@playwright/test").Page): Promise<RobustnessReading> {
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
+  const tolerance = page.getByRole("spinbutton", { name: "Cの公差幅" });
+  await expect(sensitivityOnly.or(tolerance)).toBeVisible();
   if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
-  await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
+  await expect(tolerance).toBeVisible();
+  await tolerance.fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("64");
   const runResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -49,17 +51,32 @@ async function runRobustness(page: import("@playwright/test").Page): Promise<Rob
 test("robustness activity distinguishes a higher average candidate from a steadier candidate", async ({ page }) => {
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await expect(page.locator(".decision-activity-panel")).toHaveCount(0);
+  await expect(page.getByRole("tablist", { name: "予測の見方" })).toBeVisible();
+  const comparisonCandidateId = new URL(page.url()).searchParams.get("candidate");
 
   await openDecisionActivities(page);
+  await expect(page).toHaveURL(/view=candidate-review/);
+  await expect(page.getByRole("heading", { name: /確認する候補/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   await expect(page.locator(".activity-context")).toContainText("基準候補");
   await expect(page.locator(".activity-context")).toContainText("ロバストネス／公差解析");
   const activityTop = await page.locator(".decision-activity-panel").evaluate((element) => element.getBoundingClientRect().top);
-  const comparisonTop = await page.getByRole("region", { name: "候補の入力と予測結果比較" }).evaluate((element) => element.getBoundingClientRect().top);
-  expect(activityTop).toBeLessThan(comparisonTop);
+  const comparisonBottom = await page.getByRole("region", { name: "候補の入力と予測結果比較" }).evaluate((element) => element.getBoundingClientRect().bottom);
+  expect(activityTop).toBeGreaterThanOrEqual(comparisonBottom);
+  await expect(page.getByRole("tablist", { name: "予測の見方" })).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get("candidate")).toBe(comparisonCandidateId);
+  await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+    .getByRole("button", { name: "候補比較", exact: true }).click();
+  await expect(page.locator(".decision-activity-panel")).toHaveCount(0);
+  await expect(page.getByRole("tablist", { name: "予測の見方" })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("candidate")).toBe(comparisonCandidateId);
+  await openDecisionActivities(page);
+  expect(new URL(page.url()).searchParams.get("candidate")).toBe(comparisonCandidateId);
   const steadier = await runRobustness(page);
 
   await page.getByRole("button", { name: "高強度案を選択" }).click();
+  await expect(page).toHaveURL(/view=candidate-review/);
   await expect(page.getByText("選択中: 高強度案")).toBeVisible();
   await openDecisionActivities(page);
   const higherAverage = await runRobustness(page);
@@ -174,7 +191,8 @@ test("a delayed activity response cannot overwrite the newly selected candidate"
   await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   await runRobustness(page);
   await expect(page.locator(".activity-result")).toBeVisible();
-  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+  await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+    .getByRole("button", { name: "候補比較", exact: true }).click();
 
   let releaseOldResponses!: () => void;
   const oldResponsesReleased = new Promise<void>((resolve) => {

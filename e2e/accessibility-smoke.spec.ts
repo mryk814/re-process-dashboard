@@ -26,9 +26,8 @@ const settings = [
 async function openDecisionActivities(page: Page) {
   const panel = page.locator(".decision-activity-panel");
   if (!(await panel.isVisible())) {
-    await page.getByRole("button", {
-      name: /候補を確かめる|」を開く$/,
-    }).click();
+    await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
+      .getByRole("button", { name: "候補確認", exact: true }).click();
   }
   await expect(panel).toBeVisible();
 }
@@ -79,10 +78,7 @@ const surfaces: Surface[] = [
   },
   {
     name: "検討アクティビティ",
-    url: "/?view=candidates&project=default",
-    prepare: async (page) => {
-      await openDecisionActivities(page);
-    },
+    url: "/?view=candidate-review&project=default",
     ready: heading("入力ばらつきに強いか"),
   },
 ];
@@ -160,7 +156,7 @@ test("候補が空の状態をアクセシビリティ検査できる", async ({
 test("Decision Activityの保存結果とnot-foundをアクセシビリティ検査できる", async ({
   page,
 }) => {
-  await page.goto("/?view=candidates&project=default");
+  await page.goto("/?view=candidate-review&project=default");
   await openDecisionActivities(page);
   await expect(page.getByRole("heading", { name: "入力ばらつきに強いか" })).toBeVisible();
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });

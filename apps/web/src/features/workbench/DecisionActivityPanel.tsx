@@ -31,7 +31,6 @@ export function DecisionActivityPanel({
   requestedRunId,
   onStateChange,
   onConfigureGoals,
-  onClose,
   onCandidateCreated,
 }: {
   projectId: string;
@@ -45,7 +44,6 @@ export function DecisionActivityPanel({
   requestedRunId?: string;
   onStateChange: (activityId?: string, activityRunId?: string) => void;
   onConfigureGoals: () => void;
-  onClose: () => void;
   onCandidateCreated: (candidate: ApiCandidate) => void;
 }) {
   const identity = decisionActivityIdentity(projectId, candidate.id, candidate.raw.revision);
@@ -201,7 +199,6 @@ export function DecisionActivityPanel({
           <small>{selected.definition.label}</small>
         </p>}
       </div>
-      <button type="button" className="outline-button" onClick={onClose}>閉じる</button>
     </header>
     {activities.length > 1 && <nav className="activity-tabs" aria-label="検討アクティビティの選択">
       {activities.map((item) => <button
