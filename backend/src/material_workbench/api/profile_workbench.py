@@ -5,21 +5,33 @@ import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 from zipfile import BadZipFile, ZipFile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from openpyxl.utils.exceptions import InvalidFileException
+from pydantic import TypeAdapter, ValidationError
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import FileResponse
 
 from .dependencies import get_data_library_root, get_workspace_catalog
 from .errors import PROJECT_API_ERRORS
 from material_workbench.data.dataset_profile import DatasetProfileError, load_dataset_profile
 from material_workbench.data.dataset_registration import file_sha256, register_managed_dataset
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-from material_workbench.data.profile_workbench import inspect_workbook
+from material_workbench.data.profile_workbench import (
+    create_source_binding_draft,
+    inspect_workbook,
+    personal_profile_paths,
+    personal_profile_store_path,
+    save_source_binding_profile,
+    validate_personal_profile_store_path,
+)
 from material_workbench.contracts.schemas import (
     ApiError,
+    ProfileWorkbenchBindingDraft,
+    ProfileWorkbenchConfirmedBinding,
+    ProfileWorkbenchDraftSave,
     ProfileWorkbenchInspection,
     ProfileWorkbenchProfileOption,
     ProfileWorkbenchRegistration,
@@ -49,6 +61,12 @@ def _profile_registry() -> dict[str, Path]:
     for path in sorted(paths):
         if path.is_file():
             result[dataset_profile_digest(path)] = path.resolve()
+    try:
+        personal_paths = personal_profile_paths()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    for path in personal_paths:
+        result.setdefault(dataset_profile_digest(path), path.resolve())
     return result
 
 
@@ -64,6 +82,28 @@ def _registered_profile_digest(profile_path: str | Path | None) -> str | None:
         return None
     resolved = Path(profile_path).resolve()
     return next((digest for digest, path in _profile_registry().items() if path == resolved), None)
+
+
+def _best_binding_draft(source: Path) -> dict[str, Any] | None:
+    """Choose a semantic base for an unknown workbook without confirming guesses."""
+
+    ranked: list[tuple[tuple[int, int, int, str], dict[str, Any]]] = []
+    for digest, path in _profile_registry().items():
+        try:
+            draft = create_source_binding_draft(source, path)
+        except (DatasetProfileError, OSError, ValueError):
+            continue
+        if draft is None:
+            continue
+        required = [slot for slot in draft["slots"] if slot["required"]]
+        score = (
+            sum(slot["state"] == "confirmed" for slot in required),
+            sum(slot["state"] == "suggested" for slot in required),
+            -len(required),
+            digest,
+        )
+        ranked.append((score, draft))
+    return max(ranked, key=lambda item: item[0])[1] if ranked else None
 
 
 @asynccontextmanager
@@ -116,7 +156,13 @@ def _validation(raw: object) -> ProfileWorkbenchValidation | None:
     )
 
 
-def _inspection(source: Path, raw: dict[str, object], *, auto_detected: bool) -> ProfileWorkbenchInspection:
+def _inspection(
+    source: Path,
+    raw: dict[str, object],
+    *,
+    auto_detected: bool,
+    binding_draft: dict[str, object] | None = None,
+) -> ProfileWorkbenchInspection:
     selected_digest = _registered_profile_digest(raw.get("profile") if isinstance(raw.get("profile"), str) else None)
     return ProfileWorkbenchInspection(
         source_filename=source.name,
@@ -134,6 +180,7 @@ def _inspection(source: Path, raw: dict[str, object], *, auto_detected: bool) ->
         auto_detected=auto_detected and selected_digest is not None,
         profile_error=str(raw["profile_error"]) if raw.get("profile_error") else None,
         validation=_validation(raw.get("canonicalization")),
+        binding_draft=ProfileWorkbenchBindingDraft.model_validate(binding_draft) if binding_draft else None,
     )
 
 
@@ -177,6 +224,7 @@ def _reject_archived_registration(catalog: WorkspaceCatalog, source_sha256: str,
 )
 def list_profile_options() -> list[ProfileWorkbenchProfileOption]:
     result: list[ProfileWorkbenchProfileOption] = []
+    personal_store = personal_profile_store_path()
     for profile_digest, path in _profile_registry().items():
         raw = json.loads(path.read_text(encoding="utf-8"))
         if raw.get("schema_version") == "welding-stage-b-profile/v1":
@@ -194,6 +242,7 @@ def list_profile_options() -> list[ProfileWorkbenchProfileOption]:
             source_name=path.stem,
             profile_digest=profile_digest,
             task_ids=task_ids,
+            personal=path.is_relative_to(personal_store),
         ))
     return result
 
@@ -211,9 +260,89 @@ async def inspect_uploaded_workbook(
     async with _uploaded_workbook(file) as source:
         try:
             raw = await run_in_threadpool(inspect_workbook, source, selected)
+            detected_profile = (
+                Path(str(raw["profile"])).resolve()
+                if selected is None and isinstance(raw.get("profile"), str)
+                else selected
+            )
+            binding_draft = (
+                await run_in_threadpool(create_source_binding_draft, source, detected_profile)
+                if detected_profile is not None
+                else await run_in_threadpool(_best_binding_draft, source)
+            )
         except (DatasetProfileError, BadZipFile, InvalidFileException, OSError, ValueError) as exc:
             raise _validation_error(exc) from exc
-        return _inspection(source, raw, auto_detected=selected is None)
+        return _inspection(
+            source,
+            raw,
+            auto_detected=selected is None,
+            binding_draft=binding_draft,
+        )
+
+
+@router.post(
+    "/profiles/drafts",
+    response_model=ProfileWorkbenchDraftSave,
+    responses=PROFILE_WORKBENCH_API_ERRORS,
+)
+async def save_profile_draft(
+    file: UploadFile = File(...),
+    base_profile_digest: str = Form(...),
+    expected_source_sha256: str = Form(...),
+    bindings_json: str = Form("[]"),
+) -> ProfileWorkbenchDraftSave:
+    selected = _profile_path(base_profile_digest)
+    if re.fullmatch(r"[0-9a-f]{64}", expected_source_sha256) is None:
+        raise HTTPException(422, "確認時のExcel SHA-256が不正です")
+    try:
+        decoded = json.loads(bindings_json)
+        bindings = TypeAdapter(list[ProfileWorkbenchConfirmedBinding]).validate_python(decoded)
+        store = validate_personal_profile_store_path()
+    except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+        raise HTTPException(422, str(exc) or "対応付けJSONを確認してください") from exc
+    async with _uploaded_workbook(file) as source:
+        try:
+            raw = await run_in_threadpool(
+                save_source_binding_profile,
+                source=source,
+                base_profile_path=selected,
+                expected_source_sha256=expected_source_sha256,
+                bindings=[item.model_dump() for item in bindings],
+                store_path=store,
+            )
+        except RuntimeError as exc:
+            if str(exc) == "source_changed":
+                raise HTTPException(409, "確認後にExcelの内容が変わりました。もう一度内容を確認してください") from exc
+            raise _validation_error(exc) from exc
+        except (DatasetProfileError, BadZipFile, InvalidFileException, OSError, ValueError) as exc:
+            raise _validation_error(exc) from exc
+    return ProfileWorkbenchDraftSave(
+        profile_id=str(raw["profile_id"]),
+        profile_digest=str(raw["profile_digest"]),
+        profile_locator=str(raw["profile_locator"]),
+        source_sha256=str(raw["source_sha256"]),
+        base_profile_digest=str(raw["base_profile_digest"]),
+        validation=_validation(raw["validation"]),
+    )
+
+
+@router.get(
+    "/profiles/{profile_digest}/export",
+    responses={
+        **PROFILE_WORKBENCH_API_ERRORS,
+        200: {
+            "content": {"application/json": {}},
+            "description": "Standalone effective Dataset Profile",
+        },
+    },
+)
+def export_profile(profile_digest: str) -> FileResponse:
+    selected = _profile_path(profile_digest)
+    return FileResponse(
+        selected,
+        media_type="application/json",
+        filename=f"dataset-profile-{profile_digest[:12]}.json",
+    )
 
 
 @router.post(

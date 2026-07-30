@@ -67,6 +67,7 @@ export type ApiSampleGalleryItem = components["schemas"]["SampleGalleryItem"];
 export type ApiProfileWorkbenchInspection = components["schemas"]["ProfileWorkbenchInspection"];
 export type ApiProfileWorkbenchProfile = components["schemas"]["ProfileWorkbenchProfileOption"];
 export type ApiProfileWorkbenchRegistration = components["schemas"]["ProfileWorkbenchRegistration"];
+export type ApiProfileWorkbenchDraft = components["schemas"]["ProfileWorkbenchDraftSave"];
 export type ApiDeveloperOverview = components["schemas"]["DeveloperOverview"];
 export type ApiRuntimeDiagnostics = components["schemas"]["RuntimeDiagnosticsReport"];
 export type ApiDeveloperCommand = components["schemas"]["DeveloperCommand"];
@@ -430,6 +431,35 @@ export const workbenchApi = {
       bodySerializer: () => form,
       signal,
     }), "Excelの内容を確認できませんでした。");
+  },
+  async saveProfileWorkbenchDraft(
+    file: File,
+    baseProfileDigest: string,
+    expectedSourceSha256: string,
+    bindings: Array<{
+      slot_id: string;
+      state: "confirmed";
+      source_name: string;
+      source_unit?: string;
+    }>,
+  ) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("base_profile_digest", baseProfileDigest);
+    form.append("expected_source_sha256", expectedSourceSha256);
+    form.append("bindings_json", JSON.stringify(bindings));
+    return requireData(await apiClient.POST("/api/profile-workbench/profiles/drafts", {
+      body: {
+        file: file.name,
+        base_profile_digest: baseProfileDigest,
+        expected_source_sha256: expectedSourceSha256,
+        bindings_json: JSON.stringify(bindings),
+      },
+      bodySerializer: () => form,
+    }), "Profile draftを保存できませんでした。");
+  },
+  profileWorkbenchExportUrl(profileDigest: string) {
+    return apiDownloadUrl(`/api/profile-workbench/profiles/${encodeURIComponent(profileDigest)}/export`);
   },
   async registerProfileWorkbook(file: File, profileDigest: string, expectedSourceSha256: string, name: string) {
     const form = new FormData();

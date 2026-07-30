@@ -2708,6 +2708,35 @@
         "title": "Body_register_uploaded_workbook_api_profile_workbench_register_post",
         "type": "object"
       },
+      "Body_save_profile_draft_api_profile_workbench_profiles_drafts_post": {
+        "properties": {
+          "base_profile_digest": {
+            "title": "Base Profile Digest",
+            "type": "string"
+          },
+          "bindings_json": {
+            "default": "[]",
+            "title": "Bindings Json",
+            "type": "string"
+          },
+          "expected_source_sha256": {
+            "title": "Expected Source Sha256",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "base_profile_digest",
+          "expected_source_sha256"
+        ],
+        "title": "Body_save_profile_draft_api_profile_workbench_profiles_drafts_post",
+        "type": "object"
+      },
       "BoundedUniformTolerance": {
         "additionalProperties": false,
         "properties": {
@@ -7227,6 +7256,17 @@
             },
             "title": "Dataset Views",
             "type": "array"
+          },
+          "profile_locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Locator"
           },
           "profile_revision": {
             "$ref": "#/components/schemas/ProfileRevision"
@@ -12615,12 +12655,228 @@
         "title": "ProfileRevision",
         "type": "object"
       },
+      "ProfileWorkbenchBindingCandidate": {
+        "properties": {
+          "score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_name",
+          "score"
+        ],
+        "title": "ProfileWorkbenchBindingCandidate",
+        "type": "object"
+      },
+      "ProfileWorkbenchBindingDraft": {
+        "properties": {
+          "base_profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Base Profile Digest",
+            "type": "string"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileWorkbenchBindingSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_profile_digest",
+          "source_sha256",
+          "complete",
+          "slots"
+        ],
+        "title": "ProfileWorkbenchBindingDraft",
+        "type": "object"
+      },
+      "ProfileWorkbenchBindingSlot": {
+        "properties": {
+          "binding_type": {
+            "enum": [
+              "sheet",
+              "column"
+            ],
+            "title": "Binding Type",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileWorkbenchBindingCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "canonical_name": {
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "canonical_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Unit"
+          },
+          "expected_source_name": {
+            "title": "Expected Source Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "selected_source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Source Name"
+          },
+          "semantic_kind": {
+            "enum": [
+              "entity_key",
+              "relation_join",
+              "input",
+              "output",
+              "technical",
+              "policy",
+              "series"
+            ],
+            "title": "Semantic Kind",
+            "type": "string"
+          },
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "source_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Unit"
+          },
+          "source_unit_candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Unit Candidates",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "unresolved",
+              "suggested",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id",
+          "binding_type",
+          "role",
+          "semantic_kind",
+          "canonical_name",
+          "expected_source_name",
+          "required",
+          "state"
+        ],
+        "title": "ProfileWorkbenchBindingSlot",
+        "type": "object"
+      },
+      "ProfileWorkbenchDraftSave": {
+        "properties": {
+          "base_profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Base Profile Digest",
+            "type": "string"
+          },
+          "profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_locator": {
+            "title": "Profile Locator",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/ProfileWorkbenchValidation"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_digest",
+          "profile_locator",
+          "source_sha256",
+          "base_profile_digest",
+          "validation"
+        ],
+        "title": "ProfileWorkbenchDraftSave",
+        "type": "object"
+      },
       "ProfileWorkbenchInspection": {
         "properties": {
           "auto_detected": {
             "default": false,
             "title": "Auto Detected",
             "type": "boolean"
+          },
+          "binding_draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileWorkbenchBindingDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "profile_error": {
             "anyOf": [
@@ -12681,6 +12937,11 @@
       },
       "ProfileWorkbenchProfileOption": {
         "properties": {
+          "personal": {
+            "default": false,
+            "title": "Personal",
+            "type": "boolean"
+          },
           "profile_digest": {
             "title": "Profile Digest",
             "type": "string"
@@ -21179,6 +21440,127 @@
           }
         },
         "summary": "List Profile Options",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/profiles/drafts": {
+      "post": {
+        "operationId": "save_profile_draft_api_profile_workbench_profiles_drafts_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_save_profile_draft_api_profile_workbench_profiles_drafts_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileWorkbenchDraftSave"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Profile Draft",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/profiles/{profile_digest}/export": {
+      "get": {
+        "operationId": "export_profile_api_profile_workbench_profiles__profile_digest__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_digest",
+            "required": true,
+            "schema": {
+              "title": "Profile Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Standalone effective Dataset Profile"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Profile",
         "tags": [
           "profile-workbench"
         ]

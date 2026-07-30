@@ -28,10 +28,41 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(commands).toHaveValue(
     /\$modelStore = if \(\$env:WORKBENCH_MODEL_STORE_PATH\)[\s\S]*--store \$modelStore/,
   );
+  await expect(commands).toHaveValue(
+    /\$profile = [^\r\n]+[\s\S]*model:diagnose[^\r\n]+--profile \$profile[\s\S]*model:build[\s\S]+--profile \$profile[\s\S]*model:promote[\s\S]+--profile \$profile/,
+  );
   await expect(commands).not.toHaveValue(/--activate/);
   await expect(commands).not.toHaveValue(/npm run dev/);
   await expect(page.getByRole("button", { name: "個人モデルを再読込" })).toBeVisible();
   await expect(guide).toContainText("保存済み予測は再計算されません");
+});
+
+test("Data Library blocks model updates when an exact personal Profile is missing", async ({ page }) => {
+  await page.route("**/api/data-library/datasets?*", async (route) => {
+    const response = await route.fetch();
+    const datasets = await response.json() as Array<Record<string, unknown>>;
+    const target = datasets.find((item) => {
+      const profile = item.profile_revision as { effective_profile_json?: Record<string, unknown> };
+      return profile.effective_profile_json
+        && "shared" in profile.effective_profile_json
+        && "tasks" in profile.effective_profile_json;
+    });
+    expect(target).toBeTruthy();
+    target!.profile_locator = null;
+    await route.fulfill({ response, json: datasets });
+  });
+  await page.goto("/?view=data-library");
+
+  const selectedDataset = page.locator(".dataset-context");
+  await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
+  const guide = page.getByRole("region", { name: "モデルを追加する" });
+
+  await expect(guide.getByRole("alert")).toContainText("登録時のProfileが見つからない");
+  await expect(guide.getByRole("alert")).toContainText("自動検出へ切り替える");
+  await expect(guide.getByRole("alert")).toContainText("WORKBENCH_PROFILE_STORE_PATH");
+  await expect(guide.getByRole("alert").locator("code")).toHaveText(/^[0-9a-f]{64}\.json$/);
+  await expect(guide.getByRole("textbox", { name: "PowerShellモデル更新手順" })).not.toBeVisible();
+  await expect(guide.getByRole("button", { name: "PowerShell手順をコピー" })).not.toBeVisible();
 });
 
 test("Data Library distinguishes personal models from bundled models", async ({ page }) => {

@@ -85,7 +85,8 @@ test("every Profile Workbench step is a state the flow can actually reach", asyn
     Array.from({ length: stepCount }, (_, index) => index + 1),
     "each declared step is reachable by currentStep",
   );
-  assert.match(content, /構造差分・検証/);
+  assert.match(steps, /"対応付け"/);
+  assert.match(steps, /"検証"/);
 });
 
 test("the data library names prediction tasks with the contract label, not the internal id", async () => {

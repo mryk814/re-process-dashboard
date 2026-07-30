@@ -73,8 +73,10 @@ _UNIT_REGISTRY = {
     ("%", "%"): UnitConversion("%", "%"),
     ("MPa", "MPa"): UnitConversion("MPa", "MPa"),
     ("Mpa", "MPa"): UnitConversion("Mpa", "MPa"),
+    ("kPa", "MPa"): UnitConversion("kPa", "MPa", scale=0.001),
     ("mm", "mm"): UnitConversion("mm", "mm"),
     ("min", "min"): UnitConversion("min", "min"),
+    ("min", "s"): UnitConversion("min", "s", scale=60.0),
     ("s", "s"): UnitConversion("s", "s"),
     ("秒", "s"): UnitConversion("秒", "s"),
     ("m/min", "m/min"): UnitConversion("m/min", "m/min"),
@@ -83,6 +85,7 @@ _UNIT_REGISTRY = {
     ("℃", "°C"): UnitConversion("℃", "°C"),
     ("°C", "°C"): UnitConversion("°C", "°C"),
     ("degC", "°C"): UnitConversion("degC", "°C"),
+    ("K", "°C"): UnitConversion("K", "°C", offset=-273.15),
     ("℃/s", "°C/s"): UnitConversion("℃/s", "°C/s"),
     ("°C/s", "°C/s"): UnitConversion("°C/s", "°C/s"),
     ("degC/s", "°C/s"): UnitConversion("degC/s", "°C/s"),
@@ -93,6 +96,7 @@ _UNIT_REGISTRY = {
     ("deg", "deg"): UnitConversion("deg", "deg"),
     ("mm/rev", "mm/rev"): UnitConversion("mm/rev", "mm/rev"),
     ("m", "m"): UnitConversion("m", "m"),
+    ("cm", "m"): UnitConversion("cm", "m", scale=0.01),
     ("µm", "µm"): UnitConversion("µm", "µm"),
 }
 _HEADER_UNIT = re.compile(r"\[([^\[\]]+)\]\s*$")
@@ -113,6 +117,14 @@ def unit_conversion(source: str | None, canonical: str | None) -> UnitConversion
     if source is None or canonical is None:
         return None
     return _UNIT_REGISTRY.get((source, canonical))
+
+
+def source_units_for(canonical: str | None) -> tuple[str, ...]:
+    """Return the explicit source-unit choices supported for a canonical unit."""
+
+    if canonical is None:
+        return ()
+    return tuple(sorted(source for source, target in _UNIT_REGISTRY if target == canonical))
 
 
 class ProfileModel(BaseModel):
@@ -1061,7 +1073,8 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                         (columns.time, columns.time_source_unit),
                         (columns.value, columns.value_source_unit),
                     ):
-                        header_unit = _header_unit(column)
+                        source_column = profile.source_column_for(mapping.role, column)
+                        header_unit = _header_unit(source_column)
                         if header_unit != declared_unit:
                             errors.append(
                                 f"{task_id}: ordered series column {column!r} declares {header_unit!r}, expected {declared_unit!r}"
@@ -1209,7 +1222,8 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
             headers = _headers(workbook[sheet_name])
             if mapping.column not in headers:
                 continue
-            header_unit = _header_unit(mapping.column)
+            source_column = profile.source_column_for(mapping.role, mapping.column)
+            header_unit = _header_unit(source_column)
             if mapping.source_unit is not None and header_unit != mapping.source_unit:
                 errors.append(
                     f"{task_id}: source unit mismatch for {mapping.path!r}: "
@@ -1224,6 +1238,20 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 )
                 if numeric_count == 0:
                     errors.append(f"{task_id}: numeric field {mapping.path!r} has no numeric source values")
+            if mapping.kind == "observation_scoped":
+                for observation_source in mapping.observation_sources:
+                    physical_column = profile.source_column_for(
+                        observation_source.role,
+                        observation_source.column,
+                    )
+                    source_header_unit = _header_unit(physical_column)
+                    if source_header_unit != mapping.source_unit:
+                        errors.append(
+                            f"{task_id}: observation source unit mismatch for "
+                            f"{mapping.path!r} on role {observation_source.role!r}: "
+                            f"header declares {source_header_unit!r}, "
+                            f"profile declares {mapping.source_unit!r}"
+                        )
             definition_field = next(
                 field for group in profile.task_definitions[task_id].input_groups for field in group.fields
                 if field.path == mapping.path
@@ -1245,7 +1273,8 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 for column in target.source_columns:
                     if column not in headers:
                         continue
-                    source_unit = _header_unit(column)
+                    source_column = profile.source_column_for(observation.role, column)
+                    source_unit = _header_unit(source_column)
                     if unit_conversion(source_unit, target.unit) is None:
                         errors.append(
                             f"{task_id}: observation unit mismatch for {target.key!r}: "
@@ -1477,11 +1506,18 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                         (child_type, child_identity[1], parent_type), set()
                     ).add(parent_identity)
 
-    def observation_value(row: Mapping[str, Any], target: ObservationTarget) -> float | None:
+    def observation_value(
+        row: Mapping[str, Any],
+        target: ObservationTarget,
+        role: str,
+    ) -> float | None:
         for column in target.source_columns:
             value = row.get(column)
             if isinstance(value, (int, float)):
-                return float(value)
+                source_column = profile.source_column_for(role, column)
+                conversion = unit_conversion(_header_unit(source_column), target.unit)
+                if conversion is not None:
+                    return float(value) * conversion.scale + conversion.offset
         return None
 
     observations: list[CanonicalObservation] = []
@@ -1492,12 +1528,12 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 targets = {
                     target.key: value
                     for target in mapping.targets
-                    if (value := observation_value(row, target)) is not None
+                    if (value := observation_value(row, target, mapping.role)) is not None
                 }
                 auxiliary = {
                     target.key: value
                     for target in mapping.auxiliary
-                    if (value := observation_value(row, target)) is not None
+                    if (value := observation_value(row, target, mapping.role)) is not None
                 }
                 if not targets and not auxiliary:
                     continue
@@ -1535,13 +1571,24 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
             if field_mapping.kind != "observation_scoped" or not field_mapping.column or not field_mapping.parent_entity_type:
                 continue
             grouped_values: dict[str, list[float]] = {}
+            conversion = unit_conversion(
+                field_mapping.source_unit,
+                field_mapping.canonical_unit,
+            )
             for source in field_mapping.observation_sources:
                 observation_mapping = next(item for item in task.observations if item.role == source.role)
                 for row in rows[profile.sheet_for_role(source.role)]:
                     value = row.get(source.column)
                     parent = row.get(observation_mapping.parent_column)
-                    if isinstance(value, (int, float)) and parent is not None and str(parent).strip():
-                        grouped_values.setdefault(str(parent), []).append(float(value))
+                    if (
+                        isinstance(value, (int, float))
+                        and conversion is not None
+                        and parent is not None
+                        and str(parent).strip()
+                    ):
+                        grouped_values.setdefault(str(parent), []).append(
+                            float(value) * conversion.scale + conversion.offset
+                        )
             for parent, values in grouped_values.items():
                 entity = entities.get((field_mapping.parent_entity_type, parent))
                 if entity is not None:
@@ -1553,6 +1600,14 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
             if mapping.kind != "ordered_heat_series" or mapping.series_columns is None:
                 continue
             columns = mapping.series_columns
+            time_conversion = unit_conversion(
+                columns.time_source_unit,
+                columns.time_canonical_unit,
+            )
+            value_conversion = unit_conversion(
+                columns.value_source_unit,
+                columns.value_canonical_unit,
+            )
             series_metadata = {
                 item.name: item.column for item in profile.shared.technical
                 if item.role == mapping.role and item.name in {"set_temperature_c", "stage_category", "stage_name", "mapping_status"}
@@ -1577,7 +1632,13 @@ def canonicalize_workbook(workbook: Any, profile: DatasetInputProfile) -> Canoni
                 ):
                     invalid_parents.add(parent)
                     continue
-                point = {"time_s": float(row[columns.time]), "temperature_c": float(row[columns.value])}
+                if time_conversion is None or value_conversion is None:
+                    invalid_parents.add(parent)
+                    continue
+                point = {
+                    "time_s": float(row[columns.time]) * time_conversion.scale + time_conversion.offset,
+                    "temperature_c": float(row[columns.value]) * value_conversion.scale + value_conversion.offset,
+                }
                 for name, column in series_metadata.items():
                     point[name] = row.get(column)
                 stage_category = profile.stage_category_for(point.get("stage_name"))
