@@ -12,7 +12,8 @@ from typing import cast
 import pytest
 from openpyxl import Workbook
 
-import material_workbench.application.workspace_bundle as workspace_bundle_module
+import material_workbench.application.workspace_bundle_restore_plan as restore_plan_module
+import material_workbench.application.workspace_bundle_service as restore_service_module
 from material_workbench.application.data_lifecycle import DataLifecycleService
 from material_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
@@ -536,7 +537,7 @@ def test_commit_switch_failure_preserves_database_and_data_library(
         path.relative_to(current_library).as_posix()
         for path in current_library.rglob("*")
     )
-    real_replace = workspace_bundle_module.os.replace
+    real_replace = restore_service_module.os.replace
 
     def fail_database_switch(source: str | Path, destination: str | Path) -> None:
         source_path = Path(source)
@@ -549,7 +550,7 @@ def test_commit_switch_failure_preserves_database_and_data_library(
             raise OSError("injected database switch failure")
         real_replace(source, destination)
 
-    monkeypatch.setattr(workspace_bundle_module.os, "replace", fail_database_switch)
+    monkeypatch.setattr(restore_service_module.os, "replace", fail_database_switch)
     with pytest.raises(WorkspaceBundleError, match="current Workspace was preserved"):
         commit_workspace_restore(
             database=current_database,
@@ -858,9 +859,9 @@ def test_restore_rejects_when_expanded_bundle_cannot_fit(
         destination=bundle,
         app_version="test",
     )
-    usage_type = type(workspace_bundle_module.shutil.disk_usage(tmp_path))
+    usage_type = type(restore_plan_module.shutil.disk_usage(tmp_path))
     monkeypatch.setattr(
-        workspace_bundle_module.shutil,
+        restore_plan_module.shutil,
         "disk_usage",
         lambda _path: usage_type(total=1024, used=1024, free=0),
     )
