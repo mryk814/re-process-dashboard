@@ -35,7 +35,11 @@ from material_workbench.contracts.design_space_contracts import (
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.schemas import ModelPackageRefCreateInput
 from material_workbench.data.dataset_registration import register_dataset_records
-from material_workbench.modeling.model_lifecycle import dataset_profile_digest
+from material_workbench.modeling.model_lifecycle import (
+    dataset_profile_digest,
+    ensure_available_packages_config,
+    register_available_package,
+)
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.modeling.tabular_model_builder import (
@@ -290,7 +294,7 @@ def _build_and_register(
         f"1.0.0+snapshot.{snapshot_suffix}.data.{data_suffix}"
         f".adapter.{adapter_suffix}.builder.{builder_suffix}"
     )
-    package_root = workspace / "model-packages" / package_id
+    package_root = workspace / "model-store" / "packages" / package_id
     if package_root.exists():
         package = ModelPackageLoader().load(package_root)
         verify_model_package(package_root, task_id=TASK_ID, source=artifact.path)
@@ -630,6 +634,8 @@ def run_reference_data_loop(
 ) -> dict[str, Any]:
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+    model_store = workspace / "model-store"
+    available_packages = ensure_available_packages_config(model_store)
     source_before = _sha256(SOURCE)
     database = workspace / "workbench.db"
     prepared = resources or _prepare_app_resources()
@@ -639,6 +645,7 @@ def run_reference_data_loop(
         create_app(
             db_path=database,
             data_library_path=workspace / "data-library",
+            model_store_path=model_store,
             _resources=prepared,
         )
     ) as client:
@@ -650,6 +657,10 @@ def run_reference_data_loop(
         resources=prepared,
         lifecycle=lifecycle,
     )
+    register_available_package(
+        registered["package"].root,
+        config_path=available_packages,
+    )
 
     # Second process lifetime: resolve the registered Package from fixed Project
     # bindings, persist an Activity, and register the held-out measured truth.
@@ -658,6 +669,7 @@ def run_reference_data_loop(
         create_app(
             db_path=database,
             data_library_path=workspace / "data-library",
+            model_store_path=model_store,
             _resources=prepared,
         )
     ) as client:
