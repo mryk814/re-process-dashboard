@@ -61,6 +61,46 @@ def test_register_dataset_source_is_content_addressed_and_preserves_source(tmp_p
     assert len(catalog.list_dataset_view_revisions()) == 1
 
 
+def test_register_dataset_resume_ignores_custom_single_views(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    library = tmp_path / "library"
+    first = register_managed_dataset(
+        database=database,
+        source=SOURCE,
+        library_root=library,
+        profile_path=PROFILE,
+        name="正規Dataset View",
+        member_provenance={"source": "canonical"},
+    )
+    catalog = WorkspaceCatalog(database)
+    forged = catalog.ensure_single_dataset_view(
+        first.dataset_revision_id,
+        name="別用途のsingle view",
+        view_id="forged-single-view",
+        member_provenance={"source": "forged"},
+    )
+
+    resumed = register_managed_dataset(
+        database=database,
+        source=SOURCE,
+        library_root=library,
+        profile_path=PROFILE,
+        name="再開時の表示名",
+        member_provenance={"source": "different"},
+    )
+
+    assert resumed.dataset_view_revision_id == first.dataset_view_revision_id
+    assert resumed.dataset_view_revision_id != forged.id
+    canonical = catalog.get_dataset_view_revision(
+        resumed.dataset_view_revision_id
+    )
+    assert canonical is not None
+    assert canonical.view_id == f"single-{first.dataset_revision_id}"
+    assert canonical.members[0].provenance_json == {"source": "canonical"}
+
+
 def test_register_promotes_existing_bundled_asset_to_managed_without_orphan(tmp_path: Path) -> None:
     from material_workbench.data.file_integrity import file_sha256
     from material_workbench.contracts.schemas import DataAssetCreateInput

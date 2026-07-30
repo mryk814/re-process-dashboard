@@ -20,6 +20,7 @@ commandを追加するときは、次の表へowner、出力、根拠文書ま�
 |---|---|---|---|
 | `operations/profile_workbench.py` | Data/Profile contracts | JSON、Dataset registration | `docs/operations/data-contributor-start-here.md` |
 | `operations/model_workflow.py` | Model lifecycle | 外部Model Package、status JSON | `npm run model:*` |
+| `operations/task_scaffold.py` | Personal Task onboarding | data-only Task／Profile／recipe scaffold | `npm run task:scaffold` |
 | `operations/verify_model_package.py` | Model runtime | Package検証結果 | `docs/model-runtime-examples/index.md` |
 | `operations/task_inventory.py` | Task registry | `docs/task-inventory.json` | `npm run task:inventory` |
 | `operations/developer_doctor.py` | Developer experience | 環境診断JSON | `npm run dev:doctor` |

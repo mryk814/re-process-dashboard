@@ -105,12 +105,16 @@ def register_dataset_records(
         profile_revision_id=profile_revision.id,
         canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
     ))
+    canonical_view_id = f"single-{dataset.id}"
     existing_view = next((
         item
         for item in catalog.list_dataset_view_revisions(include_archived=True)
-        if item.kind == "single"
-        and len(item.members) == 1
-        and item.members[0].dataset_revision_id == dataset.id
+        if (
+            item.view_id == canonical_view_id
+            and item.kind == "single"
+            and len(item.members) == 1
+            and item.members[0].dataset_revision_id == dataset.id
+        )
     ), None)
     if existing_view is not None:
         # The Dataset identity is content-addressed. Startup may encounter an
