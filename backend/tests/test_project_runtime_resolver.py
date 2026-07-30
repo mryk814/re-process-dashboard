@@ -6,7 +6,7 @@ import pytest
 
 from material_workbench.application.inference import InferenceService
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.tasks.project_runtime_resolver import (
+from material_workbench.application.project_runtime import (
     ProjectRuntimeResolutionError,
     ProjectRuntimeResolver,
 )

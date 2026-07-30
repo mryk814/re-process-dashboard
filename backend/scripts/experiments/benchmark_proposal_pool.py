@@ -17,7 +17,7 @@ if str(BACKEND_SRC) not in sys.path:
 
 from material_workbench.app import _prepare_app_resources
 from material_workbench.contracts.schemas import Candidate
-from material_workbench.task_modules import BatchPredictionRuntime
+from material_workbench.task_composition.ports import BatchPredictionRuntime
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

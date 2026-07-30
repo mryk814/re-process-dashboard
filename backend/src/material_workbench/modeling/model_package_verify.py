@@ -16,7 +16,7 @@ from material_workbench.modeling.model_lifecycle import validate_lifecycle_metad
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
 from material_workbench.tasks.task_registry import load_task_contracts
-from material_workbench.task_modules import resolve_task_source, task_module
+from material_workbench.task_composition.catalog import resolve_task_source, task_module
 from material_workbench.data.profile_document import (
     lifecycle_profile_for_data,
     load_profile_document,

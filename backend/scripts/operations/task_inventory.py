@@ -23,7 +23,7 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     validate_active_package_task_set,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
-from material_workbench.task_modules import registered_task_modules, resolve_task_source  # noqa: E402
+from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source  # noqa: E402
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
@@ -86,7 +86,8 @@ def build_inventory() -> dict[str, Any]:
     return {
         "schema_version": "task-inventory/v2",
         "generated_from": [
-            "backend/src/material_workbench/task_modules.py",
+            "backend/src/material_workbench/task_composition/catalog.py",
+            "backend/src/material_workbench/task_composition/builtin_tasks.py",
             "backend/src/material_workbench/tasks/task_definitions",
             "models/active-packages.json",
             "resolved dataset input profiles",

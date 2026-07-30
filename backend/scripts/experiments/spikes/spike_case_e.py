@@ -95,7 +95,8 @@ def _tracked_state() -> dict[str, str]:
     tracked = {
         "task_definition": REPO / "backend/src/material_workbench/tasks/task_definitions" / f"{TASK_ID}.json",
         "tabular_profile": REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json",
-        "task_modules": REPO / "backend/src/material_workbench/task_modules.py",
+        "task_composition": REPO / "backend/src/material_workbench/task_composition/builtin_tasks.py",
+        "task_catalog": REPO / "backend/src/material_workbench/task_composition/catalog.py",
         "active_packages": REPO / "models/active-packages.json",
     }
     return {
@@ -110,7 +111,7 @@ def main() -> int:
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_modules import registered_task_modules, resolve_task_source
+    from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     findings: list[str] = []
@@ -125,16 +126,25 @@ def main() -> int:
         print(f"[source] {shape['rows']}行 / {len(shape['columns'])}列 を差し替え")
 
         # 1. Profileを変えずに新sourceからPackageを作れるか
-        from material_workbench.modeling.tabular_model_builder import build as build_package
+        from operations.model_workflow import build_package
 
         if package_root.exists():
             shutil.rmtree(package_root)
         try:
+            profile_path = (
+                REPO
+                / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"
+            )
             build_package(
+                TASK_ID,
                 swapped,
-                REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json",
                 package_root,
+                SCRATCH / "feature-dataset.json",
+                package_id="spike-concrete-swapped-ridge-v1",
+                package_version="1.0.0",
                 replace=True,
+                estimator="ridge.v1",
+                profile=profile_path,
             )
             _check(findings, "Profileを変えずに新sourceからPackageを構築できる", True)
         except Exception as exc:
@@ -191,7 +201,7 @@ def main() -> int:
         changed = sorted(name for name in before if before[name] != after[name])
         _check(
             findings,
-            "TaskDefinition / Profile / task_modules.py / active-packages.json を変更していない",
+            "TaskDefinition / Profile / Task composition / active-packages.json を変更していない",
             not changed,
             f"変更された正本={changed}",
         )
@@ -206,7 +216,7 @@ def main() -> int:
 
 
 def resolve_task_source_for_probe() -> Path:
-    from material_workbench.task_modules import resolve_task_source
+    from material_workbench.task_composition.catalog import resolve_task_source
 
     return resolve_task_source(TASK_ID)
 
@@ -317,9 +327,19 @@ def _exercise_api(app_module, resources, findings: list[str]) -> None:
     )
     project_id = f"{TASK_ID}-default"
     with TestClient(app) as client:
+        installed = client.post(
+            "/api/sample-gallery",
+            json={"project_ids": [project_id]},
+        )
+        _check(
+            findings,
+            "同梱サンプルとしてstarter projectを追加できる",
+            installed.status_code == 200,
+            installed.text[:200],
+        )
         projects = client.get("/api/projects")
         ids = {item["id"] for item in projects.json()} if projects.status_code == 200 else set()
-        _check(findings, "starter projectが自動生成される", project_id in ids, sorted(ids))
+        _check(findings, "追加したstarter projectが一覧に出る", project_id in ids, sorted(ids))
         if project_id not in ids:
             return
         rows = client.get(f"/api/projects/{project_id}/candidates").json()

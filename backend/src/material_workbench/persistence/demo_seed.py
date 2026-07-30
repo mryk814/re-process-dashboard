@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from material_workbench.contracts.schemas import CandidateInput, ProjectInput
 from material_workbench.persistence.store import Store
-from material_workbench.task_modules import PredictionRuntime, TaskModule
+from material_workbench.task_composition.descriptors import TaskModule
+from material_workbench.task_composition.ports import PredictionRuntime
 
 if TYPE_CHECKING:
     from material_workbench.tasks.task_registry import TaskRegistry

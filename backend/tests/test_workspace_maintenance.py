@@ -21,7 +21,7 @@ from material_workbench.persistence.workspace_catalog import (
     CatalogReferenceError,
     WorkspaceCatalog,
 )
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
 

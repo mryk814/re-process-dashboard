@@ -34,7 +34,7 @@ from material_workbench.contracts.design_space_contracts import (
 )
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
 from material_workbench.contracts.schemas import ModelPackageRefCreateInput
-from material_workbench.data.dataset_registration import register_dataset_records
+from material_workbench.application.dataset_registration import register_dataset_records
 from material_workbench.modeling.model_lifecycle import (
     dataset_profile_digest,
     ensure_available_packages_config,
@@ -51,7 +51,7 @@ from material_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     task_definition_digest,
 )
 

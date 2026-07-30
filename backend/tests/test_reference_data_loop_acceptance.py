@@ -49,7 +49,7 @@ from material_workbench.persistence.data_lifecycle_repository import (
 )
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.tasks.project_runtime_resolver import (
+from material_workbench.application.project_runtime import (
     ProjectRuntimeResolutionError,
 )
 

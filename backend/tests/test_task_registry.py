@@ -15,7 +15,8 @@ from material_workbench.modeling.model_lifecycle import load_active_packages, va
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.contracts.schemas import ProjectInput
 from material_workbench.persistence.demo_seed import initialize_demo_projects
-from material_workbench.task_modules import DataDescriptor, registered_task_modules
+from material_workbench.task_composition.catalog import registered_task_modules
+from material_workbench.task_composition.ports import DataDescriptor
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 

@@ -10,6 +10,13 @@
 
 予測を先に書く理由は、スパイク後に「やっぱり必要だった」と後付けで正当化しないためです。
 
+> **履歴と現行構成:** ケースA〜Dの変更点マトリクスと初回実測欄に残る
+> `task_modules.py`、`TaskModule.model_builder`、module-level `TASK_MODULES` は、
+> #501以前の構成を記録した履歴名です。現在は
+> `task_composition/ports.py`、`descriptors.py`、`builtin_tasks.py`、`catalog.py`
+> に分割され、標準モデルは `TaskModule.standard_model_authoring` で宣言します。
+> 再現スクリプトは現行catalogを一時差し替える方式へ更新済みです。
+
 ## 実行状況
 
 5ケースすべて実行済みです。再現手順は [spikes/README.md](../../backend/scripts/experiments/spikes/README.md) を参照してください。
@@ -127,7 +134,7 @@ Package構築が**登録の後**でしか動きません。順序が逆にでき
 これは安全側の設計（未登録Taskのartifactを作れない）でもあるため、**負債とは断定しません**。
 ただし「Packageを先に作って検証してから登録する」手順は取れないので、`add-prediction-task` Skillの手順順序と一致していることを確認しておく必要があります。
 
-**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（[task_modules.py:457](../../backend/src/material_workbench/task_modules.py#L457)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
+**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin_tasks.py](../../backend/src/material_workbench/task_composition/builtin_tasks.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
 
 ## 2. ケースB：複数sheet・複数観測family
 
@@ -570,7 +577,7 @@ A（標準表形式Task）          実行済み
      `TARGET_FAMILY` / `TARGET_FEATURES` / `FEATURE_DEFINITIONS` / `TEST_SOLUTIONS` /
      `OUTPUT_BOUNDS` を削除。`StageCRegressionRuntime` → `ObservationRegressionRuntime`
   3. builderに `declaration` 引数を追加（B-1）
-  4. Taskごとのdata-only宣言を `task_modules.py` へ集約。残るのはprofile path、
+  4. Taskごとのdata-only宣言を `task_composition/builtin_tasks.py` へ集約。残るのはprofile path、
      feature transform id/version、support policy id、output bounds のみ
 - **output boundsは意図的に宣言のまま残す**。TaskDefinitionの `plausibility_range` は
   表示・検証用であり、実測すると値が違う（TS: 0–2000 vs 0–上限なし）。
@@ -592,11 +599,16 @@ A（標準表形式Task）          実行済み
   最も近いのはChainのスカラー候補を製品機能として出すとき
 - ケースCで確定した要件: `CanonicalSeries` は点列だけでなく**元単位・変換ID・除外点**を持つ必要がある（C-5, C-6）
 
-### P2｜Task integration registryの分割 — 優先度を下げる
+### P2｜Task composition境界の分割 — **完了**
 
 - 根拠: [ケースA実測](#1-ケースa通常の表形式task)。標準表形式Taskの追加は**新規Python関数0件・既存ファイル変更2件・API/UI分岐0件**で完了した
-- 結論: 現時点で `task_modules.py` の分割を行う実需はない。**Task数がさらに増え、`_TABULAR_PROFILES` 以外の系統が複数になってから再評価する**
-- 代わりに検討する小さな改善: ケースAで見つかったA-1 / A-2（Package構築が登録順序に依存する）を、`add-prediction-task` Skillの手順に明記する
+- 実施内容: 依存の軽いport、descriptor、built-in composition、catalogを
+  `task_composition/` 配下へ分離し、Project runtime解決・Dataset登録transaction・
+  workspace catalog bootstrapをapplication層へ移した
+- 標準モデルは `standard_model_authoring` で学習候補とestimator allow-listを宣言し、
+  特殊familyだけ `specialized_package_builder` を持つ
+- A-1 / A-2の登録順序制約は維持する。再現スクリプトとData Contributor向け手順は
+  現行catalogを正本として参照する
 
 ### P3｜系列・Source Connector・Project-level Design Space
 
@@ -639,7 +651,7 @@ A（標準表形式Task）          実行済み
 
 | 領域 | 理由 |
 | --- | --- |
-| `task_modules.py` の分割（P2） | ケースAが新規Python関数0件で通ったため実需がない |
+| built-in Task定義のfamily別ファイル分割 | composition境界は分離済み。family定義をさらに分けるのは、独立した変更頻度が生じた時点で判断する |
 | output boundsのallow-list | TaskDefinitionの `plausibility_range` は表示・検証用で値が異なる。実行時clampへ流用すると新たにclipが発生する |
 | starter candidate（Taskごとのfixture） | 科学的な代表条件は人が決める。`TaskModule.starter_project` が正本 |
 | `actual_conditioned_variant` の `composition.` prefix | 中間実測が組成であるChainにしか使えない制約として明示的に残す |

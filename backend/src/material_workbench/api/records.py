@@ -13,7 +13,7 @@ from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
 from material_workbench.persistence.store import ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
 router = APIRouter()

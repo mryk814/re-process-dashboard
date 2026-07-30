@@ -287,17 +287,30 @@ def tabular_profile_document() -> dict[str, object]:
 
 
 def main() -> int:
+    from types import MappingProxyType
+
     from material_workbench import app as app_module
     from material_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_modules import (
-        StarterProject,
-        TaskModule,
-        registered_task_modules,
+    from material_workbench.task_composition.builtin_tasks import (
+        _TABULAR_EXPLORER,
+        _TABULAR_PROFILES,
+        _application_capability,
+        _standard_response_curve,
+        _tabular_features,
+        _tabular_loader,
+        _tabular_runtime,
+        _tabular_starter,
+        _tabular_training_candidate,
     )
-    from material_workbench.contracts.task_contracts import DataExplorerCapability
+    from material_workbench.task_composition.catalog import registered_task_modules
+    import material_workbench.task_composition.catalog as task_catalog
+    from material_workbench.task_composition.descriptors import (
+        StandardModelAuthoring,
+        TaskModule,
+    )
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     source_csv = SCRATCH / "injection_molding_samples.csv"
@@ -316,10 +329,8 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    import material_workbench.task_modules as task_modules_module
-
     original_modules = app_module.registered_task_modules
-    original_table = task_modules_module.TASK_MODULES
+    original_table = task_catalog.TASK_MODULES
     try:
         # 発見1: builderが load_task_contracts() を root注入なしで呼ぶため、
         # TaskDefinition JSONは本番ディレクトリに存在しないとPackageを作れない。
@@ -331,41 +342,60 @@ def main() -> int:
         )
 
         # 既存Taskの追加と同じ経路だけを使う。新しいPython関数は書かず、
-        # task_modules.py の既存factoryを task_id でパラメタ化して再利用する。
-        task_modules_module._TABULAR_PROFILES[SPIKE_TASK_ID] = profile_json
+        # built-in compositionの既存factoryを task_id でパラメタ化して再利用する。
+        _TABULAR_PROFILES[SPIKE_TASK_ID] = profile_json
         spike_module = TaskModule(
             task_id=SPIKE_TASK_ID,
             package_override_env="MATERIAL_WORKBENCH_SPIKE_INJECTION_MOLDING_MODEL_PACKAGE",
             source_env="WORKBENCH_SPIKE_INJECTION_MOLDING_SOURCE_PATH",
             source_kind="spike_injection_molding",
             default_source=source_csv,
-            data_loader=task_modules_module._tabular_loader(SPIKE_TASK_ID),
-            runtime_factory=task_modules_module._tabular_runtime,
-            feature_row_builder=task_modules_module._tabular_features(SPIKE_TASK_ID),
-            model_builder=task_modules_module._tabular_builder(SPIKE_TASK_ID),
-            starter_project=task_modules_module._tabular_starter(
+            data_loader=_tabular_loader(SPIKE_TASK_ID),
+            runtime_factory=_tabular_runtime,
+            feature_row_builder=_tabular_features(SPIKE_TASK_ID),
+            standard_model_authoring=StandardModelAuthoring(
+                _tabular_training_candidate,
+                ("ridge.v1", "lightgbm-regression.v1"),
+                default_estimator_id="ridge.v1",
+            ),
+            application=_application_capability(
+                actual_measurement=False,
+                response_curve=True,
+                similarity=True,
+            ),
+            starter_project=_tabular_starter(
                 SPIKE_TASK_ID, "スパイク：射出成形"
             ),
-            response_curve=task_modules_module._standard_response_curve,
-            data_explorer=task_modules_module._TABULAR_EXPLORER,
+            response_curve=_standard_response_curve,
+            data_explorer=_TABULAR_EXPLORER,
         )
         modules = {**registered_task_modules(), SPIKE_TASK_ID: spike_module}
         app_module.registered_task_modules = lambda: modules
         # 発見2: model_lifecycle.canonical_training_dataset が task_module() 経由で
-        # module-levelの TASK_MODULES を直接読むため、Package構築の前に
-        # 本番registryへの登録が完了していないとbuilderが動かない。
-        task_modules_module.TASK_MODULES = modules
+        # catalogのallow-listを直接読むため、Package構築の前に一時catalogへ
+        # Task compositionを追加する必要がある。
+        task_catalog.TASK_MODULES = MappingProxyType(modules)
         findings.append(
             "model_lifecycle.canonical_training_dataset が task_module() で "
-            "module-levelの TASK_MODULES を直接読むため、Package構築より先に "
-            "task_modules.py への登録が必要（builderを登録前に走らせられない）"
+            "Task catalogを直接読むため、Package構築より先に "
+            "task_composition/catalog.py への登録が必要"
         )
 
-        from material_workbench.modeling.tabular_model_builder import build as build_package
+        from operations.model_workflow import build_package
 
         if package_root.exists():
             shutil.rmtree(package_root)
-        build_package(source_csv, profile_json, package_root, replace=True)
+        build_package(
+            SPIKE_TASK_ID,
+            source_csv,
+            package_root,
+            SCRATCH / "feature-dataset.json",
+            package_id=SPIKE_PACKAGE_ID,
+            package_version="1.0.0",
+            replace=True,
+            estimator="ridge.v1",
+            profile=profile_json,
+        )
 
         real = load_active_packages(ACTIVE_PACKAGES_PATH)
         overrides = {
@@ -419,8 +449,8 @@ def main() -> int:
         return _report(findings, ok=False)
     finally:
         app_module.registered_task_modules = original_modules
-        task_modules_module.TASK_MODULES = original_table
-        task_modules_module._TABULAR_PROFILES.pop(SPIKE_TASK_ID, None)
+        task_catalog.TASK_MODULES = original_table
+        _TABULAR_PROFILES.pop(SPIKE_TASK_ID, None)
         if installed_contract.exists():
             installed_contract.unlink()
 
@@ -445,9 +475,19 @@ def _exercise_api(app_module, resources, findings: list[str]) -> None:
         }
         _check(findings, "task-definitionsにspike Taskが載る", SPIKE_TASK_ID in entries)
 
+        installed = client.post(
+            "/api/sample-gallery",
+            json={"project_ids": [project_id]},
+        )
+        _check(
+            findings,
+            "同梱サンプルとしてstarter projectを追加できる",
+            installed.status_code == 200,
+            detail=installed.text,
+        )
         projects = client.get("/api/projects")
         ids = {item["id"] for item in projects.json()} if projects.status_code == 200 else set()
-        _check(findings, "starter projectが自動生成される", project_id in ids, detail=sorted(ids))
+        _check(findings, "追加したstarter projectが一覧に出る", project_id in ids, detail=sorted(ids))
         if project_id not in ids:
             return
 
@@ -530,6 +570,7 @@ def _exercise_api(app_module, resources, findings: list[str]) -> None:
             "/api/screening",
             params={"project_id": project_id},
             json={
+                "purpose": "design_space_map",
                 "base_candidate_id": candidate_id,
                 "base_inputs": base_inputs,
                 "variables": {
@@ -539,6 +580,7 @@ def _exercise_api(app_module, resources, findings: list[str]) -> None:
                 "samples": 48,
                 "seed": 3,
                 "target": "shrinkage_pct",
+                "proposal": {"support_policy": "allow_with_warning"},
             },
         )
         _check(findings, "範囲探索（screening）", screening.status_code == 201, detail=screening.text[:300])

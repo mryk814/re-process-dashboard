@@ -5,7 +5,10 @@
 | Package | Responsibility |
 | --- | --- |
 | `app.py` | FastAPI の組み立てと起動時の依存解決 |
-| `task_modules.py` | Prediction Task を追加するための拡張境界 |
+| `task_composition/ports.py` | Runtime／Datasetの依存方向を固定するport |
+| `task_composition/descriptors.py` | TaskModule descriptor |
+| `task_composition/builtin_tasks.py` | 同梱Prediction Taskの明示的composition |
+| `task_composition/catalog.py` | allow-list済みTask catalog |
 | `api/` | HTTP routing、依存注入、HTTP error への変換 |
 | `application/` | プロジェクト・候補・推論などのユースケース |
 | `contracts/` | API schema、Task contract、Feature contract |
@@ -19,4 +22,5 @@
 
 依存の向きは原則として `api -> application -> domain/modeling/persistence` です。
 `contracts` は各層から参照できますが、HTTP や SQLite の実装へ依存させません。
-新しい予測タスクは直下にモジュールを増やさず、`task_modules.py` と `tasks/task_definitions/` から登録します。
+新しい予測タスクはpackage直下にモジュールを増やさず、
+`task_composition/builtin_tasks.py` と `tasks/task_definitions/` から登録します。

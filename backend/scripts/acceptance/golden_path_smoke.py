@@ -22,7 +22,7 @@ from model_workflow import (  # noqa: E402
 )
 from material_workbench.contracts.schemas import Candidate  # noqa: E402
 from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
-from material_workbench.task_modules import task_module  # noqa: E402
+from material_workbench.task_composition.catalog import task_module  # noqa: E402
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 

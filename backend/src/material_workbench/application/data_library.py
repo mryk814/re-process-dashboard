@@ -19,7 +19,7 @@ from material_workbench.persistence.workspace_catalog import (
 )
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     WorkspaceCatalogBootstrapError,
     register_available_packages,
     task_definition_digest,

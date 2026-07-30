@@ -14,7 +14,7 @@ from material_workbench.data.stage_b_training import (
     build_stage_b_training_data,
     load_stage_b_profile,
 )
-from material_workbench.data.dataset_registration import register_managed_dataset
+from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.data.profile_workbench import validate_workbook_profile
 from material_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
@@ -22,7 +22,7 @@ from material_workbench.modeling.tabular_model_builder import (
 from material_workbench.modeling.model_lifecycle import resolve_configured_package
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.task_modules import _load_welding_stage_b
+from material_workbench.task_composition.builtin_tasks import _load_welding_stage_b
 
 
 ROOT = Path(__file__).resolve().parents[2]

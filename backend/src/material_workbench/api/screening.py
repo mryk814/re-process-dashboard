@@ -17,7 +17,7 @@ from material_workbench.contracts.proposal_contracts import ProposalStrategyAvai
 from material_workbench.contracts.batch_proposal_contracts import BatchSelectorAvailability
 from material_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
 router = APIRouter()

@@ -14,7 +14,7 @@ from material_workbench.data.dataset_profile import (
     DatasetProfileError,
     materialize_dataset_profile_document,
 )
-from material_workbench.data.dataset_registration import register_managed_dataset
+from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.data.importer import detect_dataset_profile_path
 from material_workbench.data.profile_workbench import inspect_workbook, validate_source_profile
 from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError

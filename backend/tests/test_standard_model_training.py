@@ -20,8 +20,8 @@ from material_workbench.modeling.training.feature_dataset import (
 )
 from material_workbench.modeling.training.recipe import estimator_recipe
 from material_workbench.modeling.training.recipe import validate_recipe_capability
-from material_workbench.task_modules import registered_task_modules
-from material_workbench.task_modules import resolve_task_source, task_module
+from material_workbench.task_composition.catalog import registered_task_modules
+from material_workbench.task_composition.catalog import resolve_task_source, task_module
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

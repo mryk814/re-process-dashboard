@@ -22,7 +22,7 @@ from material_workbench.persistence.store import (
     ProjectHasDerivedCandidatesError,
     ProjectHasSuccessorsError,
 )
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
 from material_workbench.tasks.task_registry import TaskRegistry

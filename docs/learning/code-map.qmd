@@ -129,7 +129,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### Project scientific identity
 
 - **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
-- **Application**：`backend/src/material_workbench/application/projects.py`、`backend/src/material_workbench/tasks/project_runtime_resolver.py`
+- **Application**：`backend/src/material_workbench/application/projects.py`、`backend/src/material_workbench/application/project_runtime.py`
 - **API**：`backend/src/material_workbench/api/projects.py`
 - **Frontend**：`apps/web/src/features/projects/`
 - **Testと文書**：`backend/tests/test_projects.py`、`docs/product/current-system-baseline.md`

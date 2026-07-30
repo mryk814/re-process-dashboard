@@ -22,7 +22,8 @@ from material_workbench.modeling.model_packages import (
     VerifiedModelPackage,
 )
 from material_workbench.contracts.task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
-from material_workbench.task_modules import DataDescriptor, registered_task_modules, task_module
+from material_workbench.task_composition.catalog import registered_task_modules, task_module
+from material_workbench.task_composition.ports import DataDescriptor
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]

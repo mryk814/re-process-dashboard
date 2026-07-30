@@ -8,13 +8,13 @@ from pathlib import Path
 import json
 import sqlite3
 
-from material_workbench.data.dataset_registration import (
+from material_workbench.application.dataset_registration import (
     CANONICAL_DATASET_CONTRACT_DIGEST,
     CANONICALIZATION_CONTRACT_DIGEST,
     EXCEL_MEDIA_TYPE,
-    file_sha256,
     register_dataset_records,
 )
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.contracts.schemas import (
     ModelPackageRefCreateInput,
@@ -35,7 +35,7 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.persistence.chain_catalog_migration import (
     refresh_single_task_project_identities,
 )
-from material_workbench.task_modules import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
+from material_workbench.task_composition.builtin_tasks import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
 
 
 PROFILE_ROOT = Path(__file__).parent.parent / "data"

@@ -12,7 +12,7 @@ from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasur
 from material_workbench.persistence.snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
 class RecordNotFoundError(LookupError):

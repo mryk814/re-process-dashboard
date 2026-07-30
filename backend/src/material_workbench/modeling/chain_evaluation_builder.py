@@ -188,7 +188,7 @@ def build_chain_evaluation(
     source_path = Path(source)
     b_profile = load_stage_b_profile(stage_b_profile)
     b_training = build_stage_b_training_data(source_path, b_profile)
-    from material_workbench.task_modules import observation_declaration
+    from material_workbench.task_composition.builtin_tasks import observation_declaration
 
     c_data = load_observation_data(
         source_path, observation_declaration(STAGE_C_ID)

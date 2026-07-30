@@ -7,7 +7,7 @@ from .candidates import CandidateService
 from .projects import ProjectService
 from material_workbench.domain.goal_targets import serialize_target_values
 from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.contracts.schemas import Candidate, Prediction, Project, Support
 from material_workbench.domain.candidate_inputs import with_declared_balance
 from material_workbench.modeling.response_curve_errors import (

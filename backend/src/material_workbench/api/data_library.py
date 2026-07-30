@@ -20,7 +20,6 @@ from material_workbench.contracts.schemas import (
     ModelPackageRefUpdateInput,
     ProjectCreationOptions,
 )
-
 from .dependencies import get_data_library_use_cases
 
 

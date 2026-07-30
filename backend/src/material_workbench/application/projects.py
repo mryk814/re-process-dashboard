@@ -31,7 +31,7 @@ from material_workbench.contracts.objective_contracts import (
 )
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.persistence.workspace_catalog_bootstrap import task_definition_digest
+from material_workbench.application.workspace_catalog_bootstrap import task_definition_digest
 
 
 class ProjectValidationError(ValueError):

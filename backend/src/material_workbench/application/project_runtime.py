@@ -16,10 +16,10 @@ from material_workbench.modeling.model_packages import (
     VerifiedModelPackage,
 )
 from material_workbench.contracts.schemas import Project
-from material_workbench.task_modules import PredictionRuntime
+from material_workbench.task_composition.ports import PredictionRuntime
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     CANONICALIZATION_CONTRACT_DIGEST,
     CANONICAL_DATASET_CONTRACT_DIGEST,
     task_definition_digest,

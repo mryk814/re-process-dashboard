@@ -1,7 +1,8 @@
 {
   "schema_version": "task-inventory/v2",
   "generated_from": [
-    "backend/src/material_workbench/task_modules.py",
+    "backend/src/material_workbench/task_composition/catalog.py",
+    "backend/src/material_workbench/task_composition/builtin_tasks.py",
     "backend/src/material_workbench/tasks/task_definitions",
     "models/active-packages.json",
     "resolved dataset input profiles",

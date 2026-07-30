@@ -10,12 +10,12 @@ import pytest
 
 from material_workbench.app import _AppResources, create_app
 from material_workbench.contracts.schemas import ModelPackageRefCreateInput
-from material_workbench.data.dataset_registration import (
-    file_sha256,
+from material_workbench.application.dataset_registration import (
     register_dataset_records,
 )
+from material_workbench.data.file_integrity import file_sha256
 from material_workbench.modeling.model_packages import ModelPackageLoader
-from material_workbench.persistence.workspace_catalog_bootstrap import (
+from material_workbench.application.workspace_catalog_bootstrap import (
     REPLACED_MODEL_PACKAGE_IDS,
     WorkspaceCatalogBootstrapError,
     audit_project_bindings,

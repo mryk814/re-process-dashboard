@@ -327,19 +327,33 @@ def stage_y_profile() -> dict:
 
 
 def main() -> int:
+    from types import MappingProxyType
+
     from material_workbench import app as app_module
-    import material_workbench.task_modules as task_modules_module
+    from material_workbench.task_composition.builtin_tasks import (
+        _TABULAR_PROFILES,
+        _application_capability,
+        _tabular_features,
+        _tabular_loader,
+        _tabular_runtime,
+        _tabular_training_candidate,
+    )
+    import material_workbench.task_composition.catalog as task_catalog
+    from material_workbench.task_composition.catalog import registered_task_modules
+    from material_workbench.task_composition.descriptors import (
+        StandardModelAuthoring,
+        TaskModule,
+    )
     from material_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_modules import TaskModule, registered_task_modules
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     findings: list[str] = []
     installed: list[Path] = []
     original_modules = app_module.registered_task_modules
-    original_table = task_modules_module.TASK_MODULES
+    original_table = task_catalog.TASK_MODULES
 
     x_csv = SCRATCH / "stage_x.csv"
     y_csv = SCRATCH / "stage_y.csv"
@@ -361,22 +375,31 @@ def main() -> int:
                 json.dumps(contract_doc, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             installed.append(target)
-            task_modules_module._TABULAR_PROFILES[task_id] = profile_path
+            _TABULAR_PROFILES[task_id] = profile_path
             modules[task_id] = TaskModule(
                 task_id=task_id,
                 package_override_env=f"MATERIAL_WORKBENCH_{task_id.replace('-', '_').upper()}_PACKAGE",
                 source_env=f"WORKBENCH_{task_id.replace('-', '_').upper()}_SOURCE_PATH",
                 source_kind=task_id,
                 default_source=csv_path,
-                data_loader=task_modules_module._tabular_loader(task_id),
-                runtime_factory=task_modules_module._tabular_runtime,
-                feature_row_builder=task_modules_module._tabular_features(task_id),
-                model_builder=task_modules_module._tabular_builder(task_id),
+                data_loader=_tabular_loader(task_id),
+                runtime_factory=_tabular_runtime,
+                feature_row_builder=_tabular_features(task_id),
+                standard_model_authoring=StandardModelAuthoring(
+                    _tabular_training_candidate,
+                    ("ridge.v1", "lightgbm-regression.v1"),
+                    default_estimator_id="ridge.v1",
+                ),
+                application=_application_capability(
+                    actual_measurement=False,
+                    response_curve=False,
+                    similarity=True,
+                ),
             )
         app_module.registered_task_modules = lambda: modules
-        task_modules_module.TASK_MODULES = modules
+        task_catalog.TASK_MODULES = MappingProxyType(modules)
 
-        from material_workbench.modeling.tabular_model_builder import build as build_package
+        from operations.model_workflow import build_package
 
         overrides = {
             task_id: str((ACTIVE_PACKAGES_PATH.parent / selection.active).resolve())
@@ -387,7 +410,15 @@ def main() -> int:
             if package_root.exists():
                 shutil.rmtree(package_root)
             build_package(
-                csv_path, task_modules_module._TABULAR_PROFILES[task_id], package_root, replace=True
+                task_id,
+                csv_path,
+                package_root,
+                SCRATCH / f"feature-dataset-{task_id}.json",
+                package_id=f"{task_id}-ridge-v1",
+                package_version="1.0.0",
+                replace=True,
+                estimator="ridge.v1",
+                profile=_TABULAR_PROFILES[task_id],
             )
             overrides[task_id] = str(package_root.resolve())
 
@@ -421,9 +452,9 @@ def main() -> int:
         return _report(findings)
     finally:
         app_module.registered_task_modules = original_modules
-        task_modules_module.TASK_MODULES = original_table
+        task_catalog.TASK_MODULES = original_table
         for task_id in (STAGE_X, STAGE_Y):
-            task_modules_module._TABULAR_PROFILES.pop(task_id, None)
+            _TABULAR_PROFILES.pop(task_id, None)
         for path in installed:
             if path.exists():
                 path.unlink()

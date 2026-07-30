@@ -32,7 +32,7 @@ from material_workbench.persistence.store import (
     StoreDataIntegrityError,
 )
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
-from material_workbench.tasks.project_runtime_resolver import ProjectRuntimeResolver
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 

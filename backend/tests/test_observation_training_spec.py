@@ -18,7 +18,7 @@ from material_workbench.modeling.observation_training_spec import (
     ObservationSpecError,
     observation_training_spec,
 )
-from material_workbench.task_modules import observation_declaration
+from material_workbench.task_composition.builtin_tasks import observation_declaration
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from material_workbench.data.dataset_registration import register_managed_dataset
+from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
@@ -62,7 +62,7 @@ def test_register_dataset_source_is_content_addressed_and_preserves_source(tmp_p
 
 
 def test_register_promotes_existing_bundled_asset_to_managed_without_orphan(tmp_path: Path) -> None:
-    from material_workbench.data.dataset_registration import file_sha256
+    from material_workbench.data.file_integrity import file_sha256
     from material_workbench.contracts.schemas import DataAssetCreateInput
 
     database = tmp_path / "workspace.db"
