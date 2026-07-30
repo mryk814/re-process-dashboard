@@ -506,7 +506,11 @@ function App() {
         )}
         {tab === "data-library" && <DataLibraryPage
           projects={projects}
-          onAddDataset={() => navigate({ view: "profile-workbench" })}
+          onAddDataset={(mode, baseDatasetRevisionId) => navigate({
+            view: "profile-workbench",
+            dataOnboardingMode: mode,
+            baseDatasetRevisionId,
+          })}
           onStartProject={startProjectForDataset}
           onOpenTrainingData={(projectId) => navigate({
             view: "workspace",

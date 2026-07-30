@@ -185,6 +185,14 @@ class ModelPackageRefreshResult(BaseModel):
     warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
 
 
+class TaskResourceRefreshResult(BaseModel):
+    task_ids: list[str]
+    added_task_ids: list[str] = Field(default_factory=list)
+    model_package_ids: list[str] = Field(default_factory=list)
+    added_model_package_ids: list[str] = Field(default_factory=list)
+    warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
+
+
 class ProjectSeriesCreateInput(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=160)]
     description: str = ""
@@ -328,6 +336,8 @@ class ProfileWorkbenchRegistration(BaseModel):
     source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     profile_id: str
     task_ids: list[str]
+    previous_dataset_revision_id: str | None = None
+    previous_source_sha256: str | None = None
 
 
 class ProjectCreationOptions(BaseModel):

@@ -31,14 +31,36 @@ Profileがまだ無い場合は`--profile $profile`を外してdiagnoseする。
 
 1. **existing replacement**: 入力、出力、単位、学習一行、relationの意味が同じで、`model:diagnose`が`existing_task_replacement`を返す。既存Taskのまま進む。
 2. **profile mapping**: 意味は同じで、シート名、列名、単位表記、任意列だけが違う。Profile Workbenchで既存Base Profileへの対応付けを作る。提案を自動確定せず、シート、キー、値、単位、relation roleを確認する。保存した個人Profileを指定して`model:diagnose`を再実行し、`existing_task_replacement`になるまで学習へ進まない。
-3. **new task**: 既存Taskにない入力／出力、canonical quantity、学習一行、relationの意味、Feature Pipeline、Runtimeが必要になる。[Developer Start Here](../../../docs/developer-start-here.md)と`$add-prediction-task`へ移り、データ利用レーンを終了する。
+3. **new task**: 既存Taskにない入力／出力でも、一行一観測の表形式と標準回帰で表現できるなら`task:scaffold`で個人Taskを作る。relation、反復集約、専用Feature Pipeline／Runtimeが必要なら[Developer Start Here](../../../docs/developer-start-here.md)と`$add-prediction-task`へ移る。
 
 列名が似ているだけで意味の一致を決めない。
 判断できない物理量、目的変数、反復集約、relationは人へ確認し、推測でProfileへ押し込まない。
 
+### 完全に新しい標準表形式Task
+
+列の意味と単位を推測せず、inspect後にすべて明示する。
+
+```powershell
+npm run task:scaffold -- inspect $source
+npm run task:scaffold -- create $source `
+  --task-id <new-task-id> `
+  --label "<表示名>" `
+  --input "<column>:<composition|process|categorical>:<key>:<label>:<unit>" `
+  --input-range "<column>:<allowed_min>:<allowed_max>:<default_min>:<default_max>:<training_min>:<training_max>" `
+  --output "<column>:<key>:<label>:<unit>:<at_least|at_most|target>" `
+  --output-range "<column>:<plausible_min>:<plausible_max>:<display_min>:<display_max>" `
+  --grain-confirmation one-row-one-observation `
+  --relation-confirmation no-relations
+```
+
+draftの`unresolved`が空になるまでbuildへ進まない。
+inspectのmin/maxは観測要約であり、物理範囲へ自動採用しない。
+ready結果が示すsource／Profileを、後続のbuild、verify、promoteで同じまま使う。
+個人Task storeはリポジトリ外とし、任意コードやpickleを追加しない。
+
 ## 2. Datasetを登録する
 
-`.xlsx`はアプリを起動し、「データライブラリ」→「新しいDatasetを準備」から次の順に進める。
+`.xlsx`はアプリを起動し、「データライブラリ」→「データを追加」→「列名・構造が違う」から次の順に進める。
 
 1. 元Excelを選ぶ。
 2. 意味が一致するBase Profileを選ぶ。
@@ -103,7 +125,7 @@ npm run model:promote -- `
 
 ## 4. 再読込してProjectでsmokeする
 
-Data Libraryで「個人モデルを再読込」を実行する。
+Data Libraryで「個人Taskとモデルを再読込」を実行する。
 アプリを再起動せず、登録済みDatasetと昇格した個人Packageを選んで新しいProjectを作る。
 Projectで代表候補を一つ予測し、Dataset Revision、Package ID/version、Profile digest、予測値、支持範囲の表示を確認する。
 

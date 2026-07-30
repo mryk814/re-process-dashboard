@@ -59,7 +59,10 @@ export function DataLibraryPage({
   onOpenTrainingData,
 }: {
   projects: ApiProject[];
-  onAddDataset: () => void;
+  onAddDataset: (
+    mode?: "revision" | "mapping",
+    baseDatasetRevisionId?: string,
+  ) => void;
   onStartProject: (datasetViewRevisionId: string) => void;
   onOpenTrainingData: (projectId: string) => void;
 }) {
@@ -83,6 +86,9 @@ export function DataLibraryPage({
     message: string;
   }>>([]);
   const [samplesOpen, setSamplesOpen] = useState(false);
+  const [newTaskGuideOpen, setNewTaskGuideOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("onboarding") === "new-task",
+  );
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
   const [openingTrainingSnapshotId, setOpeningTrainingSnapshotId] = useState("");
@@ -175,6 +181,10 @@ export function DataLibraryPage({
     ?? managedDatasets[0]
     ?? bundledDatasets[0];
   const selectedEffectiveProfile = selectedDataset?.profile_revision.effective_profile_json;
+  const selectedLineage = selectedDataset?.dataset_views
+    ?.flatMap((view) => view.members)
+    .map((member) => member.provenance_json)
+    .find((provenance) => provenance?.lineage_kind === "dataset_revision_update");
   const requiresExactProfile = Boolean(
     selectedEffectiveProfile
     && "shared" in selectedEffectiveProfile
@@ -341,13 +351,21 @@ export function DataLibraryPage({
     setRefreshWarnings([]);
     setError("");
     try {
-      const result = await workbenchApi.refreshModelPackageRefs();
+      const result = await workbenchApi.refreshTaskResources();
       const warnings = result.warnings ?? [];
       await load();
       setRefreshWarnings(warnings);
+      const addedTaskIds = result.added_task_ids ?? [];
+      const addedModelPackageIds = result.added_model_package_ids ?? [];
+      const added = [
+        ...(addedTaskIds.length > 0 ? [`新しいTask ${addedTaskIds.length}件`] : []),
+        ...(addedModelPackageIds.length > 0 ? [`新しいModel Package ${addedModelPackageIds.length}件`] : []),
+      ];
       setRefreshMessage(warnings.length > 0
-        ? `利用できる個人Model Packageを反映しました。${warnings.length}件は検証で除外されました。`
-        : "個人Model Packageを反映しました。利用可能なものはProject作成で選べます。");
+        ? `${added.length > 0 ? `${added.join("・")}を反映。` : ""}${warnings.length}件は検証で除外されました。`
+        : added.length > 0
+          ? `${added.join("・")}を反映しました。Project作成で選べます。`
+          : "再読込は完了しました。新しく反映するTask／Model Packageはありません。");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "個人Model Packageを再読込できませんでした。");
     } finally {
@@ -421,7 +439,7 @@ export function DataLibraryPage({
       <div className="page-intro data-library-header">
         <div><span className="overline">DATA LIBRARY</span><h2>データライブラリ</h2><p>Excelとデータセットプロファイルを組み合わせたデータセットと、モデルの学習元を確認します。</p></div>
         {activeTab === "browse" && <div className="data-library-header-actions">
-          <button className="primary-button" onClick={onAddDataset}>Excelからデータセットを追加</button>
+          <button className="primary-button" onClick={() => onAddDataset("mapping")}>データを追加</button>
           <button
             className="outline-button"
             aria-expanded={compareOpen}
@@ -434,6 +452,47 @@ export function DataLibraryPage({
         <button type="button" role="tab" aria-selected={activeTab === "browse"} className={activeTab === "browse" ? "active" : ""} onClick={() => selectTab("browse")}>閲覧</button>
         <button type="button" role="tab" aria-selected={activeTab === "update"} className={activeTab === "update" ? "active" : ""} onClick={() => selectTab("update")}>データ更新</button>
       </nav>
+      {activeTab === "browse" && <section className="data-onboarding-paths" aria-labelledby="data-onboarding-heading">
+        <header><div><span className="overline">ADD DATA</span><h3 id="data-onboarding-heading">追加するデータはどれですか</h3></div><small>先に作業量と安全境界を分けます</small></header>
+        <div>
+          <button
+            type="button"
+            disabled={!selectedDataset}
+            onClick={() => selectedDataset && onAddDataset("revision", selectedDataset.dataset_revision.id)}
+          ><b>更新版</b><span>同じTask・Profile</span><small>Source差分 → 新Revision → 再学習</small></button>
+          <button type="button" onClick={() => onAddDataset("mapping")}><b>列名・構造が違う</b><span>既存Taskへ対応付け</span><small>Profile draft → 検証 → 登録</small></button>
+          <button type="button" aria-expanded={newTaskGuideOpen} onClick={() => setNewTaskGuideOpen((value) => !value)}><b>新しい予測問題</b><span>入力・出力も新しい</span><small>意味と単位を確認 → scaffold</small></button>
+        </div>
+      </section>}
+      {activeTab === "browse" && newTaskGuideOpen && <section className="data-library-section new-task-guide" aria-labelledby="new-task-guide-heading">
+        <header><div><span className="overline">NEW TASK SCAFFOLD</span><h3 id="new-task-guide-heading">完全に新しいTaskを準備</h3><p>任意コードは生成せず、確認済みのTaskDefinition・Dataset Profile・標準学習recipeを個人Task storeへ作ります。</p></div><button type="button" className="text-button" aria-label="新しいTaskの手順を閉じる" onClick={() => setNewTaskGuideOpen(false)}>閉じる</button></header>
+        <ol><li><b>列を棚卸し</b><span>型・範囲・候補値だけをread-onlyで確認</span></li><li><b>意味を確定</b><span>入力／出力、canonical key、単位を明示</span></li><li><b>学習・昇格</b><span>allow-list済みEstimatorでbuild / verify / promote</span></li><li><b>アプリへ接続</b><span>個人Taskを再読込し、そのままProjectを作成</span></li></ol>
+        <pre><code>{`npm run task:scaffold -- inspect "C:\\path\\to\\new-data.csv"
+
+npm run task:scaffold -- create "C:\\path\\to\\new-data.csv" \`
+  --task-id my-material-property-v1 \`
+  --label "新しい材料特性" \`
+  --input "C_pct:composition:carbon_pct:C:%" \`
+  --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" \`
+  --input "temperature_C:process:temperature_c:温度:°C" \`
+  --input-range "temperature_C:20:1500:650:900:700:820" \`
+  --output "strength_MPa:strength:強度:MPa:at_least" \`
+  --output-range "strength_MPa:0:2000:250:600" \`
+  --grain-confirmation one-row-one-observation \`
+  --relation-confirmation no-relations \`
+  --estimator ridge.v1
+
+# create結果のsource / profileを同じまま使う
+npm run model:build -- --task my-material-property-v1 ...
+npm run model:verify -- --task my-material-property-v1 ...
+npm run model:promote -- --task my-material-property-v1 ...`}</code></pre>
+        <div className="model-update-actions">
+          <button className="primary-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
+          <small>アプリは起動したままで構いません。検証済みのdata-only contractだけを読み込みます。</small>
+        </div>
+        {refreshMessage && <p role="status">{refreshMessage}</p>}
+        <div className="new-task-safety"><strong>自動確定しない項目</strong><span>物理的意味 · 単位 · 物理／通常／学習範囲 · 学習一行 · relation · 目的変数</span><small>inspectの最小値・最大値は要約です。物理範囲には流用せず、未解決が1件でもあればdraftで止まります。元データ、個人Profile、Packageはリポジトリへ追加しません。</small></div>
+      </section>}
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">
         <span>{undoAction.label}を{undoAction.archived ? "復元" : "利用停止"}しました。</span>
@@ -463,7 +522,7 @@ export function DataLibraryPage({
               <div className="dataset-group-title"><h4 id="managed-datasets-heading">自分のデータ</h4><span>{managedDatasets.length}件</span></div>
               {managedDatasets.length
                 ? <div className="dataset-list">{managedDatasets.map(renderDatasetCard)}</div>
-                : <div className="dataset-group-empty"><p>追加したExcelやCSVはここにまとまります。</p><button className="primary-button" onClick={onAddDataset}>最初のデータセットを追加</button></div>}
+                : <div className="dataset-group-empty"><p>追加したExcelやCSVはここにまとまります。</p><button className="primary-button" onClick={() => onAddDataset("mapping")}>最初のデータセットを追加</button></div>}
             </section>
             <details className="bundled-dataset-group" open={samplesOpen} onToggle={(event) => setSamplesOpen(event.currentTarget.open)}>
               <summary><span>同梱サンプル</span><small>{bundledDatasets.length}件 · 必要なときだけ開く</small></summary>
@@ -490,6 +549,13 @@ export function DataLibraryPage({
             <div><span>利用できるモデル</span><strong>{selectedDatasetPackages.filter((item) => !item.archived_at).length}件</strong></div>
             <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small>{selectedDataset.data_asset.locator}</small></details>
           </div>
+          {selectedLineage && <div className="dataset-revision-lineage" aria-label="Dataset revision lineage">
+            <span>Source更新</span>
+            <code title={String(selectedLineage.previous_source_sha256 ?? "")}>{shortDigest(String(selectedLineage.previous_source_sha256 ?? ""))}</code>
+            <b aria-hidden="true">→</b>
+            <code title={selectedDataset.data_asset.sha256}>{shortDigest(selectedDataset.data_asset.sha256)}</code>
+            <small title={String(selectedLineage.previous_dataset_revision_id ?? "")}>同じProfileから作成した新しいDataset Revision</small>
+          </div>}
           <div className="model-package-library">
             <div className="panel-title"><h4>このデータで使うモデル</h4><span>{selectedDatasetPackages.length}件</span></div>
             {selectedDatasetPackages.length > 0
@@ -563,8 +629,8 @@ export function DataLibraryPage({
               <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
               <div className="model-update-actions">
                 <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
-                <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人モデルを再読込"}</button>
-                <small>保存済み予測は再計算されません。新しい予測タスクやruntime実装を追加した場合だけ、アプリを再起動します。</small>
+                <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
+                <small>保存済み予測は再計算されません。検証済みの個人Taskも再起動なしで反映します。</small>
               </div>
               {refreshMessage && <p role="status">{refreshMessage}</p>}
               {refreshWarnings.length > 0 && <details className="model-refresh-warnings">

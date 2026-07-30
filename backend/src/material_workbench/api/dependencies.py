@@ -26,7 +26,11 @@ from material_workbench.application.chains import ChainUseCases
 def get_runtime_context(request: Request) -> Any:
     """Return one immutable generation of the resources swapped after startup."""
 
-    return getattr(request.app.state, "runtime_context", request.app.state)
+    return getattr(
+        request.state,
+        "runtime_context",
+        getattr(request.app.state, "runtime_context", request.app.state),
+    )
 
 
 def get_store(request: Request) -> Store:

@@ -4,11 +4,13 @@ import asyncio
 import os
 import json
 import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Mapping
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -60,6 +62,7 @@ from material_workbench.modeling.transform_catalog import (
     load_deterministic_transform_catalog,
 )
 from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry
 from material_workbench.application.workspace_catalog_bootstrap import bootstrap_workspace_catalog
 from material_workbench.application.ai_review_provider import AiReviewProvider
@@ -79,6 +82,7 @@ from material_workbench.application.chain_evaluation import (
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from .task_composition.builtin_tasks import (
     ANNEALED_TASK_ID,
+    BUILTIN_TASK_MODULES,
     PRIMARY_DEFAULT_SOURCE,
 )
 from .task_composition.descriptors import TaskModule
@@ -87,6 +91,7 @@ from .task_composition.catalog import (
     registered_task_modules,
 )
 from material_workbench.contracts.task_contracts import TaskAvailability
+from material_workbench.contracts.schemas import TaskResourceRefreshResult
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
     SubsystemKind,
@@ -203,6 +208,78 @@ class _RuntimeContext:
     chain_uncertainty_service: ChainUncertaintyService | None
 
 
+def _backup_sqlite(source: Path, destination: Path) -> None:
+    """Create one logical SQLite snapshot without copying a live journal."""
+
+    destination.unlink(missing_ok=True)
+    source_connection = sqlite3.connect(source)
+    destination_connection = sqlite3.connect(destination)
+    try:
+        source_connection.backup(destination_connection)
+        destination_connection.commit()
+    finally:
+        destination_connection.close()
+        source_connection.close()
+
+
+_SQLITE_SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+def _sqlite_generation_paths(database: Path) -> tuple[Path, ...]:
+    return (
+        database,
+        *(Path(f"{database}{suffix}") for suffix in _SQLITE_SIDECAR_SUFFIXES),
+    )
+
+
+def _remove_sqlite_generation(database: Path) -> None:
+    for path in _sqlite_generation_paths(database):
+        path.unlink(missing_ok=True)
+
+
+def _preserve_live_sqlite_generation(
+    source: Path,
+    destination: Path,
+) -> None:
+    """Move the byte-exact live SQLite generation to a private name.
+
+    Readers are already idle and middleware blocks new requests while this
+    runs. The main file and every sidecar remain one preserved generation.
+    """
+
+    _remove_sqlite_generation(destination)
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source_path, destination_path in zip(
+            _sqlite_generation_paths(source),
+            _sqlite_generation_paths(destination),
+            strict=True,
+        ):
+            if source_path.exists():
+                os.replace(source_path, destination_path)
+                moved.append((source_path, destination_path))
+    except Exception:
+        for source_path, destination_path in reversed(moved):
+            if destination_path.exists():
+                os.replace(destination_path, source_path)
+        raise
+
+
+def _restore_live_sqlite_generation(
+    preserved: Path,
+    destination: Path,
+) -> None:
+    """Restore preserved sidecars, then atomically republish the main file."""
+
+    _remove_sqlite_generation(destination)
+    preserved_paths = _sqlite_generation_paths(preserved)
+    destination_paths = _sqlite_generation_paths(destination)
+    for index in range(1, len(preserved_paths)):
+        if preserved_paths[index].exists():
+            os.replace(preserved_paths[index], destination_paths[index])
+    os.replace(preserved_paths[0], destination_paths[0])
+
+
 def _prepare_app_resources(
     source_path: str | Path | None = None,
     *,
@@ -220,7 +297,10 @@ def _prepare_app_resources(
     configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
     injected = dict(package_roots or {})
     modules = dict(registered_task_modules())
-    validate_active_package_task_set(load_active_packages(configured), set(modules))
+    validate_active_package_task_set(
+        load_active_packages(configured),
+        set(BUILTIN_TASK_MODULES),
+    )
     data_by_source: dict[str, Any] = {}
     runtimes: dict[str, PredictionRuntime] = {}
     explorers: dict[str, DataExplorerEntry] = {}
@@ -267,13 +347,18 @@ def _prepare_app_resources(
         package_override = injected.get(task_id) or os.getenv(
             module.package_override_env
         )
-        configured_package = Path(package_override) if package_override else configured
+        configured_package = (
+            Path(package_override)
+            if package_override
+            else module.default_package or configured
+        )
         try:
-            configured_package = resolve_configured_package(
-                task_id,
-                config_path=configured,
-                override=package_override,
-            )
+            if package_override or module.default_package is None:
+                configured_package = resolve_configured_package(
+                    task_id,
+                    config_path=configured,
+                    override=package_override,
+                )
             package = ModelPackageLoader().load(configured_package)
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
@@ -622,6 +707,154 @@ def create_app(
         app.state.active_resource_requests = 0
         app.state.resource_requests_idle = asyncio.Event()
         app.state.resource_requests_idle.set()
+        app.state.resource_promotion_complete = asyncio.Event()
+        app.state.resource_promotion_complete.set()
+        task_resource_refresh_lock = asyncio.Lock()
+
+        async def refresh_task_resources() -> TaskResourceRefreshResult:
+            """Stage Task, Package, and DB changes before one generation swap."""
+
+            async with task_resource_refresh_lock:
+                previous_task_ids = set(
+                    app.state.runtime_context.task_registry.available_task_ids
+                )
+                previous_model_package_ids = {
+                    item.id
+                    for item in (
+                        app.state.runtime_context.workspace_catalog
+                        .list_model_package_refs(include_archived=True)
+                    )
+                }
+                complete = await asyncio.to_thread(
+                    _prepare_app_resources,
+                    source_path,
+                    flank_wear_source_path=flank_wear_source_path,
+                    package_roots=package_roots,
+                    active_packages_path=active_packages_path,
+                )
+                refresh_warnings: list[Any] = []
+                refreshed_origins = dict(model_package_origins)
+                workspace_database = Path(app.state.workspace_database)
+                staged_database = workspace_database.with_name(
+                    f".{workspace_database.name}.task-refresh-{uuid4().hex}.db"
+                )
+                rollback_database = workspace_database.with_name(
+                    f".{workspace_database.name}.task-refresh-rollback-{uuid4().hex}.db"
+                )
+
+                def context_for(catalog: WorkspaceCatalog) -> _RuntimeContext:
+                    resolver = ProjectRuntimeResolver(
+                        catalog,
+                        complete.task_registry,
+                    )
+                    transform_catalog = app.state.deterministic_transform_catalog
+                    chain_execution = ChainExecutionService(
+                        app.state.store,
+                        complete.task_registry,
+                        transform_catalog,
+                        ChainExecutionCoordinator(),
+                    )
+                    chain_uncertainty = (
+                        ChainUncertaintyService(
+                            app.state.store,
+                            chain_execution,
+                        )
+                        if transform_catalog is not None
+                        else None
+                    )
+                    data = (
+                        complete.data_by_source.get("primary")
+                        or next(iter(complete.data_by_source.values()), None)
+                    )
+                    return _RuntimeContext(
+                        data=data,
+                        task_registry=complete.task_registry,
+                        workspace_catalog=catalog,
+                        project_runtime_resolver=resolver,
+                        chain_execution_service=chain_execution,
+                        chain_uncertainty_service=chain_uncertainty,
+                    )
+
+                app.state.resource_promotion_complete.clear()
+                app.state.resources_promoting = True
+                try:
+                    # The refresh request is not counted as a resource reader.
+                    # New requests receive 503 while existing readers finish
+                    # against the context captured by middleware.
+                    await app.state.resource_requests_idle.wait()
+
+                    def stage() -> None:
+                        _backup_sqlite(workspace_database, staged_database)
+                        staged_catalog = bootstrap_workspace_catalog(
+                            staged_database,
+                            complete.task_registry,
+                            available_packages_paths=(
+                                configured_available_packages_paths
+                            ),
+                            personal_available_packages_paths=(
+                                configured_personal_available_packages_paths
+                            ),
+                            package_origins=refreshed_origins,
+                            warnings=refresh_warnings,
+                        )
+                        # Constructors and every contract check must succeed
+                        # before the live database can be replaced.
+                        context_for(staged_catalog)
+
+                    await asyncio.to_thread(stage)
+                    _preserve_live_sqlite_generation(
+                        workspace_database,
+                        rollback_database,
+                    )
+                    try:
+                        os.replace(staged_database, workspace_database)
+                        live_catalog = WorkspaceCatalog(workspace_database)
+                        context = context_for(live_catalog)
+                    except Exception:
+                        _restore_live_sqlite_generation(
+                            rollback_database,
+                            workspace_database,
+                        )
+                        raise
+
+                    app.state.runtime_context = context
+                    app.state.data = context.data
+                    app.state.workspace_catalog = context.workspace_catalog
+                    app.state.project_runtime_resolver = (
+                        context.project_runtime_resolver
+                    )
+                    app.state.chain_execution_service = (
+                        context.chain_execution_service
+                    )
+                    app.state.chain_uncertainty_service = (
+                        context.chain_uncertainty_service
+                    )
+                    app.state.task_registry = context.task_registry
+                    model_package_origins.clear()
+                    model_package_origins.update(refreshed_origins)
+                    app.state.model_store_warnings = refresh_warnings
+                    app.state.resources_ready = True
+                finally:
+                    _remove_sqlite_generation(staged_database)
+                    _remove_sqlite_generation(rollback_database)
+                    app.state.resources_promoting = False
+                    app.state.resource_promotion_complete.set()
+                task_ids = set(context.task_registry.available_task_ids)
+                model_package_ids = {
+                    item.id
+                    for item in context.workspace_catalog.list_model_package_refs()
+                }
+                return TaskResourceRefreshResult(
+                    task_ids=sorted(task_ids),
+                    added_task_ids=sorted(task_ids - previous_task_ids),
+                    model_package_ids=sorted(model_package_ids),
+                    added_model_package_ids=sorted(
+                        model_package_ids - previous_model_package_ids
+                    ),
+                    warnings=refresh_warnings,
+                )
+
+        app.state.refresh_task_resources = refresh_task_resources
         promotion_task: asyncio.Task[None] | None = None
         if defer_resources:
             async def promote_remaining_resources() -> None:
@@ -714,6 +947,7 @@ def create_app(
                             chain_error,
                         )
 
+                    app.state.resource_promotion_complete.clear()
                     app.state.resources_promoting = True
                     await app.state.resource_requests_idle.wait()
                     context, chain_revision_id, chain_error = await asyncio.to_thread(
@@ -764,6 +998,7 @@ def create_app(
                     app.state.resources_loading_error = str(exc)
                 finally:
                     app.state.resources_promoting = False
+                    app.state.resource_promotion_complete.set()
 
             promotion_task = asyncio.create_task(promote_remaining_resources())
         try:
@@ -784,22 +1019,33 @@ def create_app(
 
     @app.middleware("http")
     async def gate_resource_promotion(request: Request, call_next):
-        health_paths = {"/health", "/api/health", "/api/readiness"}
-        is_health_request = request.url.path in health_paths
-        if (
-            getattr(request.app.state, "resources_promoting", False)
-            and not is_health_request
-        ):
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "detail": (
-                        "追加TaskをWorkspaceへ安全に登録しています。"
-                        "完了後に自動で再試行してください。"
-                    )
-                },
-            )
-        if is_health_request:
+        is_catalog_health = request.url.path in {"/health", "/api/health"}
+        is_readiness = request.url.path == "/api/readiness"
+        is_resource_refresh = (
+            request.url.path == "/api/data-library/tasks/refresh"
+        )
+        if is_readiness:
+            return await call_next(request)
+        if getattr(request.app.state, "resources_promoting", False):
+            if is_catalog_health:
+                # Health reads Store and Task runtime state. Wait until the
+                # database and runtime context belong to one new generation.
+                await request.app.state.resource_promotion_complete.wait()
+            else:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "detail": (
+                            "追加TaskをWorkspaceへ安全に登録しています。"
+                            "完了後に自動で再試行してください。"
+                        )
+                    },
+                )
+
+        # Every dependency in this request resolves the same immutable
+        # generation even if a refresh completes while the handler is running.
+        request.state.runtime_context = request.app.state.runtime_context
+        if is_resource_refresh:
             return await call_next(request)
 
         request.app.state.active_resource_requests += 1

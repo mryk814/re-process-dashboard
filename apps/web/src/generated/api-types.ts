@@ -160,6 +160,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-library/tasks/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Task Resources
+         * @description Atomically load validated personal Task bundles without restarting.
+         */
+        post: operations["refresh_task_resources_api_data_library_tasks_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-library/views": {
         parameters: {
             query?: never;
@@ -3258,6 +3278,8 @@ export interface components {
         };
         /** Body_register_uploaded_workbook_api_profile_workbench_register_post */
         Body_register_uploaded_workbook_api_profile_workbench_register_post: {
+            /** Base Dataset Revision Id */
+            base_dataset_revision_id?: string | null;
             /** Expected Source Sha256 */
             expected_source_sha256: string;
             /** File */
@@ -7242,6 +7264,10 @@ export interface components {
             dataset_revision_id: string;
             /** Dataset View Revision Id */
             dataset_view_revision_id: string;
+            /** Previous Dataset Revision Id */
+            previous_dataset_revision_id?: string | null;
+            /** Previous Source Sha256 */
+            previous_source_sha256?: string | null;
             /** Profile Id */
             profile_id: string;
             /** Profile Revision Id */
@@ -9845,6 +9871,19 @@ export interface components {
              */
             schema_version: "task-definition/v1";
         };
+        /** TaskResourceRefreshResult */
+        TaskResourceRefreshResult: {
+            /** Added Model Package Ids */
+            added_model_package_ids?: string[];
+            /** Added Task Ids */
+            added_task_ids?: string[];
+            /** Model Package Ids */
+            model_package_ids?: string[];
+            /** Task Ids */
+            task_ids: string[];
+            /** Warnings */
+            warnings?: components["schemas"]["ModelPackageRegistrationWarning"][];
+        };
         /** ToleranceProfile */
         ToleranceProfile: {
             /** Fields */
@@ -10364,6 +10403,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelPackageRefreshResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    refresh_task_resources_api_data_library_tasks_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskResourceRefreshResult"];
                 };
             };
             /** @description Validation Error */

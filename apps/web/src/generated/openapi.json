@@ -2755,6 +2755,17 @@
       },
       "Body_register_uploaded_workbook_api_profile_workbench_register_post": {
         "properties": {
+          "base_dataset_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Dataset Revision Id"
+          },
           "expected_source_sha256": {
             "title": "Expected Source Sha256",
             "type": "string"
@@ -13535,6 +13546,28 @@
             "title": "Dataset View Revision Id",
             "type": "string"
           },
+          "previous_dataset_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Dataset Revision Id"
+          },
+          "previous_source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Source Sha256"
+          },
           "profile_id": {
             "title": "Profile Id",
             "type": "string"
@@ -20045,6 +20078,50 @@
         "title": "TaskDefinition",
         "type": "object"
       },
+      "TaskResourceRefreshResult": {
+        "properties": {
+          "added_model_package_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added Model Package Ids",
+            "type": "array"
+          },
+          "added_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Added Task Ids",
+            "type": "array"
+          },
+          "model_package_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Package Ids",
+            "type": "array"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageRegistrationWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_ids"
+        ],
+        "title": "TaskResourceRefreshResult",
+        "type": "object"
+      },
       "ToleranceProfile": {
         "additionalProperties": false,
         "properties": {
@@ -21054,6 +21131,35 @@
           }
         },
         "summary": "Update Model Package"
+      }
+    },
+    "/api/data-library/tasks/refresh": {
+      "post": {
+        "description": "Atomically load validated personal Task bundles without restarting.",
+        "operationId": "refresh_task_resources_api_data_library_tasks_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResourceRefreshResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Task Resources"
       }
     },
     "/api/data-library/views": {

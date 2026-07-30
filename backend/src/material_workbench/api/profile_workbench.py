@@ -356,6 +356,7 @@ async def register_uploaded_workbook(
     profile_digest: str = Form(...),
     expected_source_sha256: str = Form(...),
     name: str | None = Form(None),
+    base_dataset_revision_id: str | None = Form(None),
     catalog: WorkspaceCatalog = Depends(get_workspace_catalog),
     library_root: Path = Depends(get_data_library_root),
 ) -> ProfileWorkbenchRegistration:
@@ -366,10 +367,36 @@ async def register_uploaded_workbook(
     if len(dataset_name) > 160:
         raise HTTPException(422, "Dataset名は160文字以下にしてください")
     before = {item.id for item in catalog.list_dataset_revisions(include_archived=True)}
+    previous_dataset = None
+    previous_asset = None
+    if base_dataset_revision_id:
+        previous_dataset = catalog.get_dataset_revision(
+            base_dataset_revision_id,
+            include_archived=True,
+        )
+        if previous_dataset is None:
+            raise HTTPException(422, "更新元Dataset Revisionが見つかりません")
+        previous_profile = catalog.get_profile_revision(
+            previous_dataset.profile_revision_id,
+            include_archived=True,
+        )
+        if previous_profile is None or previous_profile.profile_digest != profile_digest:
+            raise HTTPException(
+                422,
+                "更新版は元Datasetと同じDataset Profileを選択してください",
+            )
+        previous_asset = catalog.get_data_asset(
+            previous_dataset.data_asset_id,
+            include_archived=True,
+        )
+        if previous_asset is None:
+            raise HTTPException(422, "更新元のSourceが見つかりません")
     async with _uploaded_workbook(file) as source:
         actual_source_sha256 = await run_in_threadpool(file_sha256, source)
         if actual_source_sha256 != expected_source_sha256:
             raise HTTPException(409, "確認後にExcelの内容が変わりました。もう一度内容を確認してください")
+        if previous_asset is not None and previous_asset.sha256 == actual_source_sha256:
+            raise HTTPException(409, "更新元と内容が同じです。Source差分のあるファイルを選択してください")
         _reject_archived_registration(catalog, actual_source_sha256, profile_digest)
         try:
             result = await run_in_threadpool(
@@ -379,6 +406,15 @@ async def register_uploaded_workbook(
                 library_root=library_root,
                 profile_path=selected,
                 name=dataset_name or None,
+                member_provenance=(
+                    {
+                        "lineage_kind": "dataset_revision_update",
+                        "previous_dataset_revision_id": previous_dataset.id,
+                        "previous_source_sha256": previous_asset.sha256,
+                    }
+                    if previous_dataset is not None and previous_asset is not None
+                    else None
+                ),
             )
         except CatalogConflictError as exc:
             raise HTTPException(409, str(exc) or "同じDatasetの登録内容が競合しました") from exc
@@ -393,4 +429,10 @@ async def register_uploaded_workbook(
         source_sha256=result.source_sha256,
         profile_id=result.profile_id,
         task_ids=list(result.task_ids),
+        previous_dataset_revision_id=(
+            previous_dataset.id if previous_dataset is not None else None
+        ),
+        previous_source_sha256=(
+            previous_asset.sha256 if previous_asset is not None else None
+        ),
     )

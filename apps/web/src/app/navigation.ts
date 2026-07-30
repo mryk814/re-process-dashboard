@@ -38,6 +38,8 @@ export type NavigationIntent = Readonly<{
   sourceConnectorId?: string;
   sourceStage?: "raw" | "curation" | "approval" | "training";
   sourceRevisionId?: string;
+  dataOnboardingMode?: "revision" | "mapping" | "new-task";
+  baseDatasetRevisionId?: string;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -97,6 +99,10 @@ export function readNavigationIntent(
       ? params.get("stage") as NavigationIntent["sourceStage"]
       : undefined,
     sourceRevisionId: params.get("revision") || undefined,
+    dataOnboardingMode: ["revision", "mapping", "new-task"].includes(params.get("onboarding") ?? "")
+      ? params.get("onboarding") as NavigationIntent["dataOnboardingMode"]
+      : undefined,
+    baseDatasetRevisionId: params.get("base_dataset") || undefined,
   });
 }
 
@@ -123,6 +129,14 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
+  if (
+    (intent.view === "data-library" || intent.view === "profile-workbench")
+    && intent.dataOnboardingMode
+  ) params.set("onboarding", intent.dataOnboardingMode);
+  if (
+    (intent.view === "data-library" || intent.view === "profile-workbench")
+    && intent.baseDatasetRevisionId
+  ) params.set("base_dataset", intent.baseDatasetRevisionId);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 
@@ -153,5 +167,11 @@ export function withView(
     sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,
     sourceStage: view === "data-library" ? current.sourceStage : undefined,
     sourceRevisionId: view === "data-library" ? current.sourceRevisionId : undefined,
+    dataOnboardingMode: view === "data-library" || view === "profile-workbench"
+      ? current.dataOnboardingMode
+      : undefined,
+    baseDatasetRevisionId: view === "data-library" || view === "profile-workbench"
+      ? current.baseDatasetRevisionId
+      : undefined,
   });
 }

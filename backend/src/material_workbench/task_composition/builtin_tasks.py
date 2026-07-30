@@ -307,6 +307,30 @@ def _tabular_loader(task_id: str) -> DataLoader:
     return load
 
 
+def _tabular_profile_loader(profile_path: Path) -> DataLoader:
+    """Build the generic tabular loader from one reviewed external Profile."""
+
+    def load(
+        path: Path,
+        profile: DatasetInputProfile | None = None,
+    ) -> DataDescriptor:
+        from material_workbench.modeling.tabular_regression import (
+            TabularDatasetProfile,
+            load_tabular_data,
+            load_tabular_profile,
+        )
+
+        if profile is not None and not isinstance(profile, TabularDatasetProfile):
+            raise ValueError("tabular task requires a tabular Dataset Profile")
+        return load_tabular_data(
+            path,
+            profile or load_tabular_profile(profile_path),
+            profile_locator=profile_path,
+        )
+
+    return load
+
+
 def _observation_loader(task_id: str) -> DataLoader:
     def load(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
         from material_workbench.data.observation_profile import ObservationDatasetProfile
@@ -407,6 +431,22 @@ def _tabular_features(task_id: str) -> FeatureRowBuilder:
         return build_tabular_features_from_observation(
             row, medians, load_tabular_profile(_TABULAR_PROFILES[task_id])
         )
+    return build
+
+
+def _tabular_profile_features(profile_path: Path) -> FeatureRowBuilder:
+    def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
+        from material_workbench.modeling.tabular_regression import (
+            build_tabular_features_from_observation,
+            load_tabular_profile,
+        )
+
+        return build_tabular_features_from_observation(
+            row,
+            medians,
+            load_tabular_profile(profile_path),
+        )
+
     return build
 
 
@@ -765,6 +805,47 @@ def _application_capability(
         candidate_excel_export=candidate_excel_export,
         sparse_blend=sparse_blend_transform_id is not None,
         sparse_blend_transform_id=sparse_blend_transform_id,
+    )
+
+
+def external_tabular_task_module(
+    *,
+    task_id: str,
+    label: str,
+    source_path: Path,
+    profile_path: Path,
+    estimator_id: str,
+    package_path: Path | None,
+) -> TaskModule:
+    """Compose a reviewed data-only Task bundle without loading Python code."""
+
+    env_key = "".join(
+        character if character.isalnum() else "_"
+        for character in task_id.upper()
+    )
+    return TaskModule(
+        task_id=task_id,
+        package_override_env=f"WORKBENCH_{env_key}_MODEL_PACKAGE",
+        source_env=f"WORKBENCH_{env_key}_SOURCE_PATH",
+        source_kind=f"external_task:{task_id}",
+        default_source=source_path,
+        default_package=package_path,
+        data_loader=_tabular_profile_loader(profile_path),
+        runtime_factory=_tabular_runtime,
+        feature_row_builder=_tabular_profile_features(profile_path),
+        standard_model_authoring=StandardModelAuthoring(
+            _tabular_training_candidate,
+            (estimator_id,),
+            default_estimator_id=estimator_id,
+        ),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=True,
+            similarity=True,
+        ),
+        starter_project=_tabular_starter(task_id, label),
+        response_curve=_standard_response_curve,
+        data_explorer=_TABULAR_EXPLORER,
     )
 
 

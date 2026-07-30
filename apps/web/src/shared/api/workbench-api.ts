@@ -408,6 +408,12 @@ export const workbenchApi = {
       "個人Model Packageを再読込できませんでした。",
     );
   },
+  async refreshTaskResources() {
+    return requireData(
+      await apiClient.POST("/api/data-library/tasks/refresh"),
+      "個人Taskを再読込できませんでした。",
+    );
+  },
   async setModelPackageArchived(referenceId: string, archived: boolean) {
     return requireData(await apiClient.PATCH("/api/data-library/model-packages/{reference_id}", {
       params: { path: { reference_id: referenceId } },
@@ -468,18 +474,20 @@ export const workbenchApi = {
   profileWorkbenchExportUrl(profileDigest: string) {
     return apiDownloadUrl(`/api/profile-workbench/profiles/${encodeURIComponent(profileDigest)}/export`);
   },
-  async registerProfileWorkbook(file: File, profileDigest: string, expectedSourceSha256: string, name: string) {
+  async registerProfileWorkbook(file: File, profileDigest: string, expectedSourceSha256: string, name: string, baseDatasetRevisionId?: string) {
     const form = new FormData();
     form.append("file", file);
     form.append("profile_digest", profileDigest);
     form.append("expected_source_sha256", expectedSourceSha256);
     if (name.trim()) form.append("name", name.trim());
+    if (baseDatasetRevisionId) form.append("base_dataset_revision_id", baseDatasetRevisionId);
     return requireData(await apiClient.POST("/api/profile-workbench/register", {
       body: {
         file: file.name,
         profile_digest: profileDigest,
         expected_source_sha256: expectedSourceSha256,
         name: name.trim() || undefined,
+        base_dataset_revision_id: baseDatasetRevisionId,
       },
       bodySerializer: () => form,
     }), "Datasetを登録できませんでした。");

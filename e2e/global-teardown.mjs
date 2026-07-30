@@ -8,4 +8,6 @@ export default function globalTeardown() {
   if (modelStore) rmSync(modelStore, { force: true, recursive: true });
   const profileStore = process.env.PLAYWRIGHT_OWNED_PROFILE_STORE_PATH;
   if (profileStore) rmSync(profileStore, { force: true, recursive: true });
+  const taskStore = process.env.PLAYWRIGHT_OWNED_TASK_STORE_PATH;
+  if (taskStore) rmSync(taskStore, { force: true, recursive: true });
 }

@@ -15,12 +15,22 @@ TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType(BUILTIN_TASK_MODULES)
 
 
 def registered_task_modules() -> Mapping[str, TaskModule]:
-    return TASK_MODULES
+    from material_workbench.task_composition.external_tasks import (
+        external_task_modules,
+    )
+
+    external = external_task_modules()
+    duplicates = sorted(set(TASK_MODULES) & set(external))
+    if duplicates:
+        raise ValueError(
+            f"external Task IDs cannot replace bundled Tasks: {duplicates}"
+        )
+    return MappingProxyType({**TASK_MODULES, **external})
 
 
 def task_module(task_id: str) -> TaskModule:
     try:
-        return TASK_MODULES[task_id]
+        return registered_task_modules()[task_id]
     except KeyError as exc:
         raise ValueError(f"unknown registered task: {task_id}") from exc
 

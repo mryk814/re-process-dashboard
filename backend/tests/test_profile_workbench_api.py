@@ -194,6 +194,75 @@ def test_register_adds_managed_dataset_and_reuses_duplicate(client: TestClient) 
     assert len(client.get("/api/data-library/datasets").json()) == len(after_first)
 
 
+def test_register_update_preserves_source_lineage(client: TestClient) -> None:
+    contents = _workbook_copy_with_new_digest()
+    profile = next(
+        item
+        for item in client.get("/api/profile-workbench/profiles").json()
+        if item["source_name"] == PROFILE_SOURCE_NAME
+    )
+    base = next(
+        item
+        for item in client.get("/api/data-library/datasets").json()
+        if item["profile_revision"]["profile_digest"] == profile["profile_digest"]
+        and item["data_asset"]["sha256"] != sha256(contents).hexdigest()
+    )
+
+    response = client.post(
+        "/api/profile-workbench/register",
+        data={
+            "profile_digest": profile["profile_digest"],
+            "expected_source_sha256": sha256(contents).hexdigest(),
+            "name": "設備B 更新版",
+            "base_dataset_revision_id": base["dataset_revision"]["id"],
+        },
+        files=_file_payload(contents),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["previous_dataset_revision_id"] == base["dataset_revision"]["id"]
+    assert body["previous_source_sha256"] == base["data_asset"]["sha256"]
+    updated = next(
+        item
+        for item in client.get("/api/data-library/datasets").json()
+        if item["dataset_revision"]["id"] == body["dataset_revision_id"]
+    )
+    provenance = updated["dataset_views"][0]["members"][0]["provenance_json"]
+    assert provenance == {
+        "lineage_kind": "dataset_revision_update",
+        "previous_dataset_revision_id": base["dataset_revision"]["id"],
+        "previous_source_sha256": base["data_asset"]["sha256"],
+    }
+
+
+def test_register_update_rejects_unchanged_source(client: TestClient) -> None:
+    profile = next(
+        item
+        for item in client.get("/api/profile-workbench/profiles").json()
+        if item["source_name"] == PROFILE_SOURCE_NAME
+    )
+    base = next(
+        item
+        for item in client.get("/api/data-library/datasets").json()
+        if item["profile_revision"]["profile_digest"] == profile["profile_digest"]
+    )
+    contents = Path(base["data_asset"]["locator"]).read_bytes()
+
+    response = client.post(
+        "/api/profile-workbench/register",
+        data={
+            "profile_digest": profile["profile_digest"],
+            "expected_source_sha256": sha256(contents).hexdigest(),
+            "base_dataset_revision_id": base["dataset_revision"]["id"],
+        },
+        files=_file_payload(contents),
+    )
+
+    assert response.status_code == 409
+    assert "内容が同じ" in response.json()["message"]
+
+
 def test_stage_b_profile_inspection_and_managed_registration(client: TestClient) -> None:
     source = (
         ROOT

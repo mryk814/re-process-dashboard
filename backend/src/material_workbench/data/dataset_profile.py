@@ -341,6 +341,21 @@ def load_task_definitions(directory: str | Path | None = None) -> dict[str, Task
         definitions[definition.id] = definition
     if not definitions:
         raise DatasetProfileError([f"no production TaskDefinitions found in {root}"])
+    if directory is None:
+        from material_workbench.task_composition.external_tasks import (
+            external_task_contracts,
+        )
+
+        external = {
+            task_id: fixture.task_definition
+            for task_id, fixture in external_task_contracts().items()
+        }
+        duplicates = sorted(set(definitions) & set(external))
+        if duplicates:
+            raise DatasetProfileError([
+                f"external TaskDefinitions cannot replace bundled Tasks: {duplicates}"
+            ])
+        definitions.update(external)
     return definitions
 
 

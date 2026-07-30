@@ -1,6 +1,6 @@
 # 自分のデータで使い始める
 
-この文書は、既存の予測タスクへ手元のExcel／CSVを接続し、探索または学習してアプリで使う人の入口です。
+この文書は、手元のExcel／CSVを登録し、探索または学習してアプリで使う人の入口です。
 アプリ本体を開発するための手順ではありません。
 AIにread-onlyの仕分けからDataset登録、個人Package、Project作成まで任せる場合は
 [Data Contributor Skill](../../.claude/skills/data-contributor/SKILL.md)を使います。
@@ -26,7 +26,16 @@ ProfileとModel Packageの検証は、リポジトリに用意されたコマン
 | 過去データを探索し、類似実績として参照する | Data LibraryへDatasetを登録する | 不要 |
 | 新しい参照データを既存モデルの判断材料にする | Datasetを登録し、Data Library／Data Explorerで別の根拠として参照する | 不要 |
 | 手元のデータでモデルを学習して予測する | Datasetを確認し、既存Task向けPackageを作る | 必要 |
-| 新しい入力や目的変数を追加する | アプリの契約を変更する | [Developer Start Here](../developer-start-here.md)へ移る |
+| 新しい入力や目的変数を標準表形式回帰で扱う | 個人Task scaffoldを作る | 必要 |
+| 専用parser、Feature Pipeline、Runtimeが要る | アプリの契約を変更する | [Developer Start Here](../developer-start-here.md)へ移る |
+
+Data Libraryの入口は次の三つです。
+
+| 経路 | 変わるもの | 引き継ぐもの |
+| --- | --- | --- |
+| 更新版 | SourceとDataset Revision | Task、Profile、列の意味 |
+| 列名・構造が違う | 個人ProfileとDataset Revision | 既存Taskの入出力と学習単位 |
+| 新しい予測問題 | 個人Task、Profile、Package | allow-list済み標準adapter |
 
 既存Taskへ同じ意味のデータを差し替えられるか判断できない場合は、ファイルを変更しない診断を実行します。
 
@@ -37,7 +46,17 @@ npm run model:diagnose -- --source C:\path\to\data.xlsx
 診断が`existing_task_replacement`を示した場合は、この文書の範囲で進められます。
 `new_task_or_profile`を示した場合でも、列名やシート構造だけの違いなら、探索用Datasetは既存Profile schema内のmappingで登録できます。
 Profile Workbenchで保存した同じProfileを、Data Libraryのモデル更新手順が学習まで引き継ぎます。
-入力の意味、目的変数、学習単位、relationの意味が違う場合はアプリ開発です。
+入力の意味や目的変数が違っても、一行一観測のCSV／Excel表と標準回帰で表現できる場合は、
+下の「完全に新しい予測問題」へ進めます。
+relation、反復集約、専用Feature Pipeline、専用Runtimeが必要な場合はアプリ開発です。
+
+## 更新版を登録する
+
+Data Libraryで更新元を選び、「更新版」を開きます。
+TaskとProfileは更新元から固定され、変更できません。
+新しいSourceが更新元と同じ内容なら登録を拒否します。
+登録後は、更新元Dataset Revisionと更新前後のsource SHA-256がlineageとして残ります。
+モデルを更新する場合は、新Revisionのsourceと引き継いだProfileを同じままbuild／verify／promoteへ渡します。
 
 ## ExcelをDatasetとして登録して探索する
 
@@ -49,7 +68,7 @@ npm install
 npm run dev
 ```
 
-画面で「データライブラリ」から「新しいDatasetを準備」を開き、次の順に進めます。
+画面で「データライブラリ」から「データを追加」→「列名・構造が違う」を開き、次の順に進めます。
 
 1. Excelを選ぶ
 2. 既存Taskの意味に合うBase Profileを選ぶ
@@ -146,10 +165,51 @@ Windowsの既定保存先は`%LOCALAPPDATA%\Material Decision Workbench\models`�
 保存先は`WORKBENCH_MODEL_STORE_PATH`または`model:promote -- --store <path>`で変更できます。
 起動中のアプリで同じ保存先を再読込する場合は、アプリ起動前にも同じ`WORKBENCH_MODEL_STORE_PATH`を設定します。
 
-昇格後はData Libraryで「個人モデルを再読込」を実行します。
+昇格後はData Libraryで「個人Taskとモデルを再読込」を実行します。
 同梱Packageと個人Packageが区別して表示されるため、登録したDatasetと組み合わせて新しいProjectを作るか、既存Projectの設定で明示的に選択します。
 個人利用の通常経路は`models/packages/`やPackage設定を変更せず、git working treeを汚しません。
 `model:activate`は製品へ同梱する既定Packageを切り替えるアプリ開発者向けコマンドです。
+
+## 完全に新しい予測問題を標準回帰で追加する
+
+元データをリポジトリへ移さず、まず列型と範囲だけをread-onlyで確認します。
+
+```powershell
+npm run task:scaffold -- inspect C:\path\to\new-data.csv
+
+npm run task:scaffold -- create C:\path\to\new-data.csv `
+  --task-id my-material-property-v1 `
+  --label "新しい材料特性" `
+  --input "C_pct:composition:carbon_pct:C:%" `
+  --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" `
+  --input "temperature_C:process:temperature_c:温度:°C" `
+  --input-range "temperature_C:20:1500:650:900:700:820" `
+  --output "strength_MPa:strength:強度:MPa:at_least" `
+  --output-range "strength_MPa:0:2000:250:600" `
+  --grain-confirmation one-row-one-observation `
+  --relation-confirmation no-relations `
+  --estimator ridge.v1
+```
+
+入力／出力、canonical key、表示名、単位、目標方向は人が明示します。
+`inspect`の最小値・最大値は観測要約であり、物理的な許容範囲や通常使う範囲を意味しません。
+`--input-range`では物理的な許容範囲、通常使う範囲、確認した学習範囲を別々に指定します。
+学習範囲はinspect結果と一致させて明示的に確認します。
+出力の妥当範囲と表示範囲も`--output-range`で確認します。
+標準scaffoldは一行一観測・relationなしだけを扱います。
+未解決項目、非数値の数値列、値が一種類しかない数値列があればdraftで止まり、runtime用`bundle.json`を作りません。
+readyになった出力の`source`と`profile`を変えずに、表示された
+`model:build`、`model:verify`、`model:promote`を実行します。
+
+個人Taskは既定で`%LOCALAPPDATA%\Material Decision Workbench\tasks`へ保存します。
+`WORKBENCH_TASK_STORE_PATH`で変更できますが、リポジトリ内は拒否されます。
+元データのcopy、TaskDefinition、Profile、training recipe、Packageはすべて個人領域にあり、
+任意のPythonコード、pickle、joblibは読み込みません。
+
+昇格後、起動中のData Libraryで「個人Taskとモデルを再読込」を押します。
+再起動せずにTask、Dataset、Packageを選んでProjectを作り、代表候補を一つ予測します。
+専用relation parser、反復集約、Feature Pipeline、Runtime adapterが必要になった場合だけ、
+[Developer Start Here](../developer-start-here.md)へ移ります。
 
 ## このレーンで行う確認
 

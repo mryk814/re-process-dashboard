@@ -486,15 +486,21 @@ def _curate_value(text: str, rule: CurationColumnRule) -> tuple[float | str, str
 def load_tabular_data(
     path: str | Path,
     profile_path: str | Path | TabularDatasetProfile,
+    *,
+    profile_locator: str | Path | None = None,
 ) -> TabularData:
     source = Path(path)
     if isinstance(profile_path, TabularDatasetProfile):
         profile = profile_path
-        profile_locator = f"catalog:{profile.profile_id}"
+        selected_profile_locator = (
+            str(profile_locator)
+            if profile_locator is not None
+            else f"catalog:{profile.profile_id}"
+        )
     else:
         profile_file = Path(profile_path)
         profile = load_tabular_profile(profile_file)
-        profile_locator = str(profile_file)
+        selected_profile_locator = str(profile_locator or profile_file)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     observations: list[dict[str, Any]] = []
     numeric_series: dict[str, list[float]] = {
@@ -788,7 +794,7 @@ def load_tabular_data(
         source_path=str(source),
         source_mtime_ns=source.stat().st_mtime_ns,
         source_sha256=digest,
-        profile_path=profile_locator,
+        profile_path=selected_profile_locator,
         profile=profile,
         profile_id=profile.profile_id,
         observations=observations,

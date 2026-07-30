@@ -50,6 +50,10 @@ from material_workbench.data.profile_document import (  # noqa: E402
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 from material_workbench.task_composition.builtin_tasks import PRIMARY_DEFAULT_SOURCE  # noqa: E402
 from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
+from material_workbench.developer_experience.task_scaffolding import (  # noqa: E402
+    link_promoted_package,
+    validate_personal_task_store_path,
+)
 
 
 TASKS = tuple(registered_task_modules())
@@ -399,6 +403,9 @@ def promote_package(
     *,
     profile: Path | None = None,
 ) -> dict[str, Any]:
+    # Validate every personal destination before copying any trusted artifact;
+    # a rejected Task store must not leave a partially promoted model behind.
+    validate_personal_task_store_path()
     package = package.resolve(strict=True)
     source = _task_source(task_id, source)
     verify_model_package(
@@ -437,6 +444,7 @@ def promote_package(
         destination,
         config_path=available_config,
     )
+    link_promoted_package(task_id, destination)
     return {
         "task_id": task_id,
         "promoted": promoted,
@@ -448,7 +456,7 @@ def promote_package(
             available_config.parent
         ).as_posix(),
         "available_package_count": len(available.packages),
-        "next": "起動中のアプリで「個人モデルを再読込」を実行してください。",
+        "next": "起動中のアプリで「個人Taskとモデルを再読込」を実行してください。",
     }
 
 

@@ -6,6 +6,7 @@ import {
   type ApiProfileWorkbenchProfile,
   type ApiProfileWorkbenchRegistration,
   type ApiProfileWorkbenchDraft,
+  type ApiDataLibraryDataset,
 } from "../../shared/api/workbench-api";
 
 type ProfileBindingSlot = NonNullable<ApiProfileWorkbenchInspection["binding_draft"]>["slots"][number];
@@ -77,6 +78,10 @@ export function ProfileWorkbenchPage({
   const [savingDraft, setSavingDraft] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState("");
+  const params = new URLSearchParams(window.location.search);
+  const onboardingMode = params.get("onboarding") === "revision" ? "revision" : "mapping";
+  const baseDatasetRevisionId = params.get("base_dataset") ?? "";
+  const [baseDataset, setBaseDataset] = useState<ApiDataLibraryDataset | null>(null);
   const inspectController = useRef<AbortController | null>(null);
   const taskLabel = useTaskLabels();
 
@@ -88,7 +93,26 @@ export function ProfileWorkbenchPage({
 
   useEffect(() => {
     const controller = new AbortController();
-    reloadProfiles(controller.signal)
+    Promise.all([
+      reloadProfiles(controller.signal),
+      onboardingMode === "revision" && baseDatasetRevisionId
+        ? workbenchApi.listDataLibraryDatasets(true)
+        : Promise.resolve([]),
+    ])
+      .then(([, datasets]) => {
+        if (controller.signal.aborted) return;
+        const base = datasets.find(
+          (item) => item.dataset_revision.id === baseDatasetRevisionId,
+        ) ?? null;
+        setBaseDataset(base);
+        if (onboardingMode === "revision") {
+          if (!base) {
+            setError("更新元Datasetを確認できません。データライブラリから選び直してください。");
+          } else {
+            setProfileSelection(base.profile_revision.profile_digest);
+          }
+        }
+      })
       .catch((cause) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Dataset Profileを取得できませんでした。"); });
     return () => {
       controller.abort();
@@ -188,7 +212,11 @@ export function ProfileWorkbenchPage({
   function selectFile(next: File | null) {
     cancelInspection();
     setFile(next);
-    setProfileSelection("auto");
+    setProfileSelection(
+      onboardingMode === "revision" && baseDataset
+        ? baseDataset.profile_revision.profile_digest
+        : "auto",
+    );
     setDatasetName(next?.name.replace(/\.xlsx$/i, "") ?? "");
     setInspection(null);
     setRegistration(null);
@@ -403,6 +431,7 @@ export function ProfileWorkbenchPage({
         selectedProfileDigest,
         inspection.source_sha256,
         datasetName,
+        onboardingMode === "revision" ? baseDatasetRevisionId : undefined,
       ));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Datasetを登録できませんでした。");
@@ -413,9 +442,15 @@ export function ProfileWorkbenchPage({
 
   return <div className="page-panel profile-workbench-page">
     <div className="page-intro">
-      <div><span className="overline">PROFILE WORKBENCH</span><h2>新しいDatasetを準備</h2><p>Excelを変更せず、既存Profileとの対応と正規化結果を確認してからData Libraryへ登録します。</p></div>
+      <div><span className="overline">PROFILE WORKBENCH</span><h2>{onboardingMode === "revision" ? "Datasetの更新版を登録" : "既存Taskへデータを対応付け"}</h2><p>{onboardingMode === "revision" ? "元のTaskとProfileを固定したまま、Source差分を新しいDataset Revisionとして確認します。" : "Excelを変更せず、既存Profileとの対応と正規化結果を確認してからData Libraryへ登録します。"}</p></div>
       <button className="outline-button" onClick={onOpenDataLibrary}>データライブラリに戻る</button>
     </div>
+    {onboardingMode === "revision" && baseDataset && <aside className="profile-revision-base" aria-label="更新元Dataset">
+      <span>更新元</span>
+      <strong>{baseDataset.data_asset.original_filename}</strong>
+      <code title={baseDataset.data_asset.sha256}>{shortDigest(baseDataset.data_asset.sha256)}</code>
+      <small>{baseDataset.profile_revision.name} · r{baseDataset.profile_revision.revision}を引き継ぎます</small>
+    </aside>}
     <ol className="profile-workbench-steps" aria-label="Dataset登録からProject作成まで">
       {steps.map((step, index) => <li key={step} aria-current={currentStep === index + 1 ? "step" : undefined} className={currentStep >= index + 1 ? currentStep === index + 1 ? "current" : "complete" : ""}><b>{index + 1}</b><span>{step}</span></li>)}
     </ol>
@@ -430,7 +465,7 @@ export function ProfileWorkbenchPage({
         <span><strong>{file?.name ?? "Excelを選択"}</strong><small>{file ? formatFileSize(file.size) : ".xlsx · 100 MB以下"}</small></span>
         <input type="file" disabled={registering || Boolean(registration)} accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
       </label>
-      <label className="profile-select-field"><span>データセットプロファイル</span><select value={profileSelection} disabled={registering || Boolean(registration)} onChange={(event) => selectProfile(event.target.value)}>
+      <label className="profile-select-field"><span>データセットプロファイル</span><select value={profileSelection} disabled={registering || Boolean(registration) || onboardingMode === "revision"} onChange={(event) => selectProfile(event.target.value)}>
         <option value="auto">自動検出</option>
         {profiles.map((item) => <option value={item.profile_digest} key={item.profile_digest}>{item.personal ? "自分のProfile · " : ""}{item.profile_id} · {item.source_name.replace("dataset-input-profile-", "")}</option>)}
       </select></label>
@@ -445,7 +480,7 @@ export function ProfileWorkbenchPage({
         {inspection.profile_error && <div className="profile-validation-error" role="alert"><strong>このままでは登録できません</strong><p>{inspection.profile_error}</p><small>{bindingDraft ? "下の対応表でExcel側の名前を確認してください。" : "Base Profileを選び直して、もう一度「内容を確認」してください。"}</small></div>}
         <div className="profile-candidate-summary">
           <span>Profile候補</span>
-          {profiles.map((item) => <button type="button" key={item.profile_digest} className={item.profile_digest === selectedProfileDigest ? "selected" : ""} disabled={registering || Boolean(registration)} onClick={() => selectProfile(item.profile_digest)}>
+          {profiles.filter((item) => onboardingMode !== "revision" || item.profile_digest === baseDataset?.profile_revision.profile_digest).map((item) => <button type="button" key={item.profile_digest} className={item.profile_digest === selectedProfileDigest ? "selected" : ""} disabled={registering || Boolean(registration) || onboardingMode === "revision"} onClick={() => selectProfile(item.profile_digest)}>
             <b>{item.profile_id}{item.personal ? " · 自分のProfile" : ""}</b><small title={item.task_ids.join(" / ")}>{item.task_ids.map(taskLabel).join(" / ")}</small>
           </button>)}
         </div>
@@ -515,6 +550,6 @@ export function ProfileWorkbenchPage({
       </section>}
     </>}
 
-    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.map(taskLabel).join(" / ")}</span><code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
+    {registration && <section className="profile-registration-success" role="status"><div><strong>{registration.reused_existing ? "既存Datasetを確認しました" : registration.previous_dataset_revision_id ? "更新版を新しいRevisionとして登録しました" : "Data Libraryへ登録しました"}</strong><span>{registration.profile_id} · {registration.task_ids.map(taskLabel).join(" / ")}</span>{registration.previous_source_sha256 && <small className="profile-source-diff"><code>{shortDigest(registration.previous_source_sha256)}</code><b>→</b><code>{shortDigest(registration.source_sha256)}</code></small>}<code>{shortDigest(registration.dataset_revision_id)}</code></div><div className="profile-registration-success-actions"><button className="primary-button" onClick={() => onStartProject(registration.dataset_view_revision_id)}>このDatasetでプロジェクト作成</button><button className="outline-button" onClick={onOpenDataLibrary}>データライブラリで確認</button><button className="text-button" onClick={() => selectFile(null)}>別のExcelを確認</button></div></section>}
   </div>;
 }
