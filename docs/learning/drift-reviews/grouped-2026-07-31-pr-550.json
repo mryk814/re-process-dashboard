@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-31-pr-550",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "85172ec51de503ad2e870c9197a4b38448555bc4",
+  "reviewed_against": "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15",
+  "pull_requests": [
+    {
+      "number": 550,
+      "merge_commit": "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15",
+      "classification": "no_content_impact",
+      "reason": "プロジェクト概要と設定を別の画面状態へ分け、従来の設定URLを移行し、概要では次の作業を先に示した。教材が扱うURL状態、保存済み実行記録、所属変更、アーカイブ、機能低下時の境界は維持される。",
+      "changed_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/app/navigation.ts",
+        "apps/web/src/features/projects/ProjectHub.tsx",
+        "apps/web/src/features/projects/ProjectSettingsPanel.tsx",
+        "apps/web/src/features/projects/projects.css",
+        "apps/web/tests/activityRunNavigation.test.mjs",
+        "apps/web/tests/taskAvailabilityPresentation.test.mjs",
+        "e2e/accessibility-smoke.spec.ts",
+        "e2e/decision-activity.spec.ts",
+        "e2e/decision-navigation.spec.ts",
+        "e2e/degraded-task.spec.ts",
+        "e2e/project-hub.spec.ts",
+        "e2e/workspace-scope.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/app/App.tsx",
+        "apps/web/src/app/navigation.ts",
+        "apps/web/src/features/projects/ProjectHub.tsx",
+        "apps/web/tests/activityRunNavigation.test.mjs",
+        "e2e/accessibility-smoke.spec.ts",
+        "e2e/decision-activity.spec.ts",
+        "e2e/degraded-task.spec.ts",
+        "e2e/project-hub.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "project-overview-settings-navigation",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/concept-map.qmd",
+        "docs/learning/chapters/contract-through-stack.qmd",
+        "docs/learning/chapters/frontend-desktop-state.qmd"
+      ],
+      "reason": "設定を`project-settings`へ分離して旧URLを正規化した後も、選択状態をURLへ置く境界、未知状態を黙って別状態へ置換しない規則、ProjectHubの所属選択を一覧更新から守る規則は変わらない。"
+    },
+    {
+      "claim_id": "project-lifecycle-and-decision-evidence",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/code-map.qmd",
+        "docs/learning/chapters/decision-safety.qmd",
+        "docs/learning/chapters/separate-archive-from-purge.qmd"
+      ],
+      "reason": "プロジェクト画面の再編は、提案から候補と判断を分ける境界、プロジェクトの所属変更、アーカイブ、復元、パージの保存契約を変更していない。"
+    },
+    {
+      "claim_id": "project-browser-and-degraded-evidence",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "reason": "E2Eの遷移先は新しい設定画面へ更新されたが、隔離されたブラウザ操作で機能低下状態、アクセシビリティ、プロジェクト経路を確認するという保証範囲は維持される。"
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #550のfirst-parent差分13件を列挙し、現行の構造化参照と交差する8件を確認した。",
+    "current_main_drift": "影響するコードマップ、概念マップ、契約章、判断安全章、フロントエンド状態章、アーカイブ章、検証章をmerge commit a53da6bf165c9c33038cda2f3976e1e4c9a1bb15まで確認した。",
+    "focused_evidence": "画面状態と機能低下表示のNodeテスト23件が成功した。",
+    "repository_gates": "教材変更の全検査、共通三gate、HTML、PDF、全ページ目視は同じ教材更新で実行する。"
+  },
+  "reviewer_note": "PR #550を教材ブランチへ追従した直後に、変更された画面状態と教材内の検証可能な主張を照合した。"
+}

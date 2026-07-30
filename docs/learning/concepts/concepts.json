@@ -2,7 +2,7 @@
   "$schema": "./concept.schema.json",
   "schema_version": 1,
   "repository": "mryk814/re-process-dashboard",
-  "verified_commit": "85172ec51de503ad2e870c9197a4b38448555bc4",
+  "verified_commit": "a53da6bf165c9c33038cda2f3976e1e4c9a1bb15",
   "categories": [
     {
       "id": "identity-evidence",
