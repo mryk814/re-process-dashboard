@@ -13,6 +13,7 @@ import {
 import { decisionActivityView } from "./decisionActivities/registry";
 import type { DecisionActivityParameters } from "./decisionActivities/types";
 import type { TargetGoal } from "../../shared/targetGoals";
+import { activityQuestionLabel } from "../../shared/projectActionQuestions";
 
 /**
  * Activity-agnostic shell. It owns availability, saved runs, request identity and
@@ -147,6 +148,7 @@ export function DecisionActivityPanel({
   ]);
 
   const selected = activities.find((item) => item.definition.activity_id === selectedId) ?? null;
+  const selectedQuestion = activityQuestionLabel(selected?.definition.activity_id);
   const View = selected ? decisionActivityView(selected.definition.activity_id) : null;
   const activityRuns = useMemo(
     () => runs.filter((run) => run.definition.activity_id === selectedId),
@@ -193,7 +195,11 @@ export function DecisionActivityPanel({
     <header>
       <div>
         <span className="overline">DECISION ACTIVITY</span>
-        <h2>{selected?.definition.label ?? "検討アクティビティ"}</h2>
+        <h2>{selectedQuestion ?? selected?.definition.label ?? "候補を確かめる"}</h2>
+        {selected && <p className="activity-context">
+          <span>{candidate.label}</span>
+          <small>{selected.definition.label}</small>
+        </p>}
       </div>
       <button type="button" className="outline-button" onClick={onClose}>閉じる</button>
     </header>
@@ -209,7 +215,7 @@ export function DecisionActivityPanel({
           setLocationError("");
           onStateChange(item.definition.activity_id, undefined);
         }}
-      >{item.definition.label}</button>)}
+      >{activityQuestionLabel(item.definition.activity_id) ?? item.definition.label}</button>)}
     </nav>}
     {loading ? <p className="empty-evidence">利用条件を確認しています。</p> : selected && !selected.available ? (
       <section className="activity-unavailable" aria-label="実行前に必要な準備">

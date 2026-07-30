@@ -626,6 +626,16 @@
   padding: 5px 8px;
   font-size: 10px;
 }
+.lineage-candidate-added {
+  display: block;
+  border-radius: 4px;
+  background: #eaf7f1;
+  padding: 7px 9px;
+  color: #176d52;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
 .lineage-load-error {
   border: 1px solid #e2c6c6;
   background: #fff8f8;
@@ -1144,22 +1154,23 @@
 .plausibility-reason { display: block; margin-top: 4px; color: #8a4e06; font-size: 10px; font-style: normal; }
 @media (max-width: 980px) {
   .lineage-workspace { grid-template-columns: 220px minmax(0, 1fr); }
-  .lineage-browser,
-  .lineage-main,
-  .lineage-review-panel,
-  .lineage-detail-panel { grid-row: auto; }
-  .lineage-main,
-  .lineage-review-panel { grid-column: 2; }
-  .lineage-detail-panel { grid-column: 1 / -1; position: static; max-height: none; }
+  .lineage-browser { grid-column: 1; grid-row: 1; }
+  .lineage-main { grid-column: 2; grid-row: 1; }
+  .lineage-detail-panel { grid-column: 1 / -1; grid-row: 2; position: static; max-height: none; }
+  .lineage-review-panel { grid-column: 1 / -1; grid-row: 3; }
   .lineage-review-editor { grid-template-columns: 120px minmax(0, 1fr) auto; align-items: end; }
   .lineage-review-editor > div { grid-template-columns: auto auto; }
   .lineage-review-editor textarea { min-height: 46px; }
 }
 @media (max-width: 760px) {
   .lineage-workspace { grid-template-columns: 1fr; }
+  .lineage-browser { grid-column: 1; grid-row: 1; }
   .lineage-main,
   .lineage-review-panel,
   .lineage-detail-panel { grid-column: 1; }
+  .lineage-main { grid-row: 2; }
+  .lineage-detail-panel { grid-row: 3; }
+  .lineage-review-panel { grid-row: 4; }
   .lineage-review-editor { grid-template-columns: 1fr; }
   .lineage-review-editor > div { grid-template-columns: 1fr auto; }
 }
