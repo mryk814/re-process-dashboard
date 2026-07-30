@@ -1169,6 +1169,14 @@
   margin: 8px 10px 10px;
 }
 
+.screening-batch-surface-note {
+  margin: 0;
+  padding: 8px 11px 10px;
+  border-top: 1px solid #e3e9f0;
+  color: #5f6f82;
+  font-size: 11px;
+}
+
 .screening-surface-unavailable {
   margin: 0;
   padding: 16px;

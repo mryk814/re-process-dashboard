@@ -29,6 +29,9 @@ import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
 import { buildScreeningInterpolation } from "./screeningInterpolation";
 import {
+  initialScreeningResultSurface,
+  screeningSelectionSurface,
+  ScreeningBatchTable,
   ScreeningEvaluatedTable,
   ScreeningResultSurfaceTabs,
   type ScreeningResultSurface,
@@ -441,19 +444,16 @@ export function ScreeningPage({
     setYAxis(varying[1] ?? "");
     setColorMetric("score");
     setChartExpanded(false);
-    const proposedIndices = run.proposal_selection?.selected.map(
-      (item) => item.point_index,
-    ) ?? [];
+    const runSelectionSurface = screeningSelectionSurface(run);
+    const proposedIndices = runSelectionSurface.kind === "proposal"
+      ? run.proposal_selection?.selected.map((item) => item.point_index) ?? []
+      : [];
     setSelectedPointIndices(proposedIndices);
     setFocusedPointIndex(
       proposedIndices[0] ?? run.representative_points[0]?.index ?? null,
     );
     setDetailItem(null);
-    setResultSurface(
-      run.proposal_selection != null || run.batch_proposal != null
-        ? "proposals"
-        : "map",
-    );
+    setResultSurface(initialScreeningResultSurface(run));
     setDraftDirty(false);
   };
   const candidateContextDirty = Boolean(
@@ -737,8 +737,13 @@ export function ScreeningPage({
     if (!provenance || provenance.source_kind !== "screening" || !provenance.source_ref || provenance.source_ref.run_id !== result?.id) return [];
     return typeof provenance.source_ref.point_index === "number" ? [provenance.source_ref.point_index] : [];
   }));
+  const selectionSurface = result
+    ? screeningSelectionSurface(result)
+    : { kind: "none" as const, label: "提案候補" as const, count: 0, available: false };
   const proposedPointIndices = new Set(
-    result?.proposal_selection?.selected.map((item) => item.point_index) ?? [],
+    selectionSurface.kind === "proposal"
+      ? result?.proposal_selection?.selected.map((item) => item.point_index) ?? []
+      : [],
   );
   const selectedNewPointIndices = selectedPointIndices.filter((index) => !stockedPointIndices.has(index));
   const remainingCandidateCapacity = candidateCapacity
@@ -1582,20 +1587,14 @@ export function ScreeningPage({
               setResultSurface(surface);
               setHoveredScreenPoint(null);
             }}
-            proposalCount={
-              result.proposal_diagnostics?.proposed_count
-              ?? result.proposal_selection?.selected.length
-              ?? 0
-            }
+            selectionLabel={selectionSurface.label}
+            selectionCount={selectionSurface.count}
             evaluatedCount={
               result.proposal_diagnostics?.evaluated_count
               ?? result.proposal_pool?.length
               ?? result.points.length
             }
-            proposalsAvailable={
-              modeFromRun(result) !== "landscape"
-              && result.representative_points.length > 0
-            }
+            selectionAvailable={selectionSurface.available}
           />
           {resultSurface === "map" && (
           <section
@@ -1627,7 +1626,7 @@ export function ScreeningPage({
               {colorMetricLabel}{" "}
               <span className="evaluated-key" />
               評価点{" "}
-              {result.proposal_selection && <><span className="proposal-key" />提案候補{" "}</>}
+              {selectionSurface.kind === "proposal" && <><span className="proposal-key" />提案候補{" "}</>}
               <span className="selection-key" />
               選択中
             </div>
@@ -1696,7 +1695,7 @@ export function ScreeningPage({
             ))}
             {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
             {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
-            {interpolation?.available && (result.proposal_pool ?? [])
+            {axes.length > 1 && (result.proposal_pool ?? [])
               .filter((point) => point.selected_rank == null)
               .map((point) => {
                 const x = Number(point.inputs[axes[0]]);
@@ -1826,7 +1825,7 @@ export function ScreeningPage({
           </div>
           </section>
           )}
-          {resultSurface === "proposals" && modeFromRun(result) !== "landscape" && (
+          {resultSurface === "proposals" && selectionSurface.kind === "proposal" && (
           <section
             id="screening-result-panel-proposals"
             className="screening-proposal-surface"
@@ -1861,6 +1860,9 @@ export function ScreeningPage({
             onToggle={togglePoint}
           />
           </section>
+          )}
+          {resultSurface === "proposals" && selectionSurface.kind === "batch" && (
+            <ScreeningBatchTable result={result} />
           )}
           {resultSurface === "evaluated" && (
             <ScreeningEvaluatedTable

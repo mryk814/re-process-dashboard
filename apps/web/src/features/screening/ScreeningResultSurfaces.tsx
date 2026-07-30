@@ -4,18 +4,55 @@ import { supportStatusLabel } from "../../shared/supportPresentation";
 
 export type ScreeningResultSurface = "map" | "proposals" | "evaluated";
 
+export type ScreeningSelectionSurface = {
+  kind: "proposal" | "batch" | "none";
+  label: "提案候補" | "実験バッチ";
+  count: number;
+  available: boolean;
+};
+
+export function screeningSelectionSurface(
+  run: Pick<ApiScreeningRun, "purpose" | "proposal_selection" | "batch_proposal">,
+): ScreeningSelectionSurface {
+  if (run.purpose === "goal_search" && run.proposal_selection) {
+    return {
+      kind: "proposal",
+      label: "提案候補",
+      count: run.proposal_selection.selected.length,
+      available: true,
+    };
+  }
+  if (run.purpose === "experiment_batch" && run.batch_proposal) {
+    return {
+      kind: "batch",
+      label: "実験バッチ",
+      count: run.batch_proposal.selected.length,
+      available: true,
+    };
+  }
+  return { kind: "none", label: "提案候補", count: 0, available: false };
+}
+
+export function initialScreeningResultSurface(
+  run: Pick<ApiScreeningRun, "purpose" | "proposal_selection" | "batch_proposal">,
+): ScreeningResultSurface {
+  return screeningSelectionSurface(run).available ? "proposals" : "map";
+}
+
 export function ScreeningResultSurfaceTabs({
   value,
   onChange,
-  proposalCount,
+  selectionLabel,
+  selectionCount,
   evaluatedCount,
-  proposalsAvailable,
+  selectionAvailable,
 }: {
   value: ScreeningResultSurface;
   onChange: (surface: ScreeningResultSurface) => void;
-  proposalCount: number;
+  selectionLabel: ScreeningSelectionSurface["label"];
+  selectionCount: number;
   evaluatedCount: number;
-  proposalsAvailable: boolean;
+  selectionAvailable: boolean;
 }) {
   const tabs: Array<{
     id: ScreeningResultSurface;
@@ -26,9 +63,9 @@ export function ScreeningResultSurfaceTabs({
     { id: "map", label: "地図" },
     {
       id: "proposals",
-      label: "提案候補",
-      count: proposalCount,
-      disabled: !proposalsAvailable,
+      label: selectionLabel,
+      count: selectionCount,
+      disabled: !selectionAvailable,
     },
     { id: "evaluated", label: "全評価点", count: evaluatedCount },
   ];
@@ -71,8 +108,16 @@ export function ScreeningEvaluatedTable({
   const varyingFields = Object.entries(result.variables)
     .filter(([, spec]) => spec.mode !== "fixed")
     .map(([field]) => field);
+  const selectionSurface = screeningSelectionSurface(result);
   const proposedPoolIndices = new Set(
-    result.proposal_selection?.selected.map((item) => item.pool_index) ?? [],
+    selectionSurface.kind === "proposal"
+      ? result.proposal_selection?.selected.map((item) => item.pool_index) ?? []
+      : [],
+  );
+  const batchPoolIndices = new Set(
+    selectionSurface.kind === "batch"
+      ? result.batch_proposal?.selected.map((item) => item.pool_index) ?? []
+      : [],
   );
   const visible = pool.slice(0, visibleCount);
 
@@ -124,7 +169,9 @@ export function ScreeningEvaluatedTable({
                         <td>{displayNumber(point.acquisition_score)}</td>
                         <td>{supportStatusLabel(point.support_status)}</td>
                         <td>
-                          {proposedPoolIndices.has(point.pool_index)
+                          {batchPoolIndices.has(point.pool_index)
+                            ? <b>実験バッチ</b>
+                            : proposedPoolIndices.has(point.pool_index)
                             ? <b>提案候補</b>
                             : point.selected_rank != null
                               ? "図に表示"
@@ -146,6 +193,75 @@ export function ScreeningEvaluatedTable({
               </button>
             )}
           </>}
+    </section>
+  );
+}
+
+const batchRoleLabels: Record<
+  NonNullable<ApiScreeningRun["batch_proposal"]>["selected"][number]["role"],
+  string
+> = {
+  performance: "有望度",
+  exploration: "探索",
+  boundary_check: "境界確認",
+  diversity: "多様性",
+  coverage: "範囲補完",
+  control: "固定Control",
+  replicate: "反復",
+};
+
+export function ScreeningBatchTable({ result }: { result: ApiScreeningRun }) {
+  const batch = result.batch_proposal;
+  if (!batch) return null;
+  return (
+    <section
+      id="screening-result-panel-proposals"
+      className="screening-evaluated"
+      role="region"
+      aria-label="実験バッチ"
+    >
+      <div className="screening-results-heading">
+        <div>
+          <h3>実験バッチ</h3>
+          <small>提案候補とは別に、このRunで実験へ割り当てた条件です。</small>
+        </div>
+        <span>{batch.selected.length.toLocaleString("ja-JP")}枠</span>
+      </div>
+      <div className="screening-evaluated-scroll">
+        <table className="quality-table screening-evaluated-table">
+          <thead>
+            <tr>
+              <th>順番</th>
+              <th>条件</th>
+              <th>役割</th>
+              <th>価値</th>
+              <th>多様性</th>
+              <th>コスト</th>
+            </tr>
+          </thead>
+          <tbody>
+            {batch.selected.map((item) => (
+              <tr key={`${item.order}-${item.pool_index}`}>
+                <th scope="row">{item.order}</th>
+                <td>
+                  {item.source === "exact_control"
+                    ? `固定Control r${item.candidate_revision ?? "—"}`
+                    : item.point_index == null
+                      ? `評価点 ${item.pool_index + 1}`
+                      : `点 ${item.point_index + 1}`}
+                </td>
+                <td>{batchRoleLabels[item.role]}</td>
+                <td>{displayNumber(item.acquisition_component)}</td>
+                <td>{displayNumber(item.diversity_component)}</td>
+                <td>{displayNumber(item.estimated_cost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="screening-batch-surface-note">
+        固定Controlを含む選定理由と再現情報は、上の「実験バッチ」詳細に記録されています。
+      </p>
     </section>
   );
 }

@@ -118,7 +118,12 @@ test("annealed screening keeps draft separate and batches multiple points into s
   const runResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening");
   await runScreening(page);
   expect((await runRequest).postDataJSON().proposal.proposal_count).toBe(2);
-  expect((await runResponse).status()).toBe(201);
+  const completedRunResponse = await runResponse;
+  expect(completedRunResponse.status()).toBe(201);
+  const completedRun = await completedRunResponse.json() as {
+    points: Array<unknown>;
+    proposal_diagnostics: { evaluated_count: number };
+  };
   const countStages = page.locator(".screening-count-stage");
   await expect(countStages).toHaveCount(5);
   await expect(countStages.nth(0)).toHaveAttribute("title", "sampling planで生成した条件数");
@@ -154,6 +159,10 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.getByRole("button", { name: "地図", exact: true }).click();
   await expect(page.locator(".screen-map-proposal-marker")).toHaveCount(2);
   await expect(page.locator(".screen-map-selection-ring")).toHaveCount(2);
+  await expect(page.locator(".screening-interpolation-status")).toContainText("点表示");
+  await expect(page.locator(".screen-map-evaluated-marker")).toHaveCount(
+    completedRun.proposal_diagnostics.evaluated_count - completedRun.points.length,
+  );
   await reproducibility.locator("> summary").click();
   await expect(reproducibility).toContainText("Model Package");
   await expect(reproducibility).toContainText("Design Space");
@@ -363,7 +372,10 @@ test("a purpose-less legacy goal run reopens as opportunity search", async ({ pa
       .getByRole("button", { name: /有望候補を探す/ }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
-  await expect(page.locator('input[aria-label^="点 "]').first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "地図", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "提案候補 0", exact: true })).toBeDisabled();
+  await expect(page.getByRole("region", { name: "探索領域の地図" })).toBeVisible();
+  await expect(page.locator('input[aria-label^="点 "]')).toHaveCount(0);
 });
 
 test("bounded simplex display agrees with the persisted proposal evidence", async ({ page, request }) => {
@@ -428,12 +440,21 @@ test("bounded simplex display agrees with the persisted proposal evidence", asyn
       distance_version: string;
     };
     proposal_diagnostics: { coverage_by_path: Record<string, unknown> };
-    batch_proposal: { distance_id: string };
+    batch_proposal: { distance_id: string; selected: Array<{ order: number }> };
     purpose: string;
     source_run_id: string;
   };
   expect(run.purpose).toBe("experiment_batch");
   expect(run.source_run_id).toBe(goalRun.id);
+  await expect(page.getByRole("button", {
+    name: `実験バッチ ${run.batch_proposal.selected.length}`,
+    exact: true,
+  })).toHaveAttribute("aria-pressed", "true");
+  const batchSurface = page.getByRole("region", { name: "実験バッチ", exact: true });
+  await expect(batchSurface).toBeVisible();
+  await expect(batchSurface.getByRole("heading", { name: "実験バッチ", exact: true })).toBeVisible();
+  await expect(batchSurface.locator("tbody th").first()).toHaveText("1");
+  await expect(batchSurface.getByRole("heading", { name: "提案候補", exact: true })).toHaveCount(0);
 
   const proposalSummary = page.getByRole("region", { name: "探索条件と提案診断" });
   await expect(proposalSummary.locator(".screening-proposal-headline")).toContainText(

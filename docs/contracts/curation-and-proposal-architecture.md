@@ -150,15 +150,20 @@ They share the same immutable Run identity, but do not collapse evidence with
 different meanings into one table or chart.
 
 - `地図` shows the relationship between two numeric input axes.
-- `提案候補` shows only points selected by the proposal policy.
+- `提案候補` is available only for an explicit `goal_search` Run carrying
+  `proposal_selection`; a legacy goal-looking Run is not inferred to have one.
+- `実験バッチ` replaces the proposal label for an explicit
+  `experiment_batch` Run and shows the batch selector's allocation separately.
 - `全評価点` is the auditable table of the complete evaluated pool.
 
 The map may render a display-only contour using versioned inverse-distance
 weighting over values already stored in the complete evaluated pool. This is an
 interpolation for reading the saved Run, not an additional model prediction.
 The UI records the interpolation method, version and grid size beside the map.
-All evaluated points remain visible on top of the interpolated cells, while the
-proposal and current selection are separate overlays.
+All evaluated points remain visible whenever the complete pool and two numeric
+axes are available, independently of whether interpolation is safe. Displayed
+points are not drawn twice. The proposal and current selection remain separate
+overlays.
 
 Interpolation fails closed to the evaluated points when any required evidence
 is missing or unsafe. In particular, it is disabled for legacy Runs without the

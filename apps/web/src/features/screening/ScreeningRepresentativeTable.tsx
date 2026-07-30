@@ -81,15 +81,23 @@ export function ScreeningRepresentativeTable({
     ...outputs.filter((output) => output.key === result.target),
     ...outputs.filter((output) => output.key !== result.target),
   ];
-  const commonSupportMessage = result.representative_points.length > 0
-    && result.representative_points.every((point) => point.support.message === result.representative_points[0].support.message)
-    ? result.representative_points[0].support.message
+  const showsProposals = result.purpose === "goal_search" && result.proposal_selection != null;
+  const proposalPointIndices = new Set(
+    showsProposals
+      ? result.proposal_selection?.selected.map((item) => item.point_index) ?? []
+      : [],
+  );
+  const displayedPoints = showsProposals
+    ? result.representative_points.filter((point) => proposalPointIndices.has(point.index))
+    : result.representative_points;
+  const commonSupportMessage = displayedPoints.length > 0
+    && displayedPoints.every((point) => point.support.message === displayedPoints[0].support.message)
+    ? displayedPoints[0].support.message
     : null;
-  const commonSupportStatus = result.representative_points.length > 0
-    && result.representative_points.every((point) => point.support.status === result.representative_points[0].support.status)
-    ? result.representative_points[0].support.status
+  const commonSupportStatus = displayedPoints.length > 0
+    && displayedPoints.every((point) => point.support.status === displayedPoints[0].support.status)
+    ? displayedPoints[0].support.status
     : null;
-  const showsProposals = result.proposal_selection != null;
 
   return (
     <section className="screening-results" aria-labelledby="screening-results-title">
@@ -120,7 +128,13 @@ export function ScreeningRepresentativeTable({
           <small>{showsProposals ? "提案候補に共通" : "代表点に共通"}</small>
         </div>
       )}
-      <div className="screening-results-scroll">
+      {displayedPoints.length === 0
+        ? <p className="screening-surface-unavailable">
+            {showsProposals
+              ? "このRunでは提案条件を選べませんでした。判断根拠に不足理由を記録しています。"
+              : "表示できる代表点がありません。"}
+          </p>
+        : <div className="screening-results-scroll">
         <table className={`quality-table screening-results-table${selectionEnabled ? " has-selection" : ""}`}>
           <thead>
             <tr>
@@ -134,7 +148,7 @@ export function ScreeningRepresentativeTable({
             </tr>
           </thead>
           <tbody>
-            {result.representative_points.map((point) => {
+            {displayedPoints.map((point) => {
               const predictions = pointPredictions(point, result.target);
               const selected = selectedPointIndices.includes(point.index);
               const stocked = stockedPointIndices.has(point.index);
@@ -178,7 +192,7 @@ export function ScreeningRepresentativeTable({
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
     </section>
   );
 }
