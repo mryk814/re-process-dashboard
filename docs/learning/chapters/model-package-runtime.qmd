@@ -358,7 +358,7 @@ predictive パッケージのマニフェストは、概ね次の情報を持ち
 
 ランタイム能力は、そのランタイムが利用者へ提供できる予測表現と操作の契約です。
 
-{{< code-ref ml-engineering-runtime-capability symbol="TargetRuntimeCapability" >}}は、point statistic、standard deviation、quantile、サンプル、parametric distribution、学習データの裏付けなどをtargetごとに宣言します。
+{{< code-ref ml-engineering-runtime-capability symbol="TargetRuntimeCapability" >}}は、代表統計量、標準偏差、分位点、サンプル、パラメトリック分布、学習データの裏付けなどを予測対象ごとに宣言します。
 
 {{< code-ref ml-engineering-runtime-capability symbol="RuntimeOperationsCapability" >}}は、プレビュー、詳細予測、レスポンス curve、similarity、スナップショットなどの操作を宣言します。
 

@@ -132,6 +132,9 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 ### 教材review
 
 `docs/learning/`の章を完成扱いにする前に、`docs/learning/reviews/`へ観点別の記録を残す。
+教材の章、演習、解答、図の説明、読書案内を新規執筆または改稿するときは、
+[Write Learning Chapter Skill](.claude/skills/write-learning-chapter/SKILL.md)を先に使う。
+完成後の英単語置換ではなく、具体物と判断場面から日本語で段落を組み立てる。
 
 - 全章でimplementation、pedagogy、accessibilityを確認する。
 - 数理章はstatistics、材料判断へ接続する章はdomain、trust boundaryを扱う章はsecurityを追加する。

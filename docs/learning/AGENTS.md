@@ -97,6 +97,12 @@ GitHub repositoryのfull nameは `code-reference-config.json` だけへ定義す
 ## 文章と構成
 
 - 書き手の立ち位置と声は [`writer-persona.md`](writer-persona.md) に従う。
+- 日本語の本文では、定着した日本語の専門用語を優先する。コードや論文が英語だからという理由だけで、英単語を普通名詞や形容詞として文へ混ぜない。
+- 英語のまま残すのは、コード識別子、ファイルパス、APIフィールド、製品名、ライブラリ名、画面上の正確な表示、文献の原題に限る。識別子や正確な表示はバッククォートで囲み、日本語の説明と区別する。
+- 文献検索に原語が役立つ用語は、初出だけ「日本語（英語）」と示してよい。その後は日本語へ統一する。日本語訳が読者に対象を想起させない場合は、先に具体的な対象や操作を説明してから名前を付ける。
+- 代表的な訳語は、`quantile`を「分位点」、`uncertainty`を「不確かさ」、`nominal coverage`を「目標被覆率」、`empirical coverage`を「経験被覆率」、`calibration`を「較正」、`robustness`を「頑健性」とする。文脈に応じて「入力ばらつきに対する頑健性」のように対象を補う。
+- 新しい章、追記、改稿では、本文へ着手する前に [`write-learning-chapter`](../../.claude/skills/write-learning-chapter/SKILL.md) を使う。英語の概念名を起点に翻訳せず、読者が見る具体物、区別する関係、誤判断、読了後の行為を日本語で定めてから段落を書く。
+- `node docs/learning/check-japanese-prose.mjs`は、執筆後に既知の逆戻りを検出する薄い安全網として使う。この検査に通ることを、自然な日本語または教育的に良い文章の証明にしない。
 - 章は「問題、一般概念、実装を読む、演習、設計を振り返る」の順を基本とする。
 - tutorial、how-to、reference、explanationの役割を混ぜない。
 - 対象読者、前提知識、読了後にできること、非scopeを冒頭で示す。
@@ -204,6 +210,8 @@ node docs/learning/test-figures.mjs
 node docs/learning/check-figures.mjs
 node docs/learning/test-labs.mjs
 node docs/learning/check-labs.mjs
+node docs/learning/test-japanese-prose.mjs
+node docs/learning/check-japanese-prose.mjs
 node docs/learning/check-lab-reproducibility.mjs
 node docs/learning/test-repository-reference-states.mjs
 node docs/learning/check-repository-reference-states.mjs

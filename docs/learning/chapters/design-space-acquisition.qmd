@@ -1,7 +1,7 @@
 ---
 level: advanced
 estimated_minutes: 210
-verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
+verified_commit: "85172ec51de503ad2e870c9197a4b38448555bc4"
 code_references:
   - path: "backend/src/material_workbench/contracts/design_space_contracts.py"
     id: "acquisition-design-space-contract"
@@ -125,7 +125,7 @@ UCB、EI、PIを「どれが常に優れるか」という順位へしません�
 
 この章の数値例は、正規予測分布を仮定します。
 
-現行ランタイムが返すquantileだけから正規分布を仮定できない場合、その例を本番計算へそのまま移すことはできません。
+現行ランタイムが返す分位点だけから正規分布を仮定できない場合、その例を本番計算へそのまま移すことはできません。
 
 ## 一つのscoreへ畳み込む前に五つへ分ける
 
@@ -529,7 +529,7 @@ $\sigma=0$では$z$を計算できません。
 
 PIの極限は、$\Delta>0$なら1、$\Delta<0$なら0となり、$\Delta=0$では採用する不等号の定義に依存します。
 
-現行実装は、正のuncertainty コンポーネントも正のinterval幅も得られないpredictionを拒否します。
+現行実装は、正の不確かさ成分も正の区間幅も得られない予測を拒否します。
 
 極限値を暗黙に補いません。
 
@@ -1106,7 +1106,7 @@ Selectorをtop-kからgreedy diversityへ変えても、保存済みacquisition 
 - bounded simplexは一つのbalance付き連続組成制約へ限定される
 - heat programの工程物理を設計空間が自動推論しない
 - UCBとEIはnormal mean/std表現へ限定される
-- Thompson サンプリングとuncertainty サンプリングは本番無効
+- トンプソンサンプリングと不確かさに基づくサンプリングは本番無効
 - greedy バッチは同時事後分布を使わない
 - joint q-acquisitionは本番無効で、現行ランタイムにjoint サンプルがない
 - counterfactual proposalは因果効果を推定しない

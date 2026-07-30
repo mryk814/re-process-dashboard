@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "review_id": "grouped-2026-07-31-pr-549",
+  "status": "resolved",
+  "recorded_after_the_fact": true,
+  "base_commit": "2794d0a2a3c615c2d5277bea2e7ea67e40b6ca32",
+  "reviewed_against": "85172ec51de503ad2e870c9197a4b38448555bc4",
+  "pull_requests": [
+    {
+      "number": 549,
+      "merge_commit": "85172ec51de503ad2e870c9197a4b38448555bc4",
+      "classification": "no_content_impact",
+      "reason": "範囲探索の変数表、初期結果面、図の拡大、狭幅表示をコンパクトにし、入力範囲の検証を追加した。教材が説明する設計空間、探索戦略、候補集合、判断証拠、表示と検証の境界は変わらない。",
+      "changed_paths": [
+        "apps/web/src/features/candidates/candidates.css",
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+        "apps/web/src/features/screening/screening.css",
+        "apps/web/src/features/screening/screeningVariableValidation.ts",
+        "apps/web/src/features/workbench/WorkbenchPage.tsx",
+        "apps/web/src/features/workbench/workbench.css",
+        "apps/web/src/styles.css",
+        "apps/web/tests/issue130Presentation.test.mjs",
+        "apps/web/tests/screeningProposalSummary.test.mjs",
+        "apps/web/tests/screeningVariableRange.test.mjs",
+        "e2e/screening-workbench.spec.ts"
+      ],
+      "referenced_paths": [
+        "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
+        "apps/web/src/features/workbench/WorkbenchPage.tsx",
+        "e2e/screening-workbench.spec.ts"
+      ]
+    }
+  ],
+  "claim_assessments": [
+    {
+      "claim_id": "screening-contract-and-evidence-boundaries",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/code-map.qmd",
+        "docs/learning/concept-map.qmd",
+        "docs/learning/chapters/design-space-acquisition.qmd"
+      ],
+      "reason": "探索変数の入力検証と表示密度は変わったが、ScreeningPageが探索戦略、選択器、候補集合、選択理由を扱い、ScreeningProposalSummaryが判断要約と再現証拠を分けるという教材上の主張は維持される。"
+    },
+    {
+      "claim_id": "workbench-presentation-boundary",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/chapters/contract-through-stack.qmd"
+      ],
+      "reason": "狭幅時に詳細領域を閉じる変更は表示状態だけを扱い、検討アクティビティの契約、保存済み結果、来歴、型の絞り込みに関する説明を変えない。"
+    },
+    {
+      "claim_id": "screening-browser-evidence",
+      "classification": "no_content_impact",
+      "action": "no-change",
+      "documents": [
+        "docs/learning/chapters/verification-operations.qmd"
+      ],
+      "reason": "スクリーニングE2Eへ入力行の検証、焦点移動、狭幅時の横スクロール、図の拡大が加わった。ブラウザテストで操作と表示の境界を確認するという章の説明はそのまま成立する。"
+    }
+  ],
+  "verification": {
+    "path_coverage": "PR #549のfirst-parent差分12件を列挙し、現行の構造化参照と交差する4件を確認した。",
+    "current_main_drift": "影響するコードマップ、概念マップ、契約章、探索章、検証章をmerge commit 85172ec51de503ad2e870c9197a4b38448555bc4まで確認した。",
+    "focused_evidence": "screening表示、提案要約、変数範囲のNodeテスト20件が成功した。",
+    "repository_gates": "教材変更の全検査、共通三gate、HTML、PDF、全ページ目視は同じ教材更新で実行する。"
+  },
+  "reviewer_note": "PR #549は教材ブランチへ追従した後に確認した。教材本文の英語混在修正はこの実装driftとは別の編集変更である。"
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "日本語で教材を書く"
+  short_description: "英語を混ぜず、読者が追える自然な日本語で教材を執筆する"
+  default_prompt: "Use $write-learning-chapter to draft or revise a learning chapter in clear Japanese."

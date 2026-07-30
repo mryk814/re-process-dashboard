@@ -22,6 +22,8 @@ $figureCheck = Join-Path $learningRoot "check-figures.mjs"
 $figureTest = Join-Path $learningRoot "test-figures.mjs"
 $labCheck = Join-Path $learningRoot "check-labs.mjs"
 $labTest = Join-Path $learningRoot "test-labs.mjs"
+$japaneseProseCheck = Join-Path $learningRoot "check-japanese-prose.mjs"
+$japaneseProseTest = Join-Path $learningRoot "test-japanese-prose.mjs"
 $toolLibrary = Join-Path $learningRoot "scripts\book-tools.ps1"
 $toolLock = Join-Path $learningRoot "tools.lock.json"
 
@@ -42,6 +44,8 @@ foreach ($profilePath in @(
     $figureTest,
     $labCheck,
     $labTest,
+    $japaneseProseCheck,
+    $japaneseProseTest,
     $toolLibrary,
     $toolLock
 )) {
@@ -182,6 +186,14 @@ if ($LASTEXITCODE -ne 0) {
 node $labCheck
 if ($LASTEXITCODE -ne 0) {
     throw "Lab validation failed with exit code $LASTEXITCODE."
+}
+node $japaneseProseTest
+if ($LASTEXITCODE -ne 0) {
+    throw "Japanese prose fixture tests failed with exit code $LASTEXITCODE."
+}
+node $japaneseProseCheck
+if ($LASTEXITCODE -ne 0) {
+    throw "Japanese prose validation failed with exit code $LASTEXITCODE."
 }
 node $codeReferenceCheck --write-manifest
 if ($LASTEXITCODE -ne 0) {
