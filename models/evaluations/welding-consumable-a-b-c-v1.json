@@ -18,7 +18,7 @@
       "stage_id": "B",
       "contract_id": "welding-consumable-stage-b-v1",
       "contract_digest": "sha256:bd83b740b3be314d6f13732260ce63c6eac1ba9261e819898bb12327744c9c45",
-      "package_manifest_digest": "sha256:570e2902e33aa3530b1127e40bab7783c78e2ad94895fc79f085b325da10af8c",
+      "package_manifest_digest": "sha256:b22594d3e26f68728bca297efba61e29bb832d5f0aaa80abee46f60f01d72987",
       "dataset_profile_digest": "sha256:a0d1e21b600a1b6172176c89e7fe9d77c09f6f16edba8a44ba41fb2a97fc7822"
     },
     {

@@ -73,7 +73,11 @@ def test_builder_does_not_swap_unverified_package(tmp_path: Path, monkeypatch: p
     original_manifest = '{"package_id":"current"}'
     (destination / "manifest.json").write_text(original_manifest, encoding="utf-8")
 
-    def fake_build(_source: Path, staging: Path) -> None:
+    def fake_build(
+        _source: Path,
+        staging: Path,
+        _profile: object | None,
+    ) -> None:
         staging.mkdir(parents=True)
         (staging / "manifest.json").write_text('{"package_id":"invalid"}', encoding="utf-8")
 
