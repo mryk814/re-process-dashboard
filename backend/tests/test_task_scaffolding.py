@@ -9,7 +9,6 @@ from threading import Event
 import time
 
 import pytest
-from fastapi import Request
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
@@ -19,10 +18,10 @@ from material_workbench.app import (
     _restore_live_sqlite_generation,
     create_app,
 )
+from material_workbench.application.catalog import CatalogUseCases
 from material_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
-from material_workbench.api.dependencies import get_runtime_context
 from material_workbench.data.file_integrity import file_sha256
 from material_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
@@ -341,17 +340,15 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
     )
     held_request_started = Event()
     release_held_request = Event()
+    real_health = CatalogUseCases.health
 
-    @app.get("/api/test-only/runtime-generation")
-    def runtime_generation(request: Request) -> dict[str, object]:
-        first = get_runtime_context(request)
-        held_request_started.set()
-        assert release_held_request.wait(timeout=60)
-        second = get_runtime_context(request)
-        return {
-            "same_generation": first is second,
-            "task_ids": list(first.task_registry.available_task_ids),
-        }
+    def held_health(use_cases: CatalogUseCases) -> dict[str, object]:
+        if not held_request_started.is_set():
+            held_request_started.set()
+            assert release_held_request.wait(timeout=60)
+        return real_health(use_cases)
+
+    monkeypatch.setattr(CatalogUseCases, "health", held_health)
 
     with TestClient(app) as client:
         assert TASK_ID not in client.get("/api/task-definitions").json()
@@ -468,10 +465,10 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             real_workspace_catalog,
         )
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             held = executor.submit(
                 client.get,
-                "/api/test-only/runtime-generation",
+                "/api/health",
             )
             if not held_request_started.wait(timeout=10):
                 response = held.result(timeout=1)
@@ -491,12 +488,20 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
                 time.sleep(0.05)
             assert app.state.resources_promoting
             assert not refreshing.done()
+            next_health = executor.submit(client.get, "/health")
+            time.sleep(0.1)
+            assert not next_health.done()
+            readiness = client.get("/api/readiness")
+            assert readiness.status_code == 200
+            assert TASK_ID not in readiness.json()["available_tasks"]
             release_held_request.set()
             held_response = held.result(timeout=10)
             assert held_response.status_code == 200
-            assert held_response.json()["same_generation"] is True
-            assert TASK_ID not in held_response.json()["task_ids"]
+            assert TASK_ID not in held_response.json()["tasks"]
             refreshed = refreshing.result(timeout=60)
+            next_health_response = next_health.result(timeout=10)
+            assert next_health_response.status_code == 200
+            assert TASK_ID in next_health_response.json()["tasks"]
 
         assert refreshed.status_code == 200, refreshed.text
         assert TASK_ID in refreshed.json()["added_task_ids"]

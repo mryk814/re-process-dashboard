@@ -707,6 +707,8 @@ def create_app(
         app.state.active_resource_requests = 0
         app.state.resource_requests_idle = asyncio.Event()
         app.state.resource_requests_idle.set()
+        app.state.resource_promotion_complete = asyncio.Event()
+        app.state.resource_promotion_complete.set()
         task_resource_refresh_lock = asyncio.Lock()
 
         async def refresh_task_resources() -> TaskResourceRefreshResult:
@@ -773,6 +775,7 @@ def create_app(
                         chain_uncertainty_service=chain_uncertainty,
                     )
 
+                app.state.resource_promotion_complete.clear()
                 app.state.resources_promoting = True
                 try:
                     # The refresh request is not counted as a resource reader.
@@ -835,6 +838,7 @@ def create_app(
                     _remove_sqlite_generation(staged_database)
                     _remove_sqlite_generation(rollback_database)
                     app.state.resources_promoting = False
+                    app.state.resource_promotion_complete.set()
                 task_ids = set(context.task_registry.available_task_ids)
                 model_package_ids = {
                     item.id
@@ -943,6 +947,7 @@ def create_app(
                             chain_error,
                         )
 
+                    app.state.resource_promotion_complete.clear()
                     app.state.resources_promoting = True
                     await app.state.resource_requests_idle.wait()
                     context, chain_revision_id, chain_error = await asyncio.to_thread(
@@ -993,6 +998,7 @@ def create_app(
                     app.state.resources_loading_error = str(exc)
                 finally:
                     app.state.resources_promoting = False
+                    app.state.resource_promotion_complete.set()
 
             promotion_task = asyncio.create_task(promote_remaining_resources())
         try:
@@ -1013,26 +1019,28 @@ def create_app(
 
     @app.middleware("http")
     async def gate_resource_promotion(request: Request, call_next):
-        health_paths = {"/health", "/api/health", "/api/readiness"}
-        is_health_request = request.url.path in health_paths
+        is_catalog_health = request.url.path in {"/health", "/api/health"}
+        is_readiness = request.url.path == "/api/readiness"
         is_resource_refresh = (
             request.url.path == "/api/data-library/tasks/refresh"
         )
-        if (
-            getattr(request.app.state, "resources_promoting", False)
-            and not is_health_request
-        ):
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "detail": (
-                        "追加TaskをWorkspaceへ安全に登録しています。"
-                        "完了後に自動で再試行してください。"
-                    )
-                },
-            )
-        if is_health_request:
+        if is_readiness:
             return await call_next(request)
+        if getattr(request.app.state, "resources_promoting", False):
+            if is_catalog_health:
+                # Health reads Store and Task runtime state. Wait until the
+                # database and runtime context belong to one new generation.
+                await request.app.state.resource_promotion_complete.wait()
+            else:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "detail": (
+                            "追加TaskをWorkspaceへ安全に登録しています。"
+                            "完了後に自動で再試行してください。"
+                        )
+                    },
+                )
 
         # Every dependency in this request resolves the same immutable
         # generation even if a refresh completes while the handler is running.
