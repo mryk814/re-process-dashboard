@@ -1269,9 +1269,9 @@ export function ProjectHub({
           </div>
           : <div className="project-action-groups">
             <section><h4>候補を作る</h4><div className="project-action-grid">
-              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
-              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
               <button className="project-action-card" disabled={actionBlocked || !supportsLineageCandidate} onClick={() => onNavigate("lineage")}><strong>過去データから候補を探す</strong><span>{supportsLineageCandidate ? "既存の条件と問題から出発する" : "この予測タスクでは利用できません"}</span></button>
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("candidates")}><strong>具体的な候補を入力する</strong><span>成分・工程条件が決まっている案を追加する</span></button>
+              <button className="project-action-card" disabled={actionBlocked} onClick={() => onNavigate("explore")}><strong>条件範囲から候補を探す</strong><span>入力範囲を動かして候補を生成する</span></button>
             </div></section>
             <section><h4>候補を確かめる</h4><div className="project-action-grid">
               {candidateQuestionActions.map((item) => <button
