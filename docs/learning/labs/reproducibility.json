@@ -1,7 +1,7 @@
 {
   "schema_version": "learning-lab-reproducibility/v1",
-  "measured_at": "2026-07-28T10:33:24.469Z",
-  "measured_commit": "c9a8e21522de08f0715796d12550f1906ce9ba9b",
+  "measured_at": "2026-07-30T14:38:17.798Z",
+  "measured_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
   "methodology": {
     "setup_size": "UTF-8/source file bytes for each Lab document, shared manifest, fixtures, and executable Lab script; dependencies and repository checkout are excluded",
     "runtime": "wall-clock milliseconds on this workstation; only executable Labs have machine runtime",
@@ -11,15 +11,15 @@
     "lab_count": 8,
     "guided_count": 7,
     "executable_count": 1,
-    "sum_of_per_lab_setup_payload_bytes": 217279,
-    "executable_cycle_duration_ms": 1789.34,
+    "sum_of_per_lab_setup_payload_bytes": 217037,
+    "executable_cycle_duration_ms": 2229.86,
     "executable_result_hashes_match": true
   },
   "labs": [
     {
       "lab_id": "break-and-repair-migration",
       "mode": "guided",
-      "setup_payload_bytes": 27476,
+      "setup_payload_bytes": 27475,
       "setup_payload_files": [
         "docs/learning/labs/break-and-repair-migration.qmd",
         "docs/learning/labs/manifest.json"
@@ -34,7 +34,7 @@
     {
       "lab_id": "extend-contract",
       "mode": "guided",
-      "setup_payload_bytes": 24486,
+      "setup_payload_bytes": 24485,
       "setup_payload_files": [
         "docs/learning/labs/extend-contract.qmd",
         "docs/learning/labs/manifest.json"
@@ -49,7 +49,7 @@
     {
       "lab_id": "trace-project-lifecycle",
       "mode": "guided",
-      "setup_payload_bytes": 33444,
+      "setup_payload_bytes": 33443,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-project-lifecycle.qmd"
@@ -64,7 +64,7 @@
     {
       "lab_id": "trace-revision-conflict",
       "mode": "guided",
-      "setup_payload_bytes": 29061,
+      "setup_payload_bytes": 29060,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-revision-conflict.qmd"
@@ -79,7 +79,7 @@
     {
       "lab_id": "trace-source-evidence",
       "mode": "guided",
-      "setup_payload_bytes": 35689,
+      "setup_payload_bytes": 35688,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-source-evidence.qmd"
@@ -94,7 +94,7 @@
     {
       "lab_id": "trace-workspace-restore",
       "mode": "guided",
-      "setup_payload_bytes": 31396,
+      "setup_payload_bytes": 31395,
       "setup_payload_files": [
         "docs/learning/labs/manifest.json",
         "docs/learning/labs/trace-workspace-restore.qmd"
@@ -124,7 +124,7 @@
     {
       "lab_id": "toy-weighted-mean",
       "mode": "executable",
-      "setup_payload_bytes": 20644,
+      "setup_payload_bytes": 20408,
       "setup_payload_files": [
         "docs/learning/labs/fixtures/toy-weighted-mean.json",
         "docs/learning/labs/manifest.json",
@@ -137,23 +137,23 @@
         "cycles": [
           {
             "cycle": 1,
-            "duration_ms": 833.08,
+            "duration_ms": 1124.77,
             "steps_ms": {
-              "setup": 218.75,
-              "run": 219.2,
-              "verify": 154.19,
-              "reset": 240.94
+              "setup": 318.07,
+              "run": 309.07,
+              "verify": 204.94,
+              "reset": 292.69
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           },
           {
             "cycle": 2,
-            "duration_ms": 956.26,
+            "duration_ms": 1105.09,
             "steps_ms": {
-              "setup": 251.49,
-              "run": 228.05,
-              "verify": 227.3,
-              "reset": 249.42
+              "setup": 321.18,
+              "run": 286.97,
+              "verify": 184.45,
+              "reset": 312.49
             },
             "result_hash": "sha256:51c88907ef3292e592878b3f3c881ecf0d3b2bc3984c7cc875528049570c0f66"
           }

@@ -2,7 +2,7 @@
 chapter_id: "trace-workspace-restore"
 level: intermediate
 estimated_minutes: 90
-verified_commit: "0eaf27b3b70238bb841d2ed04509d499f1afa2f7"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
     role: "contract"

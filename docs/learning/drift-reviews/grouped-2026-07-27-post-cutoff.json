@@ -30,9 +30,9 @@
       "classification": "conceptual_update",
       "reason": "Stage B moved to a new immutable Package after input labels changed, active Package history began retaining contract-superseded previous references as non-rollback history, and Chain evidence now resolves the configured Package. The model lifecycle chapter now separates historical previous from an activatable rollback target; other affected chapters keep their Package identity and Chain evidence claims.",
       "changed_paths": [
-        "backend/scripts/acceptance/build_welding_chain_evaluation.py",
-        "backend/scripts/generators/build_welding_stage_b_assets.py",
-        "backend/scripts/operations/model_workflow.py",
+        "backend/scripts/build_welding_chain_evaluation.py",
+        "backend/scripts/build_welding_stage_b_assets.py",
+        "backend/scripts/model_workflow.py",
         "backend/src/material_workbench/modeling/active_package_history.py",
         "backend/src/material_workbench/modeling/stage_sampling.py",
         "backend/src/material_workbench/tasks/task_definitions/welding-consumable-stage-b-v1.json",
@@ -72,13 +72,11 @@
         "packaging/electron-builder.yml"
       ],
       "referenced_paths": [
-        "backend/scripts/operations/model_workflow.py",
         "backend/src/material_workbench/modeling/active_package_history.py",
         "backend/src/material_workbench/tasks/task_definitions/welding-consumable-stage-b-v1.json",
         "backend/tests/test_active_package_history.py",
         "backend/tests/test_chain_evaluation.py",
         "backend/tests/test_chain_execution.py",
-        "docs/welding-stage-b-package.md",
         "e2e/chain-input-contract.spec.ts",
         "models/evaluations/welding-consumable-a-b-c-v1.json"
       ]
@@ -137,9 +135,9 @@
         "apps/web/src/shared/api/workbench-api.ts",
         "apps/web/src/styles.css",
         "apps/web/tests/chainWorkbenchPresentation.test.mjs",
-        "backend/scripts/operations/seed_review_workspace.py",
-        "backend/scripts/operations/workspace_check.py",
-        "backend/scripts/operations/workspace_maintenance.py",
+        "backend/scripts/seed_review_workspace.py",
+        "backend/scripts/workspace_check.py",
+        "backend/scripts/workspace_maintenance.py",
         "backend/src/material_workbench/api/catalog.py",
         "backend/src/material_workbench/app.py",
         "backend/src/material_workbench/application/workspace_bundle.py",
@@ -167,8 +165,7 @@
         "backend/src/material_workbench/app.py",
         "backend/src/material_workbench/application/workspace_bundle.py",
         "backend/src/material_workbench/persistence/store.py",
-        "backend/tests/test_launch_token.py",
-        "docs/workspace-backup.md"
+        "backend/tests/test_launch_token.py"
       ]
     }
   ],

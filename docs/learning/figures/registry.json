@@ -6,13 +6,13 @@
       "kind": "timeline",
       "source": "figures/candidate-revision-conflict.svg",
       "chapter": "chapters/revision-and-digest.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "二つの編集が候補リビジョンを介して競合する時系列",
       "long_description": "編集者Aと編集者Bがリビジョン7を読み、Aの保存がリビジョン8を作る。Bの古い保存は409となり、現行リビジョン8へ変更フィールドだけを重ねた保存がリビジョン9を作る。",
       "drift_refs": [
         "backend/src/material_workbench/contracts/schemas.py",
         "backend/src/material_workbench/application/candidates.py",
-        "backend/src/material_workbench/persistence/store.py",
+        "backend/src/material_workbench/persistence/candidate_repository.py",
         "apps/web/src/features/candidates/useCandidateEditor.ts",
         "backend/tests/test_candidate_safety.py"
       ]
@@ -22,7 +22,7 @@
       "kind": "architecture-flow",
       "source": "figures/decision-activity-contract-flow.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "検討アクティビティのリクエストとレスポンスがPythonからReactまで進む流れ",
       "long_description": "ReactのリクエストからAPIクライアント、FastAPI、Pydantic、アプリケーションサービス、アクティビティハンドラ、保存済み実行記録を経て、TypeScriptのユニオン型とReactの結果ビューへ戻る。",
       "drift_refs": [
@@ -38,7 +38,7 @@
       "kind": "contract-diagram",
       "source": "figures/decision-activity-union.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "検討アクティビティのパラメータと結果をschema_versionで分ける二つのユニオン型",
       "long_description": "DecisionActivityParametersは三つのパラメータ契約を、DecisionActivityResultは対応する三つの要約契約を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。",
       "drift_refs": [
@@ -53,7 +53,7 @@
       "kind": "state-diagram",
       "source": "figures/migration-trust-states.svg",
       "chapter": "chapters/trust-a-migrated-database.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "未適用、適用中、確認済み、矛盾したマイグレーション状態",
       "long_description": "マーカーも実体もない未適用状態から、同じトランザクション内でスキーマ、バックフィル、マーカーを作り、確認済み状態へ進む。マーカーと実体の不一致、チェックサム不一致、データ不変条件違反は矛盾状態として起動を停止する。",
       "drift_refs": [
@@ -68,14 +68,15 @@
       "kind": "state-diagram",
       "source": "figures/project-archive-purge-states.svg",
       "chapter": "chapters/separate-archive-from-purge.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "有効、アーカイブ、パージ拒否、パージ完了を通るプロジェクト証拠の状態",
       "long_description": "プロジェクトAが有効からアーカイブへ進むと、通常一覧と書込み経路から外れるが証拠は残り、実行中の占有だけが失効する。プロジェクトBから派生参照があればパージを拒否する。外部参照がないプロジェクトだけ、プロジェクト所有の証拠を一つのトランザクションで削除し、共有成果物を残す。",
       "drift_refs": [
         "docs/decisions/sqlite-project-lifecycle-policy.md",
         "backend/src/material_workbench/api/projects.py",
         "backend/src/material_workbench/application/projects.py",
-        "backend/src/material_workbench/persistence/store.py",
+        "backend/src/material_workbench/persistence/project_repository.py",
+        "backend/src/material_workbench/persistence/store_unit_of_work.py",
         "backend/tests/test_project_lifecycle.py"
       ]
     },
@@ -84,7 +85,7 @@
       "kind": "data-flow",
       "source": "figures/source-lifecycle-flow.svg",
       "chapter": "chapters/source-to-training-evidence.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "ソース更新からモデルパッケージ候補までの資産分割",
       "long_description": "ソースコネクター、生スナップショット、キュレーション実行記録、正規データセットリビジョン、学習用スナップショットを順に作り、別操作でモデルパッケージ候補へ進む。",
       "drift_refs": [
@@ -100,7 +101,7 @@
       "kind": "timeline",
       "source": "figures/stale-response-timeline.svg",
       "chapter": "chapters/contract-through-stack.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "候補切替後に届いた古いレスポンスを同一性不一致で破棄する時系列",
       "long_description": "候補Aのリビジョン7でリクエストを始めた後、候補Bのリビジョン3へ切り替える。Aのレスポンスが届いてもプロジェクト、候補、リビジョン、リクエスト連番が現在値と一致しないため、古い応答として拒否し、Bのパネルへ反映しない。AbortControllerは通信停止を試みるが、レスポンス到着時の同一性検査を置き換えない。",
       "drift_refs": [
@@ -116,12 +117,13 @@
       "kind": "state-diagram",
       "source": "figures/workspace-restore-state.svg",
       "chapter": "chapters/restore-workspace-safely.qmd",
-      "verified_commit": "339b40651caef156bf63523d9eab13c003546a3f",
+      "verified_commit": "d34bca1639ce27ee9501731a320f49ee13186466",
       "alt": "ワークスペース復元の状態遷移",
       "long_description": "現ワークスペースから準備、コミット、APIの正常性確認、確定へ進む。失敗時はロールバックし、旧DBがあれば元ワークスペースへ戻し、旧DBがなければDBなしの状態へ戻す。",
       "drift_refs": [
         "backend/src/material_workbench/contracts/workspace_bundle_contracts.py",
-        "backend/src/material_workbench/application/workspace_bundle.py",
+        "backend/src/material_workbench/application/workspace_bundle_restore_plan.py",
+        "backend/src/material_workbench/application/workspace_bundle_service.py",
         "backend/src/sidecar.py",
         "apps/desktop/src/main.ts",
         "backend/tests/test_workspace_bundle.py"

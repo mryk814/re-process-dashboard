@@ -1,7 +1,7 @@
 ---
 level: intermediate
 estimated_minutes: 150
-verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "apps/web/src/features/candidates/CandidateUi.tsx"
     id: "decision-safety-comparison"
@@ -66,11 +66,11 @@ code_references:
     role: "contract"
     symbols:
       - "ProjectDecisionInput"
-  - path: "backend/src/material_workbench/persistence/store.py"
+  - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
     id: "decision-safety-project-decision-store"
     role: "persistence"
     symbols:
-      - "Store.update_project_decision"
+      - "WorkbenchUnitOfWork.update_project_decision"
   - path: "apps/web/src/shared/ui/WorkspaceNoticeBanner.tsx"
     id: "decision-safety-notice"
     role: "frontend"
@@ -493,7 +493,7 @@ automationを監視する別作業と手動作業が競合する状況では、a
 
 候補化は最終採用でもありません。
 {{< code-ref decision-safety-project-decision symbol=ProjectDecisionInput >}}は、候補 ID、予測スナップショット ID、判断理由を一組として要求します。
-さらに、{{< code-ref decision-safety-project-decision-store symbol="Store.update_project_decision" >}}は、候補が同じプロジェクトに属し、スナップショットがその候補とプロジェクト種別に対応することを保存前に検査します。
+さらに、{{< code-ref decision-safety-project-decision-store symbol="WorkbenchUnitOfWork.update_project_decision" >}}は、候補が同じプロジェクトに属し、スナップショットがその候補とプロジェクト種別に対応することを保存前に検査します。
 
 したがって、人間が存在するだけではboundaryになりません。
 次の二条件が必要です。

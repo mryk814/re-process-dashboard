@@ -1,7 +1,7 @@
 ---
 level: beginner
-estimated_minutes: 55
-verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
+estimated_minutes: 65
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "apps/web/src/shared/api/client.ts"
     id: "system-map-web-client"
@@ -47,6 +47,28 @@ code_references:
     role: "persistence"
     symbols:
       - "Store"
+  - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
+    id: "system-map-unit-of-work"
+    role: "persistence"
+    symbols:
+      - "WorkbenchUnitOfWork"
+  - path: "backend/src/material_workbench/persistence/project_repository.py"
+    id: "system-map-project-repository"
+    role: "persistence"
+    symbols:
+      - "ProjectRepository"
+  - path: "backend/src/material_workbench/task_composition/descriptors.py"
+    id: "system-map-task-module"
+    role: "application"
+    symbols:
+      - "TaskModule"
+      - "StarterProject"
+  - path: "backend/src/material_workbench/task_composition/catalog.py"
+    id: "system-map-task-catalog"
+    role: "application"
+    symbols:
+      - "registered_task_modules"
+      - "task_module"
   - path: "backend/src/material_workbench/modeling/model_packages.py"
     id: "system-map-model-package"
     role: "application"
@@ -186,13 +208,32 @@ FastAPIが受け取ったPydantic モデルを、そのまま画面のコンポ�
 この保存担当を**Repository**と呼びます。
 ここでいうリポジトリはGit リポジトリではなく、保存、取得、transaction境界をSQLite表現へ閉じ込めるコンポーネントです。
 
-現行実装では{{< code-ref system-map-store symbol=Store >}}がワークスペース DBを開き、マイグレーションと整合性検査を行います。
-各操作は接続を取得し、必要な行を読み書きしてからtransactionを終えます。
-API routerはHTTP 状態とリクエストの扱いを担当し、Storeはテーブルと行の扱いを担当します。
+現行実装では{{< code-ref system-map-store symbol=Store >}}がワークスペースDBのfacadeです。
+しかし、StoreがすべてのSQLとtransactionを一つのクラスで抱える構造ではありません。
+複数集約を一つの判断として保存する処理は{{< code-ref system-map-unit-of-work symbol=WorkbenchUnitOfWork >}}がtransactionを所有し、単一集約の読み書きは{{< code-ref system-map-project-repository symbol=ProjectRepository >}}のようなRepositoryへ分かれています。
+
+この分割により、API routerはHTTP状態、application serviceは操作順序、Unit of Workは複数集約の原子性、Repositoryは一つの集約のSQLite表現を担当します。
+Storeは利用側の入口を保ちますが、永続化の責務まで一か所へ戻したわけではありません。
 
 SQLite ファイルは単なる出力ファイルではありません。
 プロジェクト、候補リビジョン、スナップショット、実行記録の関係を保持する、現在のワークスペースの正本です。
 一方、rendererのloading フラグや開いているダイアログはSQLiteへ保存しない一時状態です。
+
+## Prediction Taskは配線を宣言する
+
+同じFastAPIとSQLiteを使っていても、材料組成、熱処理、工程チェーンでは入力、出力、学習単位、利用できる予測操作が異なります。
+この差をrouterやStoreの条件分岐へ散らすと、Taskを追加するたびに全層を編集することになります。
+
+{{< code-ref system-map-task-module symbol=TaskModule >}}は、データ読込、Feature Pipeline、Runtime、support、curve、標準学習recipe、starter projectの配線を一つの宣言として束ねます。
+{{< code-ref system-map-task-catalog symbol=registered_task_modules >}}は同梱Taskを不変のallow-listとして公開し、{{< code-ref system-map-task-catalog symbol=task_module >}}はTask IDから一つの宣言を解決します。
+
+TaskModuleは万能なservice locatorではありません。
+契約、データ記述、Runtimeなどの境界を指すだけで、Project操作や永続化transactionを所有しません。
+その依存方向を守ることで、Task固有の意味とアプリ共通の操作を分けられます。
+
+Taskにstarter projectがあることと、fresh Workspaceへ自動配置することも別の判断です。
+{{< code-ref system-map-task-module symbol=StarterProject >}}の`distribution`は、最初から置く`quickstart`、Sample Galleryから追加できる`gallery`、既存Workspaceと内部検証だけに残す`legacy_hidden`を区別します。
+この区分により、Taskの能力を削らずに、利用者へ見せるサンプルの数だけを絞れます。
 
 ## リクエスト、状態、成果物、evidenceを分ける
 

@@ -1,5 +1,5 @@
 ---
-verified_commit: "339b40651caef156bf63523d9eab13c003546a3f"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
     id: "code-map-activity-contract"
@@ -101,7 +101,7 @@ code_references:
 - **接続policy**：`backend/src/material_workbench/persistence/sqlite_connection.py`
 - **Migration ledgerとtable再構築**：`backend/src/material_workbench/persistence/candidate_migration.py`
 - **履歴backfill**：`backend/src/material_workbench/persistence/candidate_revision_migration.py`
-- **Catalog schemaとlegacy provenance**：`backend/src/material_workbench/persistence/workspace_catalog_migration.py`、`backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py`
+- **Catalog schemaとlegacy provenance**：`backend/src/material_workbench/persistence/workspace_catalog_migration.py`、`backend/src/material_workbench/application/workspace_catalog_bootstrap.py`
 - **診断**：`backend/src/material_workbench/developer_experience/runtime_diagnostics.py`
 - **Test**：`backend/tests/test_candidate_migration.py`、`backend/tests/test_candidate_safety.py`、`backend/tests/test_workspace_catalog_migration.py`、`backend/tests/test_sqlite_connection.py`
 

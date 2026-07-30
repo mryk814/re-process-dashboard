@@ -1,8 +1,8 @@
 ---
 chapter_id: "model-package-runtime"
 level: intermediate
-estimated_minutes: 160
-verified_commit: "888b596ace6ef3d2ecb7e0f22a9eaeaadf46beba"
+estimated_minutes: 175
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
@@ -50,6 +50,23 @@ code_references:
     symbols:
       - "ModelPackageVerificationReport"
       - "verify_model_package"
+  - path: "backend/src/material_workbench/modeling/training/feature_dataset.py"
+    id: "ml-engineering-feature-dataset"
+    role: "application"
+    symbols:
+      - "TargetTrainingSet"
+      - "compile_target_training_set"
+  - path: "backend/src/material_workbench/modeling/training/recipe.py"
+    id: "ml-engineering-estimator-recipe"
+    role: "contract"
+    symbols:
+      - "estimator_recipe"
+      - "validate_recipe_capability"
+  - path: "backend/src/material_workbench/modeling/training/package_assembler.py"
+    id: "ml-engineering-package-assembler"
+    role: "application"
+    symbols:
+      - "build_standard_model_package"
   - path: "backend/src/material_workbench/contracts/task_contracts.py"
     id: "ml-engineering-runtime-capability"
     role: "contract"
@@ -361,7 +378,25 @@ predictive パッケージのマニフェストは、概ね次の情報を持ち
 
 ## buildは候補を作る操作である
 
-{{< code-ref ml-engineering-workflow symbol="build_package" >}}は、canonical training datasetを出力し、タスク固有builderを呼び、最後にパッケージをverifyします。
+### 標準EstimatorはFeature Datasetの後で交換する
+
+Ridge、Exact GP、LightGBMのような表形式Estimatorは、Task固有builderを増やさずに交換できます。
+交換境界はTaskの生データではなく、Feature Pipelineを通した`canonical-training-dataset/v1`です。
+
+{{< code-ref ml-engineering-feature-dataset symbol=compile_target_training_set >}}は、targetごとの特徴量、目的値、反復単位、validation groupを固定し、`cohort_digest`と`fold_digest`を作ります。
+同じFeature Datasetを使う限り、Estimator間で評価対象とfoldが変わっていないことを照合できます。
+
+{{< code-ref ml-engineering-estimator-recipe symbol=estimator_recipe >}}が受け付けるのはallow-list済みのrecipe IDと境界付きparameterだけです。
+{{< code-ref ml-engineering-estimator-recipe symbol=validate_recipe_capability >}}は、EstimatorがTaskのRuntime Capabilityを満たさない場合にfit前で停止します。
+任意のPython import pathやcallbackをPackageへ入れて拡張する経路はありません。
+
+{{< code-ref ml-engineering-package-assembler symbol=build_standard_model_package >}}は、artifact、quality、training metadata、smoke、provenance、manifestを共通形式で組み立て、本番loaderでsmokeを再現します。
+build後もactive Package、Project、保存済みSnapshotは変わりません。
+
+標準経路へ載せるために情報を落としてはいけません。
+反復を平均しない階層モデル、系列固有のtarget変換、posterior drawそのものを成果物にするモデルは、高度なTask固有builderに残します。
+
+{{< code-ref ml-engineering-workflow symbol="build_package" >}}は、canonical training datasetを出力し、Taskが宣言した標準recipeまたは高度な専用builderを選び、最後にパッケージをverifyします。
 
 build成功は、有効なパッケージの変更を意味しません。
 

@@ -1,5 +1,5 @@
 ---
-verified_commit: "0820c588c168a92f21fecb59e995ff31cd0eddd1"
+verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
   - path: "apps/web/src/app/navigation.ts"
     role: "frontend"
