@@ -9,7 +9,9 @@ task_composition/ports.py
           ↓
 task_composition/descriptors.py
           ↓
-task_composition/builtin_tasks.py
+task_composition/builtin/<family>.py
+          ↓
+task_composition/builtin/catalog.py
           ↓
 task_composition/catalog.py
           ↓
@@ -18,7 +20,8 @@ TaskRegistry / model authoring / startup
 
 - `ports.py`：Dataset descriptor、Prediction Runtime、support、curve handlerの境界
 - `descriptors.py`：`TaskModule`、標準モデルauthoring、starter projectの宣言
-- `builtin_tasks.py`：同梱Taskのloader、runtime factory、capability、starterの明示的配線
+- `builtin/<family>.py`：Task familyごとのloader、runtime factory、builder、starterの明示的配線
+- `builtin/catalog.py`：family moduleを既存順に集めるだけのcomposition catalog
 - `catalog.py`：同梱Taskを不変allow-listとして公開し、source pathを解決する
 
 ## Starter Projectの公開区分

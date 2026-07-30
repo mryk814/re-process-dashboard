@@ -80,11 +80,11 @@ from material_workbench.application.chain_evaluation import (
     DEFAULT_CHAIN_EVALUATION_PATH,
 )
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from .task_composition.builtin_tasks import (
-    ANNEALED_TASK_ID,
+from .task_composition.builtin.annealed import ANNEALED_TASK_ID
+from .task_composition.builtin.catalog import (
     BUILTIN_TASK_MODULES,
-    PRIMARY_DEFAULT_SOURCE,
 )
+from .task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE
 from .task_composition.descriptors import TaskModule
 from .task_composition.ports import PredictionRuntime
 from .task_composition.catalog import (

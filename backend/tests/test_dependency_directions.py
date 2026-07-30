@@ -51,6 +51,7 @@ def _imports(path: Path, *, top_level_only: bool = False) -> set[str]:
 def test_removed_integration_hubs_do_not_return() -> None:
     assert not (PACKAGE_ROOT / "task_modules.py").exists()
     assert not (PACKAGE_ROOT / "domain" / "services.py").exists()
+    assert not (PACKAGE_ROOT / "task_composition" / "builtin_tasks.py").exists()
     assert not (PACKAGE_ROOT / "tasks" / "project_runtime_resolver.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_registration.py").exists()
     assert not (
@@ -80,18 +81,62 @@ def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependenc
 
 
 def test_builtin_composition_defers_runtime_imports_until_a_factory_is_called() -> None:
-    path = PACKAGE_ROOT / "task_composition" / "builtin_tasks.py"
     forbidden = (
         "material_workbench.application",
         "material_workbench.modeling",
         "material_workbench.persistence",
         "material_workbench.tasks",
     )
-    assert sorted(
-        name
-        for name in _imports(path, top_level_only=True)
-        if name.startswith(forbidden)
-    ) == []
+    builtin = PACKAGE_ROOT / "task_composition" / "builtin"
+    offenders = {
+        path.name: sorted(
+            name
+            for name in _imports(path, top_level_only=True)
+            if name.startswith(forbidden)
+        )
+        for path in builtin.glob("*.py")
+    }
+    assert {path: names for path, names in offenders.items() if names} == {}
+
+
+def test_builtin_catalog_only_collects_family_modules() -> None:
+    path = PACKAGE_ROOT / "task_composition" / "builtin" / "catalog.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    assert not any(
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.endswith("-v1")
+        for node in ast.walk(tree)
+    )
+    assert not any(
+        isinstance(node, ast.Name) and node.id.endswith("_TASK_ID")
+        for node in ast.walk(tree)
+    )
+
+
+def test_builtin_family_factories_have_single_explicit_owners() -> None:
+    builtin = PACKAGE_ROOT / "task_composition" / "builtin"
+    expected = {
+        "_annealed_runtime": "annealed.py",
+        "_annealed_starter_candidates": "annealed.py",
+        "_hot_rolling_runtime": "hot_rolling.py",
+        "_hot_rolling_starter_candidates": "hot_rolling.py",
+        "_flank_wear_runtime": "flank_wear.py",
+        "_tabular_runtime": "tabular.py",
+        "_tabular_starter": "tabular.py",
+        "_observation_runtime": "welding.py",
+        "_load_welding_stage_b": "welding.py",
+        "_welding_stage_b_runtime": "welding.py",
+        "_welding_stage_c_starter": "welding.py",
+    }
+    owners: dict[str, list[str]] = {name: [] for name in expected}
+    for path in builtin.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name in owners:
+                    owners[node.name].append(path.name)
+    assert owners == {name: [owner] for name, owner in expected.items()}
 
 
 def test_tasks_and_data_do_not_own_application_transactions() -> None:
@@ -147,6 +192,7 @@ def test_material_lineage_candidate_logic_stays_isolated() -> None:
 
 def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> None:
     removed_modules = {
+        "material_workbench.task_composition.builtin_tasks",
         "material_workbench.domain.services",
         "material_workbench.task_modules",
         "material_workbench.tasks.project_runtime_resolver",
@@ -154,6 +200,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
         "material_workbench.persistence.workspace_catalog_bootstrap",
     }
     removed_paths = {
+        "backend/src/material_workbench/task_composition/builtin_tasks.py",
         "backend/src/material_workbench/domain/services.py",
         "backend/src/material_workbench/task_modules.py",
         "backend/src/material_workbench/tasks/project_runtime_resolver.py",

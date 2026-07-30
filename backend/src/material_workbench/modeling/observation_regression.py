@@ -3,7 +3,7 @@
 Feature order, per-target feature sets, and target-to-family mapping come from
 ``ObservationTrainingSpec``, which derives them from the Observation Profile and
 the TaskDefinition. This module holds no task id and no profile path; both are
-declared once in ``task_composition/builtin_tasks.py``.
+declared once in ``task_composition/builtin/welding.py``.
 """
 from __future__ import annotations
 

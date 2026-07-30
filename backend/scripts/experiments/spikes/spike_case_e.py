@@ -95,7 +95,7 @@ def _tracked_state() -> dict[str, str]:
     tracked = {
         "task_definition": REPO / "backend/src/material_workbench/tasks/task_definitions" / f"{TASK_ID}.json",
         "tabular_profile": REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json",
-        "task_composition": REPO / "backend/src/material_workbench/task_composition/builtin_tasks.py",
+        "task_composition": REPO / "backend/src/material_workbench/task_composition/builtin/tabular.py",
         "task_catalog": REPO / "backend/src/material_workbench/task_composition/catalog.py",
         "active_packages": REPO / "models/active-packages.json",
     }

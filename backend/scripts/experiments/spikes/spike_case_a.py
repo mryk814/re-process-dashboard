@@ -294,11 +294,13 @@ def main() -> int:
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_composition.builtin_tasks import (
-        _TABULAR_EXPLORER,
-        _TABULAR_PROFILES,
+    from material_workbench.task_composition.builtin.shared import (
         _application_capability,
         _standard_response_curve,
+        TABULAR_EXPLORER,
+    )
+    from material_workbench.task_composition.builtin.tabular import (
+        _TABULAR_PROFILES,
         _tabular_features,
         _tabular_loader,
         _tabular_runtime,
@@ -367,7 +369,7 @@ def main() -> int:
                 SPIKE_TASK_ID, "スパイク：射出成形"
             ),
             response_curve=_standard_response_curve,
-            data_explorer=_TABULAR_EXPLORER,
+            data_explorer=TABULAR_EXPLORER,
         )
         modules = {**registered_task_modules(), SPIKE_TASK_ID: spike_module}
         app_module.registered_task_modules = lambda: modules

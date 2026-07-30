@@ -5,7 +5,7 @@ written down twice: they are derived from the Observation Profile's declared
 families and the TaskDefinition's declared categorical choices.
 
 What a Task must still declare explicitly is small and data-only, and lives in
-``task_composition/builtin_tasks.py`` next to every other task binding:
+``task_composition/builtin/welding.py`` next to the welding Task bindings:
 
 - which Observation Profile document to load
 - the feature-transform id and version that the Model Package pins

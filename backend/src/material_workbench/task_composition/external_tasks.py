@@ -12,7 +12,7 @@ from material_workbench.developer_experience.task_scaffolding import (
 )
 from material_workbench.modeling.tabular_regression import load_tabular_profile
 from material_workbench.modeling.training.recipe import estimator_recipe
-from material_workbench.task_composition.builtin_tasks import (
+from material_workbench.task_composition.builtin.tabular import (
     external_tabular_task_module,
 )
 from material_workbench.task_composition.descriptors import TaskModule

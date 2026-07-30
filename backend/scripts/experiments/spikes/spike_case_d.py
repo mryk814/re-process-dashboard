@@ -330,9 +330,11 @@ def main() -> int:
     from types import MappingProxyType
 
     from material_workbench import app as app_module
-    from material_workbench.task_composition.builtin_tasks import (
-        _TABULAR_PROFILES,
+    from material_workbench.task_composition.builtin.shared import (
         _application_capability,
+    )
+    from material_workbench.task_composition.builtin.tabular import (
+        _TABULAR_PROFILES,
         _tabular_features,
         _tabular_loader,
         _tabular_runtime,
