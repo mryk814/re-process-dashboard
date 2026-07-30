@@ -82,6 +82,7 @@ Profile inheritanceの展開は `operations/profile_workbench.py materialize`、
 | `experiments/benchmark_data_lifecycle.py` | Persistence performance | benchmark JSON/Markdown | `docs/benchmarks/2026-07-27-data-lifecycle.md` |
 | `experiments/benchmark_proposal_pool.py` | Proposal performance | timing table | `docs/benchmarks/2026-07-26-proposal-pool.md` |
 | `experiments/compare_annealing_feature_pipelines.py` | Feature engineering | comparison JSON | `docs/reports/annealing-feature-pipeline-v4-comparison.md` |
+| `experiments/evaluate_sampling_strategies.py` | Screening sampling research | comparison JSON | `docs/research/sampling-strategy-comparison.md` |
 | `experiments/evaluate_gmr_inverse.py` | Inverse proposal research | evaluation JSON | `docs/research/gmr-inverse-candidate-poc.md` |
 | `experiments/evaluate_shared_multioutput_gp.py` | Multi-output research | evaluation JSON | `docs/decisions/shared-multi-output.md` |
 | `experiments/spikes/spike_case_a.py` | Extensibility research | temp fixture/result | `docs/architecture/extensibility-spikes.md` |
