@@ -104,7 +104,8 @@
           "symbol": "test_sequential_revision_preserves_identity_and_immutable_boundary"
         },
         {
-          "path": "docs/research/sampling-strategy-comparison.md"
+          "path": "docs/research/sampling-strategy-comparison.md",
+          "symbol": null
         }
       ],
       "verification": [
@@ -126,7 +127,8 @@
           "symbol": "evaluate_sampling"
         },
         {
-          "path": "docs/research/sampling-strategy-comparison-2026-07-31.json"
+          "path": "docs/research/sampling-strategy-comparison-2026-07-31.json",
+          "symbol": null
         }
       ],
       "verification": [
