@@ -68,7 +68,7 @@ const surfaces: Surface[] = [
   },
   ...settings.map(([name, section, ready]) => ({
     name: `プロジェクト設定: ${name}`,
-    url: `/?view=project&project=default&project_settings=${section}`,
+    url: `/?view=project-settings&project=default&project_settings=${section}`,
     ready: heading(ready),
   })),
   {

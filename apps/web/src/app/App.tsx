@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
-import { isLegacyCandidateActivityNavigation, isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
+import { isLegacyCandidateActivityNavigation, isLegacyProjectSettingsNavigation, isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
   chainStagePath,
@@ -32,6 +32,7 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "candidates", label: "候補比較", active: ["candidates"] },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidate-review", label: "候補確認", active: ["candidate-review"] },
+  { id: "project-settings", label: "設定", active: ["project-settings"] },
 ];
 
 function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
@@ -232,6 +233,7 @@ function App() {
   const unavailableScopedTab = taskUnavailable
     && !chainProject
     && tab !== "project"
+    && tab !== "project-settings"
     && tab !== "workspace"
     && tab !== "data-library"
     && tab !== "profile-workbench";
@@ -244,8 +246,8 @@ function App() {
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (!chainProject && (!taskUnavailable || item.id === "project"))
-      || (chainProject && item.id === "candidates")
+    (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
+      || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
@@ -292,7 +294,7 @@ function App() {
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
-      if (isLegacyQualityAdminNavigation() || isLegacyCandidateActivityNavigation()) {
+      if (isLegacyQualityAdminNavigation() || isLegacyCandidateActivityNavigation() || isLegacyProjectSettingsNavigation()) {
         window.history.replaceState({}, "", navigationUrl(intent));
       }
       navigationRef.current = intent;
@@ -313,6 +315,7 @@ function App() {
       !params.has("view")
       || params.get("view") === "settings"
       || isLegacyCandidateActivityNavigation()
+      || isLegacyProjectSettingsNavigation()
     ) {
       window.history.replaceState({}, "", navigationUrl(current));
     }
@@ -466,8 +469,9 @@ function App() {
           : !dataLibraryMode && notice
             ? <WorkspaceNoticeBanner notice={notice} onDismiss={session.dismissNotice} />
             : null}
-        {tab === "project" && (
+        {(tab === "project" || tab === "project-settings") && (
           <ProjectHub
+            surface={tab === "project-settings" ? "settings" : "overview"}
             projects={projects}
             activeProjectId={activeProjectId}
             candidate={selected}
@@ -488,7 +492,11 @@ function App() {
             onSampleGalleryInstall={(projectIds) => session.installSampleProjects(projectIds)}
             onSampleGalleryRemove={(projectId) => session.removeSampleProject(projectId)}
             onSwitch={(projectId) => {
-              navigate({ view: "project", projectId }, true);
+              navigate({
+                view: tab === "project-settings" ? "project-settings" : "project",
+                projectId,
+                projectSettings: tab === "project-settings" ? navigation.projectSettings : undefined,
+              }, true);
               void session.loadProject(projectId);
             }}
             onNavigate={(view, candidateId, options) => {
@@ -508,6 +516,11 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedSettingsSection={navigation.projectSettings}
+            onOpenSettings={(projectSettings = "general", replace = false) => navigate({
+              view: "project-settings",
+              projectId: activeProjectId,
+              projectSettings,
+            }, replace)}
             renderScientificSettings={(project, handleProjectChanged, readOnly) => <ProjectScopedSettings
               project={project}
               taskDefinition={taskDefinition}
@@ -518,7 +531,7 @@ function App() {
                 ? navigation.projectSettings
                 : "ranges"}
               onSectionChange={(projectSettings) => navigate({
-                view: "project",
+                view: "project-settings",
                 projectId: activeProjectId,
                 projectSettings,
               }, true)}
@@ -550,7 +563,7 @@ function App() {
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}
             onOpenSettings={() => navigate({
-              view: "project",
+              view: "project-settings",
               projectId: activeProjectId,
               projectSettings: "task",
             })}
@@ -696,7 +709,7 @@ function App() {
                 candidateSection: undefined,
               }, true)}
               onConfigureGoals={() => navigate({
-                view: "project",
+                view: "project-settings",
                 projectId: activeProjectId,
                 projectSettings: "targets",
               })}
@@ -705,7 +718,7 @@ function App() {
               loadingRemainingPreviews={session.loadingRemainingPreviews}
               onLoadRemainingPreviews={() => void session.loadRemainingPreviews()}
               onConfigureSupport={() => navigate({
-                view: "project",
+                view: "project-settings",
                 projectId: activeProjectId,
                 projectSettings: "ranges",
               })}
@@ -731,7 +744,7 @@ function App() {
                   session.notifySuccess(`${candidate.label} を候補ストックへ追加しました（${count}件）`);
                 }}
                 onConfigureGoals={() => navigate({
-                  view: "project",
+                  view: "project-settings",
                   projectId: activeProjectId,
                   projectSettings: "targets",
                 })}
