@@ -12,7 +12,7 @@ import {
   ungroupedMembershipValue,
 } from "./projectSettingsState";
 
-const defaultGoalLabel = (
+export const defaultGoalLabel = (
   direction: "at_least" | "at_most" | "target",
 ) => direction === "at_most"
   ? "以下"
@@ -199,6 +199,7 @@ export function ProjectSettingsPanel({
               ? <div className="target-range-inputs">
                 <label>下限
                   <input
+                    aria-label={`${output.label}の下限`}
                     type="number"
                     value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""}
                     placeholder="下限"
@@ -212,6 +213,7 @@ export function ProjectSettingsPanel({
                 <span>–</span>
                 <label>上限
                   <input
+                    aria-label={`${output.label}の上限`}
                     type="number"
                     value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""}
                     placeholder="上限"
@@ -224,6 +226,7 @@ export function ProjectSettingsPanel({
                 </label>
               </div>
               : <input
+                aria-label={`${output.label}の目標値`}
                 type="number"
                 value={typeof goal === "number" ? goal : ""}
                 placeholder="未設定"
@@ -232,6 +235,7 @@ export function ProjectSettingsPanel({
                   event.target.value,
                 )}
               />}
+            {output.unit && <small className="target-setting-unit">{output.unit}</small>}
           </div>;
         })}
         {invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}

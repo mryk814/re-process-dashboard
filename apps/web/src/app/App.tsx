@@ -516,11 +516,11 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedSettingsSection={navigation.projectSettings}
-            onOpenSettings={(projectSettings = "general") => navigate({
+            onOpenSettings={(projectSettings = "general", replace = false) => navigate({
               view: "project-settings",
               projectId: activeProjectId,
               projectSettings,
-            })}
+            }, replace)}
             renderScientificSettings={(project, handleProjectChanged, readOnly) => <ProjectScopedSettings
               project={project}
               taskDefinition={taskDefinition}

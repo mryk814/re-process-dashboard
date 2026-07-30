@@ -27,7 +27,7 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
 
   await page.goto(`/?view=project&project=${project!.id}`);
   await expect(page.getByText("この予測タスクは一時的に利用できません").first()).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: "固定参照を確認できません" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "固定参照を確認できません" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "設定", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "設定", exact: true }).click();
   await page.getByRole("navigation", { name: "Project設定カテゴリ" })

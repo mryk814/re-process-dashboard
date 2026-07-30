@@ -232,6 +232,117 @@ test("inline Project rename does not overwrite the next Project after a delayed 
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${second.id}`)).status()).toBe(204);
 });
 
+test("Project name and target drafts save independently", async ({ page }) => {
+  const createdResponse = await createProjectFromDefault(page, `独立保存 ${Date.now()}`);
+  expect(createdResponse.status()).toBe(201);
+  const created = await createdResponse.json() as { id: string; name: string };
+  await page.goto(`/?view=project&project=${created.id}`);
+  await page.waitForLoadState("networkidle");
+
+  const nameInput = page.getByRole("textbox", { name: "プロジェクト名" });
+  const pendingName = `${created.name} 名前編集中`;
+  await nameInput.fill(pendingName);
+  const goal = page.getByRole("region", { name: "プロジェクトの目標値" });
+  const targetInput = goal.getByRole("spinbutton").first();
+  await targetInput.fill("500");
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByRole("button", { name: "科学設定" }).click();
+  await page.locator(".input-range-settings").getByRole("button", { name: "保存", exact: true }).click();
+  await expect.poll(async () => {
+    const response = await page.request.get(`${apiBaseUrl}/api/projects/${created.id}`);
+    return ((await response.json()) as { target_values: Record<string, unknown> }).target_values;
+  }).toEqual({});
+  await page.getByRole("button", { name: "概要", exact: true }).click();
+  await expect(goal.getByRole("spinbutton").first()).toHaveValue("500");
+  await page.getByRole("button", { name: "名前を保存" }).click();
+  await expect.poll(async () => {
+    const response = await page.request.get(`${apiBaseUrl}/api/projects/${created.id}`);
+    return (await response.json()) as { name: string; target_values: Record<string, unknown> };
+  }).toMatchObject({ name: pendingName, target_values: {} });
+
+  const secondPendingName = `${pendingName} まだ未保存`;
+  await nameInput.fill(secondPendingName);
+  await goal.getByRole("button", { name: "目標値を保存" }).click();
+  await expect(nameInput).toHaveValue(secondPendingName);
+  await expect(page.getByRole("button", { name: "名前を保存" })).toBeEnabled();
+  await expect.poll(async () => {
+    const response = await page.request.get(`${apiBaseUrl}/api/projects/${created.id}`);
+    return (await response.json()) as { name: string; target_values: Record<string, unknown> };
+  }).toMatchObject({ name: pendingName });
+
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
+});
+
+test("a delayed scientific settings save cannot replace the next Project", async ({ page }) => {
+  const firstResponse = await createProjectFromDefault(page, `範囲保存元 ${Date.now()}`);
+  const secondResponse = await createProjectFromDefault(page, `範囲切替先 ${Date.now()}`);
+  const first = await firstResponse.json() as { id: string; name: string };
+  const second = await secondResponse.json() as { id: string; name: string };
+  await page.route("**/api/projects/**", async (route) => {
+    if (route.request().method() !== "PUT" || new URL(route.request().url()).pathname !== `/api/projects/${first.id}`) {
+      await route.continue();
+      return;
+    }
+    const response = await page.request.put(route.request().url(), { data: route.request().postDataJSON() });
+    await new Promise((resolve) => setTimeout(resolve, 750));
+    await route.fulfill({ status: response.status(), headers: response.headers(), body: await response.body() });
+  });
+
+  await page.goto(`/?view=project-settings&project=${first.id}&project_settings=ranges`);
+  await page.waitForLoadState("networkidle");
+  const rangeSettings = page.locator(".input-range-settings");
+  const minimum = rangeSettings.getByRole("spinbutton").first();
+  await minimum.fill(String(Number(await minimum.inputValue()) + 0.0001));
+  await rangeSettings.getByRole("button", { name: "保存", exact: true }).click();
+  await page.locator(".project-list-item", { hasText: second.name }).click();
+  await expect(page).toHaveURL(new RegExp(`project=${second.id}`));
+  await expect(page.getByRole("heading", { name: `${second.name}の設定` })).toBeVisible();
+  await page.waitForTimeout(900);
+  await expect(page.getByRole("heading", { name: `${second.name}の設定` })).toBeVisible();
+
+  await page.unrouteAll({ behavior: "wait" });
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${first.id}`)).status()).toBe(204);
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${second.id}`)).status()).toBe(204);
+});
+
+test("switching from single-Task scientific settings to a Chain normalizes the section", async ({ page }) => {
+  const chainsResponse = await page.request.get(`${apiBaseUrl}/api/chains`);
+  const chains = await chainsResponse.json() as Array<{
+    definition: { chain_id: string };
+    revisions: Array<{ revision: number; revision_digest: string }>;
+  }>;
+  const chain = chains.find((item) => item.definition.chain_id === "welding-consumable-a-b-c-v1")!;
+  const revision = chain.revisions[0];
+  const createdResponse = await page.request.post(`${apiBaseUrl}/api/projects`, { data: {
+    name: `設定切替Chain ${Date.now()}`,
+    scientific_identity: {
+      identity_kind: "chain",
+      chain_revision_id: `${chain.definition.chain_id}:r${revision.revision}`,
+      chain_revision_digest: revision.revision_digest,
+    },
+  } });
+  const createdBody = await createdResponse.text();
+  expect(createdResponse.status(), createdBody).toBe(201);
+  const created = JSON.parse(createdBody) as { id: string; name: string };
+
+  await page.goto("/?view=project&project=default");
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByRole("button", { name: "科学設定" }).click();
+  await expect(page).toHaveURL(/project_settings=scientific/);
+  await page.locator(".project-list-item", { hasText: created.name }).click();
+  await expect(page).toHaveURL(new RegExp(`project=${created.id}.*project_settings=general`));
+  await expect(page.getByRole("navigation", { name: "Project設定カテゴリ" }).getByRole("button", { name: "通常設定" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "プロジェクト設定" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "科学設定" })).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(/view=project-settings&project=default/);
+  await expect(page.getByRole("button", { name: "通常設定" })).toHaveAttribute("aria-current", "page");
+  await page.goBack();
+  await expect(page).toHaveURL(/view=project&project=default/);
+  await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
+  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
+});
+
 test("Dataset choices explain use, order, and duplicate identity before Project creation", async ({ page }) => {
   const boundProjectName = `Dataset結合確認 ${Date.now()}`;
   const boundProjectResponse = await createProjectFromDefault(page, boundProjectName);
@@ -511,6 +622,9 @@ test("project overview leads with next work and goals while fixed references liv
 
   await expect(goal).toBeVisible();
   await expect(nextWork).toBeVisible();
+  await expect(page.locator(".project-inline-name h2").getByRole("textbox", { name: "プロジェクト名" })).toBeVisible();
+  await expect(goal.getByRole("group", { name: "目標値を設定" })).toBeVisible();
+  await expect(goal.getByRole("button", { name: "目標値を保存" })).toBeDisabled();
   await expect(page.locator(".project-reference-details")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /自分のデータ/ })).toHaveCount(1);
 

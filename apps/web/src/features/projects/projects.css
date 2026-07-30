@@ -90,7 +90,8 @@
 .project-hub-header { align-items: flex-start; }
 .project-hub-header h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .project-inline-name { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-.project-inline-name label { min-width: min(420px, 60vw); }
+.project-inline-name h2 { min-width: min(420px, 60vw); margin: 0; }
+.project-inline-name label { display: block; }
 .project-inline-name input {
   width: 100%;
   border: 1px solid transparent;
@@ -224,6 +225,10 @@
 .project-goal-strip.unset .project-goal-values > span { background: transparent; padding: 0; }
 .project-goal-values b { margin-right: 5px; color: #29435f; }
 .project-goal-strip button { min-height: 32px; padding: 5px 11px; font-size: 11px; white-space: nowrap; }
+.project-goal-initial-editor { display: grid; gap: 9px; grid-column: 1 / -1; }
+.project-goal-initial-editor .target-grid { margin: 0; }
+.project-goal-initial-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.project-goal-initial-actions small { color: #5f6f82; }
 .project-group-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 8px; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fafc; padding: 9px 11px; }
 .project-group-summary span { color: #6d7c8e; font-size: 10px; font-weight: 700; }
 .project-group-summary strong { color: #29435f; font-size: 12px; }
@@ -389,7 +394,8 @@
   .project-binding-confirmation > div > small { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
   .project-goal-strip { grid-template-columns: 1fr; }
   .project-goal-strip button, .project-goal-values { grid-column: 1; }
-  .project-inline-name label { min-width: 0; width: 100%; }
+  .project-inline-name h2 { min-width: 0; width: 100%; }
+  .project-goal-initial-actions { align-items: stretch; flex-direction: column; }
   .project-reference-warning { align-items: stretch; flex-direction: column; }
   .project-settings-category-nav { overflow-x: auto; }
   .project-settings-category-nav button { flex: 0 0 auto; }

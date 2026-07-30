@@ -31,3 +31,25 @@ test("the former Project overview settings query is normalized to the canonical 
   await page.goForward();
   await expect(page).toHaveURL(/view=project-settings/);
 });
+
+test("Project settings history restores both the tab and its category", async ({ page }) => {
+  await page.goto("/?view=project&project=default");
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  const categories = page.getByRole("navigation", { name: "Project設定カテゴリ" });
+  await categories.getByRole("button", { name: "証拠・管理" }).click();
+  await expect(categories.getByRole("button", { name: "証拠・管理" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".project-reference-strip")).toBeVisible();
+
+  await page.goBack();
+  await expect(categories.getByRole("button", { name: "通常設定" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("region", { name: "プロジェクト設定" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
+
+  await page.goForward();
+  await expect(categories.getByRole("button", { name: "通常設定" })).toHaveAttribute("aria-current", "page");
+  await page.goForward();
+  await expect(categories.getByRole("button", { name: "証拠・管理" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".project-reference-strip")).toBeVisible();
+});

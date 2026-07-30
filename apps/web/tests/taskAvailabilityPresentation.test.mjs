@@ -142,7 +142,7 @@ test("the project overview presents next work before goals and keeps fixed refer
   assert.ok(fixedReferencesPosition > nextWorkPosition, "fixed references follow the user actions");
   assert.match(
     projectHub,
-    /surface === "settings" && settingsCategory === "evidence" && project && <details className="project-reference-details" open>/,
+    /surface === "settings" && effectiveSettingsCategory === "evidence" && project && <details className="project-reference-details" open>/,
   );
   assert.match(projectHub, /surface === "overview" && unresolvedReferences\.length > 0/);
 });

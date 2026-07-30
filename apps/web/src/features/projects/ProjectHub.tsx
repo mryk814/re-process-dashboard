@@ -40,7 +40,7 @@ import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
 import { candidateQuestionActions, candidateQuestionState, type CandidateSection } from "../../shared/projectActionQuestions";
 import { ProjectEvidenceHistoryList } from "./ProjectEvidenceHistory";
 import { ProjectCreationPanel } from "./ProjectCreationPanel";
-import { ProjectSettingsPanel } from "./ProjectSettingsPanel";
+import { defaultGoalLabel, ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import {
   isCurrentProjectSettingsRequest,
   projectGroupMembershipState,
@@ -73,7 +73,7 @@ type Props = {
     readOnly: boolean,
   ) => ReactNode;
   onProjectChanged: (project: ApiProject) => void;
-  onOpenSettings: (section?: ProjectSettingsSection) => void;
+  onOpenSettings: (section?: ProjectSettingsSection, replace?: boolean) => void;
   onProjectArchived: (projectId: string) => Promise<boolean>;
   onProjectRestored: (projectId: string) => Promise<boolean>;
   onSampleGalleryInstall: (projectIds: string[]) => Promise<boolean>;
@@ -246,6 +246,7 @@ export function ProjectHub({
   const decisionDraftRef = useRef({ key: "", dirty: false });
   const projectNameDraftProjectRef = useRef("");
   const projectNameDirtyRef = useRef(false);
+  const targetDraftDirtyRef = useRef(false);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
   activeProjectRef.current = activeProjectId;
@@ -299,10 +300,19 @@ export function ProjectHub({
     )
     : formatNumber(value);
   const chainExecutionPending = false;
+  const applyProjectSettingsResponse = (nextProject: ApiProject) => {
+    if (nextProject.id !== activeProjectRef.current) return;
+    setProject((current) => current?.id === nextProject.id && targetDraftDirtyRef.current
+      ? { ...nextProject, target_values: current.target_values }
+      : nextProject);
+    onProjectChanged(nextProject);
+  };
 
   useEffect(() => {
     const selected = projects.find((item) => item.id === activeProjectId) ?? null;
-    setProject(selected);
+    setProject((current) => selected && current?.id === selected.id && targetDraftDirtyRef.current
+      ? { ...selected, target_values: current.target_values }
+      : selected);
     setError("");
     setArchiveOpen(false);
     setSettingsPending(false);
@@ -316,6 +326,7 @@ export function ProjectHub({
     if (projectNameDraftProjectRef.current !== activeProjectId) {
       projectNameDraftProjectRef.current = activeProjectId;
       projectNameDirtyRef.current = false;
+      targetDraftDirtyRef.current = false;
     }
     if (!projectNameDirtyRef.current) setProjectNameDraft(selected?.name ?? "");
   }, [activeProjectId, projects.find((item) => item.id === activeProjectId)?.name]);
@@ -578,7 +589,6 @@ export function ProjectHub({
       : [
           !fixedDataset && "Dataset",
           !fixedPackage && "Model Package",
-          taskUnavailable && "予測タスク",
         ].filter((item): item is string => Boolean(item))
     : [];
   const settingsCategory = requestedSettingsSection === "evidence"
@@ -589,6 +599,9 @@ export function ProjectHub({
       || requestedSettingsSection === "task"
       ? "scientific"
       : "general";
+  const effectiveSettingsCategory = chainIdentity && settingsCategory === "scientific"
+    ? "general"
+    : settingsCategory;
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
   const fixedSeriesProjectCount = project?.project_series_id
     ? projects.filter((item) => item.project_series_id === project.project_series_id).length
@@ -625,6 +638,11 @@ export function ProjectHub({
       setGroupSettingsOpen(false);
     }
   }, [fixedSeries?.id, fixedSeries?.name, project?.project_series_id, surface]);
+  useEffect(() => {
+    if (surface === "settings" && chainIdentity && settingsCategory === "scientific") {
+      onOpenSettings("general", true);
+    }
+  }, [chainIdentity?.chain_revision_id, requestedSettingsSection, surface]);
   useEffect(() => {
     if (groupSettingsOpen) setSeriesName(fixedSeries?.name ?? "");
   }, [fixedSeries?.id, fixedSeries?.name, groupSettingsOpen]);
@@ -750,7 +768,10 @@ export function ProjectHub({
     }
   }, [activeProjectId, requestedSettingsSection, surface]);
 
-  async function saveProject(nextProject = project) {
+  async function saveProject(
+    nextProject = project,
+    options: { syncNameDraft?: boolean; syncTargetDraft?: boolean } = {},
+  ) {
     if (!nextProject || settingsPending) return;
     const requestProjectId = activeProjectId;
     if (nextProject.id !== requestProjectId || activeProjectRef.current !== requestProjectId) return;
@@ -759,9 +780,14 @@ export function ProjectHub({
     try {
       const saved = await workbenchApi.updateProject(requestProjectId, nextProject);
       if (activeProjectRef.current !== requestProjectId) return;
-      setProject(saved);
-      projectNameDirtyRef.current = false;
-      setProjectNameDraft(saved.name);
+      setProject((current) => options.syncNameDraft && current?.id === saved.id
+        ? { ...current, name: saved.name }
+        : saved);
+      if (options.syncNameDraft) {
+        projectNameDirtyRef.current = false;
+        setProjectNameDraft(saved.name);
+      }
+      if (options.syncTargetDraft) targetDraftDirtyRef.current = false;
       onProjectChanged(saved);
     } catch (cause) {
       if (activeProjectRef.current === requestProjectId) {
@@ -965,12 +991,14 @@ export function ProjectHub({
     ));
   const setScalarTarget = (key: string, value: string) => {
     if (!project) return;
+    targetDraftDirtyRef.current = true;
     const next = { ...targetValues };
     if (value === "") delete next[key]; else next[key] = Number(value);
     setProject({ ...project, target_values: next });
   };
   const setTargetMode = (key: string, mode: "directional" | "between") => {
     if (!project) return;
+    targetDraftDirtyRef.current = true;
     const current = targetValues[key];
     const next = { ...targetValues };
     if (mode === "between") {
@@ -984,6 +1012,7 @@ export function ProjectHub({
   };
   const setRangeTarget = (key: string, bound: "lower" | "upper", value: string) => {
     if (!project) return;
+    targetDraftDirtyRef.current = true;
     const current = targetValues[key];
     const range = isTargetRange(current) ? current : { lower: Number.NaN, upper: Number.NaN };
     setProject({
@@ -1226,8 +1255,10 @@ export function ProjectHub({
           <div>
             <span className="overline">PROJECT OVERVIEW</span>
             <div className="project-inline-name">
-              <label>
-                <span className="sr-only">プロジェクト名</span>
+              <h2>
+                <span className="sr-only">{projectNameDraft || "プロジェクト"}</span>
+                <label>
+                  <span className="sr-only">プロジェクト名</span>
                 <input
                   aria-label="プロジェクト名"
                   value={projectNameDraft}
@@ -1237,7 +1268,8 @@ export function ProjectHub({
                     setProjectNameDraft(event.target.value);
                   }}
                 />
-              </label>
+                </label>
+              </h2>
               {project?.starter && <span className="starter-project-badge">同梱サンプル</span>}
               {project && <button
                 type="button"
@@ -1248,13 +1280,15 @@ export function ProjectHub({
                   || offline
                   || settingsPending
                 }
-                onClick={() => void saveProject({ ...project, name: projectNameDraft.trim() })}
+                onClick={() => persistedProject && void saveProject(
+                  { ...persistedProject, name: projectNameDraft.trim() },
+                  { syncNameDraft: true },
+                )}
               >{settingsPending ? "保存中…" : "名前を保存"}</button>}
               <span className="project-name-save-state" role="status">
                 {settingsPending ? "保存中" : settingsError ? "保存できませんでした" : ""}
               </span>
             </div>
-            {(project?.purpose || project?.description) && <p>{project.purpose || project.description}</p>}
           </div>
           <div className="project-actions">
             <button
@@ -1346,19 +1380,59 @@ export function ProjectHub({
       </section>}
       {surface === "overview" && project && configurableOutputs.length > 0 && <section className={`project-goal-strip${configuredTargets.length ? "" : " unset"}`} aria-label="プロジェクトの目標値">
         <div className="project-goal-heading"><span>目標値</span><strong>{configuredTargets.length ? "候補を判断する基準" : "候補を探す前に設定"}</strong></div>
-        <div className="project-goal-values">
-          {configuredTargets.length
-            ? configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)
-            : <span>未設定です。設定すると候補の目標達成率を比較できます。</span>}
-        </div>
-        <button className={configuredTargets.length ? "outline-button" : "primary-button"} disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>{configuredTargets.length ? "目標値を変更" : "目標値を設定"}</button>
+        {configuredTargets.length
+          ? <>
+              <div className="project-goal-values">
+                {configuredTargets.map((output) => <span key={output.key}><b>{output.label}</b>{targetGoalText(savedTargetValues[output.key], output.goal_direction, formatNumber)} {output.unit}</span>)}
+              </div>
+              <button className="outline-button" disabled={taskUnavailable || chainExecutionPending || offline} onClick={focusTargetSettings}>目標値を変更</button>
+            </>
+          : <div className="project-goal-initial-editor">
+              <fieldset className="target-grid" disabled={taskUnavailable || chainExecutionPending || offline || settingsPending}>
+                <legend className="sr-only">目標値を設定</legend>
+                {configurableOutputs.map((output) => {
+                  const goal = targetValues[output.key];
+                  const range = isTargetRange(goal) ? goal : undefined;
+                  const rangeOnly = output.goal_direction === "target";
+                  const showRange = rangeOnly || range != null;
+                  const rangeDraft = range ?? { lower: Number.NaN, upper: Number.NaN };
+                  return <div className="target-setting" key={output.key}>
+                    <label>{output.label}
+                      <select
+                        disabled={rangeOnly}
+                        value={showRange ? "between" : "directional"}
+                        onChange={(event) => setTargetMode(output.key, event.target.value as "directional" | "between")}
+                      >
+                        <option value="directional">{defaultGoalLabel(output.goal_direction)}</option>
+                        <option value="between">範囲内</option>
+                      </select>
+                    </label>
+                    {showRange
+                      ? <div className="target-range-inputs">
+                          <label>下限<input aria-label={`${output.label}の下限`} type="number" value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""} placeholder="下限" onChange={(event) => setRangeTarget(output.key, "lower", event.target.value)} /></label>
+                          <span>–</span>
+                          <label>上限<input aria-label={`${output.label}の上限`} type="number" value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""} placeholder="上限" onChange={(event) => setRangeTarget(output.key, "upper", event.target.value)} /></label>
+                        </div>
+                      : <input type="number" aria-label={`${output.label}の目標値`} value={typeof goal === "number" ? goal : ""} placeholder="未設定" onChange={(event) => setScalarTarget(output.key, event.target.value)} />}
+                    {output.unit && <small className="target-setting-unit">{output.unit}</small>}
+                  </div>;
+                })}
+                {invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}
+              </fieldset>
+              <div className="project-goal-initial-actions">
+                <small>保存すると判断基準（Objective）の版を作成します。</small>
+                <button className="primary-button" disabled={settingsPending || invalidTargetRange || !Object.keys(targetValues).length || taskUnavailable || offline} onClick={() => void saveProject(project, { syncTargetDraft: true })}>
+                  {settingsPending ? "保存中…" : "目標値を保存"}
+                </button>
+              </div>
+            </div>}
       </section>}
       {surface === "settings" && <nav className="project-settings-category-nav" aria-label="Project設定カテゴリ">
-        <button type="button" className={settingsCategory === "general" ? "active" : ""} aria-current={settingsCategory === "general" ? "page" : undefined} onClick={() => onOpenSettings("general")}>通常設定</button>
-        {!chainIdentity && <button type="button" className={settingsCategory === "scientific" ? "active" : ""} aria-current={settingsCategory === "scientific" ? "page" : undefined} onClick={() => onOpenSettings("scientific")}>科学設定</button>}
-        <button type="button" className={settingsCategory === "evidence" ? "active" : ""} aria-current={settingsCategory === "evidence" ? "page" : undefined} onClick={() => onOpenSettings("evidence")}>証拠・管理</button>
+        <button type="button" className={effectiveSettingsCategory === "general" ? "active" : ""} aria-current={effectiveSettingsCategory === "general" ? "page" : undefined} onClick={() => onOpenSettings("general")}>通常設定</button>
+        {!chainIdentity && <button type="button" className={effectiveSettingsCategory === "scientific" ? "active" : ""} aria-current={effectiveSettingsCategory === "scientific" ? "page" : undefined} onClick={() => onOpenSettings("scientific")}>科学設定</button>}
+        <button type="button" className={effectiveSettingsCategory === "evidence" ? "active" : ""} aria-current={effectiveSettingsCategory === "evidence" ? "page" : undefined} onClick={() => onOpenSettings("evidence")}>証拠・管理</button>
       </nav>}
-      {surface === "settings" && settingsCategory === "evidence" && project && <details className="project-reference-details" open>
+      {surface === "settings" && effectiveSettingsCategory === "evidence" && project && <details className="project-reference-details" open>
         <summary><span>固定参照・再現性</span><small>使用中のデータ・予測方法</small></summary>
         {chainIdentity
           ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
@@ -1558,7 +1632,7 @@ export function ProjectHub({
         onSubmit={createProject}
       />}
 
-      {surface === "settings" && settingsCategory === "general" && <ProjectSettingsPanel
+      {surface === "settings" && effectiveSettingsCategory === "general" && <ProjectSettingsPanel
         open
         project={project}
         loading={settingsPending}
@@ -1594,15 +1668,12 @@ export function ProjectHub({
         onTargetModeChange={setTargetMode}
         onScalarTargetChange={setScalarTarget}
         onRangeTargetChange={setRangeTarget}
-        onSave={saveProject}
+        onSave={() => saveProject(project, { syncTargetDraft: true })}
       />}
 
-      {surface === "settings" && settingsCategory === "scientific" && !chainIdentity && project && renderScientificSettings?.(
-        project,
-        (nextProject) => {
-          setProject(nextProject);
-          onProjectChanged(nextProject);
-        },
+      {surface === "settings" && effectiveSettingsCategory === "scientific" && !chainIdentity && project && renderScientificSettings?.(
+        persistedProject ?? project,
+        applyProjectSettingsResponse,
         offline || settingsPending,
       )}
 
