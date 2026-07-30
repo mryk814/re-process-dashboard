@@ -112,7 +112,7 @@ test("legacy admin links resolve to their new scope without retaining the settin
   assert.equal(model.readNavigationIntent().developerTab, "diagnostics");
 
   const ranges = await navigationModule("?view=settings&project=p1&admin=ranges");
-  assert.equal(ranges.readNavigationIntent().view, "project");
+  assert.equal(ranges.readNavigationIntent().view, "project-settings");
   assert.equal(ranges.readNavigationIntent().projectSettings, "ranges");
 
   const quality = await navigationModule("?view=settings&project=p1&admin=quality");

@@ -21,7 +21,7 @@ test("unavailable tasks keep overview and read-only diagnostics while replacing 
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
   assert.match(app, /item\.id === "project"/);
-  assert.match(app, /chainProject && item\.id === "candidates"/);
+  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "project-settings"\)/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
   assert.match(app, /tab !== "workspace"/);
   assert.match(app, /tab === "workspace"/);
@@ -48,7 +48,7 @@ test("chain projects load their immutable revision without entering the single-t
   assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
   assert.doesNotMatch(session, /Chain Revisionを固定しました/);
   assert.match(app, /const chainProject = activeProject\?\.scientific_identity\?\.identity_kind === "chain"/);
-  assert.match(app, /chainProject && item\.id === "candidates"/);
+  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "project-settings"\)/);
   assert.match(app, /tab === "candidates" && chainProject/);
 });
 
@@ -132,16 +132,17 @@ test("the fixed reference strip reads in Japanese and keeps digests in one colla
   assert.match(projectHub, /<ReferenceIdentityDetails items=/);
 });
 
-test("the project overview presents goals and next work before collapsed fixed references", () => {
+test("the project overview presents next work before goals and keeps fixed references in settings", () => {
   const goalPosition = projectHub.indexOf("project-goal-strip");
   const nextWorkPosition = projectHub.indexOf('className="project-next-actions"');
   const fixedReferencesPosition = projectHub.indexOf('className="project-reference-details"');
 
   assert.ok(goalPosition >= 0, "the goal strip is present");
-  assert.ok(nextWorkPosition > goalPosition, "next work follows the goal");
+  assert.ok(nextWorkPosition >= 0 && nextWorkPosition < goalPosition, "next work precedes the goal");
   assert.ok(fixedReferencesPosition > nextWorkPosition, "fixed references follow the user actions");
   assert.match(
     projectHub,
-    /<details className="project-reference-details">\s*<summary><span>固定参照・再現性<\/span><small>使用中のデータ・予測方法<\/small><\/summary>/,
+    /surface === "settings" && settingsCategory === "evidence" && project && <details className="project-reference-details" open>/,
   );
+  assert.match(projectHub, /surface === "overview" && unresolvedReferences\.length > 0/);
 });

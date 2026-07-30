@@ -27,8 +27,11 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
 
   await page.goto(`/?view=project&project=${project!.id}`);
   await expect(page.getByText("この予測タスクは一時的に利用できません").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "設定を編集" })).toBeVisible();
-  await page.locator(".project-reference-details > summary").click();
+  await expect(page.getByRole("alert").filter({ hasText: "固定参照を確認できません" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "設定", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByRole("navigation", { name: "Project設定カテゴリ" })
+    .getByRole("button", { name: "証拠・管理" }).click();
   await page.locator(".project-reference-identity > summary").click();
   await expect(page.getByText(project!.dataset_view_revision_id!, { exact: false }).first()).toBeVisible();
   await expect(page.getByText(project!.model_package_ref_id!, { exact: false }).first()).toBeVisible();
@@ -37,7 +40,7 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
 
   await page.goto(`/?view=candidates&project=${project!.id}`);
   await page.getByRole("button", { name: "参照状態を確認する" }).click();
-  await expect(page).toHaveURL(/view=project.*project_settings=task/);
+  await expect(page).toHaveURL(/view=project-settings.*project_settings=task/);
   const diagnostic = page.getByRole("status", { name: "予測タスクの利用停止診断" });
   await expect(diagnostic).toBeVisible();
   await expect(diagnostic.getByText(
@@ -58,7 +61,7 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
     await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
   }
 
-  await page.goto(`/?view=project&project=${project!.id}&project_settings=display`);
+  await page.goto(`/?view=project-settings&project=${project!.id}&project_settings=display`);
   await expect(page.getByRole("status", { name: "予測タスクの利用停止診断" })).toBeVisible();
   await expect(page.locator(".display-decimal-settings input")).not.toHaveCount(0);
   await expect.poll(() => page.locator(".display-decimal-settings input").evaluateAll(
