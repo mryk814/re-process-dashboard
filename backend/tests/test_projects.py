@@ -194,7 +194,7 @@ def test_project_crud_preserves_default_and_isolates_candidates_and_screening(cl
     assert run.status_code == 201
     assert run.json()["project_design_space_digest"] == project["design_space_digest"]
     assert run.json()["project_design_space_binding_provenance"] == "generated_default"
-    assert run.json()["schema_version"] == "screening-run/v7"
+    assert run.json()["schema_version"] == "screening-run/v8"
     assert run.json()["objective_definition_digest"].startswith("sha256:")
     assert run.json()["objective_binding_provenance"] == "project_revision"
     assert run.json()["target"] == "YS"

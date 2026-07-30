@@ -33,6 +33,9 @@ from material_workbench.contracts.batch_proposal_contracts import BatchProposalD
 from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract, screening_goal_runtime_value
 from material_workbench.domain.proposal_acquisition import acquisition_value
 from material_workbench.domain.proposal_generation import generate_candidates
+from material_workbench.domain.proposal_selection import (
+    select_proposal_shortlist,
+)
 from material_workbench.domain.batch_selector import (
     candidate_design_values,
     select_experiment_batch,
@@ -343,7 +346,45 @@ def run_proposal(
             ),
         )
     )
+    proposal_selection = (
+        select_proposal_shortlist(
+            ranked,
+            request.proposal,
+            design_space,
+            strategy,
+            seed=request.seed,
+        )
+        if request.purpose == "goal_search"
+        else None
+    )
     selected = ranked[:request.samples]
+    if proposal_selection is not None:
+        proposed_pool_indices = {
+            item["pool_index"] for item in proposal_selection["selected"]
+        }
+        selected_pool_indices = {
+            point["pool_index"] for point in selected
+        }
+        missing_proposals = [
+            point
+            for point in ranked
+            if point["pool_index"] in proposed_pool_indices
+            and point["pool_index"] not in selected_pool_indices
+        ]
+        if missing_proposals:
+            retained = [
+                point
+                for point in selected
+                if point["pool_index"] in proposed_pool_indices
+            ]
+            fill = [
+                point
+                for point in selected
+                if point["pool_index"] not in proposed_pool_indices
+            ][
+                : request.samples - len(retained) - len(missing_proposals)
+            ]
+            selected = [*retained, *fill, *missing_proposals]
     batch_definition = request.batch_definition
     if (
         batch_definition is not None
@@ -412,6 +453,17 @@ def run_proposal(
     }
     for index, point in enumerate(selected):
         selected_points.append({**point, "index": index})
+    if proposal_selection is not None:
+        point_index_by_pool = {
+            point["pool_index"]: point["index"] for point in selected_points
+        }
+        proposal_selection["selected"] = [
+            {
+                **item,
+                "point_index": point_index_by_pool[item["pool_index"]],
+            }
+            for item in proposal_selection["selected"]
+        ]
     if batch_proposal is not None:
         point_index_by_pool = {
             point["pool_index"]: point["index"] for point in selected_points
@@ -482,15 +534,29 @@ def run_proposal(
         "samples": request.samples,
         "variables": {name: spec.model_dump() for name, spec in request.variables.items()},
         "points": selected_points,
-        "representative_points": selected_points[:10],
+        "representative_points": (
+            [
+                selected_points[item["point_index"]]
+                for item in proposal_selection["selected"]
+            ]
+            if proposal_selection is not None
+            else selected_points[:10]
+        ),
         "proposal_pool": proposal_pool,
         "proposal_rejections": proposal_rejections,
+        "proposal_selection": proposal_selection,
         "batch_proposal": batch_proposal,
         "_proposal_diagnostics": {
             "generated_count": pool_size,
             "valid_count": len(valid_candidates),
             "evaluated_count": len(points),
             "selected_count": len(selected_points),
+            "displayed_count": len(selected_points),
+            "proposed_count": (
+                proposal_selection["actual_count"]
+                if proposal_selection is not None
+                else 0
+            ),
             "rejected_count": sum(rejected_by_reason.values()),
             "rejection_rate": sum(rejected_by_reason.values()) / pool_size,
             "rejected_by_reason": dict(sorted(rejected_by_reason.items())),

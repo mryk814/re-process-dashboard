@@ -118,10 +118,28 @@ def test_latin_hypercube_is_deterministic_bounded_and_convertible(client) -> Non
     }
     legacy["proposal_diagnostics"]["evaluated_count"] = legacy["samples"]
     legacy["proposal_diagnostics"]["selected_count"] = 0
+    legacy["proposal_diagnostics"].pop("displayed_count")
+    legacy["proposal_diagnostics"].pop("proposed_count")
+    legacy.pop("proposal_selection")
     restored_legacy = ScreeningRunResponse.model_validate(legacy)
     assert restored_legacy.schema_version == "screening-run/v3"
     assert restored_legacy.__dict__["target_value"] == 500
     assert restored_legacy.objective_definition is None
+
+    legacy_v7 = deepcopy(first)
+    legacy_v7["schema_version"] = "screening-run/v7"
+    legacy_v7["proposal_diagnostics"].pop("displayed_count")
+    legacy_v7["proposal_diagnostics"].pop("proposed_count")
+    legacy_v7.pop("proposal_selection")
+    restored_v7 = ScreeningRunResponse.model_validate(legacy_v7)
+    assert restored_v7.schema_version == "screening-run/v7"
+    assert restored_v7.proposal_selection is None
+    assert restored_v7.proposal_diagnostics.displayed_count is None
+
+    tampered_v8 = deepcopy(first)
+    tampered_v8["proposal_selection"]["selected"][0]["point_index"] = 47
+    with pytest.raises(ValueError, match="saved displayed points"):
+        ScreeningRunResponse.model_validate(tampered_v8)
 
 
 def test_screening_request_rejects_removed_scalar_goal_fields(client) -> None:
@@ -277,7 +295,7 @@ def test_screening_between_goal_persists_rule_and_uses_inclusive_boundaries(clie
 
     assert response.status_code == 201, response.text
     run = response.json()
-    assert run["schema_version"] == "screening-run/v7"
+    assert run["schema_version"] == "screening-run/v8"
     assert run["target_goal"] == {"direction": "between", "lower": 450.0, "upper": 550.0}
     assert run["secondary_goals"] == {
         "YS": {"direction": "at_least", "lower": 300.0, "upper": None},

@@ -515,7 +515,7 @@ class ScreeningService:
         )
         result["purpose"] = payload.purpose
         result["source_run_id"] = payload.source_run_id
-        result["schema_version"] = "screening-run/v7"
+        result["schema_version"] = "screening-run/v8"
         if payload.purpose != "experiment_batch":
             assert strategy is not None
             assert incumbent_resolution is not None
@@ -652,8 +652,17 @@ class ScreeningService:
         result = {
             key: value
             for key, value in source_raw.items()
-            if key not in {"id", "project_id", "created_at"}
+            if key not in {
+                "id",
+                "project_id",
+                "created_at",
+                "proposal_selection",
+            }
         }
+        diagnostics = dict(result.get("proposal_diagnostics") or {})
+        diagnostics["displayed_count"] = len(points)
+        diagnostics["proposed_count"] = 0
+        result["proposal_diagnostics"] = diagnostics
         result["batch_proposal"] = batch_proposal
         return result
 
