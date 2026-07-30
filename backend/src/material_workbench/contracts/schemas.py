@@ -37,6 +37,7 @@ from material_workbench.contracts.proposal_contracts import (
     ProposalIncumbentResolution,
     ProposalObjectiveExecution,
     ProposalRejectedCandidate,
+    ProposalSelectionEvidence,
     ProposalStrategyRequest,
 )
 from material_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef, ResolvedTaskDefinition
@@ -1481,6 +1482,8 @@ class ScreeningProposalDiagnostics(BaseModel):
     rejection_rate: Annotated[float, Field(ge=0, le=1)]
     rejected_by_reason: dict[str, Annotated[int, Field(ge=1)]] = Field(default_factory=dict)
     selected_count: Annotated[int, Field(ge=0)] = 0
+    displayed_count: Annotated[int | None, Field(ge=0)] = None
+    proposed_count: Annotated[int | None, Field(ge=0)] = None
     coverage_by_path: dict[str, ProposalCoverageEvidence] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -1500,7 +1503,7 @@ class ScreeningProposalDiagnostics(BaseModel):
 
 
 class ScreeningRunResponse(BaseModel):
-    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"] = "screening-run/v1"
+    schema_version: Literal["screening-run/v1", "screening-run/v2", "screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7", "screening-run/v8"] = "screening-run/v1"
     id: str
     project_id: str
     created_at: datetime
@@ -1543,6 +1546,7 @@ class ScreeningRunResponse(BaseModel):
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     proposal_pool: list[ProposalCandidateEvaluation] = Field(default_factory=list)
     proposal_rejections: list[ProposalRejectedCandidate] = Field(default_factory=list)
+    proposal_selection: ProposalSelectionEvidence | None = None
     batch_proposal: BatchProposalRun | None = None
     rejection_summary: dict[str, int] | None = Field(
         default=None,
@@ -1553,7 +1557,9 @@ class ScreeningRunResponse(BaseModel):
 
     @model_validator(mode="after")
     def proposal_identity_is_internally_consistent(self) -> "ScreeningRunResponse":
-        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"}:
+        if self.schema_version != "screening-run/v8" and self.proposal_selection is not None:
+            raise ValueError("legacy screening run must not contain proposal selection")
+        if self.schema_version not in {"screening-run/v3", "screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7", "screening-run/v8"}:
             return self
         if (
             self.design_space is None
@@ -1569,7 +1575,7 @@ class ScreeningRunResponse(BaseModel):
         expected_generated = self.samples * self.proposal_strategy.pool_multiplier
         if self.proposal_diagnostics.generated_count != expected_generated:
             raise ValueError("proposal diagnostics must cover the complete generated pool")
-        if self.schema_version in {"screening-run/v6", "screening-run/v7"}:
+        if self.schema_version in {"screening-run/v6", "screening-run/v7", "screening-run/v8"}:
             if self.proposal_diagnostics.evaluated_count != self.proposal_diagnostics.valid_count:
                 raise ValueError("screening-run/v6 must evaluate the complete valid pool")
             if self.proposal_diagnostics.selected_count != self.samples:
@@ -1625,7 +1631,7 @@ class ScreeningRunResponse(BaseModel):
                     )
         elif self.proposal_diagnostics.evaluated_count != self.samples:
             raise ValueError("proposal diagnostics evaluated_count must match samples")
-        if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7"}:
+        if self.schema_version in {"screening-run/v4", "screening-run/v5", "screening-run/v6", "screening-run/v7", "screening-run/v8"}:
             if self.__dict__["target_value"] is not None or self.__dict__["secondary_targets"]:
                 raise ValueError("screening-run/v4 must use target_goal and secondary_goals")
             if self.target in self.secondary_goals:
@@ -1633,7 +1639,7 @@ class ScreeningRunResponse(BaseModel):
             expected_direction = self.target_goal.direction if self.target_goal else None
             if self.score_contract.direction != expected_direction:
                 raise ValueError("score contract direction must match target_goal")
-        if self.schema_version in {"screening-run/v5", "screening-run/v6", "screening-run/v7"}:
+        if self.schema_version in {"screening-run/v5", "screening-run/v6", "screening-run/v7", "screening-run/v8"}:
             if self.objective_definition is None or self.objective_definition_digest is None:
                 raise ValueError("screening-run/v5 requires an Objective Definition")
             if self.objective_definition.digest != self.objective_definition_digest:
@@ -1653,7 +1659,7 @@ class ScreeningRunResponse(BaseModel):
                 or self.score_contract.upper != expected_upper
             ):
                 raise ValueError("score contract bounds must match target_goal")
-        if self.schema_version == "screening-run/v7":
+        if self.schema_version in {"screening-run/v7", "screening-run/v8"}:
             if self.purpose is None:
                 raise ValueError("screening-run/v7 requires purpose")
             if self.purpose == "design_space_map":
@@ -1678,6 +1684,76 @@ class ScreeningRunResponse(BaseModel):
                 or self.objective_execution is None
             ):
                 raise ValueError("experiment batch requires its source and objective evidence")
+        if self.schema_version == "screening-run/v8":
+            assert self.proposal_diagnostics is not None
+            if (
+                self.proposal_diagnostics.displayed_count is None
+                or self.proposal_diagnostics.proposed_count is None
+            ):
+                raise ValueError("screening-run/v8 requires displayed/proposed counts")
+            if self.proposal_diagnostics.displayed_count != len(self.points):
+                raise ValueError("displayed_count must match saved point count")
+            if self.proposal_diagnostics.selected_count != len(self.points):
+                raise ValueError("legacy selected_count must match saved point count")
+            if self.purpose == "goal_search":
+                if self.proposal_selection is None:
+                    raise ValueError("goal search requires proposal selection evidence")
+                if (
+                    self.proposal_diagnostics.proposed_count
+                    != self.proposal_selection.actual_count
+                ):
+                    raise ValueError("proposed_count must match proposal selection")
+                if (
+                    self.proposal_strategy is None
+                    or self.proposal_selection.distance_id
+                    != self.proposal_strategy.distance_id
+                    or self.proposal_selection.distance_version
+                    != self.proposal_strategy.distance_version
+                    or self.proposal_selection.distance_parameters
+                    != self.proposal_strategy.distance_parameters
+                ):
+                    raise ValueError(
+                        "proposal selection distance must match proposal strategy"
+                    )
+                selected_point_indices = [
+                    item.point_index
+                    for item in self.proposal_selection.selected
+                ]
+                selected_pool_indices = [
+                    item.pool_index
+                    for item in self.proposal_selection.selected
+                ]
+                if (
+                    len(selected_point_indices) != len(set(selected_point_indices))
+                    or len(selected_pool_indices) != len(set(selected_pool_indices))
+                ):
+                    raise ValueError("proposal selection references must be unique")
+                pool_by_index = {
+                    item.pool_index: item for item in self.proposal_pool
+                }
+                if any(
+                    item.point_index >= len(self.points)
+                    or item.pool_index not in pool_by_index
+                    or pool_by_index[item.pool_index].selected_rank
+                    != item.point_index + 1
+                    for item in self.proposal_selection.selected
+                ):
+                    raise ValueError(
+                        "proposal selection must reference saved displayed points"
+                    )
+            elif self.purpose == "design_space_map":
+                if (
+                    self.proposal_selection is not None
+                    or self.proposal_diagnostics.proposed_count != 0
+                ):
+                    raise ValueError("design-space map must not contain proposals")
+            elif self.purpose == "experiment_batch":
+                if self.proposal_selection is not None:
+                    raise ValueError(
+                        "experiment batch must not reuse source proposal selection"
+                    )
+                if self.proposal_diagnostics.proposed_count != 0:
+                    raise ValueError("experiment batch proposal count must be zero")
         return self
 
 

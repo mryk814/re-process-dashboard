@@ -159,10 +159,56 @@ export function ScreeningProposalSummary({
                 : "旧記録の探索結果";
   const supportPolicyLabel = supportPolicyLabels[strategy?.support_policy ?? ""]
     ?? "支持範囲を確認";
-  const proposedCount = result.batch_proposal?.selected.length
-    ?? diagnostics?.selected_count
-    ?? result.points?.length
-    ?? result.samples;
+  const proposalSelection = result.proposal_selection;
+  const countStages = diagnostics
+    ? [
+        {
+          id: "generated",
+          label: "生成",
+          value: `${diagnostics.generated_count}件`,
+          description: "sampling planで生成した条件数",
+        },
+        {
+          id: "valid",
+          label: "制約内",
+          value: `${diagnostics.valid_count}件`,
+          description: "Design SpaceとTaskの制約を通過した条件数",
+        },
+        {
+          id: "evaluated",
+          label: "評価",
+          value: `${diagnostics.evaluated_count}件`,
+          description: "予測modelで評価した条件数",
+        },
+        {
+          id: "displayed",
+          label: "表示",
+          value: diagnostics.displayed_count == null
+            ? "未記録"
+            : `${diagnostics.displayed_count}件`,
+          description: "chartとtableへ表示した条件数",
+        },
+        ...(isExperimentBatch
+          ? [{
+              id: "batch",
+              label: "実験バッチ",
+              value: `${result.batch_proposal?.selected.length ?? 0}件`,
+              description: "実験バッチとして選択した条件数",
+            }]
+          : isDesignSpaceMap
+            ? []
+            : [
+                {
+                  id: "proposed",
+                  label: "提案",
+                  value: diagnostics.proposed_count == null
+                    ? "未記録"
+                    : `${diagnostics.proposed_count}件`,
+                  description: "候補確認へ提案した条件数",
+                },
+              ]),
+      ]
+    : [];
   const secondaryConditionCount = objective?.terms.filter(
     (term) => term.role === "hard_outcome_constraint" || term.role === "soft_preference",
   ).length ?? 0;
@@ -177,8 +223,27 @@ export function ScreeningProposalSummary({
       <div className="screening-proposal-headline">
         <b>{proposalIntent}（{supportPolicyLabel}）</b>
         {diagnostics
-          ? <span>
-              生成 {diagnostics.generated_count}件 → 制約内 {diagnostics.valid_count}件 → {isDesignSpaceMap ? "表示" : "提案"} {proposedCount}件
+          ? <span className="screening-count-stages" aria-label="探索件数の内訳">
+              {countStages.map((stage, index) => {
+                const descriptionId = `screening-count-${stage.id}-description`;
+                return (
+                <span key={stage.label}>
+                  {index > 0 && <span className="screening-count-separator" aria-hidden="true">→</span>}
+                  <span
+                    className="screening-count-stage"
+                    title={stage.description}
+                    aria-label={`${stage.label}: ${stage.value}`}
+                    aria-describedby={descriptionId}
+                    tabIndex={0}
+                  >
+                    <b>{stage.label}</b> {stage.value}
+                    <span id={descriptionId} className="screening-count-description">
+                      {stage.description}
+                    </span>
+                  </span>
+                </span>
+                );
+              })}
               {diagnostics.rejected_count > 0 && `（除外 ${diagnostics.rejected_count}件）`}
             </span>
           : <span>除外 {legacyRejectionCount}（旧記録・生成総数なし）</span>}
@@ -193,6 +258,18 @@ export function ScreeningProposalSummary({
               {strategy?.fallback_from && "（利用可能な標準方法へ切替）"}
             </dd>
           </div>
+          {!isDesignSpaceMap && !isExperimentBatch && (
+            <div>
+              <dt>提案の選び方</dt>
+              <dd>
+                {proposalSelection?.policy_id === "greedy_value_diversity_v1"
+                  ? "条件が重ならないよう選択"
+                  : proposalSelection?.policy_id === "ranked_top_k_v1"
+                    ? "上位順"
+                    : "旧記録・未記録"}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>学習範囲</dt>
             <dd>{supportPolicyLabel}</dd>
@@ -222,6 +299,11 @@ export function ScreeningProposalSummary({
           </div>
         </dl>
       </details>
+      {proposalSelection?.shortfall_reason && (
+        <p className="screening-proposal-shortfall" role="note">
+          {proposalSelection.shortfall_reason}
+        </p>
+      )}
       {result.batch_proposal && (
         <details className="screening-batch-result">
           <summary>

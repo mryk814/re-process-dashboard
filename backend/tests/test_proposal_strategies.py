@@ -304,6 +304,18 @@ def test_api_persists_complete_acquisition_pool_and_is_reproducible(client) -> N
     assert first["proposal_strategy"]["constraint_treatment"] == "feasibility_first_then_rank"
     assert first["proposal_diagnostics"]["evaluated_count"] == len(first["proposal_pool"])
     assert first["proposal_diagnostics"]["selected_count"] == 48
+    assert first["proposal_diagnostics"]["displayed_count"] == 48
+    assert first["proposal_diagnostics"]["proposed_count"] == 5
+    assert first["proposal_selection"]["requested_count"] == 5
+    assert first["proposal_selection"]["actual_count"] == 5
+    assert first["proposal_selection"]["policy_id"] == "ranked_top_k_v1"
+    assert first["proposal_selection"]["distance_id"] == first["proposal_strategy"]["distance_id"]
+    assert len(first["representative_points"]) == 5
+    assert {
+        item["point_index"] for item in first["proposal_selection"]["selected"]
+    } == {
+        item["index"] for item in first["representative_points"]
+    }
     assert [item["inputs"] for item in first["proposal_pool"]] == [
         item["inputs"] for item in second["proposal_pool"]
     ]
@@ -314,6 +326,8 @@ def test_api_persists_complete_acquisition_pool_and_is_reproducible(client) -> N
         item["acquisition_components"]["method"] == "ucb"
         for item in first["proposal_pool"]
     )
+    restored = client.get(f"/api/screening/{first['id']}").json()
+    assert restored["proposal_selection"] == first["proposal_selection"]
 
 
 def test_api_reports_strategy_unavailability_and_records_real_fallback(client) -> None:

@@ -27,6 +27,15 @@ import { safeExplorationRange } from "./screeningVariableRange";
 import { screeningVariableError } from "./screeningVariableValidation";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
+import { buildScreeningInterpolation } from "./screeningInterpolation";
+import {
+  initialScreeningResultSurface,
+  screeningSelectionSurface,
+  ScreeningBatchTable,
+  ScreeningEvaluatedTable,
+  ScreeningResultSurfaceTabs,
+  type ScreeningResultSurface,
+} from "./ScreeningResultSurfaces";
 import { HistoricalEvidenceDrawer } from "../workbench";
 
 function number(value: number, digits = 0) {
@@ -175,6 +184,11 @@ export function ScreeningPage({
   const [seed, setSeed] = useState(20260719);
   const [proposalStrategyId, setProposalStrategyId] = useState("latin_hypercube_v1");
   const [proposalStrategies, setProposalStrategies] = useState<ApiProposalStrategyAvailability[]>([]);
+  const [proposalCount, setProposalCount] = useState(5);
+  const [proposalSelectionPolicy, setProposalSelectionPolicy] = useState<
+    "ranked_top_k_v1" | "greedy_value_diversity_v1"
+  >("ranked_top_k_v1");
+  const [proposalDiversityWeight, setProposalDiversityWeight] = useState(0.75);
   const [explorationParameter, setExplorationParameter] = useState(2);
   const [incumbentValue, setIncumbentValue] = useState("");
   const [supportPolicy, setSupportPolicy] = useState<"supported_first" | "exclude_extrapolated" | "allow_with_warning">("supported_first");
@@ -263,6 +277,7 @@ export function ScreeningPage({
   const [yAxis, setYAxis] = useState("");
   const [colorMetric, setColorMetric] = useState("score");
   const [chartExpanded, setChartExpanded] = useState(false);
+  const [resultSurface, setResultSurface] = useState<ScreeningResultSurface>("map");
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
   const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
@@ -342,10 +357,14 @@ export function ScreeningPage({
     setControlCandidateId("");
     setControlReplicates(1);
     setMaxBatchCost("");
+    setProposalCount(5);
+    setProposalSelectionPolicy("ranked_top_k_v1");
+    setProposalDiversityWeight(0.75);
     setResult(null);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
     setDetailItem(null);
+    setResultSurface("map");
     setDraftDirty(false);
   }, [resolvedTaskDefinition?.task_definition.id, project?.id, project?.objective_definition_digest]);
   useEffect(() => {
@@ -425,9 +444,16 @@ export function ScreeningPage({
     setYAxis(varying[1] ?? "");
     setColorMetric("score");
     setChartExpanded(false);
-    setSelectedPointIndices([]);
-    setFocusedPointIndex(run.representative_points[0]?.index ?? null);
+    const runSelectionSurface = screeningSelectionSurface(run);
+    const proposedIndices = runSelectionSurface.kind === "proposal"
+      ? run.proposal_selection?.selected.map((item) => item.point_index) ?? []
+      : [];
+    setSelectedPointIndices(proposedIndices);
+    setFocusedPointIndex(
+      proposedIndices[0] ?? run.representative_points[0]?.index ?? null,
+    );
     setDetailItem(null);
+    setResultSurface(initialScreeningResultSurface(run));
     setDraftDirty(false);
   };
   const candidateContextDirty = Boolean(
@@ -543,6 +569,9 @@ export function ScreeningPage({
           incumbent_value: screeningMode === "landscape" || screeningMode === "batch" || incumbentValue === ""
             ? null
             : Number(incumbentValue),
+          proposal_count: proposalCount,
+          selection_policy: proposalSelectionPolicy,
+          diversity_weight: proposalDiversityWeight,
         },
         batch_definition: screeningMode === "batch" ? {
           schema_version: "batch-proposal-definition/v1",
@@ -636,6 +665,13 @@ export function ScreeningPage({
       setExplorationParameter(run.proposal_strategy.exploration_parameter ?? 2);
       setSupportPolicy(run.proposal_strategy.support_policy);
     }
+    if (run.proposal_selection) {
+      setProposalCount(run.proposal_selection.requested_count);
+      setProposalSelectionPolicy(run.proposal_selection.policy_id);
+      setProposalDiversityWeight(
+        run.proposal_selection.requested_diversity_weight,
+      );
+    }
     if (run.batch_proposal) {
       const definition = run.batch_proposal.definition;
       setBatchSize(definition.batch_size);
@@ -681,6 +717,7 @@ export function ScreeningPage({
         setSelectedPointIndices([]);
         setFocusedPointIndex(null);
         setDetailItem(null);
+        setResultSurface("map");
         onRunChange("");
       }
     } catch (cause) {
@@ -700,6 +737,14 @@ export function ScreeningPage({
     if (!provenance || provenance.source_kind !== "screening" || !provenance.source_ref || provenance.source_ref.run_id !== result?.id) return [];
     return typeof provenance.source_ref.point_index === "number" ? [provenance.source_ref.point_index] : [];
   }));
+  const selectionSurface = result
+    ? screeningSelectionSurface(result)
+    : { kind: "none" as const, label: "提案候補" as const, count: 0, available: false };
+  const proposedPointIndices = new Set(
+    selectionSurface.kind === "proposal"
+      ? result?.proposal_selection?.selected.map((item) => item.point_index) ?? []
+      : [],
+  );
   const selectedNewPointIndices = selectedPointIndices.filter((index) => !stockedPointIndices.has(index));
   const remainingCandidateCapacity = candidateCapacity
     ? Math.max(0, candidateCapacity.limit - candidates.length)
@@ -764,10 +809,16 @@ export function ScreeningPage({
     ? movedConditionFields.filter((field) => result.points.some((point) => typeof point.inputs[field] === "number"))
     : [];
   const axes = [xAxis, yAxis].filter(Boolean);
-  const numeric = (axis: string) =>
-    result?.points
+  const numeric = (axis: string) => {
+    const complete = (result?.proposal_pool ?? [])
       .map((point) => Number(point.inputs[axis]))
-      .filter(Number.isFinite) ?? [];
+      .filter(Number.isFinite);
+    return complete.length > 0
+      ? complete
+      : result?.points
+        .map((point) => Number(point.inputs[axis]))
+        .filter(Number.isFinite) ?? [];
+  };
   const xValues = numeric(axes[0]);
   const yValues = numeric(axes[1] ?? axes[0]);
   const xDigits = xValues.length ? chartDigits(Math.min(...xValues), Math.max(...xValues)) : 2;
@@ -796,28 +847,31 @@ export function ScreeningPage({
   const colorValues = colorMetric === "score" ? scores : result?.points.map((point) => (point.predictions?.[colorMetric] ?? (colorMetric === result.target ? point.prediction : undefined))?.value).filter((value): value is number => typeof value === "number") ?? [];
   const colorOutput = outputs.find((output) => output.key === colorMetric);
   const colorRange = colorMetric === "score" ? undefined : colorOutput?.preferred_display_range ?? undefined;
-  const opportunity = (point: ScreenPoint) => {
-    const value = colorMetric === "score" ? point.score : (point.predictions?.[colorMetric] ?? (colorMetric === result?.target ? point.prediction : undefined))?.value;
-    if (value == null || colorValues.length === 0) return "hsl(215 18% 72%)";
-    const domainValues = colorRange ? [colorRange.min, colorRange.max] : colorValues;
+  const metricColor = (value: number | null, values = colorValues) => {
+    if (value == null || values.length === 0) return "hsl(215 18% 72%)";
+    const domainValues = colorRange ? [colorRange.min, colorRange.max] : values;
     const displayValue = colorRange ? clampToRange(value, colorRange) : value;
     const normalized = (displayValue - Math.min(...domainValues)) / Math.max(1e-9, Math.max(...domainValues) - Math.min(...domainValues));
     const strength = colorMetric === "score" ? 1 - normalized : normalized;
     return `hsl(215 78% ${82 - strength * 42}%)`;
   };
+  const opportunity = (point: ScreenPoint) => metricColor(
+    colorMetric === "score"
+      ? point.score
+      : (point.predictions?.[colorMetric] ?? (
+          colorMetric === result?.target ? point.prediction : undefined
+        ))?.value ?? null,
+  );
   const axisLabel = (axis: string | undefined) => options.find((option) => option.value === axis)?.label ?? axis ?? "";
-  const supportStroke = (status: string) =>
-    status === "supported"
-      ? "#15936a"
-      : status === "caution"
-        ? "#ee9200"
-        : "#c43d3d";
   const focusedPoint = result?.points.find((point) => point.index === focusedPointIndex) ?? null;
   // The server states what the score means for this run; the UI must not upgrade it.
   const scoreLabel = result?.score_contract?.display_label ?? "探索スコア";
   const colorMetricLabel = colorMetric === "score"
     ? scoreLabel
     : outputs.find((output) => output.key === colorMetric)?.label ?? colorMetric;
+  const interpolation = result
+    ? buildScreeningInterpolation(result, xAxis, yAxis, colorMetric)
+    : null;
   const hiddenVaryingFields = result ? Object.entries(result.variables).filter(([field, spec]) => spec.mode !== "fixed" && field !== xAxis && field !== yAxis).map(([field]) => field) : [];
   const togglePoint = (index: number) => {
     setFocusedPointIndex(index);
@@ -862,15 +916,21 @@ export function ScreeningPage({
   const activeObjectiveUnsupportedReason = screeningMode === "landscape"
     ? ""
     : unsupportedObjectiveReason;
+  const proposalCountError = screeningMode === "opportunity"
+    && (!Number.isInteger(proposalCount) || proposalCount < 1 || proposalCount > 10)
+    ? "提案件数は1〜10件で入力してください"
+    : "";
   const actionDisabled = running
     || !baseCandidateId
     || !baseCandidate
     || Boolean(activeVariableError)
     || Boolean(activeObjectiveUnsupportedReason)
+    || Boolean(proposalCountError)
     || (screeningMode !== "landscape" && !primaryGoalReady)
     || (screeningMode === "batch" && !opportunitySourceRun);
   const actionTitle = activeVariableError
     || activeObjectiveUnsupportedReason
+    || proposalCountError
     || (screeningMode !== "landscape" && !primaryGoalReady
       ? "主目標を入力してください"
       : screeningMode === "batch" && !opportunitySourceRun
@@ -947,7 +1007,10 @@ export function ScreeningPage({
                   }}
                 >
                   <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {goalSummary(run.target_goal, run.target_value)} /{" "}
-                  {run.samples}点{" "}
+                  {run.samples}点表示
+                  {run.proposal_diagnostics?.proposed_count != null
+                    ? ` · ${run.proposal_diagnostics.proposed_count}件提案`
+                    : ""}{" "}
                   <small>
                     基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
                     {Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : (spec.values ?? []).join("/")}`).join(" / ") || "変更なし"} ·{" "}
@@ -1013,6 +1076,21 @@ export function ScreeningPage({
               />
             </label>
           )}
+          {screeningMode === "opportunity" && (
+            <label>
+              提案件数
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={proposalCount}
+                onChange={(event) => {
+                  setProposalCount(Number(event.target.value));
+                  setDraftDirty(true);
+                }}
+              />
+            </label>
+          )}
         </div>}
         {screeningMode === "batch" && opportunitySourceRun && (
           <section className="screening-batch-source" aria-label="バッチ元の有望候補Run">
@@ -1036,13 +1114,13 @@ export function ScreeningPage({
             <small>
               {screeningMode === "batch"
                 ? `候補pool ${batchCandidatePoolSize}点 · ${batchSelectorId === "ranked_top_k_v1" ? "順位を優先" : "順位と多様性"}`
-                : `${samples}点 · ${screeningMode === "landscape" ? "学習範囲外も表示" : supportPolicy === "supported_first" ? "範囲内を優先" : supportPolicy === "exclude_extrapolated" ? "外挿を除外" : "外挿を警告表示"} · 再現用seed固定`}
+                : `${samples}点を表示${screeningMode === "opportunity" ? ` · ${proposalCount}件提案` : ""} · ${screeningMode === "landscape" ? "学習範囲外も表示" : supportPolicy === "supported_first" ? "範囲内を優先" : supportPolicy === "exclude_extrapolated" ? "外挿を除外" : "外挿を警告表示"} · 再現用seed固定`}
             </small>
           </summary>
           {screeningMode !== "batch" && (
           <div className="screening-target">
           <label>
-            評価点数
+            表示点数
             <input
               type="number"
               min="48"
@@ -1055,6 +1133,7 @@ export function ScreeningPage({
                 setDraftDirty(true);
               }}
             />
+            <small>制約内の全点を評価し、ここで指定した件数を図に表示します</small>
           </label>
           <label>
             乱数seed
@@ -1131,6 +1210,47 @@ export function ScreeningPage({
               <option value="allow_with_warning">警告付きで含める</option>
             </select>
           </label>
+          {screeningMode === "opportunity" && (
+            <label>
+              提案の選び方
+              <select
+                value={proposalSelectionPolicy}
+                onChange={(event) => {
+                  setProposalSelectionPolicy(
+                    event.target.value as typeof proposalSelectionPolicy,
+                  );
+                  setDraftDirty(true);
+                }}
+              >
+                <option value="ranked_top_k_v1">上位順</option>
+                <option value="greedy_value_diversity_v1">
+                  条件が重ならないよう選ぶ
+                </option>
+              </select>
+              <small>
+                {proposalSelectionPolicy === "ranked_top_k_v1"
+                  ? "最良付近へ集中する場合があります"
+                  : "有望度に加え、Taskの距離contractで条件間の違いを確保します"}
+              </small>
+            </label>
+          )}
+          {screeningMode === "opportunity"
+            && proposalSelectionPolicy === "greedy_value_diversity_v1" && (
+            <label>
+              条件の違いの重み
+              <input
+                type="number"
+                min="0"
+                max="10"
+                step="0.05"
+                value={proposalDiversityWeight}
+                onChange={(event) => {
+                  setProposalDiversityWeight(Number(event.target.value));
+                  setDraftDirty(true);
+                }}
+              />
+            </label>
+          )}
           </div>
           )}
         {screeningMode === "batch" && (
@@ -1461,7 +1581,33 @@ export function ScreeningPage({
               void run(nextSeed);
             }}
           />
+          <ScreeningResultSurfaceTabs
+            value={resultSurface}
+            onChange={(surface) => {
+              setResultSurface(surface);
+              setHoveredScreenPoint(null);
+            }}
+            selectionLabel={selectionSurface.label}
+            selectionCount={selectionSurface.count}
+            evaluatedCount={
+              result.proposal_diagnostics?.evaluated_count
+              ?? result.proposal_pool?.length
+              ?? result.points.length
+            }
+            selectionAvailable={selectionSurface.available}
+          />
+          {resultSurface === "map" && (
+          <section
+            id="screening-result-panel-map"
+            className="screening-map-surface"
+            role="region"
+            aria-label="探索領域の地図"
+          >
           <div className="screening-surface-header">
+            <div className="screening-surface-title">
+              <b>入力空間の地図</b>
+              <small>{axes.map(axisLabel).join(" × ")} · 色: {colorMetricLabel}</small>
+            </div>
             <div className="screening-display-controls">
               <label>横軸<select value={xAxis} onChange={(event) => setXAxis(event.target.value)}>{confirmedVaryingFields.map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
               <label>縦軸<select value={yAxis} onChange={(event) => setYAxis(event.target.value)}><option value="">点番号</option>{confirmedVaryingFields.filter((field) => field !== xAxis).map((field) => <option key={field} value={field}>{axisLabel(field)}</option>)}</select></label>
@@ -1477,14 +1623,36 @@ export function ScreeningPage({
             </button>
             <div className="screen-legend">
               <span className="opportunity-scale" />
-              {colorMetricLabel} <span className="support-key supported" />
-              近い実績 <span className="support-key caution" />
-              要確認 <span className="support-key extrapolated" />
-              外挿 <span className="selection-key" />
+              {colorMetricLabel}{" "}
+              <span className="evaluated-key" />
+              評価点{" "}
+              {selectionSurface.kind === "proposal" && <><span className="proposal-key" />提案候補{" "}</>}
+              <span className="selection-key" />
               選択中
             </div>
           </div>
-          {hiddenVaryingFields.length > 0 && <p className="screening-hidden-variables"><b>図に出ていない変動条件:</b> {hiddenVaryingFields.map(axisLabel).join(" / ")}。各点の詳細で実値を確認できます。</p>}
+          {hiddenVaryingFields.length > 0
+            ? <p className="screening-slice-context warning">
+                <b>{axes.map(axisLabel).join(" × ")}を表示</b>
+                <span>
+                  {hiddenVaryingFields.map(axisLabel).join(" / ")}も同時に変動しており、固定断面ではありません。
+                  残りを固定して再実行すると面で表示できます。
+                </span>
+              </p>
+            : <p className="screening-slice-context">
+                <b>{axes.map(axisLabel).join(" × ")}の固定断面</b>
+                <span>その他の入力は基準候補の条件に固定</span>
+              </p>}
+          {interpolation?.available
+            ? <p className="screening-interpolation-status">
+                <b>表示補間</b>
+                {interpolation.method} v{interpolation.version} · grid {interpolation.columns}×{interpolation.rows}
+                <span>modelの追加予測ではありません。近くに評価点がないセルは斜線のままです。</span>
+              </p>
+            : <p className="screening-interpolation-status unavailable" role="note">
+                <b>点表示</b>
+                {interpolation?.message ?? "補間の可否を確認できません。"}
+              </p>}
           {modeFromRun(result) !== "landscape" && <div className="screening-action-bar" role="status">
             <dl className="screening-selection-summary">
               <div><dt>選択</dt><dd>{selectedPointIndices.length}件</dd><small>図・表で選んだ点</small></div>
@@ -1496,14 +1664,54 @@ export function ScreeningPage({
             <CandidateAddButton disabled={!addableSelectedCount} onClick={() => void persistSelected()}>{addableSelectedCount}件を候補へ追加</CandidateAddButton>
             <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
           </div>}
+          <div className="screening-map-layout">
+          <div className="screening-map-chart">
           <svg
             className={`screen-map${chartExpanded ? " expanded" : ""}`}
             viewBox="0 0 600 300"
             role="group"
-            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色の濃さは「${colorMetricLabel}」、枠線は学習実績からの外れ方を表します。`}
+            aria-label={`${axes.map(axisLabel).join(" × ")} の探索結果。色は「${colorMetricLabel}」、実線の輪は提案候補、破線の輪は選択中の点を表します。`}
           >
+            <defs>
+              <pattern id="screening-uninterpolated" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="8" stroke="#cad5e2" strokeWidth="2" />
+              </pattern>
+            </defs>
+            <rect x="35" y="35" width="530" height="235" fill="url(#screening-uninterpolated)" />
+            {interpolation?.available && interpolation.cells.map((cell) => (
+              <rect
+                key={`${cell.column}-${cell.row}`}
+                className="screen-map-interpolation-cell"
+                x={35 + (cell.column * 530) / interpolation.columns}
+                y={35 + ((interpolation.rows - cell.row - 1) * 235) / interpolation.rows}
+                width={530 / interpolation.columns + 0.5}
+                height={235 / interpolation.rows + 0.5}
+                fill={metricColor(
+                  cell.value,
+                  [interpolation.valueMin, interpolation.valueMax],
+                )}
+                aria-hidden="true"
+              />
+            ))}
             {axes.length > 0 && xTicks.map((tick) => <g key={`x-${tick}`} className="screen-map-grid"><line x1={screenX(tick)} x2={screenX(tick)} y1="35" y2="270" /><text x={screenX(tick)} y="284" textAnchor="middle">{number(tick, xDigits)}</text></g>)}
             {axes.length > 1 && yTicks.map((tick) => <g key={`y-${tick}`} className="screen-map-grid"><line x1="35" x2="565" y1={screenY(tick)} y2={screenY(tick)} /><text x="31" y={screenY(tick) + 3} textAnchor="end">{number(tick, yDigits)}</text></g>)}
+            {axes.length > 1 && (result.proposal_pool ?? [])
+              .filter((point) => point.selected_rank == null)
+              .map((point) => {
+                const x = Number(point.inputs[axes[0]]);
+                const y = Number(point.inputs[axes[1]]);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+                return (
+                  <circle
+                    key={`evaluated-${point.pool_index}`}
+                    className="screen-map-evaluated-marker"
+                    cx={screenX(x)}
+                    cy={screenY(y)}
+                    r="2"
+                    aria-hidden="true"
+                  />
+                );
+              })}
             {result.points.map((point, index) => {
               const cx = axes.length
                 ? screenX(Number(point.inputs[axes[0]]))
@@ -1520,20 +1728,24 @@ export function ScreeningPage({
                 `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${outputNumber(result.target, point.prediction.value)} ${point.prediction.unit}`,
                 `90%区間 ${outputNumber(result.target, point.prediction.lower)}–${outputNumber(result.target, point.prediction.upper)}`,
                 ...(targetAssessment.warning ? [`⚠ ${targetAssessment.warning}`] : []),
+                ...(proposedPointIndices.has(point.index) ? ["提案候補"] : []),
                 point.support.message,
               ];
               const selected = selectedPointIndices.includes(point.index);
               return (
                 <g key={point.index} className="screen-map-point">
+                  {proposedPointIndices.has(point.index) && (
+                    <circle className="screen-map-proposal-marker" cx={cx} cy={cy} r="11" aria-hidden="true" />
+                  )}
                   {selected && <circle className="screen-map-selection-ring" cx={cx} cy={cy} r="12" aria-hidden="true" />}
                   <circle
                   className={selectedPointIndices.includes(point.index) ? "selected" : ""}
                   cx={cx}
                   cy={cy}
                   r="7"
-                  fill={opportunity(point)}
-                  stroke={supportStroke(point.support.status)}
-                  strokeWidth="3"
+                  fill={interpolation?.available ? "#fff" : opportunity(point)}
+                  stroke="#345b85"
+                  strokeWidth="1.5"
                   opacity=".9"
                   role="button"
                   aria-pressed={selected}
@@ -1566,6 +1778,7 @@ export function ScreeningPage({
               {axisLabel(axes[1])}
             </text>
           </svg>
+          </div>
           {focusedPoint && <section className="screening-point-detail" aria-label="選択した探索点の詳細">
             <div className="panel-title"><h3>点 {focusedPoint.index + 1}</h3><span className={`support-badge ${focusedPoint.support.status}`}>{focusedPoint.support.message}</span></div>
             <div className="screening-point-predictions">
@@ -1609,6 +1822,27 @@ export function ScreeningPage({
               </div>
             )}
           </section>}
+          </div>
+          </section>
+          )}
+          {resultSurface === "proposals" && selectionSurface.kind === "proposal" && (
+          <section
+            id="screening-result-panel-proposals"
+            className="screening-proposal-surface"
+            role="region"
+            aria-label="提案候補"
+          >
+          <div className="screening-action-bar" role="status">
+            <dl className="screening-selection-summary">
+              <div><dt>選択</dt><dd>{selectedPointIndices.length}件</dd><small>地図・表で選んだ点</small></div>
+              <div><dt>新規</dt><dd>{selectedNewPointIndices.length}件</dd><small>まだ候補にない選択点</small></div>
+              <div><dt>今回追加可能</dt><dd>{addableSelectedCount}件</dd><small>候補枠の空き {remainingCandidateCapacity}件</small></div>
+            </dl>
+            {selectedPointIndices.some((index) => stockedPointIndices.has(index)) && <small>stock済みの点は再追加しません。</small>}
+            {selectedNewPointIndices.length > remainingCandidateCapacity && <small className="screening-capacity-warning">新規選択が候補枠を超えています。選択を{remainingCandidateCapacity}件以下に減らしてください。</small>}
+            <CandidateAddButton disabled={!addableSelectedCount} onClick={() => void persistSelected()}>{addableSelectedCount}件を候補へ追加</CandidateAddButton>
+            <button className="outline-button" disabled={!candidates.length} onClick={onCompare}>候補比較へ</button>
+          </div>
           <ScreeningRepresentativeTable
             result={result}
             outputs={outputs}
@@ -1625,6 +1859,22 @@ export function ScreeningPage({
             selectionEnabled={modeFromRun(result) !== "landscape"}
             onToggle={togglePoint}
           />
+          </section>
+          )}
+          {resultSurface === "proposals" && selectionSurface.kind === "batch" && (
+            <ScreeningBatchTable result={result} />
+          )}
+          {resultSurface === "evaluated" && (
+            <ScreeningEvaluatedTable
+              result={result}
+              axisLabel={axisLabel}
+              scoreLabel={scoreLabel}
+              targetLabel={
+                outputs.find((output) => output.key === result.target)?.label
+                ?? result.target
+              }
+            />
+          )}
           <ScreeningRunEvidence result={result} />
         </>
       )}

@@ -574,6 +574,44 @@
   color: #264d7e;
 }
 
+.screening-count-stages {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.screening-count-stage {
+  cursor: help;
+}
+
+.screening-count-stage:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid #1f5fc4;
+  outline-offset: 2px;
+}
+
+.screening-count-stage > b {
+  text-decoration: underline dotted #8aa2bf;
+  text-underline-offset: 2px;
+}
+
+.screening-count-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.screening-count-separator {
+  margin-right: 3px;
+  color: #8a98aa;
+}
+
 .screening-proposal-summary code {
   color: #64758b;
   font-size: 10px;
@@ -696,6 +734,14 @@
   padding: 4px 9px;
 }
 
+.screening-proposal-shortfall {
+  flex-basis: 100%;
+  margin: 0;
+  border-left: 3px solid #d98a00;
+  padding-left: 8px;
+  color: #7a4b00;
+}
+
 .screening-batch-result {
   flex-basis: 100%;
   border-top: 1px solid #d6e0ee;
@@ -748,10 +794,135 @@
   padding: 8px 10px;
 }
 
+.screening-surface-title {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.screening-surface-title b {
+  color: #173f75;
+  font-size: 14px;
+}
+
+.screening-surface-title small {
+  color: #64758a;
+}
+
+.screening-result-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+  border: 1px solid #bdcce0;
+  border-radius: 7px;
+  padding: 3px;
+  background: #edf2f8;
+}
+
+.screening-result-tabs button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #52647a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.screening-result-tabs button[aria-pressed="true"] {
+  background: #fff;
+  color: #174f9d;
+  box-shadow: 0 1px 4px rgb(34 67 104 / 14%);
+}
+
+.screening-result-tabs button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+.screening-result-tabs button span {
+  min-width: 21px;
+  border-radius: 999px;
+  padding: 2px 5px;
+  background: #dce7f5;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.screening-map-surface,
+.screening-proposal-surface,
+.screening-evaluated {
+  min-width: 0;
+}
+
 .screening-display-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.screening-slice-context,
+.screening-interpolation-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 7px 0 0;
+  border-left: 3px solid #6f93bd;
+  padding: 5px 8px;
+  background: #f5f8fc;
+  color: #516176;
+  font-size: 11px;
+}
+
+.screening-slice-context b,
+.screening-interpolation-status b {
+  color: #244d7d;
+}
+
+.screening-slice-context span,
+.screening-interpolation-status span {
+  flex-basis: 100%;
+}
+
+.screening-slice-context.warning,
+.screening-interpolation-status.unavailable {
+  border-left-color: #d39020;
+  background: #fff9ed;
+}
+
+.screening-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 34%);
+  align-items: start;
+  gap: 10px;
+}
+
+.screening-map-chart {
+  min-width: 0;
+}
+
+.screen-map-interpolation-cell {
+  pointer-events: none;
+}
+
+.screen-map-evaluated-marker {
+  fill: #304d6d;
+  opacity: .48;
+  pointer-events: none;
+}
+
+.evaluated-key {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #304d6d;
+  opacity: .7;
 }
 
 .screening-display-controls label {
@@ -870,7 +1041,7 @@
   }
 }
 
-.screen-map-point > circle:not(.screen-map-selection-ring) {
+.screen-map-point > circle:not(.screen-map-selection-ring, .screen-map-proposal-marker) {
   cursor: pointer;
   transition: opacity 120ms ease;
 }
@@ -887,6 +1058,20 @@
   pointer-events: none;
 }
 
+.screen-map-proposal-marker {
+  fill: none;
+  stroke: #0a765f;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.proposal-key {
+  width: 16px;
+  height: 16px;
+  border: 3px solid #0a765f;
+  border-radius: 50%;
+}
+
 .selection-key {
   width: 16px;
   height: 16px;
@@ -895,11 +1080,13 @@
 }
 
 .screening-point-detail {
-  margin: 10px 0;
+  max-height: 440px;
+  margin: 8px 0 0;
   border: 1px solid #ccd8e6;
   border-radius: 6px;
   background: #fff;
   padding: 12px;
+  overflow: auto;
 }
 
 .screening-point-predictions {
@@ -930,11 +1117,70 @@
 }
 
 .screening-results {
-  margin-top: 14px;
+  margin-top: 10px;
   border: 1px solid #ccd8e6;
   border-radius: 6px;
   background: #fff;
   overflow: hidden;
+}
+
+.screening-evaluated {
+  margin-top: 10px;
+  border: 1px solid #ccd8e6;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.screening-evaluated-scroll {
+  max-height: 440px;
+  overflow: auto;
+}
+
+.screening-evaluated-table {
+  width: max-content;
+  min-width: 100%;
+  border: 0;
+  font-size: 11px;
+}
+
+.screening-evaluated-table th,
+.screening-evaluated-table td {
+  min-width: 100px;
+  padding: 7px 9px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.screening-evaluated-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f5f7fa;
+}
+
+.screening-evaluated-table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: 34px;
+}
+
+.screening-evaluated-more {
+  width: calc(100% - 20px);
+  margin: 8px 10px 10px;
+}
+
+.screening-batch-surface-note {
+  margin: 0;
+  padding: 8px 11px 10px;
+  border-top: 1px solid #e3e9f0;
+  color: #5f6f82;
+  font-size: 11px;
+}
+
+.screening-surface-unavailable {
+  margin: 0;
+  padding: 16px;
+  color: #64748b;
 }
 
 .screening-results-heading {
@@ -1123,6 +1369,7 @@
   }
   .screening-results-heading { align-items: flex-start; flex-direction: column; }
   .screening-result-context { justify-content: flex-start; }
+  .screening-result-tabs button { min-height: 40px; font-size: 11px; }
 }
 
 @media (max-width: 1024px) {
@@ -1131,6 +1378,12 @@
   }
   .screening-selection-summary {
     flex-basis: 100%;
+  }
+  .screening-map-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .screening-point-detail {
+    max-height: 360px;
   }
 }
 

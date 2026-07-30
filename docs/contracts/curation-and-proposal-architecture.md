@@ -118,16 +118,60 @@ candidate-level capability gate and semantic Design Space are wired through the
 UI. Raw heat-point exploration therefore remains explicit rather than being
 mislabelled as an engineering-program generator.
 
-`screening-run/v7` pins the user's purpose (`design_space_map`, `goal_search`,
+`screening-run/v8` pins the user's purpose (`design_space_map`, `goal_search`,
 or `experiment_batch`) in addition to Design Space and Objective digests, model/package,
 Feature Pipeline and Dataset provenance, the actual generator/acquisition/
 selector versions, seed, support policy, complete evaluated pool and selection
-rank. A Design Space map deliberately ignores a Project Objective and stores
+rank. For goal search, `samples` is the display count, while
+`proposal.proposal_count` independently requests 1–10 candidates from the
+complete evaluated pool. The Run records generated, valid, evaluated, displayed,
+and proposed counts separately; it also pins the proposal policy, pool digest,
+distance contract, diversity weight, tie-break rule, selected point references,
+and any shortfall reason. `ranked_top_k_v1` and
+`greedy_value_diversity_v1` reuse the experiment-batch selector kernel and
+identity rather than introducing a second implementation. Distance-dependent
+selection fails closed when required axes, conditional constraints, or a
+composition-safe distance contract cannot be represented.
+
+A Design Space map deliberately ignores a Project Objective and stores
 reporting-only output metadata with support-distance evidence. An experiment
 batch stores `source_run_id` and selects from that immutable goal-search pool;
-it does not regenerate a second proposal. Older screening runs remain readable
-without being rewritten, and their display purpose is inferred from goal and
-batch evidence.
+it does not regenerate a second proposal and does not inherit the source Run's
+proposal-selection evidence. Older `screening-run/v1` through
+`screening-run/v7` records remain readable without being rewritten. Their
+display purpose may be inferred from goal and batch evidence, but missing
+displayed/proposed counts and proposal policy are shown as unrecorded rather
+than reconstructed from unrelated legacy fields.
+
+### Result surfaces and display interpolation
+
+The 範囲探索 UI presents one saved Run through three separate result surfaces.
+They share the same immutable Run identity, but do not collapse evidence with
+different meanings into one table or chart.
+
+- `地図` shows the relationship between two numeric input axes.
+- `提案候補` is available only for an explicit `goal_search` Run carrying
+  `proposal_selection`; a legacy goal-looking Run is not inferred to have one.
+- `実験バッチ` replaces the proposal label for an explicit
+  `experiment_batch` Run and shows the batch selector's allocation separately.
+- `全評価点` is the auditable table of the complete evaluated pool.
+
+The map may render a display-only contour using versioned inverse-distance
+weighting over values already stored in the complete evaluated pool. This is an
+interpolation for reading the saved Run, not an additional model prediction.
+The UI records the interpolation method, version and grid size beside the map.
+All evaluated points remain visible whenever the complete pool and two numeric
+axes are available, independently of whether interpolation is safe. Displayed
+points are not drawn twice. The proposal and current selection remain separate
+overlays.
+
+Interpolation fails closed to the evaluated points when any required evidence
+is missing or unsafe. In particular, it is disabled for legacy Runs without the
+complete pool, rejected or constrained holes, sparse or irregular coverage,
+outputs absent from the complete pool, and Runs varying more than two inputs.
+A Run with three or more varying inputs is not presented as a fixed slice:
+the user must fix the remaining inputs and execute a new Run before a 2D
+interpolation can be shown.
 
 ### Experiment batch selection
 
