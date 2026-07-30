@@ -10,8 +10,9 @@ const bundle = await build({
     contents: `
       import React from "react";
       import { renderToStaticMarkup } from "react-dom/server";
-      import { ScreeningProposalSummary } from "./features/screening/ScreeningProposalSummary.tsx";
+      import { ScreeningProposalSummary, ScreeningRunEvidence } from "./features/screening/ScreeningProposalSummary.tsx";
       export const renderSummary = (props) => renderToStaticMarkup(React.createElement(ScreeningProposalSummary, props));
+      export const renderEvidence = (result) => renderToStaticMarkup(React.createElement(ScreeningRunEvidence, { result }));
     `,
     resolveDir: sourceRoot,
     loader: "tsx",
@@ -27,9 +28,9 @@ new Function("module", "exports", "require", bundle.outputFiles[0].text)(
   module.exports,
   createRequire(import.meta.url),
 );
-const { renderSummary } = module.exports;
+const { renderSummary, renderEvidence } = module.exports;
 
-test("proposal summary leads with a Japanese decision summary and nests reproducibility identity", () => {
+test("proposal summary leads with a Japanese decision summary while calculation evidence stays separate", () => {
   const html = renderSummary({
     result: {
       purpose: "goal_search",
@@ -54,6 +55,9 @@ test("proposal summary leads with a Japanese decision summary and nests reproduc
         rejection_rate: 0.0625,
         rejected_by_reason: { "resource constraint": 12 },
       },
+      model_provenance: {
+        package: { manifest_sha256: "sha256:model-package" },
+      },
       design_space_digest: "sha256:1234567890abcdef",
       objective_definition_digest: "sha256:abcdef1234567890",
     },
@@ -68,12 +72,28 @@ test("proposal summary leads with a Japanese decision summary and nests reproduc
   assert.match(headline, /引張強さの下限目標を満たす条件を優先（近い学習実績がある条件を優先）/);
   assert.match(headline, /生成 192件 → 制約内 180件 → 提案 48件（除外 12件）/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
-  assert.match(html, /<summary>再現情報<\/summary>/);
-  assert.match(html, /seed 42/);
-  assert.match(html, /strategy latin_hypercube_v1 1\.0\.0/);
-  assert.match(html, /sha256:1234567890abcdef/);
+  assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
   assert.match(html, /title="resource constraint">コスト・設備条件を満たさない/);
   assert.match(html, />別サンプル</);
+
+  const evidence = renderEvidence({
+    purpose: "goal_search",
+    seed: 42,
+    proposal_strategy: {
+      id: "latin_hypercube_v1",
+      version: "1.0.0",
+    },
+    model_provenance: {
+      package: { manifest_sha256: "sha256:model-package" },
+    },
+    design_space_digest: "sha256:1234567890abcdef",
+    objective_definition_digest: "sha256:abcdef1234567890",
+  });
+  assert.match(evidence, /<summary>計算記録<\/summary>/);
+  assert.match(evidence, /seed 42/);
+  assert.match(evidence, /strategy latin_hypercube_v1 1\.0\.0/);
+  assert.match(evidence, /Model Package <code title="sha256:model-package">sha256:model-package<\/code>/);
+  assert.match(evidence, /sha256:1234567890abcdef/);
 });
 
 test("legacy runs do not present their early-stop rejection count as a rate", () => {
@@ -93,6 +113,11 @@ test("legacy runs do not present their early-stop rejection count as a rate", ()
   assert.match(html, /旧記録の探索結果（支持範囲を確認）/);
   assert.doesNotMatch(html, /有望な条件を優先/);
   assert.doesNotMatch(html, /%/);
+
+  const evidence = renderEvidence({ seed: 20260719 });
+  assert.match(evidence, /Model Package <code title="記録なし">記録なし<\/code>/);
+  assert.match(evidence, /Design Space <code title="記録なし">記録なし<\/code>/);
+  assert.match(evidence, /Objective <code title="記録なし">記録なし<\/code>/);
 });
 
 test("batch details are closed and expand value, diversity, and cost labels", () => {

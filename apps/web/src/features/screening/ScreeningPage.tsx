@@ -21,7 +21,7 @@ import {
   type ScreeningGoalDraft,
   type ScreeningGoalPayload,
 } from "./ScreeningGoalEditor";
-import { ScreeningProposalSummary } from "./ScreeningProposalSummary";
+import { ScreeningProposalSummary, ScreeningRunEvidence } from "./ScreeningProposalSummary";
 import { safeExplorationRange } from "./screeningVariableRange";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
@@ -893,16 +893,6 @@ export function ScreeningPage({
               </button>
             ))}
           </div>
-          {result && <details className="screening-run-reproducibility">
-            <summary>選択中Runの再現情報</summary>
-            <dl>
-              <div><dt>seed</dt><dd>{result.seed}</dd></div>
-              <div><dt>配置方法</dt><dd>{result.proposal_strategy?.id ?? "legacy"}</dd></div>
-              <div><dt>Model Package</dt><dd>{result.model_provenance.package?.manifest_sha256 ?? "記録なし"}</dd></div>
-              <div><dt>Design Space</dt><dd>{result.design_space_digest ?? "記録なし"}</dd></div>
-              <div><dt>Objective</dt><dd>{result.objective_definition_digest ?? "記録なし"}</dd></div>
-            </dl>
-          </details>}
         </section>
       )}
       <div className="screening-settings">
@@ -1507,6 +1497,7 @@ export function ScreeningPage({
             selectionEnabled={modeFromRun(result) !== "landscape"}
             onToggle={togglePoint}
           />
+          <ScreeningRunEvidence result={result} />
         </>
       )}
     </div>
