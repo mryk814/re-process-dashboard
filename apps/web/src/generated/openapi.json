@@ -1040,6 +1040,7 @@
                   "blend_tools": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
                   "curve_family": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
                   "feature_engineering": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
+                  "input_space": "#/components/schemas/InputSpaceSurfaceDefinition",
                   "prediction_space": "#/components/schemas/PredictionSpaceSurfaceDefinition",
                   "response_contour": "#/components/schemas/ResponseContourSurfaceDefinition",
                   "response_curve": "#/components/schemas/BasicWorkbenchSurfaceDefinition",
@@ -1050,6 +1051,9 @@
               "oneOf": [
                 {
                   "$ref": "#/components/schemas/BasicWorkbenchSurfaceDefinition"
+                },
+                {
+                  "$ref": "#/components/schemas/InputSpaceSurfaceDefinition"
                 },
                 {
                   "$ref": "#/components/schemas/PredictionSpaceSurfaceDefinition"
@@ -9714,6 +9718,352 @@
           "max"
         ],
         "title": "InputRange",
+        "type": "object"
+      },
+      "InputSpaceCandidatePoint": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_novelty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Novelty"
+          },
+          "candidate_revision": {
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "island_distance": {
+            "title": "Island Distance",
+            "type": "number"
+          },
+          "island_status": {
+            "enum": [
+              "supported",
+              "caution",
+              "extrapolated"
+            ],
+            "title": "Island Status",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "nearest_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearest Candidate Id"
+          },
+          "nearest_training_context_id": {
+            "title": "Nearest Training Context Id",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "candidate_revision",
+          "label",
+          "x",
+          "y",
+          "island_distance",
+          "island_status",
+          "nearest_training_context_id"
+        ],
+        "title": "InputSpaceCandidatePoint",
+        "type": "object"
+      },
+      "InputSpaceEmbeddingResponse": {
+        "properties": {
+          "candidate_points": {
+            "items": {
+              "$ref": "#/components/schemas/InputSpaceCandidatePoint"
+            },
+            "title": "Candidate Points",
+            "type": "array"
+          },
+          "captured_positive_eigenvalue_ratio": {
+            "title": "Captured Positive Eigenvalue Ratio",
+            "type": "number"
+          },
+          "caution_threshold": {
+            "title": "Caution Threshold",
+            "type": "number"
+          },
+          "cohort_digest": {
+            "title": "Cohort Digest",
+            "type": "string"
+          },
+          "displayed_training_contexts": {
+            "title": "Displayed Training Contexts",
+            "type": "integer"
+          },
+          "distance_method": {
+            "title": "Distance Method",
+            "type": "string"
+          },
+          "distance_target_key": {
+            "title": "Distance Target Key",
+            "type": "string"
+          },
+          "distance_version": {
+            "title": "Distance Version",
+            "type": "string"
+          },
+          "embedding_method": {
+            "const": "landmark-classical-mds-oos",
+            "title": "Embedding Method",
+            "type": "string"
+          },
+          "embedding_version": {
+            "const": "1.0.0",
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "evidence_context": {
+            "enum": [
+              "training_context",
+              "parent_condition"
+            ],
+            "title": "Evidence Context",
+            "type": "string"
+          },
+          "landmark_count": {
+            "title": "Landmark Count",
+            "type": "integer"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selected_candidate_id": {
+            "title": "Selected Candidate Id",
+            "type": "string"
+          },
+          "selected_candidate_revision": {
+            "title": "Selected Candidate Revision",
+            "type": "integer"
+          },
+          "source_data_digest": {
+            "title": "Source Data Digest",
+            "type": "string"
+          },
+          "source_scope": {
+            "const": "model_training_data",
+            "default": "model_training_data",
+            "title": "Source Scope",
+            "type": "string"
+          },
+          "supported_threshold": {
+            "title": "Supported Threshold",
+            "type": "number"
+          },
+          "total_training_contexts": {
+            "title": "Total Training Contexts",
+            "type": "integer"
+          },
+          "training_points": {
+            "items": {
+              "$ref": "#/components/schemas/InputSpaceTrainingPoint"
+            },
+            "title": "Training Points",
+            "type": "array"
+          },
+          "vector_space_digest": {
+            "title": "Vector Space Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_data_digest",
+          "distance_target_key",
+          "evidence_context",
+          "distance_method",
+          "distance_version",
+          "cohort_digest",
+          "vector_space_digest",
+          "supported_threshold",
+          "caution_threshold",
+          "embedding_method",
+          "embedding_version",
+          "seed",
+          "landmark_count",
+          "total_training_contexts",
+          "displayed_training_contexts",
+          "captured_positive_eigenvalue_ratio",
+          "selected_candidate_id",
+          "selected_candidate_revision",
+          "training_points",
+          "candidate_points"
+        ],
+        "title": "InputSpaceEmbeddingResponse",
+        "type": "object"
+      },
+      "InputSpaceSurfaceDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "distance_target_key": {
+            "minLength": 1,
+            "title": "Distance Target Key",
+            "type": "string"
+          },
+          "embedding_method": {
+            "const": "landmark-classical-mds-oos",
+            "default": "landmark-classical-mds-oos",
+            "title": "Embedding Method",
+            "type": "string"
+          },
+          "embedding_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "evidence_context": {
+            "default": "training_context",
+            "enum": [
+              "training_context",
+              "parent_condition"
+            ],
+            "title": "Evidence Context",
+            "type": "string"
+          },
+          "historical_limit": {
+            "default": 240,
+            "maximum": 400.0,
+            "minimum": 20.0,
+            "title": "Historical Limit",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "input_space",
+            "title": "Kind",
+            "type": "string"
+          },
+          "landmark_limit": {
+            "default": 96,
+            "maximum": 160.0,
+            "minimum": 12.0,
+            "title": "Landmark Limit",
+            "type": "integer"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 508,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "order",
+          "distance_target_key"
+        ],
+        "title": "InputSpaceSurfaceDefinition",
+        "type": "object"
+      },
+      "InputSpaceTrainingPoint": {
+        "properties": {
+          "composition_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composition Key"
+          },
+          "context_id": {
+            "title": "Context Id",
+            "type": "string"
+          },
+          "landmark": {
+            "title": "Landmark",
+            "type": "boolean"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "parent_key": {
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "process_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Key"
+          },
+          "relation_context_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relation Context Ids",
+            "type": "array"
+          },
+          "repeat_summary": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RepeatSummary"
+            },
+            "title": "Repeat Summary",
+            "type": "object"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "context_id",
+          "parent_key",
+          "x",
+          "y",
+          "landmark"
+        ],
+        "title": "InputSpaceTrainingPoint",
         "type": "object"
       },
       "InputVariationInterval": {
@@ -27339,6 +27689,95 @@
           }
         },
         "summary": "Model Package"
+      }
+    },
+    "/api/projects/{project_id}/model-package/input-space": {
+      "get": {
+        "operationId": "getProjectInputSpace",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_revision",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Expected Revision",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InputSpaceEmbeddingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Input Space Embedding"
       }
     },
     "/api/projects/{project_id}/model-package/output-space-evidence": {

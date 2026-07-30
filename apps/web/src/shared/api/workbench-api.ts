@@ -12,6 +12,7 @@ export type ApiProjectCreateInput = components["schemas"]["ProjectCreateInput"];
 export type ApiModelPackage = components["schemas"]["ModelPackageStatus"];
 export type ApiModelTrainingDataPage = components["schemas"]["ModelTrainingDataPage"];
 export type ApiOutputSpaceEvidence = components["schemas"]["OutputSpaceEvidenceResponse"];
+export type ApiInputSpaceEmbedding = components["schemas"]["InputSpaceEmbeddingResponse"];
 export type ApiPreview = components["schemas"]["PredictionResponse"];
 export type ApiSnapshot = components["schemas"]["SnapshotResponse"];
 export type ApiActualMeasurementInput = components["schemas"]["ActualMeasurementInput"];
@@ -548,6 +549,23 @@ export const workbenchApi = {
       },
       signal,
     }), "特性バランスの実績を取得できませんでした。");
+  },
+  async inputSpace(
+    projectId: string,
+    candidateId: string,
+    candidateRevision: number,
+    signal?: AbortSignal,
+  ) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/model-package/input-space", {
+      params: {
+        path: { project_id: projectId },
+        query: {
+          candidate_id: candidateId,
+          expected_revision: candidateRevision,
+        },
+      },
+      signal,
+    }), "入力空間の位置を取得できませんでした。");
   },
   async listCandidates(projectId: string, includeArchived = false) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId }, query: { include_archived: includeArchived } } }), "候補を取得できませんでした。");

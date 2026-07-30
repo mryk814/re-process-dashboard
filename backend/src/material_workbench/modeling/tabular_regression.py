@@ -967,12 +967,18 @@ class TabularRegressionRuntime:
                 loo_nearest = distances.min(axis=1)
             else:
                 loo_nearest = np.asarray([0.0])
+            supported_threshold, caution_threshold = (
+                float(value)
+                for value in np.quantile(loo_nearest, (0.80, 0.95))
+            )
             self.support_references[target] = {
                 "rows": eligible,
                 "mean": reference_mean,
                 "scale": reference_scale,
                 "vectors": reference_vectors,
                 "loo_nearest": loo_nearest,
+                "supported_threshold": supported_threshold,
+                "caution_threshold": caution_threshold,
             }
 
     def _support(
@@ -987,9 +993,8 @@ class TabularRegressionRuntime:
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
         loo_nearest = reference["loo_nearest"]
-        supported, caution = (
-            float(value) for value in np.quantile(loo_nearest, (0.80, 0.95))
-        )
+        supported = float(reference["supported_threshold"])
+        caution = float(reference["caution_threshold"])
         if nearest <= supported:
             status, message = "supported", "近い学習条件に実測があります"
         elif nearest <= caution:
@@ -1042,9 +1047,8 @@ class TabularRegressionRuntime:
             "ij,ij->i", reference_vectors, reference_vectors
         )
         loo_nearest = reference["loo_nearest"]
-        supported, caution = (
-            float(value) for value in np.quantile(loo_nearest, (0.80, 0.95))
-        )
+        supported = float(reference["supported_threshold"])
+        caution = float(reference["caution_threshold"])
         results: list[Support] = []
         for start in range(0, len(normalized), 128):
             query = normalized[start : start + 128]

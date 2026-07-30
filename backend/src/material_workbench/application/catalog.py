@@ -4,7 +4,9 @@ import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean, pstdev
+from threading import RLock
 from typing import Any, Literal
+from weakref import WeakKeyDictionary
 
 from material_workbench.modeling.model_lifecycle import (
     canonical_training_dataset,
@@ -23,14 +25,44 @@ from material_workbench.modeling.training_distance import (
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from material_workbench.data.importer import training_context_key
 from material_workbench.contracts.schemas import (
+    InputSpaceEmbeddingResponse,
     ModelPackageStatus,
     ModelTrainingDataPage,
     OutputSpaceEvidenceResponse,
     TaskCatalogItem,
 )
+from material_workbench.application.input_space import build_input_space_embedding
 from material_workbench.persistence.store import Store
 from material_workbench.application.workspace_catalog_bootstrap import task_definition_digest
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
+
+
+_INPUT_SPACE_CANONICAL_LOCK = RLock()
+_INPUT_SPACE_CANONICAL: WeakKeyDictionary[
+    Any, dict[str, dict[str, Any]]
+] = WeakKeyDictionary()
+
+
+def _cached_input_space_canonical(
+    *,
+    runtime: Any,
+    task_id: str,
+    contract: Any,
+    pipeline_version: str,
+) -> dict[str, Any]:
+    cache_key = f"{task_id}:{pipeline_version}:{runtime.model_package.manifest_sha256}"
+    with _INPUT_SPACE_CANONICAL_LOCK:
+        runtime_cache = _INPUT_SPACE_CANONICAL.setdefault(runtime, {})
+        canonical = runtime_cache.get(cache_key)
+        if canonical is None:
+            canonical = canonical_training_dataset(
+                task_id,
+                runtime.data,
+                contract,
+                pipeline_version=pipeline_version,
+            )
+            runtime_cache[cache_key] = canonical
+        return canonical
 from material_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailability,
@@ -767,6 +799,71 @@ def output_space_evidence(
     }
 
 
+def input_space_embedding(
+    project_id: str,
+    store: Store,
+    registry: TaskRegistry,
+    resolver: ProjectRuntimeResolver,
+    candidate_id: str,
+    expected_revision: int,
+) -> dict[str, Any]:
+    project = _require_project(store, project_id)
+    candidate = store.get_candidate(candidate_id, project_id)
+    if candidate is None:
+        raise CatalogNotFoundError("candidate not found")
+    if candidate.revision != expected_revision:
+        raise CatalogConflictError("candidate revision changed")
+    resolved = resolver.resolve(project)
+    package = resolved.runtime.model_package
+    assert package is not None
+    contract = registry.contract_for(project.task_id)
+    surface = next(
+        (
+            item
+            for item in registry.resolved_definition_for(
+                project.task_id
+            ).application.workbench_surfaces
+            if item.kind == "input_space"
+        ),
+        None,
+    )
+    if surface is None:
+        raise CatalogValidationError(
+            "このPrediction Taskは入力空間Surfaceを宣言していません"
+        )
+    available_targets = {item.target for item in package.manifest.predictors}
+    if surface.distance_target_key not in available_targets:
+        raise CatalogValidationError(
+            "入力空間の距離基準がModel Packageにありません"
+        )
+    data = resolved.runtime.data
+    validate_lifecycle_metadata(
+        package,
+        contract,
+        profile_path=_lifecycle_profile(data),
+    )
+    canonical = _cached_input_space_canonical(
+        runtime=resolved.runtime,
+        task_id=project.task_id,
+        contract=contract,
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
+    candidates = store.list_candidates(project_id)
+    try:
+        payload = build_input_space_embedding(
+            runtime=resolved.runtime,
+            canonical=canonical,
+            candidates=candidates,
+            selected_candidate=candidate,
+            surface=surface,
+        )
+        return InputSpaceEmbeddingResponse.model_validate(payload).model_dump(
+            mode="json"
+        )
+    except ValueError as exc:
+        raise CatalogValidationError(str(exc)) from exc
+
+
 def _output_space_evidence_points(
     rows: list[dict[str, Any]],
     *,
@@ -1036,6 +1133,22 @@ class CatalogUseCases:
             expected_revision,
             distance_filter,
             limit,
+        )
+
+    def input_space_embedding(
+        self,
+        project_id: str,
+        *,
+        candidate_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        return input_space_embedding(
+            project_id,
+            self.store,
+            self.registry,
+            self.resolver,
+            candidate_id,
+            expected_revision,
         )
 
     def task_definitions(self) -> list[dict[str, Any]]:

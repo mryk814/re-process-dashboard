@@ -145,12 +145,23 @@
             "historical_limit": 200
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "C",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -245,12 +256,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 40,
+            "distance_target_key": "TS",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 40
+            "order": 50
           },
           {
             "kind": "feature_engineering",
-            "order": 50
+            "order": 60
           }
         ],
         "project_creation": true,
@@ -324,12 +346,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "TS",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -407,16 +440,27 @@
               "VB_mean",
               "VB_max"
             ],
-            "evidence_context": "training_context",
+            "evidence_context": "parent_condition",
             "historical_limit": 200
           },
           {
+            "kind": "input_space",
+            "order": 40,
+            "distance_target_key": "VB_mean",
+            "evidence_context": "parent_condition",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 40
+            "order": 50
           },
           {
             "kind": "feature_engineering",
-            "order": 50
+            "order": 60
           }
         ],
         "project_creation": true,
@@ -495,12 +539,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "hardness_hv",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -573,12 +628,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "compressive_strength_mpa",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -651,12 +717,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "wear_vb_um",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -732,12 +809,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 40,
+            "distance_target_key": "capacity_percent",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 40
+            "order": 50
           },
           {
             "kind": "feature_engineering",
-            "order": 50
+            "order": 60
           }
         ],
         "project_creation": true,
@@ -811,12 +899,23 @@
             "grid_size": 11
           },
           {
+            "kind": "input_space",
+            "order": 30,
+            "distance_target_key": "fail_probability",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 30
+            "order": 40
           },
           {
             "kind": "feature_engineering",
-            "order": 40
+            "order": 50
           }
         ],
         "project_creation": true,
@@ -947,12 +1046,23 @@
             "historical_limit": 200
           },
           {
+            "kind": "input_space",
+            "order": 10,
+            "distance_target_key": "TYS",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 10
+            "order": 20
           },
           {
             "kind": "feature_engineering",
-            "order": 20
+            "order": 30
           }
         ],
         "project_creation": true,
@@ -1007,12 +1117,23 @@
       "application_capability": {
         "workbench_surfaces": [
           {
+            "kind": "input_space",
+            "order": 0,
+            "distance_target_key": "HV",
+            "evidence_context": "training_context",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 0
+            "order": 10
           },
           {
             "kind": "feature_engineering",
-            "order": 10
+            "order": 20
           }
         ],
         "project_creation": true,
@@ -1115,12 +1236,23 @@
             "historical_limit": 200
           },
           {
+            "kind": "input_space",
+            "order": 20,
+            "distance_target_key": "TS",
+            "evidence_context": "parent_condition",
+            "embedding_method": "landmark-classical-mds-oos",
+            "embedding_version": "1.0.0",
+            "seed": 508,
+            "landmark_limit": 96,
+            "historical_limit": 240
+          },
+          {
             "kind": "similarity",
-            "order": 20
+            "order": 30
           },
           {
             "kind": "feature_engineering",
-            "order": 30
+            "order": 40
           }
         ],
         "project_creation": true,

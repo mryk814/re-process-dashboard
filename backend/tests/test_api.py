@@ -1,14 +1,27 @@
 from copy import deepcopy
 from itertools import combinations
+from time import perf_counter
 
+import numpy as np
 import pytest
 
 from material_workbench.application.catalog import (
     CatalogValidationError,
+    _INPUT_SPACE_CANONICAL,
+    _INPUT_SPACE_CANONICAL_LOCK,
     _output_space_evidence_points,
+)
+from material_workbench.application.input_space import (
+    _CACHE_LOCK,
+    _TRAINING_EMBEDDINGS,
 )
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
+from material_workbench.modeling.training_distance import (
+    evidence_context_id,
+    resolve_training_metric_space,
+    training_context_distances,
+)
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 
@@ -517,6 +530,376 @@ def test_every_prediction_space_task_serves_distance_evidence(
         )
         assert {point["context_id"] for point in actual_points} == expected_ids
         assert payload["total_contexts"] == len(expected_ids)
+
+
+def test_real_task_input_space_is_reproducible_and_keeps_task_neighbour_order(
+    client,
+) -> None:
+    project_id = "default"
+    candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    task = client.get(
+        f"/api/projects/{project_id}/task-definition"
+    ).json()
+    surface = next(
+        item
+        for item in task["application"]["workbench_surfaces"]
+        if item["kind"] == "input_space"
+    )
+    params = {
+        "candidate_id": candidate["id"],
+        "expected_revision": candidate["revision"],
+    }
+    first = client.get(
+        f"/api/projects/{project_id}/model-package/input-space",
+        params=params,
+    )
+    second = client.get(
+        f"/api/projects/{project_id}/model-package/input-space",
+        params=params,
+    )
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json() == second.json()
+    payload = first.json()
+    assert payload["embedding_method"] == "landmark-classical-mds-oos"
+    assert payload["embedding_version"] == "1.0.0"
+    assert payload["seed"] == surface["seed"]
+    assert payload["distance_target_key"] == surface["distance_target_key"]
+    assert payload["cohort_digest"].startswith("sha256:")
+    assert payload["vector_space_digest"].startswith("sha256:")
+    assert payload["displayed_training_contexts"] <= payload[
+        "total_training_contexts"
+    ]
+
+    project = client.app.state.store.get_project(project_id)
+    resolved = client.app.state.project_runtime_resolver.resolve(project)
+    package = resolved.runtime.model_package
+    canonical = canonical_training_dataset(
+        project["task_id"] if isinstance(project, dict) else project.task_id,
+        resolved.runtime.data,
+        client.app.state.task_registry.contract_for(
+            project["task_id"] if isinstance(project, dict) else project.task_id
+        ),
+        pipeline_version=package.manifest.feature_pipeline.version,
+    )
+    allowed = {
+        evidence_context_id(row, surface["evidence_context"])
+        for row in canonical["rows"]
+        if surface["distance_target_key"] in row["outputs"]
+    }
+    distance = training_context_distances(
+        resolved.runtime,
+        client.app.state.store.get_candidate(candidate["id"], project_id),
+        target_keys=(surface["distance_target_key"],),
+        allowed_context_ids=allowed,
+        evidence_context=surface["evidence_context"],
+    )
+    expected_index = int(np.argmin(distance.distances))
+    selected = next(
+        point
+        for point in payload["candidate_points"]
+        if point["candidate_id"] == candidate["id"]
+    )
+    assert selected["nearest_training_context_id"] == distance.context_ids[
+        expected_index
+    ]
+    assert selected["island_distance"] == pytest.approx(
+        float(distance.distances[expected_index])
+    )
+
+
+@pytest.mark.parametrize(
+    "task_id",
+    ("wear-curve-v1", "battery-degradation-v1"),
+)
+def test_input_space_uses_runtime_precomputed_support_thresholds(
+    client,
+    task_id: str,
+) -> None:
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    project = next(
+        (
+            item
+            for item in client.get("/api/projects").json()
+            if item["task_id"] == task_id
+        ),
+        None,
+    )
+    if project is None:
+        response = client.post(
+            "/api/projects",
+            json={"name": f"{task_id} threshold regression", "task_id": task_id},
+        )
+        assert response.status_code == 201, response.text
+        project = response.json()
+        candidate_response = client.post(
+            f"/api/projects/{project['id']}/candidates",
+            json=task["starter_candidate"],
+        )
+        assert candidate_response.status_code == 201, candidate_response.text
+        candidate = candidate_response.json()
+    else:
+        candidate = client.get(
+            f"/api/projects/{project['id']}/candidates"
+        ).json()[0]
+    surface = next(
+        item
+        for item in task["definition"]["application"]["workbench_surfaces"]
+        if item["kind"] == "input_space"
+    )
+    response = client.get(
+        f"/api/projects/{project['id']}/model-package/input-space",
+        params={
+            "candidate_id": candidate["id"],
+            "expected_revision": candidate["revision"],
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    stored_project = client.app.state.store.get_project(project["id"])
+    runtime = client.app.state.project_runtime_resolver.resolve(
+        stored_project
+    ).runtime
+    reference = runtime.support_references[surface["distance_target_key"]]
+    assert payload["supported_threshold"] == reference["supported_threshold"]
+    assert payload["caution_threshold"] == reference["caution_threshold"]
+    runtime_support = runtime.support_by_target(
+        client.app.state.store.get_candidate(candidate["id"], project["id"])
+    )[surface["distance_target_key"]]
+    assert runtime_support.supported_threshold == round(
+        payload["supported_threshold"], 4
+    )
+    assert runtime_support.caution_threshold == round(
+        payload["caution_threshold"], 4
+    )
+
+
+def test_large_wear_input_space_reuses_fixed_training_embedding(
+    client,
+) -> None:
+    task_id = "wear-curve-v1"
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    project = next(
+        item
+        for item in client.get("/api/projects").json()
+        if item["task_id"] == task_id
+    )
+    candidates = client.get(
+        f"/api/projects/{project['id']}/candidates"
+    ).json()
+    while len(candidates) < 3:
+        starter = deepcopy(task["starter_candidate"])
+        starter["name"] = f"速度回帰候補{len(candidates) + 1}"
+        created = client.post(
+            f"/api/projects/{project['id']}/candidates",
+            json=starter,
+        )
+        assert created.status_code == 201, created.text
+        candidates.append(created.json())
+    stored_project = client.app.state.store.get_project(project["id"])
+    runtime = client.app.state.project_runtime_resolver.resolve(
+        stored_project
+    ).runtime
+    target = next(iter(runtime.support_references))
+    assert len(runtime.support_references[target]["vectors"]) >= 14_000
+    candidate = candidates[0]
+    request = {
+        "candidate_id": candidate["id"],
+        "expected_revision": candidate["revision"],
+    }
+    with _INPUT_SPACE_CANONICAL_LOCK:
+        _INPUT_SPACE_CANONICAL.pop(runtime, None)
+    with _CACHE_LOCK:
+        _TRAINING_EMBEDDINGS.pop(runtime, None)
+
+    first_started = perf_counter()
+    first = client.get(
+        f"/api/projects/{project['id']}/model-package/input-space",
+        params=request,
+    )
+    first_elapsed = perf_counter() - first_started
+    second_started = perf_counter()
+    second = client.get(
+        f"/api/projects/{project['id']}/model-package/input-space",
+        params=request,
+    )
+    second_elapsed = perf_counter() - second_started
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert len(first.json()["candidate_points"]) >= 3
+    assert first.json() == second.json()
+    assert first_elapsed < 8.0
+    assert second_elapsed < 1.5
+
+
+def test_flank_wear_input_space_uses_one_point_per_independent_run(
+    client,
+) -> None:
+    task_id = "flank-wear-v1"
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    project = next(
+        (
+            item
+            for item in client.get("/api/projects").json()
+            if item["task_id"] == task_id
+        ),
+        None,
+    )
+    if project is None:
+        response = client.post(
+            "/api/projects",
+            json={"name": "flank run-level input-space", "task_id": task_id},
+        )
+        assert response.status_code == 201, response.text
+        project = response.json()
+        candidate_response = client.post(
+            f"/api/projects/{project['id']}/candidates",
+            json=task["starter_candidate"],
+        )
+        assert candidate_response.status_code == 201, candidate_response.text
+        candidate = candidate_response.json()
+    else:
+        candidate = client.get(
+            f"/api/projects/{project['id']}/candidates"
+        ).json()[0]
+    input_surface = next(
+        item
+        for item in task["definition"]["application"]["workbench_surfaces"]
+        if item["kind"] == "input_space"
+    )
+    prediction_surface = next(
+        item
+        for item in task["definition"]["application"]["workbench_surfaces"]
+        if item["kind"] == "prediction_space"
+    )
+    assert input_surface["evidence_context"] == "parent_condition"
+    assert prediction_surface["evidence_context"] == "parent_condition"
+
+    stored_project = client.app.state.store.get_project(project["id"])
+    resolved = client.app.state.project_runtime_resolver.resolve(stored_project)
+    runtime = resolved.runtime
+    stored_candidate = client.app.state.store.get_candidate(
+        candidate["id"],
+        project["id"],
+    )
+    run_ids = {
+        str(rows[0]["parent_key"])
+        for rows in runtime.reference_rows
+    }
+    space = resolve_training_metric_space(
+        runtime,
+        target_keys=(input_surface["distance_target_key"],),
+        allowed_context_ids=run_ids,
+        evidence_context="parent_condition",
+    )
+    assert runtime.reference_vectors.shape[0] == 180
+    assert space.vectors.shape == runtime.reference_vectors.shape
+    assert len(space.context_ids) == 180
+
+    response = client.get(
+        f"/api/projects/{project['id']}/model-package/input-space",
+        params={
+            "candidate_id": candidate["id"],
+            "expected_revision": candidate["revision"],
+        },
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["total_training_contexts"] == 180
+    assert payload["displayed_training_contexts"] == 180
+    selected = next(
+        point
+        for point in payload["candidate_points"]
+        if point["candidate_id"] == candidate["id"]
+    )
+    runtime_support, nearest = runtime.evidence(stored_candidate)
+    assert selected["island_status"] == runtime_support.status
+    assert selected["island_distance"] == pytest.approx(
+        runtime_support.distance,
+        abs=5e-5,
+    )
+    assert selected["nearest_training_context_id"] == nearest[0]["parent_key"]
+
+
+@pytest.mark.parametrize(
+    "task_id",
+    (
+        "annealed-properties-v1",
+        "battery-degradation-v1",
+        "concrete-strength-v1",
+        "flank-wear-v1",
+        "heat-treatment-tradeoff-v1",
+        "hot-rolled-properties-v1",
+        "mpea-hardness-process-v1",
+        "mpea-room-tensile-v1",
+        "secom-yield-risk-v1",
+        "wear-curve-v1",
+        "welding-consumable-stage-b-v1",
+        "welding-stage-c-properties-v1",
+    ),
+)
+def test_every_declared_input_space_task_can_place_its_starter_candidate(
+    client,
+    task_id: str,
+) -> None:
+    task = next(
+        item
+        for item in client.get("/api/task-definitions").json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    existing = next(
+        (
+            project
+            for project in client.get("/api/projects").json()
+            if project["task_id"] == task_id
+        ),
+        None,
+    )
+    if existing is None:
+        created = client.post(
+            "/api/projects",
+            json={"name": f"{task_id} input-space smoke", "task_id": task_id},
+        )
+        assert created.status_code == 201, created.text
+        project_id = created.json()["id"]
+        candidate_response = client.post(
+            f"/api/projects/{project_id}/candidates",
+            json=task["starter_candidate"],
+        )
+        assert candidate_response.status_code == 201, candidate_response.text
+        candidate = candidate_response.json()
+    else:
+        project_id = existing["id"]
+        candidate = client.get(
+            f"/api/projects/{project_id}/candidates"
+        ).json()[0]
+    response = client.get(
+        f"/api/projects/{project_id}/model-package/input-space",
+        params={
+            "candidate_id": candidate["id"],
+            "expected_revision": candidate["revision"],
+        },
+    )
+    assert response.status_code == 200, f"{task_id}: {response.text}"
+    payload = response.json()
+    assert payload["candidate_points"]
+    assert payload["training_points"]
+    assert payload["total_training_contexts"] >= payload[
+        "displayed_training_contexts"
+    ]
 
 
 def test_welding_stage_c_prediction_space_pairs_every_target_on_weld_run(

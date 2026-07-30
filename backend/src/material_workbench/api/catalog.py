@@ -11,6 +11,7 @@ from material_workbench.application.catalog import (
     CatalogValidationError,
 )
 from material_workbench.contracts.schemas import (
+    InputSpaceEmbeddingResponse,
     ModelPackageStatus,
     ModelTrainingDataPage,
     OutputSpaceEvidenceResponse,
@@ -123,6 +124,28 @@ def output_space_evidence(
             expected_revision=expected_revision,
             distance_filter=distance_filter,
             limit=limit,
+        )
+    except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:
+        raise _translate_catalog_error(exc) from exc
+
+
+@router.get(
+    "/api/projects/{project_id}/model-package/input-space",
+    response_model=InputSpaceEmbeddingResponse,
+    responses=PROJECT_API_ERRORS,
+    operation_id="getProjectInputSpace",
+)
+def input_space_embedding(
+    project_id: str,
+    use_cases: CatalogDependency,
+    candidate_id: Annotated[str, Query(min_length=1)],
+    expected_revision: Annotated[int, Query(ge=1)],
+) -> dict[str, Any]:
+    try:
+        return use_cases.input_space_embedding(
+            project_id,
+            candidate_id=candidate_id,
+            expected_revision=expected_revision,
         )
     except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:
         raise _translate_catalog_error(exc) from exc

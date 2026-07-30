@@ -27,6 +27,22 @@ class TrainingDistanceEvidence:
     caution_threshold: float
 
 
+@dataclass(frozen=True)
+class TrainingMetricSpace:
+    """One versioned Task-distance space shared by training and query points."""
+
+    context_ids: tuple[str, ...]
+    vectors: np.ndarray
+    groups: dict[str, tuple[int, ...]] | None
+    feature_order: tuple[str, ...]
+    method: str
+    version: str
+    cohort_digest: str
+    vector_space_digest: str
+    supported_threshold: float
+    caution_threshold: float
+
+
 EvidenceContextIdentity = Literal["training_context", "parent_condition"]
 
 
@@ -61,7 +77,7 @@ def _collapse_contexts(
     )
 
 
-def _distance(
+def metric_distances(
     reference: np.ndarray,
     query: np.ndarray,
     groups: dict[str, tuple[int, ...]] | None,
@@ -76,27 +92,17 @@ def _distance(
     return np.sqrt(np.vstack(parts).mean(axis=0))
 
 
-def _thresholds(
-    vectors: np.ndarray,
-    groups: dict[str, tuple[int, ...]] | None,
-) -> tuple[float, float]:
-    if len(vectors) < 2:
-        return 0.0, 0.0
-    nearest: list[float] = []
-    for index, vector in enumerate(vectors):
-        distances = _distance(vectors, vector, groups)
-        distances[index] = np.inf
-        nearest.append(float(distances.min()))
-    supported, caution = np.quantile(np.asarray(nearest), (0.80, 0.95))
-    return float(supported), float(caution)
-
-
-def _runtime_vectors(
+def _runtime_metric_source(
     runtime: Any,
-    candidate: Any,
     target_keys: Sequence[str],
     evidence_context: EvidenceContextIdentity,
-) -> tuple[tuple[str, ...], np.ndarray, np.ndarray, dict[str, tuple[int, ...]] | None]:
+) -> tuple[
+    tuple[str, ...],
+    np.ndarray,
+    dict[str, tuple[int, ...]] | None,
+    tuple[float, float],
+    tuple[str, ...],
+]:
     from material_workbench.modeling.flank_wear import FlankWearRuntime
 
     groups: dict[str, tuple[int, ...]] | None = None
@@ -107,43 +113,44 @@ def _runtime_vectors(
             for row in reference.parent_rows
         )
         vectors = np.asarray(reference.parent_vectors, dtype=float)
-        query = reference.normalized(runtime.vector_for_candidate(candidate))
         groups = dict(getattr(runtime, "feature_group_indices", {}))
+        thresholds = (
+            float(reference.supported_threshold),
+            float(reference.caution_threshold),
+        )
+        feature_order = tuple(runtime.feature_names)
     elif isinstance(runtime, FlankWearRuntime):
         from material_workbench.modeling.flank_wear_feature_pipeline import (
-            build_flank_wear_features_from_observation,
+            FEATURE_NAMES,
         )
 
-        rows = [row for run_rows in runtime.reference_rows for row in run_rows]
         context_ids = tuple(
-            evidence_context_id(row, evidence_context) for row in rows
+            evidence_context_id(rows[0], evidence_context)
+            for rows in runtime.reference_rows
         )
-        raw = np.vstack(
-            [
-                build_flank_wear_features_from_observation(
-                    row, runtime.composition_defaults
-                ).values
-                for row in rows
-            ]
-        )
-        vectors = (raw - runtime.reference_mean) / runtime.reference_scale
-        query = (
-            runtime.vector(candidate) - runtime.reference_mean
-        ) / runtime.reference_scale
+        vectors = np.asarray(runtime.reference_vectors, dtype=float)
         groups = dict(runtime.feature_group_indices)
+        thresholds = (
+            float(runtime.supported_threshold),
+            float(runtime.caution_threshold),
+        )
+        feature_order = tuple(FEATURE_NAMES)
     elif hasattr(runtime, "reference_vectors") and hasattr(runtime, "reference_rows"):
         context_ids = tuple(
             evidence_context_id(rows[0], evidence_context)
             for rows in runtime.reference_rows
         )
         vectors = np.asarray(runtime.reference_vectors, dtype=float)
-        query = (
-            runtime.vector(candidate) - runtime.reference_mean
-        ) / runtime.reference_scale
         groups = dict(
             getattr(runtime, "feature_group_indices", None)
             or getattr(runtime, "FEATURE_GROUP_INDICES", {})
         )
+        thresholds = (
+            float(runtime.supported_threshold),
+            float(runtime.caution_threshold),
+        )
+        manifest = runtime.model_package.manifest
+        feature_order = tuple(manifest.feature_pipeline.output_features)
     elif hasattr(runtime, "support_references"):
         # Target-specific runtimes use one deterministic family for the common
         # cohort. Sorting makes x/y swap a presentation-only operation.
@@ -158,15 +165,59 @@ def _runtime_vectors(
             evidence_context_id(row, evidence_context) for row in rows
         )
         vectors = np.asarray(reference["vectors"], dtype=float)
+        thresholds = (
+            float(reference["supported_threshold"]),
+            float(reference["caution_threshold"]),
+        )
         from material_workbench.modeling.observation_regression import (
             ObservationRegressionRuntime,
-            candidate_feature_values,
-        )
-        from material_workbench.modeling.tabular_regression import (
-            TabularRegressionRuntime,
-            build_tabular_features,
         )
 
+        if isinstance(runtime, ObservationRegressionRuntime):
+            feature_order = tuple(runtime.spec.target_features[distance_target])
+        else:
+            feature_order = tuple(
+                runtime.model_package.manifest.feature_pipeline.output_features
+            )
+    else:
+        raise ValueError(
+            f"{runtime.task_id}のRuntimeは入力空間の距離contractに対応していません"
+        )
+    return context_ids, vectors, groups, thresholds, feature_order
+
+
+def candidate_metric_query(
+    runtime: Any,
+    candidate: Any,
+    *,
+    target_keys: Sequence[str],
+) -> np.ndarray:
+    """Transform one candidate into the Runtime-owned normalized metric space."""
+
+    from material_workbench.modeling.flank_wear import FlankWearRuntime
+    from material_workbench.modeling.observation_regression import (
+        ObservationRegressionRuntime,
+        candidate_feature_values,
+    )
+    from material_workbench.modeling.tabular_regression import (
+        TabularRegressionRuntime,
+        build_tabular_features,
+    )
+
+    if getattr(runtime, "support_reference", None) is not None:
+        reference = runtime.support_reference
+        query = reference.normalized(runtime.vector_for_candidate(candidate))
+    elif isinstance(runtime, FlankWearRuntime):
+        query = (
+            runtime.vector(candidate) - runtime.reference_mean
+        ) / runtime.reference_scale
+    elif hasattr(runtime, "reference_vectors") and hasattr(runtime, "reference_rows"):
+        query = (
+            runtime.vector(candidate) - runtime.reference_mean
+        ) / runtime.reference_scale
+    elif hasattr(runtime, "support_references"):
+        distance_target = sorted(target_keys)[0]
+        reference = runtime.support_references[distance_target]
         if isinstance(runtime, TabularRegressionRuntime):
             raw = build_tabular_features(candidate, runtime.profile).values
         elif isinstance(runtime, ObservationRegressionRuntime):
@@ -183,7 +234,54 @@ def _runtime_vectors(
         raise ValueError(
             f"{runtime.task_id}のRuntimeは入力空間の距離contractに対応していません"
         )
-    return context_ids, vectors, np.asarray(query, dtype=float), groups
+    return np.asarray(query, dtype=float)
+
+
+def _vector_space_identity(runtime: Any) -> dict[str, Any]:
+    model_package = getattr(runtime, "model_package", None)
+    if model_package is None:
+        return {
+            "runtime": f"{type(runtime).__module__}.{type(runtime).__qualname__}",
+            "task_id": str(runtime.task_id),
+        }
+    manifest = model_package.manifest
+    return {
+        "package_id": manifest.package_id,
+        "package_version": manifest.package_version,
+        "package_manifest_sha256": model_package.manifest_sha256,
+        "feature_pipeline_id": manifest.feature_pipeline.id,
+        "feature_pipeline_version": manifest.feature_pipeline.version,
+    }
+
+
+def _vector_space_digest(
+    *,
+    runtime: Any,
+    context_ids: tuple[str, ...],
+    vectors: np.ndarray,
+    groups: dict[str, tuple[int, ...]] | None,
+    feature_order: tuple[str, ...],
+) -> str:
+    metadata = {
+        "contexts": context_ids,
+        "feature_order": feature_order,
+        "groups": {
+            name: tuple(columns)
+            for name, columns in sorted((groups or {}).items())
+        },
+        "identity": _vector_space_identity(runtime),
+        "shape": tuple(vectors.shape),
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            metadata,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    digest.update(np.ascontiguousarray(vectors, dtype="<f8").tobytes())
+    return "sha256:" + digest.hexdigest()
 
 
 def training_context_distances(
@@ -194,8 +292,41 @@ def training_context_distances(
     allowed_context_ids: set[str],
     evidence_context: EvidenceContextIdentity = "training_context",
 ) -> TrainingDistanceEvidence:
-    context_ids, vectors, query, groups = _runtime_vectors(
-        runtime, candidate, target_keys, evidence_context
+    space = resolve_training_metric_space(
+        runtime,
+        target_keys=target_keys,
+        allowed_context_ids=allowed_context_ids,
+        evidence_context=evidence_context,
+    )
+    query = candidate_metric_query(
+        runtime,
+        candidate,
+        target_keys=target_keys,
+    )
+    return TrainingDistanceEvidence(
+        context_ids=space.context_ids,
+        distances=metric_distances(space.vectors, query, space.groups),
+        method=space.method,
+        version=space.version,
+        cohort_digest=space.cohort_digest,
+        supported_threshold=space.supported_threshold,
+        caution_threshold=space.caution_threshold,
+    )
+
+
+def resolve_training_metric_space(
+    runtime: Any,
+    *,
+    target_keys: Sequence[str],
+    allowed_context_ids: set[str],
+    evidence_context: EvidenceContextIdentity = "training_context",
+) -> TrainingMetricSpace:
+    context_ids, vectors, groups, thresholds, feature_order = (
+        _runtime_metric_source(
+            runtime,
+            target_keys,
+            evidence_context,
+        )
     )
     context_ids, vectors = _collapse_contexts(context_ids, vectors)
     indexes = [
@@ -206,8 +337,8 @@ def training_context_distances(
     context_ids = tuple(context_ids[index] for index in indexes)
     vectors = vectors[indexes]
     if not context_ids:
-        raise ValueError("2軸共通cohortに距離を計算できる学習条件がありません")
-    supported, caution = _thresholds(vectors, groups)
+        raise ValueError("指定cohortに距離を計算できる学習条件がありません")
+    supported, caution = thresholds
     method = str(runtime.support_policy_id)
     digest_payload = {
         "contexts": context_ids,
@@ -222,12 +353,22 @@ def training_context_distances(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
-    return TrainingDistanceEvidence(
+    vector_space_digest = _vector_space_digest(
+        runtime=runtime,
         context_ids=context_ids,
-        distances=_distance(vectors, query, groups),
+        vectors=vectors,
+        groups=groups,
+        feature_order=feature_order,
+    )
+    return TrainingMetricSpace(
+        context_ids=context_ids,
+        vectors=vectors,
+        groups=groups,
+        feature_order=feature_order,
         method=method,
         version=DISTANCE_CONTRACT_VERSION,
         cohort_digest=cohort_digest,
+        vector_space_digest=vector_space_digest,
         supported_threshold=supported,
         caution_threshold=caution,
     )

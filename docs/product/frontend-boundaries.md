@@ -33,6 +33,7 @@ feature間の依存は図に示した組合せだけを許可し、循環させ�
   - Taskごとの種類・順序・コンター軸は `ResolvedTaskDefinition.application.workbench_surfaces` から受け取り、`WorkbenchPage`へTask ID分岐を書きません。
   - `ResponseContourPanel` は表示操作後だけ専用APIを読み、候補revision・入力identity・出力・2軸・格子数が変われば古い応答を破棄します。
   - `PredictionSpacePanel` は既に得た候補previewを再利用し、表示中だけ両出力がそろう学習元条件の実測平均を取得します。軸別区間をjoint uncertaintyとして扱いません。
+  - `InputSpacePanel` は表示中だけModel Packageの固定学習cohortを取得し、Task距離でfitしたversioned landmark MDSへ候補をout-of-sample配置します。図上の距離を支持判定へ流用しません。
 - **`features/projects/`**：プロジェクト概要、保存結果、履歴を担当します。
 - **`features/quality/`**：データ品質の一覧、filter、系譜への接続を担当します。
 - **`features/lineage/`**：工程系譜の探索と、実績からの候補作成を担当します。

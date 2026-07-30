@@ -15,6 +15,7 @@ from material_workbench.contracts.task_contracts import (
     ApplicationCapability,
     BasicWorkbenchSurfaceDefinition,
     DataExplorerCapability,
+    InputSpaceSurfaceDefinition,
     PredictionSpaceSurfaceDefinition,
     TaskDefinition,
     ResponseContourSurfaceDefinition,
@@ -694,6 +695,10 @@ def _application_capability(
     prediction_space_evidence_context: Literal[
         "training_context", "parent_condition"
     ] = "training_context",
+    input_space_target: str | None = None,
+    input_space_evidence_context: Literal[
+        "training_context", "parent_condition"
+    ] = "training_context",
     curve_family: bool = False,
     contour_axes: tuple[str, ...] = (),
     candidate_excel_import: bool = False,
@@ -703,6 +708,7 @@ def _application_capability(
 ) -> ApplicationCapability:
     surfaces: list[
         BasicWorkbenchSurfaceDefinition
+        | InputSpaceSurfaceDefinition
         | PredictionSpaceSurfaceDefinition
         | ResponseContourSurfaceDefinition
     ] = []
@@ -740,6 +746,15 @@ def _application_capability(
                 axis_paths=contour_axes,
             )
         )
+    if input_space_target is not None:
+        surfaces.append(
+            InputSpaceSurfaceDefinition(
+                kind="input_space",
+                order=len(surfaces) * 10,
+                distance_target_key=input_space_target,
+                evidence_context=input_space_evidence_context,
+            )
+        )
     if similarity:
         basic("similarity")
     basic("feature_engineering")
@@ -771,6 +786,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             response_curve=False,
             similarity=True,
             prediction_space_targets=("C", "Mn", "Si", "Ni", "Cr", "Mo"),
+            input_space_target="C",
             sparse_blend_transform_id="welding-stage-a-v1",
         ),
         starter_project=StarterProject(
@@ -800,6 +816,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             response_curve=True,
             similarity=True,
             prediction_space_targets=("TS", "YS", "EL", "lambda"),
+            input_space_target="TS",
             contour_axes=("composition.C", "composition.Mn", "process.ls_mpm"),
             candidate_excel_import=True,
             candidate_excel_export=True,
@@ -838,6 +855,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "process.hold_temperature_c",
                 "process.hold_time_min",
             ),
+            input_space_target="TS",
         ),
         data_explorer=_EXPLORER,
         starter_project=StarterProject("hot-rolling-default", "熱延条件の候補検討", _hot_rolling_starter_candidates),
@@ -858,6 +876,9 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             response_curve=True,
             similarity=True,
             prediction_space_targets=("VB_mean", "VB_max"),
+            prediction_space_evidence_context="parent_condition",
+            input_space_target="VB_mean",
+            input_space_evidence_context="parent_condition",
             curve_family=True,
         ),
         response_curve=_standard_response_curve,
@@ -882,6 +903,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             response_curve=True,
             similarity=True,
             prediction_space_targets=("hardness_hv", "charpy_j"),
+            input_space_target="hardness_hv",
             contour_axes=(
                 "process.tempering_temp_c",
                 "process.cooling_rate_c_per_s",
@@ -916,6 +938,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "composition.water_kg_m3",
                 "composition.cement_kg_m3",
             ),
+            input_space_target="compressive_strength_mpa",
         ),
         starter_project=_tabular_starter(CONCRETE_TASK_ID, "コンクリート配合と強度"),
         response_curve=_standard_response_curve,
@@ -946,6 +969,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "process.cutting_speed_m_per_min",
                 "process.feed_mm_per_rev",
             ),
+            input_space_target="wear_vb_um",
         ),
         starter_project=_tabular_starter(WEAR_CURVE_TASK_ID, "工具摩耗曲線"),
         response_curve=_standard_response_curve,
@@ -980,6 +1004,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             similarity=True,
             curve_family=True,
             contour_axes=("process.cycle_index", "process.discharge_rate_c"),
+            input_space_target="capacity_percent",
         ),
         starter_project=_tabular_starter(BATTERY_DEGRADATION_TASK_ID, "電池容量劣化"),
         response_curve=_standard_response_curve,
@@ -1011,6 +1036,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "process.sensor_130",
                 "process.sensor_102",
             ),
+            input_space_target="fail_probability",
         ),
         starter_project=_tabular_starter(SECOM_YIELD_TASK_ID, "SECOM工程異常リスク"),
         response_curve=_standard_response_curve,
@@ -1058,6 +1084,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             response_curve=False,
             similarity=True,
             prediction_space_targets=("TYS", "UTS", "EL"),
+            input_space_target="TYS",
         ),
         starter_project=_tabular_starter(MPEA_ROOM_TENSILE_TASK_ID, "MPEA文献の室温引張特性"),
         data_explorer=_TABULAR_EXPLORER,
@@ -1081,6 +1108,7 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
             actual_measurement=False,
             response_curve=False,
             similarity=True,
+            input_space_target="HV",
         ),
         starter_project=_tabular_starter(MPEA_HARDNESS_TASK_ID, "MPEA文献の硬さ"),
         data_explorer=_TABULAR_EXPLORER,
@@ -1108,6 +1136,8 @@ BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
                 "CORROSION_RATE",
             ),
             prediction_space_evidence_context="parent_condition",
+            input_space_target="TS",
+            input_space_evidence_context="parent_condition",
         ),
         starter_project=StarterProject(
             "welding-stage-c-default",

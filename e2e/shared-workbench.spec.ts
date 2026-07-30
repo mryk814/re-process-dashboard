@@ -120,6 +120,81 @@ test("Task-declared prediction contour loads on demand and keeps support separat
   });
 });
 
+test("Task-declared input space loads on demand and keeps evidence in context", async ({ page }, testInfo) => {
+  let inputSpaceRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/model-package/input-space")) {
+      inputSpaceRequests += 1;
+    }
+  });
+
+  await page.goto("/?view=candidates&project=default");
+  await expect(page.getByRole("tab", { name: "入力空間" })).toHaveAttribute(
+    "aria-selected",
+    "false",
+  );
+  expect(inputSpaceRequests).toBe(0);
+
+  const responsePromise = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/model-package/input-space"),
+  );
+  await page.getByRole("tab", { name: "入力空間" }).click();
+  expect((await responsePromise).status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "学習データの中で見る" })).toBeVisible();
+  await expect(page.locator(".input-space-reading dt", {
+    hasText: "島までの距離",
+  })).toBeVisible();
+  await expect(page.locator(".input-space-reading dt", {
+    hasText: "候補間の新規性",
+  })).toBeVisible();
+  expect(inputSpaceRequests).toBe(1);
+
+  const conditions = page.locator(".input-space-technical");
+  await conditions.locator("summary").click();
+  await expect(conditions.getByText(/Landmark MDS/)).toBeVisible();
+  await expect(conditions.getByText("seed / landmark", { exact: true })).toBeVisible();
+  await expect(conditions.getByText(/^508 \/ \d+$/)).toBeVisible();
+  await expect(conditions.getByText("入力空間identity", { exact: true })).toBeVisible();
+  await expect(conditions.getByText(/^sha256:[0-9a-f]+…$/)).toHaveCount(2);
+
+  await page.getByRole("button", {
+    name: "ME-01::AN-02の過去実績を開く",
+  }).click();
+  const evidenceDrawer = page.getByRole("complementary", { name: "過去実績の根拠" });
+  await expect(evidenceDrawer.getByRole("heading", { name: "実測特性" })).toBeVisible();
+  await expect(evidenceDrawer.getByText("510.0MPa", { exact: true })).toBeVisible();
+  await evidenceDrawer.getByRole("button", { name: "過去実績の根拠を閉じる" }).click();
+
+  await page.getByRole("button", {
+    name: /高強度案を選択、学習実績/,
+  }).click();
+  await expect(page.locator(".input-space-reading").getByRole("heading", {
+    name: "高強度案",
+  })).toBeVisible();
+  await expect(page).toHaveURL(/candidate=/);
+
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expect(page.getByRole("heading", { name: "学習データの中で見る" })).toBeVisible();
+  expect(await page.locator(".input-space-panel").evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  )).toBeLessThanOrEqual(1);
+  await page.locator(".input-space-panel").screenshot({
+    path: testInfo.outputPath("input-space.png"),
+  });
+
+  await page.setViewportSize({ width: 375, height: 900 });
+  expect(await page.locator(".input-space-panel").evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  )).toBeLessThanOrEqual(1);
+  await expect(page.getByText("図は横にスクロールできます")).toBeVisible();
+  expect(await page.locator(".input-space-chart").evaluate(
+    (element) => element.scrollWidth - element.clientWidth,
+  )).toBeGreaterThan(200);
+  await page.locator(".input-space-panel").screenshot({
+    path: testInfo.outputPath("input-space-narrow.png"),
+  });
+});
+
 test("Task-declared prediction space compares candidates with paired training actuals", async ({ page }, testInfo) => {
   let evidenceRequests = 0;
   page.on("request", (request) => {

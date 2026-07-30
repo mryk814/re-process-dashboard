@@ -376,12 +376,19 @@ class ObservationRegressionRuntime:
                 sample, sample_groups = sample[indexes], sample_groups[indexes]
             distances = np.sqrt(((sample[:, None, :] - sample[None, :, :]) ** 2).mean(axis=2))
             distances[sample_groups[:, None] == sample_groups[None, :]] = np.inf
+            loo_nearest = distances.min(axis=1)
+            supported_threshold, caution_threshold = (
+                float(value)
+                for value in np.quantile(loo_nearest, (0.80, 0.95))
+            )
             self.support_references[target] = {
                 "rows": rows,
                 "mean": mean,
                 "scale": scale,
                 "vectors": vectors,
-                "loo_nearest": distances.min(axis=1),
+                "loo_nearest": loo_nearest,
+                "supported_threshold": supported_threshold,
+                "caution_threshold": caution_threshold,
             }
 
     def _support(self, candidate: CandidateInput, target: str, include_similarity: bool) -> tuple[Support, list[dict[str, Any]]]:
@@ -391,7 +398,8 @@ class ObservationRegressionRuntime:
         normalized = (vector - reference["mean"]) / reference["scale"]
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
-        supported, caution = (float(value) for value in np.quantile(reference["loo_nearest"], (0.80, 0.95)))
+        supported = float(reference["supported_threshold"])
+        caution = float(reference["caution_threshold"])
         if nearest <= supported:
             status, message = "supported", "同じ観測familyの近い学習条件があります"
         elif nearest <= caution:

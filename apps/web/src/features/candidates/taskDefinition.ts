@@ -42,6 +42,7 @@ const workbenchSurfaceKinds = new Set([
   "response_curve",
   "response_contour",
   "prediction_space",
+  "input_space",
   "similarity",
   "feature_engineering",
 ]);
@@ -106,6 +107,12 @@ export function validateResolvedTaskDefinition(resolved: ResolvedTaskDefinition)
       const outputKeys = new Set(definition.outputs.map((output) => output.key));
       if (surface.target_keys.some((target) => !outputKeys.has(target))) {
         throw new Error("Prediction space targets must reference task outputs");
+      }
+    }
+    if (surface.kind === "input_space") {
+      const outputKeys = new Set(definition.outputs.map((output) => output.key));
+      if (!outputKeys.has(surface.distance_target_key)) {
+        throw new Error("Input space distance target must reference a task output");
       }
     }
   }
