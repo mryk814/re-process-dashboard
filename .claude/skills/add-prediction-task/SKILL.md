@@ -23,6 +23,13 @@ uv run python backend/scripts/operations/profile_workbench.py validate path/to/f
 
 ## 新しい予測問題を追加
 
+一行一観測のCSV／Excel表、数値・カテゴリ入力、標準ridge／LightGBM回帰だけで足りる場合は、
+アプリコードを変更せず`data-contributor`の`task:scaffold`を使う。
+個人Task storeのdata-only契約は起動中アプリへ再読込できる。
+
+以下は専用parser、relation／反復集約、Feature Pipeline、Runtime adapter、
+または同梱Taskが必要な場合だけ行う。
+
 次を縦一式で実装する。
 
 1. `backend/src/material_workbench/tasks/task_definitions/<task-id>.json`

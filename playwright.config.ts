@@ -29,6 +29,10 @@ const ownsProfileStore = !process.env.PLAYWRIGHT_PROFILE_STORE_PATH && !reuseSer
 const profileStore = process.env.PLAYWRIGHT_PROFILE_STORE_PATH
   ?? join(tmpdir(), `material-workbench-e2e-profiles-${randomUUID()}`);
 if (ownsProfileStore) process.env.PLAYWRIGHT_OWNED_PROFILE_STORE_PATH = profileStore;
+const ownsTaskStore = !process.env.PLAYWRIGHT_TASK_STORE_PATH && !reuseServer;
+const taskStore = process.env.PLAYWRIGHT_TASK_STORE_PATH
+  ?? join(tmpdir(), `material-workbench-e2e-tasks-${randomUUID()}`);
+if (ownsTaskStore) process.env.PLAYWRIGHT_OWNED_TASK_STORE_PATH = taskStore;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -39,7 +43,7 @@ export default defineConfig({
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
-  globalTeardown: (ownsDatabase || ownsModelStore || ownsProfileStore)
+  globalTeardown: (ownsDatabase || ownsModelStore || ownsProfileStore || ownsTaskStore)
     ? "./e2e/global-teardown.mjs"
     : undefined,
   use: {
@@ -56,6 +60,7 @@ export default defineConfig({
         WORKBENCH_DB_PATH: database,
         WORKBENCH_MODEL_STORE_PATH: modelStore,
         WORKBENCH_PROFILE_STORE_PATH: profileStore,
+        WORKBENCH_TASK_STORE_PATH: taskStore,
         WORKBENCH_DEMO_SEED: "all",
         ...(brokenHeatTreatmentPackage
           ? { MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }

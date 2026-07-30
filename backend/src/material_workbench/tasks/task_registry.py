@@ -77,6 +77,18 @@ def load_task_contracts(root: Path | None = None) -> dict[str, TaskContractFixtu
         contracts[task_id] = fixture
     if not contracts:
         raise TaskRegistryError(f"no task definitions found in {contract_root}")
+    if root is None:
+        from material_workbench.task_composition.external_tasks import (
+            external_task_contracts,
+        )
+
+        external = external_task_contracts()
+        duplicates = sorted(set(contracts) & set(external))
+        if duplicates:
+            raise TaskRegistryError(
+                f"external Task definitions cannot replace bundled Tasks: {duplicates}"
+            )
+        contracts.update(external)
     return contracts
 
 

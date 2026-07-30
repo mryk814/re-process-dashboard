@@ -61,6 +61,7 @@ class TaskModule:
     runtime_factory: RuntimeFactory
     feature_row_builder: FeatureRowBuilder
     application: ApplicationCapability
+    default_package: Path | None = None
     specialized_package_builder: SpecializedPackageBuilder | None = None
     standard_model_authoring: StandardModelAuthoring | None = None
     data_explorer: DataExplorerCapability | None = None

@@ -54,6 +54,7 @@
     "model:golden-path:clean-clone": "node scripts/clean-clone-golden-path-smoke.mjs",
     "task:inventory": "uv run python backend/scripts/operations/task_inventory.py",
     "task:inventory:check": "uv run python backend/scripts/operations/task_inventory.py --check",
+    "task:scaffold": "uv run python backend/scripts/operations/task_scaffold.py",
     "api:generate": "uv run python backend/scripts/operations/export_openapi.py && npm run api:types -w apps/web",
     "api:check": "uv run python backend/scripts/operations/export_openapi.py --check && npm run api:check -w apps/web",
     "docs:links:check": "node scripts/check-doc-links.mjs",

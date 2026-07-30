@@ -13,6 +13,22 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 
 
+@pytest.fixture(scope="session", autouse=True)
+def isolated_personal_task_store(tmp_path_factory: pytest.TempPathFactory):
+    """Repository tests never depend on a developer's personal Task catalog."""
+
+    root = tmp_path_factory.mktemp("personal-task-store")
+    previous = os.environ.get("WORKBENCH_TASK_STORE_PATH")
+    os.environ["WORKBENCH_TASK_STORE_PATH"] = str(root)
+    try:
+        yield root
+    finally:
+        if previous is None:
+            os.environ.pop("WORKBENCH_TASK_STORE_PATH", None)
+        else:
+            os.environ["WORKBENCH_TASK_STORE_PATH"] = previous
+
+
 @pytest.fixture(scope="session")
 def app_resources() -> _AppResources:
     # Shared source/runtime objects are read-only by contract; tests isolate mutable DB/work-graph state.

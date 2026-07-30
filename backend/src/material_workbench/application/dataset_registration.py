@@ -105,24 +105,28 @@ def register_dataset_records(
         profile_revision_id=profile_revision.id,
         canonicalization_contract_digest=CANONICALIZATION_CONTRACT_DIGEST,
     ))
-    if dataset.archived_at is None:
+    existing_view = next((
+        item
+        for item in catalog.list_dataset_view_revisions(include_archived=True)
+        if item.kind == "single"
+        and len(item.members) == 1
+        and item.members[0].dataset_revision_id == dataset.id
+    ), None)
+    if existing_view is not None:
+        # The Dataset identity is content-addressed. Startup may encounter an
+        # already imported personal Dataset through a runtime; preserve the
+        # first registration's name and lineage instead of rewriting history.
+        view = existing_view
+    elif dataset.archived_at is None:
         view = catalog.ensure_single_dataset_view(
             dataset.id,
             name=name,
             member_provenance=member_provenance,
         )
     else:
-        view = next((
-            item
-            for item in catalog.list_dataset_view_revisions(include_archived=True)
-            if item.kind == "single"
-            and len(item.members) == 1
-            and item.members[0].dataset_revision_id == dataset.id
-        ), None)
-        if view is None:
-            raise CatalogConflictError(
-                f"利用停止中のDatasetに対応するDataset Viewが見つかりません: {dataset.id}"
-            )
+        raise CatalogConflictError(
+            f"利用停止中のDatasetに対応するDataset Viewが見つかりません: {dataset.id}"
+        )
     return DatasetRegistrationResult(
         data_asset_id=asset.id,
         profile_revision_id=profile_revision.id,
@@ -160,6 +164,7 @@ def register_managed_dataset(
     library_root: Path,
     profile_path: Path,
     name: str | None = None,
+    member_provenance: dict[str, Any] | None = None,
 ) -> DatasetRegistrationResult:
     """Copy a prevalidated source and register it in a workspace catalog."""
 
@@ -187,4 +192,5 @@ def register_managed_dataset(
         locator_kind="managed",
         locator=locator,
         name=name or source.stem,
+        member_provenance=member_provenance,
     )

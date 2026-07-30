@@ -33,8 +33,31 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   );
   await expect(commands).not.toHaveValue(/--activate/);
   await expect(commands).not.toHaveValue(/npm run dev/);
-  await expect(page.getByRole("button", { name: "個人モデルを再読込" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "個人Taskとモデルを再読込" })).toBeVisible();
   await expect(guide).toContainText("保存済み予測は再計算されません");
+});
+
+test("Data Library separates update, mapping, and new Task onboarding", async ({ page }, testInfo) => {
+  await page.goto("/?view=data-library");
+
+  const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
+  await expect(paths.getByRole("button", { name: /更新版/ })).toBeEnabled();
+  await expect(paths.getByRole("button", { name: /列名・構造が違う/ })).toBeVisible();
+  await expect(paths.getByRole("button", { name: /新しい予測問題/ })).toBeVisible();
+
+  await paths.getByRole("button", { name: /新しい予測問題/ }).click();
+  const newTask = page.getByRole("region", { name: "完全に新しいTaskを準備" });
+  await expect(newTask).toContainText("任意コードは生成せず");
+  await expect(newTask).toContainText("再読込し、そのままProjectを作成");
+  await expect(newTask).not.toContainText("再起動");
+  await expect(newTask.getByRole("button", { name: "個人Taskとモデルを再読込" })).toBeVisible();
+  await newTask.screenshot({ path: testInfo.outputPath("new-task-onboarding.png") });
+
+  await paths.getByRole("button", { name: /更新版/ }).click();
+  await expect(page).toHaveURL(/view=profile-workbench.*onboarding=revision.*base_dataset=/);
+  await expect(page.getByRole("heading", { name: "Datasetの更新版を登録" })).toBeVisible();
+  await expect(page.getByLabel("更新元Dataset")).toBeVisible();
+  await expect(page.getByLabel("データセットプロファイル")).toBeDisabled();
 });
 
 test("Data Library blocks model updates when an exact personal Profile is missing", async ({ page }) => {

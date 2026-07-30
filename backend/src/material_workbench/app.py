@@ -79,6 +79,7 @@ from material_workbench.application.chain_evaluation import (
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from .task_composition.builtin_tasks import (
     ANNEALED_TASK_ID,
+    BUILTIN_TASK_MODULES,
     PRIMARY_DEFAULT_SOURCE,
 )
 from .task_composition.descriptors import TaskModule
@@ -87,6 +88,7 @@ from .task_composition.catalog import (
     registered_task_modules,
 )
 from material_workbench.contracts.task_contracts import TaskAvailability
+from material_workbench.contracts.schemas import TaskResourceRefreshResult
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
     SubsystemKind,
@@ -220,7 +222,10 @@ def _prepare_app_resources(
     configured = Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
     injected = dict(package_roots or {})
     modules = dict(registered_task_modules())
-    validate_active_package_task_set(load_active_packages(configured), set(modules))
+    validate_active_package_task_set(
+        load_active_packages(configured),
+        set(BUILTIN_TASK_MODULES),
+    )
     data_by_source: dict[str, Any] = {}
     runtimes: dict[str, PredictionRuntime] = {}
     explorers: dict[str, DataExplorerEntry] = {}
@@ -267,13 +272,18 @@ def _prepare_app_resources(
         package_override = injected.get(task_id) or os.getenv(
             module.package_override_env
         )
-        configured_package = Path(package_override) if package_override else configured
+        configured_package = (
+            Path(package_override)
+            if package_override
+            else module.default_package or configured
+        )
         try:
-            configured_package = resolve_configured_package(
-                task_id,
-                config_path=configured,
-                override=package_override,
-            )
+            if package_override or module.default_package is None:
+                configured_package = resolve_configured_package(
+                    task_id,
+                    config_path=configured,
+                    override=package_override,
+                )
             package = ModelPackageLoader().load(configured_package)
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
@@ -622,6 +632,96 @@ def create_app(
         app.state.active_resource_requests = 0
         app.state.resource_requests_idle = asyncio.Event()
         app.state.resource_requests_idle.set()
+        task_resource_refresh_lock = asyncio.Lock()
+
+        async def refresh_task_resources() -> TaskResourceRefreshResult:
+            """Prepare a new immutable runtime generation and swap it atomically."""
+
+            async with task_resource_refresh_lock:
+                previous_task_ids = set(
+                    app.state.runtime_context.task_registry.available_task_ids
+                )
+                complete = await asyncio.to_thread(
+                    _prepare_app_resources,
+                    source_path,
+                    flank_wear_source_path=flank_wear_source_path,
+                    package_roots=package_roots,
+                    active_packages_path=active_packages_path,
+                )
+                refresh_warnings: list[Any] = []
+
+                def assemble() -> _RuntimeContext:
+                    catalog = bootstrap_workspace_catalog(
+                        database,
+                        complete.task_registry,
+                        available_packages_paths=configured_available_packages_paths,
+                        personal_available_packages_paths=(
+                            configured_personal_available_packages_paths
+                        ),
+                        package_origins=model_package_origins,
+                        warnings=refresh_warnings,
+                    )
+                    resolver = ProjectRuntimeResolver(
+                        catalog,
+                        complete.task_registry,
+                    )
+                    transform_catalog = app.state.deterministic_transform_catalog
+                    chain_execution = ChainExecutionService(
+                        app.state.store,
+                        complete.task_registry,
+                        transform_catalog,
+                        ChainExecutionCoordinator(),
+                    )
+                    chain_uncertainty = (
+                        ChainUncertaintyService(
+                            app.state.store,
+                            chain_execution,
+                        )
+                        if transform_catalog is not None
+                        else None
+                    )
+                    data = (
+                        complete.data_by_source.get("primary")
+                        or next(iter(complete.data_by_source.values()), None)
+                    )
+                    return _RuntimeContext(
+                        data=data,
+                        task_registry=complete.task_registry,
+                        workspace_catalog=catalog,
+                        project_runtime_resolver=resolver,
+                        chain_execution_service=chain_execution,
+                        chain_uncertainty_service=chain_uncertainty,
+                    )
+
+                app.state.resources_promoting = True
+                try:
+                    context = await asyncio.to_thread(assemble)
+                    # Dependencies capture one context per request, so ongoing
+                    # work completes against the old immutable generation.
+                    app.state.runtime_context = context
+                    app.state.data = context.data
+                    app.state.workspace_catalog = context.workspace_catalog
+                    app.state.project_runtime_resolver = (
+                        context.project_runtime_resolver
+                    )
+                    app.state.chain_execution_service = (
+                        context.chain_execution_service
+                    )
+                    app.state.chain_uncertainty_service = (
+                        context.chain_uncertainty_service
+                    )
+                    app.state.task_registry = context.task_registry
+                    app.state.model_store_warnings = refresh_warnings
+                    app.state.resources_ready = True
+                finally:
+                    app.state.resources_promoting = False
+                task_ids = set(context.task_registry.available_task_ids)
+                return TaskResourceRefreshResult(
+                    task_ids=sorted(task_ids),
+                    added_task_ids=sorted(task_ids - previous_task_ids),
+                )
+
+        app.state.refresh_task_resources = refresh_task_resources
         promotion_task: asyncio.Task[None] | None = None
         if defer_resources:
             async def promote_remaining_resources() -> None:

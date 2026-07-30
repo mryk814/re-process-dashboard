@@ -93,7 +93,7 @@ npm run model:promote -- `
 起動中のアプリでこのPackageを使う場合は、アプリ側の`WORKBENCH_MODEL_STORE_PATH`にも同じパスを指定してください。
 
 任意Profileで作ったPackageは、登録したDataset Revisionと組にして新しいProjectへ固定します。
-起動中のData Libraryで「個人モデルを再読込」を実行すると、同梱Packageと個人用Model StoreのPackageをまとめて再読込します。
+起動中のData Libraryで「個人Taskとモデルを再読込」を実行すると、同梱Package、個人用Model StoreのPackage、検証済みのdata-only個人Taskをまとめて再読込します。
 再起動は不要です。
 登録済みDatasetからProjectを新規作成するか、既存Projectの設定でDatasetとPackageを明示的に選びます。
 保存済みSnapshotは切替後も再計算されません。

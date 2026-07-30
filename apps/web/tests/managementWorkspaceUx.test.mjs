@@ -59,7 +59,7 @@ test("data library collapses an empty comparison area and moves state changes in
   assert.match(content, /同梱モデル/);
   assert.match(content, /WORKBENCH_MODEL_STORE_PATH/);
   assert.match(content, /--store \$modelStore/);
-  assert.match(content, /個人モデルを再読込/);
+  assert.match(content, /個人Taskとモデルを再読込/);
   assert.doesNotMatch(content, /昇格済みモデルを再読込/);
   for (const field of [
     "connector_id",

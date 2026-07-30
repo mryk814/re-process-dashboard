@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from material_workbench.application.data_library import (
     DataLibraryConflictError,
@@ -19,6 +19,7 @@ from material_workbench.contracts.schemas import (
     ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
     ProjectCreationOptions,
+    TaskResourceRefreshResult,
 )
 from .dependencies import get_data_library_use_cases
 
@@ -118,6 +119,25 @@ def refresh_model_packages(
         return use_cases.refresh_model_packages()
     except DataLibraryConflictError as exc:
         raise _translate_data_library_error(exc) from exc
+
+
+@router.post(
+    "/data-library/tasks/refresh",
+    response_model=TaskResourceRefreshResult,
+)
+async def refresh_task_resources(request: Request) -> TaskResourceRefreshResult:
+    """Atomically load validated personal Task bundles without restarting."""
+
+    refresh = getattr(request.app.state, "refresh_task_resources", None)
+    if refresh is None:
+        raise HTTPException(503, "Task resourceの再読込を準備できていません")
+    try:
+        return await refresh()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            409,
+            f"個人Taskを再読込できません: {exc}",
+        ) from exc
 
 
 @router.patch(
