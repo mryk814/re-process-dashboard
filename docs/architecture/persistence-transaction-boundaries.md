@@ -45,4 +45,3 @@ DBを最後に切り替える。失敗時はjournalを根拠に旧DBを戻し、
 保存済みSnapshot、Projectのimmutable binding、Model Package referenceのidentityは
 内容として移送し、最新resourceへ暗黙更新しない。locatorだけは別user data directory
 の検証済み配置先へstagingでrebindし、digestと参照identityを変えない。
-

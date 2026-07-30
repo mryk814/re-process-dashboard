@@ -44,4 +44,3 @@ def test_workspace_bundle_facade_exposes_use_cases_not_phase_implementation() ->
     )
     assert not hasattr(workspace_bundle, "_inspect_bundle")
     assert not hasattr(workspace_bundle, "_install_resources")
-
