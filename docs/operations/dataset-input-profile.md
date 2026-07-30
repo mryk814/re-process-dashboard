@@ -56,6 +56,9 @@
 - エンティティの同一性は `(entity_type, key)` で判定するため、異なるエンティティ種別に同じソースキーがあっても統合しません。
 - 実行可能な正規化処理は `median_by_parent/v1` と `stage_local_clock/v1` だけです。
 - プロファイルに任意のコードは記述できません。
+- tabular Profileは学習器を選びません。`model_family`、`ridge_alpha`、
+  `num_boost_round`、monotone設定はTraining Recipeの責任です。
+  既存Profileにある値は不変Packageとのdigest互換のため読み取りますが、新しい学習では使いません。
 - 適格性ポリシーには受け付けるソース値を明記します。
 - ワークブックに受理可能な信号が一つもないポリシーは、事前検証で拒否します。
 - リレーションの親整合性は、結合が `parent_consistency: exactly_one` を宣言した場合だけ強制します。

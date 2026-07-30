@@ -127,11 +127,31 @@ npm run model:build -- `
   --estimator-options '{"restarts": 3, "seed": 20260730, "max_rows": 500}'
 ```
 
-現在の標準Estimatorは`ridge.v1`と`exact-gp-rbf.v1`です。
+現在の標準Estimatorは`ridge.v1`、`exact-gp-rbf.v1`、
+`lightgbm-regression.v1`、`lightgbm-binary.v1`です。
 TaskのRuntime Capabilityを満たすものだけが一覧へ出ます。
 たとえば標準偏差・正規分布・不確かさ内訳が必須の熱延Taskでは
 `ridge.v1`を選べません。
-Estimatorを省略した場合は、Horseshoeなど従来のTask固有authoring workflowを使います。
+Estimatorを省略した場合、tabular TaskはTaskに宣言された既定Training Recipeを使います。
+Horseshoeなど高度なTaskだけがTask固有authoring workflowを使います。
+
+同じFeatureDatasetでRidgeとLightGBMを明示比較する例です。
+
+```powershell
+npm run model:compare -- `
+  --task heat-treatment-tradeoff-v1 `
+  --source path\to\new-data.csv `
+  --profile path\to\dataset-profile.json `
+  --estimators ridge.v1 lightgbm-regression.v1 `
+  --estimator-options '{"lightgbm-regression.v1":{"num_boost_round":200}}' `
+  --package-prefix heat-treatment-comparison-2026-07 `
+  --package-version 1.0.0 `
+  --dataset-output artifacts/model-data/heat-treatment-comparison.json `
+  --output artifacts/model-comparisons/heat-treatment
+```
+
+比較はtargetごとの`cohort_digest`と`fold_digest`が一致しなければ停止します。
+`comparison.json`は品質指標を並べますが、自動winnerを選ばず、active Packageも変更しません。
 
 `model:build`は候補Packageを作るだけで、active Packageや保存済みProject/Snapshotを
 自動変更しません。
@@ -236,7 +256,8 @@ Projectへ固定するまでは、既存Project、active Package、保存済みS
 ### LightGBM
 
 - 小規模データ向けに浅い葉数、最小葉データ数、L1/L2正則化、行・列サンプリングを固定する
-- 親条件単位の決定的な5-fold交差検証とearly stoppingで木の本数を決める
+- 親条件単位の決定的なfold assignmentを全Estimatorで共有する
+- 木の本数はTraining Recipeで固定し、外側評価foldから選ばない
 - 最終モデルは全学習行で再学習する
 - 予測区間はout-of-fold残差の標準偏差による正規近似として校正する
 

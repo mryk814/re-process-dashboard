@@ -12,6 +12,16 @@ const asRecord = (value: unknown): Record<string, unknown> | null => (
     : null
 );
 
+const standardTrainingMetadata = (
+  predictor: Record<string, unknown>,
+): Record<string, unknown> | null => {
+  const config = asRecord(predictor.config);
+  const training = asRecord(config?.training);
+  return training?.schema_version === "standard-training-metadata/v1"
+    ? training
+    : null;
+};
+
 export function trainingDataSha(modelPackage: ApiModelPackageRef): string | null {
   const provenance = asRecord(asRecord(modelPackage.manifest_json)?.provenance);
   const trainingDataId = provenance?.training_data_id;
@@ -158,9 +168,20 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   const manifest = asRecord(modelPackage.manifest_json);
   const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
   const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
+  const estimatorIds = new Set(records.map((item) => standardTrainingMetadata(item)?.estimator_id).filter(
+    (item): item is string => typeof item === "string",
+  ));
   const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter((item): item is string => typeof item === "string"));
   const architectureIds = new Set(records.map((item) => item.architecture_id).filter((item): item is string => typeof item === "string"));
-  const family = records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")
+  const family = estimatorIds.has("lightgbm-binary.v1")
+    ? "LightGBM（二値分類）"
+    : estimatorIds.has("lightgbm-regression.v1")
+      ? "LightGBM回帰"
+      : estimatorIds.has("exact-gp-rbf.v1")
+        ? "GP（Exact RBF）"
+        : estimatorIds.has("ridge.v1")
+          ? "Ridge回帰"
+          : records.some((item) => item.runtime_type === "builtin.heteroscedastic_exact_gp.v1")
     ? "異分散GP（試験・個々値）"
     : records.some((item) => item.architecture_id === "hierarchical_parent_random_intercept_v1")
       ? "階層線形モデル（試験・個々値）"
@@ -222,13 +243,22 @@ export function modelPackageDecisionSummary(
   const configs = records.map((item) => asRecord(item.config)).filter(
     (item): item is Record<string, unknown> => item != null,
   );
+  const standardTraining = records.map(standardTrainingMetadata).filter(
+    (item): item is Record<string, unknown> => item != null,
+  );
+  const estimatorIds = new Set(standardTraining.map((item) => item.estimator_id).filter(
+    (item): item is string => typeof item === "string",
+  ));
   const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter(
     (item): item is string => typeof item === "string",
   ));
   const architectures = new Set(records.map((item) => item.architecture_id).filter(
     (item): item is string => typeof item === "string",
   ));
-  const trainingUnits = new Set(configs.map((item) => item.training_unit).filter(
+  const trainingUnits = new Set([
+    ...standardTraining.map((item) => item.training_unit),
+    ...configs.map((item) => item.training_unit),
+  ].filter(
     (item): item is string => typeof item === "string",
   ));
   const experimental = configs.some((item) => item.experimental === true)
@@ -237,7 +267,53 @@ export function modelPackageDecisionSummary(
     ? "個々の測定値"
     : trainingUnits.has("parent_condition_mean")
       ? "条件ごとの平均値"
+      : trainingUnits.has("replicate_context_mean")
+        ? "同一条件の反復平均"
       : "Package定義を確認";
+  const declaredUncertainty = standardTraining
+    .map((item) => item.uncertainty)
+    .find((item): item is string => typeof item === "string");
+
+  if (estimatorIds.has("lightgbm-binary.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "事象確率を非線形モデルで比較したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty ?? "交差検証外予測で確率を校正",
+      experimental,
+      caution: "同じcohort・foldの評価と科学的妥当性を確認して採用します。",
+    };
+  }
+  if (estimatorIds.has("lightgbm-regression.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "非線形な関係をRidgeなどと比較したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty ?? "交差検証外残差に基づく区間",
+      experimental,
+      caution: "同じFeatureDataset・cohort・foldの結果だけを比較します。",
+    };
+  }
+  if (estimatorIds.has("exact-gp-rbf.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "滑らかな傾向と予測分布を確認したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty ?? "正規予測分布",
+      experimental,
+      caution: "学習件数上限と学習範囲の支持を確認して使います。",
+    };
+  }
+  if (estimatorIds.has("ridge.v1")) {
+    return {
+      label: modelPackageDisplayName(modelPackage),
+      useCase: "解釈しやすい線形基準と比較したいとき",
+      trainingUnit,
+      uncertainty: declaredUncertainty ?? "交差検証外残差に基づく区間",
+      experimental,
+      caution: "自動winnerは選ばず、同一評価条件で候補モデルを比較します。",
+    };
+  }
 
   if (runtimeTypes.has("builtin.heteroscedastic_exact_gp.v1")) {
     return {

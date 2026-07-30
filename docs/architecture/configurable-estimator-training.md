@@ -37,7 +37,8 @@ common Model Package assembler + production smoke
 
 - 固定allow-list IDと境界付きparameterだけを持つ。
 - Task ID、source path、Python import path、callback、任意コードを持たない。
-- 現在は`ridge.v1`と`exact-gp-rbf.v1`を提供する。
+- 現在は`ridge.v1`、`exact-gp-rbf.v1`、
+  `lightgbm-regression.v1`、`lightgbm-binary.v1`を提供する。
 - TaskのRuntime Capabilityを満たさない組合せはfit前に拒否する。
 
 ### Estimator trainer
@@ -77,20 +78,28 @@ common Model Package assembler + production smoke
 - AutoML的な自動winner採用は行わない。同じsplitで比較する仕組みを整えてから、
   人がqualityと科学的妥当性を確認して採用する。
 
-## 移行
+## 評価identityと明示比較
 
-最初の縦切りとして、熱延Taskは従来のHorseshoe authoring workflowを維持したまま、
-同じFeatureDatasetから`exact-gp-rbf.v1`を選択できるようにしました。
+targetごとの学習cohort、validation groupから作るfold assignmentは
+FeatureDataset境界で一度だけ決めます。
+`cohort_digest`と`fold_digest`をTraining Recipe、predictorの標準training
+metadata、学習統計へ保存するため、Estimatorが変わっても同じ評価対象かを機械的に
+照合できます。
 
-次の段階では、既存Packageを新しいIDで再生成しながら次を進めます。
-残作業は
-[#506](https://github.com/mryk814/re-process-dashboard/issues/506)
-で追跡します。
+`npm run model:compare`は同じFeatureDataset・cohort・foldで複数Estimatorの候補Packageを
+作り、target別qualityを並べた`standard-model-comparison/v1`を出力します。
+`selection`は常に空で、active Package、Project、保存済みSnapshotを変更しません。
 
-1. tabular Ridge/LightGBMのfitとPackage組立を共通経路へ移す。
-2. predictor表示文言を`PredictorSpec.config`の標準training metadataへ統合する。
-3. Dataset Profileから`model_family`などの学習設定を分離する。
-4. 移行済みTaskから旧builderと`TaskModule.model_builder`を削除する。
+## 移行済みの標準経路
 
-Profileと保存済みPackageはデータ契約なので、一括削除せず新Packageへの移行確認後に
-旧設定を除去します。
+tabular TaskのRidge、LightGBM回帰、LightGBM二値分類は共通trainer/assemblerへ
+移行済みです。
+これらのTaskは`TaskModule.model_builder`を持たず、Estimatorを省略すると
+Taskに宣言した既定Training Recipeを使います。
+学習設定の正本は`model-training-recipe/v1`であり、Dataset Profileは列、単位、
+行の意味、curationだけを担います。
+
+既存Profileに残る`model_family`、`ridge_alpha`、`num_boost_round`、
+`monotone_decreasing_paths`は、既存Profile/Package digestを壊さないための
+互換読み取り専用です。
+新しいbuildでは参照しません。
