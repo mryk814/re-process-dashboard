@@ -159,6 +159,8 @@ class TargetQualityMetric(LifecycleModel):
     interval_coverage_method: Literal[
         "cross-fitted-oof-residual-quantiles",
         "cross-fitted-oof-normal-scale",
+        "nested-grouped-oof-residual-quantiles",
+        "nested-grouped-oof-normal-scale",
         "loo-predictive-interval",
         "grouped-fold-predictive-interval",
         "posterior-predictive-interval",

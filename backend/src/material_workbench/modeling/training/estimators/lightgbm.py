@@ -106,66 +106,126 @@ def _calibrate(
     return 1 / (1 + np.exp(-np.clip(intercept + slope * logits, -30, 30)))
 
 
-def _cross_fitted_predictions(
+def _honest_regression_evaluation(
     data: TargetTrainingSet,
-    *,
-    objective: str,
-    seed: int,
-    num_boost_round: int,
-    monotone_constraints: list[int] | None = None,
-) -> np.ndarray:
+    recipe: LightGBMRegressionEstimatorRecipe,
+    monotone_constraints: list[int],
+) -> tuple[np.ndarray, float]:
+    if data.folds < 3:
+        raise ValueError(
+            f"{data.target}: nested interval evaluation requires at least three folds"
+        )
     predictions = np.empty(len(data.y), dtype=float)
-    for fold in range(data.folds):
-        evaluate = data.fold_ids == fold
-        train_rows = ~evaluate
-        if objective == "binary" and set(np.unique(data.y[train_rows])) != {0.0, 1.0}:
-            raise ValueError(
-                f"{data.target}: every binary training fold must contain both classes"
-            )
+    covered = np.zeros(len(data.y), dtype=bool)
+    for outer_fold in range(data.folds):
+        evaluate = data.fold_ids == outer_fold
+        outer_train = ~evaluate
         booster = _train_booster(
-            data.x[train_rows],
-            data.y[train_rows],
-            objective=objective,
-            seed=seed + fold + 1,
-            num_boost_round=num_boost_round,
+            data.x[outer_train],
+            data.y[outer_train],
+            objective="regression_l2",
+            seed=recipe.seed + outer_fold + 1,
+            num_boost_round=recipe.num_boost_round,
             monotone_constraints=monotone_constraints,
         )
-        predictions[evaluate] = booster.predict(
-            data.x[evaluate],
-            num_iteration=num_boost_round,
+        predictions[evaluate] = booster.predict(data.x[evaluate])
+
+        calibration_residuals: list[np.ndarray] = []
+        for inner_fold in range(data.folds):
+            if inner_fold == outer_fold:
+                continue
+            calibrate = outer_train & (data.fold_ids == inner_fold)
+            inner_train = outer_train & ~calibrate
+            if not calibrate.any() or inner_train.sum() < 2:
+                raise ValueError(
+                    f"{data.target}: LightGBM nested fold has insufficient rows"
+                )
+            inner_booster = _train_booster(
+                data.x[inner_train],
+                data.y[inner_train],
+                objective="regression_l2",
+                seed=recipe.seed + 100 + outer_fold * data.folds + inner_fold,
+                num_boost_round=recipe.num_boost_round,
+                monotone_constraints=monotone_constraints,
+            )
+            calibration_residuals.append(
+                data.y[calibrate] - inner_booster.predict(data.x[calibrate])
+            )
+        residual_bank = np.concatenate(calibration_residuals)
+        outer_residuals = data.y[evaluate] - predictions[evaluate]
+        if recipe.predictive_family == "normal":
+            residual_std = max(
+                float(np.sqrt(np.mean(residual_bank**2))),
+                1e-6,
+            )
+            covered[evaluate] = (
+                np.abs(outer_residuals)
+                <= 1.6448536269514722 * residual_std
+            )
+        else:
+            lower, upper = np.quantile(residual_bank, (0.05, 0.95))
+            covered[evaluate] = (
+                (outer_residuals >= lower)
+                & (outer_residuals <= upper)
+            )
+    return predictions, float(np.mean(covered))
+
+
+def _honest_binary_evaluation(
+    data: TargetTrainingSet,
+    recipe: LightGBMBinaryEstimatorRecipe,
+) -> tuple[np.ndarray, np.ndarray]:
+    if data.folds < 3:
+        raise ValueError(
+            f"{data.target}: nested probability calibration requires at least three folds"
         )
-    return predictions
-
-
-def _cross_fitted_quantile_coverage(
-    residuals: np.ndarray,
-    fold_ids: np.ndarray,
-) -> float:
-    covered = np.zeros(len(residuals), dtype=bool)
-    for fold in sorted(set(fold_ids.tolist())):
-        evaluate = fold_ids == fold
-        lower, upper = np.quantile(residuals[~evaluate], (0.05, 0.95))
-        covered[evaluate] = (
-            (residuals[evaluate] >= lower)
-            & (residuals[evaluate] <= upper)
+    raw_oof = np.empty(len(data.y), dtype=float)
+    calibrated_oof = np.empty(len(data.y), dtype=float)
+    for outer_fold in range(data.folds):
+        evaluate = data.fold_ids == outer_fold
+        outer_train = ~evaluate
+        if set(np.unique(data.y[outer_train])) != {0.0, 1.0}:
+            raise ValueError(
+                f"{data.target}: every binary outer fold must contain both classes"
+            )
+        booster = _train_booster(
+            data.x[outer_train],
+            data.y[outer_train],
+            objective="binary",
+            seed=recipe.seed + outer_fold + 1,
+            num_boost_round=recipe.num_boost_round,
         )
-    return float(np.mean(covered))
+        raw_oof[evaluate] = booster.predict(data.x[evaluate])
 
-
-def _cross_fitted_normal_coverage(
-    residuals: np.ndarray,
-    fold_ids: np.ndarray,
-) -> float:
-    z90 = 1.6448536269514722
-    covered = np.zeros(len(residuals), dtype=bool)
-    for fold in sorted(set(fold_ids.tolist())):
-        evaluate = fold_ids == fold
-        residual_std = max(
-            float(np.sqrt(np.mean(residuals[~evaluate] ** 2))),
-            1e-6,
+        inner_raw = np.empty(int(outer_train.sum()), dtype=float)
+        inner_y = data.y[outer_train]
+        outer_indexes = np.flatnonzero(outer_train)
+        for inner_fold in range(data.folds):
+            if inner_fold == outer_fold:
+                continue
+            calibrate = outer_train & (data.fold_ids == inner_fold)
+            inner_train = outer_train & ~calibrate
+            if (
+                not calibrate.any()
+                or set(np.unique(data.y[inner_train])) != {0.0, 1.0}
+            ):
+                raise ValueError(
+                    f"{data.target}: every binary inner fold must contain both classes"
+                )
+            inner_booster = _train_booster(
+                data.x[inner_train],
+                data.y[inner_train],
+                objective="binary",
+                seed=recipe.seed + 100 + outer_fold * data.folds + inner_fold,
+                num_boost_round=recipe.num_boost_round,
+            )
+            positions = np.searchsorted(outer_indexes, np.flatnonzero(calibrate))
+            inner_raw[positions] = inner_booster.predict(data.x[calibrate])
+        calibrated_oof[evaluate] = _calibrate(
+            raw_oof[evaluate],
+            _fit_platt(inner_raw, inner_y),
         )
-        covered[evaluate] = np.abs(residuals[evaluate]) <= z90 * residual_std
-    return float(np.mean(covered))
+    return raw_oof, calibrated_oof
 
 
 def _auc(y: np.ndarray, probabilities: np.ndarray) -> float:
@@ -201,12 +261,10 @@ def _regression(
         -1 if name in recipe.monotone_decreasing_features else 0
         for name in data.feature_names
     ]
-    oof = _cross_fitted_predictions(
+    oof, coverage = _honest_regression_evaluation(
         data,
-        objective="regression_l2",
-        seed=recipe.seed,
-        num_boost_round=recipe.num_boost_round,
-        monotone_constraints=monotone_constraints,
+        recipe,
+        monotone_constraints,
     )
     residuals = data.y - oof
     booster = _train_booster(
@@ -220,14 +278,16 @@ def _regression(
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(artifact_path))
     residual_std = max(float(np.sqrt(np.mean(residuals**2))), 1e-6)
+    lower_offset, upper_offset = (
+        float(value)
+        for value in np.quantile(residuals, (0.05, 0.95))
+    )
     if recipe.predictive_family == "normal":
-        coverage = _cross_fitted_normal_coverage(residuals, data.fold_ids)
-        coverage_method = "cross-fitted-oof-normal-scale"
-        uncertainty = "cross-fitted OOF normal residual scale"
+        coverage_method = "nested-grouped-oof-normal-scale"
+        uncertainty = "nested grouped OOF normal residual scale"
     else:
-        coverage = _cross_fitted_quantile_coverage(residuals, data.fold_ids)
-        coverage_method = "cross-fitted-oof-residual-quantiles"
-        uncertainty = "cross-fitted OOF residual quantiles"
+        coverage_method = "nested-grouped-oof-residual-quantiles"
+        uncertainty = "nested grouped OOF residual quantiles"
     parameters = {
         "num_boost_round": recipe.num_boost_round,
         "seed": recipe.seed,
@@ -253,6 +313,8 @@ def _regression(
                 "interval_method": uncertainty,
                 "num_boost_round": recipe.num_boost_round,
                 "residual_std": residual_std,
+                "lower_offset": lower_offset,
+                "upper_offset": upper_offset,
                 "monotone_decreasing_features": list(
                     recipe.monotone_decreasing_features
                 ),
@@ -280,6 +342,7 @@ def _regression(
             "folds": data.folds,
             "cohort_digest": data.cohort_digest,
             "fold_digest": data.fold_digest,
+            "evaluation": "outer-fold-refit-with-inner-calibration",
         },
         predict=lambda values: float(booster.predict(values.reshape(1, -1))[0]),
     )
@@ -294,19 +357,7 @@ def _binary(
         raise ValueError(
             f"{data.target}: binary LightGBM target must contain both 0 and 1"
         )
-    raw_oof = _cross_fitted_predictions(
-        data,
-        objective="binary",
-        seed=recipe.seed,
-        num_boost_round=recipe.num_boost_round,
-    )
-    calibrated_oof = np.empty(len(data.y), dtype=float)
-    for fold in range(data.folds):
-        evaluate = data.fold_ids == fold
-        calibrated_oof[evaluate] = _calibrate(
-            raw_oof[evaluate],
-            _fit_platt(raw_oof[~evaluate], data.y[~evaluate]),
-        )
+    raw_oof, calibrated_oof = _honest_binary_evaluation(data, recipe)
     calibration = _fit_platt(raw_oof, data.y)
     booster = _train_booster(
         data.x,
@@ -340,12 +391,12 @@ def _binary(
                 "training_method": recipe.estimator_id,
                 "training_unit": "replicate_context_mean",
                 "validation_method": f"{data.folds}-fold grouped validation CV",
-                "interval_method": "cross-fitted OOF Platt calibration",
+                "interval_method": "nested grouped OOF Platt calibration",
                 "num_boost_round": recipe.num_boost_round,
                 "calibration": {
                     "method": "out-of-fold Platt scaling",
                     "quality_evaluation": (
-                        "cross-fitted out-of-fold Platt scaling"
+                        "outer-fold refit with inner OOF Platt scaling"
                     ),
                     "intercept": calibration[0],
                     "slope": calibration[1],
@@ -353,7 +404,7 @@ def _binary(
                 "training": standard_training_metadata(
                     data,
                     estimator_id=recipe.estimator_id,
-                    uncertainty="cross-fitted OOF probability calibration",
+                    uncertainty="nested grouped OOF probability calibration",
                     parameters=parameters,
                 ),
             },
@@ -372,6 +423,7 @@ def _binary(
             "folds": data.folds,
             "cohort_digest": data.cohort_digest,
             "fold_digest": data.fold_digest,
+            "evaluation": "outer-fold-refit-with-inner-calibration",
             "roc_auc": _auc(data.y, calibrated_oof),
             "brier_score": float(np.mean(residuals**2)),
             "balanced_accuracy": float(

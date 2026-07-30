@@ -258,8 +258,11 @@ Projectへ固定するまでは、既存Project、active Package、保存済みS
 - 小規模データ向けに浅い葉数、最小葉データ数、L1/L2正則化、行・列サンプリングを固定する
 - 親条件単位の決定的なfold assignmentを全Estimatorで共有する
 - 木の本数はTraining Recipeで固定し、外側評価foldから選ばない
+- quality評価は外側foldごとにmodelを再学習し、区間と確率校正は外側学習subset内の
+  inner OOF予測だけで作る
 - 最終モデルは全学習行で再学習する
-- 予測区間はout-of-fold残差の標準偏差による正規近似として校正する
+- 正規区間はhonest outer OOF残差の標準偏差、empirical区間は同残差の
+  5%/95% offsetとしてartifactへ保存する
 
 LightGBMの予測区間は、GPのような入力位置ごとの潜在不確かさではありません。学習範囲外の不確かさを評価したい場合はGPを優先し、LightGBMは非線形な点予測の堅実な比較対象として使います。
 

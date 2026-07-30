@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import sys
 from pathlib import Path
@@ -10,6 +11,10 @@ from pydantic import ValidationError
 
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
+from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.training.estimators import exact_gp
+from material_workbench.modeling.training.estimators import lightgbm
+from material_workbench.modeling.training.estimators import ridge
 from material_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
@@ -38,6 +43,21 @@ from build_default_model_package import _fit_gp_hyperparameters  # noqa: E402
 HOT_ROLLING_TASK = "hot-rolled-properties-v1"
 SOURCE = ROOT / "data/source/material_workbench_tutorial_v2.xlsx"
 HEAT_SOURCE = ROOT / "data/source/external/heat_treatment_tradeoff_samples.csv"
+
+
+def _training_set(task_id: str, target: str, unit: str):
+    module = task_module(task_id)
+    data = module.data_loader(resolve_task_source(task_id), None)
+    canonical = canonical_training_dataset(
+        task_id,
+        data,
+        load_task_contracts()[task_id],
+    )
+    return compile_target_training_set(
+        canonical,
+        target=target,
+        unit=unit,
+    )
 
 
 def test_stable_gp_training_is_deterministic_scaled_ard_multistart() -> None:
@@ -112,6 +132,134 @@ def test_hot_rolling_compiles_training_context_not_plain_parent() -> None:
         for items in training.observation_ids
         for observation_id in items
     } == {row["observation_id"] for row in canonical["rows"]}
+
+
+def test_exact_gp_outer_fold_does_not_observe_held_out_targets() -> None:
+    data = _training_set(HOT_ROLLING_TASK, "TS", "MPa")
+    recipe = estimator_recipe(
+        "exact-gp-rbf.v1",
+        {"restarts": 1, "folds": 5, "seed": 19},
+    )
+    predictions, variances = exact_gp._honest_grouped_predictions(data, recipe)
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+    changed = replace(data, y=changed_y)
+
+    changed_predictions, changed_variances = (
+        exact_gp._honest_grouped_predictions(changed, recipe)
+    )
+
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        changed_variances[held_out],
+        variances[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+
+def test_ridge_outer_prediction_does_not_observe_held_out_targets() -> None:
+    data = _training_set("heat-treatment-tradeoff-v1", "hardness_hv", "HV")
+    predictions, _ = ridge._honest_grouped_evaluation(data, alpha=1.0)
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+
+    changed_predictions, _ = ridge._honest_grouped_evaluation(
+        replace(data, y=changed_y),
+        alpha=1.0,
+    )
+
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+
+class _MeanBooster:
+    def __init__(self, value: float) -> None:
+        self.value = value
+
+    def predict(self, x: np.ndarray, **_: object) -> np.ndarray:
+        return np.full(len(x), self.value, dtype=float)
+
+
+def test_lightgbm_nested_evaluation_does_not_observe_outer_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_train(
+        _: np.ndarray,
+        y: np.ndarray,
+        **options: object,
+    ) -> _MeanBooster:
+        objective = options["objective"]
+        value = float(np.mean(y))
+        if objective == "binary":
+            value = min(max(value, 0.05), 0.95)
+        return _MeanBooster(value)
+
+    monkeypatch.setattr(lightgbm, "_train_booster", fake_train)
+
+    regression = _training_set(
+        "heat-treatment-tradeoff-v1",
+        "hardness_hv",
+        "HV",
+    )
+    regression_recipe = estimator_recipe(
+        "lightgbm-regression.v1",
+        {"num_boost_round": 2},
+    )
+    regression_predictions, _ = lightgbm._honest_regression_evaluation(
+        regression,
+        regression_recipe,
+        [0] * len(regression.feature_names),
+    )
+    held_out = regression.fold_ids == 0
+    changed_y = regression.y.copy()
+    changed_y[held_out] += 10_000
+    changed_predictions, _ = lightgbm._honest_regression_evaluation(
+        replace(regression, y=changed_y),
+        regression_recipe,
+        [0] * len(regression.feature_names),
+    )
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        regression_predictions[held_out],
+        rtol=0,
+        atol=1e-12,
+    )
+
+    binary = _training_set(
+        "secom-yield-risk-v1",
+        "fail_probability",
+        "1",
+    )
+    binary_recipe = estimator_recipe(
+        "lightgbm-binary.v1",
+        {"num_boost_round": 2},
+    )
+    _, calibrated = lightgbm._honest_binary_evaluation(binary, binary_recipe)
+    binary_held_out = binary.fold_ids == 0
+    changed_binary_y = binary.y.copy()
+    changed_binary_y[binary_held_out] = 1 - changed_binary_y[binary_held_out]
+    _, changed_calibrated = lightgbm._honest_binary_evaluation(
+        replace(binary, y=changed_binary_y),
+        binary_recipe,
+    )
+    np.testing.assert_allclose(
+        changed_calibrated[binary_held_out],
+        calibrated[binary_held_out],
+        rtol=0,
+        atol=1e-12,
+    )
 
 
 def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
@@ -443,6 +591,41 @@ def test_standard_lightgbm_regression_keeps_monotonicity_in_the_recipe(
     ]
     assert manifest["predictors"][0]["predictive_family"] == "normal"
     assert manifest["predictors"][0]["config"]["residual_std"] > 0
+
+
+def test_standard_lightgbm_empirical_adapter_returns_fitted_interval(
+    tmp_path: Path,
+) -> None:
+    task_id = "heat-treatment-tradeoff-v1"
+    package = tmp_path / "heat-lightgbm"
+    build_package(
+        task_id,
+        HEAT_SOURCE,
+        package,
+        tmp_path / "heat-feature-dataset.json",
+        package_id="heat-configured-lightgbm-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="lightgbm-regression.v1",
+        estimator_options={"num_boost_round": 2},
+    )
+    loaded = ModelPackageLoader().load(package)
+    spec = loaded.manifest.predictors[0]
+    predictor = loaded.load_predictor(spec.id)
+    summary = predictor.predict({
+        feature_name: 0.0
+        for feature_name in spec.feature_names
+    })
+
+    assert spec.predictive_family == "empirical_quantiles"
+    assert set(summary.quantiles) == {"0.05", "0.50", "0.95"}
+    assert summary.quantiles["0.05"] < summary.quantiles["0.95"]
+    assert summary.quantiles["0.05"] == pytest.approx(
+        summary.point_estimate + float(spec.config["lower_offset"])
+    )
+    assert summary.quantiles["0.95"] == pytest.approx(
+        summary.point_estimate + float(spec.config["upper_offset"])
+    )
 
 
 def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(

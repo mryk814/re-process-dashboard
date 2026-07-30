@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -7,44 +8,29 @@ import numpy as np
 from scipy.optimize import minimize
 
 from material_workbench.modeling.model_lifecycle import TargetQualityMetric
-from material_workbench.modeling.training.feature_dataset import TargetTrainingSet
+from material_workbench.modeling.training.feature_dataset import (
+    TargetTrainingSet,
+    observation_variance_for_rows,
+)
 from material_workbench.modeling.training.recipe import ExactGPEstimatorRecipe
 
 from .types import TrainedPredictor, standard_training_metadata
 
 
-def _grouped_quality(
-    data: TargetTrainingSet,
-    alpha: np.ndarray,
-    precision: np.ndarray,
-) -> TargetQualityMetric:
-    residuals = np.empty(len(data.y), dtype=float)
-    conditional_variance = np.empty(len(data.y), dtype=float)
-    for fold in range(data.folds):
-        indexes = np.flatnonzero(data.fold_ids == fold).tolist()
-        block = np.ix_(indexes, indexes)
-        conditional_covariance = np.linalg.inv(precision[block])
-        residuals[indexes] = conditional_covariance @ alpha[indexes]
-        conditional_variance[indexes] = np.diag(conditional_covariance)
-    if np.any(conditional_variance <= 0):
-        raise ValueError(
-            f"{data.target}: GP conditional variance must be positive"
-        )
-    z90 = 1.6448536269514722
-    return TargetQualityMetric(
-        target=data.target,
-        parent_conditions=len(set(data.validation_groups)),
-        mae=float(np.mean(np.abs(residuals))),
-        rmse=float(np.sqrt(np.mean(residuals**2))),
-        interval_coverage_90=float(
-            np.mean(
-                np.abs(residuals)
-                <= z90 * np.sqrt(conditional_variance)
-            )
-        ),
-        interval_coverage_method="grouped-fold-predictive-interval",
-        interval_coverage_observations=len(residuals),
-    )
+@dataclass(frozen=True)
+class _GPFit:
+    train_x: np.ndarray
+    train_y: np.ndarray
+    feature_mean: np.ndarray
+    feature_scale: np.ndarray
+    lengthscale: np.ndarray
+    outputscale: float
+    train_noise: float
+    observation_noise: float
+    mean: float
+    precision: np.ndarray
+    alpha: np.ndarray
+    diagnostics: dict[str, Any]
 
 
 def _fit_hyperparameters(
@@ -170,6 +156,121 @@ def _fit_hyperparameters(
     }
 
 
+def _fit_model(
+    data: TargetTrainingSet,
+    rows: np.ndarray,
+    recipe: ExactGPEstimatorRecipe,
+) -> _GPFit:
+    raw_x = data.x[rows]
+    train_y = data.y[rows]
+    feature_mean = raw_x.mean(axis=0)
+    feature_scale = raw_x.std(axis=0)
+    feature_scale[feature_scale < 1e-9] = 1.0
+    train_x = (raw_x - feature_mean) / feature_scale
+    observation_noise = observation_variance_for_rows(data, rows)
+    repeat_counts = np.asarray(data.repeat_counts, dtype=float)[rows]
+    mean_repeats = max(float(np.median(repeat_counts)), 1.0)
+    noise_anchor = max(observation_noise / mean_repeats, 1e-9)
+    lengthscale, outputscale, train_noise, diagnostics = _fit_hyperparameters(
+        train_x,
+        train_y,
+        noise_anchor,
+        recipe,
+    )
+    scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
+    covariance = outputscale * np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
+    covariance.flat[:: len(train_x) + 1] += train_noise
+    cholesky = np.linalg.cholesky(covariance)
+    identity = np.eye(len(train_x))
+    precision = np.linalg.solve(
+        cholesky.T,
+        np.linalg.solve(cholesky, identity),
+    )
+    mean = float(train_y.mean())
+    return _GPFit(
+        train_x=train_x,
+        train_y=train_y,
+        feature_mean=feature_mean,
+        feature_scale=feature_scale,
+        lengthscale=lengthscale,
+        outputscale=outputscale,
+        train_noise=train_noise,
+        observation_noise=observation_noise,
+        mean=mean,
+        precision=precision,
+        alpha=precision @ (train_y - mean),
+        diagnostics=diagnostics,
+    )
+
+
+def _predict_model(
+    fitted: _GPFit,
+    raw_x: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    points = (raw_x - fitted.feature_mean) / fitted.feature_scale
+    scaled = (
+        fitted.train_x[:, None, :] - points[None, :, :]
+    ) / fitted.lengthscale
+    cross = fitted.outputscale * np.exp(
+        -0.5 * np.sum(scaled * scaled, axis=2)
+    )
+    estimates = fitted.mean + cross.T @ fitted.alpha
+    latent_variance = fitted.outputscale - np.einsum(
+        "ik,ij,jk->k",
+        cross,
+        fitted.precision,
+        cross,
+        optimize=True,
+    )
+    predictive_variance = (
+        np.maximum(latent_variance, 0.0) + fitted.observation_noise
+    )
+    return estimates, predictive_variance
+
+
+def _honest_grouped_predictions(
+    data: TargetTrainingSet,
+    recipe: ExactGPEstimatorRecipe,
+) -> tuple[np.ndarray, np.ndarray]:
+    predictions = np.empty(len(data.y), dtype=float)
+    predictive_variance = np.empty(len(data.y), dtype=float)
+    for fold in range(data.folds):
+        evaluate = data.fold_ids == fold
+        train_rows = ~evaluate
+        fold_recipe = recipe.model_copy(
+            update={"seed": (recipe.seed + fold + 1) % (2**32)}
+        )
+        fitted = _fit_model(data, train_rows, fold_recipe)
+        (
+            predictions[evaluate],
+            predictive_variance[evaluate],
+        ) = _predict_model(fitted, data.x[evaluate])
+    return predictions, predictive_variance
+
+
+def _honest_grouped_quality(
+    data: TargetTrainingSet,
+    recipe: ExactGPEstimatorRecipe,
+) -> TargetQualityMetric:
+    predictions, predictive_variance = _honest_grouped_predictions(data, recipe)
+    residuals = data.y - predictions
+    z90 = 1.6448536269514722
+    return TargetQualityMetric(
+        target=data.target,
+        parent_conditions=len(set(data.validation_groups)),
+        mae=float(np.mean(np.abs(residuals))),
+        rmse=float(np.sqrt(np.mean(residuals**2))),
+        interval_coverage_90=float(
+            np.mean(
+                np.abs(residuals)
+                <= z90 * np.sqrt(predictive_variance)
+            )
+        ),
+        interval_coverage_method="grouped-fold-predictive-interval",
+        interval_coverage_observations=len(residuals),
+    )
+
+
 def train(
     data: TargetTrainingSet,
     recipe: ExactGPEstimatorRecipe,
@@ -180,57 +281,34 @@ def train(
             f"{data.target}: exact GP received {len(data.y)} rows; "
             f"recipe max_rows is {recipe.max_rows}"
         )
-    feature_mean = data.x.mean(axis=0)
-    feature_scale = data.x.std(axis=0)
-    feature_scale[feature_scale < 1e-9] = 1.0
-    train_x = (data.x - feature_mean) / feature_scale
-    mean_repeats = max(float(np.median(data.repeat_counts)), 1.0)
-    noise_anchor = max(data.observation_variance / mean_repeats, 1e-9)
-    lengthscale, outputscale, train_noise, diagnostics = _fit_hyperparameters(
-        train_x,
-        data.y,
-        noise_anchor,
-        recipe,
-    )
+    quality = _honest_grouped_quality(data, recipe)
+    fitted = _fit_model(data, np.ones(len(data.y), dtype=bool), recipe)
+    diagnostics = dict(fitted.diagnostics)
     diagnostics.update({
         "folds": data.folds,
         "cohort_digest": data.cohort_digest,
         "fold_digest": data.fold_digest,
+        "evaluation": "outer-fold-refit",
     })
-    scaled = (train_x[:, None, :] - train_x[None, :, :]) / lengthscale
-    covariance = outputscale * np.exp(-0.5 * np.sum(scaled * scaled, axis=2))
-    covariance.flat[:: len(train_x) + 1] += train_noise
-    cholesky = np.linalg.cholesky(covariance)
-    identity = np.eye(len(train_x))
-    precision = np.linalg.solve(
-        cholesky.T,
-        np.linalg.solve(cholesky, identity),
-    )
-    mean = float(data.y.mean())
-    alpha = precision @ (data.y - mean)
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
         artifact_path,
-        train_x=train_x,
-        train_y=data.y,
-        feature_mean=feature_mean,
-        feature_scale=feature_scale,
-        lengthscale=lengthscale,
-        outputscale=np.asarray(outputscale),
-        train_noise=np.asarray(train_noise),
-        observation_noise=np.asarray(data.observation_variance),
-        mean=np.asarray(mean),
-        precision=precision,
-        alpha=alpha,
+        train_x=fitted.train_x,
+        train_y=fitted.train_y,
+        feature_mean=fitted.feature_mean,
+        feature_scale=fitted.feature_scale,
+        lengthscale=fitted.lengthscale,
+        outputscale=np.asarray(fitted.outputscale),
+        train_noise=np.asarray(fitted.train_noise),
+        observation_noise=np.asarray(fitted.observation_noise),
+        mean=np.asarray(fitted.mean),
+        precision=fitted.precision,
+        alpha=fitted.alpha,
     )
 
     def predict(values: np.ndarray) -> float:
-        point = (values - feature_mean) / feature_scale
-        cross_scaled = (train_x - point) / lengthscale
-        cross = outputscale * np.exp(
-            -0.5 * np.sum(cross_scaled * cross_scaled, axis=1)
-        )
-        return mean + float(cross @ alpha)
+        estimates, _ = _predict_model(fitted, values.reshape(1, -1))
+        return float(estimates[0])
 
     return TrainedPredictor(
         predictor={
@@ -265,11 +343,7 @@ def train(
             },
         },
         artifact=artifact_path,
-        quality=_grouped_quality(
-            data,
-            alpha,
-            precision,
-        ),
+        quality=quality,
         diagnostics=diagnostics,
         predict=predict,
     )

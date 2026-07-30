@@ -86,6 +86,14 @@ FeatureDataset境界で一度だけ決めます。
 metadata、学習統計へ保存するため、Estimatorが変わっても同じ評価対象かを機械的に
 照合できます。
 
+qualityはこのfold identityを表示するだけではなく、外側foldを完全に未観測のまま
+評価します。Exact GPは外側foldごとに標準化、平均、反復ノイズ、kernel
+hyperparameter、precisionを学習subsetだけで再推定します。RidgeとLightGBMの
+残差区間、LightGBM二値分類のPlatt校正は、外側学習subset内でもう一段inner
+OOF予測を作って校正し、外側foldの目的値を残差bankやcalibratorへ混ぜません。
+最終artifactだけを全cohortで学習し、deploy用区間・calibratorには全行のhonest
+outer OOF予測を使います。
+
 `npm run model:compare`は同じFeatureDataset・cohort・foldで複数Estimatorの候補Packageを
 作り、target別qualityを並べた`standard-model-comparison/v1`を出力します。
 `selection`は常に空で、active Package、Project、保存済みSnapshotを変更しません。
