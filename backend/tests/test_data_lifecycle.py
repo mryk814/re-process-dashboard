@@ -546,6 +546,18 @@ def test_approval_and_training_snapshot_are_explicit_separate_actions(
     training_summary = service.detail(connector.id).training_snapshots
     assert tuple(item.id for item in training_summary) == (training.id,)
     assert training_summary[0].row_count == training.row_count
+    assert training_summary[0].approved_row_count == 3
+    assert training_summary[0].included_row_count == 2
+    assert training_summary[0].excluded_row_count == 1
+    assert [
+        item.model_dump() for item in training_summary[0].exclusion_reasons
+    ] == [
+        {
+            "code": "missing_all_targets",
+            "label": "全ての目的変数が欠測",
+            "count": 1,
+        }
+    ]
 
 
 def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
@@ -631,6 +643,118 @@ def test_training_snapshot_fixes_target_cohorts_and_exact_group_splits(
         ),
     )
     assert repeated == snapshot
+
+    policy_snapshot = service.create_training_snapshot(
+        revision.id,
+        TrainingSnapshotCreateInput(
+            **definition,
+            split={"group_field": "lot", "folds": 2},
+            selection_policy={
+                "policy_id": "exclude-held-out-lot",
+                "revision": 2,
+                "exclusions": (
+                    {
+                        "kind": "field_equals_any_v1",
+                        "field": "lot",
+                        "values": ("L4",),
+                    },
+                ),
+            },
+        ),
+    )
+    with sqlite3.connect(database) as connection:
+        stored = connection.execute(
+            "SELECT payload,summary_payload FROM approved_training_snapshots "
+            "WHERE id=?",
+            (policy_snapshot.id,),
+        ).fetchone()
+        stored_payload = stored[0]
+        persisted_summary = json.loads(stored[1])
+        stale_summary = {
+            key: value
+            for key, value in persisted_summary.items()
+            if key not in {
+                "selection_policy",
+                "selection_policy_digest",
+                "approved_row_count",
+                "included_row_count",
+                "excluded_row_count",
+                "reason_counting",
+                "exclusion_reasons",
+            }
+        }
+        for cohort in stale_summary["target_cohorts"]:
+            cohort.pop("excluded_row_count", None)
+        connection.execute(
+            "UPDATE approved_training_snapshots SET summary_payload=? "
+            "WHERE id=?",
+            (json.dumps(stale_summary), policy_snapshot.id),
+        )
+        connection.execute(
+            "DELETE FROM schema_migrations "
+            "WHERE id='training-snapshot-selection-audit-v1'"
+        )
+        connection.commit()
+
+    assert persisted_summary["selection_policy"]["policy_id"] == (
+        "exclude-held-out-lot"
+    )
+    assert persisted_summary["selection_policy"]["revision"] == 2
+    assert persisted_summary["selection_policy_digest"] == (
+        policy_snapshot.selection_policy_digest
+    )
+    assert persisted_summary["included_row_count"] == 4
+    assert persisted_summary["excluded_row_count"] == 1
+
+    Store(database)
+    reloaded = DataLifecycleService(database)
+    policy_summary = reloaded.detail(connector.id).training_snapshots[-1]
+    policy_detail = reloaded.training_snapshot_detail(policy_snapshot.id)
+
+    assert policy_summary.selection_policy is not None
+    assert policy_summary.selection_policy.policy_id == "exclude-held-out-lot"
+    assert policy_summary.selection_policy.revision == 2
+    assert policy_summary.selection_policy_digest == (
+        policy_snapshot.selection_policy_digest
+    )
+    assert policy_summary.approved_row_count == 5
+    assert policy_summary.included_row_count == 4
+    assert policy_summary.excluded_row_count == 1
+    assert [item.model_dump() for item in policy_summary.exclusion_reasons] == [
+        {
+            "code": "policy:0:lot",
+            "label": "lot が L4",
+            "count": 1,
+        }
+    ]
+    policy_cohorts = {
+        item.target_key: item for item in policy_summary.target_cohorts
+    }
+    assert policy_cohorts["strength"].row_count == 3
+    assert policy_cohorts["strength"].excluded_row_count == 1
+    assert policy_cohorts["ductility"].row_count == 3
+    assert policy_cohorts["ductility"].excluded_row_count == 1
+    assert policy_detail.snapshot == policy_snapshot
+    assert policy_detail.summary == policy_summary
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT payload FROM approved_training_snapshots WHERE id=?",
+            (policy_snapshot.id,),
+        ).fetchone()[0] == stored_payload
+        migrated_summary = json.loads(
+            connection.execute(
+                "SELECT summary_payload FROM approved_training_snapshots "
+                "WHERE id=?",
+                (policy_snapshot.id,),
+            ).fetchone()[0]
+        )
+        assert migrated_summary["selection_policy_digest"] == (
+            policy_snapshot.selection_policy_digest
+        )
+        assert connection.execute(
+            "SELECT checksum FROM schema_migrations "
+            "WHERE id='training-snapshot-selection-audit-v1'"
+        ).fetchone() == ("persist-policy-counts-and-reasons-v1",)
 
     three_fold = service.create_training_snapshot(
         revision.id,
@@ -873,6 +997,24 @@ def test_api_tracks_digests_without_exposing_unapproved_data_to_projects(
     assert training_response.status_code == 201, training_response.text
     assert training_response.json()["actor"] == "local-workspace-user"
     assert training_response.json()["row_count"] == 2
+    training_detail = client.get(
+        "/api/data-lifecycle/training-snapshots/"
+        f"{training_response.json()['id']}"
+    )
+    assert training_detail.status_code == 200, training_detail.text
+    assert training_detail.json()["snapshot"]["id"] == (
+        training_response.json()["id"]
+    )
+    assert training_detail.json()["summary"]["included_row_count"] == 2
+    assert training_detail.json()["summary"]["excluded_row_count"] == 1
+    assert training_detail.json()["summary"]["exclusion_reasons"] == [
+        {
+            "code": "missing_all_targets",
+            "label": "全ての目的変数が欠測",
+            "count": 1,
+        }
+    ]
+    assert training_detail.json()["summary"]["selection_policy"] is None
     after = client.get("/api/project-creation-options").json()
     assert after["model_packages"] == before["model_packages"]
 

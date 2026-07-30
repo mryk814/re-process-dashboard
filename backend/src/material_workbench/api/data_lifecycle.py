@@ -11,6 +11,7 @@ from material_workbench.application.data_lifecycle import (
 )
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
+    ApprovedTrainingSnapshotDetail,
     CanonicalDatasetRevision,
     ConnectorLifecycleSummary,
     CurationRunRowPage,
@@ -298,5 +299,22 @@ def create_training_snapshot(
         LifecycleResourceNotFoundError,
         LifecyclePayloadUnavailableError,
         LifecycleConflictError,
+    ) as exc:
+        _raise_lifecycle_error(exc)
+
+
+@router.get(
+    "/training-snapshots/{snapshot_id}",
+    response_model=ApprovedTrainingSnapshotDetail,
+)
+def training_snapshot_detail(
+    snapshot_id: str,
+    service: ServiceDependency,
+) -> ApprovedTrainingSnapshotDetail:
+    try:
+        return service.training_snapshot_detail(snapshot_id)
+    except (
+        LifecycleResourceNotFoundError,
+        LifecyclePayloadUnavailableError,
     ) as exc:
         _raise_lifecycle_error(exc)

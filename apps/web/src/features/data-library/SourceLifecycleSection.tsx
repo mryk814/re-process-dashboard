@@ -614,10 +614,33 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             </>}
             {selectedTraining && <>
               <header><strong>学習用スナップショット v{detail.training_snapshots.indexOf(selectedTraining) + 1}</strong><code>{shortDigest(selectedTraining.snapshot_digest)}</code></header>
-              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>行数</dt><dd>{selectedTraining.row_count}</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
+              <dl><div><dt>契約</dt><dd>{selectedTraining.schema_version}</dd></div><div><dt>作成日時</dt><dd>{formatTimestamp(selectedTraining.created_at)}</dd></div><div><dt>作成者</dt><dd>{actorLabel(selectedTraining.actor)}</dd></div><div><dt>用途</dt><dd>{selectedTraining.purpose}</dd></div><div><dt>採用 / 追加除外</dt><dd>{selectedTraining.included_row_count} / {selectedTraining.excluded_row_count}行</dd></div>{selectedTraining.split && <><div><dt>分割group field</dt><dd>{selectedTraining.split.group_field}</dd></div><div><dt>分割</dt><dd>{selectedTraining.split.strategy_id} · {selectedTraining.split.folds} fold</dd></div></>}</dl>
+              <section className="training-selection-audit" aria-label="学習行の選択方針">
+                <header>
+                  <strong>学習行の選択方針</strong>
+                  {selectedTraining.selection_policy_digest && <code title={selectedTraining.selection_policy_digest}>{shortDigest(selectedTraining.selection_policy_digest)}</code>}
+                </header>
+                {selectedTraining.selection_policy
+                  ? <p><b>{selectedTraining.selection_policy.policy_id}</b> · revision {selectedTraining.selection_policy.revision}</p>
+                  : <p>{selectedTraining.schema_version === "approved-training-snapshot/v1"
+                    ? "旧契約のため、選択方針は記録されていません。"
+                    : "追加の除外ルールはありません。"}</p>}
+                <div className="training-selection-counts">
+                  <span>承認済み <b>{selectedTraining.approved_row_count}</b></span>
+                  <span>Snapshot採用 <b>{selectedTraining.included_row_count}</b></span>
+                  <span>追加除外 <b>{selectedTraining.excluded_row_count}</b></span>
+                </div>
+                {selectedTraining.exclusion_reasons.length > 0
+                  ? <ul>{selectedTraining.exclusion_reasons.map((reason) => <li key={reason.code}>
+                    <span>{reason.label}</span><b>{reason.count}行</b>
+                  </li>)}</ul>
+                  : <small>追加除外された行はありません。</small>}
+                {selectedTraining.exclusion_reasons.length > 1
+                  && <small>1行が複数ルールに当たる場合、理由別件数では重複して数えます。</small>}
+              </section>
               {selectedTraining.target_cohorts.length
                 ? <div className="source-history-cohorts"><strong>target別cohortとsplit</strong>{selectedTraining.target_cohorts.map((cohort) => <details key={cohort.target_key}>
-                  <summary>{cohort.target_field} · {cohort.row_count}行</summary>
+                  <summary>{cohort.target_field} · 採用 {cohort.row_count} / 対象外 {cohort.excluded_row_count}行</summary>
                   <dl><div><dt>cohort digest</dt><dd><code>{shortDigest(cohort.cohort_digest)}</code></dd></div><div><dt>split digest</dt><dd><code>{shortDigest(cohort.split_digest)}</code></dd></div></dl>
                   <p>{cohort.split_group_count} groupの割当を固定</p>
                 </details>)}</div>

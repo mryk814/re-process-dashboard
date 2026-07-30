@@ -744,9 +744,16 @@ class TrainingTargetCohortSummary(ContractModel):
     target_key: str
     target_field: str
     row_count: Annotated[int, Field(ge=0)]
+    excluded_row_count: Annotated[int, Field(ge=0)] = 0
     cohort_digest: str
     split_digest: str
     split_group_count: Annotated[int, Field(ge=0)]
+
+
+class TrainingSnapshotExclusionReasonSummary(ContractModel):
+    code: Annotated[str, Field(min_length=1)]
+    label: Annotated[str, Field(min_length=1)]
+    count: Annotated[int, Field(ge=0)]
 
 
 class ApprovedTrainingSnapshotSummary(ContractModel):
@@ -762,8 +769,22 @@ class ApprovedTrainingSnapshotSummary(ContractModel):
     purpose: str
     target_cohorts: tuple[TrainingTargetCohortSummary, ...] = ()
     split: TrainingSplitDefinition | None = None
+    selection_policy: TrainingSnapshotSelectionPolicy | None = None
+    selection_policy_digest: str | None = None
+    approved_row_count: Annotated[int, Field(ge=0)] = 0
+    included_row_count: Annotated[int, Field(ge=0)] = 0
+    excluded_row_count: Annotated[int, Field(ge=0)] = 0
+    reason_counting: Literal["multi_label"] = "multi_label"
+    exclusion_reasons: tuple[
+        TrainingSnapshotExclusionReasonSummary, ...
+    ] = ()
     snapshot_digest: str
     created_at: datetime
+
+
+class ApprovedTrainingSnapshotDetail(ContractModel):
+    snapshot: ApprovedTrainingSnapshot
+    summary: ApprovedTrainingSnapshotSummary
 
 
 class ConnectorLifecycleSummary(ContractModel):

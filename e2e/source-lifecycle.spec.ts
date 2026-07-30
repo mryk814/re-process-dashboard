@@ -132,8 +132,85 @@ test("source refresh stays separate from approval, training and activation", asy
   expect(trainingSnapshot.target_cohorts[0].target_key).toBe("target");
   expect(trainingSnapshot.target_cohorts[0].split_group_count).toBe(2);
 
+  const policySnapshotResponse = await request.post(
+    `${apiBaseUrl}/api/data-lifecycle/canonical-dataset-revisions/${approvedRevision.id}/training-snapshots`,
+    {
+      data: {
+        purpose: "追加除外を含む学習監査",
+        targets: [{ target_key: "target", field: "target" }],
+        split: {
+          strategy_id: "sorted-group-round-robin-v1",
+          group_field: "id",
+          folds: 2,
+        },
+        selection_policy: {
+          schema_version: "training-snapshot-selection/v1",
+          policy_id: "exclude-unmeasured-holdout",
+          revision: 3,
+          exclusions: [{
+            kind: "field_equals_any_v1",
+            field: "id",
+            values: ["A-03"],
+          }],
+        },
+      },
+    },
+  );
+  expect(policySnapshotResponse.ok()).toBeTruthy();
+  const policySnapshot = await policySnapshotResponse.json();
+  const policyDetail = await (await request.get(
+    `${apiBaseUrl}/api/data-lifecycle/training-snapshots/${policySnapshot.id}`,
+  )).json();
+  expect(policyDetail.summary.selection_policy_digest).toBe(
+    policySnapshot.selection_policy_digest,
+  );
+  expect(policyDetail.summary.exclusion_reasons).toEqual([{
+    code: "policy:0:id",
+    label: "id が A-03",
+    count: 1,
+  }]);
+
   const optionsAfter = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   expect(optionsAfter.model_packages).toEqual(optionsBefore.model_packages);
+
+  const packageListResponse = await request.get(
+    `${apiBaseUrl}/api/data-library/model-packages?include_archived=true`,
+  );
+  expect(packageListResponse.ok()).toBeTruthy();
+  const linkedPackages = (await packageListResponse.json()).map(
+    (item: { manifest_json: Record<string, unknown> }) => {
+        const provenance = item.manifest_json.provenance;
+        return {
+          ...item,
+          manifest_json: {
+            ...item.manifest_json,
+            provenance: {
+              ...(provenance && typeof provenance === "object" ? provenance : {}),
+              source_lifecycle: {
+                connector_id: connector.id,
+                training_snapshot_id: policySnapshot.id,
+                training_snapshot_digest: policySnapshot.snapshot_digest,
+                training_selection_policy_digest: policySnapshot.selection_policy_digest,
+              },
+            },
+          },
+        };
+      },
+  );
+  await page.route("**/api/data-library/model-packages?include_archived=true", async (route) => {
+    await route.fulfill({ json: linkedPackages });
+  });
+  await page.goto("/?view=data-library");
+  const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
+  await expect(snapshotLink).toBeVisible();
+  await snapshotLink.click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(policySnapshot.id);
+  const selectionAudit = page.getByRole("region", { name: "学習行の選択方針" });
+  await expect(selectionAudit).toContainText("exclude-unmeasured-holdout · revision 3");
+  await expect(selectionAudit).toContainText("承認済み 3");
+  await expect(selectionAudit).toContainText("Snapshot採用 2");
+  await expect(selectionAudit).toContainText("追加除外 1");
+  await expect(selectionAudit).toContainText("id が A-03");
 
   const secondFetch = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors/${connector.id}/fetch`, {
     data: {
@@ -162,15 +239,15 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(historySection.locator(".source-stage-rail li").nth(0)).toContainText("2版");
   await expect(historySection.locator(".source-stage-rail li").nth(1)).toContainText("2版");
   await expect(historySection.locator(".source-stage-rail li").nth(2)).toContainText("2版");
-  await expect(historySection.locator(".source-stage-rail li").nth(3)).toContainText("2版");
+  await expect(historySection.locator(".source-stage-rail li").nth(3)).toContainText("3版");
 
   await historySection.locator(".source-stage-rail li").nth(3).getByRole("button").click();
   const trainingHistory = historySection.locator(".source-history");
   await expect(trainingHistory).toContainText("approved-training-snapshot/v2");
   await expect(trainingHistory).toContainText("分割group field");
   await expect(trainingHistory).toContainText("id");
-  await expect(trainingHistory).toContainText("target · 2行");
-  await trainingHistory.getByText("target · 2行").click();
+  await expect(trainingHistory).toContainText("target · 採用 2 / 対象外 0行");
+  await trainingHistory.getByText("target · 採用 2 / 対象外 0行").click();
   await expect(trainingHistory).toContainText("2 groupの割当を固定");
   await expect(trainingHistory).toContainText("cohort digest");
   await expect(trainingHistory).toContainText("split digest");
@@ -188,6 +265,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.goto(auditUrl);
   await expect(page.locator(".source-history")).toContainText("既知の測定限界として採用");
   await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("late initial catalog cannot replace the selected connector", async ({ page, request }) => {

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
+    ApprovedTrainingSnapshotDetail,
     ApprovedTrainingSnapshotSummary,
     CanonicalDatasetRevision,
     CanonicalDatasetRevisionSummary,
@@ -462,7 +463,11 @@ class DataLifecycleRepository:
                     snapshot.snapshot_digest,
                     snapshot.model_dump_json(),
                     snapshot.created_at.isoformat(),
-                    summarize_training(snapshot).model_dump_json(),
+                    summarize_training(
+                        snapshot,
+                        revision=revision,
+                        run=run,
+                    ).model_dump_json(),
                 ),
             )
         return snapshot
@@ -482,6 +487,28 @@ class DataLifecycleRepository:
             snapshot_id,
             ApprovedTrainingSnapshot,
             "Training Snapshot",
+        )
+
+    def training_snapshot_detail(
+        self, snapshot_id: str
+    ) -> ApprovedTrainingSnapshotDetail:
+        snapshot = self.get_training_snapshot(snapshot_id)
+        return ApprovedTrainingSnapshotDetail(
+            snapshot=snapshot,
+            summary=self._rebuild_training_summary(snapshot),
+        )
+
+    def _rebuild_training_summary(
+        self,
+        snapshot: ApprovedTrainingSnapshot,
+    ) -> ApprovedTrainingSnapshotSummary:
+        revision = self.get_canonical_revision(
+            snapshot.canonical_dataset_revision_id
+        )
+        return summarize_training(
+            snapshot,
+            revision=revision,
+            run=self.get_curation_run(revision.curation_run_id),
         )
 
     def detail(self, connector_id: str) -> ConnectorLifecycleSummary:
@@ -509,7 +536,7 @@ class DataLifecycleRepository:
                 (connector_id,),
             ).fetchall()
             training_rows = conn.execute(
-                "SELECT training.id,training.summary_payload "
+                "SELECT training.id,training.payload,training.summary_payload "
                 "FROM approved_training_snapshots training "
                 "JOIN canonical_dataset_approvals revision "
                 "ON revision.id=training.canonical_dataset_revision_id "
@@ -540,12 +567,32 @@ class DataLifecycleRepository:
             )
             for row in revision_rows
         )
-        training = tuple(
-            ApprovedTrainingSnapshotSummary.model_validate_json(
-                row["summary_payload"]
+        training_summaries: list[ApprovedTrainingSnapshotSummary] = []
+        audit_fields = {
+            "selection_policy",
+            "selection_policy_digest",
+            "approved_row_count",
+            "included_row_count",
+            "excluded_row_count",
+            "reason_counting",
+            "exclusion_reasons",
+        }
+        for row in training_rows:
+            summary_payload = json.loads(str(row["summary_payload"]))
+            if audit_fields <= summary_payload.keys():
+                training_summaries.append(
+                    ApprovedTrainingSnapshotSummary.model_validate(
+                        summary_payload
+                    )
+                )
+                continue
+            snapshot = ApprovedTrainingSnapshot.model_validate_json(
+                row["payload"]
             )
-            for row in training_rows
-        )
+            training_summaries.append(
+                self._rebuild_training_summary(snapshot)
+            )
+        training = tuple(training_summaries)
         return ConnectorLifecycleSummary(
             connector=connector,
             attempts=self.list_attempts(connector_id),

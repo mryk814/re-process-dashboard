@@ -7,6 +7,7 @@ from typing import Literal
 
 from material_workbench.contracts.data_lifecycle_contracts import (
     ApprovedTrainingSnapshot,
+    ApprovedTrainingSnapshotDetail,
     CanonicalDatasetRevision,
     ConnectorLifecycleSummary,
     CurationRunRowPage,
@@ -61,6 +62,11 @@ class DataLifecycleService:
 
     def detail(self, connector_id: str) -> ConnectorLifecycleSummary:
         return self.repository.detail(connector_id)
+
+    def training_snapshot_detail(
+        self, snapshot_id: str
+    ) -> ApprovedTrainingSnapshotDetail:
+        return self.repository.training_snapshot_detail(snapshot_id)
 
     def raw_row_page(
         self, snapshot_id: str, *, offset: int, limit: int
