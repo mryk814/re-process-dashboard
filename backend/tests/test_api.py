@@ -1,9 +1,9 @@
 from copy import deepcopy
 
 import pytest
-from fastapi import HTTPException
 
-from material_workbench.api.catalog import (
+from material_workbench.application.catalog import (
+    CatalogValidationError,
     _output_space_evidence_points,
     _sample_output_space_evidence,
 )
@@ -287,7 +287,7 @@ def test_output_space_pairing_preserves_axis_specific_observation_identity() -> 
         "y": {"mean": 20.0, "count": 1, "observation_ids": ["y-only"]},
     }]
 
-    with pytest.raises(HTTPException) as caught:
+    with pytest.raises(CatalogValidationError) as caught:
         _output_space_evidence_points(
             [
                 rows[0],
@@ -296,8 +296,7 @@ def test_output_space_pairing_preserves_axis_specific_observation_identity() -> 
             x_target="X",
             y_target="Y",
         )
-    assert caught.value.status_code == 422
-    assert "multiple validation groups" in str(caught.value.detail)
+    assert "multiple validation groups" in str(caught.value)
 
 
 def test_output_space_sampling_keeps_the_full_output_extent() -> None:
