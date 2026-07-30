@@ -34,6 +34,7 @@
       ],
       "referenced_paths": [
         "apps/web/src/features/screening/ScreeningPage.tsx",
+        "apps/web/src/features/screening/ScreeningProposalSummary.tsx",
         "apps/web/src/generated/api-types.ts",
         "apps/web/src/generated/openapi.json",
         "backend/src/material_workbench/application/screening.py",
