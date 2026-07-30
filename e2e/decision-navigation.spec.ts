@@ -25,6 +25,7 @@ test("primary navigation follows the decision flow and separates developer admin
     "候補比較",
     "範囲探索",
     "候補確認",
+    "設定",
   ]);
 
   await page.getByRole("button", { name: "データ探索", exact: true }).click();
@@ -44,10 +45,13 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page).toHaveURL(qualityUrl);
 
   await page.getByRole("button", { name: "概要", exact: true }).click();
-  await page.getByRole("button", { name: "設定を編集" }).click();
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await expect(page).toHaveURL(/view=project-settings/);
+  await page.getByRole("navigation", { name: "Project設定カテゴリ" })
+    .getByRole("button", { name: "科学設定" }).click();
   await page.getByRole("navigation", { name: "Project設定メニュー" })
     .getByRole("button", { name: "予測タスク定義" }).click();
-  await expect(page).toHaveURL(/project_settings=task/);
+  await expect(page).toHaveURL(/view=project-settings.*project_settings=task/);
   await expect(page.getByRole("heading", { name: "予測タスク定義" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "成分" })).toBeVisible();
   await expect(page.getByText("引張強さ").first()).toBeVisible();

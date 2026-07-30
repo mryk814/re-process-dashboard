@@ -261,7 +261,7 @@ test("goal-less robustness explains the prerequisite and offers sensitivity-only
   ).toBeVisible();
 
   await page.getByRole("button", { name: "目標を設定する" }).click();
-  await expect(page).toHaveURL(/view=project.*project_settings=targets/);
+  await expect(page).toHaveURL(/view=project-settings.*project_settings=targets/);
 });
 
 test("candidate difference activity attributes the gap and keeps an explicit residual", async ({ page, request }) => {

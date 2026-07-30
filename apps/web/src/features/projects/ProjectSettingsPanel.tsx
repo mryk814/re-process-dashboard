@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { isTargetRange, type TargetGoal } from "../../shared/targetGoals";
 import type {
   ApiProject,
@@ -12,7 +12,7 @@ import {
   ungroupedMembershipValue,
 } from "./projectSettingsState";
 
-const defaultGoalLabel = (
+export const defaultGoalLabel = (
   direction: "at_least" | "at_most" | "target",
 ) => direction === "at_most"
   ? "以下"
@@ -91,6 +91,10 @@ export function ProjectSettingsPanel({
   onRangeTargetChange,
   onSave,
 }: ProjectSettingsPanelProps) {
+  const [memoOpen, setMemoOpen] = useState(Boolean(project?.notes));
+  useEffect(() => {
+    setMemoOpen(Boolean(project?.notes));
+  }, [project?.id]);
   if (!shouldShowProjectSettings({ open, hasProject: Boolean(project) })) {
     return null;
   }
@@ -162,36 +166,6 @@ export function ProjectSettingsPanel({
           <small>このグループに含まれるすべてのプロジェクトへ反映されます</small>
         </div>}
       </>}
-      <label>プロジェクト名
-        <input
-          value={project.name}
-          disabled={controlsDisabled}
-          onChange={(event) => onProjectChange({
-            ...project,
-            name: event.target.value,
-          })}
-        />
-      </label>
-      <label>説明
-        <textarea
-          value={project.description}
-          disabled={controlsDisabled}
-          onChange={(event) => onProjectChange({
-            ...project,
-            description: event.target.value,
-          })}
-        />
-      </label>
-      <label>目的
-        <textarea
-          value={project.purpose}
-          disabled={controlsDisabled}
-          onChange={(event) => onProjectChange({
-            ...project,
-            purpose: event.target.value,
-          })}
-        />
-      </label>
       {outputs.length > 0 && <fieldset
         className="target-grid"
         id="project-target-settings"
@@ -225,6 +199,7 @@ export function ProjectSettingsPanel({
               ? <div className="target-range-inputs">
                 <label>下限
                   <input
+                    aria-label={`${output.label}の下限`}
                     type="number"
                     value={Number.isFinite(rangeDraft.lower) ? rangeDraft.lower : ""}
                     placeholder="下限"
@@ -238,6 +213,7 @@ export function ProjectSettingsPanel({
                 <span>–</span>
                 <label>上限
                   <input
+                    aria-label={`${output.label}の上限`}
                     type="number"
                     value={Number.isFinite(rangeDraft.upper) ? rangeDraft.upper : ""}
                     placeholder="上限"
@@ -250,6 +226,7 @@ export function ProjectSettingsPanel({
                 </label>
               </div>
               : <input
+                aria-label={`${output.label}の目標値`}
                 type="number"
                 value={typeof goal === "number" ? goal : ""}
                 placeholder="未設定"
@@ -258,20 +235,31 @@ export function ProjectSettingsPanel({
                   event.target.value,
                 )}
               />}
+            {output.unit && <small className="target-setting-unit">{output.unit}</small>}
           </div>;
         })}
         {invalidTargetRange && <small className="target-range-error">範囲目標は、下限を上限より小さく設定してください。</small>}
       </fieldset>}
-      <label>メモ
-        <textarea
-          value={project.notes}
-          disabled={controlsDisabled}
-          onChange={(event) => onProjectChange({
-            ...project,
-            notes: event.target.value,
-          })}
-        />
-      </label>
+      {(project.description || project.purpose) && <details className="project-legacy-information">
+        <summary>追加情報</summary>
+        <dl>
+          {project.purpose && <div><dt>以前の目的</dt><dd>{project.purpose}</dd></div>}
+          {project.description && <div><dt>以前の説明</dt><dd>{project.description}</dd></div>}
+        </dl>
+        <small>既存値は保持しています。新しい補足はProjectメモへまとめます。</small>
+      </details>}
+      {!memoOpen && !project.notes
+        ? <button type="button" className="outline-button project-memo-add" disabled={controlsDisabled} onClick={() => setMemoOpen(true)}>メモを追加</button>
+        : <label>Projectメモ
+          <textarea
+            value={project.notes}
+            disabled={controlsDisabled}
+            onChange={(event) => onProjectChange({
+              ...project,
+              notes: event.target.value,
+            })}
+          />
+        </label>}
     </div>
     <button
       type="button"
