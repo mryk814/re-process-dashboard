@@ -75,6 +75,7 @@ test("representative points use labeled varying columns and one shared support m
     selectedPointIndices: [],
     stockedPointIndices: new Set(),
     selectionLimitReached: false,
+    selectionEnabled: false,
     onToggle() {},
   });
 
@@ -88,6 +89,50 @@ test("representative points use labeled varying columns and one shared support m
   assert.equal(html.split(commonMessage).length - 1, 1);
   assert.match(html, /-5\.0–505\.0 MPa · ⚠ 範囲外含む/);
   assert.doesNotMatch(html, /class="implausible-output screening-prediction-cell"/);
+  assert.doesNotMatch(html, /screening-results-table has-selection/);
+});
+
+test("sticky point column only offsets when the selection column is present", async () => {
+  const source = await readFile(
+    new URL("../src/features/screening/screening.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /\.screening-point-column\s*\{[\s\S]*?left:\s*0;/);
+  assert.match(source, /\.screening-results-table\.has-selection \.screening-point-column\s*\{[\s\S]*?left:\s*64px;/);
+
+  const html = renderTable({
+    result: {
+      target: "TS",
+      variables: { "composition.C": { mode: "range", min: 0.1, max: 0.2 } },
+      representative_points: [{
+        index: 0,
+        inputs: { "composition.C": 0.1 },
+        prediction: prediction(500),
+        predictions: {},
+        support: { status: "supported", message: "範囲内", percentile: 20, reference_count: 12 },
+      }],
+    },
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa" }],
+    options: [{ value: "composition.C", label: "C (mass%)" }],
+    baseCandidateLabel: "基準案A",
+    selectedPointIndices: [],
+    stockedPointIndices: new Set(),
+    selectionLimitReached: false,
+    selectionEnabled: true,
+    onToggle() {},
+  });
+  assert.match(html, /screening-results-table has-selection/);
+});
+
+test("point detail only lists conditions moved by the screening run", async () => {
+  const source = await readFile(
+    new URL("../src/features/screening/ScreeningPage.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /<b>動かした条件:<\/b>/);
+  assert.match(source, /movedConditionFields\.map/);
+  assert.match(source, /\.filter\(\(\[, spec\]\) => spec\.mode !== "fixed"\)/);
+  assert.doesNotMatch(source, /<b>全変動条件:<\/b>/);
 });
 
 test("candidate capacity comes from the API and is visible before selection", async () => {

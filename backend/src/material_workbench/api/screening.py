@@ -9,6 +9,7 @@ from .errors import DomainApiException, PROJECT_API_ERRORS
 from ..application.screening import (
     ScreeningBatchSelectionError,
     ScreeningNotFoundError,
+    ScreeningReferencedError,
     ScreeningService,
     ScreeningValidationError,
 )
@@ -33,7 +34,13 @@ def get_screening_service(
 
 
 ScreeningServiceDependency = Annotated[ScreeningService, Depends(get_screening_service)]
-SCREENING_ERRORS = (ProjectNotFoundError, ScreeningNotFoundError, ScreeningValidationError, CandidateLimitError)
+SCREENING_ERRORS = (
+    ProjectNotFoundError,
+    ScreeningNotFoundError,
+    ScreeningReferencedError,
+    ScreeningValidationError,
+    CandidateLimitError,
+)
 
 
 def _raise_screening_error(exc: Exception) -> None:
@@ -41,6 +48,8 @@ def _raise_screening_error(exc: Exception) -> None:
         raise HTTPException(404, "プロジェクトが見つかりません") from exc
     if isinstance(exc, ScreeningNotFoundError):
         raise HTTPException(404, str(exc)) from exc
+    if isinstance(exc, ScreeningReferencedError):
+        raise DomainApiException(409, "screening_run_referenced", str(exc)) from exc
     if isinstance(exc, ScreeningBatchSelectionError):
         raise DomainApiException(
             422,
@@ -104,6 +113,14 @@ def list_batch_selectors(
 def get_screening_run(run_id: str, service: ScreeningServiceDependency, project_id: str = "default") -> ScreeningRunResponse:
     try:
         return service.get(run_id, project_id)
+    except SCREENING_ERRORS as exc:
+        _raise_screening_error(exc)
+
+
+@router.delete("/api/screening/{run_id}", status_code=204, responses=PROJECT_API_ERRORS)
+def delete_screening_run(run_id: str, service: ScreeningServiceDependency, project_id: str = "default") -> None:
+    try:
+        service.delete(run_id, project_id)
     except SCREENING_ERRORS as exc:
         _raise_screening_error(exc)
 

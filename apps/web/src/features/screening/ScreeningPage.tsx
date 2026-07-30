@@ -6,6 +6,7 @@ import {
   type ApiProject,
   type ApiProposalStrategyAvailability,
   type ApiScreeningRun,
+  type ApiSimilarObservation,
 } from "../../shared/api/workbench-api";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
@@ -25,6 +26,7 @@ import { ScreeningProposalSummary, ScreeningRunEvidence } from "./ScreeningPropo
 import { safeExplorationRange } from "./screeningVariableRange";
 import { ScreeningRepresentativeTable } from "./ScreeningRepresentativeTable";
 import { initialScreeningMode, type ScreeningMode } from "./screeningInitialMode";
+import { HistoricalEvidenceDrawer } from "../workbench";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -244,6 +246,10 @@ export function ScreeningPage({
   const options = optionGroups.flatMap((group) => group.options);
   const [result, setResult] = useState<ScreenResult | null>(null);
   const [savedRuns, setSavedRuns] = useState<ScreenResult[]>([]);
+  const [pendingDeleteRunId, setPendingDeleteRunId] = useState("");
+  const [deletingRunId, setDeletingRunId] = useState("");
+  const [showAllSavedRuns, setShowAllSavedRuns] = useState(false);
+  const [detailItem, setDetailItem] = useState<ApiSimilarObservation | null>(null);
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
   const [candidateCapacity, setCandidateCapacity] = useState<ApiCandidateCapacity | null>(null);
@@ -332,6 +338,7 @@ export function ScreeningPage({
     setResult(null);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
+    setDetailItem(null);
     setDraftDirty(false);
   }, [resolvedTaskDefinition?.task_definition.id, project?.id, project?.objective_definition_digest]);
   useEffect(() => {
@@ -350,6 +357,10 @@ export function ScreeningPage({
     runRequestSequence.current += 1;
     setResult(null);
     setSavedRuns([]);
+    setPendingDeleteRunId("");
+    setDeletingRunId("");
+    setShowAllSavedRuns(false);
+    setDetailItem(null);
     setRunning(false);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
@@ -402,6 +413,7 @@ export function ScreeningPage({
     setColorMetric("score");
     setSelectedPointIndices([]);
     setFocusedPointIndex(run.representative_points[0]?.index ?? null);
+    setDetailItem(null);
     setDraftDirty(false);
   };
   const candidateContextDirty = Boolean(
@@ -642,6 +654,27 @@ export function ScreeningPage({
       );
     onRunChange(run.id);
   };
+  const deleteRun = async (runId: string) => {
+    if (deletingRunId) return;
+    setDeletingRunId(runId);
+    setError("");
+    try {
+      await workbenchApi.deleteScreeningRun(projectId, runId);
+      setSavedRuns((runs) => runs.filter((run) => run.id !== runId));
+      setPendingDeleteRunId("");
+      if (result?.id === runId) {
+        setResult(null);
+        setSelectedPointIndices([]);
+        setFocusedPointIndex(null);
+        setDetailItem(null);
+        onRunChange("");
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "保存済み探索を削除できませんでした。");
+    } finally {
+      setDeletingRunId("");
+    }
+  };
   useEffect(() => {
     if (initialRunId && result?.id !== initialRunId) void loadRun(initialRunId);
     return () => {
@@ -708,9 +741,14 @@ export function ScreeningPage({
       setError(cause instanceof Error ? cause.message : "提案batchを候補へ保存できませんでした。");
     }
   };
-  const confirmedVaryingFields = result ? Object.entries(result.variables)
-    .filter(([field, spec]) => spec.mode !== "fixed" && result.points.some((point) => typeof point.inputs[field] === "number"))
-    .map(([field]) => field) : [];
+  const movedConditionFields = result
+    ? Object.entries(result.variables)
+      .filter(([, spec]) => spec.mode !== "fixed")
+      .map(([field]) => field)
+    : [];
+  const confirmedVaryingFields = result
+    ? movedConditionFields.filter((field) => result.points.some((point) => typeof point.inputs[field] === "number"))
+    : [];
   const axes = [xAxis, yAxis].filter(Boolean);
   const numeric = (axis: string) =>
     result?.points
@@ -873,26 +911,41 @@ export function ScreeningPage({
         <section className="saved-runs">
           <h3>保存済み探索</h3>
           <div>
-            {savedRuns.slice(0, 8).map((run) => (
-              <button
-                className={result?.id === run.id ? "active" : ""}
-                key={run.id}
-                onClick={() => {
-                  void loadRun(run.id);
-                }}
-              >
-                <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {goalSummary(run.target_goal, run.target_value)} /{" "}
-                 {run.samples}点{" "}
-                <small>
-                  基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
-                  {Object.entries(run.variables).map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : spec.mode === "list" ? (spec.values ?? []).join("/") : String(spec.value ?? "")}`).join(" / ")} ·{" "}
-                  {run.created_at
-                    ? new Date(run.created_at).toLocaleString("ja-JP")
-                    : "保存済み"}
-                </small>
-              </button>
+            {(showAllSavedRuns ? savedRuns : savedRuns.slice(0, 8)).map((run) => (
+              <article className="saved-run-item" key={run.id}>
+                <button
+                  className={`saved-run-open${result?.id === run.id ? " active" : ""}`}
+                  onClick={() => {
+                    setPendingDeleteRunId("");
+                    void loadRun(run.id);
+                  }}
+                >
+                  <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {goalSummary(run.target_goal, run.target_value)} /{" "}
+                  {run.samples}点{" "}
+                  <small>
+                    基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
+                    {Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : (spec.values ?? []).join("/")}`).join(" / ") || "変更なし"} ·{" "}
+                    {run.created_at ? new Date(run.created_at).toLocaleString("ja-JP") : "保存済み"}
+                  </small>
+                </button>
+                <div className="saved-run-actions">
+                  {pendingDeleteRunId === run.id
+                    ? <>
+                        <button className="danger-button" disabled={deletingRunId === run.id} onClick={() => { void deleteRun(run.id); }}>
+                          {deletingRunId === run.id ? "削除中…" : "削除する"}
+                        </button>
+                        <button className="text-button" onClick={() => setPendingDeleteRunId("")}>やめる</button>
+                      </>
+                    : <button className="text-button" onClick={() => setPendingDeleteRunId(run.id)}>削除</button>}
+                </div>
+              </article>
             ))}
           </div>
+          {savedRuns.length > 8 && (
+            <button className="saved-runs-expand text-button" onClick={() => setShowAllSavedRuns((shown) => !shown)}>
+              {showAllSavedRuns ? "直近8件に戻す" : `残り${savedRuns.length - 8}件を表示`}
+            </button>
+          )}
         </section>
       )}
       <div className="screening-settings">
@@ -1476,10 +1529,30 @@ export function ScreeningPage({
                 </div>;
               })}
             </div>
-            <p><b>全変動条件:</b> {Object.entries(focusedPoint.inputs).map(([key, value]) => `${axisLabel(key)} ${typeof value === "number" ? number(value, 3) : value}`).join(" / ")}</p>
+            <p>
+              <b>動かした条件:</b>{" "}
+              {movedConditionFields.map((key) => {
+                const value = focusedPoint.inputs[key];
+                return `${axisLabel(key)} ${typeof value === "number" ? number(value, 3) : value}`;
+              }).join(" / ") || "基準候補と同じ"}
+            </p>
             <p><b>適用範囲:</b> {supportStatusLabel(focusedPoint.support.status)} / percentile {number(focusedPoint.support.percentile, 1)} / 参照{focusedPoint.support.reference_count}件</p>
             {focusedPoint.warnings?.map((warning) => <p className="warning" key={warning}>{warning}</p>)}
-            {(focusedPoint.similar ?? []).length > 0 && <p><b>近い実績:</b> {(focusedPoint.similar ?? []).slice(0, 3).map((item) => `${item.observation_id || item.parent_key} (距離 ${number(item.distance, 2)})`).join(" / ")}</p>}
+            {(focusedPoint.similar ?? []).length > 0 && (
+              <div className="screening-similar-evidence">
+                <b>近い実績</b>
+                {(focusedPoint.similar ?? []).slice(0, 3).map((item) => (
+                  <button
+                    className="text-button"
+                    key={`${item.process_key ?? item.parent_key}-${item.observation_id}`}
+                    onClick={() => setDetailItem(item)}
+                  >
+                    実績を見る
+                    <small>{item.observation_id || item.process_key || item.parent_key} · 距離 {number(item.distance, 2)}</small>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>}
           <ScreeningRepresentativeTable
             result={result}
@@ -1500,6 +1573,25 @@ export function ScreeningPage({
           <ScreeningRunEvidence result={result} />
         </>
       )}
+      <HistoricalEvidenceDrawer
+        open={detailItem != null}
+        projectId={projectId}
+        reference={detailItem ? {
+          processKey: detailItem.process_key ?? detailItem.parent_key,
+          compositionKey: detailItem.melt_key,
+          relationContextIds: detailItem.relation_context_ids,
+          observationIds: detailItem.observation_ids ?? (detailItem.observation_id ? [detailItem.observation_id] : []),
+          repeatSummary: detailItem.repeat_summary,
+          observedOutputs: detailItem.outputs,
+          measurementState: "ready",
+          distance: detailItem.distance,
+          source: detailItem.source,
+        } : null}
+        outputs={outputs}
+        taskDefinition={taskDefinition}
+        displayDecimalOverrides={project?.display_decimals}
+        onClose={() => setDetailItem(null)}
+      />
     </div>
   );
 }

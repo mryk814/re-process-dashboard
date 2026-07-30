@@ -1987,7 +1987,8 @@ export interface paths {
         get: operations["get_screening_run_api_screening__run_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Screening Run */
+        delete: operations["delete_screening_run_api_screening__run_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2560,7 +2561,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "sample_has_saved_work" | "data_integrity_error" | "validation_error" | "response_curve_not_applicable" | "response_curve_training_range_unavailable" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "sample_has_saved_work" | "screening_run_referenced" | "data_integrity_error" | "validation_error" | "response_curve_not_applicable" | "response_curve_training_range_unavailable" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -15889,6 +15890,64 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    delete_screening_run_api_screening__run_id__delete: {
+        parameters: {
+            query?: {
+                project_id?: string;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

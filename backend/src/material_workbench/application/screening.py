@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from threading import RLock
 from typing import Any
 
 from pydantic_core import to_jsonable_python
@@ -64,10 +65,23 @@ class ScreeningValidationError(ValueError):
     pass
 
 
+class ScreeningReferencedError(RuntimeError):
+    pass
+
+
 class ScreeningBatchSelectionError(ScreeningValidationError):
     def __init__(self, failure_kind: str, message: str) -> None:
         self.failure_kind = failure_kind
         super().__init__(message)
+
+
+_SCREENING_PROJECT_LOCKS_GUARD = RLock()
+_SCREENING_PROJECT_LOCKS: dict[str, RLock] = {}
+
+
+def _screening_project_lock(project_id: str) -> RLock:
+    with _SCREENING_PROJECT_LOCKS_GUARD:
+        return _SCREENING_PROJECT_LOCKS.setdefault(project_id, RLock())
 
 
 class ScreeningService:
@@ -78,6 +92,10 @@ class ScreeningService:
         self.projects = ProjectService(store, registry)
 
     def run(self, payload: ScreeningRequest, project_id: str = "default") -> ScreeningRunResponse:
+        with _screening_project_lock(project_id):
+            return self._run_unlocked(payload, project_id)
+
+    def _run_unlocked(self, payload: ScreeningRequest, project_id: str) -> ScreeningRunResponse:
         project = self.projects.require(project_id)
         contract = self.registry.contract_for(project.task_id)
         runtime = self.resolver.runtime_for(project)
@@ -863,11 +881,51 @@ class ScreeningService:
             raise ScreeningNotFoundError("スクリーニング結果が見つかりません")
         return ScreeningRunResponse.model_validate(run)
 
+    def delete(self, run_id: str, project_id: str = "default") -> None:
+        with _screening_project_lock(project_id):
+            self._delete_unlocked(run_id, project_id)
+
+    def _delete_unlocked(self, run_id: str, project_id: str) -> None:
+        run = self.store.get_screening_run(run_id, project_id)
+        if run is None:
+            raise ScreeningNotFoundError("スクリーニング結果が見つかりません")
+        derived_candidates = [
+            candidate
+            for candidate in self.store.list_candidates(project_id, include_archived=True)
+            if candidate.provenance.source_kind == "screening"
+            and candidate.provenance.source_ref.run_id == run_id
+        ]
+        derived_runs = [
+            item
+            for item in self.store.list_screening_runs(project_id)
+            if item.get("source_run_id") == run_id
+        ]
+        if derived_candidates or derived_runs:
+            references = []
+            if derived_candidates:
+                references.append(f"候補 {len(derived_candidates)}件")
+            if derived_runs:
+                references.append(f"後続の探索 {len(derived_runs)}件")
+            raise ScreeningReferencedError(
+                f"この探索は{'、'.join(references)}の作成元なので削除できません"
+            )
+        if not self.store.delete_screening_run(run_id, project_id):
+            raise ScreeningNotFoundError("スクリーニング結果が見つかりません")
+
     def promote(
         self,
         run_id: str,
         payload: ScreeningCandidateBatchRequest,
         project_id: str = "default",
+    ) -> ScreeningCandidateBatchResponse:
+        with _screening_project_lock(project_id):
+            return self._promote_unlocked(run_id, payload, project_id)
+
+    def _promote_unlocked(
+        self,
+        run_id: str,
+        payload: ScreeningCandidateBatchRequest,
+        project_id: str,
     ) -> ScreeningCandidateBatchResponse:
         run = self.store.get_screening_run(run_id, project_id)
         if run is None:

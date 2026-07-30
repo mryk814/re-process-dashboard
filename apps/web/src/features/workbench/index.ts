@@ -6,3 +6,4 @@ export { readStartupDiagnostic, type StartupDiagnostic } from "./startupDiagnost
 export { workbenchInferenceKey, workbenchRequestKey, type WorkbenchIdentity } from "./workbenchIdentity";
 export { BlendEditorPanel } from "./BlendEditorPanel";
 export { ChainWorkbenchPage } from "./ChainWorkbenchPage";
+export { HistoricalEvidenceDrawer } from "./HistoricalEvidenceDrawer";

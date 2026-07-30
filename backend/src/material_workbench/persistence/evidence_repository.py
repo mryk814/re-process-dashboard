@@ -256,6 +256,14 @@ class EvidenceRepository:
             for row in rows
         ]
 
+    def delete_screening_run(self, run_id: str, project_id: str = "default") -> bool:
+        with self._connect() as conn:
+            deleted = conn.execute(
+                "DELETE FROM screening_runs WHERE id = ? AND project_id = ?",
+                (run_id, project_id),
+            )
+        return deleted.rowcount == 1
+
     @staticmethod
     def _decision_activity_run(row: sqlite3.Row) -> dict[str, Any]:
         return {
