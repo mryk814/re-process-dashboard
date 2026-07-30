@@ -5,14 +5,14 @@
 .data-onboarding-paths { display: grid; gap: 9px; border: 1px solid #a9bfd6; border-radius: 6px; background: #f7faff; padding: 12px; }
 .data-onboarding-paths > header { display: flex; align-items: end; justify-content: space-between; gap: 10px; }
 .data-onboarding-paths h3 { margin: 2px 0 0; color: #29435f; font-size: 14px; }
-.data-onboarding-paths > header small { color: #65788e; font-size: 10px; }
+.data-onboarding-paths > header small { color: #526276; font-size: 10px; }
 .data-onboarding-paths > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
 .data-onboarding-paths button { display: grid; min-width: 0; gap: 2px; border: 1px solid #c5d3e1; border-radius: 5px; background: #fff; padding: 9px 10px; color: #324b65; text-align: left; cursor: pointer; }
 .data-onboarding-paths button:hover:not(:disabled) { border-color: #5688bd; background: #f1f7fd; }
 .data-onboarding-paths button:disabled { cursor: not-allowed; opacity: .5; }
 .data-onboarding-paths button b { color: #205c9a; font-size: 12px; }
 .data-onboarding-paths button span { font-size: 11px; }
-.data-onboarding-paths button small { overflow-wrap: anywhere; color: #718096; font-size: 10px; }
+.data-onboarding-paths button small { overflow-wrap: anywhere; color: #526276; font-size: 10px; }
 .new-task-guide { display: grid; gap: 10px; border-color: #8aaed3; background: #f8fbff; }
 .new-task-guide > header { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
 .new-task-guide h3 { margin: 2px 0; color: #29435f; font-size: 14px; }
