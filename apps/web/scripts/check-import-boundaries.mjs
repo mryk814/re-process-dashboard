@@ -11,6 +11,7 @@ const allowedFeatureDependencies = new Set([
   "lineage->candidates",
   "projects->candidates",
   "screening->candidates",
+  "screening->workbench",
   "workbench->candidates",
 ]);
 

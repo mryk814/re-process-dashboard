@@ -116,7 +116,7 @@ export function ScreeningRepresentativeTable({
         </div>
       )}
       <div className="screening-results-scroll">
-        <table className="quality-table screening-results-table">
+        <table className={`quality-table screening-results-table${selectionEnabled ? " has-selection" : ""}`}>
           <thead>
             <tr>
               {selectionEnabled && <th className="screening-select-column">選択</th>}

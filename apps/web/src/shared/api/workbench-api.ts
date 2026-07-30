@@ -765,6 +765,9 @@ export const workbenchApi = {
   async screeningRun(projectId: string, runId: string) {
     return requireData(await apiClient.GET("/api/screening/{run_id}", { params: { path: { run_id: runId }, query: { project_id: projectId } } }), "保存済み探索を開けませんでした。");
   },
+  async deleteScreeningRun(projectId: string, runId: string) {
+    requireSuccess(await apiClient.DELETE("/api/screening/{run_id}", { params: { path: { run_id: runId }, query: { project_id: projectId } } }), "保存済み探索を削除できませんでした。");
+  },
   async candidatesFromScreening(projectId: string, runId: string, pointIndices: number[]) {
     return requireData(await apiClient.POST("/api/screening/{run_id}/candidates", { params: { path: { run_id: runId }, query: { project_id: projectId } }, body: { point_indices: pointIndices } }), "候補を作成できませんでした。");
   },

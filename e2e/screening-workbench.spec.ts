@@ -134,6 +134,44 @@ test("range exploration uses the shared candidate table without leaving the scre
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
 });
 
+test("saved exploration can be inspected through evidence and deleted when unused", async ({ page, request }) => {
+  const project = await createProject(request, "annealed-properties-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+  await chooseLandscape(page);
+
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await runScreening(page);
+  expect((await runResponse).status()).toBe(201);
+
+  const table = page.locator(".screening-results-table");
+  await expect(table).not.toHaveClass(/has-selection/);
+  expect(await table.locator(".screening-point-column").first().evaluate((element) => getComputedStyle(element).left)).toBe("0px");
+  await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("動かした条件:");
+  await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).not.toContainText("全変動条件:");
+
+  const evidenceButton = page.getByRole("button", { name: /実績を見る/ }).first();
+  await expect(evidenceButton).toBeVisible();
+  await evidenceButton.click();
+  await expect(page.getByLabel("過去実績の根拠", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("過去実績の根拠", { exact: true })).toHaveCount(0);
+
+  const savedRun = page.locator(".saved-run-item").first();
+  await savedRun.getByRole("button", { name: "削除", exact: true }).click();
+  await expect(savedRun.getByRole("button", { name: "削除する" })).toBeVisible();
+  const deleteResponse = page.waitForResponse((response) => (
+    response.request().method() === "DELETE"
+    && new URL(response.url()).pathname.startsWith("/api/screening/")
+  ));
+  await savedRun.getByRole("button", { name: "削除する" }).click();
+  expect((await deleteResponse).status()).toBe(204);
+  await expect(page.locator(".saved-run-item")).toHaveCount(0);
+  await expect(page.locator(".screening-results-table")).toHaveCount(0);
+});
+
 test("hot rolling screening accepts task-defined process fields", async ({ page, request }) => {
   const project = await createProject(request, "hot-rolled-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);

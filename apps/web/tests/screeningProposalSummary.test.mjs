@@ -73,6 +73,11 @@ test("proposal summary leads with a Japanese decision summary while calculation 
   assert.match(headline, /生成 192件 → 制約内 180件 → 提案 48件（除外 12件）/);
   assert.doesNotMatch(headline, /seed|sha256|latin_hypercube|1234567890/);
   assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
+  assert.match(html, /<dt>順位付け<\/dt>/);
+  assert.match(html, /<dt>学習範囲<\/dt>/);
+  assert.match(html, /<dt>副条件<\/dt><dd>なし<\/dd>/);
+  assert.match(html, /<dt>除外<\/dt>/);
+  assert.doesNotMatch(html, /生成した全192件を制約判定/);
   assert.match(html, /title="resource constraint">コスト・設備条件を満たさない/);
   assert.match(html, />別サンプル</);
 
@@ -90,6 +95,9 @@ test("proposal summary leads with a Japanese decision summary while calculation 
     objective_definition_digest: "sha256:abcdef1234567890",
   });
   assert.match(evidence, /<summary>計算記録<\/summary>/);
+  assert.match(evidence, /<dt>Run<\/dt>/);
+  assert.match(evidence, /<dt>固定参照<\/dt>/);
+  assert.match(evidence, /<details class="screening-run-evidence-details"><summary>詳細な計算条件<\/summary>/);
   assert.match(evidence, /seed 42/);
   assert.match(evidence, /strategy latin_hypercube_v1 1\.0\.0/);
   assert.match(evidence, /Model Package <code title="sha256:model-package">sha256:model-package<\/code>/);

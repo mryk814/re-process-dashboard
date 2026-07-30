@@ -1,6 +1,9 @@
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
+from threading import Event
+import time
 
 from openpyxl import Workbook, load_workbook
 import numpy as np
@@ -130,6 +133,68 @@ def test_screening_request_rejects_removed_scalar_goal_fields(client) -> None:
     response = client.post("/api/screening", json=payload)
 
     assert response.status_code == 422
+
+
+def test_unused_screening_run_can_be_deleted(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    run = client.post("/api/screening", json=_screening_body(candidate)).json()
+
+    deleted = client.delete(f"/api/screening/{run['id']}")
+
+    assert deleted.status_code == 204
+    assert client.get(f"/api/screening/{run['id']}").status_code == 404
+    assert run["id"] not in {item["id"] for item in client.get("/api/screening").json()}
+
+
+def test_screening_run_used_by_a_candidate_cannot_be_deleted(client) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    run = client.post("/api/screening", json=_screening_body(candidate)).json()
+    promoted = client.post(
+        f"/api/screening/{run['id']}/candidates",
+        json={"point_indices": [0]},
+    )
+    assert promoted.status_code == 201
+
+    deleted = client.delete(f"/api/screening/{run['id']}")
+
+    assert deleted.status_code == 409
+    assert deleted.json()["code"] == "screening_run_referenced"
+    assert client.get(f"/api/screening/{run['id']}").status_code == 200
+
+
+def test_screening_delete_cannot_race_candidate_promotion(client, monkeypatch) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    run = client.post("/api/screening", json=_screening_body(candidate)).json()
+    store = client.app.state.store
+    original_delete = store.delete_screening_run
+    delete_started = Event()
+    allow_delete = Event()
+
+    def delayed_delete(run_id: str, project_id: str = "default") -> bool:
+        delete_started.set()
+        assert allow_delete.wait(timeout=2)
+        return original_delete(run_id, project_id)
+
+    monkeypatch.setattr(store, "delete_screening_run", delayed_delete)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        delete_future = executor.submit(client.delete, f"/api/screening/{run['id']}")
+        assert delete_started.wait(timeout=2)
+        promote_future = executor.submit(
+            client.post,
+            f"/api/screening/{run['id']}/candidates",
+            json={"point_indices": [0]},
+        )
+        time.sleep(0.1)
+        assert not promote_future.done()
+        allow_delete.set()
+        assert delete_future.result(timeout=2).status_code == 204
+        assert promote_future.result(timeout=2).status_code == 404
+
+    assert all(
+        item.provenance.source_ref.run_id != run["id"]
+        for item in store.list_candidates("default", include_archived=True)
+        if item.provenance.source_kind == "screening"
+    )
 
 
 def test_screening_seed_is_reproducible_and_can_draw_another_sample(client) -> None:

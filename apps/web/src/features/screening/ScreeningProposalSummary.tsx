@@ -24,14 +24,6 @@ const reasonLabels: Record<string, string> = {
   "batch全体の価値で選抜外": "バッチ全体のバランスから選外",
 };
 
-const directionLabels: Record<string, string> = {
-  at_least: "下限以上",
-  at_most: "上限以下",
-  between: "範囲内",
-  maximize: "大きいほどよい",
-  minimize: "小さいほどよい",
-};
-
 function displayReason(reason: string) {
   if (reasonLabels[reason]) return reasonLabels[reason];
   return /^[a-z0-9_.:/ -]+$/i.test(reason) ? "その他の制約" : reason;
@@ -47,48 +39,68 @@ export function ScreeningRunEvidence({ result }: { result: ApiScreeningRun }) {
   return (
     <details className="screening-run-evidence">
       <summary>計算記録</summary>
-      <p>
-        seed {result.seed}
-        {" / "}strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""}
-        {strategy && ` / ${strategy.generator_id} → ${strategy.acquisition_id} → ${strategy.selector_id}`}
-        {strategy?.support_policy && ` / support ${strategy.support_policy}`}
-        {strategy?.fallback_from && ` / fallback ${strategy.fallback_from}`}
-      </p>
-      {strategy?.standard_deviation_methods?.length
-        ? <p>standard deviation methods {strategy.standard_deviation_methods.join(", ")}</p>
-        : null}
-      <p>Model Package <code title={packageDigest ?? "記録なし"}>{packageDigest ?? "記録なし"}</code></p>
-      <p>Design Space <code title={result.design_space_digest ?? "記録なし"}>{result.design_space_digest ?? "記録なし"}</code></p>
-      <p>Objective <code title={result.objective_definition_digest ?? "記録なし"}>{result.objective_definition_digest ?? "記録なし"}</code></p>
-      {objective && <p>Objective revision {objective.revision} / {objective.optimization_kind}</p>}
-      {objective && <p>
-        Objective terms: {objective.terms.map((term) => `${term.output_key}:${term.role}:${term.direction ?? "none"}:${term.unit}`).join(" / ")}
-      </p>}
-      {incumbentResolution?.source === "observed_project_actuals" && (
+      <dl className="screening-run-evidence-summary">
+        <div>
+          <dt>Run</dt>
+          <dd>seed {result.seed} · strategy {strategy?.id ?? "legacy"} {strategy?.version ?? ""}</dd>
+        </div>
+        <div>
+          <dt>固定参照</dt>
+          <dd>
+            Model Package <code title={packageDigest ?? "記録なし"}>{packageDigest ?? "記録なし"}</code>
+            {" · "}Design Space <code title={result.design_space_digest ?? "記録なし"}>{result.design_space_digest ?? "記録なし"}</code>
+            {" · "}Objective <code title={result.objective_definition_digest ?? "記録なし"}>{result.objective_definition_digest ?? "記録なし"}</code>
+          </dd>
+        </div>
+      </dl>
+      <details className="screening-run-evidence-details">
+        <summary>詳細な計算条件</summary>
         <p>
-          incumbent母集団: Project実測 {incumbentResolution.record_count}件
-          {" / "}actual {incumbentResolution.actual_id}
-          {" / "}filter {incumbentResolution.filter_digest}
-          {" / "}population {incumbentResolution.population_digest}
+          generator {strategy?.generator_id ?? "記録なし"}
+          {" / "}acquisition {strategy?.acquisition_id ?? "記録なし"}
+          {" / "}selector {strategy?.selector_id ?? "記録なし"}
+          {strategy?.support_policy && ` / support ${strategy.support_policy}`}
+          {strategy?.fallback_from && ` / fallback ${strategy.fallback_from}`}
         </p>
-      )}
-      {diagnostics && Object.keys(diagnostics.coverage_by_path ?? {}).length > 0 && (
-        <p>
-          生成coverage: {Object.entries(diagnostics.coverage_by_path ?? {})
-            .map(([path, item]) => `${path} ${(item.normalized_span * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%`)
-            .join(" / ")}
-        </p>
-      )}
-      {result.batch_proposal?.candidate_pool && (
-        <p>batch pool digest <code>{result.batch_proposal.candidate_pool.pool_digest}</code></p>
-      )}
-      {result.batch_proposal && (
-        <p>
-          batch selector {result.batch_proposal.selector_id}
-          {" / "}distance {result.batch_proposal.distance_id} {result.batch_proposal.distance_version}
-          {" / "}tie-break pool index
-        </p>
-      )}
+        {strategy?.standard_deviation_methods?.length
+          ? <p>standard deviation methods {strategy.standard_deviation_methods.join(", ")}</p>
+          : null}
+        <p>Model Package <code>{packageDigest ?? "記録なし"}</code></p>
+        <p>Design Space <code>{result.design_space_digest ?? "記録なし"}</code></p>
+        <p>Objective <code>{result.objective_definition_digest ?? "記録なし"}</code></p>
+        {objective && <p>
+          Objective revision {objective.revision} / {objective.optimization_kind}
+          {" / "}binding {result.objective_binding_provenance ?? "記録なし"}
+        </p>}
+        {objective && <p>
+          Objective terms: {objective.terms.map((term) => `${term.output_key}:${term.role}:${term.direction ?? "none"}:${term.unit}`).join(" / ")}
+        </p>}
+        {incumbentResolution?.source === "observed_project_actuals" && (
+          <p>
+            incumbent母集団: Project実測 {incumbentResolution.record_count}件
+            {" / "}actual {incumbentResolution.actual_id}
+            {" / "}filter {incumbentResolution.filter_digest}
+            {" / "}population {incumbentResolution.population_digest}
+          </p>
+        )}
+        {diagnostics && Object.keys(diagnostics.coverage_by_path ?? {}).length > 0 && (
+          <p>
+            生成coverage: {Object.entries(diagnostics.coverage_by_path ?? {})
+              .map(([path, item]) => `${path} ${(item.normalized_span * 100).toLocaleString("ja-JP", { maximumFractionDigits: 0 })}%`)
+              .join(" / ")}
+          </p>
+        )}
+        {result.batch_proposal?.candidate_pool && (
+          <p>batch pool digest <code>{result.batch_proposal.candidate_pool.pool_digest}</code></p>
+        )}
+        {result.batch_proposal && (
+          <p>
+            batch selector {result.batch_proposal.selector_id}
+            {" / "}distance {result.batch_proposal.distance_id} {result.batch_proposal.distance_version}
+            {" / "}tie-break pool index
+          </p>
+        )}
+      </details>
     </details>
   );
 }
@@ -117,30 +129,7 @@ export function ScreeningProposalSummary({
   const isDesignSpaceMap = result.purpose === "design_space_map";
   const isExperimentBatch = result.purpose === "experiment_batch" || result.batch_proposal != null;
   const resolvedTargetLabel = targetLabel ?? result.target ?? "対象特性";
-  const distanceLabel = strategy?.distance_id === "group_weighted_bounded_clr_rms"
-    ? "組成bounded CLR-RMS + 入力群均等"
-    : "各scalar軸のDesign Space幅正規化RMS（汎用）";
   const objective = result.objective_definition;
-  const objectiveProvenance = result.objective_binding_provenance === "explicit"
-    ? "明示Objective"
-    : result.objective_binding_provenance === "project_revision"
-      ? "Project固定Objective"
-      : "旧範囲探索の条件から固定";
-  const incumbentSourceLabel = {
-    none: "なし",
-    request_override: "手入力",
-    objective_candidate_revision: "候補revision",
-    objective_prediction_snapshot: "予測snapshot",
-    objective_project_decision: "Project採用判断",
-    observed_project_actuals: "Project実測の最良値",
-  } as const;
-  const incumbentResolution = strategy?.incumbent_resolution;
-  const roleLabel = {
-    primary_objective: "主目的",
-    hard_outcome_constraint: "必須条件",
-    soft_preference: "選好",
-    reporting_only: "表示のみ",
-  } as const;
   const batchRoleLabel = {
     performance: "目標追求",
     exploration: "探索",
@@ -174,6 +163,14 @@ export function ScreeningProposalSummary({
     ?? diagnostics?.selected_count
     ?? result.points?.length
     ?? result.samples;
+  const secondaryConditionCount = objective?.terms.filter(
+    (term) => term.role === "hard_outcome_constraint" || term.role === "soft_preference",
+  ).length ?? 0;
+  const rejectionEntries = Object.entries(rejectionReasons).sort((left, right) => right[1] - left[1]);
+  const visibleRejections = rejectionEntries.slice(0, 3);
+  const remainingRejectionCount = rejectionEntries
+    .slice(3)
+    .reduce((sum, [, count]) => sum + count, 0);
 
   return (
     <section className="screening-proposal-summary" aria-label="探索条件と提案診断">
@@ -188,56 +185,42 @@ export function ScreeningProposalSummary({
       </div>
       <details>
         <summary>判断根拠</summary>
-        <p>
-          {strategyDecisionLabels[strategy?.id ?? ""] ?? "保存時の提案方法で順位付け"}
-          {strategy && ` / 条件間の距離: ${distanceLabel}${result.batch_proposal ? "" : "（バッチ選定時に使用）"}`}
-          {strategy?.exploration_parameter != null && (
-            strategy.parameter_role === "improvement_margin"
-              ? ` / 改善とみなす余裕 ${strategy.exploration_parameter}`
-              : ` / 不確かさの重み ${strategy.exploration_parameter}`
-          )}
-          {incumbentResolution && incumbentResolution.value != null && (
-            ` / 比較基準 ${incumbentResolution.value}（${incumbentSourceLabel[incumbentResolution.source]}）`
-          )}
-        </p>
-        {strategy?.uncertainty_treatment && (
-          <p>
-            不確かさ: {strategy.acquisition_representation === "normal_mean_std"
-              ? "予測平均 + 標準偏差（正規近似）"
-              : "モデルが出力する予測標準偏差"}
-            {strategy.standard_deviation_methods?.length
-              ? " / 標準偏差の算出方法は計算記録に収録"
-              : ""}
-            {" / 副条件: 満たす点を優先して順位付け"}
-          </p>
-        )}
-        {strategy?.fallback_from && <p title={`${strategy.fallback_from} → ${strategy.id}`}>選んだ方法を利用できなかったため、利用可能な標準方法に切り替えました。</p>}
-        {objective
-          ? <>
-              <p>{objective.name} · {objectiveProvenance}</p>
-              <ul>
-                {objective.terms.map((term) => (
-                  <li key={term.output_key}>
-                    <span title={`${term.output_key} / ${term.direction ?? "none"}`}>{roleLabel[term.role]} · {directionLabels[term.direction ?? ""] ?? "順位付けなし"}</span>
-                    <b>{term.unit}</b>
-                  </li>
-                ))}
-              </ul>
-            </>
-          : <p>旧記録のためObjective Definitionは固定されていません。</p>}
-        {diagnostics && <p>生成した全{diagnostics.generated_count}件を制約判定し、制約内の点から{diagnostics.evaluated_count}件を評価しました。</p>}
-        {diagnostics && Object.keys(rejectionReasons).length > 0
-          ? <ul>{Object.entries(rejectionReasons).map(([reason, count]) => <li key={reason}><span title={reason}>{displayReason(reason)}</span><b>{count}件</b></li>)}</ul>
-          : <p>{diagnostics ? "制約による除外はありません。" : "旧記録のため、全生成数に対する除外率は算出できません。"}</p>}
-        {(result.proposal_pool?.length ?? 0) > 0 && (
-          <p>
-            評価対象 {result.proposal_pool?.length ?? 0}件を保存。
-            選抜外 {result.proposal_pool?.filter((item) => item.exclusion_reason != null).length ?? 0}件も順位付けの内訳とともに再現できます。
-          </p>
-        )}
-        {(result.proposal_rejections?.length ?? 0) > 0 && (
-          <p>除外した生成点 {result.proposal_rejections?.length ?? 0}件も入力値と理由を保存しています。</p>
-        )}
+        <dl className="screening-decision-reasons">
+          <div>
+            <dt>順位付け</dt>
+            <dd title={strategy?.fallback_from ? `${strategy.fallback_from} → ${strategy.id}` : undefined}>
+              {strategyDecisionLabels[strategy?.id ?? ""] ?? "保存時の提案方法で順位付け"}
+              {strategy?.fallback_from && "（利用可能な標準方法へ切替）"}
+            </dd>
+          </div>
+          <div>
+            <dt>学習範囲</dt>
+            <dd>{supportPolicyLabel}</dd>
+          </div>
+          <div>
+            <dt>副条件</dt>
+            <dd>{secondaryConditionCount > 0 ? `${secondaryConditionCount}項目を満たす点を優先` : "なし"}</dd>
+          </div>
+          <div>
+            <dt>除外</dt>
+            <dd>
+              {visibleRejections.length > 0
+                ? <>
+                    {visibleRejections.map(([reason, count], index) => (
+                      <span key={reason} title={reason}>
+                        {index > 0 && " · "}{displayReason(reason)} {count}件
+                      </span>
+                    ))}
+                    {remainingRejectionCount > 0 && ` · その他 ${remainingRejectionCount}件`}
+                  </>
+                : diagnostics
+                  ? "制約による除外なし"
+                  : legacyRejectionCount > 0
+                    ? `旧記録のため、全生成数に対する除外率は算出できません（除外 ${legacyRejectionCount}件）`
+                    : "記録なし"}
+            </dd>
+          </div>
+        </dl>
       </details>
       {result.batch_proposal && (
         <details className="screening-batch-result">

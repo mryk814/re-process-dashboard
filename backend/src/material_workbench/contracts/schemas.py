@@ -1733,6 +1733,7 @@ class ApiError(BaseModel):
         "active_project_purge",
         "project_purge_confirmation_mismatch",
         "sample_has_saved_work",
+        "screening_run_referenced",
         "data_integrity_error",
         "validation_error",
         "response_curve_not_applicable",
