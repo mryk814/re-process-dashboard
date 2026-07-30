@@ -70,9 +70,6 @@
         "apps/web/src/features/screening/ScreeningPage.tsx",
         "apps/web/src/features/screening/ScreeningResultSurfaces.tsx",
         "apps/web/src/features/screening/screeningInterpolation.ts",
-        "apps/web/tests/screeningInterpolation.test.mjs",
-        "apps/web/tests/screeningResultSurfaces.test.mjs",
-        "apps/web/tests/screeningResultTable.test.mjs",
         "e2e/screening-workbench.spec.ts"
       ]
     }
