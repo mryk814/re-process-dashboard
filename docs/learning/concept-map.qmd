@@ -69,7 +69,7 @@ code_references:
     role: "contract"
   - path: "backend/src/material_workbench/contracts/workspace_bundle_contracts.py"
     role: "contract"
-  - path: "backend/src/material_workbench/data/dataset_profile.py"
+  - path: "backend/src/material_workbench/data/profiles/schema.py"
     role: "application"
   - path: "backend/src/material_workbench/data/observation_profile.py"
     role: "application"

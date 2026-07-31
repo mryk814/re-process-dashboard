@@ -4,7 +4,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 PACKAGE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench"
 
 
@@ -54,9 +53,48 @@ def test_removed_integration_hubs_do_not_return() -> None:
     assert not (PACKAGE_ROOT / "task_composition" / "builtin_tasks.py").exists()
     assert not (PACKAGE_ROOT / "tasks" / "project_runtime_resolver.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_registration.py").exists()
+    assert not (PACKAGE_ROOT / "data" / "dataset_profile.py").exists()
     assert not (
         PACKAGE_ROOT / "persistence" / "workspace_catalog_bootstrap.py"
     ).exists()
+
+
+def test_profile_package_has_one_way_schema_validation_and_canonicalization_dependencies() -> None:
+    profiles = PACKAGE_ROOT / "data" / "profiles"
+    imports = {
+        name: _imports(profiles / f"{name}.py")
+        for name in ("schema", "loading", "validation", "canonicalization")
+    }
+    workbook_io = (
+        "openpyxl",
+        "material_workbench.data.importer",
+        "material_workbench.data.profiles.canonicalization",
+    )
+    assert sorted(
+        name
+        for module in ("schema", "loading")
+        for name in imports[module]
+        if name.startswith(workbook_io)
+    ) == []
+    assert sorted(
+        name
+        for name in imports["schema"]
+        if name.startswith("material_workbench.data.profiles.")
+    ) == []
+    assert sorted(
+        name
+        for name in imports["validation"]
+        if name.startswith((
+            "material_workbench.data.profiles.loading",
+            "material_workbench.data.profiles.canonicalization",
+        ))
+    ) == []
+    assert sorted(
+        name
+        for name in imports["canonicalization"]
+        if name.startswith("material_workbench.data.profiles.loading")
+    ) == []
+    assert "material_workbench.data.profiles.validation" in imports["canonicalization"]
 
 
 def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependency() -> None:
@@ -197,6 +235,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
         "material_workbench.task_modules",
         "material_workbench.tasks.project_runtime_resolver",
         "material_workbench.data.dataset_registration",
+        "material_workbench.data.dataset_profile",
         "material_workbench.persistence.workspace_catalog_bootstrap",
     }
     removed_paths = {
@@ -205,6 +244,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
         "backend/src/material_workbench/task_modules.py",
         "backend/src/material_workbench/tasks/project_runtime_resolver.py",
         "backend/src/material_workbench/data/dataset_registration.py",
+        "backend/src/material_workbench/data/dataset_profile.py",
         "backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py",
     }
     roots = (

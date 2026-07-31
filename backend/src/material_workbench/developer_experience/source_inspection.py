@@ -8,20 +8,19 @@ from typing import Iterable
 
 from openpyxl import load_workbook
 
-from material_workbench.data.dataset_profile import (
-    DatasetInputProfile,
-    canonicalize_workbook,
-    load_dataset_profile,
-)
 from material_workbench.data.profile_workbench import validate_workbook_profile
-from material_workbench.developer_experience.commands import developer_command as command
+from material_workbench.data.profiles.canonicalization import canonicalize_workbook
+from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profiles.schema import DatasetInputProfile
+from material_workbench.developer_experience.commands import (
+    developer_command as command,
+)
 from material_workbench.developer_experience.schemas import (
     DataPurposeGuidance,
     InspectionDecision,
     ProfileCandidate,
     SourceInspection,
 )
-
 
 PROFILE_GLOB = "dataset-input-profile-*.json"
 _UNIT_SUFFIX = re.compile(r"\s*\[([^\]]+)\]\s*$")

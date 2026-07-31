@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.contracts.task_contracts import TaskDefinition
-from material_workbench.data.dataset_profile import DatasetInputProfile
+from material_workbench.data.profiles.schema import DatasetInputProfile
 from material_workbench.task_composition.builtin.shared import (
     TABULAR_EXPLORER,
     _application_capability,

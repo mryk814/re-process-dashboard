@@ -7,35 +7,37 @@ from pathlib import Path
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from openpyxl import Workbook, load_workbook
-
-from material_workbench.data.dataset_profile import (
-    DatasetProfileError,
-    canonicalize_workbook,
-    load_dataset_profile,
-    load_task_definitions,
-    materialize_dataset_profile_document,
-    preflight_workbook,
+from material_workbench.app import create_app
+from material_workbench.application.material_lineage_candidates import (
+    candidate_from_lineage,
+    lineage_candidate_options,
 )
-from material_workbench.modeling.feature_pipeline import (
-    build_feature_bundle,
-    candidate_from_observation as anneal_candidate_from_observation,
-)
-from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_rolling_features
+from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.data.importer import (
     _derived_anneal_feature_row,
     detect_dataset_profile_path,
     load_workbook_data,
 )
-from material_workbench.app import create_app
-from material_workbench.contracts.schemas import CandidateInput
-from material_workbench.application.material_lineage_candidates import (
-    candidate_from_lineage,
-    lineage_candidate_options,
+from material_workbench.data.profiles.canonicalization import canonicalize_workbook
+from material_workbench.data.profiles.loading import (
+    load_dataset_profile,
+    load_task_definitions,
+    materialize_dataset_profile_document,
 )
-from material_workbench.contracts.task_contracts import TaskDefinition
+from material_workbench.data.profiles.schema import DatasetProfileError
+from material_workbench.data.profiles.validation import preflight_workbook
+from material_workbench.modeling.feature_pipeline import (
+    build_feature_bundle,
+)
+from material_workbench.modeling.feature_pipeline import (
+    candidate_from_observation as anneal_candidate_from_observation,
+)
+from material_workbench.modeling.hot_rolling_feature_pipeline import (
+    build_hot_rolling_features,
+)
 from material_workbench.task_composition.catalog import registered_task_modules
-
+from openpyxl import Workbook, load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
 TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"

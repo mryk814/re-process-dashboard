@@ -3,21 +3,27 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Sequence
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.data.dataset_profile import (
-    DatasetProfileError,
-    materialize_dataset_profile_document,
-)
 from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.data.importer import detect_dataset_profile_path
-from material_workbench.data.profile_workbench import inspect_workbook, validate_source_profile
-from material_workbench.persistence.workspace_catalog import CatalogConflictError, CatalogReferenceError
+from material_workbench.data.profile_workbench import (
+    inspect_workbook,
+    validate_source_profile,
+)
+from material_workbench.data.profiles.loading import (
+    materialize_dataset_profile_document,
+)
+from material_workbench.data.profiles.schema import DatasetProfileError
+from material_workbench.persistence.workspace_catalog import (
+    CatalogConflictError,
+    CatalogReferenceError,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:

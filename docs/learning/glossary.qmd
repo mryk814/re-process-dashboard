@@ -291,7 +291,7 @@
 
 **学ぶ章**：[ソース更新を学習から切り離す](chapters/source-to-training-evidence.qmd)、[材料データを候補判断へ渡す前に分ける](chapters/materials-domain-primer.qmd)、[演習：行が学習対象になるまでを追跡する](labs/trace-source-evidence.qmd)
 
-**このリポジトリの実装**：[backend/src/material_workbench/data/dataset_profile.py](https://github.com/mryk814/re-process-dashboard/blob/b8a107a6163cf0a59e633cf6e6a018dcbe9e4834/backend/src/material_workbench/data/dataset_profile.py)
+**このリポジトリの実装**：[schema](../../backend/src/material_workbench/data/profiles/schema.py)、[loading](../../backend/src/material_workbench/data/profiles/loading.py)、[validation](../../backend/src/material_workbench/data/profiles/validation.py)、[canonicalization](../../backend/src/material_workbench/data/profiles/canonicalization.py)
 
 ### データ整備手順（Curation Recipe） {#concept-curation-recipe}
 

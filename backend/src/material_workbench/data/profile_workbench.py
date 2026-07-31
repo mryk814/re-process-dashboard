@@ -1,30 +1,31 @@
 """Read-only developer tooling for inspecting workbook Profiles."""
 from __future__ import annotations
 
+import json
+import os
+import re
 from collections import Counter
 from copy import deepcopy
 from difflib import SequenceMatcher
-import json
-import os
 from pathlib import Path
-import re
 from tempfile import NamedTemporaryFile
 from typing import Any
 
 from openpyxl import load_workbook
 
-from material_workbench.data.dataset_profile import (
-    DatasetProfileError,
-    canonicalize_workbook,
+from material_workbench.data.file_integrity import file_sha256
+from material_workbench.data.importer import detect_dataset_profile_path
+from material_workbench.data.profiles.canonicalization import canonicalize_workbook
+from material_workbench.data.profiles.loading import (
     load_dataset_profile,
     materialize_dataset_profile_document,
+)
+from material_workbench.data.profiles.schema import (
+    DatasetProfileError,
     source_units_for,
     unit_conversion,
 )
-from material_workbench.data.file_integrity import file_sha256
-from material_workbench.data.importer import detect_dataset_profile_path
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 _PROFILE_SCHEMA_VERSION = "dataset-input-profile/v2"

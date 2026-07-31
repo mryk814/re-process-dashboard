@@ -59,7 +59,7 @@ Profile familyは現在4系統あり、**共通基底型を共有していませ
 
 | family | 契約 | 例 |
 | --- | --- | --- |
-| Dataset Input Profile v2 | [data/dataset_profile.py:295](../../backend/src/material_workbench/data/dataset_profile.py#L295) `DatasetInputProfile` | `dataset-input-profile-tutorial.json`、`-process-v1`、`-flank-wear-v1` |
+| Dataset Input Profile v2 | [data/profiles/schema.py](../../backend/src/material_workbench/data/profiles/schema.py) `DatasetInputProfile` | `dataset-input-profile-tutorial.json`、`-process-v1`、`-flank-wear-v1` |
 | Tabular Profile | [modeling/tabular_regression.py:176](../../backend/src/material_workbench/modeling/tabular_regression.py#L176) `TabularDatasetProfile` | `tabular-profile-*.json`（8件） |
 | Observation Profile | [data/observation_profile.py:99](../../backend/src/material_workbench/data/observation_profile.py#L99) `ObservationDatasetProfile` | `observation-profile-welding-consumable-stage-c-v1.json` |
 | Stage B Workbook Profile | [data/stage_b_training.py:71](../../backend/src/material_workbench/data/stage_b_training.py#L71) `StageBWorkbookProfile` | `welding-stage-b-profile-v1.json` |
@@ -303,7 +303,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 3. Training Viewを型で持つのはObservation familyだけで、Stage Bはそこへ**変換**しています（[data/stage_b_training.py:153](../../backend/src/material_workbench/data/stage_b_training.py#L153)）。つまり共通境界の候補は既に存在しますが、全familyが通っていません。
 4. Profile形式を統合する必要はありませんが、**「loaderの戻り値の共通契約」は現在ほぼ空**です。Phase 2.1で狭めるべきはProfileではなくこの境界です。
 5. **Observation familyのProfile契約とTraining View契約は溶接語彙なしで再利用できます（実測済）**。`build_observation_training_dataset` はfamily idで分岐せず、target別cohortが入力行の適格性と別に数えられます。よって共通境界は**新設ではなくこの契約の昇格**で足ります。
-6. 単位変換を実際に適用しているのは Dataset Input Profile family（`dataset_profile.py` の `unit_conversion`）だけです。Observation familyは `source_unit` / `canonical_unit` を宣言できますが、[observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` は生値をそのまま入れます（実測済）。現行の溶接Profileが宣言しているのは相対的なラベル付け替えのみなので**実バグではなく潜在リスク**です。
+6. 単位変換を実際に適用しているのは Dataset Input Profile family（[profiles/schema.py](../../backend/src/material_workbench/data/profiles/schema.py) の `unit_conversion`）だけです。Observation familyは `source_unit` / `canonical_unit` を宣言できますが、[observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` は生値をそのまま入れます（実測済）。現行の溶接Profileが宣言しているのは相対的なラベル付け替えのみなので**実バグではなく潜在リスク**です。
 
 ## 3. Chain Coreに残る溶接固有symbol（全列挙）
 

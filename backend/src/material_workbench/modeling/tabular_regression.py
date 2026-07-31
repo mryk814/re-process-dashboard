@@ -19,9 +19,18 @@ from typing import Any, Literal, Sequence
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from material_workbench.contracts.feature_contracts import FeatureBundle, FeatureDefinition
-from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
-from material_workbench.data.dataset_profile import load_task_definitions
+from material_workbench.contracts.feature_contracts import (
+    FeatureBundle,
+    FeatureDefinition,
+)
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateInput,
+    Prediction,
+    Support,
+    TargetValue,
+)
+from material_workbench.data.profiles.loading import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.curve_grid import anchored_curve_grid
