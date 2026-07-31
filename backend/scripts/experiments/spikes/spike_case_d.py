@@ -690,7 +690,7 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
             candidate.text[:300],
         )
 
-        service = client.app.state.chain_execution_service
+        service = client.app.state.chain_planning_use_case
         try:
             starter = service.starter_candidate(project_id)
             _check(

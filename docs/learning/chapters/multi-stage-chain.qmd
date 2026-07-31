@@ -25,17 +25,29 @@ code_references:
       - "ChainSnapshot"
       - "ActualConditionedVariantIdentity"
       - "ActualConditionedVariant"
-  - path: "backend/src/material_workbench/application/chain_execution.py"
+  - path: "backend/src/material_workbench/application/chain_execution_plan.py"
+    id: "multi-stage-chain-plan"
+    role: "application"
+    symbols:
+      - "ChainPlanningUseCase.candidate_input_definitions"
+  - path: "backend/src/material_workbench/application/chain_stage_execution.py"
+    id: "multi-stage-chain-stage-executor"
+    role: "application"
+    symbols:
+      - "ChainStageExecutor._canonical_input"
+      - "ChainStageExecutor._memo_key"
+  - path: "backend/src/material_workbench/application/chain_execution_use_case.py"
     id: "multi-stage-chain-execution-service"
     role: "application"
     symbols:
       - "ChainExecutionCoordinator"
-      - "ChainExecutionService.candidate_input_definitions"
-      - "ChainExecutionService._canonical_input"
-      - "ChainExecutionService._memo_key"
-      - "ChainExecutionService.execute"
-      - "ChainExecutionService.mark_candidate_changed"
-      - "ChainExecutionService.actual_conditioned_variant"
+      - "ChainExecutionUseCase.execute"
+      - "ChainExecutionUseCase.mark_candidate_changed"
+  - path: "backend/src/material_workbench/application/chain_snapshot_use_case.py"
+    id: "multi-stage-chain-snapshot"
+    role: "application"
+    symbols:
+      - "ChainSnapshotUseCase.actual_conditioned_variant"
   - path: "backend/src/material_workbench/contracts/chain_uncertainty_contracts.py"
     id: "multi-stage-chain-uncertainty-contract"
     role: "contract"
@@ -272,7 +284,7 @@ A(x) := B(x) \cup \bigcup_{v\in B(x)} D(v)
 
 \(A(x)\) は、外部入力 \(x\) の変更で影響を受ける段の集合です。
 
-{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.candidate_input_definitions" >}}は、外部ポートの直接の接続先を起点に段間の辺をたどり、到達できる段を`affected_stage_ids`へ格納します。
+{{< code-ref multi-stage-chain-plan symbol="ChainPlanningUseCase.candidate_input_definitions" >}}は、外部ポートの直接の接続先を起点に段間の辺をたどり、到達できる段を`affected_stage_ids`へ格納します。
 
 溶接チェーンで試験温度がCだけへ直接結び付けられるなら、\(B(x)=\{C\}\) であり \(A(x)=\{C\}\) です。
 
@@ -282,7 +294,7 @@ A(x) := B(x) \cup \bigcup_{v\in B(x)} D(v)
 
 ## 正規化済み入力と再利用キーの同一性
 
-{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService._canonical_input" >}}は、外部入力と上流出力を結合定義どおりに接続先の入力経路へ配置し、明示された単位変換を適用します。
+{{< code-ref multi-stage-chain-stage-executor symbol="ChainStageExecutor._canonical_input" >}}は、外部入力と上流出力を結合定義どおりに接続先の入力経路へ配置し、明示された単位変換を適用します。
 
 候補の表示名、選択中のタブ、表示順は、正規化済みの段入力へ入りません。
 
@@ -306,7 +318,7 @@ K_s := H(s,c_s,p_s,h_s)
 
 ここで \(H\) は現行リポジトリで使う意味内容のハッシュ値です。
 
-{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService._memo_key" >}}は、この四要素からキーを作ります。
+{{< code-ref multi-stage-chain-stage-executor symbol="ChainStageExecutor._memo_key" >}}は、この四要素からキーを作ります。
 
 パッケージダイジェストを外すと、同じ入力に対する旧モデルと新モデルの結果を同じ再利用対象として扱います。
 
@@ -340,7 +352,7 @@ K_s := H(s,c_s,p_s,h_s)
 
 {{< code-ref multi-stage-chain-execution-contract symbol=ChainStageExecution >}}は、結果の鮮度、要求時の入力ダイジェスト、結果に対応する入力ダイジェスト、保持した結果、保存済み結果を再利用したかを別フィールドで持ちます。
 
-{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.mark_candidate_changed" >}}は、候補リビジョンの保存直後にダイジェストを比較します。
+{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionUseCase.mark_candidate_changed" >}}は、候補リビジョンの保存直後にダイジェストを比較します。
 影響を受けない段は`latest`のまま残し、最初に入力が変わった段とその下流を`stale`にします。
 
 {{< code-ref multi-stage-chain-execution-test symbol=test_explicit_a_b_c_execution_matches_bindings_and_partial_recomputation >}}では、試験温度を変更するとAとBは保存済み結果を再利用し、Cだけを再計算します。
@@ -403,7 +415,7 @@ UIは保持値を最新値のように表示せず、状態、エラー、前回
 
 必須中間成分の一部だけを実測した場合、欠けた値をステージ B予測で黙って補いません。
 
-{{< code-ref multi-stage-chain-execution-service symbol="ChainExecutionService.actual_conditioned_variant" >}}は必要な実測値がすべてそろうことを要求し、通常の実行記録を変更せず{{< code-ref multi-stage-chain-execution-contract symbol=ActualConditionedVariant >}}を保存します。
+{{< code-ref multi-stage-chain-snapshot symbol="ChainSnapshotUseCase.actual_conditioned_variant" >}}は必要な実測値がすべてそろうことを要求し、通常の実行記録を変更せず{{< code-ref multi-stage-chain-execution-contract symbol=ActualConditionedVariant >}}を保存します。
 
 {{< code-ref multi-stage-chain-execution-test symbol=test_actual_conditioned_variant_requires_complete_measured_b_and_never_overwrites_chain >}}が、部分実測の拒否と通常チェーンの不変性を検査します。
 

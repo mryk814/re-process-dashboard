@@ -308,7 +308,7 @@ C-5が最も重要です。現行契約は不正な系列を**保存できない
 ### 目的
 
 Chain Coreと溶接adapterが分離できているかを反証する。
-最も重要なケースです。[inventory §3](extensibility-inventory.md#3-chain-coreに残る溶接固有symbol全列挙) の21件が実際に障害になるかを確認します。
+最も重要なケースです。[inventory §3](extensibility-inventory.md#3-chain-coreから分離した溶接固有symbol履歴) の21件が実際に障害になるかを確認します。
 
 ### 題材（fixture）
 
@@ -335,7 +335,7 @@ Task Y（中間状態＋外部入力から最終特性を出力）
 - [ ] `execute()` の本体（binding解決・memo・generation・stale判定）は変更不要か → 成立する見込み
 - [ ] `snapshot()` を作れるか → #11, #14 で失敗する見込み
 - [ ] 不確かさ伝播を実行できるか → #18 で失敗する見込み
-- [ ] `chain_execution.py` の変更行数はどれだけか
+- [x] Chain CoreをPlan / Stage / Execution / Snapshot use caseへ分離した
 
 ### 受入条件（Phase 2.5の完了条件）
 
@@ -390,16 +390,16 @@ fixture: ケースAと同じ方式で標準表形式Task 2件（`spike-stage-x-v
 - `POST /api/projects` によるChain Project作成が通る（`_create_chain_project` は終端Task Stageだけを見ており疎配合を要求しない）
 - `GET /chain/distribution-capability` が通る
 
-**塞がった6点（[inventory §3](extensibility-inventory.md#3-chain-coreに残る溶接固有symbol全列挙) の番号と対応）**
+**塞がった6点（[inventory §3](extensibility-inventory.md#3-chain-coreから分離した溶接固有symbol履歴) の番号と対応）**
 
 | # | inventory | 場所 | 実測エラー |
 | --- | --- | --- | --- |
-| D-1 | #3 | [chain_execution.py:250](../../backend/src/material_workbench/application/chain_execution.py#L250) | 候補契約APIと初期候補生成が「決定論的Stage 1段」を要求 |
-| D-2 | #4 | [chain_execution.py:263](../../backend/src/material_workbench/application/chain_execution.py#L263) | `prepare_candidate` が疎配合を要求（候補を保存できない） |
-| D-3 | #5 | [chain_execution.py:328](../../backend/src/material_workbench/application/chain_execution.py#L328) | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
-| D-4 | #1 | [chain_execution.py:70](../../backend/src/material_workbench/application/chain_execution.py#L70) | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
+| D-1 | #3 | 旧 `chain_execution.py:250` | 候補契約APIと初期候補生成が「決定論的Stage 1段」を要求 |
+| D-2 | #4 | 旧 `chain_execution.py:263` | `prepare_candidate` が疎配合を要求（候補を保存できない） |
+| D-3 | #5 | 旧 `chain_execution.py:328` | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
+| D-4 | #1 | 旧 `chain_execution.py:70` | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
 | D-5 | #14 | [chain_contracts.py:196](../../backend/src/material_workbench/contracts/chain_contracts.py#L196) | `ChainSnapshotIdentity` が `design_space` / `commercial_catalog` 欠落で2件のvalidation error |
-| D-6 | #11 | [chain_execution.py:1002](../../backend/src/material_workbench/application/chain_execution.py#L1002) | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
+| D-6 | #11 | 旧 `chain_execution.py:1002` | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
 
 D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名前空間を受理する**（`candidate.process.barrel_temperature_c` で
 `validate_chain_definition` が通った）のに、実行層の `_external_values` はそれを生成しません。
@@ -525,7 +525,7 @@ A（標準表形式Task）          実行済み
 
 ### P1-b｜Chain Coreと溶接adapterの分離 — **完了**
 
-- 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が `chain_execution.py` の候補層、1点が `ChainSnapshotIdentity` 契約
+- 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が旧 `chain_execution.py` の候補層、1点が `ChainSnapshotIdentity` 契約
 - 実施内容:
   1. `application/chain_candidate_adapters.py` を追加。`ScalarChainAdapter` と `SparseBlendChainAdapter` をallow-listし、
      Chain Revisionが宣言したStage構成から選ぶ（Task IDでは選ばない）
