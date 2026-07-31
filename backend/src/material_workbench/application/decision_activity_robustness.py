@@ -33,11 +33,6 @@ from material_workbench.contracts.schemas import (
     Support,
     TargetRange,
 )
-from material_workbench.domain.candidate_inputs import (
-    CandidateInputError,
-    input_value,
-    with_declared_balance,
-)
 from material_workbench.domain.goal_targets import empirical_goal_probability
 
 
@@ -121,9 +116,7 @@ def prepare(context: ActivityContext) -> dict[str, Callable[[], float]]:
         for group in definition.input_groups
         for field in group.fields
     }
-    balance_paths = {
-        item.balance_path for item in definition.composition_totals if item.balance_path
-    }
+    balance_paths = context.candidate_family.balance_paths(definition)
     rng = random.Random(parameters.seed)
     samplers: dict[str, Callable[[], float]] = {}
     project_space = context.project.design_space
@@ -144,8 +137,11 @@ def prepare(context: ActivityContext) -> dict[str, Callable[[], float]]:
                 f"{field.label}は組成合計のbalance項目なので直接は変動させられません"
             )
         try:
-            base = input_value(context.candidate, path)
-        except CandidateInputError as exc:
+            base = context.candidate_family.numeric_value(
+                context.candidate,
+                path,
+            )
+        except ValueError as exc:
             raise DecisionActivityValidationError(str(exc)) from exc
         lower, upper = _bounds(base, spec)
         if path in project_fixed:
@@ -210,8 +206,11 @@ def compute(
         if len(accepted_inputs) >= parameters.sample_count:
             break
         varied = {path: sample() for path, sample in samplers.items()}
-        sample_candidate = with_declared_balance(
-            candidate, varied, definition.composition_totals, definition
+        sample_candidate = context.candidate_family.update(
+            candidate,
+            varied,
+            definition,
+            balance=True,
         )
         try:
             context.validate_candidate(sample_candidate)

@@ -20,6 +20,10 @@ from material_workbench.task_composition.ports import (
     TrainingRangeProvider,
 )
 from material_workbench.task_composition.descriptors import TaskModule
+from material_workbench.task_composition.candidate_family_adapters import (
+    CandidateFamilyAdapter,
+    candidate_family_adapter,
+)
 from material_workbench.task_composition.catalog import (
     registered_task_modules,
 )
@@ -45,6 +49,7 @@ class TaskRuntimeEntry:
     support_provider: SupportProvider
     capability: RuntimeCapability
     application_capability: ApplicationCapability
+    candidate_family_adapter: CandidateFamilyAdapter
     package_digest: str
     pipeline_digest: str
     support_digest: str
@@ -134,6 +139,18 @@ class TaskRegistry:
             try:
                 self._validate_runtime(task_id, runtime)
                 module = self._modules[task_id]
+                contract = self._contracts[task_id]
+                if (
+                    module.candidate_family_adapter_id
+                    != contract.task_definition.canonical_candidate_schema_version
+                ):
+                    raise TaskRegistryError(
+                        "TaskModuleのCandidate family adapterがTaskDefinitionと"
+                        f"一致しません: {task_id}"
+                    )
+                family_adapter = candidate_family_adapter(
+                    module.candidate_family_adapter_id
+                )
                 explorer = explorers.get(task_id)
                 if explorer is not None and explorer.data is not runtime.data:
                     raise TaskRegistryError(f"data explorer source does not match runtime data: {task_id}")
@@ -177,6 +194,7 @@ class TaskRegistry:
                 support_provider=runtime,
                 capability=contract.runtime_capability,
                 application_capability=module.application,
+                candidate_family_adapter=family_adapter,
                 package_digest=f"sha256:{package.manifest_sha256}",
                 pipeline_digest=self._pipeline_digest(package),
                 support_digest=semantic_digest({
@@ -287,6 +305,11 @@ class TaskRegistry:
     def module_for(self, task_id: str) -> TaskModule:
         self.contract_for(task_id)
         return self._modules[task_id]
+
+    def candidate_family_for(self, task_id: str) -> CandidateFamilyAdapter:
+        """Resolve only the family adapter verified with this Task runtime."""
+
+        return self.entry_for(task_id).candidate_family_adapter
 
     @property
     def task_ids(self) -> tuple[str, ...]:

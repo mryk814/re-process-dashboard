@@ -9,7 +9,6 @@ from material_workbench.domain.goal_targets import serialize_target_values
 from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.contracts.schemas import Candidate, Prediction, Project, Support
-from material_workbench.domain.candidate_inputs import with_declared_balance
 from material_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
     ResponseCurveTrainingRangeUnavailableError,
@@ -94,11 +93,16 @@ class InferenceService:
         self.require_operation(project.task_id, "response_curve")
         if (range_min is None) != (range_max is None):
             raise InferenceValidationError("応答曲線の範囲は最小値と最大値をセットで指定してください")
-        is_stage_temperature = variable == "heat.stage_temperature_c"
-        if is_stage_temperature != (stage_name is not None and stage_position_m is not None):
-            raise InferenceValidationError("工程温度の応答曲線は工程名と入口からの工程位置をセットで指定してください")
-        if stage_name is not None and not stage_name.strip():
-            raise InferenceValidationError("工程名は空白以外の文字を指定してください")
+        try:
+            self.registry.candidate_family_for(
+                project.task_id
+            ).validate_response_axis(
+                variable,
+                stage_name=stage_name,
+                stage_position_m=stage_position_m,
+            )
+        except ValueError as exc:
+            raise InferenceValidationError(str(exc)) from exc
         axis_range = None
         if range_min is not None and range_max is not None:
             if not math.isfinite(range_min) or not math.isfinite(range_max) or range_min >= range_max:
@@ -167,16 +171,14 @@ class InferenceService:
         allowed_axes = set(surface.axis_paths)
         if x_variable not in allowed_axes or y_variable not in allowed_axes:
             raise InferenceValidationError("この予測タスクでコンター軸にできない変数です")
-        for total in definition.composition_totals:
-            selected = {x_variable, y_variable} & set(total.component_paths)
-            if not selected:
-                continue
-            if total.balance_path is None:
-                raise InferenceValidationError(
-                    "組成合計を固定したまま独立に動かせない変数はコンター軸にできません"
-                )
-            if total.balance_path in {x_variable, y_variable}:
-                raise InferenceValidationError("組成balanceはコンター軸にできません")
+        family = self.registry.candidate_family_for(project.task_id)
+        try:
+            family.validate_independent_axes(
+                (x_variable, y_variable),
+                definition,
+            )
+        except ValueError as exc:
+            raise InferenceValidationError(str(exc)) from exc
         self.registry.require_available(project.task_id)
         try:
             runtime = self.resolver.runtime_for(project)
@@ -206,11 +208,11 @@ class InferenceService:
                 output_values: list[float] = []
                 for y_value in y_values:
                     for x_value in x_values:
-                        adjusted = with_declared_balance(
+                        adjusted = family.update(
                             candidate,
                             {x_variable: x_value, y_variable: y_value},
-                            definition.composition_totals,
                             definition,
+                            balance=True,
                         )
                         try:
                             self.registry.validate_candidate(project.task_id, adjusted)

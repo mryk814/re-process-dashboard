@@ -147,7 +147,7 @@ def test_builtin_exact_gp_lognormal_requires_log1p_config(tmp_path):
         adapter.load(package, spec)
 
 
-def _create_flank_project(client):
+def _create_flank_project(client, *, target: float = 200):
     catalog = client.get("/api/task-definitions").json()
     starter = next(
         item for item in catalog
@@ -155,7 +155,7 @@ def _create_flank_project(client):
     )["starter_candidate"]
     project = client.post(
         "/api/projects",
-        json={"name": "切削摩耗の候補検討", "task_id": TASK_ID, "target_values": {"VB_max": 200}},
+        json={"name": "切削摩耗の候補検討", "task_id": TASK_ID, "target_values": {"VB_max": target}},
     ).json()
     candidate = client.post(f"/api/projects/{project['id']}/candidates", json=starter).json()
     return project, candidate
@@ -176,6 +176,84 @@ def test_flank_wear_api_preview_and_goal_probability(client):
     assert 0 <= prediction["goal_probability"] <= 1
     assert payload["support"]["status"] in {"supported", "caution", "extrapolated"}
     assert set(payload["support"]["components"]) == {"composition", "material", "tool", "process"}
+
+
+def test_flank_wear_candidate_family_runs_all_three_decision_activities(client):
+    project, candidate = _create_flank_project(client, target=0)
+    base = (
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}"
+        "/decision-activities"
+    )
+    robustness = client.post(
+        f"{base}/robustness-analysis-v1/runs",
+        json={
+            "expected_revision": candidate["revision"],
+            "parameters": {
+                "schema_version": "robustness-parameters/v1",
+                "sample_count": 8,
+                "seed": 561,
+                "tolerance_profile": {
+                    "fields": {
+                        "process.cutting_speed_mpm": {
+                            "kind": "absolute",
+                            "amount": 1.0,
+                        }
+                    }
+                },
+            },
+        },
+    )
+    assert robustness.status_code == 201, robustness.text
+    assert robustness.json()["result"]["accepted_samples"] == 8
+
+    comparison_payload = {
+        "name": "切削速度の比較案",
+        "inputs": {
+            **candidate["inputs"],
+            "process": {
+                **candidate["inputs"]["process"],
+                "cutting_speed_mpm": (
+                    candidate["inputs"]["process"]["cutting_speed_mpm"] + 1.0
+                ),
+            },
+        },
+    }
+    comparison = client.post(
+        f"/api/projects/{project['id']}/candidates",
+        json=comparison_payload,
+    )
+    assert comparison.status_code == 201, comparison.text
+    difference = client.post(
+        f"{base}/candidate-difference-v1/runs",
+        json={
+            "expected_revision": candidate["revision"],
+            "parameters": {
+                "schema_version": "candidate-difference-parameters/v1",
+                "comparison_candidate_id": comparison.json()["id"],
+                "comparison_revision": comparison.json()["revision"],
+            },
+        },
+    )
+    assert difference.status_code == 201, difference.text
+    assert difference.json()["result"]["changed_input_count"] == 1
+
+    counterfactual = client.post(
+        f"{base}/counterfactual-target-reach-v1/runs",
+        json={
+            "expected_revision": candidate["revision"],
+            "parameters": {
+                "schema_version": "counterfactual-parameters/v1",
+                "sample_count": 48,
+                "result_count": 2,
+                "seed": 561,
+                "max_changed_fields": 2,
+                "categorical_change_penalty": 1,
+                "immutable_paths": [],
+            },
+        },
+    )
+    assert counterfactual.status_code == 201, counterfactual.text
+    assert counterfactual.json()["result"]["status"] in {"feasible", "infeasible"}
 
 
 def test_flank_wear_project_does_not_expose_another_tasks_data_explorer(client):

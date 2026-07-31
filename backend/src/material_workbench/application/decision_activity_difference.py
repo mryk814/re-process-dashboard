@@ -31,10 +31,6 @@ from material_workbench.contracts.schemas import (
     Support,
 )
 from material_workbench.contracts.task_contracts import InputFieldDefinition
-from material_workbench.domain.candidate_inputs import (
-    raw_input_value,
-    with_input_values,
-)
 
 
 # 1入力あたり1回の追加予測が必要なので、置換対象は明示的に上限を設ける。
@@ -96,8 +92,16 @@ def prepare(context: ActivityContext) -> _PreparedDifference:
     changes: list[DifferenceInputChange] = []
     substituted: list[str] = []
     for path, field in sorted(_fields(context).items()):
-        base_value = raw_input_value(base, path)
-        comparison_value = raw_input_value(comparison, path)
+        base_value = context.candidate_family.value(
+            base,
+            path,
+            required=False,
+        )
+        comparison_value = context.candidate_family.value(
+            comparison,
+            path,
+            required=False,
+        )
         if base_value is None and comparison_value is None:
             continue
         if not _changed(base_value, comparison_value):
@@ -167,10 +171,16 @@ def compute(
     contributions: list[DifferenceContribution] = []
     attributed: dict[str, float] = {key: 0.0 for key in outputs}
     for path in prepared.substituted_paths:
-        substituted_value = raw_input_value(context.candidate, path)
+        substituted_value = context.candidate_family.value(
+            context.candidate,
+            path,
+            required=False,
+        )
         assert substituted_value is not None
-        substituted_candidate = with_input_values(
-            prepared.comparison, {path: substituted_value}, definition
+        substituted_candidate = context.candidate_family.update(
+            prepared.comparison,
+            {path: substituted_value},
+            definition,
         )
         try:
             context.validate_candidate(substituted_candidate)

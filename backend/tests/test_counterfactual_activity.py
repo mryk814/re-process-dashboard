@@ -35,6 +35,9 @@ from material_workbench.contracts.task_contracts import (
     OutputDefinition,
     TaskDefinition,
 )
+from material_workbench.task_composition.candidate_family_adapters import (
+    CANONICAL_CANDIDATE_ADAPTER,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 
 
@@ -196,6 +199,7 @@ def test_counterfactual_finds_the_known_minimal_change_and_is_deterministic() ->
         project=project,
         candidate=candidate,
         task_definition=task,
+        candidate_family=CANONICAL_CANDIDATE_ADAPTER,
         runtime=_LinearRuntime(),
         parameters=parameters,
         validate_candidate=validate,
