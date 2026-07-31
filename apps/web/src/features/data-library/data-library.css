@@ -42,6 +42,11 @@
 .csv-task-confirmations label { display: flex; align-items: center; gap: 6px; color: #405a75; font-size: 11px; }
 .csv-task-confirmations input { min-width: auto; padding: 0; }
 .csv-task-confirmations small { color: #765121; font-size: 10px; }
+.csv-task-preparation-status { display: grid; gap: 5px; border: 1px solid #e2c58d; border-radius: 5px; background: #fff9ed; padding: 9px; color: #604a25; }
+.csv-task-preparation-status h4 { margin: 0; color: #604a25; font-size: 12px; }
+.csv-task-preparation-status ul { display: grid; gap: 3px; margin: 0; padding-left: 18px; font-size: 11px; }
+.csv-task-preparation-status p, .csv-task-preparation-status small { margin: 0; font-size: 11px; }
+.csv-task-preparation-status small { color: #765121; }
 .library-undo { display: flex; align-items: center; gap: 10px; border: 1px solid #9abcb4; border-radius: 5px; background: #f1f8f5; padding: 8px 10px; color: #315f57; font-size: 11px; }
 .library-undo .text-button { min-height: 26px; }
 .library-undo-dismiss { margin-left: auto; color: #526276; font-size: 16px; }
