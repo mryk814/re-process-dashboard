@@ -284,6 +284,20 @@ def test_task_unused_relation_columns_do_not_block_registration(
         "anneal_microstructure",
         "hot_microstructure",
     }
+    baseline_inspection = inspect_source_against_profiles(
+        PROCESS_SOURCE,
+        profile_path=PROCESS_PROFILE,
+    )
+    baseline_candidate = next(
+        candidate
+        for candidate in baseline_inspection.candidates
+        if Path(candidate.profile_path) == PROCESS_PROFILE.resolve()
+    )
+    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+    assert not (
+        {join.column for join in optional_joins}
+        & set(baseline_candidate.extra_columns.get(relation_sheet, []))
+    )
 
     workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
     baseline_source = tmp_path / "baseline.xlsx"
@@ -356,9 +370,12 @@ def test_task_unused_relation_columns_do_not_block_registration(
         for candidate in inspection.candidates
         if Path(candidate.profile_path) == PROCESS_PROFILE.resolve()
     )
-    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
     missing_relation_columns = set(selected.missing_columns.get(relation_sheet, []))
     assert not ({join.column for join in optional_joins} & missing_relation_columns)
+    assert not (
+        {join.column for join in optional_joins}
+        & set(selected.extra_columns.get(relation_sheet, []))
+    )
     assert selected.validation_error is None
 
     report = validate_workbook_profile(source, PROCESS_PROFILE)

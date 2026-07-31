@@ -30,7 +30,7 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   await editor.getByLabel("hot_rollingのExcel側シート").selectOption("熱延条件（設備B）");
   await editor.getByLabel("均熱温度[℃]のExcel側列").selectOption("加熱温度[℃]");
   await expect(editor.getByLabel("均熱温度[℃]のExcel側単位")).toHaveValue("℃");
-  await expect(editor.getByText("すべて確定")).toBeVisible();
+  await expect(editor.getByText("登録に必要な対応は確定")).toBeVisible();
 
   await editor.getByRole("button", { name: "Profileを保存して再検査" }).click();
   await expect(page.getByRole("status")).toContainText("自分のProfileとして保存しました");

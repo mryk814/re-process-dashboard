@@ -496,7 +496,7 @@ export function ProfileWorkbenchPage({
         <div className="panel-title">
           <div><span className="overline">SOURCE BINDING</span><h3 id="profile-binding-title">Excel側の名前を対応付ける</h3></div>
           <span className={pendingDraftSlots.length ? "profile-binding-count pending" : "profile-binding-count ready"}>
-            {pendingDraftSlots.length ? `未確定 ${pendingDraftSlots.length}件` : "すべて確定"}
+            {pendingDraftSlots.length ? `未確定 ${pendingDraftSlots.length}件` : "登録に必要な対応は確定"}
           </span>
         </div>
         <p>Taskとrelation構造はBase Profileのままです。提案は自動確定されないため、意味と単位を確認して選択してください。</p>

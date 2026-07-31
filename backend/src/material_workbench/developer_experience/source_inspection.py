@@ -47,7 +47,11 @@ def _workbook_headers(source: Path) -> dict[str, set[str]]:
         workbook.close()
 
 
-def _profile_columns(profile: DatasetInputProfile) -> dict[str, set[str]]:
+def _profile_columns(
+    profile: DatasetInputProfile,
+    *,
+    include_optional_relations: bool = False,
+) -> dict[str, set[str]]:
     columns: dict[str, set[str]] = defaultdict(set)
     optional_roles = set(profile.shared.optional_roles)
     optional_technical = set(profile.shared.optional_technical_fields)
@@ -62,7 +66,7 @@ def _profile_columns(profile: DatasetInputProfile) -> dict[str, set[str]]:
     for entity in profile.shared.entities:
         add(entity.role, (entity.key,))
     for join in profile.shared.relation.joins:
-        if task_requirements.requires_relation(join):
+        if include_optional_relations or task_requirements.requires_relation(join):
             add(profile.shared.relation.role, join.source_columns)
     for policy in profile.shared.eligibility:
         add(policy.role, (policy.column,))
@@ -153,6 +157,7 @@ def inspect_source_against_profiles(
     for path in profile_paths:
         profile = load_dataset_profile(path)
         expected = _profile_columns(profile)
+        known = _profile_columns(profile, include_optional_relations=True)
         expected_sheets = {
             sheet
             for role, sheet in profile.shared.sheets.items()
@@ -177,7 +182,7 @@ def inspect_source_against_profiles(
                     if alternate and alternate != column:
                         possible_units.append(f"{sheet}: {column} ↔ {alternate}")
             matched_columns += len(wanted & actual)
-            unused = sorted(actual - wanted)
+            unused = sorted(actual - known.get(sheet, set()))
             if unused:
                 extra_columns[sheet] = unused
         sheet_score = len(expected_sheets & actual_sheets) / max(len(expected_sheets), 1)
