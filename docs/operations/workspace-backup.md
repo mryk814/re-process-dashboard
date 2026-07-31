@@ -16,6 +16,12 @@ SQLiteファイルを直接コピーせず、動作中でも整合したsnapshot
 `data/workbench.db` を開く。現在のDBとData Libraryのパスは起動ログと
 「ワークスペース」画面で確認する。
 
+branch-defaultの開発Workspaceでは、個人TaskとModel Packageもbranchごとに
+`%LOCALAPPDATA%\\Material Decision Workbench\\dev-workspaces\\<branch名>-<hash>\\tasks|models`
+へ分離する。Data LibraryのCSV onboardingは起動時にこの2つの保存先を受け取り、
+安全境界の検証に成功した場合だけ準備を開始する。利用可否と失敗時の次の操作は
+「ワークスペース」→「保存場所を管理」で確認できる。
+
 レビュー開始点を揃える場合はserverを停止して次を実行する。
 
 ```powershell

@@ -46,6 +46,17 @@ function personalDataLibrary() {
   return path.join(xdgDataHome || path.join(os.homedir(), ".local", "share"), "material-decision-workbench", "data-library");
 }
 
+function personalDevWorkspaceRoot(workspaceName) {
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  const base = localAppData
+    ? path.join(localAppData, "Material Decision Workbench")
+    : path.join(
+      process.env.XDG_DATA_HOME?.trim() || path.join(os.homedir(), ".local", "share"),
+      "material-decision-workbench",
+    );
+  return path.join(base, "dev-workspaces", workspaceName);
+}
+
 export function resolveDevWorkspace({ mainWorkspace = false } = {}) {
   const explicitDatabase = process.env.WORKBENCH_DB_PATH?.trim();
   const workspaceName = safeWorkspaceName(branchName());
@@ -61,15 +72,21 @@ export function resolveDevWorkspace({ mainWorkspace = false } = {}) {
     : mainWorkspace
       ? personalDataLibrary()
       : path.join(repositoryRoot, ".dev-workspaces", `${workspaceName}-data-library`);
+  const source = mainWorkspace
+    ? "main"
+    : explicitDatabase || explicitLibrary
+      ? "environment"
+      : "branch-default";
+  const personalRoot = source === "branch-default"
+    ? personalDevWorkspaceRoot(workspaceName)
+    : undefined;
   return {
     repositoryRoot,
     workspaceName,
     database,
     dataLibrary,
-    source: mainWorkspace
-      ? "main"
-      : explicitDatabase || explicitLibrary
-        ? "environment"
-        : "branch-default",
+    personalTaskStore: personalRoot ? path.join(personalRoot, "tasks") : undefined,
+    personalModelStore: personalRoot ? path.join(personalRoot, "models") : undefined,
+    source,
   };
 }

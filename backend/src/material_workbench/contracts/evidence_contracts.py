@@ -335,6 +335,7 @@ class ApiError(BaseModel):
         "subsystem_unavailable",
     ]
     message: str
+    next_action: str | None = None
     field_errors: list[FieldError] = Field(default_factory=list)
     current_candidate: Candidate | None = None
     availability: SubsystemAvailability | None = None

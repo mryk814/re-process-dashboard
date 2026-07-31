@@ -46,6 +46,9 @@ from material_workbench.modeling.model_lifecycle import (
     AVAILABLE_PACKAGES_PATH,
     validate_personal_model_store_path,
 )
+from material_workbench.developer_experience.task_scaffolding import (
+    validate_personal_task_store_path,
+)
 from material_workbench.persistence.demo_seed import (
     QUICKSTART_PROJECT_ID,
     initialize_demo_projects,
@@ -187,6 +190,7 @@ def create_lifespan(
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     model_store_path: str | Path | None = None,
+    task_store_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
     contributions: tuple[ApplicationContribution, ...] = (),
     ai_review_provider: AiReviewProvider | None = None,
@@ -201,10 +205,12 @@ def create_lifespan(
     configured_active_packages_path = Path(
         active_packages_path or ACTIVE_PACKAGES_PATH
     ).resolve()
-    personal_store = (
-        validate_personal_model_store_path(Path(model_store_path))
-        if model_store_path is not None
-        else None
+    personal_store = None
+    if model_store_path is not None:
+        personal_store = validate_personal_model_store_path(Path(model_store_path))
+        personal_store.mkdir(parents=True, exist_ok=True)
+    personal_task_store = validate_personal_task_store_path(
+        Path(task_store_path) if task_store_path is not None else None
     )
     configured_available_packages_paths = tuple(
         dict.fromkeys(
@@ -322,6 +328,7 @@ def create_lifespan(
         app.state.model_package_origins = model_package_origins
         app.state.model_store_warnings = model_store_warnings
         app.state.model_store_path = personal_store
+        app.state.task_store_path = personal_task_store
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )

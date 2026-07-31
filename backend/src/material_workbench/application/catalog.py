@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean, pstdev
@@ -94,6 +95,47 @@ class CatalogRuntimeState:
     workspace_database: Path
     data_library_root: Path
     workspace_kind: str
+    task_store_path: Path
+    model_store_path: Path | None
+
+
+def _storage_status(path: Path | None, label: str) -> dict[str, Any]:
+    if path is None:
+        return {
+            "label": label,
+            "path": None,
+            "available": False,
+            "reason": "このWorkspaceには保存先が設定されていません。",
+            "next_action": "ワークスペース → 保存場所を管理で保存先を確認し、APIを再起動してください。",
+        }
+    resolved = path.expanduser().resolve()
+    if not resolved.is_dir():
+        return {
+            "label": label,
+            "path": str(resolved),
+            "available": False,
+            "reason": "保存先フォルダが存在しません。",
+            "next_action": "ワークスペース → 保存場所を管理で場所を確認し、フォルダを準備してから再確認してください。",
+        }
+    try:
+        writable = os.access(resolved, os.W_OK)
+    except OSError:
+        writable = False
+    if not writable:
+        return {
+            "label": label,
+            "path": str(resolved),
+            "available": False,
+            "reason": "保存先フォルダへ書き込めません。",
+            "next_action": "ワークスペース → 保存場所を管理で場所を確認し、書き込み権限を直してから再確認してください。",
+        }
+    return {
+        "label": label,
+        "path": str(resolved),
+        "available": True,
+        "reason": "このWorkspaceの新しいTask/Model準備に使用できます。",
+        "next_action": "そのままCSV onboardingへ戻って準備を再試行してください。",
+    }
 
 
 def _require_project(store: Store, project_id: str) -> Any:
@@ -163,6 +205,21 @@ def health(
             "database_path": str(state.workspace_database),
             "data_library_path": str(state.data_library_root),
             "kind": state.workspace_kind,
+        },
+        "storage": {
+            "ready": all(
+                item["available"]
+                for item in (
+                    _storage_status(state.task_store_path, "個人Task"),
+                    _storage_status(state.model_store_path, "個人Model / Package"),
+                )
+            ),
+            "task_store": _storage_status(state.task_store_path, "個人Task"),
+            "model_store": _storage_status(
+                state.model_store_path,
+                "個人Model / Package",
+            ),
+            "next_action": "保存先を確認してCSV onboardingへ戻ってください。",
         },
     }
 

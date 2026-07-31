@@ -65,6 +65,10 @@ const childEnvironment = {
   VITE_API_URL: `http://127.0.0.1:${webPort}`,
   WORKBENCH_DB_PATH: workspace.database,
   WORKBENCH_DATA_LIBRARY_PATH: workspace.dataLibrary,
+  ...(workspace.personalTaskStore && workspace.personalModelStore ? {
+    WORKBENCH_TASK_STORE_PATH: workspace.personalTaskStore,
+    WORKBENCH_MODEL_STORE_PATH: workspace.personalModelStore,
+  } : {}),
   WORKBENCH_WORKSPACE_KIND: workspace.source,
   WORKBENCH_DEFER_RESOURCES:
     process.env.WORKBENCH_DEFER_RESOURCES
@@ -81,6 +85,8 @@ if (checkOnly || resolvePortsOnly) {
     webPort: childEnvironment.WORKBENCH_DEV_WEB_PORT,
     workspaceDatabase: childEnvironment.WORKBENCH_DB_PATH,
     workspaceDataLibrary: childEnvironment.WORKBENCH_DATA_LIBRARY_PATH,
+    workspaceTaskStore: childEnvironment.WORKBENCH_TASK_STORE_PATH,
+    workspaceModelStore: childEnvironment.WORKBENCH_MODEL_STORE_PATH,
     workspaceSource: workspace.source,
   }));
   process.exit(0);

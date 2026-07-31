@@ -13,7 +13,7 @@ import { ScreeningPage } from "../features/screening";
 import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
-import { DataLibraryPage, ProfileWorkbenchPage } from "../features/data-library";
+import { DataLibraryPage, ProfileWorkbenchPage, type PreparedCsvProjectBinding } from "../features/data-library";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
@@ -144,7 +144,7 @@ function rememberNavigation(intent: NavigationIntent) {
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
-  const [requestedProjectBinding, setRequestedProjectBinding] = useState<{ taskId: string; modelPackageRefId: string }>();
+  const [requestedProjectBinding, setRequestedProjectBinding] = useState<Omit<PreparedCsvProjectBinding, "datasetViewId">>();
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
@@ -164,6 +164,13 @@ function App() {
     setNavigation(next);
     rememberNavigation(next);
     window.history[replace ? "replaceState" : "pushState"]({}, "", navigationUrl(next));
+  }
+
+  function openWorkspaceStorage() {
+    workspaceDialogReturnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setWorkspaceDialogOpen(true);
   }
 
   const session = useWorkbenchSession({
@@ -287,7 +294,7 @@ function App() {
     });
   }
 
-  function startProjectForDataset(datasetViewRevisionId: string, binding?: { taskId: string; modelPackageRefId: string }) {
+  function startProjectForDataset(datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) {
     setRequestedDatasetViewId(datasetViewRevisionId);
     setRequestedProjectBinding(binding);
     navigate({ view: "project", projectId: activeProjectId });
@@ -551,6 +558,7 @@ function App() {
             baseDatasetRevisionId,
           })}
           onStartProject={startProjectForDataset}
+          onOpenStorage={openWorkspaceStorage}
           onOpenTrainingData={(projectId) => navigate({
             view: "workspace",
             projectId,
@@ -594,12 +602,7 @@ function App() {
               developerGuideId,
             })}
             onOpenProfileWorkbench={() => navigate({ view: "profile-workbench" })}
-            onOpenStorage={() => {
-              workspaceDialogReturnFocusRef.current = document.activeElement instanceof HTMLElement
-                ? document.activeElement
-                : null;
-              setWorkspaceDialogOpen(true);
-            }}
+            onOpenStorage={openWorkspaceStorage}
           />
         )}
         {tab === "candidates" && chainProject

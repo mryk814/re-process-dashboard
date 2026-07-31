@@ -281,6 +281,12 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await expect(page).toHaveURL(/view=project/);
   const creation = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(creation).toBeVisible();
+  const receipt = creation.getByRole("status", { name: "CSV onboardingの準備結果" });
+  await expect(receipt).toContainText("Task・Dataset・Model Packageを準備し、再読込しました");
+  await expect(receipt).toContainText(binding.task_id);
+  await expect(receipt).toContainText(binding.dataset_revision_id);
+  await expect(receipt).toContainText(binding.model_package_ref_id);
+  await expect(receipt).toContainText(binding.source_sha256);
   const selects = creation.locator(".project-binding-flow select");
   await expect(selects.nth(0)).toHaveValue(binding.dataset_view_revision_id);
   await expect(selects.nth(1)).toHaveValue(`task:${binding.task_id}`);

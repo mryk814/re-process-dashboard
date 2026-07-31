@@ -53,9 +53,21 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
   const [busy, setBusy] = useState<"backup" | "prepare" | "restore" | "cancel">();
   const [result, setResult] = useState<DesktopWorkspaceOperationResult>();
   const [health, setHealth] = useState<ApiWorkspaceHealth>();
+  const [healthRefreshing, setHealthRefreshing] = useState(false);
   const [error, setError] = useState("");
   const desktop = window.workbenchDesktop;
   const prepared = result?.status === "prepared" ? result : undefined;
+
+  async function refreshHealth() {
+    setHealthRefreshing(true);
+    try {
+      setHealth(await workbenchApi.health());
+    } catch {
+      setHealth(undefined);
+    } finally {
+      setHealthRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -154,17 +166,44 @@ export function WorkspaceManagerDialog({ open, onClose }: Props) {
       </header>
 
       {health && (
-        <div className="workspace-location" role="status">
-          <strong>
-            {health.workspace.kind === "branch-default"
-              ? "開発用Workspace"
-              : health.workspace.kind === "main"
-                ? "判断台帳Workspace"
-                : "指定Workspace"}
-          </strong>
-          <code>{health.workspace.database_path}</code>
-          <span>Data Library: {health.workspace.data_library_path}</span>
-        </div>
+        <>
+          <div className="workspace-location" role="status">
+            <strong>
+              {health.workspace.kind === "branch-default"
+                ? "開発用Workspace"
+                : health.workspace.kind === "main"
+                  ? "判断台帳Workspace"
+                  : "指定Workspace"}
+            </strong>
+            <code>{health.workspace.database_path}</code>
+            <span>Data Library: {health.workspace.data_library_path}</span>
+          </div>
+          <section
+            className={`workspace-personal-storage ${health.storage.ready ? "ready" : "blocked"}`}
+            aria-label="CSV onboardingの個人保存先"
+          >
+            <header>
+              <div>
+                <strong>CSV onboardingの保存先</strong>
+                <span>{health.storage.ready ? "このWorkspaceでTaskとModelを準備できます。" : "準備を開始する前に保存先の確認が必要です。"}</span>
+              </div>
+              <button type="button" className="text-button" disabled={healthRefreshing || Boolean(busy)} onClick={() => void refreshHealth()}>
+                {healthRefreshing ? "確認中…" : "保存先を再確認"}
+              </button>
+            </header>
+            <div className="workspace-personal-storage-grid">
+              {[health.storage.task_store, health.storage.model_store].map((storage) => (
+                <div key={storage.label}>
+                  <span>{storage.label}</span>
+                  <b>{storage.available ? "利用可能" : "要確認"}</b>
+                  <code>{storage.path ?? "未設定"}</code>
+                  <small>{storage.reason}</small>
+                </div>
+              ))}
+            </div>
+            {!health.storage.ready && <p>原因を確認し、上の保存先を直してから「保存先を再確認」を押してください。CSV onboardingへ戻ると準備を再試行できます。</p>}
+          </section>
+        </>
       )}
 
       {!desktop ? (

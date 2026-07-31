@@ -116,6 +116,8 @@ def get_catalog_use_cases(request: Request) -> CatalogUseCases:
             workspace_database=state.workspace_database,
             data_library_root=state.data_library_root,
             workspace_kind=state.workspace_kind,
+            task_store_path=state.task_store_path,
+            model_store_path=getattr(state, "model_store_path", None),
         ),
         store=state.store,
         registry=context.task_registry,

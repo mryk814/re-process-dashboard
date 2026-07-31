@@ -668,7 +668,28 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         assert response["state"] == "ready", response
         assert response["task_id"] == task_id
         assert response["dataset_view_revision_id"]
+        assert response["dataset_revision_id"]
         assert response["model_package_ref_id"]
+        assert response["source_sha256"]
+        assert (task_store / task_id).is_dir()
+        health = client.get("/api/health")
+        assert health.status_code == 200, health.text
+        storage = health.json()["storage"]
+        assert storage["ready"] is True
+        assert storage["task_store"]["path"] == str(task_store.resolve())
+        assert storage["model_store"]["path"] == str((tmp_path / "personal-models").resolve())
+
+        duplicate = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="CSV UI 強度",
+        )
+        assert duplicate.status_code == 422, duplicate.text
+        duplicate_payload = duplicate.json()
+        assert duplicate_payload["code"] == "validation_error"
+        assert "既に存在します" in duplicate_payload["message"]
+        assert "別のTask ID" in duplicate_payload["next_action"]
 
         options = client.get("/api/project-creation-options")
         assert options.status_code == 200, options.text
@@ -707,6 +728,48 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         provenance = snapshot.json()["payload"]["provenance"]
         assert provenance["training_data"]["source_sha256"] == response["source_sha256"]
         assert provenance["training_data"]["source_sha256"]
+
+
+def test_csv_onboarding_storage_failure_explains_reason_and_next_ui_action(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    task_id = "csv-ui-storage-failure-v1"
+    task_store = tmp_path / "personal-tasks"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
+
+    def unavailable_chain(**_kwargs):
+        raise WeldingChainBootstrapError("not part of this Task smoke")
+
+    monkeypatch.setattr(contributions_module, "bootstrap_welding_chain", unavailable_chain)
+    app = create_app(
+        db_path=tmp_path / "workspace.db",
+        data_library_path=tmp_path / "data-library",
+        _resources=resources,
+    )
+    source = _source(tmp_path / "new-source.csv")
+
+    with TestClient(app) as client:
+        health = client.get("/api/health")
+        assert health.status_code == 200, health.text
+        storage = health.json()["storage"]
+        assert storage["ready"] is False
+        assert storage["model_store"]["available"] is False
+        assert "設定されていません" in storage["model_store"]["reason"]
+
+        failed = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="保存先不足の検証",
+        )
+        assert failed.status_code == 422, failed.text
+        payload = failed.json()
+        assert payload["code"] == "validation_error"
+        assert "個人Model / Package" in payload["message"]
+        assert "ワークスペース → 保存場所を管理" in payload["next_action"]
+        assert not (task_store / task_id).exists()
 
 
 def test_csv_onboarding_registration_failure_removes_new_task_and_package(

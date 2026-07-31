@@ -53,6 +53,19 @@ export type ApiWorkspaceHealth = {
     data_library_path: string;
     kind: string;
   };
+  storage: {
+    ready: boolean;
+    task_store: ApiWorkspaceStorage;
+    model_store: ApiWorkspaceStorage;
+    next_action: string;
+  };
+};
+export type ApiWorkspaceStorage = {
+  label: string;
+  path: string | null;
+  available: boolean;
+  reason: string;
+  next_action: string;
 };
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];

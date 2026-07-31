@@ -89,6 +89,8 @@ def test_dev_launcher_uses_one_ephemeral_token_for_api_and_vite_proxy() -> None:
         "webPort": "5180",
         "workspaceDatabase": payload["workspaceDatabase"],
         "workspaceDataLibrary": payload["workspaceDataLibrary"],
+        "workspaceTaskStore": payload["workspaceTaskStore"],
+        "workspaceModelStore": payload["workspaceModelStore"],
         "workspaceSource": "branch-default",
     }
     database = Path(payload["workspaceDatabase"])
@@ -97,6 +99,12 @@ def test_dev_launcher_uses_one_ephemeral_token_for_api_and_vite_proxy() -> None:
     assert database.suffix == ".db"
     assert data_library.parent == root / ".dev-workspaces"
     assert data_library.name.endswith("-data-library")
+    task_store = Path(payload["workspaceTaskStore"])
+    model_store = Path(payload["workspaceModelStore"])
+    assert task_store.name == "tasks"
+    assert model_store.name == "models"
+    assert root not in task_store.parents
+    assert root not in model_store.parents
 
 
 def test_dev_launcher_respects_explicit_workspace_path(tmp_path: Path) -> None:
