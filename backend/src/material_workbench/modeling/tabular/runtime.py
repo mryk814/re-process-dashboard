@@ -21,15 +21,15 @@ from material_workbench.data.profiles.loading import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.curve_grid import anchored_curve_grid
-from material_workbench.modeling.model_packages import (
-    LoadedBatchPredictor,
-    ModelPackageLoader,
+from material_workbench.modeling.packages.contracts import (
     PredictiveSummary,
-    VerifiedModelPackage,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
+from material_workbench.modeling.packages.loader import ModelPackageLoader
+from material_workbench.modeling.packages.ports import LoadedBatchPredictor
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.tasks.task_registry import load_task_contracts
 
 from .data import TabularData
