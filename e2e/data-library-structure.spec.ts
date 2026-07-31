@@ -94,8 +94,7 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
   await paths.getByRole("button", { name: /新しい予測問題/ }).click();
   const onboarding = page.getByRole("region", { name: "完全に新しいTaskを準備" });
-  const prepare = onboarding.getByRole("button", { name: "Task・モデル・Datasetを準備してProject作成へ" });
-  await expect(prepare).toBeDisabled();
+  await expect(onboarding.getByRole("button", { name: "CSVをプレビュー" })).toBeDisabled();
   await onboarding.locator('input[type="file"]').setInputFiles({
     name: "private-new-task.csv",
     mimeType: "text/csv",
@@ -103,6 +102,8 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   });
   await onboarding.getByRole("button", { name: "CSVをプレビュー" }).click();
   await expect(onboarding).toContainText("30行・4列・relations 0件");
+  const prepare = onboarding.getByRole("button", { name: "Task・モデル・Datasetを準備してProject作成へ" });
+  await expect(prepare).toBeDisabled();
   await onboarding.getByLabel("Task ID").fill("browser-private-strength-v1");
   await onboarding.getByLabel("表示名").first().fill("ブラウザ私有強度");
 
