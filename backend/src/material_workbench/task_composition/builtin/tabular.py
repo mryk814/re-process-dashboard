@@ -25,6 +25,9 @@ from material_workbench.task_composition.ports import (
     FeatureRowBuilder,
     PredictionRuntime,
 )
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
+)
 
 if TYPE_CHECKING:
     from material_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -223,6 +226,7 @@ def external_tabular_task_module(
         data_loader=_tabular_profile_loader(profile_path),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_profile_features(profile_path),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             (estimator_id,),
@@ -249,6 +253,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(HEAT_TREATMENT_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(HEAT_TREATMENT_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),
@@ -282,6 +287,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(CONCRETE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(CONCRETE_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),
@@ -316,6 +322,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(WEAR_CURVE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(WEAR_CURVE_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),
@@ -350,6 +357,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(BATTERY_DEGRADATION_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(BATTERY_DEGRADATION_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("lightgbm-regression.v1",),
@@ -388,6 +396,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(SECOM_YIELD_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(SECOM_YIELD_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("lightgbm-binary.v1",),
@@ -422,6 +431,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(MPEA_LEGACY_TYS_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_LEGACY_TYS_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),
@@ -444,6 +454,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(MPEA_ROOM_TENSILE_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_ROOM_TENSILE_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),
@@ -475,6 +486,7 @@ TABULAR_TASK_MODULES = (
         data_loader=_tabular_loader(MPEA_HARDNESS_TASK_ID),
         runtime_factory=_tabular_runtime,
         feature_row_builder=_tabular_features(MPEA_HARDNESS_TASK_ID),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
             ("ridge.v1", "lightgbm-regression.v1"),

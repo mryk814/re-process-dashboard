@@ -20,6 +20,9 @@ from material_workbench.task_composition.ports import (
     PredictionRuntime,
     SpecializedPackageBuilder,
 )
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
+)
 
 if TYPE_CHECKING:
     from material_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -244,6 +247,7 @@ WELDING_STAGE_B_TASK_MODULE = TaskModule(
     data_loader=_load_welding_stage_b,
     runtime_factory=_welding_stage_b_runtime,
     feature_row_builder=_welding_stage_b_features,
+    training_inspector=CANONICAL_TRAINING_INSPECTOR,
     specialized_package_builder=_build_welding_stage_b,
     application=_application_capability(
         actual_measurement=True,
@@ -273,6 +277,7 @@ WELDING_STAGE_C_TASK_MODULE = TaskModule(
     data_loader=_observation_loader(WELDING_STAGE_C_TASK_ID),
     runtime_factory=_observation_runtime,
     feature_row_builder=_observation_features(WELDING_STAGE_C_TASK_ID),
+    training_inspector=CANONICAL_TRAINING_INSPECTOR,
     specialized_package_builder=_observation_builder(WELDING_STAGE_C_TASK_ID),
     application=_application_capability(
         actual_measurement=False,

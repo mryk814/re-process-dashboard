@@ -19,6 +19,9 @@ from material_workbench.task_composition.descriptors import (
     TaskModule,
 )
 from material_workbench.task_composition.ports import DataDescriptor, PredictionRuntime
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
+)
 
 if TYPE_CHECKING:
     from material_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -128,6 +131,7 @@ HOT_ROLLING_TASK_MODULE = TaskModule(
     data_loader=_load_workbook,
     runtime_factory=_hot_rolling_runtime,
     feature_row_builder=_hot_rolling_features,
+    training_inspector=CANONICAL_TRAINING_INSPECTOR,
     specialized_package_builder=_build_hot_rolling,
     standard_model_authoring=StandardModelAuthoring(
         _hot_rolling_training_candidate,

@@ -6,7 +6,14 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from material_workbench.application.ai_review_provider import AiReviewProvider
-from material_workbench.application.catalog import CatalogRuntimeState, CatalogUseCases
+from material_workbench.application.catalog.contracts import CatalogRuntimeState
+from material_workbench.application.catalog.feature_inspector import FeatureInspector
+from material_workbench.application.catalog.task_package_catalog import (
+    TaskPackageCatalog,
+)
+from material_workbench.application.catalog.training_inspector import (
+    TrainingInspector,
+)
 from material_workbench.application.chains import ChainUseCases
 from material_workbench.application.data_library import DataLibraryUseCases
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
@@ -103,27 +110,52 @@ def get_ai_review_provider(request: Request) -> AiReviewProvider | None:
     return request.app.state.ai_review_provider
 
 
-def get_catalog_use_cases(request: Request) -> CatalogUseCases:
+def _catalog_runtime_state(request: Request) -> CatalogRuntimeState:
+    state = request.app.state
+    return CatalogRuntimeState(
+        resources_ready=bool(getattr(state, "resources_ready", True)),
+        resources_loading_error=getattr(state, "resources_loading_error", None),
+        workspace_database=state.workspace_database,
+        data_library_root=state.data_library_root,
+        workspace_kind=state.workspace_kind,
+        task_store_path=state.task_store_path,
+        model_store_path=getattr(state, "model_store_path", None),
+    )
+
+
+def get_task_package_catalog(request: Request) -> TaskPackageCatalog:
     state = request.app.state
     context = get_runtime_context(request)
     contribution = get_application_contribution_runtime(
         request, "welding-blend"
     )
-    return CatalogUseCases(
-        state=CatalogRuntimeState(
-            resources_ready=bool(getattr(state, "resources_ready", True)),
-            resources_loading_error=getattr(state, "resources_loading_error", None),
-            workspace_database=state.workspace_database,
-            data_library_root=state.data_library_root,
-            workspace_kind=state.workspace_kind,
-            task_store_path=state.task_store_path,
-            model_store_path=getattr(state, "model_store_path", None),
-        ),
+    return TaskPackageCatalog(
+        state=_catalog_runtime_state(request),
         store=state.store,
         registry=context.task_registry,
         resolver=context.project_runtime_resolver,
         subsystem_registry=state.subsystem_availability,
         transform_catalog=contribution.transform_catalog,
+    )
+
+
+def get_training_inspector(request: Request) -> TrainingInspector:
+    state = request.app.state
+    context = get_runtime_context(request)
+    return TrainingInspector(
+        store=state.store,
+        registry=context.task_registry,
+        resolver=context.project_runtime_resolver,
+    )
+
+
+def get_feature_inspector(request: Request) -> FeatureInspector:
+    state = request.app.state
+    context = get_runtime_context(request)
+    return FeatureInspector(
+        store=state.store,
+        registry=context.task_registry,
+        resolver=context.project_runtime_resolver,
     )
 
 

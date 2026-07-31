@@ -5,8 +5,8 @@ from time import perf_counter
 import numpy as np
 import pytest
 
-from material_workbench.application.catalog import (
-    CatalogValidationError,
+from material_workbench.application.catalog.errors import CatalogValidationError
+from material_workbench.application.catalog.feature_inspector import (
     _INPUT_SPACE_CANONICAL,
     _INPUT_SPACE_CANONICAL_LOCK,
     _output_space_evidence_points,
@@ -21,6 +21,9 @@ from material_workbench.modeling.training_distance import (
     evidence_context_id,
     resolve_training_metric_space,
     training_context_distances,
+)
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
 )
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
@@ -380,7 +383,12 @@ def test_output_space_pairing_preserves_axis_specific_observation_identity() -> 
         },
     ]
 
-    points = _output_space_evidence_points(rows, x_target="X", y_target="Y")
+    points = _output_space_evidence_points(
+        rows,
+        adapter=CANONICAL_TRAINING_INSPECTOR,
+        x_target="X",
+        y_target="Y",
+    )
 
     assert points == [{
         "context_id": "context-1",
@@ -399,6 +407,7 @@ def test_output_space_pairing_preserves_axis_specific_observation_identity() -> 
                 rows[0],
                 {**rows[1], "parent_key": "parent-2"},
             ],
+            adapter=CANONICAL_TRAINING_INSPECTOR,
             x_target="X",
             y_target="Y",
         )
@@ -426,6 +435,7 @@ def test_output_space_mpea_rows_remain_individual_training_contexts() -> None:
 
     points = _output_space_evidence_points(
         rows,
+        adapter=CANONICAL_TRAINING_INSPECTOR,
         x_target="TYS",
         y_target="UTS",
     )
@@ -525,6 +535,7 @@ def test_every_prediction_space_task_serves_distance_evidence(
         }
         actual_points = _output_space_evidence_points(
             canonical["rows"],
+            adapter=CANONICAL_TRAINING_INSPECTOR,
             x_target=surface["target_keys"][0],
             y_target=surface["target_keys"][1],
         )

@@ -21,6 +21,9 @@ from material_workbench.task_composition.descriptors import (
     TaskModule,
 )
 from material_workbench.task_composition.ports import DataDescriptor, PredictionRuntime
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
+)
 
 if TYPE_CHECKING:
     from material_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -211,6 +214,7 @@ ANNEALED_TASK_MODULE = TaskModule(
     data_loader=_load_workbook,
     runtime_factory=_annealed_runtime,
     feature_row_builder=_annealed_features,
+    training_inspector=CANONICAL_TRAINING_INSPECTOR,
     specialized_package_builder=_build_annealed,
     standard_model_authoring=StandardModelAuthoring(
         _annealed_training_candidate,

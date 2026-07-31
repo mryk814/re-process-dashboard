@@ -20,6 +20,7 @@ from material_workbench.task_composition.ports import (
     ResponseCurveHandler,
     RuntimeFactory,
     SpecializedPackageBuilder,
+    TrainingInspectorAdapter,
     TrainingCandidateBuilder,
 )
 
@@ -62,6 +63,7 @@ class TaskModule:
     data_loader: DataLoader
     runtime_factory: RuntimeFactory
     feature_row_builder: FeatureRowBuilder
+    training_inspector: TrainingInspectorAdapter
     application: ApplicationCapability
     candidate_family_adapter_id: str = CANONICAL_CANDIDATE_SCHEMA_VERSION
     default_package: Path | None = None
