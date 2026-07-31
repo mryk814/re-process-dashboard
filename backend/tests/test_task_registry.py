@@ -18,12 +18,17 @@ from material_workbench.modeling.model_lifecycle import load_active_packages, va
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.contracts.candidate_project_contracts import ProjectInput
 from material_workbench.persistence.demo_seed import initialize_demo_projects
+from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
 from material_workbench.task_composition.catalog import registered_task_modules
 from material_workbench.task_composition.ports import DataDescriptor
 from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
-TASK_IDS = tuple(sorted(registered_task_modules()))
+# Parameterization happens while pytest collects this module, before the
+# session fixture can redirect WORKBENCH_TASK_STORE_PATH.  Repository contract
+# coverage is intentionally about the checked-in catalog, so keep that set
+# explicit instead of discovering a developer's Personal Tasks here.
+BUNDLED_TASK_IDS = tuple(sorted(BUILTIN_TASK_MODULES))
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -57,9 +62,9 @@ def test_app_resources_can_defer_tasks_without_skipping_their_contracts() -> Non
     resources = prepare_app_resources(task_ids=frozenset())
     registry = resources.task_registry
 
-    assert registry.task_ids == TASK_IDS
+    assert registry.task_ids == BUNDLED_TASK_IDS
     assert registry.available_task_ids == ()
-    for task_id in TASK_IDS:
+    for task_id in BUNDLED_TASK_IDS:
         availability = registry.availability_for(task_id)
         assert availability.status == "unavailable"
         assert availability.stage == "runtime"
@@ -71,7 +76,7 @@ def test_allow_list_contracts_active_packages_and_runtimes_share_one_task_set(cl
     registry = client.app.state.task_registry
     active = load_active_packages(ACTIVE_PACKAGES)
 
-    assert registered == set(TASK_IDS) == set(registry.task_ids) == set(active.tasks)
+    assert registered == set(BUNDLED_TASK_IDS) == set(registry.task_ids) == set(active.tasks)
     assert ProjectInput(task_id="future-allow-listed-task").task_id == "future-allow-listed-task"
     validate_active_package_task_set(active, registered)
     for task_id in registered:
@@ -145,12 +150,12 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
         "welding-consumable-stage-b-v1",
         "welding-stage-c-properties-v1",
     }
-    assert input_space_tasks == set(TASK_IDS) - {"mpea-literature-tys-v1"}
+    assert input_space_tasks == set(BUNDLED_TASK_IDS) - {"mpea-literature-tys-v1"}
 
 
 def test_active_package_set_rejects_missing_or_unknown_task() -> None:
     active = load_active_packages(ACTIVE_PACKAGES)
-    incomplete = active.model_copy(update={"tasks": {TASK_IDS[0]: active.tasks[TASK_IDS[0]]}})
+    incomplete = active.model_copy(update={"tasks": {BUNDLED_TASK_IDS[0]: active.tasks[BUNDLED_TASK_IDS[0]]}})
     with pytest.raises(PackageContractError, match="must exactly match"):
         validate_active_package_task_set(incomplete)
 
@@ -168,7 +173,7 @@ def test_registered_default_source_bytes_match_active_package_provenance() -> No
         assert manifest["provenance"]["training_data_id"] == f"sha256:{source_digest}", task_id
 
 
-@pytest.mark.parametrize("task_id", TASK_IDS)
+@pytest.mark.parametrize("task_id", BUNDLED_TASK_IDS)
 def test_registry_resolves_definition_runtime_and_package_from_one_task_id(client, task_id: str) -> None:
     registry = client.app.state.task_registry
     contract = registry.contract_for(task_id)
@@ -228,16 +233,16 @@ def test_registry_fails_fast_when_manifest_outputs_disagree_with_task_definition
     hot_path.write_text(json.dumps(hot, ensure_ascii=False), encoding="utf-8")
 
     registry = client.app.state.task_registry
-    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in BUNDLED_TASK_IDS}
     with pytest.raises(TaskRegistryError, match="model package outputs do not match"):
         TaskRegistry(runtimes, contract_root=contract_root)
 
 
 def test_registry_fails_fast_when_declared_curve_has_no_handler(client) -> None:
     registry = client.app.state.task_registry
-    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in BUNDLED_TASK_IDS}
     modules = dict(registered_task_modules())
-    modules[TASK_IDS[0]] = replace(modules[TASK_IDS[0]], response_curve=None)
+    modules[BUNDLED_TASK_IDS[0]] = replace(modules[BUNDLED_TASK_IDS[0]], response_curve=None)
 
     with pytest.raises(TaskRegistryError, match="capability and TaskModule handler disagree"):
         TaskRegistry(runtimes, modules=modules)
@@ -247,12 +252,12 @@ def test_optional_operation_is_explicitly_unavailable(client) -> None:
     registry = client.app.state.task_registry
 
     with pytest.raises(TaskRegistryError, match="curve family is not available"):
-        registry.curve_family_for(TASK_IDS[0])
+        registry.curve_family_for(BUNDLED_TASK_IDS[0])
 
 
 def test_registry_fails_fast_when_manifest_output_unit_disagrees_with_task_definition(client) -> None:
     registry = client.app.state.task_registry
-    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in BUNDLED_TASK_IDS}
     runtime = copy.copy(runtimes["hot-rolled-properties-v1"])
     package = runtime.model_package
     assert package is not None
@@ -272,7 +277,7 @@ def test_registry_fails_fast_when_manifest_output_unit_disagrees_with_task_defin
 
 def test_registry_rejects_an_explorer_bound_to_different_runtime_data(client) -> None:
     registry = client.app.state.task_registry
-    runtimes = {task_id: registry.runtime_for(task_id) for task_id in TASK_IDS}
+    runtimes = {task_id: registry.runtime_for(task_id) for task_id in BUNDLED_TASK_IDS}
     mismatched_data = copy.copy(runtimes["annealed-properties-v1"].data)
 
     with pytest.raises(TaskRegistryError, match="data explorer source does not match runtime data"):
@@ -448,7 +453,7 @@ def test_edited_legacy_annealing_starters_are_not_rewritten(client) -> None:
     assert all(candidate.revision == 2 for candidate in preserved)
 
 
-@pytest.mark.parametrize("task_id", TASK_IDS)
+@pytest.mark.parametrize("task_id", BUNDLED_TASK_IDS)
 def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) -> None:
     if task_id == "annealed-properties-v1":
         project_id = "default"
