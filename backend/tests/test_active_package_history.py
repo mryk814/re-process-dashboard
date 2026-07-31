@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.modeling.active_package_history import (
+from decision_workbench.modeling.active_package_history import (
     check_active_package_history,
     current_task_input_contract_digests,
     detect_active_package_drift,
 )
-from material_workbench.modeling.model_lifecycle import ActivePackagesConfig
+from decision_workbench.modeling.model_lifecycle import ActivePackagesConfig
 
 
 ROOT = Path(__file__).resolve().parents[2]

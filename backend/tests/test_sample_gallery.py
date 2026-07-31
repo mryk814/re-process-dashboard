@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.app import create_app
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 
 
 FEATURED_GALLERY_PROJECT_IDS = {

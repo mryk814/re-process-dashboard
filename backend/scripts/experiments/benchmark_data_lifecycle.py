@@ -17,7 +17,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.developer_experience.data_lifecycle_benchmark import (
+from decision_workbench.developer_experience.data_lifecycle_benchmark import (
     FixtureShape,
     run_benchmark_case,
     run_concurrency_probe,

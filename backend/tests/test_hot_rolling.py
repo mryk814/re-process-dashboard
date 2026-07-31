@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.data.importer import load_workbook_data
-from material_workbench.modeling.hot_rolling import HotRollingRuntime
+from decision_workbench.data.importer import load_workbook_data
+from decision_workbench.modeling.hot_rolling import HotRollingRuntime
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,7 +135,7 @@ def test_hot_rolling_training_range_follows_the_selected_package_dataset(client)
         load_workbook_data(
             ROOT / "data/source/material_workbench_process_v1.xlsx",
             ROOT
-            / "backend/src/material_workbench/data/dataset-input-profile-process-v1.json",
+            / "backend/src/decision_workbench/data/dataset-input-profile-process-v1.json",
         ),
         ROOT / "models/packages/hot-rolled-horseshoe-process-v2",
     )

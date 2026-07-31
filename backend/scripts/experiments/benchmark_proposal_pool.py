@@ -15,10 +15,10 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.bootstrap.resources import prepare_app_resources
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.task_composition.ports import BatchPredictionRuntime
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.bootstrap.resources import prepare_app_resources
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.task_composition.ports import BatchPredictionRuntime
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 DEFAULT_TASKS = (

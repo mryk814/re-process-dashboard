@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from material_workbench.developer_experience.change_guide import change_guide_entries
+from decision_workbench.developer_experience.change_guide import change_guide_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -106,8 +106,8 @@ def test_repo_skills_reference_current_commands_and_paths() -> None:
     assert "verify:edit" in package_scripts
     assert "verify:focused" not in prediction_skill
     assert "npm.cmd run verify:edit" in prediction_skill
-    assert "backend/src/material_workbench/modeling/packages/registry.py" in runtime_skill
-    assert (ROOT / "backend/src/material_workbench/modeling/packages/registry.py").is_file()
+    assert "backend/src/decision_workbench/modeling/packages/registry.py" in runtime_skill
+    assert (ROOT / "backend/src/decision_workbench/modeling/packages/registry.py").is_file()
 
 
 def test_dataset_authoring_commands_refuse_source_root() -> None:

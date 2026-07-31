@@ -1,5 +1,5 @@
 {
-  "name": "@material-workbench/desktop",
+  "name": "@evidence-decision-workbench/desktop",
   "private": true,
   "version": "0.1.0",
   "main": "dist/main.js",

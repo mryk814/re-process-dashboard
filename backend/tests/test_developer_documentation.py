@@ -26,10 +26,10 @@ def test_tutorial_pipeline_links_to_the_packaged_profile() -> None:
     source = (
         ROOT / "docs" / "examples" / "tutorial-data-pipeline.md"
     ).read_text(encoding="utf-8")
-    profile = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial.json"
+    profile = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-tutorial.json"
 
     assert profile.is_file()
-    assert "../../backend/src/material_workbench/data/dataset-input-profile-tutorial.json" in source
+    assert "../../backend/src/decision_workbench/data/dataset-input-profile-tutorial.json" in source
 
 
 def test_prediction_task_skill_uses_task_module_as_the_single_registration_point() -> None:

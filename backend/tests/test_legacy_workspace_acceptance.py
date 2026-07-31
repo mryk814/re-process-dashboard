@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 
-from material_workbench.contracts.chain_contracts import (
+from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
     ChainPort,
@@ -18,21 +18,21 @@ from material_workbench.contracts.chain_contracts import (
     StageContractSurface,
     build_chain_revision,
 )
-from material_workbench.contracts.chain_execution_contracts import (
+from decision_workbench.contracts.chain_execution_contracts import (
     ChainSnapshot,
     ChainStageExecution,
 )
-from material_workbench.persistence.chain_catalog_migration import (
+from decision_workbench.persistence.chain_catalog_migration import (
     migrate_chain_catalog,
 )
-from material_workbench.persistence.project_lifecycle_migration import (
+from decision_workbench.persistence.project_lifecycle_migration import (
     migrate_project_lifecycle,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.workspace_catalog_migration import (
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.workspace_catalog_migration import (
     migrate_workspace_catalog,
 )
-from material_workbench.persistence.workspace_maintenance_migration import (
+from decision_workbench.persistence.workspace_maintenance_migration import (
     migrate_workspace_maintenance_events,
 )
 

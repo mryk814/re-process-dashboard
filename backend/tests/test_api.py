@@ -5,24 +5,24 @@ from time import perf_counter
 import numpy as np
 import pytest
 
-from material_workbench.application.catalog.errors import CatalogValidationError
-from material_workbench.application.catalog.feature_inspector import (
+from decision_workbench.application.catalog.errors import CatalogValidationError
+from decision_workbench.application.catalog.feature_inspector import (
     _INPUT_SPACE_CANONICAL,
     _INPUT_SPACE_CANONICAL_LOCK,
     _output_space_evidence_points,
 )
-from material_workbench.application.input_space import (
+from decision_workbench.application.input_space import (
     _CACHE_LOCK,
     _TRAINING_EMBEDDINGS,
 )
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.modeling.model_lifecycle import canonical_training_dataset
-from material_workbench.modeling.training_distance import (
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.modeling.model_lifecycle import canonical_training_dataset
+from decision_workbench.modeling.training_distance import (
     evidence_context_id,
     resolve_training_metric_space,
     training_context_distances,
 )
-from material_workbench.task_composition.training_inspector import (
+from decision_workbench.task_composition.training_inspector import (
     CANONICAL_TRAINING_INSPECTOR,
 )
 

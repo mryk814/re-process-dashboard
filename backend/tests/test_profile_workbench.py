@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.application.dataset_registration import register_managed_dataset
-from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.application.dataset_registration import register_managed_dataset
+from decision_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
-PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial.json"
+PROFILE = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-tutorial.json"
 
 
 def test_inspect_workbook_reports_profile_and_canonical_counts() -> None:
@@ -152,8 +152,8 @@ def test_register_dataset_resume_ignores_custom_single_views(
 
 
 def test_register_promotes_existing_bundled_asset_to_managed_without_orphan(tmp_path: Path) -> None:
-    from material_workbench.data.file_integrity import file_sha256
-    from material_workbench.contracts.data_library_contracts import DataAssetCreateInput
+    from decision_workbench.data.file_integrity import file_sha256
+    from decision_workbench.contracts.data_library_contracts import DataAssetCreateInput
 
     database = tmp_path / "workspace.db"
     catalog = WorkspaceCatalog(database)

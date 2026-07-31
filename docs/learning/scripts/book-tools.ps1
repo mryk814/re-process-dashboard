@@ -3,17 +3,20 @@ Set-StrictMode -Version 2.0
 function Get-BookToolRoot {
     param([string]$ToolRoot)
 
+    if (-not [string]::IsNullOrWhiteSpace($env:MATERIAL_WORKBENCH_BOOK_TOOLS)) {
+        throw "MATERIAL_WORKBENCH_BOOK_TOOLS is no longer supported. Use DECISION_WORKBENCH_BOOK_TOOLS."
+    }
     if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) {
         return [IO.Path]::GetFullPath($ToolRoot)
     }
-    if (-not [string]::IsNullOrWhiteSpace($env:MATERIAL_WORKBENCH_BOOK_TOOLS)) {
-        return [IO.Path]::GetFullPath($env:MATERIAL_WORKBENCH_BOOK_TOOLS)
+    if (-not [string]::IsNullOrWhiteSpace($env:DECISION_WORKBENCH_BOOK_TOOLS)) {
+        return [IO.Path]::GetFullPath($env:DECISION_WORKBENCH_BOOK_TOOLS)
     }
     if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
-        throw "LOCALAPPDATA is unavailable. Pass -ToolRoot or set MATERIAL_WORKBENCH_BOOK_TOOLS."
+        throw "LOCALAPPDATA is unavailable. Pass -ToolRoot or set DECISION_WORKBENCH_BOOK_TOOLS."
     }
     return [IO.Path]::GetFullPath(
-        (Join-Path $env:LOCALAPPDATA "material-workbench-book-tools")
+        (Join-Path $env:LOCALAPPDATA "decision-workbench-book-tools")
     )
 }
 

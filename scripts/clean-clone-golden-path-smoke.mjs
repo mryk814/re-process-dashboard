@@ -17,7 +17,7 @@ if (!branch) {
   throw new Error("clean-clone smoke requires a named local branch");
 }
 
-const temporaryRoot = mkdtempSync(join(tmpdir(), "material-workbench-clean-clone-"));
+const temporaryRoot = mkdtempSync(join(tmpdir(), "decision-workbench-clean-clone-"));
 const checkout = join(temporaryRoot, "checkout");
 const run = (command, args) => {
   const options = {

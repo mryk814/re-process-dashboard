@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from material_workbench.developer_experience.data_lifecycle_benchmark import (
+from decision_workbench.developer_experience.data_lifecycle_benchmark import (
     fixture_metadata,
     run_benchmark_case,
     run_concurrency_probe,

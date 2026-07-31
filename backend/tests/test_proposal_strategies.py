@@ -3,17 +3,17 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from material_workbench.application.proposal_strategy_registry import (
+from decision_workbench.application.proposal_strategy_registry import (
     resolve_strategy,
     strategy_availability,
 )
-from material_workbench.contracts.objective_contracts import objective_from_screening
-from material_workbench.contracts.proposal_contracts import ProposalStrategyRequest
-from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
-from material_workbench.domain.proposal_acquisition import acquisition_value
-from material_workbench.domain.proposal_generation import _latin_hypercube_unit, _sobol_unit
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.contracts.objective_contracts import objective_from_screening
+from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequest
+from decision_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
+from decision_workbench.domain.proposal_acquisition import acquisition_value
+from decision_workbench.domain.proposal_generation import _latin_hypercube_unit, _sobol_unit
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _prediction(mean: float, sigma: float) -> SimpleNamespace:

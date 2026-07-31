@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.modeling.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
-from material_workbench.data.importer import load_workbook_data
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.modeling.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
+from decision_workbench.data.importer import load_workbook_data
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 
 
 DEFAULTS = {name: 0.0 for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")}
@@ -58,8 +58,8 @@ def test_hot_rolling_features_are_fixed_order_and_non_redundant() -> None:
 
 
 def test_hot_rolling_task_contract_rejects_invalid_thickness_order() -> None:
-    from material_workbench.contracts.task_contracts import CanonicalCandidate, TaskContractFixture
-    from material_workbench.tasks.task_registry import load_task_contracts
+    from decision_workbench.contracts.task_contracts import CanonicalCandidate, TaskContractFixture
+    from decision_workbench.tasks.task_registry import load_task_contracts
 
     contract = load_task_contracts()["hot-rolled-properties-v1"]
     candidate = CandidateInput(inputs={

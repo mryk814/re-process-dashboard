@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import pytest
 
-from material_workbench.modeling.model_lifecycle import (
+from decision_workbench.modeling.model_lifecycle import (
     PackageContractError,
     training_range_drift,
     validate_training_rows_within_allowed_range,
 )
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 # 宣言済み training_range が実データからずれているTask。
@@ -108,7 +108,7 @@ def test_allowed_range_holds_for_every_shipped_dataset_of_the_task() -> None:
     """
     from pathlib import Path
 
-    from material_workbench.data.importer import load_workbook_data
+    from decision_workbench.data.importer import load_workbook_data
 
     root = Path(__file__).resolve().parents[2]
     for relative in SHIPPED_WORKBOOKS:

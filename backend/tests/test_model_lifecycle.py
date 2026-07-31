@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-from material_workbench.data.importer import load_workbook_data
-from material_workbench.modeling.model_lifecycle import (
+from decision_workbench.app import create_app
+from decision_workbench.data.importer import load_workbook_data
+from decision_workbench.modeling.model_lifecycle import (
     QualityReport,
     SamplingDiagnosticsReport,
     canonical_training_dataset,
@@ -25,13 +25,13 @@ from material_workbench.modeling.model_lifecycle import (
     staged_package_destination,
     validate_personal_model_store_path,
 )
-from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.packages.contracts import PackageContractError
-from material_workbench.modeling.packages.contracts import (
+from decision_workbench.modeling.model_package_verify import verify_model_package
+from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.modeling.packages.contracts import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
 )
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"

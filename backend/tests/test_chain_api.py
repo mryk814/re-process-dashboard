@@ -5,17 +5,17 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.contracts.chain_contracts import (
+from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
     task_contract_surface,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.welding_chain_bootstrap import (
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.welding_chain_bootstrap import (
     WELDING_CHAIN_ID,
     bootstrap_welding_chain,
 )
-from material_workbench.application.workspace_catalog_bootstrap import (
+from decision_workbench.application.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
 

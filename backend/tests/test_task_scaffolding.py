@@ -12,40 +12,40 @@ import pytest
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from material_workbench.app import create_app
-import material_workbench.api.csv_task_onboarding as csv_onboarding_module
-import material_workbench.bootstrap.contributions as contributions_module
-import material_workbench.bootstrap.startup as startup_module
-from material_workbench.bootstrap.resources import prepare_app_resources
-from material_workbench.bootstrap.startup import (
+from decision_workbench.app import create_app
+import decision_workbench.api.csv_task_onboarding as csv_onboarding_module
+import decision_workbench.bootstrap.contributions as contributions_module
+import decision_workbench.bootstrap.startup as startup_module
+from decision_workbench.bootstrap.resources import prepare_app_resources
+from decision_workbench.bootstrap.startup import (
     _preserve_live_sqlite_generation,
     _restore_live_sqlite_generation,
 )
-from material_workbench.application.catalog.task_package_catalog import (
+from decision_workbench.application.catalog.task_package_catalog import (
     TaskPackageCatalog,
 )
-from material_workbench.application.dataset_registration import (
+from decision_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
-from material_workbench.data.file_integrity import file_sha256
-from material_workbench.developer_experience.task_scaffolding import (
+from decision_workbench.data.file_integrity import file_sha256
+from decision_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
     create_task_scaffold,
     inspect_task_source,
     link_promoted_package,
 )
-from material_workbench.task_composition.external_tasks import (
+from decision_workbench.task_composition.external_tasks import (
     external_task_bundles,
 )
-from material_workbench.task_composition.catalog import (
+from decision_workbench.task_composition.catalog import (
     registered_task_modules,
 )
-from material_workbench.task_composition.builtin.annealed import ANNEALED_TASK_ID
-from material_workbench.tasks.task_registry import load_task_contracts
-from material_workbench.persistence.welding_chain_bootstrap import (
+from decision_workbench.task_composition.builtin.annealed import ANNEALED_TASK_ID
+from decision_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
 )
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]

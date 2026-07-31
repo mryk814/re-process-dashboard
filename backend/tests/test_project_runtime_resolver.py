@@ -4,9 +4,9 @@ import sqlite3
 
 import pytest
 
-from material_workbench.application.inference import InferenceService
-from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.application.project_runtime import (
+from decision_workbench.application.inference import InferenceService
+from decision_workbench.execution.inference_work_graph import InferenceWorkGraph
+from decision_workbench.application.project_runtime import (
     ProjectRuntimeResolutionError,
     ProjectRuntimeResolver,
 )
@@ -203,7 +203,7 @@ def test_project_pinned_package_identity_drives_runtime_and_inference_key(client
     )
     client.app.state.project_runtime_resolver._cache.clear()
     client.app.state.project_runtime_resolver._package_cache.clear()
-    from material_workbench.modeling.packages.loader import ModelPackageLoader
+    from decision_workbench.modeling.packages.loader import ModelPackageLoader
 
     original_load = ModelPackageLoader.load
     package_loads = 0

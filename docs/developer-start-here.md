@@ -13,6 +13,20 @@ Prediction Taskの配線を変更するときは
 
 実装を読みながら学ぶ場合は、[開発教材](learning/README.md)のコードマップと三つの学習ルートを使います。最初の試作章は、検討アクティビティの契約をPydanticからOpenAPI、TypeScript、React、テストまで追います。
 
+## 内部identityを扱うとき
+
+Pythonのimportとcode pathは`decision_workbench`を使います。
+
+root npm packageは`evidence-decision-workbench`であり、workspace packageは`@evidence-decision-workbench/*`です。
+
+Model Packageのoverrideには`DECISION_WORKBENCH_*_MODEL_PACKAGE`を使います。
+
+旧`MATERIAL_WORKBENCH_*`は互換aliasを持たず、起動時に新名を示して停止します。
+
+Electron appId、既存のuser-data path、SQLite、localStorage、`.mdwb`、Task、Profile、Dataset、Package IDとdigestは変更しません。
+
+コード名と保存identityの分類は[内部コード identityの移行](decisions/internal-code-identity-migration.md)を正本とします。
+
 ## 最初の判断表
 
 | やりたいこと | 主に変える場所 | 原則変えない場所 | 必要な成果物 |

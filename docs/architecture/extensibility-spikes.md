@@ -128,13 +128,13 @@ Package構築が**登録の後**でしか動きません。順序が逆にでき
 
 | # | 場所 | 内容 |
 | --- | --- | --- |
-| A-1 | [tabular_model_builder.py:376](../../backend/src/material_workbench/modeling/tabular_model_builder.py#L376) | `build_tabular_package_from_data` が `load_task_contracts()` をroot注入なしで呼ぶ。TaskDefinition JSONを本番 `task_definitions/` に置く前はPackageを作れない |
-| A-2 | [model_lifecycle.py:234](../../backend/src/material_workbench/modeling/model_lifecycle.py#L234) | `canonical_training_dataset` が `task_module()` 経由でmodule-levelの `TASK_MODULES` を直接読む。`task_modules.py` への登録前はPackageを作れない |
+| A-1 | [tabular_model_builder.py:376](../../backend/src/decision_workbench/modeling/tabular_model_builder.py#L376) | `build_tabular_package_from_data` が `load_task_contracts()` をroot注入なしで呼ぶ。TaskDefinition JSONを本番 `task_definitions/` に置く前はPackageを作れない |
+| A-2 | [model_lifecycle.py:234](../../backend/src/decision_workbench/modeling/model_lifecycle.py#L234) | `canonical_training_dataset` が `task_module()` 経由でmodule-levelの `TASK_MODULES` を直接読む。`task_modules.py` への登録前はPackageを作れない |
 
 これは安全側の設計（未登録Taskのartifactを作れない）でもあるため、**負債とは断定しません**。
 ただし「Packageを先に作って検証してから登録する」手順は取れないので、`add-prediction-task` Skillの手順順序と一致していることを確認しておく必要があります。
 
-**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin/tabular.py](../../backend/src/material_workbench/task_composition/builtin/tabular.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
+**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin/tabular.py](../../backend/src/decision_workbench/task_composition/builtin/tabular.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
 
 ## 2. ケースB：複数sheet・複数観測family
 
@@ -212,9 +212,9 @@ fixture: 工程条件シート `conditions`（40条件）＋在庫シート `sto
 
 | # | 場所 | 内容 |
 | --- | --- | --- |
-| B-1 | [observation_model_builder.py:225](../../backend/src/material_workbench/modeling/observation_model_builder.py#L225) | `build(source, destination, *, replace)` に profile引数がない。Observation family builderは1 Profile専用 |
-| B-2 | [observation_regression.py:32](../../backend/src/material_workbench/modeling/observation_regression.py#L32)–`:36` | `TASK_ID` と `PROFILE_PATH` がmodule定数。runtime内12箇所以上が参照し、`self.task_id = TASK_ID` で固定される |
-| B-3 | [observation_profile.py:452](../../backend/src/material_workbench/data/observation_profile.py#L452)–`:464` | Profileが宣言した `source_unit` → `canonical_unit` の**数値変換が適用されない**。`kgf` を `N` と宣言しても値は生のまま（`51.588` が `N` として乗る） |
+| B-1 | [observation_model_builder.py:225](../../backend/src/decision_workbench/modeling/observation_model_builder.py#L225) | `build(source, destination, *, replace)` に profile引数がない。Observation family builderは1 Profile専用 |
+| B-2 | [observation_regression.py:32](../../backend/src/decision_workbench/modeling/observation_regression.py#L32)–`:36` | `TASK_ID` と `PROFILE_PATH` がmodule定数。runtime内12箇所以上が参照し、`self.task_id = TASK_ID` で固定される |
+| B-3 | [observation_profile.py:452](../../backend/src/decision_workbench/data/observation_profile.py#L452)–`:464` | Profileが宣言した `source_unit` → `canonical_unit` の**数値変換が適用されない**。`kgf` を `N` と宣言しても値は生のまま（`51.588` が `N` として乗る） |
 
 B-1 / B-2 は Tabular family（`_tabular_loader(task_id)` 等で完全にパラメタ化済み）との明確な非対称です。
 **Observation familyは現時点で「契約は汎用、実装は単一インスタンスの縦スライス」** という状態です。
@@ -239,9 +239,9 @@ Raw series / Canonical series / Feature representation の三層を分離でき�
 
 ### 確認事項
 
-- [ ] `TaskDefinition` を変更せずに宣言できるか（[task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) の path正規表現、`:83` のgroup key Literal）
-- [ ] `CanonicalCandidate` を変更せずに保存できるか（[task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357)）
-- [ ] `CandidateInputs.heat_pattern` の30点上限（[candidate_project_contracts.py:51](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L51)）で足りるか
+- [ ] `TaskDefinition` を変更せずに宣言できるか（[task_contracts.py:40](../../backend/src/decision_workbench/contracts/task_contracts.py#L40) の path正規表現、`:83` のgroup key Literal）
+- [ ] `CanonicalCandidate` を変更せずに保存できるか（[task_contracts.py:357](../../backend/src/decision_workbench/contracts/task_contracts.py#L357)）
+- [ ] `CandidateInputs.heat_pattern` の30点上限（[candidate_project_contracts.py:51](../../backend/src/decision_workbench/contracts/candidate_project_contracts.py#L51)）で足りるか
 - [ ] 単位変換をProfileで**明示**でき、暗黙変換にならないか
 - [ ] timestamp重複を「補完せず不適格にする」判定がProfileで表現できるか
 - [ ] 系列そのもののdiff / copy / snapshot意味をUIで定義できるか
@@ -274,13 +274,13 @@ Raw series / Canonical series / Feature representation の三層を分離でき�
 
 | # | 検査項目 | 拒否した契約 | エラー |
 | --- | --- | --- | --- |
-| C-1 | `heat_pattern` 以外の系列groupを宣言する | [task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) | path正規表現不一致 |
+| C-1 | `heat_pattern` 以外の系列groupを宣言する | [task_contracts.py:40](../../backend/src/decision_workbench/contracts/task_contracts.py#L40) | path正規表現不一致 |
 | C-2 | 系列fieldのpathを自由に付ける | 同上 | path正規表現不一致 |
-| C-3 | 系列fieldに単位（`°F`）を宣言する | [task_contracts.py:77](../../backend/src/material_workbench/contracts/task_contracts.py#L77) | `heat_pattern fields cannot declare scalar ranges, choices, or a unit` |
-| C-4 | 31点以上の可変長系列を候補入力に保存する | [candidate_project_contracts.py:51](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L51) | `List should have at most 30 items`（64点で拒否） |
-| C-5 | timestamp重複を値を残したまま不適格として保持する | [candidate_project_contracts.py:68](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L68) | `ヒートパターンの時刻は厳密な昇順にしてください`（**保存自体が拒否されるため品質findingとして残せない**） |
-| C-6 | `CanonicalCandidate` に系列の正規化provenanceを置く | [task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357) | `Extra inputs are not permitted`（`extra="forbid"`） |
-| C-7 | 系列入力TaskをChain Stageにする | [chain_contracts.py:259](../../backend/src/material_workbench/contracts/chain_contracts.py#L259) | `has a required heat-pattern input unsupported by Chain v1` |
+| C-3 | 系列fieldに単位（`°F`）を宣言する | [task_contracts.py:77](../../backend/src/decision_workbench/contracts/task_contracts.py#L77) | `heat_pattern fields cannot declare scalar ranges, choices, or a unit` |
+| C-4 | 31点以上の可変長系列を候補入力に保存する | [candidate_project_contracts.py:51](../../backend/src/decision_workbench/contracts/candidate_project_contracts.py#L51) | `List should have at most 30 items`（64点で拒否） |
+| C-5 | timestamp重複を値を残したまま不適格として保持する | [candidate_project_contracts.py:68](../../backend/src/decision_workbench/contracts/candidate_project_contracts.py#L68) | `ヒートパターンの時刻は厳密な昇順にしてください`（**保存自体が拒否されるため品質findingとして残せない**） |
+| C-6 | `CanonicalCandidate` に系列の正規化provenanceを置く | [task_contracts.py:357](../../backend/src/decision_workbench/contracts/task_contracts.py#L357) | `Extra inputs are not permitted`（`extra="forbid"`） |
+| C-7 | 系列入力TaskをChain Stageにする | [chain_contracts.py:259](../../backend/src/decision_workbench/contracts/chain_contracts.py#L259) | `has a required heat-pattern input unsupported by Chain v1` |
 
 C-5が最も重要です。現行契約は不正な系列を**保存できない**ため、「値は残しつつ品質findingとして不適格にする」という
 このリポジトリの他の場所（Tabular/Observation familyの `eligible` + `exclusion_reasons`）で採っている方針を、
@@ -398,7 +398,7 @@ fixture: ケースAと同じ方式で標準表形式Task 2件（`spike-stage-x-v
 | D-2 | #4 | 旧 `chain_execution.py:263` | `prepare_candidate` が疎配合を要求（候補を保存できない） |
 | D-3 | #5 | 旧 `chain_execution.py:328` | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
 | D-4 | #1 | 旧 `chain_execution.py:70` | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
-| D-5 | #14 | [chain_contracts.py:196](../../backend/src/material_workbench/contracts/chain_contracts.py#L196) | `ChainSnapshotIdentity` が `design_space` / `commercial_catalog` 欠落で2件のvalidation error |
+| D-5 | #14 | [chain_contracts.py:196](../../backend/src/decision_workbench/contracts/chain_contracts.py#L196) | `ChainSnapshotIdentity` が `design_space` / `commercial_catalog` 欠落で2件のvalidation error |
 | D-6 | #11 | 旧 `chain_execution.py:1002` | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
 
 D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名前空間を受理する**（`candidate.process.barrel_temperature_c` で

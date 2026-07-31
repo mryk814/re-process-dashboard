@@ -81,8 +81,7 @@ Desktopの起動エラー、開発ランチャーのWeb診断面、またはAPI�
    手作業で行わない。
 4. 構成を戻せない場合は、整合性検証済みのWorkspace backupへ復元する。参照中の
    PackageやDatasetを削除して起動だけ通すことはしない。
-5. backupが無い場合は、退避したWorkspaceと
-   `logs/material-workbench-api.log` を保全して修復対象を特定する。元Excel
+5. backupが無い場合は、退避したWorkspaceとDesktop版の診断ログを保全して修復対象を特定する。元Excel
    `data/source/` は変更しない。
 
 同じPackage IDとmanifest digestへ異なるTask contractやmanifest内容を割り当てる

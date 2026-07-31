@@ -70,7 +70,7 @@ flowchart LR
 
 ## 3. ProfileはExcelの方言を正規形へ写す
 
-教材専用Profileは [`dataset-input-profile-tutorial.json`](../../backend/src/material_workbench/data/dataset-input-profile-tutorial.json) です。
+教材専用Profileは [`dataset-input-profile-tutorial.json`](../../backend/src/decision_workbench/data/dataset-input-profile-tutorial.json) です。
 
 このProfileは既存の薄板Task用Profileを継承し、`概要.項目` に `教材データID` があることだけを固有マーカーにします。これにより、同じシート名を持つ別Workbookと自動判定が衝突しません。
 
@@ -94,7 +94,7 @@ Excel「C[mass%]」
 
 ## 4. Importerが作る正規化データ
 
-入口は `material_workbench.data.importer.load_workbook_data()` です。教材Workbookでは次の結果になります。
+入口は `decision_workbench.data.importer.load_workbook_data()` です。教材Workbookでは次の結果になります。
 
 ```text
 composition          4
@@ -119,7 +119,7 @@ detected_quality     0
 
 ```powershell
 $env:PYTHONPATH = "backend/src"
-uv run python -c "from material_workbench.data.importer import load_workbook_data; d=load_workbook_data('data/source/material_workbench_tutorial_v1.xlsx'); print(d.profile_id, len(d.observations))"
+uv run python -c "from decision_workbench.data.importer import load_workbook_data; d=load_workbook_data('data/source/material_workbench_tutorial_v1.xlsx'); print(d.profile_id, len(d.observations))"
 ```
 
 ## 5. Feature Pipelineはcanonical inputから決定的に計算する
@@ -128,7 +128,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 焼鈍
 
-実装は [`feature_pipeline.py`](../../backend/src/material_workbench/modeling/feature_pipeline.py) です。
+実装は [`feature_pipeline.py`](../../backend/src/decision_workbench/modeling/feature_pipeline.py) です。
 
 - 成分値
 - ヒートパターンの最高温度、保持、加熱・冷却挙動
@@ -138,7 +138,7 @@ Feature PipelineはModel Packageに含まれるPythonコードではありませ
 
 ### 熱延
 
-実装は [`hot_rolling_feature_pipeline.py`](../../backend/src/material_workbench/modeling/hot_rolling_feature_pipeline.py) です。
+実装は [`hot_rolling_feature_pipeline.py`](../../backend/src/decision_workbench/modeling/hot_rolling_feature_pipeline.py) です。
 
 - 成分値
 - 熱延工程値

@@ -4,18 +4,18 @@ level: intermediate
 estimated_minutes: 90
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/decision_activity_contracts.py"
     id: "contract-stack-contract"
     role: "contract"
     symbols:
       - "CandidateDifferenceParameters"
       - "CounterfactualTargetEvaluation"
       - "DecisionActivityRunRequest"
-  - path: "backend/src/material_workbench/application/decision_activity_registry.py"
+  - path: "backend/src/decision_workbench/application/decision_activity_registry.py"
     role: "application"
-  - path: "backend/src/material_workbench/application/decision_activities.py"
+  - path: "backend/src/decision_workbench/application/decision_activities.py"
     role: "application"
-  - path: "backend/src/material_workbench/api/decision_activities.py"
+  - path: "backend/src/decision_workbench/api/decision_activities.py"
     role: "api"
   - path: "backend/scripts/operations/export_openapi.py"
     role: "build"
@@ -291,7 +291,7 @@ elif activity_id == "candidate-difference-v1":
 ```
 
 現行実装は、この形を採りません。
-`backend/src/material_workbench/application/decision_activity_registry.py` は、アクティビティごとのハンドラを許可リストします。
+`backend/src/decision_workbench/application/decision_activity_registry.py` は、アクティビティごとのハンドラを許可リストします。
 
 ```python
 @dataclass(frozen=True)
@@ -311,7 +311,7 @@ class DecisionActivityHandler:
 
 ### 共通サービスの責務
 
-`backend/src/material_workbench/application/decision_activities.py` の`DecisionActivityService`は、アクティビティの種類に依存しない処理を持ちます。
+`backend/src/decision_workbench/application/decision_activities.py` の`DecisionActivityService`は、アクティビティの種類に依存しない処理を持ちます。
 
 1. プロジェクト、候補、タスクランタイムを解決する
 2. ハンドラをレジストリから取得する
@@ -386,7 +386,7 @@ Pydantic 契約は、IDが空でないことやリビジョンが1以上であ�
 
 ## FastAPIが契約を公開する
 
-`backend/src/material_workbench/api/decision_activities.py` は、リクエストとレスポンスへPydantic モデルを指定します。
+`backend/src/decision_workbench/api/decision_activities.py` は、リクエストとレスポンスへPydantic モデルを指定します。
 
 ```python
 @router.post(

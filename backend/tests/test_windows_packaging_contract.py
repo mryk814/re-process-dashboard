@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from material_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.task_composition.catalog import registered_task_modules
 from sidecar import configure_standard_streams
 
 ROOT = Path(__file__).parents[2]
@@ -28,6 +28,7 @@ def test_user_facing_product_name_changes_without_moving_stable_identity() -> No
     portable_readme = (
         ROOT / "packaging" / "PORTABLE-README.txt"
     ).read_text(encoding="utf-8")
+    sidecar_spec = (ROOT / "packaging" / "sidecar.spec").read_text(encoding="utf-8")
 
     assert "appId: jp.local.material-decision-workbench" in builder_config
     assert "productName: Evidence Decision Workbench" in builder_config
@@ -44,6 +45,8 @@ def test_user_facing_product_name_changes_without_moving_stable_identity() -> No
         in desktop_launcher
     )
     assert 'extensions: ["mdwb"]' in desktop_launcher
+    assert "name: evidence-decision-workbench" in builder_config
+    assert 'name="decision-workbench-sidecar"' in sidecar_spec
 
 
 def test_windows_bundle_declares_active_model_configuration_and_packages() -> None:
@@ -177,9 +180,9 @@ def test_packaged_launcher_uses_active_model_configuration_as_single_source() ->
     desktop_launcher = (ROOT / "apps" / "desktop" / "src" / "main.ts").read_text(encoding="utf-8")
 
     for override in (
-        "MATERIAL_WORKBENCH_MODEL_PACKAGE:",
-        "MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE:",
-        "MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE:",
+        "DECISION_WORKBENCH_MODEL_PACKAGE:",
+        "DECISION_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE:",
+        "DECISION_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE:",
     ):
         assert override not in desktop_launcher
     assert "WORKBENCH_RESOURCE_ROOT: resources" in desktop_launcher
@@ -470,6 +473,7 @@ def test_windows_delivery_upgrades_without_moving_the_legacy_workspace() -> None
     assert "Test-Path -LiteralPath $workspaceDatabasePath" in delivery_smoke
     assert "KeepSmokeOnFailure" in delivery_smoke
     assert "PreviousInstallerPath" in delivery_smoke
+    assert "PreviousExecutableName" in delivery_smoke
     assert "AllowUserInstallerState" in delivery_smoke
     assert "function Assert-NoNonSmokeInstallerState" in delivery_smoke
     assert "refusing to replace a non-smoke shortcut" in delivery_smoke
@@ -479,6 +483,8 @@ def test_windows_delivery_upgrades_without_moving_the_legacy_workspace() -> None
     ) < delivery_smoke.index("if (Test-Path -LiteralPath $smokeRoot)")
     assert '"Material Decision Workbench.exe"' in delivery_smoke
     assert '"Uninstall Material Decision Workbench.exe"' in delivery_smoke
+    assert "$PreviousExecutableName" in delivery_smoke
+    assert "$replacesRetiredDisplayArtifacts" in delivery_smoke
     assert "legacy installed artifact remained after upgrade" in delivery_smoke
     assert "legacy shortcut remained after upgrade" in delivery_smoke
     assert "function Test-SmokeShortcutOwned" in delivery_smoke

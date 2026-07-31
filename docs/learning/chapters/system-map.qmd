@@ -25,51 +25,51 @@ code_references:
     role: "application"
     symbols:
       - "main"
-  - path: "backend/src/material_workbench/app.py"
+  - path: "backend/src/decision_workbench/app.py"
     id: "system-map-fastapi-app"
     role: "api"
     symbols:
       - "create_app"
-  - path: "backend/src/material_workbench/api/security.py"
+  - path: "backend/src/decision_workbench/api/security.py"
     id: "system-map-local-security"
     role: "api"
     symbols:
       - "configure_local_access"
-  - path: "backend/src/material_workbench/contracts/schemas.py"
+  - path: "backend/src/decision_workbench/contracts/schemas.py"
     id: "system-map-contracts"
     role: "contract"
     symbols:
       - "Candidate"
       - "ModelMetadata"
       - "PredictionResponse"
-  - path: "backend/src/material_workbench/persistence/store.py"
+  - path: "backend/src/decision_workbench/persistence/store.py"
     id: "system-map-store"
     role: "persistence"
     symbols:
       - "Store"
-  - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
+  - path: "backend/src/decision_workbench/persistence/store_unit_of_work.py"
     id: "system-map-unit-of-work"
     role: "persistence"
     symbols:
       - "WorkbenchUnitOfWork"
-  - path: "backend/src/material_workbench/persistence/project_repository.py"
+  - path: "backend/src/decision_workbench/persistence/project_repository.py"
     id: "system-map-project-repository"
     role: "persistence"
     symbols:
       - "ProjectRepository"
-  - path: "backend/src/material_workbench/task_composition/descriptors.py"
+  - path: "backend/src/decision_workbench/task_composition/descriptors.py"
     id: "system-map-task-module"
     role: "application"
     symbols:
       - "TaskModule"
       - "StarterProject"
-  - path: "backend/src/material_workbench/task_composition/catalog.py"
+  - path: "backend/src/decision_workbench/task_composition/catalog.py"
     id: "system-map-task-catalog"
     role: "application"
     symbols:
       - "registered_task_modules"
       - "task_module"
-  - path: "backend/src/material_workbench/modeling/model_packages.py"
+  - path: "backend/src/decision_workbench/modeling/model_packages.py"
     id: "system-map-model-package"
     role: "application"
     symbols:
@@ -155,7 +155,7 @@ PythonまたはTypeScriptのどちらか一方を読めれば始められます�
 開発中のローカルWeb版では、ViteがReactを配信し、ブラウザーが同じ端末内で待ち受けるFastAPIへリクエストを送ります。
 デスクトップ版では`Electron`がウィンドウを作り、同時にPythonの補助プロセスを子プロセスとして起動します。
 
-{{< code-ref system-map-electron-main symbol=sidecarCommand >}}は、開発時には`uvicorn`を、配布版では同梱した`material-workbench-sidecar.exe`を補助プロセスとして選びます。
+{{< code-ref system-map-electron-main symbol=sidecarCommand >}}は、開発時には`uvicorn`を、配布版では同梱した`decision-workbench-sidecar.exe`を補助プロセスとして選びます。
 どちらも、同じ端末内で利用可能なポートとワークスペースの経路を環境変数で補助プロセスへ渡します。
 
 一方、{{< code-ref system-map-electron-main symbol=createMainWindow >}}は開発時にViteのURLを開き、配布版では構築済みの`index.html`を開きます。

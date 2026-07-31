@@ -13,7 +13,7 @@
 任意の1件を選ばず、その観測を除外します。
 
 読取規則の正本は
-`backend/src/material_workbench/data/welding-stage-b-profile-v1.json`
+`backend/src/decision_workbench/data/welding-stage-b-profile-v1.json`
 です。Excelのシート名、キー列、成分列、単位、categorical choicesは
 コードへ埋め込まず、このProfileで固定します。
 Projectが固定したProfile Revisionはresolverからcompilerまでそのまま渡します。

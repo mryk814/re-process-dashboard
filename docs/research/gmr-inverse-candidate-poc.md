@@ -29,7 +29,7 @@ Issue #453の判断材料として、Gaussian Mixture Regression（GMR）をprod
 - 外挿度: 学習データまでの標準化最近傍距離
 
 EM/GMR、制約filter、順モデル、replay runnerは
-`backend/src/material_workbench/research/gmr_inverse.py`へ隔離した。
+`backend/src/decision_workbench/research/gmr_inverse.py`へ隔離した。
 production API、Model Package、Proposal Strategy registryは変更していない。
 
 ## Historical replay

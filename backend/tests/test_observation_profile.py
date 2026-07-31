@@ -6,7 +6,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from material_workbench.data.observation_profile import (
+from decision_workbench.data.observation_profile import (
     build_observation_training_dataset,
     inspect_observation_training_view,
     load_observation_profile,
@@ -20,7 +20,7 @@ PROFILE = (
     ROOT
     / "backend"
     / "src"
-    / "material_workbench"
+    / "decision_workbench"
     / "data"
     / "observation-profile-welding-consumable-stage-c-v1.json"
 )

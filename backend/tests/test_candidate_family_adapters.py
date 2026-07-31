@@ -4,13 +4,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.task_composition.candidate_family_adapters import (
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
     CandidateFamilyError,
     candidate_family_adapter,
 )
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _candidate(task_id: str) -> Candidate:

@@ -6,21 +6,21 @@ from typing import Any, Mapping
 
 import pytest
 
-from material_workbench.application.ai_review_provider import (
+from decision_workbench.application.ai_review_provider import (
     AiReviewProviderContext,
     ScriptedFixtureAiReviewProvider,
 )
-from material_workbench.application.ai_review_tools import (
+from decision_workbench.application.ai_review_tools import (
     AI_REVIEW_READ_TOOLS,
     AI_REVIEW_WRITE_TOOLS,
     AiReviewToolSurface,
 )
-from material_workbench.application.ai_reviews import AiReviewService
-from material_workbench.contracts.ai_review_contracts import (
+from decision_workbench.application.ai_reviews import AiReviewService
+from decision_workbench.contracts.ai_review_contracts import (
     AiActorIdentity,
     AiReviewRun,
 )
-from material_workbench.persistence.store import StoreDataIntegrityError
+from decision_workbench.persistence.store import StoreDataIntegrityError
 
 
 def _candidate_payload(name: str = "AI Review candidate") -> dict[str, Any]:
@@ -141,7 +141,7 @@ def _run(client, candidate: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_ai_review_migration_is_additive_and_idempotent(tmp_path) -> None:
-    from material_workbench.persistence.store import Store
+    from decision_workbench.persistence.store import Store
 
     database = tmp_path / "workbench.db"
     Store(database)

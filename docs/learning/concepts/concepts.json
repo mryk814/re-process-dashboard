@@ -128,7 +128,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -164,7 +164,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -202,7 +202,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/execution/inference_work_graph.py",
+          "path": "backend/src/decision_workbench/execution/inference_work_graph.py",
           "role": "domain"
         }
       ],
@@ -237,7 +237,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "path": "backend/src/decision_workbench/modeling/model_packages.py",
           "role": "application"
         }
       ],
@@ -271,7 +271,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/persistence/store.py",
+          "path": "backend/src/decision_workbench/persistence/store.py",
           "role": "persistence"
         }
       ],
@@ -305,7 +305,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -336,7 +336,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -366,7 +366,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/proposal_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/proposal_contracts.py",
           "role": "contract"
         }
       ],
@@ -403,7 +403,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/persistence/store.py",
+          "path": "backend/src/decision_workbench/persistence/store.py",
           "role": "persistence"
         }
       ],
@@ -509,7 +509,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py",
           "role": "contract"
         }
       ],
@@ -544,7 +544,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -580,7 +580,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -618,7 +618,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -655,7 +655,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -693,7 +693,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/series_contracts.py",
           "role": "contract"
         }
       ],
@@ -731,11 +731,11 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/series_contracts.py",
           "role": "contract"
         },
         {
-          "path": "backend/src/material_workbench/domain/series_curation.py",
+          "path": "backend/src/decision_workbench/domain/series_curation.py",
           "role": "domain"
         }
       ],
@@ -773,11 +773,11 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/series_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/series_contracts.py",
           "role": "contract"
         },
         {
-          "path": "backend/src/material_workbench/domain/series_curation.py",
+          "path": "backend/src/decision_workbench/domain/series_curation.py",
           "role": "domain"
         }
       ],
@@ -816,7 +816,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -854,7 +854,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/design_space_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/design_space_contracts.py",
           "role": "contract"
         }
       ],
@@ -889,7 +889,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/data/profiles/schema.py",
+          "path": "backend/src/decision_workbench/data/profiles/schema.py",
           "role": "application"
         }
       ],
@@ -920,7 +920,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py",
           "role": "contract"
         }
       ],
@@ -953,7 +953,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py",
           "role": "contract"
         }
       ],
@@ -993,7 +993,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/data/observation_profile.py",
+          "path": "backend/src/decision_workbench/data/observation_profile.py",
           "role": "application"
         }
       ],
@@ -1028,7 +1028,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/chain_evaluation_builder.py",
+          "path": "backend/src/decision_workbench/modeling/chain_evaluation_builder.py",
           "role": "application"
         }
       ],
@@ -1059,7 +1059,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/domain/data_lifecycle.py",
+          "path": "backend/src/decision_workbench/domain/data_lifecycle.py",
           "role": "domain"
         }
       ],
@@ -1094,7 +1094,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py",
           "role": "contract"
         }
       ],
@@ -1129,7 +1129,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/training_snapshot_adapter.py",
+          "path": "backend/src/decision_workbench/application/training_snapshot_adapter.py",
           "role": "application"
         }
       ],
@@ -1164,7 +1164,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/feature_pipeline.py",
+          "path": "backend/src/decision_workbench/modeling/feature_pipeline.py",
           "role": "application"
         }
       ],
@@ -1199,7 +1199,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "path": "backend/src/decision_workbench/modeling/model_packages.py",
           "role": "application"
         }
       ],
@@ -1231,7 +1231,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/runtime.py",
+          "path": "backend/src/decision_workbench/modeling/runtime.py",
           "role": "application"
         }
       ],
@@ -1266,7 +1266,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/task_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/task_contracts.py",
           "role": "contract"
         }
       ],
@@ -1302,7 +1302,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/model_packages.py",
+          "path": "backend/src/decision_workbench/modeling/model_packages.py",
           "role": "application"
         }
       ],
@@ -1339,7 +1339,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/chain_evaluation_builder.py",
+          "path": "backend/src/decision_workbench/modeling/chain_evaluation_builder.py",
           "role": "application"
         }
       ],
@@ -1378,7 +1378,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -1418,7 +1418,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activity_robustness.py",
+          "path": "backend/src/decision_workbench/application/decision_activity_robustness.py",
           "role": "application"
         }
       ],
@@ -1453,7 +1453,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/modeling/model_lifecycle.py",
+          "path": "backend/src/decision_workbench/modeling/model_lifecycle.py",
           "role": "application"
         }
       ],
@@ -1488,7 +1488,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/design_space_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/design_space_contracts.py",
           "role": "contract"
         }
       ],
@@ -1524,7 +1524,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/objective_contracts.py",
           "role": "contract"
         }
       ],
@@ -1559,7 +1559,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/domain/proposal_generation.py",
+          "path": "backend/src/decision_workbench/domain/proposal_generation.py",
           "role": "domain"
         }
       ],
@@ -1596,7 +1596,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/domain/proposal_acquisition.py",
+          "path": "backend/src/decision_workbench/domain/proposal_acquisition.py",
           "role": "domain"
         }
       ],
@@ -1637,11 +1637,11 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         },
         {
-          "path": "backend/src/material_workbench/application/screening.py",
+          "path": "backend/src/decision_workbench/application/screening.py",
           "role": "application"
         },
         {
@@ -1699,11 +1699,11 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/proposal_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/proposal_contracts.py",
           "role": "contract"
         },
         {
-          "path": "backend/src/material_workbench/domain/proposal_selection.py",
+          "path": "backend/src/decision_workbench/domain/proposal_selection.py",
           "role": "domain"
         },
         {
@@ -1747,7 +1747,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/domain/batch_selector.py",
+          "path": "backend/src/decision_workbench/domain/batch_selector.py",
           "role": "domain"
         }
       ],
@@ -1783,7 +1783,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/screening.py",
+          "path": "backend/src/decision_workbench/application/screening.py",
           "role": "application"
         }
       ],
@@ -1820,7 +1820,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activity_robustness.py",
+          "path": "backend/src/decision_workbench/application/decision_activity_robustness.py",
           "role": "application"
         },
         {
@@ -1867,7 +1867,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activity_counterfactual.py",
+          "path": "backend/src/decision_workbench/application/decision_activity_counterfactual.py",
           "role": "application"
         },
         {
@@ -1912,7 +1912,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/objective_contracts.py",
           "role": "contract"
         }
       ],
@@ -1943,7 +1943,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/objective_contracts.py",
           "role": "contract"
         }
       ],
@@ -1978,7 +1978,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/objective_execution.py",
+          "path": "backend/src/decision_workbench/application/objective_execution.py",
           "role": "application"
         }
       ],
@@ -2013,7 +2013,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/decision_activity_contracts.py",
           "role": "contract"
         }
       ],
@@ -2042,7 +2042,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/objective_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/objective_contracts.py",
           "role": "contract"
         }
       ],
@@ -2073,7 +2073,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -2108,7 +2108,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/domain/design_space_validation.py",
+          "path": "backend/src/decision_workbench/domain/design_space_validation.py",
           "role": "domain"
         }
       ],
@@ -2142,7 +2142,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activities.py",
+          "path": "backend/src/decision_workbench/application/decision_activities.py",
           "role": "application"
         }
       ],
@@ -2175,7 +2175,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
+          "path": "backend/src/decision_workbench/persistence/data_lifecycle_repository.py",
           "role": "persistence"
         }
       ],
@@ -2208,7 +2208,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/training_snapshot_adapter.py",
+          "path": "backend/src/decision_workbench/application/training_snapshot_adapter.py",
           "role": "application"
         }
       ],
@@ -2241,7 +2241,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activity_registry.py",
+          "path": "backend/src/decision_workbench/application/decision_activity_registry.py",
           "role": "application"
         }
       ],
@@ -2307,7 +2307,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "path": "backend/src/decision_workbench/contracts/subsystem_availability.py",
           "role": "contract"
         }
       ],
@@ -2340,7 +2340,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/api/security.py",
+          "path": "backend/src/decision_workbench/api/security.py",
           "role": "api"
         }
       ],
@@ -2373,7 +2373,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/decision_activity_contracts.py",
           "role": "contract"
         }
       ],
@@ -2407,7 +2407,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/projects.py",
+          "path": "backend/src/decision_workbench/application/projects.py",
           "role": "application"
         }
       ],
@@ -2441,7 +2441,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/persistence/store.py",
+          "path": "backend/src/decision_workbench/persistence/store.py",
           "role": "persistence"
         }
       ],
@@ -2509,7 +2509,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/persistence/store.py",
+          "path": "backend/src/decision_workbench/persistence/store.py",
           "role": "persistence"
         }
       ],
@@ -2640,7 +2640,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         }
       ],
@@ -2847,7 +2847,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/workspace_bundle_contracts.py",
+          "path": "backend/src/decision_workbench/contracts/workspace_bundle_contracts.py",
           "role": "contract"
         }
       ],
@@ -2881,7 +2881,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/workspace_bundle.py",
+          "path": "backend/src/decision_workbench/application/workspace_bundle.py",
           "role": "application"
         }
       ],
@@ -2912,7 +2912,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/workspace_bundle.py",
+          "path": "backend/src/decision_workbench/application/workspace_bundle.py",
           "role": "application"
         }
       ],
@@ -2999,7 +2999,7 @@
       ],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "path": "backend/src/decision_workbench/contracts/subsystem_availability.py",
           "role": "contract"
         },
         {
@@ -3039,7 +3039,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/contracts/subsystem_availability.py",
+          "path": "backend/src/decision_workbench/contracts/subsystem_availability.py",
           "role": "contract"
         },
         {
@@ -3082,11 +3082,11 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/application/decision_activities.py",
+          "path": "backend/src/decision_workbench/application/decision_activities.py",
           "role": "application"
         },
         {
-          "path": "backend/src/material_workbench/contracts/schemas.py",
+          "path": "backend/src/decision_workbench/contracts/schemas.py",
           "role": "contract"
         },
         {

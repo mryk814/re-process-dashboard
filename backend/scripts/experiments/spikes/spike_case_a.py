@@ -41,7 +41,7 @@ SPIKE_PROFILE_ID = "spike-injection-molding-v1"
 SPIKE_PACKAGE_ID = "spike-injection-molding-ridge-v1"
 
 PRODUCTION_TASK_DEFINITIONS = (
-    REPO / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions"
+    REPO / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions"
 )
 
 NUMERIC_INPUTS = (
@@ -289,18 +289,18 @@ def tabular_profile_document() -> dict[str, object]:
 def main() -> int:
     from types import MappingProxyType
 
-    from material_workbench import app as app_module
-    import material_workbench.bootstrap.resources as resources_module
-    from material_workbench.modeling.model_lifecycle import (
+    from decision_workbench import app as app_module
+    import decision_workbench.bootstrap.resources as resources_module
+    from decision_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_composition.builtin.shared import (
+    from decision_workbench.task_composition.builtin.shared import (
         _application_capability,
         _standard_response_curve,
         TABULAR_EXPLORER,
     )
-    from material_workbench.task_composition.builtin.tabular import (
+    from decision_workbench.task_composition.builtin.tabular import (
         _TABULAR_PROFILES,
         _tabular_features,
         _tabular_loader,
@@ -308,9 +308,9 @@ def main() -> int:
         _tabular_starter,
         _tabular_training_candidate,
     )
-    from material_workbench.task_composition.catalog import registered_task_modules
-    import material_workbench.task_composition.catalog as task_catalog
-    from material_workbench.task_composition.descriptors import (
+    from decision_workbench.task_composition.catalog import registered_task_modules
+    import decision_workbench.task_composition.catalog as task_catalog
+    from decision_workbench.task_composition.descriptors import (
         StandardModelAuthoring,
         TaskModule,
     )
@@ -349,7 +349,7 @@ def main() -> int:
         _TABULAR_PROFILES[SPIKE_TASK_ID] = profile_json
         spike_module = TaskModule(
             task_id=SPIKE_TASK_ID,
-            package_override_env="MATERIAL_WORKBENCH_SPIKE_INJECTION_MOLDING_MODEL_PACKAGE",
+            package_override_env="DECISION_WORKBENCH_SPIKE_INJECTION_MOLDING_MODEL_PACKAGE",
             source_env="WORKBENCH_SPIKE_INJECTION_MOLDING_SOURCE_PATH",
             source_kind="spike_injection_molding",
             default_source=source_csv,

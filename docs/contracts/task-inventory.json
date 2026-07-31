@@ -1,16 +1,16 @@
 {
   "schema_version": "task-inventory/v2",
   "generated_from": [
-    "backend/src/material_workbench/task_composition/catalog.py",
-    "backend/src/material_workbench/task_composition/builtin/catalog.py",
-    "backend/src/material_workbench/task_composition/builtin/shared.py",
-    "backend/src/material_workbench/task_composition/builtin/sources.py",
-    "backend/src/material_workbench/task_composition/builtin/annealed.py",
-    "backend/src/material_workbench/task_composition/builtin/hot_rolling.py",
-    "backend/src/material_workbench/task_composition/builtin/flank_wear.py",
-    "backend/src/material_workbench/task_composition/builtin/tabular.py",
-    "backend/src/material_workbench/task_composition/builtin/welding.py",
-    "backend/src/material_workbench/tasks/task_definitions",
+    "backend/src/decision_workbench/task_composition/catalog.py",
+    "backend/src/decision_workbench/task_composition/builtin/catalog.py",
+    "backend/src/decision_workbench/task_composition/builtin/shared.py",
+    "backend/src/decision_workbench/task_composition/builtin/sources.py",
+    "backend/src/decision_workbench/task_composition/builtin/annealed.py",
+    "backend/src/decision_workbench/task_composition/builtin/hot_rolling.py",
+    "backend/src/decision_workbench/task_composition/builtin/flank_wear.py",
+    "backend/src/decision_workbench/task_composition/builtin/tabular.py",
+    "backend/src/decision_workbench/task_composition/builtin/welding.py",
+    "backend/src/decision_workbench/tasks/task_definitions",
     "models/active-packages.json",
     "resolved dataset input profiles",
     "resolved Model Package manifests"
@@ -106,7 +106,7 @@
         "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
         "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
         "profile_id": "welding-consumable-stage-b-v1",
-        "profile_path": "backend/src/material_workbench/data/welding-stage-b-profile-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/welding-stage-b-profile-v1.json"
       },
       "active_package": {
         "path": "packages/welding-consumable-stage-b-ridge-v3",
@@ -209,7 +209,7 @@
         "path": "data/source/material_workbench_tutorial_v2.xlsx",
         "sha256": "b9b89cd545517a3abbc21715a0cd14acc8bab66541da558de3e305f28ee908d9",
         "profile_id": "thin-sheet-tutorial-v1",
-        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
+        "profile_path": "backend/src/decision_workbench/data/dataset-input-profile-tutorial.json"
       },
       "active_package": {
         "path": "packages/annealed-gp-stable-ard-tutorial-v2",
@@ -310,7 +310,7 @@
         "path": "data/source/material_workbench_tutorial_v2.xlsx",
         "sha256": "b9b89cd545517a3abbc21715a0cd14acc8bab66541da558de3e305f28ee908d9",
         "profile_id": "thin-sheet-tutorial-v1",
-        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
+        "profile_path": "backend/src/decision_workbench/data/dataset-input-profile-tutorial.json"
       },
       "active_package": {
         "path": "packages/hot-rolled-tutorial-v2",
@@ -405,7 +405,7 @@
         "path": "data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx",
         "sha256": "0641464e069d30e1284ffabde648d5ba4db86f100df00ed41bc414606e7f4144",
         "profile_id": "cutting-flank-wear-v1",
-        "profile_path": "backend/src/material_workbench/data/dataset-input-profile-flank-wear-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/dataset-input-profile-flank-wear-v1.json"
       },
       "active_package": {
         "path": "packages/flank-wear-gp-2026-07",
@@ -498,7 +498,7 @@
         "path": "data/source/external/heat_treatment_tradeoff_samples.csv",
         "sha256": "226a9b8e77820459f51382e40d8df12ac6fe3c0a4648dc15ad068f9372d7c34b",
         "profile_id": "external-heat-treatment-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-heat-treatment-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-heat-treatment-v1.json"
       },
       "active_package": {
         "path": "packages/heat-treatment-ridge-external-v1",
@@ -593,7 +593,7 @@
         "path": "data/source/external/concrete_mix_samples.csv",
         "sha256": "5af081de0f3936a2a7432fbed22c99b13e3c28d669f46da801d54ed425a63afd",
         "profile_id": "external-concrete-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-concrete-v1.json"
       },
       "active_package": {
         "path": "packages/concrete-strength-ridge-external-v1",
@@ -682,7 +682,7 @@
         "path": "data/source/external/wear_curve_samples.csv",
         "sha256": "d5f5ed40f99af0c9d632c8d86c2d5bd01e90afa86e19487953b0b697245d303a",
         "profile_id": "external-wear-curve-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-wear-curve-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-wear-curve-v1.json"
       },
       "active_package": {
         "path": "packages/wear-curve-ridge-external-v1",
@@ -771,7 +771,7 @@
         "path": "data/source/external/battery_calce_cs2_cycles.csv",
         "sha256": "bd2ab1b43b826c2376d3c692b264b34f886ab7bfdfb23ce81421a1c07bd45cc3",
         "profile_id": "calce-cs2-battery-capacity-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-battery-degradation-v1.json"
       },
       "active_package": {
         "path": "packages/battery-degradation-lightgbm-calce-v1",
@@ -863,7 +863,7 @@
         "path": "data/source/external/secom_stress.csv",
         "sha256": "c0f74512d055466c6e048430d21debeb413dd402d73a983d69286f1d2522df5b",
         "profile_id": "uci-secom-yield-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-secom-yield-v1.json"
       },
       "active_package": {
         "path": "packages/secom-yield-lightgbm-calibrated-v1",
@@ -953,7 +953,7 @@
         "path": "data/source/external/mpea_ground_truth_18021833.csv",
         "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
         "profile_id": "mpea-zenodo-18021833-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-literature-tys-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-mpea-literature-tys-v1.json"
       },
       "active_package": {
         "path": "packages/mpea-literature-tys-ridge-v1",
@@ -1018,7 +1018,7 @@
         "path": "data/source/external/mpea_ground_truth_18021833.csv",
         "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
         "profile_id": "mpea-zenodo-18021833-room-tensile-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
       },
       "active_package": {
         "path": "packages/mpea-room-tensile-ridge-v2",
@@ -1100,7 +1100,7 @@
         "path": "data/source/external/mpea_ground_truth_18021833.csv",
         "sha256": "a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
         "profile_id": "mpea-zenodo-18021833-hardness-v1",
-        "profile_path": "backend/src/material_workbench/data/tabular-profile-mpea-hardness-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-mpea-hardness-v1.json"
       },
       "active_package": {
         "path": "packages/mpea-hardness-ridge-v2",
@@ -1201,7 +1201,7 @@
         "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
         "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
         "profile_id": "welding-consumable-stage-c-observations-v1",
-        "profile_path": "backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json"
+        "profile_path": "backend/src/decision_workbench/data/observation-profile-welding-consumable-stage-c-v1.json"
       },
       "active_package": {
         "path": "packages/welding-stage-c-ridge-v1",

@@ -34,7 +34,7 @@ npm run data:build:welding-stage-c-views
 - `summary.json`：family・目的変数ごとの利用行数、施工group数、除外理由
 
 読取規則の正本は
-`backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
+`backend/src/decision_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
 です。
 各行は試験キー、溶接施工キー、溶接条件キー、溶着金属成分キーをprovenanceとして保持します。
 分割groupは試験片ではなく溶接施工キーです。

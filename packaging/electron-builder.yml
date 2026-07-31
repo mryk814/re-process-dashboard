@@ -4,14 +4,14 @@ asar: false
 directories:
   output: release
 extraMetadata:
-  name: material-decision-workbench
+  name: evidence-decision-workbench
   main: apps/desktop/dist/main.js
 files:
   - apps/desktop/dist/**/*
   - apps/web/dist/**/*
   - package.json
 extraResources:
-  - from: dist/sidecar/material-workbench-sidecar
+  - from: dist/sidecar/decision-workbench-sidecar
     to: sidecar
   - from: data/source/material_workbench_tutorial_v2.xlsx
     to: data/source/material_workbench_tutorial_v2.xlsx

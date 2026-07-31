@@ -6,7 +6,7 @@ import shutil
 import subprocess
 
 from fastapi.testclient import TestClient
-from material_workbench.api import developer
+from decision_workbench.api import developer
 
 
 def test_change_guide_is_machine_readable_and_requires_human_review(client: TestClient) -> None:
@@ -65,7 +65,7 @@ def test_change_guide_exposes_distinct_decision_activity_workflows(
     assert [step["label"] for step in create["steps"]] == expected_steps
     assert [step["label"] for step in change["steps"]] == expected_steps
     assert create["steps"][0]["paths"] == [
-        "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+        "backend/src/decision_workbench/contracts/decision_activity_contracts.py"
     ]
     assert "e2e/decision-activity.spec.ts" in create["steps"][-1]["paths"]
     assert any("直接編集せず" in warning for warning in create["warnings"])

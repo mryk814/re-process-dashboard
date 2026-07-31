@@ -10,9 +10,9 @@
       "alt": "二つの編集が候補リビジョンを介して競合する時系列",
       "long_description": "編集者Aと編集者Bがリビジョン7を読み、Aの保存がリビジョン8を作る。Bの古い保存は409となり、現行リビジョン8へ変更フィールドだけを重ねた保存がリビジョン9を作る。",
       "drift_refs": [
-        "backend/src/material_workbench/contracts/schemas.py",
-        "backend/src/material_workbench/application/candidates.py",
-        "backend/src/material_workbench/persistence/candidate_repository.py",
+        "backend/src/decision_workbench/contracts/schemas.py",
+        "backend/src/decision_workbench/application/candidates.py",
+        "backend/src/decision_workbench/persistence/candidate_repository.py",
         "apps/web/src/features/candidates/useCandidateEditor.ts",
         "backend/tests/test_candidate_safety.py"
       ]
@@ -26,9 +26,9 @@
       "alt": "検討アクティビティのリクエストとレスポンスがPythonからReactまで進む流れ",
       "long_description": "ReactのリクエストからAPIクライアント、FastAPI、Pydantic、アプリケーションサービス、アクティビティハンドラ、保存済み実行記録を経て、TypeScriptのユニオン型とReactの結果ビューへ戻る。",
       "drift_refs": [
-        "backend/src/material_workbench/contracts/decision_activity_contracts.py",
-        "backend/src/material_workbench/api/decision_activities.py",
-        "backend/src/material_workbench/application/decision_activities.py",
+        "backend/src/decision_workbench/contracts/decision_activity_contracts.py",
+        "backend/src/decision_workbench/api/decision_activities.py",
+        "backend/src/decision_workbench/application/decision_activities.py",
         "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
         "backend/tests/test_decision_activities.py"
       ]
@@ -42,7 +42,7 @@
       "alt": "検討アクティビティのパラメータと結果をスキーマの版で分ける二つのユニオン型",
       "long_description": "パラメータ契約は三つのパラメータ形式を、結果契約は対応する三つの要約形式を、それぞれschema_versionで判別する。パラメータ用と結果用の識別子を取り違えたペイロードと未知の識別子は拒否する。",
       "drift_refs": [
-        "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+        "backend/src/decision_workbench/contracts/decision_activity_contracts.py",
         "apps/web/src/generated/api-types.ts",
         "backend/tests/test_decision_activities.py",
         "backend/tests/test_openapi_contract.py"
@@ -57,9 +57,9 @@
       "alt": "未適用、適用中、確認済み、矛盾したマイグレーション状態",
       "long_description": "マーカーも実体もない未適用状態から、同じトランザクション内でスキーマ、バックフィル、マーカーを作り、確認済み状態へ進む。マーカーと実体の不一致、チェックサム不一致、データ不変条件違反は矛盾状態として起動を停止する。",
       "drift_refs": [
-        "backend/src/material_workbench/persistence/store.py",
-        "backend/src/material_workbench/persistence/sqlite_connection.py",
-        "backend/src/material_workbench/persistence/workspace_catalog_migration.py",
+        "backend/src/decision_workbench/persistence/store.py",
+        "backend/src/decision_workbench/persistence/sqlite_connection.py",
+        "backend/src/decision_workbench/persistence/workspace_catalog_migration.py",
         "backend/tests/test_workspace_catalog_migration.py"
       ]
     },
@@ -73,10 +73,10 @@
       "long_description": "プロジェクトAが有効からアーカイブへ進むと、通常一覧と書込み経路から外れるが証拠は残り、実行中の占有だけが失効する。プロジェクトBから派生参照があればパージを拒否する。外部参照がないプロジェクトだけ、プロジェクト所有の証拠を一つのトランザクションで削除し、共有成果物を残す。",
       "drift_refs": [
         "docs/decisions/sqlite-project-lifecycle-policy.md",
-        "backend/src/material_workbench/api/projects.py",
-        "backend/src/material_workbench/application/projects.py",
-        "backend/src/material_workbench/persistence/project_repository.py",
-        "backend/src/material_workbench/persistence/store_unit_of_work.py",
+        "backend/src/decision_workbench/api/projects.py",
+        "backend/src/decision_workbench/application/projects.py",
+        "backend/src/decision_workbench/persistence/project_repository.py",
+        "backend/src/decision_workbench/persistence/store_unit_of_work.py",
         "backend/tests/test_project_lifecycle.py"
       ]
     },
@@ -89,10 +89,10 @@
       "alt": "ソース更新からモデルパッケージ候補までの資産分割",
       "long_description": "ソース接続設定、生スナップショット、品質整理実行記録、正規データセットリビジョン、学習用スナップショットを順に作り、別操作でモデルパッケージ候補へ進む。",
       "drift_refs": [
-        "backend/src/material_workbench/contracts/data_lifecycle_contracts.py",
-        "backend/src/material_workbench/application/data_lifecycle.py",
-        "backend/src/material_workbench/persistence/data_lifecycle_repository.py",
-        "backend/src/material_workbench/api/data_lifecycle.py",
+        "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py",
+        "backend/src/decision_workbench/application/data_lifecycle.py",
+        "backend/src/decision_workbench/persistence/data_lifecycle_repository.py",
+        "backend/src/decision_workbench/api/data_lifecycle.py",
         "backend/tests/test_data_lifecycle.py"
       ]
     },
@@ -121,9 +121,9 @@
       "alt": "ワークスペース復元の状態遷移",
       "long_description": "現ワークスペースから準備、コミット、APIの正常性確認、確定へ進む。失敗時はロールバックし、旧DBがあれば元ワークスペースへ戻し、旧DBがなければDBなしの状態へ戻す。",
       "drift_refs": [
-        "backend/src/material_workbench/contracts/workspace_bundle_contracts.py",
-        "backend/src/material_workbench/application/workspace_bundle_restore_plan.py",
-        "backend/src/material_workbench/application/workspace_bundle_service.py",
+        "backend/src/decision_workbench/contracts/workspace_bundle_contracts.py",
+        "backend/src/decision_workbench/application/workspace_bundle_restore_plan.py",
+        "backend/src/decision_workbench/application/workspace_bundle_service.py",
         "backend/src/sidecar.py",
         "apps/desktop/src/main.ts",
         "backend/tests/test_workspace_bundle.py"

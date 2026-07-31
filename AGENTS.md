@@ -119,7 +119,7 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 
 - specは `default` などの共有Projectを書き換えるため、同じDBに対する2回目の
   実行では落ちる（実測：既定パス0件失敗 → 同一サーバへの2回目で8件失敗）。
-  既定パスは実行ごとに `material-workbench-e2e-<pid>.db` を作るのでこれが起きない
+  既定パスは実行ごとに `decision-workbench-e2e-<pid>.db` を作るのでこれが起きない
 - 常駐サーバは起動時にbindしたDataset revisionを持ち続ける。データセットや
   Packageを変更したときは、常駐サーバを再起動しないと古い版を見たままになる
 

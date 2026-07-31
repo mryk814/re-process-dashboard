@@ -19,12 +19,12 @@ if __package__ in {None, ""}:
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import (
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import (
     AppResources,
     prepare_app_resources,
 )
-from material_workbench.application.training_snapshot_adapter import (
+from decision_workbench.application.training_snapshot_adapter import (
     BATTERY_MATERIALIZATION_ADAPTER_VERSION,
     BATTERY_SOURCE_ADAPTER_ID,
     BATTERY_SOURCE_ADAPTER_VERSION,
@@ -33,29 +33,29 @@ from material_workbench.application.training_snapshot_adapter import (
     battery_source_json,
     battery_source_records,
 )
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
 )
-from material_workbench.contracts.objective_contracts import ObjectiveDefinition
-from material_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
-from material_workbench.application.dataset_registration import register_dataset_records
-from material_workbench.modeling.model_lifecycle import (
+from decision_workbench.contracts.objective_contracts import ObjectiveDefinition
+from decision_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
+from decision_workbench.application.dataset_registration import register_dataset_records
+from decision_workbench.modeling.model_lifecycle import (
     dataset_profile_digest,
     ensure_available_packages_config,
     register_available_package,
 )
-from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.modeling.tabular_model_builder import (
+from decision_workbench.modeling.model_package_verify import verify_model_package
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.tabular_model_builder import (
     build,
     tabular_training_code_revision,
 )
-from material_workbench.modeling.tabular.profile import load_tabular_profile
-from material_workbench.persistence.data_lifecycle_repository import (
+from decision_workbench.modeling.tabular.profile import load_tabular_profile
+from decision_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.workspace_catalog_bootstrap import (
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.application.workspace_catalog_bootstrap import (
     task_definition_digest,
 )
 
@@ -64,7 +64,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "data/source/external/battery_calce_cs2_cycles.csv"
 PROFILE = (
     ROOT
-    / "backend/src/material_workbench/data/tabular-profile-battery-degradation-v1.json"
+    / "backend/src/decision_workbench/data/tabular-profile-battery-degradation-v1.json"
 )
 TASK_ID = "battery-degradation-v1"
 HELD_OUT_CELL_ID = "CS2_35"

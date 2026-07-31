@@ -8,8 +8,8 @@ import pytest
 from openpyxl import load_workbook
 from pydantic import ValidationError
 
-from material_workbench.application.candidates import CandidateService
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.application.candidates import CandidateService
+from decision_workbench.contracts.blend_contracts import (
     BlendContractRegistry,
     BlendItem,
     CommercialMaterial,
@@ -25,14 +25,14 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     validate_sparse_blend,
 )
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
 )
-from material_workbench.application.candidate_spreadsheet import candidates_xlsx
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.persistence.snapshot_reader import candidate_input_from_snapshot
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.application.candidate_spreadsheet import candidates_xlsx
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.persistence.snapshot_reader import candidate_input_from_snapshot
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _contracts() -> tuple[

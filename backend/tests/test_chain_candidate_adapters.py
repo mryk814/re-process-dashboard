@@ -12,18 +12,18 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.application import (
+from decision_workbench.application import (
     chain_execution_plan,
     chain_snapshot_use_case,
 )
-from material_workbench.application.chain_candidate_adapters import (
+from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
     ScalarChainAdapter,
     SparseBlendChainAdapter,
     candidate_adapter_for,
 )
-from material_workbench.application.payload_normalization import plain_payload
-from material_workbench.contracts.chain_contracts import (
+from decision_workbench.application.payload_normalization import plain_payload
+from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
     ChainRevision,
@@ -33,10 +33,10 @@ from material_workbench.contracts.chain_contracts import (
     StageOutputBindingSource,
     UnitConversion,
 )
-from material_workbench.contracts.chain_execution_contracts import (
+from decision_workbench.contracts.chain_execution_contracts import (
     IntermediateActualRecord,
 )
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     CandidateInputs,
@@ -45,11 +45,11 @@ from material_workbench.contracts.candidate_project_contracts import (
 
 DIGEST = "sha256:" + "0" * 64
 CORE_MODULES = (
-    "backend/src/material_workbench/application/chain_execution_plan.py",
-    "backend/src/material_workbench/application/chain_execution_use_case.py",
-    "backend/src/material_workbench/application/chain_snapshot_use_case.py",
-    "backend/src/material_workbench/application/chain_stage_execution.py",
-    "backend/src/material_workbench/application/chain_uncertainty.py",
+    "backend/src/decision_workbench/application/chain_execution_plan.py",
+    "backend/src/decision_workbench/application/chain_execution_use_case.py",
+    "backend/src/decision_workbench/application/chain_snapshot_use_case.py",
+    "backend/src/decision_workbench/application/chain_stage_execution.py",
+    "backend/src/decision_workbench/application/chain_uncertainty.py",
 )
 # 溶接／疎配合固有の語彙。Chain Coreに現れてはならない。
 DOMAIN_SYMBOLS = (
@@ -335,10 +335,10 @@ def test_candidate_adapter_does_not_import_chain_use_cases() -> None:
     root = Path(__file__).resolve().parents[2]
     source = (
         root
-        / "backend/src/material_workbench/application/chain_candidate_adapters.py"
+        / "backend/src/decision_workbench/application/chain_candidate_adapters.py"
     ).read_text(encoding="utf-8")
 
-    assert "material_workbench.application.chain_execution_" not in source
+    assert "decision_workbench.application.chain_execution_" not in source
 
 
 def test_plain_payload_normalizes_models_and_nested_containers() -> None:

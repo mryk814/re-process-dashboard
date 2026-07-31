@@ -19,19 +19,19 @@ const brokenHeatTreatmentPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
 const reuseServer = process.env.PLAYWRIGHT_REUSE_SERVER === "1";
 const ownsDatabase = !process.env.PLAYWRIGHT_DB_PATH && !reuseServer;
 const database = process.env.PLAYWRIGHT_DB_PATH
-  ?? join(tmpdir(), `material-workbench-e2e-${randomUUID()}.db`);
+  ?? join(tmpdir(), `decision-workbench-e2e-${randomUUID()}.db`);
 if (ownsDatabase) process.env.PLAYWRIGHT_OWNED_DB_PATH = database;
 const ownsModelStore = !process.env.PLAYWRIGHT_MODEL_STORE_PATH && !reuseServer;
 const modelStore = process.env.PLAYWRIGHT_MODEL_STORE_PATH
-  ?? join(tmpdir(), `material-workbench-e2e-models-${randomUUID()}`);
+  ?? join(tmpdir(), `decision-workbench-e2e-models-${randomUUID()}`);
 if (ownsModelStore) process.env.PLAYWRIGHT_OWNED_MODEL_STORE_PATH = modelStore;
 const ownsProfileStore = !process.env.PLAYWRIGHT_PROFILE_STORE_PATH && !reuseServer;
 const profileStore = process.env.PLAYWRIGHT_PROFILE_STORE_PATH
-  ?? join(tmpdir(), `material-workbench-e2e-profiles-${randomUUID()}`);
+  ?? join(tmpdir(), `decision-workbench-e2e-profiles-${randomUUID()}`);
 if (ownsProfileStore) process.env.PLAYWRIGHT_OWNED_PROFILE_STORE_PATH = profileStore;
 const ownsTaskStore = !process.env.PLAYWRIGHT_TASK_STORE_PATH && !reuseServer;
 const taskStore = process.env.PLAYWRIGHT_TASK_STORE_PATH
-  ?? join(tmpdir(), `material-workbench-e2e-tasks-${randomUUID()}`);
+  ?? join(tmpdir(), `decision-workbench-e2e-tasks-${randomUUID()}`);
 if (ownsTaskStore) process.env.PLAYWRIGHT_OWNED_TASK_STORE_PATH = taskStore;
 
 export default defineConfig({
@@ -63,7 +63,7 @@ export default defineConfig({
         WORKBENCH_TASK_STORE_PATH: taskStore,
         WORKBENCH_DEMO_SEED: "all",
         ...(brokenHeatTreatmentPackage
-          ? { MATERIAL_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }
+          ? { DECISION_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE: brokenHeatTreatmentPackage }
           : {}),
       },
     },

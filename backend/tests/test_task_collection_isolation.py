@@ -7,11 +7,11 @@ from pathlib import Path
 import subprocess
 import sys
 
-from material_workbench.developer_experience.task_scaffolding import (
+from decision_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
     create_task_scaffold,
 )
-from material_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.task_composition.catalog import registered_task_modules
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

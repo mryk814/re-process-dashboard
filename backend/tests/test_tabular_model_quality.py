@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from material_workbench.modeling import tabular_model_builder as builder
-from material_workbench.modeling.model_lifecycle import TargetQualityMetric
-from material_workbench.modeling.tabular.profile import TabularDatasetProfile
+from decision_workbench.modeling import tabular_model_builder as builder
+from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
+from decision_workbench.modeling.tabular.profile import TabularDatasetProfile
 
 
 ROOT = Path(__file__).resolve().parents[2]

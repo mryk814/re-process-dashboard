@@ -20,8 +20,8 @@ from backend.scripts.acceptance.reference_data_loop_acceptance import (
 from backend.scripts.generators.prepare_calce_battery_dataset import (
     require_writable_destination,
 )
-from material_workbench.app import create_app
-from material_workbench.application.training_snapshot_adapter import (
+from decision_workbench.app import create_app
+from decision_workbench.application.training_snapshot_adapter import (
     BATTERY_MATERIALIZATION_ADAPTER_ID,
     BATTERY_MATERIALIZATION_ADAPTER_VERSION,
     BATTERY_SOURCE_ADAPTER_ID,
@@ -30,26 +30,26 @@ from material_workbench.application.training_snapshot_adapter import (
     battery_row_key,
     battery_source_records,
 )
-from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-from material_workbench.contracts.data_lifecycle_contracts import (
+from decision_workbench.modeling.model_lifecycle import dataset_profile_digest
+from decision_workbench.contracts.data_lifecycle_contracts import (
     SourceConnector,
     SourceConnectorCreateInput,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.packages.contracts import (
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.modeling.packages.contracts import (
     ProvenanceSpec,
     SourceLifecycleProvenance,
 )
-from material_workbench.modeling.tabular_model_builder import (
+from decision_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
 )
-from material_workbench.modeling.tabular.data import load_tabular_data
-from material_workbench.persistence.data_lifecycle_repository import (
+from decision_workbench.modeling.tabular.data import load_tabular_data
+from decision_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import (
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.application.project_runtime import (
     ProjectRuntimeResolutionError,
 )
 

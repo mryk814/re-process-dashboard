@@ -9,22 +9,22 @@ import sys
 import pytest
 from openpyxl import load_workbook
 
-from material_workbench.adapters.builtin_deterministic_linear import (
+from decision_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearArtifact,
     ScientificTransformResult,
 )
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.contracts.blend_contracts import (
     BlendItem,
     CommercialMaterialCatalog,
     RevisionRef,
     SparseBlend,
 )
-from material_workbench.contracts.stage_a_contracts import ScientificBlendInput
-from material_workbench.modeling.model_package_verify import (
+from decision_workbench.contracts.stage_a_contracts import ScientificBlendInput
+from decision_workbench.modeling.model_package_verify import (
     verify_deterministic_transform_package,
 )
-from material_workbench.modeling.packages.contracts import PackageContractError
-from material_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]

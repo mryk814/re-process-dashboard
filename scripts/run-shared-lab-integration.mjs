@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-const projectName = `material-workbench-shared-test-${process.pid}`;
+const projectName = `decision-workbench-shared-test-${process.pid}`;
 
 function freePort() {
   return new Promise((resolvePort, reject) => {

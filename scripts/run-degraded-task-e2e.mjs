@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const scratch = mkdtempSync(join(tmpdir(), "material-workbench-degraded-e2e-"));
+const scratch = mkdtempSync(join(tmpdir(), "decision-workbench-degraded-e2e-"));
 const database = join(scratch, "workbench.db");
 const missingPackage = join(scratch, "missing-heat-treatment-package");
 const playwrightCli = join(

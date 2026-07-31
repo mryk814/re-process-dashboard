@@ -6,20 +6,20 @@ from contextlib import contextmanager
 
 import pytest
 
-from material_workbench.application.data_lifecycle import DataLifecycleService
-from material_workbench.contracts.data_lifecycle_contracts import (
+from decision_workbench.application.data_lifecycle import DataLifecycleService
+from decision_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,
     CurationRunCreateInput,
     ObjectSelection,
     SourceConnectorCreateInput,
     SourceFetchRequest,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.data_lifecycle_payload_storage import (
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.data_lifecycle_payload_storage import (
     LifecyclePayloadUnavailableError,
     StoredLifecycleRowResource,
 )
-from material_workbench.persistence.data_lifecycle_row_index import (
+from decision_workbench.persistence.data_lifecycle_row_index import (
     rebuild_row_index,
 )
 

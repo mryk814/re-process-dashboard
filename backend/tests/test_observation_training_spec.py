@@ -11,15 +11,15 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.data.observation_profile import load_observation_profile
-from material_workbench.modeling import observation_regression
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.modeling.observation_training_spec import (
+from decision_workbench.data.observation_profile import load_observation_profile
+from decision_workbench.modeling import observation_regression
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.observation_training_spec import (
     ObservationSpecError,
     observation_training_spec,
 )
-from material_workbench.task_composition.builtin.welding import observation_declaration
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.task_composition.builtin.welding import observation_declaration
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 ROOT = Path(__file__).resolve().parents[2]

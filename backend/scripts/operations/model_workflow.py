@@ -15,14 +15,14 @@ for entry in (BACKEND_SRC, GENERATOR_SCRIPTS):
     if str(entry) not in sys.path:
         sys.path.insert(0, str(entry))
 
-from material_workbench.modeling.active_package_history import (  # noqa: E402
+from decision_workbench.modeling.active_package_history import (  # noqa: E402
     check_active_package_history,
     classify_rollback_target,
     current_task_input_contract_digests,
     rollback_target_note,
     rollback_target_reason,
 )
-from material_workbench.modeling.model_lifecycle import (  # noqa: E402
+from decision_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     canonical_training_dataset,
     canonical_training_dataset_digest,
@@ -38,23 +38,23 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     validate_active_package_task_set,
     validate_lifecycle_metadata,
 )
-from material_workbench.modeling.model_package_verify import verify_model_package  # noqa: E402
-from material_workbench.modeling.packages.contracts import (  # noqa: E402
+from decision_workbench.modeling.model_package_verify import verify_model_package  # noqa: E402
+from decision_workbench.modeling.packages.contracts import (  # noqa: E402
     MissingOptionalDependency,
     PackageContractError,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
-from material_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
-from material_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
-from material_workbench.data.profile_family_registry import (  # noqa: E402
+from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
+from decision_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
+from decision_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
+from decision_workbench.data.profile_family_registry import (  # noqa: E402
     lifecycle_profile_for_data,
     load_profile_document,
     profile_task_ids,
 )
-from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
-from material_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
-from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
-from material_workbench.developer_experience.task_scaffolding import (  # noqa: E402
+from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
+from decision_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
+from decision_workbench.developer_experience.task_scaffolding import (  # noqa: E402
     link_promoted_package,
     validate_personal_task_store_path,
 )

@@ -3,20 +3,20 @@ from __future__ import annotations
 import pytest
 from datetime import UTC, datetime
 
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
     CompositionTotalConstraint,
     DesignSpaceDefinition,
     NumericDomain,
 )
-from material_workbench.contracts.task_contracts import NumericRange
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.tasks.task_registry import load_task_contracts
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
 )
-from material_workbench.application.proposal_service import (
+from decision_workbench.application.proposal_service import (
     _validate_screening_pool,
     generate_from_design_space,
 )

@@ -31,13 +31,13 @@ Horseshoe、反復観測を保持するheteroscedastic model、target別Feature 
 
 変更候補は次に限定する。
 
-1. `backend/src/material_workbench/adapters/<adapter>.py`: safe data-only loader、shape/finite/support検証、PredictiveSummary。
-2. `backend/src/material_workbench/modeling/packages/contracts.py`: `RUNTIME_TYPES`と固定`architecture_id`。`backend/src/material_workbench/modeling/packages/registry.py`: `AdapterRegistry`。adapter protocolは`ports.py`、byte/hash/path検証は`verification.py`、呼出し口は`loader.py`に置く。
+1. `backend/src/decision_workbench/adapters/<adapter>.py`: safe data-only loader、shape/finite/support検証、PredictiveSummary。
+2. `backend/src/decision_workbench/modeling/packages/contracts.py`: `RUNTIME_TYPES`と固定`architecture_id`。`backend/src/decision_workbench/modeling/packages/registry.py`: `AdapterRegistry`。adapter protocolは`ports.py`、byte/hash/path検証は`verification.py`、呼出し口は`loader.py`に置く。
 3. `backend/tests/`: golden、deterministic smoke、unknown schema、non-finite、shape、feature order、supportの拒否。
 4. `backend/scripts/`: trainer/export builder。training dependencyをPackageへ漏らさない。
 5. `examples/model-packages/`: inactive Package、hashed smoke、capability、target-specific quality report。
 6. `docs/contracts/model-package-contract.md` と `docs/model-runtime-examples/`: runtime表とI/Oカード。
-7. optional dependencyが必要な場合は`pyproject.toml`のdependency groupと`backend/src/material_workbench/app.py`のavailability map。
+7. optional dependencyが必要な場合は`pyproject.toml`のdependency groupと`backend/src/decision_workbench/app.py`のavailability map。
 
 API/snapshot/UIを触るのは、新しい意味が既存`Prediction`で保持されない場合だけ。その場合はOpenAPI/TypeScript型を再生成し、擬似std・暗黙normal・永続的な「計算中」を出さないpresentation testを追加する。
 

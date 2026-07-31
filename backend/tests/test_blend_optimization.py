@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from material_workbench.application.blend_optimization import BlendOptimizationService
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.application.blend_optimization import BlendOptimizationService
+from decision_workbench.contracts.blend_contracts import (
     BlendContractRegistry,
     CommercialMaterial,
     CommercialMaterialCatalog,
@@ -21,8 +21,8 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     validate_sparse_blend,
 )
-from material_workbench.contracts.blend_optimization import BlendOptimizationRequest
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.blend_optimization import BlendOptimizationRequest
+from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     CandidateInputs,

@@ -46,7 +46,7 @@ try {
 
     $unpackedResources = Join-Path $releaseRoot "win-unpacked/resources"
     $requiredPackagedFiles = @(
-        "sidecar/material-workbench-sidecar.exe"
+        "sidecar/decision-workbench-sidecar.exe"
         "models/active-packages.json"
         "models/available-packages.json"
         "models/active-transforms.json"

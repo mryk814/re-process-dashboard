@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from material_workbench.app import app
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.contracts.prediction_catalog_contracts import Prediction
+from decision_workbench.app import app
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.prediction_catalog_contracts import Prediction
 
 
 ROOT = Path(__file__).resolve().parents[2]

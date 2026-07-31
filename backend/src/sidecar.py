@@ -34,7 +34,7 @@ def _print_result(value: Any) -> None:
 
 
 def _run_workspace_command(arguments: argparse.Namespace) -> None:
-    from material_workbench.application.workspace_bundle import (
+    from decision_workbench.application.workspace_bundle import (
         cancel_workspace_restore,
         commit_workspace_restore,
         create_workspace_backup,
@@ -57,8 +57,8 @@ def _run_workspace_command(arguments: argparse.Namespace) -> None:
         )
         return
     if command == "prepare":
-        from material_workbench.bootstrap.resources import prepare_app_resources
-        from material_workbench.modeling.transform_catalog import (
+        from decision_workbench.bootstrap.resources import prepare_app_resources
+        from decision_workbench.modeling.transform_catalog import (
             DeterministicTransformCatalogUnavailableError,
             load_deterministic_transform_catalog,
         )
@@ -139,7 +139,7 @@ def _add_workspace_paths(parser: argparse.ArgumentParser) -> None:
 
 
 def _argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="material-workbench-sidecar")
+    parser = argparse.ArgumentParser(prog="decision-workbench-sidecar")
     commands = parser.add_subparsers(dest="command")
     workspace = commands.add_parser(
         "workspace",
@@ -170,7 +170,7 @@ def _argument_parser() -> argparse.ArgumentParser:
 
 
 def _run_api() -> None:
-    from material_workbench.app import app
+    from decision_workbench.app import app
 
     uvicorn.run(
         app,

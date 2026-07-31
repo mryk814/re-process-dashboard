@@ -11,27 +11,27 @@ BACKEND_SRC = REPOSITORY_ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.modeling.active_package_history import (  # noqa: E402
+from decision_workbench.modeling.active_package_history import (  # noqa: E402
     check_active_package_history,
     format_active_package_history,
 )
-from material_workbench.modeling.model_lifecycle import (  # noqa: E402
+from decision_workbench.modeling.model_lifecycle import (  # noqa: E402
     ACTIVE_PACKAGES_PATH,
     load_active_packages,
     resolve_configured_package,
     validate_active_package_task_set,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
-from material_workbench.task_composition.builtin.catalog import (  # noqa: E402
+from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
+from decision_workbench.task_composition.builtin.catalog import (  # noqa: E402
     BUILTIN_TASK_MODULES,
 )
-from material_workbench.task_composition.external_tasks import (  # noqa: E402
+from decision_workbench.task_composition.external_tasks import (  # noqa: E402
     without_personal_task_discovery,
 )
-from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"
-TASK_DEFINITIONS_ROOT = BACKEND_SRC / "material_workbench" / "tasks" / "task_definitions"
+TASK_DEFINITIONS_ROOT = BACKEND_SRC / "decision_workbench" / "tasks" / "task_definitions"
 
 
 def _repository_path(value: str | Path) -> str:
@@ -102,16 +102,16 @@ def build_inventory() -> dict[str, Any]:
     return {
         "schema_version": "task-inventory/v2",
         "generated_from": [
-            "backend/src/material_workbench/task_composition/catalog.py",
-            "backend/src/material_workbench/task_composition/builtin/catalog.py",
-            "backend/src/material_workbench/task_composition/builtin/shared.py",
-            "backend/src/material_workbench/task_composition/builtin/sources.py",
-            "backend/src/material_workbench/task_composition/builtin/annealed.py",
-            "backend/src/material_workbench/task_composition/builtin/hot_rolling.py",
-            "backend/src/material_workbench/task_composition/builtin/flank_wear.py",
-            "backend/src/material_workbench/task_composition/builtin/tabular.py",
-            "backend/src/material_workbench/task_composition/builtin/welding.py",
-            "backend/src/material_workbench/tasks/task_definitions",
+            "backend/src/decision_workbench/task_composition/catalog.py",
+            "backend/src/decision_workbench/task_composition/builtin/catalog.py",
+            "backend/src/decision_workbench/task_composition/builtin/shared.py",
+            "backend/src/decision_workbench/task_composition/builtin/sources.py",
+            "backend/src/decision_workbench/task_composition/builtin/annealed.py",
+            "backend/src/decision_workbench/task_composition/builtin/hot_rolling.py",
+            "backend/src/decision_workbench/task_composition/builtin/flank_wear.py",
+            "backend/src/decision_workbench/task_composition/builtin/tabular.py",
+            "backend/src/decision_workbench/task_composition/builtin/welding.py",
+            "backend/src/decision_workbench/tasks/task_definitions",
             "models/active-packages.json",
             "resolved dataset input profiles",
             "resolved Model Package manifests",

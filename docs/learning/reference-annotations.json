@@ -695,7 +695,7 @@
         "unit-of-work"
       ],
       "repo_routes": [
-        "backend/src/material_workbench",
+        "backend/src/decision_workbench",
         "docs/learning/chapters/contract-through-stack.qmd"
       ],
       "recommended_sections": [
@@ -726,8 +726,8 @@
         "data-mapper"
       ],
       "repo_routes": [
-        "backend/src/material_workbench/api",
-        "backend/src/material_workbench/persistence"
+        "backend/src/decision_workbench/api",
+        "backend/src/decision_workbench/persistence"
       ],
       "recommended_sections": [
         "Service Layer",
@@ -968,7 +968,7 @@
         "discriminated-union"
       ],
       "repo_routes": [
-        "backend/src/material_workbench/contracts/decision_activity_contracts.py",
+        "backend/src/decision_workbench/contracts/decision_activity_contracts.py",
         "docs/learning/chapters/contract-through-stack.qmd"
       ],
       "recommended_sections": [
@@ -997,7 +997,7 @@
         "openapi-generation"
       ],
       "repo_routes": [
-        "backend/src/material_workbench/api",
+        "backend/src/decision_workbench/api",
         "docs/learning/chapters/contract-through-stack.qmd"
       ],
       "recommended_sections": [
@@ -1271,7 +1271,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/design-space-acquisition.qmd",
-        "backend/src/material_workbench/domain/proposal_acquisition.py"
+        "backend/src/decision_workbench/domain/proposal_acquisition.py"
       ],
       "recommended_sections": [
         "Decision policies",
@@ -1300,7 +1300,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/design-space-acquisition.qmd",
-        "backend/src/material_workbench/domain/proposal_acquisition.py"
+        "backend/src/decision_workbench/domain/proposal_acquisition.py"
       ],
       "recommended_sections": [
         "Expected improvement",
@@ -1329,7 +1329,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/design-space-acquisition.qmd",
-        "backend/src/material_workbench/domain/proposal_acquisition.py"
+        "backend/src/decision_workbench/domain/proposal_acquisition.py"
       ],
       "recommended_sections": [
         "The GP-UCB algorithm",
@@ -1358,7 +1358,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/design-space-acquisition.qmd",
-        "backend/src/material_workbench/domain/batch_selector.py"
+        "backend/src/decision_workbench/domain/batch_selector.py"
       ],
       "recommended_sections": [
         "Parallel expected hypervolume improvement",
@@ -1471,7 +1471,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/multi-stage-chain.qmd",
-        "backend/src/material_workbench/contracts/chain_contracts.py"
+        "backend/src/decision_workbench/contracts/chain_contracts.py"
       ],
       "recommended_sections": [
         "Targets",
@@ -1500,7 +1500,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/multi-stage-chain.qmd",
-        "backend/src/material_workbench/application/chain_evaluation.py"
+        "backend/src/decision_workbench/application/chain_evaluation.py"
       ],
       "recommended_sections": [
         "Cross-validation iterators for grouped data"
@@ -1528,7 +1528,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/multi-stage-chain.qmd",
-        "backend/src/material_workbench/application/chain_uncertainty.py"
+        "backend/src/decision_workbench/application/chain_uncertainty.py"
       ],
       "recommended_sections": [
         "Principles of the method",
@@ -1615,7 +1615,7 @@
       ],
       "repo_routes": [
         "docs/learning/chapters/performance-execution.qmd",
-        "backend/src/material_workbench/execution/inference_work_graph.py"
+        "backend/src/decision_workbench/execution/inference_work_graph.py"
       ],
       "recommended_sections": [
         "Executor Objects",

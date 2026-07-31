@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.application.data_lifecycle import (
+from decision_workbench.application.data_lifecycle import (
     DataLifecycleService,
     SourceFetchFailedError,
 )
-from material_workbench.contracts.data_lifecycle_contracts import (
+from decision_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,
     CurationRunCreateInput,
     DatasetApprovalInput,
@@ -22,16 +22,16 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceFetchRequest,
     TrainingSnapshotCreateInput,
 )
-from material_workbench.domain.data_lifecycle import LifecycleConflictError
-from material_workbench.developer_experience.data_lifecycle_benchmark import (
+from decision_workbench.domain.data_lifecycle import LifecycleConflictError
+from decision_workbench.developer_experience.data_lifecycle_benchmark import (
     synthetic_payload,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.data_lifecycle_repository import (
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.data_lifecycle_repository import (
     LifecycleResourceConflictError,
 )
-from material_workbench.persistence.row_payload_store import (
+from decision_workbench.persistence.row_payload_store import (
     RowPayloadReference,
     RowPayloadStore,
 )
@@ -813,7 +813,7 @@ def test_legacy_training_snapshot_keeps_its_original_digest_semantics() -> None:
         "created_at": "2026-07-27T00:00:00Z",
     }
 
-    from material_workbench.contracts.data_lifecycle_contracts import (
+    from decision_workbench.contracts.data_lifecycle_contracts import (
         ApprovedTrainingSnapshot,
     )
 

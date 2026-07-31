@@ -130,7 +130,7 @@ export function classifyChangedPath(path) {
     return "model-package";
   }
   if (
-    normalized === "backend/src/material_workbench/api/security.py"
+    normalized === "backend/src/decision_workbench/api/security.py"
     || normalized === "backend/tests/test_launch_token.py"
     || normalized.includes("/security/")
   ) {
@@ -140,7 +140,7 @@ export function classifyChangedPath(path) {
     normalized.includes("migration")
     || normalized.includes("workspace_bundle")
     || normalized.includes("workspace-backup")
-    || normalized.startsWith("backend/src/material_workbench/persistence/")
+    || normalized.startsWith("backend/src/decision_workbench/persistence/")
   ) {
     return "persistence";
   }

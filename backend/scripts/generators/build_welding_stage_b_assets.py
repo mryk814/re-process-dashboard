@@ -6,13 +6,13 @@ from pathlib import Path
 
 import numpy as np
 
-from material_workbench.data.stage_b_training import (
+from decision_workbench.data.stage_b_training import (
     build_stage_b_training_data,
     load_stage_b_profile,
 )
-from material_workbench.modeling.model_lifecycle import staged_package_destination
-from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.tabular_model_builder import (
+from decision_workbench.modeling.model_lifecycle import staged_package_destination
+from decision_workbench.modeling.model_package_verify import verify_model_package
+from decision_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
 )
 
@@ -20,11 +20,11 @@ from material_workbench.modeling.tabular_model_builder import (
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SOURCE = ROOT / "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
 DEFAULT_PROFILE = (
-    ROOT / "backend/src/material_workbench/data/welding-stage-b-profile-v1.json"
+    ROOT / "backend/src/decision_workbench/data/welding-stage-b-profile-v1.json"
 )
 DEFAULT_TASK = (
     ROOT
-    / "backend/src/material_workbench/tasks/task_definitions"
+    / "backend/src/decision_workbench/tasks/task_definitions"
     / "welding-consumable-stage-b-v1.json"
 )
 DEFAULT_PACKAGE = ROOT / "models/packages/welding-consumable-stage-b-ridge-v1"

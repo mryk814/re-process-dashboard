@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from material_workbench.persistence.sqlite_connection import (
+from decision_workbench.persistence.sqlite_connection import (
     SQLITE_BUSY_TIMEOUT_MS,
     SQLitePolicyError,
     connect_sqlite,

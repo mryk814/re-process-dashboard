@@ -103,7 +103,7 @@ Quartoの検索機能は生成したサイトの内容をローカル索引へ�
 
 <span class="evidence-label">CONFIRMED</span>
 `DecisionActivityRunRequest.parameters` は、`schema_version`を判別子にする三つのパラメータモデルのユニオン型です。
-この事実は `backend/src/material_workbench/contracts/decision_activity_contracts.py` と生成済み `apps/web/src/generated/api-types.ts` の両方で確認できます。
+この事実は `backend/src/decision_workbench/contracts/decision_activity_contracts.py` と生成済み `apps/web/src/generated/api-types.ts` の両方で確認できます。
 
 <span class="evidence-label">INTERPRETATION</span>
 このユニオン型は、PythonとTypeScriptの間に「どのアクティビティのパラメータか」を持ち運ぶ封筒として読むと追跡しやすくなります。

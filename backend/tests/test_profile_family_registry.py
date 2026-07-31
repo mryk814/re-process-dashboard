@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from material_workbench.application.dataset_registration import register_dataset_records
-from material_workbench.data.file_integrity import file_sha256
-from material_workbench.data.profile_family_registry import (
+from decision_workbench.application.dataset_registration import register_dataset_records
+from decision_workbench.data.file_integrity import file_sha256
+from decision_workbench.data.profile_family_registry import (
     ProfileFamilyUnavailableError,
     load_inspection_descriptor,
     load_profile_document,
@@ -20,13 +20,13 @@ from material_workbench.data.profile_family_registry import (
     supported_task_ids,
     validate_profile_source,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.modeling.model_lifecycle import dataset_profile_digest
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "backend" / "src" / "material_workbench" / "data"
+DATA = ROOT / "backend" / "src" / "decision_workbench" / "data"
 WELDING_SOURCE = ROOT / "data" / "source" / "welding_consumable_multistage_synthetic_dataset.xlsx"
 
 FAMILY_CASES: tuple[dict[str, Any], ...] = (

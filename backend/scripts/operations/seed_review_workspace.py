@@ -17,19 +17,19 @@ if str(BACKEND_SRC) not in sys.path:
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import (
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import (
     AppResources,
     prepare_app_resources,
 )
-from material_workbench.application.workspace_bundle import (
+from decision_workbench.application.workspace_bundle import (
     commit_workspace_restore,
     create_workspace_backup,
     finalize_workspace_restore,
     prepare_workspace_restore,
     rollback_workspace_restore,
 )
-from material_workbench.modeling.transform_catalog import (
+from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalogUnavailableError,
     load_deterministic_transform_catalog,
 )

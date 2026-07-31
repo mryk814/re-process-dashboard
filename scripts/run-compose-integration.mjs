@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
-const projectName = `material-workbench-test-${process.pid}`;
+const projectName = `decision-workbench-test-${process.pid}`;
 
 function compose(args, stdio = "inherit") {
   return spawnSync("docker", [

@@ -35,9 +35,9 @@ bootstrapは`tools.lock.json`のversion、取得先、file size、SHA-256と一�
 systemへのinstallと永続的なPATH変更は行いません。
 二回目以降は検証済みcacheを再利用します。
 
-既定の保存先は`$env:LOCALAPPDATA\material-workbench-book-tools`です。
+既定の保存先は`$env:LOCALAPPDATA\decision-workbench-book-tools`です。
 別の場所を使う場合は、両方のcommandへ同じ`-ToolRoot`を渡します。
-`MATERIAL_WORKBENCH_BOOK_TOOLS`環境変数でも既定値を変更できますが、明示した`-ToolRoot`が優先されます。
+`DECISION_WORKBENCH_BOOK_TOOLS`環境変数でも既定値を変更できますが、明示した`-ToolRoot`が優先されます。
 
 検証済みcacheまたはarchiveだけで準備できるかを確認する場合は、bootstrapへ`-Offline`を付けます。
 同じassetを再取得して検証し直す場合は`-Force`を付けます。

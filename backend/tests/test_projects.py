@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook
 import pytest
 
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import AppResources
-from material_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT, Store
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.persistence.store import MAX_CANDIDATES_PER_PROJECT, Store
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
 SOURCE = Path(__file__).parents[2] / "data" / "source" / "material_workbench_tutorial_v2.xlsx"

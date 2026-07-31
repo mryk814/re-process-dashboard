@@ -24,7 +24,7 @@ uv run python backend/scripts/experiments/spikes/spike_case_a.py
 
 - 成果物（fixture CSV / xlsx、Profile、Package、SQLite）は
   `%TEMP%/material-workbench-spikes/<case>/` へ書きます。`SPIKE_WORK_DIR` で変更できます。
-- ケースA / Dは**一時的に** `backend/src/material_workbench/tasks/task_definitions/` へ
+- ケースA / Dは**一時的に** `backend/src/decision_workbench/tasks/task_definitions/` へ
   spike用のTaskDefinition JSONを置きます。`finally` で必ず削除します。
 - ケースEは既存Taskの `source_env` を一時的に上書きして起動します（`finally` で戻します）。
 - 元データ（`data/source/`）、`models/active-packages.json`、既存のTaskDefinitionは変更しません。
@@ -38,7 +38,7 @@ uv run python backend/scripts/experiments/spikes/spike_case_a.py
 （黙って壊れることはありません）。次で削除してください。
 
 ```bash
-rm -f backend/src/material_workbench/tasks/task_definitions/spike-*.json
+rm -f backend/src/decision_workbench/tasks/task_definitions/spike-*.json
 ```
 
 ## なぜ本番ディレクトリへ置く必要があるのか

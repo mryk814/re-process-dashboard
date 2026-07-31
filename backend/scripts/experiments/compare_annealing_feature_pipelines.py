@@ -13,8 +13,8 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.data.importer import load_workbook_data, training_context_key
-from material_workbench.modeling.feature_pipeline import (
+from decision_workbench.data.importer import load_workbook_data, training_context_key
+from decision_workbench.modeling.feature_pipeline import (
     FEATURE_DEFINITIONS,
     FEATURE_PIPELINE_VERSION,
     V2_FEATURE_NAMES,
@@ -23,10 +23,10 @@ from material_workbench.modeling.feature_pipeline import (
     build_feature_bundle_v2,
     candidate_from_observation,
 )
-from material_workbench.modeling.numeric_canonicalization import (
+from decision_workbench.modeling.numeric_canonicalization import (
     canonicalize_report_float,
 )
-from material_workbench.modeling.runtime import TARGETS
+from decision_workbench.modeling.runtime import TARGETS
 
 
 SCHEMA_VERSION = "annealing-feature-pipeline-comparison/v1"

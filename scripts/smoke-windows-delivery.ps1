@@ -1,6 +1,7 @@
 param(
     [switch]$KeepSmokeOnFailure,
     [string]$PreviousInstallerPath,
+    [string]$PreviousExecutableName = "Material Decision Workbench.exe",
     [switch]$AllowUserInstallerState
 )
 
@@ -186,7 +187,7 @@ try {
         $installerPath
     }
     $initialExecutableName = if ($PreviousInstallerPath) {
-        "Material Decision Workbench.exe"
+        $PreviousExecutableName
     } else {
         "Evidence Decision Workbench.exe"
     }
@@ -202,7 +203,10 @@ try {
     # rename後も既存Workspaceが同じ場所から開けることを確認する。
     & (Join-Path $PSScriptRoot "smoke-windows-upgrade.ps1") -InstallerPath $installerPath -InstalledRoot $installedRoot -WorkspaceDatabasePath $workspaceDatabasePath
     Stop-PackagedProcessesUnder $installedRoot
-    if ($PreviousInstallerPath) {
+    $replacesRetiredDisplayArtifacts =
+        $PreviousInstallerPath -and
+        $PreviousExecutableName -ne "Evidence Decision Workbench.exe"
+    if ($replacesRetiredDisplayArtifacts) {
         $legacyShortcutPaths = @(
             (Join-Path ([Environment]::GetFolderPath("Desktop")) "Material Decision Workbench.lnk"),
             (Join-Path ([Environment]::GetFolderPath("Programs")) "Material Decision Workbench.lnk")

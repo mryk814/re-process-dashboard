@@ -2,27 +2,27 @@ from datetime import UTC, datetime
 
 import pytest
 
-from material_workbench.application.batch_selector_registry import (
+from decision_workbench.application.batch_selector_registry import (
     batch_selector_availability,
     require_batch_selector,
 )
-from material_workbench.contracts.batch_proposal_contracts import (
+from decision_workbench.contracts.batch_proposal_contracts import (
     BatchCategoryQuota,
     BatchControlRequirement,
     BatchProposalDefinition,
     BatchResourceConstraint,
 )
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
     DesignSpaceDefinition,
     NumericDomain,
 )
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.contracts.task_contracts import NumericRange
-from material_workbench.domain.batch_selector import select_experiment_batch
-from material_workbench.domain.batch_selector import BatchSelectionError
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.domain.batch_selector import select_experiment_batch
+from decision_workbench.domain.batch_selector import BatchSelectionError
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _space(*, categorical: bool = False) -> DesignSpaceDefinition:

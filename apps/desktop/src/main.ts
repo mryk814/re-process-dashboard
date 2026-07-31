@@ -18,6 +18,19 @@ const LAUNCH_TOKEN = randomBytes(32).toString("base64url");
 const sidecarOutputs = new WeakMap<ChildProcess, string>();
 const expectedSidecarExits = new WeakSet<ChildProcess>();
 
+function assertNoRetiredOperatorEnvironment(): void {
+  const retired = Object.keys(process.env)
+    .filter((name) => name.startsWith("MATERIAL_WORKBENCH_"))
+    .sort();
+  if (retired.length === 0) return;
+  const replacements = retired
+    .map((name) => `${name} -> ${name.replace("MATERIAL_WORKBENCH_", "DECISION_WORKBENCH_")}`)
+    .join(", ");
+  throw new Error(`旧環境変数は利用できません。次の名前へ置き換えて再起動してください: ${replacements}`);
+}
+
+assertNoRetiredOperatorEnvironment();
+
 type WorkspaceManifestSummary = {
   bundleId: string;
   createdAt: string;
@@ -91,7 +104,7 @@ function rendererPath(): string {
 }
 
 function frontendDevServerUrl(): string {
-  return process.env.MATERIAL_WORKBENCH_DEV_SERVER_URL ?? "http://127.0.0.1:5180";
+  return process.env.DECISION_WORKBENCH_DEV_SERVER_URL ?? "http://127.0.0.1:5180";
 }
 
 function workspaceDatabasePath(): string {
@@ -137,7 +150,7 @@ function sidecarCommand(port: number): { command: string; args: string[]; cwd: s
   if (app.isPackaged) {
     const resources = process.resourcesPath;
     return {
-      command: join(resources, "sidecar", "material-workbench-sidecar.exe"),
+      command: join(resources, "sidecar", "decision-workbench-sidecar.exe"),
       args: [],
       cwd: resources,
       env: sidecarEnvironment(port),
@@ -172,7 +185,7 @@ function maintenanceCommand(args: string[]): {
   if (app.isPackaged) {
     const resources = process.resourcesPath;
     return {
-      command: join(resources, "sidecar", "material-workbench-sidecar.exe"),
+      command: join(resources, "sidecar", "decision-workbench-sidecar.exe"),
       args: ["workspace", ...args],
       cwd: resources,
       env: sidecarEnvironment(),

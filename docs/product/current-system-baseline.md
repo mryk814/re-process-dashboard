@@ -28,8 +28,25 @@ Task／Example
   焼鈍、熱延、溶接、工具摩耗、電池、工程異常等の具体的な縦スライス
 ```
 
-名称、分類、互換方針は
+利用者向け名称と保存identityの方針は
 [domain-neutralな製品境界](../decisions/domain-neutral-product-boundary.md)を正本とする。
+
+Python namespace、npm package、sidecar、operator環境変数の現行identityは
+[内部コード identityの移行](../decisions/internal-code-identity-migration.md)を正本とする。
+
+## 内部コードとoperator identity
+
+アプリ本体のPython namespaceは`decision_workbench`である。
+
+root packageは`evidence-decision-workbench`であり、WebとDesktopのworkspace packageは`@evidence-decision-workbench/*`である。
+
+sidecarのprogram名は`decision-workbench-sidecar`である。
+
+Model Package overrideには`DECISION_WORKBENCH_*`を使う。
+
+旧`MATERIAL_WORKBENCH_*`を検出した起動は、置換先を示して停止する。
+
+Electron appId、user-data path、SQLite、localStorage、`.mdwb`、Task、Profile、Dataset、Package IDとdigestはこのrenameで変更しない。
 
 現在、Projectの科学的identityは次の明示的なunionである。
 
@@ -193,15 +210,16 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 |---|---|
 | プロダクトの性格、対象外 | `docs/product/app-charter.md` |
 | 現在の実装前提とv1境界 | この文書 |
+| Python／npm／sidecar／operator identity | `docs/decisions/internal-code-identity-migration.md` |
 | Task、source、Profile、active Packageの一覧 | `docs/contracts/task-inventory.json` |
-| Task／Canonical Candidate／Runtime Capability | `backend/src/material_workbench/contracts/task_contracts.py` |
-| Chain Definition／Revision／binding | `backend/src/material_workbench/contracts/chain_contracts.py` |
-| Chain execution／snapshot／actual variant | `backend/src/material_workbench/contracts/chain_execution_contracts.py` |
-| Decision Activity | `backend/src/material_workbench/contracts/decision_activity_contracts.py` |
-| Project Design Space | `backend/src/material_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
-| Objective Definition | `backend/src/material_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |
-| Proposal Strategy／Acquisition | `backend/src/material_workbench/contracts/proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
-| Batch Selector | `backend/src/material_workbench/contracts/batch_proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
+| Task／Canonical Candidate／Runtime Capability | `backend/src/decision_workbench/contracts/task_contracts.py` |
+| Chain Definition／Revision／binding | `backend/src/decision_workbench/contracts/chain_contracts.py` |
+| Chain execution／snapshot／actual variant | `backend/src/decision_workbench/contracts/chain_execution_contracts.py` |
+| Decision Activity | `backend/src/decision_workbench/contracts/decision_activity_contracts.py` |
+| Project Design Space | `backend/src/decision_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
+| Objective Definition | `backend/src/decision_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |
+| Proposal Strategy／Acquisition | `backend/src/decision_workbench/contracts/proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
+| Batch Selector | `backend/src/decision_workbench/contracts/batch_proposal_contracts.py` と `docs/contracts/curation-and-proposal-architecture.md` |
 | Model Package | `docs/contracts/model-package-contract.md` と対応するcontract code |
 | Dataset解釈 | Profile familyごとのschemaと契約文書 |
 | OpenAPI／frontend API型 | FastAPI OpenAPIと`apps/web/src/generated/` |

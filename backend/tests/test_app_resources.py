@@ -6,12 +6,12 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-import material_workbench.bootstrap.resources as resources_module
-import material_workbench.bootstrap.startup as startup_module
-from material_workbench.bootstrap.resources import AppResources
-from material_workbench.contracts.candidate_project_contracts import ProjectCreateInput
-from material_workbench.task_composition.builtin.annealed import (
+from decision_workbench.app import create_app
+import decision_workbench.bootstrap.resources as resources_module
+import decision_workbench.bootstrap.startup as startup_module
+from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.contracts.candidate_project_contracts import ProjectCreateInput
+from decision_workbench.task_composition.builtin.annealed import (
     ANNEALED_TASK_ID,
     ANNEALED_TASK_MODULE,
 )
@@ -95,6 +95,15 @@ def test_default_data_projection_ignores_added_task_registration_order() -> None
     assert selected == "default-v1"
 
 
+def test_legacy_operator_environment_is_rejected_before_resource_loading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MATERIAL_WORKBENCH_MODEL_PACKAGE", "old-package")
+
+    with pytest.raises(RuntimeError, match="DECISION_WORKBENCH_MODEL_PACKAGE"):
+        resources_module.prepare_app_resources(task_ids=frozenset())
+
+
 def test_deferred_resource_promotion_keeps_default_data_projection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -166,7 +175,7 @@ def test_prepared_resources_reject_source_and_package_overrides(
 
 def test_source_overrides_are_keyed_only_by_registered_task_id() -> None:
     with pytest.raises(ValueError, match="unknown Task IDs"):
-        from material_workbench.bootstrap.resources import prepare_app_resources
+        from decision_workbench.bootstrap.resources import prepare_app_resources
 
         prepare_app_resources(source_overrides={"primary": "source.xlsx"})
 
@@ -179,7 +188,7 @@ def test_app_resource_overrides_expose_only_task_id_mapping() -> None:
     resources_source = (
         Path(__file__).resolve().parents[1]
         / "src"
-        / "material_workbench"
+        / "decision_workbench"
         / "bootstrap"
         / "resources.py"
     ).read_text(encoding="utf-8")

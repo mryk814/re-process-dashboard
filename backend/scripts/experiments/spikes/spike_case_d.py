@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO / "backend" / "scripts"))
 
 SCRATCH = _work_dir("case-d")
 PRODUCTION_TASK_DEFINITIONS = (
-    REPO / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions"
+    REPO / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions"
 )
 CHAIN_ID = "spike-scalar-x-y-v1"
 STAGE_X = "spike-stage-x-v1"
@@ -329,25 +329,25 @@ def stage_y_profile() -> dict:
 def main() -> int:
     from types import MappingProxyType
 
-    from material_workbench import app as app_module
-    import material_workbench.bootstrap.resources as resources_module
-    from material_workbench.task_composition.builtin.shared import (
+    from decision_workbench import app as app_module
+    import decision_workbench.bootstrap.resources as resources_module
+    from decision_workbench.task_composition.builtin.shared import (
         _application_capability,
     )
-    from material_workbench.task_composition.builtin.tabular import (
+    from decision_workbench.task_composition.builtin.tabular import (
         _TABULAR_PROFILES,
         _tabular_features,
         _tabular_loader,
         _tabular_runtime,
         _tabular_training_candidate,
     )
-    import material_workbench.task_composition.catalog as task_catalog
-    from material_workbench.task_composition.catalog import registered_task_modules
-    from material_workbench.task_composition.descriptors import (
+    import decision_workbench.task_composition.catalog as task_catalog
+    from decision_workbench.task_composition.catalog import registered_task_modules
+    from decision_workbench.task_composition.descriptors import (
         StandardModelAuthoring,
         TaskModule,
     )
-    from material_workbench.modeling.model_lifecycle import (
+    from decision_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
@@ -382,7 +382,7 @@ def main() -> int:
             _TABULAR_PROFILES[task_id] = profile_path
             modules[task_id] = TaskModule(
                 task_id=task_id,
-                package_override_env=f"MATERIAL_WORKBENCH_{task_id.replace('-', '_').upper()}_PACKAGE",
+                package_override_env=f"DECISION_WORKBENCH_{task_id.replace('-', '_').upper()}_PACKAGE",
                 source_env=f"WORKBENCH_{task_id.replace('-', '_').upper()}_SOURCE_PATH",
                 source_kind=task_id,
                 default_source=csv_path,
@@ -468,7 +468,7 @@ def main() -> int:
 
 def _probe_chain(app_module, resources, findings: list[str]) -> None:
     from fastapi.testclient import TestClient
-    from material_workbench.contracts.chain_contracts import (
+    from decision_workbench.contracts.chain_contracts import (
         ChainBinding,
         ChainDefinition,
         ChainPort,
@@ -480,7 +480,7 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
         task_contract_surface,
         validate_chain_definition,
     )
-    from material_workbench.execution.inference_work_graph import semantic_digest
+    from decision_workbench.execution.inference_work_graph import semantic_digest
 
     registry = resources.task_registry
 
@@ -769,7 +769,7 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                         variant.text[:400],
                     )
                     if variant.status_code == 201:
-                        from material_workbench.persistence.store import Store
+                        from decision_workbench.persistence.store import Store
 
                         restored = Store(
                             client.app.state.store.path
@@ -782,7 +782,7 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                             restored,
                         )
 
-        from material_workbench.contracts.candidate_project_contracts import (
+        from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
     CandidateInputs,
 )
@@ -847,7 +847,7 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
         )
 
         # snapshot identityが疎配合参照を必須にしていないことを契約レベルで確認する
-        from material_workbench.contracts.chain_contracts import ChainSnapshotIdentityV2
+        from decision_workbench.contracts.chain_contracts import ChainSnapshotIdentityV2
 
         try:
             ChainSnapshotIdentityV2(

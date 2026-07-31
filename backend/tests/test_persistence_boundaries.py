@@ -3,13 +3,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from material_workbench.application import workspace_bundle
-from material_workbench.persistence.candidate_repository import CandidateRepository
-from material_workbench.persistence.chain_repository import ChainRepository
-from material_workbench.persistence.evidence_repository import EvidenceRepository
-from material_workbench.persistence.project_repository import ProjectRepository
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.store_unit_of_work import WorkbenchUnitOfWork
+from decision_workbench.application import workspace_bundle
+from decision_workbench.persistence.candidate_repository import CandidateRepository
+from decision_workbench.persistence.chain_repository import ChainRepository
+from decision_workbench.persistence.evidence_repository import EvidenceRepository
+from decision_workbench.persistence.project_repository import ProjectRepository
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.store_unit_of_work import WorkbenchUnitOfWork
 
 
 def test_store_facade_declares_only_connection_and_migration_ownership() -> None:
@@ -52,7 +52,7 @@ def test_workspace_bundle_facade_exposes_use_cases_not_phase_implementation() ->
 
 def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() -> None:
     application = (
-        Path(__file__).parents[1] / "src" / "material_workbench" / "application"
+        Path(__file__).parents[1] / "src" / "decision_workbench" / "application"
     )
     restricted = {
         "workspace_bundle_archive.py",
@@ -63,9 +63,9 @@ def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() ->
     }
     forbidden = {
         "openpyxl",
-        "material_workbench.application.project_runtime",
-        "material_workbench.persistence.store",
-        "material_workbench.tasks.task_registry",
+        "decision_workbench.application.project_runtime",
+        "decision_workbench.persistence.store",
+        "decision_workbench.tasks.task_registry",
     }
     for filename in restricted:
         tree = ast.parse((application / filename).read_text(encoding="utf-8"))
@@ -85,5 +85,5 @@ def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() ->
         )
         if filename != "workspace_bundle_resource_install.py":
             assert not any(
-                module.startswith("material_workbench.modeling") for module in imported
+                module.startswith("decision_workbench.modeling") for module in imported
             ), filename

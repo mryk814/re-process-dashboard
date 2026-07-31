@@ -12,7 +12,7 @@ if str(BACKEND_SRC) not in sys.path:
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
+from decision_workbench.app import create_app
 
 
 def _parser() -> argparse.ArgumentParser:

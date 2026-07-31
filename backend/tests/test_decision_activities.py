@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.application.decision_activity_registry import build_registry
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.task_composition.candidate_family_adapters import (
+from decision_workbench.application.decision_activity_registry import build_registry
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.persistence.store import Store
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 ELEMENTS = ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")
@@ -496,8 +496,8 @@ def test_activity_requires_an_explicit_parameters_schema_version(client) -> None
 
 
 SHARED_ACTIVITY_SHELLS = (
-    "backend/src/material_workbench/application/decision_activities.py",
-    "backend/src/material_workbench/api/decision_activities.py",
+    "backend/src/decision_workbench/application/decision_activities.py",
+    "backend/src/decision_workbench/api/decision_activities.py",
     "apps/web/src/features/workbench/DecisionActivityPanel.tsx",
 )
 
@@ -535,11 +535,11 @@ def test_activity_id_allow_list_is_declared_in_one_place_per_layer() -> None:
 
 
 def test_service_resolves_activities_only_through_its_registry(client) -> None:
-    from material_workbench.application.decision_activities import DecisionActivityService
-    from material_workbench.application.decision_activity_difference import (
+    from decision_workbench.application.decision_activities import DecisionActivityService
+    from decision_workbench.application.decision_activity_difference import (
         CANDIDATE_DIFFERENCE_HANDLER,
     )
-    from material_workbench.application.decision_activity_registry import (
+    from decision_workbench.application.decision_activity_registry import (
         DecisionActivityNotFoundError,
     )
 
@@ -561,7 +561,7 @@ def test_service_resolves_activities_only_through_its_registry(client) -> None:
 
 
 def _run_request():
-    from material_workbench.contracts.decision_activity_contracts import (
+    from decision_workbench.contracts.decision_activity_contracts import (
         DecisionActivityRunRequest,
     )
 

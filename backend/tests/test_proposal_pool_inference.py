@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from material_workbench.contracts.prediction_catalog_contracts import Support
-from material_workbench.application.proposal_service import _evaluate_proposal_pool
+from decision_workbench.contracts.prediction_catalog_contracts import Support
+from decision_workbench.application.proposal_service import _evaluate_proposal_pool
 
 
 def _support() -> Support:

@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from material_workbench.modeling.tabular.data import load_tabular_data
-from material_workbench.modeling.tabular.profile import load_tabular_profile
+from decision_workbench.modeling.tabular.data import load_tabular_data
+from decision_workbench.modeling.tabular.profile import load_tabular_profile
 
 
 ROOT = Path(__file__).parents[2]
-PROFILE = ROOT / "backend/src/material_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
+PROFILE = ROOT / "backend/src/decision_workbench/data/tabular-profile-mpea-room-tensile-v1.json"
 SOURCE = ROOT / "data/source/external/mpea_ground_truth_18021833.csv"
 
 

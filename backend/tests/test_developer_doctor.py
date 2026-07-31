@@ -5,13 +5,13 @@ from shutil import copyfile
 
 from openpyxl import load_workbook
 
-from material_workbench.developer_experience.diagnostics import (
+from decision_workbench.developer_experience.diagnostics import (
     active_package_history_check,
     compare_task_sets,
     run_developer_doctor,
 )
-from material_workbench.developer_experience.source_inspection import inspect_source_against_profiles
-from material_workbench.modeling.active_package_history import (
+from decision_workbench.developer_experience.source_inspection import inspect_source_against_profiles
+from decision_workbench.modeling.active_package_history import (
     ActivePackageChange,
     ActivePackageHistoryReport,
 )

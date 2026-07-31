@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.contracts.series_contracts import (
+from decision_workbench.contracts.series_contracts import (
     CoordinateUnitConversion,
     ElapsedOriginNormalization,
     IdenticalDuplicateMerge,
@@ -19,15 +19,15 @@ from material_workbench.contracts.series_contracts import (
     StableSortNormalization,
     ValueUnitConversion,
 )
-from material_workbench.domain.series_curation import (
+from decision_workbench.domain.series_curation import (
     build_series_features,
     canonicalize_series,
 )
-from material_workbench.modeling.packages.contracts import (
+from decision_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
     PipelineFeatureSpec,
 )
-from material_workbench.persistence.store import Store
+from decision_workbench.persistence.store import Store
 
 
 def _raw(

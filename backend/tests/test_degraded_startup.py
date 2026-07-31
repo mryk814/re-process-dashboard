@@ -8,10 +8,10 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-import material_workbench.bootstrap.resources as resources_module
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import prepare_app_resources
-from material_workbench.tasks.task_registry import TaskRegistry
+import decision_workbench.bootstrap.resources as resources_module
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import prepare_app_resources
+from decision_workbench.tasks.task_registry import TaskRegistry
 
 
 ROOT = Path(__file__).parents[2]

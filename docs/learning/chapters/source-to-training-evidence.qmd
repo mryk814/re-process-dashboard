@@ -8,42 +8,42 @@ code_references:
     role: "docs"
   - path: "docs/contracts/reference-data-loop.md"
     role: "docs"
-  - path: "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py"
     role: "contract"
-  - path: "backend/src/material_workbench/domain/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/domain/data_lifecycle.py"
     role: "domain"
-  - path: "backend/src/material_workbench/application/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/application/data_lifecycle.py"
     role: "application"
-  - path: "backend/src/material_workbench/application/source_ingress.py"
+  - path: "backend/src/decision_workbench/application/source_ingress.py"
     id: "source-evidence-ingress"
     role: "application"
     symbols:
       - "LocalFileSourceIngress"
       - "load_source_object"
-  - path: "backend/src/material_workbench/data/profile_workbench.py"
+  - path: "backend/src/decision_workbench/data/profile_workbench.py"
     id: "source-evidence-profile-workbench"
     role: "application"
     symbols:
       - "create_source_binding_draft"
       - "save_source_binding_profile"
       - "validate_workbook_profile"
-  - path: "backend/src/material_workbench/application/dataset_registration.py"
+  - path: "backend/src/decision_workbench/application/dataset_registration.py"
     id: "source-evidence-dataset-registration"
     role: "application"
     symbols:
       - "register_managed_dataset"
-  - path: "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+  - path: "backend/src/decision_workbench/persistence/data_lifecycle_repository.py"
     role: "persistence"
-  - path: "backend/src/material_workbench/persistence/row_payload_store.py"
+  - path: "backend/src/decision_workbench/persistence/row_payload_store.py"
     id: "source-evidence-row-payload-store"
     role: "persistence"
     symbols:
       - "RowPayloadStore"
-  - path: "backend/src/material_workbench/api/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/api/data_lifecycle.py"
     role: "api"
-  - path: "backend/src/material_workbench/application/training_snapshot_adapter.py"
+  - path: "backend/src/decision_workbench/application/training_snapshot_adapter.py"
     role: "application"
-  - path: "backend/src/material_workbench/contracts/series_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/series_contracts.py"
     id: "source-evidence-series-contracts"
     role: "contract"
     symbols:
@@ -51,7 +51,7 @@ code_references:
       - "SeriesNormalizationRecipe"
       - "CanonicalSeriesRevision"
       - "SeriesFeatureContract"
-  - path: "backend/src/material_workbench/domain/series_curation.py"
+  - path: "backend/src/decision_workbench/domain/series_curation.py"
     id: "source-evidence-series-curation"
     role: "domain"
     symbols:
@@ -168,8 +168,8 @@ Pythonでデータ構造を読めればよく、モデル学習やReactの経験
 この表で異なるのは保存時刻だけではありません。
 各資産は、事実の取得、意味の変換、人間の承認、学習用途の選択という別の役割を持ちます。
 
-`backend/src/material_workbench/contracts/data_lifecycle_contracts.py`は、この区別を別々のPydantic モデルとして固定します。
-`backend/src/material_workbench/domain/data_lifecycle.py`は、前の資産から次の資産を作る純粋な操作を持ちます。
+`backend/src/decision_workbench/contracts/data_lifecycle_contracts.py`は、この区別を別々のPydantic モデルとして固定します。
+`backend/src/decision_workbench/domain/data_lifecycle.py`は、前の資産から次の資産を作る純粋な操作を持ちます。
 
 ## 四行の行方を予測する
 
@@ -485,7 +485,7 @@ E2Eも、再学習、モデル検証、有効化が別の操作だと画面へ�
 
 ### タスク固有アダプタは境界を残したまま接続する
 
-`backend/src/material_workbench/application/training_snapshot_adapter.py`は、`battery-degradation-v1`の学習用スナップショットを、同じ入力からは同じ内容になるCSVとして実体化します。
+`backend/src/decision_workbench/application/training_snapshot_adapter.py`は、`battery-degradation-v1`の学習用スナップショットを、同じ入力からは同じ内容になるCSVとして実体化します。
 変換処理はスナップショットIDから親の正規データセット、品質整理の実行記録、生スナップショットまでを再読込し、保存済みダイジェストと行集合を再検証します。
 
 固定例では、CALCE由来の3,131行を正規データセットへ残し、評価用に取り分ける正常な`CS2_35`の829行を、学習行の選択規則によって除外します。

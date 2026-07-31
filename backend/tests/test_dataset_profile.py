@@ -4,58 +4,58 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-import material_workbench.bootstrap.resources as resources_module
+import decision_workbench.bootstrap.resources as resources_module
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-from material_workbench.application.dataset_registration import register_managed_dataset
-from material_workbench.application.material_lineage_candidates import (
+from decision_workbench.app import create_app
+from decision_workbench.application.dataset_registration import register_managed_dataset
+from decision_workbench.application.material_lineage_candidates import (
     candidate_from_lineage,
     lineage_candidate_options,
 )
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.contracts.task_contracts import TaskDefinition
-from material_workbench.data.importer import (
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.task_contracts import TaskDefinition
+from decision_workbench.data.importer import (
     _derived_anneal_feature_row,
     detect_dataset_profile_path,
     load_workbook_data,
 )
-from material_workbench.data.profile_workbench import (
+from decision_workbench.data.profile_workbench import (
     create_source_binding_draft,
     validate_workbook_profile,
 )
-from material_workbench.data.profiles.canonicalization import canonicalize_workbook
-from material_workbench.data.profiles.loading import (
+from decision_workbench.data.profiles.canonicalization import canonicalize_workbook
+from decision_workbench.data.profiles.loading import (
     load_dataset_profile,
     load_task_definitions,
     materialize_dataset_profile_document,
 )
-from material_workbench.data.profiles.requirements import task_data_requirements
-from material_workbench.data.profiles.schema import DatasetProfileError
-from material_workbench.data.profiles.validation import preflight_workbook
-from material_workbench.developer_experience.source_inspection import (
+from decision_workbench.data.profiles.requirements import task_data_requirements
+from decision_workbench.data.profiles.schema import DatasetProfileError
+from decision_workbench.data.profiles.validation import preflight_workbook
+from decision_workbench.developer_experience.source_inspection import (
     inspect_source_against_profiles,
 )
-from material_workbench.modeling.feature_pipeline import (
+from decision_workbench.modeling.feature_pipeline import (
     build_feature_bundle,
 )
-from material_workbench.modeling.feature_pipeline import (
+from decision_workbench.modeling.feature_pipeline import (
     candidate_from_observation as anneal_candidate_from_observation,
 )
-from material_workbench.modeling.hot_rolling_feature_pipeline import (
+from decision_workbench.modeling.hot_rolling_feature_pipeline import (
     build_hot_rolling_features,
 )
-from material_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.task_composition.catalog import registered_task_modules
 from openpyxl import Workbook, load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
 TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 SOURCE = TUTORIAL_SOURCE
-PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial-base.json"
-PROCESS_PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
-FLANK_WEAR_PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-flank-wear-v1.json"
+PROFILE = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-tutorial-base.json"
+PROCESS_PROFILE = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-process-v1.json"
+FLANK_WEAR_PROFILE = ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-flank-wear-v1.json"
 FLANK_WEAR_SOURCE = ROOT / "data" / "source" / "cutting_tool_flank_wear_synthetic_dataset.xlsx"
 
 
@@ -900,7 +900,7 @@ def test_importer_accepts_task_and_profile_composition_addition_without_code_cha
 def test_process_source_maps_prediction_fields_and_tolerates_optional_context() -> None:
     profile_document = json.loads(
         (
-            ROOT / "backend" / "src" / "material_workbench" / "data"
+            ROOT / "backend" / "src" / "decision_workbench" / "data"
             / "dataset-input-profile-process-v1.json"
         ).read_text(encoding="utf-8")
     )
@@ -943,7 +943,7 @@ def test_process_derives_heat_pattern_from_measurement_master_when_history_is_ab
     workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
     workbook.remove(workbook["焼鈍履歴"])
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
+        ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-process-v1.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)
@@ -985,7 +985,7 @@ def test_process_allows_master_stage_unused_by_current_condition_data() -> None:
     )
     annealing.cell(1, phf_column).value = "未使用工程のため条件列なし"
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data"
+        ROOT / "backend" / "src" / "decision_workbench" / "data"
         / "dataset-input-profile-process-v1.json"
     )
 
@@ -1013,7 +1013,7 @@ def test_process_accepts_parent_without_history_or_derivable_measurement_series(
     )
     annealing.cell(row, entry_column).value = None
     profile = load_dataset_profile(
-        ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
+        ROOT / "backend" / "src" / "decision_workbench" / "data" / "dataset-input-profile-process-v1.json"
     )
 
     canonical = canonicalize_workbook(workbook, profile)

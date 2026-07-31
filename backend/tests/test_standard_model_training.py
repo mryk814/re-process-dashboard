@@ -9,21 +9,21 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.modeling.model_lifecycle import canonical_training_dataset
-from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.modeling.training.estimators import exact_gp
-from material_workbench.modeling.training.estimators import lightgbm
-from material_workbench.modeling.training.estimators import ridge
-from material_workbench.modeling.training.feature_dataset import (
+from decision_workbench.modeling.model_lifecycle import canonical_training_dataset
+from decision_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.training.estimators import exact_gp
+from decision_workbench.modeling.training.estimators import lightgbm
+from decision_workbench.modeling.training.estimators import ridge
+from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
-from material_workbench.modeling.training.recipe import estimator_recipe
-from material_workbench.modeling.training.recipe import validate_recipe_capability
-from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
-from material_workbench.task_composition.catalog import registered_task_modules
-from material_workbench.task_composition.catalog import resolve_task_source, task_module
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.recipe import validate_recipe_capability
+from decision_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
+from decision_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.task_composition.catalog import resolve_task_source, task_module
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -395,7 +395,7 @@ def test_legacy_profile_estimator_fields_do_not_select_new_training(
     profile_document = json.loads(
         (
             ROOT
-            / "backend/src/material_workbench/data"
+            / "backend/src/decision_workbench/data"
             / "tabular-profile-heat-treatment-v1.json"
         ).read_text(encoding="utf-8")
     )

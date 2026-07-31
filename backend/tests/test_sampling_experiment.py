@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 import pytest
 
-from material_workbench.research.sampling_experiment import (
+from decision_workbench.research.sampling_experiment import (
     FIXTURES,
     _distance_matrix,
     _objective,

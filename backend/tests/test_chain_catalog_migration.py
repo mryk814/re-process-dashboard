@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from material_workbench.contracts.chain_contracts import (
+from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
     ChainPort,
@@ -16,17 +16,17 @@ from material_workbench.contracts.chain_contracts import (
     StageContractSurface,
     build_chain_revision,
 )
-from material_workbench.persistence.chain_catalog_migration import (
+from decision_workbench.persistence.chain_catalog_migration import (
     MIGRATION_ID,
     ChainCatalogMigrationError,
     migrate_chain_catalog,
     refresh_single_task_project_identities,
 )
-from material_workbench.persistence.store import (
+from decision_workbench.persistence.store import (
     ChainCatalogConflictError,
     Store,
 )
-from material_workbench.persistence.workspace_catalog_migration import (
+from decision_workbench.persistence.workspace_catalog_migration import (
     migrate_workspace_catalog,
 )
 

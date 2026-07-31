@@ -10,18 +10,18 @@ import subprocess
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.developer_experience.workspace_maintenance import (
+from decision_workbench.app import create_app
+from decision_workbench.developer_experience.workspace_maintenance import (
     deactivate_package_registration,
     inspect_package_registrations,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.workspace_catalog import (
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.workspace_catalog import (
     CatalogConflictError,
     CatalogReferenceError,
     WorkspaceCatalog,
 )
-from material_workbench.application.workspace_catalog_bootstrap import (
+from decision_workbench.application.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
 

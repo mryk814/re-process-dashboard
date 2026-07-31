@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from material_workbench.research.gmr_inverse import (
+from decision_workbench.research.gmr_inverse import (
     ConstraintSet,
     JointGaussianMixture,
     run_historical_replay,

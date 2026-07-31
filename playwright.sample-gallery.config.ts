@@ -7,7 +7,7 @@ const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 5199);
 const ownsDatabase = !process.env.PLAYWRIGHT_DB_PATH;
 const database = process.env.PLAYWRIGHT_DB_PATH
-  ?? join(tmpdir(), `material-workbench-sample-gallery-${randomUUID()}.db`);
+  ?? join(tmpdir(), `decision-workbench-sample-gallery-${randomUUID()}.db`);
 if (ownsDatabase) process.env.PLAYWRIGHT_OWNED_DB_PATH = database;
 
 export default defineConfig({

@@ -1,7 +1,7 @@
 # Backend command inventory
 
 `backend/scripts/` はアプリ本体からimportするライブラリではなく、用途と寿命が明示された
-薄いCLI入口です。再利用処理は `backend/src/material_workbench/` に置きます。
+薄いCLI入口です。再利用処理は `backend/src/decision_workbench/` に置きます。
 各表の `Command` は `uv run python backend/scripts/<Command>` で直接再実行できる
 entrypointです。commandを追加するときは、次の表へowner、purpose／output、
 参照docs／test、retention classを追加してください。
@@ -23,7 +23,7 @@ Migrationは任意実行する薄いCLIではなく、Workspace読込やshared-l
 
 | Location / entrypoint | Owner | Purpose | Docs / test | Retention |
 |---|---|---|---|---|
-| `backend/src/material_workbench/persistence/*_migration.py` / Store bootstrap | Workspace persistence | 既存Workspaceを現行schemaへ段階移行 | `backend/tests/test_candidate_migration.py`, `backend/tests/test_chain_catalog_migration.py`, `backend/tests/test_workspace_catalog_migration.py` | 保存済みWorkspaceを対応対象とする間 |
+| `backend/src/decision_workbench/persistence/*_migration.py` / Store bootstrap | Workspace persistence | 既存Workspaceを現行schemaへ段階移行 | `backend/tests/test_candidate_migration.py`, `backend/tests/test_chain_catalog_migration.py`, `backend/tests/test_workspace_catalog_migration.py` | 保存済みWorkspaceを対応対象とする間 |
 | `infrastructure/compose/migrations/*.sql` / Compose database startup | Shared lab persistence | shared PostgreSQL schemaを順序付きで構築 | `npm run compose:test` | 対応するshared-lab schemaの存続期間 |
 | legacy identity paths / normal Workspace load | Persistence contracts | 旧identityを現在の不変snapshotへ解決 | `backend/tests/test_legacy_workspace_acceptance.py` | release済みWorkspaceの互換期間 |
 

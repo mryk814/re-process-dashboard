@@ -21,20 +21,20 @@ from model_workflow import (  # noqa: E402
     diagnose_source,
     promote_package,
 )
-from material_workbench.app import create_app  # noqa: E402
-from material_workbench.application.dataset_registration import (  # noqa: E402
+from decision_workbench.app import create_app  # noqa: E402
+from decision_workbench.application.dataset_registration import (  # noqa: E402
     register_managed_dataset,
 )
-from material_workbench.modeling.model_lifecycle import (  # noqa: E402
+from decision_workbench.modeling.model_lifecycle import (  # noqa: E402
     canonical_training_dataset_digest,
     dataset_profile_digest,
     resolve_configured_package,
 )
-from material_workbench.modeling.model_package_verify import (  # noqa: E402
+from decision_workbench.modeling.model_package_verify import (  # noqa: E402
     verify_model_package,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
-from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
+from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
 def test_promote_cli_uses_env_store_and_explicit_override(
@@ -168,7 +168,7 @@ def test_explicit_profile_flows_from_diagnosis_through_build_and_verify(
             ROOT
             / "backend"
             / "src"
-            / "material_workbench"
+            / "decision_workbench"
             / "data"
             / "tabular-profile-heat-treatment-v1.json"
         ).read_text(encoding="utf-8")
@@ -398,7 +398,7 @@ def test_wrong_profile_family_is_rejected_instead_of_using_the_default(
             ROOT
             / "backend"
             / "src"
-            / "material_workbench"
+            / "decision_workbench"
             / "data"
             / "welding-stage-b-profile-v1.json"
         ).read_text(encoding="utf-8")
@@ -431,7 +431,7 @@ def test_stage_b_default_and_custom_profiles_keep_lifecycle_identity(
         ROOT
         / "backend"
         / "src"
-        / "material_workbench"
+        / "decision_workbench"
         / "data"
         / "welding-stage-b-profile-v1.json"
     )
@@ -497,7 +497,7 @@ def test_observation_builder_records_an_explicit_profile_digest(
             ROOT
             / "backend"
             / "src"
-            / "material_workbench"
+            / "decision_workbench"
             / "data"
             / "observation-profile-welding-consumable-stage-c-v1.json"
         ).read_text(encoding="utf-8")

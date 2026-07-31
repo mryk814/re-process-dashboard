@@ -4,14 +4,14 @@ import sys
 from fastapi.testclient import TestClient
 
 from backend.scripts.generators import build_welding_stage_c_model_package as stage_c_builder_cli
-from material_workbench.data.observation_profile import (
+from decision_workbench.data.observation_profile import (
     build_observation_training_dataset,
     load_observation_profile,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.modeling.observation_model_builder import build
-from material_workbench.modeling.observation_regression import resolve_spec
-from material_workbench.task_composition.builtin.welding import observation_declaration
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.observation_model_builder import build
+from decision_workbench.modeling.observation_regression import resolve_spec
+from decision_workbench.task_composition.builtin.welding import observation_declaration
 
 
 ROOT = Path(__file__).resolve().parents[2]

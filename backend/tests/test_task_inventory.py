@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
-from material_workbench.task_composition.external_tasks import external_task_bundles
+from decision_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
+from decision_workbench.task_composition.external_tasks import external_task_bundles
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]

@@ -125,7 +125,7 @@ Shared Labは既存applicationを自動で切り替えず、明示的な別FastA
 
 ```powershell
 npm run compose:up
-uv run --extra shared uvicorn material_workbench.shared_lab.app:build_app --factory --host 127.0.0.1 --port 8766
+uv run --extra shared uvicorn decision_workbench.shared_lab.app:build_app --factory --host 127.0.0.1 --port 8766
 ```
 
 OpenAPIは`http://127.0.0.1:8766/docs`で確認できます。

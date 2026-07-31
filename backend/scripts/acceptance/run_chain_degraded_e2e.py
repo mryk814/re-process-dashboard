@@ -7,8 +7,8 @@ from pathlib import Path
 
 import uvicorn
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-from material_workbench.bootstrap.contributions import (
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.contributions import (
     WELDING_BLEND_CONTRIBUTION_ID,
     WeldingBlendContributionConfig,
 )

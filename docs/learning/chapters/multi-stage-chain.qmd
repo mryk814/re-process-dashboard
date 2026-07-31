@@ -4,7 +4,7 @@ level: advanced
 estimated_minutes: 240
 verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
-  - path: "backend/src/material_workbench/contracts/chain_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/chain_contracts.py"
     id: "multi-stage-chain-definition-contract"
     role: "contract"
     symbols:
@@ -15,7 +15,7 @@ code_references:
       - "UnitConversion"
       - "validate_chain_definition"
       - "build_chain_revision"
-  - path: "backend/src/material_workbench/contracts/chain_execution_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/chain_execution_contracts.py"
     id: "multi-stage-chain-execution-contract"
     role: "contract"
     symbols:
@@ -25,30 +25,30 @@ code_references:
       - "ChainSnapshot"
       - "ActualConditionedVariantIdentity"
       - "ActualConditionedVariant"
-  - path: "backend/src/material_workbench/application/chain_execution_plan.py"
+  - path: "backend/src/decision_workbench/application/chain_execution_plan.py"
     id: "multi-stage-chain-plan"
     role: "application"
     symbols:
       - "ChainPlanningUseCase.candidate_input_definitions"
-  - path: "backend/src/material_workbench/application/chain_stage_execution.py"
+  - path: "backend/src/decision_workbench/application/chain_stage_execution.py"
     id: "multi-stage-chain-stage-executor"
     role: "application"
     symbols:
       - "ChainStageExecutor._canonical_input"
       - "ChainStageExecutor._memo_key"
-  - path: "backend/src/material_workbench/application/chain_execution_use_case.py"
+  - path: "backend/src/decision_workbench/application/chain_execution_use_case.py"
     id: "multi-stage-chain-execution-service"
     role: "application"
     symbols:
       - "ChainExecutionCoordinator"
       - "ChainExecutionUseCase.execute"
       - "ChainExecutionUseCase.mark_candidate_changed"
-  - path: "backend/src/material_workbench/application/chain_snapshot_use_case.py"
+  - path: "backend/src/decision_workbench/application/chain_snapshot_use_case.py"
     id: "multi-stage-chain-snapshot"
     role: "application"
     symbols:
       - "ChainSnapshotUseCase.actual_conditioned_variant"
-  - path: "backend/src/material_workbench/contracts/chain_uncertainty_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/chain_uncertainty_contracts.py"
     id: "multi-stage-chain-uncertainty-contract"
     role: "contract"
     symbols:
@@ -57,7 +57,7 @@ code_references:
       - "ChainStageUncertainty"
       - "ChainDistributionProvenance"
       - "ChainDistributionRun"
-  - path: "backend/src/material_workbench/application/chain_uncertainty.py"
+  - path: "backend/src/decision_workbench/application/chain_uncertainty.py"
     id: "multi-stage-chain-uncertainty-service"
     role: "application"
     symbols:
@@ -65,7 +65,7 @@ code_references:
       - "apply_output_bounds"
       - "ChainUncertaintyService.capability"
       - "ChainUncertaintyService.run"
-  - path: "backend/src/material_workbench/contracts/chain_evaluation_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/chain_evaluation_contracts.py"
     id: "multi-stage-chain-evaluation-contract"
     role: "contract"
     symbols:
@@ -73,17 +73,17 @@ code_references:
       - "ChainEvaluationTarget"
       - "ChainEvaluationFoldEvidence"
       - "ChainEvaluationReport"
-  - path: "backend/src/material_workbench/application/chain_evaluation.py"
+  - path: "backend/src/decision_workbench/application/chain_evaluation.py"
     id: "multi-stage-chain-evaluation-service"
     role: "application"
     symbols:
       - "ChainEvaluationCatalog"
-  - path: "backend/src/material_workbench/modeling/numeric_canonicalization.py"
+  - path: "backend/src/decision_workbench/modeling/numeric_canonicalization.py"
     id: "multi-stage-chain-evidence-number"
     role: "contract"
     symbols:
       - "canonicalize_report_float"
-  - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
+  - path: "backend/src/decision_workbench/application/chain_candidate_adapters.py"
     id: "multi-stage-chain-candidate-adapter"
     role: "application"
     symbols:
