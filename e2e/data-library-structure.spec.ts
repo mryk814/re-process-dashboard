@@ -188,17 +188,27 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   ];
   const cards = onboarding.locator(".csv-task-columns article");
   for (const [index, input] of inputColumns.entries()) {
+    await cards.nth(index).getByLabel("役割").selectOption(input.role);
+  }
+  await cards.nth(6).getByLabel("役割").selectOption("categorical");
+  for (const index of [7, 8, 9]) {
+    await cards.nth(index).getByLabel("役割").selectOption("output");
+  }
+  const blockers = onboarding.getByRole("region", { name: "準備に必要な項目" });
+  await expect(blockers).toContainText("composition_a: 物理的許容範囲");
+  await expect(blockers).toContainText("target_a: 妥当範囲");
+  await expect(blockers).toContainText("観測min/maxはデータのcoverageであり");
+  await expect(prepare).toBeDisabled();
+
+  for (const [index, input] of inputColumns.entries()) {
     const card = cards.nth(index);
-    await card.getByLabel("役割").selectOption(input.role);
     await card.getByLabel("単位").fill(input.unit);
     await card.getByLabel("物理的許容範囲 min,max").fill("0,2000");
     await card.getByLabel("通常範囲 min,max").fill("0,2000");
     await card.getByLabel("学習範囲 min,max").fill(input.training);
   }
-  await cards.nth(6).getByLabel("役割").selectOption("categorical");
   for (const index of [7, 8, 9]) {
     const card = cards.nth(index);
-    await card.getByLabel("役割").selectOption("output");
     await card.getByLabel("単位").fill("MPa");
     await card.getByLabel("妥当範囲 min,max").fill("0,2000");
     await card.getByLabel("表示範囲 min,max").fill("0,2000");
