@@ -13,8 +13,11 @@ from material_workbench.data.profile_family_registry import (
     load_inspection_descriptor,
     load_profile_document,
     load_training_descriptor,
+    normalize_profile_digest_payload,
+    profile_output_columns,
     profile_registration_metadata,
     restore_profile_document,
+    supported_task_ids,
     validate_profile_source,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
@@ -132,6 +135,49 @@ def test_registry_restores_dataset_input_profile_without_changing_stored_payload
     assert dataset_profile_digest(restored) == dataset_profile_digest(profile)
 
 
+@pytest.mark.parametrize("case", FAMILY_CASES, ids=lambda case: case["profile_id"])
+def test_family_adapter_owns_stored_task_ids_and_output_columns(
+    case: dict[str, Any],
+) -> None:
+    profile_path = DATA / case["profile_name"]
+    profile = load_profile_document(profile_path)
+    document = profile_registration_metadata(profile).effective_profile
+
+    assert supported_task_ids(document) == case["task_ids"]
+    for task_id in case["task_ids"]:
+        columns = profile_output_columns(profile, task_id)
+        assert columns
+        assert all(
+            isinstance(key, str)
+            and key
+            and isinstance(source_columns, tuple)
+            and all(isinstance(column, str) and column for column in source_columns)
+            for key, source_columns in columns.items()
+        )
+
+
+def test_tabular_adapter_owns_immutable_digest_default_normalization() -> None:
+    tabular = load_profile_document(DATA / "tabular-profile-heat-treatment-v1.json")
+    tabular_payload = tabular.model_dump(mode="json", exclude={"task_definitions"})
+    tabular_payload["model_family"] = None
+
+    normalize_profile_digest_payload(tabular, tabular_payload)
+
+    assert tabular_payload["model_family"] == "ridge"
+
+    observation = load_profile_document(
+        DATA / "observation-profile-welding-consumable-stage-c-v1.json"
+    )
+    observation_payload = observation.model_dump(
+        mode="json", exclude={"task_definitions"}
+    )
+    before = dict(observation_payload)
+
+    normalize_profile_digest_payload(observation, observation_payload)
+
+    assert observation_payload == before
+
+
 @pytest.mark.parametrize("profile_name", [
     "observation-profile-welding-consumable-stage-c-v1.json",
     "welding-stage-b-profile-v1.json",
@@ -157,3 +203,13 @@ def test_registry_rejects_unknown_schema_without_dataset_input_fallback(tmp_path
 def test_registry_rejects_unknown_stored_schema_without_legacy_fallback() -> None:
     with pytest.raises(ProfileFamilyUnavailableError, match="未対応"):
         restore_profile_document({"schema_version": "unknown/v1"})
+
+
+def test_family_semantics_reject_unknown_runtime_profile_without_fallback() -> None:
+    unknown_profile = object()
+
+    with pytest.raises(ProfileFamilyUnavailableError, match="判定できません"):
+        normalize_profile_digest_payload(unknown_profile, {})
+
+    with pytest.raises(ProfileFamilyUnavailableError, match="判定できません"):
+        profile_output_columns(unknown_profile, "unknown-task")

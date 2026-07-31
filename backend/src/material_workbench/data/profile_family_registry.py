@@ -50,6 +50,14 @@ class ProfileFamilyAdapter(Protocol):
 
     def registration_metadata(self, profile: Any) -> ProfileRegistrationMetadata: ...
 
+    def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]: ...
+
+    def normalize_digest_payload(self, payload: dict[str, Any]) -> None: ...
+
+    def output_columns(
+        self, profile: Any, task_id: str
+    ) -> dict[str, tuple[str, ...]]: ...
+
     def validate_source(self, source: Path, profile_path: Path) -> dict[str, Any]: ...
 
     def load_training_descriptor(
@@ -63,6 +71,11 @@ def _profile_digest(profile: Any) -> str:
     from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 
     return dataset_profile_digest(profile)
+
+
+def _single_stored_task_id(document: Mapping[str, Any]) -> tuple[str, ...]:
+    task_id = document.get("task_id")
+    return (task_id,) if isinstance(task_id, str) and task_id else ()
 
 
 def _generic_validation(source: Path, profile_path: Path, profile: Any) -> dict[str, Any]:
@@ -170,6 +183,24 @@ class DatasetInputProfileFamilyAdapter:
             effective_profile=profile.model_dump(mode="json", exclude={"task_definitions"}),
         )
 
+    def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]:
+        tasks = document.get("tasks")
+        return tuple(sorted(tasks)) if isinstance(tasks, Mapping) else ()
+
+    def normalize_digest_payload(self, payload: dict[str, Any]) -> None:
+        del payload
+
+    def output_columns(
+        self, profile: Any, task_id: str
+    ) -> dict[str, tuple[str, ...]]:
+        if task_id not in profile.tasks:
+            raise ProfileFamilyUnavailableError("Profile RevisionはこのPrediction Taskに対応していません")
+        return {
+            target.key: target.source_columns
+            for observation in profile.tasks[task_id].observations
+            for target in observation.targets
+        }
+
     def validate_source(self, source: Path, profile_path: Path) -> dict[str, Any]:
         from material_workbench.data.profile_workbench import _validate_dataset_input_workbook
 
@@ -217,6 +248,25 @@ class TabularProfileFamilyAdapter:
             effective_profile=profile.model_dump(mode="json", exclude={"task_definitions"}),
         )
 
+    def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]:
+        return _single_stored_task_id(document)
+
+    def normalize_digest_payload(self, payload: dict[str, Any]) -> None:
+        # Training selection moved to model-training-recipe/v1. Preserve the
+        # semantic default used by immutable Profile/Package digests.
+        if payload.get("model_family") is None:
+            payload["model_family"] = "ridge"
+
+    def output_columns(
+        self, profile: Any, task_id: str
+    ) -> dict[str, tuple[str, ...]]:
+        if task_id != profile.task_id:
+            raise ProfileFamilyUnavailableError("Profile RevisionはこのPrediction Taskに対応していません")
+        return {
+            target.key: (target.key, target.column)
+            for target in profile.outputs
+        }
+
     def validate_source(self, source: Path, profile_path: Path) -> dict[str, Any]:
         return _generic_validation(source, profile_path, self.load_path(profile_path))
 
@@ -261,6 +311,23 @@ class ObservationProfileFamilyAdapter:
             task_ids=(str(profile.task_id),),
             effective_profile=profile.model_dump(mode="json", exclude={"task_definitions"}),
         )
+
+    def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]:
+        return _single_stored_task_id(document)
+
+    def normalize_digest_payload(self, payload: dict[str, Any]) -> None:
+        del payload
+
+    def output_columns(
+        self, profile: Any, task_id: str
+    ) -> dict[str, tuple[str, ...]]:
+        if task_id != profile.task_id:
+            raise ProfileFamilyUnavailableError("Profile RevisionはこのPrediction Taskに対応していません")
+        return {
+            target.key: (target.key, target.column)
+            for family in profile.families
+            for target in family.outputs
+        }
 
     def validate_source(self, source: Path, profile_path: Path) -> dict[str, Any]:
         return _generic_validation(source, profile_path, self.load_path(profile_path))
@@ -308,6 +375,22 @@ class StageBProfileFamilyAdapter:
             task_ids=(str(profile.task_id),),
             effective_profile=profile.model_dump(mode="json", exclude={"task_definitions"}),
         )
+
+    def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]:
+        return _single_stored_task_id(document)
+
+    def normalize_digest_payload(self, payload: dict[str, Any]) -> None:
+        del payload
+
+    def output_columns(
+        self, profile: Any, task_id: str
+    ) -> dict[str, tuple[str, ...]]:
+        if task_id != profile.task_id:
+            raise ProfileFamilyUnavailableError("Profile RevisionはこのPrediction Taskに対応していません")
+        return {
+            key: (key, column)
+            for key, column in profile.weld_output_columns.items()
+        }
 
     def validate_source(self, source: Path, profile_path: Path) -> dict[str, Any]:
         from material_workbench.data.profile_workbench import _stage_b_validation
@@ -416,12 +499,17 @@ def profile_registration_metadata(profile: Any) -> ProfileRegistrationMetadata:
 
 
 def supported_task_ids(document: Mapping[str, Any]) -> tuple[str, ...]:
-    adapter = PROFILE_FAMILY_REGISTRY.resolve_stored_document(document)
-    if adapter.schema_version == "dataset-input-profile/v2":
-        tasks = document.get("tasks")
-        return tuple(sorted(tasks)) if isinstance(tasks, Mapping) else ()
-    task_id = document.get("task_id")
-    return (task_id,) if isinstance(task_id, str) and task_id else ()
+    return PROFILE_FAMILY_REGISTRY.resolve_stored_document(document).stored_task_ids(document)
+
+
+def normalize_profile_digest_payload(profile: Any, payload: dict[str, Any]) -> None:
+    PROFILE_FAMILY_REGISTRY.resolve_profile(profile).normalize_digest_payload(payload)
+
+
+def profile_output_columns(
+    profile: Any, task_id: str
+) -> dict[str, tuple[str, ...]]:
+    return PROFILE_FAMILY_REGISTRY.resolve_profile(profile).output_columns(profile, task_id)
 
 
 def profile_task_ids(profile: Any) -> tuple[str, ...]:

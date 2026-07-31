@@ -20,8 +20,9 @@ from material_workbench.data.importer import training_context_key
 from material_workbench.data.profile_family_registry import (
     lifecycle_profile_for_data,
     load_profile_document,
+    normalize_profile_digest_payload,
+    profile_output_columns,
 )
-from material_workbench.data.profiles.loading import load_dataset_profile
 from material_workbench.modeling.model_packages import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
@@ -260,11 +261,7 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
     # active profile does not use them.
     if payload.get("curation_recipe") is None:
         payload.pop("curation_recipe", None)
-    if payload.get("schema_version") == "tabular-dataset-profile/v1":
-        # Training selection moved to model-training-recipe/v1. Preserve the
-        # semantic defaults used by immutable Profile/Package digests.
-        if payload.get("model_family") is None:
-            payload["model_family"] = "ridge"
+    normalize_profile_digest_payload(profile, payload)
     if payload.get("ridge_alpha") in {None, 1.0}:
         payload.pop("ridge_alpha", None)
     shared = payload.get("shared")
@@ -305,23 +302,10 @@ def canonical_training_dataset(
         return specialized(contract, pipeline_version=pipeline_version)
     runtime_profile = (
         getattr(data, "profile", None)
-        or load_dataset_profile(data.profile_path)
+        or load_profile_document(Path(data.profile_path))
     )
     lifecycle_profile = lifecycle_profile_for_data(data)
-    if (
-        getattr(runtime_profile, "schema_version", "")
-        == "tabular-dataset-profile/v1"
-    ):
-        profile_columns = {
-            target.key: (target.key, target.column)
-            for target in runtime_profile.outputs
-        }
-    else:
-        profile_columns = {
-            target.key: target.source_columns
-            for observation in runtime_profile.tasks[task_id].observations
-            for target in observation.targets
-        }
+    profile_columns = profile_output_columns(runtime_profile, task_id)
     output_columns = {
         output.key: tuple(dict.fromkeys((*output.measurement_keys, *profile_columns.get(output.key, ()))))
         for output in contract.task_definition.outputs
