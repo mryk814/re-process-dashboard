@@ -132,7 +132,9 @@ def get_chain_use_cases(request: Request) -> ChainUseCases:
     return ChainUseCases(
         store=state.store,
         workspace_catalog=context.workspace_catalog,
-        execution_service=context.chain_execution_service,
+        planning_use_case=context.chain_planning_use_case,
+        execution_use_case=context.chain_execution_use_case,
+        snapshot_use_case=context.chain_snapshot_use_case,
         uncertainty_service=context.chain_uncertainty_service,
         evaluation_catalog=state.chain_evaluation_catalog,
         subsystem_registry=state.subsystem_availability,

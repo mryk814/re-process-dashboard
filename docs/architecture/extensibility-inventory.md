@@ -98,6 +98,7 @@ DataDescriptor（宣言済みの共通面）
 
 観測できた具体的な帰結:
 
+
 - `DataExplorationService.quality()` は `data.quality` / `data.detected_quality` / `data.technical_columns` を使いますが（[application/data_exploration.py:56](../../backend/src/material_workbench/application/data_exploration.py#L56)）、これらは `DataDescriptor` に宣言されていません。**未宣言の暗黙インターフェース**です。
 - `DataExplorerEntry.data` の型注釈は `WorkbookData` ですが（[tasks/task_registry.py:56](../../backend/src/material_workbench/tasks/task_registry.py#L56)）、Tabular Taskでは実際に `TabularData` が入ります（[bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py)）。型注釈が実態と一致していません。
 - 明示的なTraining View契約を持つのは Observation family だけです（`ObservationTrainingDataset` / `ObservationTrainingView`、[data/observation_profile.py:182](../../backend/src/material_workbench/data/observation_profile.py#L182)）。Tabular / Workbook / FlankWear familyは `observations: list[dict]` を直接学習・品質表示へ渡します。
@@ -198,6 +199,7 @@ Package範囲とは混同しません。
 **現在は単一形状で、typed unionではありません。**
 
 | 層 | 型 | 形状 |
+
 | --- | --- | --- |
 | API入力 | `CandidateInputs`（[contracts/schemas.py:243](../../backend/src/material_workbench/contracts/schemas.py#L243)） | composition / process / categorical / heat_pattern / heat_time_basis |
 | 正規形 | `CanonicalCandidate`（[contracts/task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357)） | 同上（heat_time_basisなし） |
@@ -252,7 +254,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 | --- | --- |
 | 契約 | [contracts/chain_contracts.py](../../backend/src/material_workbench/contracts/chain_contracts.py) `ChainDefinition` / `ChainRevision` / `StageContractSurface` |
 | stage種別 | 同 `:36` `Literal["task","deterministic_transform"]` — 2種のみ |
-| 実行 | [application/chain_execution.py](../../backend/src/material_workbench/application/chain_execution.py)（1131行） |
+| 実行 | [application/chain_execution_plan.py](../../backend/src/material_workbench/application/chain_execution_plan.py)（1131行） |
 | 不確かさ伝播 | [application/chain_uncertainty.py](../../backend/src/material_workbench/application/chain_uncertainty.py)（417行） |
 | 評価 | [application/chain_evaluation.py](../../backend/src/material_workbench/application/chain_evaluation.py)、[modeling/chain_evaluation_builder.py:49](../../backend/src/material_workbench/modeling/chain_evaluation_builder.py#L49) |
 | bootstrap | [persistence/welding_chain_bootstrap.py:31](../../backend/src/material_workbench/persistence/welding_chain_bootstrap.py#L31) |
@@ -298,6 +300,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 読み取れること:
 
+
 1. **共通なのは「観測行の平坦なdict列」だけ**で、それは契約ではなく慣習です。`observations[*]` のキー構成はfamilyごとにloaderが決めています。
 2. 品質表示は3フィールドの暗黙インターフェースに依存し、`FlankWearData` がそれを満たさないため `data_explorer=None` という**データではなくコードの判断**で回避されています。
 3. Training Viewを型で持つのはObservation familyだけで、Stage Bはそこへ**変換**しています（[data/stage_b_training.py:153](../../backend/src/material_workbench/data/stage_b_training.py#L153)）。つまり共通境界の候補は既に存在しますが、全familyが通っていません。
@@ -307,24 +310,24 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 ## 3. Chain Coreに残る溶接固有symbol（全列挙）
 
-`chain_execution.py` / `chain_uncertainty.py` / `chain_contracts.py` を対象に、
+`chain_execution_plan.py` / `chain_uncertainty.py` / `chain_contracts.py` を対象に、
 「溶接／疎配合を前提にしないChainでは成立しない記述」を列挙します。
 
 | # | 場所 | 内容 | 汎用Chainでの帰結 |
 | --- | --- | --- | --- |
-| 1 | [chain_execution.py:70](../../backend/src/material_workbench/application/chain_execution.py#L70)–`:80` `_external_values` | `candidate.process` / `candidate.categorical` の全キーを `candidate.welding_context.*` と `candidate.test_context.*` **両方**へ複製 | 外部入力pathの名前空間が溶接語彙に固定。他分野は `welding_context.` を名乗るしかない |
-| 2 | [chain_execution.py:73](../../backend/src/material_workbench/application/chain_execution.py#L73) | `candidate.blend` を `candidate.blend` pathへ露出 | 疎配合以外の外部入力形状がない |
-| 3 | [chain_execution.py:250](../../backend/src/material_workbench/application/chain_execution.py#L250)–`:258` `_deterministic_stage` | 決定論的Stageが**ちょうど1段**必要 | 決定論的Stageなしの二段Chainは候補契約・初期候補APIが成立しない |
-| 4 | [chain_execution.py:263](../../backend/src/material_workbench/application/chain_execution.py#L263) `prepare_candidate` | `blend is None` を即エラー | 疎配合なしのChain候補を保存できない |
-| 5 | [chain_execution.py:328](../../backend/src/material_workbench/application/chain_execution.py#L328) `_resolve` | 同じく `blend is None` を即エラー | 実行・snapshot・variantの全経路が疎配合必須 |
-| 6 | [chain_execution.py:168](../../backend/src/material_workbench/application/chain_execution.py#L168) `starter_candidate` | `port.path == "candidate.blend"` をskipし、残りを `process` / `categorical` へ振り分け | 初期候補が「配合＋スカラーcontext」形状に固定 |
-| 7 | [chain_execution.py:229](../../backend/src/material_workbench/application/chain_execution.py#L229) | `CandidateInputs(composition={}, …, heat_time_basis="line_speed")` を常に構築 | Chain候補は組成空・焼鈍時間基準という無意味な既定値を持つ |
-| 8 | [chain_execution.py:414](../../backend/src/material_workbench/application/chain_execution.py#L414)–`:424` `_run_stage` | 決定論的Stage出力を `material_composition` + `auxiliary_features` の2キーと仮定 | 決定論的変換の出力schemaがStage A固有 |
-| 9 | [chain_execution.py:436](../../backend/src/material_workbench/application/chain_execution.py#L436) | Stage実行時に `heat_pattern: None`、`blend: None` を強制 | 系列入力を持つStageをChainへ入れられない |
-| 10 | [chain_execution.py:456](../../backend/src/material_workbench/application/chain_execution.py#L456)–`:463` `_outputs_from_payload` | #8と同じ2キー仮定（復元経路） | 同上 |
-| 11 | [chain_execution.py:1002](../../backend/src/material_workbench/application/chain_execution.py#L1002)–`:1012` `snapshot` | `blend.design_space` と `blend.commercial_catalog` からsnapshot identityを構築 | 疎配合のないChainはsnapshotを作れない |
-| 12 | [chain_execution.py:1071](../../backend/src/material_workbench/application/chain_execution.py#L1071)–`:1079` `actual_conditioned_variant` | 中間実測の対象を `composition.` prefix のbindingに限定 | 中間実測が「組成」であるChainしか実測条件付き解析ができない |
-| 13 | [chain_execution.py:1057](../../backend/src/material_workbench/application/chain_execution.py#L1057) | 終端Stage固定（`revision.stages[-1]`）＋変数名 `stage_c` | 3段A→B→Cを前提とした命名と構造 |
+| 1 | [chain_execution_plan.py:70](../../backend/src/material_workbench/application/chain_execution_plan.py#L70)–`:80` `_external_values` | `candidate.process` / `candidate.categorical` の全キーを `candidate.welding_context.*` と `candidate.test_context.*` **両方**へ複製 | 外部入力pathの名前空間が溶接語彙に固定。他分野は `welding_context.` を名乗るしかない |
+| 2 | [chain_execution_plan.py:73](../../backend/src/material_workbench/application/chain_execution_plan.py#L73) | `candidate.blend` を `candidate.blend` pathへ露出 | 疎配合以外の外部入力形状がない |
+| 3 | [chain_execution_plan.py:250](../../backend/src/material_workbench/application/chain_execution_plan.py#L250)–`:258` `_deterministic_stage` | 決定論的Stageが**ちょうど1段**必要 | 決定論的Stageなしの二段Chainは候補契約・初期候補APIが成立しない |
+| 4 | [chain_execution_plan.py:263](../../backend/src/material_workbench/application/chain_execution_plan.py#L263) `prepare_candidate` | `blend is None` を即エラー | 疎配合なしのChain候補を保存できない |
+| 5 | [chain_execution_plan.py:328](../../backend/src/material_workbench/application/chain_execution_plan.py#L328) `_resolve` | 同じく `blend is None` を即エラー | 実行・snapshot・variantの全経路が疎配合必須 |
+| 6 | [chain_execution_plan.py:168](../../backend/src/material_workbench/application/chain_execution_plan.py#L168) `starter_candidate` | `port.path == "candidate.blend"` をskipし、残りを `process` / `categorical` へ振り分け | 初期候補が「配合＋スカラーcontext」形状に固定 |
+| 7 | [chain_execution_plan.py:229](../../backend/src/material_workbench/application/chain_execution_plan.py#L229) | `CandidateInputs(composition={}, …, heat_time_basis="line_speed")` を常に構築 | Chain候補は組成空・焼鈍時間基準という無意味な既定値を持つ |
+| 8 | [chain_execution_plan.py:414](../../backend/src/material_workbench/application/chain_execution_plan.py#L414)–`:424` `_run_stage` | 決定論的Stage出力を `material_composition` + `auxiliary_features` の2キーと仮定 | 決定論的変換の出力schemaがStage A固有 |
+| 9 | [chain_execution_plan.py:436](../../backend/src/material_workbench/application/chain_execution_plan.py#L436) | Stage実行時に `heat_pattern: None`、`blend: None` を強制 | 系列入力を持つStageをChainへ入れられない |
+| 10 | [chain_execution_plan.py:456](../../backend/src/material_workbench/application/chain_execution_plan.py#L456)–`:463` `_outputs_from_payload` | #8と同じ2キー仮定（復元経路） | 同上 |
+| 11 | [chain_execution_plan.py:1002](../../backend/src/material_workbench/application/chain_execution_plan.py#L1002)–`:1012` `snapshot` | `blend.design_space` と `blend.commercial_catalog` からsnapshot identityを構築 | 疎配合のないChainはsnapshotを作れない |
+| 12 | [chain_execution_plan.py:1071](../../backend/src/material_workbench/application/chain_execution_plan.py#L1071)–`:1079` `actual_conditioned_variant` | 中間実測の対象を `composition.` prefix のbindingに限定 | 中間実測が「組成」であるChainしか実測条件付き解析ができない |
+| 13 | [chain_execution_plan.py:1057](../../backend/src/material_workbench/application/chain_execution_plan.py#L1057) | 終端Stage固定（`revision.stages[-1]`）＋変数名 `stage_c` | 3段A→B→Cを前提とした命名と構造 |
 | 14 | [chain_contracts.py:196](../../backend/src/material_workbench/contracts/chain_contracts.py#L196)–`:205` `ChainSnapshotIdentity` | `design_space` / `commercial_catalog` が**必須フィールド** | #11の契約側の根拠。Core契約に疎配合が漏れている |
 | 15 | [chain_contracts.py:244](../../backend/src/material_workbench/contracts/chain_contracts.py#L244)–`:252` `basis()` | 単位文字列に `"whole wire"` / `"deposited metal"` を検出して物理基準を決定 | binding検証の基準判定が溶接語彙依存 |
 | 16 | [chain_contracts.py:259](../../backend/src/material_workbench/contracts/chain_contracts.py#L259)–`:264` `task_contract_surface` | 必須 `heat_pattern` 入力を持つTaskをChain surfaceから拒否 | 可変長系列Stageが原理的に入らない（意図的な明示制約） |

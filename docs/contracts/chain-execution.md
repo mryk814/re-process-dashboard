@@ -13,7 +13,9 @@ Chain候補も単段候補APIへ混ぜない。
 
 Chain実行は2層に分かれる。
 
-**Chain Core**（`application/chain_execution.py`, `chain_uncertainty.py`）が持つのは、
+**Chain Core**（`application/chain_execution_plan.py`,
+`chain_stage_execution.py`, `chain_execution_use_case.py`,
+`chain_snapshot_use_case.py`, `chain_uncertainty.py`）が持つのは、
 Stage順序、binding解決、単位変換、部分再計算、鮮度判定、古い応答の破棄、memo、
 generation競合制御、provenance、snapshotである。
 **Coreは候補の形状を仮定しない。**

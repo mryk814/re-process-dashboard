@@ -98,6 +98,7 @@ uv run python backend/scripts/experiments/spikes/spike_case_d.py
 | registry追加点 | 2（`TASK_MODULES`, `_TABULAR_PROFILES`） | **2** | 一致 |
 | generated schema更新 | `task-inventory.json` のみ | **`task-inventory.json` のみ** | 新しいendpointもschemaもないため `api-types.ts` は不変 |
 | 専用test fixture数 | 1 | **1** | 一致 |
+
 | 新規Python関数 | 0 | **0** | `_tabular_loader` / `_tabular_features` / `_tabular_builder` / `_tabular_starter` / `_standard_response_curve` / `_TABULAR_EXPLORER` をそのまま再利用 |
 
 **予測の根拠**: [inventory §1.1](extensibility-inventory.md#11-task) の登録点表と、`_tabular_loader` / `_tabular_features` / `_tabular_builder` / `_tabular_starter` が `task_id` でパラメタ化済みであること。
@@ -198,6 +199,7 @@ fixture: 工程条件シート `conditions`（40条件）＋在庫シート `sto
 [OK] 欠損targetが入力行と別に不適格として数えられる
 [OK] 試験行固有入力を canonical input として宣言できる
 [OK] family名が契約の分岐条件になっていない
+
 ```
 
 **再利用できたもの（Phase 2.1にとって重要）**
@@ -298,6 +300,7 @@ C-5が最も重要です。現行契約は不正な系列を**保存できない
 | 新規ファイル数 | 5以上 | 未実測 | |
 | 新規contract数 | 4（上表） | **4で足りる見込み**（C-5/C-6の要件を `CanonicalSeries` に含める前提） | 検査7項目が4型で覆えることを確認 |
 | 新規API分岐数 | 1以上（候補入力surface） | 未実測 | |
+
 | 新規UI分岐数 | 2以上（入力editor, diff表示） | 未実測 | |
 | registry追加点 | 2以上（Task, Candidate Shape） | 未実測 | |
 | generated schema更新 | 両方 | 未実測 | |
@@ -335,7 +338,7 @@ Task Y（中間状態＋外部入力から最終特性を出力）
 - [ ] `execute()` の本体（binding解決・memo・generation・stale判定）は変更不要か → 成立する見込み
 - [ ] `snapshot()` を作れるか → #11, #14 で失敗する見込み
 - [ ] 不確かさ伝播を実行できるか → #18 で失敗する見込み
-- [ ] `chain_execution.py` の変更行数はどれだけか
+- [ ] `chain_execution_plan.py` の変更行数はどれだけか
 
 ### 受入条件（Phase 2.5の完了条件）
 
@@ -394,12 +397,13 @@ fixture: ケースAと同じ方式で標準表形式Task 2件（`spike-stage-x-v
 
 | # | inventory | 場所 | 実測エラー |
 | --- | --- | --- | --- |
-| D-1 | #3 | [chain_execution.py:250](../../backend/src/material_workbench/application/chain_execution.py#L250) | 候補契約APIと初期候補生成が「決定論的Stage 1段」を要求 |
-| D-2 | #4 | [chain_execution.py:263](../../backend/src/material_workbench/application/chain_execution.py#L263) | `prepare_candidate` が疎配合を要求（候補を保存できない） |
-| D-3 | #5 | [chain_execution.py:328](../../backend/src/material_workbench/application/chain_execution.py#L328) | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
-| D-4 | #1 | [chain_execution.py:70](../../backend/src/material_workbench/application/chain_execution.py#L70) | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
+| D-1 | #3 | [chain_execution_plan.py:250](../../backend/src/material_workbench/application/chain_execution_plan.py#L250) | 候補契約APIと初期候補生成が「決定論的Stage 1段」を要求 |
+| D-2 | #4 | [chain_execution_plan.py:263](../../backend/src/material_workbench/application/chain_execution_plan.py#L263) | `prepare_candidate` が疎配合を要求（候補を保存できない） |
+| D-3 | #5 | [chain_execution_plan.py:328](../../backend/src/material_workbench/application/chain_execution_plan.py#L328) | `_resolve` が疎配合を要求（実行・snapshot・variantの全経路） |
+| D-4 | #1 | [chain_execution_plan.py:70](../../backend/src/material_workbench/application/chain_execution_plan.py#L70) | `_external_values` が `candidate.process.*` / `candidate.categorical.*` を**一切生成しない**。実際に生成されたのは `candidate.welding_context.*` と `candidate.test_context.*` のみ |
+
 | D-5 | #14 | [chain_contracts.py:196](../../backend/src/material_workbench/contracts/chain_contracts.py#L196) | `ChainSnapshotIdentity` が `design_space` / `commercial_catalog` 欠落で2件のvalidation error |
-| D-6 | #11 | [chain_execution.py:1002](../../backend/src/material_workbench/application/chain_execution.py#L1002) | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
+| D-6 | #11 | [chain_execution_plan.py:1002](../../backend/src/material_workbench/application/chain_execution_plan.py#L1002) | D-5の帰結。`snapshot()` は `blend` からidentityを組む |
 
 D-4は重要な追加知見です。**ChainDefinitionの契約層は任意の名前空間を受理する**（`candidate.process.barrel_temperature_c` で
 `validate_chain_definition` が通った）のに、実行層の `_external_values` はそれを生成しません。
@@ -499,6 +503,7 @@ A（標準表形式Task）          実行済み
   └→ E（同構造データ差し替え）        実行済み
 ```
 
+
 ## 7. 証拠にもとづくIssue分割
 
 5ケースの実測を根拠に、次のリファクタリングを分割します。依存関係は実測により解消済みです。
@@ -525,7 +530,7 @@ A（標準表形式Task）          実行済み
 
 ### P1-b｜Chain Coreと溶接adapterの分離 — **完了**
 
-- 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が `chain_execution.py` の候補層、1点が `ChainSnapshotIdentity` 契約
+- 根拠: [ケースD実測](#4-ケースd疎配合を使わない二段chain)。塞がったのは6点で、うち5点が `chain_execution_plan.py` の候補層、1点が `ChainSnapshotIdentity` 契約
 - 実施内容:
   1. `application/chain_candidate_adapters.py` を追加。`ScalarChainAdapter` と `SparseBlendChainAdapter` をallow-listし、
      Chain Revisionが宣言したStage構成から選ぶ（Task IDでは選ばない）
@@ -598,6 +603,7 @@ A（標準表形式Task）          実行済み
   shapeごとにpersistence・diff・copy・snapshotの4つの意味を定義しないと登録できない /
   UIはshape capabilityからsurfaceを選ぶ / Task IDで分岐しない
 - **着手条件も明記**: pydanticの `Field(discriminator=)` は2メンバー以上でないと使えないため、
+
   union化だけを先行させることはできない。2形状目が必要になったときに同時に切り出す。
   最も近いのはChainのスカラー候補を製品機能として出すとき
 - ケースCで確定した要件: `CanonicalSeries` は点列だけでなく**元単位・変換ID・除外点**を持つ必要がある（C-5, C-6）

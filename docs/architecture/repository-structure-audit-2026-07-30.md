@@ -52,7 +52,7 @@ provenanceと再生成性を先に確認します。
 | `contracts/schemas.py` | 1,714 | project/candidate、prediction、exploration、workspace transport |
 | `data/dataset_profile.py` | 1,627 | document inheritance、schema validation、runtime mapping |
 | `modeling/tabular_regression.py` | 1,539 | fit、artifact serialization、prediction |
-| `application/chain_execution.py` | 1,386 | graph planning、execution、result assembly |
+| `application/chain_execution_plan.py` / `chain_stage_execution.py` / `chain_execution_use_case.py` / `chain_snapshot_use_case.py` | 分割後 | plan、stage execution、競合制御、証跡固定を分離 |
 | `developer_experience/data_lifecycle_benchmark.py` | 1,307 | benchmark scenarioとmeasurement/report |
 | `task_modules.py` | 1,165 | built-in TaskModule composition |
 | `domain/services.py` | 1,136 | candidate、prediction、actual/decision services |

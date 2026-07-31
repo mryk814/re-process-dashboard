@@ -57,6 +57,21 @@ def test_removed_integration_hubs_do_not_return() -> None:
     assert not (
         PACKAGE_ROOT / "persistence" / "workspace_catalog_bootstrap.py"
     ).exists()
+    assert not (PACKAGE_ROOT / "application" / "chain_execution.py").exists()
+
+
+def test_chain_use_cases_depend_on_explicit_plan_and_stage_boundaries() -> None:
+    application = PACKAGE_ROOT / "application"
+    assert (application / "chain_execution_plan.py").exists()
+    assert (application / "chain_stage_execution.py").exists()
+    assert (application / "chain_execution_use_case.py").exists()
+    assert (application / "chain_snapshot_use_case.py").exists()
+    assert not any(
+        "material_workbench.application.chain_execution"
+        == imported
+        for path in application.glob("*.py")
+        for imported in _imports(path)
+    )
 
 
 def test_profile_package_has_one_way_schema_validation_and_canonicalization_dependencies() -> None:

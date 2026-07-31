@@ -5,10 +5,12 @@ import uuid
 from material_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
 )
-from material_workbench.application.chain_execution import (
+from material_workbench.application.chain_execution_plan import (
     ChainExecutionError,
-    ChainExecutionService,
+    ChainPlanningUseCase,
 )
+from material_workbench.application.chain_execution_use_case import ChainExecutionUseCase
+from material_workbench.application.chain_snapshot_use_case import ChainSnapshotUseCase
 from material_workbench.application.chain_uncertainty import ChainUncertaintyService
 from material_workbench.application.chain_evaluation import (
     ChainEvaluationCatalog,
@@ -177,12 +179,12 @@ def get_project_chain_evaluation(
 
 def get_chain_candidate_inputs(
     project_id: str,
-    service: ChainExecutionService,
+    planning: ChainPlanningUseCase,
 ) -> tuple[ChainCandidateInputDefinition, ...]:
     """Read-only input surface derived from the exact pinned Chain revision."""
 
     try:
-        return service.candidate_input_definitions(
+        return planning.candidate_input_definitions(
             project_id,
             require_runtime_identity=False,
         )
@@ -192,25 +194,25 @@ def get_chain_candidate_inputs(
 
 def get_chain_candidate_capability(
     project_id: str,
-    service: ChainExecutionService,
+    planning: ChainPlanningUseCase,
 ) -> ChainCandidateCapability:
     """Which candidate surface this Chain needs, before any editor is rendered."""
 
     try:
-        return service.candidate_capability(project_id)
+        return planning.candidate_capability(project_id)
     except ChainExecutionError as exc:
         raise ChainConflictError(str(exc)) from exc
 
 
 def get_chain_candidate_contract(
     project_id: str,
-    service: ChainExecutionService,
+    planning: ChainPlanningUseCase,
 ) -> ChainCandidateContractResponse:
     try:
-        adapter = service.sparse_blend_adapter(project_id)
+        adapter = planning.sparse_blend_adapter(project_id)
         contracts = adapter.resolved_contracts()
-        external_inputs = service.candidate_input_definitions(project_id)
-        starter = service.starter_candidate(project_id)
+        external_inputs = planning.candidate_input_definitions(project_id)
+        starter = planning.starter_candidate(project_id)
     except (ChainExecutionError, ChainCandidateAdapterError) as exc:
         raise ChainConflictError(str(exc)) from exc
     return ChainCandidateContractResponse(
@@ -235,7 +237,7 @@ def list_chain_candidates(
 def create_chain_candidate(
     project_id: str,
     payload: CandidateInput,
-    service: ChainExecutionService,
+    planning: ChainPlanningUseCase,
     store: Store,
 ) -> Candidate:
     project = store.get_project(project_id)
@@ -244,7 +246,7 @@ def create_chain_candidate(
     if project.scientific_identity.identity_kind != "chain":
         raise ChainConflictError("このAPIはChain Project専用です")
     try:
-        prepared = service.prepare_candidate(project_id, payload)
+        prepared = planning.prepare_candidate(project_id, payload)
     except ChainExecutionError as exc:
         raise ChainValidationError(str(exc)) from exc
     return store.create_candidate(prepared, project_id)
@@ -254,11 +256,12 @@ def update_chain_candidate(
     project_id: str,
     candidate_id: str,
     payload: CandidateUpdate,
-    service: ChainExecutionService,
+    planning: ChainPlanningUseCase,
+    execution: ChainExecutionUseCase,
     store: Store,
 ) -> Candidate:
     try:
-        prepared = service.prepare_candidate(
+        prepared = planning.prepare_candidate(
             project_id,
             CandidateInput.model_validate(
                 payload.model_dump(exclude={"expected_revision"})
@@ -279,8 +282,8 @@ def update_chain_candidate(
     if updated is None:
         raise ChainNotFoundError("Chain候補が見つかりません")
     scope_id = store.chain_execution_scope(project_id, candidate_id)
-    service.coordinator.begin(scope_id, invalidation_request_id)
-    service.mark_candidate_changed(
+    execution.coordinator.begin(scope_id, invalidation_request_id)
+    execution.mark_candidate_changed(
         project_id=project_id,
         candidate_id=candidate_id,
         candidate_revision=updated.revision,
@@ -307,10 +310,10 @@ def execute_project_chain(
     project_id: str,
     candidate_id: str,
     payload: ChainExecutionRequest,
-    service: ChainExecutionService,
+    execution: ChainExecutionUseCase,
 ) -> ChainExecution:
     try:
-        return service.execute(
+        return execution.execute(
             project_id=project_id,
             candidate_id=candidate_id,
             candidate_revision=payload.candidate_revision,
@@ -394,10 +397,10 @@ def create_project_chain_snapshot(
     project_id: str,
     candidate_id: str,
     payload: ChainExecutionRequest,
-    service: ChainExecutionService,
+    snapshots: ChainSnapshotUseCase,
 ) -> ChainSnapshot:
     try:
-        return service.snapshot(
+        return snapshots.snapshot(
             project_id=project_id,
             candidate_id=candidate_id,
             candidate_revision=payload.candidate_revision,
@@ -431,10 +434,10 @@ def create_project_chain_analysis_variant(
     project_id: str,
     candidate_id: str,
     payload: ActualConditionedVariantRequest,
-    service: ChainExecutionService,
+    snapshots: ChainSnapshotUseCase,
 ) -> ActualConditionedVariant:
     try:
-        return service.actual_conditioned_variant(
+        return snapshots.actual_conditioned_variant(
             project_id=project_id,
             candidate_id=candidate_id,
             candidate_revision=payload.candidate_revision,
@@ -451,23 +454,37 @@ class ChainUseCases:
         *,
         store: Store,
         workspace_catalog: WorkspaceCatalog,
-        execution_service: ChainExecutionService | None,
+        planning_use_case: ChainPlanningUseCase | None,
+        execution_use_case: ChainExecutionUseCase | None,
+        snapshot_use_case: ChainSnapshotUseCase | None,
         uncertainty_service: ChainUncertaintyService | None,
         evaluation_catalog: ChainEvaluationCatalog | None,
         subsystem_registry: SubsystemAvailabilityRegistry,
     ) -> None:
         self.store = store
         self.workspace_catalog = workspace_catalog
-        self._execution_service = execution_service
+        self._planning_use_case = planning_use_case
+        self._execution_use_case = execution_use_case
+        self._snapshot_use_case = snapshot_use_case
         self._uncertainty_service = uncertainty_service
         self._evaluation_catalog = evaluation_catalog
         self.subsystem_registry = subsystem_registry
 
-    def _execution(self, *, require_available: bool = True) -> ChainExecutionService:
+    def _planning(self, *, require_available: bool = True) -> ChainPlanningUseCase:
         if require_available:
             self.subsystem_registry.require(WELDING_CHAIN_SUBSYSTEM_ID)
-        assert self._execution_service is not None
-        return self._execution_service
+        assert self._planning_use_case is not None
+        return self._planning_use_case
+
+    def _execution(self) -> ChainExecutionUseCase:
+        self.subsystem_registry.require(WELDING_CHAIN_SUBSYSTEM_ID)
+        assert self._execution_use_case is not None
+        return self._execution_use_case
+
+    def _snapshots(self) -> ChainSnapshotUseCase:
+        self.subsystem_registry.require(WELDING_CHAIN_SUBSYSTEM_ID)
+        assert self._snapshot_use_case is not None
+        return self._snapshot_use_case
 
     def _uncertainty(self) -> ChainUncertaintyService:
         self.subsystem_registry.require(WELDING_CHAIN_SUBSYSTEM_ID)
@@ -499,17 +516,17 @@ class ChainUseCases:
     ) -> tuple[ChainCandidateInputDefinition, ...]:
         return get_chain_candidate_inputs(
             project_id,
-            self._execution(require_available=False),
+            self._planning(require_available=False),
         )
 
     def candidate_capability(self, project_id: str) -> ChainCandidateCapability:
-        return get_chain_candidate_capability(project_id, self._execution())
+        return get_chain_candidate_capability(project_id, self._planning())
 
     def candidate_contract(
         self,
         project_id: str,
     ) -> ChainCandidateContractResponse:
-        return get_chain_candidate_contract(project_id, self._execution())
+        return get_chain_candidate_contract(project_id, self._planning())
 
     def list_candidates(self, project_id: str) -> list[Candidate]:
         return list_chain_candidates(project_id, self.store)
@@ -522,7 +539,7 @@ class ChainUseCases:
         return create_chain_candidate(
             project_id,
             payload,
-            self._execution(),
+            self._planning(),
             self.store,
         )
 
@@ -536,6 +553,7 @@ class ChainUseCases:
             project_id,
             candidate_id,
             payload,
+            self._planning(),
             self._execution(),
             self.store,
         )
@@ -626,7 +644,7 @@ class ChainUseCases:
             project_id,
             candidate_id,
             payload,
-            self._execution(),
+            self._snapshots(),
         )
 
     def snapshot(self, project_id: str, snapshot_id: str) -> ChainSnapshot:
@@ -653,5 +671,5 @@ class ChainUseCases:
             project_id,
             candidate_id,
             payload,
-            self._execution(),
+            self._snapshots(),
         )

@@ -13,10 +13,13 @@ from material_workbench.application.chain_evaluation import (
     DEFAULT_CHAIN_EVALUATION_PATH,
     ChainEvaluationCatalog,
 )
-from material_workbench.application.chain_execution import (
+from material_workbench.application.chain_execution_plan import ChainPlanningUseCase
+from material_workbench.application.chain_execution_use_case import (
     ChainExecutionCoordinator,
-    ChainExecutionService,
+    ChainExecutionUseCase,
 )
+from material_workbench.application.chain_snapshot_use_case import ChainSnapshotUseCase
+from material_workbench.application.chain_stage_execution import ChainStageExecutor
 from material_workbench.application.chain_uncertainty import (
     ChainUncertaintyService,
 )
@@ -84,19 +87,22 @@ def build_chain_services(
     store: Any,
     task_registry: TaskRegistry,
     transform_catalog: Any,
-) -> tuple[ChainExecutionService, ChainUncertaintyService | None]:
-    execution = ChainExecutionService(
-        store,
-        task_registry,
-        transform_catalog,
-        ChainExecutionCoordinator(),
-    )
+) -> tuple[
+    ChainPlanningUseCase,
+    ChainExecutionUseCase,
+    ChainSnapshotUseCase,
+    ChainUncertaintyService | None,
+]:
+    planning = ChainPlanningUseCase(store, task_registry, transform_catalog)
+    stages = ChainStageExecutor(task_registry, transform_catalog)
+    execution = ChainExecutionUseCase(planning, stages, ChainExecutionCoordinator())
+    snapshots = ChainSnapshotUseCase(planning, stages)
     uncertainty = (
-        ChainUncertaintyService(store, execution)
+        ChainUncertaintyService(store, planning, stages)
         if transform_catalog is not None
         else None
     )
-    return execution, uncertainty
+    return planning, execution, snapshots, uncertainty
 
 
 def bootstrap_welding_chain_contribution(
@@ -321,7 +327,9 @@ def initialize_contributions(
         )
     app.state.chain_evaluation_catalog = evaluation_catalog
     (
-        app.state.chain_execution_service,
+        app.state.chain_planning_use_case,
+        app.state.chain_execution_use_case,
+        app.state.chain_snapshot_use_case,
         app.state.chain_uncertainty_service,
     ) = build_chain_services(
         app.state.store,

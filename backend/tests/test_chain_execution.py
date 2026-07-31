@@ -12,7 +12,7 @@ import numpy as np
 from pydantic import BaseModel
 import pytest
 
-from material_workbench.application.chain_execution import ChainExecutionError
+from material_workbench.application.chain_execution_plan import ChainExecutionError
 from material_workbench.application.chain_uncertainty import (
     apply_output_bounds,
     combine_additive_stage_samples,
@@ -733,7 +733,7 @@ def test_chain_candidate_contract_allows_disjoint_training_ranges_only(
         "/api/projects",
         json={"name": "Range Chain", "scientific_identity": _chain_identity(client)},
     ).json()
-    service = client.app.state.chain_execution_service
+    service = client.app.state.chain_planning_use_case
     original_range = service._external_numeric_range
     training_by_stage = {}
     for task_id, stage_id in (
@@ -796,7 +796,7 @@ def test_chain_candidate_inputs_reject_aliasing_external_paths(
         "/api/projects",
         json={"name": "Aliased Chain", "scientific_identity": _chain_identity(client)},
     ).json()
-    service = client.app.state.chain_execution_service
+    service = client.app.state.chain_planning_use_case
     definition, revision, identity = service._chain(project["id"])
     heat_path = "candidate.welding_context.heat_input_kj_per_mm"
     alias_path = "candidate.test_context.heat_input_kj_per_mm"
@@ -853,7 +853,7 @@ def test_chain_candidate_contract_fails_closed_on_task_contract_drift(
         json={"name": "Drifted Chain", "scientific_identity": _chain_identity(client)},
     )
     assert response.status_code == 201, response.text
-    registry = client.app.state.chain_execution_service.registry
+    registry = client.app.state.chain_planning_use_case.registry
     fixture = registry._contracts["welding-consumable-stage-b-v1"]
     drifted_definition = fixture.task_definition.model_copy(
         update={"label": fixture.task_definition.label + " drift"}
@@ -881,7 +881,7 @@ def test_chain_candidate_contract_fails_closed_on_package_drift(
         json={"name": "Drifted Package Chain", "scientific_identity": _chain_identity(client)},
     )
     assert response.status_code == 201, response.text
-    registry = client.app.state.chain_execution_service.registry
+    registry = client.app.state.chain_planning_use_case.registry
     entry = registry._entries["welding-consumable-stage-b-v1"]
     monkeypatch.setitem(
         registry._entries,

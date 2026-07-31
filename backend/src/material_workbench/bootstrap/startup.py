@@ -16,7 +16,9 @@ from uuid import uuid4
 from fastapi import FastAPI
 
 from material_workbench.application.ai_review_provider import AiReviewProvider
-from material_workbench.application.chain_execution import ChainExecutionService
+from material_workbench.application.chain_execution_plan import ChainPlanningUseCase
+from material_workbench.application.chain_execution_use_case import ChainExecutionUseCase
+from material_workbench.application.chain_snapshot_use_case import ChainSnapshotUseCase
 from material_workbench.application.chain_uncertainty import ChainUncertaintyService
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.application.workspace_catalog_bootstrap import (
@@ -74,7 +76,9 @@ class RuntimeContext:
     task_registry: TaskRegistry
     workspace_catalog: Any
     project_runtime_resolver: ProjectRuntimeResolver
-    chain_execution_service: ChainExecutionService
+    chain_planning_use_case: ChainPlanningUseCase
+    chain_execution_use_case: ChainExecutionUseCase
+    chain_snapshot_use_case: ChainSnapshotUseCase
     chain_uncertainty_service: ChainUncertaintyService | None
 
 
@@ -310,7 +314,9 @@ def create_lifespan(
             task_registry=app.state.task_registry,
             workspace_catalog=app.state.workspace_catalog,
             project_runtime_resolver=app.state.project_runtime_resolver,
-            chain_execution_service=app.state.chain_execution_service,
+            chain_planning_use_case=app.state.chain_planning_use_case,
+            chain_execution_use_case=app.state.chain_execution_use_case,
+            chain_snapshot_use_case=app.state.chain_snapshot_use_case,
             chain_uncertainty_service=app.state.chain_uncertainty_service,
         )
         app.state.resources_ready = not defer_resources
@@ -360,7 +366,7 @@ def create_lifespan(
                         complete.task_registry,
                     )
                     transform_catalog = app.state.deterministic_transform_catalog
-                    chain_execution, chain_uncertainty = build_chain_services(
+                    chain_planning, chain_execution, chain_snapshots, chain_uncertainty = build_chain_services(
                         app.state.store,
                         complete.task_registry,
                         transform_catalog,
@@ -374,7 +380,9 @@ def create_lifespan(
                         task_registry=complete.task_registry,
                         workspace_catalog=catalog,
                         project_runtime_resolver=resolver,
-                        chain_execution_service=chain_execution,
+                        chain_planning_use_case=chain_planning,
+                        chain_execution_use_case=chain_execution,
+                        chain_snapshot_use_case=chain_snapshots,
                         chain_uncertainty_service=chain_uncertainty,
                     )
 
@@ -426,8 +434,14 @@ def create_lifespan(
                     app.state.project_runtime_resolver = (
                         context.project_runtime_resolver
                     )
-                    app.state.chain_execution_service = (
-                        context.chain_execution_service
+                    app.state.chain_planning_use_case = (
+                        context.chain_planning_use_case
+                    )
+                    app.state.chain_execution_use_case = (
+                        context.chain_execution_use_case
+                    )
+                    app.state.chain_snapshot_use_case = (
+                        context.chain_snapshot_use_case
                     )
                     app.state.chain_uncertainty_service = (
                         context.chain_uncertainty_service
@@ -516,7 +530,9 @@ def create_lifespan(
                             workspace_catalog=catalog,
                         )
                         (
+                            chain_planning,
                             chain_execution,
+                            chain_snapshots,
                             chain_uncertainty,
                         ) = build_chain_services(
                             app.state.store,
@@ -533,7 +549,9 @@ def create_lifespan(
                                 task_registry=complete.task_registry,
                                 workspace_catalog=catalog,
                                 project_runtime_resolver=resolver,
-                                chain_execution_service=chain_execution,
+                                chain_planning_use_case=chain_planning,
+                                chain_execution_use_case=chain_execution,
+                                chain_snapshot_use_case=chain_snapshots,
                                 chain_uncertainty_service=chain_uncertainty,
                             ),
                             chain_revision_id,
@@ -554,8 +572,14 @@ def create_lifespan(
                     app.state.project_runtime_resolver = (
                         context.project_runtime_resolver
                     )
-                    app.state.chain_execution_service = (
-                        context.chain_execution_service
+                    app.state.chain_planning_use_case = (
+                        context.chain_planning_use_case
+                    )
+                    app.state.chain_execution_use_case = (
+                        context.chain_execution_use_case
+                    )
+                    app.state.chain_snapshot_use_case = (
+                        context.chain_snapshot_use_case
                     )
                     app.state.chain_uncertainty_service = (
                         context.chain_uncertainty_service
