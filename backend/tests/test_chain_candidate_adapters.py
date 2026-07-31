@@ -33,7 +33,11 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.contracts.chain_execution_contracts import (
     IntermediateActualRecord,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    CandidateInputs,
+)
 
 
 DIGEST = "sha256:" + "0" * 64

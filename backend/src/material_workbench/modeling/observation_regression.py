@@ -16,7 +16,15 @@ from typing import Any
 import numpy as np
 
 from material_workbench.contracts.feature_contracts import FeatureBundle, FeatureDefinition
-from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    TargetValue,
+)
+from material_workbench.contracts.prediction_catalog_contracts import (
+    Prediction,
+    Support,
+)
 from material_workbench.data.observation_profile import (
     ObservationDatasetProfile,
     ObservationTrainingDataset,

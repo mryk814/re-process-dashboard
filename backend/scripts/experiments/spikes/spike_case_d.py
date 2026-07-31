@@ -782,7 +782,10 @@ def _probe_chain(app_module, resources, findings: list[str]) -> None:
                             restored,
                         )
 
-        from material_workbench.contracts.schemas import CandidateInput, CandidateInputs
+        from material_workbench.contracts.candidate_project_contracts import (
+    CandidateInput,
+    CandidateInputs,
+)
 
         try:
             service.prepare_candidate(

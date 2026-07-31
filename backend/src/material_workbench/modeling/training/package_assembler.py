@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.data.profile_family_registry import lifecycle_profile_for_data
 from material_workbench.modeling.model_lifecycle import (
     QualityReport,

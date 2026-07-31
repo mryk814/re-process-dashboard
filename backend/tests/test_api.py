@@ -15,7 +15,7 @@ from material_workbench.application.input_space import (
     _CACHE_LOCK,
     _TRAINING_EMBEDDINGS,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 from material_workbench.modeling.training_distance import (
     evidence_context_id,

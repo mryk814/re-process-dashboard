@@ -28,7 +28,7 @@ from material_workbench.application.workspace_bundle import (
 from material_workbench.application.workspace_bundle_manifest import (
     _database_evidence,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     ModelPackageRefCreateInput,

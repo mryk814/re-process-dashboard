@@ -17,7 +17,14 @@ from ..application.projects import (
     ProjectTaskLockedError,
     ProjectValidationError,
 )
-from material_workbench.contracts.schemas import Project, ProjectCreateInput, ProjectDecisionInput, ProjectGroupMoveInput, ProjectHistoryResponse, ProjectUpdateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Project,
+    ProjectCreateInput,
+    ProjectDecisionInput,
+    ProjectGroupMoveInput,
+    ProjectUpdateInput,
+)
+from material_workbench.contracts.evidence_contracts import ProjectHistoryResponse
 from material_workbench.contracts.objective_contracts import ObjectiveDefinitionRevision
 from material_workbench.persistence.store import (
     ActiveProjectPurgeError,

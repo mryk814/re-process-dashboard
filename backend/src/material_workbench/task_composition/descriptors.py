@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import (
     ApplicationCapability,
     CANONICAL_CANDIDATE_SCHEMA_VERSION,

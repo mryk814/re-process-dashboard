@@ -23,12 +23,14 @@ from material_workbench.contracts.feature_contracts import (
     FeatureBundle,
     FeatureDefinition,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
+    TargetValue,
+)
+from material_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
-    TargetValue,
 )
 from material_workbench.data.profiles.loading import load_task_definitions
 from material_workbench.domain.goal_targets import goal_fields

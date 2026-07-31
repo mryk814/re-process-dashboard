@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from material_workbench.application.inference import InferenceService
-from material_workbench.contracts.schemas import ActualMeasurementInput
+from material_workbench.contracts.prediction_catalog_contracts import ActualMeasurementInput
 from material_workbench.persistence.store import CandidateRevisionConflictError
 
 

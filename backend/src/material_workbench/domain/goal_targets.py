@@ -3,7 +3,10 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Iterable
 
-from material_workbench.contracts.schemas import TargetRange, TargetValue
+from material_workbench.contracts.candidate_project_contracts import (
+    TargetRange,
+    TargetValue,
+)
 
 
 def serialize_target_values(values: dict[str, TargetValue]) -> dict[str, float | dict[str, float]]:

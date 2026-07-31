@@ -33,7 +33,11 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionCapability,
     ChainDistributionRun,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateUpdate
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    CandidateUpdate,
+)
 
 from .dependencies import get_chain_use_cases
 

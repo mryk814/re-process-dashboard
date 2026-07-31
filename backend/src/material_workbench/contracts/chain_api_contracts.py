@@ -15,7 +15,7 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainCandidateInputDefinition,
     IntermediateActualRecord,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 
 
 class ChainApiModel(BaseModel):

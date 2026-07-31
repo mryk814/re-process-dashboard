@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataAsset,
     DataAssetCreateInput,
     DatasetRevision,

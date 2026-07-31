@@ -8,12 +8,14 @@ from material_workbench.contracts.batch_proposal_contracts import (
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from material_workbench.contracts.proposal_contracts import ProposalStrategyDefinition
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.prediction_catalog_contracts import (
     DEFAULT_SCREENING_SEED,
-    Candidate,
-    CandidateInput,
     ScreeningGoal,
     ScreeningRequest,
+)
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
 )
 from material_workbench.domain.batch_selector import (
     candidate_design_values,

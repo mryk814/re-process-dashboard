@@ -29,7 +29,7 @@ from material_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ExternalBindingSource,
 )
-from material_workbench.contracts.schemas import CandidateInputs
+from material_workbench.contracts.candidate_project_contracts import CandidateInputs
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.persistence.store import CandidateRevisionConflictError, Store
 from material_workbench.persistence.sqlite_connection import connect_sqlite

@@ -17,7 +17,7 @@ from material_workbench.data.importer import load_workbook_data, training_contex
 from material_workbench.modeling.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

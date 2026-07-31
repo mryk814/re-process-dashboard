@@ -24,7 +24,11 @@ from material_workbench.contracts.decision_activity_contracts import (
     DecisionActivityRun,
     DecisionActivityRunRequest,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput, Project
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    Project,
+)
 from material_workbench.contracts.task_contracts import (
     DecisionActivityReference,
     DecisionActivitySourceRef,

@@ -35,7 +35,10 @@ from material_workbench.contracts.chain_contracts import (
 from material_workbench.contracts.chain_execution_contracts import (
     IntermediateActualRecord,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 

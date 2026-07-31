@@ -13,7 +13,12 @@ from ..application.screening import (
     ScreeningService,
     ScreeningValidationError,
 )
-from material_workbench.contracts.schemas import ScreeningCandidateBatchRequest, ScreeningCandidateBatchResponse, ScreeningRequest, ScreeningRunResponse
+from material_workbench.contracts.evidence_contracts import (
+    ScreeningCandidateBatchRequest,
+    ScreeningCandidateBatchResponse,
+)
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningRequest
+from material_workbench.contracts.screening_contracts import ScreeningRunResponse
 from material_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
 from material_workbench.contracts.batch_proposal_contracts import BatchSelectorAvailability
 from material_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store

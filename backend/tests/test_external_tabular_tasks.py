@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import prepare_app_resources
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.data.profile_family_registry import supported_task_ids
 from material_workbench.persistence.store import Store

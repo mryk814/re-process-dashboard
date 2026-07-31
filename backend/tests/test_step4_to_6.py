@@ -10,7 +10,8 @@ import numpy as np
 import pytest
 
 from material_workbench.modeling.feature_pipeline import build_feature_bundle
-from material_workbench.contracts.schemas import CandidateInput, ScreeningRunResponse
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
+from material_workbench.contracts.screening_contracts import ScreeningRunResponse
 from material_workbench.application.candidate_spreadsheet import (
     _candidate_xlsx_names,
     import_candidates_xlsx,

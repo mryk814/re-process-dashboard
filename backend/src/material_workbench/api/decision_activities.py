@@ -21,7 +21,7 @@ from material_workbench.contracts.decision_activity_contracts import (
     DecisionActivityRun,
     DecisionActivityRunRequest,
 )
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.persistence.store import ProjectNotFoundError, Store
 from material_workbench.application.project_runtime import ProjectRuntimeResolver

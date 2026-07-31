@@ -8,7 +8,19 @@ from pydantic_core import to_jsonable_python
 from .candidates import CandidateService
 from .inference import InferenceService, InferenceValidationError
 from .projects import ProjectService
-from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, Project, SnapshotResponse
+from material_workbench.contracts.prediction_catalog_contracts import (
+    ActualMeasurement,
+    ActualMeasurementInput,
+)
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    Project,
+)
+from material_workbench.contracts.evidence_contracts import (
+    DetailedPredictionResponse,
+    PredictionVsActualResponse,
+    SnapshotResponse,
+)
 from material_workbench.persistence.snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import TaskRegistry

@@ -13,13 +13,15 @@ from ..application.data_exploration import (
     DataExplorerUnavailableError,
     LineageNotFoundError,
 )
-from material_workbench.contracts.schemas import (
-    Candidate,
-    CandidateOriginEvidence,
+from material_workbench.contracts.candidate_project_contracts import Candidate
+from material_workbench.contracts.prediction_catalog_contracts import CandidateOriginEvidence
+from material_workbench.contracts.evidence_contracts import (
     LineageIndexResponse,
     LineageNodeReview,
     LineageNodeReviewInput,
     LineageNodeReviewList,
+)
+from material_workbench.contracts.data_exploration_contracts import (
     LineageResponse,
     QualityResponse,
 )

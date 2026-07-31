@@ -4,7 +4,7 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
 )

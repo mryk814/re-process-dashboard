@@ -7,7 +7,7 @@ import numpy as np
 from scipy.stats import qmc
 
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 
 
 BOUNDED_SIMPLEX_GENERATOR_ID = "bounded_simplex_hit_and_run"

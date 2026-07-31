@@ -5,7 +5,7 @@ import math
 from statistics import NormalDist
 from typing import Any
 
-from material_workbench.contracts.schemas import ScreeningGoal
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 from material_workbench.domain.screening_score import evaluate_screening_goal
 
 

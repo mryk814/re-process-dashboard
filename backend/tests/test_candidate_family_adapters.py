@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
     CandidateFamilyError,

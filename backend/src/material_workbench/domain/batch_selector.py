@@ -8,7 +8,10 @@ from material_workbench.contracts.batch_proposal_contracts import (
     BatchProposalDefinition,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.domain.proposal_geometry import (
     proposal_distance,

@@ -10,7 +10,16 @@ from .errors import DomainApiException, PROJECT_API_ERRORS
 from .inference import INFERENCE_ERRORS, get_inference_service, inference_http_error
 from ..application.records import RecordIntegrityError, RecordNotFoundError, RecordService, RecordValidationError
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.contracts.schemas import ActualMeasurement, ActualMeasurementInput, Candidate, DetailedPredictionResponse, PredictionVsActualResponse, SnapshotResponse
+from material_workbench.contracts.prediction_catalog_contracts import (
+    ActualMeasurement,
+    ActualMeasurementInput,
+)
+from material_workbench.contracts.candidate_project_contracts import Candidate
+from material_workbench.contracts.evidence_contracts import (
+    DetailedPredictionResponse,
+    PredictionVsActualResponse,
+    SnapshotResponse,
+)
 from material_workbench.persistence.store import ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.project_runtime import ProjectRuntimeResolver

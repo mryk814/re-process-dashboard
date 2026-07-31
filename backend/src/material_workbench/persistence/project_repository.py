@@ -8,7 +8,7 @@ from typing import Any, Mapping
 from material_workbench.contracts.chain_contracts import (
     SingleTaskProjectIdentity,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Project,
     ProjectCreateInput,
     ProjectGroupMoveInput,

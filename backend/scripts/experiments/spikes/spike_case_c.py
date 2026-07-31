@@ -28,7 +28,10 @@ def _rejected(label: str, thunk) -> tuple[bool, str]:
 
 
 def main() -> int:
-    from material_workbench.contracts.schemas import CandidateInputs, HeatPoint
+    from material_workbench.contracts.candidate_project_contracts import (
+    CandidateInputs,
+    HeatPoint,
+)
     from material_workbench.contracts.task_contracts import (
         CanonicalCandidate,
         InputFieldDefinition,

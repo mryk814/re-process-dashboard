@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from material_workbench.contracts.schemas import HeatPoint
+from material_workbench.contracts.candidate_project_contracts import HeatPoint
 
 
 def line_speed_scaled_times(

@@ -59,6 +59,33 @@ def test_removed_integration_hubs_do_not_return() -> None:
     ).exists()
 
 
+def test_contract_resource_families_do_not_restore_the_schemas_hub() -> None:
+    contracts = PACKAGE_ROOT / "contracts"
+    assert not (contracts / "schemas.py").exists()
+    expected_families = {
+        "candidate_project_contracts.py",
+        "data_exploration_contracts.py",
+        "data_library_contracts.py",
+        "evidence_contracts.py",
+        "prediction_catalog_contracts.py",
+        "screening_contracts.py",
+    }
+    assert expected_families <= {path.name for path in contracts.glob("*_contracts.py")}
+
+    roots = (
+        PACKAGE_ROOT,
+        PACKAGE_ROOT.parents[1] / "scripts",
+        PACKAGE_ROOT.parents[1] / "tests",
+    )
+    offenders = {
+        path.relative_to(PACKAGE_ROOT.parents[2]).as_posix()
+        for root in roots
+        for path in root.rglob("*.py")
+        if "material_workbench.contracts.schemas" in _imports(path)
+    }
+    assert offenders == set()
+
+
 def test_profile_package_has_one_way_schema_validation_and_canonicalization_dependencies() -> None:
     profiles = PACKAGE_ROOT / "data" / "profiles"
     imports = {

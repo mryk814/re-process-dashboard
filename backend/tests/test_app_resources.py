@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import AppResources
-from material_workbench.contracts.schemas import ProjectCreateInput
+from material_workbench.contracts.candidate_project_contracts import ProjectCreateInput
 
 
 def test_prepared_resources_keep_each_app_database_and_work_graph_isolated(

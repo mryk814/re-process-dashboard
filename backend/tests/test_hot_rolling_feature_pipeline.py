@@ -7,7 +7,7 @@ import pytest
 
 from material_workbench.modeling.hot_rolling_feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_NAMES, PIPELINE_ID, PIPELINE_VERSION, build_hot_rolling_features, build_hot_rolling_features_from_observation, candidate_from_observation
 from material_workbench.data.importer import load_workbook_data
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 
 
 DEFAULTS = {name: 0.0 for name in ("C", "Si", "Mn", "P", "S", "Al", "Cu", "Ni", "Cr", "Mo", "Ti", "B", "O", "N")}

@@ -12,7 +12,7 @@ from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateImportResponse,
     CandidateInput,

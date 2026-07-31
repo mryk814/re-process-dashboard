@@ -10,7 +10,7 @@ from material_workbench.application.data_library import (
     DataLibraryUseCases,
     DataLibraryValidationError,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataLibraryDataset,
     DatasetRevisionUpdateInput,
     DatasetViewRevision,
@@ -18,9 +18,9 @@ from material_workbench.contracts.schemas import (
     ModelPackageRef,
     ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
-    ProjectCreationOptions,
     TaskResourceRefreshResult,
 )
+from material_workbench.contracts.candidate_project_contracts import ProjectCreationOptions
 from .dependencies import get_data_library_use_cases
 
 

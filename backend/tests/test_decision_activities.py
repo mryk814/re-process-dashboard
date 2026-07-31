@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from material_workbench.application.decision_activity_registry import build_registry
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
 )

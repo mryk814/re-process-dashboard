@@ -40,7 +40,7 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
 from material_workbench.contracts.chain_evaluation_contracts import (
     ResolvedChainEvaluation,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     CandidateUpdate,

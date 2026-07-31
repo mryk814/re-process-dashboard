@@ -14,7 +14,7 @@ from material_workbench.application.material_lineage_candidates import (
     candidate_from_lineage,
     lineage_candidate_options,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.data.importer import (
     _derived_anneal_feature_row,

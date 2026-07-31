@@ -36,7 +36,7 @@ from material_workbench.data.profile_family_registry import (
     ProfileFamilyUnavailableError,
     load_inspection_descriptor,
 )
-from material_workbench.contracts.schemas import ApiError
+from material_workbench.contracts.evidence_contracts import ApiError
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.application.project_runtime import ProjectRuntimeResolver

@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, Response
 
 from .dependencies import get_store, get_task_registry
 from .errors import DomainApiException
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
     Project,
     ProjectInput,
+)
+from material_workbench.contracts.data_library_contracts import (
     SampleGalleryInstallInput,
     SampleGalleryItem,
 )

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     ModelPackageRef,
     DatasetViewMember,
+)
+from material_workbench.contracts.candidate_project_contracts import (
     Project,
     ProjectCreateInput,
     ProjectDecisionInput,
     ProjectGroupMoveInput,
-    ProjectHistoryResponse,
     ProjectInput,
     TargetRange,
     ProjectUpdateInput,
 )
+from material_workbench.contracts.evidence_contracts import ProjectHistoryResponse
 from material_workbench.data.profile_family_registry import supported_task_ids
 from material_workbench.persistence.store import (
     CandidateCopyConflictError,

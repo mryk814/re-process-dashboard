@@ -11,7 +11,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from material_workbench.contracts.feature_contracts import FeatureBundle, FeatureDefinition
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 
 
 PIPELINE_ID = "cutting-flank-wear"

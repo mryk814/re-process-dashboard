@@ -13,7 +13,7 @@ from material_workbench.application.workspace_catalog_bootstrap import (
     CANONICALIZATION_CONTRACT_DIGEST,
     task_definition_digest,
 )
-from material_workbench.contracts.schemas import Project
+from material_workbench.contracts.candidate_project_contracts import Project
 from material_workbench.data.profile_family_registry import (
     ProfileFamilyUnavailableError,
     load_training_descriptor,

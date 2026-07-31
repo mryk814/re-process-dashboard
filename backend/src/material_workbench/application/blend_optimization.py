@@ -27,7 +27,7 @@ from material_workbench.contracts.blend_optimization import (
     BlendOptimizationResult,
     RelaxationCandidate,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 

@@ -10,13 +10,13 @@ from material_workbench.application.catalog import (
     CatalogUseCases,
     CatalogValidationError,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.prediction_catalog_contracts import (
     InputSpaceEmbeddingResponse,
     ModelPackageStatus,
     ModelTrainingDataPage,
     OutputSpaceEvidenceResponse,
-    TaskCatalogItem,
 )
+from material_workbench.contracts.evidence_contracts import TaskCatalogItem
 from material_workbench.contracts.subsystem_availability import SubsystemAvailability
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 

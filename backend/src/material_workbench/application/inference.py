@@ -8,7 +8,14 @@ from .projects import ProjectService
 from material_workbench.domain.goal_targets import serialize_target_values
 from material_workbench.execution.inference_work_graph import InferenceKey, InferenceWorkGraph
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.contracts.schemas import Candidate, Prediction, Project, Support
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    Project,
+)
+from material_workbench.contracts.prediction_catalog_contracts import (
+    Prediction,
+    Support,
+)
 from material_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
     ResponseCurveTrainingRangeUnavailableError,

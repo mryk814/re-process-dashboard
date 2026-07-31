@@ -1,7 +1,7 @@
 import pytest
 
 from material_workbench.contracts.heat_program_contracts import HeatProgramParameters
-from material_workbench.contracts.schemas import HeatPoint
+from material_workbench.contracts.candidate_project_contracts import HeatPoint
 from material_workbench.domain.heat_program import (
     HeatProgramNotRepresentable,
     decode_ramp_hold_cool,
