@@ -378,6 +378,70 @@ test("a purpose-less legacy goal run reopens as opportunity search", async ({ pa
   await expect(page.locator('input[aria-label^="点 "]')).toHaveCount(0);
 });
 
+test("concrete composition diversity proposals use the composition distance contract", async ({ page, request }) => {
+  const project = await createProject(request, "concrete-strength-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+  await page.locator(".screening-mode-options")
+    .getByRole("button", { name: /有望候補を探す/ }).click();
+  await page.getByLabel(/主目標: .*の下限/).fill("30");
+  await openAdvancedSettings(page);
+
+  const fields = [
+    ["composition.cement_kg_m3", "200", "400"],
+    ["composition.blast_furnace_slag_kg_m3", "10", "150"],
+    ["composition.fly_ash_kg_m3", "10", "100"],
+    ["composition.water_kg_m3", "140", "220"],
+    ["composition.superplasticizer_kg_m3", "2", "20"],
+    ["composition.coarse_aggregate_kg_m3", "850", "1100"],
+    ["composition.fine_aggregate_kg_m3", "600", "900"],
+  ] as const;
+  const addButton = page.getByRole("button", { name: "変数を追加" });
+  const rows = page.locator(".variable-table tbody tr");
+  while (await rows.count() < fields.length) await addButton.click();
+  for (const [index, [field, minimum, maximum]] of fields.entries()) {
+    const row = rows.nth(index);
+    await row.getByRole("combobox").first().selectOption(field);
+    await row.getByRole("combobox").nth(1).selectOption("range");
+    await row.getByRole("textbox").first().fill(minimum);
+    await row.getByRole("textbox").nth(1).fill(maximum);
+  }
+  await page.getByLabel("提案の選び方").selectOption("greedy_value_diversity_v1");
+
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await runScreening(page);
+  const response = await runResponse;
+  expect(response.status(), await response.text()).toBe(201);
+  const run = await response.json() as {
+    proposal_selection: {
+      actual_count: number;
+      distance_id: string;
+      selected: Array<{ point_index: number }>;
+    };
+    proposal_diagnostics: { proposed_count: number };
+  };
+  expect(run.proposal_selection.actual_count).toBe(5);
+  expect(run.proposal_selection.selected).toHaveLength(5);
+  expect(run.proposal_selection.distance_id).toBe("group_weighted_bounded_clr_rms");
+  expect(run.proposal_diagnostics.proposed_count).toBe(5);
+
+  const summary = page.getByRole("region", { name: "探索条件と提案診断" });
+  await expect(summary).toContainText("条件間の距離");
+  await expect(summary).toContainText("組成bounded CLR-RMS + 入力群均等");
+  await expect(page.getByRole("heading", { name: "提案候補" })).toBeVisible();
+  await expect(page.locator('input[aria-label^="点 "]:checked')).toHaveCount(5);
+  const resultTable = page.locator(".screening-results-table");
+  await expect(resultTable.locator("tbody tr")).toHaveCount(5);
+  await expect(resultTable.locator("thead")).toContainText("支持範囲");
+  await expect(resultTable.locator("tbody")).toContainText("MPa");
+  await page.screenshot({
+    path: "output/playwright/issue-609-concrete-diversity.png",
+    fullPage: true,
+  });
+});
+
 test("bounded simplex display agrees with the persisted proposal evidence", async ({ page, request }) => {
   const project = await createProject(request, "mpea-hardness-process-v1");
   await page.goto(`/?view=explore&project=${project.id}`);

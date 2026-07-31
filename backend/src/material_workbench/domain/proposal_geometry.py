@@ -13,6 +13,15 @@ from material_workbench.contracts.candidate_project_contracts import (
 
 GENERIC_DISTANCE_ID = "scalar_axis_rms"
 COMPOSITION_DISTANCE_ID = "group_weighted_bounded_clr_rms"
+COMPOSITION_DISTANCE_VERSION = "1.0.0"
+DEFAULT_COMPOSITION_DISTANCE_PARAMETERS: dict[str, float | str | bool] = {
+    "zero_replacement": 1e-6,
+    "composition_transform": "clr_rms_over_one_plus_clr_rms",
+    "composition_weight": 1.0,
+    "process_weight": 1.0,
+    "categorical_weight": 1.0,
+    "heat_weight": 1.0,
+}
 
 
 def _candidate_value(
@@ -149,6 +158,32 @@ def group_weighted_bounded_clr_rms_distance(
             )
         )
 
+    if not design_space.composition_constraints:
+        declared_composition_paths = tuple(
+            domain.path
+            for domain in design_space.numeric_domains
+            if domain.path.startswith("composition.")
+        )
+        if len(declared_composition_paths) >= 2:
+            left_values = [
+                _point_value(left, path) for path in declared_composition_paths
+            ]
+            right_values = [
+                _point_value(right, path) for path in declared_composition_paths
+            ]
+            if all(value is not None for value in (*left_values, *right_values)):
+                constrained_composition_paths.update(declared_composition_paths)
+                grouped.append(
+                    (
+                        _bounded_clr_rms_distance(
+                            [float(value) for value in left_values if value is not None],
+                            [float(value) for value in right_values if value is not None],
+                            zero_replacement=zero_replacement,
+                        ),
+                        composition_weight,
+                    )
+                )
+
     numeric_by_group: dict[str, list[float]] = {
         "composition": [],
         "process": [],
@@ -207,7 +242,7 @@ def proposal_distance(
     distance_version: str = "1.0.0",
     parameters: dict[str, float | str | bool] | None = None,
 ) -> float:
-    if distance_version != "1.0.0":
+    if distance_version != COMPOSITION_DISTANCE_VERSION:
         raise ValueError(
             f"未登録のProposal Distanceです: {distance_id}@{distance_version}"
         )

@@ -61,6 +61,7 @@ test("proposal summary leads with a Japanese decision summary while calculation 
         requested_count: 5,
         actual_count: 5,
         policy_id: "greedy_value_diversity_v1",
+        distance_id: "group_weighted_bounded_clr_rms",
         selected: [],
       },
       model_provenance: {
@@ -95,6 +96,7 @@ test("proposal summary leads with a Japanese decision summary while calculation 
   assert.doesNotMatch(html, /計算記録|seed 42|sha256:model-package|sha256:1234567890abcdef/);
   assert.match(html, /<dt>順位付け<\/dt>/);
   assert.match(html, /<dt>提案の選び方<\/dt><dd>条件が重ならないよう選択<\/dd>/);
+  assert.match(html, /<dt>条件間の距離<\/dt><dd>組成bounded CLR-RMS \+ 入力群均等<\/dd>/);
   assert.match(html, /<dt>学習範囲<\/dt>/);
   assert.match(html, /<dt>副条件<\/dt><dd>なし<\/dd>/);
   assert.match(html, /<dt>除外<\/dt>/);

@@ -24,6 +24,12 @@ const reasonLabels: Record<string, string> = {
   "batch全体の価値で選抜外": "バッチ全体のバランスから選外",
 };
 
+function distanceLabel(distanceId: string | undefined) {
+  return distanceId === "group_weighted_bounded_clr_rms"
+    ? "組成bounded CLR-RMS + 入力群均等"
+    : "各入力軸のDesign Space幅で正規化（汎用）";
+}
+
 function displayReason(reason: string) {
   if (reasonLabels[reason]) return reasonLabels[reason];
   return /^[a-z0-9_.:/ -]+$/i.test(reason) ? "その他の制約" : reason;
@@ -270,6 +276,12 @@ export function ScreeningProposalSummary({
               </dd>
             </div>
           )}
+          {!isDesignSpaceMap && !isExperimentBatch && proposalSelection && (
+            <div>
+              <dt>条件間の距離</dt>
+              <dd>{distanceLabel(proposalSelection.distance_id)}</dd>
+            </div>
+          )}
           <div>
             <dt>学習範囲</dt>
             <dd>{supportPolicyLabel}</dd>
@@ -316,9 +328,7 @@ export function ScreeningProposalSummary({
           </summary>
           <p>
             有望度と条件間の違いを両立するように選定 /
-            条件間の距離 {result.batch_proposal.distance_id === "group_weighted_bounded_clr_rms"
-              ? "組成bounded CLR-RMS + 入力群均等"
-              : "各入力軸のDesign Space幅で正規化（汎用）"}
+            条件間の距離 {distanceLabel(result.batch_proposal.distance_id)}
           </p>
           {result.batch_proposal.candidate_pool && (
             <p>
