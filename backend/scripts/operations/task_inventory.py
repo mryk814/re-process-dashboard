@@ -22,13 +22,16 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     validate_active_package_task_set,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
-from material_workbench.task_composition.catalog import (  # noqa: E402
-    registered_task_modules,
-    resolve_task_source,
+from material_workbench.task_composition.builtin.catalog import (  # noqa: E402
+    BUILTIN_TASK_MODULES,
+)
+from material_workbench.task_composition.external_tasks import (  # noqa: E402
+    without_personal_task_discovery,
 )
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"
+TASK_DEFINITIONS_ROOT = BACKEND_SRC / "material_workbench" / "tasks" / "task_definitions"
 
 
 def _repository_path(value: str | Path) -> str:
@@ -39,51 +42,63 @@ def _repository_path(value: str | Path) -> str:
         return path.as_posix()
 
 
-def build_inventory() -> dict[str, Any]:
-    modules = registered_task_modules()
-    contracts = load_task_contracts()
-    active = load_active_packages(ACTIVE_PACKAGES_PATH)
-    validate_active_package_task_set(active, set(modules))
-    if set(contracts) != set(modules):
-        raise ValueError("TaskDefinition and TaskModule task sets differ")
+def _resolve_bundled_source(default_source: Path) -> Path:
+    """Resolve a checked-in source without loading personal Task bundles."""
 
-    data_by_source: dict[str, Any] = {}
-    tasks = []
-    for task_id, module in modules.items():
-        if task_id not in data_by_source:
-            data_by_source[task_id] = module.data_loader(resolve_task_source(task_id))
-        data = data_by_source[task_id]
-        contract = contracts[task_id]
-        package = ModelPackageLoader().load(
-            resolve_configured_package(task_id, config_path=ACTIVE_PACKAGES_PATH)
-        )
-        selection = active.tasks[task_id]
-        tasks.append({
-            "task_id": task_id,
-            "label": contract.task_definition.label,
-            "outputs": [
-                {"key": output.key, "label": output.label, "unit": output.unit}
-                for output in contract.task_definition.outputs
-            ],
-            "source": {
-                "kind": module.source_kind,
-                "path": _repository_path(data.source_path),
-                "sha256": data.source_sha256,
-                "profile_id": data.profile_id,
-                "profile_path": _repository_path(data.profile_path),
-            },
-            "active_package": {
-                "path": selection.active,
-                "previous": selection.previous,
-                "package_id": package.manifest.package_id,
-                "version": package.manifest.package_version,
-                "manifest_sha256": package.manifest_sha256,
-                "runtime_types": sorted({item.runtime_type for item in package.manifest.predictors}),
-            },
-            "runtime_operations": contract.runtime_capability.operations.model_dump(mode="json"),
-            "application_capability": module.application.model_dump(mode="json"),
-            "data_explorer": None if module.data_explorer is None else module.data_explorer.model_dump(mode="json"),
-        })
+    if default_source.is_absolute() or default_source.exists():
+        return default_source
+    repository_source = REPOSITORY_ROOT / default_source
+    return repository_source if repository_source.exists() else default_source
+
+
+def build_inventory() -> dict[str, Any]:
+    with without_personal_task_discovery():
+        modules = BUILTIN_TASK_MODULES
+        contracts = load_task_contracts(root=TASK_DEFINITIONS_ROOT)
+        active = load_active_packages(ACTIVE_PACKAGES_PATH)
+        validate_active_package_task_set(active, set(modules))
+        if set(contracts) != set(modules):
+            raise ValueError("TaskDefinition and TaskModule task sets differ")
+
+        data_by_source: dict[str, Any] = {}
+        tasks = []
+        for task_id, module in modules.items():
+            if task_id not in data_by_source:
+                data_by_source[task_id] = module.data_loader(
+                    _resolve_bundled_source(module.default_source)
+                )
+            data = data_by_source[task_id]
+            contract = contracts[task_id]
+            package = ModelPackageLoader().load(
+                resolve_configured_package(task_id, config_path=ACTIVE_PACKAGES_PATH)
+            )
+            selection = active.tasks[task_id]
+            tasks.append({
+                "task_id": task_id,
+                "label": contract.task_definition.label,
+                "outputs": [
+                    {"key": output.key, "label": output.label, "unit": output.unit}
+                    for output in contract.task_definition.outputs
+                ],
+                "source": {
+                    "kind": module.source_kind,
+                    "path": _repository_path(data.source_path),
+                    "sha256": data.source_sha256,
+                    "profile_id": data.profile_id,
+                    "profile_path": _repository_path(data.profile_path),
+                },
+                "active_package": {
+                    "path": selection.active,
+                    "previous": selection.previous,
+                    "package_id": package.manifest.package_id,
+                    "version": package.manifest.package_version,
+                    "manifest_sha256": package.manifest_sha256,
+                    "runtime_types": sorted({item.runtime_type for item in package.manifest.predictors}),
+                },
+                "runtime_operations": contract.runtime_capability.operations.model_dump(mode="json"),
+                "application_capability": module.application.model_dump(mode="json"),
+                "data_explorer": None if module.data_explorer is None else module.data_explorer.model_dump(mode="json"),
+            })
     return {
         "schema_version": "task-inventory/v2",
         "generated_from": [
@@ -108,7 +123,7 @@ def build_inventory() -> dict[str, Any]:
 def packaged_source_paths() -> list[str]:
     return sorted({
         _repository_path(REPOSITORY_ROOT / module.default_source)
-        for module in registered_task_modules().values()
+        for module in BUILTIN_TASK_MODULES.values()
     })
 
 
