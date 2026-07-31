@@ -1,0 +1,45 @@
+{
+  "schema_version": "scenario-ui-capability/v1",
+  "recorded_at": null,
+  "steps": [
+    {
+      "phase": "goal_formulation",
+      "operation": null,
+      "status": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "evidence": []
+    },
+    {
+      "phase": "proposal",
+      "operation": null,
+      "status": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "evidence": []
+    },
+    {
+      "phase": "candidate_verification",
+      "operation": null,
+      "status": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "evidence": []
+    },
+    {
+      "phase": "revision_and_replay",
+      "operation": null,
+      "status": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "evidence": []
+    }
+  ],
+  "allowed_statuses": [
+    "ui_available",
+    "ui_blocked",
+    "ui_missing",
+    "setup_only",
+    "fallback_used"
+  ]
+}

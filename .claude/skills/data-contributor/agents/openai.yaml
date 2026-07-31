@@ -1,4 +1,4 @@
 interface:
   display_name: "Data Contributor"
-  short_description: "Safely connect new material datasets"
-  default_prompt: "Use $data-contributor to diagnose and connect my new dataset without changing application code."
+  short_description: "Data Library UIから外部データを安全に接続する"
+  default_prompt: "Use $data-contributor to onboard my dataset from the Data Library UI, record capability gaps, and hand off a prediction-ready Project."

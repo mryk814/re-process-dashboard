@@ -1,0 +1,60 @@
+{
+  "schema_version": "data-contributor-capability/v1",
+  "recorded_at": null,
+  "workspace": null,
+  "source_sha256": null,
+  "steps": [
+    {
+      "operation": "source_intake",
+      "status": null,
+      "ui_entry": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "fallback_used": false,
+      "evidence": []
+    },
+    {
+      "operation": "route_selection_and_mapping",
+      "status": null,
+      "ui_entry": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "fallback_used": false,
+      "evidence": []
+    },
+    {
+      "operation": "dataset_registration",
+      "status": null,
+      "ui_entry": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "fallback_used": false,
+      "evidence": []
+    },
+    {
+      "operation": "model_build_verify_package",
+      "status": null,
+      "ui_entry": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "fallback_used": false,
+      "evidence": []
+    },
+    {
+      "operation": "refresh_project_prediction",
+      "status": null,
+      "ui_entry": null,
+      "visible_result": null,
+      "fallback_authorized": false,
+      "fallback_used": false,
+      "evidence": []
+    }
+  ],
+  "allowed_statuses": [
+    "ui_available",
+    "ui_blocked",
+    "ui_missing",
+    "setup_only",
+    "fallback_used"
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scenario Journey Evaluator"
+  short_description: "曖昧な判断課題を実画面で完走しfindingへ整理する"
+  default_prompt: "Use $scenario-journey-evaluator to continue from a Data Contributor handoff, formulate goals in the real UI, and produce evidence-backed journey artifacts."

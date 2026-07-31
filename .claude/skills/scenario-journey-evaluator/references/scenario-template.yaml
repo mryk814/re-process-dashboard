@@ -1,0 +1,64 @@
+schema_version: scenario-journey/v2
+scenario_id: replace-me
+scenario_revision: 1
+status: frozen
+frozen_at: 2026-01-01T00:00:00Z
+scenario_digest: "sha256:replace-after-freeze"
+repository_commit: replace-me
+
+brief:
+  user_request: replace-me
+  desired_candidate_count: 3
+  diversity_requested: true
+  final_decision_required: true
+
+known_context:
+  domain_context: null
+  available_outputs: []
+  non_negotiable_safety: []
+
+actor_must_formulate:
+  objective: null
+  hard_constraints: []
+  soft_preferences: []
+  tradeoffs: []
+  acquisition_or_goal_search_strategy: null
+  assumptions: []
+
+resources:
+  data_contributor_handoff: "absolute-path-outside-repository"
+  workspace_database: "absolute-path-outside-repository"
+  ui_url: "http://127.0.0.1:replace-me/"
+
+challenge_tasks:
+  - goal_formulation_v1
+  - ranked_vs_diverse
+  - conservative_exploratory_diverse_comparison
+  - candidate_verification
+  - decision_activity
+  - objective_revision_v2
+  - stale_run_identity_check
+  - reopen_saved_context
+
+prohibitions:
+  - no_database_direct_access_after_journey_start
+  - no_mutation_api_bypass
+  - no_code_pre_read
+  - no_fabricated_actuals
+  - no_same_session_app_fix
+  - no_scenario_simplification
+
+outputs:
+  root: "absolute-path-outside-repository"
+  journey_map: journey-map.md
+  journey_log: journey.jsonl
+  decision_memo: decision-memo.md
+  goal_formulations: goal-formulations.md
+  candidate_comparison: candidate-comparison.md
+  capability_inventory: ui-capability-inventory.json
+  screenshots: screenshots
+  finding_report: evaluator-report.md
+
+revision_history:
+  - revision: 1
+    reason: initial frozen scenario
