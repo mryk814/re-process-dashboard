@@ -133,7 +133,9 @@ def install_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content=payload.model_dump(
-                mode="json", exclude={"current_candidate", "availability"}
+                mode="json",
+                exclude={"current_candidate", "availability"},
+                exclude_none=True,
             ),
         )
 
