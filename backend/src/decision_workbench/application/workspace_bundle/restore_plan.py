@@ -46,17 +46,17 @@ from decision_workbench.persistence.welding_chain_bootstrap import (
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.tasks.task_registry import TaskRegistry
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     LIFECYCLE_ROW_TABLES,
     RESTORE_EXPIRY_HOURS,
     WorkspaceBundleError,
     _file_digest,
 )
-from decision_workbench.application.workspace_bundle_archive import (
+from .archive import (
     _extract_verified_bundle,
     _validate_staged_row_payloads,
 )
-from decision_workbench.application.workspace_bundle_manifest import (
+from .manifest import (
     _current_migration_inventory,
     _database_evidence,
     _migration_inventory,

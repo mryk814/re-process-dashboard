@@ -11,12 +11,12 @@ from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapter,
     ChainCandidateAdapterError,
 )
-from decision_workbench.application.chain_execution_plan import (
+from decision_workbench.application.chain.plan import (
     ChainExecutionError,
     ChainPlanningUseCase,
     set_path,
 )
-from decision_workbench.application.chain_stage_execution import ChainStageExecutor
+from decision_workbench.application.chain.stage_execution import ChainStageExecutor
 from decision_workbench.contracts.chain_contracts import ChainBinding, ChainStageRevision
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionCapability,

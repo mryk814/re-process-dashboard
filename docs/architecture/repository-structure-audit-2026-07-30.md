@@ -1,129 +1,92 @@
 # Repository structure audit — 2026-07-30
 
+> #613 update: 2026-08-01. ここでは単なる行数の平準化ではなく、責任名から
+> 到達できるpackage-firstのauthority mapを記録する。
+
 ## 結論
 
-現状の主な問題は総ファイル数ではなく、次の二つです。
+現在の主な問題は総ファイル数ではなく、責任境界がflat module名から読みにくくなることと、
+transaction／Workbook解釈のような一体のauthorityを行数だけで分割してしまうことである。
 
-1. `backend/src/material_workbench/` の責任分割より、いくつかの巨大ファイルの
-   内部責任が大きくなっている。
-2. `backend/scripts/` では、日常のCLI、成果物authoring、受入、benchmarkの寿命を
-   directoryと索引で継続して管理する必要がある。
+`backend/src/decision_workbench/`の第一階層は維持する。下位責任が複数あるときだけpackageを
+掘り、旧pathを互換shimとして残さない。source dataやModel Packageは利用頻度で削除せず、
+provenanceと再生成性を先に確認する。
 
-さらに静的なtop-level import graphでは、
-`adapters/tasks/task_modules/domain/persistence/contracts/data/modeling` が
-一つの循環成分になっています。
-directory名だけを整えるより、この依存方向を切る方が優先です。
+## #613 再計測
 
-この監査では、source dataやModel Packageを「利用頻度が低い」という理由で削除しません。
-provenanceと再生成性を先に確認します。
+2026-08-01に、`*.py`の直接の子と再帰的な子を数えた。直接の子が減ったこと自体を目的には
+せず、どのdirectoryがどのauthorityを持つかを確認するための測定である。
 
-## 規模
+| path | direct Python files | recursive Python files | authority |
+|---|---:|---:|---|
+| `application/` | 37 | 56 | application use-case。複数phaseのものは下位packageへ置く。 |
+| `application/chain/` | 5 | 5 | plan、stage execution、全体execution、snapshot。`__init__.py`はre-exportしない。 |
+| `application/workspace_bundle/` | 8 | 8 | public facade、manifest、backup、archive validation、restore plan、resource install、service、shared。 |
+| `persistence/` | 41 | 41 | SQLite schema／migration、aggregate repository、cross-aggregate command。 |
+| `data/` | 8 | 14 | Workbook／Profile／canonicalizationとsource由来の解釈。 |
 
-`git ls-files` とPythonの物理行数を使った時点計測です。
+## Package-first authority map
 
-> この章の件数と巨大ファイル一覧は、2026-07-30時点の監査snapshotです。
-> 現行では `data/dataset_profile.py` を削除し、
-> `data/profiles/{schema,loading,validation,canonicalization}.py` の
-> 4責務へ移行済みです。
+### Chain
 
-| 領域 | tracked files / Python lines |
-|---|---:|
-| Repository | 1,352 files |
-| `backend/src` | 226 files |
-| `backend/tests` | 104 files |
-| `backend/scripts` | 44 Python files（うち`spikes/` 5） |
-| `models/packages` | 319 files |
-| `apps/web` | 203 files |
-| `docs/learning` | 148 files |
-| `backend/src/material_workbench` | 196 Python files / 61,514 lines |
+`application/chain/`は次の一方向のuse-case群である。
 
-`models/packages` はファイル数が多いものの、data-only artifactをdirectory contractで
-保持する設計なので、source moduleの肥大と同じ問題として数えません。
+| module | responsibility |
+|---|---|
+| `plan.py` | Candidate input定義、bindingと実行planの作成 |
+| `stage_execution.py` | canonical input、memo key、単段の実行 |
+| `execution.py` | request競合、部分再計算、段実行の調停 |
+| `snapshot.py` | immutable snapshotとactual-conditioned variant |
 
-## Backend package
+旧`chain_execution_*.py`は残していない。利用側は`decision_workbench.application.chain.<role>`を
+直接importする。これにより、候補shapeのdomain解釈をChain Coreへ戻さない。
 
-第一階層の責任名はおおむね妥当です。
-再編単位はdirectoryの改名ではなく、次の巨大ファイルから責任を抜き出すことです。
+### Workspace Bundle
 
-| File | Lines | 分離候補 |
-|---|---:|---|
-| `persistence/store.py` | 2,544 | schema/migration、project、candidate、activity、snapshot persistence |
-| `application/workspace_bundle.py` | 2,105 | export、validation、restore/import |
-| `contracts/schemas.py` | 1,714 | project/candidate、prediction、exploration、workspace transport |
-| `data/dataset_profile.py` | 1,627 | document inheritance、schema validation、runtime mapping |
-| `modeling/tabular/` | 4 modules | Profile契約・CSV materialization・feature conversion・package runtime inference（#569で分割済） |
-| `application/chain_execution_plan.py` / `chain_stage_execution.py` / `chain_execution_use_case.py` / `chain_snapshot_use_case.py` | 分割済み | plan、stage execution、競合制御、証跡固定を分離 |
-| `developer_experience/data_lifecycle_benchmark.py` | 1,307 | benchmark scenarioとmeasurement/report |
-| `task_modules.py` | 1,165 | built-in TaskModule composition |
-| `domain/services.py` | 1,136 | candidate、prediction、actual/decision services |
-| `data/importer.py` | 1,086 | workbook read、relation resolution、canonical rows |
+`application/workspace_bundle/__init__.py`は、画面／sidecarが使うbackup・prepare・commit・
+rollback・recoveryの公開use-caseだけをまとめる。実装phaseは次のpathに直接置く。
 
-`app.py` と `task_modules.py` はpackage rootに置ける責任ではありますが、
-composition rootとして読むには大きすぎます。
-Taskごとのdefinitionを再び各層へ散らさず、TaskModule単位で分ける必要があります。
+| module | responsibility |
+|---|---|
+| `manifest.py` | DB、resource、row payloadのidentity／digest |
+| `backup.py` | logical SQLite snapshotとbundle生成 |
+| `archive.py` | ZIP安全性、path、symlink、digest、manifest検証 |
+| `restore_plan.py` | staging migration、参照診断、journal準備 |
+| `resource_install.py` | CAS／Data Libraryの検証付き配置とcleanup |
+| `service.py` | commit、rollback、finalize、restart recovery |
+| `shared.py` | phase共通の小さな型・定数 |
 
-追跡Issue:
+`prepare`はactive Workspaceを変更しない。`commit`だけがresource配置とDB切替のtransaction
+ownerであり、失敗時はjournalを根拠に新規resourceを取り除き旧DBへ戻す。詳細は
+[PersistenceとWorkspace restoreのtransaction境界](persistence-transaction-boundaries.md)を正本とする。
 
-- [#501 Task compositionの循環依存を解消する](https://github.com/mryk814/re-process-dashboard/issues/501)
-- [#502 StoreとWorkspace Bundleをtransaction境界ごとに分割する](https://github.com/mryk814/re-process-dashboard/issues/502)
-- [#504 API routerをtransport境界へ薄くする](https://github.com/mryk814/re-process-dashboard/issues/504)
+## 残す大きなmodule
 
-### 分割の原則
+次の3ファイルは2026-08-01時点で1,000行を超えるが、line-count-onlyの分割は行わない。
+いずれも同じidentityまたはtransactionを保持するauthorityである。
 
-- public import pathを先に決め、移動と振る舞い変更を同じPRに混ぜない。
-- schemaやrepositoryを「ファイル行数が均等」になるようには分けない。
-  保存・復元・不変条件を共有する単位で分ける。
+| module | lines | いま残す理由 | 次に分ける条件 |
+|---|---:|---|---|
+| `persistence/store_unit_of_work.py` | 1,088 | 複数aggregate commandの検査・更新とSQLite commit／rollbackを同じ境界で所有する。 | command familyごとに同じconnectionとrollback ownershipを守る契約が明示できるとき。 |
+| `persistence/data_lifecycle_repository.py` | 1,062 | Raw Snapshot、Curation、承認済みDataset、Training Snapshotを一つのlifecycle provenanceとして保存する。 | revision identityと参照整合をまたがないread/write境界が先に確立したとき。 |
+| `data/importer.py` | 1,094 | Workbook読込、entity／relation解決、canonical rowとlineage生成が`WorkbookData`の意味境界を形成する。 | `WorkbookData`とrelation-routeの安定portを定義し、profile解釈を他層へ漏らさず移せるとき。 |
+
+## 分割の原則
+
+- public import pathを先に決め、移動と振る舞い変更を同じ変更に混ぜない。
+- schemaやrepositoryをファイル行数が均等になるようには分けない。保存・復元・不変条件を共有する
+  unitでのみ分ける。
 - 元Excel、保存済みSnapshot、Package contractにmigrationを発生させない。
-- 巨大ファイルの分割後は、旧ファイルを互換shimとして残さない。
+- package化した後は旧moduleをre-exportまたは互換shimとして残さない。
+- 構造変更は、依存方向、代表的なuse-case、rollback／recoveryの順にfocused checkを選び、
+  関係しない全体テストを常に要求しない。
 
-## Backend scripts
+## Backend scriptsと入口
 
-平坦な一覧だけでは用途を判断できなかったため、#503で
-[`backend/scripts/README.md`](../../backend/scripts/README.md) を正本として
-`operations/`、`generators/`、`acceptance/`、`experiments/`へ配置し、
-全commandのowner、output、referenceを索引化しました。
+`backend/scripts/README.md`をscriptの用途、owner、output、参照の索引とする。日常のoperations、
+成果物authoring、acceptance、experimentをdirectoryと索引で区別し、source dataへ書き込む
+authoring scriptは置かない。
 
-呼出し箇所の検索だけでは、次のような誤判定が起きます。
-
-- `build_tutorial_dataset_revision.py` は日常コマンドではないが、
-  `material_workbench_tutorial_v2.xlsx` の再生成根拠になる。
-- `build_annealed_lightgbm_model_package.py` はactive runtimeでなくても、
-  追跡中のLightGBM Packageを再生成する。
-- `materialize_dataset_profile.py` と `verify_dataset_source.py` は
-  `operations/profile_workbench.py`へ統合し、重複scriptを削除した。
-- research scriptは文書から参照されるものとtestから直接importされるものがある。
-
-したがって、呼出し頻度を根拠とする一括削除は行いません。
-directory移動は寿命を明示するために行い、CLIの再利用処理はsource packageへ置きます。
-
-一方、現行契約に一致しないv1 Packageを固定していた`npm run dev:process`と
-`scripts/dev-process-v1.ps1`は、正式入口として壊れており他の案内からも参照されないため
-削除しました。
-また、Dataset authoring scriptの既定出力を`artifacts/derived-data/`へ移し、
-`data/source/`への書込みを拒否するようにしました。
-
-build cleanup、evidence cleanup、明示的Workspace pruneも別commandへ分離しました。
-
-## Agent guidance
-
-`.claude/skills/` は二つだけで、数の過剰はありませんでした。
-ただし現行リポジトリとのdriftがあり、次を修正しました。
-
-- `add-prediction-task`: 存在しない `verify:focused` を `verify:edit` に更新。
-- `add-model-runtime`: Model Packageは`modeling/packages/`配下で、`contracts.py`、`ports.py`、`registry.py`、`verification.py`、`loader.py`の責務別pathを参照する。
-
-データを追加する人は `docs/operations/data-contributor-start-here.md`、
-アプリを開発する人は `docs/developer-start-here.md` を入口にします。
-データ追加だけの作業へ、アプリ変更用のtest一式を要求しません。
-
-## 次の構造変更
-
-この順で独立PRにします。
-
-1. [#501](https://github.com/mryk814/re-process-dashboard/issues/501):
-   `task_modules.py`をTask単位のcomposition moduleへ分割し、最大の循環を切る。
-2. [#504](https://github.com/mryk814/re-process-dashboard/issues/504):
-   APIから具象persistence/modelingへの依存をapplication use-caseへ移す。
-3. [#502](https://github.com/mryk814/re-process-dashboard/issues/502):
-   `persistence/store.py`と`workspace_bundle.py`をtransaction境界ごとに分割する。
-scriptの追加・削除では、`backend/scripts/README.md`の寿命と索引を同時に更新します。
+データを追加する人は`docs/operations/data-contributor-start-here.md`、アプリを開発する人は
+`docs/developer-start-here.md`を入口にする。データ利用レーンには、アプリ変更用のtest一式、
+Issue、branch、PRを既定で要求しない。

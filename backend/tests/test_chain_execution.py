@@ -12,7 +12,7 @@ import numpy as np
 from pydantic import BaseModel
 import pytest
 
-from decision_workbench.application.chain_execution_plan import ChainExecutionError
+from decision_workbench.application.chain.plan import ChainExecutionError
 from decision_workbench.application.chain_uncertainty import (
     apply_output_bounds,
     combine_additive_stage_samples,

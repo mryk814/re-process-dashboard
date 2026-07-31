@@ -20,7 +20,7 @@ from decision_workbench.application.workspace_bundle import (
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
 )
-from decision_workbench.application.workspace_bundle_manifest import (
+from decision_workbench.application.workspace_bundle.manifest import (
     _database_evidence,
 )
 from decision_workbench.contracts.data_lifecycle_contracts import (

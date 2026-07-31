@@ -35,7 +35,7 @@ from decision_workbench.persistence.data_lifecycle_payload_storage import (
     QuarantinedPayloadReference,
     StoredLifecycleRowResource,
 )
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     RESOURCE_ARCHIVE_ROOT,
     ROW_PAYLOAD_ARCHIVE_ROOT,
     WorkspaceBundleError,

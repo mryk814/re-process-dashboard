@@ -11,15 +11,15 @@ from decision_workbench.contracts.workspace_bundle_contracts import (
     WorkspaceBundleDiagnostic,
     WorkspaceBundleManifest,
 )
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     DATABASE_ARCHIVE_PATH,
     MANIFEST_ARCHIVE_PATH,
     RESOURCE_ARCHIVE_ROOT,
     WorkspaceBundleError,
     _file_digest,
 )
-from decision_workbench.application.workspace_bundle_archive import _inspect_bundle
-from decision_workbench.application.workspace_bundle_manifest import (
+from .archive import _inspect_bundle
+from .manifest import (
     _database_evidence,
     _file_record,
     _logical_database_backup,
