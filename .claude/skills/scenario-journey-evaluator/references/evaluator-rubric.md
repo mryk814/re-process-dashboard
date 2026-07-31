@@ -10,6 +10,11 @@ Actorとは別の文脈で、scenario、journey log、screenshots、decision out
 - frozen scenarioのrequired journeyを完走したか
 - 未完の場合、到達不能点と最後に成功したidentityが再現可能か
 - scenarioを途中で簡単にしていないか
+- Actorがbriefからgoal formulation v1を作ったか
+- proposal strategyの理由と限界を記録したか
+- ranked／diverse、堅実／探索／多様を比較したか
+- Decision Activityを目的から選んだか
+- goal formulation v2と旧Run／新Runを結んだか
 
 ### Decision safety
 
@@ -19,7 +24,7 @@ Actorとは別の文脈で、scenario、journey log、screenshots、decision out
 
 ### Context and recovery
 
-- Project、Candidate、Run、Snapshotのidentityを追跡できるか
+- Dataset、Package、Project、Objective revision、Candidate、Run、Snapshotのidentityを追跡できるか
 - back／forward、tab移動、新しいbrowser contextから文脈を復元できたか
 - 保存済み結果を最新計算で暗黙更新したと誤認していないか
 
@@ -28,6 +33,7 @@ Actorとは別の文脈で、scenario、journey log、screenshots、decision out
 - intent、action、expected、observedが分かれているか
 - screenshotは同じviewportで、対象と結果位置を示しているか
 - 待機時間、backtrack、visible error、次の行動が記録されているか
+- capability statusと明示承認されたfallback区間が分かるか
 
 ## Finding判定
 

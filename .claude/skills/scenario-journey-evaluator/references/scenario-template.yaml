@@ -1,4 +1,4 @@
-schema_version: scenario-journey/v1
+schema_version: scenario-journey/v2
 scenario_id: replace-me
 scenario_revision: 1
 status: frozen
@@ -6,47 +6,39 @@ frozen_at: 2026-01-01T00:00:00Z
 scenario_digest: "sha256:replace-after-freeze"
 repository_commit: replace-me
 
-mission:
-  project_name: replace-me
-  question: replace-me
-  success_condition: replace-me
-  limits:
-    - replace-me
+brief:
+  user_request: replace-me
+  desired_candidate_count: 3
+  diversity_requested: true
+  final_decision_required: true
+
+known_context:
+  domain_context: null
+  available_outputs: []
+  non_negotiable_safety: []
+
+actor_must_formulate:
+  objective: null
+  hard_constraints: []
+  soft_preferences: []
+  tradeoffs: []
+  acquisition_or_goal_search_strategy: null
+  assumptions: []
 
 resources:
-  dataset:
-    path: "absolute-path-outside-repository"
-    provenance_record: "absolute-path-outside-repository"
-    sha256: "sha256:replace-me"
-  task_id: replace-me-v1
-  dataset_revision_id: null
-  model_package_id: replace-me
-  model_package_digest: "sha256:replace-me"
+  data_contributor_handoff: "absolute-path-outside-repository"
   workspace_database: "absolute-path-outside-repository"
-  data_library: "absolute-path-outside-repository"
   ui_url: "http://127.0.0.1:replace-me/"
 
-decision:
-  goals:
-    - target: replace-me
-      rule: at_least
-      value: 0
-  input_constraints:
-    - path: process.replace_me
-      min: 0
-      max: 1
-  proposal_count: 4
-  selection_policy: replace-me
-
-required_journey:
-  - create_project
-  - set_goals
-  - inspect_historical_data
-  - create_baseline_from_observation
-  - explore_range
-  - compare_candidates
-  - select_next_trial
-  - resume_saved_context
+challenge_tasks:
+  - goal_formulation_v1
+  - ranked_vs_diverse
+  - conservative_exploratory_diverse_comparison
+  - candidate_verification
+  - decision_activity
+  - objective_revision_v2
+  - stale_run_identity_check
+  - reopen_saved_context
 
 prohibitions:
   - no_database_direct_access_after_journey_start
@@ -58,8 +50,12 @@ prohibitions:
 
 outputs:
   root: "absolute-path-outside-repository"
+  journey_map: journey-map.md
   journey_log: journey.jsonl
-  decision_outcome: decision-outcome.json
+  decision_memo: decision-memo.md
+  goal_formulations: goal-formulations.md
+  candidate_comparison: candidate-comparison.md
+  capability_inventory: ui-capability-inventory.json
   screenshots: screenshots
   finding_report: evaluator-report.md
 

@@ -5,6 +5,11 @@
 AIにread-onlyの仕分けからDataset登録、個人Package、Project作成まで任せる場合は
 [Data Contributor Skill](../../.claude/skills/data-contributor/SKILL.md)を使います。
 
+既定入口はData Library UIです。
+画面で三経路を選び、意味確認、Dataset登録、モデル準備、再読込、Project作成、代表予測まで追います。
+commandは先回りして使わず、UIが`setup_only`を示した場合、またはUIで到達不能と記録した後の
+read-only診断／明示承認済みfallbackに限ります。
+
 ## この入口で扱う作業
 
 次の条件を満たす作業は、**データ利用レーン**です。
@@ -37,7 +42,8 @@ Data Libraryの入口は次の三つです。
 | 列名・構造が違う | 個人ProfileとDataset Revision | 既存Taskの入出力と学習単位 |
 | 新しい予測問題 | 個人Task、Profile、Package | allow-list済み標準adapter |
 
-既存Taskへ同じ意味のデータを差し替えられるか判断できない場合は、ファイルを変更しない診断を実行します。
+既存Taskへ同じ意味のデータを差し替えられるか画面だけで判断できない場合は、
+`ui_blocked`を記録してから、ファイルを変更しないread-only診断を実行します。
 
 ```powershell
 npm run model:diagnose -- --source C:\path\to\data.xlsx
@@ -100,10 +106,14 @@ source SHA-256とProfile digestが一致しない既存Packageを、新しいDat
 任意のローカルパスから選択でき、登録時に現在のWorkspaceが管理するData Libraryへ内容ハッシュ付きでコピーされます。
 製品へ同梱する意図がないファイルをgitへ追加しないでください。
 
-現在の画面経路が受け付けるのは`.xlsx`です。
-CSVは画面ではなく、対応する表形式Profileを指定してCLIから検証・登録します。
+現在の「列名・構造が違う」画面経路が受け付けるのは`.xlsx`です。
+CSVは「新しい予測問題」の画面でpreviewできます。
+既存TaskへCSVを対応付ける必要がある場合は、UI不足を記録し、明示承認後に対応する表形式Profileでfallbackします。
 
-Profileを自分で用意する場合も、元ファイルを変更せず、リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
+### 診断／fallback appendix: Profile CLI
+
+Profileを自分で用意するfallbackでは、元ファイルを変更せず、
+リポジトリ外の任意のパスに置いたProfileをCLIで検査、登録できます。
 
 ```powershell
 uv run python backend/scripts/operations/profile_workbench.py inspect C:\path\to\data.xlsx `
@@ -124,7 +134,13 @@ Profileの書式と登録CLIの詳細は[Dataset Input Profile](dataset-input-pr
 Package provenanceには実効Profileのdigestが固定されます。
 追跡済みProfileを編集して同梱する場合は、データ利用ではなくアプリ開発として扱います。
 
-## 既存Task向けのモデルを学習する
+## 既存Task向けのモデルを画面から準備する
+
+Data Libraryで対象Datasetを開き、「モデルを追加する」に表示されたsource、Profile、Taskを確認します。
+画面がbuild／verify／promoteを直接実行できずcommandを示す場合、その工程は`setup_only`です。
+strict UI journeyはそこで停止します。継続が明示承認された場合だけ、表示されたcommandをfallbackとして使います。
+
+### 診断／fallback appendix: 既存TaskのPackage
 
 既存Taskと同じ入力、出力、学習単位であり、そのTaskに登録済みのProfileで読み取れることを`model:diagnose`で確認してからPackageを作ります。
 
@@ -174,6 +190,14 @@ Windowsの既定保存先は`%LOCALAPPDATA%\Material Decision Workbench\models`�
 `model:activate`は製品へ同梱する既定Packageを切り替えるアプリ開発者向けコマンドです。
 
 ## 完全に新しい予測問題を標準回帰で追加する
+
+Data Libraryの「データを追加」→「新しい予測問題」を開き、CSVをpreviewします。
+画面でinput／output、role、unit、one-row-one-observation、relationなし、
+physical／default／training observed range、goal directionを確認します。
+観測min／maxを物理範囲へ自動採用しません。
+「Task・モデル・Datasetを準備してProject作成へ」を進め、画面が不足を示した地点を記録します。
+
+### 診断／fallback appendix: Task scaffold
 
 元データをリポジトリへ移さず、まず列型と範囲だけをread-onlyで確認します。
 

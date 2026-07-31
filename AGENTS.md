@@ -18,6 +18,10 @@
 入口は [自分のデータで使い始める](docs/operations/data-contributor-start-here.md)。
 AIに新しいデータの仕分けと接続を任せる場合は
 [Data Contributor Skill](.claude/skills/data-contributor/SKILL.md)を使う。
+Data ContributorはData Library UIを既定入口とし、commandは画面で到達不能と記録した後の
+read-only診断または明示承認済みfallbackに限る。
+Project作成と代表予測まで完了した後の目標形成、候補確認、判断保存は
+[Scenario Journey Evaluator Skill](.claude/skills/scenario-journey-evaluator/SKILL.md)へhandoffする。
 
 このレーンでは、次を既定で要求しない。
 

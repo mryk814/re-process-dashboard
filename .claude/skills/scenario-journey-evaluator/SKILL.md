@@ -1,130 +1,142 @@
 ---
 name: scenario-journey-evaluator
-description: Use after a dataset, Prediction Task, and Model Package are ready to complete a frozen decision scenario in the real Material Decision Workbench UI. Produces an identity-aware journey log, decision outcome, and at most five deduplicated UX, contract, evidence, recovery, accessibility, performance, data, profile, or tooling findings. Do not use it to prepare new data, bypass the UI, or fix the application during the journey.
+description: Use after Data Contributor has prepared a prediction-ready Project to turn an ambiguous decision brief into goals, proposals, candidate verification, a Decision Activity, revision, save, and resume in the real Evidence Decision Workbench UI. Produces explainable journey artifacts and at most five deduplicated findings.
 ---
 
 # Scenario Journey Evaluator
 
-実データを接続した後の判断作業を、利用者として実画面で完走する。
-操作の成否だけでなく、判断結果、復旧可能性、迷い、待機、証拠を再現可能な記録へ変える。
+引き継いだProjectで曖昧な判断課題を利用者として完走し、判断結果、復旧可能性、迷い、
+待機、画面証拠を再現可能な記録へ変える。
 
-## 責務を分ける
+## Data Contributorとの境界
 
-sourceの確認、既存Taskへの対応付け、新Taskのscaffold、Profile、Dataset登録、Model Package準備は
-先に`data-contributor`で行う。
-このSkillはProject作成以降のUI journeyだけを評価する。
+source、license、Profile、Dataset、Task、Model Package、Project、代表予測までは
+`data-contributor`が担当する。
+このSkillは[handoff](../data-contributor/references/handoff-template.md)を受け取り、
+そのProjectで目標形成から始める。Dataset、Task、Packageを作り直さない。
 
-journey中にアプリコードを修正しない。
-見つけた問題はfindingへ分け、データ準備の失敗をUI不具合として扱わない。
+UI data onboardingもscenario全体のphase A証拠として保持するが、Actorが重複実行しない。
+handoffがない場合はData Contributorへ戻す。
 
-## 必須入力を確認する
+## UI-firstの境界
 
-開始前に次をそろえる。
-
-- frozen状態のscenario YAMLまたはJSON
-- dataset pathとprovenance／license record
-- 利用可能なTask、Dataset、Model Packageのidentity
-- productionと分離したWorkspace DBとData Library
-- 実ブラウザを操作できる手段
-- journey log、screenshot、finding reportのリポジトリ外保存先
-- Actorへ見せないevaluator rubric（任意）
-
-[scenario template](references/scenario-template.yaml)を複製し、scenario revisionをfreezeする。
-問い、目標、制約、success condition、禁止事項、必須journeyを含む内容のdigestを保存する。
-
-freeze後に内容を簡単にしてはならない。
-変更が必要なら元revisionを保持したまま新revisionを作り、変更理由を記録する。
-操作不能なstepは削らず、到達不能として残す。
-
-## ActorとEvaluatorを分ける
-
-可能なら文脈を共有しない二つのsessionまたはagentを使う。
-
-Actorには[Actor mission](references/actor-mission-template.md)、frozen scenario、dataset provenance、
-準備済みidentity、UI URLだけを渡す。
-既知の不具合、期待finding、evaluator rubric、実装コードの知識を渡さない。
-
-Evaluatorにはjourney log、screenshots、decision outcome、scenario、evaluator-only rubricを渡す。
-Evaluatorはsanity dataと既存Issueを確認できるが、Actorが見ていない事実を「画面で確認できた」と扱わない。
-
-同一agentで行う場合は弱い分離であることを報告し、Actor開始後にコードやDBを読まない。
-
-## 実画面でjourneyを進める
-
-Computer Use、Chrome、in-app browserなどの実ブラウザ操作を優先する。
-利用できない場合だけ、独立DBとfresh serverを使うPlaywrightへ切り替え、その理由を記録する。
-
-setup用CLIとread-only診断はjourney開始前に限り利用できる。
+優先順位は、UI、UIの進捗／warning／再開導線、到達不能の記録、明示承認後の限定fallback、
+read-only診断の順とする。
 journey開始後は次を禁止する。
 
-- DBのdirect read／writeで画面の答えを得る
-- mutation APIでUI操作を飛ばす
+- DB direct read／writeやmutation APIで画面を飛ばす
 - 実装コードから状態や正解を先読みする
 - 実測値を捏造する
 - 失敗を避けるためscenarioやデータを変更する
 - 同じsessionでアプリを修正する
 
-各重要操作を[journey log schema](references/journey-log-schema.md)に従うJSONLとして直ちに記録する。
-特にProject、Candidate、Run、Snapshotが変わった操作では、変更後のidentityを必ず残す。
+strict UI journeyで操作不能なら停止し、`ui_missing`または`ui_blocked`としてfinding化する。
+fallback区間をUI-only完走として数えない。
 
-操作のたびに次を観察する。
+## 曖昧なScenarioをfreezeする
 
-- 何を操作しているか画面だけで分かるか
-- 結果がどこへ現れたか
-- 予測、実測、不確かさ、supportを区別できるか
-- tab移動、back／forward、新しいbrowser contextでも文脈を復元できるか
-- 待機中または失敗時に原因と次の行動が分かるか
-- UIを回避してコードやDBを見たくなったか
+[scenario template](references/scenario-template.yaml)へ利用者のbrief、known context、禁止事項だけを入れ、
+revisionとdigestをfreezeする。
+数値目標、制約値、selection policy、proposal strategyの正解をActorへ与えない。
 
-到達不能になった場合は、最後に成功したidentity、exact action、visible result、screenshotを記録する。
-scenarioを変更せず、その地点でActor結果を完了する。
+Actorが画面から具体化するものは次の通り。
 
-## 判断結果を残す
+- objective
+- hard constraints
+- soft preferences
+- trade-offs
+- assumptions
+- acquisition／goal-search strategy
 
-選択した案だけでなく、比較した案、判断理由、予測区間、support、近い実績、残るリスクを記録する。
+最初の具体化を`goal formulation v1`として固定する。
+途中でObjectiveを一箇所変更するときは`v2`を作り、理由、旧Run、新Runを結ぶ。
+scenario自体を簡単にする変更は別revisionとして元を保持する。
+
+## ActorとEvaluatorを分ける
+
+可能なら文脈を共有しない二つのsessionまたはagentを使う。
+
+Actorには[Actor mission](references/actor-mission-template.md)、frozen scenario、Data Contributor handoff、
+UI URL、出力先だけを渡す。
+既知の不具合、期待finding、sanity data、evaluator rubric、実装コードの知識を渡さない。
+
+Evaluatorにはjourney artifacts、screenshots、saved decision、scenario、
+[evaluator rubric](references/evaluator-rubric.md)を渡す。
+画面証拠にない事実を「Actorが確認した」と扱わない。
+同一agentなら弱い分離であることを記録し、Actor開始後にコードやDBを読まない。
+
+private chain-of-thoughtを要求しない。
+記録するのは一〜三文の説明可能な意図、観察、判断根拠である。
+
+## Journeyを進める
+
+Computer Use、Chrome、in-app browserなど実ブラウザを優先する。
+利用できない場合だけ、独立DBとfresh serverを使うPlaywrightへ切り替え、理由とcapabilityを記録する。
+
+各重要操作の直後に[journey log schema](references/journey-log-schema.md)へ一行記録し、
+[journey map](references/journey-map-template.md)を更新する。
+
+### B. Goal formulation
+
+- Data Explorerで分布、採用データ、近い実績を見る
+- briefを数値目標、hard constraint、soft preference、trade-offへ分ける
+- 仮定と未解決の問いを`goal formulation v1`へ残す
+
+### C. Proposal
+
+- 利用可能なproposal strategyから目的に合うものを選ぶ
+- strategy名ではなく「なぜ今この案を評価する価値があるか」と限界を記録する
+- rankedとdiverseを比較し、堅実案、探索案、多様案を区別する
+
+### D. Candidate verification
+
+- 複数候補のprediction、interval、support、historical evidence、constraintを比較する
+- 候補差分、入力ばらつき、目標到達案などから目的に合うDecision Activityを一つ以上選ぶ
+- Activityの選択理由と、見ても解消しない不確かさを記録する
+
+### E. Revision and replay
+
+- Objectiveを一箇所変更して`goal formulation v2`を作る
+- 旧Runと新Runを混同せず、stale表示と対応identityを確認する
+- decision noteを保存する
+- 新しいbrowser contextから保存URLまたは画面上の入口で再開する
+
+操作不能なら最後に成功したidentity、exact action、visible result、screenshotを記録して終了する。
+scenarioを変更して回避しない。
+
+## 判断成果物を残す
+
+- [journey map](references/journey-map-template.md)
+- journey JSONL
+- [goal formulations](references/goal-formulations-template.md)
+- [candidate comparison](references/candidate-comparison-template.md)
+- [decision memo](references/decision-memo-template.md)
+- [UI capability inventory](references/ui-capability-inventory-template.json)
+- screenshots
+
+選択案だけでなく比較案、予測区間、support、近い実績、残るリスクを残す。
 予測上の目標達成を実性能達成と断定しない。
-小標本、学習範囲、欠測、データ由来の制約をscenarioに応じて明示する。
-
-保存RunまたはSnapshotの再開は、同じpageのrefreshだけで済ませない。
-新しいbrowser contextから保存URLまたは画面上の入口を使い、
-Project／Candidate／Run identityと判断文脈が一致することを確認する。
 
 ## Evaluatorがfindingを整理する
 
 [evaluator rubric](references/evaluator-rubric.md)でtask completion、decision safety、evidence quality、
 recoveryを評価する。
+data、profile、tooling、application、product question、not an issueを先に分ける。
 
-findingを次のいずれかへ分類する。
-
-- functional bug
-- unclear operation target
-- result location ambiguity
-- state/context loss
-- decision-safety risk
-- missing evidence
-- accessibility
-- performance/wait feedback
-- data problem
-- profile problem
-- tooling problem
-- product question
-- not an issue
-
-GitHub Issueをtitleとbodyの両方から検索し、同一原因、同一操作、同一impactのIssueを確認する。
-既存Issueがあれば新規候補を作らず、関係と追加証拠を記録する。
-
-[finding report template](references/finding-report-template.md)を使う。
-Issue候補はseverity順に最大5件とし、件数を成果にしない。
-各候補にはscenario／Project／Task identity、再現手順、user intent、expected／observed、
-decision impact、visible evidence、severity rationale、scope／non-scope、acceptance criteriaを含める。
+GitHub Issueをtitleとbodyから検索し、同一原因、操作、impactなら新規候補を作らない。
+[finding report template](references/finding-report-template.md)を使い、Issue候補はseverity順に最大5件とする。
+自動でIssueを作成せず、件数を成果にしない。
 
 ## 完了条件
 
-- frozen scenarioとdigestが残る
-- Actor入力とEvaluator入力の境界が記録される
-- journey JSONLの全重要操作にcurrent identityがある
-- 完走または到達不能点が再現可能である
-- decision outcomeに根拠と限界がある
-- 新しいbrowser contextから保存文脈を再開した、または不能理由がある
-- findingが既存Issueと重複確認され、最大5件にまとまる
-- dataset、個人Task、Profile、Package、Workspace DBをリポジトリへ追加していない
+- frozen scenarioとdigestがある
+- Data Contributor handoffとonboarding証拠を保持している
+- Actorがbriefからgoal formulation v1を作った
+- proposal strategyの理由と限界、ranked／diverse、堅実／探索／多様を比較した
+- Decision Activityを目的から選んだ
+- goal formulation v2、変更理由、旧Run／新Run identityが結ばれた
+- journeyの重要操作にidentity、capability、evidenceがある
+- 完走または到達不能点を再現できる
+- 新しいbrowser contextから再開した、または不能理由がある
+- findingを重複確認し最大5件へまとめた
+- 個人データ、Task、Profile、Package、Workspaceをリポジトリへ追加していない
