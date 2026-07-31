@@ -38,28 +38,29 @@ def test_aggregate_and_cross_aggregate_commands_have_explicit_owners() -> None:
 
 def test_workspace_bundle_facade_exposes_use_cases_not_phase_implementation() -> None:
     assert workspace_bundle.create_workspace_backup.__module__.endswith(
-        "workspace_bundle_backup"
+        "workspace_bundle.backup"
     )
     assert workspace_bundle.prepare_workspace_restore.__module__.endswith(
-        "workspace_bundle_restore_plan"
+        "workspace_bundle.restore_plan"
     )
     assert workspace_bundle.commit_workspace_restore.__module__.endswith(
-        "workspace_bundle_service"
+        "workspace_bundle.service"
     )
     assert not hasattr(workspace_bundle, "_inspect_bundle")
     assert not hasattr(workspace_bundle, "_install_resources")
 
 
 def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() -> None:
-    application = (
+    bundle = (
         Path(__file__).parents[1] / "src" / "decision_workbench" / "application"
+        / "workspace_bundle"
     )
     restricted = {
-        "workspace_bundle_archive.py",
-        "workspace_bundle_backup.py",
-        "workspace_bundle_resource_install.py",
-        "workspace_bundle_service.py",
-        "workspace_bundle_shared.py",
+        "archive.py",
+        "backup.py",
+        "resource_install.py",
+        "service.py",
+        "shared.py",
     }
     forbidden = {
         "openpyxl",
@@ -68,7 +69,7 @@ def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() ->
         "decision_workbench.tasks.task_registry",
     }
     for filename in restricted:
-        tree = ast.parse((application / filename).read_text(encoding="utf-8"))
+        tree = ast.parse((bundle / filename).read_text(encoding="utf-8"))
         imported = {
             node.module
             for node in tree.body
@@ -83,7 +84,7 @@ def test_workspace_trust_phases_do_not_reimport_unowned_high_level_services() ->
             filename,
             sorted(imported & forbidden),
         )
-        if filename != "workspace_bundle_resource_install.py":
+        if filename != "resource_install.py":
             assert not any(
                 module.startswith("decision_workbench.modeling") for module in imported
             ), filename

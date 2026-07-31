@@ -10,20 +10,20 @@ from decision_workbench.contracts.workspace_bundle_contracts import (
     WorkspaceRestoreCommitResult,
     WorkspaceRestoreResolution,
 )
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     LIFECYCLE_ROW_TABLES,
     MANIFEST_ARCHIVE_PATH,
     WorkspaceBundleError,
     _file_digest,
 )
-from decision_workbench.application.workspace_bundle_resource_install import (
+from .resource_install import (
     _cleanup_installed_resources,
     _cleanup_installed_row_payloads,
     _install_resources,
     _install_row_payloads,
 )
-from decision_workbench.application.workspace_bundle_manifest import _database_evidence
-from decision_workbench.application.workspace_bundle_restore_plan import (
+from .manifest import _database_evidence
+from .restore_plan import (
     _read_state,
     _restore_root,
     _write_state,

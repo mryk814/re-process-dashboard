@@ -8,7 +8,7 @@ from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapter,
     ChainCandidateAdapterError,
 )
-from decision_workbench.application.chain_execution_plan import ChainExecutionError, set_path
+from decision_workbench.application.chain.plan import ChainExecutionError, set_path
 from decision_workbench.application.payload_normalization import plain_payload
 from decision_workbench.contracts.chain_contracts import (
     ChainBinding,

@@ -53,13 +53,26 @@ def test_removed_integration_hubs_do_not_return() -> None:
 
 def test_chain_use_cases_depend_on_explicit_plan_and_stage_boundaries() -> None:
     application = PACKAGE_ROOT / "application"
-    assert (application / "chain_execution_plan.py").exists()
-    assert (application / "chain_stage_execution.py").exists()
-    assert (application / "chain_execution_use_case.py").exists()
-    assert (application / "chain_snapshot_use_case.py").exists()
+    chain = application / "chain"
+    assert {
+        "__init__.py",
+        "plan.py",
+        "stage_execution.py",
+        "execution.py",
+        "snapshot.py",
+    } <= {path.name for path in chain.iterdir()}
     assert not any(
-        "decision_workbench.application.chain_execution" == imported
-        for path in application.glob("*.py")
+        (application / filename).exists()
+        for filename in (
+            "chain_execution_plan.py",
+            "chain_stage_execution.py",
+            "chain_execution_use_case.py",
+            "chain_snapshot_use_case.py",
+        )
+    )
+    assert not any(
+        imported.startswith("decision_workbench.application.chain_execution")
+        for path in application.rglob("*.py")
         for imported in _imports(path)
     )
 

@@ -142,6 +142,13 @@ Activityは画面名ではなく、問い、必要能力、入力parameter、結
 
 ChainDefinitionはStage順序、external input、Stage間binding、明示的な単位変換を表す。Task自身へChain固有のbindingを埋め込まない。
 
+### Package-first application boundary
+
+Chainの計画・段実行・全体実行・snapshotは`application/chain/`に、Workspace backup／restoreの
+phaseは`application/workspace_bundle/`に置く。前者の`__init__.py`はre-exportしない境界印であり、
+後者の`__init__.py`だけが公開use-caseをまとめる薄いfacadeである。旧flat moduleを互換shimとして
+残さないため、内部実装者はphaseまたはuse-caseの責任名から入口を辿る。
+
 ## 5. 現在v1固有の境界
 
 以下は現時点で完全な汎用基盤ではない。別ユースケースへ適用する際は、既存名だけを見て再利用可能と判断しない。
@@ -215,6 +222,11 @@ Stage Aの固定科学変換境界に限り、目標材料成分から配合へ�
 | Task／Canonical Candidate／Runtime Capability | `backend/src/decision_workbench/contracts/task_contracts.py` |
 | Chain Definition／Revision／binding | `backend/src/decision_workbench/contracts/chain_contracts.py` |
 | Chain execution／snapshot／actual variant | `backend/src/decision_workbench/contracts/chain_execution_contracts.py` |
+| Chainのplan／stage／execution／snapshot use case | `backend/src/decision_workbench/application/chain/{plan,stage_execution,execution,snapshot}.py` |
+| Workspace backup／restoreの公開入口とphase | `backend/src/decision_workbench/application/workspace_bundle/` と `docs/architecture/persistence-transaction-boundaries.md` |
+| 複数aggregate commandのSQLite transaction | `backend/src/decision_workbench/persistence/store_unit_of_work.py` |
+| Source lifecycle revisionの永続化 | `backend/src/decision_workbench/persistence/data_lifecycle_repository.py` |
+| Workbookのrelation解釈とcanonical／lineage生成 | `backend/src/decision_workbench/data/importer.py` |
 | Decision Activity | `backend/src/decision_workbench/contracts/decision_activity_contracts.py` |
 | Project Design Space | `backend/src/decision_workbench/contracts/design_space_contracts.py` と `docs/contracts/project-design-space.md` |
 | Objective Definition | `backend/src/decision_workbench/contracts/objective_contracts.py` と `docs/contracts/objective-definition.md` |

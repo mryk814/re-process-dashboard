@@ -14,7 +14,7 @@ from decision_workbench.persistence.row_payload_store import (
     RowPayloadReference,
     RowPayloadStore,
 )
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     MANIFEST_ARCHIVE_PATH,
     MAX_BUNDLE_BYTES,
     MAX_BUNDLE_ENTRIES,
@@ -28,7 +28,7 @@ from decision_workbench.application.workspace_bundle_shared import (
     _file_digest,
     canonical_resource_bundle_root,
 )
-from decision_workbench.application.workspace_bundle_manifest import (
+from .manifest import (
     _quarantined_payload_references,
     _resource_bundle_digest,
     _row_payload_references,

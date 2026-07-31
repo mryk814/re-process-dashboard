@@ -13,8 +13,8 @@ from typing import cast
 import pytest
 from openpyxl import Workbook
 
-import decision_workbench.application.workspace_bundle_restore_plan as restore_plan_module
-import decision_workbench.application.workspace_bundle_service as restore_service_module
+import decision_workbench.application.workspace_bundle.restore_plan as restore_plan_module
+import decision_workbench.application.workspace_bundle.service as restore_service_module
 from decision_workbench.application.data_lifecycle import DataLifecycleService
 from decision_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
@@ -25,7 +25,7 @@ from decision_workbench.application.workspace_bundle import (
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
 )
-from decision_workbench.application.workspace_bundle_manifest import (
+from decision_workbench.application.workspace_bundle.manifest import (
     _database_evidence,
 )
 from decision_workbench.contracts.data_library_contracts import (

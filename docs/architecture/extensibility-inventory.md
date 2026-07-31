@@ -252,7 +252,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 | --- | --- |
 | 契約 | [contracts/chain_contracts.py](../../backend/src/decision_workbench/contracts/chain_contracts.py) `ChainDefinition` / `ChainRevision` / `StageContractSurface` |
 | stage種別 | 同 `:36` `Literal["task","deterministic_transform"]` — 2種のみ |
-| 実行 | [chain_execution_plan.py](../../backend/src/decision_workbench/application/chain_execution_plan.py) / [chain_stage_execution.py](../../backend/src/decision_workbench/application/chain_stage_execution.py) / [chain_execution_use_case.py](../../backend/src/decision_workbench/application/chain_execution_use_case.py) / [chain_snapshot_use_case.py](../../backend/src/decision_workbench/application/chain_snapshot_use_case.py) |
+| 実行 | [chain/plan.py](../../backend/src/decision_workbench/application/chain/plan.py) / [chain/stage_execution.py](../../backend/src/decision_workbench/application/chain/stage_execution.py) / [chain/execution.py](../../backend/src/decision_workbench/application/chain/execution.py) / [chain/snapshot.py](../../backend/src/decision_workbench/application/chain/snapshot.py) |
 | 不確かさ伝播 | [application/chain_uncertainty.py](../../backend/src/decision_workbench/application/chain_uncertainty.py)（417行） |
 | 評価 | [application/chain_evaluation.py](../../backend/src/decision_workbench/application/chain_evaluation.py)、[modeling/chain_evaluation_builder.py:49](../../backend/src/decision_workbench/modeling/chain_evaluation_builder.py#L49) |
 | bootstrap | [persistence/welding_chain_bootstrap.py:31](../../backend/src/decision_workbench/persistence/welding_chain_bootstrap.py#L31) |

@@ -18,15 +18,15 @@ from decision_workbench.persistence.sqlite_connection import (
 from decision_workbench.persistence.row_payload_store import (
     RowPayloadStore,
 )
-from decision_workbench.application.workspace_bundle_shared import (
+from .shared import (
     WorkspaceBundleError,
     _file_digest,
 )
-from decision_workbench.application.workspace_bundle_manifest import (
+from .manifest import (
     _resource_bundle_digest,
     _row_payload_references,
 )
-from decision_workbench.application.workspace_bundle_restore_plan import (
+from .restore_plan import (
     _final_resource_path,
     _staged_resource_root,
     _write_state,

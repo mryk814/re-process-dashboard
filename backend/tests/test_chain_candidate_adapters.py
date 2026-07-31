@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from decision_workbench.application import (
-    chain_execution_plan,
-    chain_snapshot_use_case,
+from decision_workbench.application.chain import (
+    plan as chain_execution_plan,
+    snapshot as chain_snapshot_use_case,
 )
 from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
@@ -45,10 +45,10 @@ from decision_workbench.contracts.candidate_project_contracts import (
 
 DIGEST = "sha256:" + "0" * 64
 CORE_MODULES = (
-    "backend/src/decision_workbench/application/chain_execution_plan.py",
-    "backend/src/decision_workbench/application/chain_execution_use_case.py",
-    "backend/src/decision_workbench/application/chain_snapshot_use_case.py",
-    "backend/src/decision_workbench/application/chain_stage_execution.py",
+    "backend/src/decision_workbench/application/chain/plan.py",
+    "backend/src/decision_workbench/application/chain/execution.py",
+    "backend/src/decision_workbench/application/chain/snapshot.py",
+    "backend/src/decision_workbench/application/chain/stage_execution.py",
     "backend/src/decision_workbench/application/chain_uncertainty.py",
 )
 # 溶接／疎配合固有の語彙。Chain Coreに現れてはならない。
