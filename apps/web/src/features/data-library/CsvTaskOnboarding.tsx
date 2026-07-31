@@ -9,6 +9,14 @@ const range = (value: string) => {
   return Number.isFinite(min) && Number.isFinite(max) ? [min, max] : undefined;
 };
 
+const errorMessage = (value: unknown, fallback: string) => {
+  if (typeof value !== "object" || value === null) return fallback;
+  const detail = Reflect.get(value, "detail");
+  if (typeof detail === "string" && detail) return detail;
+  const message = Reflect.get(value, "message");
+  return typeof message === "string" && message ? message : fallback;
+};
+
 export type PreparedCsvProjectBinding = {
   datasetViewId: string;
   taskId: string;
@@ -31,7 +39,7 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
     const form = new FormData(); form.append("file", file);
     const response = await apiClient.POST("/api/data-library/csv-onboarding/inspect", { body: form as never, parseAs: "json" });
     setLoading(false);
-    if (response.error) { setError(response.error.message ?? "CSVを確認できませんでした。"); return; }
+    if (response.error) { setError(errorMessage(response.error, "CSVを確認できませんでした。")); return; }
     const data = response.data as unknown as { columns: Column[]; rows: number; relations: number; notice: string };
     setColumns(data.columns);
     setFields(data.columns.map((column) => ({ column: column.name, role: "", key: column.name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase(), label: column.name, unit: "", goal_direction: "at_least", allowed_range: "", default_range: "", training_range: "", plausible_range: "", display_range: "" })));
@@ -54,7 +62,7 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
     form.append("fields_json", JSON.stringify(payload)); form.append("grain_confirmation", "one-row-one-observation"); form.append("relation_confirmation", "no-relations");
     const response = await apiClient.POST("/api/data-library/csv-onboarding/prepare", { body: form as never, parseAs: "json" });
     setLoading(false);
-    if (response.error) { setError(response.error.message ?? "新しいTaskを準備できませんでした。"); return; }
+    if (response.error) { setError(errorMessage(response.error, "新しいTaskを準備できませんでした。")); return; }
     const data = response.data as unknown as { state: string; unresolved?: string[]; dataset_view_revision_id?: string; task_id?: string; model_package_ref_id?: string };
     if (data.state !== "ready" || !data.dataset_view_revision_id || !data.task_id || !data.model_package_ref_id) { setError(`未解決: ${(data.unresolved ?? []).join(" / ")}`); return; }
     setMessage(`${data.task_id}を登録・検証・再読込しました。同じDataset / Task / Model PackageをProject作成へ渡します。`);
