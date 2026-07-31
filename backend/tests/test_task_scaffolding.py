@@ -12,11 +12,13 @@ import pytest
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from material_workbench.app import (
-    _prepare_app_resources,
+from material_workbench.app import create_app
+import material_workbench.bootstrap.contributions as contributions_module
+import material_workbench.bootstrap.startup as startup_module
+from material_workbench.bootstrap.resources import prepare_app_resources
+from material_workbench.bootstrap.startup import (
     _preserve_live_sqlite_generation,
     _restore_live_sqlite_generation,
-    create_app,
 )
 from material_workbench.application.catalog import CatalogUseCases
 from material_workbench.application.dataset_registration import (
@@ -37,6 +39,9 @@ from material_workbench.task_composition.catalog import (
 )
 from material_workbench.task_composition.builtin.annealed import ANNEALED_TASK_ID
 from material_workbench.tasks.task_registry import load_task_contracts
+from material_workbench.persistence.welding_chain_bootstrap import (
+    WeldingChainBootstrapError,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -325,13 +330,16 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
     database = tmp_path / "workspace.db"
     # The application starts before the new Task exists. The golden path must
     # not rely on restarting this process after scaffold or promotion.
-    resources = _prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
-    import material_workbench.app as app_module
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
 
     def unavailable_chain(**_kwargs):
-        raise app_module.WeldingChainBootstrapError("not part of this Task smoke")
+        raise WeldingChainBootstrapError("not part of this Task smoke")
 
-    monkeypatch.setattr(app_module, "bootstrap_welding_chain", unavailable_chain)
+    monkeypatch.setattr(
+        contributions_module,
+        "bootstrap_welding_chain",
+        unavailable_chain,
+    )
     app = create_app(
         db_path=database,
         data_library_path=tmp_path / "data-library",
@@ -397,13 +405,13 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             name="新しいデモデータ",
         )
         database_digest_before_failed_refresh = file_sha256(database)
-        real_bootstrap = app_module.bootstrap_workspace_catalog
+        real_bootstrap = startup_module.bootstrap_workspace_catalog
 
         def fail_staged_bootstrap(*_args, **_kwargs):
             raise RuntimeError("injected staged refresh failure")
 
         monkeypatch.setattr(
-            app_module,
+            startup_module,
             "bootstrap_workspace_catalog",
             fail_staged_bootstrap,
         )
@@ -415,7 +423,7 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
         assert task_definitions_after_failure.status_code == 200
         assert TASK_ID not in task_definitions_after_failure.json()
         monkeypatch.setattr(
-            app_module,
+            startup_module,
             "bootstrap_workspace_catalog",
             real_bootstrap,
         )
@@ -426,13 +434,13 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             )
         }
         database_digest_before_live_failure = file_sha256(database)
-        real_workspace_catalog = app_module.WorkspaceCatalog
+        real_workspace_catalog = startup_module.WorkspaceCatalog
 
         def fail_live_catalog(*_args, **_kwargs):
             raise RuntimeError("injected live context failure")
 
         monkeypatch.setattr(
-            app_module,
+            startup_module,
             "WorkspaceCatalog",
             fail_live_catalog,
         )
@@ -460,7 +468,7 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             )
         )
         monkeypatch.setattr(
-            app_module,
+            startup_module,
             "WorkspaceCatalog",
             real_workspace_catalog,
         )

@@ -15,7 +15,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.app import _prepare_app_resources
+from material_workbench.bootstrap.resources import prepare_app_resources
 from material_workbench.contracts.schemas import Candidate
 from material_workbench.task_composition.ports import BatchPredictionRuntime
 from material_workbench.tasks.task_registry import load_task_contracts
@@ -94,7 +94,7 @@ def main() -> int:
     if args.count < 1 or args.repeats < 1:
         parser.error("--count and --repeats must be positive")
 
-    resources = _prepare_app_resources()
+    resources = prepare_app_resources()
     results = []
     for task_id in args.tasks or DEFAULT_TASKS:
         runtime = resources.task_registry.runtime_for(task_id)

@@ -8,7 +8,8 @@ import sqlite3
 from fastapi.testclient import TestClient
 import pytest
 
-from material_workbench.app import _AppResources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import AppResources
 from material_workbench.contracts.schemas import ModelPackageRefCreateInput
 from material_workbench.application.dataset_registration import (
     register_dataset_records,
@@ -76,7 +77,7 @@ EXPECTED_MODEL_PACKAGES = {
 
 def test_startup_registers_runtime_resources_and_binds_projects(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
@@ -130,7 +131,7 @@ def test_startup_registers_runtime_resources_and_binds_projects(
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as first_client:
@@ -159,7 +160,7 @@ def test_bootstrap_is_idempotent_and_preserves_first_binding(
 
 def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
@@ -222,7 +223,7 @@ def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(
 
 def test_every_replaced_package_id_has_an_explicit_project_upgrade(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"
@@ -277,7 +278,7 @@ def test_every_replaced_package_id_has_an_explicit_project_upgrade(
 
 def test_bootstrap_archives_unreferenced_package_ref_after_locator_rebuild(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)):
@@ -316,7 +317,7 @@ def test_bootstrap_archives_unreferenced_package_ref_after_locator_rebuild(
 
 def test_bootstrap_reuses_digest_equivalent_legacy_profile_json(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     with TestClient(create_app(db_path=database, _resources=app_resources)) as client:
@@ -348,7 +349,7 @@ def test_bootstrap_reuses_digest_equivalent_legacy_profile_json(
 
 def test_bootstrap_migrates_only_the_replaced_three_output_mpea_binding(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch,
 ) -> None:
     database = tmp_path / "workbench.db"

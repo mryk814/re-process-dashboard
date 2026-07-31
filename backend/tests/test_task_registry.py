@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.app import _prepare_app_resources
+from material_workbench.bootstrap.resources import prepare_app_resources
 from material_workbench.contracts.task_contracts import (
     DataExplorerCapability,
     InputSpaceSurfaceDefinition,
@@ -54,7 +54,7 @@ def test_flank_wear_surfaces_use_independent_run_contexts() -> None:
 
 
 def test_app_resources_can_defer_tasks_without_skipping_their_contracts() -> None:
-    resources = _prepare_app_resources(task_ids=frozenset())
+    resources = prepare_app_resources(task_ids=frozenset())
     registry = resources.task_registry
 
     assert registry.task_ids == TASK_IDS

@@ -177,6 +177,86 @@ def test_builtin_family_factories_have_single_explicit_owners() -> None:
     assert owners == {name: [owner] for name, owner in expected.items()}
 
 
+def test_app_is_a_transport_composition_root() -> None:
+    path = PACKAGE_ROOT / "app.py"
+    forbidden = (
+        "material_workbench.application",
+        "material_workbench.modeling",
+        "material_workbench.persistence",
+        "material_workbench.task_composition",
+        "material_workbench.tasks",
+    )
+    assert sorted(
+        name
+        for name in _imports(path, top_level_only=True)
+        if name.startswith(forbidden)
+    ) == []
+
+
+def test_bootstrap_packages_have_one_way_dependencies() -> None:
+    bootstrap = PACKAGE_ROOT / "bootstrap"
+    forbidden_by_module = {
+        "resources.py": (
+            "material_workbench.app",
+            "material_workbench.api",
+            "material_workbench.application",
+            "material_workbench.bootstrap.contributions",
+            "material_workbench.bootstrap.startup",
+            "material_workbench.persistence",
+        ),
+        "contributions.py": (
+            "material_workbench.app",
+            "material_workbench.api",
+            "material_workbench.bootstrap.startup",
+        ),
+        "startup.py": (
+            "material_workbench.app",
+            "material_workbench.api",
+        ),
+    }
+    offenders = {
+        name: sorted(
+            imported
+            for imported in _imports(bootstrap / name)
+            if any(
+                imported == prefix or imported.startswith(f"{prefix}.")
+                for prefix in forbidden
+            )
+        )
+        for name, forbidden in forbidden_by_module.items()
+    }
+    assert {name: imports for name, imports in offenders.items() if imports} == {}
+
+
+def test_app_does_not_restore_removed_private_bootstrap_shims() -> None:
+    path = PACKAGE_ROOT / "app.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "_AppResources" not in names
+    assert "_prepare_app_resources" not in names
+    removed_imports = {
+        "material_workbench.app._AppResources",
+        "material_workbench.app._prepare_app_resources",
+    }
+    roots = (
+        PACKAGE_ROOT,
+        PACKAGE_ROOT.parents[1] / "scripts",
+        PACKAGE_ROOT.parents[1] / "tests",
+    )
+    offenders = {
+        path.relative_to(PACKAGE_ROOT.parents[2]).as_posix(): sorted(
+            removed_imports & _imports(path)
+        )
+        for root in roots
+        for path in root.rglob("*.py")
+    }
+    assert {path: imports for path, imports in offenders.items() if imports} == {}
+
+
 def test_tasks_and_data_do_not_own_application_transactions() -> None:
     forbidden_by_package = {
         "tasks": ("material_workbench.application", "material_workbench.persistence"),

@@ -8,8 +8,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-import material_workbench.app as app_module
-from material_workbench.app import _prepare_app_resources, create_app
+import material_workbench.bootstrap.resources as resources_module
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import prepare_app_resources
 from material_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -94,7 +95,7 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
     broken_package = tmp_path / "broken-package"
     shutil.copytree(selected, broken_package)
     (broken_package / "manifest.json").write_text("{}", encoding="utf-8")
-    degraded_resources = _prepare_app_resources(
+    degraded_resources = prepare_app_resources(
         package_roots={BROKEN_TASK_ID: broken_package}
     )
 
@@ -209,7 +210,7 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
 def test_source_failure_keeps_typed_diagnostics(tmp_path: Path) -> None:
     missing_source = tmp_path / "missing-source.xlsx"
 
-    resources = _prepare_app_resources(source_path=missing_source)
+    resources = prepare_app_resources(source_path=missing_source)
 
     availability = resources.task_registry.availability_for(
         "annealed-properties-v1"
@@ -224,7 +225,7 @@ def test_source_failure_keeps_typed_diagnostics(tmp_path: Path) -> None:
 def test_runtime_factory_failure_keeps_package_diagnostics(
     monkeypatch,
 ) -> None:
-    modules = dict(app_module.registered_task_modules())
+    modules = dict(resources_module.registered_task_modules())
 
     def fail_runtime(_data, _package):
         raise ValueError("runtime bootstrap failed")
@@ -233,9 +234,13 @@ def test_runtime_factory_failure_keeps_package_diagnostics(
         modules[BROKEN_TASK_ID],
         runtime_factory=fail_runtime,
     )
-    monkeypatch.setattr(app_module, "registered_task_modules", lambda: modules)
+    monkeypatch.setattr(
+        resources_module,
+        "registered_task_modules",
+        lambda: modules,
+    )
 
-    resources = _prepare_app_resources()
+    resources = prepare_app_resources()
     availability = resources.task_registry.availability_for(BROKEN_TASK_ID)
     active_package = json.loads(
         (ROOT / "models" / "active-packages.json").read_text(encoding="utf-8")

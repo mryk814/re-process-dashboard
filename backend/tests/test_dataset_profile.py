@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import material_workbench.bootstrap.resources as resources_module
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
@@ -823,7 +824,11 @@ def test_invalid_workbook_disables_affected_tasks_before_their_runtime_initializ
         else module
         for task_id, module in registered_task_modules().items()
     }
-    monkeypatch.setattr("material_workbench.app.registered_task_modules", lambda: guarded_modules)
+    monkeypatch.setattr(
+        resources_module,
+        "registered_task_modules",
+        lambda: guarded_modules,
+    )
     app = create_app(source, database)
     with TestClient(app) as client:
         health = client.get("/api/health").json()

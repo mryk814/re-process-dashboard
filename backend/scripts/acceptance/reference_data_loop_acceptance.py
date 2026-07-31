@@ -19,7 +19,11 @@ if __package__ in {None, ""}:
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import _AppResources, _prepare_app_resources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import (
+    AppResources,
+    prepare_app_resources,
+)
 from material_workbench.application.training_snapshot_adapter import (
     BATTERY_MATERIALIZATION_ADAPTER_VERSION,
     BATTERY_SOURCE_ADAPTER_ID,
@@ -262,7 +266,7 @@ def _build_and_register(
     *,
     workspace: Path,
     database: Path,
-    resources: _AppResources,
+    resources: AppResources,
     lifecycle: dict[str, Any],
 ) -> dict[str, Any]:
     snapshot = lifecycle["training"]
@@ -630,7 +634,7 @@ def _write_report(path: Path, report: dict[str, Any]) -> None:
 def run_reference_data_loop(
     workspace: Path,
     *,
-    resources: _AppResources | None = None,
+    resources: AppResources | None = None,
 ) -> dict[str, Any]:
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
@@ -638,7 +642,7 @@ def run_reference_data_loop(
     available_packages = ensure_available_packages_config(model_store)
     source_before = _sha256(SOURCE)
     database = workspace / "workbench.db"
-    prepared = resources or _prepare_app_resources()
+    prepared = resources or prepare_app_resources()
 
     # First process lifetime: acquire, curate, approve and freeze training rows.
     with TestClient(

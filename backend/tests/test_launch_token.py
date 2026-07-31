@@ -6,10 +6,11 @@ import subprocess
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import _AppResources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import AppResources
 
 
-def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, app_resources: _AppResources) -> None:
+def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, app_resources: AppResources) -> None:
     monkeypatch.setenv("WORKBENCH_LAUNCH_TOKEN", "test-launch-token")
     app = create_app(db_path=tmp_path / "workbench.db", _resources=app_resources)
 
@@ -49,7 +50,7 @@ def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, a
 
 
 def test_without_launch_token_only_non_browser_and_loopback_origins_are_allowed(
-    monkeypatch, tmp_path, app_resources: _AppResources
+    monkeypatch, tmp_path, app_resources: AppResources
 ) -> None:
     monkeypatch.delenv("WORKBENCH_LAUNCH_TOKEN", raising=False)
     with TestClient(create_app(db_path=tmp_path / "workbench.db", _resources=app_resources)) as client:
@@ -207,7 +208,7 @@ def test_workspace_seed_refuses_environment_selected_workspace(
 
 def test_dev_launcher_preflight_stops_before_server_on_catalog_conflict(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     root = Path(__file__).resolve().parents[2]
     database = tmp_path / "conflict.db"
