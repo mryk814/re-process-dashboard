@@ -20,6 +20,7 @@ from material_workbench.data.profiles.loading import (
     load_dataset_profile,
     materialize_dataset_profile_document,
 )
+from material_workbench.data.profiles.requirements import task_data_requirements
 from material_workbench.data.profiles.schema import (
     DatasetProfileError,
     source_units_for,
@@ -189,7 +190,11 @@ def _add_column_requirement(
     current["canonical_unit"] = current["canonical_unit"] or canonical_unit
 
 
-def _profile_column_requirements(document: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
+def _profile_column_requirements(
+    document: dict[str, Any],
+    *,
+    required_relation_entity_types: frozenset[str],
+) -> dict[tuple[str, str], dict[str, Any]]:
     shared = dict(document.get("shared", {}))
     aliases = {
         str(role): {str(key): str(value) for key, value in dict(values).items()}
@@ -229,7 +234,12 @@ def _profile_column_requirements(document: dict[str, Any]) -> dict[tuple[str, st
     relation_role = str(relation.get("role", ""))
     for join in relation.get("joins", []):
         names = [str(join.get("column", "")), *[str(item) for item in join.get("alternate_columns", [])]]
-        add(relation_role, names, "relation_join")
+        add(
+            relation_role,
+            names,
+            "relation_join",
+            required=str(join.get("entity_type", "")) in required_relation_entity_types,
+        )
     for policy in shared.get("eligibility", []):
         role = str(policy.get("role", ""))
         name = str(policy.get("column", ""))
@@ -324,6 +334,7 @@ def create_source_binding_draft(
     document = materialize_dataset_profile_document(base_profile_path)
     if document.get("schema_version") != _PROFILE_SCHEMA_VERSION:
         return None
+    requirements = task_data_requirements(load_dataset_profile(base_profile_path))
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:
         inventory: dict[str, list[str]] = {}
@@ -359,7 +370,10 @@ def create_source_binding_draft(
             "candidates": candidates,
         })
 
-    for requirement in _profile_column_requirements(document).values():
+    for requirement in _profile_column_requirements(
+        document,
+        required_relation_entity_types=requirements.relation_entity_types,
+    ).values():
         role = str(requirement["role"])
         sheet_name = selected_sheets.get(role)
         available = inventory.get(sheet_name or "", [])

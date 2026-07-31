@@ -339,6 +339,7 @@ export function ProfileWorkbenchPage({
       <div role="cell" className="profile-binding-target">
         <span>{slot.role} · {slot.binding_type === "sheet" ? "シート役割" : bindingKindLabels[slot.semantic_kind]}</span>
         <strong>{slot.binding_type === "sheet" ? slot.expected_source_name : slot.canonical_name}</strong>
+        {!slot.required && <small>補助データ · 未対応でも登録可能</small>}
         {slot.canonical_unit && <small>Excel側単位 → {slot.canonical_unit}</small>}
       </div>
       <span className="profile-binding-arrow" aria-hidden="true">←</span>

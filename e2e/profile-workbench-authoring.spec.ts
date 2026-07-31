@@ -21,6 +21,7 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   await expect(editor).toBeVisible();
   await expect(editor).toContainText("Taskとrelation構造はBase Profileのまま");
   await expect(editor).toContainText("relation");
+  await expect(editor).toContainText("補助データ · 未対応でも登録可能");
   await expect(editor).toContainText("→");
   await editor.screenshot({ path: testInfo.outputPath("profile-binding-review.png") });
 

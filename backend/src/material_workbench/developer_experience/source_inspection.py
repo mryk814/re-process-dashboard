@@ -11,6 +11,7 @@ from openpyxl import load_workbook
 from material_workbench.data.profile_workbench import validate_workbook_profile
 from material_workbench.data.profiles.canonicalization import canonicalize_workbook
 from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profiles.requirements import task_data_requirements
 from material_workbench.data.profiles.schema import DatasetInputProfile
 from material_workbench.developer_experience.commands import (
     developer_command as command,
@@ -50,6 +51,7 @@ def _profile_columns(profile: DatasetInputProfile) -> dict[str, set[str]]:
     columns: dict[str, set[str]] = defaultdict(set)
     optional_roles = set(profile.shared.optional_roles)
     optional_technical = set(profile.shared.optional_technical_fields)
+    task_requirements = task_data_requirements(profile)
 
     def add(role: str, values: Iterable[str | None]) -> None:
         if role in optional_roles:
@@ -60,7 +62,8 @@ def _profile_columns(profile: DatasetInputProfile) -> dict[str, set[str]]:
     for entity in profile.shared.entities:
         add(entity.role, (entity.key,))
     for join in profile.shared.relation.joins:
-        add(profile.shared.relation.role, join.source_columns)
+        if task_requirements.requires_relation(join):
+            add(profile.shared.relation.role, join.source_columns)
     for policy in profile.shared.eligibility:
         add(policy.role, (policy.column,))
     for technical in profile.shared.technical:

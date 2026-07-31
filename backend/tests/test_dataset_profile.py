@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from material_workbench.app import create_app
+from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.application.material_lineage_candidates import (
     candidate_from_lineage,
     lineage_candidate_options,
@@ -20,14 +21,22 @@ from material_workbench.data.importer import (
     detect_dataset_profile_path,
     load_workbook_data,
 )
+from material_workbench.data.profile_workbench import (
+    create_source_binding_draft,
+    validate_workbook_profile,
+)
 from material_workbench.data.profiles.canonicalization import canonicalize_workbook
 from material_workbench.data.profiles.loading import (
     load_dataset_profile,
     load_task_definitions,
     materialize_dataset_profile_document,
 )
+from material_workbench.data.profiles.requirements import task_data_requirements
 from material_workbench.data.profiles.schema import DatasetProfileError
 from material_workbench.data.profiles.validation import preflight_workbook
+from material_workbench.developer_experience.source_inspection import (
+    inspect_source_against_profiles,
+)
 from material_workbench.modeling.feature_pipeline import (
     build_feature_bundle,
 )
@@ -45,6 +54,7 @@ TUTORIAL_SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xls
 PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 SOURCE = TUTORIAL_SOURCE
 PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-tutorial-base.json"
+PROCESS_PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-process-v1.json"
 FLANK_WEAR_PROFILE = ROOT / "backend" / "src" / "material_workbench" / "data" / "dataset-input-profile-flank-wear-v1.json"
 FLANK_WEAR_SOURCE = ROOT / "data" / "source" / "cutting_tool_flank_wear_synthetic_dataset.xlsx"
 
@@ -255,6 +265,162 @@ def test_preflight_aggregates_duplicate_and_missing_headers() -> None:
     assert any("missing required column '均熱温度[℃]'" in error for error in caught.value.errors)
 
 
+def test_task_unused_relation_columns_do_not_block_registration(
+    tmp_path: Path,
+) -> None:
+    profile = load_dataset_profile(PROCESS_PROFILE)
+    requirements = task_data_requirements(profile)
+    required_entity_types = {
+        join.entity_type
+        for join in profile.shared.relation.joins
+        if requirements.requires_relation(join)
+    }
+    optional_joins = [
+        join
+        for join in profile.shared.relation.joins
+        if not requirements.requires_relation(join)
+    ]
+    assert {join.entity_type for join in optional_joins} == {
+        "anneal_microstructure",
+        "hot_microstructure",
+    }
+
+    workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
+    baseline_source = tmp_path / "baseline.xlsx"
+    workbook.save(baseline_source)
+    relation = workbook[profile.sheet_for_role(profile.shared.relation.role)]
+    headers = [cell.value for cell in relation[1]]
+    for join in optional_joins:
+        column = next(name for name in join.source_columns if name in headers)
+        relation.cell(row=1, column=headers.index(column) + 1, value=f"unmapped-{join.entity_type}")
+    source = tmp_path / "unused-relations-unmapped.xlsx"
+    workbook.save(source)
+    workbook.close()
+
+    baseline_workbook = load_workbook(baseline_source, read_only=True, data_only=True)
+    try:
+        baseline = canonicalize_workbook(baseline_workbook, profile)
+    finally:
+        baseline_workbook.close()
+    modified = load_workbook(source, read_only=True, data_only=True)
+    try:
+        canonical = canonicalize_workbook(modified, profile)
+    finally:
+        modified.close()
+    assert canonical.entities == baseline.entities
+    assert canonical.observations == baseline.observations
+    assert canonical.heat_series == baseline.heat_series
+    assert [
+        {
+            entity_type: identity
+            for entity_type, identity in relation_row.items()
+            if entity_type in required_entity_types
+        }
+        for relation_row in canonical.relations
+        if required_entity_types & relation_row.keys()
+    ] == [
+        {
+            entity_type: identity
+            for entity_type, identity in relation_row.items()
+            if entity_type in required_entity_types
+        }
+        for relation_row in baseline.relations
+        if required_entity_types & relation_row.keys()
+    ]
+    assert all(
+        join.entity_type not in relation_row
+        for join in optional_joins
+        for relation_row in canonical.relations
+    )
+
+    draft = create_source_binding_draft(source, PROCESS_PROFILE)
+    assert draft is not None
+    assert draft["complete"] is True
+    optional_slots = {
+        slot["canonical_name"]: slot
+        for slot in draft["slots"]
+        if slot["semantic_kind"] == "relation_join" and not slot["required"]
+    }
+    assert {join.column for join in optional_joins} <= set(optional_slots)
+    assert all(
+        optional_slots[join.column]["state"] != "confirmed"
+        for join in optional_joins
+    )
+
+    inspection = inspect_source_against_profiles(
+        source,
+        profile_path=PROCESS_PROFILE,
+    )
+    selected = next(
+        candidate
+        for candidate in inspection.candidates
+        if Path(candidate.profile_path) == PROCESS_PROFILE.resolve()
+    )
+    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+    missing_relation_columns = set(selected.missing_columns.get(relation_sheet, []))
+    assert not ({join.column for join in optional_joins} & missing_relation_columns)
+    assert selected.validation_error is None
+
+    report = validate_workbook_profile(source, PROCESS_PROFILE)
+    assert report["registration_ready"] is True
+    registered = register_managed_dataset(
+        database=tmp_path / "workspace.db",
+        source=source,
+        library_root=tmp_path / "library",
+        profile_path=PROCESS_PROFILE,
+        name="unused relation columns",
+    )
+    assert registered.profile_id == profile.profile_id
+
+
+def test_task_required_relation_column_still_blocks_registration(
+    tmp_path: Path,
+) -> None:
+    profile = load_dataset_profile(PROCESS_PROFILE)
+    requirements = task_data_requirements(profile)
+    required_join = next(
+        join
+        for join in profile.shared.relation.joins
+        if requirements.requires_relation(join)
+    )
+    workbook = load_workbook(PROCESS_SOURCE, read_only=False, data_only=True)
+    relation = workbook[profile.sheet_for_role(profile.shared.relation.role)]
+    headers = [cell.value for cell in relation[1]]
+    column = next(name for name in required_join.source_columns if name in headers)
+    relation.cell(row=1, column=headers.index(column) + 1, value="required-relation-unmapped")
+    source = tmp_path / "required-relation-unmapped.xlsx"
+    workbook.save(source)
+
+    with pytest.raises(DatasetProfileError) as caught:
+        preflight_workbook(workbook, profile)
+    workbook.close()
+
+    assert any(required_join.path in error for error in caught.value.errors)
+    draft = create_source_binding_draft(source, PROCESS_PROFILE)
+    assert draft is not None
+    required_slot = next(
+        slot
+        for slot in draft["slots"]
+        if slot["semantic_kind"] == "relation_join"
+        and slot["canonical_name"] == required_join.column
+    )
+    assert required_slot["required"] is True
+    assert required_slot["state"] != "confirmed"
+    assert draft["complete"] is False
+
+    inspection = inspect_source_against_profiles(
+        source,
+        profile_path=PROCESS_PROFILE,
+    )
+    selected = next(
+        candidate
+        for candidate in inspection.candidates
+        if Path(candidate.profile_path) == PROCESS_PROFILE.resolve()
+    )
+    relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
+    assert required_join.column in selected.missing_columns[relation_sheet]
+
+
 def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(tmp_path: Path) -> None:
     baseline = load_workbook_data(SOURCE)
     workbook = load_workbook(SOURCE, read_only=False, data_only=True)
@@ -281,7 +447,6 @@ def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(
     def representative_vector(data) -> np.ndarray:
         parent = "AN-01"
         process = data.anneal_features[parent]
-        observation = next(row for row in data.observations if row["parent_key"] == parent)
         candidate = CandidateInput(
             name="dataset-profile-golden",
             inputs={

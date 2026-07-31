@@ -79,9 +79,12 @@ npm run dev
 
 提案された対応は自動確定されません。
 シート、キー、値、単位、relation roleを確認して選んだものだけがProfileへ保存されます。
+対応するPrediction Taskが入力、実測、親解決に使うrelationだけが必須です。
+Taskが使わない補助entityのrelationは、対応できればlineageへ残しますが、未対応でもDataset登録を止めません。
 列名に`[K]`や`[MPa]`のような単位があれば画面が検出し、canonical unitへ変換できる組合せだけを受け付けます。
 列名に単位がなければ、対応表でExcel側の単位を明示的に選びます。
 未解決の必須項目がある間はDataset登録へ進まず、元Excelも書き換えません。
+「補助データ · 未対応でも登録可能」と表示される項目は必須項目に含まれません。
 保存先はリポジトリ外の`%LOCALAPPDATA%\Material Decision Workbench\profiles`で、
 `WORKBENCH_PROFILE_STORE_PATH`を設定すると変更できます。
 画面の「JSONを出力」は、継承を解決したstandalone Profileを製品へ採用する開発者向け経路です。
