@@ -237,4 +237,5 @@ ANNEALED_TASK_MODULE = TaskModule(
         distribution="quickstart",
     ),
     response_curve=_annealed_response_curve,
+    default_data_projection=True,
 )

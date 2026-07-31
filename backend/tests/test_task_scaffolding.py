@@ -521,6 +521,10 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
         )
         assert refreshed.json()["added_model_package_ids"]
         assert refreshed.json()["warnings"] == []
+        assert app.state.data is app.state.runtime_context.data
+        assert app.state.data is app.state.task_registry.runtime_for(
+            ANNEALED_TASK_ID
+        ).data
         assert not list(
             database.parent.glob(
                 f".{database.name}.task-refresh-rollback-*.db*"

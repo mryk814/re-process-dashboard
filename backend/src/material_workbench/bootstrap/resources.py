@@ -40,6 +40,7 @@ class AppResources:
 
     modules: Mapping[str, TaskModule]
     data_by_task: Mapping[str, Any]
+    default_data: Any | None
     runtimes: Mapping[str, PredictionRuntime]
     task_registry: TaskRegistry
 
@@ -76,6 +77,33 @@ def _task_unavailable(
     )
 
 
+def _default_data_task_id(modules: Mapping[str, TaskModule]) -> str:
+    """Return the one Task that supplies the generic default data projection.
+
+    Task-scoped consumers must use ``TaskRegistry``.  This projection remains
+    only for the generic runtime context and diagnostics that predate that
+    split, so a catalog-order-dependent selection is never acceptable.
+    """
+
+    selected = [
+        task_id
+        for task_id, module in modules.items()
+        if module.default_data_projection
+    ]
+    if not selected:
+        raise ValueError(
+            "exactly one TaskModule must declare default_data_projection; "
+            "none declared"
+        )
+    if len(selected) > 1:
+        raise ValueError(
+            "exactly one TaskModule must declare default_data_projection; "
+            "multiple declared: "
+            + ", ".join(sorted(selected))
+        )
+    return selected[0]
+
+
 def prepare_app_resources(
     *,
     source_overrides: Mapping[str, str | Path] | None = None,
@@ -91,6 +119,7 @@ def prepare_app_resources(
     injected = dict(package_roots or {})
     injected_sources = dict(source_overrides or {})
     modules = dict(registered_task_modules())
+    default_data_task_id = _default_data_task_id(modules)
     unknown_source_tasks = set(injected_sources) - set(modules)
     if unknown_source_tasks:
         raise ValueError(
@@ -202,9 +231,11 @@ def prepare_app_resources(
         unavailable=unavailable,
         degrade_invalid_runtimes=True,
     )
+    default_data = data_by_task.get(default_data_task_id)
     return AppResources(
         modules=MappingProxyType(modules),
         data_by_task=MappingProxyType(data_by_task),
+        default_data=default_data,
         runtimes=MappingProxyType(runtimes),
         task_registry=task_registry,
     )

@@ -247,7 +247,7 @@ def create_lifespan(
             )
         except Exception as exc:
             _raise_startup_error("resources", "データ・Model Package", exc)
-        app.state.data = next(iter(prepared.data_by_task.values()), None)
+        app.state.data = prepared.default_data
         app.state.task_registry = prepared.task_registry
         app.state.ai_review_provider = ai_review_provider
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
@@ -374,9 +374,8 @@ def create_lifespan(
                         app.state.runtime_context.contribution_runtimes,
                         promote_deferred=False,
                     )
-                    data = next(iter(complete.data_by_task.values()), None)
                     return RuntimeContext(
-                        data=data,
+                        data=complete.default_data,
                         task_registry=complete.task_registry,
                         workspace_catalog=catalog,
                         project_runtime_resolver=resolver,
@@ -518,7 +517,7 @@ def create_lifespan(
                             promote_deferred=True,
                         )
                         return RuntimeContext(
-                            data=next(iter(complete.data_by_task.values()), None),
+                            data=complete.default_data,
                             task_registry=complete.task_registry,
                             workspace_catalog=catalog,
                             project_runtime_resolver=resolver,
