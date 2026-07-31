@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from sidecar import configure_standard_streams
 from material_workbench.task_composition.catalog import registered_task_modules
 
@@ -255,6 +257,10 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     assert "Workspace、`data/source/`、`models/packages/`" in root_readme
 
 
+@pytest.mark.skipif(
+    shutil.which("powershell") is None,
+    reason="PowerShell cleanup execution is covered on Windows",
+)
 def test_generated_cleanup_dry_run_and_apply_only_remove_bounded_targets(
     tmp_path: Path,
 ) -> None:
