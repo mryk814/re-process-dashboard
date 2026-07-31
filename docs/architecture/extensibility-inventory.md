@@ -276,9 +276,9 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 - `TaskModule.default_source`（リポジトリ相対パス）
 - `TaskModule.source_env`（環境変数による上書き）
-- [bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py) の `source_kind == "primary"` / `"flank_wear"` の2つの明示分岐
+- [bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py) のTask IDをキーにした `source_overrides`
 
-`source_kind` はloaderの選択には使われず、`data_by_source` のキー共有（[bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py)）と `app.state.data` の既定選択（[bootstrap/startup.py](../../backend/src/material_workbench/bootstrap/startup.py) の `get("primary")`）にのみ使われます。定期取得・スナップショット・外部接続の仕組みはありません（計画P3のまま）。
+`source_kind` は診断時のresource identityにのみ使われ、source上書きやloaded dataの共有には使いません。読込結果はTask IDごとの `data_by_task` へ保持します。定期取得・スナップショット・外部接続の仕組みはありません（計画P3のまま）。
 
 ## 2. Profile familyごとの共通出力差分
 

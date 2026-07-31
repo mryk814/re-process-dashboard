@@ -1047,7 +1047,13 @@ def test_invalid_workbook_disables_affected_tasks_before_their_runtime_initializ
         "registered_task_modules",
         lambda: guarded_modules,
     )
-    app = create_app(source, database)
+    app = create_app(
+        database,
+        source_overrides={
+            "annealed-properties-v1": source,
+            "hot-rolled-properties-v1": source,
+        },
+    )
     with TestClient(app) as client:
         health = client.get("/api/health").json()
         assert health["degraded"] is True

@@ -9,12 +9,11 @@ from fastapi.testclient import TestClient
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import prepare_app_resources
 from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.data.profile_family_registry import supported_task_ids
-from material_workbench.persistence.store import Store
 import material_workbench.modeling.observation_regression as observation_module
 import material_workbench.modeling.tabular.runtime as tabular_module
-
+from material_workbench.persistence.store import Store
+from material_workbench.tasks.task_registry import load_task_contracts
 
 EXTERNAL_TASKS = (
     "heat-treatment-tradeoff-v1",
@@ -52,32 +51,32 @@ def _candidate(task_id: str) -> Candidate:
 
 def test_external_tasks_are_registered_with_their_source_rows(resources) -> None:
     assert set(EXTERNAL_TASKS).issubset(resources.task_registry.task_ids)
-    assert len(resources.data_by_source["external_heat_treatment"].observations) == 2400
-    assert len(resources.data_by_source["external_concrete"].observations) == 1600
-    assert len(resources.data_by_source["external_wear_curve"].observations) == 14640
-    assert len(resources.data_by_source["external_battery_degradation"].observations) == 3131
-    secom_rows = resources.data_by_source["external_secom"].observations
+    assert len(resources.data_by_task["heat-treatment-tradeoff-v1"].observations) == 2400
+    assert len(resources.data_by_task["concrete-strength-v1"].observations) == 1600
+    assert len(resources.data_by_task["wear-curve-v1"].observations) == 14640
+    assert len(resources.data_by_task["battery-degradation-v1"].observations) == 3131
+    secom_rows = resources.data_by_task["secom-yield-risk-v1"].observations
     assert len(secom_rows) == 1567
     assert sum(row["eligible"] for row in secom_rows) == 1468
-    assert len(resources.data_by_source["external_mpea_literature"].observations) == 396
+    assert len(resources.data_by_task["mpea-literature-tys-v1"].observations) == 396
     assert "mpea-literature-tys-v1" in resources.task_registry.task_ids
     assert "mpea-room-tensile-v1" in resources.task_registry.task_ids
     assert "mpea-hardness-process-v1" in resources.task_registry.task_ids
-    hardness_rows = resources.data_by_source["mpea-hardness-process-v1"].observations
+    hardness_rows = resources.data_by_task["mpea-hardness-process-v1"].observations
     assert sum(row["eligible"] and "HV" in row["outputs"] for row in hardness_rows) == 52
-    assert len({
-        row["parent_key"]
-        for row in hardness_rows
-        if row["eligible"] and "HV" in row["outputs"]
-    }) == 17
+    assert (
+        len({row["parent_key"] for row in hardness_rows if row["eligible"] and "HV" in row["outputs"]})
+        == 17
+    )
 
 
 def test_mpea_hardness_curation_keeps_only_explicit_hv_scalars(resources) -> None:
-    rows = resources.data_by_source["mpea-hardness-process-v1"].observations
+    rows = resources.data_by_task["mpea-hardness-process-v1"].observations
 
     def state(raw_value: str) -> dict[str, object]:
         row = next(
-            item for item in rows
+            item
+            for item in rows
             if item["run_context"]["curation"]["values"]["Hardness (HV)"]["raw"] == raw_value
         )
         return row["run_context"]["curation"]["target_status"]["HV"]
@@ -100,22 +99,25 @@ def test_mpea_similarity_uses_the_requested_measurement_cohort(resources) -> Non
 
 def test_mpea_screening_uses_fe_as_an_exact_balance_component(client) -> None:
     project = next(
-        item for item in client.get("/api/projects").json()
-        if item["task_id"] == "mpea-room-tensile-v1"
+        item for item in client.get("/api/projects").json() if item["task_id"] == "mpea-room-tensile-v1"
     )
     candidate = client.get(f"/api/projects/{project['id']}/candidates").json()[0]
-    response = client.post("/api/screening", params={"project_id": project["id"]}, json={
-        "purpose": "design_space_map",
-        "base_candidate_id": candidate["id"],
-        "base_inputs": candidate["inputs"],
-        "samples": 48,
-        "target": "TYS",
-        "proposal": {"support_policy": "allow_with_warning"},
-        "variables": {
-            "composition.Ni": {"mode": "range", "min": 20, "max": 30},
-            "composition.Co": {"mode": "range", "min": 20, "max": 30},
+    response = client.post(
+        "/api/screening",
+        params={"project_id": project["id"]},
+        json={
+            "purpose": "design_space_map",
+            "base_candidate_id": candidate["id"],
+            "base_inputs": candidate["inputs"],
+            "samples": 48,
+            "target": "TYS",
+            "proposal": {"support_policy": "allow_with_warning"},
+            "variables": {
+                "composition.Ni": {"mode": "range", "min": 20, "max": 30},
+                "composition.Co": {"mode": "range", "min": 20, "max": 30},
+            },
         },
-    })
+    )
     assert response.status_code == 201, response.text
     payload = response.json()
     assert payload["design_space"]["composition_constraints"][0]["balance_path"] == "composition.Fe"
@@ -127,19 +129,24 @@ def test_mpea_screening_uses_fe_as_an_exact_balance_component(client) -> None:
 
 def test_mpea_hardness_screening_uses_the_same_composition_balance(client) -> None:
     project = next(
-        item for item in client.get("/api/projects").json()
+        item
+        for item in client.get("/api/projects").json()
         if item["task_id"] == "mpea-hardness-process-v1"
     )
     candidate = client.get(f"/api/projects/{project['id']}/candidates").json()[0]
-    response = client.post("/api/screening", params={"project_id": project["id"]}, json={
-        "purpose": "design_space_map",
-        "base_candidate_id": candidate["id"],
-        "base_inputs": candidate["inputs"],
-        "samples": 48,
-        "target": "HV",
-        "proposal": {"support_policy": "allow_with_warning"},
-        "variables": {"composition.Ni": {"mode": "range", "min": 20, "max": 30}},
-    })
+    response = client.post(
+        "/api/screening",
+        params={"project_id": project["id"]},
+        json={
+            "purpose": "design_space_map",
+            "base_candidate_id": candidate["id"],
+            "base_inputs": candidate["inputs"],
+            "samples": 48,
+            "target": "HV",
+            "proposal": {"support_policy": "allow_with_warning"},
+            "variables": {"composition.Ni": {"mode": "range", "min": 20, "max": 30}},
+        },
+    )
     assert response.status_code == 201, response.text
     assert all(
         sum(point["candidate"]["inputs"]["composition"].values()) == pytest.approx(100, abs=0.01)
@@ -195,7 +202,9 @@ def test_concrete_age_curve_does_not_decrease(resources) -> None:
     assert values == sorted(values)
 
 
-def test_battery_curves_are_monotone_and_discharge_rate_changes_degradation(resources) -> None:
+def test_battery_curves_are_monotone_and_discharge_rate_changes_degradation(
+    resources,
+) -> None:
     runtime = resources.task_registry.runtime_for("battery-degradation-v1")
     candidate = _candidate("battery-degradation-v1")
     end_values: list[float] = []
@@ -243,9 +252,7 @@ def test_lightgbm_native_batch_preserves_order_and_scalar_semantics(
     batch = runtime.predict_batch(candidates)
     scalar = [runtime.predict(candidate) for candidate in candidates]
 
-    assert [item["candidate_id"] for item in batch] == [
-        candidate.id for candidate in candidates
-    ]
+    assert [item["candidate_id"] for item in batch] == [candidate.id for candidate in candidates]
     for batch_item, scalar_item in zip(batch, scalar, strict=True):
         assert batch_item["predictions"] == scalar_item["predictions"]
         assert batch_item["canonical_input"] == scalar_item["canonical_input"]
@@ -268,9 +275,7 @@ def test_runtime_predictions_do_not_reload_task_documents(
         raise AssertionError("Task document was reloaded during prediction")
 
     tabular = resources.task_registry.runtime_for("mpea-room-tensile-v1")
-    observation = resources.task_registry.runtime_for(
-        "welding-stage-c-properties-v1"
-    )
+    observation = resources.task_registry.runtime_for("welding-stage-c-properties-v1")
     monkeypatch.setattr(
         tabular_module,
         "load_task_definitions",
@@ -283,9 +288,7 @@ def test_runtime_predictions_do_not_reload_task_documents(
     )
 
     assert tabular.predict_core(_candidate("mpea-room-tensile-v1"))
-    assert observation.predict_core(
-        _candidate("welding-stage-c-properties-v1")
-    )
+    assert observation.predict_core(_candidate("welding-stage-c-properties-v1"))
 
 
 def test_secom_prediction_is_a_calibrated_binary_probability(resources) -> None:
@@ -337,14 +340,8 @@ def test_external_starters_are_installed_explicitly_in_an_existing_database(
         ("tabular-profile-secom-yield-v1.json", "secom-yield-risk-v1"),
     ),
 )
-def test_tabular_profile_exposes_its_task_to_project_creation(
-    profile_name: str, task_id: str
-) -> None:
-    profile_path = (
-        Path(__file__).resolve().parents[1]
-        / "src/material_workbench/data"
-        / profile_name
-    )
+def test_tabular_profile_exposes_its_task_to_project_creation(profile_name: str, task_id: str) -> None:
+    profile_path = Path(__file__).resolve().parents[1] / "src/material_workbench/data" / profile_name
     import json
 
     document = json.loads(profile_path.read_text(encoding="utf-8"))
@@ -354,9 +351,7 @@ def test_tabular_profile_exposes_its_task_to_project_creation(
 @pytest.mark.parametrize("task_id", EXTERNAL_TASKS)
 def test_external_dataset_and_package_can_create_a_project(client, task_id: str) -> None:
     options = client.get("/api/project-creation-options").json()
-    dataset = next(
-        item for item in options["datasets"] if task_id in item["supported_task_ids"]
-    )
+    dataset = next(item for item in options["datasets"] if task_id in item["supported_task_ids"])
     view_id = dataset["dataset_views"][0]["id"]
     package = next(
         item
@@ -365,12 +360,15 @@ def test_external_dataset_and_package_can_create_a_project(client, task_id: str)
         and item["manifest_json"]["provenance"]["training_data_id"]
         == f"sha256:{dataset['data_asset']['sha256']}"
     )
-    response = client.post("/api/projects", json={
-        "name": f"{task_id} project creation smoke",
-        "task_id": task_id,
-        "dataset_view_revision_id": view_id,
-        "model_package_ref_id": package["id"],
-    })
+    response = client.post(
+        "/api/projects",
+        json={
+            "name": f"{task_id} project creation smoke",
+            "task_id": task_id,
+            "dataset_view_revision_id": view_id,
+            "model_package_ref_id": package["id"],
+        },
+    )
     assert response.status_code == 201, response.text
     project_id = response.json()["id"]
     canonical = load_task_contracts()[task_id].canonical_candidate
@@ -417,20 +415,22 @@ def test_external_dataset_and_package_can_create_a_project(client, task_id: str)
         assert family["output_range"]["min"] < family["output_range"]["max"]
 
 
-def test_calce_battery_rows_are_real_measurements_without_synthetic_quality_flags(client) -> None:
+def test_calce_battery_rows_are_real_measurements_without_synthetic_quality_flags(
+    client,
+) -> None:
     response = client.get("/api/projects/battery-degradation-v1-default/quality")
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["detected_total"] == 0
     assert payload["detected_by_type"] == {}
-    candidates = client.get(
-        "/api/projects/battery-degradation-v1-default/candidates"
-    ).json()
+    candidates = client.get("/api/projects/battery-degradation-v1-default/candidates").json()
     assert len(candidates) == 3
     assert len({item["inputs"]["process"]["cycle_index"] for item in candidates}) == 1
 
 
-def test_response_contour_is_revision_bound_and_masks_extrapolated_cells(client) -> None:
+def test_response_contour_is_revision_bound_and_masks_extrapolated_cells(
+    client,
+) -> None:
     project_id = "battery-degradation-v1-default"
     candidate = client.get(f"/api/projects/{project_id}/candidates").json()[0]
     response = client.get(

@@ -126,13 +126,8 @@ def test_public_starter_portfolio_is_explicit_and_stays_small() -> None:
     }
 
 
-def test_shared_source_env_and_source_kind_agree_on_one_default_source() -> None:
-    """同じsource_env / source_kindを名乗るTaskは同じ既定sourceを指す。
-
-    ``app.py`` はsource_kindをキーにloaded dataを共有し（``data_by_source``）、
-    source_envで既定sourceを上書きする。同じキーに別ファイルが割り当てられていると、
-    どちらのTaskのデータが共有されるかが登録順に依存する。
-    """
+def test_shared_source_metadata_agrees_on_one_default_source() -> None:
+    """同じsource metadataを名乗るTaskは同じ既定sourceを指す。"""
 
     for attribute in ("source_env", "source_kind"):
         by_key: dict[str, set[str]] = defaultdict(set)

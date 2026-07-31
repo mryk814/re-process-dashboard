@@ -36,7 +36,12 @@ def isolated_personal_task_store(tmp_path_factory: pytest.TempPathFactory):
 @pytest.fixture(scope="session")
 def app_resources() -> AppResources:
     # Shared source/runtime objects are read-only by contract; tests isolate mutable DB/work-graph state.
-    return prepare_app_resources(SOURCE)
+    return prepare_app_resources(
+        source_overrides={
+            "annealed-properties-v1": SOURCE,
+            "hot-rolled-properties-v1": SOURCE,
+        }
+    )
 
 
 @pytest.fixture(scope="session")
