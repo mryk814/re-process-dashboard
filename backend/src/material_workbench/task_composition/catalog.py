@@ -5,10 +5,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
 
-from material_workbench.task_composition.builtin_tasks import (
+from material_workbench.task_composition.builtin.catalog import (
     BUILTIN_TASK_MODULES,
-    PRIMARY_DEFAULT_SOURCE,
 )
+from material_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE
 from material_workbench.task_composition.descriptors import TaskModule
 
 TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType(BUILTIN_TASK_MODULES)

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_SRC = REPOSITORY_ROOT / "backend" / "src"
@@ -23,9 +22,11 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     validate_active_package_task_set,
 )
 from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
-from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source  # noqa: E402
+from material_workbench.task_composition.catalog import (  # noqa: E402
+    registered_task_modules,
+    resolve_task_source,
+)
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
-
 
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"
 
@@ -87,7 +88,14 @@ def build_inventory() -> dict[str, Any]:
         "schema_version": "task-inventory/v2",
         "generated_from": [
             "backend/src/material_workbench/task_composition/catalog.py",
-            "backend/src/material_workbench/task_composition/builtin_tasks.py",
+            "backend/src/material_workbench/task_composition/builtin/catalog.py",
+            "backend/src/material_workbench/task_composition/builtin/shared.py",
+            "backend/src/material_workbench/task_composition/builtin/sources.py",
+            "backend/src/material_workbench/task_composition/builtin/annealed.py",
+            "backend/src/material_workbench/task_composition/builtin/hot_rolling.py",
+            "backend/src/material_workbench/task_composition/builtin/flank_wear.py",
+            "backend/src/material_workbench/task_composition/builtin/tabular.py",
+            "backend/src/material_workbench/task_composition/builtin/welding.py",
             "backend/src/material_workbench/tasks/task_definitions",
             "models/active-packages.json",
             "resolved dataset input profiles",

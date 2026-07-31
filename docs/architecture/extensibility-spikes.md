@@ -13,7 +13,7 @@
 > **履歴と現行構成:** ケースA〜Dの変更点マトリクスと初回実測欄に残る
 > `task_modules.py`、`TaskModule.model_builder`、module-level `TASK_MODULES` は、
 > #501以前の構成を記録した履歴名です。現在は
-> `task_composition/ports.py`、`descriptors.py`、`builtin_tasks.py`、`catalog.py`
+> `task_composition/ports.py`、`descriptors.py`、`builtin/`、`catalog.py`
 > に分割され、標準モデルは `TaskModule.standard_model_authoring` で宣言します。
 > 再現スクリプトは現行catalogを一時差し替える方式へ更新済みです。
 
@@ -134,7 +134,7 @@ Package構築が**登録の後**でしか動きません。順序が逆にでき
 これは安全側の設計（未登録Taskのartifactを作れない）でもあるため、**負債とは断定しません**。
 ただし「Packageを先に作って検証してから登録する」手順は取れないので、`add-prediction-task` Skillの手順順序と一致していることを確認しておく必要があります。
 
-**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin_tasks.py](../../backend/src/material_workbench/task_composition/builtin_tasks.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
+**予測が外れる可能性として挙げていた箇所の結果**: `_tabular_starter` の `model_family == "lightgbm_binary"` 分岐（現在は[builtin/tabular.py](../../backend/src/material_workbench/task_composition/builtin/tabular.py)）は、`ridge` を選んだため通りました。Profileの `model_family` で分岐しており `task_id` では分岐していないため、標準Taskの追加では問題になりません。
 
 ## 2. ケースB：複数sheet・複数観測family
 
@@ -580,7 +580,7 @@ A（標準表形式Task）          実行済み
      `TARGET_FAMILY` / `TARGET_FEATURES` / `FEATURE_DEFINITIONS` / `TEST_SOLUTIONS` /
      `OUTPUT_BOUNDS` を削除。`StageCRegressionRuntime` → `ObservationRegressionRuntime`
   3. builderに `declaration` 引数を追加（B-1）
-  4. Taskごとのdata-only宣言を `task_composition/builtin_tasks.py` へ集約。残るのはprofile path、
+  4. Taskごとのdata-only宣言を `task_composition/builtin/<family>.py` へ集約。残るのはprofile path、
      feature transform id/version、support policy id、output bounds のみ
 - **output boundsは意図的に宣言のまま残す**。TaskDefinitionの `plausibility_range` は
   表示・検証用であり、実測すると値が違う（TS: 0–2000 vs 0–上限なし）。

@@ -35,7 +35,7 @@ from material_workbench.task_composition.external_tasks import (
 from material_workbench.task_composition.catalog import (
     registered_task_modules,
 )
-from material_workbench.task_composition.builtin_tasks import ANNEALED_TASK_ID
+from material_workbench.task_composition.builtin.annealed import ANNEALED_TASK_ID
 from material_workbench.tasks.task_registry import load_task_contracts
 
 

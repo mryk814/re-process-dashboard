@@ -25,7 +25,7 @@ Prediction Taskの配線を変更するときは
 | 入力の意味を追加 | TaskDefinition、Profile、Feature Pipeline | 既存Package | 新契約、新Package |
 | 出力を追加 | TaskDefinition、観測mapping、Package、Runtime、UI | 旧Snapshot | 新契約、新Package |
 | モデル手法だけ変更 | builder、Package、必要ならadapter | Profile、TaskDefinition | 新Package |
-| 全く別の予測問題 | Task縦一式、`task_composition/builtin_tasks.py` | 既存Task | 新Task一式 |
+| 全く別の予測問題 | Task縦一式、`task_composition/builtin/<family>.py` | 既存Task | 新Task一式 |
 | 新しいCandidate Shape | candidate contract、persistence、diff／copy／snapshot、入力UI | 既存shape | 型付きshape一式 |
 | 新しいDecision Activity | Activity definition、parameter／result contract、service、UI | Task固有ID分岐 | 新Activity一式 |
 | 新しいChain | Chain Definition／Revision、binding、必要なdomain adapter | 再利用するTask | 新Chain Revisionと検証fixture |

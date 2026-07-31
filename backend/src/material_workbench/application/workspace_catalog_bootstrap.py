@@ -35,7 +35,10 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.persistence.chain_catalog_migration import (
     refresh_single_task_project_identities,
 )
-from material_workbench.task_composition.builtin_tasks import PRIMARY_DEFAULT_SOURCE, PROCESS_SOURCE
+from material_workbench.task_composition.builtin.sources import (
+    PRIMARY_DEFAULT_SOURCE,
+    PROCESS_SOURCE,
+)
 
 
 PROFILE_ROOT = Path(__file__).parent.parent / "data"

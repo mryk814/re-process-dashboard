@@ -48,7 +48,7 @@ from material_workbench.data.profile_document import (  # noqa: E402
     profile_task_ids,
 )
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
-from material_workbench.task_composition.builtin_tasks import PRIMARY_DEFAULT_SOURCE  # noqa: E402
+from material_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
 from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
 from material_workbench.developer_experience.task_scaffolding import (  # noqa: E402
     link_promoted_package,

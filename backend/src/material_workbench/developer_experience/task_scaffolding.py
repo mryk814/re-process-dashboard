@@ -242,7 +242,7 @@ def create_task_scaffold(
 ) -> TaskScaffoldResult:
     if _TASK_ID.fullmatch(task_id) is None:
         raise ValueError("task id must look like material-property-v1")
-    from material_workbench.task_composition.builtin_tasks import (
+    from material_workbench.task_composition.builtin.catalog import (
         BUILTIN_TASK_MODULES,
     )
 

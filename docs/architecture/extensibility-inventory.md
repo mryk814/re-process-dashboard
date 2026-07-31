@@ -28,7 +28,7 @@ P1-dで `stage_c_regression.py` → `observation_regression.py`、
 | 契約定義 | [contracts/task_contracts.py](../../backend/src/material_workbench/contracts/task_contracts.py) の `TaskDefinition` / `TaskContractFixture` |
 | 契約実体 | `backend/src/material_workbench/tasks/task_definitions/<task-id>.json`（13件） |
 | descriptor | [task_composition/descriptors.py](../../backend/src/material_workbench/task_composition/descriptors.py) `TaskModule` |
-| built-in composition | [task_composition/builtin_tasks.py](../../backend/src/material_workbench/task_composition/builtin_tasks.py) `BUILTIN_TASK_MODULES` |
+| built-in composition | [task_composition/builtin/catalog.py](../../backend/src/material_workbench/task_composition/builtin/catalog.py) がfamily moduleを収集 |
 | catalog | [task_composition/catalog.py](../../backend/src/material_workbench/task_composition/catalog.py) `registered_task_modules()` |
 | 集合検証 | [tasks/task_registry.py:91](../../backend/src/material_workbench/tasks/task_registry.py#L91) `TaskModule` / TaskDefinition / runtime / active packageの集合一致 |
 | loader | `TaskModule.data_loader`（6系統: workbook / flank_wear / tabular / stage_c / stage_b / —） |
@@ -45,7 +45,7 @@ P1-dで `stage_c_regression.py` → `observation_regression.py`、
 | id | 場所 | data-onlyか |
 | --- | --- | --- |
 | `task.contract_json` | `tasks/task_definitions/<task-id>.json` | data |
-| `task.module_entry` | `task_composition/builtin_tasks.py` の `BUILTIN_TASK_MODULES` | code（1 entry） |
+| `task.module_entry` | `task_composition/builtin/<family>.py` のTaskModule | code（1 entry） |
 | `task.active_package` | `models/active-packages.json` | data |
 | `task.package_artifact` | `models/packages/<package>/manifest.json` | data |
 | `task.default_source` | `TaskModule.default_source` が指す実ファイル | data |
@@ -64,7 +64,7 @@ Profile familyは現在4系統あり、**共通基底型を共有していませ
 | Observation Profile | [data/observation_profile.py:99](../../backend/src/material_workbench/data/observation_profile.py#L99) `ObservationDatasetProfile` | `observation-profile-welding-consumable-stage-c-v1.json` |
 | Stage B Workbook Profile | [data/stage_b_training.py:71](../../backend/src/material_workbench/data/stage_b_training.py#L71) `StageBWorkbookProfile` | `welding-stage-b-profile-v1.json` |
 
-Profileの選択は `TaskModule.data_loader` の中で `isinstance` により行われます（[task_composition/builtin_tasks.py:214](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L214), [:223](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L223), [:238](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L238)）。中央のProfile registryは存在せず、Tabular Profileのパスは [task_composition/builtin_tasks.py:37](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L37) の `_TABULAR_PROFILES` に固定されています。
+Profileの選択はfamily別の `TaskModule.data_loader` 内で行われます。中央のProfile registryは存在せず、Tabular Profileのパスは [task_composition/builtin/tabular.py](../../backend/src/material_workbench/task_composition/builtin/tabular.py) の `_TABULAR_PROFILES` に固定されています。
 
 **登録点**
 
@@ -72,7 +72,7 @@ Profileの選択は `TaskModule.data_loader` の中で `isinstance` により行
 | --- | --- |
 | `profile.document` | `backend/src/material_workbench/data/<profile>.json` |
 | `profile.loader_binding` | `TaskModule.data_loader`（family別の `isinstance` 分岐） |
-| `profile.tabular_path_map` | `task_composition/builtin_tasks.py` の `_TABULAR_PROFILES`（Tabular familyのみ） |
+| `profile.tabular_path_map` | `task_composition/builtin/tabular.py` の `_TABULAR_PROFILES`（Tabular familyのみ） |
 | `profile.workbench_registration` | Profile Workbench経由の登録（[data/profile_workbench.py](../../backend/src/material_workbench/data/profile_workbench.py)） |
 
 ### 1.3 Training View / データ記述子
@@ -266,7 +266,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 | 側面 | 正本 |
 | --- | --- |
 | capability | [contracts/task_contracts.py:453](../../backend/src/material_workbench/contracts/task_contracts.py#L453) `DataExplorerCapability(quality, lineage, candidate_creation)` |
-| 登録 | `TaskModule.data_explorer`（`_EXPLORER` / `_TABULAR_EXPLORER` の2種、[task_composition/builtin_tasks.py:501](../../backend/src/material_workbench/task_composition/builtin_tasks.py#L501)） |
+| 登録 | `TaskModule.data_explorer`（`EXPLORER` / `TABULAR_EXPLORER` の2種、[task_composition/builtin/shared.py](../../backend/src/material_workbench/task_composition/builtin/shared.py)） |
 | service | [application/data_exploration.py](../../backend/src/material_workbench/application/data_exploration.py) |
 | lineageの前提 | `lineage_neighborhood` / `lineage_node_detail` が `WorkbookData` 固有（[data/importer.py](../../backend/src/material_workbench/data/importer.py)）。そのため `lineage=True` はWorkbook familyのみ |
 
@@ -381,7 +381,7 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 | 領域 | 状態 |
 | --- | --- |
-| 標準表形式Taskの追加 | **実測済：data-onlyに近い**。既存ファイル変更2件（`task_composition/builtin_tasks.py` の `BUILTIN_TASK_MODULES` と `_TABULAR_PROFILES`、`models/active-packages.json`）、新規Python関数0件、API/UI分岐0件で、preview・response curve・類似観測・品質表示・学習データInspector・ロバストネス・範囲探索がすべて動作。loader / feature builder / training candidate / starterは `task_id` でパラメタ化済みのfactoryを再利用し、estimatorは `TaskModule.standard_model_authoring` のallow-listから選べる |
+| 標準表形式Taskの追加 | **実測済：data-onlyに近い**。既存ファイル変更2件（`task_composition/builtin/tabular.py` の `TABULAR_TASK_MODULES` と `_TABULAR_PROFILES`、`models/active-packages.json`）、新規Python関数0件、API/UI分岐0件で、preview・response curve・類似観測・品質表示・学習データInspector・ロバストネス・範囲探索がすべて動作。loader / feature builder / training candidate / starterは `task_id` でパラメタ化済みのfactoryを再利用し、estimatorは `TaskModule.standard_model_authoring` のallow-listから選べる |
 | Profile family | 4系統。**統合不要だが、loader戻り値の共通契約がほぼ空**。Observation familyのProfile契約とTraining View契約は実測で再利用可能（昇格候補） |
 | Observation family実装 | **実測済：契約は汎用、実装は単一インスタンス**。runtimeとbuilderが1 Task / 1 Profileに固定されており、2つ目を追加できない |
 | Candidate Shape | 単一形状。unionではない。共有schemaに焼鈍・溶接固有フィールドが混在。**実測済：可変長系列は7項目すべて表現できない** |
