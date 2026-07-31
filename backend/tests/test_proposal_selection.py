@@ -2,6 +2,7 @@ import pytest
 
 from material_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
+    CompositionTotalConstraint,
     ConditionalActivation,
     DesignSpaceDefinition,
     NumericDomain,
@@ -23,6 +24,7 @@ def _space(
     numeric: tuple[str, ...] = ("process.ls_mpm",),
     categorical: tuple[str, ...] = (),
     conditional: bool = False,
+    composition_constraints: tuple[CompositionTotalConstraint, ...] = (),
 ) -> DesignSpaceDefinition:
     return DesignSpaceDefinition(
         schema_version="design-space-definition/v1",
@@ -53,6 +55,7 @@ def _space(
             if conditional
             else ()
         ),
+        composition_constraints=composition_constraints,
     )
 
 
@@ -189,14 +192,36 @@ def test_diversity_distance_fails_closed_for_unsupported_spaces() -> None:
         selection_policy="greedy_value_diversity_v1",
     )
     points = [_point(0, 0), _point(1, 100)]
-    with pytest.raises(ValueError, match="組成変数を扱う距離contract"):
+    non_closed_composition = select_proposal_shortlist(
+        [
+            _point(0, 0, inputs={"composition.C": 10, "composition.Si": 20}),
+            _point(1, 100, inputs={"composition.C": 70, "composition.Si": 80}),
+        ],
+        request,
+        _space(numeric=("composition.C", "composition.Si")),
+        STRATEGIES[0],
+        seed=1,
+    )
+    assert non_closed_composition["actual_count"] == 2
+    assert non_closed_composition["distance_id"] == "scalar_axis_rms"
+
+    with pytest.raises(ValueError, match="閉包組成を扱う距離contract"):
         select_proposal_shortlist(
             [
-                _point(0, 0, inputs={"composition.C": 0.1}),
-                _point(1, 100, inputs={"composition.C": 0.2}),
+                _point(0, 0, inputs={"composition.C": 10, "composition.Si": 90}),
+                _point(1, 100, inputs={"composition.C": 20, "composition.Si": 80}),
             ],
             request,
-            _space(numeric=("composition.C",)),
+            _space(
+                numeric=("composition.C", "composition.Si"),
+                composition_constraints=(
+                    CompositionTotalConstraint(
+                        component_paths=("composition.C", "composition.Si"),
+                        total=100,
+                        unit="mass%",
+                    ),
+                ),
+            ),
             STRATEGIES[0],
             seed=1,
         )

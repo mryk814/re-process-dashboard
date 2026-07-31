@@ -56,14 +56,19 @@ def _validate_diversity_distance(
             "条件付き変数の距離contractがないため、"
             "「条件が重ならないよう選ぶ」は利用できません"
         )
-    has_varying_composition = any(
-        path.startswith("composition.") for path in declared_paths
+    closed_component_paths = {
+        path
+        for constraint in design_space.composition_constraints
+        for path in constraint.component_paths
+    }
+    has_varying_closed_composition = any(
+        path in closed_component_paths for path in declared_paths
     )
-    if has_varying_composition and (
+    if has_varying_closed_composition and (
         strategy.distance_id != "group_weighted_bounded_clr_rms"
     ):
         raise ValueError(
-            "組成変数を扱う距離contractがないため、"
+            "閉包組成を扱う距離contractがないため、"
             "「条件が重ならないよう選ぶ」は利用できません"
         )
     supported_distance_ids = {
