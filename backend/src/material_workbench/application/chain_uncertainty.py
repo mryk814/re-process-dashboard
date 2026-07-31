@@ -11,11 +11,12 @@ from material_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapter,
     ChainCandidateAdapterError,
 )
-from material_workbench.application.chain_execution import (
+from material_workbench.application.chain_execution_plan import (
     ChainExecutionError,
-    ChainExecutionService,
-    _set_path,
+    ChainPlanningUseCase,
+    set_path,
 )
+from material_workbench.application.chain_stage_execution import ChainStageExecutor
 from material_workbench.contracts.chain_contracts import ChainBinding, ChainStageRevision
 from material_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionCapability,
@@ -110,9 +111,15 @@ def _point_estimates(
 
 
 class ChainUncertaintyService:
-    def __init__(self, store: Store, execution: ChainExecutionService) -> None:
+    def __init__(
+        self,
+        store: Store,
+        planning: ChainPlanningUseCase,
+        stage_executor: ChainStageExecutor,
+    ) -> None:
         self.store = store
-        self.execution = execution
+        self.planning = planning
+        self.stage_executor = stage_executor
 
     def capability(self, project_id: str) -> ChainDistributionCapability:
         project = self.store.get_project(project_id)
@@ -134,7 +141,7 @@ class ChainUncertaintyService:
                     output_dependence="deterministic",
                 )
             else:
-                entry = self.execution.registry.entry_for(stage.contract_id)
+                entry = self.planning.registry.entry_for(stage.contract_id)
                 runtime = entry.predictor_runtime
                 method = (
                     runtime.chain_sampling_method
@@ -214,7 +221,7 @@ class ChainUncertaintyService:
             )
             if binding.conversion is not None:
                 value = value * binding.conversion.factor + binding.conversion.offset
-            _set_path(result, binding.target_input_path, value)
+            set_path(result, binding.target_input_path, value)
         return result
 
     def run(
@@ -226,7 +233,7 @@ class ChainUncertaintyService:
         seed: int,
         sample_count: int,
     ) -> ChainDistributionRun:
-        candidate, definition, revision, identity = self.execution._resolve(
+        candidate, definition, revision, identity = self.planning.resolve(
             project_id, candidate_id, candidate_revision
         )
         point = self.store.get_chain_execution(project_id, candidate_id)
@@ -241,7 +248,7 @@ class ChainUncertaintyService:
                 "分布を実行する前に、同じ候補revisionの点推定を最新にしてください"
             )
         point_by_stage = {stage.stage_id: stage for stage in point.stages}
-        adapter = self.execution._adapter_for(revision)
+        adapter = self.planning.adapter_for(revision)
         external = adapter.external_values(candidate)
         point_outputs: dict[str, dict[str, Any]] = {}
         sampled_outputs: dict[str, dict[str, np.ndarray]] = {}
@@ -254,7 +261,7 @@ class ChainUncertaintyService:
             evidence = point_by_stage[stage.stage_id]
             assert evidence.result is not None
             point_values = _point_estimates(stage, evidence.result, adapter)
-            point_outputs[stage.stage_id] = self.execution._outputs_from_payload(
+            point_outputs[stage.stage_id] = self.stage_executor._outputs_from_payload(
                 stage, evidence.result, adapter
             )
             if stage.stage_kind == "deterministic_transform":
@@ -273,8 +280,8 @@ class ChainUncertaintyService:
                 )
                 continue
 
-            self.execution._assert_runtime_identity(stage, candidate, adapter)
-            runtime = self.execution.registry.entry_for(
+            self.stage_executor._assert_runtime_identity(stage, candidate, adapter)
+            runtime = self.planning.registry.entry_for(
                 stage.contract_id
             ).predictor_runtime
             method = (
@@ -353,7 +360,7 @@ class ChainUncertaintyService:
                         point_outputs=point_outputs,
                         sampled_outputs=sampled_outputs,
                     )
-                    _, outputs = self.execution._run_stage(
+                    _, outputs = self.stage_executor._run_stage(
                         stage, canonical_input, candidate, adapter
                     )
                     for key in conditional:

@@ -47,11 +47,11 @@ code_references:
       - "ChainDefinition"
       - "ChainBinding"
       - "validate_chain_definition"
-  - path: "backend/src/material_workbench/application/chain_execution.py"
+  - path: "backend/src/material_workbench/application/chain_snapshot_use_case.py"
     id: "materials-chain-execution"
     role: "application"
     symbols:
-      - "ChainExecutionService"
+      - "ChainSnapshotUseCase"
   - path: "backend/src/material_workbench/tasks/task_definitions/welding-consumable-stage-b-v1.json"
     id: "materials-welding-stage-b-task"
     role: "fixture"
@@ -501,7 +501,7 @@ Stage B  溶着金属成分の予測
 
 後から溶着金属の全必須成分を実測して`D_measured`を得た場合、実測値を条件とする経路は`D_predicted`を部分補完に使いません。
 
-現行の`ChainExecutionService`は、必要な実測成分が不足していれば処理を拒否し、通常チェーンの状態を変更せず別の比較結果を作ります。
+現行の`ChainSnapshotUseCase`は、必要な実測成分が不足していれば処理を拒否し、通常チェーンの状態を変更せず別の比較結果を作ります。
 
 この分離により、次の二つの問いを混同せずに比較できます。
 

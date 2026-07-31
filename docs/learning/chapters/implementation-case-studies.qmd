@@ -36,12 +36,12 @@ code_references:
       - "ScalarChainAdapter"
       - "SparseBlendChainAdapter"
       - "candidate_adapter_for"
-  - path: "backend/src/material_workbench/application/chain_execution.py"
+  - path: "backend/src/material_workbench/application/chain_execution_use_case.py"
     id: "case-study-chain-core"
     role: "application"
     symbols:
       - "ChainExecutionCoordinator"
-      - "ChainExecutionService"
+      - "ChainExecutionUseCase"
   - path: "backend/tests/test_chain_candidate_adapters.py"
     id: "case-study-chain-tests"
     role: "test"
@@ -260,7 +260,7 @@ historical_concepts: []
 
 この境界は {{< code-ref case-study-chain-adapters symbol=ChainCandidateAdapter >}} と {{< code-ref case-study-chain-adapters symbol=candidate_adapter_for >}} にあります。
 
-中核側の実行責務は {{< code-ref case-study-chain-core symbol=ChainExecutionService >}} に残っています。
+中核側の実行責務は {{< code-ref case-study-chain-core symbol=ChainExecutionUseCase >}} に残っています。
 
 テストはスカラー候補が独自の名前空間を持つこと、中核部が構造検証をアダプタへ委譲することを確認します。
 

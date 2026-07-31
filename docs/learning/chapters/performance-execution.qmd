@@ -46,11 +46,11 @@ code_references:
       - "inferenceSurfaceStatus"
   - path: "apps/web/tests/inferenceSurfaceState.test.mjs"
     role: "test"
-  - path: "backend/src/material_workbench/application/chain_execution.py"
+  - path: "backend/src/material_workbench/application/chain_stage_execution.py"
     id: "performance-chain-execution"
     role: "application"
     symbols:
-      - "ChainExecutionService"
+      - "ChainStageExecutor"
   - path: "backend/src/material_workbench/persistence/store.py"
     role: "persistence"
     symbols:
@@ -274,7 +274,7 @@ request C  -> same Future  -> shared result
 これは速度のためのキャッシュで、結果の証拠ではありません。
 
 チェーンの各段の結果は、SQLiteへ**永続的な再利用結果**として保存されます。
-{{< code-ref performance-chain-execution label=chain_execution.py >}} の再利用キーは、段のID、契約ダイジェスト、パッケージマニフェストダイジェスト、正規化済み入力のダイジェストから作られます。
+{{< code-ref performance-chain-execution label=chain_stage_execution.py >}} の再利用キーは、段のID、契約ダイジェスト、パッケージマニフェストダイジェスト、正規化済み入力のダイジェストから作られます。
 同じ段の計算を再起動後にも再利用できます。
 
 保存済みチェーンスナップショットはさらに別の役割を持ちます。

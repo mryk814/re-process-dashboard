@@ -48,6 +48,20 @@ def test_removed_integration_hubs_do_not_return() -> None:
     assert not (PACKAGE_ROOT / "data" / "dataset_registration.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_profile.py").exists()
     assert not (PACKAGE_ROOT / "persistence" / "workspace_catalog_bootstrap.py").exists()
+    assert not (PACKAGE_ROOT / "application" / "chain_execution.py").exists()
+
+
+def test_chain_use_cases_depend_on_explicit_plan_and_stage_boundaries() -> None:
+    application = PACKAGE_ROOT / "application"
+    assert (application / "chain_execution_plan.py").exists()
+    assert (application / "chain_stage_execution.py").exists()
+    assert (application / "chain_execution_use_case.py").exists()
+    assert (application / "chain_snapshot_use_case.py").exists()
+    assert not any(
+        "material_workbench.application.chain_execution" == imported
+        for path in application.glob("*.py")
+        for imported in _imports(path)
+    )
 
 
 def test_contract_resource_families_do_not_restore_the_schemas_hub() -> None:
@@ -363,7 +377,9 @@ def test_contribution_apis_read_the_request_runtime_generation() -> None:
     legacy_state_names = (
         "app.state.blend_contract_registry",
         "app.state.deterministic_transform_catalog",
-        "app.state.chain_execution_service",
+        "app.state.chain_planning_use_case",
+        "app.state.chain_execution_use_case",
+        "app.state.chain_snapshot_use_case",
         "app.state.chain_uncertainty_service",
         "app.state.chain_evaluation_catalog",
     )

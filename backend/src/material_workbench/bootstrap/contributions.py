@@ -21,9 +21,18 @@ from material_workbench.application.chain_evaluation import (
     DEFAULT_CHAIN_EVALUATION_PATH,
     ChainEvaluationCatalog,
 )
-from material_workbench.application.chain_execution import (
+from material_workbench.application.chain_execution_plan import (
+    ChainPlanningUseCase,
+)
+from material_workbench.application.chain_execution_use_case import (
     ChainExecutionCoordinator,
-    ChainExecutionService,
+    ChainExecutionUseCase,
+)
+from material_workbench.application.chain_snapshot_use_case import (
+    ChainSnapshotUseCase,
+)
+from material_workbench.application.chain_stage_execution import (
+    ChainStageExecutor,
 )
 from material_workbench.application.chain_uncertainty import (
     ChainUncertaintyService,
@@ -116,7 +125,9 @@ class WeldingBlendContributionRuntime:
     transform_catalog: DeterministicTransformCatalog | None
     chain_revision_id: str | None
     evaluation_catalog: ChainEvaluationCatalog | None
-    execution_service: ChainExecutionService
+    planning_use_case: ChainPlanningUseCase
+    execution_use_case: ChainExecutionUseCase
+    snapshot_use_case: ChainSnapshotUseCase
     uncertainty_service: ChainUncertaintyService | None
 
     def install_state(self, app: FastAPI) -> None:
@@ -124,7 +135,9 @@ class WeldingBlendContributionRuntime:
         app.state.deterministic_transform_catalog = self.transform_catalog
         app.state.welding_chain_revision_id = self.chain_revision_id
         app.state.chain_evaluation_catalog = self.evaluation_catalog
-        app.state.chain_execution_service = self.execution_service
+        app.state.chain_planning_use_case = self.planning_use_case
+        app.state.chain_execution_use_case = self.execution_use_case
+        app.state.chain_snapshot_use_case = self.snapshot_use_case
         app.state.chain_uncertainty_service = self.uncertainty_service
 
 
@@ -167,16 +180,29 @@ def _record_optional_failure(
 def _build_chain_services(
     context: ApplicationContributionContext,
     transform_catalog: DeterministicTransformCatalog | None,
-) -> tuple[ChainExecutionService, ChainUncertaintyService | None]:
-    execution = ChainExecutionService(
+) -> tuple[
+    ChainPlanningUseCase,
+    ChainExecutionUseCase,
+    ChainSnapshotUseCase,
+    ChainUncertaintyService | None,
+]:
+    planning = ChainPlanningUseCase(
         context.store,
         context.task_registry,
         transform_catalog,
+    )
+    stages = ChainStageExecutor(context.task_registry, transform_catalog)
+    execution = ChainExecutionUseCase(
+        planning,
+        stages,
         ChainExecutionCoordinator(),
     )
+    snapshots = ChainSnapshotUseCase(planning, stages)
     return (
+        planning,
         execution,
-        ChainUncertaintyService(context.store, execution)
+        snapshots,
+        ChainUncertaintyService(context.store, planning, stages)
         if transform_catalog is not None
         else None,
     )
@@ -206,7 +232,10 @@ class WeldingBlendApplicationContribution:
             defer_resources=defer_resources,
         )
         evaluation_catalog = self._load_evaluation_catalog(context)
-        execution, uncertainty = _build_chain_services(context, transform_catalog)
+        planning, execution, snapshots, uncertainty = _build_chain_services(
+            context,
+            transform_catalog,
+        )
         return WeldingBlendContributionRuntime(
             contribution_id=self.contribution_id,
             blend_contract_registry=(
@@ -215,7 +244,9 @@ class WeldingBlendApplicationContribution:
             transform_catalog=transform_catalog,
             chain_revision_id=chain_revision_id,
             evaluation_catalog=evaluation_catalog,
-            execution_service=execution,
+            planning_use_case=planning,
+            execution_use_case=execution,
+            snapshot_use_case=snapshots,
             uncertainty_service=uncertainty,
         )
 
@@ -235,7 +266,7 @@ class WeldingBlendApplicationContribution:
                 current.transform_catalog,
                 defer_resources=False,
             )
-        execution, uncertainty = _build_chain_services(
+        planning, execution, snapshots, uncertainty = _build_chain_services(
             context, current.transform_catalog
         )
         return WeldingBlendContributionRuntime(
@@ -244,7 +275,9 @@ class WeldingBlendApplicationContribution:
             transform_catalog=current.transform_catalog,
             chain_revision_id=revision_id,
             evaluation_catalog=current.evaluation_catalog,
-            execution_service=execution,
+            planning_use_case=planning,
+            execution_use_case=execution,
+            snapshot_use_case=snapshots,
             uncertainty_service=uncertainty,
         )
 
