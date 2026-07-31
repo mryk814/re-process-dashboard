@@ -147,6 +147,62 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await expect(page.getByLabel("データセットプロファイル")).toBeDisabled();
 });
 
+test("new Task onboarding explains unresolved domain ranges before preparation", async ({ page }) => {
+  await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
+    await route.fulfill({
+      json: {
+        rows: 103,
+        relations: 0,
+        notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        columns: Array.from({ length: 10 }, (_, index) => ({
+          name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
+          kind: "number",
+          non_empty: 103,
+          observed_min: index < 7 ? 1 : 310,
+          observed_max: index < 7 ? 10 : 590,
+          choices: [],
+        })),
+      },
+    });
+  });
+  await page.goto("/?view=data-library");
+  await page.getByRole("region", { name: "追加するデータはどれですか" }).getByRole("button", { name: /新しい予測問題/ }).click();
+  const onboarding = page.getByRole("region", { name: "完全に新しいTaskを準備" });
+  await onboarding.locator('input[type="file"]').setInputFiles({
+    name: "unresolved-ranges.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("input_1,input_2,input_3,input_4,input_5,input_6,input_7,output_1,output_2,output_3\n1,1,1,1,1,1,1,310,320,330\n2,2,2,2,2,2,2,590,580,570\n"),
+  });
+  await onboarding.getByRole("button", { name: "CSVをプレビュー" }).click();
+  await onboarding.getByLabel("Task ID").fill("unresolved-ranges-v1");
+  await onboarding.getByLabel("表示名").fill("範囲未確定Task");
+  const cards = onboarding.locator(".csv-task-columns article");
+  for (let index = 0; index < 7; index += 1) {
+    const card = cards.nth(index);
+    await card.getByLabel("役割").selectOption("composition");
+    await card.getByLabel("単位").fill("%");
+  }
+  for (let index = 7; index < 10; index += 1) {
+    const card = cards.nth(index);
+    await card.getByLabel("役割").selectOption("output");
+    await card.getByLabel("単位").fill("mm");
+  }
+  await onboarding.getByLabel("1行=1観測であることを確認した").check();
+  await onboarding.getByLabel("relationsなしであることを確認した").check();
+
+  const prepare = onboarding.getByRole("button", { name: "Task・モデル・Datasetを準備してProject作成へ" });
+  await expect(prepare).toBeDisabled();
+  const status = onboarding.getByRole("region", { name: "準備条件" });
+  await expect(status).toContainText("入力の物理的許容範囲");
+  await expect(status).toContainText("input_1");
+  await expect(status).toContainText("入力の通常範囲");
+  await expect(status).toContainText("入力の学習範囲");
+  await expect(status).toContainText("出力の妥当範囲");
+  await expect(status).toContainText("出力の表示範囲");
+  await expect(status).toContainText("観測最小値・最大値はデータの要約");
+  await expect(prepare).toHaveAttribute("aria-describedby", "csv-task-preparation-status");
+});
+
 test("private CSV is prepared into the exact Dataset, Task, and Package binding", async ({ page }) => {
   test.setTimeout(120_000);
   const rows = Array.from({ length: 103 }, (_, index) => [

@@ -9,6 +9,14 @@ const range = (value: string) => {
   return Number.isFinite(min) && Number.isFinite(max) ? [min, max] : undefined;
 };
 
+const validRange = (value: string) => {
+  const parsed = range(value);
+  return Boolean(parsed && parsed[0] < parsed[1]);
+};
+
+const columnNames = (fields: Field[], predicate: (field: Field) => boolean) =>
+  fields.filter(predicate).map((field) => field.column).join("、");
+
 const errorMessage = (value: unknown, fallback: string) => {
   if (typeof value !== "object" || value === null) return fallback;
   const detail = Reflect.get(value, "detail");
@@ -57,7 +65,35 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
 
   const inputCount = fields.filter((field) => field.role === "composition" || field.role === "process" || field.role === "categorical").length;
   const outputCount = fields.filter((field) => field.role === "output").length;
-  const canPrepare = Boolean(file && taskId && label && inputCount && outputCount && grainConfirmed && relationsConfirmed && !loading);
+  const preparationBlockers: string[] = [];
+  if (!file) preparationBlockers.push("CSVファイルを選択してください");
+  if (!taskId.trim()) preparationBlockers.push("Task IDを入力してください");
+  if (!label.trim()) preparationBlockers.push("表示名を入力してください");
+  if (!inputCount) preparationBlockers.push("入力列を1項目以上指定してください");
+  if (!outputCount) preparationBlockers.push("出力列を1項目以上指定してください");
+
+  const selectedFields = fields.filter((field) => field.role);
+  const missingKey = columnNames(selectedFields, (field) => !field.key.trim());
+  const missingLabel = columnNames(selectedFields, (field) => !field.label.trim());
+  const missingUnit = columnNames(selectedFields, (field) => field.role !== "categorical" && !field.unit.trim());
+  const inputFields = fields.filter((field) => field.role === "composition" || field.role === "process");
+  const outputFields = fields.filter((field) => field.role === "output");
+  const missingAllowedRange = columnNames(inputFields, (field) => !validRange(field.allowed_range));
+  const missingDefaultRange = columnNames(inputFields, (field) => !validRange(field.default_range));
+  const missingTrainingRange = columnNames(inputFields, (field) => !validRange(field.training_range));
+  const missingPlausibleRange = columnNames(outputFields, (field) => !validRange(field.plausible_range));
+  const missingDisplayRange = columnNames(outputFields, (field) => !validRange(field.display_range));
+  if (missingKey) preparationBlockers.push(`canonical keyを確認してください: ${missingKey}`);
+  if (missingLabel) preparationBlockers.push(`表示名を確認してください: ${missingLabel}`);
+  if (missingUnit) preparationBlockers.push(`単位を明示してください: ${missingUnit}`);
+  if (missingAllowedRange) preparationBlockers.push(`入力の物理的許容範囲をmin,maxで明示してください: ${missingAllowedRange}`);
+  if (missingDefaultRange) preparationBlockers.push(`入力の通常範囲をmin,maxで明示してください: ${missingDefaultRange}`);
+  if (missingTrainingRange) preparationBlockers.push(`入力の学習範囲をmin,maxで確認してください: ${missingTrainingRange}`);
+  if (missingPlausibleRange) preparationBlockers.push(`出力の妥当範囲をmin,maxで明示してください: ${missingPlausibleRange}`);
+  if (missingDisplayRange) preparationBlockers.push(`出力の表示範囲をmin,maxで明示してください: ${missingDisplayRange}`);
+  if (!grainConfirmed) preparationBlockers.push("1行=1観測であることを確認してください");
+  if (!relationsConfirmed) preparationBlockers.push("relationsなしであることを確認してください");
+  const canPrepare = preparationBlockers.length === 0 && !loading;
 
   async function prepare() {
     if (!file) return;
@@ -91,7 +127,12 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
       <p className="csv-task-onboarding-note">数値入力は、物理的許容範囲／通常範囲／学習範囲を明示してください。出力は妥当範囲／表示範囲を明示してください。</p>
       <div className="csv-task-columns">{fields.map((field, index) => { const column = columns[index]; const missing = Math.max(0, rows - column.non_empty); return <article key={field.column}><strong>{field.column}</strong><small>{column.kind} · 欠損 {missing}件 / {rows}件 · 観測 {column.observed_min ?? "—"}–{column.observed_max ?? "—"}</small><label>役割<select value={field.role} onChange={(event) => update(index, { role: event.target.value as Field["role"] })}><option value="">使わない</option><option value="composition">入力: 組成</option><option value="process">入力: 条件</option><option value="categorical">入力: カテゴリ</option><option value="output">出力</option></select></label>{field.role && <><label>canonical key<input value={field.key} onChange={(event) => update(index, { key: event.target.value })} /></label><label>表示名<input value={field.label} onChange={(event) => update(index, { label: event.target.value })} /></label>{field.role !== "categorical" && <label>単位<input value={field.unit} onChange={(event) => update(index, { unit: event.target.value })} placeholder="MPa / mm / kg/m³" /></label>}{field.role === "output" ? <><label>目標方向<select value={field.goal_direction} onChange={(event) => update(index, { goal_direction: event.target.value as Field["goal_direction"] })}><option value="at_least">以上</option><option value="at_most">以下</option><option value="target">目標</option></select></label><label>妥当範囲 min,max<input value={field.plausible_range} onChange={(event) => update(index, { plausible_range: event.target.value })} /></label><label>表示範囲 min,max<input value={field.display_range} onChange={(event) => update(index, { display_range: event.target.value })} /></label></> : field.role !== "categorical" && <><label>物理的許容範囲 min,max<input value={field.allowed_range} onChange={(event) => update(index, { allowed_range: event.target.value })} /></label><label>通常範囲 min,max<input value={field.default_range} onChange={(event) => update(index, { default_range: event.target.value })} /></label><label>学習範囲 min,max<input value={field.training_range} onChange={(event) => update(index, { training_range: event.target.value })} /></label></>}</>}</article>; })}</div>
       <fieldset className="csv-task-confirmations"><legend>学習一行とrelationの確認</legend><label><input type="checkbox" checked={grainConfirmed} onChange={(event) => setGrainConfirmed(event.target.checked)} />1行=1観測であることを確認した</label><label><input type="checkbox" checked={relationsConfirmed} onChange={(event) => setRelationsConfirmed(event.target.checked)} />relationsなしであることを確認した</label><small>この標準CSV Taskはrelationsなしだけを扱います。relationのあるデータは、この画面から無理に準備せず専用Task設計へ進みます。</small></fieldset>
-      <button className="primary-button" type="button" disabled={!canPrepare} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
+      <section id="csv-task-preparation-status" className="csv-task-preparation-status" aria-labelledby="csv-task-preparation-status-heading">
+        <h4 id="csv-task-preparation-status-heading">準備条件</h4>
+        {preparationBlockers.length > 0 ? <ul>{preparationBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p>準備条件を満たしています。</p>}
+        <small>観測最小値・最大値はデータの要約であり、物理的な許容範囲や目標値には自動で使いません。未確定のまま進める場合は、モデル化と予測の対象にできません。</small>
+      </section>
+      <button className="primary-button" type="button" disabled={!canPrepare} aria-describedby={preparationBlockers.length > 0 ? "csv-task-preparation-status" : undefined} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
     </>}
     {message && <p role="status">{message}</p>}{error && <p role="alert" className="panel-error">{error}</p>}
   </section>;
