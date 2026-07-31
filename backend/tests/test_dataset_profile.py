@@ -421,6 +421,42 @@ def test_task_required_relation_column_still_blocks_registration(
     assert required_join.column in selected.missing_columns[relation_sheet]
 
 
+def test_parent_consistency_uses_only_task_route_parents() -> None:
+    profile = load_dataset_profile(PROCESS_PROFILE)
+    annealing = next(
+        join
+        for join in profile.shared.relation.joins
+        if join.entity_type == "annealing"
+    )
+    scoped_annealing = annealing.model_copy(
+        update={
+            "parent_entity_types": (*annealing.parent_entity_types, "hot_microstructure"),
+            "edge_parent_entity_types": ("cold_rolling",),
+            "parent_consistency": "exactly_one",
+        }
+    )
+    relation = profile.shared.relation.model_copy(
+        update={
+            "joins": tuple(
+                scoped_annealing if join.entity_type == "annealing" else join
+                for join in profile.shared.relation.joins
+            )
+        }
+    )
+    scoped_profile = profile.model_copy(
+        update={"shared": profile.shared.model_copy(update={"relation": relation})}
+    )
+
+    requirements = task_data_requirements(scoped_profile)
+    assert "cold_rolling" in requirements.relation_entity_types
+    assert "hot_microstructure" not in requirements.relation_entity_types
+    workbook = load_workbook(PROCESS_SOURCE, read_only=True, data_only=True)
+    try:
+        preflight_workbook(workbook, scoped_profile)
+    finally:
+        workbook.close()
+
+
 def test_reordered_columns_and_unmapped_metadata_do_not_change_canonical_values(tmp_path: Path) -> None:
     baseline = load_workbook_data(SOURCE)
     workbook = load_workbook(SOURCE, read_only=False, data_only=True)

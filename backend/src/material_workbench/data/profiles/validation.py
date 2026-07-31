@@ -617,15 +617,20 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
             }
             parent_signatures: dict[tuple[str, str], set[tuple[tuple[str, str], ...]]] = {}
             for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True):
-                for join in profile.shared.relation.joins:
+                for join in required_joins:
                     if join.parent_consistency != "exactly_one":
                         continue
                     child_value = relation_value(row, join)
-                    if child_value is None or not str(child_value).strip() or not join.parent_entity_types:
+                    parent_types = (
+                        join.edge_parent_entity_types
+                        if join.edge_parent_entity_types is not None
+                        else join.parent_entity_types
+                    )
+                    if child_value is None or not str(child_value).strip() or not parent_types:
                         continue
                     signature = tuple(
                         (parent_type, str(parent_value))
-                        for parent_type in join.parent_entity_types
+                        for parent_type in parent_types
                         if (parent_value := relation_value(row, joins_by_type[parent_type])) is not None
                     )
                     if signature:
