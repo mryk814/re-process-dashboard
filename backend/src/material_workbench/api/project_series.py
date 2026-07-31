@@ -5,7 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import get_workspace_catalog
-from material_workbench.contracts.schemas import ProjectSeries, ProjectSeriesCreateInput, ProjectSeriesUpdateInput
+from material_workbench.contracts.data_library_contracts import (
+    ProjectSeries,
+    ProjectSeriesCreateInput,
+    ProjectSeriesUpdateInput,
+)
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 

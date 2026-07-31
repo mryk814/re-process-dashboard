@@ -14,7 +14,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from material_workbench.contracts.feature_contracts import feature_index_families
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.modeling.feature_pipeline import (
     CANONICAL_INPUT_PATHS,

@@ -37,7 +37,7 @@ from material_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
 )
 from material_workbench.contracts.objective_contracts import ObjectiveDefinition
-from material_workbench.contracts.schemas import ModelPackageRefCreateInput
+from material_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
 from material_workbench.application.dataset_registration import register_dataset_records
 from material_workbench.modeling.model_lifecycle import (
     dataset_profile_digest,

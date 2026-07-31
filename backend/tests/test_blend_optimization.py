@@ -22,7 +22,11 @@ from material_workbench.contracts.blend_contracts import (
     validate_sparse_blend,
 )
 from material_workbench.contracts.blend_optimization import BlendOptimizationRequest
-from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    CandidateInputs,
+)
 
 
 def _resources():

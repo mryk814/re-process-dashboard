@@ -199,7 +199,7 @@ Package範囲とは混同しません。
 
 | 層 | 型 | 形状 |
 | --- | --- | --- |
-| API入力 | `CandidateInputs`（[contracts/schemas.py:243](../../backend/src/material_workbench/contracts/schemas.py#L243)） | composition / process / categorical / heat_pattern / heat_time_basis |
+| API入力 | `CandidateInputs`（[candidate_project_contracts.py:47](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L47)） | composition / process / categorical / heat_pattern / heat_time_basis |
 | 正規形 | `CanonicalCandidate`（[contracts/task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357)） | 同上（heat_time_basisなし） |
 | 契約側の許容path | [contracts/task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) 正規表現 `^(composition\|process\|categorical)\.…$\|^heat_pattern$` |
 | group key | [contracts/task_contracts.py:83](../../backend/src/material_workbench/contracts/task_contracts.py#L83) `Literal["composition","process","heat_pattern","categorical"]` |
@@ -207,11 +207,11 @@ Package範囲とは混同しません。
 
 共有Candidateに載っているドメイン固有フィールド:
 
-- `CandidateInputs.heat_time_basis`（焼鈍ライン固有。[schemas.py:248](../../backend/src/material_workbench/contracts/schemas.py#L248)）
-- `CandidateInput.blend: SparseBlend | None`、`editor_state: BlendEditorState`（溶接固有。[schemas.py:272](../../backend/src/material_workbench/contracts/schemas.py#L272)）
+- `CandidateInputs.heat_time_basis`（焼鈍ライン固有。[candidate_project_contracts.py:52](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L52)）
+- `CandidateInput.blend: SparseBlend | None`、`editor_state: BlendEditorState`（溶接固有。[candidate_project_contracts.py:73](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L73)）
 - UI側の `prominentHeatPatternInputPaths = new Set(["process.ls_mpm"])`（[CandidateUi.tsx:36](../../apps/web/src/features/candidates/CandidateUi.tsx#L36)）
 
-**帰結**: 可変長系列・疎明細集合・複数明細集合・スペクトル・画像・グラフ・nested inputは、現在の契約では表現できません。`heat_pattern` は「最大30点の時刻―温度列」（[schemas.py:247](../../backend/src/material_workbench/contracts/schemas.py#L247)）という単一の例外形状として存在します。
+**帰結**: 可変長系列・疎明細集合・複数明細集合・スペクトル・画像・グラフ・nested inputは、現在の契約では表現できません。`heat_pattern` は「最大30点の時刻―温度列」（[candidate_project_contracts.py:51](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L51)）という単一の例外形状として存在します。
 
 ### 1.7 Decision Activity
 

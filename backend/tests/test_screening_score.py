@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.contracts.schemas import ScreeningGoal
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract
 
 

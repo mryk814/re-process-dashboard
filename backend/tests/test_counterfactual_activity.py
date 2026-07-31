@@ -25,7 +25,7 @@ from material_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
     ObjectiveTerm,
 )
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.contracts.task_contracts import (
     CANONICAL_CANDIDATE_SCHEMA_VERSION,
     TASK_DEFINITION_SCHEMA_VERSION,

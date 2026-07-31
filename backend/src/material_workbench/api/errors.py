@@ -6,7 +6,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from material_workbench.contracts.schemas import ApiError, Candidate
+from material_workbench.contracts.evidence_contracts import ApiError
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.application.project_runtime import ProjectRuntimeResolutionError
 from material_workbench.tasks.task_registry import TaskUnavailableError
 from material_workbench.contracts.subsystem_availability import (

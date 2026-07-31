@@ -241,7 +241,7 @@ Raw series / Canonical series / Feature representation の三層を分離でき�
 
 - [ ] `TaskDefinition` を変更せずに宣言できるか（[task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) の path正規表現、`:83` のgroup key Literal）
 - [ ] `CanonicalCandidate` を変更せずに保存できるか（[task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357)）
-- [ ] `CandidateInputs.heat_pattern` の30点上限（[schemas.py:247](../../backend/src/material_workbench/contracts/schemas.py#L247)）で足りるか
+- [ ] `CandidateInputs.heat_pattern` の30点上限（[candidate_project_contracts.py:51](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L51)）で足りるか
 - [ ] 単位変換をProfileで**明示**でき、暗黙変換にならないか
 - [ ] timestamp重複を「補完せず不適格にする」判定がProfileで表現できるか
 - [ ] 系列そのもののdiff / copy / snapshot意味をUIで定義できるか
@@ -277,8 +277,8 @@ Raw series / Canonical series / Feature representation の三層を分離でき�
 | C-1 | `heat_pattern` 以外の系列groupを宣言する | [task_contracts.py:40](../../backend/src/material_workbench/contracts/task_contracts.py#L40) | path正規表現不一致 |
 | C-2 | 系列fieldのpathを自由に付ける | 同上 | path正規表現不一致 |
 | C-3 | 系列fieldに単位（`°F`）を宣言する | [task_contracts.py:77](../../backend/src/material_workbench/contracts/task_contracts.py#L77) | `heat_pattern fields cannot declare scalar ranges, choices, or a unit` |
-| C-4 | 31点以上の可変長系列を候補入力に保存する | [schemas.py:247](../../backend/src/material_workbench/contracts/schemas.py#L247) | `List should have at most 30 items`（64点で拒否） |
-| C-5 | timestamp重複を値を残したまま不適格として保持する | [schemas.py:258](../../backend/src/material_workbench/contracts/schemas.py#L258) | `ヒートパターンの時刻は厳密な昇順にしてください`（**保存自体が拒否されるため品質findingとして残せない**） |
+| C-4 | 31点以上の可変長系列を候補入力に保存する | [candidate_project_contracts.py:51](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L51) | `List should have at most 30 items`（64点で拒否） |
+| C-5 | timestamp重複を値を残したまま不適格として保持する | [candidate_project_contracts.py:68](../../backend/src/material_workbench/contracts/candidate_project_contracts.py#L68) | `ヒートパターンの時刻は厳密な昇順にしてください`（**保存自体が拒否されるため品質findingとして残せない**） |
 | C-6 | `CanonicalCandidate` に系列の正規化provenanceを置く | [task_contracts.py:357](../../backend/src/material_workbench/contracts/task_contracts.py#L357) | `Extra inputs are not permitted`（`extra="forbid"`） |
 | C-7 | 系列入力TaskをChain Stageにする | [chain_contracts.py:259](../../backend/src/material_workbench/contracts/chain_contracts.py#L259) | `has a required heat-pattern input unsupported by Chain v1` |
 

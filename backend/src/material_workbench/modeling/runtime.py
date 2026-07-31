@@ -10,14 +10,16 @@ from typing import Any
 import numpy as np
 
 from material_workbench.contracts.feature_contracts import feature_index_families
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     HeatPoint,
-    Prediction,
-    Support,
     TargetRange,
     TargetValue,
+)
+from material_workbench.contracts.prediction_catalog_contracts import (
+    Prediction,
+    Support,
 )
 from material_workbench.data.importer import (
     WorkbookData,

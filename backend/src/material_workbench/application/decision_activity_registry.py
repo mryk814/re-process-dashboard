@@ -14,7 +14,11 @@ from material_workbench.contracts.decision_activity_contracts import (
     DecisionActivityDefinition,
     DecisionActivityResult,
 )
-from material_workbench.contracts.schemas import Candidate, ModelMetadata, Project
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    Project,
+)
+from material_workbench.contracts.prediction_catalog_contracts import ModelMetadata
 from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.task_composition.candidate_family_adapters import (
     CandidateFamilyAdapter,

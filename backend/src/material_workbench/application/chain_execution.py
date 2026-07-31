@@ -34,7 +34,11 @@ from material_workbench.contracts.chain_execution_contracts import (
     ChainStageOutputDefinition,
     IntermediateActualRecord,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput, CandidateInputs
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    CandidateInputs,
+)
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog

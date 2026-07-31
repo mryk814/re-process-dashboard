@@ -8,7 +8,7 @@ from material_workbench.contracts.objective_contracts import (
     ObjectiveTerm,
 )
 from material_workbench.contracts.proposal_contracts import ProposalObjectiveExecution
-from material_workbench.contracts.schemas import ScreeningGoal
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 
 
 @dataclass(frozen=True)

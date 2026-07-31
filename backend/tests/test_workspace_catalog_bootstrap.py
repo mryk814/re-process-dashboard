@@ -10,7 +10,7 @@ import pytest
 
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import AppResources
-from material_workbench.contracts.schemas import ModelPackageRefCreateInput
+from material_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
 from material_workbench.application.dataset_registration import (
     register_dataset_records,
 )

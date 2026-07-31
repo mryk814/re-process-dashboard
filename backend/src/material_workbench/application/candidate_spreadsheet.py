@@ -7,7 +7,10 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from material_workbench.data.profiles.loading import load_dataset_profile
 from material_workbench.data.profiles.schema import DatasetInputProfile
 from material_workbench.task_composition.ports import PredictionRuntime

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     DatasetViewMemberInput,

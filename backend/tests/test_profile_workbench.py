@@ -103,7 +103,7 @@ def test_register_dataset_resume_ignores_custom_single_views(
 
 def test_register_promotes_existing_bundled_asset_to_managed_without_orphan(tmp_path: Path) -> None:
     from material_workbench.data.file_integrity import file_sha256
-    from material_workbench.contracts.schemas import DataAssetCreateInput
+    from material_workbench.contracts.data_library_contracts import DataAssetCreateInput
 
     database = tmp_path / "workspace.db"
     catalog = WorkspaceCatalog(database)

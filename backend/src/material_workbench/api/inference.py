@@ -14,7 +14,16 @@ from ..application.inference import (
     InferenceValidationError,
 )
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.contracts.schemas import CurveFamilyResponse, InferenceDiagnosticsResponse, PredictionResponse, ResponseContourResponse, ResponseCurveResponse, SimilarObservation
+from material_workbench.contracts.evidence_contracts import (
+    CurveFamilyResponse,
+    InferenceDiagnosticsResponse,
+    ResponseContourResponse,
+    ResponseCurveResponse,
+)
+from material_workbench.contracts.prediction_catalog_contracts import (
+    PredictionResponse,
+    SimilarObservation,
+)
 from material_workbench.persistence.store import CandidateRevisionConflictError, ProjectNotFoundError, Store
 from material_workbench.tasks.task_registry import TaskRegistry
 from material_workbench.application.project_runtime import ProjectRuntimeResolver

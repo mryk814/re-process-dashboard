@@ -7,7 +7,7 @@ from material_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
     NumericDomain,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import NumericRange, RelationalConstraint
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,

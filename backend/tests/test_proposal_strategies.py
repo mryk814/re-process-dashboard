@@ -9,7 +9,7 @@ from material_workbench.application.proposal_strategy_registry import (
 )
 from material_workbench.contracts.objective_contracts import objective_from_screening
 from material_workbench.contracts.proposal_contracts import ProposalStrategyRequest
-from material_workbench.contracts.schemas import ScreeningGoal
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 from material_workbench.domain.proposal_acquisition import acquisition_value
 from material_workbench.domain.proposal_generation import _latin_hypercube_unit, _sobol_unit
 from material_workbench.execution.inference_work_graph import semantic_digest

@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.persistence.project_persistence_inventory import (
     PROJECT_PERSISTENCE,
     assert_project_persistence_inventory_complete,

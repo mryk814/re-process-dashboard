@@ -24,8 +24,8 @@ from material_workbench.contracts.decision_activity_contracts import (
     DifferenceInputChange,
     DifferenceTargetSummary,
 )
-from material_workbench.contracts.schemas import (
-    Candidate,
+from material_workbench.contracts.candidate_project_contracts import Candidate
+from material_workbench.contracts.prediction_catalog_contracts import (
     ModelMetadata,
     Prediction,
     Support,

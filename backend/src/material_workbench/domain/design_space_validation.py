@@ -5,7 +5,10 @@ import math
 from collections.abc import Mapping
 
 from material_workbench.contracts.design_space_contracts import DesignSpaceDefinition
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 
 
 def _value_at(candidate: Candidate | CandidateInput, path: str) -> float | str:

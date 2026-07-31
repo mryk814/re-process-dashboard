@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import TaskDefinition
 from material_workbench.data.profiles.schema import DatasetInputProfile
 from material_workbench.task_composition.builtin.shared import (

@@ -26,7 +26,7 @@ from material_workbench.contracts.chain_uncertainty_contracts import (
     DistributionSummary,
     StageSamplingCapability,
 )
-from material_workbench.contracts.schemas import CandidateInputs
+from material_workbench.contracts.candidate_project_contracts import CandidateInputs
 from material_workbench.persistence.store import Store, StoreDataIntegrityError
 from material_workbench.task_composition.ports import StageSampleRuntime
 

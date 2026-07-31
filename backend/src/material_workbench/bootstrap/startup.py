@@ -33,7 +33,7 @@ from material_workbench.bootstrap.resources import (
     prepare_app_resources,
 )
 from material_workbench.contracts.blend_contracts import BlendContractRegistry
-from material_workbench.contracts.schemas import TaskResourceRefreshResult
+from material_workbench.contracts.data_library_contracts import TaskResourceRefreshResult
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.modeling.model_lifecycle import (
     ACTIVE_PACKAGES_PATH,

@@ -5,8 +5,8 @@ import sqlite3
 import uuid
 from datetime import datetime
 from typing import Any
-from material_workbench.contracts.schemas import (
-    ActualMeasurement,
+from material_workbench.contracts.prediction_catalog_contracts import ActualMeasurement
+from material_workbench.contracts.evidence_contracts import (
     LineageNodeReview,
     LineageNodeReviewInput,
 )

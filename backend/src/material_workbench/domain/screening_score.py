@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-from material_workbench.contracts.schemas import ScreeningGoal, TargetRange, TargetValue
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
+from material_workbench.contracts.candidate_project_contracts import (
+    TargetRange,
+    TargetValue,
+)
 
 ScoreMethod = Literal["achievement_probability", "directional_shortfall", "range_shortfall", "absolute_distance", "support_distance"]
 

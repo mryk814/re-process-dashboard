@@ -10,7 +10,7 @@ from weakref import WeakKeyDictionary
 
 import numpy as np
 
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 from material_workbench.contracts.task_contracts import (
     InputSpaceSurfaceDefinition,
 )

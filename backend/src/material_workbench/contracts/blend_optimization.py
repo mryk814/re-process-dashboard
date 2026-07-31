@@ -13,7 +13,7 @@ from material_workbench.contracts.blend_contracts import (
     RevisionRef,
     SelectionCountConstraint,
 )
-from material_workbench.contracts.schemas import Candidate
+from material_workbench.contracts.candidate_project_contracts import Candidate
 
 
 class OptimizationContractModel(BaseModel):

@@ -16,7 +16,7 @@ from material_workbench.application.dataset_registration import (
 )
 from material_workbench.data.file_integrity import file_sha256
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     ModelPackageRefCreateInput,
     ModelPackageRegistrationWarning,
 )

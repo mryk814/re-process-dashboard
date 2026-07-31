@@ -9,7 +9,7 @@ from material_workbench.contracts.design_space_contracts import (
 from material_workbench.contracts.proposal_contracts import (
     ProposalStrategyRequest,
 )
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.domain.proposal_selection import (
     select_proposal_shortlist,

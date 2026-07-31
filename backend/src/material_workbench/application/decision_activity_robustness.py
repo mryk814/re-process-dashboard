@@ -26,11 +26,13 @@ from material_workbench.contracts.decision_activity_contracts import (
     ToleranceSpec,
     TruncatedNormalTolerance,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.prediction_catalog_contracts import (
     ModelMetadata,
     Prediction,
-    Project,
     Support,
+)
+from material_workbench.contracts.candidate_project_contracts import (
+    Project,
     TargetRange,
 )
 from material_workbench.domain.goal_targets import empirical_goal_probability

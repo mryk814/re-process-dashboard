@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 
 from material_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from material_workbench.data.profiles.schema import DatasetInputProfile
 
 

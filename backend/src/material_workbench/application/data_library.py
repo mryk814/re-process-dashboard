@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataLibraryDataset,
     DatasetRevisionUpdateInput,
     DatasetViewRevision,
@@ -10,8 +10,8 @@ from material_workbench.contracts.schemas import (
     ModelPackageRef,
     ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
-    ProjectCreationOptions,
 )
+from material_workbench.contracts.candidate_project_contracts import ProjectCreationOptions
 from material_workbench.persistence.workspace_catalog import (
     CatalogConflictError as PersistenceCatalogConflictError,
     CatalogReferenceError,

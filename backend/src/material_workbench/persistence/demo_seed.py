@@ -4,7 +4,10 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping
 from typing import TYPE_CHECKING
 
-from material_workbench.contracts.schemas import CandidateInput, ProjectInput
+from material_workbench.contracts.candidate_project_contracts import (
+    CandidateInput,
+    ProjectInput,
+)
 from material_workbench.persistence.store import Store
 from material_workbench.task_composition.descriptors import TaskModule
 from material_workbench.task_composition.ports import PredictionRuntime

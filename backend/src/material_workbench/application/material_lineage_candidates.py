@@ -4,12 +4,12 @@ from collections import defaultdict
 from copy import deepcopy
 from statistics import fmean, pstdev
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
-    CandidateOriginEvidence,
     HeatPoint,
-    LineageCandidateOption,
 )
+from material_workbench.contracts.prediction_catalog_contracts import CandidateOriginEvidence
+from material_workbench.contracts.data_exploration_contracts import LineageCandidateOption
 from material_workbench.contracts.task_contracts import LineageReference, TaskDefinition
 from material_workbench.data.importer import WorkbookData
 from material_workbench.modeling.hot_rolling_feature_pipeline import PROCESS_NAMES

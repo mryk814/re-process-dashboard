@@ -19,7 +19,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised by CLI users.
         "backend/scripts/generators/build_annealed_lightgbm_model_package.py"
     ) from exc
 
-from material_workbench.contracts.schemas import CandidateInput
+from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.data.importer import load_workbook_data, training_context_key
 from material_workbench.modeling.feature_pipeline import (
     CANONICAL_INPUT_PATHS,

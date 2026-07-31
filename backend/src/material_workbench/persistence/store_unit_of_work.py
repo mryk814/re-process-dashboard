@@ -16,9 +16,11 @@ from material_workbench.contracts.chain_execution_contracts import (
 from material_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.prediction_catalog_contracts import (
     ActualMeasurement,
     ActualMeasurementInput,
+)
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     Project,

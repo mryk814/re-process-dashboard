@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.data_library_contracts import (
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     ProfileRevisionCreateInput,

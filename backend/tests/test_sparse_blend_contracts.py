@@ -25,7 +25,10 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     validate_sparse_blend,
 )
-from material_workbench.contracts.schemas import Candidate, CandidateInput
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from material_workbench.application.candidate_spreadsheet import candidates_xlsx
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.persistence.snapshot_reader import candidate_input_from_snapshot

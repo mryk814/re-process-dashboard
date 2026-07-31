@@ -7,7 +7,10 @@ import numpy as np
 
 from material_workbench.contracts.feature_contracts import FeatureBundle, FeatureDefinition
 from material_workbench.modeling.metallurgy_features import transformation_temperature_proxies
-from material_workbench.contracts.schemas import CandidateInput, HeatPoint
+from material_workbench.contracts.candidate_project_contracts import (
+    CandidateInput,
+    HeatPoint,
+)
 
 
 COMPOSITION_NAMES = (

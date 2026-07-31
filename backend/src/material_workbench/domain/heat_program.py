@@ -12,7 +12,7 @@ from material_workbench.contracts.heat_program_contracts import (
     HeatProgramTemplate,
     HeatProgramTemplatePoint,
 )
-from material_workbench.contracts.schemas import HeatPoint
+from material_workbench.contracts.candidate_project_contracts import HeatPoint
 
 
 class HeatProgramNotRepresentable(ValueError):

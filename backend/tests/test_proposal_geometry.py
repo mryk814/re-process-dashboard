@@ -13,7 +13,11 @@ from material_workbench.contracts.design_space_contracts import (
     default_design_space,
 )
 from material_workbench.contracts.objective_contracts import objective_from_screening
-from material_workbench.contracts.schemas import Candidate, CandidateInput, ScreeningGoal
+from material_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.domain.proposal_generation import generate_candidates
 from material_workbench.domain.proposal_geometry import proposal_distance

@@ -16,15 +16,17 @@ from material_workbench.application.batch_selector_registry import (
     batch_selector_availability,
     require_batch_selector,
 )
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
     Project,
+)
+from material_workbench.contracts.evidence_contracts import (
     ScreeningCandidateBatchRequest,
     ScreeningCandidateBatchResponse,
-    ScreeningRequest,
-    ScreeningRunResponse,
 )
+from material_workbench.contracts.prediction_catalog_contracts import ScreeningRequest
+from material_workbench.contracts.screening_contracts import ScreeningRunResponse
 from material_workbench.contracts.proposal_contracts import (
     ProposalIncumbentResolution,
     ProposalStrategyAvailability,

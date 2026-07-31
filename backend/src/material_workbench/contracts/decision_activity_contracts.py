@@ -12,8 +12,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from material_workbench.contracts.schemas import (
-    CandidateInputs,
+from material_workbench.contracts.candidate_project_contracts import CandidateInputs
+from material_workbench.contracts.prediction_catalog_contracts import (
     ModelMetadata,
     Prediction,
     Support,

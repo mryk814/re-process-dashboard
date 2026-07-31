@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from material_workbench.contracts.schemas import Support
+from material_workbench.contracts.prediction_catalog_contracts import Support
 from material_workbench.application.proposal_service import _evaluate_proposal_pool
 
 

@@ -9,13 +9,15 @@ from typing import Literal
 from .candidates import CandidateService
 from .projects import ProjectService
 from material_workbench.data.importer import lineage_neighborhood, lineage_node_detail
-from material_workbench.contracts.schemas import (
-    Candidate,
-    CandidateOriginEvidence,
+from material_workbench.contracts.candidate_project_contracts import Candidate
+from material_workbench.contracts.prediction_catalog_contracts import CandidateOriginEvidence
+from material_workbench.contracts.evidence_contracts import (
     LineageIndexResponse,
     LineageNodeReview,
     LineageNodeReviewInput,
     LineageNodeReviewList,
+)
+from material_workbench.contracts.data_exploration_contracts import (
     LineageResponse,
     QualityResponse,
 )

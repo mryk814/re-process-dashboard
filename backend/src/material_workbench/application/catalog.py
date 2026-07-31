@@ -24,13 +24,13 @@ from material_workbench.modeling.training_distance import (
 )
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from material_workbench.data.importer import training_context_key
-from material_workbench.contracts.schemas import (
+from material_workbench.contracts.prediction_catalog_contracts import (
     InputSpaceEmbeddingResponse,
     ModelPackageStatus,
     ModelTrainingDataPage,
     OutputSpaceEvidenceResponse,
-    TaskCatalogItem,
 )
+from material_workbench.contracts.evidence_contracts import TaskCatalogItem
 from material_workbench.application.input_space import build_input_space_embedding
 from material_workbench.persistence.store import Store
 from material_workbench.application.workspace_catalog_bootstrap import task_definition_digest

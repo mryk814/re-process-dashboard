@@ -15,8 +15,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 
 from material_workbench.application.dataset_registration import register_managed_dataset
-from material_workbench.contracts.schemas import (
-    ApiError,
+from material_workbench.contracts.evidence_contracts import ApiError
+from material_workbench.contracts.data_library_contracts import (
     ProfileWorkbenchBindingDraft,
     ProfileWorkbenchConfirmedBinding,
     ProfileWorkbenchDraftSave,
