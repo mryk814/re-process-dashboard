@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from sidecar import configure_standard_streams
 from material_workbench.task_composition.catalog import registered_task_modules
+from sidecar import configure_standard_streams
 
 
 ROOT = Path(__file__).parents[2]
