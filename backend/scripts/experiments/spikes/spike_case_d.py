@@ -330,6 +330,7 @@ def main() -> int:
     from types import MappingProxyType
 
     from material_workbench import app as app_module
+    import material_workbench.bootstrap.resources as resources_module
     from material_workbench.task_composition.builtin.shared import (
         _application_capability,
     )
@@ -354,8 +355,8 @@ def main() -> int:
     SCRATCH.mkdir(parents=True, exist_ok=True)
     findings: list[str] = []
     installed: list[Path] = []
-    original_modules = app_module.registered_task_modules
-    original_builtin_modules = app_module.BUILTIN_TASK_MODULES
+    original_modules = resources_module.registered_task_modules
+    original_builtin_modules = resources_module.BUILTIN_TASK_MODULES
     original_table = task_catalog.TASK_MODULES
 
     x_csv = SCRATCH / "stage_x.csv"
@@ -399,8 +400,8 @@ def main() -> int:
                     similarity=True,
                 ),
             )
-        app_module.registered_task_modules = lambda: modules
-        app_module.BUILTIN_TASK_MODULES = modules
+        resources_module.registered_task_modules = lambda: modules
+        resources_module.BUILTIN_TASK_MODULES = modules
         task_catalog.TASK_MODULES = MappingProxyType(modules)
 
         from operations.model_workflow import build_package
@@ -438,7 +439,7 @@ def main() -> int:
             ),
             encoding="utf-8",
         )
-        resources = app_module._prepare_app_resources(
+        resources = resources_module.prepare_app_resources(
             package_roots=overrides, active_packages_path=temp_active
         )
         for task_id in (STAGE_X, STAGE_Y):
@@ -455,8 +456,8 @@ def main() -> int:
         findings.append("スパイクが想定外の例外で停止した（tracebackが実測結果）")
         return _report(findings)
     finally:
-        app_module.registered_task_modules = original_modules
-        app_module.BUILTIN_TASK_MODULES = original_builtin_modules
+        resources_module.registered_task_modules = original_modules
+        resources_module.BUILTIN_TASK_MODULES = original_builtin_modules
         task_catalog.TASK_MODULES = original_table
         for task_id in (STAGE_X, STAGE_Y):
             _TABULAR_PROFILES.pop(task_id, None)

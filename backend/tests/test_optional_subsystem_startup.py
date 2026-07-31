@@ -6,8 +6,10 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import material_workbench.app as app_module
-from material_workbench.app import _AppResources, create_app
+import material_workbench.bootstrap.contributions as contributions_module
+import material_workbench.bootstrap.startup as startup_module
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import AppResources
 from material_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
     WELDING_CHAIN_SUBSYSTEM_ID,
@@ -46,7 +48,7 @@ def _chain_project(client: TestClient, name: str = "degraded Chain") -> dict:
 
 def test_broken_chain_evaluation_is_isolated_and_structured(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     broken = tmp_path / "broken-evaluation.json"
     broken.write_text('{"schema_version":"broken"}', encoding="utf-8")
@@ -107,7 +109,7 @@ def test_broken_chain_evaluation_is_isolated_and_structured(
 
 def test_broken_transform_disables_only_dependent_chain(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     broken = tmp_path / "broken-active-transforms.json"
     broken.write_text("not-json", encoding="utf-8")
@@ -141,7 +143,7 @@ def test_broken_transform_disables_only_dependent_chain(
 
 def test_broken_transform_preserves_saved_chain_inputs_read_only(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     database = tmp_path / "workbench.db"
     data_library = tmp_path / "data-library"
@@ -199,7 +201,7 @@ def test_broken_transform_preserves_saved_chain_inputs_read_only(
 
 def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     database = tmp_path / "workbench.db"
@@ -244,7 +246,11 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
     def broken_bootstrap(**_: object) -> str:
         raise WeldingChainBootstrapError("injected broken Chain binding")
 
-    monkeypatch.setattr(app_module, "bootstrap_welding_chain", broken_bootstrap)
+    monkeypatch.setattr(
+        contributions_module,
+        "bootstrap_welding_chain",
+        broken_bootstrap,
+    )
     degraded_app = create_app(
         db_path=database,
         data_library_path=tmp_path / "data-library",
@@ -300,13 +306,13 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
 
 def test_database_boundary_remains_fail_fast(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def broken_store(_: Path) -> object:
         raise RuntimeError("injected schema failure")
 
-    monkeypatch.setattr(app_module, "Store", broken_store)
+    monkeypatch.setattr(startup_module, "Store", broken_store)
     app = create_app(
         db_path=tmp_path / "workbench.db",
         data_library_path=tmp_path / "data-library",
@@ -326,7 +332,7 @@ def test_database_boundary_remains_fail_fast(
 )
 def test_transform_security_boundary_remains_fail_fast(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch: pytest.MonkeyPatch,
     failure: Exception,
 ) -> None:
@@ -334,7 +340,7 @@ def test_transform_security_boundary_remains_fail_fast(
         raise failure
 
     monkeypatch.setattr(
-        app_module,
+        contributions_module,
         "load_deterministic_transform_catalog",
         broken_transform_catalog,
     )
@@ -350,7 +356,7 @@ def test_transform_security_boundary_remains_fail_fast(
 
 def test_transform_locator_escape_remains_fail_fast_through_real_loader(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     unsafe = tmp_path / "unsafe-active-transforms.json"
     unsafe.write_text(
@@ -387,13 +393,17 @@ def test_transform_locator_escape_remains_fail_fast_through_real_loader(
 
 def test_chain_catalog_conflict_remains_fail_fast(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def conflicting_bootstrap(**_: object) -> str:
         raise ChainCatalogConflictError("immutable Chain digest conflict")
 
-    monkeypatch.setattr(app_module, "bootstrap_welding_chain", conflicting_bootstrap)
+    monkeypatch.setattr(
+        contributions_module,
+        "bootstrap_welding_chain",
+        conflicting_bootstrap,
+    )
     app = create_app(
         db_path=tmp_path / "workbench.db",
         data_library_path=tmp_path / "data-library",

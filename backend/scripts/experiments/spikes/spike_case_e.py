@@ -114,6 +114,7 @@ def _tracked_state() -> dict[str, str]:
 
 def main() -> int:
     from material_workbench import app as app_module
+    import material_workbench.bootstrap.resources as resources_module
     from material_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
@@ -171,7 +172,9 @@ def main() -> int:
         previous_env = os.environ.get(module.source_env)
         os.environ[module.source_env] = str(swapped)
         try:
-            resources = app_module._prepare_app_resources(package_roots=overrides)
+            resources = resources_module.prepare_app_resources(
+                package_roots=overrides
+            )
         finally:
             if previous_env is None:
                 os.environ.pop(module.source_env, None)

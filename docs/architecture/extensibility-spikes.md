@@ -105,7 +105,7 @@ uv run python backend/scripts/experiments/spikes/spike_case_d.py
 ### 実測結果
 
 fixture: 数値5列（`process.*`）＋カテゴリ2列（`categorical.*`）＋出力2列、300行、`warpage_mm` を44行欠損。
-`_prepare_app_resources()` で起動し、TestClientで本番APIを叩いた結果:
+`prepare_app_resources()` で起動し、TestClientで本番APIを叩いた結果:
 
 ```text
 [registry] availability=available stage=ready

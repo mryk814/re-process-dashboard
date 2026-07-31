@@ -5,7 +5,11 @@ import shutil
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import _AppResources, _prepare_app_resources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import (
+    AppResources,
+    prepare_app_resources,
+)
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 
 
@@ -30,13 +34,13 @@ def isolated_personal_task_store(tmp_path_factory: pytest.TempPathFactory):
 
 
 @pytest.fixture(scope="session")
-def app_resources() -> _AppResources:
+def app_resources() -> AppResources:
     # Shared source/runtime objects are read-only by contract; tests isolate mutable DB/work-graph state.
-    return _prepare_app_resources(SOURCE)
+    return prepare_app_resources(SOURCE)
 
 
 @pytest.fixture(scope="session")
-def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: _AppResources):
+def _client_template(tmp_path_factory: pytest.TempPathFactory, app_resources: AppResources):
     root = tmp_path_factory.mktemp("shared-client")
     database = root / "workbench.db"
     baseline = root / "baseline.db"

@@ -3,13 +3,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import _AppResources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import AppResources
 from material_workbench.contracts.schemas import ProjectCreateInput
 
 
 def test_prepared_resources_keep_each_app_database_and_work_graph_isolated(
     tmp_path: Path,
-    app_resources: _AppResources,
+    app_resources: AppResources,
 ) -> None:
     first_app = create_app(db_path=tmp_path / "first.db", _resources=app_resources)
     second_app = create_app(db_path=tmp_path / "second.db", _resources=app_resources)
@@ -36,7 +37,7 @@ def test_prepared_resources_keep_each_app_database_and_work_graph_isolated(
     ],
 )
 def test_prepared_resources_reject_source_and_package_overrides(
-    app_resources: _AppResources,
+    app_resources: AppResources,
     override: dict,
 ) -> None:
     with pytest.raises(ValueError, match="preloaded resources"):

@@ -17,7 +17,11 @@ if str(BACKEND_SRC) not in sys.path:
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import _AppResources, _prepare_app_resources, create_app
+from material_workbench.app import create_app
+from material_workbench.bootstrap.resources import (
+    AppResources,
+    prepare_app_resources,
+)
 from material_workbench.application.workspace_bundle import (
     commit_workspace_restore,
     create_workspace_backup,
@@ -44,13 +48,13 @@ def seed_review_workspace(
     database: Path,
     data_library: Path,
     *,
-    resources: _AppResources | None = None,
+    resources: AppResources | None = None,
     validate_readiness: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, object]:
     database = database.expanduser().resolve()
     data_library = data_library.expanduser().resolve()
     database.parent.mkdir(parents=True, exist_ok=True)
-    resources = resources or _prepare_app_resources()
+    resources = resources or prepare_app_resources()
     try:
         transform_catalog = load_deterministic_transform_catalog()
     except DeterministicTransformCatalogUnavailableError:

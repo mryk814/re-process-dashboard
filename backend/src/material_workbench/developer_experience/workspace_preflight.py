@@ -141,9 +141,11 @@ class CurrentWorkspacePreflightRegistry:
         if self._production_identities is None:
             try:
                 # Local import avoids app -> preflight -> app initialization.
-                from material_workbench.app import _prepare_app_resources
+                from material_workbench.bootstrap.resources import (
+                    prepare_app_resources,
+                )
 
-                resources = _prepare_app_resources(
+                resources = prepare_app_resources(
                     active_packages_path=self._active_packages_path,
                 )
             except (OSError, ValueError, KeyError):

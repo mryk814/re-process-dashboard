@@ -290,6 +290,7 @@ def main() -> int:
     from types import MappingProxyType
 
     from material_workbench import app as app_module
+    import material_workbench.bootstrap.resources as resources_module
     from material_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
@@ -331,7 +332,7 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    original_modules = app_module.registered_task_modules
+    original_modules = resources_module.registered_task_modules
     original_table = task_catalog.TASK_MODULES
     try:
         # 発見1: builderが load_task_contracts() を root注入なしで呼ぶため、
@@ -372,7 +373,7 @@ def main() -> int:
             data_explorer=TABULAR_EXPLORER,
         )
         modules = {**registered_task_modules(), SPIKE_TASK_ID: spike_module}
-        app_module.registered_task_modules = lambda: modules
+        resources_module.registered_task_modules = lambda: modules
         # 発見2: model_lifecycle.canonical_training_dataset が task_module() 経由で
         # catalogのallow-listを直接読むため、Package構築の前に一時catalogへ
         # Task compositionを追加する必要がある。
@@ -424,7 +425,7 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        resources = app_module._prepare_app_resources(
+        resources = resources_module.prepare_app_resources(
             package_roots=overrides, active_packages_path=temp_active
         )
         registry = resources.task_registry
@@ -450,7 +451,7 @@ def main() -> int:
         findings.append("スパイクが例外で停止した（上のtracebackが実測結果）")
         return _report(findings, ok=False)
     finally:
-        app_module.registered_task_modules = original_modules
+        resources_module.registered_task_modules = original_modules
         task_catalog.TASK_MODULES = original_table
         _TABULAR_PROFILES.pop(SPIKE_TASK_ID, None)
         if installed_contract.exists():

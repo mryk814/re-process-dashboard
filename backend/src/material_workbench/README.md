@@ -4,7 +4,10 @@
 
 | Package | Responsibility |
 | --- | --- |
-| `app.py` | FastAPI の組み立てと起動時の依存解決 |
+| `app.py` | FastAPI、middleware、routerのtransport composition |
+| `bootstrap/resources.py` | Dataset／Model Package／Task runtimeの解決 |
+| `bootstrap/startup.py` | Store、catalog、resource refreshのlifespan起動 |
+| `bootstrap/contributions.py` | optional subsystemとWelding Chainの起動 |
 | `task_composition/ports.py` | Runtime／Datasetの依存方向を固定するport |
 | `task_composition/descriptors.py` | TaskModule descriptor |
 | `task_composition/builtin/` | family別の同梱Prediction Task composition |

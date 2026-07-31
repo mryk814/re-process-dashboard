@@ -57,13 +57,13 @@ def _run_workspace_command(arguments: argparse.Namespace) -> None:
         )
         return
     if command == "prepare":
-        from material_workbench.app import _prepare_app_resources
+        from material_workbench.bootstrap.resources import prepare_app_resources
         from material_workbench.modeling.transform_catalog import (
             DeterministicTransformCatalogUnavailableError,
             load_deterministic_transform_catalog,
         )
 
-        resources = _prepare_app_resources()
+        resources = prepare_app_resources()
         try:
             transform_catalog = load_deterministic_transform_catalog()
         except DeterministicTransformCatalogUnavailableError:

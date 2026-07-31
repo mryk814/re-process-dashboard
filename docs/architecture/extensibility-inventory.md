@@ -99,7 +99,7 @@ DataDescriptor（宣言済みの共通面）
 観測できた具体的な帰結:
 
 - `DataExplorationService.quality()` は `data.quality` / `data.detected_quality` / `data.technical_columns` を使いますが（[application/data_exploration.py:56](../../backend/src/material_workbench/application/data_exploration.py#L56)）、これらは `DataDescriptor` に宣言されていません。**未宣言の暗黙インターフェース**です。
-- `DataExplorerEntry.data` の型注釈は `WorkbookData` ですが（[tasks/task_registry.py:56](../../backend/src/material_workbench/tasks/task_registry.py#L56)）、Tabular Taskでは実際に `TabularData` が入ります（[app.py:175](../../backend/src/material_workbench/app.py#L175)）。型注釈が実態と一致していません。
+- `DataExplorerEntry.data` の型注釈は `WorkbookData` ですが（[tasks/task_registry.py:56](../../backend/src/material_workbench/tasks/task_registry.py#L56)）、Tabular Taskでは実際に `TabularData` が入ります（[bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py)）。型注釈が実態と一致していません。
 - 明示的なTraining View契約を持つのは Observation family だけです（`ObservationTrainingDataset` / `ObservationTrainingView`、[data/observation_profile.py:182](../../backend/src/material_workbench/data/observation_profile.py#L182)）。Tabular / Workbook / FlankWear familyは `observations: list[dict]` を直接学習・品質表示へ渡します。
 
 **登録点**
@@ -276,9 +276,9 @@ Chain snapshotのidentityは `design_space` と `commercial_catalog` を必須�
 
 - `TaskModule.default_source`（リポジトリ相対パス）
 - `TaskModule.source_env`（環境変数による上書き）
-- [app.py:136](../../backend/src/material_workbench/app.py#L136) の `source_kind == "primary"` / `"flank_wear"` の2つの明示分岐
+- [bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py) の `source_kind == "primary"` / `"flank_wear"` の2つの明示分岐
 
-`source_kind` はloaderの選択には使われず、`data_by_source` のキー共有（[app.py:148](../../backend/src/material_workbench/app.py#L148)）と `app.state.data` の既定選択（[app.py:228](../../backend/src/material_workbench/app.py#L228) の `get("primary")`）にのみ使われます。定期取得・スナップショット・外部接続の仕組みはありません（計画P3のまま）。
+`source_kind` はloaderの選択には使われず、`data_by_source` のキー共有（[bootstrap/resources.py](../../backend/src/material_workbench/bootstrap/resources.py)）と `app.state.data` の既定選択（[bootstrap/startup.py](../../backend/src/material_workbench/bootstrap/startup.py) の `get("primary")`）にのみ使われます。定期取得・スナップショット・外部接続の仕組みはありません（計画P3のまま）。
 
 ## 2. Profile familyごとの共通出力差分
 
