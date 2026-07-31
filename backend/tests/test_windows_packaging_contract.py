@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -252,6 +253,63 @@ def test_packaging_cleanup_is_bounded_and_previous_outputs_are_opt_in() -> None:
     assert "`npm run clean`" in root_readme
     assert "`npm run clean:evidence`" in root_readme
     assert "Workspace、`data/source/`、`models/packages/`" in root_readme
+
+
+def test_generated_cleanup_dry_run_and_apply_only_remove_bounded_targets(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    cache = repository / "backend/scripts/experiments/spikes/__pycache__"
+    source = repository / "data/source/source.xlsx"
+    package = repository / "models/packages/package/manifest.json"
+    tracked_script = repository / "backend/scripts/experiments/spikes/spike.py"
+    generated = repository / "build/generated.txt"
+    copied_script = repository / "scripts/clean-generated.ps1"
+    for path in (cache / "spike.pyc", source, package, tracked_script, generated):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("keep" if path != generated else "generated", encoding="utf-8")
+
+    script = ROOT / "scripts/clean-generated.ps1"
+    copied_script.parent.mkdir(parents=True)
+    shutil.copyfile(script, copied_script)
+    dry_run = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(copied_script),
+            "-DryRun",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "Would remove Python cache:" in dry_run.stdout
+    assert cache.is_dir()
+    assert generated.is_file()
+
+    subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(copied_script),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert not cache.exists()
+    assert not generated.exists()
+    assert source.read_text(encoding="utf-8") == "keep"
+    assert package.read_text(encoding="utf-8") == "keep"
+    assert tracked_script.read_text(encoding="utf-8") == "keep"
 
 
 def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:

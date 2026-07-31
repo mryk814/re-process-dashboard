@@ -67,6 +67,25 @@ def test_backend_script_inventory_covers_every_command() -> None:
         f"undocumented backend scripts: {sorted(scripts - documented)}"
     )
 
+    rows: dict[str, list[str]] = {}
+    for line in inventory.splitlines():
+        match = re.match(r"\| `((?:operations|generators|acceptance|experiments)/[^`]+\.py)` \|", line)
+        if match:
+            rows[match.group(1)] = [cell.strip() for cell in line.strip("|").split("|")]
+
+    assert scripts == set(rows), f"inventory rows differ: {sorted(scripts ^ set(rows))}"
+    for script, cells in rows.items():
+        assert len(cells) == 5, f"{script} must record entrypoint/owner/purpose/reference/retention"
+        entrypoint, owner, purpose, reference, retention = cells
+        assert entrypoint == f"`{script}`"
+        assert owner and purpose and reference
+        expected_retention = (
+            "experiments/spikes/"
+            if script.startswith("experiments/spikes/")
+            else f"{script.split('/', 1)[0]}/"
+        )
+        assert retention == f"`{expected_retention}`"
+
 
 def test_repo_skills_reference_current_commands_and_paths() -> None:
     package_scripts = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["scripts"]
