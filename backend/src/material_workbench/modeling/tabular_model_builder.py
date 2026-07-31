@@ -24,13 +24,12 @@ from material_workbench.modeling.model_packages import (
     SourceLifecycleProvenance,
     validate_task_definition_canonical_inputs,
 )
-from material_workbench.modeling.tabular_regression import (
-    TabularData,
+from material_workbench.modeling.tabular.data import TabularData, load_tabular_data
+from material_workbench.modeling.tabular.features import (
     build_tabular_features,
     build_tabular_features_from_observation,
     candidate_from_observation,
     feature_definitions,
-    load_tabular_data,
 )
 from material_workbench.tasks.task_registry import load_task_contracts
 
@@ -804,4 +803,4 @@ def build(
 
 
 # Kept local to avoid exporting profile parsing through the package builder API.
-from material_workbench.modeling.tabular_regression import load_tabular_profile  # noqa: E402
+from material_workbench.modeling.tabular.profile import load_tabular_profile  # noqa: E402

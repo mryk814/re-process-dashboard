@@ -60,7 +60,7 @@ Profile familyは現在4系統あり、**共通基底型を共有していませ
 | family | 契約 | 例 |
 | --- | --- | --- |
 | Dataset Input Profile v2 | [data/profiles/schema.py](../../backend/src/material_workbench/data/profiles/schema.py) `DatasetInputProfile` | `dataset-input-profile-tutorial.json`、`-process-v1`、`-flank-wear-v1` |
-| Tabular Profile | [modeling/tabular_regression.py:176](../../backend/src/material_workbench/modeling/tabular_regression.py#L176) `TabularDatasetProfile` | `tabular-profile-*.json`（8件） |
+| Tabular Profile | [modeling/tabular/profile.py](../../backend/src/material_workbench/modeling/tabular/profile.py) `TabularDatasetProfile` | `tabular-profile-*.json`（8件） |
 | Observation Profile | [data/observation_profile.py:99](../../backend/src/material_workbench/data/observation_profile.py#L99) `ObservationDatasetProfile` | `observation-profile-welding-consumable-stage-c-v1.json` |
 | Stage B Workbook Profile | [data/stage_b_training.py:71](../../backend/src/material_workbench/data/stage_b_training.py#L71) `StageBWorkbookProfile` | `welding-stage-b-profile-v1.json` |
 
@@ -91,7 +91,7 @@ DataDescriptor（宣言済みの共通面）
 | クラス | フィールド数 | 追加で持つもの |
 | --- | --- | --- |
 | `WorkbookData`（[data/importer.py:75](../../backend/src/material_workbench/data/importer.py#L75)） | 30 | sheets, composition, lineage, entities, relation_routes, policy_columns, … |
-| `TabularData`（[modeling/tabular_regression.py:243](../../backend/src/material_workbench/modeling/tabular_regression.py#L243)） | 15 | profile, quality, detected_quality, technical_columns, lifecycle_profile |
+| `TabularData`（[modeling/tabular/data.py](../../backend/src/material_workbench/modeling/tabular/data.py)） | 15 | profile, quality, detected_quality, technical_columns, lifecycle_profile |
 | `StageCData`（[modeling/observation_regression.py:142](../../backend/src/material_workbench/modeling/observation_regression.py#L142)） | 16 | profile_digest, `training_dataset: ObservationTrainingDataset` |
 | `FlankWearData`（[modeling/flank_wear.py:67](../../backend/src/material_workbench/modeling/flank_wear.py#L67)） | 10 | measurement_labels, run_count（**quality系を持たない**） |
 | `StageBTrainingData`（[data/stage_b_training.py:142](../../backend/src/material_workbench/data/stage_b_training.py#L142)） | 9 | `TabularData` をラップ + fold/cohort digest |
@@ -180,7 +180,7 @@ Package範囲とは混同しません。
 | Protocol | [task_composition/ports.py](../../backend/src/material_workbench/task_composition/ports.py) `PredictionRuntime` / `StageSampleRuntime` / `SupportProvider` |
 | capability宣言 | `RuntimeCapability`（task_definition JSON内） |
 | factory | `TaskModule.runtime_factory`（5系統） |
-| 実装 | `modeling/runtime.py`, `hot_rolling.py`, `flank_wear.py`, `tabular_regression.py`, `observation_regression.py` |
+| 実装 | `modeling/runtime.py`, `hot_rolling.py`, `flank_wear.py`, `tabular/runtime.py`, `observation_regression.py` |
 | 契約整合検証 | [tasks/task_registry.py:168](../../backend/src/material_workbench/tasks/task_registry.py#L168) `_validate_runtime` |
 
 `response_curve` / `curve_family` は capability宣言とhandlerの有無が起動時に一致検証されます（[tasks/task_registry.py:209](../../backend/src/material_workbench/tasks/task_registry.py#L209), [:216](../../backend/src/material_workbench/tasks/task_registry.py#L216)）。これは良い形の登録点です。

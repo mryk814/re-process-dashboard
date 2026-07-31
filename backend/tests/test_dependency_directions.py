@@ -85,6 +85,48 @@ def test_contract_resource_families_do_not_restore_the_schemas_hub() -> None:
     }
     assert offenders == set()
 
+def test_tabular_regression_boundaries_are_one_way_without_a_legacy_facade() -> None:
+    modeling = PACKAGE_ROOT / "modeling"
+    tabular = modeling / "tabular"
+
+    assert not (modeling / "tabular_regression.py").exists()
+    assert {"__init__.py", "profile.py", "data.py", "features.py", "runtime.py"} <= {
+        path.name for path in tabular.iterdir()
+    }
+
+    init_tree = ast.parse((tabular / "__init__.py").read_text(encoding="utf-8"))
+    assert not [
+        node
+        for node in init_tree.body
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    ]
+
+    imports = {
+        name: _imports(tabular / f"{name}.py")
+        for name in ("profile", "data", "features", "runtime")
+    }
+    tabular_prefix = "material_workbench.modeling.tabular"
+    assert not {
+        name
+        for name in imports["profile"]
+        if name.startswith(tabular_prefix)
+    }
+    assert not {
+        name
+        for name in imports["data"]
+        if name.startswith((f"{tabular_prefix}.features", f"{tabular_prefix}.runtime"))
+    }
+    assert not {
+        name
+        for name in imports["features"]
+        if name.startswith((f"{tabular_prefix}.data", f"{tabular_prefix}.runtime"))
+    }
+    assert not {
+        name
+        for name in imports["runtime"]
+        if name.startswith(f"{tabular_prefix}.profile")
+    }
+
 
 def test_profile_package_has_one_way_schema_validation_and_canonicalization_dependencies() -> None:
     profiles = PACKAGE_ROOT / "data" / "profiles"

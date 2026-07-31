@@ -15,10 +15,8 @@ from typing import Any, Literal
 from openpyxl import load_workbook
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from material_workbench.modeling.tabular_regression import (
-    TabularData,
-    TabularDatasetProfile,
-)
+from material_workbench.modeling.tabular.data import TabularData
+from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 from material_workbench.data.observation_profile import (
     FamilyTrainingSummary,
     ObservationRowProvenance,

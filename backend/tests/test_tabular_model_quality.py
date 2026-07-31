@@ -10,7 +10,7 @@ import pytest
 
 from material_workbench.modeling import tabular_model_builder as builder
 from material_workbench.modeling.model_lifecycle import TargetQualityMetric
-from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 
 
 ROOT = Path(__file__).resolve().parents[2]

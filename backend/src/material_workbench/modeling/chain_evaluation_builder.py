@@ -29,7 +29,7 @@ from material_workbench.modeling.numeric_canonicalization import (
 )
 from material_workbench.modeling.observation_regression import load_observation_data
 from material_workbench.modeling.tabular_model_builder import _fit, _predict
-from material_workbench.modeling.tabular_regression import (
+from material_workbench.modeling.tabular.features import (
     build_tabular_features_from_observation,
 )
 from material_workbench.modeling.transform_catalog import (

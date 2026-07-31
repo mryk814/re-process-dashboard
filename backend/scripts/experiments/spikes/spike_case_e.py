@@ -241,10 +241,8 @@ def _probe_out_of_range_swap(findings: list[str]) -> None:
     食い違ったまま残る。差し替えだけで済む範囲の境界を明示する。
     """
 
-    from material_workbench.modeling.tabular_regression import (
-        load_tabular_data,
-        load_tabular_profile,
-    )
+    from material_workbench.modeling.tabular.data import load_tabular_data
+    from material_workbench.modeling.tabular.profile import load_tabular_profile
     from material_workbench.tasks.task_registry import load_task_contracts
 
     profile_path = REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"

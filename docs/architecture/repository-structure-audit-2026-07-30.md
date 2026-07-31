@@ -51,7 +51,7 @@ provenanceと再生成性を先に確認します。
 | `application/workspace_bundle.py` | 2,105 | export、validation、restore/import |
 | `contracts/schemas.py` | 1,714 | project/candidate、prediction、exploration、workspace transport |
 | `data/dataset_profile.py` | 1,627 | document inheritance、schema validation、runtime mapping |
-| `modeling/tabular_regression.py` | 1,539 | fit、artifact serialization、prediction |
+| `modeling/tabular/` | 4 modules | Profile契約・CSV materialization・feature conversion・package runtime inference（#569で分割済） |
 | `application/chain_execution.py` | 1,386 | graph planning、execution、result assembly |
 | `developer_experience/data_lifecycle_benchmark.py` | 1,307 | benchmark scenarioとmeasurement/report |
 | `task_modules.py` | 1,165 | built-in TaskModule composition |
