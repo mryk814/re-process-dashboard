@@ -10,6 +10,13 @@ TARGET_ROUTERS = (
     ROOT / "backend/src/material_workbench/api/data_library.py",
     ROOT / "backend/src/material_workbench/api/chains.py",
 )
+GENERIC_CANDIDATE_USE_CASES = (
+    ROOT / "backend/src/material_workbench/application/candidates.py",
+    ROOT / "backend/src/material_workbench/application/inference.py",
+    ROOT / "backend/src/material_workbench/application/decision_activity_robustness.py",
+    ROOT / "backend/src/material_workbench/application/decision_activity_counterfactual.py",
+    ROOT / "backend/src/material_workbench/application/decision_activity_difference.py",
+)
 FORBIDDEN_PREFIXES = (
     "material_workbench.data",
     "material_workbench.modeling",
@@ -56,4 +63,33 @@ def test_chain_router_defines_no_api_local_pydantic_contracts() -> None:
     assert local_classes == set(), (
         "Chain request/response contracts belong in material_workbench.contracts, "
         f"not the router: {sorted(local_classes)}"
+    )
+
+
+def test_generic_candidate_use_cases_do_not_interpret_candidate_family_layout() -> None:
+    forbidden = (
+        "domain.candidate_inputs",
+        "inputs.composition",
+        "inputs.heat_pattern",
+        "inputs.process",
+        "heat.stage_temperature_c",
+        "ls_mpm",
+        "composition_totals",
+    )
+    violations = {
+        path.relative_to(ROOT).as_posix(): [
+            token
+            for token in forbidden
+            if token in path.read_text(encoding="utf-8")
+        ]
+        for path in GENERIC_CANDIDATE_USE_CASES
+    }
+
+    assert not {
+        path: tokens
+        for path, tokens in violations.items()
+        if tokens
+    }, (
+        "Generic application use cases must resolve path/value/balance/heat "
+        "semantics through CandidateFamilyAdapter."
     )
