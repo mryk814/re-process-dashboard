@@ -14,9 +14,12 @@ from material_workbench.application.workspace_catalog_bootstrap import (
     task_definition_digest,
 )
 from material_workbench.contracts.schemas import Project
+from material_workbench.data.profile_family_registry import (
+    ProfileFamilyUnavailableError,
+    load_training_descriptor,
+    restore_profile_document,
+)
 from material_workbench.data.profiles.loading import load_task_definitions
-from material_workbench.data.profiles.schema import DatasetInputProfile
-from material_workbench.data.profiles.validation import validate_profile
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import (
     ModelPackageLoader,
@@ -186,14 +189,18 @@ class ProjectRuntimeResolver:
             training_dataset_id, project.task_id
         )
         try:
-            context_data = module.data_loader(application_path, application_profile)
+            context_data = load_training_descriptor(
+                application_path, application_profile, project.task_id
+            )
             if (
                 application_sha == training_sha
                 and application_profile_digest == resolved_training_profile_digest
             ):
                 training_data = context_data
             else:
-                training_data = module.data_loader(training_path, training_profile)
+                training_data = load_training_descriptor(
+                    training_path, training_profile, project.task_id
+                )
             runtime = module.runtime_factory(training_data, package)
             self.registry.validate_application_runtime(project.task_id, runtime)
             context_runtime = (
@@ -258,60 +265,12 @@ class ProjectRuntimeResolver:
 
         definitions = load_task_definitions()
         raw_profile = dict(profile_revision.effective_profile_json)
-        if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
-            from material_workbench.modeling.tabular_regression import (
-                TabularDatasetProfile,
-            )
-
-            try:
-                profile = TabularDatasetProfile.model_validate(raw_profile)
-            except ValueError as exc:
-                raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
-            if profile.task_id != task_id:
-                raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
-            return source_path, profile, asset.sha256, profile_revision.profile_digest
-        if raw_profile.get("schema_version") == "observation-dataset-profile/v1":
-            from material_workbench.data.observation_profile import (
-                ObservationDatasetProfile,
-            )
-
-            try:
-                profile = ObservationDatasetProfile.model_validate(raw_profile)
-            except ValueError as exc:
-                raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
-            if profile.task_id != task_id:
-                raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
-            return source_path, profile, asset.sha256, profile_revision.profile_digest
-        if raw_profile.get("schema_version") == "welding-stage-b-profile/v1":
-            from material_workbench.data.stage_b_training import (
-                StageBWorkbookProfile,
-            )
-
-            try:
-                profile = StageBWorkbookProfile.model_validate(raw_profile)
-            except ValueError as exc:
-                raise ProjectRuntimeResolutionError(
-                    "Profile Revisionを再構成できません"
-                ) from exc
-            if profile.task_id != task_id:
-                raise ProjectRuntimeResolutionError(
-                    "Profile RevisionはこのPrediction Taskに対応していません"
-                )
-            return source_path, profile, asset.sha256, profile_revision.profile_digest  # type: ignore[return-value]
-        raw_tasks = raw_profile.get("tasks")
-        if not isinstance(raw_tasks, dict) or task_id not in raw_tasks:
-            raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
-        selected_definitions = {
-            selected_task_id: definitions[selected_task_id]
-            for selected_task_id in raw_tasks
-            if selected_task_id in definitions
-        }
         try:
-            profile = DatasetInputProfile.model_validate({
-                **raw_profile,
-                "task_definitions": selected_definitions,
-            })
-            validate_profile(profile, selected_definitions)
-        except ValueError as exc:
+            profile = restore_profile_document(raw_profile, definitions)
+        except (ProfileFamilyUnavailableError, ValueError) as exc:
             raise ProjectRuntimeResolutionError("Profile Revisionを再構成できません") from exc
+        from material_workbench.data.profile_family_registry import profile_task_ids
+
+        if task_id not in profile_task_ids(profile):
+            raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
         return source_path, profile, asset.sha256, profile_revision.profile_digest

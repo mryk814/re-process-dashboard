@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 from zipfile import BadZipFile
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -30,9 +30,11 @@ from material_workbench.data.observation_profile import (
     ObservationTrainingInspectionPage,
     ObservationTrainingProfileSummary,
     ObservationProfileError,
-    build_observation_training_dataset,
     inspect_observation_training_view,
-    load_observation_profile,
+)
+from material_workbench.data.profile_family_registry import (
+    ProfileFamilyUnavailableError,
+    load_inspection_descriptor,
 )
 from material_workbench.contracts.schemas import ApiError
 from material_workbench.persistence.store import Store
@@ -64,7 +66,6 @@ class _ObservationProfileRegistration:
     profile_id: str
     source_relative: Path
     profile_path: Path
-    kind: Literal["observation", "stage_b"] = "observation"
 
 
 _OBSERVATION_PROFILE_REGISTRY = (
@@ -77,7 +78,6 @@ _OBSERVATION_PROFILE_REGISTRY = (
         profile_id="welding-consumable-stage-b-v1",
         source_relative=_WELDING_SOURCE_RELATIVE,
         profile_path=_WELDING_STAGE_B_PROFILE,
-        kind="stage_b",
     ),
 )
 _OBSERVATION_API_ERRORS = {
@@ -100,24 +100,9 @@ def _load_observation_dataset(
     source_mtime_ns: int,
     profile_path: str,
     profile_mtime_ns: int,
-    kind: Literal["observation", "stage_b"],
 ) -> ObservationTrainingDataset:
     del source_mtime_ns, profile_mtime_ns
-    if kind == "stage_b":
-        from material_workbench.data.stage_b_training import (
-            build_stage_b_training_data,
-            load_stage_b_profile,
-            stage_b_inspection_dataset,
-        )
-
-        return stage_b_inspection_dataset(build_stage_b_training_data(
-            Path(source_path),
-            load_stage_b_profile(Path(profile_path)),
-        ))
-    return build_observation_training_dataset(
-        Path(source_path),
-        load_observation_profile(Path(profile_path)),
-    )
+    return load_inspection_descriptor(Path(source_path), Path(profile_path))
 
 
 def _observation_dataset(
@@ -130,7 +115,6 @@ def _observation_dataset(
             source.stat().st_mtime_ns,
             str(registration.profile_path.resolve()),
             registration.profile_path.stat().st_mtime_ns,
-            registration.kind,
         )
     except FileNotFoundError as exc:
         raise HTTPException(
@@ -144,6 +128,7 @@ def _observation_dataset(
         BadZipFile,
         InvalidFileException,
         ObservationProfileError,
+        ProfileFamilyUnavailableError,
         OSError,
         KeyError,
         ValueError,
