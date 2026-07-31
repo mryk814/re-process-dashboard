@@ -20,6 +20,7 @@ from material_workbench.modeling.training.feature_dataset import (
 )
 from material_workbench.modeling.training.recipe import estimator_recipe
 from material_workbench.modeling.training.recipe import validate_recipe_capability
+from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
 from material_workbench.task_composition.catalog import registered_task_modules
 from material_workbench.task_composition.catalog import resolve_task_source, task_module
 from material_workbench.tasks.task_registry import load_task_contracts
@@ -43,6 +44,13 @@ from build_default_model_package import _fit_gp_hyperparameters  # noqa: E402
 HOT_ROLLING_TASK = "hot-rolled-properties-v1"
 SOURCE = ROOT / "data/source/material_workbench_tutorial_v2.xlsx"
 HEAT_SOURCE = ROOT / "data/source/external/heat_treatment_tradeoff_samples.csv"
+BUNDLED_STANDARD_AUTHORING_TASK_IDS = tuple(
+    sorted(
+        task_id
+        for task_id, module in BUILTIN_TASK_MODULES.items()
+        if module.standard_model_authoring is not None
+    )
+)
 
 
 def _training_set(task_id: str, target: str, unit: str):
@@ -486,11 +494,7 @@ def test_capability_validation_rejects_unavailable_standard_outputs() -> None:
 
 @pytest.mark.parametrize(
     "task_id",
-    [
-        task_id
-        for task_id, module in registered_task_modules().items()
-        if module.standard_model_authoring is not None
-    ],
+    BUNDLED_STANDARD_AUTHORING_TASK_IDS,
 )
 def test_every_standard_estimator_task_compiles_all_targets(task_id: str) -> None:
     module = task_module(task_id)

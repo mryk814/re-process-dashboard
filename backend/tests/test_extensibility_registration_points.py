@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from material_workbench.modeling.model_lifecycle import load_active_packages
+from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
 from material_workbench.task_composition.catalog import registered_task_modules
 
 
@@ -46,11 +47,14 @@ REGISTRATION_POINT_IDS = (
 )
 
 
-def _task_ids() -> tuple[str, ...]:
-    return tuple(sorted(registered_task_modules()))
+# pytest evaluates @parametrize during collection, before the session fixture
+# isolates WORKBENCH_TASK_STORE_PATH.  This registry audit is deliberately for
+# repository-owned registration points, so derive its matrix from the
+# immutable bundled catalog rather than Personal Task discovery.
+BUNDLED_TASK_IDS = tuple(sorted(BUILTIN_TASK_MODULES))
 
 
-@pytest.mark.parametrize("task_id", _task_ids())
+@pytest.mark.parametrize("task_id", BUNDLED_TASK_IDS)
 def test_every_registered_task_fills_every_registration_point(task_id: str) -> None:
     module = registered_task_modules()[task_id]
     active = load_active_packages(ACTIVE_PACKAGES)
