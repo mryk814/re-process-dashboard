@@ -1,18 +1,21 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import prepare_app_resources
-
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 
 
-def test_process_registers_and_runs_standard_and_individual_observation_packages(tmp_path: Path) -> None:
+def test_process_registers_and_runs_standard_and_individual_observation_packages(
+    tmp_path: Path,
+) -> None:
     resources = prepare_app_resources(
-        SOURCE,
+        source_overrides={
+            "annealed-properties-v1": SOURCE,
+            "hot-rolled-properties-v1": SOURCE,
+        },
         package_roots={
             "annealed-properties-v1": ROOT / "models" / "packages" / "annealed-gp-stable-ard-process-v2",
             "hot-rolled-properties-v1": ROOT / "models" / "packages" / "hot-rolled-horseshoe-process-v2",
@@ -61,10 +64,7 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
             params={"query": "ME-00002"},
         )
         assert hidden_default.status_code == 200
-        assert all(
-            item["key"] != "ME-00002"
-            for item in hidden_default.json()["items"]
-        )
+        assert all(item["key"] != "ME-00002" for item in hidden_default.json()["items"])
         hidden_included = client.get(
             "/api/projects/default/lineage",
             params={"query": "ME-00002", "include_hidden": True},
@@ -80,8 +80,7 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
         assert lineage.status_code == 200
         assert lineage.json()["review"]["status"] == "needs_fix"
         options_for_annealing = [
-            option for option in lineage.json()["candidate_options"]
-            if option["process_role"] == "annealing"
+            option for option in lineage.json()["candidate_options"] if option["process_role"] == "annealing"
         ]
         assert len(options_for_annealing) == 2
         ambiguous = client.post("/api/projects/default/lineage/ME-00001/candidate")
@@ -101,8 +100,7 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
         )
         options = client.get("/api/project-creation-options").json()
         annealed_packages = [
-            item for item in options["model_packages"]
-            if item["task_id"] == "annealed-properties-v1"
+            item for item in options["model_packages"] if item["task_id"] == "annealed-properties-v1"
         ]
         assert {item["package_id"] for item in annealed_packages} >= {
             "annealed-gp-stable-ard-process-v2",
@@ -111,7 +109,8 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
             "annealed-hierarchical-bayes-process-v2",
         }
         dataset = next(
-            item for item in options["datasets"]
+            item
+            for item in options["datasets"]
             if "annealed-properties-v1" in item["supported_task_ids"]
             and item["data_asset"]["sha256"] == resources.runtimes["annealed-properties-v1"].data.source_sha256
         )
@@ -124,16 +123,19 @@ def test_process_registers_and_runs_standard_and_individual_observation_packages
         }
         for package_id, training_unit in package_training_units.items():
             package = next(item for item in annealed_packages if item["package_id"] == package_id)
-            created = client.post("/api/projects", json={
-                "name": package_id,
-                "description": "",
-                "purpose": "標準モデルと個々値モデルの確認",
-                "task_id": "annealed-properties-v1",
-                "target_values": {"TS": 500},
-                "notes": "",
-                "dataset_view_revision_id": dataset_view["id"],
-                "model_package_ref_id": package["id"],
-            })
+            created = client.post(
+                "/api/projects",
+                json={
+                    "name": package_id,
+                    "description": "",
+                    "purpose": "標準モデルと個々値モデルの確認",
+                    "task_id": "annealed-properties-v1",
+                    "target_values": {"TS": 500},
+                    "notes": "",
+                    "dataset_view_revision_id": dataset_view["id"],
+                    "model_package_ref_id": package["id"],
+                },
+            )
             assert created.status_code == 201, created.text
             project_id = created.json()["id"]
             status = client.get(f"/api/projects/{project_id}/model-package")

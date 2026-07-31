@@ -71,3 +71,4 @@ class TaskModule:
     starter_project: StarterProject | None = None
     response_curve: ResponseCurveHandler | None = None
     curve_family: CurveFamilyHandler | None = None
+    default_data_projection: bool = False

@@ -2,24 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from material_workbench.api.ai_reviews import router as ai_reviews_router
-from material_workbench.api.blend_optimization import (
-    router as blend_optimization_router,
-)
 from material_workbench.api.candidates import router as candidates_router
 from material_workbench.api.catalog import router as catalog_router
-from material_workbench.api.chains import (
-    execution_router as chain_execution_router,
-)
-from material_workbench.api.chains import (
-    router as chains_router,
-)
 from material_workbench.api.data_exploration import (
     router as data_exploration_router,
 )
@@ -48,7 +40,10 @@ from material_workbench.api.sample_gallery import router as sample_gallery_route
 from material_workbench.api.screening import router as screening_router
 from material_workbench.api.security import configure_local_access
 from material_workbench.api.series_assets import router as series_assets_router
-from material_workbench.api.transforms import router as transforms_router
+from material_workbench.bootstrap.contributions import (
+    ApplicationContributionConfig,
+    builtin_application_contributions,
+)
 from material_workbench.bootstrap.resources import (
     AppResources,
     default_personal_model_store_path,
@@ -57,35 +52,29 @@ from material_workbench.bootstrap.startup import create_lifespan
 
 if TYPE_CHECKING:
     from material_workbench.application.ai_review_provider import AiReviewProvider
-    from material_workbench.contracts.blend_contracts import BlendContractRegistry
 
 
 def create_app(
-    source_path: str | Path | None = None,
     db_path: str | Path | None = None,
     *,
-    flank_wear_source_path: str | Path | None = None,
+    source_overrides: Mapping[str, str | Path] | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     model_store_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
-    active_transforms_path: str | Path | None = None,
-    chain_evaluation_path: str | Path | None = None,
-    blend_contracts: BlendContractRegistry | None = None,
+    contribution_configs: Mapping[str, ApplicationContributionConfig] | None = None,
     ai_review_provider: AiReviewProvider | None = None,
     _resources: AppResources | None = None,
 ) -> FastAPI:
+    contributions = builtin_application_contributions(contribution_configs)
     lifespan = create_lifespan(
-        source_path,
         db_path,
-        flank_wear_source_path=flank_wear_source_path,
+        source_overrides=source_overrides,
         package_roots=package_roots,
         active_packages_path=active_packages_path,
         model_store_path=model_store_path,
         data_library_path=data_library_path,
-        active_transforms_path=active_transforms_path,
-        chain_evaluation_path=chain_evaluation_path,
-        blend_contracts=blend_contracts,
+        contributions=contributions,
         ai_review_provider=ai_review_provider,
         resources=_resources,
     )
@@ -100,9 +89,7 @@ def create_app(
     async def gate_resource_promotion(request: Request, call_next):
         is_catalog_health = request.url.path in {"/health", "/api/health"}
         is_readiness = request.url.path == "/api/readiness"
-        is_resource_refresh = (
-            request.url.path == "/api/data-library/tasks/refresh"
-        )
+        is_resource_refresh = request.url.path == "/api/data-library/tasks/refresh"
         if is_readiness:
             return await call_next(request)
         if getattr(request.app.state, "resources_promoting", False):
@@ -135,8 +122,6 @@ def create_app(
     configure_local_access(app)
     install_exception_handlers(app)
     app.include_router(catalog_router)
-    app.include_router(chains_router)
-    app.include_router(chain_execution_router)
     app.include_router(data_library_router)
     app.include_router(sample_gallery_router)
     app.include_router(data_lifecycle_router)
@@ -147,13 +132,14 @@ def create_app(
     app.include_router(profile_workbench_router)
     app.include_router(projects_router)
     app.include_router(candidates_router)
-    app.include_router(blend_optimization_router)
     app.include_router(data_exploration_router)
     app.include_router(screening_router)
     app.include_router(decision_activities_router)
     app.include_router(inference_router)
     app.include_router(records_router)
-    app.include_router(transforms_router)
+    for contribution in contributions:
+        for router in contribution.routers:
+            app.include_router(router)
     return app
 
 

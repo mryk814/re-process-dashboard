@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
+import material_workbench.bootstrap.startup as startup_module
+import material_workbench.bootstrap.contributions as contributions_module
 import pytest
 from fastapi.testclient import TestClient
-
-import material_workbench.bootstrap.contributions as contributions_module
-import material_workbench.bootstrap.startup as startup_module
 from material_workbench.app import create_app
 from material_workbench.bootstrap.resources import AppResources
+from material_workbench.bootstrap.contributions import (
+    WELDING_BLEND_CONTRIBUTION_ID,
+    WeldingBlendContributionConfig,
+)
 from material_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
     WELDING_CHAIN_SUBSYSTEM_ID,
@@ -20,6 +23,10 @@ from material_workbench.persistence.store import ChainCatalogConflictError
 from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
 )
+
+
+def _welding_config(**kwargs: object) -> dict[str, WeldingBlendContributionConfig]:
+    return {WELDING_BLEND_CONTRIBUTION_ID: WeldingBlendContributionConfig(**kwargs)}
 
 
 def _chain_project(client: TestClient, name: str = "degraded Chain") -> dict:
@@ -35,9 +42,7 @@ def _chain_project(client: TestClient, name: str = "degraded Chain") -> dict:
             "name": name,
             "scientific_identity": {
                 "identity_kind": "chain",
-                "chain_revision_id": (
-                    f"{revision['chain_id']}:r{revision['revision']}"
-                ),
+                "chain_revision_id": (f"{revision['chain_id']}:r{revision['revision']}"),
                 "chain_revision_digest": revision["revision_digest"],
             },
         },
@@ -55,7 +60,7 @@ def test_broken_chain_evaluation_is_isolated_and_structured(
     app = create_app(
         db_path=tmp_path / "workbench.db",
         data_library_path=tmp_path / "data-library",
-        chain_evaluation_path=broken,
+        contribution_configs=_welding_config(chain_evaluation_path=broken),
         _resources=app_resources,
     )
 
@@ -82,9 +87,7 @@ def test_broken_chain_evaluation_is_isolated_and_structured(
         assert client.get("/api/projects/default/history").status_code == 200
 
         chain_project = _chain_project(client)
-        response = client.get(
-            f"/api/projects/{chain_project['id']}/chain/evaluation"
-        )
+        response = client.get(f"/api/projects/{chain_project['id']}/chain/evaluation")
         assert response.status_code == 503
         payload = response.json()
         assert payload["code"] == "subsystem_unavailable"
@@ -94,9 +97,7 @@ def test_broken_chain_evaluation_is_isolated_and_structured(
 
         diagnostics = client.get("/api/developer/diagnostics").json()
         optional = next(
-            item
-            for item in diagnostics["checks"]
-            if item["id"] == "optional-subsystems"
+            item for item in diagnostics["checks"] if item["id"] == "optional-subsystems"
         )
         assert optional["severity"] == "warning"
         diagnosed_evaluation = next(
@@ -116,7 +117,7 @@ def test_broken_transform_disables_only_dependent_chain(
     app = create_app(
         db_path=tmp_path / "workbench.db",
         data_library_path=tmp_path / "data-library",
-        active_transforms_path=broken,
+        contribution_configs=_welding_config(active_transforms_path=broken),
         _resources=app_resources,
     )
 
@@ -125,9 +126,7 @@ def test_broken_transform_disables_only_dependent_chain(
             item["subsystem_id"]: item
             for item in client.get("/api/subsystem-availability").json()
         }
-        assert availability[WELDING_TRANSFORM_SUBSYSTEM_ID][
-            "status"
-        ] == "unavailable"
+        assert availability[WELDING_TRANSFORM_SUBSYSTEM_ID]["status"] == "unavailable"
         assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "unavailable"
         assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["cause"].startswith(
             "dependency_unavailable:"
@@ -169,7 +168,7 @@ def test_broken_transform_preserves_saved_chain_inputs_read_only(
     degraded_app = create_app(
         db_path=database,
         data_library_path=data_library,
-        active_transforms_path=broken,
+        contribution_configs=_welding_config(active_transforms_path=broken),
         _resources=app_resources,
     )
     with TestClient(degraded_app) as client:
@@ -178,19 +177,13 @@ def test_broken_transform_preserves_saved_chain_inputs_read_only(
             for item in client.get("/api/subsystem-availability").json()
         }
         assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "unavailable"
-        inputs = client.get(
-            f"/api/projects/{project['id']}/chain/candidate-inputs"
-        )
+        inputs = client.get(f"/api/projects/{project['id']}/chain/candidate-inputs")
         assert inputs.status_code == 200, inputs.text
         assert len(inputs.json()) == 9
-        assert {
-            item["external_path"] for item in inputs.json()
-        } == {
+        assert {item["external_path"] for item in inputs.json()} == {
             item["external_path"] for item in contract["external_inputs"]
         }
-        candidates = client.get(
-            f"/api/projects/{project['id']}/chain/candidates"
-        )
+        candidates = client.get(f"/api/projects/{project['id']}/chain/candidates")
         assert candidates.status_code == 200
         assert candidates.json()[0]["id"] == candidate_id
         editable_contract = client.get(
@@ -223,8 +216,7 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         candidate_value = candidate.json()
         candidate_id = candidate_value["id"]
         execution = client.post(
-            f"/api/projects/{project['id']}/chain/candidates/"
-            f"{candidate_id}/executions",
+            f"/api/projects/{project['id']}/chain/candidates/{candidate_id}/executions",
             json={
                 "candidate_revision": candidate_value["revision"],
                 "request_id": "degraded-read-only-evidence",
@@ -233,8 +225,7 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         )
         assert execution.status_code == 200, execution.text
         snapshot = client.post(
-            f"/api/projects/{project['id']}/chain/candidates/"
-            f"{candidate_id}/snapshots",
+            f"/api/projects/{project['id']}/chain/candidates/{candidate_id}/snapshots",
             json={
                 "candidate_revision": candidate_value["revision"],
                 "debounce_ms": 0,
@@ -262,9 +253,10 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
             for item in client.get("/api/subsystem-availability").json()
         }
         assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "unavailable"
-        assert "injected broken Chain binding" in availability[
-            WELDING_CHAIN_SUBSYSTEM_ID
-        ]["cause"]
+        assert (
+            "injected broken Chain binding"
+            in availability[WELDING_CHAIN_SUBSYSTEM_ID]["cause"]
+        )
 
         history = client.get(f"/api/projects/{project['id']}/history")
         assert history.status_code == 200
@@ -272,9 +264,7 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
             item["candidate"]["id"] == candidate_id
             for item in history.json()["candidates"]
         )
-        candidates = client.get(
-            f"/api/projects/{project['id']}/chain/candidates"
-        )
+        candidates = client.get(f"/api/projects/{project['id']}/chain/candidates")
         assert candidates.status_code == 200
         assert candidates.json()[0]["id"] == candidate_id
         candidate_contract = client.get(
@@ -283,14 +273,12 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         assert candidate_contract.status_code == 200, candidate_contract.text
         assert len(candidate_contract.json()) == 9
         saved_execution = client.get(
-            f"/api/projects/{project['id']}/chain/candidates/"
-            f"{candidate_id}/execution"
+            f"/api/projects/{project['id']}/chain/candidates/{candidate_id}/execution"
         )
         assert saved_execution.status_code == 200
         assert saved_execution.json()["request_id"] == "degraded-read-only-evidence"
         snapshots = client.get(
-            f"/api/projects/{project['id']}/chain/candidates/"
-            f"{candidate_id}/snapshots"
+            f"/api/projects/{project['id']}/chain/candidates/{candidate_id}/snapshots"
         )
         assert snapshots.status_code == 200
         assert snapshots.json()[0]["snapshot_id"] == snapshot_id
@@ -349,9 +337,8 @@ def test_transform_security_boundary_remains_fail_fast(
         data_library_path=tmp_path / "data-library",
         _resources=app_resources,
     )
-    with pytest.raises(PackageContractError, match=str(failure)):
-        with TestClient(app):
-            pass
+    with pytest.raises(PackageContractError, match=str(failure)), TestClient(app):
+        pass
 
 
 def test_transform_locator_escape_remains_fail_fast_through_real_loader(
@@ -380,15 +367,17 @@ def test_transform_locator_escape_remains_fail_fast_through_real_loader(
     app = create_app(
         db_path=tmp_path / "workbench.db",
         data_library_path=tmp_path / "data-library",
-        active_transforms_path=unsafe,
+        contribution_configs=_welding_config(active_transforms_path=unsafe),
         _resources=app_resources,
     )
-    with pytest.raises(
-        PackageContractError,
-        match="unsafe active deterministic transform locator",
+    with (
+        pytest.raises(
+            PackageContractError,
+            match="unsafe active deterministic transform locator",
+        ),
+        TestClient(app),
     ):
-        with TestClient(app):
-            pass
+        pass
 
 
 def test_chain_catalog_conflict_remains_fail_fast(
@@ -409,9 +398,11 @@ def test_chain_catalog_conflict_remains_fail_fast(
         data_library_path=tmp_path / "data-library",
         _resources=app_resources,
     )
-    with pytest.raises(
-        ChainCatalogConflictError,
-        match="immutable Chain digest conflict",
+    with (
+        pytest.raises(
+            ChainCatalogConflictError,
+            match="immutable Chain digest conflict",
+        ),
+        TestClient(app),
     ):
-        with TestClient(app):
-            pass
+        pass

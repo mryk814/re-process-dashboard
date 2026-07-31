@@ -1,14 +1,22 @@
-"""Bootstrap optional application contributions without owning core startup."""
+"""Typed application contributions from the internal allow-list."""
 
 from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from types import MappingProxyType
+from typing import Literal, Mapping, Protocol, runtime_checkable
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
+from material_workbench.api.blend_optimization import (
+    router as blend_optimization_router,
+)
+from material_workbench.api.chains import execution_router
+from material_workbench.api.chains import router as chains_router
+from material_workbench.api.transforms import router as transforms_router
 from material_workbench.application.chain_evaluation import (
     DEFAULT_CHAIN_EVALUATION_PATH,
     ChainEvaluationCatalog,
@@ -20,7 +28,7 @@ from material_workbench.application.chain_execution import (
 from material_workbench.application.chain_uncertainty import (
     ChainUncertaintyService,
 )
-from material_workbench.bootstrap.resources import AppResources
+from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from material_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_EVALUATION_RESOURCE_ID,
     WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
@@ -28,10 +36,11 @@ from material_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_SUBSYSTEM_ID,
     WELDING_TRANSFORM_RESOURCE_ID,
     WELDING_TRANSFORM_SUBSYSTEM_ID,
-    SubsystemAvailabilityRegistry,
     SubsystemKind,
+    SubsystemAvailabilityRegistry,
 )
 from material_workbench.modeling.transform_catalog import (
+    DeterministicTransformCatalog,
     DeterministicTransformCatalogUnavailableError,
     load_deterministic_transform_catalog,
 )
@@ -39,13 +48,88 @@ from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
     bootstrap_welding_chain,
 )
+from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import TaskRegistry
 
 logger = logging.getLogger(__name__)
 
+WELDING_BLEND_CONTRIBUTION_ID = "welding-blend"
+
+
+@runtime_checkable
+class ApplicationContributionConfig(Protocol):
+    """Configuration accepted by one allow-listed application contribution."""
+
+    contribution_id: str
+
+
+@dataclass(frozen=True)
+class ApplicationContributionContext:
+    store: Store
+    workspace_catalog: WorkspaceCatalog
+    task_registry: TaskRegistry
+    subsystem_availability: SubsystemAvailabilityRegistry
+
+
+class ApplicationContributionRuntime(Protocol):
+    """One immutable generation of contribution-owned services."""
+
+    contribution_id: str
+
+    def install_state(self, app: FastAPI) -> None:
+        """Publish diagnostic mirrors for existing API and test integrations."""
+
+
+class ApplicationContribution(Protocol):
+    contribution_id: str
+    routers: tuple[APIRouter, ...]
+
+    def initialize(
+        self,
+        context: ApplicationContributionContext,
+        *,
+        defer_resources: bool,
+    ) -> ApplicationContributionRuntime: ...
+
+    def rebuild(
+        self,
+        context: ApplicationContributionContext,
+        current: ApplicationContributionRuntime,
+        *,
+        promote_deferred: bool,
+    ) -> ApplicationContributionRuntime: ...
+
+
+@dataclass(frozen=True)
+class WeldingBlendContributionConfig:
+    contribution_id: str = WELDING_BLEND_CONTRIBUTION_ID
+    active_transforms_path: str | Path | None = None
+    chain_evaluation_path: str | Path | None = None
+    blend_contracts: BlendContractRegistry | None = None
+
+
+@dataclass(frozen=True)
+class WeldingBlendContributionRuntime:
+    contribution_id: str
+    blend_contract_registry: BlendContractRegistry
+    transform_catalog: DeterministicTransformCatalog | None
+    chain_revision_id: str | None
+    evaluation_catalog: ChainEvaluationCatalog | None
+    execution_service: ChainExecutionService
+    uncertainty_service: ChainUncertaintyService | None
+
+    def install_state(self, app: FastAPI) -> None:
+        app.state.blend_contract_registry = self.blend_contract_registry
+        app.state.deterministic_transform_catalog = self.transform_catalog
+        app.state.welding_chain_revision_id = self.chain_revision_id
+        app.state.chain_evaluation_catalog = self.evaluation_catalog
+        app.state.chain_execution_service = self.execution_service
+        app.state.chain_uncertainty_service = self.uncertainty_service
+
 
 def _record_optional_failure(
-    registry: SubsystemAvailabilityRegistry,
+    context: ApplicationContributionContext,
     *,
     subsystem_id: str,
     kind: SubsystemKind,
@@ -66,7 +150,7 @@ def _record_optional_failure(
         type(exc).__name__,
         exc,
     )
-    registry.record_unavailable(
+    context.subsystem_availability.record_unavailable(
         subsystem_id=subsystem_id,
         kind=kind,
         resource_id=resource_id,
@@ -80,178 +164,181 @@ def _record_optional_failure(
     )
 
 
-def build_chain_services(
-    store: Any,
-    task_registry: TaskRegistry,
-    transform_catalog: Any,
+def _build_chain_services(
+    context: ApplicationContributionContext,
+    transform_catalog: DeterministicTransformCatalog | None,
 ) -> tuple[ChainExecutionService, ChainUncertaintyService | None]:
     execution = ChainExecutionService(
-        store,
-        task_registry,
+        context.store,
+        context.task_registry,
         transform_catalog,
         ChainExecutionCoordinator(),
     )
-    uncertainty = (
-        ChainUncertaintyService(store, execution)
+    return (
+        execution,
+        ChainUncertaintyService(context.store, execution)
         if transform_catalog is not None
-        else None
+        else None,
     )
-    return execution, uncertainty
 
 
-def bootstrap_welding_chain_contribution(
-    app: FastAPI,
-    *,
-    task_registry: TaskRegistry,
-    workspace_catalog: Any,
-) -> tuple[str | None, WeldingChainBootstrapError | None]:
-    transform_catalog = app.state.deterministic_transform_catalog
-    chain_revision_id = app.state.welding_chain_revision_id
-    if transform_catalog is None:
-        return chain_revision_id, None
-    try:
-        chain_revision_id = bootstrap_welding_chain(
-            store=app.state.store,
-            workspace_catalog=workspace_catalog,
-            task_registry=task_registry,
+@dataclass(frozen=True)
+class WeldingBlendApplicationContribution:
+    config: WeldingBlendContributionConfig
+    contribution_id: str = WELDING_BLEND_CONTRIBUTION_ID
+    routers: tuple[APIRouter, ...] = (
+        chains_router,
+        execution_router,
+        blend_optimization_router,
+        transforms_router,
+    )
+
+    def initialize(
+        self,
+        context: ApplicationContributionContext,
+        *,
+        defer_resources: bool,
+    ) -> WeldingBlendContributionRuntime:
+        transform_catalog = self._load_transform_catalog(context)
+        chain_revision_id = self._bootstrap_chain(
+            context,
+            transform_catalog,
+            defer_resources=defer_resources,
+        )
+        evaluation_catalog = self._load_evaluation_catalog(context)
+        execution, uncertainty = _build_chain_services(context, transform_catalog)
+        return WeldingBlendContributionRuntime(
+            contribution_id=self.contribution_id,
+            blend_contract_registry=(
+                self.config.blend_contracts or BlendContractRegistry()
+            ),
             transform_catalog=transform_catalog,
+            chain_revision_id=chain_revision_id,
+            evaluation_catalog=evaluation_catalog,
+            execution_service=execution,
+            uncertainty_service=uncertainty,
         )
-    except WeldingChainBootstrapError as exc:
-        return chain_revision_id, exc
-    return chain_revision_id, None
 
+    def rebuild(
+        self,
+        context: ApplicationContributionContext,
+        current: ApplicationContributionRuntime,
+        *,
+        promote_deferred: bool,
+    ) -> WeldingBlendContributionRuntime:
+        if not isinstance(current, WeldingBlendContributionRuntime):
+            raise TypeError("invalid Welding/Blend contribution runtime")
+        revision_id = current.chain_revision_id
+        if promote_deferred and current.transform_catalog is not None:
+            revision_id = self._bootstrap_chain(
+                context,
+                current.transform_catalog,
+                defer_resources=False,
+            )
+        execution, uncertainty = _build_chain_services(
+            context, current.transform_catalog
+        )
+        return WeldingBlendContributionRuntime(
+            contribution_id=self.contribution_id,
+            blend_contract_registry=current.blend_contract_registry,
+            transform_catalog=current.transform_catalog,
+            chain_revision_id=revision_id,
+            evaluation_catalog=current.evaluation_catalog,
+            execution_service=execution,
+            uncertainty_service=uncertainty,
+        )
 
-def record_promoted_welding_chain(
-    app: FastAPI,
-    *,
-    chain_revision_id: str | None,
-    chain_error: WeldingChainBootstrapError | None,
-) -> None:
-    if chain_error is None:
-        app.state.subsystem_availability.record_available(
-            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
-            kind="chain",
-            resource_id=WELDING_CHAIN_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_catalog",
-        )
-    else:
-        _record_optional_failure(
-            app.state.subsystem_availability,
-            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
-            kind="chain",
-            resource_id=WELDING_CHAIN_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_catalog",
-            label="溶接材料Chain",
-            impact=(
-                "このChainの候補編集と実行を停止します。"
-                "保存済みProject・Run・SnapshotはProject概要から参照できます。"
-            ),
-            recovery_hint=(
-                "Chain Definition、binding、固定Dataset／Package参照を"
-                "確認して再起動してください。"
-            ),
-            exc=chain_error,
-        )
-    app.state.welding_chain_revision_id = chain_revision_id
-
-
-def initialize_contributions(
-    app: FastAPI,
-    prepared: AppResources,
-    *,
-    active_transforms_path: str | Path | None,
-    chain_evaluation_path: str | Path | None,
-    defer_resources: bool,
-) -> None:
-    """Initialize optional transforms, Chain resources, and evaluation data."""
-
-    app.state.subsystem_availability = SubsystemAvailabilityRegistry()
-    transform_catalog = None
-    try:
-        transform_catalog = load_deterministic_transform_catalog(
-            active_transforms_path
-        )
-        app.state.subsystem_availability.record_available(
-            subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
-            kind="deterministic_transform",
-            resource_id=WELDING_TRANSFORM_RESOURCE_ID,
-            owner_kind="transform",
-            owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
-            stage="deterministic_transforms",
-        )
-    except DeterministicTransformCatalogUnavailableError as exc:
-        _record_optional_failure(
-            app.state.subsystem_availability,
-            subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
-            kind="deterministic_transform",
-            resource_id=WELDING_TRANSFORM_RESOURCE_ID,
-            owner_kind="transform",
-            owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
-            stage="deterministic_transforms",
-            label="溶接材料の決定論的Transform",
-            impact=(
-                "このTransformを使う配合編集とChain実行を停止します。"
-                "ほかの予測Taskと保存済み証跡は利用できます。"
-            ),
-            recovery_hint=(
-                "active-transforms.jsonと対象Packageのmanifest・artifact "
-                "digestを確認して再起動してください。"
-            ),
-            exc=exc,
-        )
-    app.state.deterministic_transform_catalog = transform_catalog
-    chain_revision_id = None
-    if transform_catalog is None:
-        dependency = app.state.subsystem_availability.get(
-            WELDING_TRANSFORM_SUBSYSTEM_ID
-        )
-        app.state.subsystem_availability.record_unavailable(
-            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
-            kind="chain",
-            resource_id=WELDING_CHAIN_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_catalog",
-            cause=(
-                f"dependency_unavailable: {WELDING_TRANSFORM_SUBSYSTEM_ID}"
-            ),
-            message="溶接材料Chainを利用できません。",
-            impact=(
-                "このChainの候補編集と実行を停止します。"
-                "保存済みProject・Run・SnapshotはProject概要から参照できます。"
-            ),
-            recovery_hint=(
-                dependency.recovery_hint
-                if dependency is not None
-                else "依存する決定論的Transformを復旧して再起動してください。"
-            ),
-        )
-    elif defer_resources:
-        app.state.subsystem_availability.record_unavailable(
-            subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
-            kind="chain",
-            resource_id=WELDING_CHAIN_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_catalog",
-            cause="resources_loading",
-            message="起動後にChainのTask resourceを準備しています。",
-            impact="準備中はChain候補の編集と実行を待機します。",
-            recovery_hint="準備完了後に自動で利用可能になります。",
-        )
-    else:
+    def _load_transform_catalog(
+        self, context: ApplicationContributionContext
+    ) -> DeterministicTransformCatalog | None:
         try:
-            chain_revision_id = bootstrap_welding_chain(
-                store=app.state.store,
-                workspace_catalog=app.state.workspace_catalog,
-                task_registry=prepared.task_registry,
+            catalog = load_deterministic_transform_catalog(
+                self.config.active_transforms_path
+            )
+            context.subsystem_availability.record_available(
+                subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
+                kind="deterministic_transform",
+                resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                owner_kind="transform",
+                owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                stage="deterministic_transforms",
+            )
+            return catalog
+        except DeterministicTransformCatalogUnavailableError as exc:
+            _record_optional_failure(
+                context,
+                subsystem_id=WELDING_TRANSFORM_SUBSYSTEM_ID,
+                kind="deterministic_transform",
+                resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                owner_kind="transform",
+                owner_resource_id=WELDING_TRANSFORM_RESOURCE_ID,
+                stage="deterministic_transforms",
+                label="溶接材料の決定論的Transform",
+                impact=(
+                    "このTransformを使う配合編集とChain実行を停止します。"
+                    "ほかの予測Taskと保存済み証跡は利用できます。"
+                ),
+                recovery_hint=(
+                    "active-transforms.jsonと対象Packageのmanifest・artifact "
+                    "digestを確認して再起動してください。"
+                ),
+                exc=exc,
+            )
+            return None
+
+    def _bootstrap_chain(
+        self,
+        context: ApplicationContributionContext,
+        transform_catalog: DeterministicTransformCatalog | None,
+        *,
+        defer_resources: bool,
+    ) -> str | None:
+        if transform_catalog is None:
+            dependency = context.subsystem_availability.get(
+                WELDING_TRANSFORM_SUBSYSTEM_ID
+            )
+            context.subsystem_availability.record_unavailable(
+                subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                kind="chain",
+                resource_id=WELDING_CHAIN_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_catalog",
+                cause=f"dependency_unavailable: {WELDING_TRANSFORM_SUBSYSTEM_ID}",
+                message="溶接材料Chainを利用できません。",
+                impact=(
+                    "このChainの候補編集と実行を停止します。"
+                    "保存済みProject・Run・SnapshotはProject概要から参照できます。"
+                ),
+                recovery_hint=(
+                    dependency.recovery_hint
+                    if dependency is not None
+                    else "依存する決定論的Transformを復旧して再起動してください。"
+                ),
+            )
+            return None
+        if defer_resources:
+            context.subsystem_availability.record_unavailable(
+                subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
+                kind="chain",
+                resource_id=WELDING_CHAIN_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_catalog",
+                cause="resources_loading",
+                message="起動後にChainのTask resourceを準備しています。",
+                impact="準備中はChain候補の編集と実行を待機します。",
+                recovery_hint="準備完了後に自動で利用可能になります。",
+            )
+            return None
+        try:
+            revision_id = bootstrap_welding_chain(
+                store=context.store,
+                workspace_catalog=context.workspace_catalog,
+                task_registry=context.task_registry,
                 transform_catalog=transform_catalog,
             )
-            app.state.subsystem_availability.record_available(
+            context.subsystem_availability.record_available(
                 subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
                 kind="chain",
                 resource_id=WELDING_CHAIN_RESOURCE_ID,
@@ -259,9 +346,10 @@ def initialize_contributions(
                 owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
                 stage="chain_catalog",
             )
+            return revision_id
         except WeldingChainBootstrapError as exc:
             _record_optional_failure(
-                app.state.subsystem_availability,
+                context,
                 subsystem_id=WELDING_CHAIN_SUBSYSTEM_ID,
                 kind="chain",
                 resource_id=WELDING_CHAIN_RESOURCE_ID,
@@ -279,52 +367,116 @@ def initialize_contributions(
                 ),
                 exc=exc,
             )
-    app.state.welding_chain_revision_id = chain_revision_id
+            return None
 
-    evaluation_catalog = None
-    try:
-        configured_evaluation = (
-            chain_evaluation_path
-            or os.getenv("WORKBENCH_CHAIN_EVALUATION_PATH")
-            or DEFAULT_CHAIN_EVALUATION_PATH
+    def _load_evaluation_catalog(
+        self, context: ApplicationContributionContext
+    ) -> ChainEvaluationCatalog | None:
+        try:
+            configured = (
+                self.config.chain_evaluation_path
+                or os.getenv("WORKBENCH_CHAIN_EVALUATION_PATH")
+                or DEFAULT_CHAIN_EVALUATION_PATH
+            )
+            catalog = ChainEvaluationCatalog.load(configured)
+            context.subsystem_availability.record_available(
+                subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
+                kind="chain_evaluation",
+                resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_evaluation",
+            )
+            return catalog
+        except (OSError, ValueError) as exc:
+            _record_optional_failure(
+                context,
+                subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
+                kind="chain_evaluation",
+                resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
+                owner_kind="chain",
+                owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
+                stage="chain_evaluation",
+                label="溶接材料Chainの評価成果物",
+                impact=(
+                    "段単体／通し評価だけを停止します。"
+                    "Chain候補、実行、保存済み証跡とほかのTaskは利用できます。"
+                ),
+                recovery_hint=(
+                    "評価JSONのschema、digest、Chain／Stage identityを"
+                    "確認して再起動してください。"
+                ),
+                exc=exc,
+            )
+            return None
+
+
+def create_welding_blend_contribution(
+    config: WeldingBlendContributionConfig,
+) -> WeldingBlendApplicationContribution:
+    return WeldingBlendApplicationContribution(config=config)
+
+
+def builtin_application_contributions(
+    configs: Mapping[str, ApplicationContributionConfig] | None = None,
+) -> tuple[ApplicationContribution, ...]:
+    """Build only the application-owned allow-list; no external plugins."""
+
+    configured = dict(configs or {})
+    unknown = set(configured) - {WELDING_BLEND_CONTRIBUTION_ID}
+    if unknown:
+        raise ValueError(
+            "unknown application contribution: " + ", ".join(sorted(unknown))
         )
-        evaluation_catalog = ChainEvaluationCatalog.load(
-            configured_evaluation
-        )
-        app.state.subsystem_availability.record_available(
-            subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
-            kind="chain_evaluation",
-            resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_evaluation",
-        )
-    except (OSError, ValueError) as exc:
-        _record_optional_failure(
-            app.state.subsystem_availability,
-            subsystem_id=WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
-            kind="chain_evaluation",
-            resource_id=WELDING_CHAIN_EVALUATION_RESOURCE_ID,
-            owner_kind="chain",
-            owner_resource_id=WELDING_CHAIN_RESOURCE_ID,
-            stage="chain_evaluation",
-            label="溶接材料Chainの評価成果物",
-            impact=(
-                "段単体／通し評価だけを停止します。"
-                "Chain候補、実行、保存済み証跡とほかのTaskは利用できます。"
-            ),
-            recovery_hint=(
-                "評価JSONのschema、digest、Chain／Stage identityを"
-                "確認して再起動してください。"
-            ),
-            exc=exc,
-        )
-    app.state.chain_evaluation_catalog = evaluation_catalog
-    (
-        app.state.chain_execution_service,
-        app.state.chain_uncertainty_service,
-    ) = build_chain_services(
-        app.state.store,
-        prepared.task_registry,
-        transform_catalog,
+    welding_config = configured.get(
+        WELDING_BLEND_CONTRIBUTION_ID,
+        WeldingBlendContributionConfig(),
     )
+    if not isinstance(welding_config, WeldingBlendContributionConfig):
+        raise TypeError(
+            f"{WELDING_BLEND_CONTRIBUTION_ID} requires "
+            "WeldingBlendContributionConfig"
+        )
+    return (create_welding_blend_contribution(welding_config),)
+
+
+def initialize_application_contributions(
+    contributions: tuple[ApplicationContribution, ...],
+    context: ApplicationContributionContext,
+    *,
+    defer_resources: bool,
+) -> Mapping[str, ApplicationContributionRuntime]:
+    runtimes = {
+        contribution.contribution_id: contribution.initialize(
+            context,
+            defer_resources=defer_resources,
+        )
+        for contribution in contributions
+    }
+    return MappingProxyType(runtimes)
+
+
+def rebuild_application_contributions(
+    contributions: tuple[ApplicationContribution, ...],
+    context: ApplicationContributionContext,
+    current: Mapping[str, ApplicationContributionRuntime],
+    *,
+    promote_deferred: bool,
+) -> Mapping[str, ApplicationContributionRuntime]:
+    runtimes = {
+        contribution.contribution_id: contribution.rebuild(
+            context,
+            current[contribution.contribution_id],
+            promote_deferred=promote_deferred,
+        )
+        for contribution in contributions
+    }
+    return MappingProxyType(runtimes)
+
+
+def install_application_contribution_state(
+    app: FastAPI,
+    runtimes: Mapping[str, ApplicationContributionRuntime],
+) -> None:
+    for runtime in runtimes.values():
+        runtime.install_state(app)

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from material_workbench.contracts.task_contracts import TaskAvailability
 from material_workbench.modeling.model_lifecycle import (
@@ -20,9 +21,6 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.modeling.model_packages import ModelPackageLoader
 from material_workbench.task_composition.builtin.catalog import (
     BUILTIN_TASK_MODULES,
-)
-from material_workbench.task_composition.builtin.sources import (
-    PRIMARY_DEFAULT_SOURCE,
 )
 from material_workbench.task_composition.catalog import registered_task_modules
 from material_workbench.task_composition.descriptors import TaskModule
@@ -41,7 +39,8 @@ class AppResources:
     """Prepared source data and model runtimes treated as read-only by the app."""
 
     modules: Mapping[str, TaskModule]
-    data_by_source: Mapping[str, Any]
+    data_by_task: Mapping[str, Any]
+    default_data: Any | None
     runtimes: Mapping[str, PredictionRuntime]
     task_registry: TaskRegistry
 
@@ -78,32 +77,60 @@ def _task_unavailable(
     )
 
 
+def _default_data_task_id(modules: Mapping[str, TaskModule]) -> str:
+    """Return the one Task that supplies the generic default data projection.
+
+    Task-scoped consumers must use ``TaskRegistry``.  This projection remains
+    only for the generic runtime context and diagnostics that predate that
+    split, so a catalog-order-dependent selection is never acceptable.
+    """
+
+    selected = [
+        task_id
+        for task_id, module in modules.items()
+        if module.default_data_projection
+    ]
+    if not selected:
+        raise ValueError(
+            "exactly one TaskModule must declare default_data_projection; "
+            "none declared"
+        )
+    if len(selected) > 1:
+        raise ValueError(
+            "exactly one TaskModule must declare default_data_projection; "
+            "multiple declared: "
+            + ", ".join(sorted(selected))
+        )
+    return selected[0]
+
+
 def prepare_app_resources(
-    source_path: str | Path | None = None,
     *,
-    flank_wear_source_path: str | Path | None = None,
+    source_overrides: Mapping[str, str | Path] | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     task_ids: frozenset[str] | None = None,
 ) -> AppResources:
     """Load workbook and package resources that callers treat as read-only."""
 
-    source = Path(
-        source_path
-        or os.getenv("WORKBENCH_SOURCE_PATH", str(PRIMARY_DEFAULT_SOURCE))
-    )
     configured = (
-        Path(active_packages_path)
-        if active_packages_path
-        else ACTIVE_PACKAGES_PATH
+        Path(active_packages_path) if active_packages_path else ACTIVE_PACKAGES_PATH
     )
     injected = dict(package_roots or {})
+    injected_sources = dict(source_overrides or {})
     modules = dict(registered_task_modules())
+    default_data_task_id = _default_data_task_id(modules)
+    unknown_source_tasks = set(injected_sources) - set(modules)
+    if unknown_source_tasks:
+        raise ValueError(
+            "source overrides reference unknown Task IDs: "
+            + ", ".join(sorted(unknown_source_tasks))
+        )
     validate_active_package_task_set(
         load_active_packages(configured),
         set(BUILTIN_TASK_MODULES),
     )
-    data_by_source: dict[str, Any] = {}
+    data_by_task: dict[str, Any] = {}
     runtimes: dict[str, PredictionRuntime] = {}
     explorers: dict[str, DataExplorerEntry] = {}
     unavailable: dict[str, TaskAvailability] = {}
@@ -120,31 +147,18 @@ def prepare_app_resources(
             continue
         configured_source = Path(module.default_source)
         try:
-            explicit_source = (
-                source
-                if module.source_kind == "primary"
-                else (
-                    flank_wear_source_path
-                    if module.source_kind == "flank_wear"
-                    else None
-                )
-            )
             configured_source = Path(
-                explicit_source
+                injected_sources.get(task_id)
                 or os.getenv(module.source_env, str(module.default_source))
             )
-            if (
-                not configured_source.is_absolute()
-                and not configured_source.exists()
-            ):
+            if not configured_source.is_absolute() and not configured_source.exists():
                 repository_source = (
                     Path(__file__).resolve().parents[4] / configured_source
                 )
                 if repository_source.exists():
                     configured_source = repository_source
             loaded = module.data_loader(configured_source, None)
-            data_by_source[task_id] = loaded
-            data_by_source.setdefault(module.source_kind, loaded)
+            data_by_task[task_id] = loaded
         except (OSError, ValueError, KeyError) as exc:
             unavailable[task_id] = _task_unavailable(
                 task_id,
@@ -217,9 +231,11 @@ def prepare_app_resources(
         unavailable=unavailable,
         degrade_invalid_runtimes=True,
     )
+    default_data = data_by_task.get(default_data_task_id)
     return AppResources(
         modules=MappingProxyType(modules),
-        data_by_source=MappingProxyType(data_by_source),
+        data_by_task=MappingProxyType(data_by_task),
+        default_data=default_data,
         runtimes=MappingProxyType(runtimes),
         task_registry=task_registry,
     )

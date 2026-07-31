@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from material_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearResult,
 )
 from material_workbench.api.errors import PROJECT_API_ERRORS
+from material_workbench.api.dependencies import get_deterministic_transform_catalog
 from material_workbench.contracts.blend_contracts import (
     BlendStructuralError,
     CommercialMaterialCatalog,
@@ -18,9 +19,6 @@ from material_workbench.contracts.blend_contracts import (
 )
 from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
-from material_workbench.contracts.subsystem_availability import (
-    WELDING_TRANSFORM_SUBSYSTEM_ID,
-)
 
 
 router = APIRouter(prefix="/api/transforms", tags=["deterministic-transforms"])
@@ -70,18 +68,9 @@ class DeterministicTransformExecutionRequest(TransformApiModel):
     blend: SparseBlend
 
 
-def get_transform_catalog(request: Request) -> DeterministicTransformCatalog:
-    request.app.state.subsystem_availability.require(
-        WELDING_TRANSFORM_SUBSYSTEM_ID
-    )
-    catalog = request.app.state.deterministic_transform_catalog
-    assert catalog is not None
-    return catalog
-
-
 CatalogDependency = Annotated[
     DeterministicTransformCatalog,
-    Depends(get_transform_catalog),
+    Depends(get_deterministic_transform_catalog),
 ]
 
 

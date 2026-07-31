@@ -1,4 +1,5 @@
 """Guard the dependency directions established by the Task composition split."""
+
 from __future__ import annotations
 
 import ast
@@ -20,11 +21,7 @@ def _imports(path: Path, *, top_level_only: bool = False) -> set[str]:
     imports: set[str] = set()
     nodes = tree.body if top_level_only else ast.walk(tree)
     current_module = _module_name(path)
-    current_package = (
-        current_module.rsplit(".", 1)[0]
-        if current_module is not None
-        else None
-    )
+    current_package = current_module.rsplit(".", 1)[0] if current_module is not None else None
     for node in nodes:
         if isinstance(node, ast.Import):
             imports.update(alias.name for alias in node.names)
@@ -39,11 +36,7 @@ def _imports(path: Path, *, top_level_only: bool = False) -> set[str]:
             else:
                 continue
             imports.add(base)
-            imports.update(
-                f"{base}.{alias.name}"
-                for alias in node.names
-                if alias.name != "*"
-            )
+            imports.update(f"{base}.{alias.name}" for alias in node.names if alias.name != "*")
     return imports
 
 
@@ -54,9 +47,7 @@ def test_removed_integration_hubs_do_not_return() -> None:
     assert not (PACKAGE_ROOT / "tasks" / "project_runtime_resolver.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_registration.py").exists()
     assert not (PACKAGE_ROOT / "data" / "dataset_profile.py").exists()
-    assert not (
-        PACKAGE_ROOT / "persistence" / "workspace_catalog_bootstrap.py"
-    ).exists()
+    assert not (PACKAGE_ROOT / "persistence" / "workspace_catalog_bootstrap.py").exists()
 
 
 def test_contract_resource_families_do_not_restore_the_schemas_hub() -> None:
@@ -139,30 +130,44 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
         "material_workbench.data.importer",
         "material_workbench.data.profiles.canonicalization",
     )
-    assert sorted(
-        name
-        for module in ("schema", "loading")
-        for name in imports[module]
-        if name.startswith(workbook_io)
-    ) == []
-    assert sorted(
-        name
-        for name in imports["schema"]
-        if name.startswith("material_workbench.data.profiles.")
-    ) == []
-    assert sorted(
-        name
-        for name in imports["validation"]
-        if name.startswith((
-            "material_workbench.data.profiles.loading",
-            "material_workbench.data.profiles.canonicalization",
-        ))
-    ) == []
-    assert sorted(
-        name
-        for name in imports["canonicalization"]
-        if name.startswith("material_workbench.data.profiles.loading")
-    ) == []
+    assert (
+        sorted(
+            name
+            for module in ("schema", "loading")
+            for name in imports[module]
+            if name.startswith(workbook_io)
+        )
+        == []
+    )
+    assert (
+        sorted(
+            name
+            for name in imports["schema"]
+            if name.startswith("material_workbench.data.profiles.")
+        )
+        == []
+    )
+    assert (
+        sorted(
+            name
+            for name in imports["validation"]
+            if name.startswith(
+                (
+                    "material_workbench.data.profiles.loading",
+                    "material_workbench.data.profiles.canonicalization",
+                )
+            )
+        )
+        == []
+    )
+    assert (
+        sorted(
+            name
+            for name in imports["canonicalization"]
+            if name.startswith("material_workbench.data.profiles.loading")
+        )
+        == []
+    )
     assert "material_workbench.data.profiles.validation" in imports["canonicalization"]
 
 
@@ -175,9 +180,7 @@ def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependenc
     )
     offenders = {
         path.relative_to(PACKAGE_ROOT).as_posix(): sorted(
-            name
-            for name in _imports(path)
-            if name.startswith(forbidden)
+            name for name in _imports(path) if name.startswith(forbidden)
         )
         for path in (
             PACKAGE_ROOT / "task_composition" / name
@@ -197,9 +200,7 @@ def test_builtin_composition_defers_runtime_imports_until_a_factory_is_called() 
     builtin = PACKAGE_ROOT / "task_composition" / "builtin"
     offenders = {
         path.name: sorted(
-            name
-            for name in _imports(path, top_level_only=True)
-            if name.startswith(forbidden)
+            name for name in _imports(path, top_level_only=True) if name.startswith(forbidden)
         )
         for path in builtin.glob("*.py")
     }
@@ -216,8 +217,7 @@ def test_builtin_catalog_only_collects_family_modules() -> None:
         for node in ast.walk(tree)
     )
     assert not any(
-        isinstance(node, ast.Name) and node.id.endswith("_TASK_ID")
-        for node in ast.walk(tree)
+        isinstance(node, ast.Name) and node.id.endswith("_TASK_ID") for node in ast.walk(tree)
     )
 
 
@@ -255,11 +255,61 @@ def test_app_is_a_transport_composition_root() -> None:
         "material_workbench.task_composition",
         "material_workbench.tasks",
     )
-    assert sorted(
-        name
-        for name in _imports(path, top_level_only=True)
-        if name.startswith(forbidden)
-    ) == []
+    assert (
+        sorted(name for name in _imports(path, top_level_only=True) if name.startswith(forbidden))
+        == []
+    )
+
+
+def test_app_has_no_welding_or_blend_specific_composition() -> None:
+    source = (PACKAGE_ROOT / "app.py").read_text(encoding="utf-8")
+    assert "welding" not in source.lower()
+    assert "blend" not in source.lower()
+    imports = _imports(PACKAGE_ROOT / "app.py")
+    assert not {
+        "material_workbench.api.chains",
+        "material_workbench.api.blend_optimization",
+        "material_workbench.api.transforms",
+    }.intersection(imports)
+
+
+def test_application_contribution_catalog_is_internal_and_allow_listed() -> None:
+    source = (PACKAGE_ROOT / "bootstrap" / "contributions.py").read_text(encoding="utf-8")
+    assert "entry_points" not in source
+    assert "importlib.metadata" not in source
+    assert "unknown application contribution" in source
+
+
+def test_core_bootstrap_has_no_application_specific_state_or_imports() -> None:
+    concrete_terms = (
+        "welding",
+        "blend",
+        "deterministic_transform",
+        "chain_execution",
+        "chain_uncertainty",
+        "active_transforms",
+        "chain_evaluation",
+    )
+    for name in ("startup.py", "resources.py"):
+        source = (PACKAGE_ROOT / "bootstrap" / name).read_text(encoding="utf-8").lower()
+        assert not {term for term in concrete_terms if term in source}, name
+
+
+def test_contribution_apis_read_the_request_runtime_generation() -> None:
+    legacy_state_names = (
+        "app.state.blend_contract_registry",
+        "app.state.deterministic_transform_catalog",
+        "app.state.chain_execution_service",
+        "app.state.chain_uncertainty_service",
+        "app.state.chain_evaluation_catalog",
+    )
+    for name in ("candidates.py", "dependencies.py", "transforms.py"):
+        source = (PACKAGE_ROOT / "api" / name).read_text(encoding="utf-8")
+        assert not {
+            state_name
+            for state_name in legacy_state_names
+            if state_name in source
+        }, name
 
 
 def test_bootstrap_packages_have_one_way_dependencies() -> None:
@@ -275,7 +325,6 @@ def test_bootstrap_packages_have_one_way_dependencies() -> None:
         ),
         "contributions.py": (
             "material_workbench.app",
-            "material_workbench.api",
             "material_workbench.bootstrap.startup",
         ),
         "startup.py": (
@@ -287,10 +336,7 @@ def test_bootstrap_packages_have_one_way_dependencies() -> None:
         name: sorted(
             imported
             for imported in _imports(bootstrap / name)
-            if any(
-                imported == prefix or imported.startswith(f"{prefix}.")
-                for prefix in forbidden
-            )
+            if any(imported == prefix or imported.startswith(f"{prefix}.") for prefix in forbidden)
         )
         for name, forbidden in forbidden_by_module.items()
     }
@@ -334,11 +380,7 @@ def test_tasks_and_data_do_not_own_application_transactions() -> None:
     offenders: dict[str, list[str]] = {}
     for package, forbidden in forbidden_by_package.items():
         for path in (PACKAGE_ROOT / package).rglob("*.py"):
-            imports = sorted(
-                name
-                for name in _imports(path)
-                if name.startswith(forbidden)
-            )
+            imports = sorted(name for name in _imports(path) if name.startswith(forbidden))
             if imports:
                 offenders[path.relative_to(PACKAGE_ROOT).as_posix()] = imports
     assert offenders == {}
@@ -354,11 +396,7 @@ def test_proposal_service_has_no_dataset_model_or_material_dependency() -> None:
         "numpy",
         "openpyxl",
     )
-    assert sorted(
-        name
-        for name in _imports(path)
-        if name.startswith(forbidden)
-    ) == []
+    assert sorted(name for name in _imports(path) if name.startswith(forbidden)) == []
 
 
 def test_material_lineage_candidate_logic_stays_isolated() -> None:
@@ -370,11 +408,7 @@ def test_material_lineage_candidate_logic_stays_isolated() -> None:
         "material_workbench.tasks",
         "openpyxl",
     )
-    assert sorted(
-        name
-        for name in _imports(path)
-        if name.startswith(forbidden)
-    ) == []
+    assert sorted(name for name in _imports(path) if name.startswith(forbidden)) == []
 
 
 def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> None:

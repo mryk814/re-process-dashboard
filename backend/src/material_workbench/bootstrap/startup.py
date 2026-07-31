@@ -7,33 +7,36 @@ import json
 import logging
 import os
 import sqlite3
+from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI
 
 from material_workbench.application.ai_review_provider import AiReviewProvider
-from material_workbench.application.chain_execution import ChainExecutionService
-from material_workbench.application.chain_uncertainty import ChainUncertaintyService
 from material_workbench.application.project_runtime import ProjectRuntimeResolver
 from material_workbench.application.workspace_catalog_bootstrap import (
     bootstrap_workspace_catalog,
 )
 from material_workbench.bootstrap.contributions import (
-    bootstrap_welding_chain_contribution,
-    build_chain_services,
-    initialize_contributions,
-    record_promoted_welding_chain,
+    ApplicationContribution,
+    ApplicationContributionContext,
+    ApplicationContributionRuntime,
+    initialize_application_contributions,
+    install_application_contribution_state,
+    rebuild_application_contributions,
 )
 from material_workbench.bootstrap.resources import (
     AppResources,
     prepare_app_resources,
 )
-from material_workbench.contracts.blend_contracts import BlendContractRegistry
 from material_workbench.contracts.data_library_contracts import TaskResourceRefreshResult
+from material_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
+)
 from material_workbench.execution.inference_work_graph import InferenceWorkGraph
 from material_workbench.modeling.model_lifecycle import (
     ACTIVE_PACKAGES_PATH,
@@ -74,8 +77,7 @@ class RuntimeContext:
     task_registry: TaskRegistry
     workspace_catalog: Any
     project_runtime_resolver: ProjectRuntimeResolver
-    chain_execution_service: ChainExecutionService
-    chain_uncertainty_service: ChainUncertaintyService | None
+    contribution_runtimes: Mapping[str, ApplicationContributionRuntime]
 
 
 def _backup_sqlite(source: Path, destination: Path) -> None:
@@ -151,17 +153,14 @@ def _restore_live_sqlite_generation(
 
 
 def create_lifespan(
-    source_path: str | Path | None = None,
     db_path: str | Path | None = None,
     *,
-    flank_wear_source_path: str | Path | None = None,
+    source_overrides: Mapping[str, str | Path] | None = None,
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     model_store_path: str | Path | None = None,
     data_library_path: str | Path | None = None,
-    active_transforms_path: str | Path | None = None,
-    chain_evaluation_path: str | Path | None = None,
-    blend_contracts: BlendContractRegistry | None = None,
+    contributions: tuple[ApplicationContribution, ...] = (),
     ai_review_provider: AiReviewProvider | None = None,
     resources: AppResources | None = None,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -179,22 +178,26 @@ def create_lifespan(
         if model_store_path is not None
         else None
     )
-    configured_available_packages_paths = tuple(dict.fromkeys((
-        AVAILABLE_PACKAGES_PATH.resolve(),
-        *(
-            (personal_store / "available-packages.json",)
-            if personal_store is not None
-            else (
-                (
-                    configured_active_packages_path.with_name(
-                        "available-packages.json"
-                    ),
-                )
-                if active_packages_path is not None
-                else ()
+    configured_available_packages_paths = tuple(
+        dict.fromkeys(
+            (
+                AVAILABLE_PACKAGES_PATH.resolve(),
+                *(
+                    (personal_store / "available-packages.json",)
+                    if personal_store is not None
+                    else (
+                        (
+                            configured_active_packages_path.with_name(
+                                "available-packages.json"
+                            ),
+                        )
+                        if active_packages_path is not None
+                        else ()
+                    )
+                ),
             )
-        ),
-    )))
+        )
+    )
     configured_personal_available_packages_paths = (
         (personal_store / "available-packages.json",)
         if personal_store is not None
@@ -202,54 +205,50 @@ def create_lifespan(
     )
     if resources is not None and any(
         value is not None
-        for value in (source_path, flank_wear_source_path, package_roots, active_packages_path)
+        for value in (source_overrides, package_roots, active_packages_path)
     ):
-        raise ValueError("preloaded resources cannot be combined with source or package overrides")
+        raise ValueError(
+            "preloaded resources cannot be combined with source or package overrides"
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         model_package_origins: dict[str, str] = {}
         model_store_warnings = []
         database_existed = database.exists()
-        defer_resources = (
-            resources is None
-            and os.getenv("WORKBENCH_DEFER_RESOURCES", "").strip().lower()
-            in {"1", "true", "yes"}
-        )
+        defer_resources = resources is None and os.getenv(
+            "WORKBENCH_DEFER_RESOURCES", ""
+        ).strip().lower() in {"1", "true", "yes"}
         app.state.workspace_database = database.expanduser().resolve()
-        app.state.workspace_kind = (
-            os.getenv("WORKBENCH_WORKSPACE_KIND", "").strip()
-            or (
-                "main"
-                if app.state.workspace_database
-                == Path("data/workbench.db").resolve()
-                else "custom"
-            )
+        app.state.workspace_kind = os.getenv(
+            "WORKBENCH_WORKSPACE_KIND", ""
+        ).strip() or (
+            "main"
+            if app.state.workspace_database == Path("data/workbench.db").resolve()
+            else "custom"
         )
         try:
             prepared = resources or prepare_app_resources(
-                source_path,
-                flank_wear_source_path=flank_wear_source_path,
+                source_overrides=source_overrides,
                 package_roots=package_roots,
                 active_packages_path=active_packages_path,
                 task_ids=(
-                    frozenset({
-                        os.getenv(
-                            "WORKBENCH_STARTUP_TASK_ID",
-                            ANNEALED_TASK_ID,
-                        )
-                    })
+                    frozenset(
+                        {
+                            os.getenv(
+                                "WORKBENCH_STARTUP_TASK_ID",
+                                ANNEALED_TASK_ID,
+                            )
+                        }
+                    )
                     if defer_resources
                     else None
                 ),
             )
         except Exception as exc:
             _raise_startup_error("resources", "データ・Model Package", exc)
-        app.state.data = prepared.data_by_source.get("primary") or next(
-            iter(prepared.data_by_source.values()), None
-        )
+        app.state.data = prepared.default_data
         app.state.task_registry = prepared.task_registry
-        app.state.blend_contract_registry = blend_contracts or BlendContractRegistry()
         app.state.ai_review_provider = ai_review_provider
         app.state.inference_work_graph = InferenceWorkGraph(max_entries=256)
         try:
@@ -298,20 +297,25 @@ def create_lifespan(
         app.state.project_runtime_resolver = ProjectRuntimeResolver(
             app.state.workspace_catalog, prepared.task_registry
         )
-        initialize_contributions(
-            app,
-            prepared,
-            active_transforms_path=active_transforms_path,
-            chain_evaluation_path=chain_evaluation_path,
+        app.state.subsystem_availability = SubsystemAvailabilityRegistry()
+        contribution_context = ApplicationContributionContext(
+            store=app.state.store,
+            workspace_catalog=app.state.workspace_catalog,
+            task_registry=prepared.task_registry,
+            subsystem_availability=app.state.subsystem_availability,
+        )
+        contribution_runtimes = initialize_application_contributions(
+            contributions,
+            contribution_context,
             defer_resources=defer_resources,
         )
+        install_application_contribution_state(app, contribution_runtimes)
         app.state.runtime_context = RuntimeContext(
             data=app.state.data,
             task_registry=app.state.task_registry,
             workspace_catalog=app.state.workspace_catalog,
             project_runtime_resolver=app.state.project_runtime_resolver,
-            chain_execution_service=app.state.chain_execution_service,
-            chain_uncertainty_service=app.state.chain_uncertainty_service,
+            contribution_runtimes=contribution_runtimes,
         )
         app.state.resources_ready = not defer_resources
         app.state.resources_promoting = False
@@ -333,14 +337,14 @@ def create_lifespan(
                 previous_model_package_ids = {
                     item.id
                     for item in (
-                        app.state.runtime_context.workspace_catalog
-                        .list_model_package_refs(include_archived=True)
+                        app.state.runtime_context.workspace_catalog.list_model_package_refs(
+                            include_archived=True
+                        )
                     )
                 }
                 complete = await asyncio.to_thread(
                     prepare_app_resources,
-                    source_path,
-                    flank_wear_source_path=flank_wear_source_path,
+                    source_overrides=source_overrides,
                     package_roots=package_roots,
                     active_packages_path=active_packages_path,
                 )
@@ -359,23 +363,23 @@ def create_lifespan(
                         catalog,
                         complete.task_registry,
                     )
-                    transform_catalog = app.state.deterministic_transform_catalog
-                    chain_execution, chain_uncertainty = build_chain_services(
-                        app.state.store,
-                        complete.task_registry,
-                        transform_catalog,
-                    )
-                    data = (
-                        complete.data_by_source.get("primary")
-                        or next(iter(complete.data_by_source.values()), None)
+                    refreshed_contributions = rebuild_application_contributions(
+                        contributions,
+                        ApplicationContributionContext(
+                            store=app.state.store,
+                            workspace_catalog=catalog,
+                            task_registry=complete.task_registry,
+                            subsystem_availability=(app.state.subsystem_availability),
+                        ),
+                        app.state.runtime_context.contribution_runtimes,
+                        promote_deferred=False,
                     )
                     return RuntimeContext(
-                        data=data,
+                        data=complete.default_data,
                         task_registry=complete.task_registry,
                         workspace_catalog=catalog,
                         project_runtime_resolver=resolver,
-                        chain_execution_service=chain_execution,
-                        chain_uncertainty_service=chain_uncertainty,
+                        contribution_runtimes=refreshed_contributions,
                     )
 
                 app.state.resource_promotion_complete.clear()
@@ -426,11 +430,8 @@ def create_lifespan(
                     app.state.project_runtime_resolver = (
                         context.project_runtime_resolver
                     )
-                    app.state.chain_execution_service = (
-                        context.chain_execution_service
-                    )
-                    app.state.chain_uncertainty_service = (
-                        context.chain_uncertainty_service
+                    install_application_contribution_state(
+                        app, context.contribution_runtimes
                     )
                     app.state.task_registry = context.task_registry
                     model_package_origins.clear()
@@ -460,21 +461,17 @@ def create_lifespan(
         app.state.refresh_task_resources = refresh_task_resources
         promotion_task: asyncio.Task[None] | None = None
         if defer_resources:
+
             async def promote_remaining_resources() -> None:
                 try:
                     complete = await asyncio.to_thread(
                         prepare_app_resources,
-                        source_path,
-                        flank_wear_source_path=flank_wear_source_path,
+                        source_overrides=source_overrides,
                         package_roots=package_roots,
                         active_packages_path=active_packages_path,
                     )
 
-                    def promote() -> tuple[
-                        RuntimeContext,
-                        str | None,
-                        Any | None,
-                    ]:
+                    def promote() -> RuntimeContext:
                         selected_starters = set(
                             installed_starter_project_ids(
                                 app.state.store,
@@ -506,46 +503,31 @@ def create_lifespan(
                             catalog,
                             complete.task_registry,
                         )
-                        transform_catalog = app.state.deterministic_transform_catalog
-                        (
-                            chain_revision_id,
-                            chain_error,
-                        ) = bootstrap_welding_chain_contribution(
-                            app,
+                        promoted_contributions = rebuild_application_contributions(
+                            contributions,
+                            ApplicationContributionContext(
+                                store=app.state.store,
+                                workspace_catalog=catalog,
+                                task_registry=complete.task_registry,
+                                subsystem_availability=(
+                                    app.state.subsystem_availability
+                                ),
+                            ),
+                            app.state.runtime_context.contribution_runtimes,
+                            promote_deferred=True,
+                        )
+                        return RuntimeContext(
+                            data=complete.default_data,
                             task_registry=complete.task_registry,
                             workspace_catalog=catalog,
-                        )
-                        (
-                            chain_execution,
-                            chain_uncertainty,
-                        ) = build_chain_services(
-                            app.state.store,
-                            complete.task_registry,
-                            transform_catalog,
-                        )
-                        data = (
-                            complete.data_by_source.get("primary")
-                            or next(iter(complete.data_by_source.values()), None)
-                        )
-                        return (
-                            RuntimeContext(
-                                data=data,
-                                task_registry=complete.task_registry,
-                                workspace_catalog=catalog,
-                                project_runtime_resolver=resolver,
-                                chain_execution_service=chain_execution,
-                                chain_uncertainty_service=chain_uncertainty,
-                            ),
-                            chain_revision_id,
-                            chain_error,
+                            project_runtime_resolver=resolver,
+                            contribution_runtimes=promoted_contributions,
                         )
 
                     app.state.resource_promotion_complete.clear()
                     app.state.resources_promoting = True
                     await app.state.resource_requests_idle.wait()
-                    context, chain_revision_id, chain_error = await asyncio.to_thread(
-                        promote
-                    )
+                    context = await asyncio.to_thread(promote)
                     # API dependencies read this one immutable generation.
                     app.state.runtime_context = context
                     # Mirrors remain for diagnostics and existing test helpers.
@@ -554,18 +536,10 @@ def create_lifespan(
                     app.state.project_runtime_resolver = (
                         context.project_runtime_resolver
                     )
-                    app.state.chain_execution_service = (
-                        context.chain_execution_service
-                    )
-                    app.state.chain_uncertainty_service = (
-                        context.chain_uncertainty_service
+                    install_application_contribution_state(
+                        app, context.contribution_runtimes
                     )
                     app.state.task_registry = context.task_registry
-                    record_promoted_welding_chain(
-                        app,
-                        chain_revision_id=chain_revision_id,
-                        chain_error=chain_error,
-                    )
                     app.state.resources_ready = True
                 except Exception as exc:
                     logger.exception("deferred resource preparation failed")

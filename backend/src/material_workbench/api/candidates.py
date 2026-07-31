@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, 
 from fastapi.responses import StreamingResponse
 
 from .dependencies import (
+    get_application_contribution_runtime,
     get_blend_contract_registry,
     get_project_runtime_resolver,
     get_store,
@@ -69,7 +70,9 @@ def get_candidate_service(
         registry,
         resolver,
         blend_contracts,
-        request.app.state.deterministic_transform_catalog,
+        get_application_contribution_runtime(
+            request, "welding-blend"
+        ).transform_catalog,
     )
 
 

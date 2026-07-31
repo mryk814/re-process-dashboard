@@ -210,7 +210,9 @@ def test_one_broken_task_keeps_other_tasks_and_saved_history_available(
 def test_source_failure_keeps_typed_diagnostics(tmp_path: Path) -> None:
     missing_source = tmp_path / "missing-source.xlsx"
 
-    resources = prepare_app_resources(source_path=missing_source)
+    resources = prepare_app_resources(
+        source_overrides={"annealed-properties-v1": missing_source}
+    )
 
     availability = resources.task_registry.availability_for(
         "annealed-properties-v1"

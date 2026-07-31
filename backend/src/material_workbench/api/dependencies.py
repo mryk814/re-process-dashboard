@@ -5,22 +5,22 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from material_workbench.execution.inference_work_graph import InferenceWorkGraph
-from material_workbench.contracts.blend_contracts import BlendContractRegistry
-from material_workbench.contracts.candidate_project_contracts import Project
-from material_workbench.persistence.store import Store
-from material_workbench.tasks.task_registry import TaskRegistry
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.project_runtime import ProjectRuntimeResolver
-from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
-from material_workbench.contracts.subsystem_availability import (
-    SubsystemAvailabilityRegistry,
-    WELDING_TRANSFORM_SUBSYSTEM_ID,
-)
 from material_workbench.application.ai_review_provider import AiReviewProvider
 from material_workbench.application.catalog import CatalogRuntimeState, CatalogUseCases
-from material_workbench.application.data_library import DataLibraryUseCases
 from material_workbench.application.chains import ChainUseCases
+from material_workbench.application.data_library import DataLibraryUseCases
+from material_workbench.application.project_runtime import ProjectRuntimeResolver
+from material_workbench.contracts.blend_contracts import BlendContractRegistry
+from material_workbench.contracts.candidate_project_contracts import Project
+from material_workbench.contracts.subsystem_availability import (
+    WELDING_TRANSFORM_SUBSYSTEM_ID,
+    SubsystemAvailabilityRegistry,
+)
+from material_workbench.execution.inference_work_graph import InferenceWorkGraph
+from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from material_workbench.persistence.store import Store
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from material_workbench.tasks.task_registry import TaskRegistry
 
 
 def get_runtime_context(request: Request) -> Any:
@@ -33,6 +33,13 @@ def get_runtime_context(request: Request) -> Any:
     )
 
 
+def get_application_contribution_runtime(
+    request: Request,
+    contribution_id: str,
+) -> Any:
+    return get_runtime_context(request).contribution_runtimes[contribution_id]
+
+
 def get_store(request: Request) -> Store:
     return request.app.state.store
 
@@ -42,16 +49,18 @@ def get_task_registry(request: Request) -> TaskRegistry:
 
 
 def get_blend_contract_registry(request: Request) -> BlendContractRegistry:
-    return request.app.state.blend_contract_registry
+    return get_application_contribution_runtime(
+        request, "welding-blend"
+    ).blend_contract_registry
 
 
 def get_deterministic_transform_catalog(
     request: Request,
 ) -> DeterministicTransformCatalog:
-    request.app.state.subsystem_availability.require(
-        WELDING_TRANSFORM_SUBSYSTEM_ID
-    )
-    catalog = request.app.state.deterministic_transform_catalog
+    request.app.state.subsystem_availability.require(WELDING_TRANSFORM_SUBSYSTEM_ID)
+    catalog = get_application_contribution_runtime(
+        request, "welding-blend"
+    ).transform_catalog
     assert catalog is not None
     return catalog
 
@@ -97,6 +106,9 @@ def get_ai_review_provider(request: Request) -> AiReviewProvider | None:
 def get_catalog_use_cases(request: Request) -> CatalogUseCases:
     state = request.app.state
     context = get_runtime_context(request)
+    contribution = get_application_contribution_runtime(
+        request, "welding-blend"
+    )
     return CatalogUseCases(
         state=CatalogRuntimeState(
             resources_ready=bool(getattr(state, "resources_ready", True)),
@@ -109,7 +121,7 @@ def get_catalog_use_cases(request: Request) -> CatalogUseCases:
         registry=context.task_registry,
         resolver=context.project_runtime_resolver,
         subsystem_registry=state.subsystem_availability,
-        transform_catalog=state.deterministic_transform_catalog,
+        transform_catalog=contribution.transform_catalog,
     )
 
 
@@ -129,12 +141,15 @@ def get_data_library_use_cases(request: Request) -> DataLibraryUseCases:
 def get_chain_use_cases(request: Request) -> ChainUseCases:
     state = request.app.state
     context = get_runtime_context(request)
+    contribution = get_application_contribution_runtime(
+        request, "welding-blend"
+    )
     return ChainUseCases(
         store=state.store,
         workspace_catalog=context.workspace_catalog,
-        execution_service=context.chain_execution_service,
-        uncertainty_service=context.chain_uncertainty_service,
-        evaluation_catalog=state.chain_evaluation_catalog,
+        execution_service=contribution.execution_service,
+        uncertainty_service=contribution.uncertainty_service,
+        evaluation_catalog=contribution.evaluation_catalog,
         subsystem_registry=state.subsystem_availability,
     )
 

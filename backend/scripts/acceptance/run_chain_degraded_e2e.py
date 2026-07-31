@@ -1,4 +1,5 @@
 """Seed immutable Chain evidence, then run an API with optional Chain resources broken."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,8 +7,11 @@ from pathlib import Path
 
 import uvicorn
 from fastapi.testclient import TestClient
-
 from material_workbench.app import create_app
+from material_workbench.bootstrap.contributions import (
+    WELDING_BLEND_CONTRIBUTION_ID,
+    WeldingBlendContributionConfig,
+)
 
 
 def _seed(database: Path, data_library: Path) -> tuple[str, str]:
@@ -81,8 +85,12 @@ def main() -> None:
     degraded_app = create_app(
         db_path=args.db,
         data_library_path=data_library,
-        active_transforms_path=args.broken_transform,
-        chain_evaluation_path=args.broken_evaluation,
+        contribution_configs={
+            WELDING_BLEND_CONTRIBUTION_ID: WeldingBlendContributionConfig(
+                active_transforms_path=args.broken_transform,
+                chain_evaluation_path=args.broken_evaluation,
+            )
+        },
     )
     uvicorn.run(degraded_app, host="127.0.0.1", port=args.port)
 
