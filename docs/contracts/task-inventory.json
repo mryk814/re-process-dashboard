@@ -3,6 +3,8 @@
   "generated_from": [
     "backend/src/material_workbench/task_composition/catalog.py",
     "backend/src/material_workbench/task_composition/builtin/catalog.py",
+    "backend/src/material_workbench/task_composition/builtin/shared.py",
+    "backend/src/material_workbench/task_composition/builtin/sources.py",
     "backend/src/material_workbench/task_composition/builtin/annealed.py",
     "backend/src/material_workbench/task_composition/builtin/hot_rolling.py",
     "backend/src/material_workbench/task_composition/builtin/flank_wear.py",

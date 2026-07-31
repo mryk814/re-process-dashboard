@@ -9,7 +9,6 @@ Model Package の更新だけで扱える」を測定する。
 from __future__ import annotations
 
 import csv
-import json
 import os
 import random
 import shutil
@@ -92,10 +91,18 @@ def _tracked_state() -> dict[str, str]:
 
     import hashlib
 
+    builtin = REPO / "backend/src/material_workbench/task_composition/builtin"
     tracked = {
         "task_definition": REPO / "backend/src/material_workbench/tasks/task_definitions" / f"{TASK_ID}.json",
         "tabular_profile": REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json",
-        "task_composition": REPO / "backend/src/material_workbench/task_composition/builtin/tabular.py",
+        "builtin_catalog": builtin / "catalog.py",
+        "builtin_shared": builtin / "shared.py",
+        "builtin_sources": builtin / "sources.py",
+        "builtin_annealed": builtin / "annealed.py",
+        "builtin_hot_rolling": builtin / "hot_rolling.py",
+        "builtin_flank_wear": builtin / "flank_wear.py",
+        "builtin_tabular": builtin / "tabular.py",
+        "builtin_welding": builtin / "welding.py",
         "task_catalog": REPO / "backend/src/material_workbench/task_composition/catalog.py",
         "active_packages": REPO / "models/active-packages.json",
     }
@@ -111,7 +118,10 @@ def main() -> int:
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_composition.catalog import registered_task_modules, resolve_task_source
+    from material_workbench.task_composition.catalog import (
+        registered_task_modules,
+        resolve_task_source,
+    )
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
     findings: list[str] = []
