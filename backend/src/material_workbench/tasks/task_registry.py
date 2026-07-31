@@ -18,6 +18,7 @@ from material_workbench.task_composition.ports import (
     QualitySurface,
     ResponseCurveHandler,
     SupportProvider,
+    TrainingInspectorAdapter,
     TrainingRangeProvider,
 )
 from material_workbench.task_composition.descriptors import TaskModule
@@ -51,6 +52,7 @@ class TaskRuntimeEntry:
     capability: RuntimeCapability
     application_capability: ApplicationCapability
     candidate_family_adapter: CandidateFamilyAdapter
+    training_inspector: TrainingInspectorAdapter
     package_digest: str
     pipeline_digest: str
     support_digest: str
@@ -196,6 +198,7 @@ class TaskRegistry:
                 capability=contract.runtime_capability,
                 application_capability=module.application,
                 candidate_family_adapter=family_adapter,
+                training_inspector=module.training_inspector,
                 package_digest=f"sha256:{package.manifest_sha256}",
                 pipeline_digest=self._pipeline_digest(package),
                 support_digest=semantic_digest({
@@ -278,6 +281,10 @@ class TaskRegistry:
                 f"expected={sorted(expected)}, actual={sorted(runtime.output_keys)}"
             )
         module = self._modules[task_id]
+        if not isinstance(module.training_inspector, TrainingInspectorAdapter):
+            raise TaskRegistryError(
+                f"TaskModule has no TrainingInspectorAdapter: {task_id}"
+            )
         declares_curve = self._contracts[task_id].runtime_capability.operations.response_curve
         if declares_curve != (module.response_curve is not None):
             raise TaskRegistryError(
@@ -311,6 +318,11 @@ class TaskRegistry:
         """Resolve only the family adapter verified with this Task runtime."""
 
         return self.entry_for(task_id).candidate_family_adapter
+
+    def training_inspector_for(self, task_id: str) -> TrainingInspectorAdapter:
+        """Resolve only the training presentation verified with this Task."""
+
+        return self.entry_for(task_id).training_inspector
 
     @property
     def task_ids(self) -> tuple[str, ...]:

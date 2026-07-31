@@ -4,11 +4,17 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from material_workbench.application.catalog import (
+from material_workbench.application.catalog.errors import (
     CatalogConflictError,
     CatalogNotFoundError,
-    CatalogUseCases,
     CatalogValidationError,
+)
+from material_workbench.application.catalog.feature_inspector import FeatureInspector
+from material_workbench.application.catalog.task_package_catalog import (
+    TaskPackageCatalog,
+)
+from material_workbench.application.catalog.training_inspector import (
+    TrainingInspector,
 )
 from material_workbench.contracts.prediction_catalog_contracts import (
     InputSpaceEmbeddingResponse,
@@ -20,12 +26,27 @@ from material_workbench.contracts.evidence_contracts import TaskCatalogItem
 from material_workbench.contracts.subsystem_availability import SubsystemAvailability
 from material_workbench.contracts.task_contracts import ResolvedTaskDefinition
 
-from .dependencies import get_catalog_use_cases
+from .dependencies import (
+    get_feature_inspector,
+    get_task_package_catalog,
+    get_training_inspector,
+)
 from .errors import PROJECT_API_ERRORS
 
 
 router = APIRouter()
-CatalogDependency = Annotated[CatalogUseCases, Depends(get_catalog_use_cases)]
+TaskPackageCatalogDependency = Annotated[
+    TaskPackageCatalog,
+    Depends(get_task_package_catalog),
+]
+TrainingInspectorDependency = Annotated[
+    TrainingInspector,
+    Depends(get_training_inspector),
+]
+FeatureInspectorDependency = Annotated[
+    FeatureInspector,
+    Depends(get_feature_inspector),
+]
 
 
 def _translate_catalog_error(exc: Exception) -> HTTPException:
@@ -40,13 +61,13 @@ def _translate_catalog_error(exc: Exception) -> HTTPException:
 
 @router.get("/api/health")
 @router.get("/health", include_in_schema=False)
-def health(use_cases: CatalogDependency) -> dict[str, Any]:
-    return use_cases.health()
+def health(catalog: TaskPackageCatalogDependency) -> dict[str, Any]:
+    return catalog.health()
 
 
 @router.get("/api/readiness", operation_id="getReadiness")
-def readiness(use_cases: CatalogDependency) -> dict[str, Any]:
-    return use_cases.readiness()
+def readiness(catalog: TaskPackageCatalogDependency) -> dict[str, Any]:
+    return catalog.readiness()
 
 
 @router.get(
@@ -55,9 +76,9 @@ def readiness(use_cases: CatalogDependency) -> dict[str, Any]:
     operation_id="listSubsystemAvailability",
 )
 def subsystem_availability(
-    use_cases: CatalogDependency,
+    catalog: TaskPackageCatalogDependency,
 ) -> tuple[SubsystemAvailability, ...]:
-    return use_cases.subsystem_availability()
+    return catalog.subsystem_availability()
 
 
 @router.get(
@@ -66,9 +87,12 @@ def subsystem_availability(
     responses=PROJECT_API_ERRORS,
     operation_id="getProjectModelPackage",
 )
-def model_package(project_id: str, use_cases: CatalogDependency) -> dict[str, Any]:
+def model_package(
+    project_id: str,
+    catalog: TaskPackageCatalogDependency,
+) -> dict[str, Any]:
     try:
-        return use_cases.model_package(project_id)
+        return catalog.model_package(project_id)
     except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:
         raise _translate_catalog_error(exc) from exc
 
@@ -81,14 +105,14 @@ def model_package(project_id: str, use_cases: CatalogDependency) -> dict[str, An
 )
 def model_training_data(
     project_id: str,
-    use_cases: CatalogDependency,
+    inspector: TrainingInspectorDependency,
     stage: Annotated[Literal["curation", "selected", "features"], Query()] = "selected",
     target: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict[str, Any]:
     try:
-        return use_cases.model_training_data(
+        return inspector.model_training_data(
             project_id,
             stage=stage,
             target=target,
@@ -107,7 +131,7 @@ def model_training_data(
 )
 def output_space_evidence(
     project_id: str,
-    use_cases: CatalogDependency,
+    inspector: FeatureInspectorDependency,
     x_target: Annotated[str, Query(min_length=1)],
     y_target: Annotated[str, Query(min_length=1)],
     candidate_id: Annotated[str, Query(min_length=1)],
@@ -116,7 +140,7 @@ def output_space_evidence(
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
 ) -> dict[str, Any]:
     try:
-        return use_cases.output_space_evidence(
+        return inspector.output_space_evidence(
             project_id,
             x_target=x_target,
             y_target=y_target,
@@ -137,12 +161,12 @@ def output_space_evidence(
 )
 def input_space_embedding(
     project_id: str,
-    use_cases: CatalogDependency,
+    inspector: FeatureInspectorDependency,
     candidate_id: Annotated[str, Query(min_length=1)],
     expected_revision: Annotated[int, Query(ge=1)],
 ) -> dict[str, Any]:
     try:
-        return use_cases.input_space_embedding(
+        return inspector.input_space_embedding(
             project_id,
             candidate_id=candidate_id,
             expected_revision=expected_revision,
@@ -156,8 +180,10 @@ def input_space_embedding(
     response_model=list[TaskCatalogItem],
     operation_id="listTaskDefinitions",
 )
-def task_definitions(use_cases: CatalogDependency) -> list[dict[str, Any]]:
-    return use_cases.task_definitions()
+def task_definitions(
+    catalog: TaskPackageCatalogDependency,
+) -> list[dict[str, Any]]:
+    return catalog.task_definitions()
 
 
 @router.get(
@@ -168,9 +194,9 @@ def task_definitions(use_cases: CatalogDependency) -> list[dict[str, Any]]:
 )
 def task_definition(
     project_id: str,
-    use_cases: CatalogDependency,
+    catalog: TaskPackageCatalogDependency,
 ) -> ResolvedTaskDefinition:
     try:
-        return use_cases.task_definition(project_id)
+        return catalog.task_definition(project_id)
     except (CatalogNotFoundError, CatalogValidationError, CatalogConflictError) as exc:
         raise _translate_catalog_error(exc) from exc

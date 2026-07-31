@@ -107,6 +107,44 @@ class TrainingRangeProvider(Protocol):
     ) -> tuple[float, float]: ...
 
 
+@runtime_checkable
+class TrainingInspectorAdapter(Protocol):
+    """Task-owned presentation for training rows and evidence contexts.
+
+    The application inspector deliberately does not interpret a Task's raw
+    composition, process history, or context identifiers.  This adapter is
+    registered with the TaskModule and therefore remains allow-listed by the
+    TaskRegistry.
+    """
+
+    def selected_input_values(
+        self,
+        observation: Mapping[str, Any],
+        input_paths: Sequence[str],
+    ) -> Mapping[str, Any]: ...
+
+    def parent_condition_metadata(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+    ) -> Mapping[str, Any]: ...
+
+    def feature_identifier_columns(
+        self,
+        training_unit: str,
+    ) -> Sequence[Mapping[str, Any]]: ...
+
+    def feature_identifier_values(
+        self,
+        row: Mapping[str, Any],
+        training_unit: str,
+    ) -> Mapping[str, Any]: ...
+
+    def output_space_context(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+    ) -> Mapping[str, Any]: ...
+
+
 ResponseCurveHandler = Callable[
     [
         PredictionRuntime,

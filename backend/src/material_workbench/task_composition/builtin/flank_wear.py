@@ -11,6 +11,9 @@ from material_workbench.task_composition.builtin.shared import (
 )
 from material_workbench.task_composition.descriptors import TaskModule
 from material_workbench.task_composition.ports import DataDescriptor, PredictionRuntime
+from material_workbench.task_composition.training_inspector import (
+    CANONICAL_TRAINING_INSPECTOR,
+)
 
 if TYPE_CHECKING:
     from material_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -77,6 +80,7 @@ FLANK_WEAR_TASK_MODULE = TaskModule(
     data_loader=_load_flank_wear,
     runtime_factory=_flank_wear_runtime,
     feature_row_builder=_flank_wear_features,
+    training_inspector=CANONICAL_TRAINING_INSPECTOR,
     specialized_package_builder=_build_flank_wear,
     application=_application_capability(
         actual_measurement=True,

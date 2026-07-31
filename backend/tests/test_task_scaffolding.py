@@ -21,7 +21,9 @@ from material_workbench.bootstrap.startup import (
     _preserve_live_sqlite_generation,
     _restore_live_sqlite_generation,
 )
-from material_workbench.application.catalog import CatalogUseCases
+from material_workbench.application.catalog.task_package_catalog import (
+    TaskPackageCatalog,
+)
 from material_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
@@ -390,15 +392,15 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
     )
     held_request_started = Event()
     release_held_request = Event()
-    real_health = CatalogUseCases.health
+    real_health = TaskPackageCatalog.health
 
-    def held_health(use_cases: CatalogUseCases) -> dict[str, object]:
+    def held_health(use_cases: TaskPackageCatalog) -> dict[str, object]:
         if not held_request_started.is_set():
             held_request_started.set()
             assert release_held_request.wait(timeout=60)
         return real_health(use_cases)
 
-    monkeypatch.setattr(CatalogUseCases, "health", held_health)
+    monkeypatch.setattr(TaskPackageCatalog, "health", held_health)
 
     with TestClient(app) as client:
         assert TASK_ID not in client.get("/api/task-definitions").json()
