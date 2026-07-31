@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import re
+import subprocess
+from pathlib import Path
 
 import pytest
-
 from material_workbench.developer_experience.change_guide import change_guide_entries
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -58,9 +57,17 @@ def test_change_guide_commands_have_an_executable_contract() -> None:
 
 def test_backend_script_inventory_covers_every_command() -> None:
     inventory = (ROOT / "backend/scripts/README.md").read_text(encoding="utf-8")
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "backend/scripts"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
     scripts = {
-        path.relative_to(ROOT / "backend/scripts").as_posix()
-        for path in (ROOT / "backend/scripts").rglob("*.py")
+        Path(path).relative_to("backend/scripts").as_posix()
+        for path in tracked
+        if path.endswith(".py")
     }
     documented = set(re.findall(r"`([a-z0-9_/]+\.py)`", inventory))
     assert scripts <= documented, (

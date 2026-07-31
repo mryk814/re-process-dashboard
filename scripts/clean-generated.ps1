@@ -37,18 +37,32 @@ if (-not $ReleaseOnly) {
         throw "refusing to inspect a scripts path outside the repository: $backendScriptsRoot"
     }
     if (Test-Path -LiteralPath $backendScriptsRoot) {
-        $cacheDirectories = @(
-            Get-ChildItem -LiteralPath $backendScriptsRoot -Directory -Filter "__pycache__" -Recurse |
-                Sort-Object { $_.FullName.Length } -Descending
-        )
+        $scriptsRootItem = Get-Item -LiteralPath $backendScriptsRoot
+        if ($scriptsRootItem.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) {
+            throw "refusing to inspect backend/scripts through a reparse point: $backendScriptsRoot"
+        }
+        $pendingDirectories = [Collections.Generic.Stack[IO.DirectoryInfo]]::new()
+        $pendingDirectories.Push($scriptsRootItem)
+        $foundCaches = [Collections.Generic.List[IO.DirectoryInfo]]::new()
+        while ($pendingDirectories.Count -gt 0) {
+            $currentDirectory = $pendingDirectories.Pop()
+            foreach ($child in Get-ChildItem -LiteralPath $currentDirectory.FullName -Directory) {
+                if ($child.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) {
+                    throw "refusing to inspect backend/scripts through a reparse point: $($child.FullName)"
+                }
+                if ($child.Name -eq "__pycache__") {
+                    $foundCaches.Add($child)
+                } else {
+                    $pendingDirectories.Push($child)
+                }
+            }
+        }
+        $cacheDirectories = @($foundCaches | Sort-Object { $_.FullName.Length } -Descending)
         foreach ($cacheDirectory in $cacheDirectories) {
             $cachePath = [IO.Path]::GetFullPath($cacheDirectory.FullName)
             $cachePrefix = $backendScriptsRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
             if (-not $cachePath.StartsWith($cachePrefix, [StringComparison]::OrdinalIgnoreCase)) {
                 throw "refusing to clean a cache outside backend/scripts: $cachePath"
-            }
-            if ($cacheDirectory.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) {
-                throw "refusing to clean a cache through a reparse point: $cachePath"
             }
             if ($DryRun) {
                 Write-Host "Would remove Python cache: $cachePath"

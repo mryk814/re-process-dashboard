@@ -9,10 +9,8 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from material_workbench.task_composition.catalog import registered_task_modules
 from sidecar import configure_standard_streams
-
 
 ROOT = Path(__file__).parents[2]
 
@@ -316,6 +314,66 @@ def test_generated_cleanup_dry_run_and_apply_only_remove_bounded_targets(
     assert source.read_text(encoding="utf-8") == "keep"
     assert package.read_text(encoding="utf-8") == "keep"
     assert tracked_script.read_text(encoding="utf-8") == "keep"
+
+
+@pytest.mark.skipif(
+    shutil.which("powershell") is None,
+    reason="PowerShell cleanup execution is covered on Windows",
+)
+def test_generated_cleanup_refuses_intermediate_reparse_points(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    copied_script = repository / "scripts/clean-generated.ps1"
+    linked_directory = repository / "backend/scripts/linked"
+    outside = tmp_path / "outside"
+    outside_cache = outside / "__pycache__/outside.pyc"
+    copied_script.parent.mkdir(parents=True)
+    linked_directory.parent.mkdir(parents=True)
+    outside_cache.parent.mkdir(parents=True)
+    outside_cache.write_text("keep", encoding="utf-8")
+    shutil.copyfile(ROOT / "scripts/clean-generated.ps1", copied_script)
+    environment = {
+        **os.environ,
+        "CLEANUP_TEST_LINK": str(linked_directory),
+        "CLEANUP_TEST_TARGET": str(outside),
+    }
+    subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            (
+                "New-Item -ItemType Junction "
+                "-Path $env:CLEANUP_TEST_LINK "
+                "-Target $env:CLEANUP_TEST_TARGET | Out-Null"
+            ),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(copied_script),
+                "-DryRun",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "reparse point" in f"{result.stdout}\n{result.stderr}"
+        assert outside_cache.read_text(encoding="utf-8") == "keep"
+    finally:
+        linked_directory.rmdir()
 
 
 def test_packaged_smoke_executes_the_stage_a_transform_api() -> None:
