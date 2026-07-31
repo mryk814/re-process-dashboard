@@ -558,5 +558,3 @@ def validate_predictive_summary(
         raise PackageContractError(f"predictor {spec.id!r} uncertainty-component capability does not match its smoke output")
     if capability.samples:
         raise PackageContractError(f"predictor {spec.id!r} declares samples that PredictiveSummary does not expose")
-
-
