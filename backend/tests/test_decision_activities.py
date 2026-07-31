@@ -8,9 +8,8 @@ import pytest
 
 from material_workbench.application.decision_activity_registry import build_registry
 from material_workbench.contracts.schemas import Candidate
-from material_workbench.domain.candidate_inputs import (
-    heat_time_driver_path,
-    with_input_values,
+from material_workbench.task_composition.candidate_family_adapters import (
+    CANONICAL_CANDIDATE_ADAPTER,
 )
 from material_workbench.persistence.store import Store
 from material_workbench.tasks.task_registry import load_task_contracts
@@ -92,7 +91,7 @@ def test_line_speed_tolerance_preserves_physical_heat_positions() -> None:
         "updated_at": now,
     })
 
-    varied = with_input_values(
+    varied = CANONICAL_CANDIDATE_ADAPTER.update(
         candidate, {"process.ls_mpm": 206.0}, _annealed_definition()
     )
 
@@ -104,9 +103,12 @@ def test_line_speed_tolerance_preserves_physical_heat_positions() -> None:
 def test_heat_time_driver_comes_from_the_task_contract_not_a_field_name() -> None:
     """公差解析が ls_mpm を直接知らないことを固定する。"""
 
-    assert heat_time_driver_path(_annealed_definition()) == "process.ls_mpm"
     assert (
-        heat_time_driver_path(
+        CANONICAL_CANDIDATE_ADAPTER.time_driver_path(_annealed_definition())
+        == "process.ls_mpm"
+    )
+    assert (
+        CANONICAL_CANDIDATE_ADAPTER.time_driver_path(
             load_task_contracts()["concrete-strength-v1"].task_definition
         )
         is None

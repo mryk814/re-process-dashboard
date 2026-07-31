@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 from .projects import ProjectService
 from material_workbench.contracts.blend_contracts import (
     BlendMaterialDescriptor,
@@ -10,7 +8,6 @@ from material_workbench.contracts.blend_contracts import (
     BlendValidationState,
     validate_sparse_blend,
 )
-from material_workbench.domain.heat_time import line_speed_scaled_times
 from material_workbench.domain.design_space_validation import (
     validate_candidate_in_design_space,
 )
@@ -169,7 +166,16 @@ class CandidateService:
         if existing.archived_at is not None:
             raise CandidateArchivedError("archive済み候補は編集できません")
         candidate_input = CandidateInput.model_validate(payload.model_dump(exclude={"expected_revision"}))
-        self._canonicalize_heat_time_update(existing, candidate_input)
+        try:
+            self.registry.candidate_family_for(
+                project.task_id
+            ).canonicalize_update(
+                existing,
+                candidate_input,
+                self.registry.contract_for(project.task_id).task_definition,
+            )
+        except ValueError as exc:
+            raise CandidateValidationError(str(exc)) from exc
         if existing.provenance != candidate_input.provenance:
             raise CandidateProvenanceImmutableError("候補の作成元は変更できません")
         candidate_input = self._prepare(
@@ -319,40 +325,3 @@ class CandidateService:
             )
         self._validate(task_id, prepared, design_space)
         return prepared
-
-    @staticmethod
-    def _canonicalize_heat_time_update(existing: Candidate, updated: CandidateInput) -> None:
-        current_points = existing.inputs.heat_pattern or []
-        requested_points = updated.inputs.heat_pattern or []
-        current_basis = existing.inputs.heat_time_basis
-        requested_basis = updated.inputs.heat_time_basis
-
-        if current_basis != requested_basis:
-            return
-
-        if requested_basis == "elapsed_time":
-            return
-        old_speed = existing.inputs.process.get("ls_mpm")
-        new_speed = updated.inputs.process.get("ls_mpm")
-        if old_speed is None or new_speed is None:
-            return
-        speed_changed = not math.isclose(old_speed, new_speed, rel_tol=0.0, abs_tol=1e-12)
-        if len(current_points) != len(requested_points):
-            return
-        if not speed_changed:
-            if any(
-                not math.isclose(current.time_s, requested.time_s, rel_tol=0.0, abs_tol=1e-9)
-                for current, requested in zip(current_points, requested_points)
-            ):
-                raise CandidateValidationError(
-                    "ラインスピード基準では時刻だけを変更できません。"
-                    "経過時間基準へ切り替えてから変更してください"
-                )
-            return
-
-        try:
-            scaled_times = line_speed_scaled_times(current_points, old_speed, new_speed)
-        except ValueError as exc:
-            raise CandidateValidationError(str(exc)) from exc
-        for requested, time_s in zip(requested_points, scaled_times):
-            requested.time_s = time_s

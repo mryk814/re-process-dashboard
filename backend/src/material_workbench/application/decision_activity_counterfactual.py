@@ -29,17 +29,10 @@ from material_workbench.contracts.objective_contracts import (
 )
 from material_workbench.contracts.schemas import (
     Candidate,
-    CandidateInputs,
     ModelMetadata,
     Prediction,
     Support,
 )
-from material_workbench.domain.candidate_inputs import (
-    raw_input_value,
-    with_declared_balance,
-    with_input_values,
-)
-from material_workbench.domain.proposal_generation import generate_candidates
 from material_workbench.execution.inference_work_graph import semantic_digest
 
 
@@ -102,57 +95,17 @@ def prepare(context: ActivityContext) -> _PreparedCounterfactual:
     )
 
 
-def _value(candidate: Candidate, path: str) -> float | str:
-    parts = path.split(".")
-    if len(parts) == 2:
-        value = raw_input_value(candidate, path)
-        if value is None:
-            raise DecisionActivityValidationError(f"候補に入力がありません: {path}")
-        return value
-    if (
-        len(parts) == 3
-        and parts[0] == "heat_pattern"
-        and parts[1].isdigit()
-        and parts[2] in {"time_s", "temperature_c"}
-    ):
-        points = candidate.inputs.heat_pattern
-        index = int(parts[1])
-        if points is None or index >= len(points):
-            raise DecisionActivityValidationError(
-                f"候補にヒートパターン点がありません: {path}"
-            )
-        return float(getattr(points[index], parts[2]))
-    raise DecisionActivityValidationError(f"入力パスを解決できません: {path}")
-
-
 def _with_value(
     context: ActivityContext,
     candidate: Candidate,
     path: str,
     value: float | str,
 ) -> Candidate:
-    parts = path.split(".")
-    if len(parts) == 3 and parts[0] == "heat_pattern":
-        points = candidate.inputs.heat_pattern
-        index = int(parts[1])
-        if points is None or index >= len(points):
-            raise DecisionActivityValidationError(
-                f"候補にヒートパターン点がありません: {path}"
-            )
-        updated = candidate.model_copy(deep=True)
-        assert updated.inputs.heat_pattern is not None
-        setattr(updated.inputs.heat_pattern[index], parts[2], float(value))
-        updated.inputs = CandidateInputs.model_validate(updated.inputs)
-        return updated
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return with_declared_balance(
-            candidate,
-            {path: float(value)},
-            context.task_definition.composition_totals,
-            context.task_definition,
-        )
-    updated = with_input_values(
-        candidate, {path: str(value)}, context.task_definition
+    updated = context.candidate_family.update(
+        candidate,
+        {path: value},
+        context.task_definition,
+        balance=isinstance(value, (int, float)) and not isinstance(value, bool),
     )
     space = context.project.design_space
     assert space is not None
@@ -160,7 +113,7 @@ def _with_value(
         if conditional.controller_path != path:
             continue
         if value not in conditional.active_choices:
-            updated = with_input_values(
+            updated = context.candidate_family.update(
                 updated,
                 dict(conditional.inactive_values),
                 context.task_definition,
@@ -194,8 +147,10 @@ def _changes(
     changes: list[CounterfactualInputChange] = []
     distance = 0.0
     for path in sorted((*numeric, *categorical)):
-        base_value = _value(context.candidate, path)
-        next_value = _value(proposed, path)
+        base_value = context.candidate_family.value(context.candidate, path)
+        next_value = context.candidate_family.value(proposed, path)
+        assert base_value is not None
+        assert next_value is not None
         if isinstance(base_value, (int, float)) and isinstance(
             next_value, (int, float)
         ):
@@ -301,7 +256,7 @@ def _candidate_pool(
     )
     generated = [
         candidate
-        for candidate, _ in generate_candidates(
+        for candidate, _ in context.candidate_family.generate_candidates(
             "sobol",
             context.candidate,
             sampling_space,
@@ -444,8 +399,8 @@ def _refine_coordinate_boundaries(
             if current is None or item.distance < current.distance:
                 feasible_by_path[path] = item
     for path, feasible in feasible_by_path.items():
-        base_value = _value(context.candidate, path)
-        feasible_value = _value(feasible.candidate, path)
+        base_value = context.candidate_family.value(context.candidate, path)
+        feasible_value = context.candidate_family.value(feasible.candidate, path)
         if not isinstance(base_value, (int, float)) or not isinstance(
             feasible_value, (int, float)
         ):

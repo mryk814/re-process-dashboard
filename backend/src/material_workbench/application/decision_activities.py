@@ -177,6 +177,7 @@ class DecisionActivityService:
             project=project,
             candidate=candidate,
             task_definition=definition,
+            candidate_family=self.registry.candidate_family_for(project.task_id),
             runtime=runtime,  # type: ignore[arg-type]
             parameters=parameters,
             validate_candidate=validate_candidate,

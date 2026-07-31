@@ -8,6 +8,7 @@ from typing import Any, Callable, Literal
 from material_workbench.contracts.schemas import CandidateInput
 from material_workbench.contracts.task_contracts import (
     ApplicationCapability,
+    CANONICAL_CANDIDATE_SCHEMA_VERSION,
     DataExplorerCapability,
     TaskDefinition,
 )
@@ -62,6 +63,7 @@ class TaskModule:
     runtime_factory: RuntimeFactory
     feature_row_builder: FeatureRowBuilder
     application: ApplicationCapability
+    candidate_family_adapter_id: str = CANONICAL_CANDIDATE_SCHEMA_VERSION
     default_package: Path | None = None
     specialized_package_builder: SpecializedPackageBuilder | None = None
     standard_model_authoring: StandardModelAuthoring | None = None
