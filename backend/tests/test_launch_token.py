@@ -6,9 +6,9 @@ import subprocess
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.bootstrap.startup import default_data_library_path
-from material_workbench.bootstrap.resources import AppResources
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.startup import default_data_library_path
+from decision_workbench.bootstrap.resources import AppResources
 
 
 def test_launch_token_protects_api_health_and_downloads(monkeypatch, tmp_path, app_resources: AppResources) -> None:

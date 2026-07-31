@@ -1,6 +1,6 @@
 import pytest
 
-from material_workbench.modeling.curve_grid import anchored_curve_grid
+from decision_workbench.modeling.curve_grid import anchored_curve_grid
 
 
 def test_curve_grid_keeps_size_and_includes_current_candidate_value() -> None:

@@ -4,7 +4,7 @@ level: advanced
 estimated_minutes: 150
 verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
-  - path: "backend/src/material_workbench/modeling/model_packages.py"
+  - path: "backend/src/decision_workbench/modeling/model_packages.py"
     id: "case-study-package-loader"
     role: "contract"
     symbols:
@@ -28,7 +28,7 @@ code_references:
   - path: "backend/scripts/experiments/evaluate_shared_multioutput_gp.py"
     id: "case-study-multi-output-evaluator"
     role: "application"
-  - path: "backend/src/material_workbench/application/chain_candidate_adapters.py"
+  - path: "backend/src/decision_workbench/application/chain_candidate_adapters.py"
     id: "case-study-chain-adapters"
     role: "application"
     symbols:
@@ -36,7 +36,7 @@ code_references:
       - "ScalarChainAdapter"
       - "SparseBlendChainAdapter"
       - "candidate_adapter_for"
-  - path: "backend/src/material_workbench/application/chain_execution_use_case.py"
+  - path: "backend/src/decision_workbench/application/chain_execution_use_case.py"
     id: "case-study-chain-core"
     role: "application"
     symbols:
@@ -49,13 +49,13 @@ code_references:
       - "test_adapter_is_selected_from_the_declared_stage_shape"
       - "test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace"
       - "test_core_prepare_candidate_delegates_shape_validation_to_the_adapter"
-  - path: "backend/src/material_workbench/domain/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/domain/data_lifecycle.py"
     id: "case-study-data-approval"
     role: "domain"
     symbols:
       - "approve_curation_run"
       - "build_training_snapshot"
-  - path: "backend/src/material_workbench/persistence/data_lifecycle_repository.py"
+  - path: "backend/src/decision_workbench/persistence/data_lifecycle_repository.py"
     id: "case-study-data-repository"
     role: "persistence"
     symbols:

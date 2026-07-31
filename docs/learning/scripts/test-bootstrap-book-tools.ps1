@@ -101,11 +101,11 @@ $archiveItem = Get-Item -LiteralPath $archive
 $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 
 try {
-    $previousToolRootEnvironment = $env:MATERIAL_WORKBENCH_BOOK_TOOLS
+    $previousToolRootEnvironment = $env:DECISION_WORKBENCH_BOOK_TOOLS
     $environmentRoot = Join-Path $testRoot "environment root"
     $explicitRoot = Join-Path $testRoot "explicit root"
     try {
-        $env:MATERIAL_WORKBENCH_BOOK_TOOLS = $environmentRoot
+        $env:DECISION_WORKBENCH_BOOK_TOOLS = $environmentRoot
         Assert-True (
             (Get-BookToolRoot) -eq [IO.Path]::GetFullPath($environmentRoot)
         ) "Environment tool root was not resolved."
@@ -114,9 +114,9 @@ try {
         ) "Explicit tool root did not override the environment."
     } finally {
         if ($null -eq $previousToolRootEnvironment) {
-            Remove-Item Env:MATERIAL_WORKBENCH_BOOK_TOOLS -ErrorAction SilentlyContinue
+            Remove-Item Env:DECISION_WORKBENCH_BOOK_TOOLS -ErrorAction SilentlyContinue
         } else {
-            $env:MATERIAL_WORKBENCH_BOOK_TOOLS = $previousToolRootEnvironment
+            $env:DECISION_WORKBENCH_BOOK_TOOLS = $previousToolRootEnvironment
         }
     }
 

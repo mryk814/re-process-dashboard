@@ -4,36 +4,36 @@ level: intermediate
 estimated_minutes: 150
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/modeling/model_packages.py"
+  - path: "backend/src/decision_workbench/modeling/model_packages.py"
     id: "prediction-math-summary-contract"
     role: "contract"
     symbols:
       - "PredictiveSummary"
       - "predictive_interval"
       - "validate_predictive_summary"
-  - path: "backend/src/material_workbench/contracts/schemas.py"
+  - path: "backend/src/decision_workbench/contracts/schemas.py"
     id: "prediction-math-api-contract"
     role: "contract"
     symbols:
       - "Prediction"
       - "Support"
-  - path: "backend/src/material_workbench/adapters/numpyro_posterior.py"
+  - path: "backend/src/decision_workbench/adapters/numpyro_posterior.py"
     id: "prediction-math-posterior-adapter"
     role: "application"
     symbols:
       - "_DensePosteriorPredictor.predict"
-  - path: "backend/src/material_workbench/adapters/builtin_posterior_linear.py"
+  - path: "backend/src/decision_workbench/adapters/builtin_posterior_linear.py"
     id: "prediction-math-uncertainty-adapter"
     role: "application"
     symbols:
       - "_PosteriorLinearPredictor.predict"
-  - path: "backend/src/material_workbench/modeling/runtime.py"
+  - path: "backend/src/decision_workbench/modeling/runtime.py"
     id: "prediction-math-runtime"
     role: "application"
     symbols:
       - "ModelRuntime._support"
       - "ModelRuntime._model_meta"
-  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/decision_activity_contracts.py"
     id: "prediction-math-robustness-contract"
     role: "contract"
     symbols:
@@ -41,7 +41,7 @@ code_references:
       - "ModelUncertaintyInterval"
       - "RobustnessTargetSummary"
       - "RobustnessSummary"
-  - path: "backend/src/material_workbench/application/decision_activity_robustness.py"
+  - path: "backend/src/decision_workbench/application/decision_activity_robustness.py"
     id: "prediction-math-robustness-compute"
     role: "application"
     symbols:

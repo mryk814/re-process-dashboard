@@ -100,7 +100,7 @@ function ConnectionBanner({ retrying, onRetry, diagnostic }: { retrying: boolean
         <span className="connection-banner-steps">起動ログ: <code>{diagnostic.log_path}</code><br />復旧手順: <code>{diagnostic.recovery_route}</code></span>
       </> : <>
         <span>自動再試行の時間内に接続できませんでした。保存済みのデータは変更されていません。ローカルAPIが起動していない可能性があります。</span>
-        <span className="connection-banner-steps">起動ログ（Desktop版は <code>logs/material-workbench-api.log</code>、開発時は <code>npm run dev</code> のapi出力）を確認してください。</span>
+        <span className="connection-banner-steps">起動ログ（Desktop版は診断ログを開く、開発時は <code>npm run dev</code> のapi出力）を確認してください。</span>
       </>}
     </div>
     <button type="button" className="outline-button" disabled={retrying} onClick={onRetry}>{retrying ? "再試行中…" : "再試行"}</button>

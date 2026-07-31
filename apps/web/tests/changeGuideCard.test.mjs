@@ -41,7 +41,7 @@ const entry = {
   steps: [
     {
       label: "1. Python contract",
-      paths: ["backend/src/material_workbench/contracts/decision_activity_contracts.py"],
+      paths: ["backend/src/decision_workbench/contracts/decision_activity_contracts.py"],
       outcome: "parameterとresultを型として定義する",
     },
     {

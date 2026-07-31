@@ -12,34 +12,34 @@ from typing import cast
 
 import pytest
 
-from material_workbench.application.data_lifecycle import DataLifecycleService
-from material_workbench.application.workspace_bundle import (
+from decision_workbench.application.data_lifecycle import DataLifecycleService
+from decision_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
     commit_workspace_restore,
     create_workspace_backup,
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
 )
-from material_workbench.application.workspace_bundle_manifest import (
+from decision_workbench.application.workspace_bundle_manifest import (
     _database_evidence,
 )
-from material_workbench.contracts.data_lifecycle_contracts import (
+from decision_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,
     CurationRunCreateInput,
     ObjectSelection,
     SourceConnectorCreateInput,
     SourceFetchRequest,
 )
-from material_workbench.persistence.data_lifecycle_payload_storage import (
+from decision_workbench.persistence.data_lifecycle_payload_storage import (
     LifecyclePayloadUnavailableError,
 )
-from material_workbench.persistence.row_payload_store import (
+from decision_workbench.persistence.row_payload_store import (
     RowPayloadError,
     RowPayloadReference,
     RowPayloadStore,
 )
-from material_workbench.persistence.store import Store
-from material_workbench.tasks.task_registry import TaskRegistry
+from decision_workbench.persistence.store import Store
+from decision_workbench.tasks.task_registry import TaskRegistry
 
 
 def _connector(name: str, locator: str) -> SourceConnectorCreateInput:

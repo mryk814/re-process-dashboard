@@ -11,12 +11,12 @@ import re
 
 import pytest
 
-from material_workbench.application import data_exploration
-from material_workbench.task_composition.ports import (
+from decision_workbench.application import data_exploration
+from decision_workbench.task_composition.ports import (
     DataDescriptor,
     QualitySurface,
 )
-from material_workbench.task_composition.catalog import (
+from decision_workbench.task_composition.catalog import (
     registered_task_modules,
 )
 
@@ -76,8 +76,8 @@ def test_a_descriptor_without_the_quality_surface_is_rejected() -> None:
 
 
 def test_declaring_quality_without_a_surface_fails_at_registry_time(client) -> None:
-    from material_workbench.contracts.task_contracts import DataExplorerCapability
-    from material_workbench.tasks.task_registry import (
+    from decision_workbench.contracts.task_contracts import DataExplorerCapability
+    from decision_workbench.tasks.task_registry import (
         DataExplorerEntry,
         TaskRegistry,
         TaskRegistryError,
@@ -117,7 +117,7 @@ def test_training_view_contract_carries_dataset_identity_and_target_eligibility(
     新設するのではなく、この契約を昇格させる方針の根拠になる。
     """
 
-    from material_workbench.data.observation_profile import (
+    from decision_workbench.data.observation_profile import (
         ObservationTrainingDataset,
         ObservationTrainingRow,
         ObservationTrainingView,

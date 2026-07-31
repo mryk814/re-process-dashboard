@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-PACKAGE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench"
+PACKAGE_ROOT = Path(__file__).parents[1] / "src" / "decision_workbench"
 
 
 def test_backend_package_root_only_contains_entry_and_extension_modules() -> None:

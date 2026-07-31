@@ -7,18 +7,18 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.application.chain_evaluation import (
+from decision_workbench.application.chain_evaluation import (
     ChainEvaluationCatalog,
     ChainEvaluationError,
 )
-from material_workbench.contracts.chain_evaluation_contracts import (
+from decision_workbench.contracts.chain_evaluation_contracts import (
     ChainEvaluationReport,
 )
-from material_workbench.modeling.chain_evaluation_builder import (
+from decision_workbench.modeling.chain_evaluation_builder import (
     build_chain_evaluation,
 )
-from material_workbench.modeling.model_lifecycle import resolve_configured_package
-from material_workbench.modeling.numeric_canonicalization import (
+from decision_workbench.modeling.model_lifecycle import resolve_configured_package
+from decision_workbench.modeling.numeric_canonicalization import (
     canonicalize_report_float,
 )
 
@@ -36,7 +36,7 @@ def _build() -> ChainEvaluationReport:
     return build_chain_evaluation(
         source=SOURCE,
         stage_b_profile=ROOT
-        / "backend/src/material_workbench/data/welding-stage-b-profile-v1.json",
+        / "backend/src/decision_workbench/data/welding-stage-b-profile-v1.json",
         # Stage AはTaskを持たない決定論的transformなのでパスで指す。
         # Stage B・Cは、成果物と同じく使用中Packageから解決する。
         stage_a_package=ROOT

@@ -7,13 +7,13 @@ import shutil
 
 import pytest
 
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
 )
-from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
-from material_workbench.modeling.packages.contracts import PackageContractError
-from material_workbench.modeling.transform_catalog import (
+from decision_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
+from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.modeling.transform_catalog import (
     load_deterministic_transform_catalog,
 )
 

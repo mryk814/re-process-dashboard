@@ -4,14 +4,14 @@ level: advanced
 estimated_minutes: 110
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/execution/inference_work_graph.py"
+  - path: "backend/src/decision_workbench/execution/inference_work_graph.py"
     id: "performance-work-graph"
     role: "application"
     symbols:
       - "semantic_digest"
       - "InferenceKey"
       - "InferenceWorkGraph"
-  - path: "backend/src/material_workbench/application/inference.py"
+  - path: "backend/src/decision_workbench/application/inference.py"
     id: "performance-inference-service"
     role: "application"
     symbols:
@@ -46,12 +46,12 @@ code_references:
       - "inferenceSurfaceStatus"
   - path: "apps/web/tests/inferenceSurfaceState.test.mjs"
     role: "test"
-  - path: "backend/src/material_workbench/application/chain_stage_execution.py"
+  - path: "backend/src/decision_workbench/application/chain_stage_execution.py"
     id: "performance-chain-execution"
     role: "application"
     symbols:
       - "ChainStageExecutor"
-  - path: "backend/src/material_workbench/persistence/store.py"
+  - path: "backend/src/decision_workbench/persistence/store.py"
     role: "persistence"
     symbols:
       - "Store"
@@ -72,7 +72,7 @@ code_references:
       - "loadSelectedFirstBounded"
   - path: "apps/web/tests/boundedPreviewLoader.test.mjs"
     role: "test"
-  - path: "backend/src/material_workbench/domain/services.py"
+  - path: "backend/src/decision_workbench/domain/services.py"
     id: "performance-pool-evaluator"
     role: "domain"
     symbols:

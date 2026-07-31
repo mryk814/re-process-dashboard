@@ -10,7 +10,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.research.gmr_inverse import report_as_dict, run_historical_replay
+from decision_workbench.research.gmr_inverse import report_as_dict, run_historical_replay
 
 
 def main() -> None:

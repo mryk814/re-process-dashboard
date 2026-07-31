@@ -4,13 +4,13 @@ import sqlite3
 
 import pytest
 
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.persistence.project_persistence_inventory import (
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.persistence.project_persistence_inventory import (
     PROJECT_PERSISTENCE,
     assert_project_persistence_inventory_complete,
     project_scoped_tables_from_schema,
 )
-from material_workbench.persistence.sqlite_connection import sqlite_connection
+from decision_workbench.persistence.sqlite_connection import sqlite_connection
 
 from backend.tests.test_projects import _candidate, _project
 

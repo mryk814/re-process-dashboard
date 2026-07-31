@@ -168,7 +168,7 @@ def main() -> None:
         "--profile",
         type=Path,
         default=Path(
-            "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json"
+            "backend/src/decision_workbench/data/tabular-profile-secom-yield-v1.json"
         ),
     )
     parser.add_argument(

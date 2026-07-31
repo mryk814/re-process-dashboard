@@ -20,10 +20,10 @@ from model_workflow import (  # noqa: E402
     diagnose_source,
     promote_package,
 )
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
-from material_workbench.task_composition.catalog import task_module  # noqa: E402
-from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
+from decision_workbench.task_composition.catalog import task_module  # noqa: E402
+from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
 TASK_ID = "heat-treatment-tradeoff-v1"

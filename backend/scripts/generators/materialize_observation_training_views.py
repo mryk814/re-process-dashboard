@@ -9,7 +9,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.data.observation_profile import (  # noqa: E402
+from decision_workbench.data.observation_profile import (  # noqa: E402
     build_observation_training_dataset,
     load_observation_profile,
     materialize_observation_training_dataset,
@@ -21,7 +21,7 @@ DEFAULT_PROFILE = (
     ROOT
     / "backend"
     / "src"
-    / "material_workbench"
+    / "decision_workbench"
     / "data"
     / "observation-profile-welding-consumable-stage-c-v1.json"
 )

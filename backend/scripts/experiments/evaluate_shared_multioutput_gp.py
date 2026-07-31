@@ -21,15 +21,15 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.data.importer import (  # noqa: E402
+from decision_workbench.data.importer import (  # noqa: E402
     load_workbook_data,
     training_context_key,
 )
-from material_workbench.modeling.runtime import (  # noqa: E402
+from decision_workbench.modeling.runtime import (  # noqa: E402
     TARGETS,
     ModelRuntime,
 )
-from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 
 TARGET_ORDER = ("TS", "YS", "EL", "lambda")

@@ -173,7 +173,7 @@ const integrationRunner = readFileSync(
 );
 assert(
   integrationRunner.includes('"--project-name"')
-  && integrationRunner.includes("material-workbench-test-${process.pid}"),
+  && integrationRunner.includes("decision-workbench-test-${process.pid}"),
   "Integration profile must use a process-isolated Compose project.",
 );
 assert(

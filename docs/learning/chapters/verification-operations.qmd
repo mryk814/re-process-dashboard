@@ -4,7 +4,7 @@ level: intermediate
 estimated_minutes: 100
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/contracts/task_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/task_contracts.py"
     id: "verification-task-contract"
     role: "contract"
     symbols:

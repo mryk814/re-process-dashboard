@@ -1,2 +1,2 @@
-from material_workbench.app import app
+from decision_workbench.app import app
 

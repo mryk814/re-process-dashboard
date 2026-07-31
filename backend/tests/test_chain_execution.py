@@ -12,27 +12,27 @@ import numpy as np
 from pydantic import BaseModel
 import pytest
 
-from material_workbench.application.chain_execution_plan import ChainExecutionError
-from material_workbench.application.chain_uncertainty import (
+from decision_workbench.application.chain_execution_plan import ChainExecutionError
+from decision_workbench.application.chain_uncertainty import (
     apply_output_bounds,
     combine_additive_stage_samples,
 )
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.contracts.blend_contracts import (
     CommercialMaterialCatalog,
     SparseBlendDesignSpace,
 )
-from material_workbench.modeling.model_lifecycle import resolve_configured_package
-from material_workbench.contracts.chain_uncertainty_contracts import (
+from decision_workbench.modeling.model_lifecycle import resolve_configured_package
+from decision_workbench.contracts.chain_uncertainty_contracts import (
     StageSampleResult,
 )
-from material_workbench.contracts.chain_contracts import (
+from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ExternalBindingSource,
 )
-from material_workbench.contracts.candidate_project_contracts import CandidateInputs
-from material_workbench.contracts.task_contracts import NumericRange
-from material_workbench.persistence.store import CandidateRevisionConflictError, Store
-from material_workbench.persistence.sqlite_connection import connect_sqlite
+from decision_workbench.contracts.candidate_project_contracts import CandidateInputs
+from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.persistence.store import CandidateRevisionConflictError, Store
+from decision_workbench.persistence.sqlite_connection import connect_sqlite
 
 
 ROOT = Path(__file__).resolve().parents[2]

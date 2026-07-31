@@ -332,8 +332,8 @@ npm run model:status
 設定を書き換えずに候補Packageを試す場合は、起動前に環境変数を設定します。この経路でもアプリ起動時の完全検証は省略されません。
 
 ```powershell
-$env:MATERIAL_WORKBENCH_MODEL_PACKAGE = "C:\trusted-models\annealed-candidate"
-$env:MATERIAL_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\trusted-models\hot-rolling-candidate"
-$env:MATERIAL_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE = "C:\trusted-models\flank-wear-candidate"
+$env:DECISION_WORKBENCH_MODEL_PACKAGE = "C:\trusted-models\annealed-candidate"
+$env:DECISION_WORKBENCH_HOT_ROLLING_MODEL_PACKAGE = "C:\trusted-models\hot-rolling-candidate"
+$env:DECISION_WORKBENCH_FLANK_WEAR_MODEL_PACKAGE = "C:\trusted-models\flank-wear-candidate"
 npm run dev
 ```

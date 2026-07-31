@@ -1,12 +1,12 @@
 import pytest
 
-from material_workbench.contracts.objective_contracts import (
+from decision_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
     ObjectiveIncumbent,
     ObjectiveTerm,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _contract():

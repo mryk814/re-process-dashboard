@@ -19,8 +19,8 @@ def test_two_actor_shared_workbench_scenario() -> None:
     from minio.error import S3Error
     from psycopg import connect
 
-    from material_workbench.shared_lab.app import create_shared_lab_app
-    from material_workbench.shared_lab.config import SharedLabConfig
+    from decision_workbench.shared_lab.app import create_shared_lab_app
+    from decision_workbench.shared_lab.config import SharedLabConfig
 
     config = SharedLabConfig.from_env()
     app = create_shared_lab_app(config)

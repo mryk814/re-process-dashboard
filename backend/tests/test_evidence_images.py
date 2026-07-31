@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.data.evidence_images import (
+from decision_workbench.data.evidence_images import (
     EvidenceImageError,
     declared_evidence_image,
     resolve_evidence_image,

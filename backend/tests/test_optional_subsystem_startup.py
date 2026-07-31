@@ -3,24 +3,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import material_workbench.bootstrap.startup as startup_module
-import material_workbench.bootstrap.contributions as contributions_module
+import decision_workbench.bootstrap.startup as startup_module
+import decision_workbench.bootstrap.contributions as contributions_module
 import pytest
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import AppResources
-from material_workbench.bootstrap.contributions import (
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.bootstrap.contributions import (
     WELDING_BLEND_CONTRIBUTION_ID,
     WeldingBlendContributionConfig,
 )
-from material_workbench.contracts.subsystem_availability import (
+from decision_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
     WELDING_CHAIN_SUBSYSTEM_ID,
     WELDING_TRANSFORM_SUBSYSTEM_ID,
 )
-from material_workbench.modeling.packages.contracts import PackageContractError
-from material_workbench.persistence.store import ChainCatalogConflictError
-from material_workbench.persistence.welding_chain_bootstrap import (
+from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.persistence.store import ChainCatalogConflictError
+from decision_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
 )
 

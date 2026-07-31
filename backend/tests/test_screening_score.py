@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
-from material_workbench.domain.screening_score import evaluate_screening_goal, score_contract
+from decision_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
+from decision_workbench.domain.screening_score import evaluate_screening_goal, score_contract
 
 
 def test_at_least_achievement_is_never_ranked_behind_failure_without_probability() -> None:

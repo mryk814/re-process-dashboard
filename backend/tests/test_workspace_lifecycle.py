@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.developer_experience.workspace_lifecycle import (
+from decision_workbench.developer_experience.workspace_lifecycle import (
     RepositoryWorkspaceContext,
     WorkspacePruneRefused,
     branch_workspace_name,

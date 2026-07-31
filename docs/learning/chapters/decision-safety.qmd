@@ -29,14 +29,14 @@ code_references:
     role: "frontend"
     symbols:
       - "SupportBadge"
-  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/decision_activity_contracts.py"
     id: "decision-safety-uncertainty-contract"
     role: "contract"
     symbols:
       - "InputVariationInterval"
       - "ModelUncertaintyInterval"
       - "RobustnessTargetSummary"
-  - path: "backend/src/material_workbench/application/decision_activity_robustness.py"
+  - path: "backend/src/decision_workbench/application/decision_activity_robustness.py"
     id: "decision-safety-robustness-compute"
     role: "application"
     symbols:
@@ -46,7 +46,7 @@ code_references:
     role: "frontend"
     symbols:
       - "RobustnessActivityView"
-  - path: "backend/src/material_workbench/contracts/subsystem_availability.py"
+  - path: "backend/src/decision_workbench/contracts/subsystem_availability.py"
     id: "decision-safety-availability"
     role: "contract"
     symbols:
@@ -56,7 +56,7 @@ code_references:
     role: "frontend"
     symbols:
       - "safeExplorationRange"
-  - path: "backend/src/material_workbench/contracts/schemas.py"
+  - path: "backend/src/decision_workbench/contracts/schemas.py"
     id: "decision-safety-screening-contract"
     role: "contract"
     symbols:
@@ -73,12 +73,12 @@ code_references:
     role: "frontend"
     symbols:
       - "buildScreeningInterpolation"
-  - path: "backend/src/material_workbench/application/decision_activities.py"
+  - path: "backend/src/decision_workbench/application/decision_activities.py"
     id: "decision-safety-promotion"
     role: "application"
     symbols:
       - "DecisionActivityService.promote_proposal"
-  - path: "backend/src/material_workbench/persistence/store_unit_of_work.py"
+  - path: "backend/src/decision_workbench/persistence/store_unit_of_work.py"
     id: "decision-safety-project-decision-store"
     role: "persistence"
     symbols:

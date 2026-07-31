@@ -4,7 +4,7 @@ level: intermediate
 estimated_minutes: 170
 verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
-  - path: "backend/src/material_workbench/modeling/model_packages.py"
+  - path: "backend/src/decision_workbench/modeling/model_packages.py"
     id: "security-package"
     role: "contract"
     symbols:
@@ -22,7 +22,7 @@ code_references:
       - "test_loader_rejects_hash_tampering_traversal_and_unknown_manifest_fields"
       - "test_numpyro_posterior_rejects_archive_bombs_and_excessive_draws"
       - "test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization"
-  - path: "backend/src/material_workbench/api/security.py"
+  - path: "backend/src/decision_workbench/api/security.py"
     id: "security-local-api"
     role: "application"
     symbols:
@@ -51,7 +51,7 @@ code_references:
     symbols:
       - "test_packaged_smoke_covers_workspace_backup_restore_and_tamper_rejection"
       - "test_workspace_ipc_trusts_the_packaged_document_path_not_its_navigation_query"
-  - path: "backend/src/material_workbench/application/workspace_bundle_archive.py"
+  - path: "backend/src/decision_workbench/application/workspace_bundle_archive.py"
     id: "security-workspace-archive"
     role: "application"
     symbols:
@@ -60,12 +60,12 @@ code_references:
       - "_stream_extract"
       - "_validate_resource_manifest"
       - "_extract_verified_bundle"
-  - path: "backend/src/material_workbench/application/workspace_bundle_restore_plan.py"
+  - path: "backend/src/decision_workbench/application/workspace_bundle_restore_plan.py"
     id: "security-workspace-plan"
     role: "application"
     symbols:
       - "prepare_workspace_restore"
-  - path: "backend/src/material_workbench/application/workspace_bundle_service.py"
+  - path: "backend/src/decision_workbench/application/workspace_bundle_service.py"
     id: "security-workspace-service"
     role: "application"
     symbols:
@@ -79,13 +79,13 @@ code_references:
       - "test_restore_rejects_an_extreme_compression_ratio"
       - "test_unsafe_archive_paths_are_rejected_before_extraction"
       - "test_commit_switch_failure_preserves_database_and_data_library"
-  - path: "backend/src/material_workbench/contracts/data_lifecycle_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/data_lifecycle_contracts.py"
     id: "security-connector-contract"
     role: "contract"
     symbols:
       - "SourceConnectorCreateInput"
       - "SourceFetchRequest"
-  - path: "backend/src/material_workbench/api/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/api/data_lifecycle.py"
     id: "security-connector-api"
     role: "application"
     symbols:

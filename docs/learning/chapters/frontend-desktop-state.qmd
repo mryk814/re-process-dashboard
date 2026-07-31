@@ -104,7 +104,7 @@ code_references:
   - path: "apps/desktop/src/preload.ts"
     id: "frontend-state-desktop-preload"
     role: "application"
-  - path: "backend/src/material_workbench/api/security.py"
+  - path: "backend/src/decision_workbench/api/security.py"
     id: "frontend-state-local-api-security"
     role: "application"
     symbols:

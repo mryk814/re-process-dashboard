@@ -7,10 +7,10 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.modeling.chain_evaluation_builder import (
+from decision_workbench.modeling.chain_evaluation_builder import (
     build_chain_evaluation,
 )
-from material_workbench.modeling.model_lifecycle import resolve_configured_package
+from decision_workbench.modeling.model_lifecycle import resolve_configured_package
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -42,7 +42,7 @@ def main() -> int:
         stage_b_profile=ROOT
         / "backend"
         / "src"
-        / "material_workbench"
+        / "decision_workbench"
         / "data"
         / "welding-stage-b-profile-v1.json",
         # Stage AはTaskを持たない決定論的transformのPackageなので、パスで指す。

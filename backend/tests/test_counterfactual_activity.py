@@ -7,26 +7,26 @@ from types import SimpleNamespace
 
 import pytest
 
-from material_workbench.application.decision_activity_counterfactual import (
+from decision_workbench.application.decision_activity_counterfactual import (
     compute,
     prepare,
 )
-from material_workbench.application.decision_activity_registry import ActivityContext
-from material_workbench.contracts.decision_activity_contracts import (
+from decision_workbench.application.decision_activity_registry import ActivityContext
+from decision_workbench.contracts.decision_activity_contracts import (
     COUNTERFACTUAL_ACTIVITY,
     CounterfactualParameters,
     CounterfactualTargetEvaluation,
 )
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
     NumericDomain,
 )
-from material_workbench.contracts.objective_contracts import (
+from decision_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
     ObjectiveTerm,
 )
-from material_workbench.contracts.candidate_project_contracts import Candidate
-from material_workbench.contracts.task_contracts import (
+from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.contracts.task_contracts import (
     CANONICAL_CANDIDATE_SCHEMA_VERSION,
     TASK_DEFINITION_SCHEMA_VERSION,
     InputFieldDefinition,
@@ -35,10 +35,10 @@ from material_workbench.contracts.task_contracts import (
     OutputDefinition,
     TaskDefinition,
 )
-from material_workbench.task_composition.candidate_family_adapters import (
+from decision_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.execution.inference_work_graph import semantic_digest
 
 
 def _toy_contracts():

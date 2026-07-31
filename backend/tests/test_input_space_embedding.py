@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from material_workbench.modeling.training_distance import _vector_space_digest
-from material_workbench.modeling.input_space_embedding import fit_landmark_mds
+from decision_workbench.modeling.training_distance import _vector_space_digest
+from decision_workbench.modeling.input_space_embedding import fit_landmark_mds
 
 
 def _euclidean(reference: np.ndarray, query: np.ndarray) -> np.ndarray:

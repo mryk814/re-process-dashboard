@@ -9,7 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "backend" / "src"))
 
-from material_workbench.app import app  # noqa: E402
+from decision_workbench.app import app  # noqa: E402
 
 
 DEFAULT_OUTPUT = ROOT / "apps" / "web" / "src" / "generated" / "openapi.json"

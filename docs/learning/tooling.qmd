@@ -69,12 +69,12 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File docs/learning/scripts/bootstrap-book-tools.ps1
 ```
 
-既定のtool rootは`$env:LOCALAPPDATA\material-workbench-book-tools`です。
-`MATERIAL_WORKBENCH_BOOK_TOOLS`環境変数で変更でき、`-ToolRoot`を明示した場合はその値を優先します。
+既定のtool rootは`$env:LOCALAPPDATA\decision-workbench-book-tools`です。
+`DECISION_WORKBENCH_BOOK_TOOLS`環境変数で変更でき、`-ToolRoot`を明示した場合はその値を優先します。
 どの経路でもsystemへinstallせず、永続的なPATHを変更しません。
 空白を含むrootは検証対象ですが、Quarto 1.10.18ではWindows上の非ASCII pathに既知の実行上の制約があります。[^quarto-nonascii-path]
 
-[^quarto-nonascii-path]: 非ASCII文字を含む隔離rootでは、Quarto同梱Luaがmodule pathを誤ってdecodeし、`modules/astshortcode`を見つけられない事象を再現しました。このerrorが出る環境では、たとえば`Join-Path $env:PUBLIC "material-workbench-book-tools"`のようなASCIIだけのrootをbootstrapとbuildの双方へ明示します。bootstrap自体の取得、hash検証、展開は非ASCII pathでも成功しますが、Quarto 1.10.18のrenderまでは保証しません。
+[^quarto-nonascii-path]: 非ASCII文字を含む隔離rootでは、Quarto同梱Luaがmodule pathを誤ってdecodeし、`modules/astshortcode`を見つけられない事象を再現しました。このerrorが出る環境では、たとえば`Join-Path $env:PUBLIC "decision-workbench-book-tools"`のようなASCIIだけのrootをbootstrapとbuildの双方へ明示します。bootstrap自体の取得、hash検証、展開は非ASCII pathでも成功しますが、Quarto 1.10.18のrenderまでは保証しません。
 
 検証済みの展開cacheがあれば、networkへ接続せずに再利用します。
 展開cacheがなくても検証済みarchiveが残っていれば、`-Offline`で再展開できます。

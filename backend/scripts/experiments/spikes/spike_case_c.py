@@ -28,11 +28,11 @@ def _rejected(label: str, thunk) -> tuple[bool, str]:
 
 
 def main() -> int:
-    from material_workbench.contracts.candidate_project_contracts import (
+    from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInputs,
     HeatPoint,
 )
-    from material_workbench.contracts.task_contracts import (
+    from decision_workbench.contracts.task_contracts import (
         CanonicalCandidate,
         InputFieldDefinition,
         InputGroupDefinition,
@@ -136,7 +136,7 @@ def main() -> int:
     )
 
     # 7. Chain Stageとして系列入力Taskを使えるか
-    from material_workbench.contracts.chain_contracts import task_contract_surface
+    from decision_workbench.contracts.chain_contracts import task_contract_surface
 
     series_task = TaskDefinition(
         schema_version="task-definition/v1",

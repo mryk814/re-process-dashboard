@@ -9,19 +9,19 @@ from openpyxl import Workbook, load_workbook
 import numpy as np
 import pytest
 
-from material_workbench.modeling.feature_pipeline import build_feature_bundle
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.contracts.screening_contracts import ScreeningRunResponse
-from material_workbench.application.candidate_spreadsheet import (
+from decision_workbench.modeling.feature_pipeline import build_feature_bundle
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.screening_contracts import ScreeningRunResponse
+from decision_workbench.application.candidate_spreadsheet import (
     _candidate_xlsx_names,
     import_candidates_xlsx,
 )
-from material_workbench.application.material_lineage_candidates import (
+from decision_workbench.application.material_lineage_candidates import (
     candidate_from_lineage,
 )
 
 
-PROFILE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "data"
+PROFILE_ROOT = Path(__file__).parents[1] / "src" / "decision_workbench" / "data"
 
 
 def _screening_body(candidate: dict) -> dict:

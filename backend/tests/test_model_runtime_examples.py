@@ -9,15 +9,15 @@ import sys
 import numpy as np
 import pytest
 
-from material_workbench.modeling.model_package_verify import verify_model_package_example
-from material_workbench.contracts.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
-from material_workbench.modeling.packages.contracts import (
+from decision_workbench.modeling.model_package_verify import verify_model_package_example
+from decision_workbench.contracts.model_example_contracts import PredictiveMixtureDesignFixture, validate_mixture_component_digests
+from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictiveSummary,
     RUNTIME_TYPES,
     predictive_interval,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]

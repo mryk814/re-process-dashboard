@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import prepare_app_resources
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import prepare_app_resources
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"

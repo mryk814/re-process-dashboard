@@ -10,7 +10,7 @@ description: 現行Task composition catalogへ新しい予測Taskを安全に追
 ## 同じ予測契約へ新しいExcelを追加
 
 - TaskDefinitionとFeature Pipelineは原則変更しない。
-- `backend/src/material_workbench/data/dataset-input-profile-*.json` でシート、列、単位、key、relation、optional列の差を吸収する。
+- `backend/src/decision_workbench/data/dataset-input-profile-*.json` でシート、列、単位、key、relation、optional列の差を吸収する。
 - Profile Workbenchでinspect、validate、registerする。
 - 学習データが変わる場合だけ、新しいModel Packageを構築する。
 - 既存Data Asset、Revision、Project、Snapshot、Packageを上書きしない。
@@ -32,12 +32,12 @@ uv run python backend/scripts/operations/profile_workbench.py validate path/to/f
 
 次を縦一式で実装する。
 
-1. `backend/src/material_workbench/tasks/task_definitions/<task-id>.json`
+1. `backend/src/decision_workbench/tasks/task_definitions/<task-id>.json`
 2. Dataset Input Profileとdata loader
 3. Feature Pipeline、固定feature order、golden test
 4. Runtime / support / PredictiveSummary
 5. data-only Model Package builderとallow-list済みadapter
-6. `backend/src/material_workbench/task_composition/builtin_tasks.py` の`TaskModule` entry
+6. `backend/src/decision_workbench/task_composition/builtin_tasks.py` の`TaskModule` entry
 7. `models/active-packages.json`
 8. contract / loader / golden / Package smoke / APIまたはE2E
 9. `npm run task:inventory` と、API変更時の `npm run api:generate`
@@ -52,7 +52,7 @@ uv run python backend/scripts/operations/profile_workbench.py validate path/to/f
 - `app.py`へTask固有Runtimeを直接追加しない。
 - workflow、verifier、lifecycleへ同じtask dispatchを個別追加しない。
 - 複数の中央`if task_id == ...`を登録機構として増やさない。
-- `backend/src/material_workbench/contracts/schemas.py`の共通schemaへTask固有Literalを増やさない。
+- `backend/src/decision_workbench/contracts/schemas.py`の共通schemaへTask固有Literalを増やさない。
 - Profileだけで新しい物理入力・出力を追加したことにしない。
 
 既存共通処理にTask固有分岐が残る場合は、まず`TaskModule`のcallable／capabilityへ移せるか確認する。adapterを増やす前に既存runtime typeの安全なdata-only artifactで表現できるか検討する。

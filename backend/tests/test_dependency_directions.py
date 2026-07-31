@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench"
+PACKAGE_ROOT = Path(__file__).parents[1] / "src" / "decision_workbench"
 
 
 def _module_name(path: Path) -> str | None:
@@ -13,7 +13,7 @@ def _module_name(path: Path) -> str | None:
         relative = path.relative_to(PACKAGE_ROOT).with_suffix("")
     except ValueError:
         return None
-    return "material_workbench." + ".".join(relative.parts)
+    return "decision_workbench." + ".".join(relative.parts)
 
 
 def _imports(path: Path, *, top_level_only: bool = False) -> set[str]:
@@ -58,7 +58,7 @@ def test_chain_use_cases_depend_on_explicit_plan_and_stage_boundaries() -> None:
     assert (application / "chain_execution_use_case.py").exists()
     assert (application / "chain_snapshot_use_case.py").exists()
     assert not any(
-        "material_workbench.application.chain_execution" == imported
+        "decision_workbench.application.chain_execution" == imported
         for path in application.glob("*.py")
         for imported in _imports(path)
     )
@@ -86,7 +86,7 @@ def test_contract_resource_families_do_not_restore_the_schemas_hub() -> None:
         path.relative_to(PACKAGE_ROOT.parents[2]).as_posix()
         for root in roots
         for path in root.rglob("*.py")
-        if "material_workbench.contracts.schemas" in _imports(path)
+        if "decision_workbench.contracts.schemas" in _imports(path)
     }
     assert offenders == set()
 
@@ -110,7 +110,7 @@ def test_tabular_regression_boundaries_are_one_way_without_a_legacy_facade() -> 
         name: _imports(tabular / f"{name}.py")
         for name in ("profile", "data", "features", "runtime")
     }
-    tabular_prefix = "material_workbench.modeling.tabular"
+    tabular_prefix = "decision_workbench.modeling.tabular"
     assert not {
         name
         for name in imports["profile"]
@@ -141,8 +141,8 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
     }
     workbook_io = (
         "openpyxl",
-        "material_workbench.data.importer",
-        "material_workbench.data.profiles.canonicalization",
+        "decision_workbench.data.importer",
+        "decision_workbench.data.profiles.canonicalization",
     )
     assert (
         sorted(
@@ -157,7 +157,7 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
         sorted(
             name
             for name in imports["schema"]
-            if name.startswith("material_workbench.data.profiles.")
+            if name.startswith("decision_workbench.data.profiles.")
         )
         == []
     )
@@ -167,8 +167,8 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
             for name in imports["validation"]
             if name.startswith(
                 (
-                    "material_workbench.data.profiles.loading",
-                    "material_workbench.data.profiles.canonicalization",
+                    "decision_workbench.data.profiles.loading",
+                    "decision_workbench.data.profiles.canonicalization",
                 )
             )
         )
@@ -178,11 +178,11 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
         sorted(
             name
             for name in imports["canonicalization"]
-            if name.startswith("material_workbench.data.profiles.loading")
+            if name.startswith("decision_workbench.data.profiles.loading")
         )
         == []
     )
-    assert "material_workbench.data.profiles.validation" in imports["canonicalization"]
+    assert "decision_workbench.data.profiles.validation" in imports["canonicalization"]
 
 
 def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
@@ -194,10 +194,10 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
     adapters = PACKAGE_ROOT / "adapters"
 
     ports_forbidden = (
-        "material_workbench.adapters",
-        "material_workbench.modeling.packages.registry",
-        "material_workbench.modeling.packages.verification",
-        "material_workbench.modeling.packages.loader",
+        "decision_workbench.adapters",
+        "decision_workbench.modeling.packages.registry",
+        "decision_workbench.modeling.packages.verification",
+        "decision_workbench.modeling.packages.loader",
     )
     assert sorted(
         name for name in _imports(ports) if name.startswith(ports_forbidden)
@@ -207,18 +207,18 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
         for name in _imports(registry)
         if name.startswith(
             (
-                "material_workbench.modeling.packages.verification",
-                "material_workbench.modeling.packages.loader",
+                "decision_workbench.modeling.packages.verification",
+                "decision_workbench.modeling.packages.loader",
             )
         )
     ) == []
     assert sorted(
         name
         for name in _imports(verification)
-        if name.startswith("material_workbench.adapters")
+        if name.startswith("decision_workbench.adapters")
     ) == []
     assert sorted(
-        name for name in _imports(loader) if name.startswith("material_workbench.adapters")
+        name for name in _imports(loader) if name.startswith("decision_workbench.adapters")
     ) == []
     verification_definitions = {
         node.name
@@ -239,8 +239,8 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
             for name in _imports(path)
             if name.startswith(
                 (
-                    "material_workbench.modeling.packages.verification",
-                    "material_workbench.modeling.packages.loader",
+                    "decision_workbench.modeling.packages.verification",
+                    "decision_workbench.modeling.packages.loader",
                 )
             )
         )
@@ -251,10 +251,10 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
 
 def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependency() -> None:
     forbidden = (
-        "material_workbench.application",
-        "material_workbench.modeling",
-        "material_workbench.persistence",
-        "material_workbench.tasks",
+        "decision_workbench.application",
+        "decision_workbench.modeling",
+        "decision_workbench.persistence",
+        "decision_workbench.tasks",
     )
     offenders = {
         path.relative_to(PACKAGE_ROOT).as_posix(): sorted(
@@ -270,10 +270,10 @@ def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependenc
 
 def test_builtin_composition_defers_runtime_imports_until_a_factory_is_called() -> None:
     forbidden = (
-        "material_workbench.application",
-        "material_workbench.modeling",
-        "material_workbench.persistence",
-        "material_workbench.tasks",
+        "decision_workbench.application",
+        "decision_workbench.modeling",
+        "decision_workbench.persistence",
+        "decision_workbench.tasks",
     )
     builtin = PACKAGE_ROOT / "task_composition" / "builtin"
     offenders = {
@@ -327,11 +327,11 @@ def test_builtin_family_factories_have_single_explicit_owners() -> None:
 def test_app_is_a_transport_composition_root() -> None:
     path = PACKAGE_ROOT / "app.py"
     forbidden = (
-        "material_workbench.application",
-        "material_workbench.modeling",
-        "material_workbench.persistence",
-        "material_workbench.task_composition",
-        "material_workbench.tasks",
+        "decision_workbench.application",
+        "decision_workbench.modeling",
+        "decision_workbench.persistence",
+        "decision_workbench.task_composition",
+        "decision_workbench.tasks",
     )
     assert (
         sorted(name for name in _imports(path, top_level_only=True) if name.startswith(forbidden))
@@ -345,9 +345,9 @@ def test_app_has_no_welding_or_blend_specific_composition() -> None:
     assert "blend" not in source.lower()
     imports = _imports(PACKAGE_ROOT / "app.py")
     assert not {
-        "material_workbench.api.chains",
-        "material_workbench.api.blend_optimization",
-        "material_workbench.api.transforms",
+        "decision_workbench.api.chains",
+        "decision_workbench.api.blend_optimization",
+        "decision_workbench.api.transforms",
     }.intersection(imports)
 
 
@@ -396,20 +396,20 @@ def test_bootstrap_packages_have_one_way_dependencies() -> None:
     bootstrap = PACKAGE_ROOT / "bootstrap"
     forbidden_by_module = {
         "resources.py": (
-            "material_workbench.app",
-            "material_workbench.api",
-            "material_workbench.application",
-            "material_workbench.bootstrap.contributions",
-            "material_workbench.bootstrap.startup",
-            "material_workbench.persistence",
+            "decision_workbench.app",
+            "decision_workbench.api",
+            "decision_workbench.application",
+            "decision_workbench.bootstrap.contributions",
+            "decision_workbench.bootstrap.startup",
+            "decision_workbench.persistence",
         ),
         "contributions.py": (
-            "material_workbench.app",
-            "material_workbench.bootstrap.startup",
+            "decision_workbench.app",
+            "decision_workbench.bootstrap.startup",
         ),
         "startup.py": (
-            "material_workbench.app",
-            "material_workbench.api",
+            "decision_workbench.app",
+            "decision_workbench.api",
         ),
     }
     offenders = {
@@ -434,8 +434,8 @@ def test_app_does_not_restore_removed_private_bootstrap_shims() -> None:
     assert "_AppResources" not in names
     assert "_prepare_app_resources" not in names
     removed_imports = {
-        "material_workbench.app._AppResources",
-        "material_workbench.app._prepare_app_resources",
+        "decision_workbench.app._AppResources",
+        "decision_workbench.app._prepare_app_resources",
     }
     roots = (
         PACKAGE_ROOT,
@@ -454,8 +454,8 @@ def test_app_does_not_restore_removed_private_bootstrap_shims() -> None:
 
 def test_tasks_and_data_do_not_own_application_transactions() -> None:
     forbidden_by_package = {
-        "tasks": ("material_workbench.application", "material_workbench.persistence"),
-        "data": ("material_workbench.application", "material_workbench.persistence"),
+        "tasks": ("decision_workbench.application", "decision_workbench.persistence"),
+        "data": ("decision_workbench.application", "decision_workbench.persistence"),
     }
     offenders: dict[str, list[str]] = {}
     for package, forbidden in forbidden_by_package.items():
@@ -469,10 +469,10 @@ def test_tasks_and_data_do_not_own_application_transactions() -> None:
 def test_proposal_service_has_no_dataset_model_or_material_dependency() -> None:
     path = PACKAGE_ROOT / "application" / "proposal_service.py"
     forbidden = (
-        "material_workbench.data",
-        "material_workbench.modeling",
-        "material_workbench.application.candidate_spreadsheet",
-        "material_workbench.application.material_lineage_candidates",
+        "decision_workbench.data",
+        "decision_workbench.modeling",
+        "decision_workbench.application.candidate_spreadsheet",
+        "decision_workbench.application.material_lineage_candidates",
         "numpy",
         "openpyxl",
     )
@@ -482,10 +482,10 @@ def test_proposal_service_has_no_dataset_model_or_material_dependency() -> None:
 def test_material_lineage_candidate_logic_stays_isolated() -> None:
     path = PACKAGE_ROOT / "application" / "material_lineage_candidates.py"
     forbidden = (
-        "material_workbench.application.candidate_spreadsheet",
-        "material_workbench.application.proposal_service",
-        "material_workbench.persistence",
-        "material_workbench.tasks",
+        "decision_workbench.application.candidate_spreadsheet",
+        "decision_workbench.application.proposal_service",
+        "decision_workbench.persistence",
+        "decision_workbench.tasks",
         "openpyxl",
     )
     assert sorted(name for name in _imports(path) if name.startswith(forbidden)) == []
@@ -493,24 +493,24 @@ def test_material_lineage_candidate_logic_stays_isolated() -> None:
 
 def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> None:
     removed_modules = {
-        "material_workbench.task_composition.builtin_tasks",
-        "material_workbench.domain.services",
-        "material_workbench.task_modules",
-        "material_workbench.tasks.project_runtime_resolver",
-        "material_workbench.data.dataset_registration",
-        "material_workbench.data.dataset_profile",
-        "material_workbench.data.profile_document",
-        "material_workbench.persistence.workspace_catalog_bootstrap",
+        "decision_workbench.task_composition.builtin_tasks",
+        "decision_workbench.domain.services",
+        "decision_workbench.task_modules",
+        "decision_workbench.tasks.project_runtime_resolver",
+        "decision_workbench.data.dataset_registration",
+        "decision_workbench.data.dataset_profile",
+        "decision_workbench.data.profile_document",
+        "decision_workbench.persistence.workspace_catalog_bootstrap",
     }
     removed_paths = {
-        "backend/src/material_workbench/task_composition/builtin_tasks.py",
-        "backend/src/material_workbench/domain/services.py",
-        "backend/src/material_workbench/task_modules.py",
-        "backend/src/material_workbench/tasks/project_runtime_resolver.py",
-        "backend/src/material_workbench/data/dataset_registration.py",
-        "backend/src/material_workbench/data/dataset_profile.py",
-        "backend/src/material_workbench/data/profile_document.py",
-        "backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py",
+        "backend/src/decision_workbench/task_composition/builtin_tasks.py",
+        "backend/src/decision_workbench/domain/services.py",
+        "backend/src/decision_workbench/task_modules.py",
+        "backend/src/decision_workbench/tasks/project_runtime_resolver.py",
+        "backend/src/decision_workbench/data/dataset_registration.py",
+        "backend/src/decision_workbench/data/dataset_profile.py",
+        "backend/src/decision_workbench/data/profile_document.py",
+        "backend/src/decision_workbench/persistence/workspace_catalog_bootstrap.py",
     }
     roots = (
         PACKAGE_ROOT,

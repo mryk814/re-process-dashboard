@@ -1,19 +1,19 @@
 ---
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/contracts/decision_activity_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/decision_activity_contracts.py"
     id: "code-map-activity-contract"
     role: "contract"
     symbols:
       - "CandidateDifferenceParameters"
       - "DecisionActivityRunRequest"
-  - path: "backend/src/material_workbench/application/decision_activity_registry.py"
+  - path: "backend/src/decision_workbench/application/decision_activity_registry.py"
     id: "code-map-activity-registry"
     role: "application"
-  - path: "backend/src/material_workbench/application/decision_activities.py"
+  - path: "backend/src/decision_workbench/application/decision_activities.py"
     id: "code-map-activity-service"
     role: "application"
-  - path: "backend/src/material_workbench/api/decision_activities.py"
+  - path: "backend/src/decision_workbench/api/decision_activities.py"
     id: "code-map-activity-api"
     role: "api"
   - path: "apps/web/src/generated/api-types.ts"
@@ -36,13 +36,13 @@ code_references:
   - path: "e2e/decision-activity.spec.ts"
     id: "code-map-activity-e2e"
     role: "test"
-  - path: "backend/src/material_workbench/contracts/schemas.py"
+  - path: "backend/src/decision_workbench/contracts/schemas.py"
     id: "code-map-screening-contract"
     role: "contract"
     symbols:
       - "ScreeningRequest"
       - "ScreeningRunResponse"
-  - path: "backend/src/material_workbench/application/screening.py"
+  - path: "backend/src/decision_workbench/application/screening.py"
     id: "code-map-screening-service"
     role: "application"
     symbols:
@@ -80,46 +80,46 @@ code_references:
 
 ### Candidate revision
 
-- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
-- **Applicationと保存**：`backend/src/material_workbench/application/candidates.py`、`backend/src/material_workbench/persistence/store.py`
-- **API**：`backend/src/material_workbench/api/candidates.py`
+- **Contract**：`backend/src/decision_workbench/contracts/schemas.py`
+- **Applicationと保存**：`backend/src/decision_workbench/application/candidates.py`、`backend/src/decision_workbench/persistence/store.py`
+- **API**：`backend/src/decision_workbench/api/candidates.py`
 - **Frontend**：`apps/web/src/features/candidates/`、`apps/web/src/shared/api/workbench-api.ts`
 - **Test**：`backend/tests/test_candidate_safety.py`、`e2e/shared-workbench.spec.ts`
 
 ### Revision、digest、request identity
 
-- **Candidate compare-and-swap**：`backend/src/material_workbench/persistence/store.py`、`backend/src/material_workbench/api/candidates.py`
-- **Immutable history**：`backend/src/material_workbench/persistence/candidate_revision_migration.py`
-- **Semantic digest**：`backend/src/material_workbench/execution/inference_work_graph.py`、`backend/src/material_workbench/contracts/chain_contracts.py`
+- **Candidate compare-and-swap**：`backend/src/decision_workbench/persistence/store.py`、`backend/src/decision_workbench/api/candidates.py`
+- **Immutable history**：`backend/src/decision_workbench/persistence/candidate_revision_migration.py`
+- **Semantic digest**：`backend/src/decision_workbench/execution/inference_work_graph.py`、`backend/src/decision_workbench/contracts/chain_contracts.py`
 - **保存queue**：`apps/web/src/features/candidates/latestSaveQueue.ts`、`apps/web/src/features/candidates/useCandidateEditor.ts`
 - **非同期表示**：`apps/web/src/features/workbench/inferenceSurfaceState.ts`
 - **Test**：`backend/tests/test_candidate_safety.py`、`backend/tests/test_inference_work_graph.py`、`apps/web/tests/latestSaveQueue.test.mjs`、`apps/web/tests/inferenceSurfaceState.test.mjs`
 
 ### SQLite migrationと起動時検証
 
-- **起動順**：`backend/src/material_workbench/persistence/store.py`
-- **接続policy**：`backend/src/material_workbench/persistence/sqlite_connection.py`
-- **Migration ledgerとtable再構築**：`backend/src/material_workbench/persistence/candidate_migration.py`
-- **履歴backfill**：`backend/src/material_workbench/persistence/candidate_revision_migration.py`
-- **Catalog schemaとlegacy provenance**：`backend/src/material_workbench/persistence/workspace_catalog_migration.py`、`backend/src/material_workbench/application/workspace_catalog_bootstrap.py`
-- **診断**：`backend/src/material_workbench/developer_experience/runtime_diagnostics.py`
+- **起動順**：`backend/src/decision_workbench/persistence/store.py`
+- **接続policy**：`backend/src/decision_workbench/persistence/sqlite_connection.py`
+- **Migration ledgerとtable再構築**：`backend/src/decision_workbench/persistence/candidate_migration.py`
+- **履歴backfill**：`backend/src/decision_workbench/persistence/candidate_revision_migration.py`
+- **Catalog schemaとlegacy provenance**：`backend/src/decision_workbench/persistence/workspace_catalog_migration.py`、`backend/src/decision_workbench/application/workspace_catalog_bootstrap.py`
+- **診断**：`backend/src/decision_workbench/developer_experience/runtime_diagnostics.py`
 - **Test**：`backend/tests/test_candidate_migration.py`、`backend/tests/test_candidate_safety.py`、`backend/tests/test_workspace_catalog_migration.py`、`backend/tests/test_sqlite_connection.py`
 
 ### Project archiveとexplicit purge
 
 - **設計記録**：`docs/decisions/sqlite-project-lifecycle-policy.md`
-- **API**：`backend/src/material_workbench/api/projects.py`
-- **Application**：`backend/src/material_workbench/application/projects.py`
-- **Archive、restore、purge plan**：`backend/src/material_workbench/persistence/store.py`
-- **Write guard**：`backend/src/material_workbench/persistence/project_lifecycle_migration.py`
+- **API**：`backend/src/decision_workbench/api/projects.py`
+- **Application**：`backend/src/decision_workbench/application/projects.py`
+- **Archive、restore、purge plan**：`backend/src/decision_workbench/persistence/store.py`
+- **Write guard**：`backend/src/decision_workbench/persistence/project_lifecycle_migration.py`
 - **UI**：`apps/web/src/features/projects/ProjectHub.tsx`
 - **Test**：`backend/tests/test_project_lifecycle.py`、`backend/tests/test_projects.py`、`backend/tests/test_data_library_api.py`
 
 ### Project Series所属変更
 
-- **Contract**：`backend/src/material_workbench/contracts/schemas.py`の`ProjectGroupMoveInput`
-- **API／Application**：`backend/src/material_workbench/api/projects.py`、`backend/src/material_workbench/application/projects.py`
-- **CASと空Series archive**：`backend/src/material_workbench/persistence/store.py`の`move_project_to_group`
+- **Contract**：`backend/src/decision_workbench/contracts/schemas.py`の`ProjectGroupMoveInput`
+- **API／Application**：`backend/src/decision_workbench/api/projects.py`、`backend/src/decision_workbench/application/projects.py`
+- **CASと空Series archive**：`backend/src/decision_workbench/persistence/store.py`の`move_project_to_group`
 - **UI**：`apps/web/src/features/projects/ProjectHub.tsx`
 - **Test**：`backend/tests/test_projects.py`、`apps/web/tests/projectGroupMembership.test.mjs`、`e2e/project-hub.spec.ts`
 
@@ -128,16 +128,16 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 
 ### Project scientific identity
 
-- **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`、`backend/src/material_workbench/contracts/schemas.py`
-- **Application**：`backend/src/material_workbench/application/projects.py`、`backend/src/material_workbench/application/project_runtime.py`
-- **API**：`backend/src/material_workbench/api/projects.py`
+- **Contract**：`backend/src/decision_workbench/contracts/chain_contracts.py`、`backend/src/decision_workbench/contracts/schemas.py`
+- **Application**：`backend/src/decision_workbench/application/projects.py`、`backend/src/decision_workbench/application/project_runtime.py`
+- **API**：`backend/src/decision_workbench/api/projects.py`
 - **Frontend**：`apps/web/src/features/projects/`
 - **Testと文書**：`backend/tests/test_projects.py`、`docs/product/current-system-baseline.md`
 
 ### Typed API error
 
-- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
-- **Runtime境界**：`backend/src/material_workbench/app.py` のexception handler
+- **Contract**：`backend/src/decision_workbench/contracts/schemas.py`
+- **Runtime境界**：`backend/src/decision_workbench/app.py` のexception handler
 - **Frontend**：`apps/web/src/shared/api/client.ts`
 - **Test**：`backend/tests/test_openapi_contract.py`、`backend/tests/test_candidate_safety.py`
 
@@ -152,7 +152,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### Stale response防止
 
 - **Contract**：Candidate revisionとrequest identity
-- **Backend**：`backend/src/material_workbench/execution/inference_work_graph.py`
+- **Backend**：`backend/src/decision_workbench/execution/inference_work_graph.py`
 - **Frontend**：`apps/web/src/features/workbench/decisionActivityState.ts`、`apps/web/src/features/workbench/DecisionActivityPanel.tsx`
 - **Test**：`backend/tests/test_inference_work_graph.py` と関連E2E
 
@@ -160,21 +160,21 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 
 ### Dataset Input Profile
 
-- **Profile**：`backend/src/material_workbench/data/dataset-input-profile-tutorial.json`
-- **Implementation**：`backend/src/material_workbench/data/importer.py`
+- **Profile**：`backend/src/decision_workbench/data/dataset-input-profile-tutorial.json`
+- **Implementation**：`backend/src/decision_workbench/data/importer.py`
 - **成果物**：canonical Dataset Revision
 - **Testと文書**：`backend/tests/test_importer.py`、`docs/operations/dataset-input-profile.md`
 
 ### Tabular Profile
 
-- **Profile例**：`backend/src/material_workbench/data/tabular-profile-heat-treatment-v1.json`
+- **Profile例**：`backend/src/decision_workbench/data/tabular-profile-heat-treatment-v1.json`
 - **Implementation**：tabular data loaderとTask module
 - **成果物**：tabular training view
 - **Test**：`backend/tests/test_external_tabular_tasks.py`
 
 ### Observation Profile
 
-- **Profile例**：`backend/src/material_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
+- **Profile例**：`backend/src/decision_workbench/data/observation-profile-welding-consumable-stage-c-v1.json`
 - **Implementation**：observation loaderとtraining specification
 - **成果物**：目的変数別training cohort
 - **Testと文書**：`backend/tests/test_observation_profile.py`、`docs/operations/dataset-input-profile.md`
@@ -182,7 +182,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### Feature Pipeline
 
 - **Contract**：Task contractとpipeline version
-- **Implementation**：`backend/src/material_workbench/modeling/feature_pipeline.py`
+- **Implementation**：`backend/src/decision_workbench/modeling/feature_pipeline.py`
 - **成果物**：feature matrixとdigest
 - **Testと文書**：`backend/tests/test_feature_pipeline.py`、`docs/contracts/feature-engineering.md`
 
@@ -196,7 +196,7 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 ### Runtime adapter
 
 - **Contract**：Package manifestのadapter kind
-- **Implementation**：`backend/src/material_workbench/modeling/runtime.py` とallow-list済み実装
+- **Implementation**：`backend/src/decision_workbench/modeling/runtime.py` とallow-list済み実装
 - **成果物**：共通Predictive Summary
 - **Test**：runtime testとPackage smoke
 
@@ -211,28 +211,28 @@ Series所属は一覧上の任意groupingであり、ProjectのTask、Pipeline�
 
 ### Prediction Snapshot
 
-- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
-- **ServiceとStore**：`backend/src/material_workbench/application/records.py`、`backend/src/material_workbench/persistence/store.py`
+- **Contract**：`backend/src/decision_workbench/contracts/schemas.py`
+- **ServiceとStore**：`backend/src/decision_workbench/application/records.py`、`backend/src/decision_workbench/persistence/store.py`
 - **UI**：Workbenchの履歴面
 - **Testと文書**：`backend/tests/test_project_history.py`、`docs/product/app-charter.md`
 
 ### Actual Measurement
 
-- **Contract**：`backend/src/material_workbench/contracts/schemas.py`
-- **Service**：`backend/src/material_workbench/application/records.py`
+- **Contract**：`backend/src/decision_workbench/contracts/schemas.py`
+- **Service**：`backend/src/decision_workbench/application/records.py`
 - **UI**：予測と実測の照合
 - **Testと文書**：records関連test、`docs/product/current-system-baseline.md`
 
 ### Objective Definition
 
-- **Contract**：`backend/src/material_workbench/contracts/objective_contracts.py`
+- **Contract**：`backend/src/decision_workbench/contracts/objective_contracts.py`
 - **Application**：objective serviceとmigration
 - **UI**：Project settingsとDecision Activity
 - **Testと文書**：`backend/tests/test_objective_contracts.py`、`docs/contracts/objective-definition.md`
 
 ### Project Design Space
 
-- **Contract**：`backend/src/material_workbench/contracts/design_space_contracts.py`
+- **Contract**：`backend/src/decision_workbench/contracts/design_space_contracts.py`
 - **Application**：design space validationとmigration
 - **UI**：range設定、探索、counterfactual
 - **Testと文書**：`backend/tests/test_design_space_contracts.py`、`docs/contracts/project-design-space.md`
@@ -260,8 +260,8 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 ### Source lifecycle
 
 - **Contract**：data lifecycle contracts
-- **Application**：`backend/src/material_workbench/application/data_lifecycle.py`
-- **Task固有adapter**：`backend/src/material_workbench/application/training_snapshot_adapter.py`
+- **Application**：`backend/src/decision_workbench/application/data_lifecycle.py`
+- **Task固有adapter**：`backend/src/decision_workbench/application/training_snapshot_adapter.py`
 - **UI**：Data Library
 - **Testと文書**：`backend/tests/test_data_lifecycle.py`、`backend/tests/test_reference_data_loop_acceptance.py`、`e2e/source-lifecycle.spec.ts`、`docs/contracts/source-data-lifecycle.md`、`docs/contracts/reference-data-loop.md`
 
@@ -269,9 +269,9 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 
 ### Chain DefinitionとRevision
 
-- **Contract**：`backend/src/material_workbench/contracts/chain_contracts.py`
+- **Contract**：`backend/src/decision_workbench/contracts/chain_contracts.py`
 - **Application**：Chain catalogとexecution service
-- **API**：`backend/src/material_workbench/api/chains.py`
+- **API**：`backend/src/decision_workbench/api/chains.py`
 - **Testと文書**：Chain contract test、`docs/contracts/chain-execution.md`
 
 ### Stage binding
@@ -323,8 +323,8 @@ Screening画面で最初に選ぶのは、表示形式ではなく、Runが答�
 
 ### Workspace bundle
 
-- **Contract**：`backend/src/material_workbench/contracts/workspace_bundle_contracts.py`
-- **Application**：`backend/src/material_workbench/application/workspace_bundle.py`
+- **Contract**：`backend/src/decision_workbench/contracts/workspace_bundle_contracts.py`
+- **Application**：`backend/src/decision_workbench/application/workspace_bundle.py`
 - **CLI境界**：`backend/src/sidecar.py` のworkspace maintenance command
 - **Desktop orchestration**：`apps/desktop/src/main.ts`、`apps/desktop/src/preload.ts`
 - **UI**：`apps/web/src/features/workspace/WorkspaceManagerDialog.tsx`

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
+from decision_workbench.app import create_app
 from backend.scripts.operations.seed_review_workspace import seed_review_workspace
 
 

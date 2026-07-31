@@ -19,14 +19,14 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.modeling.model_lifecycle import load_active_packages
-from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
-from material_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.modeling.model_lifecycle import load_active_packages
+from decision_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
+from decision_workbench.task_composition.catalog import registered_task_modules
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TASK_DEFINITION_ROOT = (
-    REPOSITORY_ROOT / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions"
+    REPOSITORY_ROOT / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions"
 )
 ACTIVE_PACKAGES = REPOSITORY_ROOT / "models" / "active-packages.json"
 TASK_INVENTORY = REPOSITORY_ROOT / "docs" / "contracts" / "task-inventory.json"

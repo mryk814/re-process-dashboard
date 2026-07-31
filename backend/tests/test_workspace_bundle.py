@@ -13,10 +13,10 @@ from typing import cast
 import pytest
 from openpyxl import Workbook
 
-import material_workbench.application.workspace_bundle_restore_plan as restore_plan_module
-import material_workbench.application.workspace_bundle_service as restore_service_module
-from material_workbench.application.data_lifecycle import DataLifecycleService
-from material_workbench.application.workspace_bundle import (
+import decision_workbench.application.workspace_bundle_restore_plan as restore_plan_module
+import decision_workbench.application.workspace_bundle_service as restore_service_module
+from decision_workbench.application.data_lifecycle import DataLifecycleService
+from decision_workbench.application.workspace_bundle import (
     WorkspaceBundleError,
     cancel_workspace_restore,
     commit_workspace_restore,
@@ -25,16 +25,16 @@ from material_workbench.application.workspace_bundle import (
     prepare_workspace_restore,
     recover_incomplete_workspace_restores,
 )
-from material_workbench.application.workspace_bundle_manifest import (
+from decision_workbench.application.workspace_bundle_manifest import (
     _database_evidence,
 )
-from material_workbench.contracts.data_library_contracts import (
+from decision_workbench.contracts.data_library_contracts import (
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     ModelPackageRefCreateInput,
     ProfileRevisionCreateInput,
 )
-from material_workbench.contracts.data_lifecycle_contracts import (
+from decision_workbench.contracts.data_lifecycle_contracts import (
     CurationRecipeCreateInput,
     CurationRunCreateInput,
     DatasetApprovalInput,
@@ -43,10 +43,10 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceFetchRequest,
     TrainingSnapshotCreateInput,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.persistence.store import Store
-from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.tasks.task_registry import TaskRegistry
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.tasks.task_registry import TaskRegistry
 
 
 def _digest(path: Path) -> str:

@@ -1,21 +1,21 @@
 import pytest
 
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     CategoricalDomain,
     ConditionalActivation,
     DesignSpaceDefinition,
     NumericDomain,
 )
-from material_workbench.contracts.proposal_contracts import (
+from decision_workbench.contracts.proposal_contracts import (
     ProposalStrategyRequest,
 )
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.contracts.task_contracts import NumericRange
-from material_workbench.domain.proposal_selection import (
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.domain.proposal_selection import (
     select_proposal_shortlist,
 )
-from material_workbench.application.proposal_strategy_registry import STRATEGIES
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.application.proposal_strategy_registry import STRATEGIES
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _space(

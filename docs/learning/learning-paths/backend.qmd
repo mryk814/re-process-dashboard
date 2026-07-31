@@ -28,7 +28,7 @@
 | 1 | `docs/product/app-charter.md` | 何を自動更新してはいけないか | 15分 |
 | 2 | `docs/developer-start-here.md` | 変更の正本はどこか | 20分 |
 | 3 | `docs/product/current-system-baseline.md` | Project、Dataset、Packageをどう固定するか | 25分 |
-| 4 | `backend/src/material_workbench/contracts/decision_activity_contracts.py` | parameterとresultを何で識別するか | 30分 |
+| 4 | `backend/src/decision_workbench/contracts/decision_activity_contracts.py` | parameterとresultを何で識別するか | 30分 |
 | 5 | `application/decision_activity_registry.py` と `application/decision_activities.py` | 共通serviceがActivity固有分岐を避ける方法 | 40分 |
 | 6 | `api/decision_activities.py` | HTTP境界で型と業務エラーをどう変換するか | 25分 |
 | 7 | `backend/tests/test_decision_activities.py` | どの不変条件をtestへ固定したか | 35分 |

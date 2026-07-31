@@ -1,7 +1,7 @@
-from material_workbench.application.objective_execution import (
+from decision_workbench.application.objective_execution import (
     build_objective_execution_plan,
 )
-from material_workbench.contracts.objective_contracts import (
+from decision_workbench.contracts.objective_contracts import (
     ObjectiveDefinition,
     ObjectiveIncumbent,
     ObjectiveTerm,

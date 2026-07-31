@@ -57,11 +57,11 @@ test("changed paths classify evidence separately from product risks", () => {
   assert.equal(classifyChangedPath("docs/reports/checkpoint.json"), "evidence");
   assert.equal(classifyChangedPath("docs/learning/index.qmd"), "textbook");
   assert.equal(
-    classifyChangedPath("backend/src/material_workbench/api/security.py"),
+    classifyChangedPath("backend/src/decision_workbench/api/security.py"),
     "security",
   );
   assert.equal(
-    classifyChangedPath("backend/src/material_workbench/persistence/store.py"),
+    classifyChangedPath("backend/src/decision_workbench/persistence/store.py"),
     "persistence",
   );
   assert.equal(classifyChangedPath("unclassified.file"), "unknown");
@@ -98,7 +98,7 @@ test("acceptance stays applicable only for the same commit or evidence-only chan
       currentCommit: "b",
       commitsAhead: 1,
       commitsBehind: 0,
-      changedPaths: ["backend/src/material_workbench/persistence/store.py"],
+      changedPaths: ["backend/src/decision_workbench/persistence/store.py"],
     }).applicability,
     "stale",
   );
@@ -164,7 +164,7 @@ test("failed reports and dirty evidence-only successors are never accepted", () 
       commitsAhead: 1,
       commitsBehind: 0,
       changedPaths: ["docs/reports/new.json"],
-      dirtyPaths: ["backend/src/material_workbench/app.py"],
+      dirtyPaths: ["backend/src/decision_workbench/app.py"],
     },
   );
   assert.equal(dirtySuccessor.applicability, "partial");

@@ -12,13 +12,13 @@ from scipy.optimize import minimize
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
-from material_workbench.data.importer import load_workbook_data, training_context_key
-from material_workbench.modeling.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
-from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
-from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.modeling.feature_pipeline import CANONICAL_INPUT_PATHS, FEATURE_DEFINITIONS, FEATURE_NAMES, FEATURE_PIPELINE_ID, FEATURE_PIPELINE_VERSION
+from decision_workbench.data.importer import load_workbook_data, training_context_key
+from decision_workbench.modeling.model_lifecycle import QualityReport, canonical_training_dataset, canonical_training_dataset_digest, dataset_profile_digest, exact_gp_loo_quality, runtime_capability_digest, staged_package_destination, task_input_contract_digest
+from decision_workbench.modeling.model_package_verify import verify_model_package
+from decision_workbench.modeling.runtime import INPUT_SCHEMA_VERSION, TARGETS, TASK_ID, ModelRuntime
+from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def digest(path: Path) -> str:

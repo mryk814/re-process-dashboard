@@ -203,7 +203,7 @@ def profile_document() -> dict:
 
 
 def main() -> int:
-    from material_workbench.data.observation_profile import (
+    from decision_workbench.data.observation_profile import (
         ObservationDatasetProfile,
         build_observation_training_dataset,
     )
@@ -300,7 +300,7 @@ def main() -> int:
 
 
 def _families_are_data_driven() -> bool:
-    from material_workbench.data import observation_profile
+    from decision_workbench.data import observation_profile
 
     source = inspect.getsource(observation_profile.build_observation_training_dataset)
     return not any(
@@ -311,7 +311,7 @@ def _families_are_data_driven() -> bool:
 def _probe_runtime_reuse(findings: list[str]) -> None:
     """Observation familyのruntime / builderが2つ目のTaskへ再利用できるかを確認する。"""
 
-    from material_workbench.modeling import observation_model_builder, observation_regression
+    from decision_workbench.modeling import observation_model_builder, observation_regression
 
     builder_parameters = set(inspect.signature(observation_model_builder.build).parameters)
     _check(

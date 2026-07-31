@@ -10,7 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "backend" / "src"))
 
-from material_workbench.developer_experience.task_scaffolding import (  # noqa: E402
+from decision_workbench.developer_experience.task_scaffolding import (  # noqa: E402
     ScaffoldField,
     create_task_scaffold,
     inspect_task_source,

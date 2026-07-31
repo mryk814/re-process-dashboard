@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.persistence.workspace_catalog import CatalogConflictError
+from decision_workbench.app import create_app
+from decision_workbench.persistence.workspace_catalog import CatalogConflictError
 
 
 def test_workspace_catalog_conflict_stops_startup_and_known_good_db_recovers(

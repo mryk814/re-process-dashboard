@@ -7,12 +7,12 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 
-from material_workbench.app import create_app
-from material_workbench.developer_experience.workspace_preflight import (
+from decision_workbench.app import create_app
+from decision_workbench.developer_experience.workspace_preflight import (
     CurrentWorkspacePreflightRegistry,
     inspect_workspace_compatibility,
 )
-from material_workbench.persistence.sqlite_connection import initialize_sqlite
+from decision_workbench.persistence.sqlite_connection import initialize_sqlite
 
 
 def _digest(path: Path) -> str:

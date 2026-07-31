@@ -5,9 +5,9 @@ import sqlite3
 
 import pytest
 
-from material_workbench.application.inference import InferenceService
-from material_workbench.contracts.prediction_catalog_contracts import ActualMeasurementInput
-from material_workbench.persistence.store import CandidateRevisionConflictError
+from decision_workbench.application.inference import InferenceService
+from decision_workbench.contracts.prediction_catalog_contracts import ActualMeasurementInput
+from decision_workbench.persistence.store import CandidateRevisionConflictError
 
 
 def _candidate_payload(source: dict, name: str) -> dict:

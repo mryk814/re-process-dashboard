@@ -147,7 +147,7 @@ Windows配布物にはこの設定、全available Package、商用catalog、Desi
 
 ```powershell
 $env:PYTHONPATH = "backend/src"
-uv run python -m material_workbench.modeling.model_package_verify `
+uv run python -m decision_workbench.modeling.model_package_verify `
   models/packages/welding-stage-a-deterministic-v1 --deterministic-transform
 ```
 
@@ -199,7 +199,7 @@ TaskDefinitionの `training_range` や `allowed_range` へfallbackしません�
 
 能力宣言は「すべて返せる」という共通最小形式を強制するものではない。宣言されていない表現を擬似生成せず、利用可能な表現だけを返す。平均と標準偏差だけから目標達成確率を計算できるのは、`normal_approximation` を明示した場合だけである。
 
-TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な共通契約は `backend/src/material_workbench/contracts/task_contracts.py`、タスクごとのJSON正本は `backend/src/material_workbench/tasks/task_definitions/` に置く。production registryとcontract testは同じJSONを読み込む。
+TaskDefinition、CanonicalCandidate、runtime capabilityの機械検証可能な共通契約は `backend/src/decision_workbench/contracts/task_contracts.py`、タスクごとのJSON正本は `backend/src/decision_workbench/tasks/task_definitions/` に置く。production registryとcontract testは同じJSONを読み込む。
 
 熱延PackageはTaskDefinitionの単一出力TSに一致し、production registry起動時にtask、pipeline、feature順序、predictor targetを照合する。出力契約が一致しないPackageは起動時に拒否する。
 

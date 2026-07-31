@@ -14,7 +14,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-from material_workbench.adapters.builtin_deterministic_linear import (
+from decision_workbench.adapters.builtin_deterministic_linear import (
     DeterministicLinearArtifact,
     ScientificHoopRow,
     ScientificMaterialRow,
@@ -23,20 +23,20 @@ from material_workbench.adapters.builtin_deterministic_linear import (
     WholeWireCompilerContract,
     _BuiltinDeterministicLinearTransform,
 )
-from material_workbench.contracts.blend_contracts import (
+from decision_workbench.contracts.blend_contracts import (
     BlendItem,
     CommercialMaterial,
     CommercialMaterialCatalog,
     SelectionCountConstraint,
     SparseBlendDesignSpace,
 )
-from material_workbench.contracts.stage_a_contracts import (
+from decision_workbench.contracts.stage_a_contracts import (
     STAGE_A_COMPONENTS,
     STAGE_A_HOOP_SOURCE_COMPONENT_COLUMNS,
     STAGE_A_SOURCE_COMPONENT_COLUMNS,
     ScientificBlendInput,
 )
-from material_workbench.modeling.packages.contracts import DeterministicTransformSpec
+from decision_workbench.modeling.packages.contracts import DeterministicTransformSpec
 
 
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")

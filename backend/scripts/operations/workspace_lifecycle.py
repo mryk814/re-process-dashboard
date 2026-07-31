@@ -10,7 +10,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.developer_experience.workspace_lifecycle import (
+from decision_workbench.developer_experience.workspace_lifecycle import (
     WorkspacePruneRefused,
     list_branch_workspaces,
     prune_branch_workspace,

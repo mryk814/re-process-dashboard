@@ -3,10 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 
 root = Path(SPECPATH).parent
-package_root = root / "backend" / "src" / "material_workbench"
+package_root = root / "backend" / "src" / "decision_workbench"
 datas = [
-    *((str(path), "material_workbench/data") for path in (package_root / "data").glob("*.json")),
-    *((str(path), "material_workbench/tasks/task_definitions") for path in (package_root / "tasks" / "task_definitions").glob("*.json")),
+    *((str(path), "decision_workbench/data") for path in (package_root / "data").glob("*.json")),
+    *((str(path), "decision_workbench/tasks/task_definitions") for path in (package_root / "tasks" / "task_definitions").glob("*.json")),
 ]
 lightgbm_datas, lightgbm_binaries, lightgbm_hiddenimports = collect_all("lightgbm")
 datas.extend(lightgbm_datas)
@@ -30,7 +30,7 @@ exe = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="material-workbench-sidecar",
+    name="decision-workbench-sidecar",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -45,5 +45,5 @@ coll = COLLECT(
     analysis.datas,
     strip=False,
     upx=True,
-    name="material-workbench-sidecar",
+    name="decision-workbench-sidecar",
 )

@@ -62,7 +62,7 @@ def test_secom_sensor_selection_is_nested_and_matches_the_profile() -> None:
     profile = json.loads(
         (
             ROOT
-            / "backend/src/material_workbench/data/tabular-profile-secom-yield-v1.json"
+            / "backend/src/decision_workbench/data/tabular-profile-secom-yield-v1.json"
         ).read_text(encoding="utf-8")
     )
     selected = [item["column"] for item in profile["inputs"]]

@@ -15,7 +15,7 @@ $changedReference = (
     "CandidateDifferenceActivityView.tsx"
 )
 $unchangedReference = (
-    "backend/src/material_workbench/contracts/" +
+    "backend/src/decision_workbench/contracts/" +
     "decision_activity_contracts.py"
 )
 

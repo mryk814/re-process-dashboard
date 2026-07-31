@@ -12,12 +12,12 @@ import numpy as np
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from material_workbench.adapters.builtin_additive_terms import bspline_basis
-from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
-from material_workbench.modeling.model_lifecycle import staged_package_destination
-from material_workbench.modeling.model_package_verify import verify_model_package_example
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.contracts.task_contracts import TargetRuntimeCapability
+from decision_workbench.adapters.builtin_additive_terms import bspline_basis
+from decision_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
+from decision_workbench.modeling.model_lifecycle import staged_package_destination
+from decision_workbench.modeling.model_package_verify import verify_model_package_example
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.contracts.task_contracts import TargetRuntimeCapability
 
 
 KNOTS = np.asarray([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0])

@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from material_workbench.contracts.data_library_contracts import DatasetViewRevisionCreateInput
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.data_library_contracts import DatasetViewRevisionCreateInput
+from decision_workbench.contracts.candidate_project_contracts import (
     Project,
     ProjectCreateInput,
     ProjectUpdateInput,

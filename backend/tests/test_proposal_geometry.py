@@ -2,33 +2,33 @@ from datetime import UTC, datetime
 
 import pytest
 
-from material_workbench.application.proposal_strategy_registry import (
+from decision_workbench.application.proposal_strategy_registry import (
     resolve_strategy,
     strategy_availability,
 )
-from material_workbench.contracts.design_space_contracts import (
+from decision_workbench.contracts.design_space_contracts import (
     CompositionTotalConstraint,
     ConditionalActivation,
     DesignSpaceDefinition,
     NumericDomain,
     default_design_space,
 )
-from material_workbench.contracts.objective_contracts import objective_from_screening
-from material_workbench.contracts.candidate_project_contracts import (
+from decision_workbench.contracts.objective_contracts import objective_from_screening
+from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
 )
-from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
-from material_workbench.contracts.proposal_contracts import ProposalStrategyRequest
-from material_workbench.contracts.task_contracts import NumericRange
-from material_workbench.domain.proposal_generation import generate_candidates
-from material_workbench.domain.proposal_geometry import proposal_distance
-from material_workbench.application.proposal_service import (
+from decision_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
+from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequest
+from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.domain.proposal_generation import generate_candidates
+from decision_workbench.domain.proposal_geometry import proposal_distance
+from decision_workbench.application.proposal_service import (
     _proposal_coverage,
     _validate_screening_pool,
 )
-from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 def _mpea_candidate(candidate_id: str = "mpea-base") -> Candidate:

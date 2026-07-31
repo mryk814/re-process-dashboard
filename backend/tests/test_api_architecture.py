@@ -6,22 +6,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_ROUTERS = (
-    ROOT / "backend/src/material_workbench/api/catalog.py",
-    ROOT / "backend/src/material_workbench/api/data_library.py",
-    ROOT / "backend/src/material_workbench/api/chains.py",
+    ROOT / "backend/src/decision_workbench/api/catalog.py",
+    ROOT / "backend/src/decision_workbench/api/data_library.py",
+    ROOT / "backend/src/decision_workbench/api/chains.py",
 )
 GENERIC_CANDIDATE_USE_CASES = (
-    ROOT / "backend/src/material_workbench/application/candidates.py",
-    ROOT / "backend/src/material_workbench/application/inference.py",
-    ROOT / "backend/src/material_workbench/application/decision_activity_robustness.py",
-    ROOT / "backend/src/material_workbench/application/decision_activity_counterfactual.py",
-    ROOT / "backend/src/material_workbench/application/decision_activity_difference.py",
+    ROOT / "backend/src/decision_workbench/application/candidates.py",
+    ROOT / "backend/src/decision_workbench/application/inference.py",
+    ROOT / "backend/src/decision_workbench/application/decision_activity_robustness.py",
+    ROOT / "backend/src/decision_workbench/application/decision_activity_counterfactual.py",
+    ROOT / "backend/src/decision_workbench/application/decision_activity_difference.py",
 )
 FORBIDDEN_PREFIXES = (
-    "material_workbench.data",
-    "material_workbench.modeling",
-    "material_workbench.persistence",
-    "material_workbench.tasks",
+    "decision_workbench.data",
+    "decision_workbench.modeling",
+    "decision_workbench.persistence",
+    "decision_workbench.tasks",
 )
 
 
@@ -61,7 +61,7 @@ def test_chain_router_defines_no_api_local_pydantic_contracts() -> None:
     }
 
     assert local_classes == set(), (
-        "Chain request/response contracts belong in material_workbench.contracts, "
+        "Chain request/response contracts belong in decision_workbench.contracts, "
         f"not the router: {sorted(local_classes)}"
     )
 

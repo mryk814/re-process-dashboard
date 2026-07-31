@@ -12,8 +12,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from material_workbench.modeling.packages.contracts import PredictiveSummary
-from material_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.packages.contracts import PredictiveSummary
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
 
 
 def _artifact(path: Path, relative: str) -> dict[str, object]:

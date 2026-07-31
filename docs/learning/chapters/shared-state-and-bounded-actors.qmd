@@ -4,21 +4,21 @@ level: advanced
 estimated_minutes: 100
 verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
-  - path: "backend/src/material_workbench/shared_lab/contracts.py"
+  - path: "backend/src/decision_workbench/shared_lab/contracts.py"
     id: "shared-actor-contracts"
     role: "contract"
     symbols:
       - "Actor"
       - "CandidateRevision"
       - "ArtifactReference"
-  - path: "backend/src/material_workbench/shared_lab/repository.py"
+  - path: "backend/src/decision_workbench/shared_lab/repository.py"
     id: "shared-lab-repository"
     role: "persistence"
     symbols:
       - "RequestIdentity"
       - "SharedRevisionConflict"
       - "SharedLabRepository"
-  - path: "backend/src/material_workbench/shared_lab/service.py"
+  - path: "backend/src/decision_workbench/shared_lab/service.py"
     id: "shared-artifact-service"
     role: "application"
     symbols:
@@ -29,7 +29,7 @@ code_references:
     role: "test"
     symbols:
       - "test_two_actor_shared_workbench_scenario"
-  - path: "backend/src/material_workbench/contracts/ai_review_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/ai_review_contracts.py"
     id: "ai-review-contracts"
     role: "contract"
     symbols:
@@ -37,22 +37,22 @@ code_references:
       - "AiReviewEvidenceReference"
       - "AiReviewRun"
       - "AiReviewDisposition"
-  - path: "backend/src/material_workbench/application/ai_review_tools.py"
+  - path: "backend/src/decision_workbench/application/ai_review_tools.py"
     id: "ai-review-tool-surface"
     role: "application"
     symbols:
       - "AiReviewToolSurface"
-  - path: "backend/src/material_workbench/application/ai_reviews.py"
+  - path: "backend/src/decision_workbench/application/ai_reviews.py"
     id: "ai-review-service"
     role: "application"
     symbols:
       - "AiReviewService"
-  - path: "backend/src/material_workbench/api/ai_reviews.py"
+  - path: "backend/src/decision_workbench/api/ai_reviews.py"
     id: "ai-review-api-attribution"
     role: "api"
     symbols:
       - "record_ai_review_disposition"
-  - path: "backend/src/material_workbench/api/data_lifecycle.py"
+  - path: "backend/src/decision_workbench/api/data_lifecycle.py"
     id: "data-lifecycle-fixed-actor"
     role: "api"
     symbols:

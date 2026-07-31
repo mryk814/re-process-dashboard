@@ -9,19 +9,19 @@ from pathlib import Path
 
 import pytest
 
-from material_workbench.bootstrap.resources import prepare_app_resources
-from material_workbench.contracts.task_contracts import (
+from decision_workbench.bootstrap.resources import prepare_app_resources
+from decision_workbench.contracts.task_contracts import (
     DataExplorerCapability,
     InputSpaceSurfaceDefinition,
 )
-from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
-from material_workbench.contracts.candidate_project_contracts import ProjectInput
-from material_workbench.modeling.packages.contracts import PackageContractError
-from material_workbench.persistence.demo_seed import initialize_demo_projects
-from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
-from material_workbench.task_composition.catalog import registered_task_modules
-from material_workbench.task_composition.ports import DataDescriptor
-from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
+from decision_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
+from decision_workbench.contracts.candidate_project_contracts import ProjectInput
+from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.persistence.demo_seed import initialize_demo_projects
+from decision_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
+from decision_workbench.task_composition.catalog import registered_task_modules
+from decision_workbench.task_composition.ports import DataDescriptor
+from decision_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 
 
 # Parameterization happens while pytest collects this module, before the
@@ -29,7 +29,7 @@ from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegist
 # coverage is intentionally about the checked-in catalog, so keep that set
 # explicit instead of discovering a developer's Personal Tasks here.
 BUNDLED_TASK_IDS = tuple(sorted(BUILTIN_TASK_MODULES))
-SOURCE_ROOT = Path(__file__).parents[1] / "src" / "material_workbench" / "tasks" / "task_definitions"
+SOURCE_ROOT = Path(__file__).parents[1] / "src" / "decision_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 REPOSITORY_ROOT = Path(__file__).parents[2]
 

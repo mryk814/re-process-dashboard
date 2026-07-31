@@ -12,12 +12,12 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
-from material_workbench.modeling.model_package_verify import (
+from decision_workbench.modeling.model_package_verify import (
     _smoke_outputs_equivalent,
     verify_model_package_example,
 )
-from material_workbench.modeling.packages.registry import AdapterRegistry
-from material_workbench.modeling.packages.contracts import (
+from decision_workbench.modeling.packages.registry import AdapterRegistry
+from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
@@ -25,10 +25,10 @@ from material_workbench.modeling.packages.contracts import (
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.contracts.task_contracts import TaskContractFixture
-from material_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
-from material_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.contracts.task_contracts import TaskContractFixture
+from decision_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
+from decision_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
 
 
 def test_stage_c_builder_bootstraps_backend_src_outside_repository(tmp_path: Path) -> None:
@@ -402,7 +402,7 @@ def test_checked_in_packages_match_task_definition_canonical_input_order(
 ) -> None:
     root = Path(__file__).resolve().parents[2]
     fixture = TaskContractFixture.model_validate_json(
-        (root / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions" / f"{task_id}.json").read_text(
+        (root / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions" / f"{task_id}.json").read_text(
             encoding="utf-8"
         )
     )
@@ -439,7 +439,7 @@ def test_superseded_model_package_manifests_remain_byte_immutable() -> None:
 def test_canonical_input_order_includes_optional_declared_fields() -> None:
     root = Path(__file__).resolve().parents[2]
     fixture = TaskContractFixture.model_validate_json(
-        (root / "backend" / "src" / "material_workbench" / "tasks" / "task_definitions" / "annealed-properties-v1.json").read_text(
+        (root / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions" / "annealed-properties-v1.json").read_text(
             encoding="utf-8"
         )
     )
@@ -479,7 +479,7 @@ def test_numpyro_posterior_rejects_excessive_draws(tmp_path: Path) -> None:
 
 
 def test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization() -> None:
-    source_root = Path(__file__).resolve().parents[1] / "src" / "material_workbench"
+    source_root = Path(__file__).resolve().parents[1] / "src" / "decision_workbench"
     files = [
         *(source_root / "modeling" / "packages").glob("*.py"),
         *(source_root / "adapters").glob("*.py"),
@@ -497,7 +497,7 @@ def test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserializatio
 
 
 def test_package_loader_and_verification_do_not_import_concrete_adapters() -> None:
-    source_root = Path(__file__).resolve().parents[1] / "src" / "material_workbench"
+    source_root = Path(__file__).resolve().parents[1] / "src" / "decision_workbench"
     packages = source_root / "modeling" / "packages"
     for name in ("loader.py", "verification.py"):
         tree = ast.parse((packages / name).read_text(encoding="utf-8"))
@@ -507,7 +507,7 @@ def test_package_loader_and_verification_do_not_import_concrete_adapters() -> No
             if isinstance(node, ast.ImportFrom) and node.module is not None
         }
         assert not any(
-            module.startswith("material_workbench.adapters")
+            module.startswith("decision_workbench.adapters")
             for module in imported_modules
         )
 

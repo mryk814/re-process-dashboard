@@ -4,13 +4,13 @@ level: intermediate
 estimated_minutes: 175
 verified_commit: "d34bca1639ce27ee9501731a320f49ee13186466"
 code_references:
-  - path: "backend/src/material_workbench/modeling/feature_pipeline.py"
+  - path: "backend/src/decision_workbench/modeling/feature_pipeline.py"
     id: "ml-engineering-feature-pipeline"
     role: "application"
     symbols:
       - "build_feature_bundle"
       - "build_feature_bundle_from_observation"
-  - path: "backend/src/material_workbench/modeling/model_lifecycle.py"
+  - path: "backend/src/decision_workbench/modeling/model_lifecycle.py"
     id: "ml-engineering-lifecycle"
     role: "application"
     symbols:
@@ -21,7 +21,7 @@ code_references:
       - "validate_training_provenance"
       - "set_active_package"
       - "rollback_active_package"
-  - path: "backend/src/material_workbench/modeling/model_packages.py"
+  - path: "backend/src/decision_workbench/modeling/model_packages.py"
     id: "ml-engineering-package-contract"
     role: "contract"
     symbols:
@@ -32,42 +32,42 @@ code_references:
       - "VerifiedModelPackage"
       - "AdapterRegistry"
       - "ModelPackageLoader"
-  - path: "backend/src/material_workbench/modeling/active_package_history.py"
+  - path: "backend/src/decision_workbench/modeling/active_package_history.py"
     id: "ml-engineering-active-package-history"
     role: "application"
     symbols:
       - "ActivePackageHistoryReport"
       - "check_active_package_history"
       - "rollback_target_note"
-  - path: "backend/src/material_workbench/developer_experience/diagnostics.py"
+  - path: "backend/src/decision_workbench/developer_experience/diagnostics.py"
     id: "ml-engineering-active-package-diagnostics"
     role: "application"
     symbols:
       - "active_package_history_check"
-  - path: "backend/src/material_workbench/modeling/model_package_verify.py"
+  - path: "backend/src/decision_workbench/modeling/model_package_verify.py"
     id: "ml-engineering-package-verify"
     role: "application"
     symbols:
       - "ModelPackageVerificationReport"
       - "verify_model_package"
-  - path: "backend/src/material_workbench/modeling/training/feature_dataset.py"
+  - path: "backend/src/decision_workbench/modeling/training/feature_dataset.py"
     id: "ml-engineering-feature-dataset"
     role: "application"
     symbols:
       - "TargetTrainingSet"
       - "compile_target_training_set"
-  - path: "backend/src/material_workbench/modeling/training/recipe.py"
+  - path: "backend/src/decision_workbench/modeling/training/recipe.py"
     id: "ml-engineering-estimator-recipe"
     role: "contract"
     symbols:
       - "estimator_recipe"
       - "validate_recipe_capability"
-  - path: "backend/src/material_workbench/modeling/training/package_assembler.py"
+  - path: "backend/src/decision_workbench/modeling/training/package_assembler.py"
     id: "ml-engineering-package-assembler"
     role: "application"
     symbols:
       - "build_standard_model_package"
-  - path: "backend/src/material_workbench/contracts/task_contracts.py"
+  - path: "backend/src/decision_workbench/contracts/task_contracts.py"
     id: "ml-engineering-runtime-capability"
     role: "contract"
     symbols:

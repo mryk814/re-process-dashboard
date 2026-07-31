@@ -8,15 +8,15 @@ import sqlite3
 from fastapi.testclient import TestClient
 import pytest
 
-from material_workbench.app import create_app
-from material_workbench.bootstrap.resources import AppResources
-from material_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
-from material_workbench.application.dataset_registration import (
+from decision_workbench.app import create_app
+from decision_workbench.bootstrap.resources import AppResources
+from decision_workbench.contracts.data_library_contracts import ModelPackageRefCreateInput
+from decision_workbench.application.dataset_registration import (
     register_dataset_records,
 )
-from material_workbench.data.file_integrity import file_sha256
-from material_workbench.modeling.packages.loader import ModelPackageLoader
-from material_workbench.application.workspace_catalog_bootstrap import (
+from decision_workbench.data.file_integrity import file_sha256
+from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.application.workspace_catalog_bootstrap import (
     REPLACED_MODEL_PACKAGE_IDS,
     WorkspaceCatalogBootstrapError,
     audit_project_bindings,
@@ -173,7 +173,7 @@ def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(
             source_sha256=file_sha256(old_source),
             profile_path=(
                 ROOT
-                / "backend/src/material_workbench/data/dataset-input-profile-tutorial.json"
+                / "backend/src/decision_workbench/data/dataset-input-profile-tutorial.json"
             ),
             locator_kind="bundled",
             locator=old_source,

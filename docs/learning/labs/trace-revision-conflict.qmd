@@ -4,11 +4,11 @@ level: intermediate
 estimated_minutes: 90
 verified_commit: "b8a107a6163cf0a59e633cf6e6a018dcbe9e4834"
 code_references:
-  - path: "backend/src/material_workbench/contracts/schemas.py"
+  - path: "backend/src/decision_workbench/contracts/schemas.py"
     role: "contract"
-  - path: "backend/src/material_workbench/persistence/store.py"
+  - path: "backend/src/decision_workbench/persistence/store.py"
     role: "persistence"
-  - path: "backend/src/material_workbench/persistence/candidate_revision_migration.py"
+  - path: "backend/src/decision_workbench/persistence/candidate_revision_migration.py"
     role: "persistence"
   - path: "backend/tests/test_candidate_safety.py"
     role: "test"

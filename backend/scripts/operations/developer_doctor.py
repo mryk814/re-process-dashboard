@@ -11,7 +11,7 @@ BACKEND_SRC = ROOT / "backend" / "src"
 if str(BACKEND_SRC) not in sys.path:
     sys.path.insert(0, str(BACKEND_SRC))
 
-from material_workbench.developer_experience import run_developer_doctor  # noqa: E402
+from decision_workbench.developer_experience import run_developer_doctor  # noqa: E402
 
 
 def _render_human(report: dict[str, object]) -> str:

@@ -91,10 +91,10 @@ def _tracked_state() -> dict[str, str]:
 
     import hashlib
 
-    builtin = REPO / "backend/src/material_workbench/task_composition/builtin"
+    builtin = REPO / "backend/src/decision_workbench/task_composition/builtin"
     tracked = {
-        "task_definition": REPO / "backend/src/material_workbench/tasks/task_definitions" / f"{TASK_ID}.json",
-        "tabular_profile": REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json",
+        "task_definition": REPO / "backend/src/decision_workbench/tasks/task_definitions" / f"{TASK_ID}.json",
+        "tabular_profile": REPO / "backend/src/decision_workbench/data/tabular-profile-concrete-v1.json",
         "builtin_catalog": builtin / "catalog.py",
         "builtin_shared": builtin / "shared.py",
         "builtin_sources": builtin / "sources.py",
@@ -103,7 +103,7 @@ def _tracked_state() -> dict[str, str]:
         "builtin_flank_wear": builtin / "flank_wear.py",
         "builtin_tabular": builtin / "tabular.py",
         "builtin_welding": builtin / "welding.py",
-        "task_catalog": REPO / "backend/src/material_workbench/task_composition/catalog.py",
+        "task_catalog": REPO / "backend/src/decision_workbench/task_composition/catalog.py",
         "active_packages": REPO / "models/active-packages.json",
     }
     return {
@@ -113,13 +113,13 @@ def _tracked_state() -> dict[str, str]:
 
 
 def main() -> int:
-    from material_workbench import app as app_module
-    import material_workbench.bootstrap.resources as resources_module
-    from material_workbench.modeling.model_lifecycle import (
+    from decision_workbench import app as app_module
+    import decision_workbench.bootstrap.resources as resources_module
+    from decision_workbench.modeling.model_lifecycle import (
         ACTIVE_PACKAGES_PATH,
         load_active_packages,
     )
-    from material_workbench.task_composition.catalog import (
+    from decision_workbench.task_composition.catalog import (
         registered_task_modules,
         resolve_task_source,
     )
@@ -144,7 +144,7 @@ def main() -> int:
         try:
             profile_path = (
                 REPO
-                / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"
+                / "backend/src/decision_workbench/data/tabular-profile-concrete-v1.json"
             )
             build_package(
                 TASK_ID,
@@ -229,7 +229,7 @@ def main() -> int:
 
 
 def resolve_task_source_for_probe() -> Path:
-    from material_workbench.task_composition.catalog import resolve_task_source
+    from decision_workbench.task_composition.catalog import resolve_task_source
 
     return resolve_task_source(TASK_ID)
 
@@ -241,11 +241,11 @@ def _probe_out_of_range_swap(findings: list[str]) -> None:
     食い違ったまま残る。差し替えだけで済む範囲の境界を明示する。
     """
 
-    from material_workbench.modeling.tabular.data import load_tabular_data
-    from material_workbench.modeling.tabular.profile import load_tabular_profile
-    from material_workbench.tasks.task_registry import load_task_contracts
+    from decision_workbench.modeling.tabular.data import load_tabular_data
+    from decision_workbench.modeling.tabular.profile import load_tabular_profile
+    from decision_workbench.tasks.task_registry import load_task_contracts
 
-    profile_path = REPO / "backend/src/material_workbench/data/tabular-profile-concrete-v1.json"
+    profile_path = REPO / "backend/src/decision_workbench/data/tabular-profile-concrete-v1.json"
     profile = load_tabular_profile(profile_path)
     task = load_task_contracts()[TASK_ID].task_definition
     fields = {
@@ -272,7 +272,7 @@ def _probe_out_of_range_swap(findings: list[str]) -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    from material_workbench.modeling.model_lifecycle import (
+    from decision_workbench.modeling.model_lifecycle import (
         PackageContractError,
         training_range_drift,
         validate_training_rows_within_allowed_range,
