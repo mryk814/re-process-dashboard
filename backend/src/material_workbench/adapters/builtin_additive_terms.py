@@ -6,14 +6,14 @@ from typing import Literal
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.model_package_contracts import (
     AdditiveExplanation,
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
     TermContribution,
-    VerifiedModelPackage,
 )
+from material_workbench.modeling.model_package_verification import VerifiedModelPackage
 from .base import feature_vector
 from .safe_npz import safe_npz_arrays
 

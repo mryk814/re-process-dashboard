@@ -27,7 +27,7 @@ from material_workbench.task_composition.ports import (
 )
 
 if TYPE_CHECKING:
-    from material_workbench.modeling.model_packages import VerifiedModelPackage
+    from material_workbench.modeling.model_package_verification import VerifiedModelPackage
 
 
 HEAT_TREATMENT_TASK_ID = "heat-treatment-tradeoff-v1"

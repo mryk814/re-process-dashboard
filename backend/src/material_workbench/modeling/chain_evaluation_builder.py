@@ -23,7 +23,7 @@ from material_workbench.data.stage_b_training import (
     load_stage_b_profile,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.modeling.numeric_canonicalization import (
     canonicalize_report_float,
 )

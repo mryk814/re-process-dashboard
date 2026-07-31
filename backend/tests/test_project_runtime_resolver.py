@@ -203,7 +203,7 @@ def test_project_pinned_package_identity_drives_runtime_and_inference_key(client
     )
     client.app.state.project_runtime_resolver._cache.clear()
     client.app.state.project_runtime_resolver._package_cache.clear()
-    from material_workbench.modeling.model_packages import ModelPackageLoader
+    from material_workbench.modeling.model_package_verification import ModelPackageLoader
 
     original_load = ModelPackageLoader.load
     package_loads = 0

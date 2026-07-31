@@ -8,7 +8,7 @@ from material_workbench.data.observation_profile import (
     build_observation_training_dataset,
     load_observation_profile,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.modeling.observation_model_builder import build
 from material_workbench.modeling.observation_regression import resolve_spec
 from material_workbench.task_composition.builtin.welding import observation_declaration

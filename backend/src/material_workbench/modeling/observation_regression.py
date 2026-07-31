@@ -41,12 +41,14 @@ from material_workbench.modeling.observation_training_spec import (
     ObservationTrainingSpec,
     observation_training_spec,
 )
-from material_workbench.modeling.model_packages import (
-    ModelPackageLoader,
-    VerifiedModelPackage,
+from material_workbench.modeling.model_package_contracts import (
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
+)
+from material_workbench.modeling.model_package_verification import (
+    ModelPackageLoader,
+    VerifiedModelPackage,
 )
 from material_workbench.tasks.task_registry import load_task_contracts
 

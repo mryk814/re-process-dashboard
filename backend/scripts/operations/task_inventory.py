@@ -21,7 +21,7 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
     resolve_configured_package,
     validate_active_package_task_set,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader  # noqa: E402
+from material_workbench.modeling.model_package_verification import ModelPackageLoader  # noqa: E402
 from material_workbench.task_composition.builtin.catalog import (  # noqa: E402
     BUILTIN_TASK_MODULES,
 )

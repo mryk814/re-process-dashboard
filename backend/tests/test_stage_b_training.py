@@ -20,7 +20,7 @@ from material_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
 )
 from material_workbench.modeling.model_lifecycle import resolve_configured_package
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.task_composition.builtin.welding import _load_welding_stage_b
 

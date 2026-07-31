@@ -20,7 +20,7 @@ from material_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
     deterministic_transform_contract_digest,
 )
-from material_workbench.modeling.model_packages import VerifiedModelPackage
+from material_workbench.modeling.model_package_verification import VerifiedModelPackage
 from material_workbench.persistence.store import Store
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.tasks.task_registry import TaskRegistry

@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from material_workbench.modeling.model_packages import PredictiveSummary
+from material_workbench.modeling.model_package_contracts import PredictiveSummary
 from material_workbench.contracts.task_contracts import TargetRuntimeCapability
 
 

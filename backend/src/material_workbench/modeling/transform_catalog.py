@@ -39,9 +39,9 @@ from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
 from material_workbench.modeling.model_package_verify import (
     verify_deterministic_transform_package,
 )
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.model_package_contracts import PackageContractError
+from material_workbench.modeling.model_package_verification import (
     ModelPackageLoader,
-    PackageContractError,
     VerifiedModelPackage,
 )
 

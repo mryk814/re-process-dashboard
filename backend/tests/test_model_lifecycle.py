@@ -26,10 +26,10 @@ from material_workbench.modeling.model_lifecycle import (
     validate_personal_model_store_path,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.model_package_contracts import PackageContractError
+from material_workbench.modeling.model_package_contracts import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
-    PackageContractError,
 )
 from material_workbench.tasks.task_registry import load_task_contracts
 

@@ -14,7 +14,12 @@ from material_workbench.adapters.builtin_deterministic_linear import ScientificT
 from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS, ScientificBlendInput
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput, SparseSelectionReport
-from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError, validate_predictive_summary
+from material_workbench.modeling.model_package_contracts import (
+    MissingOptionalDependency,
+    PackageContractError,
+    validate_predictive_summary,
+)
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.task_composition.catalog import resolve_task_source, task_module
 from material_workbench.data.profile_family_registry import (

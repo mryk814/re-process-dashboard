@@ -16,9 +16,8 @@ from material_workbench.modeling.model_package_verify import (
     _smoke_outputs_equivalent,
     verify_model_package_example,
 )
-from material_workbench.modeling.model_packages import (
-    AdapterRegistry,
-    ModelPackageLoader,
+from material_workbench.modeling.model_adapter_registry import AdapterRegistry
+from material_workbench.modeling.model_package_contracts import (
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
@@ -26,6 +25,7 @@ from material_workbench.modeling.model_packages import (
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.contracts.task_contracts import TaskContractFixture
 from material_workbench.adapters.numpyro_posterior import MAX_NPZ_COMPRESSION_RATIO
 from material_workbench.adapters.sklearn_skops import _TRUSTED_TYPES_BY_FAMILY
@@ -480,7 +480,12 @@ def test_numpyro_posterior_rejects_excessive_draws(tmp_path: Path) -> None:
 
 def test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserialization() -> None:
     source_root = Path(__file__).resolve().parents[1] / "src" / "material_workbench"
-    files = [source_root / "modeling" / "model_packages.py", *(source_root / "adapters").glob("*.py")]
+    files = [
+        *(source_root / "modeling").glob("model_package_*.py"),
+        source_root / "modeling" / "model_adapter_ports.py",
+        source_root / "modeling" / "model_adapter_registry.py",
+        *(source_root / "adapters").glob("*.py"),
+    ]
     banned_modules = {"pickle", "joblib", "importlib"}
     for path in files:
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -491,6 +496,18 @@ def test_model_package_runtime_has_no_dynamic_execution_or_unsafe_deserializatio
                 assert node.module is None or node.module.split(".")[0] not in banned_modules
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 assert node.func.id not in {"exec", "eval", "__import__"}
+
+
+def test_package_verification_does_not_import_concrete_adapters() -> None:
+    source_root = Path(__file__).resolve().parents[1] / "src" / "material_workbench"
+    path = source_root / "modeling" / "model_package_verification.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported_modules = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    }
+    assert not any(module.startswith("material_workbench.adapters") for module in imported_modules)
 
 
 def test_sklearn_trusted_types_are_owned_by_the_application() -> None:

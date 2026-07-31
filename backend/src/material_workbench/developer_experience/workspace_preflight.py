@@ -21,7 +21,7 @@ from material_workbench.modeling.model_lifecycle import (
     resolve_configured_package,
     validate_active_package_task_set,
 )
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.model_package_contracts import (
     ModelPackageManifest,
     PackageContractError,
 )

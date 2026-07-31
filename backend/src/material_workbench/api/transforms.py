@@ -17,7 +17,7 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlend,
     SparseBlendDesignSpace,
 )
-from material_workbench.modeling.model_packages import PackageContractError
+from material_workbench.modeling.model_package_contracts import PackageContractError
 from material_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 
 

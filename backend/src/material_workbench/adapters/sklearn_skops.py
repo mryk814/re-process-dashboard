@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from material_workbench.modeling.model_packages import MissingOptionalDependency, PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.model_package_contracts import (
+    MissingOptionalDependency,
+    PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
+)
+from material_workbench.modeling.model_package_verification import VerifiedModelPackage
 from .base import feature_vector
 
 try:

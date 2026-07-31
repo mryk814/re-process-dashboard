@@ -15,7 +15,7 @@ from material_workbench.application.dataset_registration import (
     register_dataset_records,
 )
 from material_workbench.data.file_integrity import file_sha256
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.application.workspace_catalog_bootstrap import (
     REPLACED_MODEL_PACKAGE_IDS,
     WorkspaceCatalogBootstrapError,

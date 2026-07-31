@@ -18,7 +18,7 @@ from material_workbench.modeling.model_lifecycle import (
     resolve_configured_package,
     validate_active_package_task_set,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.task_composition.builtin.catalog import (
     BUILTIN_TASK_MODULES,
 )

@@ -4,7 +4,10 @@ from typing import Any
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import PackageContractError, PredictorSpec
+from material_workbench.modeling.model_package_contracts import (
+    PackageContractError,
+    PredictorSpec,
+)
 
 
 def feature_vector(spec: PredictorSpec, values: dict[str, float]) -> np.ndarray:

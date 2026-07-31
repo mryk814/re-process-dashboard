@@ -45,7 +45,7 @@ from material_workbench.modeling.model_lifecycle import (
     register_available_package,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.model_package_verification import ModelPackageLoader
 from material_workbench.modeling.tabular_model_builder import (
     build,
     tabular_training_code_revision,
