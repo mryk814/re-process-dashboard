@@ -117,8 +117,19 @@ def install_exception_handlers(app: FastAPI) -> None:
             422: "validation_error",
             503: "runtime_unavailable",
         }.get(exc.status_code, "validation_error")
-        message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
-        payload = ApiError(code=code, message=message)
+        if isinstance(exc.detail, dict) and isinstance(exc.detail.get("message"), str):
+            payload = ApiError(
+                code=code,
+                message=exc.detail["message"],
+                next_action=(
+                    exc.detail["next_action"]
+                    if isinstance(exc.detail.get("next_action"), str)
+                    else None
+                ),
+            )
+        else:
+            message = exc.detail if isinstance(exc.detail, str) else "リクエストを処理できません"
+            payload = ApiError(code=code, message=message)
         return JSONResponse(
             status_code=exc.status_code,
             content=payload.model_dump(

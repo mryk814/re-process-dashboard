@@ -2604,6 +2604,8 @@ export interface components {
             field_errors?: components["schemas"]["FieldError"][];
             /** Message */
             message: string;
+            /** Next Action */
+            next_action?: string | null;
         };
         /** ApplicationCapability */
         ApplicationCapability: {

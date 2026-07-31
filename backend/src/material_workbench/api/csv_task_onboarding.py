@@ -50,6 +50,21 @@ _FAILURE_MESSAGES = {
 }
 
 
+class OnboardingStorageError(ValueError):
+    def __init__(self, code: str, message: str, next_action: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.next_action = next_action
+
+    def public_detail(self) -> dict[str, str]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "next_action": self.next_action,
+        }
+
+
 async def _uploaded_csv(file: UploadFile) -> tuple[TemporaryDirectory[str], Path]:
     filename = Path(file.filename or "").name
     if not filename or Path(filename).suffix.lower() != ".csv":
@@ -137,20 +152,68 @@ def _fields_from_json(fields_json: str) -> tuple[ScaffoldField, ...]:
 def _new_onboarding_paths(
     *,
     task_id: str,
-    model_store_path: Path,
+    task_store_path: Path | None,
+    model_store_path: Path | None,
 ) -> tuple[Path, Path, str]:
     """Reserve paths that are absent before this browser-owned attempt."""
 
-    task_store = validate_personal_task_store_path()
+    if task_store_path is None:
+        raise OnboardingStorageError(
+            "task-store-unconfigured",
+            "個人Taskの保存先がこのWorkspaceに設定されていません。",
+            "ワークスペース → 保存場所を管理で個人Taskの保存先を確認し、APIを再起動してください。",
+        )
+    try:
+        task_store = validate_personal_task_store_path(task_store_path)
+    except (OSError, ValueError) as exc:
+        raise OnboardingStorageError(
+            "task-store-unavailable",
+            "個人Taskの保存先を利用できません。保存先フォルダが作成できないか、安全境界外です。",
+            "ワークスペース → 保存場所を管理で場所を確認し、書き込み可能なユーザー領域へ直してから再確認してください。",
+        ) from exc
     task_root = (task_store / task_id).resolve()
-    if task_root.parent != task_store.resolve() or task_root.exists():
-        raise ValueError("task root is not available for onboarding")
-    model_store = validate_personal_model_store_path(model_store_path)
+    if task_root.parent != task_store.resolve():
+        raise OnboardingStorageError(
+            "task-id-invalid",
+            "Task IDが保存先の安全境界を越えるため使用できません。",
+            "Data Library → 新しい予測問題で、英数字・ハイフン中心のTask IDを入力してください。",
+        )
+    if task_root.exists():
+        raise OnboardingStorageError(
+            "task-id-exists",
+            f"Task ID「{task_id}」は個人Task保存先に既に存在します。既存Taskは上書きしません。",
+            "Data Library → 新しい予測問題で別のTask IDを入力して、準備を再試行してください。",
+        )
+    if model_store_path is None:
+        raise OnboardingStorageError(
+            "model-store-unconfigured",
+            "個人Model / Packageの保存先がこのWorkspaceに設定されていません。",
+            "ワークスペース → 保存場所を管理で個人Model / Packageの保存先を確認し、APIを再起動してください。",
+        )
+    try:
+        model_store = validate_personal_model_store_path(model_store_path)
+        model_store.mkdir(parents=True, exist_ok=True)
+    except (OSError, ValueError) as exc:
+        raise OnboardingStorageError(
+            "model-store-unavailable",
+            "個人Model / Packageの保存先を利用できません。保存先フォルダを作成できないか、安全境界外です。",
+            "ワークスペース → 保存場所を管理で場所を確認し、書き込み可能なユーザー領域へ直してから再確認してください。",
+        ) from exc
     package_id = f"{task_id}-personal-1"
     packages_root = (model_store / "packages").resolve()
     package_root = (packages_root / package_id).resolve()
-    if package_root.parent != packages_root or package_root.exists():
-        raise ValueError("package root is not available for onboarding")
+    if package_root.parent != packages_root:
+        raise OnboardingStorageError(
+            "package-id-invalid",
+            "Model Package IDが保存先の安全境界を越えるため使用できません。",
+            "Data Library → 新しい予測問題で別のTask IDを入力してください。",
+        )
+    if package_root.exists():
+        raise OnboardingStorageError(
+            "package-id-exists",
+            f"Model Package「{package_id}」は保存先に既に存在します。既存Packageは上書きしません。",
+            "Data Library → 新しい予測問題で別のTask IDを入力し、準備を再試行してください。",
+        )
     return task_root, model_store, package_id
 
 
@@ -237,7 +300,8 @@ async def prepare_csv_task(
             try:
                 task_root, model_store, package_id = _new_onboarding_paths(
                     task_id=task_id,
-                    model_store_path=Path(request.app.state.model_store_path),
+                    task_store_path=getattr(request.app.state, "task_store_path", None),
+                    model_store_path=getattr(request.app.state, "model_store_path", None),
                 )
                 stage = "prepare"
                 result = await run_in_threadpool(
@@ -322,6 +386,23 @@ async def prepare_csv_task(
                     "source_sha256": registration.source_sha256,
                     "model_package_ref_id": package.id,
                 }
+            except OnboardingStorageError as exc:
+                logger.info(
+                    "CSV_ONBOARDING_FAILED stage=storage task_id=%s code=%s",
+                    task_id,
+                    exc.code,
+                )
+                await _rollback_prepare_attempt(
+                    request=request,
+                    task_root=task_root,
+                    model_store=model_store,
+                    package_id=package_id,
+                    registration=registration,
+                    registration_checkpoint=registration_checkpoint,
+                    refresh=refresh,
+                    runtime_published=runtime_published,
+                )
+                raise HTTPException(422, exc.public_detail()) from exc
             except Exception as exc:
                 logger.exception(
                     "CSV_ONBOARDING_FAILED stage=%s task_id=%s",

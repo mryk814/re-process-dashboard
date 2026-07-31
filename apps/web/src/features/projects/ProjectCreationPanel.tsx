@@ -24,6 +24,12 @@ export type ProjectCreationPanelProps = {
   loading: boolean;
   disabled: boolean;
   error: string;
+  preparationReceipt?: {
+    taskId: string;
+    datasetRevisionId: string;
+    modelPackageRefId: string;
+    sourceSha256: string;
+  };
   projectNameInputRef: RefObject<HTMLInputElement | null>;
   projectName: string;
   datasetViewId: string;
@@ -67,6 +73,7 @@ export function ProjectCreationPanel({
   loading,
   disabled,
   error,
+  preparationReceipt,
   projectNameInputRef,
   projectName,
   datasetViewId,
@@ -131,6 +138,15 @@ export function ProjectCreationPanel({
       <button type="button" className="outline-button" disabled={loading} onClick={onClose}>作成をやめる</button>
     </div>
     {error && <p className="panel-error" role="alert">{error}</p>}
+    {preparationReceipt && <section className="project-preparation-receipt" aria-label="CSV onboardingの準備結果" role="status">
+      <header><strong>Task・Dataset・Model Packageを準備し、再読込しました</strong><span>このidentityを確認してからProjectを作成できます。</span></header>
+      <dl>
+        <div><dt>Task</dt><dd><code>{preparationReceipt.taskId}</code></dd></div>
+        <div><dt>Dataset revision</dt><dd><code>{preparationReceipt.datasetRevisionId}</code></dd></div>
+        <div><dt>Model Package</dt><dd><code>{preparationReceipt.modelPackageRefId}</code></dd></div>
+        <div><dt>CSV source</dt><dd><code>{preparationReceipt.sourceSha256}</code></dd></div>
+      </dl>
+    </section>}
     <label>プロジェクト名<input ref={projectNameInputRef} value={projectName} onChange={(event) => onProjectNameChange(event.target.value)} placeholder="例: 2026年7月 焼鈍条件の再検討" /></label>
     <div className="project-binding-flow">
       <label className="project-dataset-choice"><b aria-hidden="true">1</b><span>Dataset</span><select disabled={mode === "copy"} value={datasetViewId} onChange={(event) => onDatasetChange(event.target.value)}><option value="">選択してください</option>{usedDatasetChoices.length > 0 && <optgroup label="利用中のデータ">{usedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}{unusedDatasetChoices.length > 0 && <optgroup label="未使用のデータ">{unusedDatasetChoices.map((choice) => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</optgroup>}</select><small aria-hidden="true">利用中のProject数が多い順。同数なら新しい登録順。</small></label>

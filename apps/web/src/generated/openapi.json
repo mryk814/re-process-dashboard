@@ -990,6 +990,17 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
           }
         },
         "required": [
