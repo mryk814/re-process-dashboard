@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +18,23 @@ from material_workbench.task_composition.builtin.tabular import (
     external_tabular_task_module,
 )
 from material_workbench.task_composition.descriptors import TaskModule
+
+
+_PERSONAL_TASK_DISCOVERY_ENABLED: ContextVar[bool] = ContextVar(
+    "personal_task_discovery_enabled",
+    default=True,
+)
+
+
+@contextmanager
+def without_personal_task_discovery():
+    """Run a repository-only operation without reading a user's Task store."""
+
+    token = _PERSONAL_TASK_DISCOVERY_ENABLED.set(False)
+    try:
+        yield
+    finally:
+        _PERSONAL_TASK_DISCOVERY_ENABLED.reset(token)
 
 
 def _inside(root: Path, raw: str, label: str) -> Path:
@@ -47,6 +66,8 @@ def _bundle_payload(path: Path) -> dict[str, Any]:
 def external_task_bundles(
     store: Path | None = None,
 ) -> dict[str, tuple[TaskModule, TaskContractFixture]]:
+    if not _PERSONAL_TASK_DISCOVERY_ENABLED.get():
+        return {}
     root = validate_personal_task_store_path(store)
     if not root.exists():
         return {}
