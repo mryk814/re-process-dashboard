@@ -105,9 +105,7 @@ def _welding_stage_b_runtime(
     data: DataDescriptor,
     package: VerifiedModelPackage,
 ) -> PredictionRuntime:
-    from material_workbench.modeling.tabular_regression import (
-        TabularRegressionRuntime,
-    )
+    from material_workbench.modeling.tabular.runtime import TabularRegressionRuntime
 
     return TabularRegressionRuntime(data, package)
 
@@ -142,7 +140,7 @@ def _welding_stage_b_features(row: dict[str, Any], medians: dict[str, float]) ->
         load_stage_b_profile,
         stage_b_runtime_profile,
     )
-    from material_workbench.modeling.tabular_regression import (
+    from material_workbench.modeling.tabular.features import (
         build_tabular_features_from_observation,
     )
 
@@ -222,9 +220,7 @@ def _welding_stage_b_starter(
     runtime: PredictionRuntime,
     _task_definition: TaskDefinition,
 ) -> list[CandidateInput]:
-    from material_workbench.modeling.tabular_regression import (
-        candidate_from_observation,
-    )
+    from material_workbench.modeling.tabular.features import candidate_from_observation
 
     data = runtime.data
     rows = [row for row in data.observations if row["eligible"]]

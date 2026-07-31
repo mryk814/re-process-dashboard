@@ -15,10 +15,8 @@ from pathlib import Path
 from typing import Any
 
 from material_workbench.modeling.model_packages import SourceLifecycleProvenance
-from material_workbench.modeling.tabular_regression import (
-    load_tabular_data,
-    load_tabular_profile,
-)
+from material_workbench.modeling.tabular.data import load_tabular_data
+from material_workbench.modeling.tabular.profile import load_tabular_profile
 from material_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )

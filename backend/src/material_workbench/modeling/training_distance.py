@@ -199,10 +199,8 @@ def candidate_metric_query(
         ObservationRegressionRuntime,
         candidate_feature_values,
     )
-    from material_workbench.modeling.tabular_regression import (
-        TabularRegressionRuntime,
-        build_tabular_features,
-    )
+    from material_workbench.modeling.tabular.features import build_tabular_features
+    from material_workbench.modeling.tabular.runtime import TabularRegressionRuntime
 
     if getattr(runtime, "support_reference", None) is not None:
         reference = runtime.support_reference

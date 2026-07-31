@@ -13,7 +13,7 @@ from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.data.profile_family_registry import supported_task_ids
 from material_workbench.persistence.store import Store
 import material_workbench.modeling.observation_regression as observation_module
-import material_workbench.modeling.tabular_regression as tabular_module
+import material_workbench.modeling.tabular.runtime as tabular_module
 
 
 EXTERNAL_TASKS = (

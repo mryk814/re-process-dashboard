@@ -56,19 +56,15 @@ def _tabular_training_candidate(
     row: dict[str, Any],
     data: DataDescriptor,
 ) -> CandidateInput | None:
-    from material_workbench.modeling.tabular_regression import (
-        candidate_from_observation,
-    )
+    from material_workbench.modeling.tabular.features import candidate_from_observation
 
     return candidate_from_observation(row, data.profile)
 
 
 def _tabular_loader(task_id: str) -> DataLoader:
     def load(path: Path, profile: DatasetInputProfile | None = None) -> DataDescriptor:
-        from material_workbench.modeling.tabular_regression import (
-            TabularDatasetProfile,
-            load_tabular_data,
-        )
+        from material_workbench.modeling.tabular.data import load_tabular_data
+        from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 
         if profile is not None and not isinstance(profile, TabularDatasetProfile):
             raise ValueError("tabular task requires a tabular Dataset Profile")
@@ -85,9 +81,9 @@ def _tabular_profile_loader(profile_path: Path) -> DataLoader:
         path: Path,
         profile: DatasetInputProfile | None = None,
     ) -> DataDescriptor:
-        from material_workbench.modeling.tabular_regression import (
+        from material_workbench.modeling.tabular.data import load_tabular_data
+        from material_workbench.modeling.tabular.profile import (
             TabularDatasetProfile,
-            load_tabular_data,
             load_tabular_profile,
         )
 
@@ -105,17 +101,17 @@ def _tabular_profile_loader(profile_path: Path) -> DataLoader:
 def _tabular_runtime(
     data: DataDescriptor, package: VerifiedModelPackage
 ) -> PredictionRuntime:
-    from material_workbench.modeling.tabular_regression import TabularRegressionRuntime
+    from material_workbench.modeling.tabular.runtime import TabularRegressionRuntime
 
     return TabularRegressionRuntime(data, package)
 
 
 def _tabular_features(task_id: str) -> FeatureRowBuilder:
     def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
-        from material_workbench.modeling.tabular_regression import (
+        from material_workbench.modeling.tabular.features import (
             build_tabular_features_from_observation,
-            load_tabular_profile,
         )
+        from material_workbench.modeling.tabular.profile import load_tabular_profile
 
         return build_tabular_features_from_observation(
             row, medians, load_tabular_profile(_TABULAR_PROFILES[task_id])
@@ -126,10 +122,10 @@ def _tabular_features(task_id: str) -> FeatureRowBuilder:
 
 def _tabular_profile_features(profile_path: Path) -> FeatureRowBuilder:
     def build(row: dict[str, Any], medians: dict[str, float]) -> Any:
-        from material_workbench.modeling.tabular_regression import (
+        from material_workbench.modeling.tabular.features import (
             build_tabular_features_from_observation,
-            load_tabular_profile,
         )
+        from material_workbench.modeling.tabular.profile import load_tabular_profile
 
         return build_tabular_features_from_observation(
             row,
@@ -147,9 +143,7 @@ def _tabular_starter(task_id: str, name: str) -> StarterProject:
     ) -> list[CandidateInput]:
         data = runtime.data
         eligible = [row for row in data.observations if row["eligible"]]
-        from material_workbench.modeling.tabular_regression import (
-            candidate_from_observation,
-        )
+        from material_workbench.modeling.tabular.features import candidate_from_observation
 
         if data.profile.group_column and data.profile.curve_axis_path:
             axis_key = data.profile.curve_axis_path.split(".", 1)[1]

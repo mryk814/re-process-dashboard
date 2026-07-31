@@ -50,7 +50,7 @@ from material_workbench.modeling.tabular_model_builder import (
     build,
     tabular_training_code_revision,
 )
-from material_workbench.modeling.tabular_regression import load_tabular_profile
+from material_workbench.modeling.tabular.profile import load_tabular_profile
 from material_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )

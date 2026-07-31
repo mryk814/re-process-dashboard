@@ -223,13 +223,13 @@ class TabularProfileFamilyAdapter:
 
     def load_path(self, path: Path, task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         del task_definitions
-        from material_workbench.modeling.tabular_regression import load_tabular_profile
+        from material_workbench.modeling.tabular.profile import load_tabular_profile
 
         return load_tabular_profile(path)
 
     def restore(self, document: Mapping[str, Any], task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         del task_definitions
-        from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+        from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 
         return TabularDatasetProfile.model_validate(document)
 
@@ -237,7 +237,7 @@ class TabularProfileFamilyAdapter:
         return False
 
     def matches_profile(self, profile: Any) -> bool:
-        from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+        from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 
         return isinstance(profile, TabularDatasetProfile)
 

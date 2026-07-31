@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from material_workbench.modeling.tabular_regression import load_tabular_data, load_tabular_profile
+from material_workbench.modeling.tabular.data import load_tabular_data
+from material_workbench.modeling.tabular.profile import load_tabular_profile
 
 
 ROOT = Path(__file__).parents[2]

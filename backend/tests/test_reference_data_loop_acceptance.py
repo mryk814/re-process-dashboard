@@ -43,7 +43,7 @@ from material_workbench.modeling.model_packages import (
 from material_workbench.modeling.tabular_model_builder import (
     build_tabular_package_from_data,
 )
-from material_workbench.modeling.tabular_regression import load_tabular_data
+from material_workbench.modeling.tabular.data import load_tabular_data
 from material_workbench.persistence.data_lifecycle_repository import (
     DataLifecycleRepository,
 )

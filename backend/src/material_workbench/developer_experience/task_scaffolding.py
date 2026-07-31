@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 
 from material_workbench.contracts.task_contracts import TaskContractFixture
 from material_workbench.data.file_integrity import file_sha256
-from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+from material_workbench.modeling.tabular.profile import TabularDatasetProfile
 from material_workbench.modeling.training.recipe import estimator_recipe
 
 
