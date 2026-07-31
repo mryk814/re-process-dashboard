@@ -46,10 +46,14 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
         rows: 103,
         relations: 0,
         notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
-        columns: [
-          { name: "temperature", kind: "number", non_empty: 103, observed_min: 700, observed_max: 850, choices: [] },
-          { name: "strength", kind: "number", non_empty: 103, observed_min: 310, observed_max: 590, choices: [] },
-        ],
+        columns: Array.from({ length: 10 }, (_, index) => ({
+          name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
+          kind: "number",
+          non_empty: index === 0 ? 101 : 103,
+          observed_min: index < 7 ? 1 : 310,
+          observed_max: index < 7 ? 10 : 590,
+          choices: [],
+        })),
       },
     });
   });
@@ -71,7 +75,17 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
     buffer: Buffer.from("temperature,strength\n700,310\n850,590\n"),
   });
   await newTask.getByRole("button", { name: "CSVをプレビュー" }).click();
-  await expect(newTask).toContainText("103行・2列・relations 0件");
+  await expect(newTask).toContainText("103行・10列・relations 0件");
+  await expect(newTask).toContainText("103行");
+  await expect(newTask).toContainText("入力 0項目");
+  await expect(newTask).toContainText("出力 0項目");
+  await expect(newTask).toContainText("欠損 2件 / 103件");
+  for (let index = 0; index < 10; index += 1) {
+    await newTask.locator(".csv-task-columns article").nth(index).getByLabel("役割").selectOption(index < 7 ? "composition" : "output");
+  }
+  await expect(newTask).toContainText("入力 7項目");
+  await expect(newTask).toContainText("出力 3項目");
+  await expect(newTask).toContainText("relationsなしだけを扱います");
   await expect(newTask).toContainText("物理範囲には自動設定しません");
   expect(inspected).toBe(1);
   await newTask.screenshot({ path: testInfo.outputPath("new-task-onboarding.png") });
@@ -129,6 +143,12 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await strength.getByLabel("単位").fill("MPa");
   await strength.getByLabel("妥当範囲 min,max").fill("0,2000");
   await strength.getByLabel("表示範囲 min,max").fill("250,600");
+
+  await expect(prepare).toBeDisabled();
+  await onboarding.getByLabel("1行=1観測であることを確認した").check();
+  await expect(prepare).toBeDisabled();
+  await onboarding.getByLabel("relationsなしであることを確認した").check();
+  await expect(prepare).toBeEnabled();
 
   const prepared = page.waitForResponse((response) => response.url().includes("/api/data-library/csv-onboarding/prepare") && response.status() === 200);
   await prepare.click();

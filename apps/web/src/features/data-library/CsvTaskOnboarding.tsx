@@ -25,8 +25,11 @@ export type PreparedCsvProjectBinding = {
 
 export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: PreparedCsvProjectBinding) => void }) {
   const [file, setFile] = useState<File | null>(null);
+  const [rows, setRows] = useState(0);
   const [columns, setColumns] = useState<Column[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
+  const [grainConfirmed, setGrainConfirmed] = useState(false);
+  const [relationsConfirmed, setRelationsConfirmed] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,12 +44,20 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
     setLoading(false);
     if (response.error) { setError(errorMessage(response.error, "CSVを確認できませんでした。")); return; }
     const data = response.data as unknown as { columns: Column[]; rows: number; relations: number; notice: string };
+    if (data.relations !== 0) { setError("この画面はrelationsなしのCSVだけを扱います。relationのあるデータは専用Task設計へ進んでください。"); return; }
+    setRows(data.rows);
     setColumns(data.columns);
+    setGrainConfirmed(false);
+    setRelationsConfirmed(false);
     setFields(data.columns.map((column) => ({ column: column.name, role: "", key: column.name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase(), label: column.name, unit: "", goal_direction: "at_least", allowed_range: "", default_range: "", training_range: "", plausible_range: "", display_range: "" })));
     setMessage(`${data.rows}行・${data.columns.length}列・relations ${data.relations}件を確認しました。${data.notice}`);
   }
 
   function update(index: number, change: Partial<Field>) { setFields(fields.map((field, current) => current === index ? { ...field, ...change } : field)); }
+
+  const inputCount = fields.filter((field) => field.role === "composition" || field.role === "process" || field.role === "categorical").length;
+  const outputCount = fields.filter((field) => field.role === "output").length;
+  const canPrepare = Boolean(file && taskId && label && inputCount && outputCount && grainConfirmed && relationsConfirmed && !loading);
 
   async function prepare() {
     if (!file) return;
@@ -71,14 +82,16 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
 
   return <section className="csv-task-onboarding" aria-labelledby="csv-task-onboarding-heading">
     <header><span className="overline">CSV NEW TASK</span><h3 id="csv-task-onboarding-heading">CSVから新しい予測問題を準備</h3><p>元CSVは読取専用です。観測範囲は表示するだけで、物理範囲には自動設定しません。</p></header>
-    <label>CSVファイル<input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setColumns([]); setFields([]); }} /></label>
+    <label>CSVファイル<input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setRows(0); setColumns([]); setFields([]); setGrainConfirmed(false); setRelationsConfirmed(false); }} /></label>
     <button className="outline-button" type="button" disabled={!file || loading} onClick={() => void inspect()}>{loading ? "確認中…" : "CSVをプレビュー"}</button>
     {columns.length > 0 && <>
       <label>Task ID<input value={taskId} onChange={(event) => setTaskId(event.target.value)} placeholder="concrete-slump-v1" /></label>
       <label>表示名<input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="コンクリート流動性" /></label>
+      <div className="csv-task-summary" aria-live="polite"><span>{rows}行</span><span>{columns.length}列</span><span>入力 {inputCount}項目</span><span>出力 {outputCount}項目</span></div>
       <p className="csv-task-onboarding-note">数値入力は、物理的許容範囲／通常範囲／学習範囲を明示してください。出力は妥当範囲／表示範囲を明示してください。</p>
-      <div className="csv-task-columns">{fields.map((field, index) => { const column = columns[index]; return <article key={field.column}><strong>{field.column}</strong><small>{column.kind} · 欠損なし {column.non_empty}件 · 観測 {column.observed_min ?? "—"}–{column.observed_max ?? "—"}</small><label>役割<select value={field.role} onChange={(event) => update(index, { role: event.target.value as Field["role"] })}><option value="">使わない</option><option value="composition">入力: 組成</option><option value="process">入力: 条件</option><option value="categorical">入力: カテゴリ</option><option value="output">出力</option></select></label>{field.role && <><label>canonical key<input value={field.key} onChange={(event) => update(index, { key: event.target.value })} /></label><label>表示名<input value={field.label} onChange={(event) => update(index, { label: event.target.value })} /></label>{field.role !== "categorical" && <label>単位<input value={field.unit} onChange={(event) => update(index, { unit: event.target.value })} placeholder="MPa / mm / kg/m³" /></label>}{field.role === "output" ? <><label>目標方向<select value={field.goal_direction} onChange={(event) => update(index, { goal_direction: event.target.value as Field["goal_direction"] })}><option value="at_least">以上</option><option value="at_most">以下</option><option value="target">目標</option></select></label><label>妥当範囲 min,max<input value={field.plausible_range} onChange={(event) => update(index, { plausible_range: event.target.value })} /></label><label>表示範囲 min,max<input value={field.display_range} onChange={(event) => update(index, { display_range: event.target.value })} /></label></> : field.role !== "categorical" && <><label>物理的許容範囲 min,max<input value={field.allowed_range} onChange={(event) => update(index, { allowed_range: event.target.value })} /></label><label>通常範囲 min,max<input value={field.default_range} onChange={(event) => update(index, { default_range: event.target.value })} /></label><label>学習範囲 min,max<input value={field.training_range} onChange={(event) => update(index, { training_range: event.target.value })} /></label></>}</>}</article>; })}</div>
-      <button className="primary-button" type="button" disabled={loading || !taskId || !label} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
+      <div className="csv-task-columns">{fields.map((field, index) => { const column = columns[index]; const missing = Math.max(0, rows - column.non_empty); return <article key={field.column}><strong>{field.column}</strong><small>{column.kind} · 欠損 {missing}件 / {rows}件 · 観測 {column.observed_min ?? "—"}–{column.observed_max ?? "—"}</small><label>役割<select value={field.role} onChange={(event) => update(index, { role: event.target.value as Field["role"] })}><option value="">使わない</option><option value="composition">入力: 組成</option><option value="process">入力: 条件</option><option value="categorical">入力: カテゴリ</option><option value="output">出力</option></select></label>{field.role && <><label>canonical key<input value={field.key} onChange={(event) => update(index, { key: event.target.value })} /></label><label>表示名<input value={field.label} onChange={(event) => update(index, { label: event.target.value })} /></label>{field.role !== "categorical" && <label>単位<input value={field.unit} onChange={(event) => update(index, { unit: event.target.value })} placeholder="MPa / mm / kg/m³" /></label>}{field.role === "output" ? <><label>目標方向<select value={field.goal_direction} onChange={(event) => update(index, { goal_direction: event.target.value as Field["goal_direction"] })}><option value="at_least">以上</option><option value="at_most">以下</option><option value="target">目標</option></select></label><label>妥当範囲 min,max<input value={field.plausible_range} onChange={(event) => update(index, { plausible_range: event.target.value })} /></label><label>表示範囲 min,max<input value={field.display_range} onChange={(event) => update(index, { display_range: event.target.value })} /></label></> : field.role !== "categorical" && <><label>物理的許容範囲 min,max<input value={field.allowed_range} onChange={(event) => update(index, { allowed_range: event.target.value })} /></label><label>通常範囲 min,max<input value={field.default_range} onChange={(event) => update(index, { default_range: event.target.value })} /></label><label>学習範囲 min,max<input value={field.training_range} onChange={(event) => update(index, { training_range: event.target.value })} /></label></>}</>}</article>; })}</div>
+      <fieldset className="csv-task-confirmations"><legend>学習一行とrelationの確認</legend><label><input type="checkbox" checked={grainConfirmed} onChange={(event) => setGrainConfirmed(event.target.checked)} />1行=1観測であることを確認した</label><label><input type="checkbox" checked={relationsConfirmed} onChange={(event) => setRelationsConfirmed(event.target.checked)} />relationsなしであることを確認した</label><small>この標準CSV Taskはrelationsなしだけを扱います。relationのあるデータは、この画面から無理に準備せず専用Task設計へ進みます。</small></fieldset>
+      <button className="primary-button" type="button" disabled={!canPrepare} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
     </>}
     {message && <p role="status">{message}</p>}{error && <p role="alert" className="panel-error">{error}</p>}
   </section>;
