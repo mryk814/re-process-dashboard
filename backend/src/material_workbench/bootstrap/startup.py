@@ -55,6 +55,31 @@ from material_workbench.task_composition.builtin.annealed import ANNEALED_TASK_I
 from material_workbench.tasks.task_registry import TaskRegistry
 
 logger = logging.getLogger(__name__)
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+
+
+def personal_data_library_path() -> Path:
+    """Return the user-owned root for managed personal Dataset sources."""
+
+    local_app_data = os.getenv("LOCALAPPDATA", "").strip()
+    if local_app_data:
+        return (
+            Path(local_app_data)
+            / "Material Decision Workbench"
+            / "data-library"
+        ).resolve()
+    xdg_data_home = os.getenv("XDG_DATA_HOME", "").strip()
+    base = Path(xdg_data_home).expanduser() if xdg_data_home else Path.home() / ".local" / "share"
+    return (base / "material-decision-workbench" / "data-library").resolve()
+
+
+def default_data_library_path(database: Path) -> Path:
+    """Keep the checked-out main workspace from becoming a personal data sink."""
+
+    repository_workspace = (REPOSITORY_ROOT / "data" / "workbench.db").resolve()
+    if database.expanduser().resolve() == repository_workspace:
+        return personal_data_library_path()
+    return database.expanduser().resolve().parent / "data-library"
 
 
 def _raise_startup_error(stage: str, label: str, exc: Exception) -> None:
@@ -168,7 +193,7 @@ def create_lifespan(
     data_library_root = Path(
         data_library_path
         or os.getenv("WORKBENCH_DATA_LIBRARY_PATH", "")
-        or database.parent / "data-library"
+        or default_data_library_path(database)
     )
     configured_active_packages_path = Path(
         active_packages_path or ACTIVE_PACKAGES_PATH
@@ -326,6 +351,7 @@ def create_lifespan(
         app.state.resource_promotion_complete = asyncio.Event()
         app.state.resource_promotion_complete.set()
         task_resource_refresh_lock = asyncio.Lock()
+        app.state.csv_onboarding_lock = asyncio.Lock()
 
         async def refresh_task_resources() -> TaskResourceRefreshResult:
             """Stage Task, Package, and DB changes before one generation swap."""

@@ -16,6 +16,7 @@ from material_workbench.api.data_exploration import (
     router as data_exploration_router,
 )
 from material_workbench.api.data_library import router as data_library_router
+from material_workbench.api.csv_task_onboarding import router as csv_task_onboarding_router
 from material_workbench.api.data_lifecycle import (
     router as data_lifecycle_router,
 )
@@ -89,7 +90,10 @@ def create_app(
     async def gate_resource_promotion(request: Request, call_next):
         is_catalog_health = request.url.path in {"/health", "/api/health"}
         is_readiness = request.url.path == "/api/readiness"
-        is_resource_refresh = request.url.path == "/api/data-library/tasks/refresh"
+        is_resource_refresh = (
+            request.url.path == "/api/data-library/tasks/refresh"
+            or request.url.path == "/api/data-library/csv-onboarding/prepare"
+        )
         if is_readiness:
             return await call_next(request)
         if getattr(request.app.state, "resources_promoting", False):
@@ -123,6 +127,7 @@ def create_app(
     install_exception_handlers(app)
     app.include_router(catalog_router)
     app.include_router(data_library_router)
+    app.include_router(csv_task_onboarding_router)
     app.include_router(sample_gallery_router)
     app.include_router(data_lifecycle_router)
     app.include_router(series_assets_router)

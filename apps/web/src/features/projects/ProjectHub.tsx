@@ -66,6 +66,7 @@ type Props = {
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
+  requestedProjectBinding?: { taskId: string; modelPackageRefId: string };
   requestedSettingsSection?: ProjectSettingsSection;
   renderScientificSettings?: (
     project: ApiProject,
@@ -180,6 +181,7 @@ export function ProjectHub({
   offline,
   requestedSnapshotId,
   requestedDatasetViewId,
+  requestedProjectBinding,
   requestedSettingsSection,
   renderScientificSettings,
   onProjectChanged,
@@ -738,8 +740,8 @@ export function ProjectHub({
     setCreateMode("empty");
     setNewProjectName(`${datasetDisplayName(dataset)} 検討`);
     setNewDatasetViewId(requestedDatasetViewId);
-    setNewTaskId("");
-    setNewModelPackageRefId("");
+    setNewTaskId(requestedProjectBinding?.taskId ?? "");
+    setNewModelPackageRefId(requestedProjectBinding?.modelPackageRefId ?? "");
     setNewChainId("");
     setNewChainRevisionId("");
     setNewProjectGroupChoice("none");
@@ -748,7 +750,7 @@ export function ProjectHub({
     setPredecessorProjectId("");
     setContinuationReason("");
     onCreationIntentConsumed();
-  }, [creationOptions, datasetByView, onCreationIntentConsumed, requestedDatasetViewId]);
+  }, [creationOptions, datasetByView, onCreationIntentConsumed, requestedDatasetViewId, requestedProjectBinding]);
 
   useEffect(() => {
     if (!createOpen || !focusCreationFormRef.current) return;

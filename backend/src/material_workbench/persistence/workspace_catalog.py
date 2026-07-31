@@ -543,6 +543,79 @@ class WorkspaceCatalog:
                 row = conn.execute("SELECT * FROM dataset_view_revisions WHERE id=?", (revision_id,)).fetchone()
             return self._view(conn, row)
 
+    def remove_unreferenced_dataset_registration(
+        self,
+        *,
+        data_asset_id: str | None = None,
+        profile_revision_id: str | None = None,
+        dataset_revision_id: str | None = None,
+        dataset_view_revision_id: str | None = None,
+    ) -> None:
+        """Remove a just-created registration before any Project can bind it.
+
+        Catalog identities are append-only during normal operation.  This narrow
+        compensating operation exists for an onboarding transaction that has not
+        reached its runtime generation swap.  It refuses to erase any record
+        referenced by a Project or a remaining Dataset View.
+        """
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if dataset_view_revision_id:
+                project = conn.execute(
+                    "SELECT name FROM projects WHERE dataset_view_revision_id=? LIMIT 1",
+                    (dataset_view_revision_id,),
+                ).fetchone()
+                if project is not None:
+                    raise CatalogReferenceError(
+                        "Projectが参照しているDataset Viewは取り消せません"
+                    )
+                conn.execute(
+                    "DELETE FROM dataset_view_members WHERE dataset_view_revision_id=?",
+                    (dataset_view_revision_id,),
+                )
+                conn.execute(
+                    "DELETE FROM dataset_view_revisions WHERE id=?",
+                    (dataset_view_revision_id,),
+                )
+            if dataset_revision_id:
+                member = conn.execute(
+                    "SELECT dataset_view_revision_id FROM dataset_view_members "
+                    "WHERE dataset_revision_id=? LIMIT 1",
+                    (dataset_revision_id,),
+                ).fetchone()
+                if member is not None:
+                    raise CatalogReferenceError(
+                        "Dataset Viewが参照しているDatasetは取り消せません"
+                    )
+                conn.execute(
+                    "DELETE FROM dataset_revisions WHERE id=?",
+                    (dataset_revision_id,),
+                )
+            if profile_revision_id:
+                dataset = conn.execute(
+                    "SELECT id FROM dataset_revisions WHERE profile_revision_id=? LIMIT 1",
+                    (profile_revision_id,),
+                ).fetchone()
+                if dataset is not None:
+                    raise CatalogReferenceError(
+                        "Datasetが参照しているProfileは取り消せません"
+                    )
+                conn.execute(
+                    "DELETE FROM dataset_profile_revisions WHERE id=?",
+                    (profile_revision_id,),
+                )
+            if data_asset_id:
+                dataset = conn.execute(
+                    "SELECT id FROM dataset_revisions WHERE data_asset_id=? LIMIT 1",
+                    (data_asset_id,),
+                ).fetchone()
+                if dataset is not None:
+                    raise CatalogReferenceError(
+                        "Datasetが参照しているData Assetは取り消せません"
+                    )
+                conn.execute("DELETE FROM data_assets WHERE id=?", (data_asset_id,))
+
     def upsert_model_package_ref(self, payload: ModelPackageRefCreateInput) -> ModelPackageRef:
         manifest_json = _canonical_json(payload.manifest_json)
         identity_digest = _digest(

@@ -50,6 +50,84 @@ class DatasetRegistrationResult:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ManagedDatasetRegistrationCheckpoint:
+    data_asset_ids: frozenset[str]
+    profile_revision_ids: frozenset[str]
+    dataset_revision_ids: frozenset[str]
+    dataset_view_revision_ids: frozenset[str]
+
+
+def managed_dataset_registration_checkpoint(
+    database: Path,
+) -> ManagedDatasetRegistrationCheckpoint:
+    """Capture identities that predate one compensatable registration."""
+
+    catalog = WorkspaceCatalog(database)
+    return ManagedDatasetRegistrationCheckpoint(
+        data_asset_ids=frozenset(
+            item.id for item in catalog.list_data_assets(include_archived=True)
+        ),
+        profile_revision_ids=frozenset(
+            item.id for item in catalog.list_profile_revisions(include_archived=True)
+        ),
+        dataset_revision_ids=frozenset(
+            item.id for item in catalog.list_dataset_revisions(include_archived=True)
+        ),
+        dataset_view_revision_ids=frozenset(
+            item.id
+            for item in catalog.list_dataset_view_revisions(include_archived=True)
+        ),
+    )
+
+
+def rollback_managed_dataset_registration(
+    *,
+    database: Path,
+    registration: DatasetRegistrationResult,
+    checkpoint: ManagedDatasetRegistrationCheckpoint,
+) -> None:
+    """Undo only records and managed bytes introduced after ``checkpoint``."""
+
+    catalog = WorkspaceCatalog(database)
+    data_asset_id = (
+        registration.data_asset_id
+        if registration.data_asset_id not in checkpoint.data_asset_ids
+        else None
+    )
+    catalog.remove_unreferenced_dataset_registration(
+        dataset_view_revision_id=(
+            registration.dataset_view_revision_id
+            if registration.dataset_view_revision_id
+            not in checkpoint.dataset_view_revision_ids
+            else None
+        ),
+        dataset_revision_id=(
+            registration.dataset_revision_id
+            if registration.dataset_revision_id
+            not in checkpoint.dataset_revision_ids
+            else None
+        ),
+        profile_revision_id=(
+            registration.profile_revision_id
+            if registration.profile_revision_id
+            not in checkpoint.profile_revision_ids
+            else None
+        ),
+        data_asset_id=data_asset_id,
+    )
+    if data_asset_id:
+        locator = Path(registration.locator)
+        locator.unlink(missing_ok=True)
+        parent = locator.parent
+        while parent.name in {locator.parent.name, "assets"} and parent.exists():
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
+
+
 def register_dataset_records(
     *,
     catalog: WorkspaceCatalog,
@@ -159,6 +237,7 @@ def register_managed_dataset(
     profile_path: Path,
     name: str | None = None,
     member_provenance: dict[str, Any] | None = None,
+    promote_existing_bundled: bool = True,
 ) -> DatasetRegistrationResult:
     """Copy a prevalidated source and register it in a workspace catalog."""
 
@@ -172,7 +251,9 @@ def register_managed_dataset(
     digest = str(report["source_sha256"])
     catalog = WorkspaceCatalog(database)
     existing = next((item for item in catalog.list_data_assets(include_archived=True) if item.sha256 == digest), None)
-    if existing is not None and existing.locator_kind == "managed":
+    if existing is not None and (
+        existing.locator_kind == "managed" or not promote_existing_bundled
+    ):
         locator = Path(existing.locator)
     else:
         locator = _copy_to_managed_library(source, library_root.resolve(), digest)

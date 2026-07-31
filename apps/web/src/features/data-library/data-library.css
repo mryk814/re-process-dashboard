@@ -21,10 +21,27 @@
 .new-task-guide li { display: grid; gap: 2px; border-left: 3px solid #5184bb; background: #fff; padding: 7px 8px; }
 .new-task-guide li b { color: #2d5f94; font-size: 11px; }
 .new-task-guide li span { color: #68798e; font-size: 10px; }
-.new-task-guide pre { max-width: 100%; overflow: auto; margin: 0; border-radius: 5px; background: #172536; padding: 10px; color: #e7eef6; font: 10px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.new-task-ui-path { margin: 0; color: #526276; font-size: 11px; }
 .new-task-safety { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; border-left: 3px solid #bc7b29; background: #fff8ed; padding: 8px 10px; color: #765121; font-size: 10px; }
 .new-task-safety strong { font-size: 11px; }
 .new-task-safety small { width: 100%; color: #81683f; }
+.csv-task-onboarding { display: grid; gap: 10px; border: 1px solid #b9cde2; border-radius: 6px; background: #fff; padding: 12px; }
+.csv-task-onboarding > header { display: grid; gap: 3px; }
+.csv-task-onboarding h3 { margin: 0; color: #29435f; font-size: 14px; }
+.csv-task-onboarding header p, .csv-task-onboarding-note { margin: 0; color: #607188; font-size: 11px; }
+.csv-task-onboarding > label, .csv-task-columns label { display: grid; gap: 4px; color: #526276; font-size: 11px; }
+.csv-task-onboarding input, .csv-task-onboarding select { min-width: 0; border: 1px solid #cbd6e2; border-radius: 4px; background: #fff; padding: 7px 8px; color: #26394d; }
+.csv-task-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.csv-task-summary span { border: 1px solid #cbd6e2; border-radius: 999px; background: #f1f7fd; padding: 3px 7px; color: #405a75; font-size: 11px; }
+.csv-task-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.csv-task-columns article { display: grid; gap: 7px; min-width: 0; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fbff; padding: 9px; }
+.csv-task-columns strong { color: #29435f; font-size: 12px; overflow-wrap: anywhere; }
+.csv-task-columns small { color: #64768a; font-size: 10px; }
+.csv-task-confirmations { display: grid; gap: 6px; margin: 0; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fbff; padding: 9px; }
+.csv-task-confirmations legend { padding: 0 4px; color: #29435f; font-size: 11px; font-weight: 700; }
+.csv-task-confirmations label { display: flex; align-items: center; gap: 6px; color: #405a75; font-size: 11px; }
+.csv-task-confirmations input { min-width: auto; padding: 0; }
+.csv-task-confirmations small { color: #765121; font-size: 10px; }
 .library-undo { display: flex; align-items: center; gap: 10px; border: 1px solid #9abcb4; border-radius: 5px; background: #f1f8f5; padding: 8px 10px; color: #315f57; font-size: 11px; }
 .library-undo .text-button { min-height: 26px; }
 .library-undo-dismiss { margin-left: auto; color: #526276; font-size: 16px; }

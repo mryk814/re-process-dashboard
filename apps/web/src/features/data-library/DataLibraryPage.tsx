@@ -17,6 +17,8 @@ import {
 import { useTaskLabels } from "../../shared/useTaskLabels";
 import { SeriesLibrarySection } from "./SeriesLibrarySection";
 import { SourceLifecycleSection } from "./SourceLifecycleSection";
+import { CsvTaskOnboarding } from "./CsvTaskOnboarding";
+import type { PreparedCsvProjectBinding } from "./CsvTaskOnboarding";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
@@ -63,7 +65,7 @@ export function DataLibraryPage({
     mode?: "revision" | "mapping",
     baseDatasetRevisionId?: string,
   ) => void;
-  onStartProject: (datasetViewRevisionId: string) => void;
+  onStartProject: (datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) => void;
   onOpenTrainingData: (projectId: string) => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
@@ -114,8 +116,16 @@ export function DataLibraryPage({
         setOptions(nextOptions);
         setDatasets(nextDatasets);
         setModelPackages(nextModelPackages);
+        return {
+          options: nextOptions,
+          datasets: nextDatasets,
+          modelPackages: nextModelPackages,
+        };
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。"))
+      .catch((cause) => {
+        setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。");
+        return null;
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { void load(); }, []);
@@ -353,7 +363,7 @@ export function DataLibraryPage({
     try {
       const result = await workbenchApi.refreshTaskResources();
       const warnings = result.warnings ?? [];
-      await load();
+      const refreshedLibrary = await load();
       setRefreshWarnings(warnings);
       const addedTaskIds = result.added_task_ids ?? [];
       const addedModelPackageIds = result.added_model_package_ids ?? [];
@@ -361,10 +371,26 @@ export function DataLibraryPage({
         ...(addedTaskIds.length > 0 ? [`新しいTask ${addedTaskIds.length}件`] : []),
         ...(addedModelPackageIds.length > 0 ? [`新しいModel Package ${addedModelPackageIds.length}件`] : []),
       ];
+      const selectablePackageIds = new Set(
+        addedModelPackageIds.filter((packageId) => {
+          const modelPackage = refreshedLibrary?.modelPackages.find((item) => item.id === packageId);
+          const dataset = trainingDataset(modelPackage, refreshedLibrary?.datasets ?? []);
+          return Boolean(
+            modelPackage
+            && dataset?.dataset_views?.some((view) => view.kind === "single")
+            && dataset.supported_task_ids.includes(modelPackage.task_id)
+            && refreshedLibrary?.options.task_contract_digests[modelPackage.task_id] === modelPackage.task_contract_digest,
+          );
+        }),
+      );
       setRefreshMessage(warnings.length > 0
         ? `${added.length > 0 ? `${added.join("・")}を反映。` : ""}${warnings.length}件は検証で除外されました。`
-        : added.length > 0
+        : refreshedLibrary === null
+          ? "再読込は完了しましたが、Data Libraryを確認できませんでした。Project作成はData Libraryを再読み込みしてから確認してください。"
+          : selectablePackageIds.size > 0
           ? `${added.join("・")}を反映しました。Project作成で選べます。`
+          : added.length > 0
+            ? `${added.join("・")}を再読込しましたが、対応するDatasetが登録されていないためProject作成にはまだ使えません。`
           : "再読込は完了しました。新しく反映するTask／Model Packageはありません。");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "個人Model Packageを再読込できませんでした。");
@@ -467,31 +493,9 @@ export function DataLibraryPage({
       {activeTab === "browse" && newTaskGuideOpen && <section className="data-library-section new-task-guide" aria-labelledby="new-task-guide-heading">
         <header><div><span className="overline">NEW TASK SCAFFOLD</span><h3 id="new-task-guide-heading">完全に新しいTaskを準備</h3><p>任意コードは生成せず、確認済みのTaskDefinition・Dataset Profile・標準学習recipeを個人Task storeへ作ります。</p></div><button type="button" className="text-button" aria-label="新しいTaskの手順を閉じる" onClick={() => setNewTaskGuideOpen(false)}>閉じる</button></header>
         <ol><li><b>列を棚卸し</b><span>型・範囲・候補値だけをread-onlyで確認</span></li><li><b>意味を確定</b><span>入力／出力、canonical key、単位を明示</span></li><li><b>学習・昇格</b><span>allow-list済みEstimatorでbuild / verify / promote</span></li><li><b>アプリへ接続</b><span>個人Taskを再読込し、そのままProjectを作成</span></li></ol>
-        <pre><code>{`npm run task:scaffold -- inspect "C:\\path\\to\\new-data.csv"
-
-npm run task:scaffold -- create "C:\\path\\to\\new-data.csv" \`
-  --task-id my-prediction-task-v1 \`
-  --label "新しい予測タスク" \`
-  --input "C_pct:composition:carbon_pct:C:%" \`
-  --input-range "C_pct:0:2:0.05:0.5:0.1:0.4" \`
-  --input "temperature_C:process:temperature_c:温度:°C" \`
-  --input-range "temperature_C:20:1500:650:900:700:820" \`
-  --output "strength_MPa:strength:強度:MPa:at_least" \`
-  --output-range "strength_MPa:0:2000:250:600" \`
-  --grain-confirmation one-row-one-observation \`
-  --relation-confirmation no-relations \`
-  --estimator ridge.v1
-
-# create結果のsource / profileを同じまま使う
-npm run model:build -- --task my-prediction-task-v1 ...
-npm run model:verify -- --task my-prediction-task-v1 ...
-npm run model:promote -- --task my-prediction-task-v1 ...`}</code></pre>
-        <div className="model-update-actions">
-          <button className="primary-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
-          <small>アプリは起動したままで構いません。検証済みのdata-only contractだけを読み込みます。</small>
-        </div>
-        {refreshMessage && <p role="status">{refreshMessage}</p>}
+        <p className="new-task-ui-path">CSVを選び、意味・単位・範囲を確認すると、標準recipeで <b>build → verify → promote → 再読込</b> までをこの画面で実行します。途中で止まった場合は、登録済みとして扱わず理由を表示します。</p>
         <div className="new-task-safety"><strong>自動確定しない項目</strong><span>物理的意味 · 単位 · 物理／通常／学習範囲 · 学習一行 · relation · 目的変数</span><small>inspectの最小値・最大値は要約です。物理範囲には流用せず、未解決が1件でもあればdraftで止まります。元データ、個人Profile、Packageはリポジトリへ追加しません。</small></div>
+        <CsvTaskOnboarding onPrepared={({ datasetViewId, taskId, modelPackageRefId }) => onStartProject(datasetViewId, { taskId, modelPackageRefId })} />
       </section>}
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">

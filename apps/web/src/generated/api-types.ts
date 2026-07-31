@@ -72,6 +72,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-library/csv-onboarding/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect Csv */
+        post: operations["inspect_csv_api_data_library_csv_onboarding_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-library/csv-onboarding/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Csv Task
+         * @description Create, verify, promote, register, and reload one reviewed CSV Task.
+         */
+        post: operations["prepare_csv_task_api_data_library_csv_onboarding_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-library/datasets": {
         parameters: {
             query?: never;
@@ -3270,12 +3307,37 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_inspect_csv_api_data_library_csv_onboarding_inspect_post */
+        Body_inspect_csv_api_data_library_csv_onboarding_inspect_post: {
+            /** File */
+            file: string;
+        };
         /** Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post */
         Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post: {
             /** File */
             file: string;
             /** Profile Digest */
             profile_digest?: string | null;
+        };
+        /** Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post */
+        Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post: {
+            /**
+             * Estimator Id
+             * @default ridge.v1
+             */
+            estimator_id: string;
+            /** Fields Json */
+            fields_json: string;
+            /** File */
+            file: string;
+            /** Grain Confirmation */
+            grain_confirmation: string;
+            /** Label */
+            label: string;
+            /** Relation Confirmation */
+            relation_confirmation: string;
+            /** Task Id */
+            task_id: string;
         };
         /** Body_register_uploaded_workbook_api_profile_workbench_register_post */
         Body_register_uploaded_workbook_api_profile_workbench_register_post: {
@@ -10342,6 +10404,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    inspect_csv_api_data_library_csv_onboarding_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_inspect_csv_api_data_library_csv_onboarding_inspect_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    prepare_csv_task_api_data_library_csv_onboarding_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

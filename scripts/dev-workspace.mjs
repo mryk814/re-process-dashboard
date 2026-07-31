@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,6 +39,13 @@ function resolveFromRoot(value) {
   return path.resolve(repositoryRoot, value);
 }
 
+function personalDataLibrary() {
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (localAppData) return path.join(localAppData, "Material Decision Workbench", "data-library");
+  const xdgDataHome = process.env.XDG_DATA_HOME?.trim();
+  return path.join(xdgDataHome || path.join(os.homedir(), ".local", "share"), "material-decision-workbench", "data-library");
+}
+
 export function resolveDevWorkspace({ mainWorkspace = false } = {}) {
   const explicitDatabase = process.env.WORKBENCH_DB_PATH?.trim();
   const workspaceName = safeWorkspaceName(branchName());
@@ -51,7 +59,7 @@ export function resolveDevWorkspace({ mainWorkspace = false } = {}) {
   const dataLibrary = !mainWorkspace && explicitLibrary
     ? resolveFromRoot(explicitLibrary)
     : mainWorkspace
-      ? path.join(repositoryRoot, "data", "data-library")
+      ? personalDataLibrary()
       : path.join(repositoryRoot, ".dev-workspaces", `${workspaceName}-data-library`);
   return {
     repositoryRoot,

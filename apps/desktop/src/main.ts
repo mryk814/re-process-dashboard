@@ -106,7 +106,9 @@ function workspaceDatabasePath(): string {
 function workspaceDataLibraryPath(): string {
   return resolve(
     process.env.WORKBENCH_DATA_LIBRARY_PATH
-      ?? join(dirname(workspaceDatabasePath()), "data-library"),
+      ?? (app.isPackaged
+        ? join(dirname(workspaceDatabasePath()), "data-library")
+        : join(app.getPath("userData"), "data-library")),
   );
 }
 
