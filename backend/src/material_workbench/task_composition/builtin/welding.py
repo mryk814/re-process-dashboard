@@ -160,7 +160,7 @@ def _observation_builder(task_id: str) -> SpecializedPackageBuilder:
         package_version: str,
         profile_path: Path | None = None,
     ) -> None:
-        from material_workbench.data.profile_document import load_profile_document
+        from material_workbench.data.profile_family_registry import load_profile_document
         from material_workbench.modeling.observation_model_builder import (
             build as build_package,
         )

@@ -12,7 +12,7 @@ from material_workbench.contracts.schemas import (
     TargetRange,
     ProjectUpdateInput,
 )
-from material_workbench.data.profile_document import supported_task_ids
+from material_workbench.data.profile_family_registry import supported_task_ids
 from material_workbench.persistence.store import (
     CandidateCopyConflictError,
     ChainCatalogConflictError,

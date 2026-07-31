@@ -42,7 +42,7 @@ from material_workbench.modeling.model_package_verify import verify_model_packag
 from material_workbench.modeling.model_packages import MissingOptionalDependency, ModelPackageLoader, PackageContractError  # noqa: E402
 from material_workbench.modeling.training.package_assembler import build_standard_model_package  # noqa: E402
 from material_workbench.modeling.training.recipe import ESTIMATOR_IDS, estimator_recipe  # noqa: E402
-from material_workbench.data.profile_document import (  # noqa: E402
+from material_workbench.data.profile_family_registry import (  # noqa: E402
     lifecycle_profile_for_data,
     load_profile_document,
     profile_task_ids,

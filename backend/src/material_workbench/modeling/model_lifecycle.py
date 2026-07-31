@@ -17,7 +17,10 @@ from material_workbench.contracts.task_contracts import (
     TaskDefinition,
 )
 from material_workbench.data.importer import training_context_key
-from material_workbench.data.profile_document import lifecycle_profile_for_data
+from material_workbench.data.profile_family_registry import (
+    lifecycle_profile_for_data,
+    load_profile_document,
+)
 from material_workbench.data.profiles.loading import load_dataset_profile
 from material_workbench.modeling.model_packages import (
     FEATURE_DATASET_DIGEST_FLOAT15,
@@ -235,26 +238,7 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
     if hasattr(path, "model_dump"):
         profile = path
     else:
-        profile_path = Path(path)
-        raw = json.loads(profile_path.read_text(encoding="utf-8"))
-        if raw.get("schema_version") == "tabular-dataset-profile/v1":
-            from material_workbench.modeling.tabular_regression import (
-                load_tabular_profile,
-            )
-
-            profile = load_tabular_profile(profile_path)
-        elif raw.get("schema_version") == "observation-dataset-profile/v1":
-            from material_workbench.data.observation_profile import (
-                load_observation_profile,
-            )
-
-            profile = load_observation_profile(profile_path)
-        elif raw.get("schema_version") == "welding-stage-b-profile/v1":
-            from material_workbench.data.stage_b_training import load_stage_b_profile
-
-            profile = load_stage_b_profile(profile_path)
-        else:
-            profile = load_dataset_profile(profile_path)
+        profile = load_profile_document(Path(path))
     payload = profile.model_dump(mode="json", exclude={"task_definitions"})
     shared = payload.get("shared")
     if isinstance(shared, dict) and not shared.get("column_aliases"):
