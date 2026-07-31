@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping
 
+from material_workbench.data.profiles.requirements import task_data_requirements
 from material_workbench.data.profiles.schema import (
     DatasetInputProfile,
     DatasetProfileError,
@@ -490,6 +491,7 @@ def _measurement_point_fallback_series(
 def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     workbook = _profile_workbook(workbook, profile)
     errors: list[str] = []
+    task_requirements = task_data_requirements(profile)
     required: dict[str, set[str]] = {}
     fallback_series_roles = {
         mapping.role
@@ -575,7 +577,12 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     relation_sheet = profile.sheet_for_role(profile.shared.relation.role)
     if relation_sheet in workbook.sheetnames:
         headers = _headers(workbook[relation_sheet])
-        for join in profile.shared.relation.joins:
+        required_joins = tuple(
+            join
+            for join in profile.shared.relation.joins
+            if task_requirements.requires_relation(join)
+        )
+        for join in required_joins:
             if not any(column in headers for column in join.source_columns):
                 errors.append(
                     f"sheet {relation_sheet!r} is missing every source column for "
@@ -591,7 +598,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                     return value
             return None
 
-        for join in profile.shared.relation.joins:
+        for join in required_joins:
             if join.cardinality != "exactly_one":
                 continue
             missing_count = sum(
@@ -602,23 +609,28 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                 errors.append(f"relation {join.path!r} violates exactly_one cardinality in {missing_count} rows")
         if all(
             any(column in headers for column in join.source_columns)
-            for join in profile.shared.relation.joins
+            for join in required_joins
         ):
             joins_by_type = {
                 join.entity_type: join
-                for join in profile.shared.relation.joins
+                for join in required_joins
             }
             parent_signatures: dict[tuple[str, str], set[tuple[tuple[str, str], ...]]] = {}
             for row in workbook[relation_sheet].iter_rows(min_row=2, values_only=True):
-                for join in profile.shared.relation.joins:
+                for join in required_joins:
                     if join.parent_consistency != "exactly_one":
                         continue
                     child_value = relation_value(row, join)
-                    if child_value is None or not str(child_value).strip() or not join.parent_entity_types:
+                    parent_types = (
+                        join.edge_parent_entity_types
+                        if join.edge_parent_entity_types is not None
+                        else join.parent_entity_types
+                    )
+                    if child_value is None or not str(child_value).strip() or not parent_types:
                         continue
                     signature = tuple(
                         (parent_type, str(parent_value))
-                        for parent_type in join.parent_entity_types
+                        for parent_type in parent_types
                         if (parent_value := relation_value(row, joins_by_type[parent_type])) is not None
                     )
                     if signature:

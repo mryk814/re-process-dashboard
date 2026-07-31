@@ -100,6 +100,8 @@ TaskDefinitionまたはFeature Pipelineを変更するのは、入力や出力�
 その変更は単なるソース追加ではなく、後述する新しいタスク契約または既存契約の版更新として扱います。
 
 工程データでは、TaskDefinitionの入力と出力に直結する列は必須です。一方、`optional_auxiliary_keys`、`optional_metadata_keys`、`optional_technical_fields` に指定した探索・表示用の列は、存在すれば取り込み、欠けていてもDataset登録を止めません。
+relationも同じで、Profileが対応を宣言する全Taskの入力、実測、親entityへの経路に必要なjoinだけを登録の必須条件にします。
+Task未使用の補助entityは、relation列が存在すればlineageとして保持し、なくても登録可能です。
 `焼鈍特徴量` シートは意図的に持ちません。
 LSは `焼鈍条件-3CGL` から取得しますが、キャッシュ済みの数値時間温度系列をモデル入力の正本として優先します。LSは明示履歴がないときの時間軸補完にだけ必要です。
 `焼鈍履歴` がない場合は、同じ焼鈍条件行の工程別温度と `測定点マスタ` の設備位置から時間軸を補完します。
