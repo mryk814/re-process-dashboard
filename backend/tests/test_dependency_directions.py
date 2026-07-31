@@ -172,16 +172,18 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
 
 
 def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
-    modeling = PACKAGE_ROOT / "modeling"
-    ports = modeling / "model_adapter_ports.py"
-    registry = modeling / "model_adapter_registry.py"
-    verification = modeling / "model_package_verification.py"
+    packages = PACKAGE_ROOT / "modeling" / "packages"
+    ports = packages / "ports.py"
+    registry = packages / "registry.py"
+    verification = packages / "verification.py"
+    loader = packages / "loader.py"
     adapters = PACKAGE_ROOT / "adapters"
 
     ports_forbidden = (
         "material_workbench.adapters",
-        "material_workbench.modeling.model_adapter_registry",
-        "material_workbench.modeling.model_package_verification",
+        "material_workbench.modeling.packages.registry",
+        "material_workbench.modeling.packages.verification",
+        "material_workbench.modeling.packages.loader",
     )
     assert sorted(
         name for name in _imports(ports) if name.startswith(ports_forbidden)
@@ -189,12 +191,20 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
     assert sorted(
         name
         for name in _imports(registry)
-        if name.startswith("material_workbench.modeling.model_package_verification")
+        if name.startswith(
+            (
+                "material_workbench.modeling.packages.verification",
+                "material_workbench.modeling.packages.loader",
+            )
+        )
     ) == []
     assert sorted(
         name
         for name in _imports(verification)
         if name.startswith("material_workbench.adapters")
+    ) == []
+    assert sorted(
+        name for name in _imports(loader) if name.startswith("material_workbench.adapters")
     ) == []
 
     offenders = {
@@ -202,7 +212,10 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
             name
             for name in _imports(path)
             if name.startswith(
-                "material_workbench.modeling.model_package_verification"
+                (
+                    "material_workbench.modeling.packages.verification",
+                    "material_workbench.modeling.packages.loader",
+                )
             )
         )
         for path in adapters.glob("*.py")

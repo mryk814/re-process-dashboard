@@ -16,7 +16,7 @@ from material_workbench.modeling.model_lifecycle import (
 from material_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
 )
-from material_workbench.modeling.model_package_contracts import PREDICTOR_RUNTIME_TYPES
+from material_workbench.modeling.packages.contracts import PREDICTOR_RUNTIME_TYPES
 from material_workbench.modeling.training_distance import (
     EvidenceContextIdentity,
     evidence_context_id,

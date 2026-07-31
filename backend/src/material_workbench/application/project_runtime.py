@@ -21,11 +21,9 @@ from material_workbench.data.profile_family_registry import (
 )
 from material_workbench.data.profiles.loading import load_task_definitions
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.model_package_contracts import PackageContractError
-from material_workbench.modeling.model_package_verification import (
-    ModelPackageLoader,
-    VerifiedModelPackage,
-)
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from material_workbench.task_composition.ports import PredictionRuntime
 from material_workbench.tasks.task_registry import (

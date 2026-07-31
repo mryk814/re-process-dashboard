@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping
 
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 
 
 @dataclass(frozen=True)

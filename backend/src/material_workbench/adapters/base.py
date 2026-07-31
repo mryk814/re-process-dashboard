@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictorSpec,
 )

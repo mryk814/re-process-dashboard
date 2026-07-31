@@ -110,7 +110,7 @@ build cleanup、evidence cleanup、明示的Workspace pruneも別commandへ分�
 ただし現行リポジトリとのdriftがあり、次を修正しました。
 
 - `add-prediction-task`: 存在しない `verify:focused` を `verify:edit` に更新。
-- `add-model-runtime`: Model Packageを`model_package_contracts.py`、`model_adapter_registry.py`、`model_package_verification.py`へ分けた現在のpathを反映。
+- `add-model-runtime`: Model Packageは`modeling/packages/`配下で、`contracts.py`、`ports.py`、`registry.py`、`verification.py`、`loader.py`の責務別pathを参照する。
 
 データを追加する人は `docs/operations/data-contributor-start-here.md`、
 アプリを開発する人は `docs/developer-start-here.md` を入口にします。

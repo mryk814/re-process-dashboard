@@ -5,13 +5,13 @@ or imports a model class named by a package.
 """
 from __future__ import annotations
 
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     MissingOptionalDependency,
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:

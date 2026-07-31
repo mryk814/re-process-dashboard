@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     DeterministicTransformSpec,
     PredictiveSummary,
     PredictorSpec,

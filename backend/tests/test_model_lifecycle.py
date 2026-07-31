@@ -26,8 +26,8 @@ from material_workbench.modeling.model_lifecycle import (
     validate_personal_model_store_path,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_package_contracts import PackageContractError
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.contracts import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
 )

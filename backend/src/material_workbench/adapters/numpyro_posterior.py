@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector, quantile_summary, scalar_config
 from .safe_npz import MAX_NPZ_COMPRESSION_RATIO, safe_npz_arrays
 

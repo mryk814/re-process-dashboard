@@ -5,13 +5,13 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     MissingOptionalDependency,
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:

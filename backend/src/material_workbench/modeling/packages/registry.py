@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from material_workbench.modeling.model_adapter_ports import Adapter
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.ports import Adapter
+from material_workbench.modeling.packages.contracts import (
     RUNTIME_TYPES,
     PackageContractError,
 )

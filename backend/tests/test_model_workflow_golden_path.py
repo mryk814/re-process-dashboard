@@ -33,7 +33,7 @@ from material_workbench.modeling.model_lifecycle import (  # noqa: E402
 from material_workbench.modeling.model_package_verify import (  # noqa: E402
     verify_model_package,
 )
-from material_workbench.modeling.model_package_verification import ModelPackageLoader  # noqa: E402
+from material_workbench.modeling.packages.loader import ModelPackageLoader  # noqa: E402
 from material_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
 
 

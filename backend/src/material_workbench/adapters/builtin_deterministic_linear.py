@@ -24,11 +24,11 @@ from material_workbench.contracts.stage_a_contracts import (
     STAGE_A_COMPONENTS,
     ScientificBlendInput,
 )
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     DeterministicTransformSpec,
     PackageContractError,
 )
-from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 
 
 def _semantic_digest(payload: Any) -> str:

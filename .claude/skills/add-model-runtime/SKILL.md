@@ -32,7 +32,7 @@ Horseshoe、反復観測を保持するheteroscedastic model、target別Feature 
 変更候補は次に限定する。
 
 1. `backend/src/material_workbench/adapters/<adapter>.py`: safe data-only loader、shape/finite/support検証、PredictiveSummary。
-2. `backend/src/material_workbench/modeling/model_package_contracts.py`: `RUNTIME_TYPES`と固定`architecture_id`。`backend/src/material_workbench/modeling/model_adapter_registry.py`: `AdapterRegistry`。
+2. `backend/src/material_workbench/modeling/packages/contracts.py`: `RUNTIME_TYPES`と固定`architecture_id`。`backend/src/material_workbench/modeling/packages/registry.py`: `AdapterRegistry`。adapter protocolは`ports.py`、byte/hash/path検証は`verification.py`、呼出し口は`loader.py`に置く。
 3. `backend/tests/`: golden、deterministic smoke、unknown schema、non-finite、shape、feature order、supportの拒否。
 4. `backend/scripts/`: trainer/export builder。training dependencyをPackageへ漏らさない。
 5. `examples/model-packages/`: inactive Package、hashed smoke、capability、target-specific quality report。

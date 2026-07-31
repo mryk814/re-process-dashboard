@@ -38,15 +38,13 @@ from material_workbench.modeling.hot_rolling_feature_pipeline import (
     build_hot_rolling_features_v2,
     candidate_from_observation,
 )
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
-from material_workbench.modeling.model_package_verification import (
-    ModelPackageLoader,
-    VerifiedModelPackage,
-)
+from material_workbench.modeling.packages.loader import ModelPackageLoader
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.tasks.task_registry import load_task_contracts
 
 TASK_ID = "hot-rolled-properties-v1"

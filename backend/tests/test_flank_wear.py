@@ -11,7 +11,7 @@ from material_workbench.modeling.flank_wear import TASK_ID, load_flank_wear_data
 from material_workbench.modeling.flank_wear_feature_pipeline import FEATURE_NAMES, build_flank_wear_features
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 from material_workbench.contracts.candidate_project_contracts import CandidateInput
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictorSpec,
     validate_predictive_summary,

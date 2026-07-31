@@ -23,7 +23,7 @@ from material_workbench.domain.series_curation import (
     build_series_features,
     canonicalize_series,
 )
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
     PipelineFeatureSpec,
 )

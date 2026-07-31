@@ -18,7 +18,7 @@ from material_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_SUBSYSTEM_ID,
     WELDING_TRANSFORM_SUBSYSTEM_ID,
 )
-from material_workbench.modeling.model_package_contracts import PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
 from material_workbench.persistence.store import ChainCatalogConflictError
 from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,

@@ -26,8 +26,8 @@ from material_workbench.persistence.workspace_catalog import (
     WorkspaceCatalog,
 )
 from material_workbench.persistence.sqlite_connection import sqlite_connection
-from material_workbench.modeling.model_package_contracts import PackageContractError
-from material_workbench.modeling.model_package_verification import ModelPackageLoader
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.model_lifecycle import (
     AVAILABLE_PACKAGES_PATH,
     runtime_capability_digest,

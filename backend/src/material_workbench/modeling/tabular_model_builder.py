@@ -18,9 +18,9 @@ from material_workbench.modeling.model_lifecycle import (
     staged_package_destination,
     task_input_contract_digest,
 )
-from material_workbench.modeling.model_package_contracts import FEATURE_DATASET_DIGEST_FLOAT15
+from material_workbench.modeling.packages.contracts import FEATURE_DATASET_DIGEST_FLOAT15
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_package_contracts import (
+from material_workbench.modeling.packages.contracts import (
     SourceLifecycleProvenance,
     validate_task_definition_canonical_inputs,
 )
