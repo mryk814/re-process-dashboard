@@ -607,6 +607,12 @@ export function ScreeningPage({
       onRunChange(created.id);
     } catch (cause) {
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
+      setResult(null);
+      setSelectedPointIndices([]);
+      setFocusedPointIndex(null);
+      setDetailItem(null);
+      setResultSurface("map");
+      onRunChange("");
       setError(
         `範囲探索を実行できませんでした。${cause instanceof Error && cause.message ? ` ${cause.message}` : ""}`,
       );

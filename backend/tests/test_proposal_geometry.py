@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from material_workbench.application.proposal_strategy_registry import (
+    resolve_strategy,
     strategy_availability,
 )
 from material_workbench.contracts.design_space_contracts import (
@@ -18,6 +19,7 @@ from material_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
 )
 from material_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
+from material_workbench.contracts.proposal_contracts import ProposalStrategyRequest
 from material_workbench.contracts.task_contracts import NumericRange
 from material_workbench.domain.proposal_generation import generate_candidates
 from material_workbench.domain.proposal_geometry import proposal_distance
@@ -286,6 +288,35 @@ def test_group_weighted_bounded_clr_does_not_dilute_composition_by_axis_count() 
         )
 
 
+def test_group_weighted_bounded_clr_uses_unconstrained_composition_axes() -> None:
+    base = _mpea_candidate("left")
+    changed = base.model_copy(deep=True)
+    changed.inputs.composition.update({"Fe": 60.0, "Ni": 20.0, "Co": 20.0})
+    space = _simplex_space().model_copy(
+        update={
+            "numeric_domains": tuple(
+                NumericDomain(
+                    path=f"composition.{key}",
+                    mode="range",
+                    range=NumericRange(min=0, max=100),
+                )
+                for key in ("Fe", "Ni", "Co")
+            ),
+            "fixed_values": {},
+            "composition_constraints": (),
+        }
+    )
+
+    distance = proposal_distance(
+        "group_weighted_bounded_clr_rms",
+        base,
+        changed,
+        space,
+    )
+
+    assert distance > 0
+
+
 def test_bounded_simplex_strategy_is_capability_gated_by_design_space() -> None:
     fixture = load_task_contracts()["mpea-hardness-process-v1"]
     objective = objective_from_screening(
@@ -510,3 +541,44 @@ def test_bounded_simplex_strategy_runs_through_api_and_persists_geometry(
     assert restored.status_code == 200
     assert restored.json()["proposal_strategy"] == run["proposal_strategy"]
     assert restored.json()["batch_proposal"] == run["batch_proposal"]
+
+
+def test_generic_generator_binds_composition_distance_to_varying_composition() -> None:
+    fixture = load_task_contracts()["mpea-hardness-process-v1"]
+    objective = objective_from_screening(
+        task=fixture.task_definition,
+        task_contract_digest=semantic_digest(
+            fixture.task_definition.model_dump(mode="json")
+        ),
+        target="HV",
+        target_goal=ScreeningGoal(direction="at_least", lower=300),
+        secondary_goals={},
+    )
+    available = {
+        item.definition.strategy_id: item
+        for item in strategy_availability(
+            fixture.runtime_capability,
+            target="HV",
+            target_kind="continuous",
+            objective=objective,
+            design_space=_simplex_space(),
+        )
+    }
+
+    latin = available["latin_hypercube_v1"].definition
+    assert latin.distance_id == "group_weighted_bounded_clr_rms"
+    assert latin.distance_version == "1.0.0"
+    assert latin.distance_parameters["composition_transform"] == (
+        "clr_rms_over_one_plus_clr_rms"
+    )
+
+    resolved, fallback_from = resolve_strategy(
+        ProposalStrategyRequest(strategy_id="latin_hypercube_v1"),
+        fixture.runtime_capability,
+        target="HV",
+        target_kind="continuous",
+        objective=objective,
+        design_space=_simplex_space(),
+    )
+    assert fallback_from is None
+    assert resolved.distance_id == "group_weighted_bounded_clr_rms"

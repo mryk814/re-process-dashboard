@@ -18,6 +18,11 @@ from material_workbench.contracts.design_space_contracts import DesignSpaceDefin
 from material_workbench.domain.proposal_generation import (
     bounded_simplex_compatibility,
 )
+from material_workbench.domain.proposal_geometry import (
+    COMPOSITION_DISTANCE_ID,
+    COMPOSITION_DISTANCE_VERSION,
+    DEFAULT_COMPOSITION_DISTANCE_PARAMETERS,
+)
 
 
 STRATEGIES = (
@@ -45,16 +50,9 @@ STRATEGIES = (
             "burn_in_steps": 256,
             "thinning_steps": 16,
         },
-        distance_id="group_weighted_bounded_clr_rms",
-        distance_version="1.0.0",
-        distance_parameters={
-            "zero_replacement": 1e-6,
-            "composition_transform": "clr_rms_over_one_plus_clr_rms",
-            "composition_weight": 1.0,
-            "process_weight": 1.0,
-            "categorical_weight": 1.0,
-            "heat_weight": 1.0,
-        },
+        distance_id=COMPOSITION_DISTANCE_ID,
+        distance_version=COMPOSITION_DISTANCE_VERSION,
+        distance_parameters=DEFAULT_COMPOSITION_DISTANCE_PARAMETERS,
         acquisition_id="goal_achievement",
         acquisition_version="1.0.0",
         selector_id="ranked_top_k",
@@ -228,15 +226,51 @@ def strategy_availability(
                 or primary[0].direction not in {"at_least", "at_most", "maximize", "minimize"}
             ):
                 reasons.append("UCB/EIには方向を持つ単一主目的が必要です")
+        effective_definition = _distance_aware_definition(
+            definition,
+            design_space,
+        )
         results.append(
             ProposalStrategyAvailability(
-                definition=definition,
+                definition=effective_definition,
                 target_acquisition_representations=representations,
                 available=not reasons,
                 reasons=tuple(reasons),
             )
         )
     return results
+
+
+def _distance_aware_definition(
+    definition: ProposalStrategyDefinition,
+    design_space: DesignSpaceDefinition | None,
+) -> ProposalStrategyDefinition:
+    """Bind diversity geometry to the actual variables of this Design Space.
+
+    Candidate generation and acquisition remain strategy-specific.  Distance
+    is a separate selector contract, so a generic generator can use the
+    simplex-aware composition geometry when composition axes vary.
+    """
+
+    if design_space is None or definition.distance_id != "scalar_axis_rms":
+        return definition
+    varying_paths = {
+        *(item.path for item in design_space.numeric_domains),
+        *(item.path for item in design_space.heat_pattern_domains),
+        *(item.path for item in design_space.categorical_domains),
+    }
+    varying_composition_paths = {
+        path for path in varying_paths if path.startswith("composition.")
+    }
+    if len(varying_composition_paths) < 2 and not design_space.composition_constraints:
+        return definition
+    return definition.model_copy(
+        update={
+            "distance_id": COMPOSITION_DISTANCE_ID,
+            "distance_version": COMPOSITION_DISTANCE_VERSION,
+            "distance_parameters": dict(DEFAULT_COMPOSITION_DISTANCE_PARAMETERS),
+        }
+    )
 
 
 def resolve_strategy(
