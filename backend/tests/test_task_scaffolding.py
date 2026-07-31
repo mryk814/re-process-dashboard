@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
 from material_workbench.app import create_app
+import material_workbench.api.csv_task_onboarding as csv_onboarding_module
 import material_workbench.bootstrap.contributions as contributions_module
 import material_workbench.bootstrap.startup as startup_module
 from material_workbench.bootstrap.resources import prepare_app_resources
@@ -42,6 +43,7 @@ from material_workbench.tasks.task_registry import load_task_contracts
 from material_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
 )
+from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,6 +102,46 @@ def _fields() -> list[ScaffoldField]:
             display_range=(250.0, 600.0),
         ),
     ]
+
+
+def _csv_fields_payload() -> list[dict[str, object]]:
+    return [
+        {
+            "column": field.column,
+            "role": field.role,
+            "key": field.key,
+            "label": field.label,
+            "unit": field.unit,
+            "goal_direction": field.goal_direction,
+            "allowed_range": field.allowed_range,
+            "default_range": field.default_range,
+            "training_range": field.training_range,
+            "plausible_range": field.plausible_range,
+            "display_range": field.display_range,
+        }
+        for field in _fields()
+    ]
+
+
+def _prepare_csv_onboarding(
+    client: TestClient,
+    *,
+    source: Path,
+    task_id: str,
+    label: str,
+) -> object:
+    with source.open("rb") as stream:
+        return client.post(
+            "/api/data-library/csv-onboarding/prepare",
+            files={"file": (source.name, stream, "text/csv")},
+            data={
+                "task_id": task_id,
+                "label": label,
+                "fields_json": json.dumps(_csv_fields_payload()),
+                "grain_confirmation": "one-row-one-observation",
+                "relation_confirmation": "no-relations",
+            },
+        )
 
 
 def test_inspect_new_excel_selects_sheet_without_modifying_source(
@@ -665,3 +707,140 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         provenance = snapshot.json()["payload"]["provenance"]
         assert provenance["training_data"]["source_sha256"] == response["source_sha256"]
         assert provenance["training_data"]["source_sha256"]
+
+
+def test_csv_onboarding_registration_failure_removes_new_task_and_package(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A failed Dataset registration is retryable with the same Task ID."""
+
+    task_id = "csv-ui-registration-failure-v1"
+    task_store = tmp_path / "personal-tasks"
+    model_store = tmp_path / "personal-models"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
+
+    def unavailable_chain(**_kwargs):
+        raise WeldingChainBootstrapError("not part of this Task smoke")
+
+    monkeypatch.setattr(contributions_module, "bootstrap_welding_chain", unavailable_chain)
+    app = create_app(
+        db_path=tmp_path / "workspace.db",
+        data_library_path=tmp_path / "data-library",
+        model_store_path=model_store,
+        _resources=resources,
+    )
+    source = _source(tmp_path / "new-source.csv")
+    original_register = csv_onboarding_module.register_managed_dataset
+
+    def fail_registration(**_kwargs):
+        raise RuntimeError(f"private registration failure at {task_store}")
+
+    monkeypatch.setattr(
+        csv_onboarding_module,
+        "register_managed_dataset",
+        fail_registration,
+    )
+    with TestClient(app) as client:
+        failed = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="登録失敗の検証",
+        )
+        assert failed.status_code == 422, failed.text
+        message = failed.json()["message"]
+        assert message == (
+            "DatasetをData Libraryへ登録できませんでした。"
+            "準備した内容は取り消しました。もう一度試してください。"
+        )
+        assert str(task_store) not in message
+        assert not (task_store / task_id).exists()
+        assert not (model_store / "packages" / f"{task_id}-personal-1").exists()
+        options = client.get("/api/project-creation-options")
+        assert options.status_code == 200, options.text
+        assert not any(item["task_id"] == task_id for item in options.json()["model_packages"])
+
+        monkeypatch.setattr(
+            csv_onboarding_module,
+            "register_managed_dataset",
+            original_register,
+        )
+        retried = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="登録失敗の検証",
+        )
+        assert retried.status_code == 200, retried.text
+
+
+def test_csv_onboarding_refresh_failure_rolls_back_dataset_and_hides_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A later refresh failure removes all request-owned registration state."""
+
+    task_id = "csv-ui-refresh-failure-v1"
+    task_store = tmp_path / "personal-tasks"
+    model_store = tmp_path / "personal-models"
+    database = tmp_path / "workspace.db"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
+
+    def unavailable_chain(**_kwargs):
+        raise WeldingChainBootstrapError("not part of this Task smoke")
+
+    monkeypatch.setattr(contributions_module, "bootstrap_welding_chain", unavailable_chain)
+    app = create_app(
+        db_path=database,
+        data_library_path=tmp_path / "data-library",
+        model_store_path=model_store,
+        _resources=resources,
+    )
+    source = _source(tmp_path / "new-source.csv")
+
+    with TestClient(app) as client:
+        refresh = app.state.refresh_task_resources
+
+        async def fail_refresh() -> object:
+            raise RuntimeError(f"private refresh failure at {model_store}")
+
+        app.state.refresh_task_resources = fail_refresh
+        failed = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="再読込失敗の検証",
+        )
+        assert failed.status_code == 422, failed.text
+        message = failed.json()["message"]
+        assert message == (
+            "新しいTaskを再読込できませんでした。"
+            "準備した内容は取り消しました。もう一度試してください。"
+        )
+        assert str(model_store) not in message
+        assert not (task_store / task_id).exists()
+        assert not (model_store / "packages" / f"{task_id}-personal-1").exists()
+        catalog = WorkspaceCatalog(database)
+        assert not any(
+            item.profile_id == f"{task_id}-profile"
+            for item in catalog.list_profile_revisions(include_archived=True)
+        )
+        assert not any(
+            task_id in item.view_id
+            for item in catalog.list_dataset_view_revisions(include_archived=True)
+        )
+        options = client.get("/api/project-creation-options")
+        assert options.status_code == 200, options.text
+        assert not any(item["task_id"] == task_id for item in options.json()["model_packages"])
+
+        app.state.refresh_task_resources = refresh
+        retried = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="再読込失敗の検証",
+        )
+        assert retried.status_code == 200, retried.text

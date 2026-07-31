@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { apiBaseUrl } from "./helpers";
 
 test("Data Library keeps models in the selected dataset context", async ({ page }) => {
   await page.goto("/?view=data-library");
@@ -35,6 +36,55 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(commands).not.toHaveValue(/npm run dev/);
   await expect(page.getByRole("button", { name: "個人Taskとモデルを再読込" })).toBeVisible();
   await expect(guide).toContainText("保存済み予測は再計算されません");
+});
+
+test("Task refresh only announces Project availability for a matching Dataset", async ({ page }) => {
+  await page.goto("/?view=data-library");
+  const [packagesResponse, datasetsResponse] = await Promise.all([
+    page.request.get(`${apiBaseUrl}/api/data-library/model-packages?include_archived=true`),
+    page.request.get(`${apiBaseUrl}/api/data-library/datasets?include_archived=true`),
+  ]);
+  expect(packagesResponse.status()).toBe(200);
+  expect(datasetsResponse.status()).toBe(200);
+  const packages = await packagesResponse.json() as Array<Record<string, unknown>>;
+  const datasets = await datasetsResponse.json() as Array<Record<string, unknown>>;
+  const matchingPackageId = packages.find((modelPackage) => {
+    const manifest = modelPackage.manifest_json as { provenance?: Record<string, unknown> } | undefined;
+    const provenance = manifest?.provenance;
+    const trainingDataId = provenance?.training_data_id;
+    const profileDigest = provenance?.dataset_profile_id;
+    return typeof trainingDataId === "string" && datasets.some((dataset) => {
+      const asset = dataset.data_asset as { sha256?: string } | undefined;
+      const profile = dataset.profile_revision as { profile_digest?: string } | undefined;
+      return `sha256:${asset?.sha256}` === trainingDataId
+        && (profileDigest == null || profile?.profile_digest === profileDigest);
+    });
+  })?.id as string | undefined;
+  expect(matchingPackageId).toBeTruthy();
+
+  let addedPackageId = "without-dataset-package";
+  await page.route("**/api/data-library/tasks/refresh", async (route) => {
+    await route.fulfill({
+      json: {
+        task_ids: ["without-dataset-task-v1"],
+        added_task_ids: ["without-dataset-task-v1"],
+        model_package_ids: [addedPackageId],
+        added_model_package_ids: [addedPackageId],
+        warnings: [],
+      },
+    });
+  });
+  const selectedDataset = page.locator(".dataset-context");
+  await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
+  const guide = page.getByRole("region", { name: "モデルを追加する" });
+  const refresh = guide.getByRole("button", { name: "個人Taskとモデルを再読込" });
+  await refresh.click();
+  await expect(guide.getByRole("status")).toContainText("対応するDatasetが登録されていないためProject作成にはまだ使えません");
+  await expect(guide.getByRole("status")).not.toContainText("Project作成で選べます");
+
+  addedPackageId = matchingPackageId!;
+  await refresh.click();
+  await expect(guide.getByRole("status")).toContainText("Project作成で選べます");
 });
 
 test("Data Library separates update, mapping, and new Task onboarding", async ({ page }, testInfo) => {
@@ -98,11 +148,18 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
 });
 
 test("private CSV is prepared into the exact Dataset, Task, and Package binding", async ({ page }) => {
-  const rows = Array.from({ length: 30 }, (_, index) => [
-    (0.1 + index * 0.01).toFixed(2),
-    String(700 + index * 4),
+  test.setTimeout(120_000);
+  const rows = Array.from({ length: 103 }, (_, index) => [
+    (0.01 + index * 0.01).toFixed(2),
+    String(1 + index),
+    String(700 + index * 2),
+    (10 + index * 0.5).toFixed(1),
+    String(100 + index),
+    String(200 + index * 3),
     index % 2 ? "B" : "A",
-    String(300 + index * 7 + (index % 2 ? 12 : 0)),
+    String(300 + index * 4),
+    String(100 + index * 2),
+    String(40 + index),
   ].join(","));
   await page.goto("/?view=data-library");
   const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
@@ -110,39 +167,44 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   const onboarding = page.getByRole("region", { name: "完全に新しいTaskを準備" });
   await expect(onboarding.getByRole("button", { name: "CSVをプレビュー" })).toBeDisabled();
   await onboarding.locator('input[type="file"]').setInputFiles({
-    name: "private-new-task.csv",
+    name: "private-103-row-task.csv",
     mimeType: "text/csv",
-    buffer: Buffer.from(`carbon,temperature,route,strength\n${rows.join("\n")}\n`),
+    buffer: Buffer.from(`composition_a,composition_b,process_a,process_b,process_c,process_d,route,target_a,target_b,target_c\n${rows.join("\n")}\n`),
   });
   await onboarding.getByRole("button", { name: "CSVをプレビュー" }).click();
-  await expect(onboarding).toContainText("30行・4列・relations 0件");
+  await expect(onboarding).toContainText("103行・10列・relations 0件");
   const prepare = onboarding.getByRole("button", { name: "Task・モデル・Datasetを準備してProject作成へ" });
   await expect(prepare).toBeDisabled();
-  await onboarding.getByLabel("Task ID").fill("browser-private-strength-v1");
-  await onboarding.getByLabel("表示名").first().fill("ブラウザ私有強度");
+  await onboarding.getByLabel("Task ID").fill("browser-private-103-row-v1");
+  await onboarding.getByLabel("表示名").first().fill("ブラウザ103行の新規Task");
 
-  const carbon = onboarding.locator(".csv-task-columns article").filter({ hasText: "carbon" });
-  await carbon.getByLabel("役割").selectOption("composition");
-  await carbon.getByLabel("単位").fill("%");
-  await carbon.getByLabel("物理的許容範囲 min,max").fill("0,2");
-  await carbon.getByLabel("通常範囲 min,max").fill("0.05,0.5");
-  await carbon.getByLabel("学習範囲 min,max").fill("0.1,0.39");
-
-  const temperature = onboarding.locator(".csv-task-columns article").filter({ hasText: "temperature" });
-  await temperature.getByLabel("役割").selectOption("process");
-  await temperature.getByLabel("単位").fill("°C");
-  await temperature.getByLabel("物理的許容範囲 min,max").fill("20,1500");
-  await temperature.getByLabel("通常範囲 min,max").fill("650,900");
-  await temperature.getByLabel("学習範囲 min,max").fill("700,816");
-
-  const route = onboarding.locator(".csv-task-columns article").filter({ hasText: "route" });
-  await route.getByLabel("役割").selectOption("categorical");
-
-  const strength = onboarding.locator(".csv-task-columns article").filter({ hasText: "strength" });
-  await strength.getByLabel("役割").selectOption("output");
-  await strength.getByLabel("単位").fill("MPa");
-  await strength.getByLabel("妥当範囲 min,max").fill("0,2000");
-  await strength.getByLabel("表示範囲 min,max").fill("250,600");
+  const inputColumns = [
+    { role: "composition", unit: "%", training: "0.01,1.03" },
+    { role: "composition", unit: "%", training: "1,103" },
+    { role: "process", unit: "°C", training: "700,904" },
+    { role: "process", unit: "s", training: "10,61" },
+    { role: "process", unit: "N", training: "100,202" },
+    { role: "process", unit: "rpm", training: "200,506" },
+  ];
+  const cards = onboarding.locator(".csv-task-columns article");
+  for (const [index, input] of inputColumns.entries()) {
+    const card = cards.nth(index);
+    await card.getByLabel("役割").selectOption(input.role);
+    await card.getByLabel("単位").fill(input.unit);
+    await card.getByLabel("物理的許容範囲 min,max").fill("0,2000");
+    await card.getByLabel("通常範囲 min,max").fill("0,2000");
+    await card.getByLabel("学習範囲 min,max").fill(input.training);
+  }
+  await cards.nth(6).getByLabel("役割").selectOption("categorical");
+  for (const index of [7, 8, 9]) {
+    const card = cards.nth(index);
+    await card.getByLabel("役割").selectOption("output");
+    await card.getByLabel("単位").fill("MPa");
+    await card.getByLabel("妥当範囲 min,max").fill("0,2000");
+    await card.getByLabel("表示範囲 min,max").fill("0,2000");
+  }
+  await expect(onboarding).toContainText("入力 7項目");
+  await expect(onboarding).toContainText("出力 3項目");
 
   await expect(prepare).toBeDisabled();
   await onboarding.getByLabel("1行=1観測であることを確認した").check();
@@ -152,7 +214,14 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
 
   const prepared = page.waitForResponse((response) => response.url().includes("/api/data-library/csv-onboarding/prepare") && response.status() === 200);
   await prepare.click();
-  const binding = await (await prepared).json() as { dataset_view_revision_id: string; task_id: string; model_package_ref_id: string };
+  const binding = await (await prepared).json() as {
+    dataset_view_revision_id: string;
+    dataset_revision_id: string;
+    task_id: string;
+    model_package_ref_id: string;
+    source_sha256: string;
+  };
+  expect(binding.source_sha256).toMatch(/^[a-f0-9]{64}$/);
   await expect(page).toHaveURL(/view=project/);
   const creation = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(creation).toBeVisible();
@@ -160,6 +229,22 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await expect(selects.nth(0)).toHaveValue(binding.dataset_view_revision_id);
   await expect(selects.nth(1)).toHaveValue(`task:${binding.task_id}`);
   await expect(selects.nth(2)).toHaveValue(binding.model_package_ref_id);
+  await creation.getByLabel("プロジェクト名").fill("103行CSV UI-only Project");
+  const createdResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/api/projects")
+    && response.status() === 201
+  ));
+  await creation.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
+  const project = await (await createdResponse).json() as {
+    id: string;
+    task_id: string;
+    dataset_view_revision_id: string;
+    model_package_ref_id: string;
+  };
+  expect(project.task_id).toBe(binding.task_id);
+  expect(project.dataset_view_revision_id).toBe(binding.dataset_view_revision_id);
+  expect(project.model_package_ref_id).toBe(binding.model_package_ref_id);
 });
 
 test("Data Library blocks model updates when an exact personal Profile is missing", async ({ page }) => {

@@ -21,11 +21,14 @@ from material_workbench.developer_experience.task_scaffolding import (
     validate_personal_task_store_path,
 )
 from material_workbench.modeling.model_lifecycle import (
+    AvailablePackagesConfig,
     canonical_training_dataset,
     canonical_training_dataset_digest,
     ensure_available_packages_config,
+    load_available_packages,
     register_available_package,
     staged_package_destination,
+    validate_personal_model_store_path,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
 from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
@@ -160,3 +163,57 @@ def promote_personal_package(
         "available_package": destination.relative_to(available_config.parent).as_posix(),
         "available_package_count": len(available.packages),
     }
+
+
+def rollback_promoted_personal_package(
+    promotion: dict[str, Any],
+    *,
+    store: Path,
+) -> None:
+    """Compensate a promotion that has not yet become a runtime resource."""
+
+    if not promotion.get("promoted"):
+        return
+    rollback_personal_package_attempt(
+        Path(str(promotion["trusted_package"])).name,
+        store=store,
+    )
+
+
+def rollback_personal_package_attempt(
+    package_id: str,
+    *,
+    store: Path,
+) -> None:
+    """Remove a just-created personal Package and its availability entry.
+
+    Callers must establish that ``package_id`` did not exist before the
+    attempt.  Keeping that precondition at the caller makes this usable for a
+    failed promotion as well as a successful promotion that later fails to
+    register its Dataset.
+    """
+
+    models_root = validate_personal_model_store_path(store)
+    destination = (models_root / "packages" / package_id).resolve()
+    packages_root = (models_root / "packages").resolve()
+    if destination.parent != packages_root:
+        raise ValueError("onboarding package destination leaves the personal model store")
+    relative = destination.relative_to(models_root).as_posix()
+    config_path = models_root / "available-packages.json"
+    if config_path.is_file():
+        config = load_available_packages(config_path)
+        if relative in config.packages:
+            updated = AvailablePackagesConfig(
+                schema_version=config.schema_version,
+                packages=tuple(item for item in config.packages if item != relative),
+            )
+            temporary = config_path.with_suffix(config_path.suffix + ".onboarding-rollback")
+            temporary.write_text(
+                json.dumps(updated.model_dump(mode="json"), ensure_ascii=False, indent=2)
+                + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            temporary.replace(config_path)
+    if destination.exists():
+        shutil.rmtree(destination)

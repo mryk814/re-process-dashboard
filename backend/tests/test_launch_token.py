@@ -7,6 +7,7 @@ import subprocess
 from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
+from material_workbench.bootstrap.startup import default_data_library_path
 from material_workbench.bootstrap.resources import AppResources
 
 
@@ -141,11 +142,13 @@ def test_main_workspace_flag_ignores_environment_workspace_override(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[2]
+    local_app_data = tmp_path / "user-owned-data"
     result = subprocess.run(
         ["node", "scripts/dev-launcher.mjs", "--check", "--main-workspace"],
         cwd=root,
         env={
             **os.environ,
+            "LOCALAPPDATA": str(local_app_data),
             "WORKBENCH_DB_PATH": str(tmp_path / "wrong.db"),
             "WORKBENCH_DATA_LIBRARY_PATH": str(tmp_path / "wrong-library"),
         },
@@ -158,7 +161,25 @@ def test_main_workspace_flag_ignores_environment_workspace_override(
 
     assert payload["workspaceSource"] == "main"
     assert Path(payload["workspaceDatabase"]) == root / "data" / "workbench.db"
-    assert Path(payload["workspaceDataLibrary"]) == root / "data" / "data-library"
+    expected_library = local_app_data / "Material Decision Workbench" / "data-library"
+    assert Path(payload["workspaceDataLibrary"]) == expected_library
+    assert root not in expected_library.parents
+
+
+def test_main_workspace_backend_defaults_to_a_user_owned_data_library(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[2]
+    local_app_data = tmp_path / "user-owned-data"
+    monkeypatch.setenv("LOCALAPPDATA", str(local_app_data))
+
+    data_library = default_data_library_path(root / "data" / "workbench.db")
+
+    assert data_library == (
+        local_app_data / "Material Decision Workbench" / "data-library"
+    ).resolve()
+    assert root not in data_library.parents
 
 
 def test_workspace_seed_refuses_environment_selected_workspace(

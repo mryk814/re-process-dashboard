@@ -116,8 +116,16 @@ export function DataLibraryPage({
         setOptions(nextOptions);
         setDatasets(nextDatasets);
         setModelPackages(nextModelPackages);
+        return {
+          options: nextOptions,
+          datasets: nextDatasets,
+          modelPackages: nextModelPackages,
+        };
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。"))
+      .catch((cause) => {
+        setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。");
+        return null;
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { void load(); }, []);
@@ -355,7 +363,7 @@ export function DataLibraryPage({
     try {
       const result = await workbenchApi.refreshTaskResources();
       const warnings = result.warnings ?? [];
-      await load();
+      const refreshedLibrary = await load();
       setRefreshWarnings(warnings);
       const addedTaskIds = result.added_task_ids ?? [];
       const addedModelPackageIds = result.added_model_package_ids ?? [];
@@ -363,10 +371,26 @@ export function DataLibraryPage({
         ...(addedTaskIds.length > 0 ? [`新しいTask ${addedTaskIds.length}件`] : []),
         ...(addedModelPackageIds.length > 0 ? [`新しいModel Package ${addedModelPackageIds.length}件`] : []),
       ];
+      const selectablePackageIds = new Set(
+        addedModelPackageIds.filter((packageId) => {
+          const modelPackage = refreshedLibrary?.modelPackages.find((item) => item.id === packageId);
+          const dataset = trainingDataset(modelPackage, refreshedLibrary?.datasets ?? []);
+          return Boolean(
+            modelPackage
+            && dataset?.dataset_views?.some((view) => view.kind === "single")
+            && dataset.supported_task_ids.includes(modelPackage.task_id)
+            && refreshedLibrary?.options.task_contract_digests[modelPackage.task_id] === modelPackage.task_contract_digest,
+          );
+        }),
+      );
       setRefreshMessage(warnings.length > 0
         ? `${added.length > 0 ? `${added.join("・")}を反映。` : ""}${warnings.length}件は検証で除外されました。`
-        : added.length > 0
+        : refreshedLibrary === null
+          ? "再読込は完了しましたが、Data Libraryを確認できませんでした。Project作成はData Libraryを再読み込みしてから確認してください。"
+          : selectablePackageIds.size > 0
           ? `${added.join("・")}を反映しました。Project作成で選べます。`
+          : added.length > 0
+            ? `${added.join("・")}を再読込しましたが、対応するDatasetが登録されていないためProject作成にはまだ使えません。`
           : "再読込は完了しました。新しく反映するTask／Model Packageはありません。");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "個人Model Packageを再読込できませんでした。");
