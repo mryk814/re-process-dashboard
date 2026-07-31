@@ -179,8 +179,13 @@ def test_register_adds_managed_dataset_and_reuses_duplicate(client: TestClient) 
         if item["dataset_revision"]["id"] == first_body["dataset_revision_id"]
     )
     assert registered["data_asset"]["locator_kind"] == "managed"
-    assert Path(registered["data_asset"]["locator"]).is_file()
-    assert Path(registered["data_asset"]["locator"]).is_relative_to(client.app.state.data_library_root)
+    asset = client.app.state.workspace_catalog.get_data_asset(
+        registered["data_asset"]["id"]
+    )
+    assert asset is not None
+    locator = Path(asset.locator)
+    assert locator.is_file()
+    assert locator.is_relative_to(client.app.state.data_library_root)
 
     second = client.post(
         "/api/profile-workbench/register",
@@ -247,7 +252,9 @@ def test_register_update_rejects_unchanged_source(client: TestClient) -> None:
         for item in client.get("/api/data-library/datasets").json()
         if item["profile_revision"]["profile_digest"] == profile["profile_digest"]
     )
-    contents = Path(base["data_asset"]["locator"]).read_bytes()
+    asset = client.app.state.workspace_catalog.get_data_asset(base["data_asset"]["id"])
+    assert asset is not None
+    contents = Path(asset.locator).read_bytes()
 
     response = client.post(
         "/api/profile-workbench/register",
@@ -482,7 +489,8 @@ def test_binding_draft_saves_standalone_profile_and_registers_in_same_session(
         for item in client.get("/api/data-library/datasets").json()
         if item["dataset_revision"]["id"] == registered.json()["dataset_revision_id"]
     )
-    assert Path(registered_dataset["profile_locator"]) == locator
+    assert registered_dataset["profile_available"] is True
+    assert "profile_locator" not in registered_dataset
 
 
 def test_binding_draft_keeps_ambiguous_column_unresolved(
