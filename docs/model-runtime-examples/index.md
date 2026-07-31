@@ -41,7 +41,7 @@ Registry、本番TaskDefinition、有効な選択状態は編集しません。
 新しい安全なモデル成果物構造が本当に必要な場合に限り、次のアプリケーションファイルを追加します。
 
 - `backend/src/material_workbench/adapters/<adapter>.py`
-- `backend/src/material_workbench/modeling/model_packages.py` 内の `RUNTIME_TYPES`、`PredictorSpec` の構造検証、`AdapterRegistry`
+- `backend/src/material_workbench/modeling/model_package_contracts.py` の `RUNTIME_TYPES`・`PredictorSpec`構造検証と、`model_adapter_registry.py` の `AdapterRegistry`
 - `backend/tests/` 内のアダプター契約テストと敵対的テスト
 - `docs/contracts/model-package-contract.md` 内のランタイム表
 - この索引と1個の入出力カード

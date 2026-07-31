@@ -15,7 +15,7 @@ if __package__ in {None, ""}:
 from material_workbench.contracts.model_example_contracts import ExampleQualityReport, ExampleSmokeExpected, ExampleSmokeInput
 from material_workbench.modeling.model_lifecycle import staged_package_destination
 from material_workbench.modeling.model_package_verify import verify_model_package_example
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.contracts.task_contracts import TargetRuntimeCapability
 
 

@@ -39,11 +39,9 @@ from material_workbench.modeling.model_lifecycle import REPOSITORY_ROOT
 from material_workbench.modeling.model_package_verify import (
     verify_deterministic_transform_package,
 )
-from material_workbench.modeling.model_packages import (
-    ModelPackageLoader,
-    PackageContractError,
-    VerifiedModelPackage,
-)
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 
 
 class DeterministicTransformCatalogUnavailableError(PackageContractError):

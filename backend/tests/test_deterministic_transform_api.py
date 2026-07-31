@@ -12,7 +12,7 @@ from material_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
 )
 from material_workbench.contracts.stage_a_contracts import STAGE_A_COMPONENTS
-from material_workbench.modeling.model_packages import PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
 from material_workbench.modeling.transform_catalog import (
     load_deterministic_transform_catalog,
 )

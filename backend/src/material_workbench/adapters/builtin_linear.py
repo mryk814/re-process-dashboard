@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.packages.contracts import (
+    PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
+)
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 from .safe_npz import safe_npz_arrays
 
@@ -34,7 +39,7 @@ class _BuiltinLinearPredictor:
 class BuiltinLinearAdapter:
     runtime_type = "builtin.linear.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _BuiltinLinearPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _BuiltinLinearPredictor:
         if predictor.predictive_family != "empirical_quantiles":
             raise PackageContractError("builtin.linear.v1 requires empirical_quantiles")
         arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=4)

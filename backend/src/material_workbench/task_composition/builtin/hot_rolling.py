@@ -21,7 +21,7 @@ from material_workbench.task_composition.descriptors import (
 from material_workbench.task_composition.ports import DataDescriptor, PredictionRuntime
 
 if TYPE_CHECKING:
-    from material_workbench.modeling.model_packages import VerifiedModelPackage
+    from material_workbench.modeling.packages.verification import VerifiedModelPackage
 
 
 HOT_ROLLING_TASK_ID = "hot-rolled-properties-v1"

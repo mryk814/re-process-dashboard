@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from material_workbench.modeling.model_lifecycle import canonical_training_dataset
 from material_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.training.estimators import exact_gp
 from material_workbench.modeling.training.estimators import lightgbm
 from material_workbench.modeling.training.estimators import ridge

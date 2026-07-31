@@ -114,7 +114,7 @@ DataDescriptor（宣言済みの共通面）
 
 | 側面 | 正本 |
 | --- | --- |
-| 契約 | [docs/contracts/model-package-contract.md](../contracts/model-package-contract.md)、[modeling/model_packages.py](../../backend/src/material_workbench/modeling/model_packages.py) |
+| 契約 | [docs/contracts/model-package-contract.md](../contracts/model-package-contract.md)、[contracts.py](../../backend/src/material_workbench/modeling/packages/contracts.py)、[ports.py](../../backend/src/material_workbench/modeling/packages/ports.py)、[registry.py](../../backend/src/material_workbench/modeling/packages/registry.py)、[verification.py](../../backend/src/material_workbench/modeling/packages/verification.py)、[loader.py](../../backend/src/material_workbench/modeling/packages/loader.py) |
 | adapter allow-list | `backend/src/material_workbench/adapters/`（allow-listされたadapter群） |
 | lifecycle | [modeling/model_lifecycle.py](../../backend/src/material_workbench/modeling/model_lifecycle.py)、`models/active-packages.json` |
 | 標準モデル宣言 | `TaskModule.standard_model_authoring`（学習候補生成、許可estimator、既定estimator） |

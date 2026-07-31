@@ -31,7 +31,8 @@ from material_workbench.modeling.model_lifecycle import (
     validate_personal_model_store_path,
 )
 from material_workbench.modeling.model_package_verify import verify_model_package
-from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.training.package_assembler import build_standard_model_package
 from material_workbench.modeling.training.recipe import estimator_recipe
 from material_workbench.task_composition.catalog import resolve_task_source, task_module

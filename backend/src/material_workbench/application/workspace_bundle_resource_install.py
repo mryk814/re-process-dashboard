@@ -10,7 +10,7 @@ from material_workbench.contracts.workspace_bundle_contracts import (
     WorkspaceBundleManifest,
     WorkspaceBundleResource,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.persistence.sqlite_connection import (
     connect_sqlite,
     validate_sqlite_foreign_keys,

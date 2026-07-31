@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any, Literal, Mapping
 
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.model_packages import FeaturePipelineSpec, VerifiedModelPackage
+from material_workbench.modeling.packages.contracts import FeaturePipelineSpec
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from material_workbench.contracts.candidate_project_contracts import CandidateInput
 from material_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition

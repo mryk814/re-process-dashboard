@@ -5,12 +5,12 @@ import math
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
-    VerifiedModelPackage,
 )
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 from .safe_npz import safe_npz_arrays
 
@@ -111,7 +111,7 @@ class BuiltinHeteroscedasticExactGPAdapter:
 
     def load(
         self,
-        package: VerifiedModelPackage,
+        package: VerifiedPackageArtifacts,
         predictor: PredictorSpec,
     ) -> _HeteroscedasticExactGPPredictor:
         if (

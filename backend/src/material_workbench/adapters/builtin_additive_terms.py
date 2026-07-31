@@ -6,14 +6,14 @@ from typing import Literal
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.packages.contracts import (
     AdditiveExplanation,
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
     TermContribution,
-    VerifiedModelPackage,
 )
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 from .safe_npz import safe_npz_arrays
 
@@ -117,7 +117,7 @@ class _AdditivePredictor:
 class BuiltinAdditiveTermsAdapter:
     runtime_type = "builtin.additive_terms.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _AdditivePredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _AdditivePredictor:
         if predictor.architecture_id != "additive_terms_v1" or predictor.predictive_family not in {"empirical_quantiles", "normal"}:
             raise PackageContractError("builtin additive terms requires additive_terms_v1 and a supported family")
         if predictor.config.get("link_id") != "identity" or predictor.config.get("extrapolation") != "constant_boundary":

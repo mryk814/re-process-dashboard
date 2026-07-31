@@ -171,6 +171,70 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
     assert "material_workbench.data.profiles.validation" in imports["canonicalization"]
 
 
+def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
+    packages = PACKAGE_ROOT / "modeling" / "packages"
+    ports = packages / "ports.py"
+    registry = packages / "registry.py"
+    verification = packages / "verification.py"
+    loader = packages / "loader.py"
+    adapters = PACKAGE_ROOT / "adapters"
+
+    ports_forbidden = (
+        "material_workbench.adapters",
+        "material_workbench.modeling.packages.registry",
+        "material_workbench.modeling.packages.verification",
+        "material_workbench.modeling.packages.loader",
+    )
+    assert sorted(
+        name for name in _imports(ports) if name.startswith(ports_forbidden)
+    ) == []
+    assert sorted(
+        name
+        for name in _imports(registry)
+        if name.startswith(
+            (
+                "material_workbench.modeling.packages.verification",
+                "material_workbench.modeling.packages.loader",
+            )
+        )
+    ) == []
+    assert sorted(
+        name
+        for name in _imports(verification)
+        if name.startswith("material_workbench.adapters")
+    ) == []
+    assert sorted(
+        name for name in _imports(loader) if name.startswith("material_workbench.adapters")
+    ) == []
+    verification_definitions = {
+        node.name
+        for node in ast.parse(verification.read_text(encoding="utf-8")).body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    loader_definitions = {
+        node.name
+        for node in ast.parse(loader.read_text(encoding="utf-8")).body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "ModelPackageLoader" not in verification_definitions
+    assert "ModelPackageLoader" in loader_definitions
+
+    offenders = {
+        path.name: sorted(
+            name
+            for name in _imports(path)
+            if name.startswith(
+                (
+                    "material_workbench.modeling.packages.verification",
+                    "material_workbench.modeling.packages.loader",
+                )
+            )
+        )
+        for path in adapters.glob("*.py")
+    }
+    assert {path: names for path, names in offenders.items() if names} == {}
+
+
 def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependency() -> None:
     forbidden = (
         "material_workbench.application",

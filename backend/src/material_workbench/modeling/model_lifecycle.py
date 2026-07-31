@@ -23,13 +23,13 @@ from material_workbench.data.profile_family_registry import (
     normalize_profile_digest_payload,
     profile_output_columns,
 )
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.packages.contracts import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
     FeatureDatasetDigestAlgorithm,
     PackageContractError,
-    VerifiedModelPackage,
 )
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.task_composition.catalog import (
     registered_task_modules,
     task_module,

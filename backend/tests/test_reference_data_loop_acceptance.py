@@ -36,7 +36,7 @@ from material_workbench.contracts.data_lifecycle_contracts import (
     SourceConnectorCreateInput,
 )
 from material_workbench.execution.inference_work_graph import semantic_digest
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.packages.contracts import (
     ProvenanceSpec,
     SourceLifecycleProvenance,
 )

@@ -18,7 +18,7 @@ from material_workbench.contracts.workspace_bundle_contracts import (
     WorkspaceBundleResource,
     WorkspaceRestorePrepared,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
 )

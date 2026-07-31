@@ -36,7 +36,7 @@ from material_workbench.contracts.stage_a_contracts import (
     STAGE_A_SOURCE_COMPONENT_COLUMNS,
     ScientificBlendInput,
 )
-from material_workbench.modeling.model_packages import DeterministicTransformSpec
+from material_workbench.modeling.packages.contracts import DeterministicTransformSpec
 
 
 DEFAULT_SOURCE = Path("data/source/welding_consumable_multistage_synthetic_dataset.xlsx")

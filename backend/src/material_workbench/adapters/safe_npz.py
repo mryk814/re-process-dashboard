@@ -6,7 +6,7 @@ from zipfile import BadZipFile, ZipFile
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
 
 
 MAX_NPZ_ENTRIES = 64

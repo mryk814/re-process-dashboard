@@ -30,7 +30,8 @@ from material_workbench.application.workspace_catalog_bootstrap import (
 )
 from material_workbench.data.profile_family_registry import supported_task_ids
 from material_workbench.data.profile_workbench import profile_locator_for_digest
-from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.model_lifecycle import MODELS_ROOT
 
 

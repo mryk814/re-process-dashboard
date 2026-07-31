@@ -106,8 +106,8 @@ def test_repo_skills_reference_current_commands_and_paths() -> None:
     assert "verify:edit" in package_scripts
     assert "verify:focused" not in prediction_skill
     assert "npm.cmd run verify:edit" in prediction_skill
-    assert "backend/src/material_workbench/modeling/model_packages.py" in runtime_skill
-    assert (ROOT / "backend/src/material_workbench/modeling/model_packages.py").is_file()
+    assert "backend/src/material_workbench/modeling/packages/registry.py" in runtime_skill
+    assert (ROOT / "backend/src/material_workbench/modeling/packages/registry.py").is_file()
 
 
 def test_dataset_authoring_commands_refuse_source_root() -> None:

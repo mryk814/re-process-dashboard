@@ -23,7 +23,8 @@ from material_workbench.contracts.stage_a_contracts import ScientificBlendInput
 from material_workbench.modeling.model_package_verify import (
     verify_deterministic_transform_package,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader, PackageContractError
+from material_workbench.modeling.packages.contracts import PackageContractError
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.packages.contracts import (
+    PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
+)
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 from .safe_npz import safe_npz_arrays
 
@@ -39,7 +44,7 @@ class _QuantileLinearPredictor:
 class BuiltinQuantileLinearAdapter:
     runtime_type = "builtin.quantile_linear.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _QuantileLinearPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _QuantileLinearPredictor:
         if predictor.architecture_id != "quantile_linear_v1" or predictor.predictive_family != "empirical_quantiles":
             raise PackageContractError("builtin quantile linear requires quantile_linear_v1 empirical quantiles")
         arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=3)

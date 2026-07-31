@@ -13,7 +13,7 @@ import pytest
 
 from material_workbench.data.observation_profile import load_observation_profile
 from material_workbench.modeling import observation_regression
-from material_workbench.modeling.model_packages import ModelPackageLoader
+from material_workbench.modeling.packages.loader import ModelPackageLoader
 from material_workbench.modeling.observation_training_spec import (
     ObservationSpecError,
     observation_training_spec,

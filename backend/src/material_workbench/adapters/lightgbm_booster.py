@@ -5,13 +5,13 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import (
+from material_workbench.modeling.packages.contracts import (
     MissingOptionalDependency,
     PackageContractError,
     PredictiveSummary,
     PredictorSpec,
-    VerifiedModelPackage,
 )
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:
@@ -149,7 +149,7 @@ class _LightGBMPredictor:
 class LightGBMBoosterAdapter:
     runtime_type = "lightgbm.booster.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _LightGBMPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _LightGBMPredictor:
         if lightgbm is None:
             raise MissingOptionalDependency("install runtime-lightgbm to load lightgbm.booster.v1")
         if predictor.predictive_family not in {"normal", "empirical_quantiles", "bernoulli_logit"}:

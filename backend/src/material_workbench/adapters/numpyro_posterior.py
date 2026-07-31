@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from material_workbench.modeling.model_packages import PackageContractError, PredictiveSummary, PredictorSpec, VerifiedModelPackage
+from material_workbench.modeling.packages.contracts import (
+    PackageContractError,
+    PredictiveSummary,
+    PredictorSpec,
+)
+from material_workbench.modeling.packages.ports import VerifiedPackageArtifacts
 from .base import feature_vector, quantile_summary, scalar_config
 from .safe_npz import MAX_NPZ_COMPRESSION_RATIO, safe_npz_arrays
 
@@ -126,7 +131,7 @@ class _DensePosteriorPredictor:
 class NumpyroDensePosteriorAdapter:
     runtime_type = "numpyro.dense_posterior.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _DensePosteriorPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _DensePosteriorPredictor:
         if predictor.architecture_id != "dense_mlp_v1" or predictor.predictive_family not in _KINDS:
             raise PackageContractError("unsupported NumPyro posterior architecture or likelihood")
         activation = predictor.config.get("activation", "tanh")

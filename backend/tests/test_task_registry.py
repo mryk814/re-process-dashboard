@@ -15,8 +15,8 @@ from material_workbench.contracts.task_contracts import (
     InputSpaceSurfaceDefinition,
 )
 from material_workbench.modeling.model_lifecycle import load_active_packages, validate_active_package_task_set
-from material_workbench.modeling.model_packages import PackageContractError
 from material_workbench.contracts.candidate_project_contracts import ProjectInput
+from material_workbench.modeling.packages.contracts import PackageContractError
 from material_workbench.persistence.demo_seed import initialize_demo_projects
 from material_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
 from material_workbench.task_composition.catalog import registered_task_modules

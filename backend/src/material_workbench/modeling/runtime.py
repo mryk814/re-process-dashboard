@@ -48,13 +48,13 @@ from material_workbench.modeling.feature_pipeline import (
 from material_workbench.modeling.feature_pipeline import (
     FEATURE_NAMES as METALLURGY_FEATURE_NAMES,
 )
-from material_workbench.modeling.model_packages import (
-    ModelPackageLoader,
-    VerifiedModelPackage,
+from material_workbench.modeling.packages.contracts import (
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
 )
+from material_workbench.modeling.packages.loader import ModelPackageLoader
+from material_workbench.modeling.packages.verification import VerifiedModelPackage
 from material_workbench.modeling.response_curve_errors import (
     ResponseCurveTrainingRangeUnavailableError,
 )

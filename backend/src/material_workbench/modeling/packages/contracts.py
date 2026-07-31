@@ -5,19 +5,19 @@ never contain an import path, Python source, pickle/joblib object, or callback.
 """
 from __future__ import annotations
 
-import hashlib
-import json
-import tempfile
 import math
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Sequence, runtime_checkable
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
 from material_workbench.contracts.series_contracts import SeriesFeatureContract
 
 if TYPE_CHECKING:
-    from material_workbench.contracts.task_contracts import TargetRuntimeCapability, TaskDefinition
+    from material_workbench.contracts.task_contracts import (
+        TargetRuntimeCapability,
+        TaskDefinition,
+    )
 
 
 MAX_ARTIFACT_BYTES = 256 * 1024 * 1024
@@ -143,7 +143,7 @@ class FeaturePipelineDocument(PackageModel):
         return value
 
     @model_validator(mode="after")
-    def unique_output_features(self) -> "FeaturePipelineDocument":
+    def unique_output_features(self) -> FeaturePipelineDocument:
         names = [feature.name for feature in self.features]
         if len(names) != len(set(names)):
             raise ValueError("pipeline output feature names must be unique")
@@ -189,7 +189,7 @@ class PredictorSpec(PackageModel):
         return value
 
     @model_validator(mode="after")
-    def static_architecture_only(self) -> "PredictorSpec":
+    def static_architecture_only(self) -> PredictorSpec:
         if self.runtime_type == "numpyro.dense_posterior.v1" and self.architecture_id != "dense_mlp_v1":
             raise ValueError("numpyro adapter only permits architecture_id=dense_mlp_v1")
         if self.runtime_type == "gpytorch.static_exact_rbf.v1" and self.architecture_id != "exact_rbf_v1":
@@ -263,7 +263,7 @@ class ProvenanceSpec(PackageModel):
     source_lifecycle: SourceLifecycleProvenance | None = None
 
     @model_validator(mode="after")
-    def lifecycle_matches_training_asset(self) -> "ProvenanceSpec":
+    def lifecycle_matches_training_asset(self) -> ProvenanceSpec:
         lifecycle = self.source_lifecycle
         if lifecycle is None:
             return self
@@ -356,7 +356,7 @@ class ModelPackageManifest(PackageModel):
     quality_report: str | None = None
 
     @model_validator(mode="after")
-    def references_listed_artifacts(self) -> "ModelPackageManifest":
+    def references_listed_artifacts(self) -> ModelPackageManifest:
         listed = {artifact.path for artifact in self.artifacts}
         if len(listed) != len(self.artifacts):
             raise ValueError("artifact paths must be unique")
@@ -410,7 +410,7 @@ class ModelPackageManifest(PackageModel):
         return self
 
 
-def ordered_canonical_input_paths(task_definition: "TaskDefinition") -> tuple[str, ...]:
+def ordered_canonical_input_paths(task_definition: TaskDefinition) -> tuple[str, ...]:
     """Return every canonical input in the sole order declared by a TaskDefinition."""
 
     return tuple(
@@ -421,7 +421,7 @@ def ordered_canonical_input_paths(task_definition: "TaskDefinition") -> tuple[st
 
 
 def validate_task_definition_canonical_inputs(
-    task_definition: "TaskDefinition",
+    task_definition: TaskDefinition,
     manifest: ModelPackageManifest,
 ) -> None:
     """Reject a package whose canonical input order differs from its task."""
@@ -558,227 +558,3 @@ def validate_predictive_summary(
         raise PackageContractError(f"predictor {spec.id!r} uncertainty-component capability does not match its smoke output")
     if capability.samples:
         raise PackageContractError(f"predictor {spec.id!r} declares samples that PredictiveSummary does not expose")
-
-
-class LoadedPredictor(Protocol):
-    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary: ...
-
-
-@runtime_checkable
-class LoadedBatchPredictor(Protocol):
-    def predict_batch(
-        self,
-        values: Sequence[dict[str, float]],
-        *,
-        seed: int = 0,
-    ) -> list[PredictiveSummary]: ...
-
-
-class Adapter(Protocol):
-    runtime_type: str
-
-    def load(self, package: "VerifiedModelPackage", predictor: PredictorSpec) -> LoadedPredictor: ...
-
-
-class LoadedDeterministicTransform(Protocol):
-    def execute(self, *args: Any, **kwargs: Any) -> Any: ...
-
-
-class DeterministicTransformAdapter(Protocol):
-    runtime_type: str
-
-    def load_transform(
-        self,
-        package: "VerifiedModelPackage",
-        transform: DeterministicTransformSpec,
-    ) -> LoadedDeterministicTransform: ...
-
-
-@dataclass(frozen=True)
-class VerifiedModelPackage:
-    root: Path
-    manifest: ModelPackageManifest
-    artifacts: dict[str, Path]
-    registry: "AdapterRegistry"
-    _manifest_sha256: str
-    _snapshot: Any
-
-    def artifact_path(self, relative_path: str) -> Path:
-        try:
-            return self.artifacts[relative_path]
-        except KeyError as exc:
-            raise PackageContractError(f"artifact was not verified: {relative_path}") from exc
-
-    def load_predictor(self, predictor_id: str) -> LoadedPredictor:
-        spec = next((item for item in self.manifest.predictors if item.id == predictor_id), None)
-        if spec is None:
-            raise PackageContractError(f"unknown predictor id: {predictor_id}")
-        return self.registry.adapter_for(spec.runtime_type).load(self, spec)
-
-    def load_transform(self, transform_id: str) -> LoadedDeterministicTransform:
-        spec = next(
-            (item for item in self.manifest.deterministic_transforms if item.id == transform_id),
-            None,
-        )
-        if spec is None:
-            raise PackageContractError(f"unknown deterministic transform id: {transform_id}")
-        adapter = self.registry.adapter_for(spec.runtime_type)
-        load_transform = getattr(adapter, "load_transform", None)
-        if load_transform is None:
-            raise PackageContractError(
-                f"runtime does not implement deterministic transforms: {spec.runtime_type}"
-            )
-        return load_transform(self, spec)
-
-    @property
-    def manifest_sha256(self) -> str:
-        return self._manifest_sha256
-
-
-class AdapterRegistry:
-    """Explicit allow-list; package data can never select a Python module."""
-
-    def __init__(self, adapters: tuple[Adapter, ...] | None = None) -> None:
-        if adapters is None:
-            from material_workbench.adapters.builtin_linear import BuiltinLinearAdapter
-            from material_workbench.adapters.builtin_deterministic_linear import (
-                BuiltinDeterministicLinearAdapter,
-            )
-            from material_workbench.adapters.builtin_additive_terms import BuiltinAdditiveTermsAdapter
-            from material_workbench.adapters.builtin_quantile_linear import BuiltinQuantileLinearAdapter
-            from material_workbench.adapters.builtin_posterior_linear import BuiltinPosteriorLinearAdapter
-            from material_workbench.adapters.builtin_exact_gp import BuiltinExactGPAdapter
-            from material_workbench.adapters.builtin_heteroscedastic_gp import BuiltinHeteroscedasticExactGPAdapter
-            from material_workbench.adapters.gpytorch_static import GPyTorchStaticAdapter
-            from material_workbench.adapters.lightgbm_booster import LightGBMBoosterAdapter
-            from material_workbench.adapters.numpyro_posterior import NumpyroDensePosteriorAdapter
-            from material_workbench.adapters.sklearn_skops import SklearnSkopsAdapter
-
-            adapters = (BuiltinLinearAdapter(), BuiltinDeterministicLinearAdapter(), BuiltinExactGPAdapter(), BuiltinHeteroscedasticExactGPAdapter(), BuiltinAdditiveTermsAdapter(), BuiltinQuantileLinearAdapter(), BuiltinPosteriorLinearAdapter(), SklearnSkopsAdapter(), LightGBMBoosterAdapter(), GPyTorchStaticAdapter(), NumpyroDensePosteriorAdapter())
-        self._adapters = {adapter.runtime_type: adapter for adapter in adapters}
-        if set(self._adapters) != RUNTIME_TYPES:
-            raise PackageContractError("adapter registry must implement exactly the approved runtime types")
-
-    def adapter_for(self, runtime_type: str) -> Adapter:
-        try:
-            return self._adapters[runtime_type]
-        except KeyError as exc:
-            raise PackageContractError(f"runtime is not registered: {runtime_type}") from exc
-
-
-class ModelPackageLoader:
-    def __init__(
-        self,
-        registry: AdapterRegistry | None = None,
-        *,
-        max_artifact_bytes: int = MAX_ARTIFACT_BYTES,
-        max_package_bytes: int = MAX_PACKAGE_BYTES,
-    ) -> None:
-        self.registry = registry or AdapterRegistry()
-        self.max_artifact_bytes = max_artifact_bytes
-        self.max_package_bytes = max_package_bytes
-
-    def load(self, package_root: str | Path) -> VerifiedModelPackage:
-        try:
-            root = Path(package_root).resolve(strict=True)
-        except OSError as exc:
-            raise PackageContractError(f"model package root cannot be resolved: {exc}") from exc
-        if not root.is_dir():
-            raise PackageContractError("model package root must be a directory")
-        manifest_path = root / "manifest.json"
-        try:
-            manifest_bytes = manifest_path.read_bytes()
-            raw_manifest = json.loads(manifest_bytes.decode("utf-8"))
-            manifest = ModelPackageManifest.model_validate(raw_manifest)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            raise PackageContractError(f"invalid model package manifest: {exc}") from exc
-        manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
-        if len(manifest.artifacts) > MAX_PACKAGE_ARTIFACTS:
-            raise PackageContractError(
-                f"model package has too many artifacts: {len(manifest.artifacts)}"
-            )
-        declared_package_bytes = sum(spec.bytes for spec in manifest.artifacts)
-        if declared_package_bytes > self.max_package_bytes:
-            raise PackageContractError(
-                f"model package artifacts exceed aggregate byte limit: {declared_package_bytes}"
-            )
-        snapshot = tempfile.TemporaryDirectory(prefix="material-workbench-package-")
-        snapshot_root = Path(snapshot.name)
-        artifacts: dict[str, Path] = {}
-        snapshot_bytes = 0
-        try:
-            for spec in manifest.artifacts:
-                try:
-                    candidate = (root / spec.path).resolve(strict=True)
-                except OSError as exc:
-                    raise PackageContractError(f"artifact cannot be resolved: {spec.path}") from exc
-                if root not in candidate.parents:
-                    raise PackageContractError(f"artifact escapes package root: {spec.path}")
-                if not candidate.is_file():
-                    raise PackageContractError(f"artifact is not a regular file: {spec.path}")
-                if spec.bytes > self.max_artifact_bytes:
-                    raise PackageContractError(f"artifact size mismatch: {spec.path}")
-                snapshot_path = snapshot_root / spec.path
-                snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-                digest = hashlib.sha256()
-                artifact_bytes = 0
-                try:
-                    with candidate.open("rb") as source, snapshot_path.open("xb") as target:
-                        for chunk in iter(lambda: source.read(SNAPSHOT_CHUNK_BYTES), b""):
-                            artifact_bytes += len(chunk)
-                            snapshot_bytes += len(chunk)
-                            if (
-                                artifact_bytes > self.max_artifact_bytes
-                                or snapshot_bytes > self.max_package_bytes
-                            ):
-                                raise PackageContractError(
-                                    f"model package artifact byte limit exceeded: {spec.path}"
-                                )
-                            digest.update(chunk)
-                            target.write(chunk)
-                except OSError as exc:
-                    raise PackageContractError(
-                        f"artifact snapshot I/O failed: {spec.path}: {exc}"
-                    ) from exc
-                if artifact_bytes != spec.bytes:
-                    raise PackageContractError(f"artifact size mismatch: {spec.path}")
-                if digest.hexdigest() != spec.sha256:
-                    raise PackageContractError(f"artifact hash mismatch: {spec.path}")
-                artifacts[spec.path] = snapshot_path
-        except PackageContractError:
-            snapshot.cleanup()
-            raise
-        if manifest.feature_pipeline is not None:
-            try:
-                raw_pipeline = json.loads(
-                    artifacts[manifest.feature_pipeline.spec].read_text(encoding="utf-8")
-                )
-                pipeline = FeaturePipelineDocument.model_validate(raw_pipeline)
-            except (OSError, json.JSONDecodeError, ValueError) as exc:
-                snapshot.cleanup()
-                raise PackageContractError(f"invalid feature pipeline specification: {exc}") from exc
-            if (pipeline.id, pipeline.version) != (
-                manifest.feature_pipeline.id,
-                manifest.feature_pipeline.version,
-            ):
-                snapshot.cleanup()
-                raise PackageContractError("feature pipeline id/version differs between manifest and specification")
-            if pipeline.canonical_input_paths != manifest.feature_pipeline.canonical_input_paths:
-                snapshot.cleanup()
-                raise PackageContractError(
-                    "canonical input paths differ between model package manifest and pipeline specification"
-                )
-            pipeline_outputs = tuple(feature.name for feature in pipeline.features)
-            if pipeline_outputs != manifest.feature_pipeline.output_features:
-                snapshot.cleanup()
-                raise PackageContractError(
-                    "pipeline output feature order differs from model package manifest output_features"
-                )
-        return VerifiedModelPackage(
-            root=root,
-            manifest=manifest,
-            artifacts=artifacts,
-            registry=self.registry,
-            _manifest_sha256=manifest_sha256,
-            _snapshot=snapshot,
-        )
