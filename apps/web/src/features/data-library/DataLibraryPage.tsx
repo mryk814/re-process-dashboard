@@ -59,6 +59,7 @@ export function DataLibraryPage({
   onAddDataset,
   onStartProject,
   onOpenTrainingData,
+  onOpenStorage,
 }: {
   projects: ApiProject[];
   onAddDataset: (
@@ -67,6 +68,7 @@ export function DataLibraryPage({
   ) => void;
   onStartProject: (datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) => void;
   onOpenTrainingData: (projectId: string) => void;
+  onOpenStorage: () => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [datasets, setDatasets] = useState<ApiDataLibraryDataset[]>([]);
@@ -500,7 +502,7 @@ export function DataLibraryPage({
         <ol><li><b>列を棚卸し</b><span>型・範囲・候補値だけをread-onlyで確認</span></li><li><b>意味を確定</b><span>入力／出力、canonical key、単位を明示</span></li><li><b>学習・昇格</b><span>allow-list済みEstimatorでbuild / verify / promote</span></li><li><b>アプリへ接続</b><span>個人Taskを再読込し、そのままProjectを作成</span></li></ol>
         <p className="new-task-ui-path">CSVを選び、意味・単位・範囲を確認すると、標準recipeで <b>build → verify → promote → 再読込</b> までをこの画面で実行します。途中で止まった場合は、登録済みとして扱わず理由を表示します。</p>
         <div className="new-task-safety"><strong>自動確定しない項目</strong><span>物理的意味 · 単位 · 物理／通常／学習範囲 · 学習一行 · relation · 目的変数</span><small>inspectの最小値・最大値は要約です。物理範囲には流用せず、未解決が1件でもあればdraftで止まります。元データ、個人Profile、Packageはリポジトリへ追加しません。</small></div>
-        <CsvTaskOnboarding onPrepared={({ datasetViewId, taskId, modelPackageRefId }) => onStartProject(datasetViewId, { taskId, modelPackageRefId })} />
+        <CsvTaskOnboarding onOpenStorage={onOpenStorage} onPrepared={(binding) => onStartProject(binding.datasetViewId, binding)} />
       </section>}
       {error && options && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">

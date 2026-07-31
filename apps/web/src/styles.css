@@ -353,6 +353,27 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   overflow-wrap: anywhere;
   font-size: 11px;
 }
+.workspace-personal-storage {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #9bc8bc;
+  border-radius: 8px;
+  background: #f2faf8;
+}
+.workspace-personal-storage.blocked { border-color: #e2b8a4; background: #fff8f3; }
+.workspace-personal-storage > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.workspace-personal-storage > header > div { display: grid; gap: 3px; }
+.workspace-personal-storage > header span,
+.workspace-personal-storage small,
+.workspace-personal-storage p { color: #60746f; font-size: 11px; }
+.workspace-personal-storage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.workspace-personal-storage-grid > div { display: grid; gap: 3px; min-width: 0; padding: 8px; border: 1px solid #cce1dc; border-radius: 5px; background: rgba(255, 255, 255, 0.7); }
+.workspace-personal-storage-grid b { color: #26705f; font-size: 11px; }
+.workspace-personal-storage.blocked .workspace-personal-storage-grid b { color: #9a4b2d; }
+.workspace-personal-storage-grid code { overflow-wrap: anywhere; color: #405b58; font-size: 10px; }
+.workspace-personal-storage p { margin: 0; }
 .workspace-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -40,6 +40,7 @@ npm run dev
 - Web UI: 端末に表示されたURL（通常は <http://127.0.0.1:5180>）
 - API docs（dev proxy経由）: Web UIのURL + `/docs`
 - Workspace DB: `.dev-workspaces/<branch名>-<短いhash>.db`
+- branch-defaultの個人Task/Model: `%LOCALAPPDATA%\\Material Decision Workbench\\dev-workspaces\\<branch名>-<hash>\\tasks|models`
 
 停止は起動したターミナルで `Ctrl+C` です。
 既定portが使用中ならlauncherが近い空きportを自動選択し、実際のURLを端末へ表示します。
@@ -49,6 +50,11 @@ npm run dev
 ほかのTaskのデータ、Model Package、runtimeは整合性検証を省略せずbackgroundで準備します。
 先に開くTaskは`WORKBENCH_STARTUP_TASK_ID`で変更できます。
 全Taskの準備状況は`/api/readiness`の`ready`で確認できます。
+
+branch-defaultの開発Workspaceでは、TaskとModel Packageもbranchごとのユーザー領域へ分離します。
+Data Libraryの「新しい予測問題」はこの保存先を自動的に使い、
+「ワークスペース」→「保存場所を管理」で利用可否と次の操作を確認できます。
+リポジトリ内の保存先へ暗黙にfallbackすることはありません。
 
 `npm run dev` は、判断履歴を保持する `data/workbench.db` を開きません。branchごとの
 捨てて作り直せるWorkspaceを使い、起動前にrepoとDBのcontract／Package driftを

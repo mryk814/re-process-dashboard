@@ -206,6 +206,8 @@ readyになった出力の`source`と`profile`を変えずに、表示された
 
 個人Taskは既定で`%LOCALAPPDATA%\Material Decision Workbench\tasks`へ保存します。
 `WORKBENCH_TASK_STORE_PATH`で変更できますが、リポジトリ内は拒否されます。
+`npm run dev`のbranch-default Workspaceでは、branchごとの開発用Task保存先が優先されます。
+対応するModel Storeも同じbranch単位のユーザー領域へ分離され、Data Libraryの保存場所管理で利用可否を確認できます。
 元データのcopy、TaskDefinition、Profile、training recipe、Packageはすべて個人領域にあり、
 任意のPythonコード、pickle、joblibは読み込みません。
 

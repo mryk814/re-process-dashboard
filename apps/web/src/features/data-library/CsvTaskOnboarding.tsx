@@ -17,21 +17,43 @@ const validRange = (value: string) => {
 const columnNames = (fields: Field[], predicate: (field: Field) => boolean) =>
   fields.filter(predicate).map((field) => field.column).join("、");
 
-const errorMessage = (value: unknown, fallback: string) => {
-  if (typeof value !== "object" || value === null) return fallback;
+const errorDetail = (value: unknown) => {
+  if (typeof value !== "object" || value === null) return {};
   const detail = Reflect.get(value, "detail");
-  if (typeof detail === "string" && detail) return detail;
-  const message = Reflect.get(value, "message");
-  return typeof message === "string" && message ? message : fallback;
+  const payload = typeof detail === "object" && detail !== null ? detail : value;
+  const message = Reflect.get(payload, "message");
+  const nextAction = Reflect.get(payload, "next_action");
+  return {
+    message: typeof detail === "string" && detail
+      ? detail
+      : typeof message === "string" && message ? message : undefined,
+    nextAction: typeof nextAction === "string" ? nextAction : undefined,
+  };
+};
+
+const errorMessage = (value: unknown, fallback: string) => {
+  const detail = errorDetail(value);
+  return [detail.message ?? fallback, detail.nextAction ? `次の操作: ${detail.nextAction}` : ""]
+    .filter(Boolean)
+    .join("\n");
 };
 
 export type PreparedCsvProjectBinding = {
   datasetViewId: string;
+  datasetRevisionId: string;
   taskId: string;
   modelPackageRefId: string;
+  sourceSha256: string;
+  reloaded: true;
 };
 
-export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: PreparedCsvProjectBinding) => void }) {
+export function CsvTaskOnboarding({
+  onPrepared,
+  onOpenStorage,
+}: {
+  onPrepared: (binding: PreparedCsvProjectBinding) => void;
+  onOpenStorage?: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [rows, setRows] = useState(0);
   const [columns, setColumns] = useState<Column[]>([]);
@@ -43,10 +65,11 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [storageError, setStorageError] = useState(false);
 
   async function inspect() {
     if (!file) return;
-    setLoading(true); setError(""); setMessage("");
+    setLoading(true); setError(""); setStorageError(false); setMessage("");
     const form = new FormData(); form.append("file", file);
     const response = await apiClient.POST("/api/data-library/csv-onboarding/inspect", { body: form as never, parseAs: "json" });
     setLoading(false);
@@ -103,17 +126,40 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
       allowed_range: range(field.allowed_range), default_range: range(field.default_range), training_range: range(field.training_range),
       plausible_range: range(field.plausible_range), display_range: range(field.display_range),
     }));
-    setLoading(true); setError(""); setMessage("");
+    setLoading(true); setError(""); setStorageError(false); setMessage("");
     const form = new FormData();
     form.append("file", file); form.append("task_id", taskId); form.append("label", label); form.append("estimator_id", "ridge.v1");
     form.append("fields_json", JSON.stringify(payload)); form.append("grain_confirmation", "one-row-one-observation"); form.append("relation_confirmation", "no-relations");
     const response = await apiClient.POST("/api/data-library/csv-onboarding/prepare", { body: form as never, parseAs: "json" });
     setLoading(false);
-    if (response.error) { setError(errorMessage(response.error, "新しいTaskを準備できませんでした。")); return; }
-    const data = response.data as unknown as { state: string; unresolved?: string[]; dataset_view_revision_id?: string; task_id?: string; model_package_ref_id?: string };
-    if (data.state !== "ready" || !data.dataset_view_revision_id || !data.task_id || !data.model_package_ref_id) { setError(`未解決: ${(data.unresolved ?? []).join(" / ")}`); return; }
-    setMessage(`${data.task_id}を登録・検証・再読込しました。同じDataset / Task / Model PackageをProject作成へ渡します。`);
-    onPrepared({ datasetViewId: data.dataset_view_revision_id, taskId: data.task_id, modelPackageRefId: data.model_package_ref_id });
+    if (response.error) {
+      const detail = errorDetail(response.error);
+      setStorageError(Boolean(detail.nextAction?.includes("保存先")));
+      setError(errorMessage(response.error, "新しいTaskを準備できませんでした。"));
+      return;
+    }
+    const data = response.data as unknown as {
+      state: string;
+      unresolved?: string[];
+      dataset_view_revision_id?: string;
+      dataset_revision_id?: string;
+      task_id?: string;
+      model_package_ref_id?: string;
+      source_sha256?: string;
+    };
+    if (data.state !== "ready" || !data.dataset_view_revision_id || !data.dataset_revision_id || !data.task_id || !data.model_package_ref_id || !data.source_sha256) {
+      setError(`未解決: ${(data.unresolved ?? []).join(" / ")}`);
+      return;
+    }
+    setMessage(`${data.task_id}を登録・検証・再読込しました。Project作成画面でidentityを確認できます。`);
+    onPrepared({
+      datasetViewId: data.dataset_view_revision_id,
+      datasetRevisionId: data.dataset_revision_id,
+      taskId: data.task_id,
+      modelPackageRefId: data.model_package_ref_id,
+      sourceSha256: data.source_sha256,
+      reloaded: true,
+    });
   }
 
   return <section className="csv-task-onboarding" aria-labelledby="csv-task-onboarding-heading">
@@ -134,6 +180,7 @@ export function CsvTaskOnboarding({ onPrepared }: { onPrepared: (binding: Prepar
       </section>
       <button className="primary-button" type="button" disabled={!canPrepare} aria-describedby={preparationBlockers.length > 0 ? "csv-task-preparation-status" : undefined} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
     </>}
-    {message && <p role="status">{message}</p>}{error && <p role="alert" className="panel-error">{error}</p>}
+    {message && <p role="status">{message}</p>}
+    {error && <div role="alert" className="panel-error csv-task-onboarding-error"><p>{error}</p>{storageError && onOpenStorage && <button type="button" className="outline-button" onClick={onOpenStorage}>保存場所を管理して再確認</button>}</div>}
   </section>;
 }

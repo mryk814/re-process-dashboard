@@ -66,7 +66,13 @@ type Props = {
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
-  requestedProjectBinding?: { taskId: string; modelPackageRefId: string };
+  requestedProjectBinding?: {
+    taskId: string;
+    modelPackageRefId: string;
+    datasetRevisionId?: string;
+    sourceSha256?: string;
+    reloaded?: true;
+  };
   requestedSettingsSection?: ProjectSettingsSection;
   renderScientificSettings?: (
     project: ApiProject,
@@ -224,6 +230,12 @@ export function ProjectHub({
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState("");
+  const [preparationReceipt, setPreparationReceipt] = useState<{
+    taskId: string;
+    datasetRevisionId: string;
+    modelPackageRefId: string;
+    sourceSha256: string;
+  }>();
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
   const [newTaskId, setNewTaskId] = useState("");
@@ -742,6 +754,18 @@ export function ProjectHub({
     setNewDatasetViewId(requestedDatasetViewId);
     setNewTaskId(requestedProjectBinding?.taskId ?? "");
     setNewModelPackageRefId(requestedProjectBinding?.modelPackageRefId ?? "");
+    setPreparationReceipt(
+      requestedProjectBinding?.reloaded
+      && requestedProjectBinding.datasetRevisionId
+      && requestedProjectBinding.sourceSha256
+        ? {
+          taskId: requestedProjectBinding.taskId,
+          datasetRevisionId: requestedProjectBinding.datasetRevisionId,
+          modelPackageRefId: requestedProjectBinding.modelPackageRefId,
+          sourceSha256: requestedProjectBinding.sourceSha256,
+        }
+        : undefined,
+    );
     setNewChainId("");
     setNewChainRevisionId("");
     setNewProjectGroupChoice("none");
@@ -1038,6 +1062,7 @@ export function ProjectHub({
     setNewProjectSeriesName("");
     setPredecessorProjectId("");
     setContinuationReason("");
+    setPreparationReceipt(undefined);
   };
 
   const closeCreateProject = () => {
@@ -1485,6 +1510,7 @@ export function ProjectHub({
         loading={creating}
         disabled={offline}
         error={creationError}
+        preparationReceipt={preparationReceipt}
         projectNameInputRef={projectNameInputRef}
         projectName={newProjectName}
         datasetViewId={newDatasetViewId}
