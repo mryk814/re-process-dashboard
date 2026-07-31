@@ -206,6 +206,18 @@ def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
     assert sorted(
         name for name in _imports(loader) if name.startswith("material_workbench.adapters")
     ) == []
+    verification_definitions = {
+        node.name
+        for node in ast.parse(verification.read_text(encoding="utf-8")).body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    loader_definitions = {
+        node.name
+        for node in ast.parse(loader.read_text(encoding="utf-8")).body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "ModelPackageLoader" not in verification_definitions
+    assert "ModelPackageLoader" in loader_definitions
 
     offenders = {
         path.name: sorted(
