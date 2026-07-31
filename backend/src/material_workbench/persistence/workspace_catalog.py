@@ -244,6 +244,28 @@ class WorkspaceCatalog:
         assert row is not None
         return self._asset(row)
 
+    def restore_data_asset_locator(
+        self,
+        asset_id: str,
+        *,
+        locator_kind: Literal["managed", "bundled"],
+        locator: str,
+    ) -> DataAsset:
+        """Restore a pre-registration locator after a failed managed promotion."""
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM data_assets WHERE id=?", (asset_id,)).fetchone()
+            if row is None:
+                raise CatalogReferenceError(f"Data Assetが見つかりません: {asset_id}")
+            conn.execute(
+                "UPDATE data_assets SET locator_kind=?, locator=? WHERE id=?",
+                (locator_kind, locator, asset_id),
+            )
+            row = conn.execute("SELECT * FROM data_assets WHERE id=?", (asset_id,)).fetchone()
+        assert row is not None
+        return self._asset(row)
+
     def upsert_profile_revision(self, payload: ProfileRevisionCreateInput) -> ProfileRevision:
         effective_json = _canonical_json(payload.effective_profile_json)
         identity_digest = _digest("profile-revision-id-v1", payload.profile_digest)

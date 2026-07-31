@@ -17,8 +17,8 @@ from material_workbench.contracts.chain_contracts import (
 )
 from material_workbench.contracts.data_library_contracts import (
     DataLibraryDataset,
+    DataLibraryModelPackage,
     DatasetViewRevision,
-    ModelPackageRef,
     ProjectSeries,
     ProjectSeriesCreateInput,
 )
@@ -29,7 +29,7 @@ from material_workbench.contracts.task_contracts import CandidateProvenance, Dir
 class ProjectCreationOptions(BaseModel):
     datasets: list[DataLibraryDataset]
     dataset_views: list[DatasetViewRevision]
-    model_packages: list[ModelPackageRef]
+    model_packages: list[DataLibraryModelPackage]
     project_series: list[ProjectSeries]
     task_contract_digests: dict[str, str]
 

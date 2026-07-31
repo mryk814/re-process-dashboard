@@ -4981,31 +4981,6 @@ export interface components {
             /** Label */
             label: string;
         };
-        /** DataAsset */
-        DataAsset: {
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: string;
-            /** Locator */
-            locator: string;
-            /**
-             * Locator Kind
-             * @enum {string}
-             */
-            locator_kind: "managed" | "bundled";
-            /** Media Type */
-            media_type: string;
-            /** Original Filename */
-            original_filename: string;
-            /** Sha256 */
-            sha256: string;
-        };
         /** DataExplorerCapability */
         DataExplorerCapability: {
             /** Candidate Creation */
@@ -5021,17 +4996,91 @@ export interface components {
              */
             schema_version: "data-explorer-capability/v1";
         };
+        /**
+         * DataLibraryDataAsset
+         * @description Browser-safe Data Asset summary without its local filesystem locator.
+         */
+        DataLibraryDataAsset: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Locator Kind
+             * @enum {string}
+             */
+            locator_kind: "managed" | "bundled";
+            /** Media Type */
+            media_type: string;
+            /** Original Filename */
+            original_filename: string;
+            /** Sha256 */
+            sha256: string;
+        };
         /** DataLibraryDataset */
         DataLibraryDataset: {
-            data_asset: components["schemas"]["DataAsset"];
+            data_asset: components["schemas"]["DataLibraryDataAsset"];
             dataset_revision: components["schemas"]["DatasetRevision"];
             /** Dataset Views */
             dataset_views?: components["schemas"]["DatasetViewRevision"][];
-            /** Profile Locator */
-            profile_locator?: string | null;
+            /**
+             * Profile Available
+             * @default false
+             */
+            profile_available: boolean;
             profile_revision: components["schemas"]["ProfileRevision"];
             /** Supported Task Ids */
             supported_task_ids: string[];
+        };
+        /**
+         * DataLibraryModelPackage
+         * @description Browser-safe Model Package reference without its local filesystem locator.
+         */
+        DataLibraryModelPackage: {
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Manifest Json */
+            manifest_json: {
+                [key: string]: unknown;
+            };
+            /** Package Id */
+            package_id: string;
+            /**
+             * Storage Scope
+             * @default bundled
+             * @enum {string}
+             */
+            storage_scope: "bundled" | "personal";
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+        };
+        /**
+         * DataLibraryResourceWarning
+         * @description Browser-safe resource warning without personal filesystem locators.
+         */
+        DataLibraryResourceWarning: {
+            /** Message */
+            message: string;
+            /** Reference */
+            reference?: string | null;
+            /** Source */
+            source: string;
         };
         /** DataLifecycleActor */
         DataLifecycleActor: {
@@ -6426,58 +6475,17 @@ export interface components {
             /** Target */
             target: string;
         };
-        /** ModelPackageRef */
-        ModelPackageRef: {
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Id */
-            id: string;
-            /** Locator */
-            locator: string;
-            /** Manifest Digest */
-            manifest_digest: string;
-            /** Manifest Json */
-            manifest_json: {
-                [key: string]: unknown;
-            };
-            /** Package Id */
-            package_id: string;
-            /**
-             * Storage Scope
-             * @default bundled
-             * @enum {string}
-             */
-            storage_scope: "bundled" | "personal";
-            /** Task Contract Digest */
-            task_contract_digest: string;
-            /** Task Id */
-            task_id: string;
-        };
         /** ModelPackageRefreshResult */
         ModelPackageRefreshResult: {
             /** Model Packages */
-            model_packages: components["schemas"]["ModelPackageRef"][];
+            model_packages: components["schemas"]["DataLibraryModelPackage"][];
             /** Warnings */
-            warnings?: components["schemas"]["ModelPackageRegistrationWarning"][];
+            warnings?: components["schemas"]["DataLibraryResourceWarning"][];
         };
         /** ModelPackageRefUpdateInput */
         ModelPackageRefUpdateInput: {
             /** Archived */
             archived: boolean;
-        };
-        /** ModelPackageRegistrationWarning */
-        ModelPackageRegistrationWarning: {
-            /** Message */
-            message: string;
-            /** Reference */
-            reference?: string | null;
-            /** Source */
-            source: string;
         };
         /** ModelPackageStatus */
         ModelPackageStatus: {
@@ -7636,7 +7644,7 @@ export interface components {
             /** Datasets */
             datasets: components["schemas"]["DataLibraryDataset"][];
             /** Model Packages */
-            model_packages: components["schemas"]["ModelPackageRef"][];
+            model_packages: components["schemas"]["DataLibraryModelPackage"][];
             /** Project Series */
             project_series: components["schemas"]["ProjectSeries"][];
             /** Task Contract Digests */
@@ -10046,7 +10054,7 @@ export interface components {
             /** Task Ids */
             task_ids: string[];
             /** Warnings */
-            warnings?: components["schemas"]["ModelPackageRegistrationWarning"][];
+            warnings?: components["schemas"]["DataLibraryResourceWarning"][];
         };
         /** ToleranceProfile */
         ToleranceProfile: {
@@ -10572,7 +10580,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ModelPackageRef"][];
+                    "application/json": components["schemas"]["DataLibraryModelPackage"][];
                 };
             };
             /** @description Validation Error */
@@ -10607,7 +10615,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ModelPackageRef"];
+                    "application/json": components["schemas"]["DataLibraryModelPackage"];
                 };
             };
             /** @description Validation Error */

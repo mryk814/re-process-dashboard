@@ -33,7 +33,10 @@ from material_workbench.bootstrap.resources import (
     AppResources,
     prepare_app_resources,
 )
-from material_workbench.contracts.data_library_contracts import TaskResourceRefreshResult
+from material_workbench.contracts.data_library_contracts import (
+    TaskResourceRefreshResult,
+    present_resource_warning,
+)
 from material_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
 )
@@ -481,7 +484,10 @@ def create_lifespan(
                     added_model_package_ids=sorted(
                         model_package_ids - previous_model_package_ids
                     ),
-                    warnings=refresh_warnings,
+                    warnings=[
+                        present_resource_warning(warning)
+                        for warning in refresh_warnings
+                    ],
                 )
 
         app.state.refresh_task_resources = refresh_task_resources

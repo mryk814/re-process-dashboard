@@ -258,7 +258,7 @@ test("Data Library blocks model updates when an exact personal Profile is missin
         && "tasks" in profile.effective_profile_json;
     });
     expect(target).toBeTruthy();
-    target!.profile_locator = null;
+    target!.profile_available = false;
     await route.fulfill({ response, json: datasets });
   });
   await page.goto("/?view=data-library");

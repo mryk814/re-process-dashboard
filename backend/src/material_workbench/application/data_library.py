@@ -3,13 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 
 from material_workbench.contracts.data_library_contracts import (
+    DataAsset,
+    DataLibraryDataAsset,
     DataLibraryDataset,
+    DataLibraryModelPackage,
     DatasetRevisionUpdateInput,
     DatasetViewRevision,
     DatasetViewRevisionCreateInput,
     ModelPackageRef,
     ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
+    present_resource_warning,
 )
 from material_workbench.contracts.candidate_project_contracts import ProjectCreationOptions
 from material_workbench.persistence.workspace_catalog import (
@@ -49,7 +53,7 @@ class DataLibraryValidationError(DataLibraryUseCaseError):
 def _present_model_package(
     item: ModelPackageRef,
     package_origins: dict[str, str],
-) -> ModelPackageRef:
+) -> DataLibraryModelPackage:
     storage_scope = package_origins.get(item.id)
     if storage_scope is None:
         locator = Path(item.locator).resolve()
@@ -59,9 +63,29 @@ def _present_model_package(
             if locator == bundled_root or bundled_root in locator.parents
             else "personal"
         )
-    return item.model_copy(update={
-        "storage_scope": storage_scope,
-    })
+    return DataLibraryModelPackage(
+        id=item.id,
+        package_id=item.package_id,
+        task_id=item.task_id,
+        task_contract_digest=item.task_contract_digest,
+        manifest_digest=item.manifest_digest,
+        manifest_json=item.manifest_json,
+        created_at=item.created_at,
+        archived_at=item.archived_at,
+        storage_scope=storage_scope,
+    )
+
+
+def _present_data_asset(item: DataAsset) -> DataLibraryDataAsset:
+    return DataLibraryDataAsset(
+        id=item.id,
+        original_filename=item.original_filename,
+        sha256=item.sha256,
+        media_type=item.media_type,
+        locator_kind=item.locator_kind,
+        created_at=item.created_at,
+        archived_at=item.archived_at,
+    )
 
 
 def _available_views(catalog: WorkspaceCatalog) -> list[DatasetViewRevision]:
@@ -94,13 +118,9 @@ def _datasets(
             continue
         result.append(DataLibraryDataset(
             dataset_revision=dataset,
-            data_asset=asset,
+            data_asset=_present_data_asset(asset),
             profile_revision=profile,
-            profile_locator=(
-                str(locator)
-                if (locator := profile_locator_for_digest(profile.profile_digest))
-                else None
-            ),
+            profile_available=profile_locator_for_digest(profile.profile_digest) is not None,
             supported_task_ids=list(supported_task_ids(profile.effective_profile_json)),
             dataset_views=[
                 view for view in views
@@ -224,7 +244,7 @@ def list_model_packages(
     package_origins: dict[str, str],
     include_archived: bool = False,
     include_gallery: bool = False,
-) -> list[ModelPackageRef]:
+) -> list[DataLibraryModelPackage]:
     if include_gallery:
         return [
             _present_model_package(item, package_origins)
@@ -288,7 +308,7 @@ def refresh_model_packages(
             _present_model_package(item, package_origins)
             for item in catalog.list_model_package_refs(include_archived=True)
         ],
-        warnings=warnings,
+        warnings=[present_resource_warning(warning) for warning in warnings],
     )
 
 
@@ -298,7 +318,7 @@ def update_model_package(
     catalog: WorkspaceCatalog,
     registry: TaskRegistry,
     package_origins: dict[str, str],
-) -> ModelPackageRef:
+) -> DataLibraryModelPackage:
     package = catalog.get_model_package_ref(reference_id, include_archived=True)
     if package is None:
         raise DataLibraryNotFoundError("Model Packageが見つかりません")
@@ -431,7 +451,7 @@ class DataLibraryUseCases:
         *,
         include_archived: bool = False,
         include_gallery: bool = False,
-    ) -> list[ModelPackageRef]:
+    ) -> list[DataLibraryModelPackage]:
         return list_model_packages(
             self.catalog,
             self.store,
@@ -453,7 +473,7 @@ class DataLibraryUseCases:
         self,
         reference_id: str,
         payload: ModelPackageRefUpdateInput,
-    ) -> ModelPackageRef:
+    ) -> DataLibraryModelPackage:
         return update_model_package(
             reference_id,
             payload,

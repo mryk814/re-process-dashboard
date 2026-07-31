@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from material_workbench.application.dataset_registration import register_managed_dataset
 from material_workbench.data.profile_workbench import inspect_workbook, validate_workbook_profile
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
@@ -59,6 +61,54 @@ def test_register_dataset_source_is_content_addressed_and_preserves_source(tmp_p
     assert len(catalog.list_profile_revisions()) == 1
     assert len(catalog.list_dataset_revisions()) == 1
     assert len(catalog.list_dataset_view_revisions()) == 1
+
+
+def test_register_dataset_rolls_back_after_copy_when_catalog_registration_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A post-copy failure leaves no managed file or partial Catalog identity."""
+
+    database = tmp_path / "workspace.db"
+    library = tmp_path / "library"
+    original_view = WorkspaceCatalog.ensure_single_dataset_view
+
+    def fail_after_creating_view(
+        self: WorkspaceCatalog,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        original_view(self, *args, **kwargs)
+        raise RuntimeError("forced post-copy catalog failure")
+
+    monkeypatch.setattr(
+        WorkspaceCatalog,
+        "ensure_single_dataset_view",
+        fail_after_creating_view,
+    )
+    with pytest.raises(RuntimeError, match="forced post-copy catalog failure"):
+        register_managed_dataset(
+            database=database,
+            source=SOURCE,
+            library_root=library,
+            profile_path=PROFILE,
+        )
+
+    catalog = WorkspaceCatalog(database)
+    assert catalog.list_data_assets(include_archived=True) == []
+    assert catalog.list_profile_revisions(include_archived=True) == []
+    assert catalog.list_dataset_revisions(include_archived=True) == []
+    assert catalog.list_dataset_view_revisions(include_archived=True) == []
+    assert not list(library.rglob(f"*{SOURCE.suffix}"))
+
+    monkeypatch.setattr(WorkspaceCatalog, "ensure_single_dataset_view", original_view)
+    retried = register_managed_dataset(
+        database=database,
+        source=SOURCE,
+        library_root=library,
+        profile_path=PROFILE,
+    )
+    assert Path(retried.locator).is_file()
 
 
 def test_register_dataset_resume_ignores_custom_single_views(

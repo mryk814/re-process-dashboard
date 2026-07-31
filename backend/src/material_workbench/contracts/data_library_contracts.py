@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -19,6 +20,18 @@ class DataAssetUpdateInput(BaseModel):
 
 class DataAsset(DataAssetCreateInput):
     id: str
+    created_at: datetime
+    archived_at: datetime | None = None
+
+
+class DataLibraryDataAsset(BaseModel):
+    """Browser-safe Data Asset summary without its local filesystem locator."""
+
+    id: str
+    original_filename: str
+    sha256: str
+    media_type: str
+    locator_kind: Literal["managed", "bundled"]
     created_at: datetime
     archived_at: datetime | None = None
 
@@ -132,15 +145,62 @@ class ModelPackageRef(ModelPackageRefCreateInput):
     storage_scope: Literal["bundled", "personal"] = "bundled"
 
 
+class DataLibraryModelPackage(BaseModel):
+    """Browser-safe Model Package reference without its local filesystem locator."""
+
+    id: str
+    package_id: str
+    task_id: str
+    task_contract_digest: str
+    manifest_digest: str
+    manifest_json: dict[str, Any]
+    created_at: datetime
+    archived_at: datetime | None = None
+    storage_scope: Literal["bundled", "personal"] = "bundled"
+
+
 class ModelPackageRegistrationWarning(BaseModel):
     source: str
     reference: str | None = None
     message: str
 
 
+class DataLibraryResourceWarning(BaseModel):
+    """Browser-safe resource warning without personal filesystem locators."""
+
+    source: str
+    reference: str | None = None
+    message: str
+
+
+_ABSOLUTE_LOCATOR = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\|file://|/(?:Users|home|tmp|var|private)/)")
+
+
+def present_resource_warning(
+    warning: ModelPackageRegistrationWarning,
+) -> DataLibraryResourceWarning:
+    """Keep actionable warning text while omitting local absolute paths."""
+
+    def label(value: str) -> str:
+        return value.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1] or "Model Package"
+
+    message = warning.message
+    if _ABSOLUTE_LOCATOR.search(message):
+        message = "Model Packageを読み込めません。Packageの内容とPrediction Taskの対応を確認してください。"
+    return DataLibraryResourceWarning(
+        source=label(warning.source),
+        reference=(
+            label(warning.reference)
+            if warning.reference and _ABSOLUTE_LOCATOR.search(warning.reference)
+            else warning.reference
+        ),
+        message=message,
+    )
+
+
 class ModelPackageRefreshResult(BaseModel):
-    model_packages: list[ModelPackageRef]
-    warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
+    model_packages: list[DataLibraryModelPackage]
+    warnings: list[DataLibraryResourceWarning] = Field(default_factory=list)
 
 
 class TaskResourceRefreshResult(BaseModel):
@@ -148,7 +208,7 @@ class TaskResourceRefreshResult(BaseModel):
     added_task_ids: list[str] = Field(default_factory=list)
     model_package_ids: list[str] = Field(default_factory=list)
     added_model_package_ids: list[str] = Field(default_factory=list)
-    warnings: list[ModelPackageRegistrationWarning] = Field(default_factory=list)
+    warnings: list[DataLibraryResourceWarning] = Field(default_factory=list)
 
 
 class ProjectSeriesCreateInput(BaseModel):
@@ -169,9 +229,9 @@ class ProjectSeries(ProjectSeriesCreateInput):
 
 class DataLibraryDataset(BaseModel):
     dataset_revision: DatasetRevision
-    data_asset: DataAsset
+    data_asset: DataLibraryDataAsset
     profile_revision: ProfileRevision
-    profile_locator: str | None = None
+    profile_available: bool = False
     supported_task_ids: list[str]
     dataset_views: list[DatasetViewRevision] = Field(default_factory=list)
 
