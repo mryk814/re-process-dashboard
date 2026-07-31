@@ -7,8 +7,6 @@ import time
 from typing import Any, Mapping
 import uuid
 
-from pydantic import BaseModel
-
 from material_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapter,
     ChainCandidateAdapterError,
@@ -16,6 +14,7 @@ from material_workbench.application.chain_candidate_adapters import (
     candidate_adapter_for,
     candidate_path_for_revision,
 )
+from material_workbench.application.payload_normalization import plain_payload
 from material_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
@@ -49,16 +48,6 @@ class ChainExecutionError(ValueError):
 
 def _now() -> datetime:
     return datetime.now(UTC)
-
-
-def _plain(value: Any) -> Any:
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
-    if isinstance(value, Mapping):
-        return {str(key): _plain(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_plain(item) for item in value]
-    return value
 
 
 def _set_path(target: dict[str, Any], path: str, value: Any) -> None:
@@ -665,7 +654,7 @@ class ChainExecutionService:
             },
         )
         runtime = self.registry.entry_for(stage.contract_id).predictor_runtime
-        payload = _plain(runtime.predict_core(stage_candidate, detailed=False))
+        payload = plain_payload(runtime.predict_core(stage_candidate, detailed=False))
         predictions = payload.get("predictions")
         if not isinstance(predictions, dict):
             raise ChainExecutionError(

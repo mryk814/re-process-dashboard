@@ -18,6 +18,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
+from material_workbench.application.payload_normalization import plain_payload
 from material_workbench.contracts.blend_contracts import (
     BlendStructuralError,
     ResolvedBlendContracts,
@@ -451,11 +452,9 @@ class SparseBlendChainAdapter:
     def run_deterministic_stage(
         self, stage: ChainStageRevision, candidate: Candidate
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        from material_workbench.application.chain_execution import _plain
-
         resolution = self._resolution(stage, candidate)
         assert candidate.blend is not None
-        payload = _plain(resolution.transform.transform(candidate.blend))
+        payload = plain_payload(resolution.transform.transform(candidate.blend))
         return payload, self.deterministic_outputs(payload)
 
     def deterministic_outputs(self, payload: Mapping[str, Any]) -> dict[str, Any]:

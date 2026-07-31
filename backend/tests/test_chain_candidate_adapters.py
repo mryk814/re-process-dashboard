@@ -19,6 +19,7 @@ from material_workbench.application.chain_candidate_adapters import (
     SparseBlendChainAdapter,
     candidate_adapter_for,
 )
+from material_workbench.application.payload_normalization import plain_payload
 from material_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
@@ -318,6 +319,44 @@ def test_chain_core_modules_do_not_name_domain_specific_symbols() -> None:
             offenders[relative] = named
 
     assert offenders == {}, f"Chain Coreにdomain固有symbolが残っています: {offenders}"
+
+
+def test_candidate_adapter_does_not_import_chain_execution() -> None:
+    root = Path(__file__).resolve().parents[2]
+    source = (
+        root
+        / "backend/src/material_workbench/application/chain_candidate_adapters.py"
+    ).read_text(encoding="utf-8")
+
+    assert "material_workbench.application.chain_execution" not in source
+
+
+def test_plain_payload_normalizes_models_and_nested_containers() -> None:
+    payload = plain_payload(
+        {
+            "identity": ChainSnapshotIdentityV2(
+                chain_revision_id="chain:r1",
+                chain_revision_digest=DIGEST,
+                candidate_id="candidate",
+                candidate_revision=1,
+                candidate_adapter_id="scalar/v1",
+            ),
+            "values": ({"value": 1.0}, 2.0),
+        }
+    )
+
+    assert payload == {
+        "identity": {
+            "schema_version": "chain-snapshot-identity/v2",
+            "chain_revision_id": "chain:r1",
+            "chain_revision_digest": DIGEST,
+            "candidate_id": "candidate",
+            "candidate_revision": 1,
+            "candidate_adapter_id": "scalar/v1",
+            "domain_references": [],
+        },
+        "values": [{"value": 1.0}, 2.0],
+    }
 
 
 def test_core_prepare_candidate_delegates_shape_validation_to_the_adapter() -> None:
