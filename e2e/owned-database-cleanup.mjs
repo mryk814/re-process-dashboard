@@ -19,11 +19,25 @@ export function removeOwnedDatabaseFiles(
   return true;
 }
 
-export function registerOwnedDatabaseCleanup(
-  database,
+export function removeOwnedStore(
+  store,
+  { remove = rmSync } = {},
+) {
+  try {
+    remove(store, { force: true, maxRetries: 10, recursive: true, retryDelay: 100 });
+  } catch (error) {
+    if (!isBusy(error)) throw error;
+    return false;
+  }
+  return true;
+}
+
+function registerOwnedCleanup(
+  label,
+  target,
+  cleanup,
   {
     once = process.once.bind(process),
-    remove = rmSync,
     report = (message) => process.stderr.write(message),
     setExitCode = (code) => {
       process.exitCode = code;
@@ -32,12 +46,36 @@ export function registerOwnedDatabaseCleanup(
 ) {
   once("exit", (exitCode) => {
     try {
-      if (!removeOwnedDatabaseFiles(database, { remove })) {
-        report(`Owned E2E database cleanup remained busy: ${database}\n`);
+      if (!cleanup()) {
+        report(`Owned E2E ${label} cleanup remained busy: ${target}\n`);
       }
     } catch (error) {
-      report(`Owned E2E database cleanup failed: ${String(error)}\n`);
+      report(`Owned E2E ${label} cleanup failed: ${String(error)}\n`);
       if (exitCode === 0) setExitCode(1);
     }
   });
+}
+
+export function registerOwnedDatabaseCleanup(
+  database,
+  { remove = rmSync, ...options } = {},
+) {
+  registerOwnedCleanup(
+    "database",
+    database,
+    () => removeOwnedDatabaseFiles(database, { remove }),
+    options,
+  );
+}
+
+export function registerOwnedStoreCleanup(
+  store,
+  { remove = rmSync, ...options } = {},
+) {
+  registerOwnedCleanup(
+    "store",
+    store,
+    () => removeOwnedStore(store, { remove }),
+    options,
+  );
 }
