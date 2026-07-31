@@ -4,10 +4,12 @@ from __future__ import annotations
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from threading import RLock
 from typing import Any, Literal
 from uuid import uuid4
 
 from material_workbench.contracts.data_library_contracts import (
+    DataAsset,
     DataAssetCreateInput,
     DatasetRevisionCreateInput,
     ProfileRevisionCreateInput,
@@ -27,6 +29,7 @@ from material_workbench.persistence.workspace_catalog import (
 CANONICAL_DATASET_CONTRACT_DIGEST = semantic_digest({"id": "canonical-dataset/v1"})
 CANONICALIZATION_CONTRACT_DIGEST = semantic_digest({"id": "workbook-canonicalizer/v1"})
 EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_MANAGED_DATASET_REGISTRATION_LOCK = RLock()
 
 
 def profile_revision_number(catalog: WorkspaceCatalog, profile_id: str, profile_digest: str) -> int:
@@ -56,6 +59,101 @@ class ManagedDatasetRegistrationCheckpoint:
     profile_revision_ids: frozenset[str]
     dataset_revision_ids: frozenset[str]
     dataset_view_revision_ids: frozenset[str]
+
+
+def _managed_library_destination(source: Path, library_root: Path, digest: str) -> Path:
+    return (
+        library_root
+        / "assets"
+        / digest[:2]
+        / f"{digest}{source.suffix.lower()}"
+    ).resolve()
+
+
+def _remove_created_managed_copy(locator: Path, library_root: Path) -> None:
+    """Delete only the content-addressed bytes created by the failed attempt."""
+
+    assets_root = (library_root / "assets").resolve()
+    resolved_locator = locator.resolve()
+    if assets_root not in resolved_locator.parents:
+        raise ValueError("managed Dataset locator leaves the managed library")
+    resolved_locator.unlink(missing_ok=True)
+    parent = resolved_locator.parent
+    while parent == assets_root or assets_root in parent.parents:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+
+
+def _rollback_failed_managed_registration(
+    *,
+    database: Path,
+    source_sha256: str,
+    profile_id: str,
+    profile_digest: str,
+    checkpoint: ManagedDatasetRegistrationCheckpoint,
+    created_locator: Path | None,
+    library_root: Path,
+    promoted_asset: DataAsset | None,
+) -> None:
+    """Compensate a failed registration even when no result object exists yet."""
+
+    catalog = WorkspaceCatalog(database)
+    asset = next(
+        (
+            item
+            for item in catalog.list_data_assets(include_archived=True)
+            if item.sha256 == source_sha256
+        ),
+        None,
+    )
+    profile = next(
+        (
+            item
+            for item in catalog.list_profile_revisions(include_archived=True)
+            if item.profile_id == profile_id and item.profile_digest == profile_digest
+        ),
+        None,
+    )
+    new_dataset_ids = {
+        item.id
+        for item in catalog.list_dataset_revisions(include_archived=True)
+        if item.id not in checkpoint.dataset_revision_ids
+        and asset is not None
+        and item.data_asset_id == asset.id
+        and profile is not None
+        and item.profile_revision_id == profile.id
+    }
+    new_view_ids = {
+        view.id
+        for view in catalog.list_dataset_view_revisions(include_archived=True)
+        if view.id not in checkpoint.dataset_view_revision_ids
+        and any(member.dataset_revision_id in new_dataset_ids for member in view.members)
+    }
+    for revision_id in new_view_ids:
+        catalog.remove_unreferenced_dataset_registration(
+            dataset_view_revision_id=revision_id,
+        )
+    for revision_id in new_dataset_ids:
+        catalog.remove_unreferenced_dataset_registration(
+            dataset_revision_id=revision_id,
+        )
+    if profile is not None and profile.id not in checkpoint.profile_revision_ids:
+        catalog.remove_unreferenced_dataset_registration(
+            profile_revision_id=profile.id,
+        )
+    if asset is not None and asset.id not in checkpoint.data_asset_ids:
+        catalog.remove_unreferenced_dataset_registration(data_asset_id=asset.id)
+    if promoted_asset is not None:
+        catalog.restore_data_asset_locator(
+            promoted_asset.id,
+            locator_kind=promoted_asset.locator_kind,
+            locator=promoted_asset.locator,
+        )
+    if created_locator is not None:
+        _remove_created_managed_copy(created_locator, library_root)
 
 
 def managed_dataset_registration_checkpoint(
@@ -212,7 +310,7 @@ def register_dataset_records(
 
 
 def _copy_to_managed_library(source: Path, library_root: Path, digest: str) -> Path:
-    destination = (library_root / "assets" / digest[:2] / f"{digest}{source.suffix.lower()}").resolve()
+    destination = _managed_library_destination(source, library_root, digest)
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         if file_sha256(destination) != digest:
@@ -249,23 +347,55 @@ def register_managed_dataset(
     if not report["registration_ready"]:
         raise ValueError("Profile validation found no eligible observations")
     digest = str(report["source_sha256"])
-    catalog = WorkspaceCatalog(database)
-    existing = next((item for item in catalog.list_data_assets(include_archived=True) if item.sha256 == digest), None)
-    if existing is not None and (
-        existing.locator_kind == "managed" or not promote_existing_bundled
-    ):
-        locator = Path(existing.locator)
-    else:
-        locator = _copy_to_managed_library(source, library_root.resolve(), digest)
-        if existing is not None:
-            catalog.promote_data_asset_to_managed(existing.id, str(locator))
-    return register_dataset_records(
-        catalog=catalog,
-        source_path=source,
-        source_sha256=digest,
-        profile_path=profile_path,
-        locator_kind="managed",
-        locator=locator,
-        name=name or source.stem,
-        member_provenance=member_provenance,
-    )
+    profile_metadata = profile_registration_metadata(load_profile_document(profile_path))
+    profile_digest = dataset_profile_digest(profile_path)
+    managed_root = library_root.resolve()
+    with _MANAGED_DATASET_REGISTRATION_LOCK:
+        catalog = WorkspaceCatalog(database)
+        checkpoint = managed_dataset_registration_checkpoint(database)
+        existing = next(
+            (
+                item
+                for item in catalog.list_data_assets(include_archived=True)
+                if item.sha256 == digest
+            ),
+            None,
+        )
+        created_locator: Path | None = None
+        promoted_asset: DataAsset | None = None
+        try:
+            if existing is not None and (
+                existing.locator_kind == "managed" or not promote_existing_bundled
+            ):
+                locator = Path(existing.locator)
+            else:
+                destination = _managed_library_destination(source, managed_root, digest)
+                destination_existed = destination.exists()
+                locator = _copy_to_managed_library(source, managed_root, digest)
+                if not destination_existed:
+                    created_locator = locator
+                if existing is not None:
+                    catalog.promote_data_asset_to_managed(existing.id, str(locator))
+                    promoted_asset = existing
+            return register_dataset_records(
+                catalog=catalog,
+                source_path=source,
+                source_sha256=digest,
+                profile_path=profile_path,
+                locator_kind="managed",
+                locator=locator,
+                name=name or source.stem,
+                member_provenance=member_provenance,
+            )
+        except Exception:
+            _rollback_failed_managed_registration(
+                database=database,
+                source_sha256=digest,
+                profile_id=profile_metadata.profile_id,
+                profile_digest=profile_digest,
+                checkpoint=checkpoint,
+                created_locator=created_locator,
+                library_root=managed_root,
+                promoted_asset=promoted_asset,
+            )
+            raise

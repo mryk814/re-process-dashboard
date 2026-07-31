@@ -7296,72 +7296,6 @@
         "title": "CurveVariableCategorical",
         "type": "object"
       },
-      "DataAsset": {
-        "properties": {
-          "archived_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived At"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "locator": {
-            "minLength": 1,
-            "title": "Locator",
-            "type": "string"
-          },
-          "locator_kind": {
-            "enum": [
-              "managed",
-              "bundled"
-            ],
-            "title": "Locator Kind",
-            "type": "string"
-          },
-          "media_type": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Media Type",
-            "type": "string"
-          },
-          "original_filename": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Original Filename",
-            "type": "string"
-          },
-          "sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Sha256",
-            "type": "string"
-          }
-        },
-        "required": [
-          "original_filename",
-          "sha256",
-          "media_type",
-          "locator_kind",
-          "locator",
-          "id",
-          "created_at"
-        ],
-        "title": "DataAsset",
-        "type": "object"
-      },
       "DataExplorerCapability": {
         "additionalProperties": false,
         "properties": {
@@ -7392,10 +7326,66 @@
         "title": "DataExplorerCapability",
         "type": "object"
       },
+      "DataLibraryDataAsset": {
+        "description": "Browser-safe Data Asset summary without its local filesystem locator.",
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "locator_kind": {
+            "enum": [
+              "managed",
+              "bundled"
+            ],
+            "title": "Locator Kind",
+            "type": "string"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "original_filename",
+          "sha256",
+          "media_type",
+          "locator_kind",
+          "created_at"
+        ],
+        "title": "DataLibraryDataAsset",
+        "type": "object"
+      },
       "DataLibraryDataset": {
         "properties": {
           "data_asset": {
-            "$ref": "#/components/schemas/DataAsset"
+            "$ref": "#/components/schemas/DataLibraryDataAsset"
           },
           "dataset_revision": {
             "$ref": "#/components/schemas/DatasetRevision"
@@ -7407,16 +7397,10 @@
             "title": "Dataset Views",
             "type": "array"
           },
-          "profile_locator": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Profile Locator"
+          "profile_available": {
+            "default": false,
+            "title": "Profile Available",
+            "type": "boolean"
           },
           "profile_revision": {
             "$ref": "#/components/schemas/ProfileRevision"
@@ -7436,6 +7420,103 @@
           "supported_task_ids"
         ],
         "title": "DataLibraryDataset",
+        "type": "object"
+      },
+      "DataLibraryModelPackage": {
+        "description": "Browser-safe Model Package reference without its local filesystem locator.",
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "manifest_json": {
+            "additionalProperties": true,
+            "title": "Manifest Json",
+            "type": "object"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "storage_scope": {
+            "default": "bundled",
+            "enum": [
+              "bundled",
+              "personal"
+            ],
+            "title": "Storage Scope",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "package_id",
+          "task_id",
+          "task_contract_digest",
+          "manifest_digest",
+          "manifest_json",
+          "created_at"
+        ],
+        "title": "DataLibraryModelPackage",
+        "type": "object"
+      },
+      "DataLibraryResourceWarning": {
+        "description": "Browser-safe resource warning without personal filesystem locators.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "message"
+        ],
+        "title": "DataLibraryResourceWarning",
         "type": "object"
       },
       "DataLifecycleActor": {
@@ -11135,82 +11216,6 @@
         "title": "ModelPackagePredictorStatus",
         "type": "object"
       },
-      "ModelPackageRef": {
-        "properties": {
-          "archived_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived At"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "locator": {
-            "minLength": 1,
-            "title": "Locator",
-            "type": "string"
-          },
-          "manifest_digest": {
-            "minLength": 1,
-            "title": "Manifest Digest",
-            "type": "string"
-          },
-          "manifest_json": {
-            "additionalProperties": true,
-            "title": "Manifest Json",
-            "type": "object"
-          },
-          "package_id": {
-            "minLength": 1,
-            "title": "Package Id",
-            "type": "string"
-          },
-          "storage_scope": {
-            "default": "bundled",
-            "enum": [
-              "bundled",
-              "personal"
-            ],
-            "title": "Storage Scope",
-            "type": "string"
-          },
-          "task_contract_digest": {
-            "minLength": 1,
-            "title": "Task Contract Digest",
-            "type": "string"
-          },
-          "task_id": {
-            "minLength": 1,
-            "title": "Task Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "package_id",
-          "task_id",
-          "task_contract_digest",
-          "manifest_digest",
-          "locator",
-          "manifest_json",
-          "id",
-          "created_at"
-        ],
-        "title": "ModelPackageRef",
-        "type": "object"
-      },
       "ModelPackageRefUpdateInput": {
         "properties": {
           "archived": {
@@ -11228,14 +11233,14 @@
         "properties": {
           "model_packages": {
             "items": {
-              "$ref": "#/components/schemas/ModelPackageRef"
+              "$ref": "#/components/schemas/DataLibraryModelPackage"
             },
             "title": "Model Packages",
             "type": "array"
           },
           "warnings": {
             "items": {
-              "$ref": "#/components/schemas/ModelPackageRegistrationWarning"
+              "$ref": "#/components/schemas/DataLibraryResourceWarning"
             },
             "title": "Warnings",
             "type": "array"
@@ -11245,35 +11250,6 @@
           "model_packages"
         ],
         "title": "ModelPackageRefreshResult",
-        "type": "object"
-      },
-      "ModelPackageRegistrationWarning": {
-        "properties": {
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "reference": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reference"
-          },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source",
-          "message"
-        ],
-        "title": "ModelPackageRegistrationWarning",
         "type": "object"
       },
       "ModelPackageStatus": {
@@ -14370,7 +14346,7 @@
           },
           "model_packages": {
             "items": {
-              "$ref": "#/components/schemas/ModelPackageRef"
+              "$ref": "#/components/schemas/DataLibraryModelPackage"
             },
             "title": "Model Packages",
             "type": "array"
@@ -20426,7 +20402,7 @@
           },
           "warnings": {
             "items": {
-              "$ref": "#/components/schemas/ModelPackageRegistrationWarning"
+              "$ref": "#/components/schemas/DataLibraryResourceWarning"
             },
             "title": "Warnings",
             "type": "array"
@@ -21435,7 +21411,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ModelPackageRef"
+                    "$ref": "#/components/schemas/DataLibraryModelPackage"
                   },
                   "title": "Response List Model Packages Api Data Library Model Packages Get",
                   "type": "array"
@@ -21516,7 +21492,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModelPackageRef"
+                  "$ref": "#/components/schemas/DataLibraryModelPackage"
                 }
               }
             },

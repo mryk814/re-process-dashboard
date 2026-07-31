@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from material_workbench.app import create_app
 from material_workbench.application.workspace_catalog_bootstrap import bootstrap_workspace_catalog
+from material_workbench.data.profile_workbench import profile_locator_for_digest
 from material_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -66,6 +67,8 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         for item in items
     } == EXPECTED_DATASET_IDENTITIES
     assert all(item["data_asset"]["sha256"] for item in items)
+    assert all("locator" not in item["data_asset"] for item in items)
+    assert all("profile_locator" not in item for item in items)
     assert all(item["profile_revision"]["profile_digest"] for item in items)
     assert all(item["dataset_revision"]["dataset_digest"] for item in items)
     tutorial = next(
@@ -75,14 +78,19 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     assert {"shared", "tasks"}.issubset(
         tutorial["profile_revision"]["effective_profile_json"]
     )
-    assert Path(tutorial["profile_locator"]).is_file()
+    assert tutorial["profile_available"] is True
+    profile_locator = profile_locator_for_digest(
+        tutorial["profile_revision"]["profile_digest"]
+    )
+    assert profile_locator is not None
+    assert profile_locator.is_file()
     legacy_tabular = next(
         item for item in items
         if item["data_asset"]["original_filename"] == "heat_treatment_tradeoff_samples.csv"
     )
     assert "task_id" in legacy_tabular["profile_revision"]["effective_profile_json"]
     assert "shared" not in legacy_tabular["profile_revision"]["effective_profile_json"]
-    assert legacy_tabular["profile_locator"] is None
+    assert legacy_tabular["profile_available"] is False
     mpea = [
         item for item in items
         if item["data_asset"]["original_filename"] == "mpea_ground_truth_18021833.csv"
@@ -93,6 +101,13 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         "mpea-hardness-process-v1",
     }
     assert len({item["profile_revision"]["profile_digest"] for item in mpea}) == 3
+
+    model_packages = client.get(
+        "/api/data-library/model-packages",
+        params={"include_gallery": True},
+    )
+    assert model_packages.status_code == 200
+    assert all("locator" not in item for item in model_packages.json())
 
     options = client.get("/api/project-creation-options")
     assert options.status_code == 200
@@ -112,6 +127,7 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
         for item in visible_items
     }
     assert len(payload["model_packages"]) >= 12
+    assert all("locator" not in package for package in payload["model_packages"])
     assert payload["project_series"] == []
     assert set(payload["task_contract_digests"]) >= {
         "annealed-properties-v1",
@@ -240,7 +256,11 @@ def test_personal_duplicate_never_replaces_the_bundled_package(
         )
         personal_store = tmp_path / "personal-model-store"
         copied_package = personal_store / "packages" / bundled["package_id"]
-        shutil.copytree(Path(bundled["locator"]), copied_package)
+        internal_bundled = client.app.state.workspace_catalog.get_model_package_ref(
+            bundled["id"],
+        )
+        assert internal_bundled is not None
+        shutil.copytree(Path(internal_bundled.locator), copied_package)
         available = personal_store / "available-packages.json"
         available.write_text(
             json.dumps({
@@ -261,7 +281,8 @@ def test_personal_duplicate_never_replaces_the_bundled_package(
             if item["id"] == bundled["id"]
         )
         assert duplicate["storage_scope"] == "bundled"
-        assert duplicate["locator"] == bundled["locator"]
+        assert "locator" not in bundled
+        assert "locator" not in duplicate
 
         shutil.rmtree(copied_package)
         degraded = client.post("/api/data-library/model-packages/refresh")
@@ -276,7 +297,7 @@ def test_personal_duplicate_never_replaces_the_bundled_package(
             if item["id"] == bundled["id"]
         )
         assert option["storage_scope"] == "bundled"
-        assert option["locator"] == bundled["locator"]
+        assert "locator" not in option
 
 
 def test_personal_package_cannot_reuse_a_bundled_package_id(
@@ -294,7 +315,11 @@ def test_personal_package_cannot_reuse_a_bundled_package_id(
         )
         personal_store = tmp_path / "personal-model-store"
         copied_package = personal_store / "packages" / bundled["package_id"]
-        shutil.copytree(Path(bundled["locator"]), copied_package)
+        internal_bundled = client.app.state.workspace_catalog.get_model_package_ref(
+            bundled["id"],
+        )
+        assert internal_bundled is not None
+        shutil.copytree(Path(internal_bundled.locator), copied_package)
         manifest_path = copied_package / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["package_version"] = (
@@ -323,7 +348,7 @@ def test_personal_package_cannot_reuse_a_bundled_package_id(
             if item["id"] == bundled["id"]
         )
         assert unchanged["manifest_digest"] == bundled["manifest_digest"]
-        assert unchanged["locator"] == bundled["locator"]
+        assert "locator" not in unchanged
 
 
 def test_unused_dataset_can_be_disabled_and_restored_with_its_views(client) -> None:

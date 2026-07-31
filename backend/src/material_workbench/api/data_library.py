@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,10 +13,10 @@ from material_workbench.application.data_library import (
 )
 from material_workbench.contracts.data_library_contracts import (
     DataLibraryDataset,
+    DataLibraryModelPackage,
     DatasetRevisionUpdateInput,
     DatasetViewRevision,
     DatasetViewRevisionCreateInput,
-    ModelPackageRef,
     ModelPackageRefreshResult,
     ModelPackageRefUpdateInput,
     TaskResourceRefreshResult,
@@ -25,6 +26,7 @@ from .dependencies import get_data_library_use_cases
 
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 DataLibraryDependency = Annotated[
     DataLibraryUseCases,
     Depends(get_data_library_use_cases),
@@ -94,12 +96,12 @@ def create_dataset_view(
         raise _translate_data_library_error(exc) from exc
 
 
-@router.get("/data-library/model-packages", response_model=list[ModelPackageRef])
+@router.get("/data-library/model-packages", response_model=list[DataLibraryModelPackage])
 def list_model_packages(
     use_cases: DataLibraryDependency,
     include_archived: bool = False,
     include_gallery: bool = False,
-) -> list[ModelPackageRef]:
+) -> list[DataLibraryModelPackage]:
     return use_cases.list_model_packages(
         include_archived=include_archived,
         include_gallery=include_gallery,
@@ -134,21 +136,22 @@ async def refresh_task_resources(request: Request) -> TaskResourceRefreshResult:
     try:
         return await refresh()
     except (OSError, RuntimeError, ValueError) as exc:
+        logger.exception("PERSONAL_TASK_REFRESH_FAILED")
         raise HTTPException(
             409,
-            f"個人Taskを再読込できません: {exc}",
+            "個人Taskを再読込できません。保存先とTask定義を確認してもう一度試してください。",
         ) from exc
 
 
 @router.patch(
     "/data-library/model-packages/{reference_id}",
-    response_model=ModelPackageRef,
+    response_model=DataLibraryModelPackage,
 )
 def update_model_package(
     reference_id: str,
     payload: ModelPackageRefUpdateInput,
     use_cases: DataLibraryDependency,
-) -> ModelPackageRef:
+) -> DataLibraryModelPackage:
     try:
         return use_cases.update_model_package(reference_id, payload)
     except (DataLibraryNotFoundError, DataLibraryConflictError) as exc:

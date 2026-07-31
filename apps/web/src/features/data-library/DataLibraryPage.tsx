@@ -203,7 +203,7 @@ export function DataLibraryPage({
   const exactProfileMissing = Boolean(
     selectedDataset
     && requiresExactProfile
-    && !selectedDataset.profile_locator,
+    && !selectedDataset.profile_available,
   );
   const selectedDatasetPackages = selectedDataset
     ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
@@ -222,21 +222,26 @@ export function DataLibraryPage({
   const modelGuide = useMemo(() => {
     if (!selectedDataset || !guideTaskId || exactProfileMissing) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    const profileArgument = selectedDataset.profile_available ? " --profile $profile" : "";
+    const profileSetup = selectedDataset.profile_available
+      ? ['$profile = "<登録時と同じProfile JSONのパス>"']
+      : [];
+    const profileOption = selectedDataset.profile_available ? ["  --profile $profile `"] : [];
     return [
       `$task = ${quote(guideTaskId)}`,
-      `$source = ${quote(selectedDataset.data_asset.locator)}`,
-      ...(selectedDataset.profile_locator ? [`$profile = ${quote(selectedDataset.profile_locator)}`] : []),
+      '$source = "<元データのExcelまたはCSVのパス>"',
+      ...profileSetup,
       '$packageId = "$task-local-$(Get-Date -Format yyyyMMdd-HHmmss)"',
       '$packageVersion = "1.0.0"',
       '$datasetOutput = "artifacts/model-data/$packageId.json"',
       "$modelStore = if ($env:WORKBENCH_MODEL_STORE_PATH) { $env:WORKBENCH_MODEL_STORE_PATH } else { Join-Path $env:LOCALAPPDATA 'Material Decision Workbench\\models' }",
       "",
-      `npm run model:diagnose -- --task $task --source $source${selectedDataset.profile_locator ? " --profile $profile" : ""}`,
+      `npm run model:diagnose -- --task $task --source $source${profileArgument}`,
       "",
       "npm run model:build -- `",
       "  --task $task `",
       "  --source $source `",
-      ...(selectedDataset.profile_locator ? ["  --profile $profile `"] : []),
+      ...profileOption,
       "  --package-id $packageId `",
       "  --package-version $packageVersion `",
       "  --dataset-output $datasetOutput",
@@ -244,7 +249,7 @@ export function DataLibraryPage({
       "npm run model:promote -- `",
       "  --task $task `",
       "  --source $source `",
-      ...(selectedDataset.profile_locator ? ["  --profile $profile `"] : []),
+      ...profileOption,
       '  --package "artifacts/model-package-candidates/$packageId" `',
       "  --store $modelStore",
       "",
@@ -551,7 +556,7 @@ export function DataLibraryPage({
             <div><span>データの種類</span><strong>{selectedDataset.data_asset.locator_kind === "managed" ? "自分で追加" : "同梱サンプル"}</strong></div>
             <div><span>プロファイル</span><strong>{selectedDataset.profile_revision.name} · r{selectedDataset.profile_revision.revision}</strong></div>
             <div><span>利用できるモデル</span><strong>{selectedDatasetPackages.filter((item) => !item.archived_at).length}件</strong></div>
-            <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small>{selectedDataset.data_asset.locator}</small></details>
+            <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small title={selectedDataset.data_asset.sha256}>source SHA-256: {shortDigest(selectedDataset.data_asset.sha256)}</small></details>
           </div>
           {selectedLineage && <div className="dataset-revision-lineage" aria-label="Dataset revision lineage">
             <span>Source更新</span>
@@ -623,9 +628,9 @@ export function DataLibraryPage({
             ? <div className="panel-error" role="alert">
               <strong>登録時のProfileが見つからないため、モデル更新を開始できません</strong>
               <p>自動検出へ切り替えると、Dataset登録時と学習時で列や単位の解釈が変わる可能性があります。</p>
-              <p>Profile Workbenchで出力したJSONを個人Profile storeへ戻し、次のファイル名で保存してからページを再読込してください。</p>
+              <p>Profile Workbenchから登録時と同じJSONを出力し、モデル更新時にそのJSONを<code>--profile</code>へ指定してください。</p>
               <code>{selectedDataset.profile_revision.profile_digest.replace(/^sha256:/, "")}.json</code>
-              <small>保存先を変更している場合は、WORKBENCH_PROFILE_STORE_PATHも確認してください。</small>
+              <small>この画面では個人ファイルの保存先を表示しません。</small>
             </div>
             : <>
               <label>予測タスク<select value={guideTaskId} onChange={(event) => { setGuideTaskId(event.target.value); setCopiedGuide(false); }}>{selectedDataset.supported_task_ids.map((taskId) => <option key={taskId} value={taskId}>{taskLabel(taskId)}</option>)}</select></label>
