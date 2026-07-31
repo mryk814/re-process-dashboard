@@ -316,6 +316,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
         "material_workbench.tasks.project_runtime_resolver",
         "material_workbench.data.dataset_registration",
         "material_workbench.data.dataset_profile",
+        "material_workbench.data.profile_document",
         "material_workbench.persistence.workspace_catalog_bootstrap",
     }
     removed_paths = {
@@ -325,6 +326,7 @@ def test_removed_modules_are_not_imported_or_named_by_runtime_and_scripts() -> N
         "backend/src/material_workbench/tasks/project_runtime_resolver.py",
         "backend/src/material_workbench/data/dataset_registration.py",
         "backend/src/material_workbench/data/dataset_profile.py",
+        "backend/src/material_workbench/data/profile_document.py",
         "backend/src/material_workbench/persistence/workspace_catalog_bootstrap.py",
     }
     roots = (

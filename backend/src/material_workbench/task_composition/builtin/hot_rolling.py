@@ -107,7 +107,7 @@ def _build_hot_rolling(
 ) -> None:
     from build_hot_rolling_model_package import build
 
-    from material_workbench.data.profile_document import load_profile_document
+    from material_workbench.data.profile_family_registry import load_profile_document
 
     build(
         source,

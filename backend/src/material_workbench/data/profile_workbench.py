@@ -668,147 +668,81 @@ def inspect_workbook(source: Path, profile_path: Path | None = None) -> dict[str
         }
         if selected is not None:
             try:
-                result["canonicalization"] = validate_workbook_profile(source, selected)
-            except DatasetProfileError as exc:
-                result["profile_error"] = "\n".join(exc.errors)
+                result["canonicalization"] = validate_source_profile(source, selected)
+            except (DatasetProfileError, ValueError) as exc:
+                result["profile_error"] = "\n".join(
+                    getattr(exc, "errors", (str(exc),))
+                )
         return result
     finally:
         workbook.close()
 
 
 def validate_source_profile(source: Path, profile_path: Path) -> dict[str, Any]:
-    """Validate an explicit Profile against its source across all Profile families."""
+    """Validate one explicit Profile through its allow-listed family adapter."""
+
+    from material_workbench.data.profile_family_registry import validate_profile_source
+
+    return validate_profile_source(source.resolve(), profile_path.resolve())
+
+
+def _stage_b_validation(source: Path, profile: Any, profile_path: Path) -> dict[str, Any]:
+    """Return the stable validation payload for the Stage B Profile family."""
 
     source = source.resolve()
     profile_path = profile_path.resolve()
-    raw_profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    if raw_profile.get("schema_version") not in {
-        "tabular-dataset-profile/v1",
-        "observation-dataset-profile/v1",
-    }:
-        return validate_workbook_profile(source, profile_path)
+    from material_workbench.data.stage_b_training import build_stage_b_training_data
 
-    from material_workbench.data.profile_document import (
-        lifecycle_profile_for_data,
-        load_profile_document,
-        supported_task_ids,
+    training = build_stage_b_training_data(
+        source,
+        profile,
+        profile_locator=profile_path,
     )
-    from material_workbench.task_composition.catalog import task_module
-
-    profile = load_profile_document(profile_path)
-    task_ids = supported_task_ids(raw_profile)
-    if not task_ids:
-        raise ValueError("Profile does not declare a Prediction Task")
-    observations_by_task: dict[str, int] = {}
-    all_observations: list[dict[str, Any]] = []
-    for task_id in task_ids:
-        data = task_module(task_id).data_loader(source, profile)
-        eligible = [
-            row
-            for row in data.observations
-            if row.get("eligible")
-            and row.get("task_id", task_id) == task_id
-        ]
-        observations_by_task[task_id] = len(eligible)
-        all_observations.extend(data.observations)
-        if dataset_profile_digest(lifecycle_profile_for_data(data)) != (
-            dataset_profile_digest(profile)
-        ):
-            raise ValueError(
-                f"loaded Profile identity differs from the selected Profile: {task_id}"
-            )
-
-    rejection_counts = Counter(
-        reason
-        for row in all_observations
-        for reason in row.get("exclusion_reasons", ())
-    )
+    observations = training.data.observations
+    usable = [row for row in observations if row["eligible"]]
     return {
         "ok": True,
-        "registration_ready": any(observations_by_task.values()),
+        "registration_ready": bool(usable),
         "source": str(source),
         "source_sha256": file_sha256(source),
         "profile": str(profile_path),
-        "profile_id": getattr(profile, "profile_id", getattr(profile, "id", "")),
-        "profile_digest": dataset_profile_digest(profile),
-        "task_ids": list(task_ids),
-        "entities": len(all_observations),
+        "profile_id": profile.id,
+        "profile_digest": training.profile_digest,
+        "task_ids": [profile.task_id],
+        "entities": len(observations),
         "relations": 0,
-        "observations": len(all_observations),
-        "observations_by_task": observations_by_task,
+        "observations": len(observations),
+        "observations_by_task": {profile.task_id: len(usable)},
         "heat_series_parents": 0,
         "unresolved_heat_series_by_task": {},
-        "rejected_by_policy": dict(sorted(rejection_counts.items())),
+        "rejected_by_policy": {
+            reason: sum(reason in row["exclusion_reasons"] for row in observations)
+            for reason in sorted({
+                reason for row in observations for reason in row["exclusion_reasons"]
+            })
+        },
         "entity_preview": [
             {
-                "entity_type": "observation",
-                "entity_key": str(row.get("id", row.get("observation_id", index))),
-                "values": {
-                    "eligible": bool(row.get("eligible")),
-                },
+                "entity_type": "weld_metal",
+                "entity_key": row["id"],
+                "values": {"weld_run": row["parent_key"], "eligible": row["eligible"]},
             }
-            for index, row in enumerate(all_observations[:5])
+            for row in observations[:5]
         ],
     }
 
 
 def validate_workbook_profile(source: Path, profile_path: Path) -> dict[str, Any]:
-    """Validate one explicit effective Profile without runtime/model assumptions."""
+    """Compatibility entry point for validation through the Profile family registry."""
+
+    return validate_source_profile(source, profile_path)
+
+
+def _validate_dataset_input_workbook(source: Path, profile_path: Path) -> dict[str, Any]:
+    """Validate one Dataset Input Profile without runtime/model assumptions."""
 
     source = source.resolve()
     profile_path = profile_path.resolve()
-    raw_profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    if raw_profile.get("schema_version") == "welding-stage-b-profile/v1":
-        from material_workbench.data.stage_b_training import (
-            build_stage_b_training_data,
-            load_stage_b_profile,
-        )
-
-        profile = load_stage_b_profile(profile_path)
-        training = build_stage_b_training_data(
-            source,
-            profile,
-            profile_locator=profile_path,
-        )
-        observations = training.data.observations
-        usable = [row for row in observations if row["eligible"]]
-        return {
-            "ok": True,
-            "registration_ready": bool(usable),
-            "source": str(source),
-            "source_sha256": file_sha256(source),
-            "profile": str(profile_path),
-            "profile_id": profile.id,
-            "profile_digest": training.profile_digest,
-            "task_ids": [profile.task_id],
-            "entities": len(observations),
-            "relations": 0,
-            "observations": len(observations),
-            "observations_by_task": {profile.task_id: len(usable)},
-            "heat_series_parents": 0,
-            "unresolved_heat_series_by_task": {},
-            "rejected_by_policy": {
-                reason: sum(
-                    reason in row["exclusion_reasons"] for row in observations
-                )
-                for reason in sorted({
-                    reason
-                    for row in observations
-                    for reason in row["exclusion_reasons"]
-                })
-            },
-            "entity_preview": [
-                {
-                    "entity_type": "weld_metal",
-                    "entity_key": row["id"],
-                    "values": {
-                        "weld_run": row["parent_key"],
-                        "eligible": row["eligible"],
-                    },
-                }
-                for row in observations[:5]
-            ],
-        }
     profile = load_dataset_profile(profile_path)
     workbook = load_workbook(source, read_only=True, data_only=True)
     try:

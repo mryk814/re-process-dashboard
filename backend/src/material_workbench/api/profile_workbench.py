@@ -34,7 +34,11 @@ from material_workbench.data.profile_workbench import (
     save_source_binding_profile,
     validate_personal_profile_store_path,
 )
-from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profile_family_registry import (
+    ProfileFamilyUnavailableError,
+    load_profile_document,
+    profile_registration_metadata,
+)
 from material_workbench.data.profiles.schema import DatasetProfileError
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 from material_workbench.persistence.workspace_catalog import (
@@ -231,22 +235,15 @@ def list_profile_options() -> list[ProfileWorkbenchProfileOption]:
     result: list[ProfileWorkbenchProfileOption] = []
     personal_store = personal_profile_store_path()
     for profile_digest, path in _profile_registry().items():
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        if raw.get("schema_version") == "welding-stage-b-profile/v1":
-            from material_workbench.data.stage_b_training import load_stage_b_profile
-
-            profile = load_stage_b_profile(path)
-            profile_id = profile.id
-            task_ids = [profile.task_id]
-        else:
-            profile = load_dataset_profile(path)
-            profile_id = profile.profile_id
-            task_ids = sorted(profile.tasks)
+        try:
+            metadata = profile_registration_metadata(load_profile_document(path))
+        except ProfileFamilyUnavailableError as exc:
+            raise HTTPException(422, str(exc)) from exc
         result.append(ProfileWorkbenchProfileOption(
-            profile_id=profile_id,
+            profile_id=metadata.profile_id,
             source_name=path.stem,
             profile_digest=profile_digest,
-            task_ids=task_ids,
+            task_ids=list(metadata.task_ids),
             personal=path.is_relative_to(personal_store),
         ))
     return result

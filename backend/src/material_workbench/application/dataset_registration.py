@@ -13,7 +13,10 @@ from material_workbench.contracts.schemas import (
     ProfileRevisionCreateInput,
 )
 from material_workbench.data.file_integrity import file_sha256
-from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profile_family_registry import (
+    load_profile_document,
+    profile_registration_metadata,
+)
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
 from material_workbench.persistence.workspace_catalog import (
@@ -60,30 +63,11 @@ def register_dataset_records(
 ) -> DatasetRegistrationResult:
     """Create the same content-addressed identities for startup and developer imports."""
 
-    raw_profile = __import__("json").loads(profile_path.read_text(encoding="utf-8"))
-    if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
-        from material_workbench.modeling.tabular_regression import load_tabular_profile
-
-        profile = load_tabular_profile(profile_path)
-        task_ids = (profile.task_id,)
-        profile_id = profile.profile_id
-    elif raw_profile.get("schema_version") == "observation-dataset-profile/v1":
-        from material_workbench.data.observation_profile import load_observation_profile
-
-        profile = load_observation_profile(profile_path)
-        task_ids = (profile.task_id,)
-        profile_id = profile.profile_id
-    elif raw_profile.get("schema_version") == "welding-stage-b-profile/v1":
-        from material_workbench.data.stage_b_training import load_stage_b_profile
-
-        profile = load_stage_b_profile(profile_path)
-        task_ids = (profile.task_id,)
-        profile_id = profile.id
-    else:
-        profile = load_dataset_profile(profile_path)
-        task_ids = tuple(sorted(profile.tasks))
-        profile_id = profile.profile_id
-    effective_profile = profile.model_dump(mode="json", exclude={"task_definitions"})
+    profile = load_profile_document(profile_path)
+    metadata = profile_registration_metadata(profile)
+    task_ids = metadata.task_ids
+    profile_id = metadata.profile_id
+    effective_profile = metadata.effective_profile
     effective_digest = dataset_profile_digest(profile_path)
     asset = catalog.upsert_data_asset(DataAssetCreateInput(
         original_filename=source_path.name,
