@@ -552,3 +552,116 @@ def test_new_csv_scaffold_build_promote_and_project_golden_path(
             "model_package_ref_id": package["id"],
         })
         assert created.status_code == 201, created.text
+
+
+def test_csv_onboarding_api_creates_a_reloadable_personal_task(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """The browser route does not require a CLI hand-off or app restart."""
+
+    task_id = "csv-ui-strength-v1"
+    task_store = tmp_path / "personal-tasks"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
+
+    def unavailable_chain(**_kwargs):
+        raise WeldingChainBootstrapError("not part of this Task smoke")
+
+    monkeypatch.setattr(contributions_module, "bootstrap_welding_chain", unavailable_chain)
+    app = create_app(
+        db_path=tmp_path / "workspace.db",
+        data_library_path=tmp_path / "data-library",
+        model_store_path=tmp_path / "personal-models",
+        _resources=resources,
+    )
+    source = _source(tmp_path / "new-source.csv")
+    fields = [
+        {
+            "column": field.column,
+            "role": field.role,
+            "key": field.key,
+            "label": field.label,
+            "unit": field.unit,
+            "goal_direction": field.goal_direction,
+            "allowed_range": field.allowed_range,
+            "default_range": field.default_range,
+            "training_range": field.training_range,
+            "plausible_range": field.plausible_range,
+            "display_range": field.display_range,
+        }
+        for field in _fields()
+    ]
+
+    with TestClient(app) as client:
+        missing_csv = client.post("/api/data-library/csv-onboarding/inspect")
+        assert missing_csv.status_code == 422
+        before = client.get("/api/project-creation-options")
+        assert before.status_code == 200, before.text
+        assert not any(item["task_id"] == task_id for item in before.json()["model_packages"])
+        with source.open("rb") as stream:
+            inspection = client.post(
+                "/api/data-library/csv-onboarding/inspect",
+                files={"file": (source.name, stream, "text/csv")},
+            )
+        assert inspection.status_code == 200, inspection.text
+        assert inspection.json()["rows"] == 30
+        assert inspection.json()["relations"] == 0
+        assert inspection.json()["notice"].startswith("観測最小値")
+
+        with source.open("rb") as stream:
+            prepared = client.post(
+                "/api/data-library/csv-onboarding/prepare",
+                files={"file": (source.name, stream, "text/csv")},
+                data={
+                    "task_id": task_id,
+                    "label": "CSV UI 強度",
+                    "fields_json": json.dumps(fields),
+                    "grain_confirmation": "one-row-one-observation",
+                    "relation_confirmation": "no-relations",
+                },
+            )
+        assert prepared.status_code == 200, prepared.text
+        response = prepared.json()
+        assert response["state"] == "ready", response
+        assert response["task_id"] == task_id
+        assert response["dataset_view_revision_id"]
+        assert response["model_package_ref_id"]
+
+        options = client.get("/api/project-creation-options")
+        assert options.status_code == 200, options.text
+        payload = options.json()
+        assert any(
+            item["dataset_views"][0]["id"] == response["dataset_view_revision_id"]
+            for item in payload["datasets"]
+        )
+        assert any(item["id"] == response["model_package_ref_id"] for item in payload["model_packages"])
+        created = client.post("/api/projects", json={
+            "name": "CSV UIから作成",
+            "task_id": task_id,
+            "dataset_view_revision_id": response["dataset_view_revision_id"],
+            "model_package_ref_id": response["model_package_ref_id"],
+        })
+        assert created.status_code == 201, created.text
+        project = created.json()
+        assert project["dataset_view_revision_id"] == response["dataset_view_revision_id"]
+        assert project["model_package_ref_id"] == response["model_package_ref_id"]
+        snapshot_candidate = client.post(
+            f"/api/projects/{project['id']}/candidates",
+            json={
+                "name": "CSV UI snapshot",
+                "inputs": {
+                    "composition": {"carbon_pct": 0.2},
+                    "process": {"temperature_c": 760.0},
+                    "categorical": {"route": "A"},
+                },
+            },
+        )
+        assert snapshot_candidate.status_code == 201, snapshot_candidate.text
+        snapshot = client.post(
+            f"/api/projects/{project['id']}/candidates/{snapshot_candidate.json()['id']}/snapshots"
+        )
+        assert snapshot.status_code == 201, snapshot.text
+        provenance = snapshot.json()["payload"]["provenance"]
+        assert provenance["training_data"]["source_sha256"] == response["source_sha256"]
+        assert provenance["training_data"]["source_sha256"]

@@ -144,6 +144,7 @@ function rememberNavigation(intent: NavigationIntent) {
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
   const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
+  const [requestedProjectBinding, setRequestedProjectBinding] = useState<{ taskId: string; modelPackageRefId: string }>();
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
@@ -286,8 +287,9 @@ function App() {
     });
   }
 
-  function startProjectForDataset(datasetViewRevisionId: string) {
+  function startProjectForDataset(datasetViewRevisionId: string, binding?: { taskId: string; modelPackageRefId: string }) {
     setRequestedDatasetViewId(datasetViewRevisionId);
+    setRequestedProjectBinding(binding);
     navigate({ view: "project", projectId: activeProjectId });
   }
 
@@ -515,6 +517,7 @@ function App() {
             }}
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
+            requestedProjectBinding={requestedProjectBinding}
             requestedSettingsSection={navigation.projectSettings}
             onOpenSettings={(projectSettings = "general", replace = false) => navigate({
               view: "project-settings",
@@ -537,7 +540,7 @@ function App() {
               }, true)}
               onProjectChanged={handleProjectChanged}
             />}
-            onCreationIntentConsumed={() => setRequestedDatasetViewId(undefined)}
+            onCreationIntentConsumed={() => { setRequestedDatasetViewId(undefined); setRequestedProjectBinding(undefined); }}
           />
         )}
         {tab === "data-library" && <DataLibraryPage
