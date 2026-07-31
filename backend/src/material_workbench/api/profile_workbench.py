@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 import json
-from pathlib import Path
 import re
+from contextlib import asynccontextmanager
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, AsyncIterator
 from zipfile import BadZipFile, ZipFile
@@ -14,20 +14,7 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 
-from .dependencies import get_data_library_root, get_workspace_catalog
-from .errors import PROJECT_API_ERRORS
-from material_workbench.data.dataset_profile import DatasetProfileError, load_dataset_profile
 from material_workbench.application.dataset_registration import register_managed_dataset
-from material_workbench.data.file_integrity import file_sha256
-from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-from material_workbench.data.profile_workbench import (
-    create_source_binding_draft,
-    inspect_workbook,
-    personal_profile_paths,
-    personal_profile_store_path,
-    save_source_binding_profile,
-    validate_personal_profile_store_path,
-)
 from material_workbench.contracts.schemas import (
     ApiError,
     ProfileWorkbenchBindingDraft,
@@ -38,8 +25,25 @@ from material_workbench.contracts.schemas import (
     ProfileWorkbenchRegistration,
     ProfileWorkbenchValidation,
 )
-from material_workbench.persistence.workspace_catalog import CatalogConflictError, WorkspaceCatalog
+from material_workbench.data.file_integrity import file_sha256
+from material_workbench.data.profile_workbench import (
+    create_source_binding_draft,
+    inspect_workbook,
+    personal_profile_paths,
+    personal_profile_store_path,
+    save_source_binding_profile,
+    validate_personal_profile_store_path,
+)
+from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profiles.schema import DatasetProfileError
+from material_workbench.modeling.model_lifecycle import dataset_profile_digest
+from material_workbench.persistence.workspace_catalog import (
+    CatalogConflictError,
+    WorkspaceCatalog,
+)
 
+from .dependencies import get_data_library_root, get_workspace_catalog
+from .errors import PROJECT_API_ERRORS
 
 router = APIRouter(prefix="/api/profile-workbench", tags=["profile-workbench"])
 PROFILE_WORKBENCH_API_ERRORS = {

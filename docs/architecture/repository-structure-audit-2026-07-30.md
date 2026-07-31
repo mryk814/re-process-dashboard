@@ -21,6 +21,11 @@ provenanceと再生成性を先に確認します。
 
 `git ls-files` とPythonの物理行数を使った時点計測です。
 
+> この章の件数と巨大ファイル一覧は、2026-07-30時点の監査snapshotです。
+> 現行では `data/dataset_profile.py` を削除し、
+> `data/profiles/{schema,loading,validation,canonicalization}.py` の
+> 4責務へ移行済みです。
+
 | 領域 | tracked files / Python lines |
 |---|---:|
 | Repository | 1,352 files |

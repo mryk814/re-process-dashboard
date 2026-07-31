@@ -1,8 +1,8 @@
 """Shared interpretation of persisted Dataset Profile documents."""
 from __future__ import annotations
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 
 def supported_task_ids(document: dict[str, Any]) -> tuple[str, ...]:
@@ -46,7 +46,7 @@ def load_profile_document(path: str | Path) -> Any:
         from material_workbench.data.stage_b_training import load_stage_b_profile
 
         return load_stage_b_profile(profile_path)
-    from material_workbench.data.dataset_profile import load_dataset_profile
+    from material_workbench.data.profiles.loading import load_dataset_profile
 
     return load_dataset_profile(profile_path)
 

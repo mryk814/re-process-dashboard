@@ -1,19 +1,25 @@
 """Shared registration service for immutable Dataset identities."""
 from __future__ import annotations
 
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
-import shutil
 from typing import Any, Literal
 from uuid import uuid4
 
-from material_workbench.data.dataset_profile import load_dataset_profile
+from material_workbench.contracts.schemas import (
+    DataAssetCreateInput,
+    DatasetRevisionCreateInput,
+    ProfileRevisionCreateInput,
+)
 from material_workbench.data.file_integrity import file_sha256
+from material_workbench.data.profiles.loading import load_dataset_profile
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_lifecycle import dataset_profile_digest
-from material_workbench.contracts.schemas import DataAssetCreateInput, DatasetRevisionCreateInput, ProfileRevisionCreateInput
-from material_workbench.persistence.workspace_catalog import CatalogConflictError, WorkspaceCatalog
-
+from material_workbench.persistence.workspace_catalog import (
+    CatalogConflictError,
+    WorkspaceCatalog,
+)
 
 CANONICAL_DATASET_CONTRACT_DIGEST = semantic_digest({"id": "canonical-dataset/v1"})
 CANONICALIZATION_CONTRACT_DIGEST = semantic_digest({"id": "workbook-canonicalizer/v1"})

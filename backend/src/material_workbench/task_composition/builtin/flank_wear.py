@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from material_workbench.data.dataset_profile import DatasetInputProfile
+from material_workbench.data.profiles.schema import DatasetInputProfile
 from material_workbench.task_composition.builtin.shared import (
     _application_capability,
     _curve_family,

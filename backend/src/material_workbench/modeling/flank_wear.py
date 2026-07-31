@@ -5,11 +5,11 @@
 """
 from __future__ import annotations
 
-from collections import defaultdict
 import hashlib
 import json
 import math
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
@@ -17,8 +17,21 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from material_workbench.data.dataset_profile import DatasetInputProfile, canonicalize_workbook, load_dataset_profile
 from material_workbench.contracts.feature_contracts import feature_index_families
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateInput,
+    Prediction,
+    Support,
+    TargetValue,
+)
+from material_workbench.data.profiles.canonicalization import canonicalize_workbook
+from material_workbench.data.profiles.loading import (
+    load_dataset_profile,
+    load_task_definitions,
+)
+from material_workbench.data.profiles.schema import DatasetInputProfile
+from material_workbench.domain.goal_targets import goal_fields, probability_from_cdf
 from material_workbench.modeling.flank_wear_feature_pipeline import (
     CATEGORICAL_CHOICES,
     COMPOSITION_NAMES,
@@ -32,12 +45,14 @@ from material_workbench.modeling.flank_wear_feature_pipeline import (
     build_flank_wear_features,
     build_flank_wear_features_from_observation,
 )
-from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
-from material_workbench.data.dataset_profile import load_task_definitions
-from material_workbench.domain.goal_targets import goal_fields, probability_from_cdf
-from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
+from material_workbench.modeling.model_packages import (
+    ModelPackageLoader,
+    VerifiedModelPackage,
+    predictive_interval,
+    validate_predictive_summary,
+    validate_task_definition_canonical_inputs,
+)
 from material_workbench.tasks.task_registry import load_task_contracts
-
 
 SUPPORT_POLICY_ID = "flank-wear-run-knn-v1"
 DEFAULT_SOURCE_ENV = "WORKBENCH_FLANK_WEAR_SOURCE_PATH"

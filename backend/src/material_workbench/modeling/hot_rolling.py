@@ -1,14 +1,28 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import json
 import math
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from material_workbench.contracts.feature_contracts import feature_index_families
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateInput,
+    Prediction,
+    Support,
+    TargetValue,
+)
+from material_workbench.data.importer import (
+    WorkbookData,
+    lineage_reference_keys,
+    training_context_key,
+)
+from material_workbench.data.profiles.loading import load_task_definitions
+from material_workbench.domain.goal_targets import goal_fields, normal_goal_probability
 from material_workbench.modeling.hot_rolling_feature_pipeline import (
     FEATURE_DEFINITIONS,
     FEATURE_NAMES,
@@ -22,13 +36,14 @@ from material_workbench.modeling.hot_rolling_feature_pipeline import (
     build_hot_rolling_features_v2,
     candidate_from_observation,
 )
-from material_workbench.data.dataset_profile import load_task_definitions
-from material_workbench.data.importer import WorkbookData, lineage_reference_keys, training_context_key
-from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
-from material_workbench.domain.goal_targets import goal_fields, normal_goal_probability
-from material_workbench.contracts.schemas import Candidate, CandidateInput, Prediction, Support, TargetValue
+from material_workbench.modeling.model_packages import (
+    ModelPackageLoader,
+    VerifiedModelPackage,
+    predictive_interval,
+    validate_predictive_summary,
+    validate_task_definition_canonical_inputs,
+)
 from material_workbench.tasks.task_registry import load_task_contracts
-
 
 TASK_ID = "hot-rolled-properties-v1"
 SUPPORT_POLICY_ID = "hot-rolling-parent-condition-knn-v1"

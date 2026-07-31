@@ -889,7 +889,7 @@
       "math_connections": [],
       "repo_references": [
         {
-          "path": "backend/src/material_workbench/data/dataset_profile.py",
+          "path": "backend/src/material_workbench/data/profiles/schema.py",
           "role": "application"
         }
       ],

@@ -11,9 +11,14 @@ from typing import Annotated, Any, Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from material_workbench.data.dataset_profile import load_dataset_profile
+from material_workbench.contracts.task_contracts import (
+    RuntimeCapability,
+    TaskContractFixture,
+    TaskDefinition,
+)
 from material_workbench.data.importer import training_context_key
 from material_workbench.data.profile_document import lifecycle_profile_for_data
+from material_workbench.data.profiles.loading import load_dataset_profile
 from material_workbench.modeling.model_packages import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
@@ -21,10 +26,11 @@ from material_workbench.modeling.model_packages import (
     PackageContractError,
     VerifiedModelPackage,
 )
-from material_workbench.contracts.task_contracts import RuntimeCapability, TaskContractFixture, TaskDefinition
-from material_workbench.task_composition.catalog import registered_task_modules, task_module
+from material_workbench.task_composition.catalog import (
+    registered_task_modules,
+    task_module,
+)
 from material_workbench.task_composition.ports import DataDescriptor
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
@@ -232,11 +238,15 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
         profile_path = Path(path)
         raw = json.loads(profile_path.read_text(encoding="utf-8"))
         if raw.get("schema_version") == "tabular-dataset-profile/v1":
-            from material_workbench.modeling.tabular_regression import load_tabular_profile
+            from material_workbench.modeling.tabular_regression import (
+                load_tabular_profile,
+            )
 
             profile = load_tabular_profile(profile_path)
         elif raw.get("schema_version") == "observation-dataset-profile/v1":
-            from material_workbench.data.observation_profile import load_observation_profile
+            from material_workbench.data.observation_profile import (
+                load_observation_profile,
+            )
 
             profile = load_observation_profile(profile_path)
         elif raw.get("schema_version") == "welding-stage-b-profile/v1":
@@ -335,7 +345,10 @@ def canonical_training_dataset(
     builder = task_module(task_id).feature_row_builder
     if pipeline_version == "2.0.0":
         if task_id == "annealed-properties-v1":
-            from material_workbench.modeling.feature_pipeline import build_feature_bundle_v2, candidate_from_observation
+            from material_workbench.modeling.feature_pipeline import (
+                build_feature_bundle_v2,
+                candidate_from_observation,
+            )
 
             builder = lambda row, defaults: (
                 None
@@ -343,7 +356,10 @@ def canonical_training_dataset(
                 else build_feature_bundle_v2(candidate, defaults)
             )
         elif task_id == "hot-rolled-properties-v1":
-            from material_workbench.modeling.hot_rolling_feature_pipeline import build_hot_rolling_features_v2, candidate_from_observation
+            from material_workbench.modeling.hot_rolling_feature_pipeline import (
+                build_hot_rolling_features_v2,
+                candidate_from_observation,
+            )
 
             builder = lambda row, defaults: (
                 None

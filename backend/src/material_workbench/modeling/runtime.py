@@ -1,18 +1,39 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass
 import json
 import math
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from material_workbench.contracts.feature_contracts import feature_index_families
+from material_workbench.contracts.schemas import (
+    Candidate,
+    CandidateInput,
+    HeatPoint,
+    Prediction,
+    Support,
+    TargetRange,
+    TargetValue,
+)
+from material_workbench.data.importer import (
+    WorkbookData,
+    composition_names,
+    lineage_reference_keys,
+    training_context_key,
+)
+from material_workbench.data.profiles.loading import load_task_definitions
+from material_workbench.domain.goal_targets import (
+    empirical_goal_probability,
+    goal_fields,
+    normal_goal_probability,
+)
+from material_workbench.domain.heat_time import line_speed_scaled_times
 from material_workbench.modeling.feature_pipeline import (
     FEATURE_DEFINITIONS,
-    FEATURE_NAMES as METALLURGY_FEATURE_NAMES,
     FEATURE_PIPELINE_ID,
     FEATURE_PIPELINE_VERSION,
     V2_FEATURE_DEFINITIONS,
@@ -22,17 +43,20 @@ from material_workbench.modeling.feature_pipeline import (
     build_feature_bundle_v2,
     candidate_from_observation,
 )
-from material_workbench.domain.heat_time import line_speed_scaled_times
-from material_workbench.data.dataset_profile import load_task_definitions
-from material_workbench.data.importer import WorkbookData, composition_names, lineage_reference_keys, training_context_key
-from material_workbench.modeling.model_packages import ModelPackageLoader, VerifiedModelPackage, predictive_interval, validate_predictive_summary, validate_task_definition_canonical_inputs
+from material_workbench.modeling.feature_pipeline import (
+    FEATURE_NAMES as METALLURGY_FEATURE_NAMES,
+)
+from material_workbench.modeling.model_packages import (
+    ModelPackageLoader,
+    VerifiedModelPackage,
+    predictive_interval,
+    validate_predictive_summary,
+    validate_task_definition_canonical_inputs,
+)
 from material_workbench.modeling.response_curve_errors import (
     ResponseCurveTrainingRangeUnavailableError,
 )
-from material_workbench.domain.goal_targets import empirical_goal_probability, goal_fields, normal_goal_probability
-from material_workbench.contracts.schemas import Candidate, CandidateInput, HeatPoint, Prediction, Support, TargetRange, TargetValue
 from material_workbench.tasks.task_registry import load_task_contracts
-
 
 TASK_ID = "annealed-properties-v1"
 COMPOSITION_COLUMNS = composition_names(task_id=TASK_ID)

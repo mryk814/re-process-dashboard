@@ -11,8 +11,16 @@ from typing import Any, Mapping
 
 from openpyxl import load_workbook
 
-from material_workbench.data.dataset_profile import CanonicalDataset, DatasetInputProfile, DatasetProfileError, canonicalize_workbook, load_dataset_profile
 from material_workbench.contracts.task_contracts import TaskDefinition
+from material_workbench.data.profiles.canonicalization import (
+    canonicalize_workbook,
+)
+from material_workbench.data.profiles.loading import load_dataset_profile
+from material_workbench.data.profiles.schema import (
+    DatasetInputProfile,
+    DatasetProfileError,
+)
+
 
 def composition_names(
     profile: DatasetInputProfile | None = None,

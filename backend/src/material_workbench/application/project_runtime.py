@@ -1,28 +1,34 @@
 """Resolve a Project's immutable data/profile/package references into a runtime."""
 from __future__ import annotations
 
+import hashlib
 from collections import OrderedDict
 from dataclasses import dataclass
-import hashlib
 from pathlib import Path
 from threading import RLock
 from typing import Any
 
-from material_workbench.data.dataset_profile import DatasetInputProfile, load_task_definitions, validate_profile
+from material_workbench.application.workspace_catalog_bootstrap import (
+    CANONICAL_DATASET_CONTRACT_DIGEST,
+    CANONICALIZATION_CONTRACT_DIGEST,
+    task_definition_digest,
+)
+from material_workbench.contracts.schemas import Project
+from material_workbench.data.profiles.loading import load_task_definitions
+from material_workbench.data.profiles.schema import DatasetInputProfile
+from material_workbench.data.profiles.validation import validate_profile
 from material_workbench.execution.inference_work_graph import semantic_digest
 from material_workbench.modeling.model_packages import (
     ModelPackageLoader,
     PackageContractError,
     VerifiedModelPackage,
 )
-from material_workbench.contracts.schemas import Project
-from material_workbench.task_composition.ports import PredictionRuntime
-from material_workbench.tasks.task_registry import DataExplorerEntry, TaskRegistry, TaskRegistryError
 from material_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from material_workbench.application.workspace_catalog_bootstrap import (
-    CANONICALIZATION_CONTRACT_DIGEST,
-    CANONICAL_DATASET_CONTRACT_DIGEST,
-    task_definition_digest,
+from material_workbench.task_composition.ports import PredictionRuntime
+from material_workbench.tasks.task_registry import (
+    DataExplorerEntry,
+    TaskRegistry,
+    TaskRegistryError,
 )
 
 
@@ -253,7 +259,9 @@ class ProjectRuntimeResolver:
         definitions = load_task_definitions()
         raw_profile = dict(profile_revision.effective_profile_json)
         if raw_profile.get("schema_version") == "tabular-dataset-profile/v1":
-            from material_workbench.modeling.tabular_regression import TabularDatasetProfile
+            from material_workbench.modeling.tabular_regression import (
+                TabularDatasetProfile,
+            )
 
             try:
                 profile = TabularDatasetProfile.model_validate(raw_profile)
@@ -263,7 +271,9 @@ class ProjectRuntimeResolver:
                 raise ProjectRuntimeResolutionError("Profile RevisionはこのPrediction Taskに対応していません")
             return source_path, profile, asset.sha256, profile_revision.profile_digest
         if raw_profile.get("schema_version") == "observation-dataset-profile/v1":
-            from material_workbench.data.observation_profile import ObservationDatasetProfile
+            from material_workbench.data.observation_profile import (
+                ObservationDatasetProfile,
+            )
 
             try:
                 profile = ObservationDatasetProfile.model_validate(raw_profile)
