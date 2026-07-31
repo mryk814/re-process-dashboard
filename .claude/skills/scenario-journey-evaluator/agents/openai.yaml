@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scenario Journey Evaluator"
+  short_description: "実画面の判断journeyを再現可能なfindingへ整理する"
+  default_prompt: "Use $scenario-journey-evaluator to complete a frozen decision scenario in the real UI and produce evidence-backed findings."

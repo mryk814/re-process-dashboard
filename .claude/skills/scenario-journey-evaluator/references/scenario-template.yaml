@@ -1,0 +1,68 @@
+schema_version: scenario-journey/v1
+scenario_id: replace-me
+scenario_revision: 1
+status: frozen
+frozen_at: 2026-01-01T00:00:00Z
+scenario_digest: "sha256:replace-after-freeze"
+repository_commit: replace-me
+
+mission:
+  project_name: replace-me
+  question: replace-me
+  success_condition: replace-me
+  limits:
+    - replace-me
+
+resources:
+  dataset:
+    path: "absolute-path-outside-repository"
+    provenance_record: "absolute-path-outside-repository"
+    sha256: "sha256:replace-me"
+  task_id: replace-me-v1
+  dataset_revision_id: null
+  model_package_id: replace-me
+  model_package_digest: "sha256:replace-me"
+  workspace_database: "absolute-path-outside-repository"
+  data_library: "absolute-path-outside-repository"
+  ui_url: "http://127.0.0.1:replace-me/"
+
+decision:
+  goals:
+    - target: replace-me
+      rule: at_least
+      value: 0
+  input_constraints:
+    - path: process.replace_me
+      min: 0
+      max: 1
+  proposal_count: 4
+  selection_policy: replace-me
+
+required_journey:
+  - create_project
+  - set_goals
+  - inspect_historical_data
+  - create_baseline_from_observation
+  - explore_range
+  - compare_candidates
+  - select_next_trial
+  - resume_saved_context
+
+prohibitions:
+  - no_database_direct_access_after_journey_start
+  - no_mutation_api_bypass
+  - no_code_pre_read
+  - no_fabricated_actuals
+  - no_same_session_app_fix
+  - no_scenario_simplification
+
+outputs:
+  root: "absolute-path-outside-repository"
+  journey_log: journey.jsonl
+  decision_outcome: decision-outcome.json
+  screenshots: screenshots
+  finding_report: evaluator-report.md
+
+revision_history:
+  - revision: 1
+    reason: initial frozen scenario
