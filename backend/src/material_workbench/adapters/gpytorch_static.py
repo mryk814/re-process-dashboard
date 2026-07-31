@@ -11,7 +11,7 @@ from material_workbench.modeling.model_package_contracts import (
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:
@@ -77,7 +77,7 @@ class _ExactRBFPredictor:
 class GPyTorchStaticAdapter:
     runtime_type = "gpytorch.static_exact_rbf.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _ExactRBFPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _ExactRBFPredictor:
         if torch is None or load_safetensors is None:
             raise MissingOptionalDependency("install runtime-gpytorch to load gpytorch.static_exact_rbf.v1")
         tensors = load_safetensors(str(package.artifact_path(predictor.artifact)), device="cpu")

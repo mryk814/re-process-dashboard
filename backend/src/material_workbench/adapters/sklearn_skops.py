@@ -6,7 +6,7 @@ from material_workbench.modeling.model_package_contracts import (
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:
@@ -44,7 +44,7 @@ class _SkopsPredictor:
 class SklearnSkopsAdapter:
     runtime_type = "sklearn.skops.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _SkopsPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _SkopsPredictor:
         if skops_io is None:
             raise MissingOptionalDependency("install runtime-sklearn to load sklearn.skops.v1")
         family = predictor.config.get("estimator_family")

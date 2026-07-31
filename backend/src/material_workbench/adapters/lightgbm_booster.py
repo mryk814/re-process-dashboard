@@ -11,7 +11,7 @@ from material_workbench.modeling.model_package_contracts import (
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
 from .base import feature_vector
 
 try:
@@ -149,7 +149,7 @@ class _LightGBMPredictor:
 class LightGBMBoosterAdapter:
     runtime_type = "lightgbm.booster.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _LightGBMPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _LightGBMPredictor:
         if lightgbm is None:
             raise MissingOptionalDependency("install runtime-lightgbm to load lightgbm.booster.v1")
         if predictor.predictive_family not in {"normal", "empirical_quantiles", "bernoulli_logit"}:

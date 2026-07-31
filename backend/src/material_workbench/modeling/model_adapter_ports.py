@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
 from material_workbench.modeling.model_package_contracts import (
     DeterministicTransformSpec,
     PredictiveSummary,
     PredictorSpec,
 )
-
-if TYPE_CHECKING:
-    from material_workbench.modeling.model_package_verification import (
-        VerifiedModelPackage,
-    )
-
 
 class LoadedPredictor(Protocol):
     def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary: ...
@@ -31,12 +26,18 @@ class LoadedBatchPredictor(Protocol):
     ) -> list[PredictiveSummary]: ...
 
 
+class VerifiedPackageArtifacts(Protocol):
+    """Read-only access to artifacts copied and verified by the Package loader."""
+
+    def artifact_path(self, relative_path: str) -> Path: ...
+
+
 class Adapter(Protocol):
     runtime_type: str
 
     def load(
         self,
-        package: VerifiedModelPackage,
+        package: VerifiedPackageArtifacts,
         predictor: PredictorSpec,
     ) -> LoadedPredictor: ...
 
@@ -50,6 +51,6 @@ class DeterministicTransformAdapter(Protocol):
 
     def load_transform(
         self,
-        package: VerifiedModelPackage,
+        package: VerifiedPackageArtifacts,
         transform: DeterministicTransformSpec,
     ) -> LoadedDeterministicTransform: ...

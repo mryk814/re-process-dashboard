@@ -10,7 +10,7 @@ from material_workbench.modeling.model_package_contracts import (
     PredictiveSummary,
     PredictorSpec,
 )
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
 from .base import feature_vector, quantile_summary
 from .safe_npz import safe_npz_arrays
 
@@ -88,7 +88,7 @@ class _PosteriorLinearPredictor:
 class BuiltinPosteriorLinearAdapter:
     runtime_type = "builtin.posterior_linear.v1"
 
-    def load(self, package: VerifiedModelPackage, predictor: PredictorSpec) -> _PosteriorLinearPredictor:
+    def load(self, package: VerifiedPackageArtifacts, predictor: PredictorSpec) -> _PosteriorLinearPredictor:
         if predictor.architecture_id not in {
             "posterior_linear_v1",
             "hierarchical_parent_random_intercept_v1",

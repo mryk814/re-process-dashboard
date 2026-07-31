@@ -171,6 +171,45 @@ def test_profile_package_has_one_way_schema_validation_and_canonicalization_depe
     assert "material_workbench.data.profiles.validation" in imports["canonicalization"]
 
 
+def test_model_adapter_ports_registry_and_verification_are_one_way() -> None:
+    modeling = PACKAGE_ROOT / "modeling"
+    ports = modeling / "model_adapter_ports.py"
+    registry = modeling / "model_adapter_registry.py"
+    verification = modeling / "model_package_verification.py"
+    adapters = PACKAGE_ROOT / "adapters"
+
+    ports_forbidden = (
+        "material_workbench.adapters",
+        "material_workbench.modeling.model_adapter_registry",
+        "material_workbench.modeling.model_package_verification",
+    )
+    assert sorted(
+        name for name in _imports(ports) if name.startswith(ports_forbidden)
+    ) == []
+    assert sorted(
+        name
+        for name in _imports(registry)
+        if name.startswith("material_workbench.modeling.model_package_verification")
+    ) == []
+    assert sorted(
+        name
+        for name in _imports(verification)
+        if name.startswith("material_workbench.adapters")
+    ) == []
+
+    offenders = {
+        path.name: sorted(
+            name
+            for name in _imports(path)
+            if name.startswith(
+                "material_workbench.modeling.model_package_verification"
+            )
+        )
+        for path in adapters.glob("*.py")
+    }
+    assert {path: names for path, names in offenders.items() if names} == {}
+
+
 def test_task_ports_descriptors_and_catalog_have_no_runtime_or_storage_dependency() -> None:
     forbidden = (
         "material_workbench.application",

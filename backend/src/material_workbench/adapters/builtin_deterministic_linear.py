@@ -28,7 +28,7 @@ from material_workbench.modeling.model_package_contracts import (
     DeterministicTransformSpec,
     PackageContractError,
 )
-from material_workbench.modeling.model_package_verification import VerifiedModelPackage
+from material_workbench.modeling.model_adapter_ports import VerifiedPackageArtifacts
 
 
 def _semantic_digest(payload: Any) -> str:
@@ -304,7 +304,7 @@ class BuiltinDeterministicLinearAdapter:
 
     def load_transform(
         self,
-        package: VerifiedModelPackage,
+        package: VerifiedPackageArtifacts,
         transform: DeterministicTransformSpec,
     ) -> _BuiltinDeterministicLinearTransform:
         try:
