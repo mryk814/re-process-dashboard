@@ -14,6 +14,11 @@ from decision_workbench.contracts.task_contracts import (
     RuntimeCapability,
     TargetRuntimeCapability,
 )
+from decision_workbench.contracts.model_capability_contracts import (
+    CapabilityRequirement,
+    ModelPackageCapabilityMatrix,
+)
+from decision_workbench.modeling.package_capabilities import resolve_capabilities
 from decision_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from decision_workbench.domain.proposal_generation import (
     bounded_simplex_compatibility,
@@ -70,6 +75,7 @@ STRATEGIES = (
         selector_version="1.0.0",
         requires_standard_deviation=True,
         requires_acquisition_representation="normal_mean_std",
+        required_capabilities=(CapabilityRequirement(capability="normal_mean_std"),),
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_ei_v1",
@@ -84,6 +90,7 @@ STRATEGIES = (
         requires_standard_deviation=True,
         requires_incumbent=True,
         requires_acquisition_representation="normal_mean_std",
+        required_capabilities=(CapabilityRequirement(capability="normal_mean_std"),),
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_thompson_v1",
@@ -97,6 +104,7 @@ STRATEGIES = (
         selector_version="1.0.0",
         requires_samples=True,
         production_enabled=False,
+        required_capabilities=(CapabilityRequirement(capability="predictive_samples"),),
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_uncertainty_v1",
@@ -110,6 +118,7 @@ STRATEGIES = (
         selector_version="1.0.0",
         requires_standard_deviation=True,
         production_enabled=False,
+        required_capabilities=(CapabilityRequirement(capability="standard_deviation"),),
     ),
     ProposalStrategyDefinition(
         strategy_id="sobol_support_boundary_v1",
@@ -161,6 +170,7 @@ def strategy_availability(
     objective: ObjectiveDefinition | None,
     incumbent_value: float | None = None,
     design_space: DesignSpaceDefinition | None = None,
+    capability_matrix: ModelPackageCapabilityMatrix | None = None,
 ) -> list[ProposalStrategyAvailability]:
     target_capability = next(
         (item for item in capability.targets if item.target == target),
@@ -189,7 +199,10 @@ def strategy_availability(
             reasons.append("この戦略はRuntime契約を確認中のため、まだ利用できません")
         if target_capability is None:
             reasons.append("選択したoutputをRuntimeが予測できません")
-        else:
+        elif capability_matrix is None:
+            # Direct callers that only have the legacy Task contract retain the
+            # old diagnostic surface. Production always supplies the Package
+            # matrix below, where family semantics are also checked.
             if (
                 definition.requires_standard_deviation
                 and definition.requires_acquisition_representation is None
@@ -207,7 +220,13 @@ def strategy_availability(
                     "この戦略には平均と予測標準偏差をnormal mean/stdとして"
                     "解釈できる連続outputが必要です"
                 )
-        if definition.requires_joint_samples and not capability.joint_samples:
+        else:
+            resolution = resolve_capabilities(
+                capability_matrix, target=target,
+                requirements=definition.required_capabilities,
+            )
+            reasons.extend(reason for reason in resolution.reasons if reason not in reasons)
+        if capability_matrix is None and definition.requires_joint_samples and not capability.joint_samples:
             reasons.append("joint sampleに対応するRuntimeが必要です")
         has_incumbent = incumbent_value is not None
         if definition.requires_incumbent and not has_incumbent:
@@ -283,6 +302,7 @@ def resolve_strategy(
     ],
     objective: ObjectiveDefinition,
     design_space: DesignSpaceDefinition | None = None,
+    capability_matrix: ModelPackageCapabilityMatrix | None = None,
 ) -> tuple[ProposalStrategyDefinition, str | None]:
     availability = {
         item.definition.strategy_id: item
@@ -293,6 +313,7 @@ def resolve_strategy(
             objective=objective,
             incumbent_value=request.incumbent_value,
             design_space=design_space,
+            capability_matrix=capability_matrix,
         )
     }
     selected = availability.get(request.strategy_id)

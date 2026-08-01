@@ -9,6 +9,7 @@ import math
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, field_validator, model_validator
+from decision_workbench.contracts.model_capability_contracts import ModelPackageCapabilityMatrix
 
 
 TASK_DEFINITION_SCHEMA_VERSION = "task-definition/v1"
@@ -407,6 +408,7 @@ class TargetRuntimeCapability(ContractModel):
     uncertainty_components: bool
     support: bool
     warnings: bool
+    explanation: bool = False
     goal_probability: Literal["native", "samples", "distribution", "normal_approximation", "unavailable"]
 
     @field_validator("point_statistics")
@@ -612,6 +614,7 @@ class TaskAvailability(ContractModel):
 class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
+    model_package_capability: ModelPackageCapabilityMatrix | None = None
     data_explorer: DataExplorerCapability | None = None
     application: ApplicationCapability
 

@@ -8,9 +8,14 @@ from typing import Any, Literal, Mapping
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.packages.contracts import FeaturePipelineSpec
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
+from decision_workbench.modeling.package_capabilities import (
+    ModelPackageCapabilityMatrix,
+    package_capability_matrix,
+)
 from decision_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 from decision_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition
+from decision_workbench.contracts.model_capability_contracts import ModelPackageCapabilityMatrix
 from decision_workbench.task_composition.ports import (
     CurveFamilyHandler,
     DataDescriptor,
@@ -50,6 +55,7 @@ class TaskRuntimeEntry:
     predictor_runtime: PredictionRuntime
     support_provider: SupportProvider
     capability: RuntimeCapability
+    capability_matrix: ModelPackageCapabilityMatrix
     application_capability: ApplicationCapability
     candidate_family_adapter: CandidateFamilyAdapter
     training_inspector: TrainingInspectorAdapter
@@ -196,6 +202,11 @@ class TaskRegistry:
                 predictor_runtime=runtime,
                 support_provider=runtime,
                 capability=contract.runtime_capability,
+                capability_matrix=package_capability_matrix(
+                    package.manifest,
+                    contract.runtime_capability,
+                    manifest_digest=package.manifest_sha256,
+                ),
                 application_capability=module.application,
                 candidate_family_adapter=family_adapter,
                 training_inspector=module.training_inspector,
@@ -350,6 +361,10 @@ class TaskRegistry:
     def runtime_for(self, task_id: str) -> PredictionRuntime:
         return self.entry_for(task_id).predictor_runtime
 
+    def capability_matrix_for(self, task_id: str) -> ModelPackageCapabilityMatrix:
+        """The selected Package's capability truth, pinned with the runtime entry."""
+        return self.entry_for(task_id).capability_matrix
+
     def require_operation(
         self,
         task_id: str,
@@ -422,6 +437,10 @@ class TaskRegistry:
         return ResolvedTaskDefinition(
             task_definition=contract.task_definition,
             runtime_capability=contract.runtime_capability,
+            model_package_capability=(
+                self._entries[task_id].capability_matrix
+                if task_id in self._entries else None
+            ),
             data_explorer=module.data_explorer,
             application=module.application,
             availability=self.availability_for(task_id),

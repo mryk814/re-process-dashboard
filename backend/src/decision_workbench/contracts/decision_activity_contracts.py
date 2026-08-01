@@ -19,6 +19,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Support,
 )
 from decision_workbench.contracts.task_contracts import ContractModel
+from decision_workbench.contracts.model_capability_contracts import CapabilityRequirement
 
 
 ActivityOperation = Literal["preview"]
@@ -37,6 +38,7 @@ class DecisionActivityDefinition(ContractModel):
     question: Annotated[str, Field(min_length=1)]
     required_operations: tuple[ActivityOperation, ...]
     required_resources: tuple[ActivityResource, ...]
+    required_capabilities: tuple[CapabilityRequirement, ...] = ()
     result_kind: Annotated[str, Field(min_length=1)]
     execution_policy: Literal["explicit"]
 

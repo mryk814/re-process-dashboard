@@ -232,6 +232,9 @@ def runtime_capability_digest(capability: RuntimeCapability) -> str:
     # preserves the immutable digest of every pre-existing Package.
     if not payload["operations"].get("target_specific_similarity", False):
         payload["operations"].pop("target_specific_similarity", None)
+    for target in payload["targets"]:
+        if not target.get("explanation", False):
+            target.pop("explanation", None)
     return _semantic_digest(payload)
 
 

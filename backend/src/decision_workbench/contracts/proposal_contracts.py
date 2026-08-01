@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from decision_workbench.contracts.task_contracts import ContractModel
+from decision_workbench.contracts.model_capability_contracts import CapabilityRequirement
 
 
 AcquisitionRepresentation = Literal[
@@ -148,6 +149,9 @@ class ProposalStrategyDefinition(ContractModel):
     requires_joint_samples: bool = False
     requires_incumbent: bool = False
     requires_acquisition_representation: AcquisitionRepresentation | None = None
+    # The legacy booleans above remain readable in stored Proposal Runs.  New
+    # availability decisions are made only from this shared capability contract.
+    required_capabilities: tuple[CapabilityRequirement, ...] = ()
     production_enabled: bool = True
 
 
