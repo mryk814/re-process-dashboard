@@ -38,6 +38,53 @@ test("Data Library keeps models in the selected dataset context", async ({ page 
   await expect(guide).toContainText("保存済み予測は再計算されません");
 });
 
+test("Data Library keeps Dataset and Task evidence when only Model Package refresh fails, then retries that resource", async ({ page }) => {
+  let modelPackagesAvailable = true;
+  await page.route("**/api/data-library/model-packages?*", async (route) => {
+    if (!modelPackagesAvailable) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Model Package API is temporarily unavailable" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route("**/api/data-library/tasks/refresh", async (route) => {
+    await route.fulfill({
+      json: {
+        task_ids: [],
+        added_task_ids: [],
+        model_package_ids: [],
+        added_model_package_ids: [],
+        warnings: [],
+      },
+    });
+  });
+
+  await page.goto("/?view=data-library");
+  const selectedDataset = page.locator(".dataset-context");
+  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  await expect(selectedDataset.getByRole("heading", { name: "このデータで使うモデル" })).toBeVisible();
+  await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
+
+  modelPackagesAvailable = false;
+  await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
+  await page.getByRole("button", { name: "個人Taskとモデルを再読込" }).click();
+
+  const modelError = selectedDataset.getByRole("alert");
+  await expect(modelError).toContainText("Model Packageを更新できませんでした");
+  await expect(modelError).toContainText("前回取得時点");
+  await expect(modelError).toContainText("Projectを作成");
+  await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+
+  modelPackagesAvailable = true;
+  await modelError.getByRole("button", { name: "Model Packageを再試行" }).click();
+  await expect(selectedDataset.getByRole("alert")).toHaveCount(0);
+});
+
 test("Task refresh only announces Project availability for a matching Dataset", async ({ page }) => {
   await page.goto("/?view=data-library");
   const [packagesResponse, datasetsResponse] = await Promise.all([
