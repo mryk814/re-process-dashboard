@@ -120,6 +120,16 @@ export function ChainStudioPage() {
     setPublished(undefined);
   }
 
+  function cycleGraphBinding(stage: SelectedStage, index: number, target: SurfacePort) {
+    const key = `${stage.id}:${target.path}`;
+    const options = sourceChoices(stages, catalog, index, target);
+    const current = selectedSources[key] ?? options[0].key;
+    const next = options[(options.findIndex((item) => item.key === current) + 1) % options.length];
+    setSelectedSources((sources) => ({ ...sources, [key]: next.key }));
+    setValidation(undefined);
+    setPublished(undefined);
+  }
+
   async function submit(kind: "validate" | "publish") {
     if (!draft) return;
     setSubmitting(kind);
@@ -154,6 +164,13 @@ export function ChainStudioPage() {
     <section className="chain-studio-panel" aria-labelledby="chain-studio-identity"><h3 id="chain-studio-identity">draftの名前</h3><div className="chain-studio-fields"><label>Chain ID<input value={chainId} onChange={(event) => { setChainId(event.target.value); setValidation(undefined); setPublished(undefined); }} /></label><label>表示名<input value={label} onChange={(event) => { setLabel(event.target.value); setValidation(undefined); setPublished(undefined); }} /></label></div></section>
 
     <section className="chain-studio-panel" aria-labelledby="chain-studio-stages"><div className="chain-studio-section-title"><div><h3 id="chain-studio-stages">Stage順序</h3><p>同じTaskを複数回使えます。後段は前段の互換portだけを入力として選べます。</p></div><button type="button" className="outline-button" disabled={stages.length >= 4 || !available.length} onClick={() => { setStages((current) => [...current, { id: newStageId(current), contractId: available[0].contract_id }]); setSelectedSources({}); }}>Stageを追加</button></div><ol className="chain-studio-stages">{stages.map((stage, index) => <li key={stage.id}><span>{stage.id}</span><label><span className="sr-only">{stage.id}のTask</span><select value={stage.contractId} onChange={(event) => replaceStage(index, event.target.value)}>{available.map((item) => <option key={item.contract_id} value={item.contract_id}>{item.label}（{item.contract_id}）</option>)}</select></label><button type="button" className="text-button" disabled={stages.length <= 2} onClick={() => { setStages((current) => current.filter((_, itemIndex) => itemIndex !== index)); setSelectedSources({}); }}>外す</button></li>)}</ol></section>
+
+    <section className="chain-studio-panel" aria-labelledby="chain-studio-map"><div className="chain-studio-section-title"><div><h3 id="chain-studio-map">binding map</h3><p>railを押すと、そのtargetに接続できるsourceを順に切り替えます。下の表と同じdraftを編集します。</p></div></div><div className="chain-studio-authoring-map" aria-label="graph操作でbindingを編集">{stages.map((stage, index) => <article key={stage.id}><header><b>{stage.id}</b><span>{stageFor(catalog, stage.contractId)?.label}</span></header><div>{(stageFor(catalog, stage.contractId)?.surface?.input_ports ?? []).map((target) => {
+      const key = `${stage.id}:${target.path}`;
+      const options = sourceChoices(stages, catalog, index, target);
+      const current = options.find((item) => item.key === selectedSources[key]) ?? options[0];
+      return <button type="button" key={key} className="chain-studio-binding-rail" onClick={() => cycleGraphBinding(stage, index, target)}><span>{current.label}</span><i aria-hidden="true">→</i><b>{stage.id}.{target.path}</b><small>{options.length > 1 ? `${options.length}候補 · 押して切替` : "外部入力のみ"}</small></button>;
+    })}</div></article>)}</div></section>
 
     <section className="chain-studio-panel" aria-labelledby="chain-studio-bindings"><div className="chain-studio-section-title"><div><h3 id="chain-studio-bindings">binding</h3><p>外部入力か、前段の完全に互換なoutputを明示します。basisが違うものは選べません。</p></div></div><div className="chain-studio-table-wrap"><table><thead><tr><th scope="col">target</th><th scope="col">port</th><th scope="col">source</th><th scope="col">型／quantity／unit／basis</th></tr></thead><tbody>{stages.flatMap((stage, index) => {
       const surface = stageFor(catalog, stage.contractId)?.surface;

@@ -30,6 +30,10 @@ import {
 } from "./candidateRequestGeneration";
 import { ApiClientError } from "../../shared/api/client";
 import { formatAllowedRange, formatNumberAtDecimals } from "../../shared/taskPresentation";
+import {
+  resolveChainCandidateEditorAdapter,
+  type ChainCandidateEditorAdapter,
+} from "./chainStudioAdapterRegistry";
 import "./chain-workbench.css";
 
 type StageStatus = "latest" | "running" | "stale" | "failed";
@@ -82,6 +86,9 @@ export function ChainWorkbenchPage({
   const readOnly = Boolean(unavailable);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
   const [contract, setContract] = useState<ApiChainCandidateContract | null>(null);
+  const [starterCandidate, setStarterCandidate] = useState<ApiCandidateInput | null>(null);
+  const [candidateAdapter, setCandidateAdapter] = useState<ChainCandidateEditorAdapter | null>(null);
+  const [unsupportedAdapterId, setUnsupportedAdapterId] = useState<string | null>(null);
   const [candidateInputDefinitions, setCandidateInputDefinitions] = useState<
     ApiChainCandidateContract["external_inputs"]
   >([]);
@@ -150,6 +157,14 @@ export function ChainWorkbenchPage({
   const blendInputDefinition = inputDefinitions.find(
     (definition) => definition.kind === "sparse_blend",
   );
+  const stageRailIds = useMemo(() => {
+    const live = execution?.stages.map((stage) => stage.stage_id);
+    if (live?.length) return live;
+    const fixed = viewedSnapshot?.stages.map((stage) => stage.stage_id);
+    if (fixed?.length) return fixed;
+    if (candidateAdapter?.requiresSparseBlendContract) return ["A", "B", "C"];
+    return [...new Set(inputDefinitions.flatMap((definition) => definition.affected_stage_ids))];
+  }, [candidateAdapter?.adapterId, execution, inputDefinitions, viewedSnapshot]);
   const formatStageNumber = (
     value: unknown,
     definition: ApiChainExecution["stages"][number]["output_definitions"][number],
@@ -199,12 +214,15 @@ export function ChainWorkbenchPage({
   async function loadCandidateEvidence(
     candidateId: string,
     token: CandidateRequestToken,
+    supportsActualComparison = candidateAdapter?.evidence.supportsActualComparison ?? false,
   ) {
     try {
       const [nextExecution, nextSnapshots, nextVariants] = await Promise.all([
         workbenchApi.chainExecution(projectId, candidateId).catch(() => null),
         workbenchApi.listChainSnapshots(projectId, candidateId),
-        workbenchApi.listChainAnalysisVariants(projectId, candidateId),
+        supportsActualComparison
+          ? workbenchApi.listChainAnalysisVariants(projectId, candidateId)
+          : Promise.resolve([]),
       ]);
       if (!candidateRequests.current.isCurrent(token)) return;
       setExecution(nextExecution);
@@ -215,7 +233,7 @@ export function ChainWorkbenchPage({
           : nextSnapshots[0]?.snapshot_id ?? ""
       ));
       setVariants(nextVariants);
-      setStatusMessage(nextExecution ? "固定されたA → B → Cを表示しています" : "まだChainを実行していません");
+      setStatusMessage(nextExecution ? "固定されたChainの最新実行を表示しています" : "まだChainを実行していません");
     } catch (cause) {
       if (candidateRequests.current.isCurrent(token)) {
         setStatusMessage(cause instanceof Error ? cause.message : "Chain候補の計算状態を読み込めませんでした");
@@ -229,6 +247,9 @@ export function ChainWorkbenchPage({
     requestSequence.current += 1;
     setBusy(false);
     setContract(null);
+    setStarterCandidate(null);
+    setCandidateAdapter(null);
+    setUnsupportedAdapterId(null);
     setCandidateInputDefinitions([]);
     setCandidateInputError(null);
     const loadCandidates: Promise<{
@@ -236,6 +257,9 @@ export function ChainWorkbenchPage({
       externalInputs: ApiChainCandidateContract["external_inputs"];
       inputError: string | null;
       items: ApiCandidate[];
+      starter: ApiCandidateInput | null;
+      adapter: ChainCandidateEditorAdapter | null;
+      unsupportedAdapterId: string | null;
     } | null> = readOnly
       ? Promise.all([
         workbenchApi.chainCandidateInputs(projectId).then(
@@ -248,37 +272,63 @@ export function ChainWorkbenchPage({
           }),
         ),
         workbenchApi.listChainCandidates(projectId),
-      ]).then(([inputResult, items]) => ({
+        workbenchApi.chainCandidateCapability(projectId),
+      ]).then(([inputResult, items, capability]) => {
+        const adapter = resolveChainCandidateEditorAdapter(capability.adapter_id);
+        return {
         loadedContract: null,
         ...inputResult,
         items,
-      }))
-      // この画面は疎配合Chain専用の入力面。Chainが別のcandidate adapterを宣言している
-      // 場合は、契約APIを叩く前にcapabilityで判断して明示的に伝える。
+        starter: null,
+        adapter: adapter ?? null,
+        unsupportedAdapterId: adapter ? null : capability.adapter_id,
+      };
+      })
       : workbenchApi.chainCandidateCapability(projectId).then((capability) => {
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return null;
-      if (!capability.sparse_blend) {
-        setStatusMessage(
-          `このChainは疎な配合明細を使いません（candidate adapter: ${capability.adapter_id}）。`
-          + "この画面は疎配合Chain専用です。",
-        );
-        return null;
-      }
+      const adapter = resolveChainCandidateEditorAdapter(capability.adapter_id);
+      if (!adapter) return {
+        loadedContract: null,
+        externalInputs: [],
+        inputError: null,
+        items: [],
+        starter: null,
+        adapter: null,
+        unsupportedAdapterId: capability.adapter_id,
+      };
       return Promise.all([
-        workbenchApi.chainCandidateContract(projectId),
+        adapter.requiresSparseBlendContract
+          ? workbenchApi.chainCandidateContract(projectId)
+          : Promise.resolve(null),
+        workbenchApi.chainCandidateInputs(projectId),
+        workbenchApi.chainStarterCandidate(projectId),
         workbenchApi.listChainCandidates(projectId),
-      ]).then(([loadedContract, items]) => ({
+      ]).then(([loadedContract, externalInputs, starter, items]) => ({
         loadedContract,
-        externalInputs: loadedContract.external_inputs,
+        externalInputs,
         inputError: null,
         items,
+        starter,
+        adapter,
+        unsupportedAdapterId: null,
       }));
     });
     void loadCandidates.then(async (loaded) => {
       if (loaded === null) return;
-      const { loadedContract, externalInputs, inputError, items } = loaded;
+      const {
+        loadedContract,
+        externalInputs,
+        inputError,
+        items,
+        starter,
+        adapter,
+        unsupportedAdapterId: unresolvedAdapterId,
+      } = loaded;
       if (!active || !candidateRequests.current.isCurrent(projectToken)) return;
       setContract(loadedContract);
+      setStarterCandidate(starter);
+      setCandidateAdapter(adapter);
+      setUnsupportedAdapterId(unresolvedAdapterId);
       setCandidateInputDefinitions(externalInputs);
       setCandidateInputError(inputError);
       setCandidates(items);
@@ -290,9 +340,15 @@ export function ChainWorkbenchPage({
       if (candidateId) {
         const candidateToken = candidateRequests.current.activate(projectId, candidateId);
         onCandidateSelected(candidateId);
-        await loadCandidateEvidence(candidateId, candidateToken);
+        await loadCandidateEvidence(
+          candidateId,
+          candidateToken,
+          adapter?.evidence.supportsActualComparison ?? false,
+        );
       } else {
-        setStatusMessage("Chain候補はまだありません");
+        setStatusMessage(unresolvedAdapterId
+          ? `candidate adapter ${unresolvedAdapterId} はこのアプリでは利用できません`
+          : "Chain候補はまだありません");
       }
     }).catch((cause) => {
       if (active && candidateRequests.current.isCurrent(projectToken)) {
@@ -546,12 +602,12 @@ export function ChainWorkbenchPage({
   }
 
   async function createStarterCandidate() {
-    if (!contract) return;
+    if (!starterCandidate || !candidateAdapter) return;
     const projectToken = candidateRequests.current.current();
     setBusy(true);
-    setStatusMessage("固定されたChain契約から基準配合を作成しています");
+    setStatusMessage("固定されたChain契約から基準候補を作成しています");
     try {
-      const created = await workbenchApi.createChainCandidate(projectId, contract.starter_candidate);
+      const created = await workbenchApi.createChainCandidate(projectId, starterCandidate);
       if (!candidateRequests.current.isCurrent(projectToken)) return;
       const candidateToken = candidateRequests.current.activate(projectId, created.id);
       requestSequence.current += 1;
@@ -634,9 +690,12 @@ export function ChainWorkbenchPage({
         <small>復旧: {unavailable.recovery_hint}</small>
       </div>}
       <p>{statusMessage}</p>
-      <small>候補が登録されると、A → B → Cの計算状態と中間実測をここで確認できます。</small>
-      <button className="primary-button" disabled={readOnly || !contract || busy} onClick={() => void createStarterCandidate()}>
-        固定契約から基準配合を作成
+      <small>候補が登録されると、Stageの鮮度、結果、固定Snapshotをここで確認できます。</small>
+      {unsupportedAdapterId && <p className="chain-input-reason" role="alert">
+        candidate adapter <code>{unsupportedAdapterId}</code> は固定registryにありません。誤った編集UIへfallbackしません。
+      </p>}
+      <button className="primary-button" disabled={readOnly || !starterCandidate || !candidateAdapter || busy} onClick={() => void createStarterCandidate()}>
+        {candidateAdapter?.emptyStateLabel ?? "基準候補を作成"}
       </button>
     </section>;
   }
@@ -671,17 +730,17 @@ export function ChainWorkbenchPage({
     </header>
 
     <div className="chain-stage-rail" aria-label="Chain Stageの鮮度">
-      {(["A", "B", "C"] as const).map((stageId, index) => {
+      {stageRailIds.map((stageId, index) => {
         const stage = execution?.stages.find((item) => item.stage_id === stageId);
         const status = (stage?.status ?? "stale") as StageStatus;
         return <div className="chain-stage-slot" key={stageId}>
           <div className={`chain-stage-node ${status}`}>
-            <b>{stageId}</b><span>{stageId === "A" ? "材料成分" : stageId === "B" ? "溶着成分" : "特性"}</span>
+            <b>{stageId}</b><span>{candidateAdapter?.stageLabel(stageId) ?? "予測Stage"}</span>
             <em>{statusLabel[status]}</em>
-            {stageId === "B" && latestVariant && <small>実測照合あり</small>}
-            {stageId === "C" && latestVariant && <small>別analysisあり</small>}
+            {candidateAdapter?.evidence.supportsActualComparison && stageId === "B" && latestVariant && <small>実測照合あり</small>}
+            {candidateAdapter?.evidence.supportsActualComparison && stageId === "C" && latestVariant && <small>別analysisあり</small>}
           </div>
-          {index < 2 && <i aria-hidden="true">→</i>}
+          {index < stageRailIds.length - 1 && <i aria-hidden="true">→</i>}
         </div>;
       })}
     </div>
@@ -791,7 +850,7 @@ export function ChainWorkbenchPage({
           const stagePredictions = predictions(stage);
           return <details key={stage.stage_id}>
             <summary>Stage {stage.stage_id} · {statusLabel[stage.status as StageStatus]}</summary>
-            {stage.stage_id === "A"
+            {candidateAdapter?.renderSnapshotStageAsJson(stage.stage_id)
               ? <pre tabIndex={0} aria-label={`Stage ${stage.stage_id}の固定出力JSON`}>
                 {JSON.stringify(stage.result, null, 2)}
               </pre>
@@ -809,7 +868,7 @@ export function ChainWorkbenchPage({
       </div>
     </details>}
 
-    {selected.blend && blendInputDefinition && <details
+    {candidateAdapter?.requiresSparseBlendContract && selected.blend && blendInputDefinition && <details
       className="chain-blend-panel"
       data-chain-external-path={blendInputDefinition.external_path}
     >
@@ -827,7 +886,10 @@ export function ChainWorkbenchPage({
       />}
     </details>}
 
-    <div className="chain-result-grid">
+    {candidateAdapter?.evidence.renderCurrent({
+      execution,
+      snapshot: viewedSnapshot,
+      specializedEvidence: <div className="chain-result-grid">
       <section className="chain-result-card">
         <header><div><span>STAGE B</span><h3>溶着金属成分</h3></div>{latestVariant && <b className="source-badge actual-match">実測照合あり</b>}</header>
         {uncertaintyNote("B")}
@@ -849,9 +911,10 @@ export function ChainWorkbenchPage({
         </div>
         {latestVariant && <small className="variant-note">実測B経由は別analysis variantです。通常Chainを上書きしません。</small>}
       </section>
-    </div>
+      </div>,
+    })}
 
-    {execution && <ChainUncertaintyPanel
+    {candidateAdapter?.supportsUncertaintyPropagation && execution && <ChainUncertaintyPanel
       panelRef={uncertaintyPanel}
       open={uncertaintyPanelOpen}
       onOpenChange={setUncertaintyPanelOpen}
@@ -868,7 +931,7 @@ export function ChainWorkbenchPage({
       readOnly={readOnly}
     />}
 
-    {!readOnly && <details className="chain-actual-panel">
+    {candidateAdapter?.evidence.supportsActualComparison && !readOnly && <details className="chain-actual-panel">
       <summary>実測Bを使ってStage Cを別分析</summary>
       <p>16成分がすべて揃った実測だけを使用します。不足分を予測値で補いません。</p>
       <label className="actual-id-field">実測ID<input value={draftActualId} onChange={(event) => setDraftActualId(event.target.value)} placeholder="例: WM-001" /></label>
@@ -878,7 +941,7 @@ export function ChainWorkbenchPage({
       </button>
     </details>}
 
-    {variants.length > 0 && <details className="chain-variant-history">
+    {candidateAdapter?.evidence.supportsActualComparison && variants.length > 0 && <details className="chain-variant-history">
       <summary>実測analysis履歴 <b>{variants.length}</b></summary>
       {variants.map((variant) => <article key={variant.variant_id}>
         <div><b>実測を使用</b><span>{variant.identity.actual_ids.join(", ")}</span></div>

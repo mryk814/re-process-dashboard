@@ -82,6 +82,61 @@ def _scalar_studio_definition(client: TestClient, *, label: str = "scalar Studio
     }
 
 
+def _scalar_b_to_c_definition(client: TestClient) -> dict:
+    catalog = client.get("/api/chains/studio/catalog")
+    assert catalog.status_code == 200, catalog.text
+    stages = {item["contract_id"]: item for item in catalog.json()["stages"]}
+    stage_b = stages["welding-consumable-stage-b-v1"]["surface"]
+    stage_c = stages["welding-stage-c-properties-v1"]["surface"]
+    outputs = {port["quantity"]: port for port in stage_b["output_ports"]}
+    external_inputs: dict[str, dict] = {}
+    bindings: list[dict] = []
+    for stage_id, surface in (("B", stage_b), ("C", stage_c)):
+        for target in surface["input_ports"]:
+            upstream = outputs.get(target["quantity"]) if stage_id == "C" else None
+            if (
+                upstream is not None
+                and upstream["value_kind"] == target["value_kind"]
+                and upstream["unit"] == target["unit"]
+                and upstream["basis"] == target["basis"]
+            ):
+                bindings.append({
+                    "target_stage_id": stage_id,
+                    "target_input_path": target["path"],
+                    "source": {
+                        "source_kind": "stage_output",
+                        "stage_id": "B",
+                        "output_key": upstream["path"],
+                    },
+                })
+            else:
+                path = f"candidate.{target['path']}"
+                external_inputs[path] = {**target, "path": path}
+                bindings.append({
+                    "target_stage_id": stage_id,
+                    "target_input_path": target["path"],
+                    "source": {"source_kind": "external", "path": path},
+                })
+    return {
+        "chain_id": "scalar-studio-b-c",
+        "label": "scalar B → C",
+        "stages": [
+            {
+                "stage_id": "B",
+                "stage_kind": "task",
+                "contract_id": "welding-consumable-stage-b-v1",
+            },
+            {
+                "stage_id": "C",
+                "stage_kind": "task",
+                "contract_id": "welding-stage-c-properties-v1",
+            },
+        ],
+        "external_inputs": list(external_inputs.values()),
+        "bindings": bindings,
+    }
+
+
 def test_scalar_chain_studio_validates_publishes_and_pins_server_catalog(
     client: TestClient,
 ) -> None:
@@ -116,6 +171,97 @@ def test_scalar_chain_studio_fails_closed_for_non_scalar_external_path(
     response = client.post("/api/chains/studio/validate", json={"definition": definition})
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_published_scalar_chain_starter_partial_execution_and_snapshot(
+    client: TestClient,
+) -> None:
+    published = client.post(
+        "/api/chains/studio/publish",
+        json={"definition": _scalar_b_to_c_definition(client)},
+    )
+    assert published.status_code == 201, published.text
+    revision = published.json()["revisions"][0]
+    project_response = client.post(
+        "/api/projects",
+        json={
+            "name": "scalar Studio execution",
+            "scientific_identity": {
+                "identity_kind": "chain",
+                "chain_revision_id": "scalar-studio-b-c:r1",
+                "chain_revision_digest": revision["revision_digest"],
+            },
+        },
+    )
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["id"]
+
+    capability = client.get(
+        f"/api/projects/{project_id}/chain/candidate-capability"
+    )
+    assert capability.status_code == 200, capability.text
+    assert capability.json()["adapter_id"] == "scalar/v1"
+    assert capability.json()["sparse_blend"] is False
+
+    starter = client.get(
+        f"/api/projects/{project_id}/chain/starter-candidate"
+    )
+    assert starter.status_code == 200, starter.text
+    assert starter.json()["blend"] is None
+    candidate_response = client.post(
+        f"/api/projects/{project_id}/chain/candidates",
+        json=starter.json(),
+    )
+    assert candidate_response.status_code == 201, candidate_response.text
+    candidate = candidate_response.json()
+
+    first_execution = client.post(
+        f"/api/projects/{project_id}/chain/candidates/{candidate['id']}/executions",
+        json={"candidate_revision": 1, "request_id": "scalar-first", "debounce_ms": 0},
+    )
+    assert first_execution.status_code == 200, first_execution.text
+    assert [stage["status"] for stage in first_execution.json()["stages"]] == [
+        "latest",
+        "latest",
+    ]
+    first_b_digest = first_execution.json()["stages"][0]["result_input_digest"]
+
+    updated_payload = starter.json()
+    updated_payload["inputs"]["process"]["test_temperature_c"] += 1
+    updated_payload["expected_revision"] = 1
+    updated = client.put(
+        f"/api/projects/{project_id}/chain/candidates/{candidate['id']}",
+        json=updated_payload,
+    )
+    assert updated.status_code == 200, updated.text
+    stale = client.get(
+        f"/api/projects/{project_id}/chain/candidates/{candidate['id']}/execution"
+    )
+    assert stale.status_code == 200, stale.text
+    assert [stage["status"] for stage in stale.json()["stages"]] == [
+        "latest",
+        "stale",
+    ]
+
+    recomputed = client.post(
+        f"/api/projects/{project_id}/chain/candidates/{candidate['id']}/executions",
+        json={
+            "candidate_revision": updated.json()["revision"],
+            "request_id": "scalar-second",
+            "debounce_ms": 0,
+        },
+    )
+    assert recomputed.status_code == 200, recomputed.text
+    assert recomputed.json()["stages"][0]["result_input_digest"] == first_b_digest
+    assert recomputed.json()["stages"][1]["status"] == "latest"
+
+    snapshot = client.post(
+        f"/api/projects/{project_id}/chain/candidates/{candidate['id']}/snapshots",
+        json={"candidate_revision": updated.json()["revision"], "debounce_ms": 0},
+    )
+    assert snapshot.status_code == 201, snapshot.text
+    assert snapshot.json()["identity"]["candidate_adapter_id"] == "scalar/v1"
+    assert snapshot.json()["identity"]["domain_references"] == []
 
 
 def test_chain_catalog_and_project_creation_pin_exact_revision(

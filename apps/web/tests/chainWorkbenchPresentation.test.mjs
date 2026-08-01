@@ -15,12 +15,16 @@ const session = readFileSync(
   new URL("../src/features/workbench/useWorkbenchSession.ts", import.meta.url),
   "utf8",
 );
+const adapters = readFileSync(
+  new URL("../src/features/workbench/chainStudioAdapterRegistry.tsx", import.meta.url),
+  "utf8",
+);
 
 test("Chain project has a dedicated candidate work surface", () => {
   assert.match(app, /tab === "candidates" && chainProject/);
   assert.match(app, /<ChainWorkbenchPage/);
   assert.match(source, /CHAIN WORKBENCH/);
-  assert.match(source, /\(\["A", "B", "C"\] as const\)/);
+  assert.match(source, /stageRailIds\.map/);
 });
 
 test("freshness and actual source are separate labels", () => {
@@ -49,7 +53,8 @@ test("Chain output tables use pinned presentation metadata and state uncertainty
   assert.doesNotMatch(source, /<th>\{key\}<\/th>/);
   assert.doesNotMatch(source, /Object\.keys\(stageCPredictions\)/);
   assert.match(source, /chain-snapshot-output-table/);
-  assert.match(source, /stage\.stage_id === "A"[\s\S]*JSON\.stringify\(stage\.result/);
+  assert.match(source, /renderSnapshotStageAsJson\(stage\.stage_id\)[\s\S]*JSON\.stringify\(stage\.result/);
+  assert.match(adapters, /renderSnapshotStageAsJson: \(stageId\) => stageId === "A"/);
   assert.match(source, /execution\?\.chain_revision_digest === viewedSnapshot\.identity\.chain_revision_digest/);
   assert.match(source, /stageBDefinitions\.map\(\(definition\)/);
   assert.doesNotMatch(source, /actual-value-grid[^]*<span>\{key\}<\/span>/);
@@ -87,8 +92,20 @@ test("blank numeric drafts never become zero and Stage A reuses the sparse blend
   assert.match(source, /saveQueue\.current\.supersede\(selected\.id\)/);
   assert.match(source, /<BlendEditorPanel/);
   assert.match(source, /chainMode/);
-  assert.match(source, /contract\.starter_candidate/);
-  assert.match(source, /固定契約から基準配合を作成/);
+  assert.match(source, /chainStarterCandidate/);
+  assert.match(source, /candidateAdapter\?\.emptyStateLabel/);
+});
+
+test("fixed adapter registry separates scalar and sparse-blend specialization", () => {
+  assert.match(adapters, /adapterId: "scalar\/v1"/);
+  assert.match(adapters, /adapterId: "sparse_blend\/v1"/);
+  assert.match(adapters, /new Map<ChainCandidateAdapterId, ChainCandidateEditorAdapter>/);
+  assert.match(adapters, /rendererId: "generic\/v1"/);
+  assert.match(adapters, /rendererId: "sparse-blend\/v1"/);
+  assert.doesNotMatch(adapters, /import\(|entry_points|module_path/);
+  assert.match(source, /unsupportedAdapterId/);
+  assert.match(source, /誤った編集UIへfallbackしません/);
+  assert.match(source, /supportsActualComparison[\s\S]*listChainAnalysisVariants/);
 });
 
 test("every Chain external input is rendered and edited from the resolved contract", () => {

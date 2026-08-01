@@ -72,6 +72,7 @@ export type ApiWorkspaceStorage = {
   next_action: string;
 };
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
+export type ApiChainCandidateCapability = components["schemas"]["ChainCandidateCapability"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
 export type ApiActualConditionedVariant = components["schemas"]["ActualConditionedVariant"];
@@ -229,6 +230,11 @@ export const workbenchApi = {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidate-contract", {
       params: { path: { project_id: projectId } },
     }), "Chain候補契約を取得できませんでした。");
+  },
+  async chainStarterCandidate(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/starter-candidate", {
+      params: { path: { project_id: projectId } },
+    }), "Chainの基準候補を取得できませんでした。");
   },
   async listChainCandidates(projectId: string) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/candidates", {

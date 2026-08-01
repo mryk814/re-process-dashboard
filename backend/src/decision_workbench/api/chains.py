@@ -199,6 +199,20 @@ def get_chain_candidate_contract(
 
 
 @execution_router.get(
+    "/{project_id}/chain/starter-candidate",
+    response_model=CandidateInput,
+    operation_id="getChainStarterCandidate",
+)
+def get_chain_starter_candidate(
+    project_id: str,
+    use_cases: ChainDependency,
+) -> CandidateInput:
+    """Resolve a usable initial draft through the fixed candidate adapter."""
+
+    return _call(lambda: use_cases.starter_candidate(project_id))
+
+
+@execution_router.get(
     "/{project_id}/chain/candidates",
     response_model=list[Candidate],
     operation_id="listChainCandidates",
