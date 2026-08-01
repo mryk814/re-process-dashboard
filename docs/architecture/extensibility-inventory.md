@@ -1,4 +1,13 @@
+<!--
+document-status: historical
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: architecture
+source-of-truth: measurement record for extensibility decisions
+-->
+
 # 拡張点インベントリ
+
+> **Historical measurement.** この文書は計測時点の登録点と仮説を残す記録です。現在のTask、Package、runtime、capability一覧には[生成済みTask inventory](../contracts/task-inventory.json)と[現行システム基準](../product/current-system-baseline.md)を使ってください。
 
 この文書は「新しいデータ・Task・Activity・Chainを追加するとき、どのファイルが正本で、どこに登録が必要か」を計測した記録です。
 リファクタリング計画そのものではなく、計画の前提となる**現状の測定結果**です。

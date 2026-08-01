@@ -1,3 +1,10 @@
+<!--
+document-status: decision
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: architecture
+source-of-truth: approved internal identity migration decision
+-->
+
 # 内部コード identity の移行
 
 | 項目 | 内容 |

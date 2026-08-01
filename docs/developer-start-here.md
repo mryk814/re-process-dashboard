@@ -1,3 +1,12 @@
+<!--
+document-status: current
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: developer experience
+source-of-truth: change routing and verification policy
+-->
+
+<!-- current-contract:verification-commands:verify:edit,verify:pr,verify:checkpoint,acceptance:release -->
+
 # Developer Start Here
 
 この文書は、アプリ本体、契約、共通tooling、同梱コンテンツを変更する人の入口です。

@@ -1,3 +1,14 @@
+<!--
+document-status: current
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: web navigation
+source-of-truth: URL, history, and NavigationIntent semantics
+-->
+
+<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,workspace,quality,lineage,explore,data-library,profile-workbench -->
+<!-- current-contract:navigation-query:activity,activity_run,admin,base_dataset,candidate,candidate_section,connector,developer_guide,developer_tab,entity,onboarding,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,snapshot,stage,tab,view -->
+<!-- current-contract:navigation-fallback:project -->
+
 # NavigationIntent と候補の作成元
 
 画面の意味はReact内の選択状態だけに置かず、URL queryの `NavigationIntent` を正本にします。
@@ -7,7 +18,7 @@
 
 | query | 意味 |
 |---|---|
-| `view` | 表示画面。`project`、`candidates`、`settings`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
+| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
 | `project` | 対象プロジェクトID |
 | `candidate` | 比較または履歴で選択する候補ID |
 | `entity` | 工程系譜で選択するentity key |
@@ -18,8 +29,15 @@
 | `screening` | 範囲探索で開くrun ID |
 | `snapshot` | プロジェクト履歴で開くsnapshot ID |
 | `admin` | 開発・管理画面のsection。`quality`、`ranges`、`display`、`task`、`model` |
+| `activity` / `activity_run` | `candidate-review`で開くActivityとRun |
+| `candidate_section` | `candidates`で開く候補section。現在は`actuals`だけを明示する |
+| `developer_tab` / `developer_guide` | `workspace`のdeveloper sectionで開くtabとguide |
+| `project_settings` | `project-settings`で開くsection。`general`、`targets`、`scientific`、`ranges`、`display`、`task`、`evidence` |
+| `tab` / `connector` / `stage` / `revision` | `data-library`のupdate tab、source connector、source lifecycle stage、source revision |
+| `onboarding` / `base_dataset` | `data-library`または`profile-workbench`のonboarding modeと比較元Dataset Revision |
 
-未知の `view` は `candidates` として読み取ります。
+未知の `view` は `project` として読み取ります。
+旧`settings`、`project`＋`project_settings`、`candidates`＋Activity queryは、現在のviewへ正規化して読めます。
 画面遷移は `history.pushState`、同じ画面内の選択同期は `replaceState` を使い、`popstate` で復元します。
 
 画面を切り替えるときは、その画面で意味を持つqueryだけを引き継ぎます。

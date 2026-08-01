@@ -1,3 +1,10 @@
+<!--
+document-status: current
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: product architecture
+source-of-truth: product scope and safety boundary
+-->
+
 # アプリ憲章
 
 ## 性格分類
@@ -32,6 +39,18 @@ ExcelまたはCSVのsource assetを読取専用の正本として扱う。path�
 アプリは候補、予測Snapshot、範囲探索Run、検討アクティビティRun、実測値、Chain実行・Snapshot、不確かさ伝播Run、逆算由来候補をローカルSQLiteへ保存する。canonical dataset、training view、feature representationはsourceとProfileから派生させ、元sourceを変更しない。
 
 外部source更新では、credentialを保存しないConnector、不変Raw Snapshot、versioned Curation Recipe、品質判定、明示承認、Training Snapshotを分離する。source refreshから再学習、active Package切替、既存Project更新を自動実行しない。
+
+### CSV onboardingの標準builder境界
+
+Data Libraryの「新しい予測問題」は、利用者が確認した一行一観測のCSVから、
+allow-list済みの標準Tabular Taskを準備する画面経路である。
+この経路はTask scaffold、標準builderによるPackage buildとverify、明示的なPackage promotion、
+Dataset登録とruntime再読込を一つの補償可能な操作として扱う。
+
+これは任意の学習環境をアプリへ持ち込むことではない。
+任意Python、任意estimator、ハイパーパラメータ探索、外部training artifactの無検証取込は対象外である。
+外部で学習・評価したPackageは、別途data-only Package契約とverifyを満たしたものだけを登録できる。
+standard onboarding builderで作ったPackageも、active Packageの切替、既存Projectの更新、候補やSnapshotの再計算を自動では行わない。
 
 ## 利用者・配布
 
@@ -127,7 +146,7 @@ Activity結果は判断材料であり、自動意思決定ではない。
 
 ## 対象外とするもの
 
-- アプリ内でのモデル学習、ハイパーパラメータ探索、active Packageの自動切替。
+- 任意のアプリ内モデル学習、ハイパーパラメータ探索、active Packageの自動切替。
 - 一般目的のBayesian optimization、自動実験実行、特性から全Stageを反転する汎用逆問題。
 - 認証・監査・高可用性などのエンタープライズ品質、汎用プラグイン基盤、汎用EDA・BI・ETL builder。
 - 元データの直接修正、学習データの自動更新、source更新を契機にした自動再学習。

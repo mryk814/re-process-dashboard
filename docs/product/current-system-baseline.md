@@ -1,3 +1,12 @@
+<!--
+document-status: current
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: architecture
+source-of-truth: implemented v1 boundary and capability status
+-->
+
+<!-- current-contract:csv-onboarding:standard-builder-build-verify-promote -->
+
 # 現行システム基準
 
 この文書は、リポジトリの**現在の実装前提、再利用可能な境界、v1固有の制約**を一枚で確認するための基準である。
@@ -6,6 +15,16 @@
 - 個別契約の詳細は各契約文書とコード上の型を正本とする。
 - 過去の設計判断は `docs/decisions/` に残す。ADRの背景説明を現在の機能一覧として読まない。
 - Task、source、Profile、active Model Packageの現在値は [生成済みTask inventory](../contracts/task-inventory.json) を正本とする。
+
+## 状態の読み方
+
+この文書では、次の三つを混ぜない。
+
+| 状態 | 意味 |
+| --- | --- |
+| **実装済み** | 現在のproduction contractまたは画面／APIから利用できる。正確なTask、Package、capabilityの一覧はgenerated inventoryを優先する |
+| **実験中** | contractやspikeで実証済みでも、production UIの一般的な作成・編集・実行導線にはまだ採用していない |
+| **将来候補** | 必要性や境界は分かっているが、current capabilityではない |
 
 ## 1. 現在のプロダクト境界
 
@@ -133,6 +152,14 @@ Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読
 
 外部sourceの定期更新は、Connector、Raw Snapshot、Curation Run、承認済みCanonical Dataset Revision、Training Snapshotを不変資産として分離する。取得は再学習・Package active化・既存Project更新を起動しない。詳細は[Source更新と承認付きDataset lifecycle](../contracts/source-data-lifecycle.md)を参照する。
 
+### CSV onboarding
+
+**実装済み**：Data Libraryは、利用者が確認した一行一観測のCSVから標準Tabular Taskを準備できる。
+画面経路はTask scaffold、allow-list済みstandard builderのbuild／verify、明示的promotion、
+Dataset登録、runtime再読込を行う。任意の学習コード・任意estimator・自動active切替ではない。
+外部training、標準builder、runtime inference、active Package切替の境界は
+[アプリ憲章](app-charter.md#csv-onboardingの標準builder境界)を正本とする。
+
 ### Decision Activity
 
 Activityは画面名ではなく、問い、必要能力、入力parameter、結果契約を表す。現在のproduction registryには
@@ -197,7 +224,7 @@ Project Design SpaceとObjectiveに固定した目標到達案を登録してい
 
 Chain Coreは候補shapeを解釈せず、Stage順序、binding、単位変換、部分再計算、鮮度、provenance、snapshotを扱う。候補shape、初期値、妥当性検証、決定論的Stage、追加revision参照はallow-listされたcandidate adapterへ分離している。
 
-最初の縦切りである溶接材料A→B→Cは`sparse_blend/v1` adapterと専用Workbenchを持つ。これとは別に、疎配合も決定論的Stageも持たないscalar候補の二段Chainを通し、Chain Coreを変更せずDefinition、binding、execution、snapshotを再利用できることを確認した。
+最初の縦切りである溶接材料A→B→Cは`sparse_blend/v1` adapterと専用Workbenchを持つ。これとは別に、疎配合も決定論的Stageも持たないscalar候補の二段Chainを通し、Chain Coreを変更せずDefinition、binding、execution、snapshotを再利用できることを確認した。この二段Chainは**実験中**の反証であり、一般利用者向けのscalar editorが実装済みという意味ではない。
 
 一方、現在の画面は疎配合Chain専用であり、scalar候補の編集画面はない。また、決定論的Stageを二段以上持つ候補shape、画像・系列などの非scalar外部入力、domain固有の実験資源はadapter追加なしには扱わない。
 

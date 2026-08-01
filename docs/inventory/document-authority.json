@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "document-authority/v1",
+  "documents": [
+    {"path":"docs/README.md","status":"current","owner":"docs architecture","sourceOfTruth":"documentation navigation and placement policy"},
+    {"path":"docs/developer-start-here.md","status":"current","owner":"developer experience","sourceOfTruth":"change routing and verification policy"},
+    {"path":"docs/product/app-charter.md","status":"current","owner":"product architecture","sourceOfTruth":"product scope and safety boundary"},
+    {"path":"docs/product/current-system-baseline.md","status":"current","owner":"architecture","sourceOfTruth":"implemented v1 boundary and capability status"},
+    {"path":"docs/product/navigation-intent.md","status":"current","owner":"web navigation","sourceOfTruth":"URL, history, and NavigationIntent semantics"},
+    {"path":"docs/decisions/internal-code-identity-migration.md","status":"decision","owner":"architecture","sourceOfTruth":"approved internal identity migration decision"},
+    {"path":"docs/compatibility/identity-ledger.md","status":"compatibility","owner":"desktop, workspace, and web maintainers","sourceOfTruth":"intentional persisted identity and migration policy"},
+    {"path":"docs/architecture/extensibility-inventory.md","status":"historical","owner":"architecture","sourceOfTruth":"measurement record for extensibility decisions"},
+    {"path":"docs/architecture/extensibility-spikes.md","status":"historical","owner":"architecture","sourceOfTruth":"spike evidence and outcome record"}
+  ]
+}
