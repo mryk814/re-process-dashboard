@@ -119,6 +119,19 @@ test("Data Library onboarding helper text keeps normal-text contrast", async () 
   );
 });
 
+test("Workspace overview code keeps normal-text contrast", async () => {
+  const styles = await source("../src/features/admin/admin.css");
+  const codeColor = "#526276";
+  assert.match(
+    styles,
+    /\.developer-overview-list summary code \{[^}]*color: #526276;/,
+  );
+  assert.ok(
+    contrast(codeColor, "#f4f7fa") >= 4.5,
+    "10px workspace overview code meets WCAG AA on its summary background",
+  );
+});
+
 test("CSV onboarding distinguishes a newly prepared Task from a reused identity", async () => {
   const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
   assert.match(content, /data\.reused_existing/);

@@ -65,7 +65,7 @@
 .developer-project-status.warning { background: #fff3d8; color: #875e10; }
 .developer-project-status.error { background: #fce5e5; color: #974747; }
 .developer-archived { margin: 0; padding: 7px 11px; background: #fff7e8; color: #855f1d; font-size: 10px; }
-.developer-overview-list summary code { overflow: hidden; color: #6d7b8e; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.developer-overview-list summary code { overflow: hidden; color: #526276; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .developer-overview-list dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
 .developer-overview-list dl div { min-width: 0; padding: 9px 11px; border-right: 1px solid #e4e9ef; border-top: 1px solid #e4e9ef; }
 .developer-overview-list dt { color: #738095; font-size: 10px; text-transform: uppercase; }
