@@ -286,10 +286,29 @@ def test_broken_chain_bootstrap_preserves_saved_chain_evidence_read_only(
         capability = client.get(
             f"/api/projects/{project['id']}/chain/candidate-capability"
         )
-        assert capability.status_code == 503
-        assert capability.json()["availability"]["subsystem_id"] == (
-            WELDING_CHAIN_SUBSYSTEM_ID
+        assert capability.status_code == 200, capability.text
+        capability_body = capability.json()
+        assert capability_body["schema_version"] == "chain-candidate-capability/v1"
+        assert capability_body["adapter_id"] == "sparse_blend/v1"
+        assert capability_body["sparse_blend"] is True
+        assert set(capability_body["external_input_paths"]) == {
+            item["external_path"] for item in candidate_contract.json()
+        }
+
+        edited = client.post(
+            f"/api/projects/{project['id']}/chain/candidates",
+            json=contract["starter_candidate"],
         )
+        assert edited.status_code == 503
+        execution = client.post(
+            f"/api/projects/{project['id']}/chain/candidates/{candidate_id}/executions",
+            json={
+                "candidate_revision": candidate_value["revision"],
+                "request_id": "degraded-must-not-execute",
+                "debounce_ms": 0,
+            },
+        )
+        assert execution.status_code == 503
 
 
 def test_database_boundary_remains_fail_fast(
