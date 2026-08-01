@@ -11,10 +11,12 @@ from typing import Iterable
 from decision_workbench.design_priors.contracts import (
     DESIGN_PRIOR_OBSERVATIONS_SCHEMA_VERSION,
     DESIGN_PRIOR_PACKAGE_SCHEMA_VERSION,
+    DESIGN_PRIOR_QUALITY_SCHEMA_VERSION,
     DesignPriorArtifact,
     DesignPriorManifest,
     DesignPriorObservation,
     DesignPriorObservations,
+    DesignPriorQualityReport,
     DesignPriorSource,
 )
 from decision_workbench.design_priors.loader import DesignPriorPackageLoader
@@ -56,14 +58,17 @@ def build_design_prior_package(
                 for row in observations_payload["rows"]
             )
         ]
-        quality = {
-            "schema_version": "design-prior-quality/v1",
-            "rows": len(observations_payload["rows"]),
-            "canonical_input_paths": list(canonical_input_paths),
-            "numeric_paths": numeric_columns,
-            "generator_comparison": ["empirical_rows@1.0.0", "knn_local@1.0.0"],
-            "limitations": ["quality report does not certify hard feasibility", "no privacy guarantee"],
-        }
+        quality = DesignPriorQualityReport(
+            schema_version=DESIGN_PRIOR_QUALITY_SCHEMA_VERSION,
+            rows=len(observations_payload["rows"]),
+            canonical_input_paths=canonical_input_paths,
+            numeric_paths=tuple(numeric_columns),
+            generator_comparison=("empirical_rows@1.0.0", "knn_local@1.0.0"),
+            limitations=(
+                "quality report does not certify hard feasibility",
+                "no privacy guarantee",
+            ),
+        ).model_dump(mode="json")
         quality_path = staging / "quality-report.json"
         quality_path.write_text(json.dumps(quality, ensure_ascii=False, sort_keys=True, separators=(",", ":")), encoding="utf-8")
         artifacts = tuple(

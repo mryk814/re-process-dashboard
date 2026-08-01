@@ -9325,6 +9325,18 @@
             "title": "Lane",
             "type": "string"
           },
+          "lane_parameter_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Parameter Digest"
+          },
           "locator": {
             "minLength": 1,
             "title": "Locator",
@@ -9393,6 +9405,11 @@
               "frontier"
             ],
             "title": "Lane",
+            "type": "string"
+          },
+          "lane_parameter_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Lane Parameter Digest",
             "type": "string"
           },
           "manifest_digest": {
@@ -9469,6 +9486,7 @@
           "generator_id",
           "generator_version",
           "lane",
+          "lane_parameter_digest",
           "seed",
           "raw_sample_id",
           "typicality_band"

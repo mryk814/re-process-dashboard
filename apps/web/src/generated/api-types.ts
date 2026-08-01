@@ -5975,6 +5975,8 @@ export interface components {
              * @enum {string}
              */
             lane: "conservative" | "balanced" | "frontier";
+            /** Lane Parameter Digest */
+            lane_parameter_digest?: string | null;
             /** Locator */
             locator: string;
             /** Manifest Digest */
@@ -6003,6 +6005,8 @@ export interface components {
              * @enum {string}
              */
             lane: "conservative" | "balanced" | "frontier";
+            /** Lane Parameter Digest */
+            lane_parameter_digest: string;
             /** Manifest Digest */
             manifest_digest: string;
             /** Nearest Neighbor Distance */

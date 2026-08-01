@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,145 @@ def test_loader_rejects_tampered_data_artifact(tmp_path: Path) -> None:
         DesignPriorPackageLoader().load(root)
 
 
+def test_loader_rejects_symlink_root_and_undeclared_executable_artifact(tmp_path: Path) -> None:
+    root = _build(tmp_path)
+    link = tmp_path / "prior-link"
+    link.symlink_to(root, target_is_directory=True)
+    with pytest.raises(DesignPriorPackageError, match="symlink"):
+        DesignPriorPackageLoader().load(link)
+
+    observations = root / "observations.json"
+    observations_payload = observations.read_bytes()
+    outside = tmp_path / "outside-observations.json"
+    outside.write_bytes(observations_payload)
+    observations.unlink()
+    observations.symlink_to(outside)
+    with pytest.raises(DesignPriorPackageError, match="symlink"):
+        DesignPriorPackageLoader().load(root)
+    observations.unlink()
+    observations.write_bytes(observations_payload)
+
+    (root / "callback.py").write_text("raise RuntimeError('must never load')", encoding="utf-8")
+    with pytest.raises(DesignPriorPackageError, match="undeclared|unsafe"):
+        DesignPriorPackageLoader().load(root)
+
+    (root / "unsafe.pkl").write_bytes(b"\x80\x04N.")
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for filename in ("callback.py", "unsafe.pkl"):
+        payload = (root / filename).read_bytes()
+        manifest["artifacts"].append(
+            {
+                "path": filename,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "bytes": len(payload),
+                "media_type": "application/json",
+            }
+        )
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    with pytest.raises(DesignPriorPackageError, match="manifest|JSON"):
+        DesignPriorPackageLoader().load(root)
+
+
+def test_loader_parses_quality_report_as_json_instead_of_trusting_hash_only(tmp_path: Path) -> None:
+    root = _build(tmp_path)
+    quality = root / "quality-report.json"
+    quality.write_bytes(b"not-json")
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == quality.name)
+    artifact["bytes"] = quality.stat().st_size
+    artifact["sha256"] = hashlib.sha256(quality.read_bytes()).hexdigest()
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    with pytest.raises(DesignPriorPackageError, match="JSON|json|quality"):
+        DesignPriorPackageLoader().load(root)
+
+
+def test_loader_rejects_mixed_numeric_and_categorical_roles(tmp_path: Path) -> None:
+    root = _build(tmp_path)
+    observations_path = root / "observations.json"
+    observations = json.loads(observations_path.read_text(encoding="utf-8"))
+    observations["rows"][1]["inputs"]["process.temperature"] = "mixed-category"
+    observations_path.write_text(
+        json.dumps(
+            observations,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in manifest["artifacts"]
+        if item["path"] == observations_path.name
+    )
+    payload = observations_path.read_bytes()
+    artifact["bytes"] = len(payload)
+    artifact["sha256"] = hashlib.sha256(payload).hexdigest()
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    with pytest.raises(DesignPriorPackageError, match="uniformly numeric or categorical"):
+        DesignPriorPackageLoader().load(root)
+
+
+def test_knn_distance_and_typicality_are_measured_from_generated_point_to_all_rows(tmp_path: Path) -> None:
+    root = build_design_prior_package(
+        tmp_path / "distance-prior",
+        package_id="distance-prior-v1",
+        package_version="1.0.0",
+        task_id="fixture-task-v1",
+        task_contract_digest=TASK_DIGEST,
+        canonical_input_schema_version="candidate-v1",
+        canonical_input_paths=("process.x",),
+        source=SOURCE,
+        observations=(
+            DesignPriorObservation(sample_id="left", inputs={"process.x": 0.0}),
+            DesignPriorObservation(sample_id="right", inputs={"process.x": 10.0}),
+        ),
+        training_code_revision="git:test",
+    )
+    package = DesignPriorPackageLoader().load(root)
+    sample = sample_prior(
+        package,
+        generator_id="knn_local",
+        lane="balanced",
+        count=1,
+        seed=17,
+        fixed_context={},
+    )[0]
+    normalized_distance = min(
+        abs(float(sample.values["process.x"]) - endpoint) / 10.0
+        for endpoint in (0.0, 10.0)
+    )
+    assert sample.evidence.nearest_neighbor_distance == pytest.approx(normalized_distance)
+    assert sample.evidence.typicality_band == (
+        "typical" if normalized_distance <= 0.05
+        else "near_edge" if normalized_distance <= 0.2
+        else "low_density"
+    )
+    assert sample.evidence.lane_parameter_digest.startswith("sha256:")
+    frontier = sample_prior(
+        package,
+        generator_id="knn_local",
+        lane="frontier",
+        count=1,
+        seed=17,
+        fixed_context={},
+    )[0]
+    assert frontier.evidence.lane_parameter_digest != sample.evidence.lane_parameter_digest
+
+
 def test_api_pins_explicit_prior_reference_and_sample_evidence(client, tmp_path: Path) -> None:
     candidate = client.get("/api/projects/default/candidates").json()[0]
     project = client.get("/api/projects/default").json()
@@ -136,8 +276,48 @@ def test_api_pins_explicit_prior_reference_and_sample_evidence(client, tmp_path:
     assert response.status_code == 201, response.text
     run = response.json()
     assert run["proposal_strategy"]["generator_id"] == "design_prior"
-    assert run["design_prior"] == body["proposal"]["design_prior"]
+    assert {
+        key: value
+        for key, value in run["design_prior"].items()
+        if key != "lane_parameter_digest"
+    } == body["proposal"]["design_prior"]
+    assert run["design_prior"]["lane_parameter_digest"].startswith("sha256:")
     assert all(item["design_prior_evidence"]["raw_sample_id"] for item in run["proposal_pool"])
     assert all(item["design_prior_evidence"]["generator_id"] == "knn_local" for item in run["points"])
     restored = client.get(f"/api/screening/{run['id']}").json()
     assert restored["design_prior"] == run["design_prior"]
+
+
+def test_api_rejects_prior_reference_for_non_prior_strategy_before_persistence(client, tmp_path: Path) -> None:
+    candidate = client.get("/api/projects/default/candidates").json()[0]
+    before = client.get("/api/screening").json()
+    body = {
+        "purpose": "goal_search",
+        "base_candidate_id": candidate["id"],
+        "base_inputs": candidate["inputs"],
+        "samples": 48,
+        "seed": 310,
+        "target": "TS",
+        "target_goal": {"direction": "at_least", "lower": 500},
+        "variables": {
+            "composition.C": {"mode": "range", "min": 0.04, "max": 0.12},
+        },
+        "proposal": {
+            "strategy_id": "latin_hypercube_v1",
+            "pool_multiplier": 2,
+            "support_policy": "supported_first",
+            "fallback_policy": "reject",
+            "design_prior": {
+                "locator": str(tmp_path / "must-not-be-loaded"),
+                "package_id": "unexpected-prior",
+                "package_version": "1.0.0",
+                "manifest_digest": "sha256:" + "c" * 64,
+                "generator_id": "empirical_rows",
+                "lane": "conservative",
+            },
+        },
+    }
+    response = client.post("/api/screening", json=body)
+    assert response.status_code == 422, response.text
+    after = client.get("/api/screening").json()
+    assert [item["id"] for item in after] == [item["id"] for item in before]

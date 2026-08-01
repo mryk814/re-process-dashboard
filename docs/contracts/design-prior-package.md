@@ -3,11 +3,12 @@
 `design-prior-package/v1` は予測Model Packageから独立した、候補入力の経験分布 `p(x)` の data-only artifact である。
 予測値、目的、hard feasibility、predictive supportを保存・推定しない。
 
-- manifest と全 JSON artifact は package root 内の通常ファイルで、size と SHA-256 を検証する。
-- Python source、import path、callback、pickle、joblibを含めない。
+- manifest と宣言済みの全 artifact は package root 内の通常ファイルに限定し、symlink、未宣言ファイル、非JSON payloadを拒否してからsize、SHA-256、schemaを検証する。
+- Python source、import path、callback、pickle、joblibを含めない。hashが一致してもJSONとして解釈・検証できないartifactは読み込まない。
 - P0 は `empirical_rows@1.0.0` と `knn_local@1.0.0` を同一observations artifact上で提供する。
+- 各canonical input pathは全観測で数値または文字列categoryのどちらか一方に固定し、quality reportの`numeric_paths`と一致させる。samplerはこの検証済みroleを使う。
 - sampling requestは明示参照（Package ID/version/manifest digest/locator/generator/lane）を持つ。active priorやLHS/Sobolへのfallbackはない。
-- samplerは `conservative`／`balanced`／`frontier` を明示し、各proposal pointへ raw sample、neighbor distance、typicality、変換を残す。
+- samplerは `conservative`／`balanced`／`frontier` を明示し、laneのversioned parameter digestをRunへ固定する。各proposal pointには raw sample、生成点から全観測への実nearest distance、その距離から判定したtypicality、変換を残す。
 - hard feasibilityは既存Task / Project Design Space validatorだけが判定する。範囲外を黙ってclipせず、integer/step snap、conditional inactive、composition balanceは変換証跡に残す。
 - Package更新は既存ProjectやProposal Runを変えない。Runは解決済みreferenceと各標本evidenceを保存する。
 

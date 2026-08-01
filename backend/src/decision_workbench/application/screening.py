@@ -62,6 +62,7 @@ from decision_workbench.design_priors.loader import (
     DesignPriorPackageLoader,
     VerifiedDesignPriorPackage,
 )
+from decision_workbench.design_priors.sampling import lane_parameter_digest
 
 
 class ScreeningNotFoundError(LookupError):
@@ -359,12 +360,37 @@ class ScreeningService:
                     design_space=design_space,
                     capability_matrix=self.registry.capability_matrix_for(project.task_id),
                 )
+                if (
+                    strategy.generator_id != "design_prior"
+                    and proposal_request.design_prior is not None
+                ):
+                    raise ScreeningValidationError(
+                        "Design Prior Package参照はDesign Prior戦略でのみ指定できます"
+                    )
                 if strategy.generator_id == "design_prior":
                     reference = proposal_request.design_prior
                     if reference is None:
                         raise ScreeningValidationError(
                             "Design Prior戦略にはPackage参照を明示してください"
                         )
+                    expected_lane_digest = lane_parameter_digest(
+                        reference.generator_id,
+                        reference.lane,
+                    )
+                    if (
+                        reference.lane_parameter_digest is not None
+                        and reference.lane_parameter_digest != expected_lane_digest
+                    ):
+                        raise ScreeningValidationError(
+                            "Design Prior lane parameter digestが実行契約と一致しません"
+                        )
+                    reference = reference.model_copy(
+                        update={"lane_parameter_digest": expected_lane_digest}
+                    )
+                    proposal_request = proposal_request.model_copy(
+                        update={"design_prior": reference}
+                    )
+                    payload = payload.model_copy(update={"proposal": proposal_request})
                     design_prior_package = DesignPriorPackageLoader().load(reference.locator)
                     manifest = design_prior_package.manifest
                     if (

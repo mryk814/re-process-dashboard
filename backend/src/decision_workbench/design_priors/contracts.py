@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 DESIGN_PRIOR_PACKAGE_SCHEMA_VERSION = "design-prior-package/v1"
 DESIGN_PRIOR_OBSERVATIONS_SCHEMA_VERSION = "design-prior-observations/v1"
+DESIGN_PRIOR_QUALITY_SCHEMA_VERSION = "design-prior-quality/v1"
 MAX_DESIGN_PRIOR_ARTIFACT_BYTES = 64 * 1024 * 1024
 MAX_DESIGN_PRIOR_PACKAGE_BYTES = 128 * 1024 * 1024
 MAX_DESIGN_PRIOR_ROWS = 100_000
@@ -38,6 +39,8 @@ class DesignPriorArtifact(_PriorModel):
         path = Path(value)
         if not value or path.is_absolute() or ".." in path.parts or path.name != value.split("/")[-1]:
             raise ValueError("artifact path must be a package-relative file path")
+        if path.suffix.lower() != ".json":
+            raise ValueError("artifact path must name a JSON file")
         return value.replace("\\", "/")
 
 
@@ -124,6 +127,33 @@ class DesignPriorObservations(_PriorModel):
         return self
 
 
+class DesignPriorQualityReport(_PriorModel):
+    schema_version: Literal[DESIGN_PRIOR_QUALITY_SCHEMA_VERSION]
+    rows: Annotated[int, Field(ge=2, le=MAX_DESIGN_PRIOR_ROWS)]
+    canonical_input_paths: Annotated[tuple[str, ...], Field(min_length=1)]
+    numeric_paths: tuple[str, ...]
+    generator_comparison: tuple[
+        Literal["empirical_rows@1.0.0", "knn_local@1.0.0"], ...
+    ]
+    limitations: Annotated[tuple[str, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def paths_and_generators_are_consistent(self) -> "DesignPriorQualityReport":
+        canonical = set(self.canonical_input_paths)
+        if len(canonical) != len(self.canonical_input_paths):
+            raise ValueError("quality report canonical input paths must be unique")
+        if len(set(self.numeric_paths)) != len(self.numeric_paths):
+            raise ValueError("quality report numeric paths must be unique")
+        if not set(self.numeric_paths) <= canonical:
+            raise ValueError("quality report numeric paths must be canonical input paths")
+        if set(self.generator_comparison) != {
+            "empirical_rows@1.0.0",
+            "knn_local@1.0.0",
+        }:
+            raise ValueError("quality report must compare both P0 generators")
+        return self
+
+
 class DesignPriorPackageReference(_PriorModel):
     """Explicit package identity resolved for one immutable Proposal Run."""
 
@@ -133,6 +163,9 @@ class DesignPriorPackageReference(_PriorModel):
     manifest_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
     generator_id: Literal["empirical_rows", "knn_local"]
     lane: Literal["conservative", "balanced", "frontier"]
+    lane_parameter_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ] | None = None
 
 
 class DesignPriorSampleEvidence(_PriorModel):
@@ -142,6 +175,7 @@ class DesignPriorSampleEvidence(_PriorModel):
     generator_id: Literal["empirical_rows", "knn_local"]
     generator_version: Literal["1.0.0"]
     lane: Literal["conservative", "balanced", "frontier"]
+    lane_parameter_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
     seed: Annotated[int, Field(ge=0)]
     raw_sample_id: str
     neighbor_sample_id: str | None = None
