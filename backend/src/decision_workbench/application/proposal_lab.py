@@ -6,6 +6,7 @@ from statistics import mean
 from typing import Any
 
 from decision_workbench.application.proposal_strategy_registry import STRATEGIES
+from decision_workbench.application.screening import _screening_project_lock
 from decision_workbench.contracts.proposal_lab_contracts import (
     ProposalLabAdoptionMemo,
     ProposalLabCreateRequest,
@@ -204,6 +205,12 @@ class ProposalLabService:
         self.store = store
 
     def create(
+        self, request: ProposalLabCreateRequest, project_id: str
+    ) -> ProposalLabReport:
+        with _screening_project_lock(project_id):
+            return self._create_unlocked(request, project_id)
+
+    def _create_unlocked(
         self, request: ProposalLabCreateRequest, project_id: str
     ) -> ProposalLabReport:
         raw_runs = []

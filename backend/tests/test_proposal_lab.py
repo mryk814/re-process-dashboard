@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 
@@ -147,6 +149,55 @@ def test_proposal_lab_rejects_unaligned_seed_sets(client) -> None:
     )
     assert response.status_code == 422
     assert "同じ2個以上のseed" in response.text
+
+
+def test_proposal_lab_creation_and_source_run_deletion_are_serialized(client) -> None:
+    runs = [
+        _create_run(client, strategy_id=strategy_id, seed=seed)
+        for strategy_id in ("sobol_ucb_v1", "sobol_ei_v1")
+        for seed in (31, 47)
+    ]
+    request = {
+        "run_ids": [run["id"] for run in runs],
+        "adoption_memos": [{
+            "strategy_id": "sobol_ei_v1",
+            "status": "experimental",
+            "primary_criterion": "reproducibility",
+            "rationale": "source Runを保存証拠として保持する",
+        }],
+    }
+    entered_insert = Event()
+    release_insert = Event()
+    original_create = client.app.state.store.create_proposal_lab_report
+
+    def blocking_create(**kwargs):
+        entered_insert.set()
+        assert release_insert.wait(timeout=5)
+        return original_create(**kwargs)
+
+    client.app.state.store.create_proposal_lab_report = blocking_create
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            create_future = executor.submit(
+                client.post,
+                "/api/projects/default/proposal-lab/reports",
+                json=request,
+            )
+            assert entered_insert.wait(timeout=5)
+            delete_future = executor.submit(
+                client.delete,
+                f"/api/screening/{runs[0]['id']}",
+            )
+            assert not delete_future.done()
+            release_insert.set()
+            assert create_future.result().status_code == 201
+            deleted = delete_future.result()
+    finally:
+        release_insert.set()
+        client.app.state.store.create_proposal_lab_report = original_create
+
+    assert deleted.status_code == 409
+    assert "Proposal Lab report" in deleted.text
 
 
 def test_proposal_lab_migration_is_additive_for_existing_workspace(tmp_path) -> None:
