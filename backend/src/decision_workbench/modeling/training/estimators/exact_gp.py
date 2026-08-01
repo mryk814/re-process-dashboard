@@ -17,6 +17,10 @@ from decision_workbench.modeling.training.recipe import ExactGPEstimatorRecipe
 
 from .types import TrainedPredictor, standard_training_metadata
 
+RUNTIME_TYPE = "builtin.exact_gp.v1"
+ARTIFACT_SUFFIX = ".npz"
+ARTIFACT_FORMAT = "bounded-npz"
+
 
 @dataclass(frozen=True)
 class _GPFit:
@@ -347,7 +351,7 @@ def train(
             "target": data.target,
             "unit": data.unit,
             "target_kind": data.target_kind,
-            "runtime_type": "builtin.exact_gp.v1",
+            "runtime_type": RUNTIME_TYPE,
             "architecture_id": "exact_rbf_ard_v1",
             "artifact": artifact_path.as_posix(),
             "predictive_family": "normal",

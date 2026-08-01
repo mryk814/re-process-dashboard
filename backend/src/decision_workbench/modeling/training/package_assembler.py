@@ -19,7 +19,7 @@ from decision_workbench.modeling.model_lifecycle import (
     task_input_contract_digest,
 )
 from decision_workbench.modeling.model_package_verify import verify_model_package
-from decision_workbench.modeling.training.estimators import estimator_trainer
+from decision_workbench.modeling.training.estimators import estimator_implementation
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
     feature_vector,
@@ -33,8 +33,6 @@ from decision_workbench.modeling.training.feature_recipe import (
 )
 from decision_workbench.modeling.training.recipe import (
     ConcreteEstimatorRecipe,
-    LightGBMBinaryEstimatorRecipe,
-    LightGBMRegressionEstimatorRecipe,
     validate_recipe_capability,
 )
 
@@ -225,7 +223,8 @@ def _build(
         recipe_document,
     )
 
-    trainer = estimator_trainer(recipe.estimator_id)
+    implementation = estimator_implementation(recipe.estimator_id)
+    trainer = implementation.trainer
     predictors: list[dict[str, Any]] = []
     qualities = []
     diagnostics: dict[str, Any] = {}
@@ -275,15 +274,7 @@ def _build(
         )
         training_sets[target] = training_set
         artifact_path = artifacts_dir / (
-            f"{target}.txt"
-            if isinstance(
-                recipe,
-                (
-                    LightGBMRegressionEstimatorRecipe,
-                    LightGBMBinaryEstimatorRecipe,
-                ),
-            )
-            else f"{target}.npz"
+            f"{target}{implementation.artifact_suffix}"
         )
         trained = trainer(training_set, recipe, artifact_path)
         predictor = dict(trained.predictor)

@@ -17,6 +17,10 @@ from decision_workbench.modeling.training.recipe import (
 
 from .types import TrainedPredictor, standard_training_metadata
 
+RUNTIME_TYPE = "lightgbm.booster.v1"
+ARTIFACT_SUFFIX = ".txt"
+ARTIFACT_FORMAT = "lightgbm-native-text"
+
 
 def _parameters(
     *,
@@ -457,7 +461,7 @@ def _regression(
             "target": data.target,
             "unit": data.unit,
             "target_kind": data.target_kind,
-            "runtime_type": "lightgbm.booster.v1",
+                "runtime_type": RUNTIME_TYPE,
             "architecture_id": "lightgbm_regression_v1",
             "artifact": artifact_path.as_posix(),
             "predictive_family": recipe.predictive_family,
@@ -576,7 +580,7 @@ def _binary(
             "target": data.target,
             "unit": data.unit,
             "target_kind": "binary",
-            "runtime_type": "lightgbm.booster.v1",
+                "runtime_type": RUNTIME_TYPE,
             "architecture_id": "lightgbm_binary_calibrated_v1",
             "artifact": artifact_path.as_posix(),
             "predictive_family": "bernoulli_logit",

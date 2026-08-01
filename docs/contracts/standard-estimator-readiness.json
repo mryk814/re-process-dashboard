@@ -10,7 +10,9 @@
       ],
       "role": "interpretable_baseline",
       "builder_status": "standard_builder",
+      "runtime_status": "ready",
       "runtime_type": "builtin.linear.v1",
+      "artifact_status": "ready",
       "artifact_format": "bounded-npz",
       "required_dependency": null,
       "limits": {
@@ -50,7 +52,9 @@
       ],
       "role": "nonlinear_candidate",
       "builder_status": "standard_builder",
+      "runtime_status": "ready",
       "runtime_type": "builtin.exact_gp.v1",
+      "artifact_status": "ready",
       "artifact_format": "bounded-npz",
       "required_dependency": null,
       "limits": {
@@ -93,8 +97,10 @@
       ],
       "role": "specialized_path",
       "builder_status": "external_verified_package_only",
-      "runtime_type": "numpyro.dense_posterior.v1",
-      "artifact_format": "bounded-npz",
+      "runtime_status": "external_verified_package_only",
+      "runtime_type": null,
+      "artifact_status": "external_verified_package_only",
+      "artifact_format": null,
       "required_dependency": null,
       "limits": {
         "min_rows": 4,
@@ -130,7 +136,9 @@
       ],
       "role": "nonlinear_candidate",
       "builder_status": "standard_builder",
+      "runtime_status": "ready",
       "runtime_type": "lightgbm.booster.v1",
+      "artifact_status": "ready",
       "artifact_format": "lightgbm-native-text",
       "required_dependency": "lightgbm",
       "limits": {
@@ -159,7 +167,9 @@
       "fixed_parameters": {
         "num_boost_round": 200,
         "folds": 5,
-        "seed": 20260730
+        "seed": 20260730,
+        "predictive_family": "empirical_quantiles",
+        "monotone_decreasing_features": []
       }
     },
     {
@@ -170,8 +180,10 @@
       ],
       "role": "interpretable_baseline",
       "builder_status": "not_available",
-      "runtime_type": "sklearn.skops.v1",
-      "artifact_format": "skops-allow-listed",
+      "runtime_status": "needs_adapter_allowlist",
+      "runtime_type": null,
+      "artifact_status": "needs_adapter_allowlist",
+      "artifact_format": null,
       "required_dependency": "skops",
       "limits": {
         "min_rows": 6,
@@ -213,7 +225,9 @@
       ],
       "role": "nonlinear_candidate",
       "builder_status": "standard_builder",
+      "runtime_status": "ready",
       "runtime_type": "lightgbm.booster.v1",
+      "artifact_status": "ready",
       "artifact_format": "lightgbm-native-text",
       "required_dependency": "lightgbm",
       "limits": {
@@ -244,8 +258,7 @@
       "fixed_parameters": {
         "num_boost_round": 100,
         "folds": 5,
-        "seed": 20260730,
-        "calibration": "nested-oof-platt"
+        "seed": 20260730
       }
     },
     {
@@ -256,8 +269,10 @@
       ],
       "role": "interpretable_baseline",
       "builder_status": "not_available",
-      "runtime_type": "sklearn.skops.v1",
-      "artifact_format": "skops-allow-listed",
+      "runtime_status": "needs_adapter_allowlist",
+      "runtime_type": null,
+      "artifact_status": "needs_adapter_allowlist",
+      "artifact_format": null,
       "required_dependency": "skops",
       "limits": {
         "min_rows": 4,
@@ -296,8 +311,10 @@
       ],
       "role": "specialized_path",
       "builder_status": "external_verified_package_only",
-      "runtime_type": "numpyro.dense_posterior.v1",
-      "artifact_format": "bounded-npz",
+      "runtime_status": "external_verified_package_only",
+      "runtime_type": null,
+      "artifact_status": "external_verified_package_only",
+      "artifact_format": null,
       "required_dependency": null,
       "limits": {
         "min_rows": 4,

@@ -5,6 +5,11 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from decision_workbench.modeling.training.estimators import estimator_implementation
+from decision_workbench.modeling.training.recipe import (
+    ESTIMATOR_IDS,
+    estimator_recipe,
+)
 from decision_workbench.modeling.training.readiness import (
     EstimatorReadinessContext,
     resolve_estimator_readiness,
@@ -34,10 +39,17 @@ def _context(
         "feature_count": 12,
         "target_contract": "ready",
         "validation_plan": "ready",
+        "validation_strategy": (
+            "stratified_grouped_kfold"
+            if target_kind == "binary"
+            else "grouped_kfold"
+        ),
         "feature_recipe": "ready",
         "missing_policy": "ready",
     }
     values.update(changes)
+    if values["validation_plan"] != "ready" and "validation_strategy" not in changes:
+        values["validation_strategy"] = None
     return EstimatorReadinessContext.model_validate(values)
 
 
@@ -51,11 +63,34 @@ def test_catalog_covers_production_target_kinds_and_safe_artifacts() -> None:
         for kind in entry.target_kinds
     } >= {"continuous", "continuous_positive", "binary", "count", "ordinal"}
     assert all(
-        entry.artifact_format
-        in {"bounded-npz", "lightgbm-native-text", "skops-allow-listed"}
+        entry.artifact_format in {"bounded-npz", "lightgbm-native-text"}
         for entry in catalog.entries
+        if entry.artifact_status == "ready"
     )
     assert all(entry.limits.max_rows and entry.limits.max_features for entry in catalog.entries)
+
+
+def test_shipped_catalog_entries_are_derived_from_the_recipe_and_trainer_registries() -> None:
+    shipped = [
+        entry
+        for entry in standard_estimator_catalog().entries
+        if entry.builder_status == "standard_builder"
+    ]
+    assert {entry.estimator_id for entry in shipped} <= set(ESTIMATOR_IDS)
+    for entry in shipped:
+        implementation = estimator_implementation(entry.estimator_id)
+        expected_parameters = estimator_recipe(entry.estimator_id).model_dump(
+            mode="json",
+            exclude={
+                "estimator_id",
+                "validation_plan",
+                "validation_plans_by_target",
+            },
+            exclude_none=True,
+        )
+        assert entry.runtime_type == implementation.runtime_type
+        assert entry.artifact_format == implementation.artifact_format
+        assert entry.model_dump(mode="json")["fixed_parameters"] == expected_parameters
 
 
 def test_resolver_is_fail_closed_and_never_selects_or_builds() -> None:
@@ -99,6 +134,19 @@ def test_resolver_distinguishes_missing_contracts_and_external_builder() -> None
     ).status == "external_verified_package_only"
 
 
+def test_binary_estimator_rejects_non_stratified_validation_plan() -> None:
+    result = resolve_estimator_readiness(
+        _context(
+            "lightgbm-binary.v1",
+            "binary",
+            validation_strategy="grouped_kfold",
+        ),
+        available_dependencies=frozenset({"lightgbm"}),
+    )
+    assert result.status == "needs_validation_plan"
+    assert "grouped_kfold is not reviewed" in result.reasons[0]
+
+
 def test_nominal_multiclass_is_not_silently_reduced_to_binary() -> None:
     result = resolve_estimator_readiness(
         _context("logistic.v1", "nominal_multiclass"),
@@ -123,6 +171,8 @@ def test_current_and_pending_baseline_states_are_explicit() -> None:
     assert logistic.status == "out_of_scope"
     assert poisson.status == "out_of_scope"
     assert "builder is not shipped" in logistic.reasons[0]
+    assert logistic.runtime_type is None
+    assert poisson.artifact_format is None
 
 
 def test_catalog_artifact_is_current() -> None:

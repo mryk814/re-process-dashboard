@@ -13,6 +13,10 @@ from decision_workbench.modeling.training.recipe import RidgeEstimatorRecipe
 
 from .types import TrainedPredictor, standard_training_metadata
 
+RUNTIME_TYPE = "builtin.linear.v1"
+ARTIFACT_SUFFIX = ".npz"
+ARTIFACT_FORMAT = "bounded-npz"
+
 
 def _fit(x: np.ndarray, y: np.ndarray, alpha: float) -> tuple[np.ndarray, float]:
     mean = x.mean(axis=0)
@@ -206,7 +210,7 @@ def train(
             "target": data.target,
             "unit": data.unit,
             "target_kind": data.target_kind,
-            "runtime_type": "builtin.linear.v1",
+            "runtime_type": RUNTIME_TYPE,
             "architecture_id": "profile_transformed_ridge_v1",
             "artifact": artifact_path.as_posix(),
             "predictive_family": "empirical_quantiles",

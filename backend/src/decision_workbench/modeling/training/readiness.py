@@ -12,6 +12,8 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from decision_workbench.contracts.task_contracts import ContractModel
+from decision_workbench.modeling.training.estimators import estimator_implementation
+from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.validation_plan import ValidationStrategy
 
 
@@ -45,6 +47,18 @@ BuilderStatus = Literal[
     "external_verified_package_only",
     "not_available",
 ]
+RuntimeStatus = Literal[
+    "ready",
+    "needs_adapter_allowlist",
+    "external_verified_package_only",
+    "not_available",
+]
+ArtifactStatus = Literal[
+    "ready",
+    "needs_adapter_allowlist",
+    "external_verified_package_only",
+    "not_available",
+]
 
 
 class EstimatorLimits(ContractModel):
@@ -66,8 +80,10 @@ class StandardEstimatorEntry(ContractModel):
     target_kinds: Annotated[tuple[TargetKind, ...], Field(min_length=1)]
     role: Literal["interpretable_baseline", "nonlinear_candidate", "specialized_path"]
     builder_status: BuilderStatus
-    runtime_type: Annotated[str, Field(min_length=1)]
-    artifact_format: Annotated[str, Field(min_length=1)]
+    runtime_status: RuntimeStatus
+    runtime_type: Annotated[str, Field(min_length=1)] | None
+    artifact_status: ArtifactStatus
+    artifact_format: Annotated[str, Field(min_length=1)] | None
     required_dependency: str | None = None
     limits: EstimatorLimits
     categorical_support: SupportLevel
@@ -84,7 +100,7 @@ class StandardEstimatorEntry(ContractModel):
         ...,
     ]
     quality_metrics: Annotated[tuple[str, ...], Field(min_length=1)]
-    fixed_parameters: dict[str, int | float | str]
+    fixed_parameters: dict[str, int | float | str | bool | tuple[str, ...]]
 
     @model_validator(mode="after")
     def builder_and_runtime_are_consistent(self) -> "StandardEstimatorEntry":
@@ -95,6 +111,10 @@ class StandardEstimatorEntry(ContractModel):
             raise ValueError(
                 "external verified Package paths must not claim a local builder dependency"
             )
+        if (self.runtime_status == "ready") != (self.runtime_type is not None):
+            raise ValueError("only ready runtime entries declare a runtime_type")
+        if (self.artifact_status == "ready") != (self.artifact_format is not None):
+            raise ValueError("only ready artifact entries declare an artifact_format")
         return self
 
 
@@ -121,8 +141,19 @@ class EstimatorReadinessContext(ContractModel):
     has_missing_features: bool = False
     target_contract: ContractStatus
     validation_plan: ContractStatus
+    validation_strategy: ValidationStrategy | None = None
     feature_recipe: ContractStatus
     missing_policy: ContractStatus = "ready"
+
+    @model_validator(mode="after")
+    def ready_validation_has_a_strategy(self) -> "EstimatorReadinessContext":
+        if (self.validation_plan == "ready") != (
+            self.validation_strategy is not None
+        ):
+            raise ValueError(
+                "ready validation_plan requires one concrete validation_strategy"
+            )
+        return self
 
 
 class EstimatorReadinessResolution(ContractModel):
@@ -141,6 +172,28 @@ class EstimatorReadinessResolution(ContractModel):
     promotes_package: Literal[False] = False
 
 
+def _implementation_fields(estimator_id: str) -> dict[str, str]:
+    implementation = estimator_implementation(estimator_id)
+    return {
+        "runtime_type": implementation.runtime_type,
+        "artifact_format": implementation.artifact_format,
+    }
+
+
+def _fixed_parameters(
+    estimator_id: str,
+) -> dict[str, int | float | str | bool | tuple[str, ...]]:
+    return estimator_recipe(estimator_id).model_dump(
+        mode="python",
+        exclude={
+            "estimator_id",
+            "validation_plan",
+            "validation_plans_by_target",
+        },
+        exclude_none=True,
+    )
+
+
 _CATALOG = StandardEstimatorCatalog(
     entries=(
         StandardEstimatorEntry(
@@ -149,8 +202,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("continuous",),
             role="interpretable_baseline",
             builder_status="standard_builder",
-            runtime_type="builtin.linear.v1",
-            artifact_format="bounded-npz",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("ridge.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("ridge.v1")["artifact_format"],
             limits=EstimatorLimits(
                 min_rows=4,
                 max_rows=100_000,
@@ -167,7 +222,7 @@ _CATALOG = StandardEstimatorCatalog(
             ),
             predictive_capabilities=("point", "quantiles"),
             quality_metrics=("mae", "rmse", "interval_coverage_90"),
-            fixed_parameters={"alpha": 1.0, "folds": 5, "seed": 20260730},
+            fixed_parameters=_fixed_parameters("ridge.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="exact-gp-rbf.v1",
@@ -175,8 +230,12 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("continuous",),
             role="nonlinear_candidate",
             builder_status="standard_builder",
-            runtime_type="builtin.exact_gp.v1",
-            artifact_format="bounded-npz",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("exact-gp-rbf.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("exact-gp-rbf.v1")[
+                "artifact_format"
+            ],
             limits=EstimatorLimits(
                 min_rows=3,
                 max_rows=500,
@@ -198,12 +257,7 @@ _CATALOG = StandardEstimatorCatalog(
                 "parametric_distribution",
             ),
             quality_metrics=("mae", "rmse", "interval_coverage_90"),
-            fixed_parameters={
-                "restarts": 3,
-                "folds": 5,
-                "seed": 20260730,
-                "max_rows": 500,
-            },
+            fixed_parameters=_fixed_parameters("exact-gp-rbf.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="numpyro-lognormal-external.v1",
@@ -211,8 +265,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("continuous_positive",),
             role="specialized_path",
             builder_status="external_verified_package_only",
-            runtime_type="numpyro.dense_posterior.v1",
-            artifact_format="bounded-npz",
+            runtime_status="external_verified_package_only",
+            runtime_type=None,
+            artifact_status="external_verified_package_only",
+            artifact_format=None,
             limits=EstimatorLimits(
                 min_rows=4,
                 max_rows=100_000,
@@ -241,8 +297,14 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("continuous",),
             role="nonlinear_candidate",
             builder_status="standard_builder",
-            runtime_type="lightgbm.booster.v1",
-            artifact_format="lightgbm-native-text",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("lightgbm-regression.v1")[
+                "runtime_type"
+            ],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("lightgbm-regression.v1")[
+                "artifact_format"
+            ],
             required_dependency="lightgbm",
             limits=EstimatorLimits(
                 min_rows=4,
@@ -260,11 +322,7 @@ _CATALOG = StandardEstimatorCatalog(
             ),
             predictive_capabilities=("point", "quantiles"),
             quality_metrics=("mae", "rmse", "interval_coverage_90"),
-            fixed_parameters={
-                "num_boost_round": 200,
-                "folds": 5,
-                "seed": 20260730,
-            },
+            fixed_parameters=_fixed_parameters("lightgbm-regression.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="logistic.v1",
@@ -272,8 +330,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("binary",),
             role="interpretable_baseline",
             builder_status="not_available",
-            runtime_type="sklearn.skops.v1",
-            artifact_format="skops-allow-listed",
+            runtime_status="needs_adapter_allowlist",
+            runtime_type=None,
+            artifact_status="needs_adapter_allowlist",
+            artifact_format=None,
             required_dependency="skops",
             limits=EstimatorLimits(
                 min_rows=6,
@@ -313,8 +373,14 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("binary",),
             role="nonlinear_candidate",
             builder_status="standard_builder",
-            runtime_type="lightgbm.booster.v1",
-            artifact_format="lightgbm-native-text",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("lightgbm-binary.v1")[
+                "runtime_type"
+            ],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("lightgbm-binary.v1")[
+                "artifact_format"
+            ],
             required_dependency="lightgbm",
             limits=EstimatorLimits(
                 min_rows=6,
@@ -341,12 +407,7 @@ _CATALOG = StandardEstimatorCatalog(
                 "balanced_accuracy",
                 "calibration",
             ),
-            fixed_parameters={
-                "num_boost_round": 100,
-                "folds": 5,
-                "seed": 20260730,
-                "calibration": "nested-oof-platt",
-            },
+            fixed_parameters=_fixed_parameters("lightgbm-binary.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="poisson.v1",
@@ -354,8 +415,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("count",),
             role="interpretable_baseline",
             builder_status="not_available",
-            runtime_type="sklearn.skops.v1",
-            artifact_format="skops-allow-listed",
+            runtime_status="needs_adapter_allowlist",
+            runtime_type=None,
+            artifact_status="needs_adapter_allowlist",
+            artifact_format=None,
             required_dependency="skops",
             limits=EstimatorLimits(
                 min_rows=4,
@@ -392,8 +455,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("ordinal",),
             role="specialized_path",
             builder_status="external_verified_package_only",
-            runtime_type="numpyro.dense_posterior.v1",
-            artifact_format="bounded-npz",
+            runtime_status="external_verified_package_only",
+            runtime_type=None,
+            artifact_status="external_verified_package_only",
+            artifact_format=None,
             limits=EstimatorLimits(
                 min_rows=4,
                 max_rows=100_000,
@@ -512,6 +577,17 @@ def resolve_estimator_readiness(
             entry,
             "needs_validation_plan",
             ["a valid validation-plan/v1 is required before model comparison"],
+        )
+    assert context.validation_strategy is not None
+    if context.validation_strategy not in entry.validation_strategies:
+        return _resolution(
+            context,
+            entry,
+            "needs_validation_plan",
+            [
+                f"{context.validation_strategy} is not reviewed for "
+                f"{entry.estimator_id} and target kind {context.target_kind}"
+            ],
         )
     if context.feature_recipe != "ready":
         return _resolution(
