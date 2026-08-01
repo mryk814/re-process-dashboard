@@ -673,6 +673,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         assert response["dataset_revision_id"]
         assert response["model_package_ref_id"]
         assert response["source_sha256"]
+        assert response["reused_existing"] is False
         assert (task_store / task_id).is_dir()
         health = client.get("/api/health")
         assert health.status_code == 200, health.text
@@ -687,11 +688,33 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
             task_id=task_id,
             label="CSV UI 強度",
         )
-        assert duplicate.status_code == 422, duplicate.text
+        assert duplicate.status_code == 200, duplicate.text
         duplicate_payload = duplicate.json()
-        assert duplicate_payload["code"] == "validation_error"
-        assert "既に存在します" in duplicate_payload["message"]
-        assert "別のTask ID" in duplicate_payload["next_action"]
+        assert duplicate_payload["reused_existing"] is True
+        assert (
+            duplicate_payload["dataset_view_revision_id"]
+            == response["dataset_view_revision_id"]
+        )
+        assert (
+            duplicate_payload["dataset_revision_id"]
+            == response["dataset_revision_id"]
+        )
+        assert (
+            duplicate_payload["model_package_ref_id"]
+            == response["model_package_ref_id"]
+        )
+
+        conflict = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="同じIDの別Task",
+        )
+        assert conflict.status_code == 422, conflict.text
+        conflict_payload = conflict.json()
+        assert conflict_payload["code"] == "validation_error"
+        assert "異なる個人Task / Model" in conflict_payload["message"]
+        assert "別のTask ID" in conflict_payload["next_action"]
 
         options = client.get("/api/project-creation-options")
         assert options.status_code == 200, options.text
