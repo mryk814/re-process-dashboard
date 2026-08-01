@@ -346,8 +346,12 @@ export function buildVerificationPlan({
   const unmetByRisk = new Map(
     unmetRiskRequirements.map((requirement) => [requirement.risk, requirement]),
   );
+  const editLoopDefersHigherEvidence = requestedLevel === "edit";
   const strongestDirectRequirement = unmetRiskRequirements
-    .filter((requirement) => requirement.disposition === "direct")
+    .filter((requirement) => (
+      requirement.disposition === "direct"
+      && !editLoopDefersHigherEvidence
+    ))
     .sort((left, right) => levelRank(right.level) - levelRank(left.level))[0] ?? null;
   const directAggregateRequired = strongestDirectRequirement !== null;
   const deferredManualFollowUps = [];
@@ -359,6 +363,21 @@ export function buildVerificationPlan({
   for (const gateId of requested.gates) select(gateId, `baseline for ${requestedLevel}`);
   for (const risk of effectiveRisks) {
     const unmet = unmetByRisk.get(risk);
+    if (unmet && editLoopDefersHigherEvidence) {
+      for (const gateId of rules.get(risk).requiredGates ?? []) {
+        if (!catalog.gates[gateId].manual) continue;
+        deferredManualFollowUps.push({
+          level: unmet.level,
+          command: catalog.gates[gateId].command,
+          reason: `manual evidence deferred for ${risk}`,
+          risks: [risk],
+          owner: unmet.disposition === "direct"
+            ? "pr-verification"
+            : unmet.owner,
+        });
+      }
+      continue;
+    }
     if (unmet?.disposition === "direct") {
       select(
         strongestDirectRequirement.gateId,
@@ -463,7 +482,10 @@ export function buildVerificationPlan({
   ];
   const directEvidenceRequirements = mergeRequirements(
     unmetRiskRequirements
-      .filter((requirement) => requirement.disposition === "direct")
+      .filter((requirement) => (
+        requirement.disposition === "direct"
+        && !editLoopDefersHigherEvidence
+      ))
       .map((requirement) => ({
         level: strongestDirectRequirement.level,
         command: strongestDirectRequirement.command,
@@ -477,7 +499,13 @@ export function buildVerificationPlan({
     [
       ...unmetRiskRequirements
         .filter((requirement) => (
-          requirement.disposition === "follow_up"
+          (
+            requirement.disposition === "follow_up"
+            || (
+              editLoopDefersHigherEvidence
+              && requirement.disposition === "direct"
+            )
+          )
           && (
             !strongestDirectRequirement
             || levelRank(requirement.level) > levelRank(strongestDirectRequirement.level)
@@ -488,7 +516,9 @@ export function buildVerificationPlan({
           command: requirement.command,
           reason: `${requirement.level} evidence is required by ${requirement.risk}`,
           risks: [requirement.risk],
-          owner: requirement.owner,
+          owner: requirement.disposition === "direct"
+            ? "pr-verification"
+            : requirement.owner,
         })),
       ...deferredManualFollowUps.filter((requirement) => (
         !strongestDirectRequirement

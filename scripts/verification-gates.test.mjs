@@ -411,6 +411,49 @@ test("catalog digest is stable across BOM and line-ending conventions", () => {
   assert.equal(normalizedTextSha256('{\n  "levels": []\n}\n'), normalizedTextSha256('\uFEFF{\r\n  "levels": []\r\n}\r\n'));
 });
 
+test("edit loop defers higher evidence instead of running aggregate acceptance", () => {
+  const plan = planFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ], {
+    requestedLevel: "edit",
+    focusedArgs: ["backend/tests/test_legacy_workspace_acceptance.py"],
+  });
+  assert.deepEqual(plan.selectedGateIds, ["focused-pytest", "typecheck"]);
+  assert.ok(!plan.selectedGateIds.includes("release-acceptance"));
+  assert.equal(plan.directEvidenceRequirements.length, 0);
+  assert.ok(
+    plan.requiredFollowUps.some(
+      (item) => item.command === "npm run acceptance:release"
+        && item.owner === "pr-verification",
+    ),
+  );
+  assert.equal(
+    evaluateVerificationOutcome({
+      plan,
+      gateResults: passedResults(plan),
+    }).outcome,
+    "passed_with_follow_up",
+  );
+
+  const modelRuntimePlan = planFor([
+    "backend/src/decision_workbench/modeling/runtime.py",
+  ], {
+    requestedLevel: "edit",
+    focusedArgs: ["backend/tests/test_runtime.py"],
+  });
+  assert.deepEqual(modelRuntimePlan.selectedGateIds, [
+    "focused-pytest",
+    "typecheck",
+  ]);
+  assert.ok(
+    modelRuntimePlan.requiredFollowUps.some(
+      (item) => item.command.startsWith(
+        "manual: task-specific model:build",
+      ) && item.owner === "release-checkpoint",
+    ),
+  );
+});
+
 test("catalog file digest stays compatible with acceptance status across line endings", () => {
   const scratch = mkdtempSync(join(tmpdir(), "verification-catalog-digest-"));
   const lfPath = join(scratch, "lf.json");
