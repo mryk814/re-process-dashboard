@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend UX Architect"
+  short_description: "Structure UI flows before implementation"
+  default_prompt: "Use $frontend-ux-architect to compare structural options before changing this UI flow."

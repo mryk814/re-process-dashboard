@@ -1,0 +1,7 @@
+interface:
+  display_name: "Web Design Guidelines"
+  short_description: "Audit accessibility and interactions from a pinned ruleset"
+  default_prompt: "Use $web-design-guidelines explicitly to audit these UI files."
+
+policy:
+  allow_implicit_invocation: false

@@ -45,6 +45,19 @@ TaskDefinitionの入力・出力、canonical quantity、学習単位、Profile p
 入口は [Developer Start Here](docs/developer-start-here.md)。
 以下の検証規約、Issue／PR運用、実装者と異なる観点のレビューは、このレーンに適用する。
 
+### Agent Skillsの入口
+
+- architecture、責務境界、module分割、registry、adapter、Package authority、migrationを
+  監査または変更する前に
+  [`re-process-architecture-review`](.agents/skills/re-process-architecture-review/SKILL.md)を使う。
+- 画面構造、情報順序、navigation、onboarding、form、結果配置、画面間handoffを変更する前に
+  [`frontend-ux-architect`](.agents/skills/frontend-ux-architect/SKILL.md)を使う。
+- bug、test failure、unexpected behaviorの修正案を出す前に
+  [`systematic-debugging`](.agents/skills/systematic-debugging/SKILL.md)を使う。
+
+外部Skillの固定版、適用制限、更新手順は
+[`Agent Skills inventory`](docs/developer/agent-skills-inventory.md)を正本とする。
+
 ## アプリ開発のセットアップと検証
 
 ```powershell

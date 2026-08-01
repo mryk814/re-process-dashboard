@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codebase Design"
+  short_description: "Apply pinned deep-module vocabulary safely"
+  default_prompt: "Use $codebase-design explicitly to evaluate a module interface in this repository."
+
+policy:
+  allow_implicit_invocation: false
