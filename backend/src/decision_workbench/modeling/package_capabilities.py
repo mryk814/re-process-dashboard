@@ -60,6 +60,7 @@ _LABELS = {
     "predictive_samples": "予測sample", "joint_samples": "joint sample",
     "parametric_distribution": "パラメトリック分布", "goal_probability": "目標達成確率",
     "support": "学習支持範囲", "explanation": "局所説明", "normal_mean_std": "normal mean/std",
+    "conformal_interval": "Conformal予測区間",
 }
 
 

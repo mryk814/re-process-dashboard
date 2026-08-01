@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,7 +22,13 @@ from decision_workbench.application.chain_candidate_adapters import (
     ScalarChainAdapter,
     SparseBlendChainAdapter,
     candidate_adapter_for,
+    candidate_adapter_shape_for,
 )
+from decision_workbench.application.chain.plan import (
+    ChainExecutionError,
+    ChainPlanningUseCase,
+)
+from decision_workbench.application.chains import ChainUseCases
 from decision_workbench.application.payload_normalization import plain_payload
 from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
@@ -121,6 +128,56 @@ def test_adapter_is_selected_from_the_declared_stage_shape() -> None:
             _revision("deterministic_transform", "deterministic_transform", "task"),
             transform_catalog=None,  # type: ignore[arg-type]
         )
+
+
+def test_candidate_capability_reads_revision_shape_without_transform_catalog() -> None:
+    revision = _revision("deterministic_transform", "task", "task")
+    shape = candidate_adapter_shape_for(revision)
+
+    assert shape.adapter_id == "sparse_blend/v1"
+    assert shape.sparse_blend is True
+
+    class ReadOnlyStore:
+        def get_project(self, project_id: str):
+            assert project_id == "project"
+            return SimpleNamespace(
+                scientific_identity=SimpleNamespace(
+                    identity_kind="chain",
+                    chain_revision_id="chain:r1",
+                    chain_revision_digest=revision.revision_digest,
+                )
+            )
+
+        def get_chain_revision(self, revision_id: str):
+            assert revision_id == "chain:r1"
+            return revision
+
+        def get_chain_definition(self, chain_id: str, definition_digest: str):
+            assert (chain_id, definition_digest) == (
+                "chain", revision.chain_definition_digest
+            )
+            return SimpleNamespace(
+                external_inputs=(SimpleNamespace(path="candidate.blend"),)
+            )
+
+    planning = ChainPlanningUseCase(
+        ReadOnlyStore(), registry=None, transform_catalog=None,  # type: ignore[arg-type]
+    )
+    use_cases = object.__new__(ChainUseCases)
+    use_cases._planning_use_case = planning
+    use_cases.subsystem_registry = SimpleNamespace(
+        require=lambda _subsystem_id: pytest.fail(
+            "read-only capability must not require availability"
+        ),
+    )
+
+    capability = use_cases.candidate_capability("project")
+
+    assert capability.adapter_id == "sparse_blend/v1"
+    assert capability.sparse_blend is True
+    assert capability.external_input_paths == ("candidate.blend",)
+    with pytest.raises(ChainExecutionError, match="決定論的Transform"):
+        planning.adapter_for(revision)
 
 
 def test_scalar_adapter_exposes_candidate_inputs_in_their_own_namespace() -> None:

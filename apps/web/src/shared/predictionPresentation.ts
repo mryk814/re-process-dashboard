@@ -2,6 +2,10 @@ type PredictionSemantics = {
   target_kind: string;
   predictive_family: string;
   quantiles: Record<string, number>;
+  interval_method?: "conformal" | "quantile" | "parametric" | "bayesian" | null;
+  interval_coverage_level?: number | null;
+  interval_calibration_dataset_digest?: string | null;
+  interval_calibration_sample_count?: number | null;
 };
 
 type PredictionPoint = PredictionSemantics & { value: number; unit: string; categories?: string[] };
@@ -17,6 +21,10 @@ export function formatPredictionPoint(prediction: PredictionPoint, formatNumber:
 }
 
 export function predictionIntervalLabel(prediction: PredictionSemantics): string {
+  if (prediction.interval_method === "conformal") return `Conformal予測区間（${Math.round((prediction.interval_coverage_level ?? 0) * 100)}%）`;
+  if (prediction.interval_method === "quantile") return "予測分位点区間";
+  if (prediction.interval_method === "parametric") return "パラメトリック予測区間";
+  if (prediction.interval_method === "bayesian") return "Bayesian credible interval";
   const levels = Object.keys(prediction.quantiles ?? {}).map(Number).sort((left, right) => left - right);
   if (levels.length < 2 || levels.some((level) => !Number.isFinite(level))) return "利用不可";
   const low = levels[0]!;
@@ -30,5 +38,5 @@ export function predictionIntervalLabel(prediction: PredictionSemantics): string
 }
 
 export function predictionHasInterval(prediction: PredictionSemantics): boolean {
-  return Object.keys(prediction.quantiles ?? {}).length >= 2;
+  return prediction.interval_method != null || Object.keys(prediction.quantiles ?? {}).length >= 2;
 }

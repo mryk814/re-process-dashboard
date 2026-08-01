@@ -571,6 +571,8 @@ export function ComparisonTable({
     const label = predictionIntervalLabel(prediction);
     const details = [
       hasInterval ? `${label} ${interval}` : label,
+      prediction.interval_calibration_sample_count != null ? `校正 ${prediction.interval_calibration_sample_count}件` : null,
+      prediction.interval_calibration_dataset_digest ? `校正データ ${prediction.interval_calibration_dataset_digest.slice(0, 12)}…` : null,
       model !== undefined ? `モデル由来 ±${formatNumber(model)}` : null,
       observation !== undefined ? `測定由来 ±${formatNumber(observation)}` : null,
     ].filter(Boolean).join(" / ");
@@ -751,11 +753,15 @@ export function ComparisonTable({
                         </div>
                         <div>
                           <dt>予測区間</dt>
-                          <dd>{prediction && predictionHasInterval(prediction) ? `${uncertaintySummary(prediction, output.key).interval}${predictionUnit}` : "なし"}</dd>
+                          <dd>{prediction && predictionHasInterval(prediction)
+                            ? <>{uncertaintySummary(prediction, output.key).label}: {uncertaintySummary(prediction, output.key).interval}{predictionUnit}
+                              {prediction.interval_method === "conformal" && <small>校正 {prediction.interval_calibration_sample_count ?? "不明"}件{prediction.interval_calibration_dataset_digest ? `・${prediction.interval_calibration_dataset_digest.slice(0, 12)}…` : ""}</small>}
+                            </>
+                            : "なし"}</dd>
                         </div>
                         <div>
                           <dt>支持範囲</dt>
-                          <dd>{support(targetSupport?.status)}</dd>
+                          <dd>{support(targetSupport?.status)}{prediction?.interval_method === "conformal" && targetSupport?.status !== "supported" && <small>学習支持範囲外では被覆率の解釈は弱まります</small>}</dd>
                         </div>
                         <div>
                           <dt>目標達成</dt>
@@ -832,7 +838,7 @@ export function ComparisonTable({
                       return <td className={`decision-output-cell numeric-cell${pointAssessment.implausible ? " implausible-output" : ""}`} key={output.key}>
                         <span className="decision-prediction" title={pointAssessment.warning ?? accessibleValue}>{value}{pointAssessment.implausible && <small>⚠ 物理範囲外</small>}</span>
                         {predictionHasInterval(prediction)
-                          ? <span className={`decision-interval${intervalAssessment.implausible ? " implausible-output" : ""}`} title={intervalAssessment.warning ?? uncertainty.details}>区間 {uncertainty.interval}{intervalAssessment.implausible && <small>⚠ 範囲外含む</small>}</span>
+                          ? <span className={`decision-interval${intervalAssessment.implausible ? " implausible-output" : ""}`} title={intervalAssessment.warning ?? uncertainty.details}>{uncertainty.label} {uncertainty.interval}{intervalAssessment.implausible && <small>⚠ 範囲外含む</small>}</span>
                           : <span className="decision-interval empty-cell">区間なし</span>}
                         {goalContent}
                       </td>;

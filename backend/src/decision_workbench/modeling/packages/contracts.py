@@ -450,6 +450,17 @@ class ConformalIntervalCalibration(PackageModel):
     finite_sample_rule: Literal["ceil_n_plus_1_over_coverage/v1"]
 
 
+class ConformalWrapperIdentity(PackageModel):
+    """Immutable wrapper evidence required to interpret a conformal interval."""
+
+    wrapper_id: str
+    wrapper_version: str
+    manifest_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    calibration_score_artifact_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+
+
 class PredictionInterval(PackageModel):
     """A declared interval whose method must not be inferred from its shape."""
 
@@ -458,6 +469,7 @@ class PredictionInterval(PackageModel):
     lower: float
     upper: float
     calibration: ConformalIntervalCalibration | None = None
+    conformal_wrapper: ConformalWrapperIdentity | None = None
 
     @model_validator(mode="after")
     def ordered_finite_bounds_and_calibration(self) -> "PredictionInterval":
@@ -465,8 +477,11 @@ class PredictionInterval(PackageModel):
             raise ValueError("prediction interval bounds must be finite")
         if self.lower > self.upper:
             raise ValueError("prediction interval lower bound must not exceed upper bound")
-        if (self.method == "conformal") != (self.calibration is not None):
+        is_conformal = self.method == "conformal"
+        if is_conformal != (self.calibration is not None):
             raise ValueError("only conformal intervals carry calibration evidence")
+        if is_conformal != (self.conformal_wrapper is not None):
+            raise ValueError("only conformal intervals carry wrapper identity")
         return self
 
 

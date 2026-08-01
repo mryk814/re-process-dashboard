@@ -202,10 +202,14 @@ class TaskRegistry:
                 predictor_runtime=runtime,
                 support_provider=runtime,
                 capability=contract.runtime_capability,
-                capability_matrix=package_capability_matrix(
-                    package.manifest,
-                    contract.runtime_capability,
-                    manifest_digest=package.manifest_sha256,
+                capability_matrix=getattr(
+                    runtime,
+                    "capability_matrix",
+                    package_capability_matrix(
+                        package.manifest,
+                        contract.runtime_capability,
+                        manifest_digest=package.manifest_sha256,
+                    ),
                 ),
                 application_capability=module.application,
                 candidate_family_adapter=family_adapter,
