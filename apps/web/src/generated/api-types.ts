@@ -5179,18 +5179,11 @@ export interface components {
          *     UI from turning an estimator name into a free-form runtime selector.
          */
         CsvOnboardingEstimatorOption: {
-            /** Artifact Format */
-            artifact_format: string;
             /**
              * Artifact Size
              * @enum {string}
              */
             artifact_size: "small" | "moderate";
-            /**
-             * Artifact Status
-             * @constant
-             */
-            artifact_status: "ready";
             /** Available */
             available: boolean;
             /** Dependency */
@@ -5212,10 +5205,6 @@ export interface components {
             goal_probability: "unavailable";
             /** Label */
             label: string;
-            /** Max Features */
-            max_features: number;
-            /** Max Rows */
-            max_rows: number;
             /**
              * Parametric Distribution
              * @default false
@@ -5232,18 +5221,6 @@ export interface components {
              * @default true
              */
             quantiles: boolean;
-            /**
-             * Readiness Schema Version
-             * @constant
-             */
-            readiness_schema_version: "standard-estimator-readiness/v1";
-            /**
-             * Runtime Status
-             * @constant
-             */
-            runtime_status: "ready";
-            /** Runtime Type */
-            runtime_type: string;
             /**
              * Standard Deviation
              * @default false
