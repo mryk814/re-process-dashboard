@@ -2,6 +2,30 @@ import { expect, test } from "@playwright/test";
 
 import { apiBaseUrl, createProjectWithCandidate } from "./helpers";
 
+async function candidateRevision(
+  page: import("@playwright/test").Page,
+  candidateId: string,
+): Promise<number> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await page.request.get(
+        `${apiBaseUrl}/api/projects/default/candidates/${candidateId}`,
+      );
+      if (response.status() === 200) {
+        return (await response.json() as { revision: number }).revision;
+      }
+      lastError = new Error(
+        `candidate revision request returned ${response.status()}: ${await response.text()}`,
+      );
+    } catch (error) {
+      lastError = error;
+    }
+    await page.waitForTimeout(250 * (attempt + 1));
+  }
+  throw lastError;
+}
+
 async function createProjectFromDefault(
   page: import("@playwright/test").Page,
   name: string,
@@ -674,8 +698,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
   const candidateName = await selectedRow.getByRole("textbox").inputValue();
   const candidateId = new URL(page.url()).searchParams.get("candidate");
   expect(candidateId).toBeTruthy();
-  const beforeResponse = await page.request.get(`${apiBaseUrl}/api/projects/default/candidates/${candidateId}`);
-  const before = await beforeResponse.json() as { revision: number };
+  const beforeRevision = await candidateRevision(page, candidateId!);
 
   const detailed = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith(`/candidates/${candidateId}/predict`));
   await page.getByRole("button", { name: new RegExp(`${candidateName}の詳細予測を保存`) }).click();
@@ -691,8 +714,8 @@ test("project hub separates current revision from fixed snapshot and restores a 
 
   await page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button", { name: "概要", exact: true }).click();
   const card = page.locator(".project-history-card", { hasText: candidateName });
-  await expect(card).toContainText(`編集版 ${before.revision + 1}`);
-  await expect(card).toContainText(`編集版 ${before.revision}`);
+  await expect(card).toContainText(`編集版 ${beforeRevision + 1}`);
+  await expect(card).toContainText(`編集版 ${beforeRevision}`);
   await expect(card.getByText("現在のpreview", { exact: true })).toBeVisible();
   await expect(card.getByText("固定した予測", { exact: true }).first()).toBeVisible();
 
