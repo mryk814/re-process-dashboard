@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from decision_workbench.application.missing_completion_lab import (
+    _model_uncertainty,
     run_missing_completion_lab,
 )
 from decision_workbench.contracts.candidate_project_contracts import Candidate
@@ -125,6 +126,22 @@ def test_unknown_category_and_structural_inactive_are_not_plain_missing() -> Non
     ]
     assert evidence.missingness_support == "incompatible"
     assert evidence.prediction_status == "blocked"
+
+
+def test_completion_lab_does_not_invent_decomposed_model_uncertainty() -> None:
+    prediction = Prediction(
+        value=1.0,
+        lower=0.0,
+        upper=2.0,
+        unit="1",
+        target_kind="continuous",
+        point_statistic="mean",
+        predictive_family="empirical_quantiles",
+        quantiles={"0.05": 0.0, "0.95": 2.0},
+    )
+
+    with pytest.raises(ValueError, match="model uncertainty"):
+        _model_uncertainty(prediction)
 
 
 def test_empirical_completion_lab_separates_model_and_input_uncertainty(

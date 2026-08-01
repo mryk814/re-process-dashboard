@@ -18,6 +18,22 @@ from decision_workbench.design_priors.sampling import (
 from decision_workbench.modeling.missingness import missing_pattern
 
 
+def _model_uncertainty(prediction: object) -> float:
+    components = getattr(prediction, "uncertainty_components", None) or {}
+    if "model" in components:
+        return max(float(components["model"]), 0.0)
+    if getattr(prediction, "predictive_family", None) != "normal":
+        raise ValueError(
+            "このPredictive Modelはmodel uncertaintyを分解できないため、"
+            "Completion Labでcombined uncertaintyを推定できません"
+        )
+    return max(
+        float(prediction.upper - prediction.lower)  # type: ignore[attr-defined]
+        / (2 * 1.6448536269514722),
+        0.0,
+    )
+
+
 def run_missing_completion_lab(
     runtime: object,
     candidate: Candidate,
@@ -73,10 +89,7 @@ def run_missing_completion_lab(
         predictions = [result["predictions"][target] for result in results]
         points = np.asarray([item.value for item in predictions], dtype=float)
         model_stds = np.asarray(
-            [
-                max(float(item.upper - item.lower) / (2 * 1.6448536269514722), 0.0)
-                for item in predictions
-            ],
+            [_model_uncertainty(item) for item in predictions],
             dtype=float,
         )
         model = float(np.sqrt(np.mean(model_stds**2)))
