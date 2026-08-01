@@ -110,11 +110,18 @@ function digestCiPlan(ciPlan) {
   return sha256(JSON.stringify(planDigestSource(ciPlan)));
 }
 
-function executionGatesFor(logicalGateId, catalog) {
+function executionGatesFor(logicalGateId, catalog, plan) {
   const aggregateLevel = aggregateLevels.get(logicalGateId);
-  return aggregateLevel
+  const gateIds = aggregateLevel
     ? [...getVerificationLevel(catalog, aggregateLevel).gates]
     : [logicalGateId];
+  if (
+    logicalGateId === "release-acceptance"
+    && !plan.riskCategories.includes("electron-distribution")
+  ) {
+    return gateIds.filter((gateId) => gateId !== "windows-delivery");
+  }
+  return gateIds;
 }
 
 function deduplicateExecutionGates(gateIds) {
@@ -145,7 +152,7 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
   const logicalGateExpansions = Object.fromEntries(
     plan.selectedGateIds.map((gateId) => [
       gateId,
-      executionGatesFor(gateId, catalog),
+      executionGatesFor(gateId, catalog, plan),
     ]),
   );
   const coverageGateIds = [...new Set(Object.values(logicalGateExpansions).flat())];
@@ -233,7 +240,11 @@ export function validateCiPlan(
     }
     const expectedCoverageGateIds = [];
     for (const logicalGateId of logicalGateIds) {
-      const expectedExpansion = executionGatesFor(logicalGateId, catalog);
+      const expectedExpansion = executionGatesFor(
+        logicalGateId,
+        catalog,
+        ciPlan.originalPlan,
+      );
       const actualExpansion = ciPlan.logicalGateExpansions[logicalGateId];
       if (JSON.stringify(actualExpansion) !== JSON.stringify(expectedExpansion)) {
         throw new Error(`CI plan has an invalid expansion for ${logicalGateId}`);
@@ -561,9 +572,10 @@ export function aggregateVerificationShards({
   const releaseSelected = ciPlan.originalPlan.selectedGateIds.includes(
     "release-acceptance",
   );
+  const deliverySelected = ciPlan.coverageGateIds.includes("windows-delivery");
   const deliveryReport = reportsByShard.get("windows-delivery");
   const artifacts = deliveryReport?.artifacts ?? [];
-  if (releaseSelected) {
+  if (releaseSelected && deliverySelected) {
     const expectedArtifactNames = expectedDeliveryArtifacts().map(
       (path) => path.split(/[\\/]/).at(-1),
     );
@@ -686,7 +698,7 @@ export function buildParallelAcceptanceReport({
   if (!ciPlan.originalPlan.selectedGateIds.includes("release-acceptance")) {
     return null;
   }
-  const releaseGateIds = getVerificationLevel(catalog, "release").gates;
+  const releaseGateIds = ciPlan.logicalGateExpansions["release-acceptance"];
   const releaseResult = verificationReport.gates.find(
     (gate) => gate.id === "release-acceptance",
   );
@@ -713,7 +725,9 @@ export function buildParallelAcceptanceReport({
       .map(([id, gate]) => ({
         id,
         status: "not_run",
-        reason: gate.manual
+        reason: id === "windows-delivery"
+          ? "electron-distribution risk is not present in this release plan"
+          : gate.manual
           ? "manual evidence is outside the automated release profile"
           : "not selected by the release profile",
         priorEvidence: gate.priorEvidence ?? [],

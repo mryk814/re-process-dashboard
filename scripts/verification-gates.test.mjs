@@ -633,8 +633,11 @@ test("CI plan expands aggregate acceptance without dropping or duplicating gates
   assert.ok(releasePlan.originalPlan.selectedGateIds.includes("release-acceptance"));
   assert.deepEqual(
     releasePlan.logicalGateExpansions["release-acceptance"],
-    getVerificationLevel(catalog, "release").gates,
+    getVerificationLevel(catalog, "release").gates.filter(
+      (gateId) => gateId !== "windows-delivery",
+    ),
   );
+  assert.ok(!releasePlan.coverageGateIds.includes("windows-delivery"));
   assert.equal(
     releasePlan.executionGateIds.length,
     new Set(releasePlan.executionGateIds).size,
@@ -699,7 +702,7 @@ test("CI aggregation restores the logical verification outcome", () => {
       return gate?.status === "passed" && gate.evidenceSource === ownerGateId;
     }),
   );
-  assert.equal(report.artifacts.length, 2);
+  assert.equal(report.artifacts.length, 0);
   assert.equal(report.cleanIsolatedPlaywright, true);
   const acceptance = buildParallelAcceptanceReport({
     verificationReport: report,
@@ -709,7 +712,7 @@ test("CI aggregation restores the logical verification outcome", () => {
   assert.equal(acceptance.schemaVersion, "main-acceptance/v2");
   assert.equal(acceptance.testedCommit, "abc123");
   assert.equal(acceptance.status, "passed");
-  assert.equal(acceptance.artifacts.length, 2);
+  assert.equal(acceptance.artifacts.length, 0);
   assert.equal(acceptance.cleanIsolatedPlaywright, true);
   assert.ok(
     acceptance.gates.some(
@@ -717,6 +720,23 @@ test("CI aggregation restores the logical verification outcome", () => {
         && gate.summary.includes("covered by full-pytest"),
     ),
   );
+
+  const distributionPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  assert.ok(distributionPlan.coverageGateIds.includes("windows-delivery"));
+  const packagingPlan = ciPlanFor(["packaging/electron-builder.yml"]);
+  assert.deepEqual(packagingPlan.originalPlan.riskCategories, [
+    "electron-distribution",
+  ]);
+  assert.ok(packagingPlan.coverageGateIds.includes("windows-delivery"));
+  const distributionReport = aggregateVerificationShards({
+    ciPlan: distributionPlan,
+    shardReports: passedShardReports(distributionPlan),
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(distributionReport.outcome, "passed");
+  assert.equal(distributionReport.artifacts.length, 2);
 });
 
 test("CI aggregation fails closed for missing, stale, and duplicate evidence", () => {
@@ -846,9 +866,7 @@ test("CI aggregation fails closed for missing, stale, and duplicate evidence", (
     /gate .* has invalid status corrupt/,
   );
 
-  const releaseCiPlan = ciPlanFor([
-    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
-  ]);
+  const releaseCiPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
   const missingDeliveryEvidence = structuredClone(
     passedShardReports(releaseCiPlan),
   );
