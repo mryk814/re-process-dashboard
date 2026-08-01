@@ -15,6 +15,7 @@ from decision_workbench.contracts.chain_contracts import (
     build_chain_revision,
     task_contract_surface,
 )
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
@@ -89,7 +90,9 @@ def _task_surface(
     return task_contract_surface(
         registry.contract_for(task_id).task_definition,
         contract_digest=semantic_digest(
-            registry.contract_for(task_id).task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(
+                registry.contract_for(task_id).task_definition
+            )
         ),
     )
 

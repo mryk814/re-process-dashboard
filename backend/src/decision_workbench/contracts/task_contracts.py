@@ -313,6 +313,18 @@ class TaskDefinition(ContractModel):
         return self
 
 
+def persisted_task_definition_payload(definition: TaskDefinition) -> dict[str, Any]:
+    """Return the Task identity used by persisted Project and Chain bindings."""
+    payload = definition.model_dump(mode="json")
+    for output in payload["outputs"]:
+        # Output semantics refine presentation and typed observations without
+        # rebinding an existing Project or Chain revision. Package verification
+        # and immutable prediction snapshots retain the semantic authority.
+        for key in ("target_kind", "binary", "count", "ordinal"):
+            output.pop(key, None)
+    return payload
+
+
 class ManualSourceRef(ContractModel):
     source_kind: Literal["manual"]
     source_ref: None = None

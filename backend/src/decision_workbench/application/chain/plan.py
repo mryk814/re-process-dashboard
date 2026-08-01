@@ -27,7 +27,10 @@ from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
     CandidateInputs,
 )
-from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.contracts.task_contracts import (
+    NumericRange,
+    persisted_task_definition_payload,
+)
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from decision_workbench.persistence.store import Store
@@ -209,7 +212,7 @@ class ChainPlanningUseCase:
                 continue
             task = stage_contracts[stage.stage_id]
             if (
-                semantic_digest(task.model_dump(mode="json"))
+                semantic_digest(persisted_task_definition_payload(task))
                 != stage.contract_digest
             ):
                 raise ChainExecutionError(
