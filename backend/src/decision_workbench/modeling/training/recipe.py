@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, TypeAdapter
 
 from decision_workbench.contracts.task_contracts import ContractModel, RuntimeCapability
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 
 class RidgeEstimatorRecipe(ContractModel):
@@ -13,6 +14,8 @@ class RidgeEstimatorRecipe(ContractModel):
     alpha: Annotated[float, Field(gt=0, le=1_000_000)] = 1.0
     folds: Annotated[int, Field(ge=2, le=20)] = 5
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
 class ExactGPEstimatorRecipe(ContractModel):
@@ -21,6 +24,8 @@ class ExactGPEstimatorRecipe(ContractModel):
     folds: Annotated[int, Field(ge=2, le=20)] = 5
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
     max_rows: Annotated[int, Field(ge=3, le=2_000)] = 500
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
 class LightGBMRegressionEstimatorRecipe(ContractModel):
@@ -32,6 +37,8 @@ class LightGBMRegressionEstimatorRecipe(ContractModel):
         "empirical_quantiles"
     )
     monotone_decreasing_features: tuple[str, ...] = ()
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
 class LightGBMBinaryEstimatorRecipe(ContractModel):
@@ -39,6 +46,8 @@ class LightGBMBinaryEstimatorRecipe(ContractModel):
     num_boost_round: Annotated[int, Field(ge=1, le=5_000)] = 100
     folds: Annotated[int, Field(ge=2, le=20)] = 5
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
 ConcreteEstimatorRecipe = (
@@ -108,7 +117,11 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
             available=True,
             training_cost="light",
             artifact_size="small",
-            fixed_parameters=estimator_recipe("ridge.v1").model_dump(mode="json", exclude={"estimator_id"}),
+            fixed_parameters=estimator_recipe("ridge.v1").model_dump(
+                mode="json",
+                exclude={"estimator_id"},
+                exclude_none=True,
+            ),
         ),
         CsvOnboardingEstimatorOption(
             estimator_id="lightgbm-regression.v1",

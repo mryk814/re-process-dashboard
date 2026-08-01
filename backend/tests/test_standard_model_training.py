@@ -347,6 +347,9 @@ def test_model_workflow_builds_tabular_ridge_through_the_same_assembler(
         estimator="ridge.v1",
     )
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    recipe = json.loads(
+        (package / "reference/training-recipe.json").read_text(encoding="utf-8")
+    )
 
     assert result["package"]["task_id"] == "heat-treatment-tradeoff-v1"
     assert {
@@ -357,6 +360,18 @@ def test_model_workflow_builds_tabular_ridge_through_the_same_assembler(
         predictor["config"]["training_method"]
         for predictor in manifest["predictors"]
     } == {"ridge.v1"}
+    quality = result["package"]["quality_report"]
+    for target, evidence in quality["validation_evidence"].items():
+        assert target
+        assert evidence["cohort_digest"].startswith("sha256:")
+        assert evidence["fold_digest"].startswith("sha256:")
+        assert evidence["validation_plan_digest"].startswith("sha256:")
+        assert evidence["cohort_digest"] == recipe["evaluation"][target][
+            "cohort_digest"
+        ]
+        assert evidence["fold_digest"] == recipe["evaluation"][target][
+            "fold_digest"
+        ]
 
 
 def test_omitting_estimator_uses_the_task_default_training_recipe(

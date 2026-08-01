@@ -111,6 +111,31 @@ def _honest_regression_evaluation(
     recipe: LightGBMRegressionEstimatorRecipe,
     monotone_constraints: list[int],
 ) -> tuple[np.ndarray, float]:
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        evaluate = data.quality_rows
+        booster = _train_booster(
+            data.x[train_rows],
+            data.y[train_rows],
+            objective="regression_l2",
+            seed=recipe.seed + 1,
+            num_boost_round=recipe.num_boost_round,
+            monotone_constraints=monotone_constraints,
+        )
+        predictions = np.full(len(data.y), np.nan, dtype=float)
+        predictions[evaluate] = booster.predict(data.x[evaluate])
+        calibration_residuals = (
+            data.y[calibrate] - booster.predict(data.x[calibrate])
+        )
+        evaluated = data.y[evaluate] - predictions[evaluate]
+        if recipe.predictive_family == "normal":
+            scale = max(float(np.sqrt(np.mean(calibration_residuals**2))), 1e-6)
+            covered = np.abs(evaluated) <= 1.6448536269514722 * scale
+        else:
+            lower, upper = np.quantile(calibration_residuals, (0.05, 0.95))
+            covered = (evaluated >= lower) & (evaluated <= upper)
+        return predictions, float(np.mean(covered))
     if data.folds < 3:
         raise ValueError(
             f"{data.target}: nested interval evaluation requires at least three folds"
@@ -119,7 +144,7 @@ def _honest_regression_evaluation(
     covered = np.zeros(len(data.y), dtype=bool)
     for outer_fold in range(data.folds):
         evaluate = data.fold_ids == outer_fold
-        outer_train = ~evaluate
+        outer_train = data.training_rows_for_fold(outer_fold)
         booster = _train_booster(
             data.x[outer_train],
             data.y[outer_train],
@@ -175,6 +200,34 @@ def _honest_binary_evaluation(
     data: TargetTrainingSet,
     recipe: LightGBMBinaryEstimatorRecipe,
 ) -> tuple[np.ndarray, np.ndarray]:
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        evaluate = data.quality_rows
+        if (
+            set(np.unique(data.y[train_rows])) != {0.0, 1.0}
+            or set(np.unique(data.y[calibrate])) != {0.0, 1.0}
+        ):
+            raise ValueError(
+                f"{data.target}: temporal binary train and calibration cohorts "
+                "must each contain both classes"
+            )
+        booster = _train_booster(
+            data.x[train_rows],
+            data.y[train_rows],
+            objective="binary",
+            seed=recipe.seed + 1,
+            num_boost_round=recipe.num_boost_round,
+        )
+        raw = np.full(len(data.y), np.nan, dtype=float)
+        calibrated = np.full(len(data.y), np.nan, dtype=float)
+        raw[evaluate] = booster.predict(data.x[evaluate])
+        calibration = _fit_platt(
+            booster.predict(data.x[calibrate]),
+            data.y[calibrate],
+        )
+        calibrated[evaluate] = _calibrate(raw[evaluate], calibration)
+        return raw, calibrated
     if data.folds < 3:
         raise ValueError(
             f"{data.target}: nested probability calibration requires at least three folds"
@@ -183,7 +236,7 @@ def _honest_binary_evaluation(
     calibrated_oof = np.empty(len(data.y), dtype=float)
     for outer_fold in range(data.folds):
         evaluate = data.fold_ids == outer_fold
-        outer_train = ~evaluate
+        outer_train = data.training_rows_for_fold(outer_fold)
         if set(np.unique(data.y[outer_train])) != {0.0, 1.0}:
             raise ValueError(
                 f"{data.target}: every binary outer fold must contain both classes"
@@ -277,7 +330,25 @@ def _regression(
         recipe,
         monotone_constraints,
     )
-    residuals = data.y - oof
+    quality_rows = data.quality_rows
+    residuals = data.y[quality_rows] - oof[quality_rows]
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        calibration_booster = _train_booster(
+            data.x[train_rows],
+            data.y[train_rows],
+            objective="regression_l2",
+            seed=recipe.seed + 1,
+            num_boost_round=recipe.num_boost_round,
+            monotone_constraints=monotone_constraints,
+        )
+        interval_residuals = (
+            data.y[calibrate]
+            - calibration_booster.predict(data.x[calibrate])
+        )
+    else:
+        interval_residuals = residuals
     booster = _train_booster(
         data.x,
         data.y,
@@ -288,16 +359,27 @@ def _regression(
     )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(artifact_path))
-    residual_std = max(float(np.sqrt(np.mean(residuals**2))), 1e-6)
+    residual_std = max(
+        float(np.sqrt(np.mean(interval_residuals**2))),
+        1e-6,
+    )
     lower_offset, upper_offset = (
         float(value)
-        for value in np.quantile(residuals, (0.05, 0.95))
+        for value in np.quantile(interval_residuals, (0.05, 0.95))
     )
     if recipe.predictive_family == "normal":
-        coverage_method = "nested-grouped-oof-normal-scale"
+        coverage_method = (
+            "temporal-holdout-normal-scale"
+            if data.is_temporal_validation
+            else "nested-grouped-oof-normal-scale"
+        )
         uncertainty = "nested grouped OOF normal residual scale"
     else:
-        coverage_method = "nested-grouped-oof-residual-quantiles"
+        coverage_method = (
+            "temporal-holdout-residual-quantiles"
+            if data.is_temporal_validation
+            else "nested-grouped-oof-residual-quantiles"
+        )
         uncertainty = "nested grouped OOF residual quantiles"
     parameters = {
         "num_boost_round": recipe.num_boost_round,
@@ -320,7 +402,17 @@ def _regression(
             "config": {
                 "training_method": recipe.estimator_id,
                 "training_unit": "replicate_context_mean",
-                "validation_method": f"{data.folds}-fold grouped validation CV",
+                "validation_method": (
+                    f"temporal holdout by {data.validation_plan.time_key}"
+                    if data.is_temporal_validation
+                    else f"{data.folds}-fold "
+                    + (
+                        "grouped"
+                        if data.validation_plan.strategy == "grouped_kfold"
+                        else data.validation_plan.strategy
+                    )
+                    + " validation CV"
+                ),
                 "interval_method": uncertainty,
                 "num_boost_round": recipe.num_boost_round,
                 "residual_std": residual_std,
@@ -342,10 +434,10 @@ def _regression(
             target=data.target,
             parent_conditions=len(set(data.validation_groups)),
             mae=float(np.mean(np.abs(residuals))),
-            rmse=residual_std,
+            rmse=float(np.sqrt(np.mean(residuals**2))),
             interval_coverage_90=coverage,
             interval_coverage_method=coverage_method,
-            interval_coverage_observations=len(residuals),
+            interval_coverage_observations=int(quality_rows.sum()),
         ),
         diagnostics={
             "estimator_id": recipe.estimator_id,
@@ -369,7 +461,22 @@ def _binary(
             f"{data.target}: binary LightGBM target must contain both 0 and 1"
         )
     raw_oof, calibrated_oof = _honest_binary_evaluation(data, recipe)
-    calibration = _fit_platt(raw_oof, data.y)
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        calibration_booster = _train_booster(
+            data.x[train_rows],
+            data.y[train_rows],
+            objective="binary",
+            seed=recipe.seed + 1,
+            num_boost_round=recipe.num_boost_round,
+        )
+        calibration = _fit_platt(
+            calibration_booster.predict(data.x[calibrate]),
+            data.y[calibrate],
+        )
+    else:
+        calibration = _fit_platt(raw_oof, data.y)
     booster = _train_booster(
         data.x,
         data.y,
@@ -379,9 +486,12 @@ def _binary(
     )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(artifact_path))
-    residuals = data.y - calibrated_oof
-    predicted_class = calibrated_oof >= 0.5
-    positives = data.y == 1
+    quality_rows = data.quality_rows
+    evaluated_y = data.y[quality_rows]
+    evaluated_probabilities = calibrated_oof[quality_rows]
+    residuals = evaluated_y - evaluated_probabilities
+    predicted_class = evaluated_probabilities >= 0.5
+    positives = evaluated_y == 1
     negatives = ~positives
     parameters = {
         "num_boost_round": recipe.num_boost_round,
@@ -401,7 +511,17 @@ def _binary(
             "config": {
                 "training_method": recipe.estimator_id,
                 "training_unit": "replicate_context_mean",
-                "validation_method": f"{data.folds}-fold grouped validation CV",
+                "validation_method": (
+                    f"temporal holdout by {data.validation_plan.time_key}"
+                    if data.is_temporal_validation
+                    else f"{data.folds}-fold "
+                    + (
+                        "grouped"
+                        if data.validation_plan.strategy == "grouped_kfold"
+                        else data.validation_plan.strategy
+                    )
+                    + " validation CV"
+                ),
                 "interval_method": "nested grouped OOF Platt calibration",
                 "num_boost_round": recipe.num_boost_round,
                 "calibration": {
@@ -435,7 +555,7 @@ def _binary(
             "cohort_digest": data.cohort_digest,
             "fold_digest": data.fold_digest,
             "evaluation": "outer-fold-refit-with-inner-calibration",
-            "roc_auc": _auc(data.y, calibrated_oof),
+            "roc_auc": _auc(evaluated_y, evaluated_probabilities),
             "brier_score": float(np.mean(residuals**2)),
             "balanced_accuracy": float(
                 (

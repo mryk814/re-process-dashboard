@@ -174,9 +174,27 @@ class TargetQualityMetric(LifecycleModel):
         "nested-grouped-oof-normal-scale",
         "loo-predictive-interval",
         "grouped-fold-predictive-interval",
+        "temporal-holdout-residual-quantiles",
+        "temporal-holdout-normal-scale",
+        "temporal-holdout-predictive-interval",
         "posterior-predictive-interval",
     ] | None = None
     interval_coverage_observations: Annotated[int, Field(ge=1)] | None = None
+
+
+class TargetValidationEvidence(LifecycleModel):
+    cohort_digest: Annotated[
+        str,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ]
+    fold_digest: Annotated[
+        str,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ]
+    validation_plan_digest: Annotated[
+        str,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ]
 
 
 class QualityReport(LifecycleModel):
@@ -185,12 +203,18 @@ class QualityReport(LifecycleModel):
         "leave-one-parent-condition-out",
         "grouped-parent-condition-k-fold",
         "independent-source-row-k-fold",
+        "typed-validation-plan",
     ]
     folds: Annotated[int, Field(ge=2)] | None = None
     targets: Annotated[tuple[TargetQualityMetric, ...], Field(min_length=1)]
+    validation_plans: dict[str, dict[str, Any]] | None = None
+    validation_diagnostics: dict[str, dict[str, Any]] | None = None
+    validation_evidence: dict[str, TargetValidationEvidence] | None = None
 
     @model_validator(mode="after")
     def split_has_matching_fold_count(self) -> "QualityReport":
+        if self.split == "typed-validation-plan":
+            return self
         if (self.split != "leave-one-parent-condition-out") != (self.folds is not None):
             raise ValueError("k-fold quality reports require folds, and leave-one-out reports must omit it")
         return self

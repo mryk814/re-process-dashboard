@@ -232,11 +232,20 @@ def _honest_grouped_predictions(
     data: TargetTrainingSet,
     recipe: ExactGPEstimatorRecipe,
 ) -> tuple[np.ndarray, np.ndarray]:
-    predictions = np.empty(len(data.y), dtype=float)
-    predictive_variance = np.empty(len(data.y), dtype=float)
+    predictions = np.full(len(data.y), np.nan, dtype=float)
+    predictive_variance = np.full(len(data.y), np.nan, dtype=float)
+    if data.is_temporal_validation:
+        evaluate = data.quality_rows
+        train_rows = data.training_rows_for_fold(0) | data.temporal_calibration_rows
+        fitted = _fit_model(data, train_rows, recipe)
+        predictions[evaluate], predictive_variance[evaluate] = _predict_model(
+            fitted,
+            data.x[evaluate],
+        )
+        return predictions, predictive_variance
     for fold in range(data.folds):
         evaluate = data.fold_ids == fold
-        train_rows = ~evaluate
+        train_rows = data.training_rows_for_fold(fold)
         fold_recipe = recipe.model_copy(
             update={"seed": (recipe.seed + fold + 1) % (2**32)}
         )
@@ -253,7 +262,9 @@ def _honest_grouped_quality(
     recipe: ExactGPEstimatorRecipe,
 ) -> TargetQualityMetric:
     predictions, predictive_variance = _honest_grouped_predictions(data, recipe)
-    residuals = data.y - predictions
+    quality_rows = data.quality_rows
+    residuals = data.y[quality_rows] - predictions[quality_rows]
+    evaluated_variance = predictive_variance[quality_rows]
     z90 = 1.6448536269514722
     return TargetQualityMetric(
         target=data.target,
@@ -263,11 +274,15 @@ def _honest_grouped_quality(
         interval_coverage_90=float(
             np.mean(
                 np.abs(residuals)
-                <= z90 * np.sqrt(predictive_variance)
+                <= z90 * np.sqrt(evaluated_variance)
             )
         ),
-        interval_coverage_method="grouped-fold-predictive-interval",
-        interval_coverage_observations=len(residuals),
+        interval_coverage_method=(
+            "temporal-holdout-predictive-interval"
+            if data.is_temporal_validation
+            else "grouped-fold-predictive-interval"
+        ),
+        interval_coverage_observations=int(quality_rows.sum()),
     )
 
 
@@ -324,7 +339,17 @@ def train(
             "config": {
                 "training_method": "exact-gp-rbf.v1",
                 "training_unit": "replicate_context_mean",
-                "validation_method": f"{data.folds}-fold grouped validation",
+                "validation_method": (
+                    f"temporal holdout by {data.validation_plan.time_key}"
+                    if data.is_temporal_validation
+                    else f"{data.folds}-fold "
+                    + (
+                        "grouped"
+                        if data.validation_plan.strategy == "grouped_kfold"
+                        else data.validation_plan.strategy
+                    )
+                    + " validation"
+                ),
                 "interval_method": "normal predictive distribution",
                 "kernel": "ARD-RBF",
                 "replicate_noise": "pooled_within_training_context",
