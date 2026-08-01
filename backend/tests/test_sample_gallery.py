@@ -72,7 +72,7 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
             for capability in welding["capabilities"]
         )
         quickstart = next(item for item in gallery if item["project_id"] == "default")
-        assert quickstart["source_kind"] == "bundled_demonstration"
+        assert quickstart["source_kind"] == "synthetic"
         assert quickstart["question"]
         selected = next(
             item for item in gallery
