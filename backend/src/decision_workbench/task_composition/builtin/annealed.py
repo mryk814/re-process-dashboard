@@ -16,6 +16,7 @@ from decision_workbench.task_composition.builtin.shared import (
 )
 from decision_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE
 from decision_workbench.task_composition.descriptors import (
+    SampleGalleryMetadata,
     StandardModelAuthoring,
     StarterProject,
     TaskModule,
@@ -239,6 +240,20 @@ ANNEALED_TASK_MODULE = TaskModule(
         seed_on_upgrade=True,
         legacy_candidate_factory=_legacy_annealed_starter_candidates,
         distribution="quickstart",
+        gallery_metadata=SampleGalleryMetadata(
+            question="成分と焼鈍の熱履歴から、強さ・延性の両方をどう見比べるか？",
+            scenario_summary="共有工程・反復試験・部分欠損を含む小規模Workbookで、根拠をたどりながら候補を比較します。",
+            domain="焼鈍後特性",
+            data_shape="工程系譜 + 時間温度履歴 + 反復観測",
+            source_kind="bundled_demonstration",
+            source_label="同梱の焼鈍チュートリアルWorkbook",
+            source_url="docs/examples/tutorial-data-pipeline.md",
+            license="リポジトリ同梱の教材データ",
+            citation="Evidence Decision Workbench bundled annealing tutorial",
+            record_summary="共有工程、分割relation、反復試験、部分欠損、LSなしの実測ヒートパターンを含む最小教材です。",
+            limitations="合成教材であり、冶金的因果や実運用の精度を保証しません。少数の固定例で、来歴・欠損・不確かさを読むためのサンプルです。",
+            documentation_path="docs/examples/tutorial-data-pipeline.md",
+        ),
     ),
     response_curve=_annealed_response_curve,
     default_data_projection=True,

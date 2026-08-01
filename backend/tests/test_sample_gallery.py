@@ -9,6 +9,7 @@ FEATURED_GALLERY_PROJECT_IDS = {
     "mpea-room-tensile-v1-default",
     "welding-stage-b-default",
 }
+CURRENT_SAMPLE_PROJECT_IDS = FEATURED_GALLERY_PROJECT_IDS | {"default"}
 
 
 def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
@@ -34,8 +35,12 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
         } == {"material_workbench_tutorial_v2.xlsx"}
 
         gallery = client.get("/api/sample-gallery").json()
-        assert {item["project_id"] for item in gallery} == FEATURED_GALLERY_PROJECT_IDS
-        assert all(not item["installed"] for item in gallery)
+        assert {item["project_id"] for item in gallery} == CURRENT_SAMPLE_PROJECT_IDS
+        assert {
+            item["project_id"]
+            for item in gallery
+            if item["installed"]
+        } == {"default"}
         assert all(not item["legacy"] for item in gallery)
         assert all(
             item["question"]
@@ -66,7 +71,13 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
             capability["id"] == "actual_measurement" and capability["available"]
             for capability in welding["capabilities"]
         )
-        selected = next(item for item in gallery if item["available"])
+        quickstart = next(item for item in gallery if item["project_id"] == "default")
+        assert quickstart["source_kind"] == "bundled_demonstration"
+        assert quickstart["question"]
+        selected = next(
+            item for item in gallery
+            if item["available"] and not item["installed"]
+        )
 
         installed = client.post(
             "/api/sample-gallery",

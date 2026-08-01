@@ -18,7 +18,6 @@ from decision_workbench.contracts.data_library_contracts import (
     SampleGalleryOutput,
 )
 from decision_workbench.persistence.demo_seed import (
-    QUICKSTART_PROJECT_ID,
     gallery_project_ids,
     install_starter_projects,
     starter_project_ids,
@@ -89,7 +88,7 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
     result: list[SampleGalleryItem] = []
     for task_id in registry.task_ids:
         starter = registry.module_for(task_id).starter_project
-        if starter is None or starter.project_id == QUICKSTART_PROJECT_ID:
+        if starter is None:
             continue
         installed = store.get_project(
             starter.project_id,
@@ -100,11 +99,11 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
         availability = registry.availability_for(task_id)
         contract = registry.contract_for(task_id)
         metadata = starter.gallery_metadata
-        if starter.distribution == "gallery" and metadata is None:
+        if starter.distribution != "legacy_hidden" and metadata is None:
             raise RuntimeError(
-                f"gallery starter has no editorial metadata: {starter.project_id}"
+                f"current starter has no editorial metadata: {starter.project_id}"
             )
-        legacy = starter.distribution != "gallery"
+        legacy = starter.distribution == "legacy_hidden"
         if metadata is None:
             # An installed legacy starter remains removable, but is never
             # offered alongside the current Gallery portfolio.
