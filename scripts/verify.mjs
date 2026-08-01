@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   appendNotRunResults,
   buildVerificationPlan,
-  catalogPath,
   getVerificationLevel,
   gateRunsOnPlatform,
   loadVerificationCatalog,
@@ -14,11 +12,12 @@ import {
   resolveRunner,
   evaluateVerificationOutcome,
   verificationEvidenceMarkdown,
+  verificationCatalogSha256,
 } from "./verification-gates.mjs";
 
 const argv = process.argv.slice(2);
 const catalog = loadVerificationCatalog();
-const catalogSha256 = createHash("sha256").update(readFileSync(catalogPath)).digest("hex");
+const catalogSha256 = verificationCatalogSha256();
 
 function gitOutput(args) {
   const result = spawnSync("git", args, { encoding: "utf8" });

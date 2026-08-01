@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
   appendNotRunResults,
@@ -15,6 +21,7 @@ import {
   requiresBackendPytest,
   resolveExecutable,
   verificationEvidenceMarkdown,
+  verificationCatalogSha256,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
 import {
@@ -391,6 +398,42 @@ test("failed reports and dirty evidence-only successors are never accepted", () 
 
 test("catalog digest is stable across BOM and line-ending conventions", () => {
   assert.equal(normalizedTextSha256('{\n  "levels": []\n}\n'), normalizedTextSha256('\uFEFF{\r\n  "levels": []\r\n}\r\n'));
+});
+
+test("catalog file digest stays compatible with acceptance status across line endings", () => {
+  const scratch = mkdtempSync(join(tmpdir(), "verification-catalog-digest-"));
+  const lfPath = join(scratch, "lf.json");
+  const crlfPath = join(scratch, "crlf.json");
+  try {
+    const lf = '{\n  "schemaVersion": "verification-gates/v2"\n}\n';
+    const crlf = `\uFEFF${lf.replaceAll("\n", "\r\n")}`;
+    writeFileSync(lfPath, lf);
+    writeFileSync(crlfPath, crlf);
+    const lfDigest = verificationCatalogSha256(lfPath);
+    const crlfDigest = verificationCatalogSha256(crlfPath);
+    assert.equal(lfDigest, crlfDigest);
+    assert.equal(lfDigest, normalizedTextSha256(lf));
+    const status = inspectAcceptanceReport(
+      {
+        schemaVersion: "main-acceptance/v2",
+        testedCommit: "same",
+        status: "passed",
+        verificationCatalogSha256: crlfDigest,
+      },
+      {
+        currentCommit: "same",
+        commitsAhead: 0,
+        commitsBehind: 0,
+        changedPaths: [],
+        dirtyPaths: [],
+        currentCatalogSha256: lfDigest,
+      },
+    );
+    assert.equal(status.catalogChanged, false);
+    assert.equal(status.applicability, "current");
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 });
 
 test("selected gates after an early failure are recorded as not_run", () => {

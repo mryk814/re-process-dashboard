@@ -16,13 +16,13 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   appendNotRunResults,
-  catalogPath,
   evaluateVerificationOutcome,
   gateRunsOnPlatform,
   getVerificationLevel,
   loadVerificationCatalog,
   resolveExecutable,
   resolveRunner,
+  verificationCatalogSha256,
   verificationEvidenceMarkdown,
 } from "./verification-gates.mjs";
 
@@ -94,10 +94,6 @@ function collectDeliveryArtifacts() {
       sha256: sha256File(path),
     };
   });
-}
-
-function catalogSha256(path = catalogPath) {
-  return sha256(readFileSync(path));
 }
 
 function planDigestSource(ciPlan) {
@@ -323,7 +319,7 @@ export function runVerificationShard({
   shardId,
   catalog = loadVerificationCatalog(),
   checkoutCommit = currentCommit(),
-  checkoutCatalogSha256 = catalogSha256(),
+  checkoutCatalogSha256 = verificationCatalogSha256(),
 }) {
   validateCiPlan(ciPlan, {
     currentCommit: checkoutCommit,
@@ -438,7 +434,7 @@ export function aggregateVerificationShards({
   shardReports,
   catalog = loadVerificationCatalog(),
   checkoutCommit = currentCommit(),
-  checkoutCatalogSha256 = catalogSha256(),
+  checkoutCatalogSha256 = verificationCatalogSha256(),
 }) {
   validateCiPlan(ciPlan, {
     currentCommit: checkoutCommit,
@@ -773,7 +769,7 @@ function main() {
         schemaVersion: shardReportSchemaVersion,
         shardId: options.shard,
         testedCommit: currentCommit(),
-        verificationCatalogSha256: catalogSha256(),
+        verificationCatalogSha256: verificationCatalogSha256(),
         planDigest: ciPlan.planDigest ?? null,
         runnerOS: process.platform === "win32" ? "windows" : process.platform,
         expectedGateIds: ciPlan.shards?.find(

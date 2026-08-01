@@ -1,7 +1,19 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const catalogPath = resolve(import.meta.dirname, "verification-gates.json");
+
+export function normalizedTextSha256(value) {
+  const normalized = String(value)
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
+export function verificationCatalogSha256(path = catalogPath) {
+  return normalizedTextSha256(readFileSync(path, "utf8"));
+}
 
 const requiredGateFields = [
   "command",
