@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   workbenchApi,
   type ApiDataLibraryDataset,
@@ -19,6 +19,13 @@ import { SeriesLibrarySection } from "./SeriesLibrarySection";
 import { SourceLifecycleSection } from "./SourceLifecycleSection";
 import { CsvTaskOnboarding } from "./CsvTaskOnboarding";
 import type { PreparedCsvProjectBinding } from "./CsvTaskOnboarding";
+import {
+  beginResourceLoad,
+  initialResourceLoadState,
+  rejectResourceLoad,
+  resolveResourceLoad,
+  type ResourceLoadState,
+} from "./resourceLoadState";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
@@ -32,6 +39,26 @@ type PackageTrainingSnapshotLink = {
   snapshotDigest: string;
   selectionPolicyDigest: string;
 };
+type DataLibraryResourceFamily = "options" | "datasets" | "modelPackages";
+type DataLibraryResourceStates = Record<DataLibraryResourceFamily, ResourceLoadState>;
+type DataLibraryLoadResult = {
+  options?: ApiProjectCreationOptions;
+  datasets?: ApiDataLibraryDataset[];
+  modelPackages?: ApiModelPackageRef[];
+};
+
+const dataLibraryResourceFamilies: DataLibraryResourceFamily[] = ["options", "datasets", "modelPackages"];
+const resourceLabels: Record<DataLibraryResourceFamily, string> = {
+  options: "予測タスクとプロジェクト作成条件",
+  datasets: "Datasetとsource／revision",
+  modelPackages: "Model Package",
+};
+
+const initialDataLibraryResourceStates = (): DataLibraryResourceStates => ({
+  options: initialResourceLoadState(),
+  datasets: initialResourceLoadState(),
+  modelPackages: initialResourceLoadState(),
+});
 
 function packageTrainingSnapshotLink(
   item: ApiModelPackageRef,
@@ -73,7 +100,9 @@ export function DataLibraryPage({
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [datasets, setDatasets] = useState<ApiDataLibraryDataset[]>([]);
   const [modelPackages, setModelPackages] = useState<ApiModelPackageRef[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [resourceStates, setResourceStates] = useState<DataLibraryResourceStates>(
+    initialDataLibraryResourceStates,
+  );
   const [error, setError] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareName, setCompareName] = useState("");
@@ -102,35 +131,105 @@ export function DataLibraryPage({
     return params.get("tab") === "update" || params.has("connector") || params.has("stage") ? "update" : "browse";
   });
   const taskLabel = useTaskLabels();
+  const requestVersions = useRef<Record<DataLibraryResourceFamily, number>>({
+    options: 0,
+    datasets: 0,
+    modelPackages: 0,
+  });
 
-  const load = () => {
-    setLoading(true);
-    setError("");
-    setOptions(null);
-    setDatasets([]);
-    setModelPackages([]);
-    return Promise.all([
-      workbenchApi.projectCreationOptions(),
-      workbenchApi.listDataLibraryDatasets(true),
-      workbenchApi.listModelPackageRefs(true),
-    ])
-      .then(([nextOptions, nextDatasets, nextModelPackages]) => {
-        setOptions(nextOptions);
-        setDatasets(nextDatasets);
-        setModelPackages(nextModelPackages);
-        return {
-          options: nextOptions,
-          datasets: nextDatasets,
-          modelPackages: nextModelPackages,
-        };
-      })
-      .catch((cause) => {
-        setError(cause instanceof Error ? cause.message : "データライブラリを取得できませんでした。");
-        return null;
-      })
-      .finally(() => setLoading(false));
+  const loadResources = async (
+    families: DataLibraryResourceFamily[] = dataLibraryResourceFamilies,
+  ): Promise<DataLibraryLoadResult> => {
+    const versions = Object.fromEntries(families.map((family) => [
+      family,
+      requestVersions.current[family] + 1,
+    ])) as Partial<Record<DataLibraryResourceFamily, number>>;
+    for (const family of families) requestVersions.current[family] = versions[family]!;
+    setResourceStates((current) => {
+      const next = { ...current };
+      for (const family of families) next[family] = beginResourceLoad(current[family]);
+      return next;
+    });
+
+    const result: DataLibraryLoadResult = {};
+    await Promise.allSettled(families.map(async (family) => {
+      try {
+        if (family === "options") {
+          const data = await workbenchApi.projectCreationOptions();
+          if (requestVersions.current.options !== versions.options) return;
+          result.options = data;
+          setOptions(data);
+        } else if (family === "datasets") {
+          const data = await workbenchApi.listDataLibraryDatasets(true);
+          if (requestVersions.current.datasets !== versions.datasets) return;
+          result.datasets = data;
+          setDatasets(data);
+        } else {
+          const data = await workbenchApi.listModelPackageRefs(true);
+          if (requestVersions.current.modelPackages !== versions.modelPackages) return;
+          result.modelPackages = data;
+          setModelPackages(data);
+        }
+        setResourceStates((current) => ({
+          ...current,
+          [family]: resolveResourceLoad(),
+        }));
+      } catch (cause) {
+        if (requestVersions.current[family] !== versions[family]) return;
+        const message = cause instanceof Error
+          ? cause.message
+          : `${resourceLabels[family]}を取得できませんでした。`;
+        setResourceStates((current) => ({
+          ...current,
+          [family]: rejectResourceLoad(current[family], message),
+        }));
+      }
+    }));
+    return result;
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void loadResources(); }, []);
+
+  const retryResource = (family: DataLibraryResourceFamily) => {
+    void loadResources([family]);
+  };
+  const allResourcesUnavailable = dataLibraryResourceFamilies.every((family) => {
+    const state = resourceStates[family];
+    return state.phase === "error" && !state.loadedAt;
+  });
+  const initialLoading = dataLibraryResourceFamilies.some((family) => {
+    const state = resourceStates[family];
+    return state.phase === "loading" && !state.loadedAt;
+  });
+  const projectCreationAvailabilityConfirmed = resourceStates.options.phase === "ready"
+    && resourceStates.modelPackages.phase === "ready";
+  const renderResourceNotice = (
+    family: DataLibraryResourceFamily,
+    impact: string,
+  ) => {
+    const state = resourceStates[family];
+    if (state.phase !== "error") return null;
+    const stale = state.loadedAt ? new Date(state.loadedAt).toLocaleString("ja-JP") : null;
+    return <div className="data-library-resource-error" role="alert">
+      <div>
+        <strong>{resourceLabels[family]}を更新できませんでした</strong>
+        <p>{state.error}</p>
+        {stale && <small>表示中の情報は前回取得時点（{stale}）です。現在値として扱わないでください。</small>}
+        <small>{impact}</small>
+      </div>
+      <button
+        type="button"
+        className="outline-button"
+        onClick={() => retryResource(family)}
+      >{resourceLabels[family]}を再試行</button>
+    </div>;
+  };
+  const renderResourceLoading = (family: DataLibraryResourceFamily) => {
+    const state = resourceStates[family];
+    if (state.phase !== "loading" && state.phase !== "refreshing") return null;
+    return <p className="data-library-resource-loading" role="status">
+      {resourceLabels[family]}を{state.phase === "refreshing" ? "更新中です" : "読み込んでいます"}…
+    </p>;
+  };
 
   const selectTab = (tab: "browse" | "update") => {
     setActiveTab(tab);
@@ -268,7 +367,7 @@ export function DataLibraryPage({
     try {
       await workbenchApi.setDatasetArchived(id, archived);
       setUndoAction({ kind: "dataset", id, archived: !archived, label: datasetDisplayName(item) });
-      await load();
+      await loadResources(["options", "datasets"]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : archived ? "Datasetを利用停止できませんでした。" : "Datasetを復元できませんでした。");
     } finally {
@@ -283,7 +382,7 @@ export function DataLibraryPage({
     try {
       await workbenchApi.setModelPackageArchived(item.id, archived);
       setUndoAction({ kind: "package", id: item.id, archived: !archived, label: modelPackageDisplayName(item) });
-      await load();
+      await loadResources(["modelPackages"]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : archived ? "Model Packageを利用停止できませんでした。" : "Model Packageを復元できませんでした。");
     } finally {
@@ -302,7 +401,7 @@ export function DataLibraryPage({
         await workbenchApi.setModelPackageArchived(undoAction.id, undoAction.archived);
       }
       setUndoAction(null);
-      await load();
+      await loadResources(undoAction.kind === "dataset" ? ["options", "datasets"] : ["modelPackages"]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "直前の操作を元に戻せませんでした。");
     } finally {
@@ -340,7 +439,7 @@ export function DataLibraryPage({
       setCompareOpen(false);
       setCompareName("");
       setSelectedIds([]);
-      await load();
+      await loadResources(["options", "datasets"]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "比較セットを作成できませんでした。");
     }
@@ -370,7 +469,7 @@ export function DataLibraryPage({
     try {
       const result = await workbenchApi.refreshTaskResources();
       const warnings = result.warnings ?? [];
-      const refreshedLibrary = await load();
+      const refreshedLibrary = await loadResources(["options", "modelPackages"]);
       setRefreshWarnings(warnings);
       const addedTaskIds = result.added_task_ids ?? [];
       const addedModelPackageIds = result.added_model_package_ids ?? [];
@@ -380,20 +479,20 @@ export function DataLibraryPage({
       ];
       const selectablePackageIds = new Set(
         addedModelPackageIds.filter((packageId) => {
-          const modelPackage = refreshedLibrary?.modelPackages.find((item) => item.id === packageId);
-          const dataset = trainingDataset(modelPackage, refreshedLibrary?.datasets ?? []);
+          const modelPackage = refreshedLibrary.modelPackages?.find((item) => item.id === packageId);
+          const dataset = trainingDataset(modelPackage, datasets);
           return Boolean(
             modelPackage
             && dataset?.dataset_views?.some((view) => view.kind === "single")
             && dataset.supported_task_ids.includes(modelPackage.task_id)
-            && refreshedLibrary?.options.task_contract_digests[modelPackage.task_id] === modelPackage.task_contract_digest,
+            && refreshedLibrary.options?.task_contract_digests[modelPackage.task_id] === modelPackage.task_contract_digest,
           );
         }),
       );
       setRefreshMessage(warnings.length > 0
         ? `${added.length > 0 ? `${added.join("・")}を反映。` : ""}${warnings.length}件は検証で除外されました。`
-        : refreshedLibrary === null
-          ? "再読込は完了しましたが、Data Libraryを確認できませんでした。Project作成はData Libraryを再読み込みしてから確認してください。"
+        : !refreshedLibrary.options || !refreshedLibrary.modelPackages
+          ? "再読込は完了しましたが、一部のresourceを確認できませんでした。失敗した項目を再試行してからProject作成を確認してください。"
           : selectablePackageIds.size > 0
           ? `${added.join("・")}を反映しました。Project作成で選べます。`
           : added.length > 0
@@ -410,12 +509,14 @@ export function DataLibraryPage({
     const singleView = item.dataset_views?.find((view) => view.kind === "single");
     const relatedViewIds = new Set(item.dataset_views?.map((view) => view.id) ?? []);
     const usingProjects = projects.filter((project) => project.dataset_view_revision_id && relatedViewIds.has(project.dataset_view_revision_id));
-    const compatibleTaskIds = compatibleTaskIdsForDataset(item, options!);
+    const compatibleTaskIds = options ? compatibleTaskIdsForDataset(item, options) : [];
     const relatedPackages = modelPackages.filter(
       (modelPackage) => trainingDataset(modelPackage, datasets)?.dataset_revision.id === item.dataset_revision.id,
     );
     const archived = Boolean(item.dataset_revision.archived_at);
-    const startUnavailableReason = item.supported_task_ids.length === 0
+    const startUnavailableReason = !projectCreationAvailabilityConfirmed
+      ? "予測タスクとModel Packageの現在値を確認できません"
+      : item.supported_task_ids.length === 0
       ? "対応する予測タスクがありません"
       : compatibleTaskIds.length === 0
         ? "利用可能なModel Packageがありません"
@@ -504,7 +605,7 @@ export function DataLibraryPage({
         <div className="new-task-safety"><strong>自動確定しない項目</strong><span>物理的意味 · 単位 · 物理／通常／学習範囲 · 学習一行 · relation · 目的変数</span><small>inspectの最小値・最大値は要約です。物理範囲には流用せず、未解決が1件でもあればdraftで止まります。元データ、個人Profile、Packageはリポジトリへ追加しません。</small></div>
         <CsvTaskOnboarding onOpenStorage={onOpenStorage} onPrepared={(binding) => onStartProject(binding.datasetViewId, binding)} />
       </section>}
-      {error && options && <p className="panel-error" role="alert">{error}</p>}
+      {error && <p className="panel-error" role="alert">{error}</p>}
       {undoAction && <div className="library-undo" role="status">
         <span>{undoAction.label}を{undoAction.archived ? "復元" : "利用停止"}しました。</span>
         <button type="button" className="text-button" disabled={changingResourceId === undoAction.id} onClick={() => void undoLastChange()}>元に戻す</button>
@@ -517,18 +618,29 @@ export function DataLibraryPage({
         <button className="primary-button" disabled={selectedIds.length < 2} onClick={() => void createComparison()}>比較セットを作成</button>
       </section>}
 
-      {loading && <p className="project-empty-inline" role="status">データライブラリを読み込んでいます…</p>}
-      {!loading && error && !options && <section className="library-error-state">
-        <p className="panel-error" role="alert">{error}</p>
-        <button className="outline-button" onClick={() => void load()}>再読み込み</button>
+      {initialLoading && <p className="project-empty-inline" role="status">データライブラリを読み込んでいます…</p>}
+      {allResourcesUnavailable && <section className="library-error-state" aria-labelledby="data-library-offline-heading">
+        <div>
+          <h3 id="data-library-offline-heading">Data Libraryに接続できません</h3>
+          <p>Dataset、予測タスク、Model Packageを取得できませんでした。接続を確認してから再読み込みしてください。</p>
+        </div>
+        <button className="outline-button" onClick={() => void loadResources()}>すべて再読み込み</button>
       </section>}
-      {options && activeTab === "browse" && <>
+      {activeTab === "browse" && resourceStates.datasets.phase !== "loading" && !allResourcesUnavailable && <>
         <section className="data-library-section dataset-library">
           <div className="panel-title library-title-with-filter">
             <div><h3>使うデータを選ぶ</h3><span>{filteredDatasets.length} / {datasets.length}件</span></div>
             <label>状態<select value={datasetStateFilter} onChange={(event) => setDatasetStateFilter(event.target.value)}><option value="available">利用可能</option><option value="archived">利用停止中</option><option value="">すべて</option></select></label>
           </div>
-          <div className="dataset-groups">
+          {renderResourceLoading("datasets")}
+          {renderResourceNotice("datasets", "Datasetを取得できるまで、source／revisionの閲覧とProject作成はできません。")}
+          {renderResourceLoading("options")}
+          {renderResourceNotice("options", "Datasetは閲覧できますが、予測タスクとProject作成条件は確認できません。")}
+          {!selectedDataset && renderResourceNotice(
+            "modelPackages",
+            "Datasetが空でもModel Packageの取得失敗を確認できます。失敗した項目だけを再試行してください。",
+          )}
+          {(resourceStates.datasets.phase === "ready" || resourceStates.datasets.loadedAt) && <div className="dataset-groups">
             <section aria-labelledby="managed-datasets-heading">
               <div className="dataset-group-title"><h4 id="managed-datasets-heading">自分のデータ</h4><span>{managedDatasets.length}件</span></div>
               {managedDatasets.length
@@ -539,8 +651,8 @@ export function DataLibraryPage({
               <summary><span>同梱サンプル</span><small>{bundledDatasets.length}件 · 必要なときだけ開く</small></summary>
               <div className="dataset-list">{bundledDatasets.map(renderDatasetCard)}</div>
             </details>
-          </div>
-          {filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
+          </div>}
+          {resourceStates.datasets.phase === "ready" && filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
         </section>
 
         {selectedDataset && <section className="data-library-section dataset-context" aria-labelledby="dataset-context-heading">
@@ -557,7 +669,7 @@ export function DataLibraryPage({
           <div className="dataset-context-facts">
             <div><span>データの種類</span><strong>{selectedDataset.data_asset.locator_kind === "managed" ? "自分で追加" : "同梱サンプル"}</strong></div>
             <div><span>プロファイル</span><strong>{selectedDataset.profile_revision.name} · r{selectedDataset.profile_revision.revision}</strong></div>
-            <div><span>利用できるモデル</span><strong>{selectedDatasetPackages.filter((item) => !item.archived_at).length}件</strong></div>
+            <div><span>利用できるモデル</span><strong>{resourceStates.modelPackages.phase === "error" ? `前回: ${selectedDatasetPackages.filter((item) => !item.archived_at).length}件` : `${selectedDatasetPackages.filter((item) => !item.archived_at).length}件`}</strong></div>
             <details><summary>識別情報</summary><code title={selectedDataset.dataset_revision.dataset_digest}>{shortDigest(selectedDataset.dataset_revision.dataset_digest)}</code><small title={selectedDataset.data_asset.sha256}>source SHA-256: {shortDigest(selectedDataset.data_asset.sha256)}</small></details>
           </div>
           {selectedLineage && <div className="dataset-revision-lineage" aria-label="Dataset revision lineage">
@@ -569,6 +681,8 @@ export function DataLibraryPage({
           </div>}
           <div className="model-package-library">
             <div className="panel-title"><h4>このデータで使うモデル</h4><span>{selectedDatasetPackages.length}件</span></div>
+            {renderResourceLoading("modelPackages")}
+            {renderResourceNotice("modelPackages", "Model Packageを取得できるまで、このDatasetでProjectを作成できるか判断できません。")}
             {selectedDatasetPackages.length > 0
               ? <div className="model-package-list">{selectedDatasetPackages.map((item) => {
                 const source = trainingDataset(item, datasets);
@@ -620,7 +734,9 @@ export function DataLibraryPage({
                   </details>
                 </article>;
               })}</div>
-              : <div className="model-package-empty"><p>このデータに対応するモデルはまだありません。</p><button className="outline-button" type="button" onClick={() => openModelGuide()}>モデルを作成する</button></div>}
+              : resourceStates.modelPackages.phase === "ready"
+                ? <div className="model-package-empty"><p>このデータに対応するモデルはまだありません。</p><button className="outline-button" type="button" onClick={() => openModelGuide()}>モデルを作成する</button></div>
+                : null}
           </div>
         </section>}
 
@@ -658,7 +774,7 @@ export function DataLibraryPage({
         <details className="data-library-secondary">
           <summary><span>比較セットと系列データ</span><small>{comparisonSets.length}比較セット · 必要なときに開く</small></summary>
           <div className={`data-library-grid ${comparisonSets.length === 0 ? "comparison-empty" : ""}`}>
-            <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(options.datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
+            <div className="data-library-section comparison-set-section"><div className="panel-title"><h3>比較セット</h3><span>{comparisonSets.length}件</span></div>{comparisonSets.length ? <div className="comparison-set-list">{comparisonSets.map((view) => { const members = view.members.map((member) => member.cohort_label || datasetDisplayName(datasets.find((dataset) => dataset.dataset_revision.id === member.dataset_revision_id))).join(" / "); return <div key={view.id}><strong>{view.name}</strong><span title={members}>{members}</span><code title={view.view_digest}>{shortDigest(view.view_digest)}</code></div>; })}</div> : <p className="library-empty">比較セットはまだありません。必要なときに上の「＋ 比較セット」から作成できます。</p>}</div>
           </div>
           <SeriesLibrarySection />
         </details>
