@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { validateCurrentContract } from "./check-current-contract.mjs";
 
 export const allowedDocsRootFiles = new Set([
+  "AGENTS.md",
   "README.md",
   "developer-start-here.md",
 ]);
