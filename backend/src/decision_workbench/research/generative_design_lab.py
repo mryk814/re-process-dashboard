@@ -28,7 +28,7 @@ GENERATOR_IDS = (
     "gaussian_rank_copula",
 )
 SELECTION_POLICIES = ("direct_objective", "conservative_diverse")
-SCHEMA_VERSION = "generative-design-lab-report/v1"
+SCHEMA_VERSION = "generative-design-lab-report/v2"
 GENERATOR_VERSION = "1.0.0"
 PROTOCOL_VERSION = "generative-design-lab-protocol/v1"
 KNN_ALPHA_RANGE = (0.05, 0.55)
@@ -44,6 +44,8 @@ CONSERVATIVE_DIVERSITY_WEIGHT = 0.35
 CONSERVATIVE_NEAREST_THRESHOLD = 0.10
 CONSERVATIVE_PENALTY_WEIGHT = 20.0
 SUPPORT_POLICY = "retain_with_explicit_status"
+NEAR_DUPLICATE_POLICY_VERSION = "mixed-distance-near-duplicate/v1"
+NEAR_DUPLICATE_DISTANCE_THRESHOLD = 0.02
 
 
 @dataclass(frozen=True)
@@ -715,13 +717,22 @@ def evaluate_run(
         "caution": float(np.mean((nearest > 0.12) & (nearest <= 0.25))),
         "extrapolated": float(np.mean(nearest > 0.25)),
     }
-    unique_conditions = {
+    pool_conditions = [
         (
             round(float(point[0]), 10),
             round(float(point[1]), 10),
             int(category),
         )
         for point, category in zip(pool.points, pool.categories, strict=True)
+    ]
+    unique_conditions = set(pool_conditions)
+    observed_conditions = {
+        (
+            round(float(point[0]), 10),
+            round(float(point[1]), 10),
+            int(category),
+        )
+        for point, category in zip(observed, observed_categories, strict=True)
     }
     observed_modes = {
         (int(category), "low-x" if point[0] < 0.5 else "high-x")
@@ -741,7 +752,11 @@ def evaluate_run(
         if len(selected) > 1
         else np.asarray([[0.0]])
     )
-    nonzero_pairwise = selected_pairwise[selected_pairwise > 0]
+    pairwise_distances = (
+        selected_pairwise[np.triu_indices(len(selected), k=1)]
+        if len(selected) > 1
+        else np.asarray([], dtype=float)
+    )
     exploitation = (
         (nearest[selected] > 0.15)
         & ((selected_predicted - selected_actual) > 0.20)
@@ -883,6 +898,17 @@ def evaluate_run(
         },
         "novelty": {
             "observed_duplicate_rate": round(
+                float(
+                    np.mean(
+                        [
+                            condition in observed_conditions
+                            for condition in pool_conditions
+                        ]
+                    )
+                ),
+                8,
+            ),
+            "pool_duplicate_rate": round(
                 1 - len(unique_conditions) / budget,
                 8,
             ),
@@ -920,10 +946,27 @@ def evaluate_run(
                 else None
             ),
             "mean_pairwise_diversity": (
-                round(float(nonzero_pairwise.mean()), 8)
-                if len(nonzero_pairwise)
+                round(float(pairwise_distances.mean()), 8)
+                if len(pairwise_distances)
                 else 0.0
             ),
+            "near_duplicate_rate": (
+                round(
+                    float(
+                        np.mean(
+                            pairwise_distances
+                            <= NEAR_DUPLICATE_DISTANCE_THRESHOLD
+                        )
+                    ),
+                    8,
+                )
+                if len(pairwise_distances)
+                else 0.0
+            ),
+            "near_duplicate_policy": {
+                "version": NEAR_DUPLICATE_POLICY_VERSION,
+                "distance_threshold": NEAR_DUPLICATE_DISTANCE_THRESHOLD,
+            },
             "category_coverage": (
                 round(
                     len(set(int(value) for value in pool.categories[selected]))
@@ -993,6 +1036,10 @@ def build_report(
         "repair_budget": 0,
         "batch_size": batch_size,
         "support_policy": SUPPORT_POLICY,
+        "near_duplicate_policy": {
+            "version": NEAR_DUPLICATE_POLICY_VERSION,
+            "distance_threshold": NEAR_DUPLICATE_DISTANCE_THRESHOLD,
+        },
         "generator_ids": (*GENERATOR_IDS, "tiny_vae_research"),
         "generator_parameter_contracts": {
             generator_id: generator_parameter_payload(
@@ -1131,6 +1178,19 @@ def build_report(
                                     [
                                         run["batch_quality"][
                                             "mean_pairwise_diversity"
+                                        ]
+                                        for run in matching
+                                    ]
+                                )
+                            ),
+                            8,
+                        ),
+                        "mean_near_duplicate_rate": round(
+                            float(
+                                np.mean(
+                                    [
+                                        run["batch_quality"][
+                                            "near_duplicate_rate"
                                         ]
                                         for run in matching
                                     ]

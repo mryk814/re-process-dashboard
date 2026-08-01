@@ -1,6 +1,6 @@
 # Generative Design Lab adoption memo
 
-<!-- generated from generative-design-lab-report/v1; result-digest: sha256:eccdd6e3c5f09c2b24605455a61204f9e63797887340f23f577e50091d485f12 -->
+<!-- generated from generative-design-lab-report/v2; result-digest: sha256:4088ecd71955b6f8bd7a6ea6e1565a95582d01dbe5b8d305d27fbcf83010acba -->
 
 ## 判断
 

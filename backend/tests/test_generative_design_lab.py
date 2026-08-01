@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
+
 from decision_workbench.research.generative_design_lab import (
     COPULA_CORRELATION_SHRINKAGE,
     COPULA_QUANTILE_METHOD,
     DIRECT_DIVERSITY_WEIGHT,
     GENERATOR_IDS,
     KNN_ALPHA_RANGE,
+    NEAR_DUPLICATE_DISTANCE_THRESHOLD,
+    NEAR_DUPLICATE_POLICY_VERSION,
     SELECTION_POLICIES,
     SUPPORT_POLICY,
     VAE_BETA,
@@ -18,9 +22,11 @@ from decision_workbench.research.generative_design_lab import (
     VAE_LEARNING_RATE,
     _digest,
     _hard_feasible,
+    _mixed_distance,
     _predictive_value,
     _select_batch,
     build_report,
+    evaluate_run,
     fixtures,
     generate_pool,
     generator_parameter_payload,
@@ -126,8 +132,10 @@ def test_knn_and_copula_preserve_modes_but_expose_different_tradeoffs() -> None:
         and run["generator_id"] == "gaussian_rank_copula"
         and run["selection_policy"] == "direct_objective"
     ]
-    assert all(run["novelty"]["observed_duplicate_rate"] > 0.4 for run in empirical_runs)
+    assert all(run["novelty"]["observed_duplicate_rate"] == 1 for run in empirical_runs)
+    assert all(run["novelty"]["pool_duplicate_rate"] > 0.4 for run in empirical_runs)
     assert all(run["novelty"]["observed_duplicate_rate"] == 0 for run in copula_runs)
+    assert all(run["novelty"]["pool_duplicate_rate"] == 0 for run in copula_runs)
     assert all(run["novelty"]["unseen_mode_rate"] == 0 for run in copula_runs)
 
     composition_copula = _summary(
@@ -144,6 +152,48 @@ def test_knn_and_copula_preserve_modes_but_expose_different_tradeoffs() -> None:
     )
     assert composition_copula["mean_hard_violation_rate"] > 0
     assert composition_knn["mean_hard_violation_rate"] == 0
+
+
+def test_batch_diversity_counts_exact_duplicates_and_records_threshold() -> None:
+    fixture = next(
+        item for item in fixtures() if item.fixture_id == "mixed-categorical-modes"
+    )
+    pool = generate_pool(fixture, "empirical_rows", budget=96, seed=17)
+    selected, _ = _select_batch(
+        fixture,
+        pool,
+        policy="direct_objective",
+        batch_size=8,
+    )
+    distances = _mixed_distance(
+        pool.points[selected],
+        pool.categories[selected],
+        pool.points[selected],
+        pool.categories[selected],
+    )
+    pairwise = distances[np.triu_indices(len(selected), k=1)]
+    assert np.any(pairwise == 0)
+
+    run = evaluate_run(
+        fixture,
+        "empirical_rows",
+        "direct_objective",
+        budget=96,
+        batch_size=8,
+        seed=17,
+    )
+    assert run["batch_quality"]["mean_pairwise_diversity"] == round(
+        float(pairwise.mean()),
+        8,
+    )
+    assert run["batch_quality"]["near_duplicate_rate"] == round(
+        float(np.mean(pairwise <= NEAR_DUPLICATE_DISTANCE_THRESHOLD)),
+        8,
+    )
+    assert run["batch_quality"]["near_duplicate_policy"] == {
+        "version": NEAR_DUPLICATE_POLICY_VERSION,
+        "distance_threshold": NEAR_DUPLICATE_DISTANCE_THRESHOLD,
+    }
 
 
 def test_conservative_selection_reduces_ood_optimizer_exploitation() -> None:
