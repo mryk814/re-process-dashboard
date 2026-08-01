@@ -10,6 +10,7 @@ import {
   gateRunsOnPlatform,
   loadVerificationCatalog,
   parseVerificationArguments,
+  resolveExecutable,
   resolveRunner,
   evaluateVerificationOutcome,
   verificationEvidenceMarkdown,
@@ -17,15 +18,7 @@ import {
 
 const argv = process.argv.slice(2);
 const catalog = loadVerificationCatalog();
-const npmCli = process.env.npm_execpath;
 const catalogSha256 = createHash("sha256").update(readFileSync(catalogPath)).digest("hex");
-
-function executableFor(name) {
-  if (name === "npm") return npmCli ? { command: process.execPath, prefix: [npmCli] } : { command: process.platform === "win32" ? "npm.cmd" : "npm", prefix: [] };
-  if (name === "npx") return { command: process.platform === "win32" ? "npx.cmd" : "npx", prefix: [] };
-  if (name === "powershell") return { command: process.platform === "win32" ? "powershell.exe" : "pwsh", prefix: [] };
-  return { command: name, prefix: [] };
-}
 
 function gitOutput(args) {
   const result = spawnSync("git", args, { encoding: "utf8" });
@@ -133,7 +126,7 @@ const currentPlatform = process.platform === "win32" ? "windows" : process.platf
 for (const gateId of plan.selectedGateIds) {
   const gate = catalog.gates[gateId];
   const resolvedRunner = resolveRunner(gate, { focusedArgs: plan.focusedTests.tests, baseRef: plan.baseRef });
-  const executable = executableFor(resolvedRunner.executable);
+  const executable = resolveExecutable(resolvedRunner.executable);
   const args = [...executable.prefix, ...resolvedRunner.args];
   const grouped = process.env.GITHUB_ACTIONS === "true";
   process.stdout.write(grouped ? `::group::${gateId}\n` : `\n== ${gateId} ==\n`);

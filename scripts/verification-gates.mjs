@@ -97,6 +97,32 @@ export function resolveRunner(gate, { focusedArgs = [], baseRef = "origin/main" 
   return { executable: gate.runner.executable, args };
 }
 
+export function resolveExecutable(
+  name,
+  {
+    platform = process.platform,
+    execPath = process.execPath,
+    npmExecPath = process.env.npm_execpath,
+  } = {},
+) {
+  if (name === "npm" && npmExecPath) {
+    return { command: execPath, prefix: [npmExecPath] };
+  }
+  if (name === "npx" && npmExecPath) {
+    return { command: execPath, prefix: [npmExecPath, "exec", "--"] };
+  }
+  if (name === "npm") {
+    return { command: platform === "win32" ? "npm.cmd" : "npm", prefix: [] };
+  }
+  if (name === "npx") {
+    return { command: platform === "win32" ? "npx.cmd" : "npx", prefix: [] };
+  }
+  if (name === "powershell") {
+    return { command: platform === "win32" ? "powershell.exe" : "pwsh", prefix: [] };
+  }
+  return { command: name, prefix: [] };
+}
+
 export function parseVerificationArguments(args) {
   const parsed = { planOnly: false, asJson: false, risks: [], reason: null, focusedArgs: [] };
   const separator = args.indexOf("--");
