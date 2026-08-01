@@ -169,9 +169,9 @@
     {
       "task_id": "welding-stage-c-properties-v1",
       "label": "溶着金属成分から特性を予測",
-      "source_shape": "independent_rows",
-      "profile_family": "tabular-dataset-profile/v1",
-      "split_policy": "row_independent",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "split_policy": "grouped_weld_run",
       "input_kinds": [
         "composition",
         "process",

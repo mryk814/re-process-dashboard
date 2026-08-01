@@ -107,3 +107,7 @@ def test_readiness_inventory_is_current_and_describes_each_task() -> None:
     assert module.main.__name__ == "main"
     assert {task["task_id"] for task in expected["tasks"]}
     assert all({"source_shape", "split_policy", "input_kinds", "target_kind", "standard_authoring"} <= set(task) for task in expected["tasks"])
+    stage_c = next(task for task in expected["tasks"] if task["task_id"] == "welding-stage-c-properties-v1")
+    assert stage_c["source_shape"] == "repeated_measurements"
+    assert stage_c["profile_family"] == "observation-dataset-profile/v1"
+    assert stage_c["split_policy"] == "grouped_weld_run"

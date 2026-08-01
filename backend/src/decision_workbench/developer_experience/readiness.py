@@ -90,8 +90,8 @@ class ReadinessPreflight(_ReadinessModel):
 
 _CATALOG = ReadinessCatalog(entries=(
     CatalogEntry(source_shape="independent_rows", state="ready", profile_families=("tabular-dataset-profile/v1",), standard_onboarding=True, reason="1行=1独立観測を人が確認できれば標準Tabular onboardingへ進めます。"),
-    CatalogEntry(source_shape="repeated_measurements", state="profile_needed", profile_families=("observation-profile/v1", "tabular-dataset-profile/v1"), standard_onboarding=False, reason="conditionごとの反復はgroup splitと観測粒度をProfileで固定します。"),
-    CatalogEntry(source_shape="longitudinal_curve", state="profile_needed", profile_families=("tabular-dataset-profile/v1", "observation-profile/v1"), standard_onboarding=False, reason="entity/run/cell内の軸順序とgroup splitをProfileで固定します。"),
+    CatalogEntry(source_shape="repeated_measurements", state="profile_needed", profile_families=("observation-dataset-profile/v1", "tabular-dataset-profile/v1"), standard_onboarding=False, reason="conditionごとの反復はgroup splitと観測粒度をProfileで固定します。"),
+    CatalogEntry(source_shape="longitudinal_curve", state="profile_needed", profile_families=("tabular-dataset-profile/v1", "observation-dataset-profile/v1"), standard_onboarding=False, reason="entity/run/cell内の軸順序とgroup splitをProfileで固定します。"),
     CatalogEntry(source_shape="wide_multi_target", state="ready", profile_families=("tabular-dataset-profile/v1",), standard_onboarding=True, reason="全targetが同じ観測行にある場合だけ、targetを明示して標準Tabular onboardingへ進めます。"),
     CatalogEntry(source_shape="relational_workbook", state="profile_needed", profile_families=("dataset-input-profile/v2",), standard_onboarding=False, reason="複数表とrelationは標準onboardingで自動結合せず、Profile Workbenchでkeyとjoinを確認します。"),
     CatalogEntry(source_shape="variable_length_series", state="task_slice_needed", profile_families=(), standard_onboarding=False, reason="可変長Seriesは通常Candidateとは別assetです。Task contract、feature表現、runtimeを含む縦スライスが必要です。"),
@@ -103,6 +103,7 @@ _SOURCE_KIND = {
     "flank_wear": ("longitudinal_curve", "grouped_tool_condition"),
     "external_wear_curve": ("longitudinal_curve", "grouped_tool_condition"),
     "external_battery_degradation": ("longitudinal_curve", "grouped_cell"),
+    "welding_stage_c": ("repeated_measurements", "grouped_weld_run"),
 }
 _GROUP = re.compile(r"(?:^|[_\-])(group|batch|run|cell|specimen|entity|condition)(?:[_\-]|$)", re.I)
 _ROW_ID = re.compile(r"(?:^|[_\-])(id|uuid|record)(?:[_\-]|$)", re.I)
@@ -120,7 +121,7 @@ def _profile_schema(module: Any) -> str:
     shape, _ = _SOURCE_KIND.get(module.source_kind, ("independent_rows", "row_independent"))
     return {
         "independent_rows": "tabular-dataset-profile/v1",
-        "repeated_measurements": "observation-profile/v1",
+        "repeated_measurements": "observation-dataset-profile/v1",
         "longitudinal_curve": "tabular-dataset-profile/v1",
         "relational_workbook": "dataset-input-profile/v2",
     }[shape]
