@@ -10520,7 +10520,7 @@ export interface operations {
                     "application/json": components["schemas"]["CsvInspectionResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -10553,7 +10553,7 @@ export interface operations {
                     "application/json": components["schemas"]["CsvPrepareResponse"];
                 };
             };
-            /** @description Unprocessable Entity */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;

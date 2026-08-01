@@ -256,7 +256,11 @@ def _inspection_payload(source: Path) -> CsvInspectionResponse:
     )
 
 
-@router.post("/inspect", response_model=CsvInspectionResponse, responses={422: {"model": ApiError}})
+@router.post(
+    "/inspect",
+    response_model=CsvInspectionResponse,
+    responses={422: {"model": ApiError, "description": "Validation Error"}},
+)
 async def inspect_csv(file: UploadFile = File(...)) -> CsvInspectionResponse:
     temporary, source = await _uploaded_csv(file)
     try:
@@ -449,7 +453,11 @@ async def _rollback_prepare_attempt(
             logger.exception("CSV_ONBOARDING_ROLLBACK_FAILED stage=runtime")
 
 
-@router.post("/prepare", response_model=CsvPrepareResponse, responses={422: {"model": ApiError}})
+@router.post(
+    "/prepare",
+    response_model=CsvPrepareResponse,
+    responses={422: {"model": ApiError, "description": "Validation Error"}},
+)
 async def prepare_csv_task(
     request: Request,
     task_id: Annotated[str, Form(min_length=TASK_ID_MIN_LENGTH, pattern=TASK_ID_PATTERN)],
