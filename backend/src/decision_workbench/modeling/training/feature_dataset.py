@@ -7,6 +7,12 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from decision_workbench.modeling.training.validation_plan import (
+    ValidationPlan,
+    build_validation_assignment,
+    grouped_kfold_plan,
+)
+
 
 @dataclass(frozen=True)
 class TargetTrainingSet:
@@ -28,6 +34,31 @@ class TargetTrainingSet:
     fold_ids: np.ndarray
     fold_digest: str
     folds: int
+    validation_plan: ValidationPlan
+    validation_plan_digest: str
+    validation_diagnostics: dict[str, Any]
+
+    @property
+    def is_temporal_validation(self) -> bool:
+        return self.validation_plan.strategy in {
+            "temporal_holdout",
+            "grouped_temporal",
+        }
+
+    @property
+    def quality_rows(self) -> np.ndarray:
+        if self.is_temporal_validation:
+            return self.fold_ids == 0
+        return np.ones(len(self.y), dtype=bool)
+
+    def training_rows_for_fold(self, fold: int) -> np.ndarray:
+        if self.is_temporal_validation:
+            return self.fold_ids == -1
+        return self.fold_ids != fold
+
+    @property
+    def temporal_calibration_rows(self) -> np.ndarray:
+        return self.fold_ids == -3
 
 
 def _replicate_context(row: Mapping[str, Any]) -> str:
@@ -115,6 +146,7 @@ def compile_target_training_set(
     target_kind: str = "continuous",
     folds: int = 5,
     seed: int = 20260730,
+    validation_plan: ValidationPlan | None = None,
 ) -> TargetTrainingSet:
     feature_names = tuple(
         str(item["name"])
@@ -135,6 +167,7 @@ def compile_target_training_set(
     repeat_counts: list[int] = []
     within_context_sse: list[float] = []
     within_context_df: list[int] = []
+    validation_times: list[float] = []
     within_sse = 0.0
     within_df = 0
     for replicate_context, rows in sorted(grouped.items()):
@@ -188,6 +221,18 @@ def compile_target_training_set(
             context_df = 0
         within_context_sse.append(context_sse)
         within_context_df.append(context_df)
+        if validation_plan is not None and validation_plan.time_key is not None:
+            time_values = {
+                float(row["features"][validation_plan.time_key])
+                for row in rows
+                if validation_plan.time_key in row["features"]
+            }
+            if len(time_values) != 1:
+                raise ValueError(
+                    f"{target}/{replicate_context}: time role "
+                    f"{validation_plan.time_key} must resolve to one value"
+                )
+            validation_times.append(next(iter(time_values)))
 
     y = np.asarray(y_rows, dtype=float)
     fallback = max(float(np.var(y)) * 0.1, 1e-8)
@@ -196,20 +241,91 @@ def compile_target_training_set(
         if within_df
         else fallback
     )
-    (
-        cohort_digest,
-        fold_assignments,
-        fold_ids,
-        fold_digest,
-        resolved_folds,
-    ) = _evaluation_identity(
-        target=target,
-        replicate_contexts=replicate_contexts,
-        validation_groups=validation_groups,
-        observation_ids=observation_ids,
-        requested_folds=folds,
-        seed=seed,
-    )
+    plan = validation_plan or grouped_kfold_plan(folds=folds, seed=seed)
+    cohort_digest = _semantic_digest({
+        "target": target,
+        "rows": [
+            {
+                "replicate_context": context,
+                "validation_group": group,
+                "observation_ids": list(ids),
+            }
+            for context, group, ids in zip(
+                replicate_contexts,
+                validation_groups,
+                observation_ids,
+                strict=True,
+            )
+        ],
+    })
+    if validation_plan is None:
+        (
+            _,
+            fold_assignments,
+            fold_ids,
+            fold_digest,
+            resolved_folds,
+        ) = _evaluation_identity(
+            target=target,
+            replicate_contexts=replicate_contexts,
+            validation_groups=validation_groups,
+            observation_ids=observation_ids,
+            requested_folds=folds,
+            seed=seed,
+        )
+        plan = grouped_kfold_plan(folds=resolved_folds, seed=seed)
+        assignment = build_validation_assignment(
+            target=target,
+            keys=validation_groups,
+            labels=y,
+            plan=plan,
+        )
+    else:
+        keys = (
+            validation_groups
+            if plan.group_key == "parent_key"
+            else replicate_contexts
+            if plan.group_key == "replicate_context"
+            else [ids[0] for ids in observation_ids]
+        )
+        assignment = build_validation_assignment(
+            target=target,
+            keys=keys,
+            labels=y,
+            plan=plan,
+            times=validation_times or None,
+        )
+        fold_assignments = assignment.fold_assignments
+        fold_ids = assignment.fold_ids
+        resolved_folds = assignment.folds
+        fold_digest = _semantic_digest({
+            "target": target,
+            "validation_plan_digest": assignment.plan_digest,
+            "assignments": [
+                {"validation_key": key, "fold": fold}
+                for key, fold in fold_assignments
+            ],
+        })
+    if target_kind == "binary":
+        if plan.strategy in {"temporal_holdout", "grouped_temporal"}:
+            binary_cohorts = {
+                "training": fold_ids == -1,
+                "calibration": fold_ids == -3,
+                "holdout": fold_ids == 0,
+            }
+            for cohort_name, rows in binary_cohorts.items():
+                if set(np.unique(y[rows])) != {0.0, 1.0}:
+                    raise ValueError(
+                        f"{target}: temporal binary {cohort_name} cohort "
+                        "must contain both classes"
+                    )
+        else:
+            for fold in range(resolved_folds):
+                if set(np.unique(y[fold_ids != fold])) != {0.0, 1.0}:
+                    raise ValueError(
+                        f"{target}: binary training fold {fold} "
+                        "must contain both classes"
+                    )
     return TargetTrainingSet(
         target=target,
         unit=unit,
@@ -229,6 +345,9 @@ def compile_target_training_set(
         fold_ids=fold_ids,
         fold_digest=fold_digest,
         folds=resolved_folds,
+        validation_plan=plan,
+        validation_plan_digest=assignment.plan_digest,
+        validation_diagnostics=assignment.diagnostics,
     )
 
 

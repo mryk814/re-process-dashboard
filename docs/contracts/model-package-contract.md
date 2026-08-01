@@ -65,6 +65,12 @@ ProfileとFeature Pipelineを適用したcanonical training datasetのsemantic d
 特徴量名・順序、行、値の実質的な差を許容するものではない。方式を変える場合は
 既存manifestを書き換えず、新しいPackage ID／versionを発行する。
 
+標準builderの評価分割は
+[Validation Plan](validation-plan.md)を正本とする。
+新しいPackageはsplit strategy、target cohort、plan digest、fold digest、
+fold別件数とleakage検査をtraining recipeとquality reportへ固定する。
+既存Packageのfold digestへ新しい意味を遡及適用しない。
+
 `data/source`、`models`、
 `examples/model-packages`配下は`.gitattributes`で変換対象外に固定し、
 `backend/tests/test_source_byte_contracts.py`が新しい成果物の取りこぼしと

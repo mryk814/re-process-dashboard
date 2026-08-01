@@ -33,10 +33,12 @@ def standard_training_metadata(
         "estimator_id": estimator_id,
         "training_unit": "replicate_context_mean",
         "validation": {
-            "method": "grouped-k-fold",
+            "method": data.validation_plan.strategy,
             "folds": data.folds,
             "cohort_digest": data.cohort_digest,
             "fold_digest": data.fold_digest,
+            "plan": data.validation_plan.model_dump(mode="json"),
+            "plan_digest": data.validation_plan_digest,
         },
         "uncertainty": uncertainty,
         "parameters": parameters,

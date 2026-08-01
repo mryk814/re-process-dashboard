@@ -138,7 +138,7 @@ def _build(
     recipe_document = {
         "schema_version": "model-training-recipe/v1",
         "task_id": task_id,
-        "estimator": recipe.model_dump(mode="json"),
+        "estimator": recipe.model_dump(mode="json", exclude_none=True),
         "rows": {
             "unit": "replicate_context_mean",
             "replicate_context": (
@@ -164,14 +164,19 @@ def _build(
         output.key: output
         for output in contract.task_definition.outputs
     }
-    for target, output in output_by_key.items():
-        target_kind = (
-            "binary"
-            if isinstance(recipe, LightGBMBinaryEstimatorRecipe)
-            else "continuous_positive"
-            if target in positive_targets
-            else "continuous"
+    if recipe.validation_plans_by_target is not None:
+        unknown_validation_targets = (
+            set(recipe.validation_plans_by_target) - set(output_by_key)
         )
+        if unknown_validation_targets:
+            raise ValueError(
+                "validation plans refer to unknown targets: "
+                + ", ".join(sorted(unknown_validation_targets))
+            )
+    for target, output in output_by_key.items():
+        target_kind = output.target_kind
+        if target_kind == "continuous" and target in positive_targets:
+            target_kind = "continuous_positive"
         training_set = compile_target_training_set(
             canonical,
             target=target,
@@ -179,6 +184,12 @@ def _build(
             target_kind=target_kind,
             folds=recipe.folds,
             seed=recipe.seed,
+            validation_plan=(
+                recipe.validation_plans_by_target.get(target)
+                if recipe.validation_plans_by_target is not None
+                and target in recipe.validation_plans_by_target
+                else recipe.validation_plan
+            ),
         )
         training_sets[target] = training_set
         artifact_path = artifacts_dir / (
@@ -206,22 +217,65 @@ def _build(
             "cohort_digest": training_sets[target].cohort_digest,
             "fold_digest": training_sets[target].fold_digest,
             "folds": training_sets[target].folds,
+            "validation_plan": training_sets[target].validation_plan.model_dump(
+                mode="json"
+            ),
+            "validation_plan_digest": training_sets[
+                target
+            ].validation_plan_digest,
         }
         for target in trained_by_target
     }
     _write_json(recipe_path, recipe_document)
 
     quality_path = report_dir / "quality-report.json"
+    explicit_validation = (
+        recipe.validation_plan is not None
+        or recipe.validation_plans_by_target is not None
+    )
+    temporal_validation = any(
+        data.validation_plan.strategy in {"temporal_holdout", "grouped_temporal"}
+        for data in training_sets.values()
+    )
     _write_json(
         quality_path,
         QualityReport(
             schema_version="model-quality-report/v1",
-            split="grouped-parent-condition-k-fold",
-            folds=min(
-                int(item.diagnostics["folds"])
-                for item in trained_by_target.values()
+            split=(
+                "typed-validation-plan"
+                if explicit_validation
+                else "grouped-parent-condition-k-fold"
+            ),
+            folds=(
+                None
+                if temporal_validation
+                else min(
+                    int(item.diagnostics["folds"])
+                    for item in trained_by_target.values()
+                )
             ),
             targets=tuple(qualities),
+            validation_plans={
+                target: {
+                    **training_sets[target].validation_plan.model_dump(mode="json"),
+                    "digest": training_sets[target].validation_plan_digest,
+                }
+                for target in trained_by_target
+            },
+            validation_diagnostics={
+                target: training_sets[target].validation_diagnostics
+                for target in trained_by_target
+            },
+            validation_evidence={
+                target: {
+                    "cohort_digest": training_sets[target].cohort_digest,
+                    "fold_digest": training_sets[target].fold_digest,
+                    "validation_plan_digest": training_sets[
+                        target
+                    ].validation_plan_digest,
+                }
+                for target in trained_by_target
+            },
         ).model_dump(mode="json"),
     )
     diagnostics_path = report_dir / "training-diagnostics.json"
@@ -259,8 +313,19 @@ def _build(
                 target: training_sets[target].fold_digest
                 for target in trained_by_target
             },
+            "validation_plan_digests": {
+                target: training_sets[target].validation_plan_digest
+                for target in trained_by_target
+            },
             "fold_assignments": {
-                target: dict(training_sets[target].fold_assignments)
+                target: (
+                    [
+                        {"validation_key": key, "fold": fold}
+                        for key, fold in training_sets[target].fold_assignments
+                    ]
+                    if training_sets[target].is_temporal_validation
+                    else dict(training_sets[target].fold_assignments)
+                )
                 for target in trained_by_target
             },
             "source_sha256": data.source_sha256,

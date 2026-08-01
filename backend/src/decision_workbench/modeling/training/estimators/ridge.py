@@ -29,6 +29,24 @@ def _honest_grouped_evaluation(
     data: TargetTrainingSet,
     alpha: float,
 ) -> tuple[np.ndarray, float]:
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        evaluate = data.quality_rows
+        if train_rows.sum() < 2 or not calibrate.any() or not evaluate.any():
+            raise ValueError(
+                f"{data.target}: temporal evaluation needs train, calibration, and holdout rows"
+            )
+        weights, bias = _fit(data.x[train_rows], data.y[train_rows], alpha)
+        predictions = np.full(len(data.y), np.nan, dtype=float)
+        predictions[evaluate] = data.x[evaluate] @ weights + bias
+        calibration_residuals = (
+            data.y[calibrate] - (data.x[calibrate] @ weights + bias)
+        )
+        lower, upper = np.quantile(calibration_residuals, (0.05, 0.95))
+        residuals = data.y[evaluate] - predictions[evaluate]
+        coverage = float(np.mean((residuals >= lower) & (residuals <= upper)))
+        return predictions, coverage
     if data.folds < 3:
         raise ValueError(
             f"{data.target}: nested interval evaluation requires at least three folds"
@@ -37,7 +55,7 @@ def _honest_grouped_evaluation(
     covered = np.zeros(len(data.y), dtype=bool)
     for outer_fold in range(data.folds):
         evaluate = data.fold_ids == outer_fold
-        outer_train = ~evaluate
+        outer_train = data.training_rows_for_fold(outer_fold)
         weights, bias = _fit(
             data.x[outer_train],
             data.y[outer_train],
@@ -83,8 +101,26 @@ def train(
 ) -> TrainedPredictor:
     folds = data.folds
     predictions, coverage = _honest_grouped_evaluation(data, recipe.alpha)
-    residuals = data.y - predictions
-    lower, upper = np.quantile(residuals, (0.05, 0.95))
+    quality_rows = data.quality_rows
+    residuals = data.y[quality_rows] - predictions[quality_rows]
+    if data.is_temporal_validation:
+        train_rows = data.training_rows_for_fold(0)
+        calibrate = data.temporal_calibration_rows
+        calibration_weights, calibration_bias = _fit(
+            data.x[train_rows],
+            data.y[train_rows],
+            recipe.alpha,
+        )
+        interval_residuals = (
+            data.y[calibrate]
+            - (
+                data.x[calibrate] @ calibration_weights
+                + calibration_bias
+            )
+        )
+    else:
+        interval_residuals = residuals
+    lower, upper = np.quantile(interval_residuals, (0.05, 0.95))
     weights, bias = _fit(data.x, data.y, recipe.alpha)
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -100,8 +136,12 @@ def train(
         mae=float(np.mean(np.abs(residuals))),
         rmse=float(np.sqrt(np.mean(residuals**2))),
         interval_coverage_90=coverage,
-        interval_coverage_method="nested-grouped-oof-residual-quantiles",
-        interval_coverage_observations=len(residuals),
+        interval_coverage_method=(
+            "temporal-holdout-residual-quantiles"
+            if data.is_temporal_validation
+            else "nested-grouped-oof-residual-quantiles"
+        ),
+        interval_coverage_observations=int(quality_rows.sum()),
     )
     return TrainedPredictor(
         predictor={
@@ -117,7 +157,17 @@ def train(
             "config": {
                 "training_method": "ridge.v1",
                 "training_unit": "replicate_context_mean",
-                "validation_method": f"{folds}-fold grouped validation CV",
+                "validation_method": (
+                    f"temporal holdout by {data.validation_plan.time_key}"
+                    if data.is_temporal_validation
+                    else f"{folds}-fold "
+                    + (
+                        "grouped"
+                        if data.validation_plan.strategy == "grouped_kfold"
+                        else data.validation_plan.strategy
+                    )
+                    + " validation CV"
+                ),
                 "interval_method": "nested grouped OOF residual quantiles",
                 "ridge_alpha": recipe.alpha,
                 "seed": recipe.seed,
