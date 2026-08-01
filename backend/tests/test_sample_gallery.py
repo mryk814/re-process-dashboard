@@ -9,6 +9,7 @@ FEATURED_GALLERY_PROJECT_IDS = {
     "mpea-room-tensile-v1-default",
     "welding-stage-b-default",
 }
+CURRENT_SAMPLE_PROJECT_IDS = FEATURED_GALLERY_PROJECT_IDS | {"default"}
 
 
 def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
@@ -34,9 +35,49 @@ def test_fresh_workspace_starts_with_quickstart_and_installs_gallery(
         } == {"material_workbench_tutorial_v2.xlsx"}
 
         gallery = client.get("/api/sample-gallery").json()
-        assert {item["project_id"] for item in gallery} == FEATURED_GALLERY_PROJECT_IDS
-        assert all(not item["installed"] for item in gallery)
-        selected = next(item for item in gallery if item["available"])
+        assert {item["project_id"] for item in gallery} == CURRENT_SAMPLE_PROJECT_IDS
+        assert {
+            item["project_id"]
+            for item in gallery
+            if item["installed"]
+        } == {"default"}
+        assert all(not item["legacy"] for item in gallery)
+        assert all(
+            item["question"]
+            and item["scenario_summary"]
+            and item["source_kind"]
+            and item["source_label"]
+            and item["license"]
+            and item["limitations"]
+            and item["outputs"]
+            and item["capabilities"]
+            and item["package_id"]
+            and item["package_manifest_digest"].startswith("sha256:")
+            for item in gallery
+        )
+        mpea = next(
+            item for item in gallery
+            if item["project_id"] == "mpea-room-tensile-v1-default"
+        )
+        assert mpea["source_kind"] == "public"
+        assert mpea["license"] == "CC BY 4.0"
+        assert {output["key"] for output in mpea["outputs"]} == {"TYS", "UTS", "EL"}
+        welding = next(
+            item for item in gallery
+            if item["project_id"] == "welding-stage-b-default"
+        )
+        assert welding["source_kind"] == "synthetic"
+        assert any(
+            capability["id"] == "actual_measurement" and capability["available"]
+            for capability in welding["capabilities"]
+        )
+        quickstart = next(item for item in gallery if item["project_id"] == "default")
+        assert quickstart["source_kind"] == "synthetic"
+        assert quickstart["question"]
+        selected = next(
+            item for item in gallery
+            if item["available"] and not item["installed"]
+        )
 
         installed = client.post(
             "/api/sample-gallery",

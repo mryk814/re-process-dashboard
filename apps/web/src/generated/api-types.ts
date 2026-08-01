@@ -9243,6 +9243,20 @@ export interface components {
              */
             target_specific_similarity: boolean;
         };
+        /** SampleGalleryCapability */
+        SampleGalleryCapability: {
+            /** Available */
+            available: boolean;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Unavailable Reason
+             * @default
+             */
+            unavailable_reason: string;
+        };
         /** SampleGalleryInstallInput */
         SampleGalleryInstallInput: {
             /** Project Ids */
@@ -9252,12 +9266,50 @@ export interface components {
         SampleGalleryItem: {
             /** Available */
             available: boolean;
+            /** Capabilities */
+            capabilities?: components["schemas"]["SampleGalleryCapability"][];
+            /** Citation */
+            citation: string;
+            /** Data Shape */
+            data_shape: string;
+            /**
+             * Documentation Path
+             * @default
+             */
+            documentation_path: string;
+            /** Domain */
+            domain: string;
             /** Installed */
             installed: boolean;
+            /**
+             * Legacy
+             * @default false
+             */
+            legacy: boolean;
+            /** License */
+            license: string;
+            /** Limitations */
+            limitations: string;
             /** Name */
             name: string;
+            /** Outputs */
+            outputs?: components["schemas"]["SampleGalleryOutput"][];
+            /**
+             * Package Id
+             * @default
+             */
+            package_id: string;
+            /**
+             * Package Manifest Digest
+             * @default
+             */
+            package_manifest_digest: string;
             /** Project Id */
             project_id: string;
+            /** Question */
+            question: string;
+            /** Record Summary */
+            record_summary: string;
             /**
              * Removable
              * @default false
@@ -9268,6 +9320,17 @@ export interface components {
              * @default
              */
             remove_blocked_reason: string;
+            /** Scenario Summary */
+            scenario_summary: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "public" | "synthetic" | "generated_fixture" | "bundled_demonstration";
+            /** Source Label */
+            source_label: string;
+            /** Source Url */
+            source_url: string;
             /** Task Id */
             task_id: string;
             /**
@@ -9275,6 +9338,18 @@ export interface components {
              * @default
              */
             unavailable_reason: string;
+        };
+        /** SampleGalleryOutput */
+        SampleGalleryOutput: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
         };
         /** ScreeningCandidateBatchRequest */
         ScreeningCandidateBatchRequest: {

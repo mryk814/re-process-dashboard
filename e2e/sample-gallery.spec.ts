@@ -26,27 +26,31 @@ test("fresh workspace can add, remove, and restore bundled samples", async ({ pa
     await page.locator(".project-hub-header h2").innerText()
   ).split("\n")[0];
 
-  const gallery = page.locator(".sample-gallery-list");
-  await gallery.locator("summary").click();
-  await expect(gallery.locator(".sample-gallery-item")).toHaveCount(3);
-  const firstAvailable = gallery.locator(".sample-gallery-item")
-    .filter({ has: page.getByRole("button", { name: "追加", exact: true }) })
+  await page.getByRole("button", { name: "サンプルから始める" }).click();
+  const gallery = page.locator(".sample-gallery-panel");
+  await expect(gallery.locator(".sample-gallery-card")).toHaveCount(4);
+  await expect(gallery.getByText("公開データ", { exact: true }).first()).toBeVisible();
+  await expect(gallery.getByText("合成データ", { exact: true })).toBeVisible();
+  const firstAvailable = gallery.locator(".sample-gallery-card")
+    .filter({ has: page.getByRole("button", { name: "このサンプルで始める", exact: true }) })
     .first();
-  const sampleName = await firstAvailable.locator("strong").innerText();
-  await firstAvailable.getByRole("button", { name: "追加", exact: true }).click();
+  const sampleName = await firstAvailable.locator("h3").innerText();
+  await firstAvailable.getByRole("button", { name: "このサンプルで始める", exact: true }).click();
   await expect(page.locator(".project-hub-header h2")).toContainText(sampleName);
   await expect(sampleGroup.locator(".project-list-item")).toHaveCount(2);
 
-  const installedSample = gallery.locator(".sample-gallery-item")
+  await page.getByRole("button", { name: "サンプルから始める" }).click();
+  const installedSample = gallery.locator(".sample-gallery-card")
     .filter({ hasText: sampleName });
   await expect(installedSample.getByRole("button", { name: "取り除く" })).toBeEnabled();
   await installedSample.getByRole("button", { name: "取り除く" }).click();
   await expect(page).toHaveURL(/view=project.*project=default/);
   await expect(page.locator(".project-hub-header h2")).toContainText(quickstartName);
   await expect(sampleGroup.locator(".project-list-item")).toHaveCount(1);
-  await expect(installedSample.getByRole("button", { name: "追加", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "サンプルから始める" }).click();
+  await expect(installedSample.getByRole("button", { name: "このサンプルで始める", exact: true })).toBeEnabled();
 
-  await installedSample.getByRole("button", { name: "追加", exact: true }).click();
+  await installedSample.getByRole("button", { name: "このサンプルで始める", exact: true }).click();
   await expect(page.locator(".project-hub-header h2")).toContainText(sampleName);
   await expect(sampleGroup.locator(".project-list-item")).toHaveCount(2);
 

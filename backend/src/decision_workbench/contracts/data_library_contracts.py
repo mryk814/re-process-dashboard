@@ -245,6 +245,36 @@ class SampleGalleryItem(BaseModel):
     unavailable_reason: str = ""
     removable: bool = False
     remove_blocked_reason: str = ""
+    question: str
+    scenario_summary: str
+    domain: str
+    data_shape: str
+    source_kind: Literal["public", "synthetic", "generated_fixture", "bundled_demonstration"]
+    source_label: str
+    source_url: str
+    license: str
+    citation: str
+    record_summary: str
+    limitations: str
+    documentation_path: str = ""
+    outputs: list["SampleGalleryOutput"] = Field(default_factory=list)
+    capabilities: list["SampleGalleryCapability"] = Field(default_factory=list)
+    package_id: str = ""
+    package_manifest_digest: str = ""
+    legacy: bool = False
+
+
+class SampleGalleryOutput(BaseModel):
+    key: str
+    label: str
+    unit: str = ""
+
+
+class SampleGalleryCapability(BaseModel):
+    id: str
+    label: str
+    available: bool
+    unavailable_reason: str = ""
 
 
 class SampleGalleryInstallInput(BaseModel):

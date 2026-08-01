@@ -12,11 +12,12 @@ from decision_workbench.contracts.candidate_project_contracts import (
     ProjectInput,
 )
 from decision_workbench.contracts.data_library_contracts import (
+    SampleGalleryCapability,
     SampleGalleryInstallInput,
     SampleGalleryItem,
+    SampleGalleryOutput,
 )
 from decision_workbench.persistence.demo_seed import (
-    QUICKSTART_PROJECT_ID,
     gallery_project_ids,
     install_starter_projects,
     starter_project_ids,
@@ -35,6 +36,16 @@ from decision_workbench.tasks.task_registry import TaskRegistry
 router = APIRouter(prefix="/api/sample-gallery")
 StoreDependency = Annotated[Store, Depends(get_store)]
 RegistryDependency = Annotated[TaskRegistry, Depends(get_task_registry)]
+
+
+_OPERATION_LABELS = (
+    ("preview", "入力変更のプレビュー"),
+    ("detailed_prediction", "詳細予測"),
+    ("similarity", "類似実績の確認"),
+    ("response_curve", "応答曲線"),
+    ("snapshot", "予測の保存"),
+    ("actual_measurement", "実測との照合"),
+)
 
 
 def _removal_blocker(
@@ -77,7 +88,7 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
     result: list[SampleGalleryItem] = []
     for task_id in registry.task_ids:
         starter = registry.module_for(task_id).starter_project
-        if starter is None or starter.project_id == QUICKSTART_PROJECT_ID:
+        if starter is None:
             continue
         installed = store.get_project(
             starter.project_id,
@@ -86,6 +97,67 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
         if starter.distribution == "legacy_hidden" and not installed:
             continue
         availability = registry.availability_for(task_id)
+        contract = registry.contract_for(task_id)
+        metadata = starter.gallery_metadata
+        if starter.distribution != "legacy_hidden" and metadata is None:
+            raise RuntimeError(
+                f"current starter has no editorial metadata: {starter.project_id}"
+            )
+        legacy = starter.distribution == "legacy_hidden"
+        if metadata is None:
+            # An installed legacy starter remains removable, but is never
+            # offered alongside the current Gallery portfolio.
+            question = "既存Workspaceの旧サンプルを保持または取り除くか？"
+            scenario_summary = "現在のGalleryでは新規追加しない旧サンプルです。"
+            domain = "旧サンプル"
+            data_shape = "現在のGallery対象外"
+            source_kind = "bundled_demonstration"
+            source_label = "既存Workspaceの同梱サンプル"
+            source_url = ""
+            license = "現在のGallery対象外"
+            citation = ""
+            record_summary = "新規追加はできません。"
+            limitations = "現在のSample Galleryでは扱いません。"
+            documentation_path = ""
+        else:
+            question = metadata.question
+            scenario_summary = metadata.scenario_summary
+            domain = metadata.domain
+            data_shape = metadata.data_shape
+            source_kind = metadata.source_kind
+            source_label = metadata.source_label
+            source_url = metadata.source_url
+            license = metadata.license
+            citation = metadata.citation
+            record_summary = metadata.record_summary
+            limitations = metadata.limitations
+            documentation_path = metadata.documentation_path
+        operations = contract.runtime_capability.operations
+        capabilities = [
+            SampleGalleryCapability(
+                id=operation,
+                label=label,
+                available=(
+                    availability.status != "unavailable"
+                    and bool(getattr(operations, operation))
+                ),
+                unavailable_reason=(
+                    availability.message
+                    if availability.status == "unavailable"
+                    else "このTaskでは提供しません"
+                ) if not (
+                    availability.status != "unavailable"
+                    and bool(getattr(operations, operation))
+                ) else "",
+            )
+            for operation, label in _OPERATION_LABELS
+        ]
+        package_id = ""
+        package_manifest_digest = ""
+        if availability.status != "unavailable":
+            package = registry.entry_for(task_id).model_package
+            package_id = package.manifest.package_id
+            package_manifest_digest = f"sha256:{package.manifest_sha256}"
         removal_blocker = (
             _removal_blocker(store, registry, task_id, starter.project_id)
             if installed
@@ -104,8 +176,32 @@ def _items(store: Store, registry: TaskRegistry) -> list[SampleGalleryItem]:
             ),
             removable=installed and not removal_blocker,
             remove_blocked_reason=removal_blocker,
+            question=question,
+            scenario_summary=scenario_summary,
+            domain=domain,
+            data_shape=data_shape,
+            source_kind=source_kind,
+            source_label=source_label,
+            source_url=source_url,
+            license=license,
+            citation=citation,
+            record_summary=record_summary,
+            limitations=limitations,
+            documentation_path=documentation_path,
+            outputs=[
+                SampleGalleryOutput(
+                    key=output.key,
+                    label=output.label,
+                    unit=output.unit,
+                )
+                for output in contract.task_definition.outputs
+            ],
+            capabilities=capabilities,
+            package_id=package_id,
+            package_manifest_digest=package_manifest_digest,
+            legacy=legacy,
         ))
-    return sorted(result, key=lambda item: (item.name, item.project_id))
+    return sorted(result, key=lambda item: (item.legacy, item.name, item.project_id))
 
 
 @router.get("", response_model=list[SampleGalleryItem])
