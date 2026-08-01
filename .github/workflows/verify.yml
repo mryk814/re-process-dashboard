@@ -16,7 +16,7 @@ jobs:
   direct-verification:
     name: direct verification
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       VERIFY_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:

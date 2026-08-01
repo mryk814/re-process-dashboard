@@ -129,6 +129,10 @@ runnerのexit codeは`failed`と`pending`だけを停止signalにする。
 migration、release artifact、Package trust boundary等のmerge前必須 evidenceは
 `required_follow_ups`へ降格せず、未実行を`direct_failures`へ記録する。
 
+structural PRは`direct verification`が`pending`または`failed`の間はmergeもadmin mergeもしません。
+merge可能なのは`passed`または`passed_with_follow_up`で、`verification follow-up`の成功やnoticeは
+direct checkの代替になりません。CIがfull suite ownerの場合は、その完了までdirect checkをpendingに保ちます。
+
 `migration`等の語を含むpathでも、保存形式や既存recordを実際に変更していなければ、自動的に`blocked`とはしません。
 
 手動でriskを上乗せする場合は理由を必ず残します。

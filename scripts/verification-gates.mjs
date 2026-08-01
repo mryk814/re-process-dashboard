@@ -148,7 +148,7 @@ export function classifyChangedPaths(paths, catalog) {
 
 export function requiresBackendPytest(riskCategories) {
   return riskCategories.some((risk) =>
-    ["backend-application", "api-contract", "migration-workspace", "model-runtime", "security", "unknown"].includes(risk),
+    ["backend-application", "api-contract", "migration-workspace", "model-runtime-artifact", "model-runtime", "security", "unknown"].includes(risk),
   );
 }
 
@@ -211,6 +211,30 @@ export function buildVerificationPlan({
   const requested = getVerificationLevel(catalog, requestedLevel);
   const minimumRequiredLevel = strongestMinimumLevel(effectiveRisks, rules, requestedLevel);
   const incomplete = levelRank(requestedLevel) < levelRank(minimumRequiredLevel);
+  const unmetRiskRequirements = effectiveRisks
+    .filter((risk) => (
+      levelRank(requestedLevel) < levelRank(rules.get(risk).minimumLevel)
+    ))
+    .map((risk) => {
+      const rule = rules.get(risk);
+      const level = rule.minimumLevel;
+      return {
+        risk,
+        level,
+        command: level === "release"
+          ? "npm run acceptance:release"
+          : "npm run verify:checkpoint",
+        gateId: level === "release"
+          ? "release-acceptance"
+          : "checkpoint-acceptance",
+        disposition: rule.higherLevelDisposition,
+        owner: rule.followUpOwner ?? null,
+      };
+    });
+  const unmetByRisk = new Map(
+    unmetRiskRequirements.map((requirement) => [requirement.risk, requirement]),
+  );
+  const deferredManualFollowUps = [];
   const selectedGateReasons = new Map();
   const select = (gateId, reason) => {
     if (!selectedGateReasons.has(gateId)) selectedGateReasons.set(gateId, []);
@@ -218,8 +242,29 @@ export function buildVerificationPlan({
   };
   for (const gateId of requested.gates) select(gateId, `baseline for ${requestedLevel}`);
   for (const risk of effectiveRisks) {
+    const unmet = unmetByRisk.get(risk);
+    if (unmet?.disposition === "direct") {
+      select(
+        unmet.gateId,
+        `${unmet.level} evidence is a direct requirement for ${risk}`,
+      );
+      continue;
+    }
     for (const gateId of rules.get(risk).requiredGates ?? []) {
-      select(gateId, `required for ${risk}`);
+      if (
+        unmet?.disposition === "follow_up"
+        && catalog.gates[gateId].manual
+      ) {
+        deferredManualFollowUps.push({
+          level: unmet.level,
+          command: catalog.gates[gateId].command,
+          reason: `manual evidence deferred for ${risk}`,
+          risks: [risk],
+          owner: unmet.owner,
+        });
+      } else {
+        select(gateId, `required for ${risk}`);
+      }
     }
     if (levelRank(requestedLevel) >= levelRank("checkpoint")) {
       for (const gateId of rules.get(risk).checkpointOnly ?? []) {
@@ -231,19 +276,25 @@ export function buildVerificationPlan({
   const focused = backendRiskDetected
     ? resolveFocusedTests({ catalog, changedPaths, focusedArgs })
     : { tests: focusedArgs, source: focusedArgs.length > 0 ? "explicit" : "not-needed", fallback: false };
-  const ciOwnsBackendFullSuite = ci && backendRiskDetected && !effectiveRisks.includes("unknown");
+  const directAggregateRequired = unmetRiskRequirements.some(
+    (requirement) => requirement.disposition === "direct",
+  );
+  const ciOwnsBackendFullSuite = ci
+    && backendRiskDetected
+    && !effectiveRisks.includes("unknown")
+    && !directAggregateRequired;
   if (ciOwnsBackendFullSuite) {
     selectedGateReasons.delete("focused-pytest");
     select("full-pytest", "CI is the full-suite owner for backend risk on this commit");
-  } else if (focusedArgs.length > 0 && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!directAggregateRequired && focusedArgs.length > 0 && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "explicit focused tests were supplied");
-  } else if (backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!directAggregateRequired && backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "backend risk requires focused evidence");
   }
   if (!ciOwnsBackendFullSuite && selectedGateReasons.has("focused-pytest") && focused.tests.length > 0) {
     selectedGateReasons.get("focused-pytest").push(`${focused.source}: ${focused.tests.join(", ")}`);
   }
-  if (effectiveRisks.includes("unknown")) {
+  if (effectiveRisks.includes("unknown") && !directAggregateRequired) {
     select("full-pytest", "unknown path is handled conservatively");
   }
   const selectedGates = [...selectedGateReasons].map(([id, reasons]) => ({
@@ -265,41 +316,54 @@ export function buildVerificationPlan({
     }));
   const fullSuiteSelected = selectedGateIds.includes("full-pytest");
   const fullSuiteOwner = {
-    owner: fullSuiteSelected ? (ci ? "ci" : "local") : "ci",
+    owner: fullSuiteSelected || directAggregateRequired ? (ci ? "ci" : "local") : "ci",
     commitSha,
-    reason: fullSuiteSelected
+    reason: directAggregateRequired
+      ? `${ci ? "CI" : "local"} aggregate acceptance owns the full suite for this commit`
+      : fullSuiteSelected
       ? (ci ? "CI executes the required full suite for this commit" : "unknown paths require a local conservative full suite")
       : "CI is the sole full-suite owner; local verification records focused evidence only",
   };
-  const higherLevelRequirement = incomplete
-    ? {
-        level: minimumRequiredLevel,
-        command: minimumRequiredLevel === "release"
-          ? "npm run acceptance:release"
-          : "npm run verify:checkpoint",
-        reason: `${minimumRequiredLevel} evidence is required by ${effectiveRisks.join(", ")}`,
+  const mergeRequirements = (requirements, keyFor) => [
+    ...requirements.reduce((merged, requirement) => {
+      const key = keyFor(requirement);
+      const current = merged.get(key);
+      if (current) {
+        current.risks = [...new Set([...current.risks, ...requirement.risks])];
+        current.reason = `${current.level} evidence is required by ${current.risks.join(", ")}`;
+      } else {
+        merged.set(key, { ...requirement });
       }
-    : null;
-  const blockingHigherLevelRisks = incomplete
-    ? effectiveRisks.filter((risk) => rules.get(risk).higherLevelDisposition === "direct")
-    : [];
-  const followUpRisks = incomplete
-    ? effectiveRisks.filter((risk) => rules.get(risk).higherLevelDisposition === "follow_up")
-    : [];
-  const directEvidenceRequirements = higherLevelRequirement && blockingHigherLevelRisks.length > 0
-    ? [{
-        ...higherLevelRequirement,
-        risks: blockingHigherLevelRisks,
-        status: "not_run",
-      }]
-    : [];
-  const requiredFollowUps = higherLevelRequirement && followUpRisks.length > 0
-    ? [{
-        ...higherLevelRequirement,
-        risks: followUpRisks,
-        owner: [...new Set(followUpRisks.map((risk) => rules.get(risk).followUpOwner))].join(", "),
-      }]
-    : [];
+      return merged;
+    }, new Map()).values(),
+  ];
+  const directEvidenceRequirements = mergeRequirements(
+    unmetRiskRequirements
+      .filter((requirement) => requirement.disposition === "direct")
+      .map((requirement) => ({
+        level: requirement.level,
+        command: requirement.command,
+        gate_id: requirement.gateId,
+        reason: `${requirement.level} evidence is required by ${requirement.risk}`,
+        risks: [requirement.risk],
+      })),
+    (requirement) => requirement.gate_id,
+  );
+  const requiredFollowUps = mergeRequirements(
+    [
+      ...unmetRiskRequirements
+        .filter((requirement) => requirement.disposition === "follow_up")
+        .map((requirement) => ({
+          level: requirement.level,
+          command: requirement.command,
+          reason: `${requirement.level} evidence is required by ${requirement.risk}`,
+          risks: [requirement.risk],
+          owner: requirement.owner,
+        })),
+      ...deferredManualFollowUps,
+    ],
+    (requirement) => `${requirement.command}\0${requirement.owner}`,
+  );
   return {
     schemaVersion: "verification-plan/v1",
     requestedLevel,
@@ -351,8 +415,12 @@ export function evaluateVerificationOutcome({ plan, gateResults }) {
       exit_code: result.exitCode ?? null,
       reason: result.error ?? "command failed",
     }));
+  const missingPlannedEvidence = (plan.directEvidenceRequirements ?? [])
+    .filter((requirement) => (
+      byId.get(requirement.gate_id)?.status === "not_run"
+    ));
   const missingDirectEvidence = [
-    ...(plan.directEvidenceRequirements ?? []),
+    ...missingPlannedEvidence,
     ...(plan.requiredManualGates ?? []).map((gate) => ({
       level: plan.minimumRequiredLevel,
       command: gate.command,

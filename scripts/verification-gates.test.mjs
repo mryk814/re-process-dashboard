@@ -153,22 +153,70 @@ test("unresolved backend authority is an explicit broad fallback, never an accid
   assert.ok(!selectedIds(plan).includes("full-pytest"));
 });
 
-test("migration and runtime security plans force safety gates regardless of normal PR level", () => {
+test("direct release risks select one executable acceptance gate", () => {
   const migration = planFor(["backend/src/decision_workbench/persistence/project_lifecycle_migration.py"]);
   assert.equal(migration.minimumRequiredLevel, "release");
   assert.equal(migration.selectedLevel, "release");
   assert.equal(migration.completion, "direct_evidence_required");
   assert.equal(migration.requiredFollowUp, null);
   assert.equal(migration.directEvidenceRequirements[0].command, "npm run acceptance:release");
-  assert.ok(selectedIds(migration).includes("legacy-workspace"));
+  assert.ok(selectedIds(migration).includes("release-acceptance"));
+  assert.ok(!selectedIds(migration).includes("legacy-workspace"));
   const runtimeSecurity = planFor(["backend/src/decision_workbench/api/security.py"]);
   assert.equal(runtimeSecurity.minimumRequiredLevel, "release");
-  assert.ok(selectedIds(runtimeSecurity).includes("security-boundary-tests"));
-  assert.ok(selectedIds(runtimeSecurity).includes("dependency-audit"));
+  assert.ok(selectedIds(runtimeSecurity).includes("release-acceptance"));
+  assert.ok(!selectedIds(runtimeSecurity).includes("security-boundary-tests"));
   const artifactLoader = planFor(["backend/src/decision_workbench/modeling/packages/loader.py"]);
   assert.equal(artifactLoader.minimumRequiredLevel, "release");
   assert.ok(selectedIds(artifactLoader).includes("model-package-contract-tests"));
-  assert.ok(artifactLoader.requiredManualGates.some((gate) => gate.id === "model-package-release-evidence"));
+  assert.equal(artifactLoader.completion, "follow_up");
+  assert.ok(artifactLoader.requiredFollowUps.some((item) => item.owner === "release-checkpoint"));
+  assert.ok(artifactLoader.requiredFollowUps.some((item) => item.command.startsWith("manual:")));
+  assert.deepEqual(artifactLoader.requiredManualGates, []);
+});
+
+test("model source is follow-up while an actual package artifact is direct release evidence", () => {
+  const source = planFor(["backend/src/decision_workbench/modeling/runtime.py"]);
+  assert.deepEqual(source.riskCategories, ["model-runtime"]);
+  assert.equal(source.completion, "follow_up");
+  assert.ok(selectedIds(source).includes("model-package-contract-tests"));
+  assert.ok(!selectedIds(source).includes("release-acceptance"));
+  assert.equal(evaluateVerificationOutcome({
+    plan: source,
+    gateResults: passedResults(source),
+  }).outcome, "passed_with_follow_up");
+
+  const artifact = planFor(["models/packages/example/manifest.json"]);
+  assert.deepEqual(artifact.riskCategories, ["model-runtime-artifact"]);
+  assert.equal(artifact.completion, "direct_evidence_required");
+  assert.ok(selectedIds(artifact).includes("release-acceptance"));
+  const missingResults = passedResults(artifact).map((result) => (
+    result.id === "release-acceptance"
+      ? { ...result, status: "not_run", exitCode: null }
+      : result
+  ));
+  assert.equal(evaluateVerificationOutcome({
+    plan: artifact,
+    gateResults: missingResults,
+  }).outcome, "failed");
+  assert.equal(evaluateVerificationOutcome({
+    plan: artifact,
+    gateResults: passedResults(artifact),
+  }).outcome, "passed");
+});
+
+test("mixed risks preserve each risk's level, disposition, and owner", () => {
+  const mixed = planFor([
+    "models/packages/example/manifest.json",
+    "e2e/helpers.ts",
+  ]);
+  assert.deepEqual(mixed.directEvidenceRequirements.map((item) => item.command), [
+    "npm run acceptance:release",
+  ]);
+  assert.deepEqual(
+    mixed.requiredFollowUps.map(({ command, owner }) => ({ command, owner })),
+    [{ command: "npm run verify:checkpoint", owner: "epic-checkpoint" }],
+  );
 });
 
 test("checkpoint-only gates become selected only at checkpoint evidence level", () => {
@@ -186,7 +234,8 @@ test("unclassified paths receive the conservative full verification plan", () =>
   assert.equal(plan.minimumRequiredLevel, "checkpoint");
   assert.equal(plan.completion, "direct_evidence_required");
   assert.equal(plan.directEvidenceRequirements[0].command, "npm run verify:checkpoint");
-  assert.ok(selectedIds(plan).includes("full-pytest"));
+  assert.ok(selectedIds(plan).includes("checkpoint-acceptance"));
+  assert.ok(!selectedIds(plan).includes("full-pytest"));
   assert.equal(plan.fullSuiteOwner.owner, "local");
 });
 
@@ -194,14 +243,19 @@ test("manual risk overrides require a reason and are recorded in the plan", () =
   assert.throws(() => planFor(["docs/readme.md"], { manualRiskOverrides: ["security"] }), /requires --reason/);
   const plan = planFor(["docs/readme.md"], { manualRiskOverrides: ["security"], manualOverrideReason: "generated code changes Origin handling" });
   assert.deepEqual(plan.manualOverrides, [{ risk: "security", reason: "generated code changes Origin handling" }]);
-  assert.ok(selectedIds(plan).includes("security-boundary-tests"));
+  assert.ok(selectedIds(plan).includes("release-acceptance"));
 });
 
 test("changed paths use catalog-driven high-risk precedence", () => {
   assert.equal(classifyChangedPath("docs/reports/checkpoint.json", catalog), "evidence");
   assert.equal(classifyChangedPath("apps/web/src/generated/api-types.ts", catalog), "api-contract");
   assert.equal(classifyChangedPath("backend/src/decision_workbench/persistence/store.py", catalog), "migration-workspace");
+  assert.equal(classifyChangedPath("models/packages/example/manifest.json", catalog), "model-runtime-artifact");
   assert.equal(classifyChangedPath("unclassified.file", catalog), "unknown");
+  assert.deepEqual(
+    planFor([".github/workflows/verify.yml"]).riskCategories,
+    ["verification-tooling"],
+  );
   assert.equal(requiresBackendPytest(["backend-application"]), true);
   assert.equal(requiresBackendPytest(["pure-docs", "frontend-presentation"]), false);
 });
@@ -325,7 +379,7 @@ test("CI full-suite ownership remains pending until completion and fails on regr
   assert.equal(failed.direct_failures[0].id, "full-pytest");
 });
 
-test("docs pass, release-sensitive changes fail closed, and structural follow-up stays green", () => {
+test("docs pass, direct acceptance is result-aware, and structural follow-up stays green", () => {
   const docs = planFor(["docs/operations/verification-policy.md"]);
   const docsOutcome = evaluateVerificationOutcome({
     plan: docs,
@@ -334,20 +388,26 @@ test("docs pass, release-sensitive changes fail closed, and structural follow-up
   assert.equal(docsOutcome.outcome, "passed");
   assert.match(verificationEvidenceMarkdown(docsOutcome), /Outcome: `passed`/);
 
-  for (const path of [
+  const migration = planFor([
     "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
-    "backend/src/decision_workbench/modeling/packages/loader.py",
-  ]) {
-    const plan = planFor([path]);
-    const outcome = evaluateVerificationOutcome({
-      plan,
-      gateResults: passedResults(plan),
-    });
-    assert.equal(outcome.outcome, "failed");
-    assert.ok(outcome.direct_failures.some((failure) => (
-      failure.kind === "required_evidence"
-    )));
-  }
+  ]);
+  const missingEvidence = passedResults(migration).map((result) => (
+    result.id === "release-acceptance"
+      ? { ...result, status: "not_run", exitCode: null }
+      : result
+  ));
+  const failed = evaluateVerificationOutcome({
+    plan: migration,
+    gateResults: missingEvidence,
+  });
+  assert.equal(failed.outcome, "failed");
+  assert.ok(failed.direct_failures.some((failure) => (
+    failure.kind === "required_evidence"
+  )));
+  assert.equal(evaluateVerificationOutcome({
+    plan: migration,
+    gateResults: passedResults(migration),
+  }).outcome, "passed");
 
   const structural = planFor(["e2e/helpers.ts"]);
   const structuralOutcome = evaluateVerificationOutcome({
@@ -364,6 +424,7 @@ test("verification workflow has separate direct and follow-up checks", () => {
   assert.match(workflow, /name: verification follow-up/);
   assert.match(workflow, /artifacts\/verification\/latest-pr\.json/);
   assert.match(workflow, /runs-on: windows-latest/);
+  assert.match(workflow, /timeout-minutes: 45/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
 });
