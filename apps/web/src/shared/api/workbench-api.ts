@@ -41,6 +41,7 @@ export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInpu
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
+export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
@@ -248,6 +249,12 @@ export const workbenchApi = {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
       signal,
     }), "Chain実行結果を取得できませんでした。");
+  },
+  async chainGraph(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/chain/graph", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "固定したChain構成を取得できませんでした。");
   },
   async executeChain(projectId: string, candidateId: string, candidateRevision: number, requestId: string, signal?: AbortSignal) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/executions", {

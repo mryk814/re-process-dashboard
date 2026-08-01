@@ -3,6 +3,7 @@ import { provenanceNavigation } from "./candidateProvenance";
 import { navigationLocationNeedsNormalization, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
+  ChainGraphViewer,
   chainStagePath,
   projectScientificSettingsReadOnly,
   ProjectHub,
@@ -30,6 +31,7 @@ const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDa
   { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
   { id: "candidates", label: "候補比較", active: ["candidates"] },
+  { id: "chain-graph", label: "Chain構成", active: ["chain-graph"] },
   { id: "explore", label: "範囲探索", active: ["explore"] },
   { id: "candidate-review", label: "候補確認", active: ["candidate-review"] },
   { id: "project-settings", label: "設定", active: ["project-settings"] },
@@ -274,7 +276,7 @@ function App() {
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
     (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
-      || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "project-settings"))
+      || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
@@ -608,6 +610,12 @@ function App() {
             projectId: activeProjectId,
             candidateId: selectedId || undefined,
           })} stagePath={chainStagePath(activeChainRevision)} />
+        )}
+        {tab === "chain-graph" && chainProject && (
+          <ChainGraphViewer
+            projectId={activeProjectId}
+            candidateId={selectedId || navigation.candidateId}
+          />
         )}
         {tab === "workspace" && (
           <WorkspaceAdminPage

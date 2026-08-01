@@ -57,6 +57,7 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "canonical_series_revisions",
         "chain_definitions",
         "chain_revisions",
+        "chain_stage_contract_surfaces",
         "chain_stage_memo",
         "curation_recipes",
         "data_assets",

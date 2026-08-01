@@ -5,6 +5,7 @@ export const WORKBENCH_VIEWS = [
   "project-settings",
   "candidates",
   "candidate-review",
+  "chain-graph",
   "workspace",
   "quality",
   "lineage",

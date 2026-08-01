@@ -4967,6 +4967,75 @@
         "title": "ChainExecutionRequest",
         "type": "object"
       },
+      "ChainGraphResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ChainDefinition"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/ChainRevision"
+          },
+          "stage_contracts": {
+            "items": {
+              "$ref": "#/components/schemas/ChainGraphStageContract"
+            },
+            "title": "Stage Contracts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition",
+          "revision",
+          "stage_contracts"
+        ],
+        "title": "ChainGraphResponse",
+        "type": "object"
+      },
+      "ChainGraphStageContract": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "stage_id": {
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "surface": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageContractSurface"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stage_id",
+          "status"
+        ],
+        "title": "ChainGraphStageContract",
+        "type": "object"
+      },
       "ChainPort": {
         "additionalProperties": false,
         "properties": {
@@ -20035,6 +20104,55 @@
         "title": "StableSortNormalization",
         "type": "object"
       },
+      "StageContractSurface": {
+        "additionalProperties": false,
+        "description": "The canonical I/O surface used by Chain validation.\n\nTask and deterministic-transform loaders project their richer contracts to\nthis small common surface. ChainDefinition stays ignorant of runtime code.",
+        "properties": {
+          "contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "contract_id": {
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "input_ports": {
+            "items": {
+              "$ref": "#/components/schemas/ChainPort"
+            },
+            "minItems": 1,
+            "title": "Input Ports",
+            "type": "array"
+          },
+          "output_ports": {
+            "items": {
+              "$ref": "#/components/schemas/ChainPort"
+            },
+            "minItems": 1,
+            "title": "Output Ports",
+            "type": "array"
+          },
+          "stage_kind": {
+            "enum": [
+              "task",
+              "deterministic_transform"
+            ],
+            "title": "Stage Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_kind",
+          "contract_id",
+          "contract_digest",
+          "input_ports",
+          "output_ports"
+        ],
+        "title": "StageContractSurface",
+        "type": "object"
+      },
       "StageOutputBindingSource": {
         "additionalProperties": false,
         "properties": {
@@ -27394,6 +27512,48 @@
           }
         },
         "summary": "Get Project Chain Evaluation",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/chain/graph": {
+      "get": {
+        "operationId": "getProjectChainGraph",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainGraphResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Chain Graph",
         "tags": [
           "chain-execution"
         ]

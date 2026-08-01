@@ -15,6 +15,9 @@ from decision_workbench.persistence.chain_catalog_migration import migrate_chain
 from decision_workbench.persistence.chain_execution_cas_migration import (
     migrate_chain_execution_cas,
 )
+from decision_workbench.persistence.chain_graph_surface_migration import (
+    migrate_chain_graph_surfaces,
+)
 from decision_workbench.persistence.chain_repository import ChainRepository
 from decision_workbench.persistence.chain_uncertainty_migration import (
     migrate_chain_uncertainty,
@@ -116,6 +119,7 @@ class Store(
         migrate_workspace_maintenance_events(self.path)
         migrate_project_lifecycle(self.path)
         migrate_chain_catalog(self.path)
+        migrate_chain_graph_surfaces(self.path)
         migrate_chain_analysis_variant(self.path)
         migrate_chain_execution_cas(self.path)
         migrate_chain_uncertainty(self.path)

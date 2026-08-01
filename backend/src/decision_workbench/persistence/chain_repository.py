@@ -58,6 +58,51 @@ class ChainRepository:
             )
         return record_id
 
+    @staticmethod
+    def _register_stage_contract_surfaces(
+        conn: sqlite3.Connection,
+        *,
+        record_id: str,
+        revision: ChainRevision,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+    ) -> None:
+        """Keep the validation surface beside, never inside, immutable revision JSON."""
+
+        for stage in revision.stages:
+            surface = contracts[(stage.stage_kind, stage.contract_id)]
+            encoded = surface.model_dump_json()
+            existing = conn.execute(
+                "SELECT surface_json FROM chain_stage_contract_surfaces "
+                "WHERE chain_revision_id=? AND stage_id=?",
+                (record_id, stage.stage_id),
+            ).fetchone()
+            if existing is not None:
+                if StageContractSurface.model_validate_json(existing["surface_json"]) != surface:
+                    raise ChainCatalogConflictError(
+                        "同じChain RevisionのStage contract surfaceが異なります"
+                    )
+                continue
+            conn.execute(
+                "INSERT INTO chain_stage_contract_surfaces("
+                "chain_revision_id,stage_id,surface_json,created_at"
+                ") VALUES (?,?,?,?)",
+                (record_id, stage.stage_id, encoded, _now()),
+            )
+
+    def get_chain_stage_contract_surfaces(
+        self, revision_id: str,
+    ) -> dict[str, StageContractSurface]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT stage_id,surface_json FROM chain_stage_contract_surfaces "
+                "WHERE chain_revision_id=? ORDER BY stage_id",
+                (revision_id,),
+            ).fetchall()
+        return {
+            str(row["stage_id"]): StageContractSurface.model_validate_json(row["surface_json"])
+            for row in rows
+        }
+
     def list_chain_definitions(self) -> list[ChainDefinition]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -136,6 +181,9 @@ class ChainRepository:
                     raise ChainCatalogConflictError(
                         "同じChain revision番号またはdigestに異なる内容があります"
                     )
+                self._register_stage_contract_surfaces(
+                    conn, record_id=record_id, revision=revision, contracts=contracts
+                )
                 return str(existing["id"])
             conn.execute(
                 "INSERT INTO chain_revisions("
@@ -149,6 +197,9 @@ class ChainRepository:
                     revision.model_dump_json(),
                     _now(),
                 ),
+            )
+            self._register_stage_contract_surfaces(
+                conn, record_id=record_id, revision=revision, contracts=contracts
             )
         return record_id
 

@@ -29,6 +29,8 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainCandidateContractResponse,
     ChainDistributionRequest,
     ChainExecutionRequest,
+    ChainGraphResponse,
+    ChainGraphStageContract,
     ChainTemplateItem,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -114,6 +116,52 @@ def get_chain_revision(
     if revision is None:
         raise ChainNotFoundError("Chain Revisionが見つかりません")
     return revision
+
+
+def get_project_chain_graph(project_id: str, store: Store) -> ChainGraphResponse:
+    project = store.get_project(project_id)
+    if project is None:
+        raise ChainNotFoundError("Chain Projectが見つかりません")
+    identity = project.scientific_identity
+    if identity.identity_kind != "chain":
+        raise ChainConflictError("このAPIはChain Project専用です")
+    revision = store.get_chain_revision(identity.chain_revision_id)
+    if revision is None or revision.revision_digest != identity.chain_revision_digest:
+        raise ChainConflictError("固定されたChain Revisionを解決できません")
+    definition = store.get_chain_definition(
+        revision.chain_id, revision.chain_definition_digest
+    )
+    if definition is None:
+        raise ChainConflictError("固定されたChain Definitionを解決できません")
+    surfaces = store.get_chain_stage_contract_surfaces(identity.chain_revision_id)
+    resolved: list[ChainGraphStageContract] = []
+    for stage in revision.stages:
+        surface = surfaces.get(stage.stage_id)
+        if surface is None:
+            resolved.append(ChainGraphStageContract(
+                stage_id=stage.stage_id,
+                status="unavailable",
+                reason="この固定RevisionのStage contract surfaceは保存されていません",
+            ))
+        elif (
+            surface.stage_kind != stage.stage_kind
+            or surface.contract_id != stage.contract_id
+            or surface.contract_digest != stage.contract_digest
+        ):
+            resolved.append(ChainGraphStageContract(
+                stage_id=stage.stage_id,
+                status="unavailable",
+                reason="保存済みStage contract surfaceが固定Revisionと一致しません",
+            ))
+        else:
+            resolved.append(ChainGraphStageContract(
+                stage_id=stage.stage_id,
+                status="available",
+                surface=surface,
+            ))
+    return ChainGraphResponse(
+        definition=definition, revision=revision, stage_contracts=tuple(resolved)
+    )
 
 
 def _require_stored_chain_project(store: Store, project_id: str) -> None:
@@ -507,6 +555,9 @@ class ChainUseCases:
 
     def get_revision(self, revision_id: str) -> ChainRevision:
         return get_chain_revision(revision_id, self.store)
+
+    def graph(self, project_id: str) -> ChainGraphResponse:
+        return get_project_chain_graph(project_id, self.store)
 
     def project_evaluation(self, project_id: str) -> ResolvedChainEvaluation:
         return get_project_chain_evaluation(

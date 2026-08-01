@@ -1463,6 +1463,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/chain/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Chain Graph */
+        get: operations["getProjectChainGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/decision": {
         parameters: {
             query?: never;
@@ -4104,6 +4121,26 @@ export interface components {
             debounce_ms: number;
             /** Request Id */
             request_id?: string | null;
+        };
+        /** ChainGraphResponse */
+        ChainGraphResponse: {
+            definition: components["schemas"]["ChainDefinition"];
+            revision: components["schemas"]["ChainRevision"];
+            /** Stage Contracts */
+            stage_contracts: components["schemas"]["ChainGraphStageContract"][];
+        };
+        /** ChainGraphStageContract */
+        ChainGraphStageContract: {
+            /** Reason */
+            reason?: string | null;
+            /** Stage Id */
+            stage_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
+            surface?: components["schemas"]["StageContractSurface"] | null;
         };
         /** ChainPort */
         ChainPort: {
@@ -9881,6 +9918,28 @@ export interface components {
              */
             kind: "stable_sort";
         };
+        /**
+         * StageContractSurface
+         * @description The canonical I/O surface used by Chain validation.
+         *
+         *     Task and deterministic-transform loaders project their richer contracts to
+         *     this small common surface. ChainDefinition stays ignorant of runtime code.
+         */
+        StageContractSurface: {
+            /** Contract Digest */
+            contract_digest: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Input Ports */
+            input_ports: components["schemas"]["ChainPort"][];
+            /** Output Ports */
+            output_ports: components["schemas"]["ChainPort"][];
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "task" | "deterministic_transform";
+        };
         /** StageOutputBindingSource */
         StageOutputBindingSource: {
             /** Output Key */
@@ -14568,6 +14627,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResolvedChainEvaluation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getProjectChainGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainGraphResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,6 +1,8 @@
 """Transport-neutral request and response contracts for Chain use cases."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from decision_workbench.contracts.blend_contracts import (
@@ -10,6 +12,7 @@ from decision_workbench.contracts.blend_contracts import (
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
+    StageContractSurface,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ChainCandidateInputDefinition,
@@ -26,6 +29,19 @@ class ChainTemplateItem(ChainApiModel):
     definition_id: str
     definition: ChainDefinition
     revisions: tuple[ChainRevision, ...]
+
+
+class ChainGraphStageContract(ChainApiModel):
+    stage_id: str
+    status: Literal["available", "unavailable"]
+    reason: str | None = None
+    surface: StageContractSurface | None = None
+
+
+class ChainGraphResponse(ChainApiModel):
+    definition: ChainDefinition
+    revision: ChainRevision
+    stage_contracts: tuple[ChainGraphStageContract, ...]
 
 
 class ChainExecutionRequest(ChainApiModel):

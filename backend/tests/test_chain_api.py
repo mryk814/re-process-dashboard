@@ -78,6 +78,45 @@ def test_chain_catalog_and_project_creation_pin_exact_revision(
     assert reopened.status_code == 200
     assert reopened.json()["scientific_identity"] == project["scientific_identity"]
 
+    graph = client.get(f"/api/projects/{project['id']}/chain/graph")
+    assert graph.status_code == 200, graph.text
+    graph_body = graph.json()
+    assert graph_body["revision"]["revision_digest"] == revision.revision_digest
+    assert graph_body["definition"]["chain_id"] == definition.chain_id
+    assert [item["stage_id"] for item in graph_body["stage_contracts"]] == [
+        stage.stage_id for stage in revision.stages
+    ]
+    assert all(item["status"] == "available" for item in graph_body["stage_contracts"])
+    task_surface = next(
+        item["surface"] for item in graph_body["stage_contracts"]
+        if item["surface"]["stage_kind"] == "task"
+    )
+    assert task_surface["input_ports"]
+    assert task_surface["output_ports"]
+    assert {"path", "value_kind", "quantity", "basis", "unit"} <= set(
+        task_surface["input_ports"][0]
+    )
+
+    missing_stage = revision.stages[0].stage_id
+    with client.app.state.store._connect() as conn:  # noqa: SLF001 - legacy surface fixture
+        conn.execute(
+            "DELETE FROM chain_stage_contract_surfaces "
+            "WHERE chain_revision_id=? AND stage_id=?",
+            (f"{definition.chain_id}:r1", missing_stage),
+        )
+    degraded = client.get(f"/api/projects/{project['id']}/chain/graph")
+    assert degraded.status_code == 200, degraded.text
+    missing = next(
+        item for item in degraded.json()["stage_contracts"]
+        if item["stage_id"] == missing_stage
+    )
+    assert missing == {
+        "stage_id": missing_stage,
+        "status": "unavailable",
+        "reason": "この固定RevisionのStage contract surfaceは保存されていません",
+        "surface": None,
+    }
+
     grouped = client.post(
         "/api/projects",
         json={
