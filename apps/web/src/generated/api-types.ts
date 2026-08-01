@@ -507,6 +507,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/estimator-readiness/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Standard Estimator Readiness Catalog
+         * @description Return the bounded builder/runtime matrix without probing user data.
+         */
+        get: operations["get_standard_estimator_readiness_catalog_api_developer_estimator_readiness_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/developer/estimator-readiness/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Standard Estimator Readiness
+         * @description Explain one requested path without building or promoting a Package.
+         */
+        post: operations["post_standard_estimator_readiness_api_developer_estimator_readiness_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/feature-recipe/inspect": {
         parameters: {
             query?: never;
@@ -5139,11 +5179,18 @@ export interface components {
          *     UI from turning an estimator name into a free-form runtime selector.
          */
         CsvOnboardingEstimatorOption: {
+            /** Artifact Format */
+            artifact_format: string;
             /**
              * Artifact Size
              * @enum {string}
              */
             artifact_size: "small" | "moderate";
+            /**
+             * Artifact Status
+             * @constant
+             */
+            artifact_status: "ready";
             /** Available */
             available: boolean;
             /** Dependency */
@@ -5165,6 +5212,10 @@ export interface components {
             goal_probability: "unavailable";
             /** Label */
             label: string;
+            /** Max Features */
+            max_features: number;
+            /** Max Rows */
+            max_rows: number;
             /**
              * Parametric Distribution
              * @default false
@@ -5181,6 +5232,18 @@ export interface components {
              * @default true
              */
             quantiles: boolean;
+            /**
+             * Readiness Schema Version
+             * @constant
+             */
+            readiness_schema_version: "standard-estimator-readiness/v1";
+            /**
+             * Runtime Status
+             * @constant
+             */
+            runtime_status: "ready";
+            /** Runtime Type */
+            runtime_type: string;
             /**
              * Standard Deviation
              * @default false
@@ -6226,6 +6289,124 @@ export interface components {
              * @enum {string}
              */
             kind: "elapsed_origin";
+        };
+        /** EstimatorLimits */
+        EstimatorLimits: {
+            /** Max Features */
+            max_features: number;
+            /** Max Rows */
+            max_rows: number;
+            /** Min Independent Groups */
+            min_independent_groups: number;
+            /** Min Rows */
+            min_rows: number;
+        };
+        /** EstimatorReadinessContext */
+        EstimatorReadinessContext: {
+            /** Estimator Id */
+            estimator_id: string;
+            /** Feature Count */
+            feature_count: number;
+            /**
+             * Feature Recipe
+             * @enum {string}
+             */
+            feature_recipe: "ready" | "missing" | "invalid";
+            /**
+             * Has Categorical Features
+             * @default false
+             */
+            has_categorical_features: boolean;
+            /**
+             * Has Count Exposure
+             * @default false
+             */
+            has_count_exposure: boolean;
+            /**
+             * Has Missing Features
+             * @default false
+             */
+            has_missing_features: boolean;
+            /** Independent Group Count */
+            independent_group_count: number;
+            /**
+             * Missing Policy
+             * @default ready
+             * @enum {string}
+             */
+            missing_policy: "ready" | "missing" | "invalid";
+            /** Observed Target Min */
+            observed_target_min?: number | null;
+            /** Observed Targets Are Integers */
+            observed_targets_are_integers?: boolean | null;
+            /** Row Count */
+            row_count: number;
+            /**
+             * Target Contract
+             * @enum {string}
+             */
+            target_contract: "ready" | "missing" | "invalid";
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal" | "nominal_multiclass";
+            /**
+             * Validation Plan
+             * @enum {string}
+             */
+            validation_plan: "ready" | "missing" | "invalid";
+            /** Validation Strategy */
+            validation_strategy?: ("kfold" | "grouped_kfold" | "stratified_kfold" | "stratified_grouped_kfold" | "temporal_holdout" | "grouped_temporal") | null;
+        };
+        /** EstimatorReadinessResolution */
+        EstimatorReadinessResolution: {
+            /**
+             * Alternative Baseline Ids
+             * @default []
+             */
+            alternative_baseline_ids: string[];
+            /** Artifact Format */
+            artifact_format: string | null;
+            /** Builder Status */
+            builder_status: ("standard_builder" | "external_verified_package_only" | "not_available") | null;
+            /** Estimator Id */
+            estimator_id: string;
+            limits: components["schemas"]["EstimatorLimits"] | null;
+            /**
+             * Promotes Package
+             * @default false
+             * @constant
+             */
+            promotes_package: false;
+            /** Reasons */
+            reasons: string[];
+            /** Required Dependency */
+            required_dependency: string | null;
+            /** Runtime Type */
+            runtime_type: string | null;
+            /**
+             * Schema Version
+             * @default standard-estimator-readiness/v1
+             * @constant
+             */
+            schema_version: "standard-estimator-readiness/v1";
+            /**
+             * Starts Build
+             * @default false
+             * @constant
+             */
+            starts_build: false;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "unavailable_missing_dependency" | "needs_feature_recipe" | "needs_validation_plan" | "needs_target_contract" | "external_verified_package_only" | "out_of_scope";
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal" | "nominal_multiclass";
         };
         /**
          * EvidenceImageRef
@@ -11096,6 +11277,79 @@ export interface components {
             /** Supported */
             supported: boolean;
         };
+        /** StandardEstimatorCatalog */
+        StandardEstimatorCatalog: {
+            /** Entries */
+            entries: components["schemas"]["StandardEstimatorEntry"][];
+            /**
+             * Promotion Policy
+             * @default explicit_only
+             * @constant
+             */
+            promotion_policy: "explicit_only";
+            /**
+             * Schema Version
+             * @default standard-estimator-readiness/v1
+             * @constant
+             */
+            schema_version: "standard-estimator-readiness/v1";
+        };
+        /** StandardEstimatorEntry */
+        StandardEstimatorEntry: {
+            /** Artifact Format */
+            artifact_format: string | null;
+            /**
+             * Artifact Status
+             * @enum {string}
+             */
+            artifact_status: "ready" | "needs_adapter_allowlist" | "external_verified_package_only" | "not_available";
+            /**
+             * Builder Status
+             * @enum {string}
+             */
+            builder_status: "standard_builder" | "external_verified_package_only" | "not_available";
+            /**
+             * Categorical Support
+             * @enum {string}
+             */
+            categorical_support: "native" | "feature_recipe" | "unsupported";
+            /** Estimator Id */
+            estimator_id: string;
+            /** Fixed Parameters */
+            fixed_parameters: {
+                [key: string]: number | string | boolean | string[];
+            };
+            /** Label */
+            label: string;
+            limits: components["schemas"]["EstimatorLimits"];
+            /**
+             * Missing Support
+             * @enum {string}
+             */
+            missing_support: "native" | "feature_recipe" | "unsupported";
+            /** Predictive Capabilities */
+            predictive_capabilities: ("point" | "probability" | "quantiles" | "standard_deviation" | "parametric_distribution")[];
+            /** Quality Metrics */
+            quality_metrics: string[];
+            /** Required Dependency */
+            required_dependency?: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "interpretable_baseline" | "nonlinear_candidate" | "specialized_path";
+            /**
+             * Runtime Status
+             * @enum {string}
+             */
+            runtime_status: "ready" | "needs_adapter_allowlist" | "external_verified_package_only" | "not_available";
+            /** Runtime Type */
+            runtime_type: string | null;
+            /** Target Kinds */
+            target_kinds: ("continuous" | "continuous_positive" | "binary" | "count" | "ordinal" | "nominal_multiclass")[];
+            /** Validation Strategies */
+            validation_strategies: ("kfold" | "grouped_kfold" | "stratified_kfold" | "stratified_grouped_kfold" | "temporal_holdout" | "grouped_temporal")[];
+        };
         /** StandardizeOperation */
         StandardizeOperation: {
             /** Id */
@@ -12620,6 +12874,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeDiagnosticsReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_standard_estimator_readiness_catalog_api_developer_estimator_readiness_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandardEstimatorCatalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    post_standard_estimator_readiness_api_developer_estimator_readiness_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstimatorReadinessContext"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimatorReadinessResolution"];
                 };
             };
             /** @description Validation Error */

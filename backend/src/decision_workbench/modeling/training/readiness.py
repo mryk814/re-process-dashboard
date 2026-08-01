@@ -11,10 +11,14 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
-from decision_workbench.contracts.task_contracts import ContractModel
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
+from decision_workbench.contracts.task_contracts import ContractModel, OutputDefinition
 from decision_workbench.modeling.training.estimators import estimator_implementation
 from decision_workbench.modeling.training.recipe import estimator_recipe
-from decision_workbench.modeling.training.validation_plan import ValidationStrategy
+from decision_workbench.modeling.training.validation_plan import (
+    ValidationPlan,
+    ValidationStrategy,
+)
 
 
 READINESS_SCHEMA_VERSION = "standard-estimator-readiness/v1"
@@ -139,6 +143,9 @@ class EstimatorReadinessContext(ContractModel):
     feature_count: Annotated[int, Field(ge=0)]
     has_categorical_features: bool = False
     has_missing_features: bool = False
+    has_count_exposure: bool = False
+    observed_target_min: float | None = None
+    observed_targets_are_integers: bool | None = None
     target_contract: ContractStatus
     validation_plan: ContractStatus
     validation_strategy: ValidationStrategy | None = None
@@ -329,11 +336,13 @@ _CATALOG = StandardEstimatorCatalog(
             label="Logistic regression",
             target_kinds=("binary",),
             role="interpretable_baseline",
-            builder_status="not_available",
-            runtime_status="needs_adapter_allowlist",
-            runtime_type=None,
-            artifact_status="needs_adapter_allowlist",
-            artifact_format=None,
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("logistic.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("logistic.v1")[
+                "artifact_format"
+            ],
             required_dependency="skops",
             limits=EstimatorLimits(
                 min_rows=6,
@@ -360,12 +369,7 @@ _CATALOG = StandardEstimatorCatalog(
                 "balanced_accuracy",
                 "calibration",
             ),
-            fixed_parameters={
-                "regularization": "l2",
-                "c": 1.0,
-                "max_iter": 500,
-                "seed": 20260730,
-            },
+            fixed_parameters=_fixed_parameters("logistic.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="lightgbm-binary.v1",
@@ -414,11 +418,13 @@ _CATALOG = StandardEstimatorCatalog(
             label="Poisson regression",
             target_kinds=("count",),
             role="interpretable_baseline",
-            builder_status="not_available",
-            runtime_status="needs_adapter_allowlist",
-            runtime_type=None,
-            artifact_status="needs_adapter_allowlist",
-            artifact_format=None,
+            builder_status="standard_builder",
+            runtime_status="ready",
+            runtime_type=_implementation_fields("poisson.v1")["runtime_type"],
+            artifact_status="ready",
+            artifact_format=_implementation_fields("poisson.v1")[
+                "artifact_format"
+            ],
             required_dependency="skops",
             limits=EstimatorLimits(
                 min_rows=4,
@@ -444,10 +450,7 @@ _CATALOG = StandardEstimatorCatalog(
                 "mean_poisson_deviance",
                 "interval_coverage_90",
             ),
-            fixed_parameters={
-                "alpha": 1.0,
-                "max_iter": 500,
-            },
+            fixed_parameters=_fixed_parameters("poisson.v1"),
         ),
         StandardEstimatorEntry(
             estimator_id="numpyro-ordinal-external.v1",
@@ -596,6 +599,37 @@ def resolve_estimator_readiness(
             "needs_feature_recipe",
             ["a valid feature-recipe/v1 is required before standard authoring"],
         )
+    if context.target_kind == "count":
+        if context.has_count_exposure:
+            return _resolution(
+                context,
+                entry,
+                "out_of_scope",
+                [
+                    "count exposure requires a separate offset/exposure contract; "
+                    "poisson.v1 never ignores it"
+                ],
+            )
+        if (
+            context.observed_target_min is None
+            or context.observed_targets_are_integers is None
+        ):
+            return _resolution(
+                context,
+                entry,
+                "out_of_scope",
+                ["count target support must be inspected before authoring"],
+            )
+        if (
+            context.observed_target_min < 0
+            or not context.observed_targets_are_integers
+        ):
+            return _resolution(
+                context,
+                entry,
+                "out_of_scope",
+                ["poisson.v1 requires nonnegative integer observations"],
+            )
     if context.has_missing_features and context.missing_policy != "ready":
         return _resolution(
             context,
@@ -672,4 +706,65 @@ def resolve_estimator_readiness(
         entry,
         "ready",
         ["the requested estimator satisfies the declared bounded standard path"],
+    )
+
+
+def resolve_estimator_contract_readiness(
+    *,
+    estimator_id: str,
+    output: OutputDefinition,
+    validation_plan: ValidationPlan | None,
+    feature_recipe: FeatureRecipe | None,
+    row_count: int,
+    independent_group_count: int,
+    has_missing_features: bool = False,
+    missing_policy: ContractStatus = "ready",
+    observed_target_min: float | None = None,
+    observed_targets_are_integers: bool | None = None,
+    available_dependencies: frozenset[str] | None = None,
+) -> EstimatorReadinessResolution:
+    """Resolve from the typed contracts used by the real standard builder."""
+
+    return resolve_estimator_readiness(
+        EstimatorReadinessContext(
+            estimator_id=estimator_id,
+            target_kind=output.target_kind,
+            row_count=row_count,
+            independent_group_count=independent_group_count,
+            feature_count=(
+                len(feature_recipe.features)
+                if feature_recipe is not None
+                else 0
+            ),
+            has_categorical_features=(
+                any(operation.kind == "one_hot" for operation in feature_recipe.operations)
+                if feature_recipe is not None
+                else False
+            ),
+            has_missing_features=has_missing_features,
+            has_count_exposure=(
+                output.count is not None
+                and output.count.exposure_label is not None
+            ),
+            observed_target_min=observed_target_min,
+            observed_targets_are_integers=observed_targets_are_integers,
+            target_contract="ready",
+            validation_plan=(
+                "ready"
+                if validation_plan is not None
+                else "missing"
+            ),
+            validation_strategy=(
+                validation_plan.strategy
+                if validation_plan is not None
+                else None
+            ),
+            feature_recipe=(
+                "ready"
+                if feature_recipe is not None
+                else "missing"
+            ),
+            missing_policy=missing_policy,
+        ),
+        available_dependencies=available_dependencies,
     )

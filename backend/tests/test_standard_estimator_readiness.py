@@ -5,6 +5,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
+from decision_workbench.contracts.task_contracts import OutputDefinition
 from decision_workbench.modeling.training.estimators import estimator_implementation
 from decision_workbench.modeling.training.recipe import (
     ESTIMATOR_IDS,
@@ -12,9 +14,11 @@ from decision_workbench.modeling.training.recipe import (
 )
 from decision_workbench.modeling.training.readiness import (
     EstimatorReadinessContext,
+    resolve_estimator_contract_readiness,
     resolve_estimator_readiness,
     standard_estimator_catalog,
 )
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = (
@@ -46,6 +50,8 @@ def _context(
         ),
         "feature_recipe": "ready",
         "missing_policy": "ready",
+        "observed_target_min": 0 if target_kind == "count" else None,
+        "observed_targets_are_integers": True if target_kind == "count" else None,
     }
     values.update(changes)
     if values["validation_plan"] != "ready" and "validation_strategy" not in changes:
@@ -63,7 +69,8 @@ def test_catalog_covers_production_target_kinds_and_safe_artifacts() -> None:
         for kind in entry.target_kinds
     } >= {"continuous", "continuous_positive", "binary", "count", "ordinal"}
     assert all(
-        entry.artifact_format in {"bounded-npz", "lightgbm-native-text"}
+        entry.artifact_format
+        in {"bounded-npz", "lightgbm-native-text", "skops-allow-listed"}
         for entry in catalog.entries
         if entry.artifact_status == "ready"
     )
@@ -156,7 +163,7 @@ def test_nominal_multiclass_is_not_silently_reduced_to_binary() -> None:
     assert "never reduced to binary" in result.reasons[0]
 
 
-def test_current_and_pending_baseline_states_are_explicit() -> None:
+def test_current_baseline_states_are_explicit() -> None:
     ridge = resolve_estimator_readiness(_context("ridge.v1"))
     logistic = resolve_estimator_readiness(
         _context("logistic.v1", "binary"),
@@ -168,11 +175,82 @@ def test_current_and_pending_baseline_states_are_explicit() -> None:
     )
 
     assert ridge.status == "ready"
-    assert logistic.status == "out_of_scope"
-    assert poisson.status == "out_of_scope"
-    assert "builder is not shipped" in logistic.reasons[0]
-    assert logistic.runtime_type is None
-    assert poisson.artifact_format is None
+    assert logistic.status == "ready"
+    assert poisson.status == "ready"
+    assert logistic.runtime_type == "sklearn.skops.v1"
+    assert poisson.artifact_format == "skops-allow-listed"
+
+
+def test_contract_resolver_uses_count_semantics_validation_and_feature_recipe() -> None:
+    output = OutputDefinition(
+        key="defects",
+        label="欠陥数",
+        unit="個",
+        target_kind="count",
+        count={"count_unit": "個"},
+        goal_direction="at_most",
+        plausibility_range={"min": 0, "max": 100},
+        preferred_display_range={"min": 0, "max": 20},
+    )
+    validation = ValidationPlan(
+        strategy="grouped_kfold",
+        folds=3,
+        group_key="parent_key",
+    )
+    feature_recipe = FeatureRecipe.model_validate(
+        {
+            "id": "readiness-test",
+            "version": "1.0.0",
+            "canonical_input_paths": ["process.x"],
+            "operations": [
+                {
+                    "id": "x",
+                    "kind": "passthrough",
+                    "input": "process.x",
+                    "output": "x",
+                }
+            ],
+            "features": [
+                {"name": "x", "unit": "1", "meaning": "x", "group": "process"}
+            ],
+        }
+    )
+
+    ready = resolve_estimator_contract_readiness(
+        estimator_id="poisson.v1",
+        output=output,
+        validation_plan=validation,
+        feature_recipe=feature_recipe,
+        row_count=20,
+        independent_group_count=10,
+        observed_target_min=0,
+        observed_targets_are_integers=True,
+        available_dependencies=frozenset({"skops"}),
+    )
+    assert ready.status == "ready"
+
+    exposed = resolve_estimator_contract_readiness(
+        estimator_id="poisson.v1",
+        output=OutputDefinition(
+            key="defects",
+            label="欠陥数",
+            unit="個",
+            target_kind="count",
+            count={"count_unit": "個", "exposure_label": "面積"},
+            goal_direction="at_most",
+            plausibility_range={"min": 0, "max": 100},
+            preferred_display_range={"min": 0, "max": 20},
+        ),
+        validation_plan=validation,
+        feature_recipe=feature_recipe,
+        row_count=20,
+        independent_group_count=10,
+        observed_target_min=0,
+        observed_targets_are_integers=True,
+        available_dependencies=frozenset({"skops"}),
+    )
+    assert exposed.status == "out_of_scope"
+    assert "exposure" in exposed.reasons[0]
 
 
 def test_catalog_artifact_is_current() -> None:

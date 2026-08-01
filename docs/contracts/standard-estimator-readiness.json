@@ -179,11 +179,11 @@
         "binary"
       ],
       "role": "interpretable_baseline",
-      "builder_status": "not_available",
-      "runtime_status": "needs_adapter_allowlist",
-      "runtime_type": null,
-      "artifact_status": "needs_adapter_allowlist",
-      "artifact_format": null,
+      "builder_status": "standard_builder",
+      "runtime_status": "ready",
+      "runtime_type": "sklearn.skops.v1",
+      "artifact_status": "ready",
+      "artifact_format": "skops-allow-listed",
       "required_dependency": "skops",
       "limits": {
         "min_rows": 6,
@@ -211,10 +211,11 @@
         "calibration"
       ],
       "fixed_parameters": {
-        "regularization": "l2",
         "c": 1.0,
         "max_iter": 500,
-        "seed": 20260730
+        "folds": 5,
+        "seed": 20260730,
+        "calibration": "intrinsic-logistic-link"
       }
     },
     {
@@ -268,11 +269,11 @@
         "count"
       ],
       "role": "interpretable_baseline",
-      "builder_status": "not_available",
-      "runtime_status": "needs_adapter_allowlist",
-      "runtime_type": null,
-      "artifact_status": "needs_adapter_allowlist",
-      "artifact_format": null,
+      "builder_status": "standard_builder",
+      "runtime_status": "ready",
+      "runtime_type": "sklearn.skops.v1",
+      "artifact_status": "ready",
+      "artifact_format": "skops-allow-listed",
       "required_dependency": "skops",
       "limits": {
         "min_rows": 4,
@@ -300,7 +301,9 @@
       ],
       "fixed_parameters": {
         "alpha": 1.0,
-        "max_iter": 500
+        "max_iter": 500,
+        "folds": 5,
+        "seed": 20260730
       }
     },
     {
