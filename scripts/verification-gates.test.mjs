@@ -7,6 +7,7 @@ import {
   evaluateAcceptanceApplicability,
   getVerificationLevel,
   loadVerificationCatalog,
+  parseVerificationArguments,
   requiresBackendPytest,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
@@ -21,6 +22,42 @@ const planFor = (changedPaths, options = {}) => buildVerificationPlan({
   ...options,
 });
 const selectedIds = (plan) => plan.selectedGateIds;
+
+test("verification CLI keeps the documented direct focused-test syntax", () => {
+  assert.deepEqual(
+    parseVerificationArguments(["backend/tests/test_screening_score.py", "-k", "focused_case"]),
+    {
+      planOnly: false,
+      asJson: false,
+      risks: [],
+      reason: null,
+      focusedArgs: ["backend/tests/test_screening_score.py", "-k", "focused_case"],
+    },
+  );
+  assert.deepEqual(
+    parseVerificationArguments(["--risk", "backend-application", "--reason", "focused review", "--", "backend/tests/test_api.py"]),
+    {
+      planOnly: false,
+      asJson: false,
+      risks: ["backend-application"],
+      reason: "focused review",
+      focusedArgs: ["backend/tests/test_api.py"],
+    },
+  );
+});
+
+test("explicit focused tests are selected even when changed paths are not backend paths", () => {
+  const plan = planFor(
+    ["apps/web/src/features/data-library/DataLibraryPage.tsx"],
+    { focusedArgs: ["backend/tests/test_data_library_api.py"] },
+  );
+  assert.ok(selectedIds(plan).includes("focused-pytest"));
+  assert.deepEqual(plan.focusedTests, {
+    tests: ["backend/tests/test_data_library_api.py"],
+    source: "explicit",
+    fallback: false,
+  });
+});
 
 test("catalog declares four distinct levels, path rules, and complete gate metadata", () => {
   assert.deepEqual(catalog.levels.map((level) => level.id), ["edit", "pr", "checkpoint", "release"]);
