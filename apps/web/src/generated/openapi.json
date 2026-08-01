@@ -3889,6 +3889,44 @@
         "title": "CanonicalSeriesRevision",
         "type": "object"
       },
+      "CapabilityRequirement": {
+        "additionalProperties": false,
+        "properties": {
+          "alternative": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternative"
+          },
+          "capability": {
+            "enum": [
+              "mean_point",
+              "median_point",
+              "quantiles",
+              "standard_deviation",
+              "predictive_samples",
+              "joint_samples",
+              "parametric_distribution",
+              "goal_probability",
+              "support",
+              "explanation",
+              "normal_mean_std"
+            ],
+            "title": "Capability",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability"
+        ],
+        "title": "CapabilityRequirement",
+        "type": "object"
+      },
       "CategoricalDomain": {
         "additionalProperties": false,
         "properties": {
@@ -8218,6 +8256,14 @@
             "minLength": 1,
             "title": "Question",
             "type": "string"
+          },
+          "required_capabilities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CapabilityRequirement"
+            },
+            "title": "Required Capabilities",
+            "type": "array"
           },
           "required_operations": {
             "items": {
@@ -15728,6 +15774,14 @@
             "default": true,
             "title": "Production Enabled",
             "type": "boolean"
+          },
+          "required_capabilities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CapabilityRequirement"
+            },
+            "title": "Required Capabilities",
+            "type": "array"
           },
           "requires_acquisition_representation": {
             "anyOf": [

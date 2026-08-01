@@ -44,6 +44,7 @@ from decision_workbench.domain.design_space_validation import (
 from decision_workbench.persistence.store import Store
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from decision_workbench.modeling.package_capabilities import resolve_capabilities
 
 
 class DecisionActivityService:
@@ -140,6 +141,14 @@ class DecisionActivityService:
             for operation in definition.required_operations:
                 if not getattr(contract.runtime_capability.operations, operation):
                     reasons.append(f"{operation}に対応する予測runtimeがありません")
+            capability_resolution = resolve_capabilities(
+                self.registry.capability_matrix_for(project.task_id),
+                target=None,
+                requirements=definition.required_capabilities,
+            )
+            reasons.extend(
+                reason for reason in capability_resolution.reasons if reason not in reasons
+            )
             for resource in definition.required_resources:
                 if resource not in cached:
                     cached[resource] = checks[resource]()

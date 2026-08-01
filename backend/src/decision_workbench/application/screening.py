@@ -342,6 +342,7 @@ class ScreeningService:
                     ),
                     objective=objective,
                     design_space=design_space,
+                    capability_matrix=self.registry.capability_matrix_for(project.task_id),
                 )
             if payload.batch_definition is not None:
                 require_batch_selector(
@@ -711,6 +712,7 @@ class ScreeningService:
             objective=project.objective_definition,
             incumbent_value=incumbent_value,
             design_space=project.design_space,
+            capability_matrix=self.registry.capability_matrix_for(project.task_id),
         )
 
     def available_batch_selectors(

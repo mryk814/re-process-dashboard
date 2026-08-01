@@ -3698,6 +3698,16 @@ export interface components {
             /** Value Unit */
             value_unit: string;
         };
+        /** CapabilityRequirement */
+        CapabilityRequirement: {
+            /** Alternative */
+            alternative?: string | null;
+            /**
+             * Capability
+             * @enum {string}
+             */
+            capability: "mean_point" | "median_point" | "quantiles" | "standard_deviation" | "predictive_samples" | "joint_samples" | "parametric_distribution" | "goal_probability" | "support" | "explanation" | "normal_mean_std";
+        };
         /** CategoricalDomain */
         CategoricalDomain: {
             /** Choices */
@@ -5365,6 +5375,11 @@ export interface components {
             label: string;
             /** Question */
             question: string;
+            /**
+             * Required Capabilities
+             * @default []
+             */
+            required_capabilities: components["schemas"]["CapabilityRequirement"][];
             /** Required Operations */
             required_operations: "preview"[];
             /** Required Resources */
@@ -8173,6 +8188,11 @@ export interface components {
              * @default true
              */
             production_enabled: boolean;
+            /**
+             * Required Capabilities
+             * @default []
+             */
+            required_capabilities: components["schemas"]["CapabilityRequirement"][];
             /** Requires Acquisition Representation */
             requires_acquisition_representation?: ("normal_mean_std" | "posterior_samples" | "parametric_distribution" | "unsupported") | null;
             /**

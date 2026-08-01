@@ -558,3 +558,15 @@ def validate_predictive_summary(
         raise PackageContractError(f"predictor {spec.id!r} uncertainty-component capability does not match its smoke output")
     if capability.samples:
         raise PackageContractError(f"predictor {spec.id!r} declares samples that PredictiveSummary does not expose")
+    if capability.goal_probability == "normal_approximation" and not (
+        summary.point_statistic == "mean"
+        and family == "normal"
+        and has_standard_deviation
+    ):
+        raise PackageContractError(
+            f"predictor {spec.id!r} normal-approximation goal capability does not match its smoke output"
+        )
+    if capability.goal_probability == "distribution" and not has_parametric_distribution:
+        raise PackageContractError(
+            f"predictor {spec.id!r} distribution goal capability does not match its smoke output"
+        )
