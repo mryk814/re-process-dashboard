@@ -368,10 +368,15 @@ export function ProjectEvidenceHistoryList({
                         const definition = outputDefinition(actual.property);
                         const assessment = assessOutputValues(
                           definition,
-                          [actual.mean],
+                          actual.mean == null ? [] : [actual.mean],
                           "実測値",
                         );
                         const key = definition?.key ?? actual.property;
+                        const actualValue = actual.value_label
+                          ?? (definition?.target_kind === "binary"
+                            ? actual.mean === 1 ? definition.binary?.event_label : actual.mean === 0 ? definition.binary?.non_event_label : undefined
+                            : undefined)
+                          ?? formatOutputNumber(key, actual.mean ?? 0);
                         return <span
                           className={`history-actual${
                             assessment.implausible ? " implausible-output" : ""
@@ -382,7 +387,7 @@ export function ProjectEvidenceHistoryList({
                           実測 {definition?.label
                             ?? outputLabels.get(actual.property)
                             ?? actual.property}{" "}
-                          {formatOutputNumber(key, actual.mean)} ±{" "}
+                          {actualValue} ±{" "}
                           {formatOutputNumber(key, actual.std)}{" "}
                           {definition?.unit ?? actual.unit}
                           {actual.experiment_no ? ` / ${actual.experiment_no}` : ""}

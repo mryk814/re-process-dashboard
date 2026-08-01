@@ -67,6 +67,25 @@ function CoverageCell({
   </td>;
 }
 
+function QualityMetricCell({
+  quality,
+  targetKind,
+  classification,
+  format,
+}: {
+  quality: ApiModelPackage["quality_report"]["targets"][number] | undefined;
+  targetKind: string;
+  classification?: Record<string, number>;
+  format: (value: number) => string;
+}) {
+  if (targetKind === "binary") {
+    return <td>{classification ? <>AUC {number(classification.roc_auc ?? 0, 3)}<small>Brier {number(classification.brier_score ?? 0, 3)}</small></> : "分類指標なし"}</td>;
+  }
+  if (targetKind === "count") return <td>{quality ? `MAE ${format(quality.mae)}` : "deviance / MAE 未記録"}</td>;
+  if (targetKind === "ordinal") return <td>{quality ? `順序MAE ${format(quality.mae)}` : "順序精度 / MAE 未記録"}</td>;
+  return <td>{quality ? `RMSE ${format(quality.rmse)}` : "—"}</td>;
+}
+
 export function DeveloperAdminPage({
   project,
   taskDefinition,
@@ -158,7 +177,7 @@ export function DeveloperAdminPage({
         <div className="page-intro"><div><h2>予測タスク定義</h2><p>{taskDefinition?.label ?? "読み込み中"}で利用者が入力・確認する項目です。</p></div></div>
         {taskDefinition ? <>
           {taskDefinition.input_groups.map((group) => <section key={group.key}><h3>{group.label}</h3><table className="quality-table"><thead><tr><th>項目</th><th>単位</th><th>入力</th><th>標準範囲</th></tr></thead><tbody>{group.fields.map((field) => <tr key={field.path}><th>{field.label}</th><td>{field.unit ?? "—"}</td><td>{field.editable ? "編集可" : "固定"}</td><td>{field.default_range ? `${rangeNumber(field.default_range.min)}–${rangeNumber(field.default_range.max)}` : field.choices.join(" / ") || "—"}</td></tr>)}</tbody></table></section>)}
-          <section><h3>予測特性</h3><div className="admin-output-list">{taskDefinition.outputs.map((output) => <span key={output.key}><b>{output.label}</b>{output.unit} · {output.goal_direction === "at_most" ? "小さい側を目標" : output.goal_direction === "at_least" ? "大きい側を目標" : "方向なし"}</span>)}</div></section>
+          <section><h3>予測特性</h3><div className="admin-output-list">{taskDefinition.outputs.map((output) => <span key={output.key}><b>{output.label}</b>{output.unit} · {output.target_kind === "binary" ? `事象確率（${output.binary?.event_label} / ${output.binary?.non_event_label}）` : output.target_kind === "count" ? `件数（${output.count?.count_unit}）` : output.target_kind === "ordinal" ? `順序カテゴリ（${output.ordinal?.categories.join(" / ")}）` : output.goal_direction === "at_most" ? "小さい側を目標" : output.goal_direction === "at_least" ? "大きい側を目標" : "方向なし"}</span>)}</div></section>
           <details className="technical-contract"><summary>技術契約を表示</summary><code>{resolvedTaskDefinition?.task_definition.id}</code><span>{resolvedTaskDefinition?.task_definition.schema_version}</span><span>{resolvedTaskDefinition?.runtime_capability.model_package_schema_version}</span></details>
         </> : <p className="empty-evidence">予測タスク定義を読み込んでいます。</p>}
       </div>}
@@ -167,7 +186,7 @@ export function DeveloperAdminPage({
         {modelError && <p className="panel-error">{modelError}</p>}
         {modelPackage ? <>
           <div className="admin-model-identity"><span>有効</span><strong>{modelPackage.id}</strong><b>v{modelPackage.version}</b></div>
-          <table className="quality-table"><thead><tr><th>特性</th><th>実行方式</th><th>RMSE</th><th>90%予測区間の包含率</th></tr></thead><tbody>{(taskDefinition ? orderedTaskItems(taskDefinition, modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))) : modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))).map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); const unit = taskDefinition ? taskOutputUnit(taskDefinition, predictor.target) : ""; return <tr key={predictor.target}><th>{taskDefinition?.outputs.find((item) => item.key === predictor.target)?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><td>{quality ? `${taskDefinition ? formatTaskNumber(quality.rmse, taskDefinition, `output.${predictor.target}`, project?.display_decimals) : number(quality.rmse, 2)}${unit ? ` ${unit}` : ""}` : "—"}</td><CoverageCell quality={quality} predictiveFamily={predictor.predictive_family} /></tr>; })}</tbody></table>
+          <table className="quality-table"><thead><tr><th>特性</th><th>実行方式</th><th>評価指標</th><th>90%予測区間の包含率</th></tr></thead><tbody>{(taskDefinition ? orderedTaskItems(taskDefinition, modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))) : modelPackage.predictors.map((predictor) => ({ ...predictor, key: predictor.target }))).map((predictor) => { const quality = modelPackage.quality_report.targets.find((item) => item.target === predictor.target); const output = taskDefinition?.outputs.find((item) => item.key === predictor.target); const targetKind = output?.target_kind ?? "continuous"; const unit = taskDefinition ? taskOutputUnit(taskDefinition, predictor.target) : ""; const formatQuality = (value: number) => `${taskDefinition ? formatTaskNumber(value, taskDefinition, `output.${predictor.target}`, project?.display_decimals) : number(value, 2)}${unit ? ` ${unit}` : ""}`; return <tr key={predictor.target}><th>{output?.label ?? predictor.target}</th><td>{predictor.runtime_type}</td><QualityMetricCell quality={quality} targetKind={targetKind} classification={modelPackage.classification_diagnostics?.[predictor.target]} format={formatQuality} /><CoverageCell quality={quality} predictiveFamily={predictor.predictive_family} /></tr>; })}</tbody></table>
           {resolvedTaskDefinition?.model_package_capability && <section><h3>Model capability matrix</h3><table className="quality-table"><thead><tr><th>特性</th><th>点予測</th><th>分位点</th><th>標準偏差</th><th>sample / joint</th><th>分布・目標確率</th></tr></thead><tbody>{resolvedTaskDefinition.model_package_capability.targets.map((capability) => <tr key={capability.target}><th>{capability.target}</th><td>{capability.point_statistics.join(" / ")}</td><td>{capability.quantiles ? "あり" : "なし"}</td><td>{capability.standard_deviation ? "あり" : "なし"}</td><td>{`${capability.predictive_samples ? "あり" : "なし"} / ${resolvedTaskDefinition.model_package_capability!.joint_samples ? "あり" : "なし"}`}</td><td>{`${capability.predictive_family} / ${capability.goal_probability}`}</td></tr>)}</tbody></table><small>backendが解決した固定Packageの能力行列です。分位点だけをnormal mean/stdとして扱いません。</small></section>}
           <div className="runtime-list">{modelPackage.supported_runtimes.map((item) => <span className={item.available ? "available" : "optional"} key={item.runtime_type}>{item.runtime_type}{item.available ? " ✓" : " (追加導入)"}</span>)}</div>
           {project?.id && <ModelTrainingDataInspector projectId={project.id} modelPackage={modelPackage} taskDefinition={taskDefinition} />}

@@ -4,6 +4,9 @@ export type OutputDefinitionLike = {
   key: string;
   label: string;
   unit: string;
+  target_kind?: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
+  binary?: { event_label: string; non_event_label: string } | null;
+  ordinal?: { categories: string[] } | null;
   measurement_keys?: string[];
   plausibility_range?: OutputRange | null;
   preferred_display_range?: OutputRange | null;

@@ -439,6 +439,21 @@ def validate_task_definition_canonical_inputs(
             "model package canonical input order does not match TaskDefinition: "
             f"expected {expected}, got {actual}"
         )
+    task_outputs = {output.key: output for output in task_definition.outputs}
+    package_outputs = {predictor.target: predictor for predictor in manifest.predictors}
+    if set(package_outputs) != set(task_outputs):
+        raise PackageContractError("model package outputs do not match TaskDefinition")
+    mismatched_kinds = {
+        key: (task_outputs[key].target_kind, package_outputs[key].target_kind)
+        for key in task_outputs
+        if "target_kind" in task_outputs[key].model_fields_set
+        and task_outputs[key].target_kind != package_outputs[key].target_kind
+    }
+    if mismatched_kinds:
+        raise PackageContractError(
+            "model package target kinds do not match TaskDefinition: "
+            f"{mismatched_kinds}"
+        )
 
 
 class ConformalIntervalCalibration(PackageModel):

@@ -290,6 +290,28 @@ class TaskRegistry:
                 f"model package output units do not match TaskDefinition for {task_id}: "
                 f"{mismatched_units}"
             )
+        output_kinds = {
+            output.key: output.target_kind
+            for output in self._contracts[task_id].task_definition.outputs
+        }
+        package_kinds = {
+            predictor.target: predictor.target_kind
+            for predictor in package.manifest.predictors
+        }
+        mismatched_kinds = {
+            key: (output_kinds[key], package_kinds[key])
+            for key in expected
+            if "target_kind" in next(
+                output for output in self._contracts[task_id].task_definition.outputs
+                if output.key == key
+            ).model_fields_set
+            and output_kinds[key] != package_kinds[key]
+        }
+        if mismatched_kinds:
+            raise TaskRegistryError(
+                f"model package target kinds do not match TaskDefinition for {task_id}: "
+                f"{mismatched_kinds}"
+            )
         if runtime.output_keys != frozenset(expected):
             raise TaskRegistryError(
                 f"runtime outputs do not match TaskDefinition for {task_id}: "

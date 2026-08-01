@@ -232,7 +232,12 @@ def runtime_capability_digest(capability: RuntimeCapability) -> str:
     # preserves the immutable digest of every pre-existing Package.
     if not payload["operations"].get("target_specific_similarity", False):
         payload["operations"].pop("target_specific_similarity", None)
-    for target in payload["targets"]:
+    for model_target, target in zip(capability.targets, payload["targets"], strict=True):
+        # `target_kind=continuous` was introduced after existing Package
+        # capability digests.  Preserve those immutable artifact identities
+        # unless a Task explicitly opted into the semantic field.
+        if "target_kind" not in model_target.model_fields_set:
+            target.pop("target_kind", None)
         if not target.get("explanation", False):
             target.pop("explanation", None)
     return _semantic_digest(payload)

@@ -68,3 +68,16 @@ test("actual panel compares against the immutable registered snapshot", async ()
   assert.doesNotMatch(source, /previewsByCandidate|previewCandidate/);
   assert.match(source, /現在の候補やPackageが変わっても自動更新しません/);
 });
+
+test("actual panel asks for task-declared event and ordinal labels, not a regression number", async () => {
+  const source = await readFile(
+    new URL("../src/features/workbench/ActualMeasurementPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /targetKind === "binary"/);
+  assert.match(source, /selectedOutput\?\.binary\?\.event_label/);
+  assert.match(source, /targetKind === "ordinal"/);
+  assert.match(source, /selectedOutput\?\.ordinal\?\.categories/);
+  assert.match(source, /targetKind === "count" \? "1" : "any"/);
+  assert.match(source, /actual\.value_label/);
+});

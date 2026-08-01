@@ -555,6 +555,7 @@ class EvidenceRepository:
             snapshot_id=row["snapshot_id"],
             property=row["property"],
             mean=row["mean"],
+            value_label=row["value_label"] if "value_label" in row.keys() else None,
             std=row["std"],
             replicates=row["replicates"],
             unit=row["unit"],

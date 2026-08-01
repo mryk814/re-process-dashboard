@@ -1062,13 +1062,14 @@ class WorkbenchUnitOfWork:
                 ),
             )
             conn.execute(
-                "INSERT INTO actual_measurements(id, candidate_id, snapshot_id, property, mean, std, replicates, unit, experiment_no, measured_at, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO actual_measurements(id, candidate_id, snapshot_id, property, mean, value_label, std, replicates, unit, experiment_no, measured_at, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     actual_id,
                     candidate_id,
                     snapshot_id,
                     payload.property,
                     payload.mean,
+                    payload.value_label,
                     payload.std,
                     payload.replicates,
                     payload.unit,

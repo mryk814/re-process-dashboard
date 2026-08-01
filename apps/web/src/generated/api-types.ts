@@ -2475,7 +2475,7 @@ export interface components {
             /** Id */
             id: string;
             /** Mean */
-            mean: number;
+            mean?: number | null;
             /** Measured At */
             measured_at?: string | null;
             /**
@@ -2499,6 +2499,10 @@ export interface components {
             std: number;
             /** Unit */
             unit: string;
+            /** Value */
+            value?: number | string | boolean | null;
+            /** Value Label */
+            value_label?: string | null;
         };
         /** ActualMeasurementInput */
         ActualMeasurementInput: {
@@ -2508,7 +2512,7 @@ export interface components {
              */
             experiment_no: string;
             /** Mean */
-            mean: number;
+            mean?: number | null;
             /** Measured At */
             measured_at?: string | null;
             /**
@@ -2530,6 +2534,10 @@ export interface components {
             std: number;
             /** Unit */
             unit: string;
+            /** Value */
+            value?: number | string | boolean | null;
+            /** Value Label */
+            value_label?: string | null;
         };
         /** AiActorIdentity */
         AiActorIdentity: {
@@ -3240,6 +3248,13 @@ export interface components {
             selector_id: "ranked_top_k_v1" | "greedy_value_diversity_v1" | "cluster_representative_v1" | "local_penalization_v1" | "batch_thompson_v1" | "joint_q_acquisition_v1";
             /** Version */
             version: string;
+        };
+        /** BinaryOutputSemantics */
+        BinaryOutputSemantics: {
+            /** Event Label */
+            event_label: string;
+            /** Non Event Label */
+            non_event_label: string;
         };
         /** BlendEditorContext */
         BlendEditorContext: {
@@ -5013,6 +5028,13 @@ export interface components {
             target: string;
             /** Unit */
             unit: string;
+        };
+        /** CountOutputSemantics */
+        CountOutputSemantics: {
+            /** Count Unit */
+            count_unit: string;
+            /** Exposure Label */
+            exposure_label?: string | null;
         };
         /** CriticalInput */
         CriticalInput: {
@@ -6981,6 +7003,12 @@ export interface components {
         ModelPackageStatus: {
             /** Active Runtimes */
             active_runtimes: string[];
+            /** Classification Diagnostics */
+            classification_diagnostics?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
             /** Id */
             id: string;
             /** Manifest Sha256 */
@@ -7398,8 +7426,15 @@ export interface components {
             runtime_types: string[];
             total_duration_ms: components["schemas"]["DurationDiagnostic"];
         };
+        /** OrdinalOutputSemantics */
+        OrdinalOutputSemantics: {
+            /** Categories */
+            categories: string[];
+        };
         /** OutputDefinition */
         OutputDefinition: {
+            binary?: components["schemas"]["BinaryOutputSemantics"] | null;
+            count?: components["schemas"]["CountOutputSemantics"] | null;
             /**
              * Goal Direction
              * @enum {string}
@@ -7414,8 +7449,15 @@ export interface components {
              * @default []
              */
             measurement_keys: string[];
+            ordinal?: components["schemas"]["OrdinalOutputSemantics"] | null;
             plausibility_range: components["schemas"]["NumericRange"] | null;
             preferred_display_range: components["schemas"]["NumericRange"] | null;
+            /**
+             * Target Kind
+             * @default continuous
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
             /** Unit */
             unit: string;
         };
@@ -10943,6 +10985,12 @@ export interface components {
             support: boolean;
             /** Target */
             target: string;
+            /**
+             * Target Kind
+             * @default continuous
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
             /** Uncertainty Components */
             uncertainty_components: boolean;
             /** Warnings */

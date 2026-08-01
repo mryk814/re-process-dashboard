@@ -114,13 +114,27 @@ class ScreeningRequest(BaseModel):
 
 class ActualMeasurementInput(BaseModel):
     property: Annotated[str, Field(min_length=1)]
-    mean: Annotated[float, Field(allow_inf_nan=False)]
+    # `mean` remains the canonical numeric representation used by existing
+    # continuous snapshots.  `value` carries an observed event/category when a
+    # task has non-numeric output semantics; RecordService resolves it against
+    # the TaskDefinition before persistence.
+    mean: Annotated[float | None, Field(default=None, allow_inf_nan=False)] = None
+    value: float | str | bool | None = None
+    value_label: str | None = None
     std: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0
     replicates: Annotated[int, Field(ge=1, le=999)] = 1
     unit: Annotated[str, Field(min_length=1)]
     experiment_no: str = ""
     measured_at: date | None = None
     note: str = ""
+
+    @model_validator(mode="after")
+    def has_one_observed_value(self) -> "ActualMeasurementInput":
+        if (self.mean is None) == (self.value is None):
+            raise ValueError("実測にはmeanまたは意味付きvalueを一つ指定します")
+        if self.value_label is not None and type(self) is ActualMeasurementInput:
+            raise ValueError("value_labelはTask契約から決まるため指定できません")
+        return self
 
 
 class ActualMeasurement(ActualMeasurementInput):
@@ -381,6 +395,7 @@ class ModelPackageStatus(BaseModel):
     supported_runtimes: list[RuntimeAvailability]
     predictors: list[ModelPackagePredictorStatus]
     quality_report: ModelQualityReport
+    classification_diagnostics: dict[str, dict[str, float]] = Field(default_factory=dict)
 
 
 class TrainingDataColumn(BaseModel):

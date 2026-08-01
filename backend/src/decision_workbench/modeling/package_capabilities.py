@@ -34,6 +34,8 @@ def package_capability_matrix(
     targets = []
     for target, predictor in predictors.items():
         item = declared[target]
+        if "target_kind" in item.model_fields_set and item.target_kind != predictor.target_kind:
+            raise ValueError("model package target kind does not match runtime capability")
         targets.append(TargetCapabilityMatrix(
             target=target, target_kind=predictor.target_kind,
             predictive_family=predictor.predictive_family,

@@ -112,6 +112,13 @@ class OutputDefinition(ContractModel):
     key: Annotated[str, Field(min_length=1, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
     label: Annotated[str, Field(min_length=1)]
     unit: Annotated[str, Field(min_length=1)]
+    # Output semantics belong to the Task contract, rather than being inferred
+    # from a predictor name or a display unit.  The default preserves v1
+    # continuous task documents while every non-continuous task is explicit.
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"] = "continuous"
+    binary: "BinaryOutputSemantics | None" = None
+    count: "CountOutputSemantics | None" = None
+    ordinal: "OrdinalOutputSemantics | None" = None
     goal_direction: Literal["at_least", "at_most", "target"]
     measurement_keys: tuple[Annotated[str, Field(min_length=1)], ...] = ()
     plausibility_range: NumericRange | None
@@ -125,7 +132,48 @@ class OutputDefinition(ContractModel):
             and not self.plausibility_range.contains(self.preferred_display_range)
         ):
             raise ValueError("preferred_display_range must be contained by plausibility_range")
+        semantic_fields = {
+            "binary": self.binary,
+            "count": self.count,
+            "ordinal": self.ordinal,
+        }
+        required = semantic_fields.get(self.target_kind)
+        if self.target_kind in semantic_fields and required is None:
+            raise ValueError(f"{self.target_kind} outputs require explicit semantics")
+        if any(value is not None for key, value in semantic_fields.items() if key != self.target_kind):
+            raise ValueError("output semantics must match target_kind")
+        if self.target_kind in {"binary", "ordinal"} and self.unit not in {"", "1"}:
+            raise ValueError("binary and ordinal outputs must use a dimensionless unit")
+        if self.target_kind == "count" and self.plausibility_range is not None and self.plausibility_range.min < 0:
+            raise ValueError("count output plausibility range must be nonnegative")
         return self
+
+
+class BinaryOutputSemantics(ContractModel):
+    event_label: Annotated[str, Field(min_length=1)]
+    non_event_label: Annotated[str, Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def labels_are_distinct(self) -> "BinaryOutputSemantics":
+        if self.event_label == self.non_event_label:
+            raise ValueError("binary event and non-event labels must differ")
+        return self
+
+
+class CountOutputSemantics(ContractModel):
+    count_unit: Annotated[str, Field(min_length=1)]
+    exposure_label: Annotated[str, Field(min_length=1)] | None = None
+
+
+class OrdinalOutputSemantics(ContractModel):
+    categories: Annotated[tuple[Annotated[str, Field(min_length=1)], ...], Field(min_length=2)]
+
+    @field_validator("categories")
+    @classmethod
+    def categories_are_ordered_and_unique(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("ordinal categories must be unique")
+        return value
 
 
 class FixedContextDefinition(ContractModel):
@@ -397,6 +445,7 @@ class CanonicalCandidate(ContractModel):
 
 class TargetRuntimeCapability(ContractModel):
     target: Annotated[str, Field(min_length=1)]
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"] = "continuous"
     point_statistics: Annotated[
         tuple[Literal["mean", "median", "probability", "rate", "expected_category"], ...],
         Field(min_length=1),
@@ -420,6 +469,15 @@ class TargetRuntimeCapability(ContractModel):
 
     @model_validator(mode="after")
     def goal_probability_has_required_representation(self) -> "TargetRuntimeCapability":
+        expected_statistic = {
+            "continuous": {"mean", "median"},
+            "continuous_positive": {"mean", "median"},
+            "binary": {"probability"},
+            "count": {"rate"},
+            "ordinal": {"expected_category"},
+        }[self.target_kind]
+        if "target_kind" in self.model_fields_set and not set(self.point_statistics) <= expected_statistic:
+            raise ValueError("runtime point statistics must match target kind")
         if self.goal_probability == "samples" and not self.samples:
             raise ValueError("sample-based goal probability requires samples")
         if self.goal_probability == "distribution" and not self.parametric_distribution:
@@ -703,6 +761,18 @@ class TaskContractFixture(ContractModel):
         actual_targets = {target.target for target in capability.targets}
         if actual_targets != expected_targets:
             raise ValueError("runtime capability targets must exactly match task outputs")
+        output_kinds = {
+            output.key: output.target_kind
+            for output in task.outputs
+            if "target_kind" in output.model_fields_set
+        }
+        runtime_targets = {target.target: target for target in capability.targets}
+        if any(
+            "target_kind" in runtime_targets[key].model_fields_set
+            and runtime_targets[key].target_kind != kind
+            for key, kind in output_kinds.items()
+        ):
+            raise ValueError("runtime capability target kinds must match task outputs")
 
         groups = {group.key: group for group in task.input_groups}
         candidate_values: dict[str, Any] = {
