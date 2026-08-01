@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
+const csvEstimatorOptions = [
+  { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 } },
+  { estimator_id: "lightgbm-regression.v1", label: "LightGBM 回帰", summary: "非線形な関係を表せる tree 系。", available: true, unavailable_reason: null, dependency: "lightgbm", point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "moderate", artifact_size: "moderate", fixed_parameters: { num_boost_round: 200, folds: 5, seed: 20260730, predictive_family: "empirical_quantiles" } },
+];
+
 test("Data Library keeps models in the selected dataset context", async ({ page }) => {
   await page.goto("/?view=data-library");
 
@@ -143,6 +148,8 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
           rows: 103,
           relations: 0,
           task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+          estimators: csvEstimatorOptions,
+          default_estimator_id: "ridge.v1",
           notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
@@ -178,6 +185,10 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await expect(newTask).toContainText("入力 0項目");
   await expect(newTask).toContainText("出力 0項目");
   await expect(newTask).toContainText("欠損 2件 / 103件");
+  await expect(newTask.getByLabel("標準Estimator")).toHaveValue("ridge.v1");
+  await newTask.getByLabel("標準Estimator").selectOption("lightgbm-regression.v1");
+  await expect(newTask).toContainText("非線形な関係を表せる tree 系");
+  await expect(newTask).toContainText("予測: 平均 ・分位点");
   for (let index = 0; index < 10; index += 1) {
     await newTask.locator(".csv-task-columns article").nth(index).getByLabel("役割").selectOption(index < 7 ? "composition" : "output");
   }
@@ -202,6 +213,8 @@ test("new Task onboarding explains unresolved domain ranges before preparation",
           rows: 103,
           relations: 0,
           task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+          estimators: csvEstimatorOptions,
+          default_estimator_id: "ridge.v1",
           notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
@@ -261,6 +274,8 @@ test("CSV onboarding validates Japanese canonical keys, task ID, observed traini
         rows: 2,
         relations: 0,
         task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+        estimators: csvEstimatorOptions,
+        default_estimator_id: "ridge.v1",
         grain: "one-row-one-observation",
         notice: "観測範囲は要約です。",
         columns: [

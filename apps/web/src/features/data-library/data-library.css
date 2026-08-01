@@ -33,6 +33,12 @@
 .csv-task-onboarding input, .csv-task-onboarding select { min-width: 0; border: 1px solid #cbd6e2; border-radius: 4px; background: #fff; padding: 7px 8px; color: #26394d; }
 .csv-task-summary { display: flex; flex-wrap: wrap; gap: 6px; }
 .csv-task-summary span { border: 1px solid #cbd6e2; border-radius: 999px; background: #f1f7fd; padding: 3px 7px; color: #405a75; font-size: 11px; }
+.csv-task-estimator { display: grid; gap: 6px; margin: 0; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fbff; padding: 9px; }
+.csv-task-estimator legend { padding: 0 4px; color: #29435f; font-size: 11px; font-weight: 700; }
+.csv-task-estimator label { display: grid; gap: 4px; color: #526276; font-size: 11px; }
+.csv-task-estimator > div { display: grid; gap: 3px; color: #405a75; font-size: 11px; }
+.csv-task-estimator strong { color: #29435f; font-weight: 600; }
+.csv-task-estimator p { margin: 0; color: #b42318; }
 .csv-task-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
 .csv-task-columns article { display: grid; gap: 7px; min-width: 0; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fbff; padding: 9px; }
 .csv-task-columns strong { color: #29435f; font-size: 12px; overflow-wrap: anywhere; }

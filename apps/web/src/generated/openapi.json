@@ -6912,6 +6912,17 @@
             "title": "Columns",
             "type": "array"
           },
+          "default_estimator_id": {
+            "title": "Default Estimator Id",
+            "type": "string"
+          },
+          "estimators": {
+            "items": {
+              "$ref": "#/components/schemas/CsvOnboardingEstimatorOption"
+            },
+            "title": "Estimators",
+            "type": "array"
+          },
           "grain": {
             "const": "one-row-one-observation",
             "title": "Grain",
@@ -6950,9 +6961,130 @@
           "grain",
           "columns",
           "task_id_contract",
+          "estimators",
+          "default_estimator_id",
           "notice"
         ],
         "title": "CsvInspectionResponse",
+        "type": "object"
+      },
+      "CsvOnboardingEstimatorOption": {
+        "additionalProperties": false,
+        "description": "A reviewed standard builder the CSV flow may present to a user.\n\nThis is deliberately narrower than ``ESTIMATOR_IDS``.  The latter is the\ninternal recipe universe; this list is the user-facing allow-list for a\nnew continuous tabular Task.  Keeping the distinction here prevents the\nUI from turning an estimator name into a free-form runtime selector.",
+        "properties": {
+          "artifact_size": {
+            "enum": [
+              "small",
+              "moderate"
+            ],
+            "title": "Artifact Size",
+            "type": "string"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "dependency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dependency"
+          },
+          "estimator_id": {
+            "enum": [
+              "ridge.v1",
+              "lightgbm-regression.v1"
+            ],
+            "title": "Estimator Id",
+            "type": "string"
+          },
+          "fixed_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Fixed Parameters",
+            "type": "object"
+          },
+          "goal_probability": {
+            "const": "unavailable",
+            "default": "unavailable",
+            "title": "Goal Probability",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "parametric_distribution": {
+            "default": false,
+            "title": "Parametric Distribution",
+            "type": "boolean"
+          },
+          "point_statistic": {
+            "const": "mean",
+            "default": "mean",
+            "title": "Point Statistic",
+            "type": "string"
+          },
+          "quantiles": {
+            "default": true,
+            "title": "Quantiles",
+            "type": "boolean"
+          },
+          "standard_deviation": {
+            "default": false,
+            "title": "Standard Deviation",
+            "type": "boolean"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "training_cost": {
+            "enum": [
+              "light",
+              "moderate"
+            ],
+            "title": "Training Cost",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "estimator_id",
+          "label",
+          "summary",
+          "available",
+          "training_cost",
+          "artifact_size",
+          "fixed_parameters"
+        ],
+        "title": "CsvOnboardingEstimatorOption",
         "type": "object"
       },
       "CsvPrepareResponse": {

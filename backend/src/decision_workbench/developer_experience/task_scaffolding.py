@@ -19,12 +19,15 @@ from openpyxl import load_workbook
 from decision_workbench.contracts.task_contracts import TaskContractFixture
 from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.modeling.tabular.profile import TabularDatasetProfile
-from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.recipe import (
+    CSV_ONBOARDING_ESTIMATOR_IDS,
+    estimator_recipe,
+)
 
 
 TASK_BUNDLE_SCHEMA_VERSION = "external-task-bundle/v1"
 TASK_SCAFFOLD_SCHEMA_VERSION = "task-scaffold/v1"
-SUPPORTED_ESTIMATORS = ("ridge.v1", "lightgbm-regression.v1")
+SUPPORTED_ESTIMATORS = CSV_ONBOARDING_ESTIMATOR_IDS
 TASK_ID_PATTERN = r"^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$"
 TASK_ID_MIN_LENGTH = 6
 TASK_ID_EXAMPLE = "concrete-slump-v1"
@@ -401,6 +404,7 @@ def create_task_scaffold(
             },
             "fields": [field.__dict__ for field in fields],
             "estimator": estimator_recipe(estimator_id).model_dump(mode="json"),
+            "standard_estimator_ids": list(SUPPORTED_ESTIMATORS),
             "unresolved": unresolved,
             "safety": {
                 "meaning_and_units_confirmed": not unresolved,
@@ -612,6 +616,7 @@ def create_task_scaffold(
             "task_definition_path": task_path.name,
             "training_recipe_path": recipe_path.name,
             "estimator_id": estimator_id,
+            "standard_estimator_ids": list(SUPPORTED_ESTIMATORS),
             "package_path": None,
             "loads_python_code": False,
             "grain_confirmation": grain_confirmation,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, TypeAdapter
@@ -57,6 +58,93 @@ ESTIMATOR_IDS = (
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
 )
+
+
+class CsvOnboardingEstimatorOption(ContractModel):
+    """A reviewed standard builder the CSV flow may present to a user.
+
+    This is deliberately narrower than ``ESTIMATOR_IDS``.  The latter is the
+    internal recipe universe; this list is the user-facing allow-list for a
+    new continuous tabular Task.  Keeping the distinction here prevents the
+    UI from turning an estimator name into a free-form runtime selector.
+    """
+
+    estimator_id: Literal["ridge.v1", "lightgbm-regression.v1"]
+    label: str
+    summary: str
+    available: bool
+    unavailable_reason: str | None = None
+    dependency: str | None = None
+    point_statistic: Literal["mean"] = "mean"
+    quantiles: bool = True
+    standard_deviation: bool = False
+    parametric_distribution: bool = False
+    goal_probability: Literal["unavailable"] = "unavailable"
+    training_cost: Literal["light", "moderate"]
+    artifact_size: Literal["small", "moderate"]
+    fixed_parameters: dict[str, int | float | str]
+
+
+CSV_ONBOARDING_ESTIMATOR_IDS = (
+    "ridge.v1",
+    "lightgbm-regression.v1",
+)
+
+
+def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ...]:
+    """Return the only standard estimators a new CSV regression Task may use.
+
+    Checking a pinned optional dependency without importing it lets the UI
+    explain an unavailable reviewed option before it starts the compensating
+    build/promote operation.  It never discovers arbitrary Python modules.
+    """
+
+    lightgbm_available = find_spec("lightgbm") is not None
+    return (
+        CsvOnboardingEstimatorOption(
+            estimator_id="ridge.v1",
+            label="Ridge 回帰（既定）",
+            summary="軽量な線形 baseline。平均予測と経験的な予測区間を返します。",
+            available=True,
+            training_cost="light",
+            artifact_size="small",
+            fixed_parameters=estimator_recipe("ridge.v1").model_dump(mode="json", exclude={"estimator_id"}),
+        ),
+        CsvOnboardingEstimatorOption(
+            estimator_id="lightgbm-regression.v1",
+            label="LightGBM 回帰",
+            summary="非線形な関係を表せる tree 系。平均予測と経験的な予測区間を返します。",
+            available=lightgbm_available,
+            unavailable_reason=(
+                None
+                if lightgbm_available
+                else "この実行環境には allow-list 済み LightGBM runtime がありません。"
+            ),
+            dependency="lightgbm",
+            training_cost="moderate",
+            artifact_size="moderate",
+            fixed_parameters={
+                "num_boost_round": 200,
+                "folds": 5,
+                "seed": 20260730,
+                "predictive_family": "empirical_quantiles",
+            },
+        ),
+    )
+
+
+def csv_onboarding_estimator_recipe(estimator_id: str) -> ConcreteEstimatorRecipe:
+    """Resolve one available, fixed-parameter CSV onboarding recipe."""
+
+    option = next(
+        (item for item in csv_onboarding_estimator_options() if item.estimator_id == estimator_id),
+        None,
+    )
+    if option is None:
+        raise ValueError("CSV onboarding does not allow the requested estimator")
+    if not option.available:
+        raise ValueError(option.unavailable_reason or "CSV onboarding estimator is unavailable")
+    return estimator_recipe(estimator_id)
 
 
 def estimator_recipe(

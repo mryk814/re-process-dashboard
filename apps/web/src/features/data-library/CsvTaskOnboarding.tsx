@@ -3,6 +3,7 @@ import type { components } from "../../generated/api-types";
 import { inspectCsvOnboarding, prepareCsvOnboarding } from "../../shared/api/client";
 
 type Column = components["schemas"]["CsvInspectionColumn"];
+type Estimator = components["schemas"]["CsvOnboardingEstimatorOption"];
 type FieldRole = "" | "composition" | "process" | "categorical" | "output";
 type Field = { column: string; role: FieldRole; key: string; label: string; unit: string; goal_direction: "at_least" | "at_most" | "target"; allowed_range: string; default_range: string; training_range: string; plausible_range: string; display_range: string };
 type OnboardingError = components["schemas"]["ApiError"];
@@ -94,6 +95,8 @@ export function CsvTaskOnboarding({
   const [relationsConfirmed, setRelationsConfirmed] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [taskIdContract, setTaskIdContract] = useState<TaskIdContract | null>(null);
+  const [estimators, setEstimators] = useState<Estimator[]>([]);
+  const [estimatorId, setEstimatorId] = useState("");
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -112,6 +115,8 @@ export function CsvTaskOnboarding({
     setRows(data.rows);
     setColumns(data.columns);
     setTaskIdContract(data.task_id_contract);
+    setEstimators(data.estimators);
+    setEstimatorId(data.default_estimator_id);
     setGrainConfirmed(false);
     setRelationsConfirmed(false);
     setFields(initialFields(data.columns));
@@ -122,12 +127,15 @@ export function CsvTaskOnboarding({
 
   const inputCount = fields.filter((field) => field.role === "composition" || field.role === "process" || field.role === "categorical").length;
   const outputCount = fields.filter((field) => field.role === "output").length;
+  const selectedEstimator = estimators.find((item) => item.estimator_id === estimatorId);
   const taskIdIsValid = taskIdContract !== null && new RegExp(taskIdContract.pattern).test(taskId) && taskId.length >= taskIdContract.min_length;
   const preparationBlockers: string[] = [];
   if (!file) preparationBlockers.push("CSVファイルを選択してください");
   if (!taskId.trim()) preparationBlockers.push("Task IDを入力してください");
   else if (!taskIdIsValid) preparationBlockers.push(`Task IDは利用可能文字と形式を確認してください（例: ${taskIdContract?.example ?? "—"}）`);
   if (!label.trim()) preparationBlockers.push("表示名を入力してください");
+  if (!selectedEstimator) preparationBlockers.push("標準Estimatorを選択してください");
+  else if (!selectedEstimator.available) preparationBlockers.push(selectedEstimator.unavailable_reason ?? "選択したEstimatorはこの環境で利用できません");
   if (!inputCount) preparationBlockers.push("入力列を1項目以上指定してください");
   if (!outputCount) preparationBlockers.push("出力列を1項目以上指定してください");
 
@@ -169,7 +177,7 @@ export function CsvTaskOnboarding({
       file,
       task_id: taskId,
       label,
-      estimator_id: "ridge.v1",
+      estimator_id: estimatorId,
       fields_json: JSON.stringify(payload),
       grain_confirmation: "one-row-one-observation",
       relation_confirmation: "no-relations",
@@ -197,12 +205,13 @@ export function CsvTaskOnboarding({
 
   return <section className="csv-task-onboarding" aria-labelledby="csv-task-onboarding-heading">
     <header><span className="overline">CSV NEW TASK</span><h3 id="csv-task-onboarding-heading">CSVから新しい予測問題を準備</h3><p>元CSVは読取専用です。観測範囲は表示するだけで、物理範囲には自動設定しません。</p></header>
-    <label>CSVファイル<input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setRows(0); setColumns([]); setFields([]); setTaskIdContract(null); setGrainConfirmed(false); setRelationsConfirmed(false); }} /></label>
+    <label>CSVファイル<input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setRows(0); setColumns([]); setFields([]); setTaskIdContract(null); setEstimators([]); setEstimatorId(""); setGrainConfirmed(false); setRelationsConfirmed(false); }} /></label>
     <button className="outline-button" type="button" disabled={!file || loading} onClick={() => void inspect()}>{loading ? "確認中…" : "CSVをプレビュー"}</button>
     {columns.length > 0 && <>
       <label>Task ID<input value={taskId} onChange={(event) => setTaskId(event.target.value)} placeholder={taskIdContract?.example ?? ""} aria-invalid={Boolean(taskId && !taskIdIsValid)} aria-describedby="csv-task-id-help" /></label>
       <small id="csv-task-id-help">利用可能文字と形式はこのTask作成APIの契約に従います。例: {taskIdContract?.example ?? "—"}</small>
       <label>表示名<input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="コンクリート流動性" /></label>
+      <fieldset className="csv-task-estimator"><legend>Estimator</legend><label>標準Estimator<select value={estimatorId} onChange={(event) => setEstimatorId(event.target.value)}>{estimators.map((item) => <option key={item.estimator_id} value={item.estimator_id} disabled={!item.available}>{item.label}{item.available ? "" : "（利用不可）"}</option>)}</select></label>{selectedEstimator && <div><strong>{selectedEstimator.summary}</strong><span>予測: 平均 {selectedEstimator.quantiles ? "・分位点" : ""}{selectedEstimator.standard_deviation ? "・標準偏差" : ""}</span><span>学習: {selectedEstimator.training_cost === "light" ? "軽い" : "中程度"} / artifact: {selectedEstimator.artifact_size === "small" ? "小さい" : "中程度"}</span>{selectedEstimator.dependency && <span>runtime: {selectedEstimator.dependency}</span>}{!selectedEstimator.available && <p role="alert">{selectedEstimator.unavailable_reason}</p>}</div>}</fieldset>
       <div className="csv-task-summary" aria-live="polite"><span>{rows}行</span><span>{columns.length}列</span><span>入力 {inputCount}項目</span><span>出力 {outputCount}項目</span></div>
       <p className="csv-task-onboarding-note">数値入力は、物理的許容範囲／通常範囲／学習範囲を明示してください。出力は妥当範囲／表示範囲を明示してください。</p>
       <div className="csv-task-columns">{fields.map((field, index) => { const column = columns[index]; const missing = Math.max(0, rows - column.non_empty); const observed = rangeText(column); const trainingFromObserved = Boolean(observed && field.training_range === observed); return <article key={field.column}><strong>{field.column}</strong><small>元列名: {field.column} · {column.kind} · 欠損 {missing}件 / {rows}件 · 観測 {column.observed_min ?? "—"}–{column.observed_max ?? "—"}</small><label>役割<select value={field.role} onChange={(event) => update(index, { role: event.target.value as FieldRole })}><option value="">使わない</option><option value="composition">入力: 組成</option><option value="process">入力: 条件</option><option value="categorical">入力: カテゴリ</option><option value="output">出力</option></select></label>{field.role && <><label>canonical key<input value={field.key} onChange={(event) => update(index, { key: event.target.value })} aria-invalid={!field.key || !canonicalKeyPattern.test(field.key) || reservedCanonicalKeys.has(field.key)} /></label><small>元列名との対応を確認して編集できます。英字で始まる英数字・_のみ。</small><label>表示名<input value={field.label} onChange={(event) => update(index, { label: event.target.value })} /></label>{field.role !== "categorical" && <label>単位<input value={field.unit} onChange={(event) => update(index, { unit: event.target.value })} placeholder="MPa / mm / kg/m³" /></label>}{field.role === "output" ? <><label>目標方向<select value={field.goal_direction} onChange={(event) => update(index, { goal_direction: event.target.value as Field["goal_direction"] })}><option value="at_least">以上</option><option value="at_most">以下</option><option value="target">目標</option></select></label><label>妥当範囲 min,max<input value={field.plausible_range} onChange={(event) => update(index, { plausible_range: event.target.value })} /></label><label>表示範囲 min,max<input value={field.display_range} onChange={(event) => update(index, { display_range: event.target.value })} /></label></> : field.role !== "categorical" && <><label>物理的許容範囲 min,max<input value={field.allowed_range} onChange={(event) => update(index, { allowed_range: event.target.value })} /></label><label>通常範囲 min,max<input value={field.default_range} onChange={(event) => update(index, { default_range: event.target.value })} /></label><label>学習範囲 min,max<input value={field.training_range} onChange={(event) => update(index, { training_range: event.target.value })} /></label>{observed && <button type="button" className="outline-button" onClick={() => update(index, { training_range: observed })}>観測範囲を学習範囲へ使用</button>}{trainingFromObserved && <small>現在の学習範囲は観測値由来です。物理的許容範囲・通常範囲には反映していません。</small>}</>}</>}</article>; })}</div>
