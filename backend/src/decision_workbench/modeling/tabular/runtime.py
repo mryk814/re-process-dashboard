@@ -44,6 +44,17 @@ from .features import (
 )
 
 
+def _interval_method(summary: PredictiveSummary) -> str | None:
+    """Use declared interval semantics, not merely the presence of quantiles."""
+    if summary.prediction_interval is not None:
+        return summary.prediction_interval.method
+    if not summary.quantiles:
+        return None
+    if summary.distribution.get("family") in {"normal", "lognormal"}:
+        return "parametric"
+    return "quantile"
+
+
 class TabularRegressionRuntime:
     support_policy_id = "tabular-row-knn-v1"
 
@@ -88,13 +99,17 @@ class TabularRegressionRuntime:
             load_task_contracts()[self.task_id].runtime_capability,
             manifest_digest=self.model_package.manifest_sha256,
         )
+        wrapped_targets: set[str] = set()
         for wrapper in conformal_wrappers:
             if wrapper.base_package.manifest_sha256 != self.model_package.manifest_sha256:
                 raise ValueError("conformal wrapper base Package does not match runtime Package")
             if wrapper.manifest.target not in self.predictors:
                 raise ValueError("conformal wrapper target is not provided by runtime Package")
+            if wrapper.manifest.target in wrapped_targets:
+                raise ValueError("multiple conformal wrappers target the same runtime output")
             self.predictors[wrapper.manifest.target] = wrapper.load_predictor()
             self.capability_matrix = wrapper.apply_capability(self.capability_matrix)
+            wrapped_targets.add(wrapper.manifest.target)
         stats_path = next(path for path in manifest.feature_pipeline.artifacts if path.endswith("training_stats.json"))
         self.training_stats = json.loads(
             self.model_package.artifact_path(stats_path).read_text(encoding="utf-8")
@@ -430,6 +445,9 @@ class TabularRegressionRuntime:
             goal_value, goal_lower, goal_upper, goal_direction = goal_fields(
                 goal, self.output_definitions[target].goal_direction
             )
+            interval = summary.prediction_interval
+            calibration = interval.calibration if interval is not None else None
+            wrapper_identity = interval.conformal_wrapper if interval is not None else None
             predictions[target] = Prediction(
                 value=round(point_estimate, 4),
                 lower=round(lower, 4),
@@ -439,10 +457,28 @@ class TabularRegressionRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution["family"],
                 quantiles={level: round(value, 6) for level, value in quantiles.items()},
-                interval_method=(summary.prediction_interval.method if summary.prediction_interval is not None else "quantile" if quantiles else None),
-                interval_coverage_level=(summary.prediction_interval.coverage_level if summary.prediction_interval is not None else None),
-                interval_calibration_dataset_digest=(summary.prediction_interval.calibration.calibration_dataset_digest if summary.prediction_interval is not None and summary.prediction_interval.calibration is not None else None),
-                interval_calibration_sample_count=(summary.prediction_interval.calibration.calibration_sample_count if summary.prediction_interval is not None and summary.prediction_interval.calibration is not None else None),
+                interval_method=_interval_method(summary),
+                interval_coverage_level=(interval.coverage_level if interval is not None else None),
+                interval_calibration_dataset_digest=(
+                    calibration.calibration_dataset_digest if calibration is not None else None
+                ),
+                interval_calibration_sample_count=(
+                    calibration.calibration_sample_count if calibration is not None else None
+                ),
+                interval_wrapper_id=(
+                    wrapper_identity.wrapper_id if wrapper_identity is not None else None
+                ),
+                interval_wrapper_version=(
+                    wrapper_identity.wrapper_version if wrapper_identity is not None else None
+                ),
+                interval_wrapper_manifest_digest=(
+                    wrapper_identity.manifest_digest if wrapper_identity is not None else None
+                ),
+                interval_calibration_score_artifact_digest=(
+                    wrapper_identity.calibration_score_artifact_digest
+                    if wrapper_identity is not None
+                    else None
+                ),
                 goal_value=goal_value,
                 goal_lower=goal_lower,
                 goal_upper=goal_upper,
@@ -581,6 +617,14 @@ class TabularRegressionRuntime:
                                 target: {
                                     "dataset_digest": item.interval_calibration_dataset_digest,
                                     "sample_count": item.interval_calibration_sample_count,
+                                    "wrapper": {
+                                        "id": item.interval_wrapper_id,
+                                        "version": item.interval_wrapper_version,
+                                        "manifest_digest": item.interval_wrapper_manifest_digest,
+                                        "calibration_score_artifact_digest": (
+                                            item.interval_calibration_score_artifact_digest
+                                        ),
+                                    },
                                 }
                                 for target, item in predictions.items()
                                 if item.interval_method == "conformal"

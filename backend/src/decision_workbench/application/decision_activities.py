@@ -133,6 +133,10 @@ class DecisionActivityService:
         contract = self.registry.contract_for(project.task_id)
         checks = self._resource_checks(project_id, candidate_id, expected_revision)
         cached: dict[str, str | None] = {}
+        runtime = self.resolver.resolve(project).runtime
+        capability_matrix = getattr(runtime, "capability_matrix", None)
+        if capability_matrix is None:
+            capability_matrix = self.registry.capability_matrix_for(project.task_id)
         results = []
         # 登録順がUIの表示順の正本。activity_idの辞書順で並べ替えない。
         for handler in self.activities.values():
@@ -141,9 +145,8 @@ class DecisionActivityService:
             for operation in definition.required_operations:
                 if not getattr(contract.runtime_capability.operations, operation):
                     reasons.append(f"{operation}に対応する予測runtimeがありません")
-            runtime = self.resolver.resolve(project).runtime
             capability_resolution = resolve_capabilities(
-                getattr(runtime, "capability_matrix", self.registry.capability_matrix_for(project.task_id)),
+                capability_matrix,
                 target=None,
                 requirements=definition.required_capabilities,
             )

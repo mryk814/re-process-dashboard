@@ -23,6 +23,7 @@ from decision_workbench.contracts.model_capability_contracts import (
 from decision_workbench.modeling.packages.contracts import (
     MAX_ARTIFACT_BYTES,
     ConformalIntervalCalibration,
+    ConformalWrapperIdentity,
     PackageContractError,
     PackageModel,
     PredictionInterval,
@@ -283,6 +284,14 @@ class ConformalPredictor:
                 lower=summary.point_estimate - radius,
                 upper=summary.point_estimate + radius,
                 calibration=calibration,
+                conformal_wrapper=ConformalWrapperIdentity(
+                    wrapper_id=manifest.wrapper_id,
+                    wrapper_version=manifest.wrapper_version,
+                    manifest_digest=f"sha256:{self._wrapper.manifest_digest}",
+                    calibration_score_artifact_digest=(
+                        f"sha256:{manifest.calibration_scores.sha256}"
+                    ),
+                ),
             )
         })
 

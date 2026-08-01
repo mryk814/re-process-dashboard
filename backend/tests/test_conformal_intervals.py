@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from pydantic_core import to_jsonable_python
 
 from decision_workbench.contracts.model_capability_contracts import (
     CapabilityRequirement,
@@ -14,6 +15,7 @@ from decision_workbench.contracts.model_capability_contracts import (
     TargetCapabilityMatrix,
 )
 from decision_workbench.contracts.prediction_catalog_contracts import Prediction
+from decision_workbench.application.records import RecordService
 from decision_workbench.contracts.task_contracts import (
     RuntimeCapability,
     RuntimeOperationsCapability,
@@ -51,7 +53,7 @@ def _base_package(root: Path):
     }), encoding="utf-8")
     artifact = root / "model-artifacts" / "linear.npz"
     training_stats = root / "feature-pipeline" / "training_stats.json"
-    training_stats.write_text(json.dumps({"records": 1}), encoding="utf-8")
+    training_stats.write_text(json.dumps({"records": {"total": 1}}), encoding="utf-8")
     np.savez(
         artifact,
         weights=np.array([1.0]),
@@ -106,6 +108,9 @@ def test_split_conformal_wrapper_is_bound_to_base_identity_and_exposes_explicit_
     assert summary.prediction_interval.coverage_level == pytest.approx(0.8)
     assert predictive_interval(summary) == pytest.approx((1.6, 2.4))
     assert summary.prediction_interval.calibration.calibration_sample_count == 4
+    assert summary.prediction_interval.conformal_wrapper.wrapper_id == "point-fixture-conformal"
+    assert summary.prediction_interval.conformal_wrapper.manifest_digest.startswith("sha256:")
+    assert summary.prediction_interval.conformal_wrapper.calibration_score_artifact_digest.startswith("sha256:")
     assert summary.distribution == {
         "family": "empirical_quantiles",
         "support": "real",
@@ -160,8 +165,9 @@ def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
             similarity=False, snapshot=True, actual_measurement=False,
         ),
     )
+    output = SimpleNamespace(key="y", lower_bound=None, upper_bound=None)
     monkeypatch.setattr(runtime_module, "load_task_definitions", lambda: {
-        "fixture-task": SimpleNamespace(outputs=()),
+        "fixture-task": SimpleNamespace(outputs=(SimpleNamespace(key="y", goal_direction="at_least"),)),
     })
     monkeypatch.setattr(runtime_module, "load_task_contracts", lambda: {
         "fixture-task": SimpleNamespace(runtime_capability=capability),
@@ -172,7 +178,10 @@ def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
     monkeypatch.setattr(runtime_module.TabularRegressionRuntime, "_build_support_reference", lambda self: None)
 
     runtime = runtime_module.TabularRegressionRuntime(
-        SimpleNamespace(profile=SimpleNamespace(task_id="fixture-task")),
+        SimpleNamespace(
+            profile=SimpleNamespace(task_id="fixture-task", outputs=(output,), group_column=None),
+            source_path="fixture.csv", source_sha256="source-digest", profile_id="fixture-profile",
+        ),
         package,
         conformal_wrappers=(wrapper,),
     )
@@ -180,6 +189,35 @@ def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
     assert runtime.model_package.manifest_sha256 == package.manifest_sha256
     assert runtime.predictors["y"].predict({"x": 2.0}).prediction_interval is not None
     assert runtime.capability_matrix.target("y").conformal_interval is True
+    candidate = SimpleNamespace(
+        id="candidate-1", inputs=SimpleNamespace(composition={}, process={}, categorical={}),
+        model_dump=lambda mode: {"id": "candidate-1"},
+    )
+    result = runtime.predict_core(candidate, _prepared_values={"x": 2.0})
+    saved_prediction = result["predictions"]["y"]
+    assert saved_prediction.interval_wrapper_id == "point-fixture-conformal"
+    assert saved_prediction.interval_calibration_score_artifact_digest.startswith("sha256:")
+    assert result["model_meta"]["package"]["manifest_sha256"] == package.manifest_sha256
+    assert result["model_meta"]["prediction_interval"]["calibration"]["y"]["wrapper"]["id"] == "point-fixture-conformal"
+    snapshot_payload = to_jsonable_python(RecordService._snapshot_payload(
+        SimpleNamespace(design_space_digest="design-space", design_space_binding_provenance="explicit"),
+        candidate,
+        result,
+    ))
+    assert snapshot_payload["prediction"]["predictions"]["y"]["interval_wrapper_id"] == "point-fixture-conformal"
+
+    second_wrapper = verify_conformal_wrapper(
+        _wrapper(tmp_path / "second-wrapper", package), base_package=package,
+    )
+    with pytest.raises(ValueError, match="multiple conformal wrappers"):
+        runtime_module.TabularRegressionRuntime(
+            SimpleNamespace(
+                profile=SimpleNamespace(task_id="fixture-task", outputs=(output,), group_column=None),
+                source_path="fixture.csv", source_sha256="source-digest", profile_id="fixture-profile",
+            ),
+            package,
+            conformal_wrappers=(wrapper, second_wrapper),
+        )
 
 
 def test_conformal_wrapper_rejects_base_or_calibration_identity_drift(tmp_path: Path) -> None:
@@ -232,7 +270,7 @@ def test_held_out_conformal_evaluation_reports_coverage_width_and_groups() -> No
     assert metrics.group_coverage == {"A": 1.0, "B": 0.0}
 
 
-def test_conformal_prediction_identity_keeps_calibration_evidence_without_goal_probability() -> None:
+def test_conformal_prediction_identity_keeps_complete_wrapper_evidence_in_snapshot() -> None:
     prediction = Prediction(
         value=2.0, lower=1.6, upper=2.4, unit="MPa",
         target_kind="continuous", point_statistic="mean",
@@ -240,8 +278,55 @@ def test_conformal_prediction_identity_keeps_calibration_evidence_without_goal_p
         interval_method="conformal", interval_coverage_level=0.8,
         interval_calibration_dataset_digest=f"sha256:{'a' * 64}",
         interval_calibration_sample_count=4,
+        interval_wrapper_id="point-fixture-conformal",
+        interval_wrapper_version="1",
+        interval_wrapper_manifest_digest=f"sha256:{'b' * 64}",
+        interval_calibration_score_artifact_digest=f"sha256:{'c' * 64}",
     )
 
     assert prediction.interval_method == "conformal"
     assert prediction.interval_calibration_sample_count == 4
     assert prediction.goal_probability is None
+    snapshot_payload = RecordService._snapshot_payload(
+        SimpleNamespace(design_space_digest="design-space", design_space_binding_provenance="explicit"),
+        SimpleNamespace(id="candidate-1", model_dump=lambda mode: {"id": "candidate-1"}),
+        {"canonical_input": {}, "predictions": {"y": prediction.model_dump(mode="json")}, "model_meta": {}},
+    )
+    saved = snapshot_payload["prediction"]["predictions"]["y"]
+    assert saved["interval_wrapper_manifest_digest"] == f"sha256:{'b' * 64}"
+    assert saved["interval_calibration_score_artifact_digest"] == f"sha256:{'c' * 64}"
+
+
+def test_nonconformal_prediction_rejects_conformal_only_evidence() -> None:
+    prediction = Prediction(
+        value=2.0, lower=1.6, upper=2.4, unit="MPa",
+        target_kind="continuous", point_statistic="mean",
+        predictive_family="normal", quantiles={"0.05": 1.6, "0.95": 2.4},
+        interval_method="parametric", interval_coverage_level=0.9,
+    )
+
+    assert prediction.interval_wrapper_id is None
+    assert prediction.interval_calibration_dataset_digest is None
+    invalid = prediction.model_dump()
+    invalid["interval_wrapper_id"] = "wrong-on-nonconformal"
+    with pytest.raises(ValueError, match="only conformal intervals"):
+        Prediction(**invalid)
+
+
+def test_interval_method_uses_declared_or_distribution_semantics() -> None:
+    import decision_workbench.modeling.tabular.runtime as runtime_module
+    from decision_workbench.modeling.packages.contracts import PredictionInterval, PredictiveSummary
+
+    normal = PredictiveSummary(
+        target="y", target_kind="continuous", unit="MPa", point_statistic="mean",
+        point_estimate=2.0, quantiles={"0.05": 1.6, "0.95": 2.4},
+        distribution={"family": "normal", "support": "real"},
+    )
+    empirical = normal.model_copy(update={"distribution": {"family": "empirical_quantiles", "support": "real"}})
+    declared_bayesian = normal.model_copy(update={"prediction_interval": PredictionInterval(
+        method="bayesian", coverage_level=0.9, lower=1.6, upper=2.4,
+    )})
+
+    assert runtime_module._interval_method(normal) == "parametric"
+    assert runtime_module._interval_method(empirical) == "quantile"
+    assert runtime_module._interval_method(declared_bayesian) == "bayesian"

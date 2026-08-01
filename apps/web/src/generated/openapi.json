@@ -13619,6 +13619,7 @@
           "interval_calibration_dataset_digest": {
             "anyOf": [
               {
+                "pattern": "^sha256:[0-9a-f]{64}$",
                 "type": "string"
               },
               {
@@ -13638,6 +13639,18 @@
               }
             ],
             "title": "Interval Calibration Sample Count"
+          },
+          "interval_calibration_score_artifact_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Calibration Score Artifact Digest"
           },
           "interval_coverage_level": {
             "anyOf": [
@@ -13668,6 +13681,42 @@
               }
             ],
             "title": "Interval Method"
+          },
+          "interval_wrapper_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Wrapper Id"
+          },
+          "interval_wrapper_manifest_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Wrapper Manifest Digest"
+          },
+          "interval_wrapper_version": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Wrapper Version"
           },
           "lower": {
             "title": "Lower",

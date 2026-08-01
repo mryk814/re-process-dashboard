@@ -141,8 +141,18 @@ class Prediction(BaseModel):
     quantiles: dict[str, float]
     interval_method: Literal["conformal", "quantile", "parametric", "bayesian"] | None = None
     interval_coverage_level: float | None = Field(default=None, gt=0, lt=1)
-    interval_calibration_dataset_digest: str | None = None
+    interval_calibration_dataset_digest: Annotated[
+        str | None, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ] = None
     interval_calibration_sample_count: int | None = Field(default=None, ge=1)
+    interval_wrapper_id: Annotated[str | None, Field(min_length=1)] = None
+    interval_wrapper_version: Annotated[str | None, Field(min_length=1)] = None
+    interval_wrapper_manifest_digest: Annotated[
+        str | None, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ] = None
+    interval_calibration_score_artifact_digest: Annotated[
+        str | None, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ] = None
     categories: list[str] = Field(default_factory=list)
     goal_value: float | None = None
     goal_lower: float | None = None
@@ -169,6 +179,23 @@ class Prediction(BaseModel):
                 quantiles["0.95"] = migrated["upper"]
             migrated["quantiles"] = quantiles
         return migrated
+
+    @model_validator(mode="after")
+    def conformal_identity_is_complete_and_exclusive(self) -> "Prediction":
+        conformal_evidence = (
+            self.interval_calibration_dataset_digest,
+            self.interval_calibration_sample_count,
+            self.interval_wrapper_id,
+            self.interval_wrapper_version,
+            self.interval_wrapper_manifest_digest,
+            self.interval_calibration_score_artifact_digest,
+        )
+        if self.interval_method == "conformal":
+            if self.interval_coverage_level is None or any(item is None for item in conformal_evidence):
+                raise ValueError("conformal interval requires complete calibration and wrapper identity")
+        elif any(item is not None for item in conformal_evidence):
+            raise ValueError("only conformal intervals carry calibration or wrapper identity")
+        return self
 
 
 class RepeatSummary(BaseModel):
