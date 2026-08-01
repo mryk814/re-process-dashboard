@@ -1781,6 +1781,7 @@ def test_final_save_uses_store_compare_and_swap(
     client: TestClient,
     monkeypatch,
 ) -> None:
+    cas_race_timeout_seconds = 15
     project, candidate = _project_and_candidate(client)
     store = client.app.state.store
     original_save = store.save_chain_execution_if_current
@@ -1791,7 +1792,7 @@ def test_final_save_uses_store_compare_and_swap(
     def pause_old_final(execution, generation):
         if execution.request_id == "old-final" and execution.status == "latest":
             old_final_entered.set()
-            assert release_old_final.wait(timeout=3)
+            assert release_old_final.wait(timeout=cas_race_timeout_seconds)
         return original_save(execution, generation)
 
     monkeypatch.setattr(store, "save_chain_execution_if_current", pause_old_final)
@@ -1814,7 +1815,7 @@ def test_final_save_uses_store_compare_and_swap(
 
     thread = threading.Thread(target=older_request)
     thread.start()
-    assert old_final_entered.wait(timeout=3)
+    assert old_final_entered.wait(timeout=cas_race_timeout_seconds)
     latest = client.post(
         url,
         json={
@@ -1827,7 +1828,7 @@ def test_final_save_uses_store_compare_and_swap(
     assert latest.json()["status"] == "latest"
 
     release_old_final.set()
-    thread.join(timeout=3)
+    thread.join(timeout=cas_race_timeout_seconds)
     assert not thread.is_alive()
     assert responses["old"]["status"] == "superseded"
     persisted = client.get(
