@@ -519,7 +519,7 @@ test("verification workflow has separate direct and follow-up checks", () => {
   assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
   assert.match(acceptanceRunner, /Select-Object -Last 200/);
   assert.match(workflow, /runs-on: windows-latest/);
-  assert.match(workflow, /timeout-minutes: 45/);
+  assert.match(workflow, /timeout-minutes: 60/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
 });
