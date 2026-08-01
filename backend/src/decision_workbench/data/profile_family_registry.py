@@ -242,10 +242,31 @@ class TabularProfileFamilyAdapter:
         return isinstance(profile, TabularDatasetProfile)
 
     def registration_metadata(self, profile: Any) -> ProfileRegistrationMetadata:
+        effective_profile = profile.model_dump(
+            mode="json",
+            exclude={"task_definitions"},
+        )
+        for item in effective_profile.get("inputs", []):
+            if item.get("numeric_missing") == {
+                "strategy": "reject",
+                "value": None,
+                "reason": None,
+            }:
+                item.pop("numeric_missing", None)
+            if item.get("categorical_missing") == {
+                "strategy": "reject",
+                "category": None,
+            }:
+                item.pop("categorical_missing", None)
+            if item.get("unknown_category") == {
+                "strategy": "reject",
+                "other_choice": None,
+            }:
+                item.pop("unknown_category", None)
         return ProfileRegistrationMetadata(
             profile_id=str(profile.profile_id),
             task_ids=(str(profile.task_id),),
-            effective_profile=profile.model_dump(mode="json", exclude={"task_definitions"}),
+            effective_profile=effective_profile,
         )
 
     def stored_task_ids(self, document: Mapping[str, Any]) -> tuple[str, ...]:

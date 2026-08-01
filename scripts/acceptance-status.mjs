@@ -1,18 +1,13 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   catalogPath,
   evaluateAcceptanceApplicability,
+  normalizedTextSha256,
 } from "./verification-gates.mjs";
 
-export function normalizedTextSha256(value) {
-  const normalized = String(value)
-    .replace(/^\uFEFF/, "")
-    .replace(/\r\n?/g, "\n");
-  return createHash("sha256").update(normalized, "utf8").digest("hex");
-}
+export { normalizedTextSha256 };
 
 function git(args, { allowFailure = false } = {}) {
   const result = spawnSync("git", args, { encoding: "utf8" });

@@ -513,7 +513,12 @@ def test_package_loader_and_verification_do_not_import_concrete_adapters() -> No
 
 
 def test_sklearn_trusted_types_are_owned_by_the_application() -> None:
-    assert set(_TRUSTED_TYPES_BY_FAMILY) == {"linear_regression_v1", "ridge_regression_v1"}
+    assert set(_TRUSTED_TYPES_BY_FAMILY) == {
+        "linear_regression_v1",
+        "ridge_regression_v1",
+        "logistic_regression_v1",
+        "poisson_regression_v1",
+    }
     assert all(all(item.startswith(("sklearn.", "numpy.")) for item in types) for types in _TRUSTED_TYPES_BY_FAMILY.values())
 
 

@@ -28,20 +28,26 @@ run(
   process.execPath,
   ["--test", "e2e/owned-database-cleanup.test.mjs"],
 );
-run(
-  "API offline, retry, and accessibility",
-  process.execPath,
-  [
-    playwrightCli,
-    "test",
-    "e2e/api-offline.spec.ts",
-    "e2e/accessibility-smoke.spec.ts",
-  ],
-  {
-    PLAYWRIGHT_API_PORT: apiPort,
-    PLAYWRIGHT_WEB_PORT: webPort,
-  },
-);
+if (process.env.VERIFICATION_SKIP_STANDARD_FAILURE_SPECS !== "1") {
+  run(
+    "API offline, retry, and accessibility",
+    process.execPath,
+    [
+      playwrightCli,
+      "test",
+      "e2e/api-offline.spec.ts",
+      "e2e/accessibility-smoke.spec.ts",
+    ],
+    {
+      PLAYWRIGHT_API_PORT: apiPort,
+      PLAYWRIGHT_WEB_PORT: webPort,
+    },
+  );
+} else {
+  process.stdout.write(
+    "\n== API offline, retry, and accessibility: covered by default-playwright ==\n",
+  );
+}
 run(
   "Workspace startup diagnostic without API",
   process.execPath,

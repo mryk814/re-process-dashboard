@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-test("狭い画面でもホームの3導線を直接操作できる", async ({ page }) => {
+test("狭い画面でもホームの4導線を直接操作できる", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", {
     name: "焼鈍条件の候補検討",
@@ -11,8 +11,8 @@ test("狭い画面でもホームの3導線を直接操作できる", async ({ p
 
   const navigation = page.getByRole("navigation", { name: "ホーム" });
   const buttons = navigation.getByRole("button");
-  await expect(buttons).toHaveCount(3);
-  for (const name of ["プロジェクト", "データライブラリ", "ワークスペース"]) {
+  await expect(buttons).toHaveCount(4);
+  for (const name of ["プロジェクト", "データライブラリ", "Chain Studio", "ワークスペース"]) {
     const button = navigation.getByRole("button", { name });
     await expect(button).toBeVisible();
     await expect(button).toBeInViewport();
@@ -39,14 +39,14 @@ test("狭い画面でもホームの3導線を直接操作できる", async ({ p
   await expect(storageButton).toBeFocused();
 });
 
-test("文字を200%へ拡大しても3導線の操作対象が画面内に残る", async ({ page }) => {
+test("文字を200%へ拡大しても4導線の操作対象が画面内に残る", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await page.addStyleTag({
     content: ".topbar .brand, .topbar .nav-button { font-size: 200% !important; }",
   });
 
   const navigation = page.getByRole("navigation", { name: "ホーム" });
-  for (const name of ["プロジェクト", "データライブラリ", "ワークスペース"]) {
+  for (const name of ["プロジェクト", "データライブラリ", "Chain Studio", "ワークスペース"]) {
     const button = navigation.getByRole("button", { name });
     await expect(button).toBeVisible();
     await expect(button).toBeInViewport();

@@ -13,16 +13,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  direct-verification:
-    name: direct verification
+  verification-plan:
+    name: verification plan
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 5
     env:
       VERIFY_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+    outputs:
+      commit_sha: ${{ steps.plan.outputs.commit_sha }}
+      catalog_sha256: ${{ steps.plan.outputs.catalog_sha256 }}
+      plan_digest: ${{ steps.plan.outputs.plan_digest }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.20.0
+
+      - name: Build immutable verification plan
+        id: plan
+        run: node scripts/verification-ci.mjs plan --output artifacts/verification/ci-plan.json --github-output $env:GITHUB_OUTPUT
+
+      - name: Upload verification plan
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-plan
+          path: artifacts/verification/ci-plan.json
+          if-no-files-found: error
+
+  verification-shards:
+    name: verification shard (${{ matrix.shard.id }})
+    needs: verification-plan
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.verification-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.verification-plan.outputs.commit_sha }}
 
       - uses: actions/setup-node@v7.0.0
         with:
@@ -43,8 +77,58 @@ jobs:
           npm ci
           uv sync --frozen --extra dev
 
-      - name: Run direct PR verification
-        run: npm run verify:pr
+      - name: Download immutable verification plan
+        uses: actions/download-artifact@v7
+        with:
+          name: verification-plan
+          path: artifacts/verification
+
+      - name: Run verification shard
+        env:
+          PLAYWRIGHT_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard.id }}
+        run: node scripts/verification-ci.mjs run-shard --plan artifacts/verification/ci-plan.json --shard ${{ matrix.shard.id }} --output artifacts/verification/shards/${{ matrix.shard.id }}.json
+
+      - name: Upload verification shard report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-shard-${{ matrix.shard.id }}
+          path: artifacts/verification/shards/${{ matrix.shard.id }}.json
+          if-no-files-found: error
+
+  direct-verification:
+    name: direct verification
+    needs: [verification-plan, verification-shards]
+    if: always()
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.verification-plan.outputs.commit_sha }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.20.0
+
+      - name: Download immutable verification plan
+        uses: actions/download-artifact@v7
+        with:
+          name: verification-plan
+          path: artifacts/verification
+        continue-on-error: true
+
+      - name: Download verification shard reports
+        uses: actions/download-artifact@v7
+        with:
+          pattern: verification-shard-*
+          path: artifacts/verification/shards
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Aggregate direct PR verification
+        run: node scripts/verification-ci.mjs aggregate --plan artifacts/verification/ci-plan.json --shards artifacts/verification/shards --output artifacts/verification/latest-pr.json --acceptance-output artifacts/main-acceptance/latest.json
 
       - name: Upload direct verification report
         if: always()
@@ -53,6 +137,14 @@ jobs:
           name: direct-verification-report
           path: artifacts/verification/latest-pr.json
           if-no-files-found: warn
+
+      - name: Upload parallel acceptance report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: main-acceptance-diagnostics
+          path: artifacts/main-acceptance/latest.json
+          if-no-files-found: ignore
 
   verification-follow-up:
     name: verification follow-up

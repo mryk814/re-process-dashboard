@@ -117,6 +117,15 @@ commit_sha
 pr_body_evidence
 ```
 
+CIではplannerが一度だけ作成したplanを、同じcommit SHA上のWindows shardへ配布する。
+shard reportは途中証拠であり、単独ではmerge evidenceにしない。
+最終の`direct verification` jobが、commit SHA、verification catalog digest、
+plan digest、期待したshardとgateの一意性を照合し、
+元のverification plan／outcome schemaへ集約したreportだけを正本とする。
+shard artifactの欠落、重複、別SHA、別catalog、別planはdirect failureとして扱う。
+Level 3をshard実行した場合も、Windows配布物のbytes／SHA-256とisolated
+Playwright状態を集約し、`main-acceptance/v2` reportを残す。
+
 検証予算により、次を区別して記録します。
 
 - `failed`: 当該変更の直接証拠が失敗した

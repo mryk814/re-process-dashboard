@@ -1,7 +1,14 @@
+import importlib.util
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("sklearn") is None
+    or importlib.util.find_spec("skops") is None,
+    reason="requires the runtime-sklearn extra",
+)
 
 from decision_workbench.adapters.sklearn_skops import SklearnSkopsAdapter
 from decision_workbench.modeling.packages.contracts import PredictorSpec

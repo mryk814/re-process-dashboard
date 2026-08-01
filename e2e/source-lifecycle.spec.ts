@@ -1,7 +1,62 @@
 import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
+async function gotoDataLibraryAfterCatalog(
+  page: import("@playwright/test").Page,
+) {
+  const catalogPaths = new Set([
+    "/api/project-creation-options",
+    "/api/data-library/datasets",
+    "/api/data-library/model-packages",
+  ]);
+  const loadedCatalogPaths = new Set<string>();
+  await Promise.all([
+    page.waitForResponse((response) => {
+      const path = new URL(response.url()).pathname;
+      if (response.status() === 200 && catalogPaths.has(path)) {
+        loadedCatalogPaths.add(path);
+      }
+      return loadedCatalogPaths.size === catalogPaths.size;
+    }),
+    page.goto("/?view=data-library"),
+  ]);
+}
+
+async function reloadSourceLifecycleAfterReady(
+  page: import("@playwright/test").Page,
+  connectorId: string,
+) {
+  const connectorPath = `/api/data-lifecycle/connectors/${connectorId}`;
+  const readyResponses = [
+    page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === "/api/data-lifecycle"
+      && response.status() === 200
+    )),
+    page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === connectorPath
+      && response.status() === 200
+    )),
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === "GET"
+        && url.pathname === "/api/data-library/datasets"
+        && url.searchParams.get("include_archived") === "true"
+        && response.status() === 200;
+    }),
+  ];
+  await Promise.all([...readyResponses, page.reload()]);
+
+  const section = page.locator(".source-lifecycle-section");
+  await expect(section.getByRole("button", { name: "品質判定を実行" })).toBeEnabled();
+  return section;
+}
+
 test("source refresh stays separate from approval, training and activation", async ({ page, request }) => {
+  // This one contract covers two full source revisions and the reload hydration
+  // between them; CI evidence shows the default 45s budget expires in that second hydration.
+  test.slow();
   const optionsBefore = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   const profile = optionsBefore.datasets[0].profile_revision;
 
@@ -200,9 +255,9 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.route("**/api/data-library/model-packages?include_archived=true", async (route) => {
     await route.fulfill({ json: linkedPackages });
   });
-  await page.goto("/?view=data-library");
+  await gotoDataLibraryAfterCatalog(page);
   const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
-  await expect(snapshotLink).toBeVisible();
+  await snapshotLink.waitFor();
   await snapshotLink.click();
   await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(policySnapshot.id);
   const selectionAudit = page.getByRole("region", { name: "学習行の選択方針" });
@@ -226,13 +281,19 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(secondFetch.ok()).toBeTruthy();
-  await page.reload();
-  const repeatedSection = page.locator(".source-lifecycle-section");
+  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
   await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
   await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
   await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
   await repeatedSection.getByLabel("用途").fill("更新版の再評価");
+  const trainingSnapshotResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && /^\/api\/data-lifecycle\/canonical-dataset-revisions\/[^/]+\/training-snapshots$/.test(
+      new URL(response.url()).pathname,
+    )
+  ));
   await repeatedSection.getByRole("button", { name: "学習用スナップショットを作成" }).click();
+  expect((await trainingSnapshotResponse).status()).toBe(201);
 
   await page.reload();
   const historySection = page.locator(".source-lifecycle-section");
@@ -324,7 +385,12 @@ test("late initial catalog cannot replace the selected connector", async ({ page
   await firstCatalogStarted;
   const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
   const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
+  const selectedDetailResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
+  ));
   await selectedButton.click();
+  expect((await selectedDetailResponse).status()).toBe(200);
   await expect(selectedButton).toHaveClass(/active/);
   await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
 

@@ -453,25 +453,36 @@ def ordered_canonical_input_paths(task_definition: TaskDefinition) -> tuple[str,
     )
 
 
-def validate_task_definition_canonical_inputs(
+def validate_task_definition_canonical_input_paths(
     task_definition: TaskDefinition,
-    manifest: ModelPackageManifest,
+    manifest: object,
 ) -> None:
-    """Reject a package whose canonical input order differs from its task."""
+    """Validate the Task/input seam available while a Package is still a draft."""
 
-    if manifest.task_id != task_definition.id:
+    task_id = getattr(manifest, "task_id", None)
+    if task_id != task_definition.id:
         raise PackageContractError(
-            f"model package task {manifest.task_id} does not match TaskDefinition {task_definition.id}"
+            f"model package task {task_id} does not match TaskDefinition {task_definition.id}"
         )
     expected = ordered_canonical_input_paths(task_definition)
-    if manifest.feature_pipeline is None:
+    feature_pipeline = getattr(manifest, "feature_pipeline", None)
+    if feature_pipeline is None:
         raise PackageContractError("predictive TaskDefinition requires a feature pipeline")
-    actual = manifest.feature_pipeline.canonical_input_paths
+    actual = feature_pipeline.canonical_input_paths
     if actual != expected:
         raise PackageContractError(
             "model package canonical input order does not match TaskDefinition: "
             f"expected {expected}, got {actual}"
         )
+
+
+def validate_task_definition_canonical_inputs(
+    task_definition: TaskDefinition,
+    manifest: ModelPackageManifest,
+) -> None:
+    """Validate a completed Package against Task input and output semantics."""
+
+    validate_task_definition_canonical_input_paths(task_definition, manifest)
     task_outputs = {output.key: output for output in task_definition.outputs}
     package_outputs = {predictor.target: predictor for predictor in manifest.predictors}
     if set(package_outputs) != set(task_outputs):

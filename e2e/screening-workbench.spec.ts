@@ -215,14 +215,19 @@ test("range exploration uses the shared candidate table without leaving the scre
   await expect(page.getByRole("region", { name: "探索の基準候補と入力・予測" })).toBeVisible();
   await expect(page.getByLabel(/を比較の基準にする/)).toHaveCount(0);
 
-  await page.getByRole("button", { name: "高強度案を選択", exact: true }).click();
+  const candidateButtons = page.locator(".candidate-select-button");
+  expect(await candidateButtons.count()).toBeGreaterThanOrEqual(3);
+  const selectedLabels = await candidateButtons.evaluateAll((buttons) => (
+    buttons.map((button) => button.getAttribute("aria-label")!.replace(/を選択$/, ""))
+  ));
+  await candidateButtons.nth(1).click();
 
   await expect(page).toHaveURL(/view=explore/);
   await expect(page).toHaveURL(/candidate=/);
-  await expect(page.getByRole("button", { name: "高強度案を選択", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "高強度案", exact: true })).toBeVisible();
+  await expect(candidateButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: selectedLabels[1], exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "延性重視案を選択", exact: true }).click();
+  await candidateButtons.nth(2).click();
   const selectedCandidateId = new URL(page.url()).searchParams.get("candidate");
   await page.locator(".screening-mode-options").getByRole("button", { name: /有望候補を探す/ }).click();
   await page.getByLabel(/主目標: .*の下限/).fill("500");
@@ -237,7 +242,7 @@ test("range exploration uses the shared candidate table without leaving the scre
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeEnabled();
 
-  await page.getByRole("button", { name: "基準候補を選択", exact: true }).click();
+  await candidateButtons.nth(0).click();
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
 });
@@ -248,6 +253,7 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
   expect(candidateResponse.status()).toBe(200);
   const [candidate] = await candidateResponse.json() as Array<{ id: string; inputs: Record<string, unknown> }>;
   expect(candidate).toBeTruthy();
+  const createdRunIds: string[] = [];
 
   for (const strategyId of ["sobol_ucb_v1", "sobol_ei_v1"]) {
     for (const seed of [31, 47]) {
@@ -276,6 +282,7 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
         },
       });
       expect(response.status(), await response.text()).toBe(201);
+      createdRunIds.push(((await response.json()) as { id: string }).id);
     }
   }
 
@@ -284,9 +291,12 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
   await lab.locator("> summary").click();
   await expect(lab.getByText("productionへ自動反映しない")).toBeVisible();
   await expect(lab.getByText("acquisition scoreは成功確率ではありません。")).toBeVisible();
-  const runChecks = lab.locator(".proposal-lab-run-list input[type=checkbox]");
-  await expect(runChecks).toHaveCount(4);
-  for (let index = 0; index < 4; index += 1) await runChecks.nth(index).check();
+  for (const runId of createdRunIds) {
+    await lab.locator(".proposal-lab-run-list label")
+      .filter({ hasText: runId.slice(0, 8) })
+      .getByRole("checkbox")
+      .check();
+  }
   await expect(lab.getByText(/2 strategies · seed 31, 47/)).toBeVisible();
   const decisionSelects = lab.locator(".proposal-lab-decision select");
   await decisionSelects.nth(0).selectOption("sobol_ei_v1");

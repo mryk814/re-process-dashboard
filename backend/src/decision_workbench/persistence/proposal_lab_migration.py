@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from decision_workbench.persistence.sqlite_connection import connect_sqlite
+from decision_workbench.persistence.sqlite_connection import sqlite_connection
 
 
 def migrate_proposal_lab_reports(path: str | Path) -> None:
-    with connect_sqlite(path) as conn:
+    with sqlite_connection(path) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS proposal_lab_reports (

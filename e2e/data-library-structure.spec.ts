@@ -1,22 +1,70 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
+async function gotoReadyDataLibrary(page: Page) {
+  const resourcePaths = [
+    "/api/project-creation-options",
+    "/api/data-library/datasets",
+    "/api/data-library/model-packages",
+  ];
+  const responses = resourcePaths.map((path) => page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === path
+      && (path === "/api/project-creation-options" || url.searchParams.get("include_archived") === "true");
+  }));
+  const resourcesReady = Promise.all(responses);
+  await page.goto("/?view=data-library");
+  const loadedResources = await resourcesReady;
+  for (const response of loadedResources) {
+    expect(response.ok(), `${new URL(response.url()).pathname} initial load`).toBe(true);
+  }
+  await page.getByRole("heading", { name: "使うデータを選ぶ" }).waitFor();
+  const selectedDataset = page.locator(".dataset-context");
+  await selectedDataset.waitFor();
+  return selectedDataset;
+}
+
 const csvEstimatorOptions = [
-  { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 } },
-  { estimator_id: "lightgbm-regression.v1", label: "LightGBM 回帰", summary: "非線形な関係を表せる tree 系。", available: true, unavailable_reason: null, dependency: "lightgbm", point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "moderate", artifact_size: "moderate", fixed_parameters: { num_boost_round: 200, folds: 5, seed: 20260730, predictive_family: "empirical_quantiles" } },
+  { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 }, readiness_schema_version: "standard-estimator-readiness/v1", runtime_type: "builtin.linear.v1", artifact_format: "bounded-npz", min_rows: 4, max_rows: 100_000, max_features: 512 },
+  { estimator_id: "lightgbm-regression.v1", label: "LightGBM 回帰", summary: "非線形な関係を表せる tree 系。", available: true, unavailable_reason: null, dependency: "lightgbm", point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "moderate", artifact_size: "moderate", fixed_parameters: { num_boost_round: 200, folds: 5, seed: 20260730, predictive_family: "empirical_quantiles" }, readiness_schema_version: "standard-estimator-readiness/v1", runtime_type: "lightgbm.booster.v1", artifact_format: "lightgbm-native-text", min_rows: 4, max_rows: 1_000_000, max_features: 2_048 },
 ];
 
-test("Data Library keeps models in the selected dataset context", async ({ page }) => {
-  await page.goto("/?view=data-library");
+function csvInspection(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    source_filename: "private-demo.csv",
+    source_sha256: "c".repeat(64),
+    source_kind: "csv",
+    reader_policy: "csv-utf8-header/v1",
+    worksheets: [],
+    selected_sheet: null,
+    requires_sheet_selection: false,
+    rows: 103,
+    relations: 0,
+    grain: "one-row-one-observation",
+    task_id_contract: {
+      pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$",
+      min_length: 6,
+      example: "concrete-slump-v1",
+    },
+    estimators: csvEstimatorOptions,
+    default_estimator_id: "ridge.v1",
+    notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+    columns: [],
+    ...overrides,
+  };
+}
 
-  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+test("Data Library keeps models in the selected dataset context", async ({ page }) => {
+  const selectedDataset = await gotoReadyDataLibrary(page);
+
   await expect(page.getByRole("heading", { name: "自分のデータ" })).toBeVisible();
   await expect(page.getByText(/同梱サンプル/).first()).toBeVisible();
   const bundledSamples = page.locator("details.bundled-dataset-group");
   await expect(bundledSamples).not.toHaveAttribute("open", "");
   await expect(page.getByRole("button", { name: /material_workbench_tutorial_v2.*詳細を表示/ })).not.toBeVisible();
 
-  const selectedDataset = page.locator(".dataset-context");
   await expect(selectedDataset.getByRole("heading", { name: /material_workbench_tutorial_v2\.xlsx/ })).toBeVisible();
   await expect(selectedDataset.getByRole("heading", { name: "このデータで使うモデル" })).toBeVisible();
   await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
@@ -68,9 +116,7 @@ test("Data Library keeps Dataset and Task evidence when only Model Package refre
     });
   });
 
-  await page.goto("/?view=data-library");
-  const selectedDataset = page.locator(".dataset-context");
-  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  const selectedDataset = await gotoReadyDataLibrary(page);
   await expect(selectedDataset.getByRole("heading", { name: "このデータで使うモデル" })).toBeVisible();
   await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
 
@@ -135,8 +181,15 @@ test("Task refresh only announces Project availability for a matching Dataset", 
   await expect(guide.getByRole("status")).not.toContainText("Project作成で選べます");
 
   addedPackageId = matchingPackageId!;
+  const matchingRefreshResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/data-library/tasks/refresh"
+  ));
   await refresh.click();
-  await expect(guide.getByRole("status")).toContainText("Project作成で選べます");
+  expect((await matchingRefreshResponse).status()).toBe(200);
+  const matchingStatus = guide.getByRole("status");
+  await matchingStatus.waitFor();
+  await expect(matchingStatus).toContainText("Project作成で選べます");
 });
 
 test("Data Library separates update, mapping, and new Task onboarding", async ({ page }, testInfo) => {
@@ -144,13 +197,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     inspected += 1;
     await route.fulfill({
-        json: {
-          rows: 103,
-          relations: 0,
-          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-          estimators: csvEstimatorOptions,
-          default_estimator_id: "ridge.v1",
-          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: csvInspection({
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -159,10 +206,10 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
           observed_max: index < 7 ? 10 : 590,
           choices: [],
         })),
-      },
+      }),
     });
   });
-  await page.goto("/?view=data-library");
+  await gotoReadyDataLibrary(page);
 
   const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
   await expect(paths.getByRole("button", { name: /更新版/ })).toBeEnabled();
@@ -194,7 +241,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   }
   await expect(newTask).toContainText("入力 7項目");
   await expect(newTask).toContainText("出力 3項目");
-  await expect(newTask).toContainText("relationsなしだけを扱います");
+  await expect(newTask).toContainText("relationsなしの矩形表だけを扱います");
   await expect(newTask).toContainText("物理範囲には自動設定しません");
   expect(inspected).toBe(1);
   await newTask.screenshot({ path: testInfo.outputPath("new-task-onboarding.png") });
@@ -209,13 +256,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
 test("new Task onboarding explains unresolved domain ranges before preparation", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({
-        json: {
-          rows: 103,
-          relations: 0,
-          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-          estimators: csvEstimatorOptions,
-          default_estimator_id: "ridge.v1",
-          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: csvInspection({
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -224,7 +265,7 @@ test("new Task onboarding explains unresolved domain ranges before preparation",
           observed_max: index < 7 ? 10 : 590,
           choices: [],
         })),
-      },
+      }),
     });
   });
   await page.goto("/?view=data-library");
@@ -271,7 +312,7 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
     inspections += 1;
     const selected = route.request().postDataBuffer()?.toString("utf8").includes("Measurements") ?? false;
     await route.fulfill({
-      json: {
+      json: csvInspection({
         source_filename: "typed-source.xlsx",
         source_sha256: "b".repeat(64),
         source_kind: "xlsx",
@@ -283,17 +324,12 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
         selected_sheet: selected ? "Measurements" : null,
         requires_sheet_selection: !selected,
         rows: selected ? 3 : 0,
-        relations: 0,
-        grain: "one-row-one-observation",
-        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-        estimators: csvEstimatorOptions,
-        default_estimator_id: "ridge.v1",
         notice: selected ? "stored valueを確認しました。" : "visible sheetを明示選択してください。",
         columns: selected ? [
           { name: "sample_id", kind: "categorical", non_empty: 3, observed_min: null, observed_max: null, choices: ["001", "002", "003"] },
           { name: "strength", kind: "number", non_empty: 3, observed_min: 300, observed_max: 420, choices: [] },
         ] : [],
-      },
+      }),
     });
   });
 
@@ -323,21 +359,16 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
 test("CSV onboarding validates Japanese canonical keys, task ID, observed training range, and typed storage recovery", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({
-      json: {
+      json: csvInspection({
         source_filename: "日本語列.csv",
         source_sha256: "a".repeat(64),
-        rows: 2,
-        relations: 0,
-        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-        estimators: csvEstimatorOptions,
-        default_estimator_id: "ridge.v1",
-        grain: "one-row-one-observation",
+        rows: 4,
         notice: "観測範囲は要約です。",
         columns: [
-          { name: "温度", kind: "number", non_empty: 2, observed_min: 700, observed_max: 850, choices: [] },
-          { name: "強度", kind: "number", non_empty: 2, observed_min: 310, observed_max: 590, choices: [] },
+          { name: "温度", kind: "number", non_empty: 4, observed_min: 700, observed_max: 850, choices: [] },
+          { name: "強度", kind: "number", non_empty: 4, observed_min: 310, observed_max: 590, choices: [] },
         ],
-      },
+      }),
     });
   });
   await page.route("**/api/data-library/csv-onboarding/prepare", async (route) => {
@@ -453,9 +484,15 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await onboarding.getByLabel("relationsなしであることを確認した").check();
   await expect(prepare).toBeEnabled();
 
-  const prepared = page.waitForResponse((response) => response.url().includes("/api/data-library/csv-onboarding/prepare") && response.status() === 200);
+  const prepared = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/data-library/csv-onboarding/prepare"
+  ));
   await prepare.click();
-  const binding = await (await prepared).json() as {
+  const preparedResponse = await prepared;
+  const preparedBody = await preparedResponse.text();
+  expect(preparedResponse.status(), preparedBody).toBe(200);
+  const binding = JSON.parse(preparedBody) as {
     dataset_view_revision_id: string;
     dataset_revision_id: string;
     task_id: string;
@@ -513,7 +550,8 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
 });
 
 test("Data Library blocks model updates when an exact personal Profile is missing", async ({ page }) => {
-  await page.route("**/api/data-library/datasets?*", async (route) => {
+  let targetDisplayName = "";
+  await page.route(/\/api\/data-library\/datasets(?:\?.*)?$/, async (route) => {
     const response = await route.fetch();
     const datasets = await response.json() as Array<Record<string, unknown>>;
     const target = datasets.find((item) => {
@@ -523,19 +561,34 @@ test("Data Library blocks model updates when an exact personal Profile is missin
         && "tasks" in profile.effective_profile_json;
     });
     expect(target).toBeTruthy();
+    const dataAsset = target!.data_asset as { original_filename: string };
+    const profileRevision = target!.profile_revision as { name: string };
+    targetDisplayName = `${dataAsset.original_filename.replace(/\.(xlsx|csv)$/i, "")} · ${profileRevision.name}`;
     target!.profile_available = false;
     await route.fulfill({ response, json: datasets });
   });
-  await page.goto("/?view=data-library");
+  await gotoReadyDataLibrary(page);
 
+  await expect.poll(() => targetDisplayName).not.toBe("");
+  const targetButton = page.getByRole("button", {
+    name: `${targetDisplayName}の詳細を表示`,
+  });
+  if (!await targetButton.isVisible()) {
+    await page.locator("details.bundled-dataset-group > summary").click();
+  }
+  await targetButton.click();
   const selectedDataset = page.locator(".dataset-context");
   await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
   const guide = page.getByRole("region", { name: "モデルを追加する" });
 
   await expect(guide.getByRole("alert")).toContainText("登録時のProfileが見つからない");
   await expect(guide.getByRole("alert")).toContainText("自動検出へ切り替える");
-  await expect(guide.getByRole("alert")).toContainText("WORKBENCH_PROFILE_STORE_PATH");
-  await expect(guide.getByRole("alert").locator("code")).toHaveText(/^[0-9a-f]{64}\.json$/);
+  await expect(guide.getByRole("alert")).toContainText("--profile");
+  await expect(guide.getByRole("alert")).toContainText("この画面では個人ファイルの保存先を表示しません");
+  await expect(guide.getByRole("alert")).not.toContainText("WORKBENCH_PROFILE_STORE_PATH");
+  await expect(guide.getByRole("alert").locator("code").filter({
+    hasText: /^[0-9a-f]{64}\.json$/,
+  })).toBeVisible();
   await expect(guide.getByRole("textbox", { name: "PowerShellモデル更新手順" })).not.toBeVisible();
   await expect(guide.getByRole("button", { name: "PowerShell手順をコピー" })).not.toBeVisible();
 });
@@ -549,9 +602,7 @@ test("Data Library distinguishes personal models from bundled models", async ({ 
       json: packages.map((item) => ({ ...item, storage_scope: "personal" })),
     });
   });
-  await page.goto("/?view=data-library");
-
-  const selectedDataset = page.locator(".dataset-context");
+  const selectedDataset = await gotoReadyDataLibrary(page);
   await expect(selectedDataset.getByText("自分のモデル", { exact: true }).first()).toBeVisible();
   await expect(selectedDataset.getByText("同梱モデル", { exact: true })).toHaveCount(0);
 });

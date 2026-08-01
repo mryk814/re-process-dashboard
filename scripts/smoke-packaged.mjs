@@ -354,6 +354,7 @@ try {
   assert.deepEqual(
     new Set((await galleryResponse.json()).map(({ project_id }) => project_id)),
     new Set([
+      "default",
       "welding-stage-b-default",
       "battery-degradation-v1-default",
       "mpea-room-tensile-v1-default",
@@ -660,8 +661,20 @@ try {
     scrollWidth: document.documentElement.scrollWidth,
     scrollHeight: document.documentElement.scrollHeight,
   }));
-  assert(layout.innerWidth >= 1180);
-  assert(layout.innerHeight >= 760);
+  const windowGeometry = await electronApp.evaluate(({ BrowserWindow }) => {
+    const [mainWindow] = BrowserWindow.getAllWindows();
+    if (!mainWindow) throw new Error("packaged smoke main window is unavailable");
+    return {
+      bounds: mainWindow.getBounds(),
+      contentBounds: mainWindow.getContentBounds(),
+      minimumSize: mainWindow.getMinimumSize(),
+    };
+  });
+  assert.deepEqual(windowGeometry.minimumSize, [1180, 760]);
+  assert(windowGeometry.bounds.width >= windowGeometry.minimumSize[0]);
+  assert(windowGeometry.bounds.height >= windowGeometry.minimumSize[1]);
+  assert.equal(layout.innerWidth, windowGeometry.contentBounds.width);
+  assert.equal(layout.innerHeight, windowGeometry.contentBounds.height);
   assert(layout.scrollWidth <= layout.innerWidth);
 
   const screenshot = join(artifacts, `packaged-${mode}-smoke.png`);
@@ -687,6 +700,7 @@ try {
     database,
     log,
     layout,
+    windowGeometry,
     lifecycleBenchmark,
   }, null, 2));
 } finally {

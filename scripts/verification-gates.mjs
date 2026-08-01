@@ -1,7 +1,19 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 export const catalogPath = resolve(import.meta.dirname, "verification-gates.json");
+
+export function normalizedTextSha256(value) {
+  const normalized = String(value)
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
+export function verificationCatalogSha256(path = catalogPath) {
+  return normalizedTextSha256(readFileSync(path, "utf8"));
+}
 
 const requiredGateFields = [
   "command",
@@ -105,11 +117,15 @@ export function resolveExecutable(
     npmExecPath = process.env.npm_execpath,
   } = {},
 ) {
-  if (name === "npm" && npmExecPath) {
-    return { command: execPath, prefix: [npmExecPath] };
+  const nodeHostedNpmExecPath = npmExecPath
+    ?? (platform === "win32"
+      ? join(dirname(execPath), "node_modules", "npm", "bin", "npm-cli.js")
+      : null);
+  if (name === "npm" && nodeHostedNpmExecPath) {
+    return { command: execPath, prefix: [nodeHostedNpmExecPath] };
   }
-  if (name === "npx" && npmExecPath) {
-    return { command: execPath, prefix: [npmExecPath, "exec", "--"] };
+  if (name === "npx" && nodeHostedNpmExecPath) {
+    return { command: execPath, prefix: [nodeHostedNpmExecPath, "exec", "--"] };
   }
   if (name === "npm") {
     return { command: platform === "win32" ? "npm.cmd" : "npm", prefix: [] };
@@ -194,15 +210,85 @@ function strongestMinimumLevel(risks, rules, requestedLevel) {
   requestedLevel);
 }
 
+const pytestOptionsWithSeparateValue = new Set([
+  "-k",
+  "-m",
+  "-o",
+  "--assert",
+  "--basetemp",
+  "--capture",
+  "--color",
+  "--confcutdir",
+  "--deselect",
+  "--doctest-glob",
+  "--doctest-report",
+  "--durations",
+  "--durations-min",
+  "--ignore",
+  "--ignore-glob",
+  "--import-mode",
+  "--junit-prefix",
+  "--junitxml",
+  "--last-failed-no-failures",
+  "--log-cli-date-format",
+  "--log-cli-format",
+  "--log-cli-level",
+  "--log-date-format",
+  "--log-file",
+  "--log-file-date-format",
+  "--log-file-format",
+  "--log-file-level",
+  "--log-format",
+  "--log-level",
+  "--maxfail",
+  "--override-ini",
+  "--pastebin",
+  "--pdbcls",
+  "--rootdir",
+  "--tb",
+]);
+
+function isPythonPytestTarget(value) {
+  return /(?:^|\/)tests(?:\/|$)/.test(value)
+    || /\.py(?:::.+)?$/i.test(value);
+}
+
+function isNodeTestTarget(value) {
+  return /\.(?:[cm]?js|jsx|ts|tsx)$/i.test(value);
+}
+
+function focusedPytestArgs(args) {
+  const normalized = args.map((value) => value.replaceAll("\\", "/"));
+  const hasPythonTarget = normalized.some((value) => (
+    !isNodeTestTarget(value) && isPythonPytestTarget(value)
+  ));
+  if (!hasPythonTarget) return [];
+  let preserveNextValue = false;
+  return args.filter((value, index) => {
+    if (preserveNextValue) {
+      preserveNextValue = false;
+      return true;
+    }
+    const normalizedValue = normalized[index];
+    if (normalizedValue.startsWith("-")) {
+      const option = normalizedValue.split("=", 1)[0];
+      preserveNextValue = !normalizedValue.includes("=")
+        && pytestOptionsWithSeparateValue.has(option);
+      return true;
+    }
+    return !isNodeTestTarget(normalizedValue);
+  });
+}
+
 export function resolveFocusedTests({ catalog, changedPaths, focusedArgs = [] }) {
   if (focusedArgs.length > 0) {
-    return { tests: focusedArgs, source: "explicit", fallback: false };
+    return { tests: focusedPytestArgs(focusedArgs), source: "explicit", fallback: false };
   }
   const normalizedPaths = changedPaths.map((path) => path.replaceAll("\\", "/"));
   const tests = new Set();
   for (const authority of catalog.planning.focusedTestAuthority ?? []) {
     if (normalizedPaths.some((path) => authority.matches.some((matcher) => pathMatches(path, matcher)))) {
-      authority.tests.forEach((testPath) => tests.add(testPath));
+      focusedPytestArgs(authority.tests).forEach((testPath) => tests.add(testPath));
     }
   }
   if (tests.size > 0) return { tests: [...tests].sort(), source: "authority-map", fallback: false };
@@ -260,8 +346,12 @@ export function buildVerificationPlan({
   const unmetByRisk = new Map(
     unmetRiskRequirements.map((requirement) => [requirement.risk, requirement]),
   );
+  const editLoopDefersHigherEvidence = requestedLevel === "edit";
   const strongestDirectRequirement = unmetRiskRequirements
-    .filter((requirement) => requirement.disposition === "direct")
+    .filter((requirement) => (
+      requirement.disposition === "direct"
+      && !editLoopDefersHigherEvidence
+    ))
     .sort((left, right) => levelRank(right.level) - levelRank(left.level))[0] ?? null;
   const directAggregateRequired = strongestDirectRequirement !== null;
   const deferredManualFollowUps = [];
@@ -273,6 +363,21 @@ export function buildVerificationPlan({
   for (const gateId of requested.gates) select(gateId, `baseline for ${requestedLevel}`);
   for (const risk of effectiveRisks) {
     const unmet = unmetByRisk.get(risk);
+    if (unmet && editLoopDefersHigherEvidence) {
+      for (const gateId of rules.get(risk).requiredGates ?? []) {
+        if (!catalog.gates[gateId].manual) continue;
+        deferredManualFollowUps.push({
+          level: unmet.level,
+          command: catalog.gates[gateId].command,
+          reason: `manual evidence deferred for ${risk}`,
+          risks: [risk],
+          owner: unmet.disposition === "direct"
+            ? "pr-verification"
+            : unmet.owner,
+        });
+      }
+      continue;
+    }
     if (unmet?.disposition === "direct") {
       select(
         strongestDirectRequirement.gateId,
@@ -303,9 +408,9 @@ export function buildVerificationPlan({
     }
   }
   const backendRiskDetected = requiresBackendPytest(effectiveRisks);
-  const focused = backendRiskDetected
+  const focused = backendRiskDetected || focusedArgs.length > 0
     ? resolveFocusedTests({ catalog, changedPaths, focusedArgs })
-    : { tests: focusedArgs, source: focusedArgs.length > 0 ? "explicit" : "not-needed", fallback: false };
+    : { tests: [], source: "not-needed", fallback: false };
   const ciOwnsBackendFullSuite = ci
     && backendRiskDetected
     && !effectiveRisks.includes("unknown")
@@ -313,7 +418,7 @@ export function buildVerificationPlan({
   if (ciOwnsBackendFullSuite) {
     selectedGateReasons.delete("focused-pytest");
     select("full-pytest", "CI is the full-suite owner for backend risk on this commit");
-  } else if (!directAggregateRequired && focusedArgs.length > 0 && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!directAggregateRequired && focused.tests.length > 0 && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "explicit focused tests were supplied");
   } else if (!directAggregateRequired && backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "backend risk requires focused evidence");
@@ -377,7 +482,10 @@ export function buildVerificationPlan({
   ];
   const directEvidenceRequirements = mergeRequirements(
     unmetRiskRequirements
-      .filter((requirement) => requirement.disposition === "direct")
+      .filter((requirement) => (
+        requirement.disposition === "direct"
+        && !editLoopDefersHigherEvidence
+      ))
       .map((requirement) => ({
         level: strongestDirectRequirement.level,
         command: strongestDirectRequirement.command,
@@ -391,7 +499,13 @@ export function buildVerificationPlan({
     [
       ...unmetRiskRequirements
         .filter((requirement) => (
-          requirement.disposition === "follow_up"
+          (
+            requirement.disposition === "follow_up"
+            || (
+              editLoopDefersHigherEvidence
+              && requirement.disposition === "direct"
+            )
+          )
           && (
             !strongestDirectRequirement
             || levelRank(requirement.level) > levelRank(strongestDirectRequirement.level)
@@ -402,7 +516,9 @@ export function buildVerificationPlan({
           command: requirement.command,
           reason: `${requirement.level} evidence is required by ${requirement.risk}`,
           risks: [requirement.risk],
-          owner: requirement.owner,
+          owner: requirement.disposition === "direct"
+            ? "pr-verification"
+            : requirement.owner,
         })),
       ...deferredManualFollowUps.filter((requirement) => (
         !strongestDirectRequirement

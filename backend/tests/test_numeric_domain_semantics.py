@@ -191,6 +191,94 @@ def test_response_sampling_snaps_and_deduplicates_integer_step_and_log_domains()
     assert values == pytest.approx([1.0, 10.0, 100.0])
 
 
+def test_response_sampling_includes_current_without_exceeding_requested_count() -> None:
+    integer = _field(
+        numeric_domain_kind="integer",
+        default_range={"min": 1.0, "max": 10.0},
+        allowed_range={"min": 1.0, "max": 20.0},
+        training_range={"min": 1.0, "max": 10.0},
+    )
+    stepped = _field(numeric_domain_kind="step", step=0.5)
+    logarithmic = _field(
+        search_scale="log",
+        default_range={"min": 1.0, "max": 100.0},
+        allowed_range={"min": 1.0, "max": 1000.0},
+        training_range={"min": 1.0, "max": 100.0},
+    )
+
+    cases = (
+        numeric_domain_grid(1.0, 10.0, 5, field=integer, current=7.0),
+        numeric_domain_grid(0.0, 10.0, 5, field=stepped, current=3.5),
+        numeric_domain_grid(1.0, 100.0, 3, field=logarithmic, current=20.0),
+    )
+
+    assert [len(values) for values in cases] == [5, 5, 3]
+    assert 7.0 in cases[0]
+    assert 3.5 in cases[1]
+    assert 20.0 in cases[2]
+
+
+def test_response_sampling_fills_discrete_lattice_inside_non_lattice_bounds() -> None:
+    integer = _field(
+        numeric_domain_kind="integer",
+        default_range={"min": 1.0, "max": 10.0},
+        allowed_range={"min": 1.0, "max": 20.0},
+        training_range={"min": 1.0, "max": 10.0},
+    )
+    stepped = _field(
+        numeric_domain_kind="step",
+        step=1.0,
+        default_range={"min": 0.0, "max": 10.0},
+        allowed_range={"min": 0.0, "max": 20.0},
+        training_range={"min": 0.0, "max": 10.0},
+    )
+
+    integer_values = numeric_domain_grid(
+        1.1,
+        9.9,
+        5,
+        field=integer,
+        current=7.0,
+    )
+    stepped_values = numeric_domain_grid(
+        0.1,
+        9.9,
+        5,
+        field=stepped,
+        current=7.0,
+    )
+
+    assert len(integer_values) == len(stepped_values) == 5
+    assert 7.0 in integer_values
+    assert 7.0 in stepped_values
+    assert all(value.is_integer() and 1.1 <= value <= 9.9 for value in integer_values)
+    assert all(value.is_integer() and 0.1 <= value <= 9.9 for value in stepped_values)
+
+
+def test_response_sampling_preserves_log_spacing_on_integer_lattice() -> None:
+    logarithmic_integer = _field(
+        numeric_domain_kind="integer",
+        search_scale="log",
+        default_range={"min": 1.0, "max": 100.0},
+        allowed_range={"min": 1.0, "max": 100.0},
+        training_range={"min": 1.0, "max": 100.0},
+    )
+
+    assert numeric_domain_grid(
+        1.0,
+        100.0,
+        3,
+        field=logarithmic_integer,
+    ) == [1.0, 10.0, 100.0]
+    assert numeric_domain_grid(
+        1.0,
+        100.0,
+        3,
+        field=logarithmic_integer,
+        current=20.0,
+    ) == [1.0, 20.0, 100.0]
+
+
 def test_response_sampling_never_clamps_a_lattice_point_to_an_invalid_requested_bound() -> None:
     integer = _field(
         numeric_domain_kind="integer",
@@ -198,6 +286,12 @@ def test_response_sampling_never_clamps_a_lattice_point_to_an_invalid_requested_
         allowed_range={"min": 1.0, "max": 20.0},
         training_range={"min": 1.0, "max": 10.0},
     )
-    values = numeric_domain_grid(1.0000000005, 3.8, 15, field=integer)
+    values = numeric_domain_grid(
+        1.0000000005,
+        3.8,
+        15,
+        field=integer,
+        current=1.3,
+    )
     assert values == [2.0, 3.0]
     assert all(value.is_integer() for value in values)

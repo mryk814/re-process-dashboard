@@ -162,7 +162,12 @@ test("Decision Activityの保存結果とnot-foundをアクセシビリティ検
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
   if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("8");
+  const runResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/decision-activities/robustness-analysis-v1/runs")
+  ));
   await page.getByRole("button", { name: /公差内を解析|ばらつきを解析/ }).click();
+  expect((await runResponse).status()).toBe(201);
   const history = page.getByRole("navigation", { name: "保存済みロバストネス解析" });
   await expect(history).toBeVisible();
   const activeHistory = history.locator('button[aria-current="true"]');

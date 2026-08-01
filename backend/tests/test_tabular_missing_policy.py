@@ -227,6 +227,7 @@ def test_batch_support_keeps_candidate_missing_evidence() -> None:
     ]
     runtime = object.__new__(TabularRegressionRuntime)
     runtime.profile = profile
+    runtime.missing_policy_inputs = profile.inputs
     runtime.support_references = {
         "y": {
             "mean": np.zeros(2),
@@ -245,6 +246,39 @@ def test_batch_support_keeps_candidate_missing_evidence() -> None:
     assert "実測一致とは扱いません" in support[0].message
     assert support[1].components["imputed_inputs"] == 0.0
     assert "実測一致とは扱いません" not in support[1].message
+
+
+def test_batch_support_defaults_to_empty_missing_policy_port() -> None:
+    profile = _profile()
+    candidate = CandidateInput.model_validate({
+        "name": "observed",
+        "inputs": {
+            "composition": {},
+            "process": {"x": 1.0},
+            "categorical": {},
+        },
+    })
+    runtime = object.__new__(TabularRegressionRuntime)
+    runtime.profile = profile
+    runtime.support_references = {
+        "y": {
+            "mean": np.zeros(1),
+            "scale": np.ones(1),
+            "vectors": np.asarray([[0.0], [1.0]]),
+            "loo_nearest": np.asarray([1.0, 1.0]),
+            "supported_threshold": 1.0,
+            "caution_threshold": 2.0,
+            "rows": [],
+        },
+    }
+
+    support = runtime._support_batch(
+        [build_tabular_features(candidate, profile)],
+        [candidate],
+        "y",
+    )
+
+    assert support[0].components["imputed_inputs"] == 0.0
 
 
 def test_categorical_mapping_requires_explicit_choice_and_never_uses_zero_vector(

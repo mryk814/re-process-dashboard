@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
   appendNotRunResults,
@@ -15,8 +21,17 @@ import {
   requiresBackendPytest,
   resolveExecutable,
   verificationEvidenceMarkdown,
+  verificationCatalogSha256,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
+import {
+  aggregateVerificationShards,
+  buildParallelAcceptanceReport,
+  ciPlanSchemaVersion,
+  createCiPlan,
+  shardReportSchemaVersion,
+  validateCiPlan,
+} from "./verification-ci.mjs";
 import { inspectAcceptanceReport, normalizedTextSha256 } from "./acceptance-status.mjs";
 
 const catalog = loadVerificationCatalog();
@@ -85,6 +100,17 @@ test("npx uses the npm CLI through Node on a virtual Windows runner", () => {
     command: runtime.execPath,
     prefix: [runtime.npmExecPath, "exec", "--"],
   });
+  assert.deepEqual(resolveExecutable("npx", {
+    platform: "win32",
+    execPath: runtime.execPath,
+  }), {
+    command: runtime.execPath,
+    prefix: [
+      "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+      "exec",
+      "--",
+    ],
+  });
 });
 
 test("catalog declares four distinct levels, path rules, and complete gate metadata", () => {
@@ -152,6 +178,59 @@ test("backend plan resolves authority-map focused tests and CI owns the full sui
   assert.ok(!selectedIds(ciPlan).includes("focused-pytest"));
   assert.equal(ciPlan.fullSuiteOwner.owner, "ci");
   assert.match(ciPlan.skippedGates.find((gate) => gate.id === "focused-pytest").reason, /sole full-suite/);
+});
+
+test("Node verification tests stay out of focused pytest and keep their owning gate", () => {
+  const mixedPlan = planFor([
+    "backend/src/decision_workbench/application/project_runtime.py",
+    "scripts/verification-gates.test.mjs",
+  ]);
+  assert.deepEqual(mixedPlan.focusedTests.tests, ["backend/tests"]);
+  assert.ok(!mixedPlan.focusedTests.tests.includes("scripts/verification-gates.test.mjs"));
+  assert.ok(selectedIds(mixedPlan).includes("focused-pytest"));
+  assert.ok(selectedIds(mixedPlan).includes("verification-policy-tests"));
+
+  const explicitPlan = planFor(
+    ["backend/src/decision_workbench/application/project_runtime.py"],
+    {
+      focusedArgs: [
+        "backend/tests/test_api.py::test_health",
+        "scripts/verification-gates.test.mjs",
+        "-k",
+        "TestApi.test_health",
+        "--junitxml",
+        "reports/focused.xml",
+        "--rootdir",
+        "config.v1",
+        "--ignore",
+        "scripts/ignored.mjs",
+      ],
+    },
+  );
+  assert.deepEqual(explicitPlan.focusedTests.tests, [
+    "backend/tests/test_api.py::test_health",
+    "-k",
+    "TestApi.test_health",
+    "--junitxml",
+    "reports/focused.xml",
+    "--rootdir",
+    "config.v1",
+    "--ignore",
+    "scripts/ignored.mjs",
+  ]);
+
+  const nodeOnlyPlan = planFor(
+    ["scripts/verification-gates.test.mjs"],
+    {
+      focusedArgs: [
+        "scripts/verification-gates.test.mjs",
+        "tests/verification-gates.test.mjs",
+      ],
+    },
+  );
+  assert.deepEqual(nodeOnlyPlan.focusedTests.tests, []);
+  assert.ok(!selectedIds(nodeOnlyPlan).includes("focused-pytest"));
+  assert.ok(selectedIds(nodeOnlyPlan).includes("verification-policy-tests"));
 });
 
 test("unresolved backend authority is an explicit broad fallback, never an accidental full-suite default", () => {
@@ -293,6 +372,10 @@ test("changed paths use catalog-driven high-risk precedence", () => {
     planFor([".github/workflows/verify.yml"]).riskCategories,
     ["verification-tooling"],
   );
+  assert.deepEqual(
+    planFor(["scripts/verification-ci.mjs"]).riskCategories,
+    ["verification-tooling"],
+  );
   assert.equal(requiresBackendPytest(["backend-application"]), true);
   assert.equal(requiresBackendPytest(["pure-docs", "frontend-presentation"]), false);
 });
@@ -326,6 +409,85 @@ test("failed reports and dirty evidence-only successors are never accepted", () 
 
 test("catalog digest is stable across BOM and line-ending conventions", () => {
   assert.equal(normalizedTextSha256('{\n  "levels": []\n}\n'), normalizedTextSha256('\uFEFF{\r\n  "levels": []\r\n}\r\n'));
+});
+
+test("edit loop defers higher evidence instead of running aggregate acceptance", () => {
+  const plan = planFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ], {
+    requestedLevel: "edit",
+    focusedArgs: ["backend/tests/test_legacy_workspace_acceptance.py"],
+  });
+  assert.deepEqual(plan.selectedGateIds, ["focused-pytest", "typecheck"]);
+  assert.ok(!plan.selectedGateIds.includes("release-acceptance"));
+  assert.equal(plan.directEvidenceRequirements.length, 0);
+  assert.ok(
+    plan.requiredFollowUps.some(
+      (item) => item.command === "npm run acceptance:release"
+        && item.owner === "pr-verification",
+    ),
+  );
+  assert.equal(
+    evaluateVerificationOutcome({
+      plan,
+      gateResults: passedResults(plan),
+    }).outcome,
+    "passed_with_follow_up",
+  );
+
+  const modelRuntimePlan = planFor([
+    "backend/src/decision_workbench/modeling/runtime.py",
+  ], {
+    requestedLevel: "edit",
+    focusedArgs: ["backend/tests/test_runtime.py"],
+  });
+  assert.deepEqual(modelRuntimePlan.selectedGateIds, [
+    "focused-pytest",
+    "typecheck",
+  ]);
+  assert.ok(
+    modelRuntimePlan.requiredFollowUps.some(
+      (item) => item.command.startsWith(
+        "manual: task-specific model:build",
+      ) && item.owner === "release-checkpoint",
+    ),
+  );
+});
+
+test("catalog file digest stays compatible with acceptance status across line endings", () => {
+  const scratch = mkdtempSync(join(tmpdir(), "verification-catalog-digest-"));
+  const lfPath = join(scratch, "lf.json");
+  const crlfPath = join(scratch, "crlf.json");
+  try {
+    const lf = '{\n  "schemaVersion": "verification-gates/v2"\n}\n';
+    const crlf = `\uFEFF${lf.replaceAll("\n", "\r\n")}`;
+    writeFileSync(lfPath, lf);
+    writeFileSync(crlfPath, crlf);
+    const lfDigest = verificationCatalogSha256(lfPath);
+    const crlfDigest = verificationCatalogSha256(crlfPath);
+    assert.equal(lfDigest, crlfDigest);
+    assert.equal(lfDigest, normalizedTextSha256(lf));
+    const status = inspectAcceptanceReport(
+      {
+        schemaVersion: "main-acceptance/v2",
+        testedCommit: "same",
+        status: "passed",
+        verificationCatalogSha256: crlfDigest,
+      },
+      {
+        currentCommit: "same",
+        commitsAhead: 0,
+        commitsBehind: 0,
+        changedPaths: [],
+        dirtyPaths: [],
+        currentCatalogSha256: lfDigest,
+      },
+    );
+    assert.equal(status.catalogChanged, false);
+    assert.equal(status.applicability, "current");
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 });
 
 test("selected gates after an early failure are recorded as not_run", () => {
@@ -455,13 +617,383 @@ test("docs pass, direct acceptance is result-aware, and structural follow-up sta
   assert.equal(structuralOutcome.follow_up_owner, "epic-checkpoint");
 });
 
-test("verification workflow has separate direct and follow-up checks", () => {
+function ciPlanFor(changedPaths) {
+  const plan = planFor(changedPaths, { ci: true });
+  return createCiPlan({
+    plan: {
+      ...plan,
+      verificationCatalogSha256: "catalog-sha",
+    },
+    catalog,
+  });
+}
+
+function passedShardReports(ciPlan) {
+  return ciPlan.shards.map((shard) => ({
+    schemaVersion: shardReportSchemaVersion,
+    shardId: shard.id,
+    testedCommit: ciPlan.testedCommit,
+    verificationCatalogSha256: ciPlan.verificationCatalogSha256,
+    planDigest: ciPlan.planDigest,
+    runnerOS: "windows",
+    expectedGateIds: shard.gateIds,
+    startedAt: "2026-08-02T00:00:00.000Z",
+    finishedAt: "2026-08-02T00:01:00.000Z",
+    durationSeconds: 60,
+    status: "passed",
+    cleanIsolatedPlaywright: true,
+    clearedInheritedPlaywrightEnvironment: {},
+    artifacts: shard.gateIds.includes("windows-delivery")
+      ? [
+          {
+            name: "Evidence-Decision-Workbench-Setup-0.1.0.exe",
+            bytes: 100,
+            sha256: "a".repeat(64),
+          },
+          {
+            name: "Evidence-Decision-Workbench-folder-0.1.0.zip",
+            bytes: 200,
+            sha256: "b".repeat(64),
+          },
+        ]
+      : [],
+    gates: shard.gateIds.map((id) => ({
+      id,
+      status: "passed",
+      command: catalog.gates[id].command,
+      exitCode: 0,
+      durationSeconds: 1,
+      error: null,
+    })),
+  }));
+}
+
+test("CI plan expands aggregate acceptance without dropping or duplicating gates", () => {
+  const releasePlan = ciPlanFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ]);
+  assert.equal(releasePlan.schemaVersion, ciPlanSchemaVersion);
+  assert.ok(releasePlan.originalPlan.selectedGateIds.includes("release-acceptance"));
+  assert.deepEqual(
+    releasePlan.logicalGateExpansions["release-acceptance"],
+    getVerificationLevel(catalog, "release").gates.filter(
+      (gateId) => gateId !== "windows-delivery",
+    ),
+  );
+  assert.ok(!releasePlan.coverageGateIds.includes("windows-delivery"));
+  assert.equal(
+    releasePlan.executionGateIds.length,
+    new Set(releasePlan.executionGateIds).size,
+  );
+  assert.deepEqual(releasePlan.absorbedGates, {
+    "security-boundary-tests": "full-pytest",
+    "model-package-contract-tests": "full-pytest",
+    "legacy-workspace": "full-pytest",
+  });
+  assert.ok(
+    Object.keys(releasePlan.absorbedGates).every(
+      (gateId) => !releasePlan.executionGateIds.includes(gateId),
+    ),
+  );
+  assert.deepEqual(
+    releasePlan.coverageGateIds,
+    [...new Set(Object.values(releasePlan.logicalGateExpansions).flat())],
+  );
+  assert.deepEqual(
+    releasePlan.shards.flatMap((shard) => shard.gateIds).sort(),
+    [...releasePlan.executionGateIds].sort(),
+  );
+
+  const checkpointPlan = ciPlanFor(["unclassified.file"]);
+  assert.ok(checkpointPlan.originalPlan.selectedGateIds.includes("checkpoint-acceptance"));
+  assert.equal(
+    checkpointPlan.executionGateIds.filter((id) => id === "branch-diff").length,
+    1,
+  );
+});
+
+test("CI aggregation restores the logical verification outcome", () => {
+  const ciPlan = ciPlanFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ]);
+  const report = aggregateVerificationShards({
+    ciPlan,
+    shardReports: passedShardReports(ciPlan),
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(report.outcome, "passed");
+  assert.equal(report.commit_sha, "abc123");
+  assert.equal(report.ci_aggregation.integrityFailures.length, 0);
+  assert.ok(report.ci_aggregation.shards.every((shard) => shard.status === "passed"));
+  assert.equal(
+    report.gates.find((gate) => gate.id === "release-acceptance").status,
+    "passed",
+  );
+  assert.deepEqual(
+    report.execution_gates.map((gate) => gate.id),
+    ciPlan.executionGateIds,
+  );
+  assert.deepEqual(
+    report.coverage_gates.map((gate) => gate.id),
+    ciPlan.coverageGateIds,
+  );
+  assert.ok(
+    Object.entries(ciPlan.absorbedGates).every(([gateId, ownerGateId]) => {
+      const gate = report.coverage_gates.find((candidate) => candidate.id === gateId);
+      return gate?.status === "passed" && gate.evidenceSource === ownerGateId;
+    }),
+  );
+  assert.equal(report.artifacts.length, 0);
+  assert.equal(report.cleanIsolatedPlaywright, true);
+  const acceptance = buildParallelAcceptanceReport({
+    verificationReport: report,
+    ciPlan,
+    catalog,
+  });
+  assert.equal(acceptance.schemaVersion, "main-acceptance/v2");
+  assert.equal(acceptance.testedCommit, "abc123");
+  assert.equal(acceptance.status, "passed");
+  assert.equal(acceptance.artifacts.length, 0);
+  assert.equal(acceptance.cleanIsolatedPlaywright, true);
+  assert.ok(
+    acceptance.gates.some(
+      (gate) => gate.name === "security-boundary-tests"
+        && gate.summary.includes("covered by full-pytest"),
+    ),
+  );
+
+  const distributionPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  assert.ok(distributionPlan.coverageGateIds.includes("windows-delivery"));
+  const packagingPlan = ciPlanFor(["packaging/electron-builder.yml"]);
+  assert.deepEqual(packagingPlan.originalPlan.riskCategories, [
+    "electron-distribution",
+  ]);
+  assert.ok(packagingPlan.coverageGateIds.includes("windows-delivery"));
+  const packagedSmokePlan = ciPlanFor(["scripts/smoke-packaged.mjs"]);
+  assert.deepEqual(packagedSmokePlan.originalPlan.riskCategories, [
+    "electron-distribution",
+  ]);
+  assert.ok(packagedSmokePlan.coverageGateIds.includes("windows-delivery"));
+  const distributionReport = aggregateVerificationShards({
+    ciPlan: distributionPlan,
+    shardReports: passedShardReports(distributionPlan),
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(distributionReport.outcome, "passed");
+  assert.equal(distributionReport.artifacts.length, 2);
+});
+
+test("CI aggregation fails closed for missing, stale, and duplicate evidence", () => {
+  const ciPlan = ciPlanFor(["unclassified.file"]);
+  const reports = passedShardReports(ciPlan);
+  const missing = aggregateVerificationShards({
+    ciPlan,
+    shardReports: reports.slice(1),
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(missing.outcome, "failed");
+  assert.match(
+    missing.ci_aggregation.integrityFailures.join(" "),
+    /missing shard artifact/,
+  );
+  assert.ok(
+    missing.ci_aggregation.shards.some((shard) => shard.status === "not_run"),
+  );
+
+  const staleReports = structuredClone(reports);
+  staleReports[0].testedCommit = "stale-sha";
+  const stale = aggregateVerificationShards({
+    ciPlan,
+    shardReports: staleReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(stale.outcome, "failed");
+  assert.match(
+    stale.ci_aggregation.integrityFailures.join(" "),
+    /different commit/,
+  );
+
+  const catalogDriftReports = structuredClone(reports);
+  catalogDriftReports[0].verificationCatalogSha256 = "other-catalog";
+  const catalogDrift = aggregateVerificationShards({
+    ciPlan,
+    shardReports: catalogDriftReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(catalogDrift.outcome, "failed");
+  assert.match(
+    catalogDrift.ci_aggregation.integrityFailures.join(" "),
+    /different verification catalog/,
+  );
+
+  const planDriftReports = structuredClone(reports);
+  planDriftReports[0].planDigest = "other-plan";
+  const planDrift = aggregateVerificationShards({
+    ciPlan,
+    shardReports: planDriftReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(planDrift.outcome, "failed");
+  assert.match(
+    planDrift.ci_aggregation.integrityFailures.join(" "),
+    /different CI plan/,
+  );
+
+  const duplicateReports = structuredClone(reports);
+  duplicateReports.push(structuredClone(duplicateReports[0]));
+  const duplicate = aggregateVerificationShards({
+    ciPlan,
+    shardReports: duplicateReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(duplicate.outcome, "failed");
+  assert.match(
+    duplicate.ci_aggregation.integrityFailures.join(" "),
+    /duplicate shard artifact/,
+  );
+
+  const duplicateGateReports = structuredClone(reports);
+  duplicateGateReports[0].gates.push(
+    structuredClone(duplicateGateReports[0].gates[0]),
+  );
+  const duplicateGate = aggregateVerificationShards({
+    ciPlan,
+    shardReports: duplicateGateReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(duplicateGate.outcome, "failed");
+  assert.match(
+    duplicateGate.ci_aggregation.integrityFailures.join(" "),
+    /duplicate gate result/,
+  );
+
+  const pendingReports = structuredClone(reports);
+  pendingReports[0].status = "pending";
+  const pending = aggregateVerificationShards({
+    ciPlan,
+    shardReports: pendingReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(pending.outcome, "failed");
+  assert.match(
+    pending.ci_aggregation.integrityFailures.join(" "),
+    /invalid status pending/,
+  );
+
+  const corruptGateReports = structuredClone(reports);
+  corruptGateReports[0].status = "failed";
+  corruptGateReports[0].gates[0].status = "corrupt";
+  const corruptGate = aggregateVerificationShards({
+    ciPlan,
+    shardReports: corruptGateReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(corruptGate.outcome, "failed");
+  assert.match(
+    corruptGate.ci_aggregation.integrityFailures.join(" "),
+    /gate .* has invalid status corrupt/,
+  );
+
+  const releaseCiPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const missingDeliveryEvidence = structuredClone(
+    passedShardReports(releaseCiPlan),
+  );
+  const delivery = missingDeliveryEvidence.find(
+    (report) => report.shardId === "windows-delivery",
+  );
+  delivery.artifacts = [];
+  const withoutDeliveryEvidence = aggregateVerificationShards({
+    ciPlan: releaseCiPlan,
+    shardReports: missingDeliveryEvidence,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(withoutDeliveryEvidence.outcome, "failed");
+  assert.match(
+    withoutDeliveryEvidence.ci_aggregation.integrityFailures.join(" "),
+    /missing valid Windows delivery evidence/,
+  );
+  assert.equal(
+    buildParallelAcceptanceReport({
+      verificationReport: withoutDeliveryEvidence,
+      ciPlan: releaseCiPlan,
+      catalog,
+    }).status,
+    "failed",
+  );
+});
+
+test("CI plan validation binds commit, catalog, and plan contents", () => {
+  const ciPlan = ciPlanFor(["docs/operations/verification-policy.md"]);
+  assert.equal(
+    validateCiPlan(ciPlan, {
+      currentCommit: "abc123",
+      currentCatalogSha256: "catalog-sha",
+    }),
+    ciPlan,
+  );
+  assert.throws(
+    () => validateCiPlan({ ...ciPlan, testedCommit: "stale-sha" }),
+    /tested commit does not match/,
+  );
+  assert.throws(
+    () => validateCiPlan(ciPlan, { currentCatalogSha256: "other-catalog" }),
+    /catalog digest does not match checkout/,
+  );
+  assert.throws(
+    () => validateCiPlan({
+      ...ciPlan,
+      shards: ciPlan.shards.map((shard, index) => (
+        index === 0 ? { ...shard, gateIds: [] } : shard
+      )),
+    }),
+    /digest does not match/,
+  );
+});
+
+test("verification workflow shards execution and preserves required check compatibility", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
-  assert.match(workflow, /name: direct verification/);
+  const acceptanceRunner = readFileSync(resolve(import.meta.dirname, "run-main-acceptance.ps1"), "utf8");
+  const failureStateRunner = readFileSync(resolve(import.meta.dirname, "run-failure-state-e2e.mjs"), "utf8");
+  assert.equal(workflow.match(/name: direct verification/g)?.length, 1);
   assert.match(workflow, /name: verification follow-up/);
   assert.match(workflow, /artifacts\/verification\/latest-pr\.json/);
+  assert.match(workflow, /verification-plan:/);
+  assert.match(workflow, /verification-shards:/);
+  assert.match(workflow, /node scripts\/verification-ci\.mjs plan/);
+  assert.match(workflow, /node scripts\/verification-ci\.mjs run-shard/);
+  assert.match(workflow, /node scripts\/verification-ci\.mjs aggregate/);
+  assert.match(workflow, /needs: \[verification-plan, verification-shards\]/);
+  assert.match(workflow, /name: direct-verification-report/);
+  assert.match(workflow, /name: main-acceptance-diagnostics/);
+  assert.match(workflow, /artifacts\/main-acceptance\/latest\.json/);
+  assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
+  assert.match(acceptanceRunner, /Select-Object -Last 200/);
   assert.match(workflow, /runs-on: windows-latest/);
-  assert.match(workflow, /timeout-minutes: 45/);
+  assert.match(workflow, /timeout-minutes: 60/);
+  assert.match(failureStateRunner, /VERIFICATION_SKIP_STANDARD_FAILURE_SPECS/);
+  assert.match(failureStateRunner, /covered by default-playwright/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
 });

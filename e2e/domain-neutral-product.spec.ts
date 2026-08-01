@@ -90,6 +90,6 @@ test("flank-wear uses the shared workbench under the domain-neutral product iden
   await page.getByRole("button", { name: "新しい予測問題" }).click();
   const scaffold = page.getByRole("region", { name: "完全に新しいTaskを準備" });
   await expect(scaffold).toBeVisible();
-  await expect(scaffold).toContainText("my-prediction-task-v1");
+  await expect(scaffold).toContainText("CSV / 単一表Excelから新しい予測問題を準備");
   await expect(scaffold).not.toContainText("my-material-property-v1");
 });

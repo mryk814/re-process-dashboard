@@ -22,7 +22,9 @@ from decision_workbench.modeling.model_lifecycle import (
 from decision_workbench.modeling.packages.contracts import FEATURE_DATASET_DIGEST_FLOAT15
 from decision_workbench.modeling.model_package_verify import verify_model_package
 from decision_workbench.modeling.packages.contracts import (
+    ModelPackageManifest,
     SourceLifecycleProvenance,
+    validate_task_definition_canonical_input_paths,
     validate_task_definition_canonical_inputs,
 )
 from decision_workbench.modeling.tabular.data import TabularData, load_tabular_data
@@ -893,11 +895,15 @@ def build_tabular_package_from_data(
         },
         "quality_report": quality_path.relative_to(destination).as_posix(),
     }
-    validate_task_definition_canonical_inputs(contract.task_definition, type(
+    validate_task_definition_canonical_input_paths(contract.task_definition, type(
         "_Manifest", (), {"task_id": profile.task_id, "feature_pipeline": type(
             "_Pipeline", (), {"canonical_input_paths": canonical_paths}
         )()}
     )())
+    validate_task_definition_canonical_inputs(
+        contract.task_definition,
+        ModelPackageManifest.model_validate(manifest),
+    )
     (destination / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
     )
