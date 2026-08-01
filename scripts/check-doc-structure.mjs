@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { validateCurrentContract } from "./check-current-contract.mjs";
 
 export const allowedDocsRootFiles = new Set([
   "README.md",
@@ -97,12 +98,13 @@ function main() {
       ),
     );
   }
+  failures.push(...validateCurrentContract(repositoryRoot));
   if (failures.length > 0) {
     process.stderr.write(`Documentation structure errors:\n${failures.join("\n")}\n`);
     process.exit(1);
   }
   process.stdout.write(
-    "Documentation structure passed: root contains only README.md and developer-start-here.md, inventory targets exist.\n",
+    "Documentation structure passed: root placement, inventory targets, and current contract markers are aligned.\n",
   );
 }
 

@@ -1,4 +1,13 @@
+<!--
+document-status: historical
+verified-commit: 50e403c697910b699a95cf7aa3082baec30a8b42
+owner: architecture
+source-of-truth: spike evidence and outcome record
+-->
+
 # 拡張性の反証テスト設計
+
+> **Historical spike evidence.** 反証の結果は設計判断の根拠ですが、ここにある実測をcurrent capability一覧として読まないでください。現在の採用範囲は[現行システム基準](../product/current-system-baseline.md)、採否理由は対応するdecisionを優先します。
 
 [extensibility-inventory.md](extensibility-inventory.md) で測定した登録点をもとに、
 「現在の共通基盤が別のユースケースでも再利用できるか」を反証するケースを設計します。

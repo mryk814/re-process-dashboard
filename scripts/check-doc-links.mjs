@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const ignoredDirectories = new Set([".git", "_build", "node_modules"]);
+const ignoredDirectories = new Set([".git", ".book-tools", "_build", "node_modules"]);
 const extensions = new Set([".md", ".qmd"]);
 
 function collect(directory) {
