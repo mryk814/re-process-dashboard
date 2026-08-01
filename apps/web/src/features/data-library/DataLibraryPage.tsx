@@ -636,6 +636,10 @@ export function DataLibraryPage({
           {renderResourceNotice("datasets", "Datasetを取得できるまで、source／revisionの閲覧とProject作成はできません。")}
           {renderResourceLoading("options")}
           {renderResourceNotice("options", "Datasetは閲覧できますが、予測タスクとProject作成条件は確認できません。")}
+          {!selectedDataset && renderResourceNotice(
+            "modelPackages",
+            "Datasetが空でもModel Packageの取得失敗を確認できます。失敗した項目だけを再試行してください。",
+          )}
           {(resourceStates.datasets.phase === "ready" || resourceStates.datasets.loadedAt) && <div className="dataset-groups">
             <section aria-labelledby="managed-datasets-heading">
               <div className="dataset-group-title"><h4 id="managed-datasets-heading">自分のデータ</h4><span>{managedDatasets.length}件</span></div>
