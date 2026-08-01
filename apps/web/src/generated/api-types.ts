@@ -6554,6 +6554,28 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ModelPackageCapabilityMatrix */
+        ModelPackageCapabilityMatrix: {
+            /**
+             * Joint Samples
+             * @default false
+             */
+            joint_samples: boolean;
+            /** Package Id */
+            package_id: string;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /**
+             * Schema Version
+             * @default model-package-capability-matrix/v1
+             * @constant
+             */
+            schema_version: "model-package-capability-matrix/v1";
+            /** Targets */
+            targets: components["schemas"]["ModelPackageTargetCapability"][];
+            /** Task Id */
+            task_id: string;
+        };
         /** ModelPackagePredictorStatus */
         ModelPackagePredictorStatus: {
             /** Predictive Family */
@@ -6592,6 +6614,44 @@ export interface components {
             task_id: string;
             /** Version */
             version: string;
+        };
+        /** ModelPackageTargetCapability */
+        ModelPackageTargetCapability: {
+            /**
+             * Explanation
+             * @default false
+             */
+            explanation: boolean;
+            /**
+             * Goal Probability
+             * @enum {string}
+             */
+            goal_probability: "native" | "samples" | "distribution" | "normal_approximation" | "unavailable";
+            /** Parametric Distribution */
+            parametric_distribution: boolean;
+            /** Point Statistics */
+            point_statistics: ("mean" | "median" | "probability" | "rate" | "expected_category")[];
+            /** Predictive Family */
+            predictive_family: string;
+            /** Predictive Samples */
+            predictive_samples: boolean;
+            /** Quantiles */
+            quantiles: boolean;
+            /** Standard Deviation */
+            standard_deviation: boolean;
+            /** Support */
+            support: boolean;
+            /** Target */
+            target: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
+            /** Uncertainty Components */
+            uncertainty_components: boolean;
+            /** Warnings */
+            warnings: boolean;
         };
         /** ModelQualityReport */
         ModelQualityReport: {
@@ -8677,6 +8737,7 @@ export interface components {
              */
             availability: components["schemas"]["TaskAvailability"];
             data_explorer?: components["schemas"]["DataExplorerCapability"] | null;
+            model_package_capability?: components["schemas"]["ModelPackageCapabilityMatrix"] | null;
             runtime_capability: components["schemas"]["RuntimeCapability"];
             task_definition: components["schemas"]["TaskDefinition"];
         };
@@ -10006,6 +10067,11 @@ export interface components {
         };
         /** TargetRuntimeCapability */
         TargetRuntimeCapability: {
+            /**
+             * Explanation
+             * @default false
+             */
+            explanation: boolean;
             /**
              * Goal Probability
              * @enum {string}

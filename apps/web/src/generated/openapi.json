@@ -11437,6 +11437,49 @@
         "title": "ModelMetadata",
         "type": "object"
       },
+      "ModelPackageCapabilityMatrix": {
+        "additionalProperties": false,
+        "properties": {
+          "joint_samples": {
+            "default": false,
+            "title": "Joint Samples",
+            "type": "boolean"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_manifest_digest": {
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "model-package-capability-matrix/v1",
+            "default": "model-package-capability-matrix/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPackageTargetCapability"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "package_id",
+          "package_manifest_digest",
+          "targets"
+        ],
+        "title": "ModelPackageCapabilityMatrix",
+        "type": "object"
+      },
       "ModelPackagePredictorStatus": {
         "properties": {
           "predictive_family": {
@@ -11550,6 +11593,104 @@
           "quality_report"
         ],
         "title": "ModelPackageStatus",
+        "type": "object"
+      },
+      "ModelPackageTargetCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "explanation": {
+            "default": false,
+            "title": "Explanation",
+            "type": "boolean"
+          },
+          "goal_probability": {
+            "enum": [
+              "native",
+              "samples",
+              "distribution",
+              "normal_approximation",
+              "unavailable"
+            ],
+            "title": "Goal Probability",
+            "type": "string"
+          },
+          "parametric_distribution": {
+            "title": "Parametric Distribution",
+            "type": "boolean"
+          },
+          "point_statistics": {
+            "items": {
+              "enum": [
+                "mean",
+                "median",
+                "probability",
+                "rate",
+                "expected_category"
+              ],
+              "type": "string"
+            },
+            "title": "Point Statistics",
+            "type": "array"
+          },
+          "predictive_family": {
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "predictive_samples": {
+            "title": "Predictive Samples",
+            "type": "boolean"
+          },
+          "quantiles": {
+            "title": "Quantiles",
+            "type": "boolean"
+          },
+          "standard_deviation": {
+            "title": "Standard Deviation",
+            "type": "boolean"
+          },
+          "support": {
+            "title": "Support",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "uncertainty_components": {
+            "title": "Uncertainty Components",
+            "type": "boolean"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target",
+          "target_kind",
+          "predictive_family",
+          "point_statistics",
+          "quantiles",
+          "standard_deviation",
+          "predictive_samples",
+          "parametric_distribution",
+          "uncertainty_components",
+          "support",
+          "warnings",
+          "goal_probability"
+        ],
+        "title": "ModelPackageTargetCapability",
         "type": "object"
       },
       "ModelQualityReport": {
@@ -16844,6 +16985,16 @@
               }
             ]
           },
+          "model_package_capability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelPackageCapabilityMatrix"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runtime_capability": {
             "$ref": "#/components/schemas/RuntimeCapability"
           },
@@ -20342,6 +20493,11 @@
       "TargetRuntimeCapability": {
         "additionalProperties": false,
         "properties": {
+          "explanation": {
+            "default": false,
+            "title": "Explanation",
+            "type": "boolean"
+          },
           "goal_probability": {
             "enum": [
               "native",

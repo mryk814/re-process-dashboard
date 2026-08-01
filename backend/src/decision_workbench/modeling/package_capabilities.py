@@ -118,7 +118,7 @@ def package_capability_matrix(
             uncertainty_components=item.uncertainty_components,
             support=item.support, warnings=item.warnings,
             goal_probability=item.goal_probability,
-            explanation=predictor.runtime_type == "builtin.additive_terms.v1",
+            explanation=item.explanation,
         ))
     return ModelPackageCapabilityMatrix(
         task_id=manifest.task_id, package_id=manifest.package_id,

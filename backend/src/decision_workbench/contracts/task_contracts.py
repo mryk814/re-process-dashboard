@@ -407,6 +407,7 @@ class TargetRuntimeCapability(ContractModel):
     uncertainty_components: bool
     support: bool
     warnings: bool
+    explanation: bool = False
     goal_probability: Literal["native", "samples", "distribution", "normal_approximation", "unavailable"]
 
     @field_validator("point_statistics")
@@ -461,6 +462,31 @@ class RuntimeCapability(ContractModel):
         if self.joint_samples and any(not item.samples for item in self.targets):
             raise ValueError("joint_samples requires sample capability for every target")
         return self
+
+
+class ModelPackageTargetCapability(ContractModel):
+    target: str
+    target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
+    predictive_family: str
+    point_statistics: tuple[Literal["mean", "median", "probability", "rate", "expected_category"], ...]
+    quantiles: bool
+    standard_deviation: bool
+    predictive_samples: bool
+    parametric_distribution: bool
+    uncertainty_components: bool
+    support: bool
+    warnings: bool
+    goal_probability: Literal["native", "samples", "distribution", "normal_approximation", "unavailable"]
+    explanation: bool = False
+
+
+class ModelPackageCapabilityMatrix(ContractModel):
+    schema_version: Literal["model-package-capability-matrix/v1"] = "model-package-capability-matrix/v1"
+    task_id: str
+    package_id: str
+    package_manifest_digest: str
+    targets: tuple[ModelPackageTargetCapability, ...]
+    joint_samples: bool = False
 
 
 class DataExplorerCapability(ContractModel):
@@ -612,6 +638,7 @@ class TaskAvailability(ContractModel):
 class ResolvedTaskDefinition(ContractModel):
     task_definition: TaskDefinition
     runtime_capability: RuntimeCapability
+    model_package_capability: ModelPackageCapabilityMatrix | None = None
     data_explorer: DataExplorerCapability | None = None
     application: ApplicationCapability
 

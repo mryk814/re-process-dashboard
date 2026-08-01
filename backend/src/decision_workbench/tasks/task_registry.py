@@ -14,7 +14,7 @@ from decision_workbench.modeling.package_capabilities import (
 )
 from decision_workbench.modeling.model_lifecycle import validate_lifecycle_metadata, validate_training_provenance
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
-from decision_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition
+from decision_workbench.contracts.task_contracts import ApplicationCapability, CanonicalCandidate, CanonicalHeatPoint, DataExplorerCapability, ModelPackageCapabilityMatrix as ContractModelPackageCapabilityMatrix, ResolvedTaskDefinition, RuntimeCapability, TaskAvailability, TaskContractFixture, TaskDefinition
 from decision_workbench.task_composition.ports import (
     CurveFamilyHandler,
     DataDescriptor,
@@ -436,6 +436,12 @@ class TaskRegistry:
         return ResolvedTaskDefinition(
             task_definition=contract.task_definition,
             runtime_capability=contract.runtime_capability,
+            model_package_capability=(
+                ContractModelPackageCapabilityMatrix.model_validate(
+                    self._entries[task_id].capability_matrix.model_dump(mode="json")
+                )
+                if task_id in self._entries else None
+            ),
             data_explorer=module.data_explorer,
             application=module.application,
             availability=self.availability_for(task_id),
