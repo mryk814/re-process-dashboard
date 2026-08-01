@@ -38,6 +38,11 @@ export const suiteInventory = {
     cleanupOwner: "chain degraded config",
     reason: "壊れたChain evaluation fixtureと専用API processが必要。",
   },
+  "chain-graph-viewer.spec.ts": {
+    kind: "isolated",
+    cleanupOwner: "fresh spec process",
+    reason: "固定Chain Project、Candidate、Executionを作成してread-only graphを確認する。",
+  },
   "chain-input-contract.spec.ts": {
     kind: "isolated",
     cleanupOwner: "fresh spec process",
