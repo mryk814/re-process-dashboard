@@ -10,6 +10,7 @@ import {
   datasetDisplayName,
   modelPackageDisplayName,
   modelPackageDisplayNames,
+  modelPackageEstimatorIds,
   projectDatasetChoices,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
@@ -39,7 +40,12 @@ import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
 import { candidateQuestionActions, candidateQuestionState, type CandidateSection } from "../../shared/projectActionQuestions";
 import { ProjectEvidenceHistoryList } from "./ProjectEvidenceHistory";
-import { ProjectCreationPanel } from "./ProjectCreationPanel";
+import { ProjectCreationPanel, type PreparedBindingReview } from "./ProjectCreationPanel";
+import {
+  preparedEstimatorCapabilities,
+  type PreparedProjectBinding,
+} from "../../shared/preparedProjectBinding";
+import { preparedBindingBlockers } from "./preparedBindingValidation";
 import { defaultGoalLabel, ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import {
   isCurrentProjectSettingsRequest,
@@ -66,13 +72,7 @@ type Props = {
   offline: boolean;
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
-  requestedProjectBinding?: {
-    taskId: string;
-    modelPackageRefId: string;
-    datasetRevisionId?: string;
-    sourceSha256?: string;
-    reloaded?: true;
-  };
+  requestedProjectBinding?: Omit<PreparedProjectBinding, "datasetViewId">;
   requestedSettingsSection?: ProjectSettingsSection;
   renderScientificSettings?: (
     project: ApiProject,
@@ -230,12 +230,8 @@ export function ProjectHub({
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState("");
-  const [preparationReceipt, setPreparationReceipt] = useState<{
-    taskId: string;
-    datasetRevisionId: string;
-    modelPackageRefId: string;
-    sourceSha256: string;
-  }>();
+  const [preparationReceipt, setPreparationReceipt] = useState<PreparedProjectBinding>();
+  const [manualBindingSelectionOpen, setManualBindingSelectionOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
   const [newProjectName, setNewProjectName] = useState("");
   const [newTaskId, setNewTaskId] = useState("");
@@ -642,6 +638,79 @@ export function ProjectHub({
   );
   const selectedPackage = creationOptions?.model_packages.find((item) => item.id === newModelPackageRefId);
   const selectedTrainingDataset = trainingDataset(selectedPackage, creationOptions?.datasets ?? []);
+  const preparedBindingReview = useMemo<PreparedBindingReview | undefined>(() => {
+    if (!preparationReceipt || !creationOptions) return undefined;
+    const preparedDataset = datasetByView.get(preparationReceipt.datasetViewId);
+    const preparedDatasetChoice = datasetChoices.find((choice) => choice.id === preparationReceipt.datasetViewId);
+    const preparedView = creationOptions.dataset_views.find((view) => view.id === preparationReceipt.datasetViewId)
+      ?? preparedDataset?.dataset_views?.find((view) => view.id === preparationReceipt.datasetViewId);
+    const preparedTask = catalog.find(
+      (item) => item.definition.task_definition.id === preparationReceipt.taskId,
+    );
+    const preparedPackage = creationOptions.model_packages.find(
+      (item) => item.id === preparationReceipt.modelPackageRefId,
+    );
+    const compatibleTasks = compatibleTaskIdsForDataset(preparedDataset, creationOptions);
+    const compatiblePackages = compatiblePackagesForDatasetTask(
+      preparedDataset,
+      preparationReceipt.taskId,
+      creationOptions,
+    );
+    const blockers = preparedBindingBlockers({
+      binding: preparationReceipt,
+      dataset: preparedDataset && preparedView
+        ? {
+          revisionId: preparedDataset.dataset_revision.id,
+          sourceSha256: preparedDataset.data_asset.sha256,
+        }
+        : undefined,
+      taskExists: Boolean(preparedTask),
+      modelPackage: preparedPackage
+        ? { refId: preparedPackage.id, taskId: preparedPackage.task_id }
+        : undefined,
+      taskCompatible: compatibleTasks.includes(preparationReceipt.taskId),
+      packageCompatible: compatiblePackages.some((item) => item.id === preparedPackage?.id),
+      estimatorCompatible: modelPackageEstimatorIds(preparedPackage).includes(
+        preparationReceipt.estimatorId,
+      ),
+    });
+    return {
+      dataset: {
+        label: preparedDatasetChoice
+          ? `${preparedDatasetChoice.purposeLabel} — ${preparedDatasetChoice.sourceLabel}`
+          : preparedDataset?.profile_revision.name ?? preparationReceipt.datasetViewId,
+        revision: preparationReceipt.datasetRevisionId,
+        viewRevision: preparedView
+          ? `${preparedView.id} · r${preparedView.revision} · ${preparedView.view_digest}`
+          : preparationReceipt.datasetViewId,
+      },
+      source: {
+        filename: preparationReceipt.sourceFilename,
+        sha256: preparationReceipt.sourceSha256,
+      },
+      task: {
+        label: preparedTask?.definition.task_definition.label ?? preparationReceipt.taskLabel,
+        id: preparationReceipt.taskId,
+        contractDigest: creationOptions.task_contract_digests[preparationReceipt.taskId] ?? "解決できません",
+      },
+      modelPackage: {
+        label: preparedPackage ? modelPackageDisplayName(preparedPackage) : preparationReceipt.modelPackageRefId,
+        refId: preparationReceipt.modelPackageRefId,
+        manifestDigest: preparedPackage?.manifest_digest ?? "解決できません",
+      },
+      estimator: {
+        label: preparationReceipt.estimatorLabel,
+        id: preparationReceipt.estimatorId,
+        capabilities: preparedEstimatorCapabilities(preparationReceipt.estimatorId),
+      },
+      preparationResult: preparationReceipt.preparationResult,
+      workspace: {
+        kind: preparationReceipt.workspaceKind,
+        databasePath: preparationReceipt.workspaceDatabasePath,
+      },
+      blockers,
+    };
+  }, [catalog, creationOptions, datasetByView, datasetChoices, preparationReceipt]);
   const fixedTrainingDataset = trainingDataset(fixedPackage, creationOptions?.datasets ?? []);
   const selectedTaskId = createMode === "copy" ? copyTaskId ?? "" : newTaskId;
 
@@ -754,18 +823,10 @@ export function ProjectHub({
     setNewDatasetViewId(requestedDatasetViewId);
     setNewTaskId(requestedProjectBinding?.taskId ?? "");
     setNewModelPackageRefId(requestedProjectBinding?.modelPackageRefId ?? "");
-    setPreparationReceipt(
-      requestedProjectBinding?.reloaded
-      && requestedProjectBinding.datasetRevisionId
-      && requestedProjectBinding.sourceSha256
-        ? {
-          taskId: requestedProjectBinding.taskId,
-          datasetRevisionId: requestedProjectBinding.datasetRevisionId,
-          modelPackageRefId: requestedProjectBinding.modelPackageRefId,
-          sourceSha256: requestedProjectBinding.sourceSha256,
-        }
-        : undefined,
-    );
+    setPreparationReceipt(requestedProjectBinding?.reloaded
+      ? { datasetViewId: requestedDatasetViewId, ...requestedProjectBinding }
+      : undefined);
+    setManualBindingSelectionOpen(false);
     setNewChainId("");
     setNewChainRevisionId("");
     setNewProjectGroupChoice("none");
@@ -1063,6 +1124,7 @@ export function ProjectHub({
     setPredecessorProjectId("");
     setContinuationReason("");
     setPreparationReceipt(undefined);
+    setManualBindingSelectionOpen(false);
   };
 
   const closeCreateProject = () => {
@@ -1510,7 +1572,8 @@ export function ProjectHub({
         loading={creating}
         disabled={offline}
         error={creationError}
-        preparationReceipt={preparationReceipt}
+        preparedBindingReview={preparedBindingReview}
+        manualBindingSelectionOpen={manualBindingSelectionOpen}
         projectNameInputRef={projectNameInputRef}
         projectName={newProjectName}
         datasetViewId={newDatasetViewId}
@@ -1656,6 +1719,20 @@ export function ProjectHub({
             setNewTaskId(project.task_id);
             setNewModelPackageRefId(project.model_package_ref_id ?? "");
           }
+        }}
+        onOpenManualBindingSelection={() => setManualBindingSelectionOpen(true)}
+        onRestorePreparedBinding={() => {
+          if (!preparationReceipt) return;
+          setNewDatasetViewId(preparationReceipt.datasetViewId);
+          setNewTaskId(preparationReceipt.taskId);
+          setNewModelPackageRefId(preparationReceipt.modelPackageRefId);
+          setNewChainId("");
+          setNewChainRevisionId("");
+          setCreateMode("empty");
+          setNewProjectGroupChoice("none");
+          setNewProjectSeriesId("");
+          setNewProjectSeriesName("");
+          setManualBindingSelectionOpen(false);
         }}
         onSubmit={createProject}
       />}

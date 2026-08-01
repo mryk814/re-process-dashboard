@@ -151,8 +151,17 @@ function rememberNavigation(intent: NavigationIntent) {
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationIntent>(() => readStartupNavigation());
-  const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string>();
-  const [requestedProjectBinding, setRequestedProjectBinding] = useState<Omit<PreparedCsvProjectBinding, "datasetViewId">>();
+  const [requestedDatasetViewId, setRequestedDatasetViewId] = useState<string | undefined>(
+    () => navigation.preparedProjectBinding?.datasetViewId,
+  );
+  const [requestedProjectBinding, setRequestedProjectBinding] = useState<Omit<PreparedCsvProjectBinding, "datasetViewId"> | undefined>(
+    () => {
+      const binding = navigation.preparedProjectBinding;
+      if (!binding) return undefined;
+      const { datasetViewId: _datasetViewId, ...rest } = binding;
+      return rest;
+    },
+  );
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
@@ -324,7 +333,13 @@ function App() {
   function startProjectForDataset(datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) {
     setRequestedDatasetViewId(datasetViewRevisionId);
     setRequestedProjectBinding(binding);
-    navigate({ view: "project", projectId: activeProjectId });
+    navigate({
+      view: "project",
+      projectId: activeProjectId,
+      preparedProjectBinding: binding
+        ? { datasetViewId: datasetViewRevisionId, ...binding }
+        : undefined,
+    });
   }
 
   useEffect(() => {
@@ -335,6 +350,13 @@ function App() {
       }
       navigationRef.current = intent;
       setNavigation(intent);
+      setRequestedDatasetViewId(intent.preparedProjectBinding?.datasetViewId);
+      if (intent.preparedProjectBinding) {
+        const { datasetViewId: _datasetViewId, ...binding } = intent.preparedProjectBinding;
+        setRequestedProjectBinding(binding);
+      } else {
+        setRequestedProjectBinding(undefined);
+      }
       rememberNavigation(intent);
       const targetProjectId = intent.projectId ?? activeProjectId;
       void session.openLocation(targetProjectId, intent.candidateId);

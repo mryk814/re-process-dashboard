@@ -44,3 +44,30 @@ test("the actual measurement destination survives a candidate deep link", async 
   assert.equal(intent.candidateSection, "actuals");
   assert.match(navigationUrl(intent), /candidate_section=actuals/);
 });
+
+test("prepared Project binding identity survives reload and history navigation", async () => {
+  const { navigationUrl, readNavigationIntent } = await navigationModule("?view=project");
+  const preparedProjectBinding = {
+    datasetViewId: "view:r1",
+    datasetRevisionId: "dataset:r3",
+    taskId: "task-v1",
+    taskLabel: "新しいTask",
+    modelPackageRefId: "package-ref:1",
+    sourceSha256: "a".repeat(64),
+    sourceFilename: "private.csv",
+    estimatorId: "ridge.v1",
+    estimatorLabel: "Ridge回帰",
+    preparationResult: "reused",
+    workspaceKind: "branch",
+    workspaceDatabasePath: "C:\\workspace\\branch.db",
+    reloaded: true,
+  };
+  const url = navigationUrl({
+    view: "project",
+    projectId: "project-1",
+    preparedProjectBinding,
+  });
+  const restored = (await navigationModule(url.slice(1))).readNavigationIntent();
+  assert.deepEqual(restored.preparedProjectBinding, preparedProjectBinding);
+  assert.equal(restored.projectId, "project-1");
+});
