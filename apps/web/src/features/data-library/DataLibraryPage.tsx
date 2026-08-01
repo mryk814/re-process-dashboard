@@ -42,9 +42,11 @@ export function DataLibraryPage({
     >＋ 比較セット</button>
   </div> : undefined;
 
-  return <DataLibraryShell location={location} onNavigate={onNavigate} actions={actions}>
-    <div hidden={location.tab !== "browse"}>
-      <ResourceCatalogView
+  return <DataLibraryShell
+    location={location}
+    onNavigate={onNavigate}
+    actions={actions}
+    browse={<ResourceCatalogView
         projects={projects}
         onAddDataset={onAddDataset}
         onStartProject={onStartProject}
@@ -55,12 +57,11 @@ export function DataLibraryPage({
         resources={resources}
         compareOpen={compareOpen}
         onCompareOpenChange={setCompareOpen}
-      />
-    </div>
-    {location.tab === "update" && <SourceLifecycleWorkspace
+      />}
+    update={location.tab === "update" ? <SourceLifecycleWorkspace
         datasets={resources.datasets}
         location={location}
         onNavigate={onNavigate}
-      />}
-  </DataLibraryShell>;
+      /> : null}
+  />;
 }

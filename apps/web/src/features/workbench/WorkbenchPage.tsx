@@ -1,6 +1,10 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import {
+  AccessibleTabList,
+  AccessibleTabPanel,
+} from "../../shared/ui/AccessibleTabs";
+import {
   CandidateInspector,
   ComparisonTable,
   type CandidateSaveState,
@@ -592,48 +596,32 @@ export function WorkbenchPage(props: WorkbenchProps) {
           data-workbench-surface-zone="analysis"
         >
           {selectedPrimarySurface ? <div className="workbench-surface-deck">
-            {primarySurfaces.length > 1 ? <div className="workbench-surface-tabs" role="tablist" aria-label="予測の見方">
-              {primarySurfaces.map((surface) => <button
-                key={surface.kind}
-                id={`workbench-surface-tab-${surface.kind}`}
-                type="button"
-                role="tab"
-                aria-selected={surface.kind === selectedPrimarySurface.kind}
-                aria-controls={`workbench-surface-panel-${surface.kind}`}
-                tabIndex={surface.kind === selectedPrimarySurface.kind ? 0 : -1}
-                className={surface.kind === selectedPrimarySurface.kind ? "active" : ""}
-                onClick={() => setActivePrimarySurface(surface.kind)}
-                onKeyDown={(event) => {
-                  const tabs = Array.from(
-                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [],
-                  );
-                  const current = tabs.indexOf(event.currentTarget);
-                  const next = event.key === "ArrowRight"
-                    ? (current + 1) % tabs.length
-                    : event.key === "ArrowLeft"
-                      ? (current - 1 + tabs.length) % tabs.length
-                      : event.key === "Home"
-                        ? 0
-                        : event.key === "End"
-                          ? tabs.length - 1
-                          : -1;
-                  if (next < 0) return;
-                  event.preventDefault();
-                  tabs[next]?.focus();
-                  tabs[next]?.click();
-                }}
-              >{workbenchSurfaceRegistry[surface.kind].label}</button>)}
-            </div> : null}
-            {primarySurfaces.map((surface) => <div
-              key={surface.kind}
-              id={`workbench-surface-panel-${surface.kind}`}
-              role={primarySurfaces.length > 1 ? "tabpanel" : undefined}
-              aria-labelledby={primarySurfaces.length > 1 ? `workbench-surface-tab-${surface.kind}` : undefined}
-              hidden={surface.kind !== selectedPrimarySurface.kind}
-              data-workbench-surface={surface.kind}
-            >
-              {renderSurface(surface)}
-            </div>)}
+            {primarySurfaces.length > 1 ? <AccessibleTabList
+              idPrefix="workbench-surface"
+              label="予測の見方"
+              className="workbench-surface-tabs"
+              items={primarySurfaces.map((surface) => ({
+                id: surface.kind,
+                label: workbenchSurfaceRegistry[surface.kind].label,
+              }))}
+              selected={selectedPrimarySurface.kind}
+              onSelect={setActivePrimarySurface}
+            /> : null}
+            {primarySurfaces.map((surface) => primarySurfaces.length > 1
+              ? <AccessibleTabPanel
+                  key={surface.kind}
+                  idPrefix="workbench-surface"
+                  tabId={surface.kind}
+                  active={surface.kind === selectedPrimarySurface.kind}
+                  className="workbench-surface-panel"
+                >
+                  {renderSurface(surface)}
+                </AccessibleTabPanel>
+              : <div
+                  key={surface.kind}
+                  hidden={surface.kind !== selectedPrimarySurface.kind}
+                  data-workbench-surface={surface.kind}
+                >{renderSurface(surface)}</div>)}
           </div> : null}
           {primarySurfaces.length > 0 && evidenceSurfaces.length > 0 && <SplitResizer
             className="lower-panel-resizer"
