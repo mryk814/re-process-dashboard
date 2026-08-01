@@ -7243,6 +7243,10 @@
         "additionalProperties": false,
         "description": "A reviewed standard builder the CSV flow may present to a user.\n\nThis is deliberately narrower than ``ESTIMATOR_IDS``.  The latter is the\ninternal recipe universe; this list is the user-facing allow-list for a\nnew continuous tabular Task.  Keeping the distinction here prevents the\nUI from turning an estimator name into a free-form runtime selector.",
         "properties": {
+          "artifact_format": {
+            "title": "Artifact Format",
+            "type": "string"
+          },
           "artifact_size": {
             "enum": [
               "small",
@@ -7301,6 +7305,21 @@
             "title": "Label",
             "type": "string"
           },
+          "max_features": {
+            "minimum": 1.0,
+            "title": "Max Features",
+            "type": "integer"
+          },
+          "max_rows": {
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "min_rows": {
+            "minimum": 1.0,
+            "title": "Min Rows",
+            "type": "integer"
+          },
           "parametric_distribution": {
             "default": false,
             "title": "Parametric Distribution",
@@ -7316,6 +7335,15 @@
             "default": true,
             "title": "Quantiles",
             "type": "boolean"
+          },
+          "readiness_schema_version": {
+            "const": "standard-estimator-readiness/v1",
+            "title": "Readiness Schema Version",
+            "type": "string"
+          },
+          "runtime_type": {
+            "title": "Runtime Type",
+            "type": "string"
           },
           "standard_deviation": {
             "default": false,
@@ -7353,7 +7381,13 @@
           "available",
           "training_cost",
           "artifact_size",
-          "fixed_parameters"
+          "fixed_parameters",
+          "readiness_schema_version",
+          "runtime_type",
+          "artifact_format",
+          "min_rows",
+          "max_rows",
+          "max_features"
         ],
         "title": "CsvOnboardingEstimatorOption",
         "type": "object"

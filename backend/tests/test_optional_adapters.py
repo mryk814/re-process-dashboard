@@ -189,6 +189,40 @@ def test_skops_adapter_rejects_a_manifest_family_class_mismatch(
         package.load_predictor("failure")
 
 
+def test_skops_adapter_rejects_logistic_labels_outside_zero_and_one(
+    tmp_path: Path,
+) -> None:
+    sklearn_linear = pytest.importorskip("sklearn.linear_model")
+    skops_io = pytest.importorskip("skops.io")
+    root = tmp_path / "skops-logistic-labels"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    base = np.linspace(0.0, 1.0, 6)
+    model = sklearn_linear.LogisticRegression(max_iter=500).fit(
+        np.column_stack((base, base**2)),
+        np.array([1, 1, 1, 2, 2, 2]),
+    )
+    model_path = artifacts / "labels.skops"
+    skops_io.dump(model, model_path)
+    predictor = {
+        "id": "failure",
+        "target": "failure",
+        "unit": "1",
+        "target_kind": "binary",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact": "model-artifacts/labels.skops",
+        "predictive_family": "bernoulli_logit",
+        "feature_names": ["C", "Mn"],
+        "config": {"estimator_family": "logistic_regression_v1"},
+    }
+
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "skops-logistic-labels", predictor, model_path)
+    )
+    with pytest.raises(PackageContractError, match="binary labels 0 and 1"):
+        package.load_predictor("failure")
+
+
 def test_lightgbm_adapter_loads_and_predicts_a_native_text_booster(tmp_path: Path) -> None:
     lightgbm = pytest.importorskip("lightgbm")
     root = tmp_path / "lightgbm"

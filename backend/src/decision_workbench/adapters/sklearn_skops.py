@@ -127,4 +127,10 @@ class SklearnSkopsAdapter:
             raise PackageContractError(
                 "skops artifact estimator class does not match estimator_family"
             )
+        if family == "logistic_regression_v1":
+            classes = getattr(model, "classes_", None)
+            if classes is None or list(classes) != [0, 1]:
+                raise PackageContractError(
+                    "logistic regression artifact must encode binary labels 0 and 1"
+                )
         return _SkopsPredictor(predictor, model)

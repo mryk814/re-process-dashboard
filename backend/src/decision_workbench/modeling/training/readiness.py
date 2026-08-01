@@ -272,10 +272,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("continuous_positive",),
             role="specialized_path",
             builder_status="external_verified_package_only",
-            runtime_status="external_verified_package_only",
-            runtime_type=None,
-            artifact_status="external_verified_package_only",
-            artifact_format=None,
+            runtime_status="ready",
+            runtime_type="numpyro.dense_posterior.v1",
+            artifact_status="ready",
+            artifact_format="bounded-npz",
             limits=EstimatorLimits(
                 min_rows=4,
                 max_rows=100_000,
@@ -458,10 +458,10 @@ _CATALOG = StandardEstimatorCatalog(
             target_kinds=("ordinal",),
             role="specialized_path",
             builder_status="external_verified_package_only",
-            runtime_status="external_verified_package_only",
-            runtime_type=None,
-            artifact_status="external_verified_package_only",
-            artifact_format=None,
+            runtime_status="ready",
+            runtime_type="numpyro.dense_posterior.v1",
+            artifact_status="ready",
+            artifact_format="bounded-npz",
             limits=EstimatorLimits(
                 min_rows=4,
                 max_rows=100_000,
@@ -514,6 +514,19 @@ def _resolution(
         if item.role == "interpretable_baseline"
         and context.target_kind in item.target_kinds
         and item.estimator_id != context.estimator_id
+        and item.required_dependency is None
+        and item.limits.min_rows <= context.row_count <= item.limits.max_rows
+        and context.independent_group_count
+        >= item.limits.min_independent_groups
+        and context.feature_count <= item.limits.max_features
+        and not (
+            context.has_categorical_features
+            and item.categorical_support == "unsupported"
+        )
+        and not (
+            context.has_missing_features
+            and item.missing_support == "unsupported"
+        )
     )
     return EstimatorReadinessResolution(
         estimator_id=context.estimator_id,

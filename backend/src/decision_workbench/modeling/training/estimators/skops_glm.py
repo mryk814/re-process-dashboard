@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.stats import poisson
 
 from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
 from decision_workbench.modeling.packages.contracts import MissingOptionalDependency
@@ -215,6 +216,11 @@ def _poisson(
     if np.any(~np.isfinite(evaluated_rates)) or np.any(evaluated_rates < 0):
         raise ValueError(f"{data.target}: poisson.v1 produced invalid OOF rates")
     residuals = evaluated_y - evaluated_rates
+    lower = poisson.ppf(0.05, evaluated_rates)
+    upper = poisson.ppf(0.95, evaluated_rates)
+    interval_coverage = float(
+        np.mean((evaluated_y >= lower) & (evaluated_y <= upper))
+    )
     model = PoissonRegressor(
         alpha=recipe.alpha,
         max_iter=recipe.max_iter,
@@ -254,7 +260,7 @@ def _poisson(
             parent_conditions=len(set(data.validation_groups)),
             mae=float(np.mean(np.abs(residuals))),
             rmse=float(np.sqrt(np.mean(residuals**2))),
-            interval_coverage_90=0.0,
+            interval_coverage_90=interval_coverage,
         ),
         diagnostics={
             "estimator_id": recipe.estimator_id,
@@ -264,6 +270,9 @@ def _poisson(
             "evaluation": "fold-local-poisson-rate",
             "mean_poisson_deviance": deviance,
             "minimum_oof_rate": float(np.min(evaluated_rates)),
+            "interval_coverage_90": interval_coverage,
+            "interval_method": "poisson-equal-tail-5-95",
+            "interval_observations": int(len(evaluated_y)),
         },
         predict=lambda values: float(model.predict(values.reshape(1, -1))[0]),
     )

@@ -56,6 +56,7 @@ from decision_workbench.modeling.training.recipe import (
     csv_onboarding_estimator_recipe,
     estimator_recipe,
 )
+from decision_workbench.modeling.training.readiness import standard_estimator_catalog
 from decision_workbench.contracts.evidence_contracts import ApiError
 
 
@@ -663,11 +664,57 @@ async def prepare_csv_task(
             raise HTTPException(422, "Excelはsheetを明示確認してから準備してください")
         if source.suffix.lower() == ".csv" and sheet_name:
             raise HTTPException(422, "CSVにsheetは指定できません")
-        await run_in_threadpool(
+        inspection = await run_in_threadpool(
             _inspection_payload,
             source,
             sheet_name=sheet_name,
         )
+        entry = next(
+            item
+            for item in standard_estimator_catalog().entries
+            if item.estimator_id == estimator_id
+        )
+        columns = {column.name: column for column in inspection.columns}
+        feature_count = sum(
+            (
+                max(len(columns[field.column].choices), 1)
+                if field.role == "categorical"
+                else 1
+            )
+            for field in fields
+            if field.role in {"composition", "process", "categorical"}
+            and field.column in columns
+        )
+        limit_errors: list[dict[str, str]] = []
+        if not entry.limits.min_rows <= inspection.rows <= entry.limits.max_rows:
+            limit_errors.append({
+                "path": "file",
+                "message": (
+                    f"{entry.label}は{entry.limits.min_rows:,}〜"
+                    f"{entry.limits.max_rows:,}行を対象とします"
+                ),
+            })
+        if feature_count > entry.limits.max_features:
+            limit_errors.append({
+                "path": "fields",
+                "message": (
+                    f"{entry.label}の上限は{entry.limits.max_features:,}特徴量です"
+                    f"（one-hot後 {feature_count:,}特徴量）"
+                ),
+            })
+        if limit_errors:
+            raise HTTPException(
+                422,
+                {
+                    "code": "validation_error",
+                    "message": "選択したEstimatorの導入前上限を超えています。",
+                    "next_action": (
+                        "入力列またはカテゴリ数を減らすか、表示された範囲内の"
+                        "データで準備してください。別Estimatorへ自動切替しません。"
+                    ),
+                    "field_errors": limit_errors,
+                },
+            )
     except HTTPException:
         raise
     except Exception as exc:

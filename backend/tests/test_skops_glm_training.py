@@ -3,10 +3,29 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from decision_workbench.adapters.sklearn_skops import SklearnSkopsAdapter
+from decision_workbench.modeling.packages.contracts import PredictorSpec
 from decision_workbench.modeling.training.estimators import estimator_trainer
 from decision_workbench.modeling.training.feature_dataset import TargetTrainingSet
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
+
+
+class _Artifacts:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def artifact_path(self, relative_path: str) -> Path:
+        return self.root / relative_path
+
+
+def _load_trained_artifact(result: object, root: Path) -> object:
+    predictor = dict(result.predictor)  # type: ignore[attr-defined]
+    predictor["artifact"] = result.artifact.name  # type: ignore[attr-defined]
+    return SklearnSkopsAdapter().load(
+        _Artifacts(root),
+        PredictorSpec.model_validate(predictor),
+    )
 
 
 def _training_set(target_kind: str, y: np.ndarray) -> TargetTrainingSet:
@@ -79,6 +98,10 @@ def test_logistic_trainer_builds_a_safe_probability_artifact(
     assert 0 <= result.predict(np.array([0.0, 0.0])) <= 1
     assert 0 <= result.diagnostics["brier_score"] <= 1
     assert result.diagnostics["calibration"] == "intrinsic-logistic-link"
+    loaded = _load_trained_artifact(result, tmp_path)
+    summary = loaded.predict({"x": 0.0, "x_squared": 0.0})
+    assert summary.target_kind == "binary"
+    assert 0 <= summary.event_probability <= 1
 
 
 def test_poisson_trainer_builds_a_safe_nonnegative_rate_artifact(
@@ -104,6 +127,15 @@ def test_poisson_trainer_builds_a_safe_nonnegative_rate_artifact(
     assert result.predict(np.array([0.0, 0.0])) >= 0
     assert result.diagnostics["minimum_oof_rate"] >= 0
     assert result.diagnostics["mean_poisson_deviance"] >= 0
+    assert 0 <= result.quality.interval_coverage_90 <= 1
+    assert result.diagnostics["interval_coverage_90"] == (
+        result.quality.interval_coverage_90
+    )
+    assert result.diagnostics["interval_observations"] == len(data.y)
+    loaded = _load_trained_artifact(result, tmp_path)
+    summary = loaded.predict({"x": 0.0, "x_squared": 0.0})
+    assert summary.target_kind == "count"
+    assert summary.distribution["support"] == "nonnegative_integers"
 
 
 def test_poisson_trainer_rejects_negative_or_fractional_counts(

@@ -117,6 +117,12 @@ class CsvOnboardingEstimatorOption(ContractModel):
     training_cost: Literal["light", "moderate"]
     artifact_size: Literal["small", "moderate"]
     fixed_parameters: dict[str, int | float | str]
+    readiness_schema_version: Literal["standard-estimator-readiness/v1"]
+    runtime_type: str
+    artifact_format: str
+    min_rows: Annotated[int, Field(ge=1)]
+    max_rows: Annotated[int, Field(ge=1)]
+    max_features: Annotated[int, Field(ge=1)]
 
 
 CSV_ONBOARDING_ESTIMATOR_IDS = (
@@ -133,6 +139,18 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
     build/promote operation.  It never discovers arbitrary Python modules.
     """
 
+    from decision_workbench.modeling.training.readiness import (
+        standard_estimator_catalog,
+    )
+
+    catalog = {
+        entry.estimator_id: entry
+        for entry in standard_estimator_catalog().entries
+    }
+    ridge = catalog["ridge.v1"]
+    lightgbm = catalog["lightgbm-regression.v1"]
+    assert ridge.runtime_type is not None and ridge.artifact_format is not None
+    assert lightgbm.runtime_type is not None and lightgbm.artifact_format is not None
     lightgbm_available = find_spec("lightgbm") is not None
     return (
         CsvOnboardingEstimatorOption(
@@ -142,6 +160,12 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
             available=True,
             training_cost="light",
             artifact_size="small",
+            readiness_schema_version="standard-estimator-readiness/v1",
+            runtime_type=ridge.runtime_type,
+            artifact_format=ridge.artifact_format,
+            min_rows=ridge.limits.min_rows,
+            max_rows=ridge.limits.max_rows,
+            max_features=ridge.limits.max_features,
             fixed_parameters=estimator_recipe("ridge.v1").model_dump(
                 mode="json",
                 exclude={"estimator_id"},
@@ -161,6 +185,12 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
             dependency="lightgbm",
             training_cost="moderate",
             artifact_size="moderate",
+            readiness_schema_version="standard-estimator-readiness/v1",
+            runtime_type=lightgbm.runtime_type,
+            artifact_format=lightgbm.artifact_format,
+            min_rows=lightgbm.limits.min_rows,
+            max_rows=lightgbm.limits.max_rows,
+            max_features=lightgbm.limits.max_features,
             fixed_parameters={
                 "num_boost_round": 200,
                 "folds": 5,

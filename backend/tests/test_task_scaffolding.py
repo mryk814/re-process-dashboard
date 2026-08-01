@@ -664,7 +664,31 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
             "ridge.v1",
             "lightgbm-regression.v1",
         ]
+        ridge_readiness = inspection.json()["estimators"][0]
+        assert ridge_readiness["readiness_schema_version"] == (
+            "standard-estimator-readiness/v1"
+        )
+        assert ridge_readiness["runtime_type"] == "builtin.linear.v1"
+        assert ridge_readiness["artifact_format"] == "bounded-npz"
+        assert ridge_readiness["min_rows"] == 4
+        assert ridge_readiness["max_features"] == 512
         assert inspection.json()["default_estimator_id"] == "ridge.v1"
+
+        undersized = tmp_path / "undersized.csv"
+        undersized.write_text(
+            "\n".join(source.read_text(encoding="utf-8").splitlines()[:4]) + "\n",
+            encoding="utf-8",
+        )
+        blocked_limit = _prepare_csv_onboarding(
+            client,
+            source=undersized,
+            task_id="undersized-strength-v1",
+            label="導入前上限",
+        )
+        assert blocked_limit.status_code == 422, blocked_limit.text
+        assert blocked_limit.json()["code"] == "validation_error"
+        assert "自動切替しません" in blocked_limit.json()["next_action"]
+        assert not (task_store / "undersized-strength-v1").exists()
 
         blocked_estimator = _prepare_csv_onboarding(
             client,

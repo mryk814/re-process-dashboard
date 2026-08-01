@@ -118,6 +118,16 @@ def test_resolver_is_fail_closed_and_never_selects_or_builds() -> None:
     assert too_large.status == "out_of_scope"
     assert "501" in too_large.reasons[0]
 
+    no_usable_baseline = resolve_estimator_readiness(
+        _context(
+            "exact-gp-rbf.v1",
+            row_count=2,
+            independent_group_count=2,
+        ),
+        available_dependencies=frozenset(),
+    )
+    assert no_usable_baseline.alternative_baseline_ids == ()
+
 
 def test_resolver_distinguishes_missing_contracts_and_external_builder() -> None:
     assert resolve_estimator_readiness(
