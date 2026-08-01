@@ -21,7 +21,7 @@ test("unavailable tasks keep overview and read-only diagnostics while replacing 
   assert.match(app, /TaskUnavailablePanel/);
   assert.match(app, /保存済みの候補・予測・実測・判断履歴/);
   assert.match(app, /item\.id === "project"/);
-  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "project-settings"\)/);
+  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "chain-graph" \|\| item\.id === "project-settings"\)/);
   assert.match(session, /resolved\.availability\.status === "unavailable"/);
   assert.match(app, /tab !== "workspace"/);
   assert.match(app, /tab === "workspace"/);
@@ -48,7 +48,7 @@ test("chain projects load their immutable revision without entering the single-t
   assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
   assert.doesNotMatch(session, /Chain Revisionを固定しました/);
   assert.match(app, /const chainProject = activeProject\?\.scientific_identity\?\.identity_kind === "chain"/);
-  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "project-settings"\)/);
+  assert.match(app, /chainProject && \(item\.id === "project" \|\| item\.id === "candidates" \|\| item\.id === "chain-graph" \|\| item\.id === "project-settings"\)/);
   assert.match(app, /tab === "candidates" && chainProject/);
 });
 
