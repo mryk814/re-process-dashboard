@@ -354,6 +354,7 @@ try {
   assert.deepEqual(
     new Set((await galleryResponse.json()).map(({ project_id }) => project_id)),
     new Set([
+      "default",
       "welding-stage-b-default",
       "battery-degradation-v1-default",
       "mpea-room-tensile-v1-default",
