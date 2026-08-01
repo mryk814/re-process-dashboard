@@ -1,0 +1,329 @@
+{
+  "schema_version": "standard-estimator-readiness/v1",
+  "promotion_policy": "explicit_only",
+  "entries": [
+    {
+      "estimator_id": "ridge.v1",
+      "label": "Ridge regression",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "interpretable_baseline",
+      "builder_status": "standard_builder",
+      "runtime_type": "builtin.linear.v1",
+      "artifact_format": "bounded-npz",
+      "required_dependency": null,
+      "limits": {
+        "min_rows": 4,
+        "max_rows": 100000,
+        "min_independent_groups": 4,
+        "max_features": 512
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "interval_coverage_90"
+      ],
+      "fixed_parameters": {
+        "alpha": 1.0,
+        "folds": 5,
+        "seed": 20260730
+      }
+    },
+    {
+      "estimator_id": "exact-gp-rbf.v1",
+      "label": "Small-data exact GP",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "nonlinear_candidate",
+      "builder_status": "standard_builder",
+      "runtime_type": "builtin.exact_gp.v1",
+      "artifact_format": "bounded-npz",
+      "required_dependency": null,
+      "limits": {
+        "min_rows": 3,
+        "max_rows": 500,
+        "min_independent_groups": 3,
+        "max_features": 64
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "standard_deviation",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "interval_coverage_90"
+      ],
+      "fixed_parameters": {
+        "restarts": 3,
+        "folds": 5,
+        "seed": 20260730,
+        "max_rows": 500
+      }
+    },
+    {
+      "estimator_id": "numpyro-lognormal-external.v1",
+      "label": "Verified lognormal Package",
+      "target_kinds": [
+        "continuous_positive"
+      ],
+      "role": "specialized_path",
+      "builder_status": "external_verified_package_only",
+      "runtime_type": "numpyro.dense_posterior.v1",
+      "artifact_format": "bounded-npz",
+      "required_dependency": null,
+      "limits": {
+        "min_rows": 4,
+        "max_rows": 100000,
+        "min_independent_groups": 4,
+        "max_features": 512
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "interval_coverage_90"
+      ],
+      "fixed_parameters": {}
+    },
+    {
+      "estimator_id": "lightgbm-regression.v1",
+      "label": "LightGBM regression",
+      "target_kinds": [
+        "continuous"
+      ],
+      "role": "nonlinear_candidate",
+      "builder_status": "standard_builder",
+      "runtime_type": "lightgbm.booster.v1",
+      "artifact_format": "lightgbm-native-text",
+      "required_dependency": "lightgbm",
+      "limits": {
+        "min_rows": 4,
+        "max_rows": 1000000,
+        "min_independent_groups": 4,
+        "max_features": 2048
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles"
+      ],
+      "quality_metrics": [
+        "mae",
+        "rmse",
+        "interval_coverage_90"
+      ],
+      "fixed_parameters": {
+        "num_boost_round": 200,
+        "folds": 5,
+        "seed": 20260730
+      }
+    },
+    {
+      "estimator_id": "logistic.v1",
+      "label": "Logistic regression",
+      "target_kinds": [
+        "binary"
+      ],
+      "role": "interpretable_baseline",
+      "builder_status": "not_available",
+      "runtime_type": "sklearn.skops.v1",
+      "artifact_format": "skops-allow-listed",
+      "required_dependency": "skops",
+      "limits": {
+        "min_rows": 6,
+        "max_rows": 100000,
+        "min_independent_groups": 4,
+        "max_features": 512
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "stratified_kfold",
+        "stratified_grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "probability",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "roc_auc",
+        "brier_score",
+        "balanced_accuracy",
+        "calibration"
+      ],
+      "fixed_parameters": {
+        "regularization": "l2",
+        "c": 1.0,
+        "max_iter": 500,
+        "seed": 20260730
+      }
+    },
+    {
+      "estimator_id": "lightgbm-binary.v1",
+      "label": "Calibrated LightGBM binary",
+      "target_kinds": [
+        "binary"
+      ],
+      "role": "nonlinear_candidate",
+      "builder_status": "standard_builder",
+      "runtime_type": "lightgbm.booster.v1",
+      "artifact_format": "lightgbm-native-text",
+      "required_dependency": "lightgbm",
+      "limits": {
+        "min_rows": 6,
+        "max_rows": 1000000,
+        "min_independent_groups": 4,
+        "max_features": 2048
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "stratified_kfold",
+        "stratified_grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "probability",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "roc_auc",
+        "brier_score",
+        "balanced_accuracy",
+        "calibration"
+      ],
+      "fixed_parameters": {
+        "num_boost_round": 100,
+        "folds": 5,
+        "seed": 20260730,
+        "calibration": "nested-oof-platt"
+      }
+    },
+    {
+      "estimator_id": "poisson.v1",
+      "label": "Poisson regression",
+      "target_kinds": [
+        "count"
+      ],
+      "role": "interpretable_baseline",
+      "builder_status": "not_available",
+      "runtime_type": "sklearn.skops.v1",
+      "artifact_format": "skops-allow-listed",
+      "required_dependency": "skops",
+      "limits": {
+        "min_rows": 4,
+        "max_rows": 100000,
+        "min_independent_groups": 4,
+        "max_features": 512
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "mae",
+        "mean_poisson_deviance",
+        "interval_coverage_90"
+      ],
+      "fixed_parameters": {
+        "alpha": 1.0,
+        "max_iter": 500
+      }
+    },
+    {
+      "estimator_id": "numpyro-ordinal-external.v1",
+      "label": "Verified ordinal Package",
+      "target_kinds": [
+        "ordinal"
+      ],
+      "role": "specialized_path",
+      "builder_status": "external_verified_package_only",
+      "runtime_type": "numpyro.dense_posterior.v1",
+      "artifact_format": "bounded-npz",
+      "required_dependency": null,
+      "limits": {
+        "min_rows": 4,
+        "max_rows": 100000,
+        "min_independent_groups": 4,
+        "max_features": 512
+      },
+      "categorical_support": "feature_recipe",
+      "missing_support": "feature_recipe",
+      "validation_strategies": [
+        "kfold",
+        "grouped_kfold",
+        "temporal_holdout",
+        "grouped_temporal"
+      ],
+      "predictive_capabilities": [
+        "point",
+        "quantiles",
+        "parametric_distribution"
+      ],
+      "quality_metrics": [
+        "ordinal_log_loss",
+        "ranked_probability_score",
+        "accuracy"
+      ],
+      "fixed_parameters": {}
+    }
+  ]
+}
