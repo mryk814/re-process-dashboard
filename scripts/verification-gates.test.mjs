@@ -205,7 +205,7 @@ test("model source is follow-up while an actual package artifact is direct relea
   }).outcome, "passed");
 });
 
-test("mixed risks preserve each risk's level, disposition, and owner", () => {
+test("stronger direct aggregate absorbs weaker follow-up gates without duplication", () => {
   const mixed = planFor([
     "models/packages/example/manifest.json",
     "e2e/helpers.ts",
@@ -215,8 +215,28 @@ test("mixed risks preserve each risk's level, disposition, and owner", () => {
   ]);
   assert.deepEqual(
     mixed.requiredFollowUps.map(({ command, owner }) => ({ command, owner })),
-    [{ command: "npm run verify:checkpoint", owner: "epic-checkpoint" }],
+    [],
   );
+  assert.ok(!selectedIds(mixed).includes("failure-state-e2e"));
+  assert.deepEqual(
+    selectedIds(mixed).filter((id) => id.endsWith("-acceptance")),
+    ["release-acceptance"],
+  );
+});
+
+test("a weaker direct aggregate preserves the stronger risk's follow-up owner", () => {
+  const mixed = planFor([
+    "unclassified.file",
+    "backend/src/decision_workbench/modeling/runtime.py",
+  ]);
+  assert.deepEqual(mixed.directEvidenceRequirements.map((item) => item.command), [
+    "npm run verify:checkpoint",
+  ]);
+  assert.ok(mixed.requiredFollowUps.every((item) => (
+    item.level === "release" && item.owner === "release-checkpoint"
+  )));
+  assert.ok(selectedIds(mixed).includes("checkpoint-acceptance"));
+  assert.ok(selectedIds(mixed).includes("model-package-contract-tests"));
 });
 
 test("checkpoint-only gates become selected only at checkpoint evidence level", () => {

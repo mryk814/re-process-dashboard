@@ -234,6 +234,10 @@ export function buildVerificationPlan({
   const unmetByRisk = new Map(
     unmetRiskRequirements.map((requirement) => [requirement.risk, requirement]),
   );
+  const strongestDirectRequirement = unmetRiskRequirements
+    .filter((requirement) => requirement.disposition === "direct")
+    .sort((left, right) => levelRank(right.level) - levelRank(left.level))[0] ?? null;
+  const directAggregateRequired = strongestDirectRequirement !== null;
   const deferredManualFollowUps = [];
   const selectedGateReasons = new Map();
   const select = (gateId, reason) => {
@@ -245,8 +249,8 @@ export function buildVerificationPlan({
     const unmet = unmetByRisk.get(risk);
     if (unmet?.disposition === "direct") {
       select(
-        unmet.gateId,
-        `${unmet.level} evidence is a direct requirement for ${risk}`,
+        strongestDirectRequirement.gateId,
+        `${strongestDirectRequirement.level} evidence covers the direct requirement for ${risk}`,
       );
       continue;
     }
@@ -276,9 +280,6 @@ export function buildVerificationPlan({
   const focused = backendRiskDetected
     ? resolveFocusedTests({ catalog, changedPaths, focusedArgs })
     : { tests: focusedArgs, source: focusedArgs.length > 0 ? "explicit" : "not-needed", fallback: false };
-  const directAggregateRequired = unmetRiskRequirements.some(
-    (requirement) => requirement.disposition === "direct",
-  );
   const ciOwnsBackendFullSuite = ci
     && backendRiskDetected
     && !effectiveRisks.includes("unknown")
@@ -296,6 +297,17 @@ export function buildVerificationPlan({
   }
   if (effectiveRisks.includes("unknown") && !directAggregateRequired) {
     select("full-pytest", "unknown path is handled conservatively");
+  }
+  if (strongestDirectRequirement) {
+    const aggregateGateIds = new Set(
+      getVerificationLevel(catalog, strongestDirectRequirement.level).gates,
+    );
+    const requestedBaselineGateIds = new Set(requested.gates);
+    for (const gateId of aggregateGateIds) {
+      if (!requestedBaselineGateIds.has(gateId)) {
+        selectedGateReasons.delete(gateId);
+      }
+    }
   }
   const selectedGates = [...selectedGateReasons].map(([id, reasons]) => ({
     id,
@@ -341,10 +353,10 @@ export function buildVerificationPlan({
     unmetRiskRequirements
       .filter((requirement) => requirement.disposition === "direct")
       .map((requirement) => ({
-        level: requirement.level,
-        command: requirement.command,
-        gate_id: requirement.gateId,
-        reason: `${requirement.level} evidence is required by ${requirement.risk}`,
+        level: strongestDirectRequirement.level,
+        command: strongestDirectRequirement.command,
+        gate_id: strongestDirectRequirement.gateId,
+        reason: `${strongestDirectRequirement.level} evidence is required by ${requirement.risk}`,
         risks: [requirement.risk],
       })),
     (requirement) => requirement.gate_id,
@@ -352,7 +364,13 @@ export function buildVerificationPlan({
   const requiredFollowUps = mergeRequirements(
     [
       ...unmetRiskRequirements
-        .filter((requirement) => requirement.disposition === "follow_up")
+        .filter((requirement) => (
+          requirement.disposition === "follow_up"
+          && (
+            !strongestDirectRequirement
+            || levelRank(requirement.level) > levelRank(strongestDirectRequirement.level)
+          )
+        ))
         .map((requirement) => ({
           level: requirement.level,
           command: requirement.command,
@@ -360,7 +378,10 @@ export function buildVerificationPlan({
           risks: [requirement.risk],
           owner: requirement.owner,
         })),
-      ...deferredManualFollowUps,
+      ...deferredManualFollowUps.filter((requirement) => (
+        !strongestDirectRequirement
+        || levelRank(requirement.level) > levelRank(strongestDirectRequirement.level)
+      )),
     ],
     (requirement) => `${requirement.command}\0${requirement.owner}`,
   );
