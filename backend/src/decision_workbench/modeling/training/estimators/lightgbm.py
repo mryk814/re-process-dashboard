@@ -6,7 +6,10 @@ from typing import Any
 import numpy as np
 
 from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
-from decision_workbench.modeling.training.feature_dataset import TargetTrainingSet
+from decision_workbench.modeling.training.feature_dataset import (
+    TargetTrainingSet,
+    prepared_feature_matrix,
+)
 from decision_workbench.modeling.training.recipe import (
     LightGBMBinaryEstimatorRecipe,
     LightGBMRegressionEstimatorRecipe,
@@ -116,7 +119,11 @@ def _honest_regression_evaluation(
         calibrate = data.temporal_calibration_rows
         evaluate = data.quality_rows
         booster = _train_booster(
-            data.x[train_rows],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
             data.y[train_rows],
             objective="regression_l2",
             seed=recipe.seed + 1,
@@ -124,9 +131,22 @@ def _honest_regression_evaluation(
             monotone_constraints=monotone_constraints,
         )
         predictions = np.full(len(data.y), np.nan, dtype=float)
-        predictions[evaluate] = booster.predict(data.x[evaluate])
+        predictions[evaluate] = booster.predict(
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=evaluate,
+            )
+        )
         calibration_residuals = (
-            data.y[calibrate] - booster.predict(data.x[calibrate])
+            data.y[calibrate]
+            - booster.predict(
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+            )
         )
         evaluated = data.y[evaluate] - predictions[evaluate]
         if recipe.predictive_family == "normal":
@@ -146,14 +166,16 @@ def _honest_regression_evaluation(
         evaluate = data.fold_ids == outer_fold
         outer_train = data.training_rows_for_fold(outer_fold)
         booster = _train_booster(
-            data.x[outer_train],
+            prepared_feature_matrix(data, fit_rows=outer_train, transform_rows=outer_train),
             data.y[outer_train],
             objective="regression_l2",
             seed=recipe.seed + outer_fold + 1,
             num_boost_round=recipe.num_boost_round,
             monotone_constraints=monotone_constraints,
         )
-        predictions[evaluate] = booster.predict(data.x[evaluate])
+        predictions[evaluate] = booster.predict(
+            prepared_feature_matrix(data, fit_rows=outer_train, transform_rows=evaluate)
+        )
 
         calibration_residuals: list[np.ndarray] = []
         for inner_fold in range(data.folds):
@@ -166,7 +188,7 @@ def _honest_regression_evaluation(
                     f"{data.target}: LightGBM nested fold has insufficient rows"
                 )
             inner_booster = _train_booster(
-                data.x[inner_train],
+                prepared_feature_matrix(data, fit_rows=inner_train, transform_rows=inner_train),
                 data.y[inner_train],
                 objective="regression_l2",
                 seed=recipe.seed + 100 + outer_fold * data.folds + inner_fold,
@@ -174,7 +196,14 @@ def _honest_regression_evaluation(
                 monotone_constraints=monotone_constraints,
             )
             calibration_residuals.append(
-                data.y[calibrate] - inner_booster.predict(data.x[calibrate])
+                data.y[calibrate]
+                - inner_booster.predict(
+                    prepared_feature_matrix(
+                        data,
+                        fit_rows=inner_train,
+                        transform_rows=calibrate,
+                    )
+                )
             )
         residual_bank = np.concatenate(calibration_residuals)
         outer_residuals = data.y[evaluate] - predictions[evaluate]
@@ -213,7 +242,11 @@ def _honest_binary_evaluation(
                 "must each contain both classes"
             )
         booster = _train_booster(
-            data.x[train_rows],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
             data.y[train_rows],
             objective="binary",
             seed=recipe.seed + 1,
@@ -221,9 +254,21 @@ def _honest_binary_evaluation(
         )
         raw = np.full(len(data.y), np.nan, dtype=float)
         calibrated = np.full(len(data.y), np.nan, dtype=float)
-        raw[evaluate] = booster.predict(data.x[evaluate])
+        raw[evaluate] = booster.predict(
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=evaluate,
+            )
+        )
         calibration = _fit_platt(
-            booster.predict(data.x[calibrate]),
+            booster.predict(
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+            ),
             data.y[calibrate],
         )
         calibrated[evaluate] = _calibrate(raw[evaluate], calibration)
@@ -242,13 +287,15 @@ def _honest_binary_evaluation(
                 f"{data.target}: every binary outer fold must contain both classes"
             )
         booster = _train_booster(
-            data.x[outer_train],
+            prepared_feature_matrix(data, fit_rows=outer_train, transform_rows=outer_train),
             data.y[outer_train],
             objective="binary",
             seed=recipe.seed + outer_fold + 1,
             num_boost_round=recipe.num_boost_round,
         )
-        raw_oof[evaluate] = booster.predict(data.x[evaluate])
+        raw_oof[evaluate] = booster.predict(
+            prepared_feature_matrix(data, fit_rows=outer_train, transform_rows=evaluate)
+        )
 
         inner_raw = np.empty(int(outer_train.sum()), dtype=float)
         inner_y = data.y[outer_train]
@@ -266,14 +313,20 @@ def _honest_binary_evaluation(
                     f"{data.target}: every binary inner fold must contain both classes"
                 )
             inner_booster = _train_booster(
-                data.x[inner_train],
+                prepared_feature_matrix(data, fit_rows=inner_train, transform_rows=inner_train),
                 data.y[inner_train],
                 objective="binary",
                 seed=recipe.seed + 100 + outer_fold * data.folds + inner_fold,
                 num_boost_round=recipe.num_boost_round,
             )
             positions = np.searchsorted(outer_indexes, np.flatnonzero(calibrate))
-            inner_raw[positions] = inner_booster.predict(data.x[calibrate])
+            inner_raw[positions] = inner_booster.predict(
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=inner_train,
+                    transform_rows=calibrate,
+                )
+            )
         calibrated_oof[evaluate] = _calibrate(
             raw_oof[evaluate],
             _fit_platt(inner_raw, inner_y),
@@ -336,7 +389,11 @@ def _regression(
         train_rows = data.training_rows_for_fold(0)
         calibrate = data.temporal_calibration_rows
         calibration_booster = _train_booster(
-            data.x[train_rows],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
             data.y[train_rows],
             objective="regression_l2",
             seed=recipe.seed + 1,
@@ -345,12 +402,18 @@ def _regression(
         )
         interval_residuals = (
             data.y[calibrate]
-            - calibration_booster.predict(data.x[calibrate])
+            - calibration_booster.predict(
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+            )
         )
     else:
         interval_residuals = residuals
     booster = _train_booster(
-        data.x,
+        prepared_feature_matrix(data),
         data.y,
         objective="regression_l2",
         seed=recipe.seed,
@@ -465,20 +528,30 @@ def _binary(
         train_rows = data.training_rows_for_fold(0)
         calibrate = data.temporal_calibration_rows
         calibration_booster = _train_booster(
-            data.x[train_rows],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
             data.y[train_rows],
             objective="binary",
             seed=recipe.seed + 1,
             num_boost_round=recipe.num_boost_round,
         )
         calibration = _fit_platt(
-            calibration_booster.predict(data.x[calibrate]),
+            calibration_booster.predict(
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+            ),
             data.y[calibrate],
         )
     else:
         calibration = _fit_platt(raw_oof, data.y)
     booster = _train_booster(
-        data.x,
+        prepared_feature_matrix(data),
         data.y,
         objective="binary",
         seed=recipe.seed,

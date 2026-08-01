@@ -5,7 +5,10 @@ from pathlib import Path
 import numpy as np
 
 from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
-from decision_workbench.modeling.training.feature_dataset import TargetTrainingSet
+from decision_workbench.modeling.training.feature_dataset import (
+    TargetTrainingSet,
+    prepared_feature_matrix,
+)
 from decision_workbench.modeling.training.recipe import RidgeEstimatorRecipe
 
 from .types import TrainedPredictor, standard_training_metadata
@@ -37,11 +40,32 @@ def _honest_grouped_evaluation(
             raise ValueError(
                 f"{data.target}: temporal evaluation needs train, calibration, and holdout rows"
             )
-        weights, bias = _fit(data.x[train_rows], data.y[train_rows], alpha)
+        weights, bias = _fit(
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
+            data.y[train_rows],
+            alpha,
+        )
         predictions = np.full(len(data.y), np.nan, dtype=float)
-        predictions[evaluate] = data.x[evaluate] @ weights + bias
+        predictions[evaluate] = prepared_feature_matrix(
+            data,
+            fit_rows=train_rows,
+            transform_rows=evaluate,
+        ) @ weights + bias
         calibration_residuals = (
-            data.y[calibrate] - (data.x[calibrate] @ weights + bias)
+            data.y[calibrate]
+            - (
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+                @ weights
+                + bias
+            )
         )
         lower, upper = np.quantile(calibration_residuals, (0.05, 0.95))
         residuals = data.y[evaluate] - predictions[evaluate]
@@ -57,11 +81,19 @@ def _honest_grouped_evaluation(
         evaluate = data.fold_ids == outer_fold
         outer_train = data.training_rows_for_fold(outer_fold)
         weights, bias = _fit(
-            data.x[outer_train],
+            prepared_feature_matrix(
+                data,
+                fit_rows=outer_train,
+                transform_rows=outer_train,
+            ),
             data.y[outer_train],
             alpha,
         )
-        predictions[evaluate] = data.x[evaluate] @ weights + bias
+        predictions[evaluate] = prepared_feature_matrix(
+            data,
+            fit_rows=outer_train,
+            transform_rows=evaluate,
+        ) @ weights + bias
 
         calibration_residuals: list[np.ndarray] = []
         for inner_fold in range(data.folds):
@@ -74,13 +106,25 @@ def _honest_grouped_evaluation(
                     f"{data.target}: ridge nested fold has insufficient rows"
                 )
             inner_weights, inner_bias = _fit(
-                data.x[inner_train],
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=inner_train,
+                    transform_rows=inner_train,
+                ),
                 data.y[inner_train],
                 alpha,
             )
             calibration_residuals.append(
                 data.y[calibrate]
-                - (data.x[calibrate] @ inner_weights + inner_bias)
+                - (
+                    prepared_feature_matrix(
+                        data,
+                        fit_rows=inner_train,
+                        transform_rows=calibrate,
+                    )
+                    @ inner_weights
+                    + inner_bias
+                )
             )
         lower, upper = np.quantile(
             np.concatenate(calibration_residuals),
@@ -107,21 +151,34 @@ def train(
         train_rows = data.training_rows_for_fold(0)
         calibrate = data.temporal_calibration_rows
         calibration_weights, calibration_bias = _fit(
-            data.x[train_rows],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=train_rows,
+            ),
             data.y[train_rows],
             recipe.alpha,
         )
         interval_residuals = (
             data.y[calibrate]
             - (
-                data.x[calibrate] @ calibration_weights
+                prepared_feature_matrix(
+                    data,
+                    fit_rows=train_rows,
+                    transform_rows=calibrate,
+                )
+                @ calibration_weights
                 + calibration_bias
             )
         )
     else:
         interval_residuals = residuals
     lower, upper = np.quantile(interval_residuals, (0.05, 0.95))
-    weights, bias = _fit(data.x, data.y, recipe.alpha)
+    weights, bias = _fit(
+        prepared_feature_matrix(data),
+        data.y,
+        recipe.alpha,
+    )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
         artifact_path,

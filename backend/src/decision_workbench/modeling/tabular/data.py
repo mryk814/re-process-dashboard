@@ -5,12 +5,17 @@ import csv
 import hashlib
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
 from typing import Any, Literal
 
-from .profile import CurationColumnRule, TabularDatasetProfile, load_tabular_profile
+from .profile import (
+    MISSING_CATEGORY,
+    CurationColumnRule,
+    TabularDatasetProfile,
+    load_tabular_profile,
+)
 
 
 @dataclass(frozen=True)
@@ -28,6 +33,7 @@ class TabularData:
     quality: list[dict[str, Any]]
     detected_quality: list[dict[str, Any]]
     technical_columns: dict[tuple[str, str], str]
+    feature_imputation_values: dict[str, float] = field(default_factory=dict)
     lifecycle_profile: Any | None = None
 
 _SCALAR_RE = re.compile(
@@ -120,6 +126,8 @@ def load_tabular_data(
     numeric_series: dict[str, list[float]] = {
         item.path: [] for item in profile.inputs if item.kind == "number"
     }
+    missing_counts = {item.path: 0 for item in profile.inputs}
+    policy_counts: dict[str, int] = {}
     quality_values: dict[str, list[float]] = {
         rule.column: [] for rule in profile.quality_rules
     }
@@ -158,6 +166,10 @@ def load_tabular_data(
             if profile.curation_recipe is not None:
                 for column, rule in profile.curation_recipe.columns.items():
                     source_text = raw.get(column) or ""
+                    input_definition = next(
+                        (item for item in profile.inputs if item.column == column),
+                        None,
+                    )
                     if rule.condition_column is not None:
                         condition_state = _reported_state(raw.get(rule.condition_column) or "")
                         if condition_state == "inactive":
@@ -174,15 +186,40 @@ def load_tabular_data(
                     except ValueError as exc:
                         curated[column] = source_text.strip()
                         curation_errors[column] = str(exc)
-                        if column in {item.column for item in profile.inputs}:
+                        declared_missing = (
+                            not source_text.strip()
+                            and input_definition is not None
+                            and (
+                                (
+                                    input_definition.kind == "number"
+                                    and input_definition.numeric_missing.strategy != "reject"
+                                )
+                                or (
+                                    input_definition.kind == "categorical"
+                                    and input_definition.categorical_missing.strategy != "reject"
+                                )
+                            )
+                        )
+                        if input_definition is not None and not declared_missing:
                             input_reasons.append(f"{column}: {exc}")
             composition: dict[str, float] = {}
             process: dict[str, float] = {}
             categorical: dict[str, str] = {}
             for item in profile.inputs:
                 value_or_text = curated.get(item.column, (raw.get(item.column) or "").strip())
+                raw_text = (raw.get(item.column) or "").strip()
                 group, key = item.path.split(".", 1)
                 if item.kind == "number":
+                    if not raw_text:
+                        missing_counts[item.path] += 1
+                        policy = item.numeric_missing
+                        policy_counts[policy.strategy] = policy_counts.get(policy.strategy, 0) + 1
+                        if policy.strategy == "constant":
+                            assert policy.value is not None
+                            value_or_text = policy.value
+                            curated[item.column] = policy.value
+                        elif policy.strategy == "training_median_with_indicator":
+                            continue
                     try:
                         value = float(value_or_text)
                         if not math.isfinite(value):
@@ -193,10 +230,36 @@ def load_tabular_data(
                         continue
                     (composition if group == "composition" else process)[key] = value
                     numeric_series[item.path].append(value)
-                elif str(value_or_text) not in item.choices:
-                    input_reasons.append(f"{item.column}が定義済み区分ではありません")
                 else:
-                    categorical[key] = str(value_or_text)
+                    normalized = str(value_or_text)
+                    if not raw_text:
+                        missing_counts[item.path] += 1
+                        policy = item.categorical_missing
+                        policy_counts[policy.strategy] = policy_counts.get(policy.strategy, 0) + 1
+                        if policy.strategy == "reject":
+                            input_reasons.append(f"{item.column}が欠損しています")
+                            continue
+                        normalized = (
+                            MISSING_CATEGORY
+                            if policy.strategy == "map_to_missing_category"
+                            else policy.category
+                        )
+                        assert normalized is not None
+                        curated[item.column] = normalized
+                    elif normalized not in item.choices:
+                        policy = item.unknown_category
+                        policy_counts[policy.strategy] = policy_counts.get(policy.strategy, 0) + 1
+                        if policy.strategy == "reject":
+                            input_reasons.append(f"{item.column}が定義済み区分ではありません")
+                            continue
+                        normalized = (
+                            MISSING_CATEGORY
+                            if policy.strategy == "map_to_missing_category"
+                            else policy.other_choice
+                        )
+                        assert normalized is not None
+                        curated[item.column] = normalized
+                    categorical[key] = normalized
             if profile.curation_recipe is not None and not input_reasons:
                 for rule in profile.curation_recipe.sum_rules:
                     total = sum(float(curated[column]) for column in rule.columns)
@@ -303,6 +366,37 @@ def load_tabular_data(
                                 else ()
                             )
                         },
+                        "predictor_policies": {
+                            item.column: {
+                                "raw": (raw.get(item.column) or "").strip(),
+                                "normalized": (
+                                    composition.get(item.path.split(".", 1)[1])
+                                    if item.path.startswith("composition.")
+                                    else process.get(item.path.split(".", 1)[1])
+                                    if item.path.startswith("process.")
+                                    else curated.get(
+                                        item.column,
+                                        categorical.get(item.path.split(".", 1)[1]),
+                                    )
+                                ),
+                                "source_state": (
+                                    "missing"
+                                    if not (raw.get(item.column) or "").strip()
+                                    else "unknown_category"
+                                    if item.kind == "categorical"
+                                    and (raw.get(item.column) or "").strip() not in item.choices
+                                    else "observed"
+                                ),
+                                "policy": (
+                                    item.numeric_missing.strategy
+                                    if item.kind == "number"
+                                    else item.categorical_missing.strategy
+                                    if not (raw.get(item.column) or "").strip()
+                                    else item.unknown_category.strategy
+                                ),
+                            }
+                            for item in profile.inputs
+                        },
                     },
                 },
             })
@@ -311,7 +405,40 @@ def load_tabular_data(
         for path, values in numeric_series.items()
         if path.startswith("composition.") and values
     }
+    feature_imputation_values = {
+        path: float(median(values))
+        for path, values in numeric_series.items()
+        if values
+        and next(
+            item for item in profile.inputs if item.path == path
+        ).numeric_missing.strategy == "training_median_with_indicator"
+    }
+    medians.update(feature_imputation_values)
     detected_quality: list[dict[str, Any]] = []
+    missing_rows = sum(any(
+        value["source_state"] == "missing"
+        for value in row["run_context"]["curation"]["predictor_policies"].values()
+    ) for row in observations)
+    has_explicit_policy = any(
+        item.numeric_missing.strategy != "reject"
+        or item.categorical_missing.strategy != "reject"
+        or item.unknown_category.strategy != "reject"
+        for item in profile.inputs
+    )
+    if missing_rows and has_explicit_policy:
+        detected_quality.append({
+            "issue_id": f"tabular:{profile.task_id}:predictor-missing",
+            "issue_type": "predictor_missing",
+            "source_sheet": source.name,
+            "entity_key": profile.profile_id,
+            "detail": (
+                f"入力欠損を含む行は{missing_rows:,}/{len(observations):,}件です。"
+                f"Profileのpolicy適用回数: {policy_counts}。"
+                "Dataset観測欠損と候補入力の未設定はprovenanceで別々に記録します。"
+            ),
+            "focus_entity_key": None, "related_entity_keys": [],
+            "missing_reference_key": None, "suggested_view": "source_sheet",
+        })
     if profile.curation_recipe is not None:
         quarantined = [row for row in observations if row["run_context"]["curation"]["status"] == "quarantined"]
         if quarantined:
@@ -413,6 +540,7 @@ def load_tabular_data(
         profile_id=profile.profile_id,
         observations=observations,
         medians=medians,
+        feature_imputation_values=feature_imputation_values,
         measurement_labels={item.key: item.key for item in profile.outputs},
         row_count=len(observations),
         quality=[],

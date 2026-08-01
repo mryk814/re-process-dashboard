@@ -55,6 +55,27 @@ def _interval_method(summary: PredictiveSummary) -> str | None:
     return "quantile"
 
 
+def _missing_input_paths(
+    candidate: CandidateInput,
+    profile: Any,
+) -> list[str]:
+    return [
+        item.path
+        for item in profile.inputs
+        if _get_path(candidate, item.path) in {None, ""}
+    ]
+
+
+def _with_imputation_note(message: str, missing_paths: Sequence[str]) -> str:
+    if not missing_paths:
+        return message
+    return (
+        message
+        + "。未設定入力はProfile指定の補完値またはmissing categoryとmissing indicatorで"
+        "比較しており、補完後の一致を実測一致とは扱いません"
+    )
+
+
 class TabularRegressionRuntime:
     support_policy_id = "tabular-row-knn-v1"
 
@@ -114,6 +135,22 @@ class TabularRegressionRuntime:
         self.training_stats = json.loads(
             self.model_package.artifact_path(stats_path).read_text(encoding="utf-8")
         )
+        missing_policy = self.training_stats.get("missing_policy", {})
+        self.imputation_values = {
+            str(path): float(value)
+            for path, value in missing_policy.get("imputation_values", {}).items()
+        }
+        if missing_policy and missing_policy.get("digest") != semantic_digest(
+            self.imputation_values
+        ):
+            raise ValueError("Package missing-policy artifact digest is incompatible")
+        required_imputation = {
+            item.path
+            for item in self.profile.inputs
+            if item.numeric_missing.strategy == "training_median_with_indicator"
+        }
+        if set(self.imputation_values) != required_imputation:
+            raise ValueError("Package missing-policy artifact does not match Profile")
         self._verify_smoke()
         self._build_support_reference()
 
@@ -159,7 +196,11 @@ class TabularRegressionRuntime:
         method = self.chain_sampling_method
         if not method:
             raise ValueError("このruntime/packageはStage sampleを提供しません")
-        values = build_tabular_features(candidate, self.profile).as_dict()
+        values = build_tabular_features(
+            candidate,
+            self.profile,
+            self.imputation_values,
+        ).as_dict()
         targets = sorted(self.predictors)
         seeds = np.random.SeedSequence(seed).spawn(len(targets))
         outputs = {
@@ -193,7 +234,11 @@ class TabularRegressionRuntime:
         expected = json.loads(
             self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8")
         )
-        values = build_tabular_features(candidate, self.profile).as_dict()
+        values = build_tabular_features(
+            candidate,
+            self.profile,
+            self.imputation_values,
+        ).as_dict()
         specs = {item.target: item for item in self.model_package.manifest.predictors}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
@@ -214,7 +259,7 @@ class TabularRegressionRuntime:
             ]
             raw = np.vstack([
                 build_tabular_features_from_observation(
-                    row, self.data.medians, self.profile
+                    row, self.imputation_values, self.profile
                 ).values
                 for row in eligible
             ])
@@ -260,7 +305,12 @@ class TabularRegressionRuntime:
         include_similarity: bool,
     ) -> tuple[Support, list[dict[str, Any]]]:
         reference = self.support_references[target]
-        vector = build_tabular_features(candidate, self.profile).values
+        vector = build_tabular_features(
+            candidate,
+            self.profile,
+            self.imputation_values,
+        ).values
+        candidate_missing = _missing_input_paths(candidate, self.profile)
         normalized = (vector - reference["mean"]) / reference["scale"]
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
@@ -273,6 +323,7 @@ class TabularRegressionRuntime:
             status, message = "caution", "近傍はありますが、学習条件の密度が低い領域です"
         else:
             status, message = "extrapolated", "学習条件から外れています。予測は探索的な参考です"
+        message = _with_imputation_note(message, candidate_missing)
         similar: list[dict[str, Any]] = []
         if include_similarity:
             used_groups: set[str] = set()
@@ -297,7 +348,10 @@ class TabularRegressionRuntime:
             distance=round(nearest, 4),
             percentile=round(float((loo_nearest <= nearest).mean() * 100), 1),
             message=message,
-            components={"all_inputs": round(nearest, 4)},
+            components={
+                "all_inputs": round(nearest, 4),
+                "imputed_inputs": float(len(candidate_missing)),
+            },
             reference_count=len(reference["rows"]),
             supported_threshold=round(supported, 4),
             caution_threshold=round(caution, 4),
@@ -306,6 +360,7 @@ class TabularRegressionRuntime:
     def _support_batch(
         self,
         feature_rows: Sequence[FeatureBundle],
+        candidates: Sequence[CandidateInput],
         target: str,
     ) -> list[Support]:
         if not feature_rows:
@@ -341,7 +396,12 @@ class TabularRegressionRuntime:
                     axis=1,
                 )
             )
-            for nearest_value in nearest_values:
+            for offset, nearest_value in enumerate(nearest_values):
+                candidate_index = start + offset
+                candidate_missing = _missing_input_paths(
+                    candidates[candidate_index],
+                    self.profile,
+                )
                 nearest = float(nearest_value)
                 if nearest <= supported:
                     status, message = "supported", "近い学習条件に実測があります"
@@ -355,6 +415,7 @@ class TabularRegressionRuntime:
                         "extrapolated",
                         "学習条件から外れています。予測は探索的な参考です",
                     )
+                message = _with_imputation_note(message, candidate_missing)
                 results.append(
                     Support(
                         status=status,
@@ -364,7 +425,10 @@ class TabularRegressionRuntime:
                             1,
                         ),
                         message=message,
-                        components={"all_inputs": round(nearest, 4)},
+                        components={
+                            "all_inputs": round(nearest, 4),
+                            "imputed_inputs": float(len(candidate_missing)),
+                        },
                         reference_count=len(reference["rows"]),
                         supported_threshold=round(supported, 4),
                         caution_threshold=round(caution, 4),
@@ -407,7 +471,9 @@ class TabularRegressionRuntime:
         **_: Any,
     ) -> dict[str, Any]:
         values = _prepared_values or build_tabular_features(
-            candidate, self.profile
+            candidate,
+            self.profile,
+            self.imputation_values,
         ).as_dict()
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
@@ -675,7 +741,11 @@ class TabularRegressionRuntime:
                 "このruntimeのpredictorはnative batch predictionを提供しません"
             )
         feature_rows = [
-            build_tabular_features(candidate, self.profile)
+            build_tabular_features(
+                candidate,
+                self.profile,
+                self.imputation_values,
+            )
             for candidate in candidates
         ]
         value_rows = [item.as_dict() for item in feature_rows]
@@ -693,6 +763,7 @@ class TabularRegressionRuntime:
             summaries_by_target[target] = summaries
         support_rows = self._support_batch(
             feature_rows,
+            candidates,
             self.profile.outputs[0].key,
         )
         results: list[dict[str, Any]] = []
@@ -774,7 +845,11 @@ class TabularRegressionRuntime:
             adjusted = candidate.model_copy(deep=True)
             _set_path(adjusted, variable, float(x_value))
             summary = self.predictors[target].predict(
-                build_tabular_features(adjusted, self.profile).as_dict()
+                build_tabular_features(
+                    adjusted,
+                    self.profile,
+                    self.imputation_values,
+                ).as_dict()
             )
             lower, upper = predictive_interval(summary)
             output_profile = next(item for item in self.profile.outputs if item.key == target)

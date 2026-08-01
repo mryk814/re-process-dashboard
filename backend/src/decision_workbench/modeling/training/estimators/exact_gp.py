@@ -11,6 +11,7 @@ from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
 from decision_workbench.modeling.training.feature_dataset import (
     TargetTrainingSet,
     observation_variance_for_rows,
+    prepared_feature_matrix,
 )
 from decision_workbench.modeling.training.recipe import ExactGPEstimatorRecipe
 
@@ -161,7 +162,11 @@ def _fit_model(
     rows: np.ndarray,
     recipe: ExactGPEstimatorRecipe,
 ) -> _GPFit:
-    raw_x = data.x[rows]
+    raw_x = prepared_feature_matrix(
+        data,
+        fit_rows=rows,
+        transform_rows=rows,
+    )
     train_y = data.y[rows]
     feature_mean = raw_x.mean(axis=0)
     feature_scale = raw_x.std(axis=0)
@@ -240,7 +245,11 @@ def _honest_grouped_predictions(
         fitted = _fit_model(data, train_rows, recipe)
         predictions[evaluate], predictive_variance[evaluate] = _predict_model(
             fitted,
-            data.x[evaluate],
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=evaluate,
+            ),
         )
         return predictions, predictive_variance
     for fold in range(data.folds):
@@ -253,7 +262,14 @@ def _honest_grouped_predictions(
         (
             predictions[evaluate],
             predictive_variance[evaluate],
-        ) = _predict_model(fitted, data.x[evaluate])
+        ) = _predict_model(
+            fitted,
+            prepared_feature_matrix(
+                data,
+                fit_rows=train_rows,
+                transform_rows=evaluate,
+            ),
+        )
     return predictions, predictive_variance
 
 

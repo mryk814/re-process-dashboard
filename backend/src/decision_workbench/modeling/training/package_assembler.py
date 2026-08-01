@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+import numpy as np
+
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 from decision_workbench.data.profile_family_registry import lifecycle_profile_for_data
 from decision_workbench.modeling.model_lifecycle import (
@@ -94,6 +96,28 @@ def _build(
         str(item["name"])
         for item in canonical["feature_pipeline"]["features"]
     )
+    missing_policy = canonical["feature_pipeline"].get("missing_policy")
+    if missing_policy:
+        missing_policy = {
+            **missing_policy,
+            "missing_by_input": {
+                item.path: sum(
+                    row["run_context"]["curation"]["predictor_policies"][item.column][
+                        "source_state"
+                    ] == "missing"
+                    for row in data.observations
+                )
+                for item in data.profile.inputs
+            },
+            "policy_by_input": {
+                item.path: {
+                    "numeric_missing": item.numeric_missing.model_dump(mode="json"),
+                    "categorical_missing": item.categorical_missing.model_dump(mode="json"),
+                    "unknown_category": item.unknown_category.model_dump(mode="json"),
+                }
+                for item in data.profile.inputs
+            },
+        }
     canonical_paths = tuple(
         field.path
         for group in sorted(
@@ -132,6 +156,7 @@ def _build(
                 }
                 for item in canonical["feature_pipeline"]["features"]
             ],
+            **({"missing_policy": missing_policy} if missing_policy else {}),
         },
     )
     recipe_path = reference_dir / "training-recipe.json"
@@ -288,6 +313,13 @@ def _build(
         },
     )
     stats_path = reference_dir / "training_stats.json"
+    if missing_policy:
+        missing_policy["evaluation_coverage_by_target"] = {
+            target: int(
+                sum(target in row["outputs"] for row in canonical["rows"])
+            ) / len(canonical["rows"])
+            for target in output_by_key
+        }
     _write_json(
         stats_path,
         {
@@ -331,6 +363,7 @@ def _build(
             "source_sha256": data.source_sha256,
             "composition_defaults": data.medians,
             "feature_dataset_id": feature_dataset_id,
+            **({"missing_policy": missing_policy} if missing_policy else {}),
         },
     )
     files.extend((quality_path, diagnostics_path, stats_path))
@@ -342,7 +375,14 @@ def _build(
     )
     smoke_input = smoke_dir / "input.json"
     _write_json(smoke_input, smoke_candidate.model_dump(mode="json"))
-    smoke_values = feature_vector(feature_names, smoke_row["features"])
+    smoke_feature_values = dict(smoke_row["features"])
+    if missing_policy:
+        for name, value in missing_policy["imputation_values"].items():
+            if name in smoke_feature_values and not np.isfinite(
+                float(smoke_feature_values[name])
+            ):
+                smoke_feature_values[name] = value
+    smoke_values = feature_vector(feature_names, smoke_feature_values)
     smoke_expected = smoke_dir / "expected.json"
     _write_json(
         smoke_expected,
