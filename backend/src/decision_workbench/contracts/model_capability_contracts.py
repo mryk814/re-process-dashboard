@@ -21,7 +21,14 @@ CapabilityName = Literal[
     "support",
     "explanation",
     "normal_mean_std",
+    "conformal_interval",
 ]
+
+
+class CapabilityLayerIdentity(ModelCapabilityContract):
+    layer_id: str
+    layer_version: str
+    manifest_digest: str
 
 
 class CapabilityRequirement(ModelCapabilityContract):
@@ -58,6 +65,7 @@ class TargetCapabilityMatrix(ModelCapabilityContract):
         "unavailable",
     ]
     explanation: bool = False
+    conformal_interval: bool = False
 
     def supports(self, capability: CapabilityName) -> bool:
         return {
@@ -76,6 +84,7 @@ class TargetCapabilityMatrix(ModelCapabilityContract):
                 and self.standard_deviation
                 and self.predictive_family == "normal"
             ),
+            "conformal_interval": self.conformal_interval,
             "joint_samples": False,
         }[capability]
 
@@ -87,6 +96,7 @@ class ModelPackageCapabilityMatrix(ModelCapabilityContract):
     task_id: str
     package_id: str
     package_manifest_digest: str
+    capability_layers: tuple[CapabilityLayerIdentity, ...] = ()
     targets: tuple[TargetCapabilityMatrix, ...] = Field(min_length=1)
     joint_samples: bool = False
 
@@ -100,6 +110,10 @@ class ModelPackageCapabilityMatrix(ModelCapabilityContract):
             raise ValueError(
                 "joint samples require predictive samples for every target"
             )
+        if len({item.layer_id for item in self.capability_layers}) != len(
+            self.capability_layers
+        ):
+            raise ValueError("capability layer ids must be unique")
         return self
 
     def target(self, target: str) -> TargetCapabilityMatrix | None:

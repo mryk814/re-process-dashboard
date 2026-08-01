@@ -441,6 +441,35 @@ def validate_task_definition_canonical_inputs(
         )
 
 
+class ConformalIntervalCalibration(PackageModel):
+    """Evidence attached to an interval, not a predictive distribution."""
+
+    calibration_dataset_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    calibration_sample_count: Annotated[int, Field(ge=1)]
+    score_id: Literal["absolute_residual/v1"]
+    finite_sample_rule: Literal["ceil_n_plus_1_over_coverage/v1"]
+
+
+class PredictionInterval(PackageModel):
+    """A declared interval whose method must not be inferred from its shape."""
+
+    method: Literal["conformal", "quantile", "parametric", "bayesian"]
+    coverage_level: Annotated[float, Field(gt=0, lt=1)]
+    lower: float
+    upper: float
+    calibration: ConformalIntervalCalibration | None = None
+
+    @model_validator(mode="after")
+    def ordered_finite_bounds_and_calibration(self) -> "PredictionInterval":
+        if not all(math.isfinite(item) for item in (self.lower, self.upper)):
+            raise ValueError("prediction interval bounds must be finite")
+        if self.lower > self.upper:
+            raise ValueError("prediction interval lower bound must not exceed upper bound")
+        if (self.method == "conformal") != (self.calibration is not None):
+            raise ValueError("only conformal intervals carry calibration evidence")
+        return self
+
+
 class PredictiveSummary(PackageModel):
     target: str
     target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
@@ -451,11 +480,14 @@ class PredictiveSummary(PackageModel):
     event_probability: float | None = None
     distribution: dict[str, Any]
     uncertainty_components: dict[str, float] | None = None
+    prediction_interval: PredictionInterval | None = None
     warnings: tuple[str, ...] = ()
 
 
 def predictive_interval(summary: PredictiveSummary) -> tuple[float, float]:
-    """Return the outer declared quantiles; point-only outputs remain degenerate."""
+    """Return an explicit interval before falling back to declared quantiles."""
+    if summary.prediction_interval is not None:
+        return summary.prediction_interval.lower, summary.prediction_interval.upper
     if not summary.quantiles:
         return summary.point_estimate, summary.point_estimate
     ordered = sorted((float(level), float(value)) for level, value in summary.quantiles.items())
