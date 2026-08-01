@@ -19,7 +19,7 @@ from decision_workbench.modeling.model_lifecycle import (
     task_input_contract_digest,
 )
 from decision_workbench.modeling.model_package_verify import verify_model_package
-from decision_workbench.modeling.training.estimators import estimator_trainer
+from decision_workbench.modeling.training.estimators import estimator_implementation
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
     feature_vector,
@@ -33,10 +33,12 @@ from decision_workbench.modeling.training.feature_recipe import (
 )
 from decision_workbench.modeling.training.recipe import (
     ConcreteEstimatorRecipe,
-    LightGBMBinaryEstimatorRecipe,
-    LightGBMRegressionEstimatorRecipe,
     validate_recipe_capability,
 )
+from decision_workbench.modeling.training.readiness import (
+    resolve_estimator_contract_readiness,
+)
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 CandidateBuilder = Callable[[dict[str, Any], Any], CandidateInput | None]
 
@@ -225,7 +227,8 @@ def _build(
         recipe_document,
     )
 
-    trainer = estimator_trainer(recipe.estimator_id)
+    implementation = estimator_implementation(recipe.estimator_id)
+    trainer = implementation.trainer
     predictors: list[dict[str, Any]] = []
     qualities = []
     diagnostics: dict[str, Any] = {}
@@ -257,6 +260,20 @@ def _build(
         target_kind = output.target_kind
         if target_kind == "continuous" and target in positive_targets:
             target_kind = "continuous_positive"
+        selected_validation_plan = (
+            recipe.validation_plans_by_target.get(target)
+            if recipe.validation_plans_by_target is not None
+            and target in recipe.validation_plans_by_target
+            else recipe.validation_plan
+        )
+        if selected_validation_plan is None and output.target_kind == "binary":
+            selected_validation_plan = ValidationPlan(
+                strategy="stratified_grouped_kfold",
+                folds=recipe.folds,
+                seed=recipe.seed,
+                group_key="parent_key",
+                class_balance_policy="require_each_training_fold",
+            )
         training_set = compile_target_training_set(
             canonical,
             target=target,
@@ -264,26 +281,44 @@ def _build(
             target_kind=target_kind,
             folds=recipe.folds,
             seed=recipe.seed,
-            validation_plan=(
-                recipe.validation_plans_by_target.get(target)
-                if recipe.validation_plans_by_target is not None
-                and target in recipe.validation_plans_by_target
-                else recipe.validation_plan
-            ),
+            validation_plan=selected_validation_plan,
             feature_recipe=feature_recipe,
             feature_recipe_state=feature_state,
         )
         training_sets[target] = training_set
-        artifact_path = artifacts_dir / (
-            f"{target}.txt"
-            if isinstance(
-                recipe,
-                (
-                    LightGBMRegressionEstimatorRecipe,
-                    LightGBMBinaryEstimatorRecipe,
-                ),
+        readiness = resolve_estimator_contract_readiness(
+            estimator_id=recipe.estimator_id,
+            output=output,
+            validation_plan=training_set.validation_plan,
+            feature_recipe=feature_recipe,
+            canonical_feature_count=len(training_set.feature_names),
+            has_categorical_features=any(
+                group.key == "categorical" and group.fields
+                for group in contract.task_definition.input_groups
+            ),
+            row_count=len(training_set.y),
+            independent_group_count=len(set(training_set.validation_groups)),
+            has_missing_features=bool(training_set.imputed_feature_indices),
+            missing_policy=(
+                "ready"
+                if (
+                    not training_set.imputed_feature_indices
+                    or missing_policy is not None
+                )
+                else "missing"
+            ),
+            observed_target_min=float(np.min(training_set.y)),
+            observed_targets_are_integers=bool(
+                np.all(training_set.y == np.floor(training_set.y))
+            ),
+        )
+        if readiness.status != "ready":
+            raise ValueError(
+                f"{recipe.estimator_id} is not ready for {target}: "
+                + "; ".join(readiness.reasons)
             )
-            else f"{target}.npz"
+        artifact_path = artifacts_dir / (
+            f"{target}{implementation.artifact_suffix}"
         )
         trained = trainer(training_set, recipe, artifact_path)
         predictor = dict(trained.predictor)

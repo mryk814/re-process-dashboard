@@ -12,7 +12,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from decision_workbench.modeling.packages.contracts import PredictiveSummary
+from decision_workbench.modeling.packages.contracts import (
+    PackageContractError,
+    PredictiveSummary,
+)
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 
 
@@ -71,6 +74,153 @@ def test_skops_adapter_loads_and_predicts_a_real_sklearn_artifact(tmp_path: Path
     package = ModelPackageLoader().load(_package_root(tmp_path, "skops", predictor, model_path))
     result = package.load_predictor("ts").predict({"C": 0.5, "Mn": 0.5})
     assert result.point_estimate == pytest.approx(3.5, abs=1e-7)
+
+
+def test_skops_adapter_preserves_logistic_probability_semantics(
+    tmp_path: Path,
+) -> None:
+    sklearn_linear = pytest.importorskip("sklearn.linear_model")
+    skops_io = pytest.importorskip("skops.io")
+    root = tmp_path / "skops-logistic"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    base = np.linspace(0.0, 1.0, 6)
+    features = np.column_stack((base, base**2))
+    model = sklearn_linear.LogisticRegression(
+        random_state=20260730,
+        max_iter=500,
+    ).fit(features, np.array([0, 0, 0, 1, 1, 1]))
+    model_path = artifacts / "logistic.skops"
+    skops_io.dump(model, model_path)
+    predictor = {
+        "id": "failure",
+        "target": "failure",
+        "unit": "1",
+        "target_kind": "binary",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact": "model-artifacts/logistic.skops",
+        "predictive_family": "bernoulli_logit",
+        "feature_names": ["C", "Mn"],
+        "config": {"estimator_family": "logistic_regression_v1"},
+    }
+
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "skops-logistic", predictor, model_path)
+    )
+    result = package.load_predictor("failure").predict({"C": 0.5, "Mn": 0.25})
+
+    assert result.point_statistic == "probability"
+    assert 0 <= result.point_estimate <= 1
+    assert result.event_probability == result.point_estimate
+    assert result.quantiles == {}
+
+
+def test_skops_adapter_preserves_poisson_nonnegative_support(
+    tmp_path: Path,
+) -> None:
+    sklearn_linear = pytest.importorskip("sklearn.linear_model")
+    skops_io = pytest.importorskip("skops.io")
+    root = tmp_path / "skops-poisson"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    base = np.arange(8, dtype=float)
+    features = np.column_stack((base, base**2))
+    model = sklearn_linear.PoissonRegressor(alpha=1.0, max_iter=500).fit(
+        features,
+        np.array([0, 0, 1, 1, 2, 3, 5, 8]),
+    )
+    model_path = artifacts / "poisson.skops"
+    skops_io.dump(model, model_path)
+    predictor = {
+        "id": "defects",
+        "target": "defects",
+        "unit": "個",
+        "target_kind": "count",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact": "model-artifacts/poisson.skops",
+        "predictive_family": "poisson_log",
+        "feature_names": ["C", "Mn"],
+        "config": {"estimator_family": "poisson_regression_v1"},
+    }
+
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "skops-poisson", predictor, model_path)
+    )
+    result = package.load_predictor("defects").predict({"C": 4.0, "Mn": 16.0})
+
+    assert result.point_statistic == "rate"
+    assert result.point_estimate >= 0
+    assert all(value >= 0 and value.is_integer() for value in result.quantiles.values())
+    assert result.distribution["support"] == "nonnegative_integers"
+
+
+def test_skops_adapter_rejects_a_manifest_family_class_mismatch(
+    tmp_path: Path,
+) -> None:
+    sklearn_linear = pytest.importorskip("sklearn.linear_model")
+    skops_io = pytest.importorskip("skops.io")
+    root = tmp_path / "skops-family-mismatch"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    model = sklearn_linear.PoissonRegressor().fit(
+        np.column_stack(
+            (np.arange(4, dtype=float), np.arange(4, dtype=float) ** 2)
+        ),
+        np.array([0, 1, 2, 3]),
+    )
+    model_path = artifacts / "wrong.skops"
+    skops_io.dump(model, model_path)
+    predictor = {
+        "id": "failure",
+        "target": "failure",
+        "unit": "1",
+        "target_kind": "binary",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact": "model-artifacts/wrong.skops",
+        "predictive_family": "bernoulli_logit",
+        "feature_names": ["C", "Mn"],
+        "config": {"estimator_family": "logistic_regression_v1"},
+    }
+
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "skops-family-mismatch", predictor, model_path)
+    )
+    with pytest.raises(PackageContractError, match="does not match"):
+        package.load_predictor("failure")
+
+
+def test_skops_adapter_rejects_logistic_labels_outside_zero_and_one(
+    tmp_path: Path,
+) -> None:
+    sklearn_linear = pytest.importorskip("sklearn.linear_model")
+    skops_io = pytest.importorskip("skops.io")
+    root = tmp_path / "skops-logistic-labels"
+    artifacts = root / "model-artifacts"
+    artifacts.mkdir(parents=True)
+    base = np.linspace(0.0, 1.0, 6)
+    model = sklearn_linear.LogisticRegression(max_iter=500).fit(
+        np.column_stack((base, base**2)),
+        np.array([1, 1, 1, 2, 2, 2]),
+    )
+    model_path = artifacts / "labels.skops"
+    skops_io.dump(model, model_path)
+    predictor = {
+        "id": "failure",
+        "target": "failure",
+        "unit": "1",
+        "target_kind": "binary",
+        "runtime_type": "sklearn.skops.v1",
+        "artifact": "model-artifacts/labels.skops",
+        "predictive_family": "bernoulli_logit",
+        "feature_names": ["C", "Mn"],
+        "config": {"estimator_family": "logistic_regression_v1"},
+    }
+
+    package = ModelPackageLoader().load(
+        _package_root(tmp_path, "skops-logistic-labels", predictor, model_path)
+    )
+    with pytest.raises(PackageContractError, match="binary labels 0 and 1"):
+        package.load_predictor("failure")
 
 
 def test_lightgbm_adapter_loads_and_predicts_a_native_text_booster(tmp_path: Path) -> None:

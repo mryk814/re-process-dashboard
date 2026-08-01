@@ -24,6 +24,13 @@ from decision_workbench.contracts.evidence_contracts import ApiError
 from decision_workbench.contracts.subsystem_availability import (
     SubsystemAvailabilityRegistry,
 )
+from decision_workbench.modeling.training.readiness import (
+    EstimatorReadinessContext,
+    EstimatorReadinessResolution,
+    StandardEstimatorCatalog,
+    resolve_estimator_readiness,
+    standard_estimator_catalog,
+)
 from decision_workbench.data.observation_profile import (
     ObservationProfileError,
     ObservationTrainingDataset,
@@ -207,6 +214,28 @@ def get_readiness_catalog() -> ReadinessCatalog:
     """Return the shipped shape catalog without changing Workspace state."""
 
     return readiness_catalog()
+
+
+@router.get(
+    "/estimator-readiness/catalog",
+    response_model=StandardEstimatorCatalog,
+)
+def get_standard_estimator_readiness_catalog() -> StandardEstimatorCatalog:
+    """Return the bounded builder/runtime matrix without probing user data."""
+
+    return standard_estimator_catalog()
+
+
+@router.post(
+    "/estimator-readiness/resolve",
+    response_model=EstimatorReadinessResolution,
+)
+def post_standard_estimator_readiness(
+    context: EstimatorReadinessContext,
+) -> EstimatorReadinessResolution:
+    """Explain one requested path without building or promoting a Package."""
+
+    return resolve_estimator_readiness(context)
 
 
 @router.post("/readiness/preflight", response_model=ReadinessPreflight)

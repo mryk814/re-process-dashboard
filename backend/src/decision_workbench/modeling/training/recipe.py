@@ -50,11 +50,34 @@ class LightGBMBinaryEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class LogisticEstimatorRecipe(ContractModel):
+    estimator_id: Literal["logistic.v1"] = "logistic.v1"
+    c: Annotated[float, Field(gt=0, le=1_000_000)] = 1.0
+    max_iter: Annotated[int, Field(ge=100, le=2_000)] = 500
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    calibration: Literal["intrinsic-logistic-link"] = "intrinsic-logistic-link"
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
+class PoissonEstimatorRecipe(ContractModel):
+    estimator_id: Literal["poisson.v1"] = "poisson.v1"
+    alpha: Annotated[float, Field(ge=0, le=1_000_000)] = 1.0
+    max_iter: Annotated[int, Field(ge=100, le=2_000)] = 500
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
 ConcreteEstimatorRecipe = (
     RidgeEstimatorRecipe
     | ExactGPEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
+    | LogisticEstimatorRecipe
+    | PoissonEstimatorRecipe
 )
 EstimatorRecipe = Annotated[
     ConcreteEstimatorRecipe,
@@ -66,6 +89,8 @@ ESTIMATOR_IDS = (
     "exact-gp-rbf.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
+    "logistic.v1",
+    "poisson.v1",
 )
 
 
@@ -92,6 +117,12 @@ class CsvOnboardingEstimatorOption(ContractModel):
     training_cost: Literal["light", "moderate"]
     artifact_size: Literal["small", "moderate"]
     fixed_parameters: dict[str, int | float | str]
+    readiness_schema_version: Literal["standard-estimator-readiness/v1"]
+    runtime_type: str
+    artifact_format: str
+    min_rows: Annotated[int, Field(ge=1)]
+    max_rows: Annotated[int, Field(ge=1)]
+    max_features: Annotated[int, Field(ge=1)]
 
 
 CSV_ONBOARDING_ESTIMATOR_IDS = (
@@ -108,6 +139,18 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
     build/promote operation.  It never discovers arbitrary Python modules.
     """
 
+    from decision_workbench.modeling.training.readiness import (
+        standard_estimator_catalog,
+    )
+
+    catalog = {
+        entry.estimator_id: entry
+        for entry in standard_estimator_catalog().entries
+    }
+    ridge = catalog["ridge.v1"]
+    lightgbm = catalog["lightgbm-regression.v1"]
+    assert ridge.runtime_type is not None and ridge.artifact_format is not None
+    assert lightgbm.runtime_type is not None and lightgbm.artifact_format is not None
     lightgbm_available = find_spec("lightgbm") is not None
     return (
         CsvOnboardingEstimatorOption(
@@ -117,6 +160,12 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
             available=True,
             training_cost="light",
             artifact_size="small",
+            readiness_schema_version="standard-estimator-readiness/v1",
+            runtime_type=ridge.runtime_type,
+            artifact_format=ridge.artifact_format,
+            min_rows=ridge.limits.min_rows,
+            max_rows=ridge.limits.max_rows,
+            max_features=ridge.limits.max_features,
             fixed_parameters=estimator_recipe("ridge.v1").model_dump(
                 mode="json",
                 exclude={"estimator_id"},
@@ -136,6 +185,12 @@ def csv_onboarding_estimator_options() -> tuple[CsvOnboardingEstimatorOption, ..
             dependency="lightgbm",
             training_cost="moderate",
             artifact_size="moderate",
+            readiness_schema_version="standard-estimator-readiness/v1",
+            runtime_type=lightgbm.runtime_type,
+            artifact_format=lightgbm.artifact_format,
+            min_rows=lightgbm.limits.min_rows,
+            max_rows=lightgbm.limits.max_rows,
+            max_features=lightgbm.limits.max_features,
             fixed_parameters={
                 "num_boost_round": 200,
                 "folds": 5,
@@ -179,26 +234,48 @@ def validate_recipe_capability(
     if capability.joint_samples:
         errors.append("standard estimators do not expose joint samples")
     for target in capability.targets:
-        if recipe.estimator_id == "lightgbm-binary.v1":
+        if recipe.estimator_id in {"lightgbm-binary.v1", "logistic.v1"}:
             if tuple(target.point_statistics) != ("probability",):
                 errors.append(
-                    f"{target.target}: binary LightGBM point statistic must be probability"
+                    f"{target.target}: binary estimator point statistic must be probability"
                 )
             if target.standard_deviation or target.quantiles or target.samples:
                 errors.append(
-                    f"{target.target}: binary LightGBM exposes probability only"
+                    f"{target.target}: binary estimator exposes probability only"
                 )
             if not target.parametric_distribution:
                 errors.append(
-                    f"{target.target}: binary LightGBM exposes a Bernoulli distribution"
+                    f"{target.target}: binary estimator exposes a Bernoulli distribution"
                 )
             if target.uncertainty_components:
                 errors.append(
-                    f"{target.target}: binary LightGBM has no uncertainty components"
+                    f"{target.target}: binary estimator has no uncertainty components"
                 )
             if target.goal_probability != "unavailable":
                 errors.append(
-                    f"{target.target}: binary LightGBM cannot provide goal probability"
+                    f"{target.target}: binary estimator cannot provide goal probability"
+                )
+            continue
+        if recipe.estimator_id == "poisson.v1":
+            if tuple(target.point_statistics) != ("rate",):
+                errors.append(
+                    f"{target.target}: Poisson point statistic must be rate"
+                )
+            if target.standard_deviation or target.samples:
+                errors.append(
+                    f"{target.target}: Poisson standard path exposes rate and quantiles"
+                )
+            if not target.quantiles or not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: Poisson exposes discrete quantiles and a distribution"
+                )
+            if target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: Poisson has no decomposed uncertainty components"
+                )
+            if target.goal_probability != "unavailable":
+                errors.append(
+                    f"{target.target}: Poisson standard path cannot provide goal probability"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):

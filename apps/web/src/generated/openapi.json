@@ -7243,6 +7243,10 @@
         "additionalProperties": false,
         "description": "A reviewed standard builder the CSV flow may present to a user.\n\nThis is deliberately narrower than ``ESTIMATOR_IDS``.  The latter is the\ninternal recipe universe; this list is the user-facing allow-list for a\nnew continuous tabular Task.  Keeping the distinction here prevents the\nUI from turning an estimator name into a free-form runtime selector.",
         "properties": {
+          "artifact_format": {
+            "title": "Artifact Format",
+            "type": "string"
+          },
           "artifact_size": {
             "enum": [
               "small",
@@ -7301,6 +7305,21 @@
             "title": "Label",
             "type": "string"
           },
+          "max_features": {
+            "minimum": 1.0,
+            "title": "Max Features",
+            "type": "integer"
+          },
+          "max_rows": {
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "min_rows": {
+            "minimum": 1.0,
+            "title": "Min Rows",
+            "type": "integer"
+          },
           "parametric_distribution": {
             "default": false,
             "title": "Parametric Distribution",
@@ -7316,6 +7335,15 @@
             "default": true,
             "title": "Quantiles",
             "type": "boolean"
+          },
+          "readiness_schema_version": {
+            "const": "standard-estimator-readiness/v1",
+            "title": "Readiness Schema Version",
+            "type": "string"
+          },
+          "runtime_type": {
+            "title": "Runtime Type",
+            "type": "string"
           },
           "standard_deviation": {
             "default": false,
@@ -7353,7 +7381,13 @@
           "available",
           "training_cost",
           "artifact_size",
-          "fixed_parameters"
+          "fixed_parameters",
+          "readiness_schema_version",
+          "runtime_type",
+          "artifact_format",
+          "min_rows",
+          "max_rows",
+          "max_features"
         ],
         "title": "CsvOnboardingEstimatorOption",
         "type": "object"
@@ -10128,6 +10162,321 @@
           "kind"
         ],
         "title": "ElapsedOriginNormalization",
+        "type": "object"
+      },
+      "EstimatorLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "max_features": {
+            "minimum": 1.0,
+            "title": "Max Features",
+            "type": "integer"
+          },
+          "max_rows": {
+            "minimum": 1.0,
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "min_independent_groups": {
+            "minimum": 2.0,
+            "title": "Min Independent Groups",
+            "type": "integer"
+          },
+          "min_rows": {
+            "minimum": 1.0,
+            "title": "Min Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min_rows",
+          "max_rows",
+          "min_independent_groups",
+          "max_features"
+        ],
+        "title": "EstimatorLimits",
+        "type": "object"
+      },
+      "EstimatorReadinessContext": {
+        "additionalProperties": false,
+        "properties": {
+          "estimator_id": {
+            "minLength": 1,
+            "title": "Estimator Id",
+            "type": "string"
+          },
+          "feature_count": {
+            "minimum": 0.0,
+            "title": "Feature Count",
+            "type": "integer"
+          },
+          "feature_recipe": {
+            "enum": [
+              "ready",
+              "missing",
+              "invalid"
+            ],
+            "title": "Feature Recipe",
+            "type": "string"
+          },
+          "has_categorical_features": {
+            "default": false,
+            "title": "Has Categorical Features",
+            "type": "boolean"
+          },
+          "has_count_exposure": {
+            "default": false,
+            "title": "Has Count Exposure",
+            "type": "boolean"
+          },
+          "has_missing_features": {
+            "default": false,
+            "title": "Has Missing Features",
+            "type": "boolean"
+          },
+          "independent_group_count": {
+            "minimum": 0.0,
+            "title": "Independent Group Count",
+            "type": "integer"
+          },
+          "missing_policy": {
+            "default": "ready",
+            "enum": [
+              "ready",
+              "missing",
+              "invalid"
+            ],
+            "title": "Missing Policy",
+            "type": "string"
+          },
+          "observed_target_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Target Min"
+          },
+          "observed_targets_are_integers": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Targets Are Integers"
+          },
+          "row_count": {
+            "minimum": 0.0,
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "target_contract": {
+            "enum": [
+              "ready",
+              "missing",
+              "invalid"
+            ],
+            "title": "Target Contract",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal",
+              "nominal_multiclass"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "validation_plan": {
+            "enum": [
+              "ready",
+              "missing",
+              "invalid"
+            ],
+            "title": "Validation Plan",
+            "type": "string"
+          },
+          "validation_strategy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "kfold",
+                  "grouped_kfold",
+                  "stratified_kfold",
+                  "stratified_grouped_kfold",
+                  "temporal_holdout",
+                  "grouped_temporal"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation Strategy"
+          }
+        },
+        "required": [
+          "estimator_id",
+          "target_kind",
+          "row_count",
+          "independent_group_count",
+          "feature_count",
+          "target_contract",
+          "validation_plan",
+          "feature_recipe"
+        ],
+        "title": "EstimatorReadinessContext",
+        "type": "object"
+      },
+      "EstimatorReadinessResolution": {
+        "additionalProperties": false,
+        "properties": {
+          "alternative_baseline_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Alternative Baseline Ids",
+            "type": "array"
+          },
+          "artifact_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Format"
+          },
+          "builder_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard_builder",
+                  "external_verified_package_only",
+                  "not_available"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Builder Status"
+          },
+          "estimator_id": {
+            "title": "Estimator Id",
+            "type": "string"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstimatorLimits"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotes_package": {
+            "const": false,
+            "default": false,
+            "title": "Promotes Package",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "required_dependency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Dependency"
+          },
+          "runtime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Type"
+          },
+          "schema_version": {
+            "const": "standard-estimator-readiness/v1",
+            "default": "standard-estimator-readiness/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "starts_build": {
+            "const": false,
+            "default": false,
+            "title": "Starts Build",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "unavailable_missing_dependency",
+              "needs_feature_recipe",
+              "needs_validation_plan",
+              "needs_target_contract",
+              "external_verified_package_only",
+              "out_of_scope"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal",
+              "nominal_multiclass"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "estimator_id",
+          "target_kind",
+          "status",
+          "reasons",
+          "required_dependency",
+          "runtime_type",
+          "artifact_format",
+          "builder_status",
+          "limits"
+        ],
+        "title": "EstimatorReadinessResolution",
         "type": "object"
       },
       "EvidenceImageRef": {
@@ -22837,6 +23186,244 @@
         "title": "StageSamplingCapability",
         "type": "object"
       },
+      "StandardEstimatorCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/StandardEstimatorEntry"
+            },
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          },
+          "promotion_policy": {
+            "const": "explicit_only",
+            "default": "explicit_only",
+            "title": "Promotion Policy",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "standard-estimator-readiness/v1",
+            "default": "standard-estimator-readiness/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "StandardEstimatorCatalog",
+        "type": "object"
+      },
+      "StandardEstimatorEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_format": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Format"
+          },
+          "artifact_status": {
+            "enum": [
+              "ready",
+              "needs_adapter_allowlist",
+              "external_verified_package_only",
+              "not_available"
+            ],
+            "title": "Artifact Status",
+            "type": "string"
+          },
+          "builder_status": {
+            "enum": [
+              "standard_builder",
+              "external_verified_package_only",
+              "not_available"
+            ],
+            "title": "Builder Status",
+            "type": "string"
+          },
+          "categorical_support": {
+            "enum": [
+              "native",
+              "feature_recipe",
+              "unsupported"
+            ],
+            "title": "Categorical Support",
+            "type": "string"
+          },
+          "estimator_id": {
+            "minLength": 1,
+            "title": "Estimator Id",
+            "type": "string"
+          },
+          "fixed_parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ]
+            },
+            "title": "Fixed Parameters",
+            "type": "object"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/EstimatorLimits"
+          },
+          "missing_support": {
+            "enum": [
+              "native",
+              "feature_recipe",
+              "unsupported"
+            ],
+            "title": "Missing Support",
+            "type": "string"
+          },
+          "predictive_capabilities": {
+            "items": {
+              "enum": [
+                "point",
+                "probability",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution"
+              ],
+              "type": "string"
+            },
+            "title": "Predictive Capabilities",
+            "type": "array"
+          },
+          "quality_metrics": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Quality Metrics",
+            "type": "array"
+          },
+          "required_dependency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Dependency"
+          },
+          "role": {
+            "enum": [
+              "interpretable_baseline",
+              "nonlinear_candidate",
+              "specialized_path"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "runtime_status": {
+            "enum": [
+              "ready",
+              "needs_adapter_allowlist",
+              "external_verified_package_only",
+              "not_available"
+            ],
+            "title": "Runtime Status",
+            "type": "string"
+          },
+          "runtime_type": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Type"
+          },
+          "target_kinds": {
+            "items": {
+              "enum": [
+                "continuous",
+                "continuous_positive",
+                "binary",
+                "count",
+                "ordinal",
+                "nominal_multiclass"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Target Kinds",
+            "type": "array"
+          },
+          "validation_strategies": {
+            "items": {
+              "enum": [
+                "kfold",
+                "grouped_kfold",
+                "stratified_kfold",
+                "stratified_grouped_kfold",
+                "temporal_holdout",
+                "grouped_temporal"
+              ],
+              "type": "string"
+            },
+            "title": "Validation Strategies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "estimator_id",
+          "label",
+          "target_kinds",
+          "role",
+          "builder_status",
+          "runtime_status",
+          "runtime_type",
+          "artifact_status",
+          "artifact_format",
+          "limits",
+          "categorical_support",
+          "missing_support",
+          "validation_strategies",
+          "predictive_capabilities",
+          "quality_metrics",
+          "fixed_parameters"
+        ],
+        "title": "StandardEstimatorEntry",
+        "type": "object"
+      },
       "StandardizeOperation": {
         "additionalProperties": false,
         "properties": {
@@ -25478,6 +26065,80 @@
           }
         },
         "summary": "Get Diagnostics",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/estimator-readiness/catalog": {
+      "get": {
+        "description": "Return the bounded builder/runtime matrix without probing user data.",
+        "operationId": "get_standard_estimator_readiness_catalog_api_developer_estimator_readiness_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardEstimatorCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Standard Estimator Readiness Catalog",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/estimator-readiness/resolve": {
+      "post": {
+        "description": "Explain one requested path without building or promoting a Package.",
+        "operationId": "post_standard_estimator_readiness_api_developer_estimator_readiness_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimatorReadinessContext"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstimatorReadinessResolution"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Standard Estimator Readiness",
         "tags": [
           "developer"
         ]
