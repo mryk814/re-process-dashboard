@@ -52,6 +52,15 @@ def estimator_implementation(estimator_id: str) -> EstimatorImplementation:
             artifact_suffix=lightgbm.ARTIFACT_SUFFIX,
             artifact_format=lightgbm.ARTIFACT_FORMAT,
         )
+    if estimator_id in {"logistic.v1", "poisson.v1"}:
+        from . import skops_glm
+
+        return EstimatorImplementation(
+            trainer=cast(Trainer, skops_glm.train),
+            runtime_type=skops_glm.RUNTIME_TYPE,
+            artifact_suffix=skops_glm.ARTIFACT_SUFFIX,
+            artifact_format=skops_glm.ARTIFACT_FORMAT,
+        )
     raise ValueError(f"unknown estimator id: {estimator_id}")
 
 

@@ -50,11 +50,34 @@ class LightGBMBinaryEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class LogisticEstimatorRecipe(ContractModel):
+    estimator_id: Literal["logistic.v1"] = "logistic.v1"
+    c: Annotated[float, Field(gt=0, le=1_000_000)] = 1.0
+    max_iter: Annotated[int, Field(ge=100, le=2_000)] = 500
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    calibration: Literal["intrinsic-logistic-link"] = "intrinsic-logistic-link"
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
+class PoissonEstimatorRecipe(ContractModel):
+    estimator_id: Literal["poisson.v1"] = "poisson.v1"
+    alpha: Annotated[float, Field(ge=0, le=1_000_000)] = 1.0
+    max_iter: Annotated[int, Field(ge=100, le=2_000)] = 500
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
 ConcreteEstimatorRecipe = (
     RidgeEstimatorRecipe
     | ExactGPEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
+    | LogisticEstimatorRecipe
+    | PoissonEstimatorRecipe
 )
 EstimatorRecipe = Annotated[
     ConcreteEstimatorRecipe,
@@ -66,6 +89,8 @@ ESTIMATOR_IDS = (
     "exact-gp-rbf.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
+    "logistic.v1",
+    "poisson.v1",
 )
 
 
@@ -179,26 +204,56 @@ def validate_recipe_capability(
     if capability.joint_samples:
         errors.append("standard estimators do not expose joint samples")
     for target in capability.targets:
-        if recipe.estimator_id == "lightgbm-binary.v1":
+        if recipe.estimator_id in {"lightgbm-binary.v1", "logistic.v1"}:
+            if target.target_kind != "binary":
+                errors.append(
+                    f"{target.target}: {recipe.estimator_id} requires a binary target"
+                )
             if tuple(target.point_statistics) != ("probability",):
                 errors.append(
-                    f"{target.target}: binary LightGBM point statistic must be probability"
+                    f"{target.target}: binary estimator point statistic must be probability"
                 )
             if target.standard_deviation or target.quantiles or target.samples:
                 errors.append(
-                    f"{target.target}: binary LightGBM exposes probability only"
+                    f"{target.target}: binary estimator exposes probability only"
                 )
             if not target.parametric_distribution:
                 errors.append(
-                    f"{target.target}: binary LightGBM exposes a Bernoulli distribution"
+                    f"{target.target}: binary estimator exposes a Bernoulli distribution"
                 )
             if target.uncertainty_components:
                 errors.append(
-                    f"{target.target}: binary LightGBM has no uncertainty components"
+                    f"{target.target}: binary estimator has no uncertainty components"
                 )
             if target.goal_probability != "unavailable":
                 errors.append(
-                    f"{target.target}: binary LightGBM cannot provide goal probability"
+                    f"{target.target}: binary estimator cannot provide goal probability"
+                )
+            continue
+        if recipe.estimator_id == "poisson.v1":
+            if target.target_kind != "count":
+                errors.append(
+                    f"{target.target}: poisson.v1 requires a count target"
+                )
+            if tuple(target.point_statistics) != ("rate",):
+                errors.append(
+                    f"{target.target}: Poisson point statistic must be rate"
+                )
+            if target.standard_deviation or target.samples:
+                errors.append(
+                    f"{target.target}: Poisson standard path exposes rate and quantiles"
+                )
+            if not target.quantiles or not target.parametric_distribution:
+                errors.append(
+                    f"{target.target}: Poisson exposes discrete quantiles and a distribution"
+                )
+            if target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: Poisson has no decomposed uncertainty components"
+                )
+            if target.goal_probability != "unavailable":
+                errors.append(
+                    f"{target.target}: Poisson standard path cannot provide goal probability"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):
