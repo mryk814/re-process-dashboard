@@ -121,10 +121,8 @@ export function SourceLifecycleSection({
 
   useEffect(() => {
     if (!catalog) return;
-    const connectorExists = catalog.connectors.some((item) => item.id === selectedId);
-    const canonicalConnectorId = connectorExists ? selectedId : catalog.connectors[0]?.id;
-    if (canonicalConnectorId !== selectedId) {
-      onNavigate({ tab: "update", connectorId: canonicalConnectorId }, true);
+    if (!selectedId && catalog.connectors[0]) {
+      onNavigate({ tab: "update", connectorId: catalog.connectors[0].id }, true);
     }
   }, [catalog, onNavigate, selectedId]);
 
