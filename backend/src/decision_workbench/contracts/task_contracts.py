@@ -48,6 +48,9 @@ class InputFieldDefinition(ContractModel):
     default_range: NumericRange | None = None
     allowed_range: NumericRange | None = None
     training_range: NumericRange | None = None
+    numeric_domain_kind: Literal["continuous", "integer", "step"] = "continuous"
+    step: float | None = None
+    search_scale: Literal["linear", "log"] = "linear"
     choices: tuple[str, ...] = ()
 
     @model_validator(mode="after")
@@ -65,8 +68,39 @@ class InputFieldDefinition(ContractModel):
                 raise ValueError("default_range must be contained by allowed_range")
             if not self.allowed_range.contains(self.training_range):
                 raise ValueError("training_range must be contained by allowed_range")
+            if self.numeric_domain_kind == "step" and self.step is None:
+                raise ValueError("step number fields require step")
+            if self.numeric_domain_kind != "step" and self.step is not None:
+                raise ValueError("only step number fields can declare step")
+            if self.step is not None:
+                if not math.isfinite(self.step) or self.step <= 0:
+                    raise ValueError("step must be a positive finite value")
+                origin = self.allowed_range.min
+                for range_name, value_range in (
+                    ("allowed_range", self.allowed_range),
+                    ("default_range", self.default_range),
+                    ("training_range", self.training_range),
+                ):
+                    assert value_range is not None
+                    if not _aligned_to_step(value_range.min, origin, self.step) or not _aligned_to_step(value_range.max, origin, self.step):
+                        raise ValueError(f"{range_name} bounds must align to step")
+            if self.numeric_domain_kind == "integer":
+                for range_name, value_range in (
+                    ("allowed_range", self.allowed_range),
+                    ("default_range", self.default_range),
+                    ("training_range", self.training_range),
+                ):
+                    assert value_range is not None
+                    if not _is_integer(value_range.min) or not _is_integer(value_range.max):
+                        raise ValueError(f"{range_name} bounds must be integers")
+            if self.search_scale == "log" and any(
+                value_range.min <= 0
+                for value_range in (self.allowed_range, self.default_range, self.training_range)
+                if value_range is not None
+            ):
+                raise ValueError("log scale number fields require positive ranges")
         elif self.kind == "categorical":
-            if any(value is not None for value in ranges):
+            if any(value is not None for value in ranges) or self.step is not None or self.numeric_domain_kind != "continuous" or self.search_scale != "linear":
                 raise ValueError("categorical fields cannot declare numeric ranges")
             if not self.choices or len(set(self.choices)) != len(self.choices):
                 raise ValueError("categorical fields require unique choices")
@@ -75,9 +109,31 @@ class InputFieldDefinition(ContractModel):
         else:
             if self.path != "heat_pattern":
                 raise ValueError("heat_pattern fields must use path=heat_pattern")
-            if any(value is not None for value in ranges) or self.choices or self.unit is not None:
+            if any(value is not None for value in ranges) or self.choices or self.unit is not None or self.step is not None or self.numeric_domain_kind != "continuous" or self.search_scale != "linear":
                 raise ValueError("heat_pattern fields cannot declare scalar ranges, choices, or a unit")
         return self
+
+    def validate_numeric_value(self, value: float) -> None:
+        """Validate one candidate value using the Task-owned numeric semantics."""
+
+        if self.kind != "number":
+            raise ValueError(f"numeric domain is not available for {self.path}")
+        if not math.isfinite(value):
+            raise ValueError(f"candidate value must be finite: {self.path}")
+        if self.numeric_domain_kind == "integer" and not _is_integer(value):
+            raise ValueError(f"candidate value must be an integer: {self.path}")
+        if self.step is not None:
+            assert self.allowed_range is not None
+            if not _aligned_to_step(value, self.allowed_range.min, self.step):
+                raise ValueError(f"candidate value must align to step {self.step:g}: {self.path}")
+
+
+def _is_integer(value: float, *, tolerance: float = 1e-9) -> bool:
+    return math.isclose(value, round(value), rel_tol=0.0, abs_tol=tolerance)
+
+
+def _aligned_to_step(value: float, origin: float, step: float, *, tolerance: float = 1e-9) -> bool:
+    return math.isclose((value - origin) / step, round((value - origin) / step), rel_tol=0.0, abs_tol=tolerance)
 
 
 class InputGroupDefinition(ContractModel):
@@ -316,6 +372,16 @@ class TaskDefinition(ContractModel):
 def persisted_task_definition_payload(definition: TaskDefinition) -> dict[str, Any]:
     """Return the Task identity used by persisted Project and Chain bindings."""
     payload = definition.model_dump(mode="json")
+    for group in payload["input_groups"]:
+        for field in group["fields"]:
+            # Keep the pre-domain-semantics identity when behavior remains the
+            # historical continuous, linear default.
+            if field["numeric_domain_kind"] == "continuous":
+                field.pop("numeric_domain_kind")
+            if field["step"] is None:
+                field.pop("step")
+            if field["search_scale"] == "linear":
+                field.pop("search_scale")
     for output in payload["outputs"]:
         # Output semantics refine presentation and typed observations without
         # rebinding an existing Project or Chain revision. Package verification
@@ -817,6 +883,7 @@ class TaskContractFixture(ContractModel):
                     assert field.allowed_range is not None
                     if not field.allowed_range.min <= value <= field.allowed_range.max:
                         raise ValueError(f"candidate value is outside allowed_range: {field.path}")
+                    field.validate_numeric_value(float(value))
                 elif value not in field.choices:
                     raise ValueError(f"candidate value is not an allowed choice: {field.path}")
         flat_values = {

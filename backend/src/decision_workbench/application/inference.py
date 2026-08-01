@@ -20,6 +20,7 @@ from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
     ResponseCurveTrainingRangeUnavailableError,
 )
+from decision_workbench.modeling.curve_grid import numeric_domain_grid, use_numeric_domain
 from decision_workbench.persistence.store import Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError, TaskUnavailableError
 
@@ -118,9 +119,29 @@ class InferenceService:
         try:
             runtime = self.resolver.runtime_for(project)
             handler = self.registry.response_curve_for(project.task_id)
+            field = next(
+                (
+                    item
+                    for group in definition.input_groups
+                    for item in group.fields
+                    if item.path == variable and item.kind == "number"
+                ),
+                None,
+            )
             return self.graph.execute(
                 self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "anchored-grid-v1"}, uses_package=True),
-                lambda: handler(runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m),
+                lambda: self._response_curve_with_domain(
+                    handler,
+                    runtime,
+                    candidate,
+                    target,
+                    variable,
+                    points,
+                    axis_range,
+                    stage_name,
+                    stage_position_m,
+                    field,
+                ),
             )
         except ResponseCurveNotApplicableError as exc:
             raise InferenceResponseCurveNotApplicableError(str(exc)) from exc
@@ -140,9 +161,20 @@ class InferenceService:
         try:
             runtime = self.resolver.runtime_for(project)
             handler = self.registry.curve_family_for(project.task_id)
+            axis_field = next(
+                (
+                    item
+                    for group in contract.task_definition.input_groups
+                    for item in group.fields
+                    if item.path == contract.task_definition.curve_axis_path and item.kind == "number"
+                ),
+                None,
+            )
             return self.graph.execute(
                 self.key(project, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "anchored-axis-grid-v1"}, uses_package=True),
-                lambda: handler(runtime, candidate, target, vary or None, levels, points),
+                lambda: self._curve_family_with_domain(
+                    handler, runtime, candidate, target, vary or None, levels, points, axis_field
+                ),
             )
         except ValueError as exc:
             raise InferenceValidationError(str(exc)) from exc
@@ -207,8 +239,18 @@ class InferenceService:
 
             x_axis = axis_metadata(x_variable)
             y_axis = axis_metadata(y_variable)
-            x_values = self._uniform_grid(x_axis["min"], x_axis["max"], points)
-            y_values = self._uniform_grid(y_axis["min"], y_axis["max"], points)
+            fields = {
+                item.path: item
+                for group in definition.input_groups
+                for item in group.fields
+                if item.kind == "number"
+            }
+            x_field = fields.get(x_variable)
+            y_field = fields.get(y_variable)
+            x_values = self._domain_grid(x_axis["min"], x_axis["max"], points, x_field)
+            y_values = self._domain_grid(y_axis["min"], y_axis["max"], points, y_field)
+            if len(x_values) < 2 or len(y_values) < 2:
+                raise InferenceValidationError("コンター軸の数値domainに異なる候補値が2点以上必要です")
 
             def compute() -> dict[str, Any]:
                 cells: list[dict[str, Any]] = []
@@ -304,6 +346,43 @@ class InferenceService:
             raise InferenceValidationError("コンター軸の学習範囲が不正です")
         step = (maximum - minimum) / (points - 1)
         return [round(minimum + step * index, 8) for index in range(points)]
+
+    def _domain_grid(self, minimum: float, maximum: float, points: int, field: Any) -> list[float]:
+        if field is None:
+            return self._uniform_grid(minimum, maximum, points)
+        return numeric_domain_grid(minimum, maximum, points, field=field)
+
+    @staticmethod
+    def _response_curve_with_domain(
+        handler: Any,
+        runtime: Any,
+        candidate: Candidate,
+        target: str,
+        variable: str,
+        points: int,
+        axis_range: tuple[float, float] | None,
+        stage_name: str | None,
+        stage_position_m: float | None,
+        field: Any,
+    ) -> dict[str, Any]:
+        with use_numeric_domain(field):
+            return handler(
+                runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m
+            )
+
+    @staticmethod
+    def _curve_family_with_domain(
+        handler: Any,
+        runtime: Any,
+        candidate: Candidate,
+        target: str,
+        vary: str | None,
+        levels: int,
+        points: int,
+        axis_field: Any,
+    ) -> dict[str, Any]:
+        with use_numeric_domain(axis_field):
+            return handler(runtime, candidate, target, vary, levels, points)
 
     def similar(
         self,

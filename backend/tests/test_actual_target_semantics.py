@@ -7,7 +7,10 @@ from decision_workbench.application.records import (
     normalize_actual_measurement,
 )
 from decision_workbench.contracts.prediction_catalog_contracts import ActualMeasurementInput
-from decision_workbench.contracts.task_contracts import OutputDefinition
+from decision_workbench.contracts.task_contracts import (
+    OutputDefinition,
+    persisted_task_definition_payload,
+)
 from decision_workbench.contracts.objective_contracts import ObjectiveDefinition, ObjectiveTerm
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.tasks.task_registry import load_task_contracts
@@ -66,7 +69,9 @@ def test_existing_secom_binary_objective_keeps_legacy_runtime_capability_compati
     fixture = load_task_contracts()["secom-yield-risk-v1"]
     objective = ObjectiveDefinition(
         objective_id="secom-risk", name="異常確率を下げる", task_id=fixture.task_definition.id,
-        task_contract_digest=semantic_digest(fixture.task_definition.model_dump(mode="json")),
+        task_contract_digest=semantic_digest(
+            persisted_task_definition_payload(fixture.task_definition)
+        ),
         optimization_kind="single_objective",
         terms=(ObjectiveTerm(output_key="fail_probability", unit="1", role="primary_objective", direction="at_most", upper=0.1),),
     )

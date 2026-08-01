@@ -11,6 +11,7 @@ from decision_workbench.contracts.task_contracts import (
     NumericRange,
     RelationalConstraint,
     TaskDefinition,
+    persisted_task_definition_payload,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
@@ -20,6 +21,10 @@ class NumericDomain(ContractModel):
     mode: Literal["range", "values"]
     range: NumericRange | None = None
     values: tuple[float, ...] = ()
+    numeric_domain_kind: Literal["continuous", "integer", "step"] = "continuous"
+    step: float | None = None
+    step_origin: float | None = None
+    search_scale: Literal["linear", "log"] = "linear"
 
     @model_validator(mode="after")
     def complete(self) -> "NumericDomain":
@@ -27,7 +32,29 @@ class NumericDomain(ContractModel):
             raise ValueError("range domain requires only range")
         if self.mode == "values" and (not self.values or self.range is not None):
             raise ValueError("values domain requires only values")
+        if self.numeric_domain_kind == "step" and self.step is None:
+            raise ValueError("step numeric domain requires step")
+        if self.numeric_domain_kind != "step" and self.step is not None:
+            raise ValueError("only step numeric domains can declare step")
+        if self.numeric_domain_kind == "step" and self.step_origin is None:
+            raise ValueError("step numeric domain requires step_origin")
+        if self.numeric_domain_kind != "step" and self.step_origin is not None:
+            raise ValueError("only step numeric domains can declare step_origin")
+        if self.step is not None and (not math.isfinite(self.step) or self.step <= 0):
+            raise ValueError("numeric domain step must be a positive finite value")
+        if self.search_scale == "log":
+            values = self.values or ((self.range.min, self.range.max) if self.range is not None else ())
+            if any(value <= 0 for value in values):
+                raise ValueError("log scale numeric domains require positive values")
         return self
+
+    def validate_value(self, value: float) -> None:
+        if not math.isfinite(value):
+            raise ValueError(f"numeric domain value must be finite: {self.path}")
+        if self.numeric_domain_kind == "integer" and not math.isclose(value, round(value), rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(f"numeric domain value must be an integer: {self.path}")
+        if self.step is not None and not math.isclose((value - self.step_origin) / self.step, round((value - self.step_origin) / self.step), rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(f"numeric domain value must align to step {self.step:g}: {self.path}")
 
 
 class CategoricalDomain(ContractModel):
@@ -84,7 +111,7 @@ class DesignSpaceDefinition(ContractModel):
     def validate_against(self, task: TaskDefinition) -> None:
         if self.task_id != task.id:
             raise ValueError("Design SpaceのTaskがTaskDefinitionと一致しません")
-        expected_digest = semantic_digest(task.model_dump(mode="json"))
+        expected_digest = semantic_digest(persisted_task_definition_payload(task))
         if self.task_contract_digest != expected_digest:
             raise ValueError("Design SpaceのTaskDefinition digestが一致しません")
         fields = {field.path: field for group in task.input_groups for field in group.fields}
@@ -98,6 +125,7 @@ class DesignSpaceDefinition(ContractModel):
                 assert field.allowed_range is not None
                 if not field.allowed_range.min <= float(value) <= field.allowed_range.max:
                     raise ValueError(f"Design Spaceの固定値が許容範囲外です: {path}")
+                field.validate_numeric_value(float(value))
             elif field.kind == "categorical" and value not in field.choices:
                 raise ValueError(f"Design Spaceの固定値が選択肢にありません: {path}")
         for domain in self.numeric_domains:
@@ -109,6 +137,18 @@ class DesignSpaceDefinition(ContractModel):
                 raise ValueError(f"Design SpaceがTaskDefinitionの許容範囲を超えています: {domain.path}")
             if any(not field.allowed_range.min <= value <= field.allowed_range.max for value in domain.values):
                 raise ValueError(f"Design Spaceの値がTaskDefinitionの許容範囲外です: {domain.path}")
+            if (
+                domain.numeric_domain_kind != field.numeric_domain_kind
+                or domain.step != field.step
+                or domain.step_origin != (field.allowed_range.min if field.numeric_domain_kind == "step" else None)
+                or domain.search_scale != field.search_scale
+            ):
+                raise ValueError(f"Design SpaceがTaskDefinitionの数値domainを変更しています: {domain.path}")
+            values = domain.values or (
+                (domain.range.min, domain.range.max) if domain.range is not None else ()
+            )
+            for value in values:
+                field.validate_numeric_value(value)
         heat_editable = any(
             field.kind == "heat_pattern" and field.editable
             for field in fields.values()
@@ -196,6 +236,13 @@ class DesignSpaceDefinition(ContractModel):
                 raise ValueError(f"Project Design Spaceの範囲を超えています: {child.path}")
             if outer.values and any(value not in outer.values for value in values):
                 raise ValueError(f"Project Design Spaceの候補値にありません: {child.path}")
+            if (
+                child.numeric_domain_kind != outer.numeric_domain_kind
+                or child.step != outer.step
+                or child.step_origin != outer.step_origin
+                or child.search_scale != outer.search_scale
+            ):
+                raise ValueError(f"Project Design Spaceの数値domainを変更できません: {child.path}")
         parent_categories = {item.path: set(item.choices) for item in parent.categorical_domains}
         for child in self.categorical_domains:
             if not set(child.choices) <= parent_categories.get(child.path, set()):
@@ -229,7 +276,15 @@ def default_design_space(task: TaskDefinition, *, task_contract_digest: str) -> 
                 continue
             if field.kind == "number" and field.allowed_range is not None:
                 numeric.append(
-                    NumericDomain(path=field.path, mode="range", range=field.allowed_range)
+                    NumericDomain(
+                        path=field.path,
+                        mode="range",
+                        range=field.allowed_range,
+                        numeric_domain_kind=field.numeric_domain_kind,
+                        step=field.step,
+                        step_origin=(field.allowed_range.min if field.numeric_domain_kind == "step" else None),
+                        search_scale=field.search_scale,
+                    )
                 )
             elif field.kind == "categorical":
                 categorical.append(

@@ -6422,6 +6422,12 @@ export interface components {
             kind: "number" | "categorical" | "heat_pattern";
             /** Label */
             label: string;
+            /**
+             * Numeric Domain Kind
+             * @default continuous
+             * @enum {string}
+             */
+            numeric_domain_kind: "continuous" | "integer" | "step";
             /** Order */
             order: number;
             /** Path */
@@ -6431,6 +6437,14 @@ export interface components {
              * @default true
              */
             required: boolean;
+            /**
+             * Search Scale
+             * @default linear
+             * @enum {string}
+             */
+            search_scale: "linear" | "log";
+            /** Step */
+            step?: number | null;
             training_range?: components["schemas"]["NumericRange"] | null;
             /** Unit */
             unit?: string | null;
@@ -7153,9 +7167,25 @@ export interface components {
              * @enum {string}
              */
             mode: "range" | "values";
+            /**
+             * Numeric Domain Kind
+             * @default continuous
+             * @enum {string}
+             */
+            numeric_domain_kind: "continuous" | "integer" | "step";
             /** Path */
             path: string;
             range?: components["schemas"]["NumericRange"] | null;
+            /**
+             * Search Scale
+             * @default linear
+             * @enum {string}
+             */
+            search_scale: "linear" | "log";
+            /** Step */
+            step?: number | null;
+            /** Step Origin */
+            step_origin?: number | null;
             /**
              * Values
              * @default []

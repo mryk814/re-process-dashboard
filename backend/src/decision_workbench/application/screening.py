@@ -192,6 +192,15 @@ class ScreeningService:
                     values=tuple(float(value) for value in (spec.values or ()))
                     if spec.mode == "list"
                     else (),
+                    numeric_domain_kind=screenable_fields[path].numeric_domain_kind,
+                    step=screenable_fields[path].step,
+                    step_origin=(
+                        screenable_fields[path].allowed_range.min
+                        if screenable_fields[path].numeric_domain_kind == "step"
+                        and screenable_fields[path].allowed_range is not None
+                        else None
+                    ),
+                    search_scale=screenable_fields[path].search_scale,
                 )
                 for path, spec in scalar_specs.items()
                 if screenable_fields[path].kind == "number" and spec.mode != "fixed"

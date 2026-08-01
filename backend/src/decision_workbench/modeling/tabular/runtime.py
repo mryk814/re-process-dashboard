@@ -20,7 +20,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
 from decision_workbench.data.profiles.loading import load_task_definitions
 from decision_workbench.domain.goal_targets import goal_fields
 from decision_workbench.execution.inference_work_graph import semantic_digest
-from decision_workbench.modeling.curve_grid import anchored_curve_grid
+from decision_workbench.modeling.curve_grid import anchored_curve_grid, numeric_domain_grid
 from decision_workbench.modeling.packages.contracts import (
     PredictiveSummary,
     predictive_interval,
@@ -866,6 +866,12 @@ class TabularRegressionRuntime:
                     curve = self.response_curve_result(adjusted, target, axis, points)
                     series.append({"level": choice, "label": choice, "points": curve["points"]})
             else:
+                task_field = next(
+                    field
+                    for group in self.task_definition.input_groups
+                    for field in group.fields
+                    if field.path == vary_variable
+                )
                 training = [
                     float((row["composition"] if vary_variable.startswith("composition.") else row["features"])[vary_variable.split(".", 1)[1]])
                     for row in self.support_references[target]["rows"]
@@ -879,7 +885,12 @@ class TabularRegressionRuntime:
                     "max": high,
                     "current": float(_get_path(candidate, vary_variable)),
                 }
-                for level in np.linspace(low, high, levels):
+                for level in numeric_domain_grid(
+                    low,
+                    high,
+                    levels,
+                    field=task_field,
+                ):
                     adjusted = candidate.model_copy(deep=True)
                     _set_path(adjusted, vary_variable, float(level))
                     curve = self.response_curve_result(adjusted, target, axis, points)

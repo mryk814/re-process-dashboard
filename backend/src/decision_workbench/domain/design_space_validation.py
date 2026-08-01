@@ -60,6 +60,7 @@ def validate_candidate_in_design_space(
             raise ValueError(f"Project Design Spaceの範囲外です: {domain.path}")
         if domain.values and not any(_same(numeric, allowed) for allowed in domain.values):
             raise ValueError(f"Project Design Spaceの候補値にありません: {domain.path}")
+        domain.validate_value(numeric)
 
     for domain in design_space.categorical_domains:
         if _value_at(candidate, domain.path) not in domain.choices:

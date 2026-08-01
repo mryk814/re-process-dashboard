@@ -17,6 +17,7 @@ from decision_workbench.contracts.chain_evaluation_contracts import (
     ChainEvaluationTarget,
 )
 from decision_workbench.contracts.chain_contracts import task_contract_surface
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.data.stage_b_training import (
     STAGE_B_OUTPUT_AXES,
     build_stage_b_training_data,
@@ -86,7 +87,7 @@ def _stage_identity(
         contract_digest = deterministic_transform_contract_digest(package)
     else:
         contract = load_task_contracts()[contract_id].task_definition
-        contract_digest = semantic_digest(contract.model_dump(mode="json"))
+        contract_digest = semantic_digest(persisted_task_definition_payload(contract))
     return ChainEvaluationStageIdentity(
         stage_id=stage_id,
         contract_id=contract_id,

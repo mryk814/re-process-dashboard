@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref, type UIEvent } from "react";
 import type { CandidateViewModel } from "./candidateModel";
-import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskInputGroup, type TaskOutputDefinition } from "./taskDefinition";
+import { getCandidateInputValue, numericTaskInputs, orderedInputGroups, type NumericRange, type NumericTaskInput, type TaskDefinitionContract, type TaskFieldDefinition, type TaskInputGroup, type TaskOutputDefinition } from "./taskDefinition";
 import type { ApiPreview } from "../../shared/api/workbench-api";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import type { CandidateSaveState } from "./useCandidateEditor";
@@ -157,17 +157,45 @@ function sliderScale(input: NumericTaskInput, value: number, inputRanges: Record
   const range = allowedRange(input, inputRanges);
   const learnedMin = input.training_range?.min ?? range.min;
   const learnedMax = input.training_range?.max ?? range.max;
-  const divisor = Math.max(range.max - range.min, Number.EPSILON);
-  const rangePercent = (position: number) => Math.round(
-    Math.max(0, Math.min(100, ((position - range.min) / divisor) * 100)) * 1000,
-  ) / 1000;
+  const logScale = input.search_scale === "log";
+  const rangePercent = (position: number) => {
+    const normalized = logScale
+      ? (Math.log(position) - Math.log(range.min)) / Math.max(Math.log(range.max) - Math.log(range.min), Number.EPSILON)
+      : (position - range.min) / Math.max(range.max - range.min, Number.EPSILON);
+    return Math.round(Math.max(0, Math.min(100, normalized * 100)) * 1000) / 1000;
+  };
   const start = rangePercent(learnedMin);
   const end = rangePercent(learnedMax);
+  const numericStep = input.numeric_domain_kind === "integer" ? 1 : input.step ?? "any";
+  const snapValue = (rawValue: number) => {
+    const step = input.numeric_domain_kind === "integer" ? 1 : input.step;
+    if (step == null) return clamp(rawValue, range.min, range.max);
+    const origin = input.allowed_range?.min ?? range.min;
+    const lowerIndex = Math.ceil((range.min - origin) / step - Number.EPSILON);
+    const upperIndex = Math.floor((range.max - origin) / step + Number.EPSILON);
+    const index = Math.min(
+      upperIndex,
+      Math.max(lowerIndex, Math.round((rawValue - origin) / step)),
+    );
+    return Math.round((origin + index * step) * 1e12) / 1e12;
+  };
+  const toValue = (position: number) => snapValue(logScale
+    ? Math.exp(Math.log(range.min) + (position / 100) * (Math.log(range.max) - Math.log(range.min)))
+    : position);
   return {
-    ...range,
-    value: Math.max(range.min, Math.min(range.max, value)),
+    min: logScale ? 0 : range.min,
+    max: logScale ? 100 : range.max,
+    inputMin: range.min,
+    inputMax: range.max,
+    step: logScale ? 0.1 : numericStep,
+    value: logScale ? rangePercent(Math.max(range.min, Math.min(range.max, value))) : Math.max(range.min, Math.min(range.max, value)),
+    toValue,
     style: { background: `linear-gradient(90deg, #dfe6ee 0 ${start}%, #6bb69e ${start}% ${end}%, #dfe6ee ${end}% 100%)` },
   };
+}
+
+function inputStep(field: TaskFieldDefinition): number | "any" {
+  return field.numeric_domain_kind === "integer" ? 1 : field.step ?? "any";
 }
 
 function unplacedErrorLabel(path: string): string {
@@ -213,10 +241,10 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
           const scale = sliderScale(input, numberValue, inputRanges);
           return (
             <label className="slider-field" key={field.path}>
-              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.min} max={scale.max} step="any" value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} />{field.unit && field.unit !== groupUnit ? <small>{field.unit}</small> : null}</em></span>
+              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.inputMin} max={scale.inputMax} step={inputStep(input)} value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} />{field.unit && field.unit !== groupUnit ? <small>{field.unit}</small> : null}</em></span>
               {missingOptionalValue
                 ? <small>ヒートパターンの経過時間を使用中</small>
-                : <input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step="any" value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, Number(event.target.value))} />}
+                : <><input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step={scale.step} value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, scale.toValue(Number(event.target.value)))} />{input.search_scale === "log" && <small>対数スケール</small>}</>}
               {errors.map((error) => <small className="field-error" key={error.path}>{error.message}</small>)}
             </label>
           );
@@ -591,7 +619,7 @@ export function ComparisonTable({
     if (field.kind === "categorical") return <td className={cellClass} key={field.path}>{marker}<select disabled={!field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
     const key = `${candidate.id}:${field.path}`;
     const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
-    return <td className={cellClass} key={field.path}>{marker}<input disabled={!field.editable} type="number" step="any" value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
+    return <td className={cellClass} key={field.path}>{marker}<input disabled={!field.editable} type="number" min={field.allowed_range?.min} max={field.allowed_range?.max} step={inputStep(field)} value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
   };
   const outputTargetKind = (key: string) => candidates
     .map((candidate) => previewsByCandidate[candidate.id]?.predictions[key]?.target_kind)
