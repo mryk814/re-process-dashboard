@@ -13849,6 +13849,12 @@
                 "type": "number"
               },
               {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
                 "type": "null"
               }
             ],

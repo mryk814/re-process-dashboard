@@ -295,7 +295,7 @@ class SourceLifecycleIdentity(BaseModel):
 class PredictionIntervalIdentity(BaseModel):
     model_config = ConfigDict(extra="allow")
     method: str = ""
-    coverage: str | float | None = None
+    coverage: str | float | dict[str, float] | None = None
     grouping: str = ""
     folds: int | dict[str, int] | None = None
     note: str = ""

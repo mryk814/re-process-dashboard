@@ -7548,7 +7548,9 @@ export interface components {
         /** PredictionIntervalIdentity */
         PredictionIntervalIdentity: {
             /** Coverage */
-            coverage?: string | number | null;
+            coverage?: string | number | {
+                [key: string]: number;
+            } | null;
             /** Folds */
             folds?: number | {
                 [key: string]: number;

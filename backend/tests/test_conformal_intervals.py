@@ -135,6 +135,12 @@ def test_conformal_wrapper_enables_only_explicit_interval_capability(tmp_path: P
     upgraded = wrapper.apply_capability(matrix)
 
     assert resolve_capabilities(upgraded, target="y", requirements=(CapabilityRequirement(capability="conformal_interval"),)).available
+    unavailable = resolve_capabilities(
+        matrix, target="y",
+        requirements=(CapabilityRequirement(capability="conformal_interval"),),
+    )
+    assert unavailable.available is False
+    assert unavailable.reasons == ("Conformal予測区間に対応するModel Packageが必要です",)
     assert not resolve_capabilities(upgraded, target="y", requirements=(CapabilityRequirement(capability="standard_deviation"),)).available
     assert not resolve_capabilities(upgraded, target="y", requirements=(CapabilityRequirement(capability="goal_probability"),)).available
     assert upgraded.target("y").quantiles is False
@@ -199,12 +205,14 @@ def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
     assert saved_prediction.interval_calibration_score_artifact_digest.startswith("sha256:")
     assert result["model_meta"]["package"]["manifest_sha256"] == package.manifest_sha256
     assert result["model_meta"]["prediction_interval"]["calibration"]["y"]["wrapper"]["id"] == "point-fixture-conformal"
+    assert result["model_meta"]["prediction_interval"]["coverage"] == {"y": 0.8}
     snapshot_payload = to_jsonable_python(RecordService._snapshot_payload(
         SimpleNamespace(design_space_digest="design-space", design_space_binding_provenance="explicit"),
         candidate,
         result,
     ))
     assert snapshot_payload["prediction"]["predictions"]["y"]["interval_wrapper_id"] == "point-fixture-conformal"
+    assert snapshot_payload["prediction"]["model_meta"]["prediction_interval"]["coverage"] == {"y": 0.8}
 
     second_wrapper = verify_conformal_wrapper(
         _wrapper(tmp_path / "second-wrapper", package), base_package=package,

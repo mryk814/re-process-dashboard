@@ -602,6 +602,13 @@ class TabularRegressionRuntime:
                 "prediction_interval": {
                     "method": "split conformal prediction interval" if uses_conformal_interval else base_interval_method,
                     "coverage": (
+                        {
+                            target: item.interval_coverage_level
+                            for target, item in predictions.items()
+                            if item.interval_method == "conformal"
+                        }
+                        if uses_conformal_interval
+                        else
                         "not reported for point probabilities"
                         if uses_binary_lightgbm
                         else "central 90% empirical interval"
