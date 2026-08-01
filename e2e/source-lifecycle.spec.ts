@@ -22,7 +22,41 @@ async function gotoDataLibraryAfterCatalog(
   ]);
 }
 
+async function reloadSourceLifecycleAfterReady(
+  page: import("@playwright/test").Page,
+  connectorId: string,
+) {
+  const connectorPath = `/api/data-lifecycle/connectors/${connectorId}`;
+  const readyResponses = [
+    page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === "/api/data-lifecycle"
+      && response.status() === 200
+    )),
+    page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === connectorPath
+      && response.status() === 200
+    )),
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === "GET"
+        && url.pathname === "/api/data-library/datasets"
+        && url.searchParams.get("include_archived") === "true"
+        && response.status() === 200;
+    }),
+  ];
+  await Promise.all([...readyResponses, page.reload()]);
+
+  const section = page.locator(".source-lifecycle-section");
+  await expect(section.getByRole("button", { name: "品質判定を実行" })).toBeEnabled();
+  return section;
+}
+
 test("source refresh stays separate from approval, training and activation", async ({ page, request }) => {
+  // This one contract covers two full source revisions and the reload hydration
+  // between them; CI evidence shows the default 45s budget expires in that second hydration.
+  test.slow();
   const optionsBefore = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   const profile = optionsBefore.datasets[0].profile_revision;
 
@@ -247,8 +281,7 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(secondFetch.ok()).toBeTruthy();
-  await page.reload();
-  const repeatedSection = page.locator(".source-lifecycle-section");
+  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
   await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
   await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
   await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
