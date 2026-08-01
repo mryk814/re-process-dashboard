@@ -131,6 +131,7 @@ def _prepare_csv_onboarding(
     source: Path,
     task_id: str,
     label: str,
+    estimator_id: str = "ridge.v1",
 ) -> object:
     with source.open("rb") as stream:
         return client.post(
@@ -139,6 +140,7 @@ def _prepare_csv_onboarding(
             data={
                 "task_id": task_id,
                 "label": label,
+                "estimator_id": estimator_id,
                 "fields_json": json.dumps(_csv_fields_payload()),
                 "grain_confirmation": "one-row-one-observation",
                 "relation_confirmation": "no-relations",
@@ -606,6 +608,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
 
     task_id = "csv-ui-strength-v1"
     task_store = tmp_path / "personal-tasks"
+    model_store = tmp_path / "personal-models"
     monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
     resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
 
@@ -616,7 +619,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
     app = create_app(
         db_path=tmp_path / "workspace.db",
         data_library_path=tmp_path / "data-library",
-        model_store_path=tmp_path / "personal-models",
+        model_store_path=model_store,
         _resources=resources,
     )
     source = _source(tmp_path / "new-source.csv")
@@ -657,6 +660,22 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
             "min_length": 6,
             "example": "concrete-slump-v1",
         }
+        assert [item["estimator_id"] for item in inspection.json()["estimators"]] == [
+            "ridge.v1",
+            "lightgbm-regression.v1",
+        ]
+        assert inspection.json()["default_estimator_id"] == "ridge.v1"
+
+        blocked_estimator = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="CSV UI 強度",
+            estimator_id="exact-gp-rbf.v1",
+        )
+        assert blocked_estimator.status_code == 422, blocked_estimator.text
+        assert blocked_estimator.json()["code"] == "validation_error"
+        assert not (task_store / task_id).exists()
 
         with source.open("rb") as stream:
             prepared = client.post(
@@ -709,6 +728,33 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
             == response["model_package_ref_id"]
         )
 
+        lightgbm = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="CSV UI 強度",
+            estimator_id="lightgbm-regression.v1",
+        )
+        assert lightgbm.status_code == 200, lightgbm.text
+        lightgbm_payload = lightgbm.json()
+        assert lightgbm_payload["reused_existing"] is False
+        assert (
+            lightgbm_payload["model_package_ref_id"]
+            != response["model_package_ref_id"]
+        )
+        package_root = model_store / "packages" / (
+            f"{task_id}-lightgbm-regression-v1-personal-1"
+        )
+        manifest = json.loads((package_root / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["provenance"]["training_code_revision"] == (
+            "standard-model-training/v1:lightgbm-regression.v1"
+        )
+        assert all(
+            item["config"]["training"]["estimator_id"]
+            == "lightgbm-regression.v1"
+            for item in manifest["predictors"]
+        )
+
         conflict = _prepare_csv_onboarding(
             client,
             source=source,
@@ -733,12 +779,12 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
             "name": "CSV UIから作成",
             "task_id": task_id,
             "dataset_view_revision_id": response["dataset_view_revision_id"],
-            "model_package_ref_id": response["model_package_ref_id"],
+            "model_package_ref_id": lightgbm_payload["model_package_ref_id"],
         })
         assert created.status_code == 201, created.text
         project = created.json()
         assert project["dataset_view_revision_id"] == response["dataset_view_revision_id"]
-        assert project["model_package_ref_id"] == response["model_package_ref_id"]
+        assert project["model_package_ref_id"] == lightgbm_payload["model_package_ref_id"]
         snapshot_candidate = client.post(
             f"/api/projects/{project['id']}/candidates",
             json={

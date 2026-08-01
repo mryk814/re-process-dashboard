@@ -13,7 +13,10 @@ from decision_workbench.developer_experience.task_scaffolding import (
     validate_personal_task_store_path,
 )
 from decision_workbench.modeling.tabular.profile import load_tabular_profile
-from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.recipe import (
+    CSV_ONBOARDING_ESTIMATOR_IDS,
+    estimator_recipe,
+)
 from decision_workbench.task_composition.builtin.tabular import (
     external_tabular_task_module,
 )
@@ -116,6 +119,17 @@ def external_task_bundles(
         declared_estimator = str(payload.get("estimator_id", ""))
         if recipe.estimator_id != declared_estimator:
             raise ValueError(f"external Task estimator identities disagree: {task_id}")
+        declared_estimator_ids = tuple(
+            str(item)
+            for item in payload.get("standard_estimator_ids", (declared_estimator,))
+        )
+        if (
+            not declared_estimator_ids
+            or len(set(declared_estimator_ids)) != len(declared_estimator_ids)
+            or declared_estimator not in declared_estimator_ids
+            or not set(declared_estimator_ids).issubset(CSV_ONBOARDING_ESTIMATOR_IDS)
+        ):
+            raise ValueError(f"external Task standard estimator allow-list is invalid: {task_id}")
         package_path = payload.get("package_path")
         resolved_package = (
             Path(str(package_path)).expanduser().resolve()
@@ -130,7 +144,8 @@ def external_task_bundles(
                 label=fixture.task_definition.label,
                 source_path=source_path,
                 profile_path=profile_path,
-                estimator_id=declared_estimator,
+                estimator_ids=declared_estimator_ids,
+                default_estimator_id=declared_estimator,
                 package_path=resolved_package,
             ),
             fixture,

@@ -208,7 +208,8 @@ def external_tabular_task_module(
     label: str,
     source_path: Path,
     profile_path: Path,
-    estimator_id: str,
+    estimator_ids: tuple[str, ...],
+    default_estimator_id: str,
     package_path: Path | None,
 ) -> TaskModule:
     """Compose a reviewed data-only Task bundle without loading Python code."""
@@ -229,8 +230,8 @@ def external_tabular_task_module(
         training_inspector=CANONICAL_TRAINING_INSPECTOR,
         standard_model_authoring=StandardModelAuthoring(
             _tabular_training_candidate,
-            (estimator_id,),
-            default_estimator_id=estimator_id,
+            estimator_ids,
+            default_estimator_id=default_estimator_id,
         ),
         application=_application_capability(
             actual_measurement=False,

@@ -4796,6 +4796,10 @@ export interface components {
         CsvInspectionResponse: {
             /** Columns */
             columns: components["schemas"]["CsvInspectionColumn"][];
+            /** Default Estimator Id */
+            default_estimator_id: string;
+            /** Estimators */
+            estimators: components["schemas"]["CsvOnboardingEstimatorOption"][];
             /**
              * Grain
              * @constant
@@ -4815,6 +4819,73 @@ export interface components {
             /** Source Sha256 */
             source_sha256: string;
             task_id_contract: components["schemas"]["CsvTaskIdContract"];
+        };
+        /**
+         * CsvOnboardingEstimatorOption
+         * @description A reviewed standard builder the CSV flow may present to a user.
+         *
+         *     This is deliberately narrower than ``ESTIMATOR_IDS``.  The latter is the
+         *     internal recipe universe; this list is the user-facing allow-list for a
+         *     new continuous tabular Task.  Keeping the distinction here prevents the
+         *     UI from turning an estimator name into a free-form runtime selector.
+         */
+        CsvOnboardingEstimatorOption: {
+            /**
+             * Artifact Size
+             * @enum {string}
+             */
+            artifact_size: "small" | "moderate";
+            /** Available */
+            available: boolean;
+            /** Dependency */
+            dependency?: string | null;
+            /**
+             * Estimator Id
+             * @enum {string}
+             */
+            estimator_id: "ridge.v1" | "lightgbm-regression.v1";
+            /** Fixed Parameters */
+            fixed_parameters: {
+                [key: string]: number | string;
+            };
+            /**
+             * Goal Probability
+             * @default unavailable
+             * @constant
+             */
+            goal_probability: "unavailable";
+            /** Label */
+            label: string;
+            /**
+             * Parametric Distribution
+             * @default false
+             */
+            parametric_distribution: boolean;
+            /**
+             * Point Statistic
+             * @default mean
+             * @constant
+             */
+            point_statistic: "mean";
+            /**
+             * Quantiles
+             * @default true
+             */
+            quantiles: boolean;
+            /**
+             * Standard Deviation
+             * @default false
+             */
+            standard_deviation: boolean;
+            /** Summary */
+            summary: string;
+            /**
+             * Training Cost
+             * @enum {string}
+             */
+            training_cost: "light" | "moderate";
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
         };
         /** CsvPrepareResponse */
         CsvPrepareResponse: {

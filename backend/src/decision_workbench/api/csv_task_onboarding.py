@@ -46,7 +46,13 @@ from decision_workbench.modeling.model_lifecycle import (
     validate_personal_model_store_path,
 )
 from decision_workbench.modeling.model_package_verify import verify_model_package
-from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.recipe import (
+    CSV_ONBOARDING_ESTIMATOR_IDS,
+    CsvOnboardingEstimatorOption,
+    csv_onboarding_estimator_options,
+    csv_onboarding_estimator_recipe,
+    estimator_recipe,
+)
 from decision_workbench.contracts.evidence_contracts import ApiError
 
 
@@ -102,6 +108,8 @@ class CsvInspectionResponse(BaseModel):
     grain: Literal["one-row-one-observation"]
     columns: list[CsvInspectionColumn]
     task_id_contract: CsvTaskIdContract
+    estimators: list[CsvOnboardingEstimatorOption]
+    default_estimator_id: str
     notice: str
 
 
@@ -121,6 +129,7 @@ class OnboardingReservation:
     model_store: Path
     package_id: str
     reusable_task: TaskScaffoldResult | None
+    reusable_package: bool
 
 
 def _normalized_json(value: Any) -> Any:
@@ -160,7 +169,12 @@ def _load_reusable_task(
     source_meta = scaffold["source"]
     safety = scaffold["safety"]
     expected_fields = [field.__dict__ for field in fields]
-    expected_estimator = estimator_recipe(estimator_id).model_dump(mode="json")
+    scaffold_estimator = scaffold.get("estimator", {})
+    bundle_estimator = str(bundle.get("estimator_id", ""))
+    standard_estimator_ids = tuple(
+        str(item)
+        for item in bundle.get("standard_estimator_ids", (bundle_estimator,))
+    )
     if (
         scaffold.get("schema_version") != TASK_SCAFFOLD_SCHEMA_VERSION
         or scaffold.get("task_id") != task_id
@@ -169,8 +183,15 @@ def _load_reusable_task(
         or source_meta.get("original_sha256") != inspect_task_source(source).source_sha256
         or _normalized_json(scaffold.get("fields"))
         != _normalized_json(expected_fields)
-        or _normalized_json(scaffold.get("estimator"))
-        != _normalized_json(expected_estimator)
+        or _normalized_json(scaffold_estimator)
+        != _normalized_json(estimator_recipe(bundle_estimator).model_dump(mode="json"))
+        or tuple(scaffold.get("standard_estimator_ids", standard_estimator_ids))
+        != standard_estimator_ids
+        or not standard_estimator_ids
+        or len(set(standard_estimator_ids)) != len(standard_estimator_ids)
+        or bundle_estimator not in standard_estimator_ids
+        or estimator_id not in standard_estimator_ids
+        or not set(standard_estimator_ids).issubset(CSV_ONBOARDING_ESTIMATOR_IDS)
         or safety.get("grain_confirmation") != grain_confirmation
         or safety.get("relation_confirmation") != relation_confirmation
         or bundle.get("schema_version") != TASK_BUNDLE_SCHEMA_VERSION
@@ -252,6 +273,8 @@ def _inspection_payload(source: Path) -> CsvInspectionResponse:
             min_length=TASK_ID_MIN_LENGTH,
             example=TASK_ID_EXAMPLE,
         ),
+        estimators=list(csv_onboarding_estimator_options()),
+        default_estimator_id="ridge.v1",
         notice="観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
     )
 
@@ -313,6 +336,7 @@ def _new_onboarding_paths(
 ) -> OnboardingReservation:
     """Reserve new paths or recover one fully matching immutable identity."""
 
+    csv_onboarding_estimator_recipe(estimator_id)
     if task_store_path is None:
         raise OnboardingStorageError(
             "task-store-unconfigured",
@@ -349,7 +373,11 @@ def _new_onboarding_paths(
             "個人Model / Packageの保存先を利用できません。保存先フォルダを作成できないか、安全境界外です。",
             "ワークスペース → 保存場所を管理で場所を確認し、書き込み可能なユーザー領域へ直してから再確認してください。",
         ) from exc
-    package_id = f"{task_id}-personal-1"
+    package_id = (
+        f"{task_id}-personal-1"
+        if estimator_id == "ridge.v1"
+        else f"{task_id}-{estimator_id.replace('.', '-')}-personal-1"
+    )
     packages_root = (model_store / "packages").resolve()
     package_root = (packages_root / package_id).resolve()
     if package_root.parent != packages_root:
@@ -358,7 +386,7 @@ def _new_onboarding_paths(
             "Model Package IDが保存先の安全境界を越えるため使用できません。",
             "Data Library → 新しい予測問題で別のTask IDを入力してください。",
         )
-    if task_root.exists() != package_root.exists():
+    if package_root.exists() and not task_root.exists():
         raise OnboardingStorageError(
             "task-id-conflict",
             f"Task ID「{task_id}」には準備途中または異なる個人Task / Modelが残っています。既存内容は上書きしません。",
@@ -378,17 +406,20 @@ def _new_onboarding_paths(
             )
             config_path = model_store / "available-packages.json"
             relative_package = package_root.relative_to(model_store).as_posix()
-            if (
-                not config_path.is_file()
-                or relative_package not in load_available_packages(config_path).packages
-            ):
-                raise ValueError("existing Model Package is not available")
-            verify_model_package(
-                package_root,
-                task_id=task_id,
-                source=reusable_task.source_path,
-                profile=reusable_task.profile_path,
+            package_is_available = (
+                package_root.is_dir()
+                and config_path.is_file()
+                and relative_package in load_available_packages(config_path).packages
             )
+            if package_root.exists() and not package_is_available:
+                raise ValueError("existing Model Package is not available")
+            if package_is_available:
+                verify_model_package(
+                    package_root,
+                    task_id=task_id,
+                    source=reusable_task.source_path,
+                    profile=reusable_task.profile_path,
+                )
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise OnboardingStorageError(
                 "task-id-conflict",
@@ -400,12 +431,14 @@ def _new_onboarding_paths(
             model_store=model_store,
             package_id=package_id,
             reusable_task=reusable_task,
+            reusable_package=package_is_available,
         )
     return OnboardingReservation(
         task_root=task_root,
         model_store=model_store,
         package_id=package_id,
         reusable_task=None,
+        reusable_package=False,
     )
 
 
@@ -471,6 +504,20 @@ async def prepare_csv_task(
     """Create, verify, promote, register, and reload one reviewed CSV Task."""
 
     try:
+        csv_onboarding_estimator_recipe(estimator_id)
+    except ValueError as exc:
+        raise HTTPException(
+            422,
+            {
+                "code": "validation_error",
+                "message": "選択したEstimatorは、このCSV Taskで利用できません。",
+                "next_action": str(exc),
+                "field_errors": [
+                    {"path": "estimator_id", "message": str(exc)}
+                ],
+            },
+        ) from exc
+    try:
         fields = _fields_from_json(fields_json)
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         logger.info("CSV_ONBOARDING_FAILED stage=fields error_type=%s", type(exc).__name__)
@@ -511,9 +558,12 @@ async def prepare_csv_task(
                 task_root = reservation.task_root
                 model_store = reservation.model_store
                 package_id = reservation.package_id
-                reused_existing = reservation.reusable_task is not None
-                task_attempt_owned = not reused_existing
-                package_attempt_owned = not reused_existing
+                reused_existing = (
+                    reservation.reusable_task is not None
+                    and reservation.reusable_package
+                )
+                task_attempt_owned = reservation.reusable_task is None
+                package_attempt_owned = not reservation.reusable_package
                 stage = "prepare"
                 result = reservation.reusable_task
                 if result is None:
@@ -529,9 +579,10 @@ async def prepare_csv_task(
                     )
                 if result.state != "ready" or result.profile_path is None:
                     raise ValueError("CSV onboarding requires a complete Task definition")
-                if not reused_existing:
-                    candidate = result.root / "candidate-package"
-                    feature_dataset = result.root / "feature-dataset.json"
+                if not reservation.reusable_package:
+                    estimator_slug = estimator_id.replace(".", "-")
+                    candidate = result.root / f"candidate-package-{estimator_slug}"
+                    feature_dataset = result.root / f"feature-dataset-{estimator_slug}.json"
                     await run_in_threadpool(
                         build_standard_package,
                         task_id,
