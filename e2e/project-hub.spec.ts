@@ -479,10 +479,12 @@ test("a continuation can switch prediction task without leaving its series", asy
 });
 
 test("project settings keep one fixed reference display and archiving at the bottom", async ({ page }) => {
-  const createdResponse = await createProjectFromDefault(page, `アーカイブ位置確認 ${Date.now()}`);
+  const projectName = `アーカイブ位置確認 ${Date.now()}`;
+  const createdResponse = await createProjectFromDefault(page, projectName);
   expect(createdResponse.status()).toBe(201);
   const created = await createdResponse.json() as { id: string };
   await page.goto(`/?view=project&project=${created.id}`);
+  await expect(page.locator('.project-list-item[aria-current="page"]')).toContainText(projectName);
   await page.getByRole("button", { name: "設定", exact: true }).click();
   await expect(page).toHaveURL(/view=project-settings/);
   const evidenceSettings = page.getByRole("navigation", { name: "Project設定カテゴリ" })
