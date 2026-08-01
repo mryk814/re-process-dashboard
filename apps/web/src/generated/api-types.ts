@@ -6840,6 +6840,59 @@ export interface components {
             /** Order */
             order: number;
         };
+        /** InputMissingnessEvidence */
+        InputMissingnessEvidence: {
+            /**
+             * Fields
+             * @default []
+             */
+            fields: components["schemas"]["MissingFieldEvidence"][];
+            /**
+             * Input Completeness
+             * @enum {string}
+             */
+            input_completeness: "complete" | "imputed" | "native_missing" | "blocked";
+            /**
+             * Missingness Support
+             * @enum {string}
+             */
+            missingness_support: "supported" | "sparse" | "unseen" | "incompatible";
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "preview" | "detailed_prediction" | "snapshot" | "proposal" | "export" | "completion_lab";
+            /** Pattern Digest */
+            pattern_digest: string;
+            /** Pattern Evaluation Count */
+            pattern_evaluation_count?: number | null;
+            /** Pattern Metrics */
+            pattern_metrics?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Pattern Training Count */
+            pattern_training_count?: number | null;
+            /**
+             * Prediction Status
+             * @enum {string}
+             */
+            prediction_status: "final" | "provisional" | "blocked";
+            /**
+             * Schema Version
+             * @default input-missingness-evidence/v1
+             * @constant
+             */
+            schema_version: "input-missingness-evidence/v1";
+            /** Uncertainty Method */
+            uncertainty_method?: string | null;
+            /**
+             * Uncertainty Propagated
+             * @default false
+             */
+            uncertainty_propagated: boolean;
+        };
         /** InputRange */
         InputRange: {
             /** Max */
@@ -7323,6 +7376,28 @@ export interface components {
             material_id: string;
             /** Upper */
             upper: number;
+        };
+        /** MissingFieldEvidence */
+        MissingFieldEvidence: {
+            /** Applied Policy */
+            applied_policy: string;
+            /** Evaluation Count */
+            evaluation_count?: number | null;
+            /** Imputed Value */
+            imputed_value?: number | string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "structural_not_applicable" | "not_measured" | "unknown_category" | "redacted";
+            /** Path */
+            path: string;
+            /** Policy Digest */
+            policy_digest: string;
+            /** Sampling Method */
+            sampling_method?: string | null;
+            /** Training Missing Rate */
+            training_missing_rate?: number | null;
         };
         /** MissingIndicatorOperation */
         MissingIndicatorOperation: {
@@ -8215,6 +8290,13 @@ export interface components {
             /** Heat Pattern */
             heat_pattern: components["schemas"]["HeatPoint"][];
             /**
+             * Input Completeness
+             * @default complete
+             * @enum {string}
+             */
+            input_completeness: "complete" | "imputed" | "native_missing" | "blocked";
+            input_missingness?: components["schemas"]["InputMissingnessEvidence"] | null;
+            /**
              * Mode
              * @enum {string}
              */
@@ -8224,6 +8306,12 @@ export interface components {
             model_support?: {
                 [key: string]: components["schemas"]["Support"];
             };
+            /**
+             * Prediction Status
+             * @default final
+             * @enum {string}
+             */
+            prediction_status: "final" | "provisional" | "blocked";
             /** Predictions */
             predictions: {
                 [key: string]: components["schemas"]["Prediction"];

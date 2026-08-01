@@ -10,6 +10,9 @@ from decision_workbench.contracts.batch_proposal_contracts import BatchProposalD
 from decision_workbench.contracts.candidate_project_contracts import CandidateInputs, HeatPoint
 from decision_workbench.contracts.objective_contracts import ObjectiveDefinition
 from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequest
+from decision_workbench.contracts.missingness_contracts import (
+    InputMissingnessEvidence,
+)
 
 class ScreeningVariable(BaseModel):
     mode: Literal["fixed", "range", "list"]
@@ -356,6 +359,11 @@ class PredictionResponse(BaseModel):
     similar: list[SimilarObservation]
     heat_pattern: list[HeatPoint]
     response_curve: list[dict[str, float]] | None = None
+    input_completeness: Literal[
+        "complete", "imputed", "native_missing", "blocked"
+    ] = "complete"
+    prediction_status: Literal["final", "provisional", "blocked"] = "final"
+    input_missingness: InputMissingnessEvidence | None = None
 
 
 class RuntimeAvailability(BaseModel):

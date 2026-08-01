@@ -28,6 +28,10 @@ from decision_workbench.modeling.curve_grid import (
     anchored_curve_grid,
     numeric_domain_grid,
 )
+from decision_workbench.modeling.missingness import (
+    assess_input_missingness,
+    require_operation_allowed,
+)
 from decision_workbench.modeling.package_capabilities import package_capability_matrix
 from decision_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
@@ -548,8 +552,19 @@ class TabularRegressionRuntime:
         target_values: dict[str, TargetValue] | None = None,
         _prepared_values: dict[str, float] | None = None,
         _summaries: dict[str, PredictiveSummary] | None = None,
+        _missingness_operation: str | None = None,
         **_: Any,
     ) -> dict[str, Any]:
+        missingness = assess_input_missingness(
+            candidate,
+            self.missing_policy_inputs,
+            self.training_stats,
+            operation=(
+                _missingness_operation  # type: ignore[arg-type]
+                or ("detailed_prediction" if detailed else "preview")
+            ),
+        )
+        require_operation_allowed(missingness)
         values = _prepared_values or self._feature_bundle(candidate).as_dict()
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
@@ -674,6 +689,10 @@ class TabularRegressionRuntime:
             }
         )
         package_provenance = self.model_package.manifest.provenance
+        if missingness.prediction_status == "provisional":
+            warnings.append(
+                "補完を含む暫定予測です。欠損値のばらつきは予測区間へ追加していません"
+            )
         return {
             "task_id": self.task_id,
             "candidate_id": candidate.id,
@@ -790,6 +809,9 @@ class TabularRegressionRuntime:
             },
             "heat_pattern": [],
             "response_curve": None,
+            "input_completeness": missingness.input_completeness,
+            "prediction_status": missingness.prediction_status,
+            "input_missingness": missingness,
         }
 
     def predict(self, candidate: Candidate, detailed: bool = False, **kwargs: Any) -> dict[str, Any]:
@@ -810,6 +832,7 @@ class TabularRegressionRuntime:
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         kwargs.pop("include_curve", None)
+        missingness_operation = kwargs.pop("_missingness_operation", None)
         if not candidates:
             return []
         if not self.supports_batch_prediction:
@@ -849,6 +872,7 @@ class TabularRegressionRuntime:
                     target: summaries[index]
                     for target, summaries in summaries_by_target.items()
                 },
+                _missingness_operation=missingness_operation,
             )
             support = support_rows[index]
             result["support"] = support

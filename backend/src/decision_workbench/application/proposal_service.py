@@ -33,6 +33,7 @@ from decision_workbench.domain.proposal_generation import (
 )
 from decision_workbench.design_priors.loader import VerifiedDesignPriorPackage
 from decision_workbench.design_priors.sampling import sample_prior
+from decision_workbench.modeling.missingness import require_runtime_operation_allowed
 from decision_workbench.domain.proposal_selection import select_proposal_shortlist
 from decision_workbench.domain.screening_score import (
     evaluate_screening_goal,
@@ -257,6 +258,12 @@ def _evaluate_proposal_pool(
         )
         for index, candidate in enumerate(candidates)
     ]
+    for candidate in evaluation_candidates:
+        require_runtime_operation_allowed(
+            runtime,
+            candidate,
+            operation="proposal",
+        )
     predictions = (
         runtime.predict_batch(
             evaluation_candidates,
@@ -341,6 +348,7 @@ def run_proposal(
             parameters=strategy.generator_parameters,
         )
     points: list[dict[str, Any]] = []
+    require_runtime_operation_allowed(runtime, base, operation="proposal")
     base_prediction = runtime.predict(base, detailed=False)
     valid_candidates, rejected_by_reason, proposal_rejections = (
         _validate_screening_pool(

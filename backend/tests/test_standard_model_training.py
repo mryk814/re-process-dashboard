@@ -432,6 +432,23 @@ def test_tabular_ridge_package_builds_with_fold_fitted_missing_policy(
         "composition.carbon_pct"
     ] == 1
     assert stats["missing_policy"]["digest"].startswith("sha256:")
+    assert stats["missing_policy"]["policy_digest"].startswith("sha256:")
+    assert stats["missing_policy"]["training_rows"] == len(rows)
+    missing_pattern = next(
+        item
+        for item in stats["missing_policy"]["pattern_evidence"]
+        if item["pattern"]
+    )
+    assert missing_pattern["pattern"] == [{
+        "path": "composition.carbon_pct",
+        "kind": "not_measured",
+    }]
+    assert missing_pattern["training_count"] == 1
+    assert missing_pattern["evaluation_count"] == 1
+    assert all(
+        evidence["mae"] >= 0
+        for evidence in missing_pattern["metrics_by_target"].values()
+    )
 
 
 def test_omitting_estimator_uses_the_task_default_training_recipe(

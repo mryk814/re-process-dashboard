@@ -39,8 +39,107 @@ from decision_workbench.modeling.training.readiness import (
     resolve_estimator_contract_readiness,
 )
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
+from decision_workbench.modeling.missingness import pattern_digest
 
 CandidateBuilder = Callable[[dict[str, Any], Any], CandidateInput | None]
+
+
+def _source_missing_pattern(
+    observation: dict[str, Any],
+    profile: Any,
+) -> tuple[tuple[str, str], ...]:
+    policies = (
+        observation.get("run_context", {})
+        .get("curation", {})
+        .get("predictor_policies", {})
+    )
+    pattern: list[tuple[str, str]] = []
+    for item in profile.inputs:
+        source_state = (policies.get(item.column) or {}).get("source_state")
+        if source_state not in {"missing", "unknown_category"}:
+            continue
+        kind = (
+            "structural_not_applicable"
+            if not item.main_effect
+            else "unknown_category"
+            if source_state == "unknown_category"
+            else "not_measured"
+        )
+        pattern.append((item.path, kind))
+    return tuple(sorted(pattern))
+
+
+def _missing_pattern_evidence(
+    canonical: dict[str, Any],
+    data: Any,
+    training_sets: dict[str, Any],
+    trained_by_target: dict[str, Any],
+) -> list[dict[str, Any]]:
+    observations = {
+        str(row["id"]): row
+        for row in data.observations
+    }
+    patterns_by_context: dict[str, tuple[tuple[str, str], ...]] = {}
+    for row in canonical["rows"]:
+        observation_id = str(row["observation_id"])
+        observation = observations.get(observation_id)
+        if observation is None:
+            continue
+        context = str(row.get("condition_context_id") or observation_id)
+        pattern = _source_missing_pattern(observation, data.profile)
+        existing = patterns_by_context.get(context, ())
+        patterns_by_context[context] = tuple(sorted(set((*existing, *pattern))))
+
+    all_patterns = {
+        patterns_by_context.get(context, ())
+        for training_set in training_sets.values()
+        for context in training_set.replicate_contexts
+    }
+    evidence: list[dict[str, Any]] = []
+    for pattern in sorted(all_patterns):
+        metrics_by_target: dict[str, dict[str, float | int]] = {}
+        training_count = 0
+        for target, training_set in training_sets.items():
+            rows = np.asarray(
+                [
+                    patterns_by_context.get(context, ()) == pattern
+                    for context in training_set.replicate_contexts
+                ],
+                dtype=bool,
+            )
+            training_count = max(training_count, int(rows.sum()))
+            evaluated = rows & training_set.quality_rows
+            target_evidence: dict[str, float | int] = {
+                "evaluation_count": int(evaluated.sum()),
+            }
+            predictions = trained_by_target[target].evaluation_predictions
+            if predictions is not None and np.any(evaluated):
+                residuals = (
+                    training_set.y[evaluated]
+                    - predictions[evaluated]
+                )
+                target_evidence.update({
+                    "mae": float(np.mean(np.abs(residuals))),
+                    "rmse": float(np.sqrt(np.mean(residuals**2))),
+                })
+            metrics_by_target[target] = target_evidence
+        evidence.append({
+            "pattern": [
+                {"path": path, "kind": kind}
+                for path, kind in pattern
+            ],
+            "pattern_digest": pattern_digest(pattern),
+            "training_count": training_count,
+            "evaluation_count": max(
+                (
+                    int(item["evaluation_count"])
+                    for item in metrics_by_target.values()
+                ),
+                default=0,
+            ),
+            "metrics_by_target": metrics_by_target,
+        })
+    return evidence
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -412,6 +511,17 @@ def _build(
             ) / len(canonical["rows"])
             for target in output_by_key
         }
+        missing_policy["training_rows"] = len(data.observations)
+        missing_policy["policy_digest"] = canonical_training_dataset_digest({
+            "policy_by_input": missing_policy["policy_by_input"],
+            "imputation_values": missing_policy["imputation_values"],
+        })
+        missing_policy["pattern_evidence"] = _missing_pattern_evidence(
+            canonical,
+            data,
+            training_sets,
+            trained_by_target,
+        )
     _write_json(
         stats_path,
         {

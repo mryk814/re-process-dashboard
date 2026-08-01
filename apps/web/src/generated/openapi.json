@@ -11629,6 +11629,130 @@
         "title": "InputGroupDefinition",
         "type": "object"
       },
+      "InputMissingnessEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MissingFieldEvidence"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "input_completeness": {
+            "enum": [
+              "complete",
+              "imputed",
+              "native_missing",
+              "blocked"
+            ],
+            "title": "Input Completeness",
+            "type": "string"
+          },
+          "missingness_support": {
+            "enum": [
+              "supported",
+              "sparse",
+              "unseen",
+              "incompatible"
+            ],
+            "title": "Missingness Support",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "preview",
+              "detailed_prediction",
+              "snapshot",
+              "proposal",
+              "export",
+              "completion_lab"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "pattern_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Pattern Digest",
+            "type": "string"
+          },
+          "pattern_evaluation_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern Evaluation Count"
+          },
+          "pattern_metrics": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Pattern Metrics",
+            "type": "object"
+          },
+          "pattern_training_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern Training Count"
+          },
+          "prediction_status": {
+            "enum": [
+              "final",
+              "provisional",
+              "blocked"
+            ],
+            "title": "Prediction Status",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "input-missingness-evidence/v1",
+            "default": "input-missingness-evidence/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "uncertainty_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Method"
+          },
+          "uncertainty_propagated": {
+            "default": false,
+            "title": "Uncertainty Propagated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "input_completeness",
+          "prediction_status",
+          "operation",
+          "missingness_support",
+          "pattern_digest"
+        ],
+        "title": "InputMissingnessEvidence",
+        "type": "object"
+      },
       "InputRange": {
         "properties": {
           "max": {
@@ -12901,6 +13025,94 @@
           "upper"
         ],
         "title": "MaterialRatioBound",
+        "type": "object"
+      },
+      "MissingFieldEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "applied_policy": {
+            "minLength": 1,
+            "title": "Applied Policy",
+            "type": "string"
+          },
+          "evaluation_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Count"
+          },
+          "imputed_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imputed Value"
+          },
+          "kind": {
+            "enum": [
+              "structural_not_applicable",
+              "not_measured",
+              "unknown_category",
+              "redacted"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Policy Digest",
+            "type": "string"
+          },
+          "sampling_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Method"
+          },
+          "training_missing_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Missing Rate"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "applied_policy",
+          "policy_digest"
+        ],
+        "title": "MissingFieldEvidence",
         "type": "object"
       },
       "MissingIndicatorOperation": {
@@ -15372,6 +15584,27 @@
             "title": "Heat Pattern",
             "type": "array"
           },
+          "input_completeness": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "imputed",
+              "native_missing",
+              "blocked"
+            ],
+            "title": "Input Completeness",
+            "type": "string"
+          },
+          "input_missingness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputMissingnessEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mode": {
             "enum": [
               "preview",
@@ -15389,6 +15622,16 @@
             },
             "title": "Model Support",
             "type": "object"
+          },
+          "prediction_status": {
+            "default": "final",
+            "enum": [
+              "final",
+              "provisional",
+              "blocked"
+            ],
+            "title": "Prediction Status",
+            "type": "string"
           },
           "predictions": {
             "additionalProperties": {
