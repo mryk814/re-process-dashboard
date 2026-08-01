@@ -11461,8 +11461,9 @@
           },
           "targets": {
             "items": {
-              "$ref": "#/components/schemas/ModelPackageTargetCapability"
+              "$ref": "#/components/schemas/TargetCapabilityMatrix"
             },
+            "minItems": 1,
             "title": "Targets",
             "type": "array"
           },
@@ -11593,104 +11594,6 @@
           "quality_report"
         ],
         "title": "ModelPackageStatus",
-        "type": "object"
-      },
-      "ModelPackageTargetCapability": {
-        "additionalProperties": false,
-        "properties": {
-          "explanation": {
-            "default": false,
-            "title": "Explanation",
-            "type": "boolean"
-          },
-          "goal_probability": {
-            "enum": [
-              "native",
-              "samples",
-              "distribution",
-              "normal_approximation",
-              "unavailable"
-            ],
-            "title": "Goal Probability",
-            "type": "string"
-          },
-          "parametric_distribution": {
-            "title": "Parametric Distribution",
-            "type": "boolean"
-          },
-          "point_statistics": {
-            "items": {
-              "enum": [
-                "mean",
-                "median",
-                "probability",
-                "rate",
-                "expected_category"
-              ],
-              "type": "string"
-            },
-            "title": "Point Statistics",
-            "type": "array"
-          },
-          "predictive_family": {
-            "title": "Predictive Family",
-            "type": "string"
-          },
-          "predictive_samples": {
-            "title": "Predictive Samples",
-            "type": "boolean"
-          },
-          "quantiles": {
-            "title": "Quantiles",
-            "type": "boolean"
-          },
-          "standard_deviation": {
-            "title": "Standard Deviation",
-            "type": "boolean"
-          },
-          "support": {
-            "title": "Support",
-            "type": "boolean"
-          },
-          "target": {
-            "title": "Target",
-            "type": "string"
-          },
-          "target_kind": {
-            "enum": [
-              "continuous",
-              "continuous_positive",
-              "binary",
-              "count",
-              "ordinal"
-            ],
-            "title": "Target Kind",
-            "type": "string"
-          },
-          "uncertainty_components": {
-            "title": "Uncertainty Components",
-            "type": "boolean"
-          },
-          "warnings": {
-            "title": "Warnings",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "target",
-          "target_kind",
-          "predictive_family",
-          "point_statistics",
-          "quantiles",
-          "standard_deviation",
-          "predictive_samples",
-          "parametric_distribution",
-          "uncertainty_components",
-          "support",
-          "warnings",
-          "goal_probability"
-        ],
-        "title": "ModelPackageTargetCapability",
         "type": "object"
       },
       "ModelQualityReport": {
@@ -20424,6 +20327,104 @@
           "caution_threshold"
         ],
         "title": "Support",
+        "type": "object"
+      },
+      "TargetCapabilityMatrix": {
+        "additionalProperties": false,
+        "properties": {
+          "explanation": {
+            "default": false,
+            "title": "Explanation",
+            "type": "boolean"
+          },
+          "goal_probability": {
+            "enum": [
+              "native",
+              "samples",
+              "distribution",
+              "normal_approximation",
+              "unavailable"
+            ],
+            "title": "Goal Probability",
+            "type": "string"
+          },
+          "parametric_distribution": {
+            "title": "Parametric Distribution",
+            "type": "boolean"
+          },
+          "point_statistics": {
+            "items": {
+              "enum": [
+                "mean",
+                "median",
+                "probability",
+                "rate",
+                "expected_category"
+              ],
+              "type": "string"
+            },
+            "title": "Point Statistics",
+            "type": "array"
+          },
+          "predictive_family": {
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "predictive_samples": {
+            "title": "Predictive Samples",
+            "type": "boolean"
+          },
+          "quantiles": {
+            "title": "Quantiles",
+            "type": "boolean"
+          },
+          "standard_deviation": {
+            "title": "Standard Deviation",
+            "type": "boolean"
+          },
+          "support": {
+            "title": "Support",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "uncertainty_components": {
+            "title": "Uncertainty Components",
+            "type": "boolean"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target",
+          "target_kind",
+          "predictive_family",
+          "point_statistics",
+          "quantiles",
+          "standard_deviation",
+          "predictive_samples",
+          "parametric_distribution",
+          "uncertainty_components",
+          "support",
+          "warnings",
+          "goal_probability"
+        ],
+        "title": "TargetCapabilityMatrix",
         "type": "object"
       },
       "TargetCurationState": {

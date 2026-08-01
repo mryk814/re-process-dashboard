@@ -19,7 +19,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Support,
 )
 from decision_workbench.contracts.task_contracts import ContractModel
-from decision_workbench.modeling.package_capabilities import CapabilityRequirement
+from decision_workbench.contracts.model_capability_contracts import CapabilityRequirement
 
 
 ActivityOperation = Literal["preview"]

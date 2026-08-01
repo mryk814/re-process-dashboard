@@ -6572,7 +6572,7 @@ export interface components {
              */
             schema_version: "model-package-capability-matrix/v1";
             /** Targets */
-            targets: components["schemas"]["ModelPackageTargetCapability"][];
+            targets: components["schemas"]["TargetCapabilityMatrix"][];
             /** Task Id */
             task_id: string;
         };
@@ -6614,44 +6614,6 @@ export interface components {
             task_id: string;
             /** Version */
             version: string;
-        };
-        /** ModelPackageTargetCapability */
-        ModelPackageTargetCapability: {
-            /**
-             * Explanation
-             * @default false
-             */
-            explanation: boolean;
-            /**
-             * Goal Probability
-             * @enum {string}
-             */
-            goal_probability: "native" | "samples" | "distribution" | "normal_approximation" | "unavailable";
-            /** Parametric Distribution */
-            parametric_distribution: boolean;
-            /** Point Statistics */
-            point_statistics: ("mean" | "median" | "probability" | "rate" | "expected_category")[];
-            /** Predictive Family */
-            predictive_family: string;
-            /** Predictive Samples */
-            predictive_samples: boolean;
-            /** Quantiles */
-            quantiles: boolean;
-            /** Standard Deviation */
-            standard_deviation: boolean;
-            /** Support */
-            support: boolean;
-            /** Target */
-            target: string;
-            /**
-             * Target Kind
-             * @enum {string}
-             */
-            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
-            /** Uncertainty Components */
-            uncertainty_components: boolean;
-            /** Warnings */
-            warnings: boolean;
         };
         /** ModelQualityReport */
         ModelQualityReport: {
@@ -10037,6 +9999,44 @@ export interface components {
             status: "supported" | "caution" | "extrapolated";
             /** Supported Threshold */
             supported_threshold: number;
+        };
+        /** TargetCapabilityMatrix */
+        TargetCapabilityMatrix: {
+            /**
+             * Explanation
+             * @default false
+             */
+            explanation: boolean;
+            /**
+             * Goal Probability
+             * @enum {string}
+             */
+            goal_probability: "native" | "samples" | "distribution" | "normal_approximation" | "unavailable";
+            /** Parametric Distribution */
+            parametric_distribution: boolean;
+            /** Point Statistics */
+            point_statistics: ("mean" | "median" | "probability" | "rate" | "expected_category")[];
+            /** Predictive Family */
+            predictive_family: string;
+            /** Predictive Samples */
+            predictive_samples: boolean;
+            /** Quantiles */
+            quantiles: boolean;
+            /** Standard Deviation */
+            standard_deviation: boolean;
+            /** Support */
+            support: boolean;
+            /** Target */
+            target: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "continuous" | "continuous_positive" | "binary" | "count" | "ordinal";
+            /** Uncertainty Components */
+            uncertainty_components: boolean;
+            /** Warnings */
+            warnings: boolean;
         };
         /** TargetCurationState */
         TargetCurationState: {

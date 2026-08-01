@@ -14,11 +14,11 @@ from decision_workbench.contracts.task_contracts import (
     RuntimeCapability,
     TargetRuntimeCapability,
 )
-from decision_workbench.modeling.package_capabilities import (
+from decision_workbench.contracts.model_capability_contracts import (
     CapabilityRequirement,
     ModelPackageCapabilityMatrix,
-    resolve_capabilities,
 )
+from decision_workbench.modeling.package_capabilities import resolve_capabilities
 from decision_workbench.contracts.design_space_contracts import DesignSpaceDefinition
 from decision_workbench.domain.proposal_generation import (
     bounded_simplex_compatibility,

@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from decision_workbench.contracts.task_contracts import ContractModel
-from decision_workbench.modeling.package_capabilities import CapabilityRequirement
+from decision_workbench.contracts.model_capability_contracts import CapabilityRequirement
 
 
 AcquisitionRepresentation = Literal[
