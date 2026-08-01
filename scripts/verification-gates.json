@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "verification-gates/v1",
+  "schemaVersion": "verification-gates/v2",
   "levels": [
     {
       "id": "edit",
@@ -14,20 +14,12 @@
     {
       "id": "pr",
       "label": "Level 1: Normal change",
-      "purpose": "通常のPRをレビュー可能にする。backend変更は対象pytestを指定し、未指定時はfull pytestで確認する。",
+      "purpose": "通常のPRを、changed pathとrisk matrixから選んだgateでレビュー可能にする。",
       "estimatedMinutes": "2-6",
       "platform": "any",
-      "gates": [
-        "docs-check",
-        "web-unit",
-        "desktop-unit",
-        "typecheck",
-        "application-build",
-        "working-tree-diff",
-        "branch-diff"
-      ],
+      "gates": ["working-tree-diff", "branch-diff"],
       "acceptsFocusedPytest": true,
-      "evidence": ["backend変更時の対象pytestまたはfull pytest", "unit test", "型・生成契約", "build", "diff check"]
+      "evidence": ["変更path・risk・gate理由を含むverification plan", "focused testまたはCI full suite owner", "diff check"]
     },
     {
       "id": "checkpoint",
@@ -143,6 +135,22 @@
       "platform": "any",
       "riskCategories": ["frontend", "desktop", "distribution"],
       "runner": {"executable": "npm", "args": ["run", "build"]}
+    },
+    "web-build": {
+      "command": "npm run build -w apps/web",
+      "purpose": "Web表示変更をproduction設定でbuildする。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["frontend"],
+      "runner": {"executable": "npm", "args": ["run", "build", "-w", "apps/web"]}
+    },
+    "verification-policy-tests": {
+      "command": "node --test scripts/verification-gates.test.mjs",
+      "purpose": "risk分類、gate選択、focused test authorityの契約を検証する。",
+      "estimatedMinutes": "<1",
+      "platform": "any",
+      "riskCategories": ["verification-tooling"],
+      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs"]}
     },
     "failure-state-e2e": {
       "command": "npm run test:e2e:failure-states",
@@ -274,15 +282,44 @@
     }
   },
   "riskMatrix": [
-    {"risk": "pure-docs", "minimumLevel": "pr", "requiredGates": ["docs-check"], "checkpointOnly": ["learning-clean-build", "learning-visual-review"]},
-    {"risk": "frontend", "minimumLevel": "pr", "requiredGates": ["web-unit", "typecheck", "application-build"], "checkpointOnly": ["default-playwright"]},
+    {"risk": "evidence", "minimumLevel": "pr", "requiredGates": [], "checkpointOnly": []},
+    {"risk": "pure-docs", "minimumLevel": "pr", "requiredGates": ["docs-check"], "checkpointOnly": []},
+    {"risk": "textbook-edition", "minimumLevel": "release", "requiredGates": ["docs-check", "learning-clean-build", "learning-visual-review"], "checkpointOnly": []},
+    {"risk": "frontend-presentation", "minimumLevel": "pr", "requiredGates": ["web-unit", "typecheck", "web-build"], "checkpointOnly": ["default-playwright"]},
     {"risk": "api-contract", "minimumLevel": "pr", "requiredGates": ["focused-pytest", "typecheck"], "checkpointOnly": ["failure-state-e2e"]},
-    {"risk": "sqlite-migration", "minimumLevel": "release", "requiredGates": ["focused-pytest", "legacy-workspace"], "checkpointOnly": ["default-playwright"]},
-    {"risk": "backup-restore", "minimumLevel": "release", "requiredGates": ["focused-pytest", "legacy-workspace", "windows-delivery"], "checkpointOnly": []},
-    {"risk": "model-package", "minimumLevel": "release", "requiredGates": ["focused-pytest", "model-package-contract-tests", "model-package-release-evidence", "chain-degraded-e2e"], "checkpointOnly": ["windows-delivery"]},
+    {"risk": "backend-application", "minimumLevel": "pr", "requiredGates": ["focused-pytest"], "checkpointOnly": ["failure-state-e2e"]},
+    {"risk": "migration-workspace", "minimumLevel": "release", "requiredGates": ["focused-pytest", "legacy-workspace"], "checkpointOnly": ["default-playwright"]},
+    {"risk": "model-runtime", "minimumLevel": "release", "requiredGates": ["focused-pytest", "model-package-contract-tests", "model-package-release-evidence", "chain-degraded-e2e"], "checkpointOnly": ["windows-delivery"]},
     {"risk": "security", "minimumLevel": "release", "requiredGates": ["security-boundary-tests", "dependency-audit"], "checkpointOnly": ["default-playwright"]},
-    {"risk": "dependency-packaging", "minimumLevel": "release", "requiredGates": ["dependency-audit", "desktop-unit", "windows-delivery"], "checkpointOnly": []},
+    {"risk": "electron-distribution", "minimumLevel": "release", "requiredGates": ["dependency-audit", "desktop-unit", "application-build", "windows-delivery"], "checkpointOnly": []},
+    {"risk": "e2e-test-infrastructure", "minimumLevel": "checkpoint", "requiredGates": ["failure-state-e2e"], "checkpointOnly": ["default-playwright"]},
     {"risk": "compose-shared-lab", "minimumLevel": "release", "requiredGates": ["compose-integration", "shared-lab-integration"], "checkpointOnly": []},
-    {"risk": "textbook-edition", "minimumLevel": "release", "requiredGates": ["docs-check", "learning-clean-build", "learning-visual-review"], "checkpointOnly": []}
-  ]
+    {"risk": "verification-tooling", "minimumLevel": "pr", "requiredGates": ["verification-policy-tests"], "checkpointOnly": []},
+    {"risk": "unknown", "minimumLevel": "checkpoint", "requiredGates": ["full-pytest", "web-unit", "desktop-unit", "typecheck", "application-build", "docs-check"], "checkpointOnly": ["failure-state-e2e"]}
+  ],
+  "planning": {
+    "pathRules": [
+      {"risk": "evidence", "matches": ["prefix:docs/reports/", "prefix:artifacts/"]},
+      {"risk": "textbook-edition", "matches": ["prefix:docs/learning/"]},
+      {"risk": "pure-docs", "matches": ["prefix:docs/", "exact:README.md"]},
+      {"risk": "security", "matches": ["exact:backend/src/decision_workbench/api/security.py", "prefix:backend/tests/test_launch_token.py", "contains:/security/"]},
+      {"risk": "migration-workspace", "matches": ["prefix:backend/src/decision_workbench/persistence/", "contains:migration", "contains:workspace_bundle", "contains:workspace-backup"]},
+      {"risk": "model-runtime", "matches": ["prefix:models/packages/", "prefix:backend/src/decision_workbench/modeling/", "contains:model_package", "contains:model-package", "contains:artifact"]},
+      {"risk": "api-contract", "matches": ["prefix:apps/web/src/generated/", "exact:backend/scripts/operations/export_openapi.py", "contains:openapi"]},
+      {"risk": "electron-distribution", "matches": ["prefix:apps/desktop/", "exact:backend/src/sidecar.py", "exact:package.json", "exact:package-lock.json", "exact:uv.lock", "prefix:.github/workflows/", "contains:package-windows", "contains:smoke-windows", "contains:installer"]},
+      {"risk": "e2e-test-infrastructure", "matches": ["prefix:e2e/", "prefix:playwright.", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
+      {"risk": "verification-tooling", "matches": ["exact:scripts/verify.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs"]},
+      {"risk": "compose-shared-lab", "matches": ["prefix:compose.", "prefix:infrastructure/compose/", "contains:/shared_lab/", "contains:run-shared-lab", "contains:run-compose"]},
+      {"risk": "frontend-presentation", "matches": ["prefix:apps/web/"]},
+      {"risk": "backend-application", "matches": ["prefix:backend/"]}
+    ],
+    "focusedTestAuthority": [
+      {"matches": ["prefix:backend/src/decision_workbench/persistence/", "contains:migration", "contains:workspace_bundle"], "tests": ["backend/tests/test_legacy_workspace_acceptance.py"]},
+      {"matches": ["prefix:backend/src/decision_workbench/modeling/", "contains:model_package", "contains:model-package", "contains:artifact"], "tests": ["backend/tests/test_model_packages.py", "backend/tests/test_runtime.py"]},
+      {"matches": ["prefix:backend/src/decision_workbench/api/", "contains:openapi"], "tests": ["backend/tests/test_api.py", "backend/tests/test_openapi_contract.py"]},
+      {"matches": ["prefix:backend/"], "tests": ["backend/tests"]},
+      {"matches": ["exact:scripts/verify.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.test.mjs"], "tests": ["scripts/verification-gates.test.mjs"]}
+    ],
+    "unresolvedBackendFallback": {"tests": ["backend/tests"], "reason": "No authority-map entry matched a backend-risk path; run the explicit broad backend suite and record it as a fallback."}
+  }
 }

@@ -63,7 +63,7 @@ manual reviewは自動gateへ偽装せず、別の証拠として記録します
 
 ## 変更risk
 
-適用するgateの機械可読な対応は、正本catalogの`riskMatrix`を参照します。
+適用するgateの機械可読な対応は、正本catalogの`riskMatrix`と`planning`を参照します。
 判断の原則は次のとおりです。
 
 | 変更 | 通常確認 | 節目またはreleaseで追加 |
@@ -78,7 +78,19 @@ manual reviewは自動gateへ偽装せず、別の証拠として記録します
 | dependency／packaging | security audit、Desktop | Windows installer／portable |
 | Compose／Shared Lab | static contract | isolated Docker integration |
 
-未知の変更領域は軽いgateへ決め打ちせず、`partial`として追加判断を要求します。
+`verify:pr`は実行前に、changed paths、risk categories、focused tests、selected/skipped gatesと理由、full suite ownerをJSON planとして表示・保存します。
+backend変更にfocused pathを渡さない場合は`planning.focusedTestAuthority`から候補を選び、解決できなければ明示的に`backend/tests`へ広げます。localではCIを同一commitのfull-suite ownerとして記録し、unknown pathだけは安全側でlocal full pytestも選びます。
+
+planの`selectedLevel`は完了に必要なevidence level、`executionLevel`は今実行するrunner levelです。後者が前者より低い場合、即時gateの結果にかかわらずreportは`incomplete`、runnerは非ゼロで終わります。`checkpointOnly`のgateはcheckpoint以上のplanでのみ追加し、`requiredFollowUp`が示す`verify:checkpoint`または`acceptance:release`の証拠を残すまでPR verificationをpassed扱いしません。
+
+手動でriskを上乗せする場合は理由を必ず残します。
+
+```powershell
+npm.cmd run verify:pr -- --plan --json
+npm.cmd run verify:pr -- --risk security --reason "Origin boundary is changed by generated integration" -- backend/tests/test_api.py
+```
+
+未知の変更領域は軽いgateへ決め打ちせず、full pytestを含む安全側のplanにします。
 
 ## reportとstaleness
 
