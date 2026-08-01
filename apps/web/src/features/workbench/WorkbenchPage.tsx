@@ -56,6 +56,22 @@ import {
   type WorkbenchSurfaceKind,
 } from "./workbenchSurfaceRegistry";
 
+function missingPolicyLabel(
+  policy: string,
+  value: string | number | null | undefined,
+): string {
+  const method = policy === "training_median_with_indicator"
+    ? "学習データの中央値"
+    : policy === "constant"
+      ? "固定値"
+      : policy === "map_to_missing_category"
+        ? "欠損カテゴリ"
+        : policy === "map_to_other_category"
+          ? "明示カテゴリ"
+          : policy;
+  return value == null ? method : `${method}（${String(value)}）`;
+}
+
 export function WorkbenchEmptyState({
   loading,
   error,
@@ -522,6 +538,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
             未入力: {preview.input_missingness.fields
               .filter((field) => field.kind !== "structural_not_applicable")
               .map((field) => field.path)
+              .join("、")}
+          </span>
+          <span>
+            補完方法: {preview.input_missingness.fields
+              .filter((field) => field.kind !== "structural_not_applicable")
+              .map((field) => `${field.path}: ${missingPolicyLabel(
+                field.applied_policy,
+                field.imputed_value,
+              )}`)
               .join("、")}
           </span>
           <span>

@@ -11,6 +11,26 @@ from decision_workbench.contracts.missingness_contracts import (
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
 
+PATTERN_SUPPORT_POLICY_ID = "evaluated-missing-pattern"
+PATTERN_SUPPORT_POLICY_VERSION = "1.0.0"
+PATTERN_SUPPORT_POLICY_CONFIG = {
+    "minimum_evaluation_count": 2,
+    "maximum_prediction_failure_rate": 0.0,
+}
+
+
+def pattern_support_policy_document() -> dict[str, Any]:
+    identity = {
+        "policy_id": PATTERN_SUPPORT_POLICY_ID,
+        "policy_version": PATTERN_SUPPORT_POLICY_VERSION,
+        "config": PATTERN_SUPPORT_POLICY_CONFIG,
+    }
+    return {
+        **identity,
+        "policy_digest": semantic_digest(identity),
+    }
+
+
 def _value(candidate: CandidateInput, path: str) -> object:
     group, key = path.split(".", 1)
     return getattr(candidate.inputs, group).get(key)
@@ -23,12 +43,13 @@ def missing_pattern(
     pattern: list[tuple[str, str]] = []
     for item in inputs:
         value = _value(candidate, item.path)
-        if not item.main_effect and (value is None or value == ""):
-            pattern.append((item.path, "structural_not_applicable"))
-        elif item.kind == "number" and (value is None or value == ""):
-            pattern.append((item.path, "not_measured"))
-        elif item.kind == "categorical" and (value is None or value == ""):
-            pattern.append((item.path, "not_measured"))
+        if value is None or value == "":
+            pattern.append(
+                (
+                    item.path,
+                    candidate.input_missing_kinds.get(item.path, "not_measured"),
+                )
+            )
         elif item.kind == "categorical" and str(value) not in item.choices:
             pattern.append((item.path, "unknown_category"))
     return tuple(sorted(pattern))
@@ -50,6 +71,12 @@ def assess_input_missingness(
     pattern = missing_pattern(candidate, inputs)
     digest = pattern_digest(pattern)
     missing_policy = training_stats.get("missing_policy") or {}
+    support_policy = missing_policy.get(
+        "pattern_support_policy"
+    ) or pattern_support_policy_document()
+    expected_support_policy = pattern_support_policy_document()
+    if support_policy != expected_support_policy:
+        raise ValueError("Package missing-pattern support policy is incompatible")
     policy_by_input = missing_policy.get("policy_by_input") or {}
     policy_digest = str(
         missing_policy.get("policy_digest")
@@ -128,7 +155,20 @@ def assess_input_missingness(
         support = "supported"
     elif pattern_evidence is None:
         support = "unseen"
-    elif int(pattern_evidence.get("evaluation_count", 0)) >= 2:
+    elif (
+        int(pattern_evidence.get("evaluation_count", 0))
+        >= int(support_policy["config"]["minimum_evaluation_count"])
+        and bool(pattern_evidence.get("metrics_by_target"))
+        and all(
+            float(metrics.get("prediction_failure_rate", 1.0))
+            <= float(
+                support_policy["config"]["maximum_prediction_failure_rate"]
+            )
+            for metrics in pattern_evidence.get(
+                "metrics_by_target", {}
+            ).values()
+        )
+    ):
         support = "supported"
     else:
         support = "sparse"
@@ -154,6 +194,7 @@ def assess_input_missingness(
         operation=operation,
         missingness_support=support,
         pattern_digest=digest,
+        support_policy_digest=str(support_policy["policy_digest"]),
         fields=tuple(fields),
         uncertainty_propagated=False,
         uncertainty_method=None,

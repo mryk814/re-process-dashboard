@@ -515,6 +515,7 @@ def _regression(
             "evaluation": "outer-fold-refit-with-inner-calibration",
         },
         predict=lambda values: float(booster.predict(values.reshape(1, -1))[0]),
+        evaluation_predictions=oof,
     )
 
 
@@ -651,6 +652,7 @@ def _binary(
                 calibration,
             )[0]
         ),
+        evaluation_predictions=calibrated_oof,
     )
 
 

@@ -14,5 +14,8 @@ test("provisional prediction warning precedes the comparison evidence", () => {
   assert.ok(warning >= 0);
   assert.ok(comparison > warning);
   assert.match(source, /uncertainty_propagated/);
+  assert.match(source, /補完方法:/);
+  assert.match(source, /field\.applied_policy/);
+  assert.match(source, /field\.imputed_value/);
   assert.match(source, /欠損値のばらつきは予測区間へ追加していません/);
 });

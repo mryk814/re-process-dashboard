@@ -3101,6 +3101,19 @@
             "title": "Id",
             "type": "string"
           },
+          "input_missing_kinds": {
+            "additionalProperties": {
+              "enum": [
+                "structural_not_applicable",
+                "not_measured",
+                "unknown_category",
+                "redacted"
+              ],
+              "type": "string"
+            },
+            "title": "Input Missing Kinds",
+            "type": "object"
+          },
           "inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
           },
@@ -3456,6 +3469,19 @@
           "editor_state": {
             "$ref": "#/components/schemas/BlendEditorState"
           },
+          "input_missing_kinds": {
+            "additionalProperties": {
+              "enum": [
+                "structural_not_applicable",
+                "not_measured",
+                "unknown_category",
+                "redacted"
+              ],
+              "type": "string"
+            },
+            "title": "Input Missing Kinds",
+            "type": "object"
+          },
           "inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
           },
@@ -3647,6 +3673,19 @@
             "minimum": 1.0,
             "title": "Expected Revision",
             "type": "integer"
+          },
+          "input_missing_kinds": {
+            "additionalProperties": {
+              "enum": [
+                "structural_not_applicable",
+                "not_measured",
+                "unknown_category",
+                "redacted"
+              ],
+              "type": "string"
+            },
+            "title": "Input Missing Kinds",
+            "type": "object"
           },
           "inputs": {
             "$ref": "#/components/schemas/CandidateInputs"
@@ -11726,6 +11765,11 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "support_policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Support Policy Digest",
+            "type": "string"
+          },
           "uncertainty_method": {
             "anyOf": [
               {
@@ -11748,7 +11792,8 @@
           "prediction_status",
           "operation",
           "missingness_support",
-          "pattern_digest"
+          "pattern_digest",
+          "support_policy_digest"
         ],
         "title": "InputMissingnessEvidence",
         "type": "object"

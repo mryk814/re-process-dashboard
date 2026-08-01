@@ -3649,6 +3649,10 @@ export interface components {
             editor_state?: components["schemas"]["BlendEditorState"];
             /** Id */
             id: string;
+            /** Input Missing Kinds */
+            input_missing_kinds?: {
+                [key: string]: "structural_not_applicable" | "not_measured" | "unknown_category" | "redacted";
+            };
             inputs: components["schemas"]["CandidateInputs"];
             /**
              * Name
@@ -3765,6 +3769,10 @@ export interface components {
             blend?: components["schemas"]["SparseBlend"] | null;
             blend_validation?: components["schemas"]["BlendValidationState"];
             editor_state?: components["schemas"]["BlendEditorState"];
+            /** Input Missing Kinds */
+            input_missing_kinds?: {
+                [key: string]: "structural_not_applicable" | "not_measured" | "unknown_category" | "redacted";
+            };
             inputs: components["schemas"]["CandidateInputs"];
             /**
              * Name
@@ -3823,6 +3831,10 @@ export interface components {
             editor_state?: components["schemas"]["BlendEditorState"];
             /** Expected Revision */
             expected_revision: number;
+            /** Input Missing Kinds */
+            input_missing_kinds?: {
+                [key: string]: "structural_not_applicable" | "not_measured" | "unknown_category" | "redacted";
+            };
             inputs: components["schemas"]["CandidateInputs"];
             /**
              * Name
@@ -6885,6 +6897,8 @@ export interface components {
              * @constant
              */
             schema_version: "input-missingness-evidence/v1";
+            /** Support Policy Digest */
+            support_policy_digest: string;
             /** Uncertainty Method */
             uncertainty_method?: string | null;
             /**

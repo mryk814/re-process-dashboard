@@ -48,6 +48,9 @@ class InputMissingnessEvidence(BaseModel):
     operation: MissingnessOperation
     missingness_support: MissingnessSupport
     pattern_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    support_policy_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
     fields: tuple[MissingFieldEvidence, ...] = ()
     uncertainty_propagated: bool = False
     uncertainty_method: str | None = None

@@ -23,6 +23,7 @@ from decision_workbench.contracts.data_library_contracts import (
     ProjectSeriesCreateInput,
 )
 from decision_workbench.contracts.design_space_contracts import DesignSpaceDefinition
+from decision_workbench.contracts.missingness_contracts import MissingKind
 from decision_workbench.contracts.objective_contracts import ObjectiveDefinition
 from decision_workbench.contracts.task_contracts import CandidateProvenance, DirectSourceRef
 
@@ -77,6 +78,7 @@ class CandidateInput(BaseModel):
     editor_state: BlendEditorState = Field(default_factory=BlendEditorState)
     blend_validation: BlendValidationState = Field(default_factory=BlendValidationState)
     provenance: CandidateProvenance = Field(default_factory=lambda: DirectSourceRef(source_kind="direct"))
+    input_missing_kinds: dict[str, MissingKind] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def blend_metadata_matches_candidate_shape(self) -> "CandidateInput":
@@ -89,6 +91,15 @@ class CandidateInput(BaseModel):
             item.material_id for item in self.blend.items
         }:
             raise ValueError("配合にない原料をlockできません")
+        if any(
+            path.count(".") != 1 or path.split(".", 1)[0] not in {
+                "composition",
+                "process",
+                "categorical",
+            }
+            for path in self.input_missing_kinds
+        ):
+            raise ValueError("input missing kindにはcanonical input pathを指定してください")
         return self
 
 

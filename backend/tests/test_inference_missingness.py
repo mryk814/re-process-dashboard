@@ -20,6 +20,7 @@ from decision_workbench.design_priors.loader import DesignPriorPackageLoader
 from decision_workbench.modeling.missingness import (
     assess_input_missingness,
     pattern_digest,
+    pattern_support_policy_document,
     require_operation_allowed,
 )
 
@@ -95,6 +96,9 @@ def test_preview_is_provisional_but_detailed_snapshot_and_proposal_are_blocked()
     assert preview.prediction_status == "provisional"
     assert preview.missingness_support == "sparse"
     assert preview.fields[0].training_missing_rate == pytest.approx(0.3)
+    assert preview.support_policy_digest == (
+        pattern_support_policy_document()["policy_digest"]
+    )
     assert preview.uncertainty_propagated is False
     require_operation_allowed(preview)
 
@@ -107,7 +111,7 @@ def test_preview_is_provisional_but_detailed_snapshot_and_proposal_are_blocked()
             require_operation_allowed(evidence)
 
 
-def test_unknown_category_and_structural_inactive_are_not_plain_missing() -> None:
+def test_interaction_only_input_is_not_inferred_as_structurally_inactive() -> None:
     route = _input("categorical.route", kind="categorical", choices=("A", "B"))
     inactive = _input("process.inactive", main_effect=False)
     candidate = _candidate()
@@ -122,10 +126,22 @@ def test_unknown_category_and_structural_inactive_are_not_plain_missing() -> Non
 
     assert [(item.path, item.kind) for item in evidence.fields] == [
         ("categorical.route", "unknown_category"),
-        ("process.inactive", "structural_not_applicable"),
+        ("process.inactive", "not_measured"),
     ]
     assert evidence.missingness_support == "incompatible"
     assert evidence.prediction_status == "blocked"
+
+    candidate.input_missing_kinds["process.inactive"] = (
+        "structural_not_applicable"
+    )
+    explicit = assess_input_missingness(
+        candidate,
+        (inactive,),
+        {},
+        operation="preview",
+    )
+    assert explicit.fields[0].kind == "structural_not_applicable"
+    assert explicit.prediction_status == "final"
 
 
 def test_completion_lab_does_not_invent_decomposed_model_uncertainty() -> None:
