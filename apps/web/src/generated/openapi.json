@@ -8485,7 +8485,8 @@
               "out_of_range",
               "suspicious_distribution",
               "curation_quarantine",
-              "missing_target"
+              "missing_target",
+              "predictor_missing"
             ],
             "title": "Issue Type",
             "type": "string"

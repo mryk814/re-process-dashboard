@@ -303,6 +303,23 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
     # active profile does not use them.
     if payload.get("curation_recipe") is None:
         payload.pop("curation_recipe", None)
+    for item in payload.get("inputs", []):
+        if item.get("numeric_missing") == {
+            "strategy": "reject",
+            "value": None,
+            "reason": None,
+        }:
+            item.pop("numeric_missing", None)
+        if item.get("categorical_missing") == {
+            "strategy": "reject",
+            "category": None,
+        }:
+            item.pop("categorical_missing", None)
+        if item.get("unknown_category") == {
+            "strategy": "reject",
+            "other_choice": None,
+        }:
+            item.pop("unknown_category", None)
     normalize_profile_digest_payload(profile, payload)
     if payload.get("ridge_alpha") in {None, 1.0}:
         payload.pop("ridge_alpha", None)
@@ -380,7 +397,21 @@ def canonical_training_dataset(
     for observation in data.observations:
         if not observation["eligible"]:
             continue
-        bundle = builder(observation, data.medians)
+        training_features: dict[str, float] | None = None
+        if runtime_profile.__class__.__name__ == "TabularDatasetProfile":
+            from decision_workbench.modeling.tabular.features import (
+                build_tabular_training_features_from_observation,
+            )
+
+            bundle, training_features = (
+                build_tabular_training_features_from_observation(
+                    observation,
+                    data.feature_imputation_values,
+                    runtime_profile,
+                )
+            )
+        else:
+            bundle = builder(observation, data.medians)
         if bundle is None:
             continue
         outputs: dict[str, float] = {}
@@ -392,10 +423,11 @@ def canonical_training_dataset(
                 outputs[output.key] = float(observation["outputs"][source_column])
         if not outputs:
             continue
+        training_features = training_features or bundle.as_dict()
         training_row = {
             "observation_id": str(observation["id"]),
             "parent_key": str(observation["parent_key"]),
-            "features": bundle.as_dict(),
+            "features": training_features,
             "outputs": outputs,
         }
         if observation.get("condition_context_id"):
@@ -408,10 +440,23 @@ def canonical_training_dataset(
     rows.sort(key=lambda item: (training_context_key(item), item["observation_id"]))
     if not rows:
         raise ValueError(f"no eligible canonical training rows for {task_id}")
-    first_bundle = builder(
-        next(row for row in data.observations if row["id"] == rows[0]["observation_id"]),
-        data.medians,
+    first_observation = next(
+        row
+        for row in data.observations
+        if row["id"] == rows[0]["observation_id"]
     )
+    if runtime_profile.__class__.__name__ == "TabularDatasetProfile":
+        from decision_workbench.modeling.tabular.features import (
+            build_tabular_features_from_observation,
+        )
+
+        first_bundle = build_tabular_features_from_observation(
+            first_observation,
+            data.feature_imputation_values,
+            runtime_profile,
+        )
+    else:
+        first_bundle = builder(first_observation, data.medians)
     assert first_bundle is not None
     return {
         "schema_version": "canonical-training-dataset/v1",
@@ -426,6 +471,16 @@ def canonical_training_dataset(
                 {"name": item.name, "unit": item.unit, "group": item.group}
                 for item in first_bundle.definitions
             ],
+            **(
+                {
+                    "missing_policy": {
+                        "imputation_values": data.feature_imputation_values,
+                        "digest": _semantic_digest(data.feature_imputation_values),
+                    }
+                }
+                if getattr(data, "feature_imputation_values", None)
+                else {}
+            ),
         },
         "composition_defaults": data.medians,
         "rows": rows,

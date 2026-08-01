@@ -9,13 +9,24 @@ import numpy as np
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 from decision_workbench.contracts.feature_contracts import FeatureBundle, FeatureDefinition
 
-from .profile import TabularDatasetProfile
+from .profile import MISSING_CATEGORY, TabularDatasetProfile
 
 
-def _get_path(candidate: CandidateInput, path: str) -> float | str:
+def _categorical_choices(item: Any) -> tuple[str, ...]:
+    return (
+        (*item.choices, MISSING_CATEGORY)
+        if (
+            item.categorical_missing.strategy == "map_to_missing_category"
+            or item.unknown_category.strategy == "map_to_missing_category"
+        )
+        else item.choices
+    )
+
+
+def _get_path(candidate: CandidateInput, path: str) -> float | str | None:
     group, key = path.split(".", 1)
     values = getattr(candidate.inputs, group)
-    return values[key]
+    return values.get(key)
 
 
 def _set_path(candidate: CandidateInput, path: str, value: float) -> None:
@@ -49,6 +60,15 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
                 definitions.append(
                     FeatureDefinition(item.path, item.unit, f"{item.path} raw value", feature_group)
                 )
+            if item.numeric_missing.strategy == "training_median_with_indicator":
+                definitions.append(
+                    FeatureDefinition(
+                        f"{item.path}__missing",
+                        "1",
+                        f"{item.path} was missing before training-median imputation",
+                        feature_group,
+                    )
+                )
         else:
             definitions.extend(
                 FeatureDefinition(
@@ -57,7 +77,7 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
                     f"{item.path} is {choice}",
                     "categorical",
                 )
-                for choice in item.choices
+                for choice in _categorical_choices(item)
             )
     if profile.interaction_axis_path is not None:
         axis = next(item for item in profile.inputs if item.path == profile.interaction_axis_path)
@@ -81,7 +101,7 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
                         f"{axis.path} interaction with {item.path} is {choice}",
                         "categorical",
                     )
-                    for choice in item.choices
+                    for choice in _categorical_choices(item)
                 )
     return tuple(definitions)
 
@@ -89,6 +109,9 @@ def feature_definitions(profile: TabularDatasetProfile) -> tuple[FeatureDefiniti
 def build_tabular_features(
     candidate: CandidateInput,
     profile: TabularDatasetProfile,
+    imputation_values: dict[str, float] | None = None,
+    *,
+    allow_normalized_missing_category: bool = False,
 ) -> FeatureBundle:
     values: list[float] = []
     for item in profile.inputs:
@@ -96,7 +119,24 @@ def build_tabular_features(
         if not item.main_effect:
             continue
         if item.kind == "number":
-            numeric = float(value)
+            missing = value is None or value == ""
+            if missing:
+                policy = item.numeric_missing
+                if policy.strategy == "reject":
+                    raise ValueError(f"{item.path} is missing and Profile policy is reject")
+                if policy.strategy == "constant":
+                    assert policy.value is not None
+                    numeric = policy.value
+                else:
+                    if imputation_values is None or item.path not in imputation_values:
+                        raise ValueError(
+                            f"{item.path} requires a fitted training-median artifact"
+                        )
+                    numeric = float(imputation_values[item.path])
+            else:
+                numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{item.path} must be finite")
             if item.transform == "log1p":
                 if numeric < 0:
                     raise ValueError(f"{item.path} must be non-negative for log1p transform")
@@ -105,18 +145,109 @@ def build_tabular_features(
                 values.extend((numeric, numeric * numeric))
             else:
                 values.append(numeric)
+            if item.numeric_missing.strategy == "training_median_with_indicator":
+                values.append(float(missing))
         else:
-            values.extend(float(value == choice) for choice in item.choices)
+            normalized = "" if value is None else str(value)
+            if not normalized:
+                policy = item.categorical_missing
+                if policy.strategy == "reject":
+                    raise ValueError(f"{item.path} is missing and Profile policy is reject")
+                normalized = (
+                    MISSING_CATEGORY
+                    if policy.strategy == "map_to_missing_category"
+                    else policy.category
+                )
+                assert normalized is not None
+            elif (
+                normalized == MISSING_CATEGORY
+                and not allow_normalized_missing_category
+            ):
+                raise ValueError(f"{item.path} uses a reserved missing category")
+            elif normalized not in _categorical_choices(item):
+                policy = item.unknown_category
+                if policy.strategy == "reject":
+                    raise ValueError(f"{item.path} is not a declared category")
+                normalized = (
+                    MISSING_CATEGORY
+                    if policy.strategy == "map_to_missing_category"
+                    else policy.other_choice
+                )
+                assert normalized is not None
+            values.extend(
+                float(normalized == choice)
+                for choice in _categorical_choices(item)
+            )
     if profile.interaction_axis_path is not None:
-        axis_value = float(_get_path(candidate, profile.interaction_axis_path))
+        axis_item = next(
+            item for item in profile.inputs if item.path == profile.interaction_axis_path
+        )
+        raw_axis = _get_path(candidate, profile.interaction_axis_path)
+        if raw_axis is None or raw_axis == "":
+            if axis_item.numeric_missing.strategy == "constant":
+                assert axis_item.numeric_missing.value is not None
+                axis_value = axis_item.numeric_missing.value
+            elif (
+                axis_item.numeric_missing.strategy == "training_median_with_indicator"
+                and imputation_values is not None
+                and axis_item.path in imputation_values
+            ):
+                axis_value = imputation_values[axis_item.path]
+            else:
+                raise ValueError(f"{axis_item.path} is missing")
+        else:
+            axis_value = float(raw_axis)
         for item in profile.inputs:
             if not item.interact_with_axis:
                 continue
             value = _get_path(candidate, item.path)
             if item.kind == "number":
-                values.append(axis_value * float(value))
+                if value is None or value == "":
+                    if item.numeric_missing.strategy == "constant":
+                        assert item.numeric_missing.value is not None
+                        numeric = item.numeric_missing.value
+                    elif (
+                        item.numeric_missing.strategy == "training_median_with_indicator"
+                        and imputation_values is not None
+                        and item.path in imputation_values
+                    ):
+                        numeric = imputation_values[item.path]
+                    else:
+                        raise ValueError(f"{item.path} is missing")
+                else:
+                    numeric = float(value)
+                values.append(axis_value * numeric)
             else:
-                values.extend(axis_value * float(value == choice) for choice in item.choices)
+                normalized = "" if value is None else str(value)
+                if not normalized:
+                    policy = item.categorical_missing
+                    if policy.strategy == "reject":
+                        raise ValueError(f"{item.path} is missing")
+                    normalized = (
+                        MISSING_CATEGORY
+                        if policy.strategy == "map_to_missing_category"
+                        else policy.category
+                    )
+                    assert normalized is not None
+                elif (
+                    normalized == MISSING_CATEGORY
+                    and not allow_normalized_missing_category
+                ):
+                    raise ValueError(f"{item.path} uses a reserved missing category")
+                elif normalized not in _categorical_choices(item):
+                    policy = item.unknown_category
+                    if policy.strategy == "reject":
+                        raise ValueError(f"{item.path} is not a declared category")
+                    normalized = (
+                        MISSING_CATEGORY
+                        if policy.strategy == "map_to_missing_category"
+                        else policy.other_choice
+                    )
+                    assert normalized is not None
+                values.extend(
+                    axis_value * float(normalized == choice)
+                    for choice in _categorical_choices(item)
+                )
     return FeatureBundle(
         pipeline_id=f"{profile.task_id}-profile-transform",
         pipeline_version="1.0.0",
@@ -125,13 +256,25 @@ def build_tabular_features(
     )
 
 
-def candidate_from_observation(row: dict[str, Any], profile: TabularDatasetProfile) -> CandidateInput:
+def candidate_from_observation(
+    row: dict[str, Any],
+    profile: TabularDatasetProfile,
+    *,
+    preserve_normalized_missing: bool = False,
+) -> CandidateInput:
+    categorical = dict(row["categorical"] or {})
+    if not preserve_normalized_missing:
+        categorical = {
+            key: value
+            for key, value in categorical.items()
+            if value != MISSING_CATEGORY
+        }
     return CandidateInput(
         name=str(row["id"]),
         inputs={
             "composition": dict(row["composition"] or {}),
             "process": dict(row["features"] or {}),
-            "categorical": dict(row["categorical"] or {}),
+            "categorical": categorical,
             "heat_pattern": None,
         },
     )
@@ -139,7 +282,43 @@ def candidate_from_observation(row: dict[str, Any], profile: TabularDatasetProfi
 
 def build_tabular_features_from_observation(
     row: dict[str, Any],
-    _medians: dict[str, float],
+    imputation_values: dict[str, float],
     profile: TabularDatasetProfile,
 ) -> FeatureBundle:
-    return build_tabular_features(candidate_from_observation(row, profile), profile)
+    return build_tabular_features(
+        candidate_from_observation(
+            row,
+            profile,
+            preserve_normalized_missing=True,
+        ),
+        profile,
+        imputation_values,
+        allow_normalized_missing_category=True,
+    )
+
+
+def build_tabular_training_features_from_observation(
+    row: dict[str, Any],
+    imputation_values: dict[str, float],
+    profile: TabularDatasetProfile,
+) -> tuple[FeatureBundle, dict[str, float]]:
+    """Keep runtime bundles finite while preserving raw missing for fold fitting."""
+
+    bundle = build_tabular_features_from_observation(
+        row,
+        imputation_values,
+        profile,
+    )
+    values = bundle.as_dict()
+    predictor_evidence = row.get("run_context", {}).get(
+        "curation",
+        {},
+    ).get("predictor_policies", {})
+    for item in profile.inputs:
+        if (
+            item.numeric_missing.strategy == "training_median_with_indicator"
+            and predictor_evidence.get(item.column, {}).get("source_state")
+            == "missing"
+        ):
+            values[item.path] = float("nan")
+    return bundle, values

@@ -11,6 +11,73 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+MISSING_CATEGORY = "__missing__"
+
+
+class NumericMissingPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    strategy: Literal["reject", "constant", "training_median_with_indicator"] = "reject"
+    value: float | None = Field(default=None, allow_inf_nan=False)
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def constant_is_explained(self) -> "NumericMissingPolicy":
+        if self.strategy == "constant":
+            if self.value is None or not (self.reason or "").strip():
+                raise ValueError("constant missing policy requires a finite value and reason")
+        elif self.value is not None or self.reason is not None:
+            raise ValueError("value and reason are only valid for constant missing policy")
+        return self
+
+
+class CategoricalMissingPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    strategy: Literal[
+        "reject",
+        "map_to_missing_category",
+        "map_to_other_category",
+    ] = "reject"
+    category: str | None = None
+
+    @model_validator(mode="after")
+    def mapped_category_is_explicit(self) -> "CategoricalMissingPolicy":
+        if self.strategy == "reject":
+            if self.category is not None:
+                raise ValueError("reject missing policy must not declare a category")
+        elif self.strategy == "map_to_missing_category":
+            if self.category is not None:
+                raise ValueError(
+                    "map_to_missing_category uses the reserved missing category"
+                )
+        elif not (self.category or "").strip():
+            raise ValueError("map_to_other_category requires an explicit category")
+        return self
+
+
+class UnknownCategoryPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    strategy: Literal[
+        "reject",
+        "map_to_missing_category",
+        "map_to_other_category",
+    ] = "reject"
+    other_choice: str | None = None
+
+    @model_validator(mode="after")
+    def other_choice_is_explicit(self) -> "UnknownCategoryPolicy":
+        if self.strategy == "reject":
+            if self.other_choice is not None:
+                raise ValueError("reject unknown policy must not declare other_choice")
+        elif self.strategy == "map_to_missing_category":
+            if self.other_choice is not None:
+                raise ValueError(
+                    "map_to_missing_category uses the reserved missing category"
+                )
+        elif not (self.other_choice or "").strip():
+            raise ValueError("map_to_other_category requires other_choice")
+        return self
+
+
 class TabularInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     path: str
@@ -21,6 +88,9 @@ class TabularInput(BaseModel):
     transform: Literal["quadratic", "linear", "log1p"] = "quadratic"
     interact_with_axis: bool = False
     main_effect: bool = True
+    numeric_missing: NumericMissingPolicy = NumericMissingPolicy()
+    categorical_missing: CategoricalMissingPolicy = CategoricalMissingPolicy()
+    unknown_category: UnknownCategoryPolicy = UnknownCategoryPolicy()
 
     @model_validator(mode="after")
     def categorical_shape(self) -> "TabularInput":
@@ -28,6 +98,33 @@ class TabularInput(BaseModel):
             raise ValueError("categorical inputs require choices; numeric inputs must omit them")
         if self.kind == "categorical" and self.transform != "quadratic":
             raise ValueError("categorical inputs cannot declare a numeric transform")
+        if self.kind == "number":
+            if self.categorical_missing.strategy != "reject":
+                raise ValueError("numeric inputs cannot map categorical missing values")
+            if self.unknown_category.strategy != "reject":
+                raise ValueError("numeric inputs cannot declare unknown category policy")
+            if (
+                self.numeric_missing.strategy == "training_median_with_indicator"
+                and (self.transform != "linear" or self.interact_with_axis)
+            ):
+                raise ValueError(
+                    "training median P0 requires a linear, non-interacting numeric input"
+                )
+        else:
+            if self.numeric_missing.strategy != "reject":
+                raise ValueError("categorical inputs cannot declare numeric missing policy")
+            if MISSING_CATEGORY in self.choices:
+                raise ValueError("categorical choices must not use the reserved missing category")
+            if (
+                self.categorical_missing.strategy == "map_to_other_category"
+                and self.categorical_missing.category not in self.choices
+            ):
+                raise ValueError("categorical other category must be an explicit choice")
+            if (
+                self.unknown_category.strategy == "map_to_other_category"
+                and self.unknown_category.other_choice not in self.choices
+            ):
+                raise ValueError("unknown other_choice must be an explicit choice")
         return self
 
 
@@ -190,6 +287,8 @@ class TabularDatasetProfile(BaseModel):
                 raise ValueError("interaction_axis_path must identify a numeric input")
             if axis.interact_with_axis:
                 raise ValueError("interaction axis cannot interact with itself")
+            if axis.numeric_missing.strategy == "training_median_with_indicator":
+                raise ValueError("interaction axis cannot use training median P0")
         elif any(item.interact_with_axis for item in self.inputs):
             raise ValueError("interact_with_axis requires interaction_axis_path")
         if any(not item.main_effect and not item.interact_with_axis for item in self.inputs):

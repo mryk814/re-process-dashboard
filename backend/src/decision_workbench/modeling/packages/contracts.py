@@ -122,6 +122,19 @@ class PipelineFeatureSpec(PackageModel):
     group: Literal["composition", "process", "categorical", "metallurgy", "heat_pattern", "other"]
 
 
+class PipelineMissingPolicySpec(PackageModel):
+    imputation_values: dict[str, Annotated[float, Field(allow_inf_nan=False)]]
+    digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    missing_by_input: dict[str, Annotated[int, Field(ge=0)]] = Field(
+        default_factory=dict
+    )
+    policy_by_input: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    evaluation_coverage_by_target: dict[
+        str,
+        Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)],
+    ] = Field(default_factory=dict)
+
+
 class FeaturePipelineDocument(PackageModel):
     """Common contract carried by every task-specific pipeline document."""
 
@@ -132,6 +145,7 @@ class FeaturePipelineDocument(PackageModel):
     missing_composition: str | None = None
     heat_interpolation: str | None = None
     series_representations: tuple[SeriesFeatureContract, ...] = ()
+    missing_policy: PipelineMissingPolicySpec | None = None
 
     @field_validator("canonical_input_paths")
     @classmethod

@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from statistics import median
 from typing import Any, Callable
 
 import numpy as np
@@ -148,6 +149,7 @@ def _grouped_oof(
     *,
     folds: int = 5,
     assignment: dict[str, int] | None = None,
+    fold_matrix: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, int]:
     unique = sorted(set(groups))
     if any(not group for group in groups):
@@ -167,7 +169,15 @@ def _grouped_oof(
     residuals = np.empty(len(y))
     for fold in range(folds):
         test = fold_ids == fold
-        residuals[test] = y[test] - _predict(x[test], _fit(x[~test], y[~test], ridge))
+        train_x, test_x = (
+            fold_matrix(~test, test)
+            if fold_matrix is not None
+            else (x[~test], x[test])
+        )
+        residuals[test] = y[test] - _predict(
+            test_x,
+            _fit(train_x, y[~test], ridge),
+        )
     return residuals, fold_ids, folds
 
 
@@ -239,6 +249,7 @@ def _lightgbm_grouped_fit(
     groups: list[str],
     monotone_constraints: list[int],
     num_boost_round: int,
+    fold_matrix: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None = None,
 ) -> tuple[object, np.ndarray, np.ndarray, int]:
     import lightgbm as lgb
 
@@ -252,13 +263,18 @@ def _lightgbm_grouped_fit(
     for fold in range(folds):
         test = fold_ids == fold
         train = ~test
+        train_x, test_x = (
+            fold_matrix(train, test)
+            if fold_matrix is not None
+            else (x[train], x[test])
+        )
         booster = lgb.train(
             _lightgbm_parameters(monotone_constraints, 20260724 + fold),
-            lgb.Dataset(x[train], label=y[train], free_raw_data=False),
+            lgb.Dataset(train_x, label=y[train], free_raw_data=False),
             num_boost_round=num_boost_round,
             callbacks=[lgb.log_evaluation(0)],
         )
-        oof[test] = booster.predict(x[test], num_iteration=num_boost_round)
+        oof[test] = booster.predict(test_x, num_iteration=num_boost_round)
     final = lgb.train(
         _lightgbm_parameters(monotone_constraints, 20260724),
         lgb.Dataset(x, label=y),
@@ -332,6 +348,7 @@ def _lightgbm_binary_fit(
     x: np.ndarray,
     y: np.ndarray,
     num_boost_round: int,
+    fold_matrix: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None = None,
 ) -> tuple[object, np.ndarray, int, tuple[float, float]]:
     import lightgbm as lgb
 
@@ -343,13 +360,18 @@ def _lightgbm_binary_fit(
     for fold in range(folds):
         test = assignment == fold
         train = ~test
+        train_x, test_x = (
+            fold_matrix(train, test)
+            if fold_matrix is not None
+            else (x[train], x[test])
+        )
         booster = lgb.train(
             _binary_parameters(20260725 + fold),
-            lgb.Dataset(x[train], label=y[train], free_raw_data=False),
+            lgb.Dataset(train_x, label=y[train], free_raw_data=False),
             num_boost_round=num_boost_round,
             callbacks=[lgb.log_evaluation(0)],
         )
-        oof[test] = booster.predict(x[test], num_iteration=num_boost_round)
+        oof[test] = booster.predict(test_x, num_iteration=num_boost_round)
     calibration = _fit_platt(oof, y)
     calibrated_oof = np.empty(len(y))
     for calibrate, evaluate in _cross_fit_masks(assignment):
@@ -362,6 +384,38 @@ def _lightgbm_binary_fit(
         callbacks=[lgb.log_evaluation(0)],
     )
     return final, calibrated_oof, folds, calibration
+
+
+def _fit_imputation_values(
+    rows: list[dict[str, Any]],
+    profile: Any,
+) -> dict[str, float]:
+    fitted: dict[str, float] = {}
+    for item in profile.inputs:
+        if item.kind != "number" or item.numeric_missing.strategy != "training_median_with_indicator":
+            continue
+        group, key = item.path.split(".", 1)
+        values = [
+            float((row["composition"] if group == "composition" else row["features"])[key])
+            for row in rows
+            if (row["composition"] if group == "composition" else row["features"]).get(key)
+            is not None
+        ]
+        if not values:
+            raise ValueError(f"{item.path}: training median has no observed values")
+        fitted[item.path] = float(median(values))
+    return fitted
+
+
+def _feature_matrix(
+    rows: list[dict[str, Any]],
+    profile: Any,
+    imputation_values: dict[str, float],
+) -> np.ndarray:
+    return np.vstack([
+        build_tabular_features_from_observation(row, imputation_values, profile).values
+        for row in rows
+    ])
 
 
 def _binary_auc(y: np.ndarray, probabilities: np.ndarray) -> float:
@@ -410,6 +464,38 @@ def build_tabular_package_from_data(
         )
     definitions = feature_definitions(profile)
     feature_names = tuple(item.name for item in definitions)
+    final_imputation_values = _fit_imputation_values(rows, profile)
+    has_explicit_missing_policy = any(
+        item.numeric_missing.strategy != "reject"
+        or item.categorical_missing.strategy != "reject"
+        or item.unknown_category.strategy != "reject"
+        for item in profile.inputs
+    )
+    pipeline_missing_policy = (
+        {
+            "imputation_values": final_imputation_values,
+            "digest": _value_digest(final_imputation_values),
+            "missing_by_input": {
+                item.path: sum(
+                    row["run_context"]["curation"]["predictor_policies"][item.column][
+                        "source_state"
+                    ] == "missing"
+                    for row in data.observations
+                )
+                for item in profile.inputs
+            },
+            "policy_by_input": {
+                item.path: {
+                    "numeric_missing": item.numeric_missing.model_dump(mode="json"),
+                    "categorical_missing": item.categorical_missing.model_dump(mode="json"),
+                    "unknown_category": item.unknown_category.model_dump(mode="json"),
+                }
+                for item in profile.inputs
+            },
+        }
+        if has_explicit_missing_policy
+        else None
+    )
 
     artifact_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
@@ -433,6 +519,11 @@ def build_tabular_package_from_data(
             {"name": item.name, "unit": item.unit, "meaning": item.meaning, "group": item.group}
             for item in definitions
         ],
+        **(
+            {"missing_policy": pipeline_missing_policy}
+            if pipeline_missing_policy is not None
+            else {}
+        ),
     }, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     files = [pipeline_path]
     if profile.curation_recipe is not None:
@@ -453,11 +544,29 @@ def build_tabular_package_from_data(
         target_rows = [row for row in rows if output.key in row["outputs"]]
         if not target_rows:
             raise ValueError(f"{output.key}の学習可能な行がありません")
-        target_bundles = [
-            build_tabular_features_from_observation(row, data.medians, profile)
-            for row in target_rows
-        ]
-        x = np.vstack([bundle.values for bundle in target_bundles])
+        x = _feature_matrix(target_rows, profile, final_imputation_values)
+        def fold_matrix(
+            train: np.ndarray,
+            evaluate: np.ndarray,
+            *,
+            selected_rows: list[dict[str, Any]] = target_rows,
+        ) -> tuple[np.ndarray, np.ndarray]:
+            fold_imputation = _fit_imputation_values(
+                [row for row, selected in zip(selected_rows, train, strict=True) if selected],
+                profile,
+            )
+            return (
+                _feature_matrix(
+                    [row for row, selected in zip(selected_rows, train, strict=True) if selected],
+                    profile,
+                    fold_imputation,
+                ),
+                _feature_matrix(
+                    [row for row, selected in zip(selected_rows, evaluate, strict=True) if selected],
+                    profile,
+                    fold_imputation,
+                ),
+            )
         groups = [str(row["parent_key"]) for row in target_rows]
         y = np.asarray([float(row["outputs"][output.key]) for row in target_rows])
         coverage_method = None
@@ -465,7 +574,7 @@ def build_tabular_package_from_data(
         if profile.model_family == "lightgbm_binary":
             assert profile.num_boost_round is not None
             fitted, oof_probability, folds, calibration = _lightgbm_binary_fit(
-                x, y, profile.num_boost_round
+                x, y, profile.num_boost_round, fold_matrix
             )
             residuals = y - oof_probability
             artifact_path = artifact_dir / f"{output.key}.txt"
@@ -529,6 +638,7 @@ def build_tabular_package_from_data(
                 groups,
                 monotone_constraints,
                 profile.num_boost_round,
+                fold_matrix,
             )
             residual_std = max(float(np.sqrt(np.mean(residuals ** 2))), 1e-6)
             artifact_path = artifact_dir / f"{output.key}.txt"
@@ -585,6 +695,7 @@ def build_tabular_package_from_data(
                 profile.ridge_alpha,
                 folds=requested_folds,
                 assignment=contract_assignment,
+                fold_matrix=fold_matrix,
             )
             fitted = _fit(x, y, profile.ridge_alpha)
             predict_by_target[output.key] = (
@@ -660,6 +771,19 @@ def build_tabular_package_from_data(
         "groups": len({str(row["parent_key"]) for row in rows}),
         "rows": len(rows),
         "source_sha256": data.source_sha256,
+        **(
+            {
+                "missing_policy": {
+                    **pipeline_missing_policy,
+                    "evaluation_coverage_by_target": {
+                        target: records[target] / len(rows)
+                        for target in records
+                    },
+                }
+            }
+            if pipeline_missing_policy is not None
+            else {}
+        ),
         "curation": {
             status: sum(
                 row["run_context"].get("curation", {}).get("status") == status
@@ -707,7 +831,11 @@ def build_tabular_package_from_data(
     )
     smoke_input = smoke_dir / "input.json"
     smoke_input.write_text(sample.model_dump_json(indent=2), encoding="utf-8", newline="\n")
-    sample_x = build_tabular_features(sample, profile).values.reshape(1, -1)
+    sample_x = build_tabular_features(
+        sample,
+        profile,
+        final_imputation_values,
+    ).values.reshape(1, -1)
     smoke_expected = smoke_dir / "expected.json"
     smoke_expected.write_text(json.dumps({
         target: round(float(predict(sample_x)[0]), 8)

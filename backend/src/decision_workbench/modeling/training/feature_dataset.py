@@ -37,6 +37,8 @@ class TargetTrainingSet:
     validation_plan: ValidationPlan
     validation_plan_digest: str
     validation_diagnostics: dict[str, Any]
+    imputed_feature_indices: tuple[int, ...] = ()
+    final_imputation_values: tuple[tuple[int, float], ...] = ()
 
     @property
     def is_temporal_validation(self) -> bool:
@@ -188,11 +190,17 @@ def compile_target_training_set(
             ],
             dtype=float,
         )
-        if not np.isfinite(feature_rows).all():
+        if np.isinf(feature_rows).any():
             raise ValueError(
-                f"{target}/{replicate_context}: features must be finite"
+                f"{target}/{replicate_context}: features must not be infinite"
             )
-        if not np.allclose(feature_rows, feature_rows[0], rtol=1e-10, atol=1e-12):
+        if not np.allclose(
+            feature_rows,
+            feature_rows[0],
+            rtol=1e-10,
+            atol=1e-12,
+            equal_nan=True,
+        ):
             raise ValueError(
                 f"{target}/{replicate_context}: one replicate context has "
                 "different feature rows"
@@ -326,12 +334,43 @@ def compile_target_training_set(
                         f"{target}: binary training fold {fold} "
                         "must contain both classes"
                     )
+    x = np.vstack(x_rows)
+    imputed_feature_indices = tuple(
+        int(index)
+        for index in np.flatnonzero(np.isnan(x).any(axis=0))
+    )
+    fitted_final_imputation_values = tuple(
+        (
+            index,
+            float(np.nanmedian(x[:, index])),
+        )
+        for index in imputed_feature_indices
+        if not np.isnan(x[:, index]).all()
+    )
+    if len(fitted_final_imputation_values) != len(imputed_feature_indices):
+        raise ValueError(f"{target}: imputed feature has no observed training values")
+    declared_imputation = canonical_dataset["feature_pipeline"].get(
+        "missing_policy",
+        {},
+    ).get("imputation_values", {})
+    final_imputation_values = tuple(
+        (
+            index,
+            float(
+                declared_imputation.get(
+                    feature_names[index],
+                    dict(fitted_final_imputation_values)[index],
+                )
+            ),
+        )
+        for index in imputed_feature_indices
+    )
     return TargetTrainingSet(
         target=target,
         unit=unit,
         target_kind=target_kind,
         feature_names=feature_names,
-        x=np.vstack(x_rows),
+        x=x,
         y=y,
         replicate_contexts=tuple(replicate_contexts),
         validation_groups=tuple(validation_groups),
@@ -348,7 +387,47 @@ def compile_target_training_set(
         validation_plan=plan,
         validation_plan_digest=assignment.plan_digest,
         validation_diagnostics=assignment.diagnostics,
+        imputed_feature_indices=imputed_feature_indices,
+        final_imputation_values=final_imputation_values,
     )
+
+
+def prepared_feature_matrix(
+    data: TargetTrainingSet,
+    *,
+    fit_rows: np.ndarray | None = None,
+    transform_rows: np.ndarray | None = None,
+) -> np.ndarray:
+    """Apply training-only medians to one selected matrix without fold leakage."""
+
+    fit = (
+        np.ones(len(data.x), dtype=bool)
+        if fit_rows is None
+        else np.asarray(fit_rows, dtype=bool)
+    )
+    transform = (
+        np.ones(len(data.x), dtype=bool)
+        if transform_rows is None
+        else np.asarray(transform_rows, dtype=bool)
+    )
+    values = np.asarray(data.x[transform], dtype=float).copy()
+    final_values = dict(data.final_imputation_values)
+    for index in data.imputed_feature_indices:
+        if fit_rows is None:
+            replacement = final_values[index]
+        else:
+            observed = data.x[fit, index]
+            observed = observed[np.isfinite(observed)]
+            if not len(observed):
+                raise ValueError(
+                    f"{data.target}/{data.feature_names[index]}: "
+                    "fold has no observed values for training median"
+                )
+            replacement = float(np.median(observed))
+        values[np.isnan(values[:, index]), index] = replacement
+    if not np.isfinite(values).all():
+        raise ValueError(f"{data.target}: prepared features must be finite")
+    return values
 
 
 def observation_variance_for_rows(

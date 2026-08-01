@@ -18,6 +18,7 @@ class DataQualityIssue(BaseModel):
         "suspicious_distribution",
         "curation_quarantine",
         "missing_target",
+        "predictor_missing",
     ]
     source_sheet: str
     entity_key: str

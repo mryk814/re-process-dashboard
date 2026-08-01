@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import csv
 import json
 import sys
 from pathlib import Path
@@ -372,6 +373,65 @@ def test_model_workflow_builds_tabular_ridge_through_the_same_assembler(
         assert evidence["fold_digest"] == recipe["evaluation"][target][
             "fold_digest"
         ]
+
+
+def test_tabular_ridge_package_builds_with_fold_fitted_missing_policy(
+    tmp_path: Path,
+) -> None:
+    profile_document = json.loads(
+        (
+            ROOT
+            / "backend/src/decision_workbench/data"
+            / "tabular-profile-heat-treatment-v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    profile_document["inputs"][0].update({
+        "transform": "linear",
+        "numeric_missing": {
+            "strategy": "training_median_with_indicator",
+        },
+    })
+    profile = tmp_path / "missing-profile.json"
+    profile.write_text(
+        json.dumps(profile_document, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    with HEAT_SOURCE.open("r", encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+        fieldnames = list(rows[0])
+    rows[0]["carbon_pct"] = ""
+    source = tmp_path / "missing-source.csv"
+    with source.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    package = tmp_path / "missing-package"
+    build_package(
+        "heat-treatment-tradeoff-v1",
+        source,
+        package,
+        tmp_path / "missing-feature-dataset.json",
+        package_id="heat-treatment-missing-policy-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="ridge.v1",
+        profile=profile,
+    )
+
+    pipeline = json.loads(
+        (package / "feature-pipeline/pipeline.json").read_text(encoding="utf-8")
+    )
+    stats = json.loads(
+        (package / "reference/training_stats.json").read_text(encoding="utf-8")
+    )
+    assert "composition.carbon_pct__missing" in {
+        feature["name"] for feature in pipeline["features"]
+    }
+    assert stats["missing_policy"]["missing_by_input"][
+        "composition.carbon_pct"
+    ] == 1
+    assert stats["missing_policy"]["digest"].startswith("sha256:")
 
 
 def test_omitting_estimator_uses_the_task_default_training_recipe(
