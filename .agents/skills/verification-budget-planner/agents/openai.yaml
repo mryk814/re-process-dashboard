@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verification Budget Planner"
+  short_description: "Bound testing and review effort before work"
+  default_prompt: "Use $verification-budget-planner to define the smallest sufficient verification and review budget, escalation triggers, and stop condition for this change."
