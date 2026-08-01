@@ -32,3 +32,31 @@ test("source lifecycle location is discarded outside the Data Library", async ()
   assert.equal(project.sourceStage, undefined);
   assert.equal(project.sourceRevisionId, undefined);
 });
+
+test("invalid Data Library query is normalized without retaining an unusable resource selection", async () => {
+  const { navigationLocationNeedsNormalization, navigationUrl, readNavigationIntent } = await navigationModule(
+    "?view=data-library&tab=browse&connector=connector-1&stage=unknown&revision=revision-1",
+  );
+  const intent = readNavigationIntent();
+  assert.equal(intent.view, "data-library");
+  assert.equal(intent.dataLibraryTab, "update");
+  assert.equal(intent.sourceConnectorId, "connector-1");
+  assert.equal(intent.sourceStage, undefined);
+  assert.equal(intent.sourceRevisionId, undefined);
+  assert.equal(navigationUrl(intent), "/?view=data-library&tab=update&connector=connector-1");
+  assert.equal(navigationLocationNeedsNormalization(intent), true);
+});
+
+test("Data Library onboarding and lifecycle locations round-trip independently", async () => {
+  const onboarding = await navigationModule("?view=data-library&onboarding=new-task");
+  const onboardingIntent = onboarding.readNavigationIntent();
+  assert.equal(onboardingIntent.dataLibraryTab, "browse");
+  assert.equal(onboardingIntent.dataOnboardingMode, "new-task");
+  assert.equal(onboarding.navigationUrl(onboardingIntent), "/?view=data-library&onboarding=new-task");
+
+  const resource = await navigationModule("?view=data-library&tab=update&connector=connector-1&stage=training&revision=snapshot-1");
+  assert.deepEqual(
+    resource.readNavigationIntent(),
+    resource.readNavigationIntent(resource.navigationUrl(resource.readNavigationIntent()).slice(1)),
+  );
+});

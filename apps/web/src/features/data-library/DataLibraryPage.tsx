@@ -26,6 +26,7 @@ import {
   resolveResourceLoad,
   type ResourceLoadState,
 } from "./resourceLoadState";
+import type { DataLibraryLocation } from "./location";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
 const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP");
@@ -87,6 +88,8 @@ export function DataLibraryPage({
   onStartProject,
   onOpenTrainingData,
   onOpenStorage,
+  location,
+  onNavigate,
 }: {
   projects: ApiProject[];
   onAddDataset: (
@@ -96,6 +99,8 @@ export function DataLibraryPage({
   onStartProject: (datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) => void;
   onOpenTrainingData: (projectId: string) => void;
   onOpenStorage: () => void;
+  location: DataLibraryLocation;
+  onNavigate: (location: DataLibraryLocation, replace?: boolean) => void;
 }) {
   const [options, setOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [datasets, setDatasets] = useState<ApiDataLibraryDataset[]>([]);
@@ -119,17 +124,12 @@ export function DataLibraryPage({
     message: string;
   }>>([]);
   const [samplesOpen, setSamplesOpen] = useState(false);
-  const [newTaskGuideOpen, setNewTaskGuideOpen] = useState(
-    () => new URLSearchParams(window.location.search).get("onboarding") === "new-task",
-  );
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
   const [changingResourceId, setChangingResourceId] = useState("");
   const [openingTrainingSnapshotId, setOpeningTrainingSnapshotId] = useState("");
   const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
-  const [activeTab, setActiveTab] = useState<"browse" | "update">(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("tab") === "update" || params.has("connector") || params.has("stage") ? "update" : "browse";
-  });
+  const activeTab = location.tab;
+  const newTaskGuideOpen = location.onboardingMode === "new-task";
   const taskLabel = useTaskLabels();
   const requestVersions = useRef<Record<DataLibraryResourceFamily, number>>({
     options: 0,
@@ -232,14 +232,14 @@ export function DataLibraryPage({
   };
 
   const selectTab = (tab: "browse" | "update") => {
-    setActiveTab(tab);
-    const url = new URL(window.location.href);
     if (tab === "update") {
-      url.searchParams.set("tab", "update");
+      onNavigate({ tab: "update" });
     } else {
-      for (const key of ["tab", "connector", "stage", "revision"]) url.searchParams.delete(key);
+      onNavigate({
+        tab: "browse",
+        onboardingMode: location.onboardingMode === "new-task" ? "new-task" : undefined,
+      });
     }
-    window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
   };
 
   const openTrainingSnapshot = async (link: PackageTrainingSnapshotLink) => {
@@ -258,18 +258,12 @@ export function DataLibraryPage({
       if (!belongsToConnector || !snapshotDigestMatches || !policyDigestMatches) {
         throw new Error("Model Packageが固定した学習Snapshotの識別情報が一致しません。");
       }
-      const url = new URL(window.location.href);
-      url.searchParams.set("view", "data-library");
-      url.searchParams.set("tab", "update");
-      url.searchParams.set("connector", link.connectorId);
-      url.searchParams.set("stage", "training");
-      url.searchParams.set("revision", link.snapshotId);
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `${url.pathname}?${url.searchParams.toString()}${url.hash}`,
-      );
-      setActiveTab("update");
+      onNavigate({
+        tab: "update",
+        connectorId: link.connectorId,
+        stage: "training",
+        revisionId: link.snapshotId,
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "固定した学習Snapshotを確認できませんでした。");
     } finally {
@@ -595,11 +589,11 @@ export function DataLibraryPage({
             onClick={() => selectedDataset && onAddDataset("revision", selectedDataset.dataset_revision.id)}
           ><b>更新版</b><span>同じTask・Profile</span><small>Source差分 → 新Revision → 再学習</small></button>
           <button type="button" onClick={() => onAddDataset("mapping")}><b>列名・構造が違う</b><span>既存Taskへ対応付け</span><small>Profile draft → 検証 → 登録</small></button>
-          <button type="button" aria-expanded={newTaskGuideOpen} onClick={() => setNewTaskGuideOpen((value) => !value)}><b>新しい予測問題</b><span>入力・出力も新しい</span><small>意味と単位を確認 → scaffold</small></button>
+          <button type="button" aria-expanded={newTaskGuideOpen} onClick={() => onNavigate({ tab: "browse", onboardingMode: newTaskGuideOpen ? undefined : "new-task" })}><b>新しい予測問題</b><span>入力・出力も新しい</span><small>意味と単位を確認 → scaffold</small></button>
         </div>
       </section>}
       {activeTab === "browse" && newTaskGuideOpen && <section className="data-library-section new-task-guide" aria-labelledby="new-task-guide-heading">
-        <header><div><span className="overline">NEW TASK SCAFFOLD</span><h3 id="new-task-guide-heading">完全に新しいTaskを準備</h3><p>任意コードは生成せず、確認済みのTaskDefinition・Dataset Profile・標準学習recipeを個人Task storeへ作ります。</p></div><button type="button" className="text-button" aria-label="新しいTaskの手順を閉じる" onClick={() => setNewTaskGuideOpen(false)}>閉じる</button></header>
+        <header><div><span className="overline">NEW TASK SCAFFOLD</span><h3 id="new-task-guide-heading">完全に新しいTaskを準備</h3><p>任意コードは生成せず、確認済みのTaskDefinition・Dataset Profile・標準学習recipeを個人Task storeへ作ります。</p></div><button type="button" className="text-button" aria-label="新しいTaskの手順を閉じる" onClick={() => onNavigate({ tab: "browse" })}>閉じる</button></header>
         <ol><li><b>列を棚卸し</b><span>型・範囲・候補値だけをread-onlyで確認</span></li><li><b>意味を確定</b><span>入力／出力、canonical key、単位を明示</span></li><li><b>学習・昇格</b><span>allow-list済みEstimatorでbuild / verify / promote</span></li><li><b>アプリへ接続</b><span>個人Taskを再読込し、そのままProjectを作成</span></li></ol>
         <p className="new-task-ui-path">CSVを選び、意味・単位・範囲を確認すると、標準recipeで <b>build → verify → promote → 再読込</b> までをこの画面で実行します。途中で止まった場合は、登録済みとして扱わず理由を表示します。</p>
         <div className="new-task-safety"><strong>自動確定しない項目</strong><span>物理的意味 · 単位 · 物理／通常／学習範囲 · 学習一行 · relation · 目的変数</span><small>inspectの最小値・最大値は要約です。物理範囲には流用せず、未解決が1件でもあればdraftで止まります。元データ、個人Profile、Packageはリポジトリへ追加しません。</small></div>
@@ -779,7 +773,11 @@ export function DataLibraryPage({
           <SeriesLibrarySection />
         </details>
       </>}
-      {activeTab === "update" && <SourceLifecycleSection datasets={datasets} />}
+      {activeTab === "update" && <SourceLifecycleSection
+        datasets={datasets}
+        location={location}
+        onNavigate={onNavigate}
+      />}
     </div>
   );
 }

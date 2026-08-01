@@ -80,6 +80,31 @@ test("dataset import stays in the global data library context", async ({ page })
   await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
 });
 
+test("Data Library tab state is shareable and browser history restores it", async ({ page }) => {
+  await page.goto("/?view=data-library");
+  await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "データ更新" }).click();
+  await expect(page).toHaveURL(/view=data-library.*tab=update/);
+  await expect(page.getByRole("tab", { name: "データ更新" })).toHaveAttribute("aria-selected", "true");
+
+  await page.goBack();
+  await expect(page).toHaveURL(/view=data-library/);
+  await expect(page).not.toHaveURL(/tab=update/);
+  await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
+
+  await page.goForward();
+  await expect(page).toHaveURL(/view=data-library.*tab=update/);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "データ更新" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("unknown navigation queries are replaced with the documented project fallback", async ({ page }) => {
+  await page.goto("/?view=unknown&tab=unexpected&connector=unused");
+  await expect(page).toHaveURL(/view=project/);
+  await expect(page).not.toHaveURL(/tab=|connector=/);
+  await expect(page.getByRole("complementary", { name: "プロジェクト一覧" })).toBeVisible();
+});
+
 test("developer guide continues through Profile Workbench to project creation", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer");
   await page.getByRole("button", { name: "変更ガイド" }).click();

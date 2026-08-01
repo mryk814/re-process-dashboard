@@ -263,7 +263,14 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(approvedRevision.id);
 
   const auditUrl = page.url();
-  await page.goto(auditUrl);
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).searchParams.get("stage")).toBe("approval");
+  await expect.poll(() => new URL(page.url()).searchParams.get("revision")).not.toBe(approvedRevision.id);
+  await page.goForward();
+  await expect(page).toHaveURL(auditUrl);
+  await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
+
+  await page.reload();
   await expect(page.locator(".source-history")).toContainText("既知の測定限界として採用");
   await expect(page.locator(".source-history-list").getByRole("button").filter({ hasText: "v1" })).toHaveAttribute("aria-pressed", "true");
   await page.unrouteAll({ behavior: "wait" });

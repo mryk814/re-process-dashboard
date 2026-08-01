@@ -16,6 +16,9 @@ export const WORKBENCH_VIEWS = [
 export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
 export type AdminSection = "developer" | "ranges" | "display" | "task" | "model";
 export type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
+export type DataLibraryTab = "browse" | "update";
+export type SourceLifecycleStage = "raw" | "curation" | "approval" | "training";
+export type DataOnboardingMode = "revision" | "mapping" | "new-task";
 
 export type NavigationIntent = Readonly<{
   view: WorkbenchView;
@@ -36,18 +39,19 @@ export type NavigationIntent = Readonly<{
   developerTabError?: string;
   developerGuideId?: string;
   projectSettings?: "general" | "targets" | "scientific" | "ranges" | "display" | "task" | "evidence";
-  dataLibraryTab?: "update";
+  dataLibraryTab?: DataLibraryTab;
   sourceConnectorId?: string;
-  sourceStage?: "raw" | "curation" | "approval" | "training";
+  sourceStage?: SourceLifecycleStage;
   sourceRevisionId?: string;
-  dataOnboardingMode?: "revision" | "mapping" | "new-task";
+  dataOnboardingMode?: DataOnboardingMode;
   baseDatasetRevisionId?: string;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
 const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", "task", "model"]);
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
-const SOURCE_STAGES = new Set(["raw", "curation", "approval", "training"]);
+const SOURCE_STAGES = new Set<SourceLifecycleStage>(["raw", "curation", "approval", "training"]);
+const DATA_ONBOARDING_MODES = new Set<DataOnboardingMode>(["revision", "mapping", "new-task"]);
 
 export function isLegacyQualityAdminNavigation(search = window.location.search): boolean {
   const params = new URLSearchParams(search);
@@ -93,6 +97,24 @@ export function readNavigationIntent(
     : VIEW_SET.has(requestedView)
       ? requestedView as WorkbenchView
       : "project";
+  const requestedConnectorId = params.get("connector") || undefined;
+  const requestedStage = params.get("stage");
+  const dataLibraryTab: DataLibraryTab | undefined = normalizedView === "data-library"
+    ? params.get("tab") === "update" || Boolean(requestedConnectorId)
+      ? "update"
+      : "browse"
+    : undefined;
+  const sourceConnectorId = dataLibraryTab === "update" ? requestedConnectorId : undefined;
+  const sourceStage = sourceConnectorId && requestedStage && SOURCE_STAGES.has(requestedStage as SourceLifecycleStage)
+    ? requestedStage as SourceLifecycleStage
+    : undefined;
+  const sourceRevisionId = sourceStage ? params.get("revision") || undefined : undefined;
+  const requestedOnboardingMode = params.get("onboarding");
+  const dataOnboardingMode = (normalizedView === "data-library" || normalizedView === "profile-workbench")
+    && requestedOnboardingMode
+    && DATA_ONBOARDING_MODES.has(requestedOnboardingMode as DataOnboardingMode)
+    ? requestedOnboardingMode as DataOnboardingMode
+    : undefined;
   return Object.freeze({
     view: normalizedView,
     projectId: params.get("project") || undefined,
@@ -114,15 +136,11 @@ export function readNavigationIntent(
     developerTabError: developerTab && !DEVELOPER_TABS.has(developerTab as DeveloperTab) ? developerTab : undefined,
     developerGuideId: params.get("developer_guide") || undefined,
     projectSettings,
-    dataLibraryTab: params.get("tab") === "update" ? "update" : undefined,
-    sourceConnectorId: params.get("connector") || undefined,
-    sourceStage: SOURCE_STAGES.has(params.get("stage") ?? "")
-      ? params.get("stage") as NavigationIntent["sourceStage"]
-      : undefined,
-    sourceRevisionId: params.get("revision") || undefined,
-    dataOnboardingMode: ["revision", "mapping", "new-task"].includes(params.get("onboarding") ?? "")
-      ? params.get("onboarding") as NavigationIntent["dataOnboardingMode"]
-      : undefined,
+    dataLibraryTab,
+    sourceConnectorId,
+    sourceStage,
+    sourceRevisionId,
+    dataOnboardingMode,
     baseDatasetRevisionId: params.get("base_dataset") || undefined,
   });
 }
@@ -148,7 +166,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "project-settings" && intent.projectSettings) {
     params.set("project_settings", intent.projectSettings);
   }
-  if (intent.view === "data-library" && intent.dataLibraryTab) params.set("tab", intent.dataLibraryTab);
+  if (intent.view === "data-library" && intent.dataLibraryTab === "update") params.set("tab", "update");
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
@@ -161,6 +179,17 @@ export function navigationUrl(intent: NavigationIntent): string {
     && intent.baseDatasetRevisionId
   ) params.set("base_dataset", intent.baseDatasetRevisionId);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+}
+
+/**
+ * URL query is an external input. This is the single comparison used by the
+ * navigation owner before replacing a legacy, incomplete, or invalid location.
+ */
+export function navigationLocationNeedsNormalization(
+  intent: NavigationIntent,
+  search = window.location.search,
+): boolean {
+  return navigationUrl(intent) !== `${window.location.pathname}${search}${window.location.hash}`;
 }
 
 export function withView(
