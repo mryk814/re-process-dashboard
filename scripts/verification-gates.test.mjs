@@ -48,6 +48,20 @@ test("frontend presentation plan selects web evidence rather than desktop build"
   assert.ok(!selectedIds(plan).includes("application-build"));
 });
 
+test("focused product E2E specs stay at PR level while E2E infrastructure requires checkpoint evidence", () => {
+  const productSpec = planFor(["e2e/data-library-structure.spec.ts"]);
+  assert.deepEqual(productSpec.riskCategories, ["frontend-presentation"]);
+  assert.equal(productSpec.selectedLevel, "pr");
+  assert.equal(productSpec.completion, "complete");
+  assert.ok(!selectedIds(productSpec).includes("failure-state-e2e"));
+
+  const infrastructure = planFor(["e2e/helpers.ts"]);
+  assert.deepEqual(infrastructure.riskCategories, ["e2e-test-infrastructure"]);
+  assert.equal(infrastructure.selectedLevel, "checkpoint");
+  assert.equal(infrastructure.completion, "incomplete");
+  assert.ok(selectedIds(infrastructure).includes("failure-state-e2e"));
+});
+
 test("backend plan resolves authority-map focused tests and CI owns the full suite", () => {
   const plan = planFor(["backend/src/decision_workbench/application/project_runtime.py"]);
   assert.deepEqual(plan.riskCategories, ["backend-application"]);

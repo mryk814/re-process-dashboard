@@ -307,10 +307,10 @@
       {"risk": "model-runtime", "matches": ["prefix:models/packages/", "prefix:backend/src/decision_workbench/modeling/", "contains:model_package", "contains:model-package", "contains:artifact"]},
       {"risk": "api-contract", "matches": ["prefix:apps/web/src/generated/", "exact:backend/scripts/operations/export_openapi.py", "contains:openapi"]},
       {"risk": "electron-distribution", "matches": ["prefix:apps/desktop/", "exact:backend/src/sidecar.py", "exact:package.json", "exact:package-lock.json", "exact:uv.lock", "prefix:.github/workflows/", "contains:package-windows", "contains:smoke-windows", "contains:installer"]},
-      {"risk": "e2e-test-infrastructure", "matches": ["prefix:e2e/", "prefix:playwright.", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
+      {"risk": "e2e-test-infrastructure", "matches": ["prefix:playwright.", "exact:e2e/global-teardown.mjs", "exact:e2e/helpers.ts", "prefix:e2e/helpers/", "prefix:e2e/fixtures/", "exact:e2e/owned-database-cleanup.mjs", "exact:e2e/owned-database-cleanup.test.mjs", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
       {"risk": "verification-tooling", "matches": ["exact:scripts/verify.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs"]},
       {"risk": "compose-shared-lab", "matches": ["prefix:compose.", "prefix:infrastructure/compose/", "contains:/shared_lab/", "contains:run-shared-lab", "contains:run-compose"]},
-      {"risk": "frontend-presentation", "matches": ["prefix:apps/web/"]},
+      {"risk": "frontend-presentation", "matches": ["prefix:apps/web/", "prefix:e2e/"]},
       {"risk": "backend-application", "matches": ["prefix:backend/"]}
     ],
     "focusedTestAuthority": [
