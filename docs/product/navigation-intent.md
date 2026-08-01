@@ -5,7 +5,7 @@ owner: web navigation
 source-of-truth: URL, history, and NavigationIntent semantics
 -->
 
-<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,workspace,quality,lineage,explore,data-library,profile-workbench -->
+<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,workspace,quality,lineage,explore,data-library,profile-workbench -->
 <!-- current-contract:navigation-query:activity,activity_run,admin,base_dataset,candidate,candidate_section,connector,developer_guide,developer_tab,entity,onboarding,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,snapshot,stage,tab,view -->
 <!-- current-contract:navigation-fallback:project -->
 
@@ -18,7 +18,7 @@ source-of-truth: URL, history, and NavigationIntent semantics
 
 | query | 意味 |
 |---|---|
-| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
+| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`chain-graph`、`chain-studio`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
 | `project` | 対象プロジェクトID |
 | `candidate` | 比較または履歴で選択する候補ID |
 | `entity` | 工程系譜で選択するentity key |
