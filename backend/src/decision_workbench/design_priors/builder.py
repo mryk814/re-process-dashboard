@@ -48,7 +48,16 @@ def build_design_prior_package(
             rows=tuple(observations),
         ).model_dump(mode="json")
         observation_path = staging / "observations.json"
-        observation_path.write_text(json.dumps(observations_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        observation_path.write_text(
+            json.dumps(
+                observations_payload,
+                allow_nan=False,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
         numeric_columns = [
             path
             for path in canonical_input_paths
@@ -70,7 +79,16 @@ def build_design_prior_package(
             ),
         ).model_dump(mode="json")
         quality_path = staging / "quality-report.json"
-        quality_path.write_text(json.dumps(quality, ensure_ascii=False, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        quality_path.write_text(
+            json.dumps(
+                quality,
+                allow_nan=False,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
         artifacts = tuple(
             DesignPriorArtifact(
                 path=path.name,
@@ -98,7 +116,13 @@ def build_design_prior_package(
             quality_report="quality-report.json",
         )
         (staging / "manifest.json").write_text(
-            json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+            json.dumps(
+                manifest.model_dump(mode="json"),
+                allow_nan=False,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
             encoding="utf-8",
         )
         DesignPriorPackageLoader().load(staging)

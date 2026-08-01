@@ -5,6 +5,7 @@ carry a predictor, executable code, or a feasibility decision.
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -124,6 +125,17 @@ class DesignPriorObservations(_PriorModel):
         ids = [row.sample_id for row in self.rows]
         if len(ids) != len(set(ids)):
             raise ValueError("Design Prior observation sample ids must be unique")
+        for row in self.rows:
+            for path, value in row.inputs.items():
+                if (
+                    isinstance(value, (int, float))
+                    and not isinstance(value, bool)
+                    and not math.isfinite(value)
+                ):
+                    raise ValueError(
+                        "Design Prior numeric inputs must be finite: "
+                        f"{row.sample_id}:{path}"
+                    )
         return self
 
 

@@ -170,6 +170,62 @@ def test_loader_rejects_mixed_numeric_and_categorical_roles(tmp_path: Path) -> N
         DesignPriorPackageLoader().load(root)
 
 
+@pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
+def test_design_prior_build_and_load_reject_non_finite_numeric_values(
+    tmp_path: Path,
+    non_finite: float,
+) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        build_design_prior_package(
+            tmp_path / "invalid-prior",
+            package_id="invalid-prior-v1",
+            package_version="1.0.0",
+            task_id="fixture-task-v1",
+            task_contract_digest=TASK_DIGEST,
+            canonical_input_schema_version="candidate-v1",
+            canonical_input_paths=("process.x",),
+            source=SOURCE,
+            observations=(
+                DesignPriorObservation.model_construct(
+                    sample_id="invalid",
+                    inputs={"process.x": non_finite},
+                ),
+                DesignPriorObservation(sample_id="valid", inputs={"process.x": 1.0}),
+            ),
+            training_code_revision="git:test",
+        )
+
+    root = _build(tmp_path)
+    observations_path = root / "observations.json"
+    observations = json.loads(observations_path.read_text(encoding="utf-8"))
+    observations["rows"][0]["inputs"]["process.temperature"] = non_finite
+    observations_path.write_text(
+        json.dumps(
+            observations,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in manifest["artifacts"]
+        if item["path"] == observations_path.name
+    )
+    payload = observations_path.read_bytes()
+    artifact["bytes"] = len(payload)
+    artifact["sha256"] = hashlib.sha256(payload).hexdigest()
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    with pytest.raises(DesignPriorPackageError, match="finite"):
+        DesignPriorPackageLoader().load(root)
+
+
 def test_knn_distance_and_typicality_are_measured_from_generated_point_to_all_rows(tmp_path: Path) -> None:
     root = build_design_prior_package(
         tmp_path / "distance-prior",
