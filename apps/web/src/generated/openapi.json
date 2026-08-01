@@ -8176,6 +8176,51 @@
         "title": "CurveVariableCategorical",
         "type": "object"
       },
+      "CyclicOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "cos_output": {
+            "minLength": 1,
+            "title": "Cos Output",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "cyclic",
+            "title": "Kind",
+            "type": "string"
+          },
+          "period": {
+            "exclusiveMinimum": 0.0,
+            "title": "Period",
+            "type": "number"
+          },
+          "sin_output": {
+            "minLength": 1,
+            "title": "Sin Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "period",
+          "sin_output",
+          "cos_output"
+        ],
+        "title": "CyclicOperation",
+        "type": "object"
+      },
       "DataExplorerCapability": {
         "additionalProperties": false,
         "properties": {
@@ -10220,6 +10265,226 @@
         "title": "FeaturePipelineIdentity",
         "type": "object"
       },
+      "FeatureRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_input_paths": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Canonical Input Paths",
+            "type": "array"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeFeature"
+            },
+            "minItems": 1,
+            "title": "Features",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "cyclic": "#/components/schemas/CyclicOperation",
+                  "impute": "#/components/schemas/ImputeOperation",
+                  "log1p": "#/components/schemas/Log1pOperation",
+                  "missing_indicator": "#/components/schemas/MissingIndicatorOperation",
+                  "one_hot": "#/components/schemas/OneHotOperation",
+                  "pairwise_interaction": "#/components/schemas/PairwiseInteractionOperation",
+                  "passthrough": "#/components/schemas/PassthroughOperation",
+                  "polynomial_degree_2": "#/components/schemas/PolynomialDegree2Operation",
+                  "robust_scale": "#/components/schemas/RobustScaleOperation",
+                  "standardize": "#/components/schemas/StandardizeOperation"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PassthroughOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/StandardizeOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/RobustScaleOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/Log1pOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/PolynomialDegree2Operation"
+                },
+                {
+                  "$ref": "#/components/schemas/OneHotOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/MissingIndicatorOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/ImputeOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/PairwiseInteractionOperation"
+                },
+                {
+                  "$ref": "#/components/schemas/CyclicOperation"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "feature-recipe/v1",
+            "default": "feature-recipe/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "canonical_input_paths",
+          "operations",
+          "features"
+        ],
+        "title": "FeatureRecipe",
+        "type": "object"
+      },
+      "FeatureRecipeInspectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_input": {
+            "additionalProperties": true,
+            "title": "Canonical Input",
+            "type": "object"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/FeatureRecipe"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FeatureRecipeState"
+          }
+        },
+        "required": [
+          "recipe",
+          "state",
+          "canonical_input"
+        ],
+        "title": "FeatureRecipeInspectRequest",
+        "type": "object"
+      },
+      "FeatureRecipeInspectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_input": {
+            "additionalProperties": true,
+            "title": "Canonical Input",
+            "type": "object"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Features",
+            "type": "object"
+          },
+          "recipe_digest": {
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "recipe_id": {
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "state_digest": {
+            "title": "State Digest",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recipe_id",
+          "recipe_digest",
+          "state_digest",
+          "canonical_input",
+          "steps",
+          "features"
+        ],
+        "title": "FeatureRecipeInspectResponse",
+        "type": "object"
+      },
+      "FeatureRecipeState": {
+        "additionalProperties": false,
+        "properties": {
+          "fit_row_count": {
+            "minimum": 1.0,
+            "title": "Fit Row Count",
+            "type": "integer"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationFitState"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "output_features": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Output Features",
+            "type": "array"
+          },
+          "recipe_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Recipe Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "feature-recipe-state/v1",
+            "default": "feature-recipe-state/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "State Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe_digest",
+          "fit_row_count",
+          "operations",
+          "output_features",
+          "state_digest"
+        ],
+        "title": "FeatureRecipeState",
+        "type": "object"
+      },
       "FetchAttempt": {
         "additionalProperties": false,
         "properties": {
@@ -10576,6 +10841,59 @@
           "kind"
         ],
         "title": "IdenticalDuplicateMerge",
+        "type": "object"
+      },
+      "ImputeOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "impute",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          },
+          "strategy": {
+            "enum": [
+              "constant",
+              "median"
+            ],
+            "title": "Strategy",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output",
+          "strategy"
+        ],
+        "title": "ImputeOperation",
         "type": "object"
       },
       "InferenceDiagnosticsResponse": {
@@ -11931,6 +12249,39 @@
         "title": "LineageSourceRef",
         "type": "object"
       },
+      "Log1pOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "log1p",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output"
+        ],
+        "title": "Log1pOperation",
+        "type": "object"
+      },
       "ManualSourceRef": {
         "additionalProperties": false,
         "properties": {
@@ -12011,6 +12362,39 @@
           "upper"
         ],
         "title": "MaterialRatioBound",
+        "type": "object"
+      },
+      "MissingIndicatorOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "missing_indicator",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output"
+        ],
+        "title": "MissingIndicatorOperation",
         "type": "object"
       },
       "ModelIdentity": {
@@ -13426,6 +13810,72 @@
         "title": "OnboardingWorksheet",
         "type": "object"
       },
+      "OneHotOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Choices",
+            "type": "array"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "one_hot",
+            "title": "Kind",
+            "type": "string"
+          },
+          "other_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Choice"
+          },
+          "outputs": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Outputs",
+            "type": "array"
+          },
+          "unknown_policy": {
+            "default": "reject",
+            "enum": [
+              "reject",
+              "map_to_other",
+              "map_to_missing"
+            ],
+            "title": "Unknown Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "choices",
+          "outputs"
+        ],
+        "title": "OneHotOperation",
+        "type": "object"
+      },
       "OperationDiagnostic": {
         "properties": {
           "coalesced": {
@@ -13468,6 +13918,33 @@
           "total_duration_ms"
         ],
         "title": "OperationDiagnostic",
+        "type": "object"
+      },
+      "OperationFitState": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operation_id": {
+            "minLength": 1,
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "operation_id",
+          "kind"
+        ],
+        "title": "OperationFitState",
         "type": "object"
       },
       "OrdinalOutputSemantics": {
@@ -13871,6 +14348,120 @@
           }
         },
         "title": "PackageIdentity",
+        "type": "object"
+      },
+      "PairwiseInteractionOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "inputs": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Inputs",
+            "type": "array"
+          },
+          "kind": {
+            "const": "pairwise_interaction",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "inputs",
+          "output"
+        ],
+        "title": "PairwiseInteractionOperation",
+        "type": "object"
+      },
+      "PassthroughOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "passthrough",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output"
+        ],
+        "title": "PassthroughOperation",
+        "type": "object"
+      },
+      "PolynomialDegree2Operation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "polynomial_degree_2",
+            "title": "Kind",
+            "type": "string"
+          },
+          "linear_output": {
+            "minLength": 1,
+            "title": "Linear Output",
+            "type": "string"
+          },
+          "square_output": {
+            "minLength": 1,
+            "title": "Square Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "linear_output",
+          "square_output"
+        ],
+        "title": "PolynomialDegree2Operation",
         "type": "object"
       },
       "Prediction": {
@@ -18432,6 +19023,45 @@
         "title": "ReadinessPreflight",
         "type": "object"
       },
+      "RecipeFeature": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "composition",
+              "process",
+              "categorical",
+              "metallurgy",
+              "heat_pattern",
+              "other"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "meaning": {
+            "minLength": 1,
+            "title": "Meaning",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "unit",
+          "meaning",
+          "group"
+        ],
+        "title": "RecipeFeature",
+        "type": "object"
+      },
       "RelationalConstraint": {
         "additionalProperties": false,
         "properties": {
@@ -18995,6 +19625,39 @@
           "digest"
         ],
         "title": "RevisionRef",
+        "type": "object"
+      },
+      "RobustScaleOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "robust_scale",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output"
+        ],
+        "title": "RobustScaleOperation",
         "type": "object"
       },
       "RobustnessFailureExample": {
@@ -22174,6 +22837,39 @@
         "title": "StageSamplingCapability",
         "type": "object"
       },
+      "StandardizeOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "kind": {
+            "const": "standardize",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "input",
+          "output"
+        ],
+        "title": "StandardizeOperation",
+        "type": "object"
+      },
       "SubsystemAvailability": {
         "additionalProperties": false,
         "properties": {
@@ -24782,6 +25478,48 @@
           }
         },
         "summary": "Get Diagnostics",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/feature-recipe/inspect": {
+      "post": {
+        "description": "Trace a data-only recipe without importing or executing Package code.",
+        "operationId": "inspect_feature_recipe_endpoint_api_developer_feature_recipe_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureRecipeInspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureRecipeInspectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Feature Recipe Endpoint",
         "tags": [
           "developer"
         ]

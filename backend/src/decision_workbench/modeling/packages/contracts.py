@@ -135,6 +135,24 @@ class PipelineMissingPolicySpec(PackageModel):
     ] = Field(default_factory=dict)
 
 
+class FeatureRecipeArtifactSpec(PackageModel):
+    schema_version: Literal["feature-recipe-artifacts/v1"] = (
+        "feature-recipe-artifacts/v1"
+    )
+    recipe: str
+    recipe_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+    state: str
+    state_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+    @field_validator("recipe", "state")
+    @classmethod
+    def package_relative_file(cls, value: str) -> str:
+        path = Path(value)
+        if not value or path.is_absolute() or ".." in path.parts:
+            raise ValueError("feature recipe artifact path must be package-relative")
+        return value.replace("\\", "/")
+
+
 class FeaturePipelineDocument(PackageModel):
     """Common contract carried by every task-specific pipeline document."""
 
@@ -146,6 +164,7 @@ class FeaturePipelineDocument(PackageModel):
     heat_interpolation: str | None = None
     series_representations: tuple[SeriesFeatureContract, ...] = ()
     missing_policy: PipelineMissingPolicySpec | None = None
+    feature_recipe: FeatureRecipeArtifactSpec | None = None
 
     @field_validator("canonical_input_paths")
     @classmethod

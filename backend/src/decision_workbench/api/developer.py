@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import lru_cache
 import json
 import os
+from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Annotated
@@ -15,44 +15,48 @@ from openpyxl.utils.exceptions import InvalidFileException
 from decision_workbench.api.dependencies import (
     get_project_runtime_resolver,
     get_store,
+    get_subsystem_availability,
     get_task_registry,
     get_workspace_catalog,
-    get_subsystem_availability,
 )
-from decision_workbench.developer_experience.change_guide import change_guide_entries
-from decision_workbench.developer_experience.runtime_diagnostics import run_runtime_diagnostics
-from decision_workbench.developer_experience.readiness import (
-    ReadinessCatalog,
-    ReadinessPreflight,
-    preflight_source,
-    readiness_catalog,
-)
-from decision_workbench.developer_experience.schemas import (
-    ChangeGuideEntry,
-    DeveloperOverview,
-    DeveloperOverviewItem,
-    RuntimeDiagnosticsReport,
+from decision_workbench.application.project_runtime import ProjectRuntimeResolver
+from decision_workbench.contracts.evidence_contracts import ApiError
+from decision_workbench.contracts.subsystem_availability import (
+    SubsystemAvailabilityRegistry,
 )
 from decision_workbench.data.observation_profile import (
+    ObservationProfileError,
     ObservationTrainingDataset,
     ObservationTrainingInspectionPage,
     ObservationTrainingProfileSummary,
-    ObservationProfileError,
     inspect_observation_training_view,
 )
 from decision_workbench.data.profile_family_registry import (
     ProfileFamilyUnavailableError,
     load_inspection_descriptor,
 )
-from decision_workbench.contracts.evidence_contracts import ApiError
+from decision_workbench.developer_experience.change_guide import change_guide_entries
+from decision_workbench.developer_experience.readiness import (
+    ReadinessCatalog,
+    ReadinessPreflight,
+    preflight_source,
+    readiness_catalog,
+)
+from decision_workbench.developer_experience.runtime_diagnostics import (
+    run_runtime_diagnostics,
+)
+from decision_workbench.developer_experience.schemas import (
+    ChangeGuideEntry,
+    DeveloperOverview,
+    DeveloperOverviewItem,
+    FeatureRecipeInspectRequest,
+    FeatureRecipeInspectResponse,
+    RuntimeDiagnosticsReport,
+)
+from decision_workbench.modeling.training.feature_recipe import inspect_feature_recipe
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
-from decision_workbench.application.project_runtime import ProjectRuntimeResolver
-from decision_workbench.contracts.subsystem_availability import (
-    SubsystemAvailabilityRegistry,
-)
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
-
 
 router = APIRouter(prefix="/api/developer", tags=["developer"])
 _ROOT = Path(__file__).resolve().parents[4]
@@ -88,6 +92,29 @@ _OBSERVATION_PROFILE_REGISTRY = (
         profile_path=_WELDING_STAGE_B_PROFILE,
     ),
 )
+
+
+@router.post(
+    "/feature-recipe/inspect",
+    response_model=FeatureRecipeInspectResponse,
+)
+def inspect_feature_recipe_endpoint(
+    payload: FeatureRecipeInspectRequest,
+) -> FeatureRecipeInspectResponse:
+    """Trace a data-only recipe without importing or executing Package code."""
+
+    try:
+        return FeatureRecipeInspectResponse.model_validate(
+            inspect_feature_recipe(
+                payload.recipe,
+                payload.state,
+                payload.canonical_input,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 _OBSERVATION_API_ERRORS = {
     503: {"model": ApiError, "description": "Observation Profile Unavailable"},
 }

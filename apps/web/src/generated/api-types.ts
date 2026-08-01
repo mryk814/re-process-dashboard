@@ -507,6 +507,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/feature-recipe/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Feature Recipe Endpoint
+         * @description Trace a data-only recipe without importing or executing Package code.
+         */
+        post: operations["inspect_feature_recipe_endpoint_api_developer_feature_recipe_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/developer/observation-training-data": {
         parameters: {
             query?: never;
@@ -5461,6 +5481,24 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** CyclicOperation */
+        CyclicOperation: {
+            /** Cos Output */
+            cos_output: string;
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "cyclic";
+            /** Period */
+            period: number;
+            /** Sin Output */
+            sin_output: string;
+        };
         /** DataExplorerCapability */
         DataExplorerCapability: {
             /** Candidate Creation */
@@ -6260,6 +6298,74 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** FeatureRecipe */
+        FeatureRecipe: {
+            /** Canonical Input Paths */
+            canonical_input_paths: string[];
+            /** Features */
+            features: components["schemas"]["RecipeFeature"][];
+            /** Id */
+            id: string;
+            /** Operations */
+            operations: (components["schemas"]["PassthroughOperation"] | components["schemas"]["StandardizeOperation"] | components["schemas"]["RobustScaleOperation"] | components["schemas"]["Log1pOperation"] | components["schemas"]["PolynomialDegree2Operation"] | components["schemas"]["OneHotOperation"] | components["schemas"]["MissingIndicatorOperation"] | components["schemas"]["ImputeOperation"] | components["schemas"]["PairwiseInteractionOperation"] | components["schemas"]["CyclicOperation"])[];
+            /**
+             * Schema Version
+             * @default feature-recipe/v1
+             * @constant
+             */
+            schema_version: "feature-recipe/v1";
+            /** Version */
+            version: string;
+        };
+        /** FeatureRecipeInspectRequest */
+        FeatureRecipeInspectRequest: {
+            /** Canonical Input */
+            canonical_input: {
+                [key: string]: unknown;
+            };
+            recipe: components["schemas"]["FeatureRecipe"];
+            state: components["schemas"]["FeatureRecipeState"];
+        };
+        /** FeatureRecipeInspectResponse */
+        FeatureRecipeInspectResponse: {
+            /** Canonical Input */
+            canonical_input: {
+                [key: string]: unknown;
+            };
+            /** Features */
+            features: {
+                [key: string]: number;
+            };
+            /** Recipe Digest */
+            recipe_digest: string;
+            /** Recipe Id */
+            recipe_id: string;
+            /** State Digest */
+            state_digest: string;
+            /** Steps */
+            steps: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** FeatureRecipeState */
+        FeatureRecipeState: {
+            /** Fit Row Count */
+            fit_row_count: number;
+            /** Operations */
+            operations: components["schemas"]["OperationFitState"][];
+            /** Output Features */
+            output_features: string[];
+            /** Recipe Digest */
+            recipe_digest: string;
+            /**
+             * Schema Version
+             * @default feature-recipe-state/v1
+             * @constant
+             */
+            schema_version: "feature-recipe-state/v1";
+            /** State Digest */
+            state_digest: string;
+        };
         /** FetchAttempt */
         FetchAttempt: {
             /** Connector Id */
@@ -6389,6 +6495,27 @@ export interface components {
              * @enum {string}
              */
             kind: "merge_identical_duplicates";
+        };
+        /** ImputeOperation */
+        ImputeOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "impute";
+            /** Output */
+            output: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "constant" | "median";
+            /** Value */
+            value?: number | null;
         };
         /** InferenceDiagnosticsResponse */
         InferenceDiagnosticsResponse: {
@@ -6901,6 +7028,20 @@ export interface components {
             source_kind: "lineage";
             source_ref: components["schemas"]["LineageReference"];
         };
+        /** Log1pOperation */
+        Log1pOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "log1p";
+            /** Output */
+            output: string;
+        };
         /** ManualSourceRef */
         ManualSourceRef: {
             /**
@@ -6932,6 +7073,20 @@ export interface components {
             material_id: string;
             /** Upper */
             upper: number;
+        };
+        /** MissingIndicatorOperation */
+        MissingIndicatorOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "missing_indicator";
+            /** Output */
+            output: string;
         };
         /** ModelIdentity */
         ModelIdentity: {
@@ -7441,6 +7596,30 @@ export interface components {
              */
             state: "visible" | "hidden" | "veryHidden";
         };
+        /** OneHotOperation */
+        OneHotOperation: {
+            /** Choices */
+            choices: string[];
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "one_hot";
+            /** Other Choice */
+            other_choice?: string | null;
+            /** Outputs */
+            outputs: string[];
+            /**
+             * Unknown Policy
+             * @default reject
+             * @enum {string}
+             */
+            unknown_policy: "reject" | "map_to_other" | "map_to_missing";
+        };
         /** OperationDiagnostic */
         OperationDiagnostic: {
             /** Coalesced */
@@ -7455,6 +7634,17 @@ export interface components {
             /** Runtime Types */
             runtime_types: string[];
             total_duration_ms: components["schemas"]["DurationDiagnostic"];
+        };
+        /** OperationFitState */
+        OperationFitState: {
+            /** Kind */
+            kind: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Parameters */
+            parameters?: {
+                [key: string]: number;
+            };
         };
         /** OrdinalOutputSemantics */
         OrdinalOutputSemantics: {
@@ -7614,6 +7804,53 @@ export interface components {
             version: string;
         } & {
             [key: string]: unknown;
+        };
+        /** PairwiseInteractionOperation */
+        PairwiseInteractionOperation: {
+            /** Id */
+            id: string;
+            /** Inputs */
+            inputs: [
+                string,
+                string
+            ];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "pairwise_interaction";
+            /** Output */
+            output: string;
+        };
+        /** PassthroughOperation */
+        PassthroughOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "passthrough";
+            /** Output */
+            output: string;
+        };
+        /** PolynomialDegree2Operation */
+        PolynomialDegree2Operation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "polynomial_degree_2";
+            /** Linear Output */
+            linear_output: string;
+            /** Square Output */
+            square_output: string;
         };
         /** Prediction */
         Prediction: {
@@ -9409,6 +9646,20 @@ export interface components {
              */
             workbook_sheets: string[];
         };
+        /** RecipeFeature */
+        RecipeFeature: {
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "composition" | "process" | "categorical" | "metallurgy" | "heat_pattern" | "other";
+            /** Meaning */
+            meaning: string;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+        };
         /** RelationalConstraint */
         RelationalConstraint: {
             /** Left Path */
@@ -9690,6 +9941,20 @@ export interface components {
             unit: string;
             /** Worst Observed */
             worst_observed: number;
+        };
+        /** RobustScaleOperation */
+        RobustScaleOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "robust_scale";
+            /** Output */
+            output: string;
         };
         /** RuntimeAvailability */
         RuntimeAvailability: {
@@ -10830,6 +11095,20 @@ export interface components {
             schema_version: "stage-sampling-capability/v1";
             /** Supported */
             supported: boolean;
+        };
+        /** StandardizeOperation */
+        StandardizeOperation: {
+            /** Id */
+            id: string;
+            /** Input */
+            input: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "standardize";
+            /** Output */
+            output: string;
         };
         /** SubsystemAvailability */
         SubsystemAvailability: {
@@ -12341,6 +12620,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeDiagnosticsReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    inspect_feature_recipe_endpoint_api_developer_feature_recipe_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureRecipeInspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureRecipeInspectResponse"];
                 };
             };
             /** @description Validation Error */

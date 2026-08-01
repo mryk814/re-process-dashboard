@@ -12,7 +12,10 @@ from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
     TargetValue,
 )
-from decision_workbench.contracts.feature_contracts import FeatureBundle
+from decision_workbench.contracts.feature_contracts import (
+    FeatureBundle,
+    FeatureDefinition,
+)
 from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
@@ -20,8 +23,14 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
 from decision_workbench.data.profiles.loading import load_task_definitions
 from decision_workbench.domain.goal_targets import goal_fields
 from decision_workbench.execution.inference_work_graph import semantic_digest
-from decision_workbench.modeling.curve_grid import anchored_curve_grid, numeric_domain_grid
+from decision_workbench.modeling.conformal_intervals import VerifiedConformalWrapper
+from decision_workbench.modeling.curve_grid import (
+    anchored_curve_grid,
+    numeric_domain_grid,
+)
+from decision_workbench.modeling.package_capabilities import package_capability_matrix
 from decision_workbench.modeling.packages.contracts import (
+    FeaturePipelineDocument,
     PredictiveSummary,
     predictive_interval,
     validate_predictive_summary,
@@ -30,8 +39,12 @@ from decision_workbench.modeling.packages.contracts import (
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.ports import LoadedBatchPredictor
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
-from decision_workbench.modeling.conformal_intervals import VerifiedConformalWrapper
-from decision_workbench.modeling.package_capabilities import package_capability_matrix
+from decision_workbench.modeling.training.feature_recipe import (
+    canonical_recipe_inputs,
+    load_feature_recipe_artifacts,
+    transform_feature_recipe,
+    validate_recipe_canonical_inputs,
+)
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 from .data import TabularData
@@ -40,6 +53,7 @@ from .features import (
     _set_path,
     build_tabular_features,
     build_tabular_features_from_observation,
+    candidate_from_observation,
     feature_definitions,
 )
 
@@ -108,7 +122,30 @@ class TabularRegressionRuntime:
         validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != self.task_id:
             raise ValueError(f"Model package task {manifest.task_id} is incompatible with {self.task_id}")
-        expected_features = tuple(item.name for item in feature_definitions(self.profile))
+        pipeline_document = FeaturePipelineDocument.model_validate_json(
+            self.model_package.artifact_path(
+                manifest.feature_pipeline.spec
+            ).read_text(encoding="utf-8")
+        )
+        self.feature_recipe = None
+        self.feature_recipe_state = None
+        if pipeline_document.feature_recipe is not None:
+            recipe_ref = pipeline_document.feature_recipe
+            self.feature_recipe, self.feature_recipe_state = (
+                load_feature_recipe_artifacts(
+                    self.model_package.artifact_path(recipe_ref.recipe),
+                    self.model_package.artifact_path(recipe_ref.state),
+                )
+            )
+            validate_recipe_canonical_inputs(
+                self.feature_recipe,
+                manifest.feature_pipeline.canonical_input_paths,
+            )
+        expected_features = (
+            tuple(item.name for item in self.feature_recipe.features)
+            if self.feature_recipe is not None
+            else tuple(item.name for item in feature_definitions(self.profile))
+        )
         if tuple(manifest.feature_pipeline.output_features) != expected_features:
             raise ValueError("Tabular model package feature order is incompatible")
         self.predictors = {
@@ -149,10 +186,60 @@ class TabularRegressionRuntime:
             for item in self.profile.inputs
             if item.numeric_missing.strategy == "training_median_with_indicator"
         }
-        if set(self.imputation_values) != required_imputation:
+        if (
+            self.feature_recipe is None
+            and set(self.imputation_values) != required_imputation
+        ):
             raise ValueError("Package missing-policy artifact does not match Profile")
         self._verify_smoke()
         self._build_support_reference()
+
+    def _recipe_inputs(self, candidate: CandidateInput) -> dict[str, Any]:
+        assert self.feature_recipe is not None
+        return canonical_recipe_inputs(candidate, self.feature_recipe)
+
+    def _feature_bundle(self, candidate: CandidateInput) -> FeatureBundle:
+        if self.feature_recipe is None:
+            return build_tabular_features(
+                candidate,
+                self.profile,
+                self.imputation_values,
+            )
+        assert self.feature_recipe_state is not None
+        values = transform_feature_recipe(
+            self.feature_recipe,
+            self.feature_recipe_state,
+            [self._recipe_inputs(candidate)],
+        )[0]
+        return FeatureBundle(
+            pipeline_id=self.feature_recipe.id,
+            pipeline_version=self.feature_recipe.version,
+            definitions=tuple(
+                FeatureDefinition(
+                    item.name,
+                    item.unit,
+                    item.meaning,
+                    item.group,
+                )
+                for item in self.feature_recipe.features
+            ),
+            values=values,
+        )
+
+    def _observation_feature_bundle(self, row: dict[str, Any]) -> FeatureBundle:
+        if self.feature_recipe is None:
+            return build_tabular_features_from_observation(
+                row,
+                self.imputation_values,
+                self.profile,
+            )
+        return self._feature_bundle(
+            candidate_from_observation(
+                row,
+                self.profile,
+                preserve_normalized_missing=True,
+            )
+        )
 
     @property
     def output_keys(self) -> frozenset[str]:
@@ -196,11 +283,7 @@ class TabularRegressionRuntime:
         method = self.chain_sampling_method
         if not method:
             raise ValueError("このruntime/packageはStage sampleを提供しません")
-        values = build_tabular_features(
-            candidate,
-            self.profile,
-            self.imputation_values,
-        ).as_dict()
+        values = self._feature_bundle(candidate).as_dict()
         targets = sorted(self.predictors)
         seeds = np.random.SeedSequence(seed).spawn(len(targets))
         outputs = {
@@ -234,11 +317,7 @@ class TabularRegressionRuntime:
         expected = json.loads(
             self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8")
         )
-        values = build_tabular_features(
-            candidate,
-            self.profile,
-            self.imputation_values,
-        ).as_dict()
+        values = self._feature_bundle(candidate).as_dict()
         specs = {item.target: item for item in self.model_package.manifest.predictors}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
@@ -258,9 +337,7 @@ class TabularRegressionRuntime:
                 if row["eligible"] and target in row["outputs"]
             ]
             raw = np.vstack([
-                build_tabular_features_from_observation(
-                    row, self.imputation_values, self.profile
-                ).values
+                self._observation_feature_bundle(row).values
                 for row in eligible
             ])
             reference_mean = raw.mean(axis=0)
@@ -305,11 +382,7 @@ class TabularRegressionRuntime:
         include_similarity: bool,
     ) -> tuple[Support, list[dict[str, Any]]]:
         reference = self.support_references[target]
-        vector = build_tabular_features(
-            candidate,
-            self.profile,
-            self.imputation_values,
-        ).values
+        vector = self._feature_bundle(candidate).values
         candidate_missing = _missing_input_paths(candidate, self.profile)
         normalized = (vector - reference["mean"]) / reference["scale"]
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
@@ -470,11 +543,7 @@ class TabularRegressionRuntime:
         _summaries: dict[str, PredictiveSummary] | None = None,
         **_: Any,
     ) -> dict[str, Any]:
-        values = _prepared_values or build_tabular_features(
-            candidate,
-            self.profile,
-            self.imputation_values,
-        ).as_dict()
+        values = _prepared_values or self._feature_bundle(candidate).as_dict()
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
         for target, predictor in self.predictors.items():
@@ -741,11 +810,7 @@ class TabularRegressionRuntime:
                 "このruntimeのpredictorはnative batch predictionを提供しません"
             )
         feature_rows = [
-            build_tabular_features(
-                candidate,
-                self.profile,
-                self.imputation_values,
-            )
+            self._feature_bundle(candidate)
             for candidate in candidates
         ]
         value_rows = [item.as_dict() for item in feature_rows]
@@ -845,11 +910,7 @@ class TabularRegressionRuntime:
             adjusted = candidate.model_copy(deep=True)
             _set_path(adjusted, variable, float(x_value))
             summary = self.predictors[target].predict(
-                build_tabular_features(
-                    adjusted,
-                    self.profile,
-                    self.imputation_values,
-                ).as_dict()
+                self._feature_bundle(adjusted).as_dict()
             )
             lower, upper = predictive_interval(summary)
             output_profile = next(item for item in self.profile.outputs if item.key == target)

@@ -183,6 +183,12 @@ deploy用校正値は各行を未観測にしたouter OOF予測から作る。
 
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
+標準Tabular Packageが`feature-recipe/v1`を使う場合、pipeline documentの
+`feature_recipe`はRecipe JSONとfit-state JSON、そのsemantic digestを指す。
+両artifactはmanifestの`feature_pipeline.artifacts`にも列挙し、
+loaderはRecipe、state、`output_features`、predictor feature順の一致を検証する。
+詳細は[Feature Recipe](feature-recipe.md)を正本とする。
+
 TaskDefinitionは予測意味を固定するcontextとfield間制約も保持する。熱延v1では設備・試験片方向を固定contextにせず、仕上げ温度は均熱温度以下、出側板厚は入側板厚未満とする。これらをruntime固有コードだけに埋め込まない。
 
 ## 実行能力（Runtime capability）
