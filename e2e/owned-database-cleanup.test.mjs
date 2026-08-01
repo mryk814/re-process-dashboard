@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   registerOwnedDatabaseCleanup,
@@ -69,4 +72,26 @@ test("unexpected cleanup errors fail only an otherwise successful run", () => {
   exitCallback(2);
   assert.deepEqual(exitCodes, [1]);
   assert.match(reports[0], /EACCES|denied/);
+});
+
+test("cleanup outcome is written to a test artifact when a report path is supplied", () => {
+  const directory = mkdtempSync(join(tmpdir(), "decision-workbench-cleanup-report-"));
+  const reportPath = join(directory, "cleanup.jsonl");
+  let exitCallback;
+  registerOwnedDatabaseCleanup("owned.db", {
+    once: (_event, callback) => {
+      exitCallback = callback;
+    },
+    remove: () => undefined,
+    reportPath,
+  });
+  exitCallback(0);
+  const [entry] = readFileSync(reportPath, "utf8").trim().split("\n").map(JSON.parse);
+  assert.deepEqual(entry, {
+    schema_version: "e2e-cleanup-report/v1",
+    label: "database",
+    target: "owned.db",
+    outcome: "removed",
+  });
+  rmSync(directory, { recursive: true, force: true });
 });
