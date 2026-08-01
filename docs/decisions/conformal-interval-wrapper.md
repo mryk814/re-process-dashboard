@@ -11,7 +11,7 @@ scope: split conformal regression wrapper
 Point predictorに予測分布、標準偏差、目標達成確率を後付けしない。
 split conformal regressionは、既存のModel Packageを変更しないdata-only wrapperとして扱う。
 
-wrapperはbase Package ID／manifest digest、target／unit、feature pipeline identity、calibration Dataset View／Training Snapshot、split・group policy、score ID、finite-sample rule、alpha、calibration score artifactのhash・score count・有限性、build revisionを固定する。
+wrapperはbase Package ID／manifest digest、predictor ID、target／unit、feature pipeline identity、calibration Dataset View／Training Snapshot、split・group policy、score ID、finite-sample rule、alpha、calibration score artifactのhash・score count・有限性、build revisionを固定する。
 held-out qualityには評価Dataset digest、marginal coverage、幅、group別診断、calibration件数とsmall-sample warning、base point metricを残す。evaluation Datasetはcalibration Datasetと同一にできない。
 
 P0のscoreは`absolute_residual/v1`、ruleは`ceil_n_plus_1_over_coverage/v1`、連続targetの対称区間だけである。wrapperはbase Package digestまたはfeature pipeline identityが異なれば拒否する。
@@ -20,7 +20,7 @@ P0のscoreは`absolute_residual/v1`、ruleは`ceil_n_plus_1_over_coverage/v1`、
 
 `PredictiveSummary.prediction_interval`はmethodを明示する。conformalはcalibration evidenceを必須にし、quantile、parametric、Bayesian intervalとは同じfield shapeでも区別する。
 
-conformal wrapperが追加するcapabilityは`conformal_interval`だけである。`standard_deviation`、`predictive_samples`、`parametric_distribution`、`goal_probability`、`quantiles`はbase runtimeの宣言を変更しない。したがってUCB／EIなど標準偏差を要する戦略は理由付きで利用不可のままであり、区間だけからCDFや個別候補の確率を推定しない。
+conformal wrapperが追加するcapabilityは`conformal_interval`だけであり、capability matrixにはwrapper ID／version／manifest digestをlayer identityとして残す。`standard_deviation`、`predictive_samples`、`parametric_distribution`、`goal_probability`、`quantiles`はbase runtimeの宣言を変更しない。したがってUCB／EIなど標準偏差を要する戦略は理由付きで利用不可のままであり、区間だけからCDFや個別候補の確率を推定しない。
 
 ## Adopted evidence
 

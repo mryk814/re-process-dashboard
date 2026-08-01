@@ -19,7 +19,6 @@ from decision_workbench.modeling.conformal_intervals import (
 from decision_workbench.modeling.package_capabilities import resolve_capabilities
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
-    PredictiveSummary,
     predictive_interval,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
@@ -44,7 +43,13 @@ def _base_package(root: Path):
         "features": [{"name": "x", "unit": "1", "meaning": "fixture", "group": "process"}],
     }), encoding="utf-8")
     artifact = root / "model-artifacts" / "linear.npz"
-    np.savez(artifact, weights=np.array([1.0]), bias=np.array(0.0))
+    np.savez(
+        artifact,
+        weights=np.array([1.0]),
+        bias=np.array(0.0),
+        lower_offset=np.array(-0.5),
+        upper_offset=np.array(0.5),
+    )
     manifest = {
         "schema_version": "model-package/v1", "package_id": "point-fixture",
         "package_version": "1", "task_id": "fixture-task", "input_schema_version": "candidate-v1",
@@ -68,6 +73,7 @@ def _wrapper(root: Path, package, *, calibration_digest: str = "a" * 64) -> Path
         "schema_version": "conformal-wrapper/v1", "wrapper_id": "point-fixture-conformal",
         "wrapper_version": "1", "base_package_id": package.manifest.package_id,
         "base_package_manifest_digest": f"sha256:{package.manifest_sha256}",
+        "base_predictor_id": "point",
         "target": "y", "unit": "MPa",
         "feature_pipeline": {"id": pipeline.id, "version": pipeline.version, "spec_sha256": pipeline_artifact.sha256},
         "calibration": {"dataset_view_digest": f"sha256:{calibration_digest}", "training_snapshot_digest": f"sha256:{'b' * 64}", "split_policy_id": "split-conformal/train-calibration/v1", "group_policy_id": "row/v1"},
@@ -80,27 +86,21 @@ def _wrapper(root: Path, package, *, calibration_digest: str = "a" * 64) -> Path
     return root
 
 
-class _PointPredictor:
-    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
-        return PredictiveSummary(
-            target="y", target_kind="continuous", unit="MPa", point_statistic="mean",
-            point_estimate=2.0, quantiles={"0.05": 1.0, "0.95": 3.0},
-            distribution={"family": "empirical_quantiles"},
-        )
-
-
 def test_split_conformal_wrapper_is_bound_to_base_identity_and_exposes_explicit_interval(tmp_path: Path) -> None:
     package = _base_package(tmp_path / "base")
     wrapper = verify_conformal_wrapper(_wrapper(tmp_path / "wrapper", package), base_package=package)
 
-    summary = wrapper.wrap(_PointPredictor()).predict({"x": 2.0})
+    summary = wrapper.load_predictor().predict({"x": 2.0})
 
     assert summary.prediction_interval is not None
     assert summary.prediction_interval.method == "conformal"
     assert summary.prediction_interval.coverage_level == pytest.approx(0.8)
     assert predictive_interval(summary) == pytest.approx((1.6, 2.4))
     assert summary.prediction_interval.calibration.calibration_sample_count == 4
-    assert summary.distribution == {"family": "empirical_quantiles"}
+    assert summary.distribution == {
+        "family": "empirical_quantiles",
+        "support": "real",
+    }
 
 
 def test_conformal_wrapper_enables_only_explicit_interval_capability(tmp_path: Path) -> None:
@@ -125,6 +125,8 @@ def test_conformal_wrapper_enables_only_explicit_interval_capability(tmp_path: P
     assert not resolve_capabilities(upgraded, target="y", requirements=(CapabilityRequirement(capability="goal_probability"),)).available
     assert upgraded.target("y").quantiles is False
     assert upgraded.target("y").parametric_distribution is False
+    assert upgraded.capability_layers[0].layer_id == "point-fixture-conformal"
+    assert upgraded.capability_layers[0].manifest_digest.startswith("sha256:")
 
 
 def test_conformal_wrapper_rejects_base_or_calibration_identity_drift(tmp_path: Path) -> None:
@@ -141,6 +143,12 @@ def test_conformal_wrapper_rejects_base_or_calibration_identity_drift(tmp_path: 
     manifest["quality"]["evaluation_dataset_digest"] = manifest["calibration"]["dataset_view_digest"]
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(PackageContractError, match="held-out evaluation dataset"):
+        verify_conformal_wrapper(wrapper_root, base_package=package)
+
+    manifest["quality"]["evaluation_dataset_digest"] = f"sha256:{'c' * 64}"
+    manifest["base_predictor_id"] = "unrelated"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(PackageContractError, match="predictor/unit"):
         verify_conformal_wrapper(wrapper_root, base_package=package)
 
 

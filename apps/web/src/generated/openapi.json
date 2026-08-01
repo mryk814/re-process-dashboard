@@ -3889,6 +3889,30 @@
         "title": "CanonicalSeriesRevision",
         "type": "object"
       },
+      "CapabilityLayerIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "layer_id": {
+            "title": "Layer Id",
+            "type": "string"
+          },
+          "layer_version": {
+            "title": "Layer Version",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer_id",
+          "layer_version",
+          "manifest_digest"
+        ],
+        "title": "CapabilityLayerIdentity",
+        "type": "object"
+      },
       "CapabilityRequirement": {
         "additionalProperties": false,
         "properties": {
@@ -11814,6 +11838,14 @@
       "ModelPackageCapabilityMatrix": {
         "additionalProperties": false,
         "properties": {
+          "capability_layers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CapabilityLayerIdentity"
+            },
+            "title": "Capability Layers",
+            "type": "array"
+          },
           "joint_samples": {
             "default": false,
             "title": "Joint Samples",

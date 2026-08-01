@@ -25,6 +25,12 @@ CapabilityName = Literal[
 ]
 
 
+class CapabilityLayerIdentity(ModelCapabilityContract):
+    layer_id: str
+    layer_version: str
+    manifest_digest: str
+
+
 class CapabilityRequirement(ModelCapabilityContract):
     capability: CapabilityName
     alternative: str | None = None
@@ -90,6 +96,7 @@ class ModelPackageCapabilityMatrix(ModelCapabilityContract):
     task_id: str
     package_id: str
     package_manifest_digest: str
+    capability_layers: tuple[CapabilityLayerIdentity, ...] = ()
     targets: tuple[TargetCapabilityMatrix, ...] = Field(min_length=1)
     joint_samples: bool = False
 
@@ -103,6 +110,10 @@ class ModelPackageCapabilityMatrix(ModelCapabilityContract):
             raise ValueError(
                 "joint samples require predictive samples for every target"
             )
+        if len({item.layer_id for item in self.capability_layers}) != len(
+            self.capability_layers
+        ):
+            raise ValueError("capability layer ids must be unique")
         return self
 
     def target(self, target: str) -> TargetCapabilityMatrix | None:

@@ -17,6 +17,7 @@ from typing import Annotated, Literal, Sequence
 from pydantic import Field, field_validator, model_validator
 
 from decision_workbench.contracts.model_capability_contracts import (
+    CapabilityLayerIdentity,
     ModelPackageCapabilityMatrix,
 )
 from decision_workbench.modeling.packages.contracts import (
@@ -156,6 +157,7 @@ class ConformalWrapperManifest(_Contract):
     wrapper_version: str = Field(min_length=1)
     base_package_id: str = Field(min_length=1)
     base_package_manifest_digest: _DIGEST
+    base_predictor_id: str = Field(min_length=1)
     target: str = Field(min_length=1)
     unit: str = Field(min_length=1)
     feature_pipeline: FeaturePipelineIdentity
@@ -206,7 +208,9 @@ def _base_feature_pipeline_identity(package: VerifiedModelPackage) -> FeaturePip
 @dataclass(frozen=True)
 class VerifiedConformalWrapper:
     manifest: ConformalWrapperManifest
+    manifest_digest: str
     scores: tuple[float, ...]
+    base_package: VerifiedModelPackage
 
     @property
     def coverage_level(self) -> float:
@@ -218,7 +222,9 @@ class VerifiedConformalWrapper:
         rank = math.ceil((len(ordered) + 1) * self.coverage_level)
         return ordered[min(max(rank, 1), len(ordered)) - 1]
 
-    def wrap(self, base: LoadedPredictor) -> "ConformalPredictor":
+    def load_predictor(self) -> "ConformalPredictor":
+        """Load only the predictor pinned and verified by this wrapper."""
+        base = self.base_package.load_predictor(self.manifest.base_predictor_id)
         return ConformalPredictor(base, self)
 
     def apply_capability(
@@ -234,7 +240,13 @@ class VerifiedConformalWrapper:
             raise PackageContractError("conformal wrapper target is absent from capability matrix")
         if target.target_kind not in {"continuous", "continuous_positive"}:
             raise PackageContractError("split conformal wrapper only supports continuous targets")
+        layer = CapabilityLayerIdentity(
+            layer_id=self.manifest.wrapper_id,
+            layer_version=self.manifest.wrapper_version,
+            manifest_digest=f"sha256:{self.manifest_digest}",
+        )
         return matrix.model_copy(update={
+            "capability_layers": (*matrix.capability_layers, layer),
             "targets": tuple(
                 item.model_copy(update={"conformal_interval": True})
                 if item.target == self.manifest.target else item
@@ -296,11 +308,17 @@ def verify_conformal_wrapper(
     if manifest.feature_pipeline != _base_feature_pipeline_identity(base_package):
         raise PackageContractError("conformal wrapper feature pipeline identity mismatch")
     predictor = next(
-        (item for item in base_package.manifest.predictors if item.target == manifest.target),
+        (
+            item
+            for item in base_package.manifest.predictors
+            if item.id == manifest.base_predictor_id
+        ),
         None,
     )
     if predictor is None or predictor.unit != manifest.unit:
-        raise PackageContractError("conformal wrapper target/unit does not match base package")
+        raise PackageContractError("conformal wrapper predictor/unit does not match base package")
+    if predictor.target != manifest.target:
+        raise PackageContractError("conformal wrapper predictor target does not match manifest")
     if predictor.target_kind not in {"continuous", "continuous_positive"}:
         raise PackageContractError("split conformal wrapper only supports continuous base predictors")
     payload = _verified_artifact(root, manifest.calibration_scores)
@@ -310,4 +328,9 @@ def verify_conformal_wrapper(
         raise PackageContractError(f"invalid conformal calibration scores: {exc}") from exc
     if len(scores) != manifest.calibration_score_count:
         raise PackageContractError("conformal calibration score shape mismatch")
-    return VerifiedConformalWrapper(manifest=manifest, scores=scores)
+    return VerifiedConformalWrapper(
+        manifest=manifest,
+        manifest_digest=hashlib.sha256(manifest_bytes).hexdigest(),
+        scores=scores,
+        base_package=base_package,
+    )

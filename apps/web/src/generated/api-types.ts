@@ -3766,6 +3766,15 @@ export interface components {
             /** Value Unit */
             value_unit: string;
         };
+        /** CapabilityLayerIdentity */
+        CapabilityLayerIdentity: {
+            /** Layer Id */
+            layer_id: string;
+            /** Layer Version */
+            layer_version: string;
+            /** Manifest Digest */
+            manifest_digest: string;
+        };
         /** CapabilityRequirement */
         CapabilityRequirement: {
             /** Alternative */
@@ -6778,6 +6787,11 @@ export interface components {
         };
         /** ModelPackageCapabilityMatrix */
         ModelPackageCapabilityMatrix: {
+            /**
+             * Capability Layers
+             * @default []
+             */
+            capability_layers: components["schemas"]["CapabilityLayerIdentity"][];
             /**
              * Joint Samples
              * @default false
