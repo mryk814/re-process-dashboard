@@ -56,12 +56,12 @@ test("startup restores the last opened location", async ({ page }) => {
 
 test("dataset import stays in the global data library context", async ({ page }) => {
   await page.goto("/?view=data-library");
-  await page.getByRole("button", { name: "Excelからデータセットを追加" }).click();
+  await page.getByRole("button", { name: "データを追加" }).click();
 
   await expect(page).toHaveURL(/view=profile-workbench/);
   expect(new URL(page.url()).searchParams.get("project")).toBeNull();
   expect(new URL(page.url()).searchParams.get("admin")).toBeNull();
-  await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "既存Taskへデータを対応付け" })).toBeVisible();
   await expect(page.getByRole("button", { name: "データライブラリ", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).toHaveCount(0);
@@ -69,7 +69,7 @@ test("dataset import stays in the global data library context", async ({ page })
   await page.reload();
   await expect(page).toHaveURL(/view=profile-workbench/);
   expect(new URL(page.url()).searchParams.get("project")).toBeNull();
-  await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "既存Taskへデータを対応付け" })).toBeVisible();
 
   await page.getByRole("button", { name: "データライブラリに戻る" }).click();
   await expect(page).toHaveURL(/view=data-library/);
@@ -78,6 +78,61 @@ test("dataset import stays in the global data library context", async ({ page })
   await page.goto("/?view=settings&project=default&admin=profile");
   await expect(page.getByRole("navigation", { name: "開発・管理メニュー" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新しいDatasetを準備" })).toHaveCount(0);
+});
+
+test("Data Library tab state is shareable and browser history restores it", async ({ page }) => {
+  let modelPackagesAvailable = true;
+  await page.route("**/api/data-library/model-packages?*", async (route) => {
+    if (!modelPackagesAvailable) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Model Package service is unavailable" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route("**/api/data-library/tasks/refresh", async (route) => {
+    await route.fulfill({
+      json: {
+        task_ids: [],
+        added_task_ids: [],
+        model_package_ids: [],
+        added_model_package_ids: [],
+        warnings: [],
+      },
+    });
+  });
+  await page.goto("/?view=data-library");
+  await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
+  const selectedDataset = page.locator(".dataset-context");
+  await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
+  modelPackagesAvailable = false;
+  await page.getByRole("button", { name: "個人Taskとモデルを再読込" }).click();
+  await expect(selectedDataset.getByRole("alert")).toContainText("Model Packageを更新できませんでした");
+  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  await page.getByRole("tab", { name: "データ更新" }).click();
+  await expect(page).toHaveURL(/view=data-library.*tab=update/);
+  await expect(page.getByRole("tab", { name: "データ更新" })).toHaveAttribute("aria-selected", "true");
+
+  await page.goBack();
+  await expect(page).toHaveURL(/view=data-library/);
+  await expect(page).not.toHaveURL(/tab=update/);
+  await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(/view=data-library.*tab=update/);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "データ更新" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("unknown navigation queries are replaced with the documented project fallback", async ({ page }) => {
+  await page.goto("/?view=unknown&tab=unexpected&connector=unused");
+  await expect(page).toHaveURL(/view=project/);
+  await expect(page).not.toHaveURL(/tab=|connector=/);
+  await expect(page.getByRole("complementary", { name: "プロジェクト一覧" })).toBeVisible();
 });
 
 test("developer guide continues through Profile Workbench to project creation", async ({ page }) => {

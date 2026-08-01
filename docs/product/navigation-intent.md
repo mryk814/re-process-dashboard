@@ -28,21 +28,33 @@ source-of-truth: URL, history, and NavigationIntent semantics
 | `quality_key` | 品質一覧のキーfilter |
 | `screening` | 範囲探索で開くrun ID |
 | `snapshot` | プロジェクト履歴で開くsnapshot ID |
-| `admin` | 開発・管理画面のsection。`quality`、`ranges`、`display`、`task`、`model` |
+| `admin` | 開発・管理画面のsection。`developer`、`ranges`、`display`、`task`、`model` |
 | `activity` / `activity_run` | `candidate-review`で開くActivityとRun |
 | `candidate_section` | `candidates`で開く候補section。現在は`actuals`だけを明示する |
 | `developer_tab` / `developer_guide` | `workspace`のdeveloper sectionで開くtabとguide |
 | `project_settings` | `project-settings`で開くsection。`general`、`targets`、`scientific`、`ranges`、`display`、`task`、`evidence` |
-| `tab` / `connector` / `stage` / `revision` | `data-library`のupdate tab、source connector、source lifecycle stage、source revision |
-| `onboarding` / `base_dataset` | `data-library`または`profile-workbench`のonboarding modeと比較元Dataset Revision |
+| `tab` | Data Libraryの表示。省略は`browse`、`update`はデータ更新を開く |
+| `connector` / `stage` / `revision` | Data Libraryの更新履歴で開く接続先、段階（`raw`、`curation`、`approval`、`training`）、不変resource ID |
+| `onboarding` / `base_dataset` | Data LibraryまたはProfile Workbenchの追加導線（`revision`、`mapping`、`new-task`）と更新元Dataset revision |
 
-未知の `view` は `project` として読み取ります。
-旧`settings`、`project`＋`project_settings`、`candidates`＋Activity queryは、現在のviewへ正規化して読めます。
-画面遷移は `history.pushState`、同じ画面内の選択同期は `replaceState` を使い、`popstate` で復元します。
+未知の`view`は`project`へ、未知のenum値・依存先のないresource指定は省略へ正規化します。
+たとえば`revision`は有効な`connector`と`stage`があるData Library更新画面だけで意味を持ちます。
+`browse`は既定値なのでURLへ書かず、`update`と選択済みresourceだけを直列化します。
+
+解析・直列化・正規化の唯一の実装は`apps/web/src/app/navigation.ts`です。
+Navigation owner（`apps/web/src/app/App.tsx`）だけが`history.pushState`、`replaceState`、`popstate`を扱います。
+feature componentは型付きlocationを`onNavigate`でownerへ渡し、URL文字列やhistory APIを直接扱いません。
+
+利用者が戻りたい画面・tab・resource選択は`pushState`で記録します。
+起動時またはbrowser back／forwardで検出した旧URL、未知値、既定resourceの補完は`replaceState`で正規化し、不要な履歴entryを増やしません。
+`popstate`ではserver stateを再作成せず、URLにある選択文脈だけを復元します。
 
 画面を切り替えるときは、その画面で意味を持つqueryだけを引き継ぎます。
 品質条件は `quality` と `lineage`、`entity` は `lineage`、`screening` は `explore`、`snapshot` は `project`、`admin` は `settings` で保持します。
 対象を復元できない場合は、別の対象へ暗黙に切り替えず、未解決の参照として表示します。
+
+NavigationIntentへqueryを追加するときは、parse → serialize → parseのround-trip unit testを追加する。
+画面操作を追加するときは、fresh browserで共有URL、reload、back／forwardを実証する。
 
 ## 候補の作成元
 

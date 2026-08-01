@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
-import { isLegacyCandidateActivityNavigation, isLegacyProjectSettingsNavigation, isLegacyQualityAdminNavigation, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
+import { navigationLocationNeedsNormalization, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
   chainStagePath,
@@ -158,13 +158,32 @@ function App() {
   const workspaceButtonRef = useRef<HTMLButtonElement>(null);
   const tab = navigation.view;
 
-  function navigate(intent: NavigationIntent, replace = false) {
+  const navigate = useCallback((intent: NavigationIntent, replace = false) => {
     const next = Object.freeze(intent);
     navigationRef.current = next;
     setNavigation(next);
     rememberNavigation(next);
-    window.history[replace ? "replaceState" : "pushState"]({}, "", navigationUrl(next));
-  }
+    const target = navigationUrl(next);
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (target !== current) {
+      window.history[replace ? "replaceState" : "pushState"]({}, "", target);
+    }
+  }, []);
+
+  const navigateDataLibrary = useCallback((location: {
+    tab: "browse" | "update";
+    connectorId?: string;
+    stage?: "raw" | "curation" | "approval" | "training";
+    revisionId?: string;
+    onboardingMode?: "revision" | "mapping" | "new-task";
+  }, replace = false) => navigate({
+    view: "data-library",
+    dataLibraryTab: location.tab,
+    sourceConnectorId: location.connectorId,
+    sourceStage: location.stage,
+    sourceRevisionId: location.revisionId,
+    dataOnboardingMode: location.onboardingMode,
+  }, replace), [navigate]);
 
   function openWorkspaceStorage() {
     workspaceDialogReturnFocusRef.current = document.activeElement instanceof HTMLElement
@@ -303,7 +322,7 @@ function App() {
   useEffect(() => {
     const onPopState = () => {
       const intent = readNavigationIntent();
-      if (isLegacyQualityAdminNavigation() || isLegacyCandidateActivityNavigation() || isLegacyProjectSettingsNavigation()) {
+      if (navigationLocationNeedsNormalization(intent)) {
         window.history.replaceState({}, "", navigationUrl(intent));
       }
       navigationRef.current = intent;
@@ -320,12 +339,7 @@ function App() {
     const current = navigationRef.current;
     rememberNavigation(current);
     const params = new URLSearchParams(window.location.search);
-    if (
-      !params.has("view")
-      || params.get("view") === "settings"
-      || isLegacyCandidateActivityNavigation()
-      || isLegacyProjectSettingsNavigation()
-    ) {
+    if (!params.has("view") || navigationLocationNeedsNormalization(current)) {
       window.history.replaceState({}, "", navigationUrl(current));
     }
   }, []);
@@ -552,6 +566,14 @@ function App() {
         )}
         {tab === "data-library" && <DataLibraryPage
           projects={projects}
+          location={{
+            tab: navigation.dataLibraryTab ?? "browse",
+            connectorId: navigation.sourceConnectorId,
+            stage: navigation.sourceStage,
+            revisionId: navigation.sourceRevisionId,
+            onboardingMode: navigation.dataOnboardingMode,
+          }}
+          onNavigate={navigateDataLibrary}
           onAddDataset={(mode, baseDatasetRevisionId) => navigate({
             view: "profile-workbench",
             dataOnboardingMode: mode,

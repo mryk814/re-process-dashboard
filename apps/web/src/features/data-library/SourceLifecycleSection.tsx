@@ -11,26 +11,12 @@ import {
   collectTrainingTargetFields,
   trainingRecipeIdForRevision,
 } from "./trainingSnapshotPresentation";
+import type { DataLibraryLocation } from "./location";
 
 const shortDigest = (value: string) => value.replace("sha256:", "").slice(0, 12);
 const formatTimestamp = (value: string) => new Date(value).toLocaleString("ja-JP");
 const splitFields = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
 type LifecycleStage = "raw" | "curation" | "approval" | "training";
-const lifecycleStages = new Set<LifecycleStage>(["raw", "curation", "approval", "training"]);
-
-function initialLifecycleLink(): {
-  connector: string;
-  stage: LifecycleStage | "";
-  revision: string;
-} {
-  const params = new URLSearchParams(window.location.search);
-  const stage = params.get("stage");
-  return {
-    connector: params.get("connector") ?? "",
-    stage: stage && lifecycleStages.has(stage as LifecycleStage) ? stage as LifecycleStage : "",
-    revision: params.get("revision") ?? "",
-  };
-}
 
 function lifecycleDigest(item: object): string {
   if ("snapshot_digest" in item && typeof item.snapshot_digest === "string") return item.snapshot_digest;
@@ -47,12 +33,19 @@ const reasonLabels = {
   duplicate_row_key: "行識別キーが重複しています",
 } as const;
 
-export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryDataset[] }) {
-  const initialLink = useMemo(initialLifecycleLink, []);
+export function SourceLifecycleSection({
+  datasets,
+  location,
+  onNavigate,
+}: {
+  datasets: ApiDataLibraryDataset[];
+  location: DataLibraryLocation;
+  onNavigate: (location: DataLibraryLocation, replace?: boolean) => void;
+}) {
   const [catalog, setCatalog] = useState<ApiDataLifecycleCatalog | null>(null);
-  const [selectedId, setSelectedId] = useState("");
-  const [selectedStage, setSelectedStage] = useState<LifecycleStage | "">(initialLink.stage);
-  const [selectedVersionId, setSelectedVersionId] = useState(initialLink.revision);
+  const selectedId = location.connectorId ?? "";
+  const selectedStage = location.stage ?? "";
+  const selectedVersionId = location.revisionId ?? "";
   const [detail, setDetail] = useState<ApiConnectorLifecycleDetail | null>(null);
   const [rawPage, setRawPage] = useState<ApiRawSnapshotRowPage | null>(null);
   const [curationPage, setCurationPage] = useState<ApiCurationRunRowPage | null>(null);
@@ -82,13 +75,16 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const selectedIdRef = useRef("");
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
   const selectConnector = useCallback((connectorId: string) => {
     // Keep the request guard in sync before React commits the selection.
     // A slow response for the previous connector can otherwise win the
     // click-to-render race and briefly replace the newly selected detail.
     selectedIdRef.current = connectorId;
-    setSelectedId(connectorId);
-  }, []);
+    onNavigate({ tab: "update", connectorId });
+  }, [onNavigate]);
 
   const profiles = useMemo(() => {
     const seen = new Set<string>();
@@ -99,24 +95,9 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
     });
   }, [datasets]);
 
-  const refreshCatalog = useCallback(async (
-    preferredId?: string,
-    selectPreferred = false,
-  ) => {
+  const refreshCatalog = useCallback(async () => {
     const next = await workbenchApi.dataLifecycleCatalog();
     setCatalog(next);
-    const current = selectedIdRef.current;
-    const hasCurrent = next.connectors.some((item) => item.id === current);
-    const hasPreferred = next.connectors.some((item) => item.id === preferredId);
-    const nextId = selectPreferred && hasPreferred
-      ? preferredId ?? ""
-      : hasCurrent
-        ? current
-        : hasPreferred
-          ? preferredId ?? ""
-          : next.connectors[0]?.id ?? "";
-    selectedIdRef.current = nextId;
-    setSelectedId(nextId);
     setRecipeId((current) => next.recipes.some((item) => item.id === current) ? current : next.recipes.at(-1)?.id ?? "");
   }, []);
 
@@ -135,8 +116,15 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
   }, []);
 
   useEffect(() => {
-    refreshCatalog(initialLink.connector).catch((cause) => setError(cause instanceof Error ? cause.message : "データ更新履歴を取得できませんでした。"));
-  }, [initialLink.connector, refreshCatalog]);
+    refreshCatalog().catch((cause) => setError(cause instanceof Error ? cause.message : "データ更新履歴を取得できませんでした。"));
+  }, [refreshCatalog]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    if (!selectedId && catalog.connectors[0]) {
+      onNavigate({ tab: "update", connectorId: catalog.connectors[0].id }, true);
+    }
+  }, [catalog, onNavigate, selectedId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -172,23 +160,14 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
           ? detail.canonical_revisions
           : detail.training_snapshots;
     if (!versions.some((item) => item.id === selectedVersionId)) {
-      setSelectedVersionId(versions.at(-1)?.id ?? "");
+      onNavigate({
+        tab: "update",
+        connectorId: selectedId,
+        stage: selectedStage,
+        revisionId: versions.at(-1)?.id,
+      }, true);
     }
-  }, [detail, selectedStage, selectedVersionId]);
-
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", "data-library");
-    url.searchParams.set("tab", "update");
-    if (selectedId) url.searchParams.set("connector", selectedId);
-    else url.searchParams.delete("connector");
-    if (selectedStage) url.searchParams.set("stage", selectedStage);
-    else url.searchParams.delete("stage");
-    if (selectedVersionId) url.searchParams.set("revision", selectedVersionId);
-    else url.searchParams.delete("revision");
-    window.history.replaceState(window.history.state, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
-    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-  }, [selectedId, selectedStage, selectedVersionId]);
+  }, [detail, onNavigate, selectedId, selectedStage, selectedVersionId]);
 
   useEffect(() => {
     if (!profileId && profiles[0]) setProfileId(profiles[0].id);
@@ -367,8 +346,12 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
         : stage === "approval"
           ? detail.canonical_revisions
           : detail.training_snapshots;
-    setSelectedStage(stage);
-    setSelectedVersionId(versions.at(-1)?.id ?? "");
+    onNavigate({
+      tab: "update",
+      connectorId: selectedId,
+      stage,
+      revisionId: versions.at(-1)?.id,
+    });
   };
 
   async function createConnector() {
@@ -387,7 +370,8 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
         trigger_policy: "manual_only",
         schedule: null,
       });
-      await refreshCatalog(created.id, true);
+      await refreshCatalog();
+      onNavigate({ tab: "update", connectorId: created.id });
       setNotice("接続先を登録しました。データ取得はまだ実行していません。");
     });
   }
@@ -437,7 +421,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
           { kind: "target_eligibility_v1", fields: targets },
         ],
       });
-      await refreshCatalog(selectedId);
+      await refreshCatalog();
       setRecipeId(recipe.id);
       setNotice("版管理された品質判定レシピを登録しました。");
     });
@@ -586,7 +570,7 @@ export function SourceLifecycleSection({ datasets }: { datasets: ApiDataLibraryD
             ).map((item, index, versions) => {
               const timestamp = "captured_at" in item ? item.captured_at : "approved_at" in item ? item.approved_at : item.created_at;
               const digest = lifecycleDigest(item);
-              return <button type="button" key={item.id} className={item.id === selectedVersionId ? "active" : ""} aria-pressed={item.id === selectedVersionId} onClick={() => setSelectedVersionId(item.id)}>
+              return <button type="button" key={item.id} className={item.id === selectedVersionId ? "active" : ""} aria-pressed={item.id === selectedVersionId} onClick={() => onNavigate({ tab: "update", connectorId: selectedId, stage: selectedStage, revisionId: item.id })}>
                 <span>v{index + 1}{index === versions.length - 1 && " · 最新"}</span>
                 <time dateTime={timestamp}>{formatTimestamp(timestamp)}</time>
                 <code>{shortDigest(digest)}</code>
