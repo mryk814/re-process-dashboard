@@ -52,6 +52,11 @@ const shardByGate = new Map([
   ["chain-degraded-e2e", "recovery-chain-degraded"],
   ["windows-delivery", "windows-delivery"],
 ]);
+const absorbedByFullPytest = [
+  "security-boundary-tests",
+  "model-package-contract-tests",
+  "legacy-workspace",
+];
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -112,6 +117,21 @@ function executionGatesFor(logicalGateId, catalog) {
     : [logicalGateId];
 }
 
+function deduplicateExecutionGates(gateIds) {
+  const absorbedGates = {};
+  if (gateIds.includes("full-pytest")) {
+    for (const gateId of absorbedByFullPytest) {
+      if (gateIds.includes(gateId)) absorbedGates[gateId] = "full-pytest";
+    }
+  }
+  return {
+    executionGateIds: gateIds.filter(
+      (gateId) => !Object.hasOwn(absorbedGates, gateId),
+    ),
+    absorbedGates,
+  };
+}
+
 export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
   if (plan.schemaVersion !== "verification-plan/v1") {
     throw new Error("CI planning requires verification-plan/v1");
@@ -128,12 +148,15 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
       executionGatesFor(gateId, catalog),
     ]),
   );
-  const executionGateIds = [...new Set(Object.values(logicalGateExpansions).flat())];
-  for (const gateId of executionGateIds) {
+  const coverageGateIds = [...new Set(Object.values(logicalGateExpansions).flat())];
+  for (const gateId of coverageGateIds) {
     const gate = catalog.gates[gateId];
     if (!gate) throw new Error(`CI plan references unknown gate: ${gateId}`);
     if (gate.manual) throw new Error(`CI plan cannot execute manual gate: ${gateId}`);
   }
+  const { executionGateIds, absorbedGates } = deduplicateExecutionGates(
+    coverageGateIds,
+  );
   const shards = shardOrder
     .map((id) => ({
       id,
@@ -148,7 +171,9 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
     verificationCatalogSha256: plan.verificationCatalogSha256,
     originalPlan: plan,
     logicalGateExpansions,
+    coverageGateIds,
     executionGateIds,
+    absorbedGates,
     shards,
   };
   return { ...ciPlan, planDigest: digestCiPlan(ciPlan) };
@@ -206,7 +231,7 @@ export function validateCiPlan(
     ) {
       throw new Error("CI plan logical gates do not match the verification plan");
     }
-    const expectedExecutionGateIds = [];
+    const expectedCoverageGateIds = [];
     for (const logicalGateId of logicalGateIds) {
       const expectedExpansion = executionGatesFor(logicalGateId, catalog);
       const actualExpansion = ciPlan.logicalGateExpansions[logicalGateId];
@@ -214,16 +239,23 @@ export function validateCiPlan(
         throw new Error(`CI plan has an invalid expansion for ${logicalGateId}`);
       }
       for (const gateId of expectedExpansion) {
-        if (!expectedExecutionGateIds.includes(gateId)) {
-          expectedExecutionGateIds.push(gateId);
+        if (!expectedCoverageGateIds.includes(gateId)) {
+          expectedCoverageGateIds.push(gateId);
         }
       }
     }
+    const expectedDeduplication = deduplicateExecutionGates(
+      expectedCoverageGateIds,
+    );
     if (
-      JSON.stringify(ciPlan.executionGateIds)
-      !== JSON.stringify(expectedExecutionGateIds)
+      JSON.stringify(ciPlan.coverageGateIds)
+        !== JSON.stringify(expectedCoverageGateIds)
+      || JSON.stringify(ciPlan.executionGateIds)
+        !== JSON.stringify(expectedDeduplication.executionGateIds)
+      || JSON.stringify(ciPlan.absorbedGates)
+        !== JSON.stringify(expectedDeduplication.absorbedGates)
     ) {
-      throw new Error("CI plan execution gates do not match logical expansions");
+      throw new Error("CI plan execution deduplication does not match logical gates");
     }
   }
   return ciPlan;
@@ -240,7 +272,12 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function runGateIds({ gateIds, plan, catalog }) {
+function runGateIds({
+  gateIds,
+  plan,
+  catalog,
+  skipDefaultFailureSpecs = false,
+}) {
   const startedAt = new Date();
   const results = [];
   let exitCode = 0;
@@ -254,6 +291,7 @@ function runGateIds({ gateIds, plan, catalog }) {
     "PLAYWRIGHT_API_PORT",
     "PLAYWRIGHT_WEB_PORT",
     "PLAYWRIGHT_BROKEN_TASK_PACKAGE",
+    "VERIFICATION_SKIP_STANDARD_FAILURE_SPECS",
   ]) {
     if (environment[key] !== undefined) {
       clearedInheritedPlaywrightEnvironment[key] = environment[key];
@@ -268,13 +306,17 @@ function runGateIds({ gateIds, plan, catalog }) {
     });
     const executable = resolveExecutable(resolvedRunner.executable);
     const args = [...executable.prefix, ...resolvedRunner.args];
+    const gateEnvironment = { ...environment };
+    if (gateId === "failure-state-e2e" && skipDefaultFailureSpecs) {
+      gateEnvironment.VERIFICATION_SKIP_STANDARD_FAILURE_SPECS = "1";
+    }
     process.stdout.write(`::group::${gateId}\n`);
     const gateStartedAt = new Date();
     const platformSupported = gateRunsOnPlatform(gate.platform, currentPlatform);
     const result = platformSupported
       ? spawnSync(executable.command, args, {
           stdio: "inherit",
-          env: environment,
+          env: gateEnvironment,
         })
       : {
           status: 1,
@@ -332,6 +374,9 @@ export function runVerificationShard({
     gateIds: shard.gateIds,
     plan: ciPlan.originalPlan,
     catalog,
+    skipDefaultFailureSpecs: ciPlan.executionGateIds.includes(
+      "default-playwright",
+    ),
   });
   let artifacts = [];
   if (
@@ -498,6 +543,21 @@ export function aggregateVerificationShards({
       );
     }
   }
+  for (const [gateId, ownerGateId] of Object.entries(ciPlan.absorbedGates)) {
+    const owner = executionResults.get(ownerGateId);
+    const passed = owner?.status === "passed";
+    executionResults.set(gateId, {
+      id: gateId,
+      status: passed ? "passed" : "failed",
+      command: catalog.gates[gateId].command,
+      exitCode: passed ? 0 : 1,
+      durationSeconds: 0,
+      error: passed
+        ? null
+        : `absorbing gate failed or was missing: ${ownerGateId}`,
+      evidenceSource: ownerGateId,
+    });
+  }
   const releaseSelected = ciPlan.originalPlan.selectedGateIds.includes(
     "release-acceptance",
   );
@@ -574,7 +634,13 @@ export function aggregateVerificationShards({
     ...outcome,
     pr_body_evidence: evidenceMarkdown,
     gates: logicalResults,
-    execution_gates: ciPlan.executionGateIds.map((gateId) => executionResults.get(gateId)),
+    execution_gates: ciPlan.executionGateIds.map(
+      (gateId) => executionResults.get(gateId),
+    ),
+    coverage_gates: ciPlan.coverageGateIds.map(
+      (gateId) => executionResults.get(gateId),
+    ),
+    absorbed_gates: ciPlan.absorbedGates,
     cleanIsolatedPlaywright: ciPlan.shards.every(
       (shard) => reportsByShard.get(shard.id)?.cleanIsolatedPlaywright === true,
     ),
@@ -666,7 +732,7 @@ export function buildParallelAcceptanceReport({
       mode: "parallel-windows-shards",
       shards: verificationReport.ci_aggregation.shards.map((shard) => shard.id),
     },
-    gates: verificationReport.execution_gates
+    gates: verificationReport.coverage_gates
       .filter((gate) => selected.has(gate.id))
       .map((gate) => ({
         name: gate.id,
@@ -675,7 +741,11 @@ export function buildParallelAcceptanceReport({
         exitCode: gate.exitCode,
         durationSeconds: gate.durationSeconds,
         log: null,
-        summary: gate.error ? [gate.error] : [],
+        summary: gate.evidenceSource
+          ? [`covered by ${gate.evidenceSource}`]
+          : gate.error
+            ? [gate.error]
+            : [],
       })),
     artifacts: verificationReport.artifacts,
     status: releasePassed ? "passed" : "failed",

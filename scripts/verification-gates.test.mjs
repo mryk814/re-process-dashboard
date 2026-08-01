@@ -639,6 +639,20 @@ test("CI plan expands aggregate acceptance without dropping or duplicating gates
     releasePlan.executionGateIds.length,
     new Set(releasePlan.executionGateIds).size,
   );
+  assert.deepEqual(releasePlan.absorbedGates, {
+    "security-boundary-tests": "full-pytest",
+    "model-package-contract-tests": "full-pytest",
+    "legacy-workspace": "full-pytest",
+  });
+  assert.ok(
+    Object.keys(releasePlan.absorbedGates).every(
+      (gateId) => !releasePlan.executionGateIds.includes(gateId),
+    ),
+  );
+  assert.deepEqual(
+    releasePlan.coverageGateIds,
+    [...new Set(Object.values(releasePlan.logicalGateExpansions).flat())],
+  );
   assert.deepEqual(
     releasePlan.shards.flatMap((shard) => shard.gateIds).sort(),
     [...releasePlan.executionGateIds].sort(),
@@ -675,6 +689,16 @@ test("CI aggregation restores the logical verification outcome", () => {
     report.execution_gates.map((gate) => gate.id),
     ciPlan.executionGateIds,
   );
+  assert.deepEqual(
+    report.coverage_gates.map((gate) => gate.id),
+    ciPlan.coverageGateIds,
+  );
+  assert.ok(
+    Object.entries(ciPlan.absorbedGates).every(([gateId, ownerGateId]) => {
+      const gate = report.coverage_gates.find((candidate) => candidate.id === gateId);
+      return gate?.status === "passed" && gate.evidenceSource === ownerGateId;
+    }),
+  );
   assert.equal(report.artifacts.length, 2);
   assert.equal(report.cleanIsolatedPlaywright, true);
   const acceptance = buildParallelAcceptanceReport({
@@ -687,6 +711,12 @@ test("CI aggregation restores the logical verification outcome", () => {
   assert.equal(acceptance.status, "passed");
   assert.equal(acceptance.artifacts.length, 2);
   assert.equal(acceptance.cleanIsolatedPlaywright, true);
+  assert.ok(
+    acceptance.gates.some(
+      (gate) => gate.name === "security-boundary-tests"
+        && gate.summary.includes("covered by full-pytest"),
+    ),
+  );
 });
 
 test("CI aggregation fails closed for missing, stale, and duplicate evidence", () => {
@@ -879,6 +909,7 @@ test("CI plan validation binds commit, catalog, and plan contents", () => {
 test("verification workflow shards execution and preserves required check compatibility", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
   const acceptanceRunner = readFileSync(resolve(import.meta.dirname, "run-main-acceptance.ps1"), "utf8");
+  const failureStateRunner = readFileSync(resolve(import.meta.dirname, "run-failure-state-e2e.mjs"), "utf8");
   assert.equal(workflow.match(/name: direct verification/g)?.length, 1);
   assert.match(workflow, /name: verification follow-up/);
   assert.match(workflow, /artifacts\/verification\/latest-pr\.json/);
@@ -895,6 +926,8 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(acceptanceRunner, /Select-Object -Last 200/);
   assert.match(workflow, /runs-on: windows-latest/);
   assert.match(workflow, /timeout-minutes: 60/);
+  assert.match(failureStateRunner, /VERIFICATION_SKIP_STANDARD_FAILURE_SPECS/);
+  assert.match(failureStateRunner, /covered by default-playwright/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
 });
