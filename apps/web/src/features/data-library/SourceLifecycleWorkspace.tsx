@@ -33,7 +33,7 @@ const reasonLabels = {
   duplicate_row_key: "行識別キーが重複しています",
 } as const;
 
-export function SourceLifecycleSection({
+export function SourceLifecycleWorkspace({
   datasets,
   location,
   onNavigate,

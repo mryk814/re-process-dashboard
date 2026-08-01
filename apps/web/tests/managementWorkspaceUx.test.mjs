@@ -61,7 +61,7 @@ test("observation training inspector exposes family cohorts, split groups, and e
 });
 
 test("data library collapses an empty comparison area and moves state changes into management menus", async () => {
-  const content = await source("../src/features/data-library/DataLibraryPage.tsx");
+  const content = await source("../src/features/data-library/ResourceCatalogView.tsx");
   assert.match(content, /comparisonSets\.length === 0 \? "comparison-empty"/);
   assert.match(content, /className="resource-manage-menu"/);
   assert.match(content, /const \[samplesOpen, setSamplesOpen\] = useState\(false\)/);
@@ -91,7 +91,7 @@ test("data library collapses an empty comparison area and moves state changes in
   assert.match(content, /snapshotDetail\.snapshot\.snapshot_digest === link\.snapshotDigest/);
   assert.match(content, /snapshotDetail\.snapshot\.selection_policy_digest === link\.selectionPolicyDigest/);
   assert.doesNotMatch(content, /!link\.snapshotDigest|!link\.selectionPolicyDigest/);
-  const lifecycle = await source("../src/features/data-library/SourceLifecycleSection.tsx");
+  const lifecycle = await source("../src/features/data-library/SourceLifecycleWorkspace.tsx");
   assert.match(lifecycle, /Snapshot採用 \/ 対象外/);
   assert.match(lifecycle, /Snapshot対象外/);
   assert.match(lifecycle, /policyによる追加除外/);
@@ -183,7 +183,7 @@ test("every Profile Workbench step is a state the flow can actually reach", asyn
 
 test("the data library names prediction tasks with the contract label, not the internal id", async () => {
   const hook = await source("../src/shared/useTaskLabels.ts");
-  const library = await source("../src/features/data-library/DataLibraryPage.tsx");
+  const library = await source("../src/features/data-library/ResourceCatalogView.tsx");
   const workbench = await source("../src/features/data-library/ProfileWorkbenchPage.tsx");
   assert.match(hook, /listTaskDefinitions/);
   assert.match(hook, /labels\.get\(taskId\) \?\? taskId/);
