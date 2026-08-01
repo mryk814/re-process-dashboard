@@ -28014,6 +28014,49 @@
         ]
       }
     },
+    "/api/projects/{project_id}/chain/starter-candidate": {
+      "get": {
+        "description": "Resolve a usable initial draft through the fixed candidate adapter.",
+        "operationId": "getChainStarterCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateInput"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Starter Candidate",
+        "tags": [
+          "chain-execution"
+        ]
+      }
+    },
     "/api/projects/{project_id}/decision": {
       "put": {
         "operationId": "update_project_decision_api_projects__project_id__decision_put",

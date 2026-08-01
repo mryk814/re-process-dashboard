@@ -802,6 +802,14 @@ class ChainUseCases:
     ) -> ChainCandidateContractResponse:
         return get_chain_candidate_contract(project_id, self._planning())
 
+    def starter_candidate(self, project_id: str) -> CandidateInput:
+        """Build the initial candidate through the revision-selected adapter."""
+
+        try:
+            return self._planning().starter_candidate(project_id)
+        except (ChainExecutionError, ChainCandidateAdapterError) as exc:
+            raise ChainConflictError(str(exc)) from exc
+
     def list_candidates(self, project_id: str) -> list[Candidate]:
         return list_chain_candidates(project_id, self.store)
 
