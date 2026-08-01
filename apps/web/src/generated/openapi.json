@@ -965,7 +965,14 @@
               "batch_feasibility_infeasible",
               "batch_greedy_search_exhausted",
               "runtime_unavailable",
-              "subsystem_unavailable"
+              "subsystem_unavailable",
+              "task-store-unconfigured",
+              "task-store-unavailable",
+              "task-id-invalid",
+              "model-store-unconfigured",
+              "model-store-unavailable",
+              "package-id-invalid",
+              "task-id-conflict"
             ],
             "title": "Code",
             "type": "string"
@@ -2808,13 +2815,15 @@
             "type": "string"
           },
           "task_id": {
+            "minLength": 6,
+            "pattern": "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$",
             "title": "Task Id",
             "type": "string"
           }
         },
         "required": [
-          "file",
           "task_id",
+          "file",
           "label",
           "fields_json",
           "grain_confirmation",
@@ -6554,6 +6563,184 @@
           "direction"
         ],
         "title": "CriticalInput",
+        "type": "object"
+      },
+      "CsvInspectionColumn": {
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "number",
+              "categorical"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "non_empty": {
+            "title": "Non Empty",
+            "type": "integer"
+          },
+          "observed_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Max"
+          },
+          "observed_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Min"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "non_empty",
+          "observed_min",
+          "observed_max",
+          "choices"
+        ],
+        "title": "CsvInspectionColumn",
+        "type": "object"
+      },
+      "CsvInspectionResponse": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/CsvInspectionColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "grain": {
+            "const": "one-row-one-observation",
+            "title": "Grain",
+            "type": "string"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string"
+          },
+          "relations": {
+            "const": 0,
+            "title": "Relations",
+            "type": "integer"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_id_contract": {
+            "$ref": "#/components/schemas/CsvTaskIdContract"
+          }
+        },
+        "required": [
+          "source_filename",
+          "source_sha256",
+          "rows",
+          "relations",
+          "grain",
+          "columns",
+          "task_id_contract",
+          "notice"
+        ],
+        "title": "CsvInspectionResponse",
+        "type": "object"
+      },
+      "CsvPrepareResponse": {
+        "properties": {
+          "dataset_revision_id": {
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "model_package_ref_id": {
+            "title": "Model Package Ref Id",
+            "type": "string"
+          },
+          "reused_existing": {
+            "title": "Reused Existing",
+            "type": "boolean"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "state": {
+            "const": "ready",
+            "title": "State",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "task_id",
+          "dataset_view_revision_id",
+          "dataset_revision_id",
+          "source_sha256",
+          "model_package_ref_id",
+          "reused_existing"
+        ],
+        "title": "CsvPrepareResponse",
+        "type": "object"
+      },
+      "CsvTaskIdContract": {
+        "properties": {
+          "example": {
+            "title": "Example",
+            "type": "string"
+          },
+          "min_length": {
+            "title": "Min Length",
+            "type": "integer"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "min_length",
+          "example"
+        ],
+        "title": "CsvTaskIdContract",
         "type": "object"
       },
       "CuratedRow": {
@@ -21219,9 +21406,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Inspect Csv Api Data Library Csv Onboarding Inspect Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CsvInspectionResponse"
                 }
               }
             },
@@ -21235,7 +21420,7 @@
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Inspect Csv",
@@ -21263,9 +21448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Prepare Csv Task Api Data Library Csv Onboarding Prepare Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CsvPrepareResponse"
                 }
               }
             },
@@ -21279,7 +21462,7 @@
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Prepare Csv Task",

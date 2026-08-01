@@ -118,8 +118,9 @@ def install_exception_handlers(app: FastAPI) -> None:
             503: "runtime_unavailable",
         }.get(exc.status_code, "validation_error")
         if isinstance(exc.detail, dict) and isinstance(exc.detail.get("message"), str):
+            detail_code = exc.detail.get("code")
             payload = ApiError(
-                code=code,
+                code=detail_code if isinstance(detail_code, str) else code,
                 message=exc.detail["message"],
                 next_action=(
                     exc.detail["next_action"]

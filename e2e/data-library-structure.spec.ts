@@ -139,10 +139,11 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     inspected += 1;
     await route.fulfill({
-      json: {
-        rows: 103,
-        relations: 0,
-        notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: {
+          rows: 103,
+          relations: 0,
+          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -197,10 +198,11 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
 test("new Task onboarding explains unresolved domain ranges before preparation", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({
-      json: {
-        rows: 103,
-        relations: 0,
-        notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: {
+          rows: 103,
+          relations: 0,
+          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -248,6 +250,72 @@ test("new Task onboarding explains unresolved domain ranges before preparation",
   await expect(status).toContainText("出力の表示範囲");
   await expect(status).toContainText("観測最小値・最大値はデータの要約");
   await expect(prepare).toHaveAttribute("aria-describedby", "csv-task-preparation-status");
+});
+
+test("CSV onboarding validates Japanese canonical keys, task ID, observed training range, and typed storage recovery", async ({ page }) => {
+  await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
+    await route.fulfill({
+      json: {
+        source_filename: "日本語列.csv",
+        source_sha256: "a".repeat(64),
+        rows: 2,
+        relations: 0,
+        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+        grain: "one-row-one-observation",
+        notice: "観測範囲は要約です。",
+        columns: [
+          { name: "温度", kind: "number", non_empty: 2, observed_min: 700, observed_max: 850, choices: [] },
+          { name: "強度", kind: "number", non_empty: 2, observed_min: 310, observed_max: 590, choices: [] },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/data-library/csv-onboarding/prepare", async (route) => {
+    await route.fulfill({
+      status: 422,
+      json: {
+        code: "model-store-unconfigured",
+        message: "個人Model / Packageの保存先がこのWorkspaceに設定されていません。",
+        next_action: "保存先を確認してください。",
+      },
+    });
+  });
+  await page.goto("/?view=data-library");
+  await page.getByRole("region", { name: "追加するデータはどれですか" }).getByRole("button", { name: /新しい予測問題/ }).click();
+  const onboarding = page.getByRole("region", { name: "完全に新しいTaskを準備" });
+  await onboarding.locator('input[type="file"]').setInputFiles({
+    name: "日本語列.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("温度,強度\n700,310\n850,590\n"),
+  });
+  await onboarding.getByRole("button", { name: "CSVをプレビュー" }).click();
+  const cards = onboarding.locator(".csv-task-columns article");
+  await cards.nth(0).getByLabel("役割").selectOption("process");
+  await cards.nth(1).getByLabel("役割").selectOption("output");
+  await expect(cards.nth(0).getByLabel("canonical key")).toHaveValue("field_1");
+  await expect(cards.nth(1).getByLabel("canonical key")).toHaveValue("field_2");
+
+  await onboarding.getByLabel("Task ID").fill("日本語-v1");
+  await expect(onboarding.getByRole("region", { name: "準備条件" })).toContainText("Task IDは利用可能文字と形式を確認してください");
+  await onboarding.getByLabel("Task ID").fill("japanese-columns-v1");
+  await onboarding.getByLabel("表示名").first().fill("日本語列のTask");
+
+  await cards.nth(0).getByLabel("単位").fill("°C");
+  await cards.nth(0).getByLabel("物理的許容範囲 min,max").fill("0, 1200");
+  await cards.nth(0).getByLabel("通常範囲 min,max").fill("600, 900");
+  await cards.nth(0).getByRole("button", { name: "観測範囲を学習範囲へ使用" }).click();
+  await expect(cards.nth(0).getByLabel("学習範囲 min,max")).toHaveValue("700, 850");
+  await expect(cards.nth(0).getByLabel("物理的許容範囲 min,max")).toHaveValue("0, 1200");
+  await expect(cards.nth(0)).toContainText("観測値由来");
+
+  await cards.nth(1).getByLabel("単位").fill("MPa");
+  await cards.nth(1).getByLabel("妥当範囲 min,max").fill("0, 1000");
+  await cards.nth(1).getByLabel("表示範囲 min,max").fill("0, 1000");
+  await onboarding.getByLabel("1行=1観測であることを確認した").check();
+  await onboarding.getByLabel("relationsなしであることを確認した").check();
+  await onboarding.getByRole("button", { name: "Task・モデル・Datasetを準備してProject作成へ" }).click();
+  await expect(onboarding.getByRole("alert")).toContainText("個人Model / Packageの保存先");
+  await expect(onboarding.getByRole("button", { name: "保存場所を管理して再確認" })).toBeVisible();
 });
 
 test("private CSV is prepared into the exact Dataset, Task, and Package binding", async ({ page }) => {

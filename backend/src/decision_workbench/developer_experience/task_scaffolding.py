@@ -25,7 +25,10 @@ from decision_workbench.modeling.training.recipe import estimator_recipe
 TASK_BUNDLE_SCHEMA_VERSION = "external-task-bundle/v1"
 TASK_SCAFFOLD_SCHEMA_VERSION = "task-scaffold/v1"
 SUPPORTED_ESTIMATORS = ("ridge.v1", "lightgbm-regression.v1")
-_TASK_ID = re.compile(r"^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$")
+TASK_ID_PATTERN = r"^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$"
+TASK_ID_MIN_LENGTH = 6
+TASK_ID_EXAMPLE = "concrete-slump-v1"
+_TASK_ID = re.compile(TASK_ID_PATTERN)
 _KEY = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 

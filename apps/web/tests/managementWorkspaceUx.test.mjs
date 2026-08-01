@@ -121,9 +121,25 @@ test("Data Library onboarding helper text keeps normal-text contrast", async () 
 
 test("CSV onboarding distinguishes a newly prepared Task from a reused identity", async () => {
   const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
-  assert.match(content, /reused_existing\?: boolean/);
   assert.match(content, /data\.reused_existing/);
   assert.match(content, /保存済みTask・Modelを検証し、同じidentityでProject作成へ接続しました/);
+});
+
+test("CSV onboarding uses typed contract recovery and keeps authored ranges separate from observations", async () => {
+  const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
+  const client = await source("../src/shared/api/client.ts");
+  assert.match(content, /storageRecoveryCodes\.has\(response\.error\.code\)/);
+  assert.doesNotMatch(content, /includes\(["']保存先/);
+  assert.doesNotMatch(content, /as never|as unknown/);
+  assert.match(content, /suggestedCanonicalKey/);
+  assert.match(content, /taskIdContract\.pattern/);
+  assert.doesNotMatch(content, /const taskIdPattern/);
+  assert.match(content, /field_\$\{index \+ 1\}/);
+  assert.match(content, /canonical keyが重複しています/);
+  assert.match(content, /観測範囲を学習範囲へ使用/);
+  assert.match(content, /物理的許容範囲・通常範囲には反映していません/);
+  assert.match(client, /CsvInspectionResponse/);
+  assert.match(client, /CsvPrepareResponse/);
 });
 
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {

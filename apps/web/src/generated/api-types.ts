@@ -2598,7 +2598,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "sample_has_saved_work" | "screening_run_referenced" | "data_integrity_error" | "validation_error" | "response_curve_not_applicable" | "response_curve_training_range_unavailable" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable";
+            code: "not_found" | "revision_conflict" | "candidate_limit" | "adopted_candidate" | "candidate_archived" | "candidate_provenance_immutable" | "chain_project_requires_chain_candidate_api" | "project_task_locked" | "project_group_conflict" | "protected_project" | "project_has_successors" | "project_has_derived_candidates" | "project_archived" | "active_project_purge" | "project_purge_confirmation_mismatch" | "sample_has_saved_work" | "screening_run_referenced" | "data_integrity_error" | "validation_error" | "response_curve_not_applicable" | "response_curve_training_range_unavailable" | "batch_feasibility_infeasible" | "batch_greedy_search_exhausted" | "runtime_unavailable" | "subsystem_unavailable" | "task-store-unconfigured" | "task-store-unavailable" | "task-id-invalid" | "model-store-unconfigured" | "model-store-unavailable" | "package-id-invalid" | "task-id-conflict";
             current_candidate?: components["schemas"]["Candidate"] | null;
             /** Field Errors */
             field_errors?: components["schemas"]["FieldError"][];
@@ -4726,6 +4726,77 @@ export interface components {
             path: string;
             /** Target */
             target: string;
+        };
+        /** CsvInspectionColumn */
+        CsvInspectionColumn: {
+            /** Choices */
+            choices: string[];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "number" | "categorical";
+            /** Name */
+            name: string;
+            /** Non Empty */
+            non_empty: number;
+            /** Observed Max */
+            observed_max: number | null;
+            /** Observed Min */
+            observed_min: number | null;
+        };
+        /** CsvInspectionResponse */
+        CsvInspectionResponse: {
+            /** Columns */
+            columns: components["schemas"]["CsvInspectionColumn"][];
+            /**
+             * Grain
+             * @constant
+             */
+            grain: "one-row-one-observation";
+            /** Notice */
+            notice: string;
+            /**
+             * Relations
+             * @constant
+             */
+            relations: 0;
+            /** Rows */
+            rows: number;
+            /** Source Filename */
+            source_filename: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            task_id_contract: components["schemas"]["CsvTaskIdContract"];
+        };
+        /** CsvPrepareResponse */
+        CsvPrepareResponse: {
+            /** Dataset Revision Id */
+            dataset_revision_id: string;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Model Package Ref Id */
+            model_package_ref_id: string;
+            /** Reused Existing */
+            reused_existing: boolean;
+            /** Source Sha256 */
+            source_sha256: string;
+            /**
+             * State
+             * @constant
+             */
+            state: "ready";
+            /** Task Id */
+            task_id: string;
+        };
+        /** CsvTaskIdContract */
+        CsvTaskIdContract: {
+            /** Example */
+            example: string;
+            /** Min Length */
+            min_length: number;
+            /** Pattern */
+            pattern: string;
         };
         /** CuratedRow */
         CuratedRow: {
@@ -10446,12 +10517,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CsvInspectionResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -10481,12 +10550,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CsvPrepareResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
