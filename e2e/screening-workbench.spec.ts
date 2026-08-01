@@ -215,14 +215,19 @@ test("range exploration uses the shared candidate table without leaving the scre
   await expect(page.getByRole("region", { name: "探索の基準候補と入力・予測" })).toBeVisible();
   await expect(page.getByLabel(/を比較の基準にする/)).toHaveCount(0);
 
-  await page.getByRole("button", { name: "高強度案を選択", exact: true }).click();
+  const candidateButtons = page.locator(".candidate-select-button");
+  expect(await candidateButtons.count()).toBeGreaterThanOrEqual(3);
+  const selectedLabels = await candidateButtons.evaluateAll((buttons) => (
+    buttons.map((button) => button.getAttribute("aria-label")!.replace(/を選択$/, ""))
+  ));
+  await candidateButtons.nth(1).click();
 
   await expect(page).toHaveURL(/view=explore/);
   await expect(page).toHaveURL(/candidate=/);
-  await expect(page.getByRole("button", { name: "高強度案を選択", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "高強度案", exact: true })).toBeVisible();
+  await expect(candidateButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: selectedLabels[1], exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "延性重視案を選択", exact: true }).click();
+  await candidateButtons.nth(2).click();
   const selectedCandidateId = new URL(page.url()).searchParams.get("candidate");
   await page.locator(".screening-mode-options").getByRole("button", { name: /有望候補を探す/ }).click();
   await page.getByLabel(/主目標: .*の下限/).fill("500");
@@ -237,7 +242,7 @@ test("range exploration uses the shared candidate table without leaving the scre
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeEnabled();
 
-  await page.getByRole("button", { name: "基準候補を選択", exact: true }).click();
+  await candidateButtons.nth(0).click();
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
 });

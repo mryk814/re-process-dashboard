@@ -25,6 +25,19 @@ async function createProjectFromDefault(
   });
 }
 
+async function gotoProjectAfterCreationOptions(
+  page: import("@playwright/test").Page,
+  projectId: string,
+) {
+  await Promise.all([
+    page.waitForResponse((response) => (
+      new URL(response.url()).pathname === "/api/project-creation-options"
+      && response.status() === 200
+    )),
+    page.goto(`/?view=project&project=${projectId}`),
+  ]);
+}
+
 test("project series keep the active series open and let other series expand", async ({ page }) => {
   await page.goto("/?view=project&project=default");
 
@@ -78,7 +91,7 @@ test("a single-project series is shown as a direct project without collapse hier
   const createdResponse = await createProjectFromDefault(page, `単独プロジェクト ${Date.now()}`);
   expect(createdResponse.status()).toBe(201);
   const created = await createdResponse.json() as { id: string };
-  await page.goto(`/?view=project&project=${created.id}`);
+  await gotoProjectAfterCreationOptions(page, created.id);
 
   const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
   await expect(activeGroup).toHaveClass(/singleton/);
@@ -98,7 +111,7 @@ test("a one-project series stays out of the overview until grouping is requested
   );
   expect(createdResponse.status()).toBe(201);
   const created = await createdResponse.json() as { id: string };
-  await page.goto(`/?view=project&project=${created.id}`);
+  await gotoProjectAfterCreationOptions(page, created.id);
 
   await expect(page.locator(".api-state")).toHaveCount(0);
   await expect(page.locator(".project-reference-strip").getByText("検討グループ", { exact: true })).toHaveCount(0);
@@ -123,7 +136,7 @@ test("a project can leave its group and become ungrouped again", async ({ page }
   expect(createdResponse.status()).toBe(201);
   const created = await createdResponse.json() as { id: string; project_series_id: string };
   expect(created.project_series_id).not.toBeNull();
-  await page.goto(`/?view=project&project=${created.id}`);
+  await gotoProjectAfterCreationOptions(page, created.id);
 
   await expect(page.locator(".api-state")).toHaveCount(0);
   await page.getByRole("button", { name: "設定", exact: true }).click();
@@ -151,7 +164,7 @@ test("a project can leave its group and become ungrouped again", async ({ page }
 });
 
 test("new project creation can be cancelled or left by selecting an existing project", async ({ page }) => {
-  await page.goto("/?view=project&project=default");
+  await gotoProjectAfterCreationOptions(page, "default");
   const createPanel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
 
   await page.getByRole("button", { name: "新規プロジェクト" }).click();
@@ -380,7 +393,7 @@ test("Dataset choices explain use, order, and duplicate identity before Project 
   expect(duplicateResponse.status()).toBe(201);
   const duplicateView = await duplicateResponse.json() as { id: string };
 
-  await page.goto("/?view=project&project=default");
+  await gotoProjectAfterCreationOptions(page, "default");
   await page.getByRole("button", { name: "新規プロジェクト" }).click();
   const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   const datasetSelect = panel.getByRole("combobox", { name: "Dataset", exact: true });
@@ -702,7 +715,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
 });
 
 test("new project creation requires an explicit empty or copy choice", async ({ page }) => {
-  await page.goto("/?view=project&project=default");
+  await gotoProjectAfterCreationOptions(page, "default");
   await page.getByRole("button", { name: "新規プロジェクト" }).click();
   const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(panel.getByRole("radio", { name: /空から開始/ })).toBeVisible();
@@ -736,7 +749,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(page.getByText("まだ候補がありません", { exact: true })).toBeVisible();
   await expect(page.locator(".project-history-section").getByRole("button")).toHaveCount(0);
   await page.locator(".project-next-actions").getByRole("button", { name: /条件範囲から候補を探す/ }).click();
-  await page.getByRole("button", { name: "基準候補を作って探索を始める" }).click();
+  await page.getByRole("button", { name: "最初の候補を作る" }).click();
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.locator(".comparison-prediction-table thead .decision-output-col").filter({ hasText: "引張強さ" })).toBeVisible();
   await expect(page.locator(".comparison-prediction-table thead .decision-output-col").filter({ hasText: "降伏強さ" })).toBeVisible();

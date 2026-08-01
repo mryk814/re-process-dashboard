@@ -1806,7 +1806,7 @@ export function ProjectHub({
           operation: "metadata",
           offline,
           pending: settingsPending,
-        })}
+        }) || creationOptions === null}
         outputs={configurableOutputs}
         targetValues={targetValues}
         invalidTargetRange={invalidTargetRange}
