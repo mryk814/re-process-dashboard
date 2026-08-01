@@ -286,7 +286,14 @@ test("source refresh stays separate from approval, training and activation", asy
   await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
   await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
   await repeatedSection.getByLabel("用途").fill("更新版の再評価");
+  const trainingSnapshotResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && /^\/api\/data-lifecycle\/canonical-dataset-revisions\/[^/]+\/training-snapshots$/.test(
+      new URL(response.url()).pathname,
+    )
+  ));
   await repeatedSection.getByRole("button", { name: "学習用スナップショットを作成" }).click();
+  expect((await trainingSnapshotResponse).status()).toBe(201);
 
   await page.reload();
   const historySection = page.locator(".source-lifecycle-section");
