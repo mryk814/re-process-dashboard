@@ -44,6 +44,9 @@ ExcelまたはCSVのsource assetを読取専用の正本として扱う。path�
 
 Data Libraryの「新しい予測問題」は、利用者が確認した一行一観測のCSVから、
 allow-list済みの標準Tabular Taskを準備する画面経路である。
+同じ契約で、visible sheetを明示確認した一枚の矩形XLSXも受け入れる。
+XLSXは元source digest、sheet、stored-value reader policyを固定したうえでcanonical snapshotへ
+materializeし、formula、merged cell、hidden sheet、複雑な複数表はProfile Workbenchへ送る。
 この経路はTask scaffold、標準builderによるPackage buildとverify、明示的なPackage promotion、
 Dataset登録とruntime再読込を一つの補償可能な操作として扱う。
 

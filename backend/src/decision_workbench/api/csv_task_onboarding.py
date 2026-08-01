@@ -1,7 +1,8 @@
-"""UI-only onboarding for a new tabular CSV prediction task.
+"""UI-only onboarding for a new tabular CSV or single-sheet XLSX task.
 
-The browser never receives a path or a CLI command.  The uploaded CSV is copied
-only into the user-owned Task store and then into the managed Data Library.
+The browser never receives a path or a CLI command. The original upload remains
+read-only; a canonical CSV snapshot is stored in the user-owned Task store and
+registered with the original source provenance in the managed Data Library.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from tempfile import TemporaryDirectory
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from openpyxl import load_workbook
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -41,6 +43,7 @@ from decision_workbench.developer_experience.task_scaffolding import (
     inspect_task_source,
     validate_personal_task_store_path,
 )
+from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.modeling.model_lifecycle import (
     load_available_packages,
     validate_personal_model_store_path,
@@ -57,11 +60,11 @@ from decision_workbench.contracts.evidence_contracts import ApiError
 
 
 router = APIRouter(prefix="/api/data-library/csv-onboarding", tags=["csv-onboarding"])
-MAX_CSV_BYTES = 100 * 1024 * 1024
+MAX_TABULAR_BYTES = 100 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 _FAILURE_MESSAGES = {
-    "inspect": "CSVを確認できませんでした。文字コード、ヘッダー、行数を確認してもう一度試してください。",
+    "inspect": "表を確認できませんでした。ファイル、sheet、ヘッダー、行数を確認してもう一度試してください。",
     "fields": "列の設定を確認してください。",
     "storage": "個人TaskまたはModelの保存先を確認してください。",
     "prepare": "Taskとモデルを準備できませんでした。列の役割と範囲を確認してもう一度試してください。",
@@ -97,6 +100,11 @@ class CsvInspectionColumn(BaseModel):
     choices: list[str]
 
 
+class OnboardingWorksheet(BaseModel):
+    name: str
+    state: Literal["visible", "hidden", "veryHidden"]
+
+
 class CsvTaskIdContract(BaseModel):
     pattern: str
     min_length: int
@@ -106,6 +114,11 @@ class CsvTaskIdContract(BaseModel):
 class CsvInspectionResponse(BaseModel):
     source_filename: str
     source_sha256: str
+    source_kind: Literal["csv", "xlsx"]
+    reader_policy: str
+    worksheets: list[OnboardingWorksheet]
+    selected_sheet: str | None
+    requires_sheet_selection: bool
     rows: int
     relations: Literal[0]
     grain: Literal["one-row-one-observation"]
@@ -164,6 +177,7 @@ def _load_reusable_task(
     estimator_id: str,
     grain_confirmation: str,
     relation_confirmation: str,
+    selected_sheet: str | None,
 ) -> TaskScaffoldResult:
     scaffold_path = _task_file(root, "scaffold.json", label="scaffold")
     bundle_path = _task_file(root, "bundle.json", label="bundle")
@@ -183,7 +197,8 @@ def _load_reusable_task(
         or scaffold.get("task_id") != task_id
         or scaffold.get("label") != label.strip()
         or scaffold.get("state") != "ready"
-        or source_meta.get("original_sha256") != inspect_task_source(source).source_sha256
+        or source_meta.get("original_sha256") != file_sha256(source)
+        or source_meta.get("selected_sheet") != selected_sheet
         or _normalized_json(scaffold.get("fields"))
         != _normalized_json(expected_fields)
         or _normalized_json(scaffold_estimator)
@@ -230,19 +245,19 @@ def _load_reusable_task(
     )
 
 
-async def _uploaded_csv(file: UploadFile) -> tuple[TemporaryDirectory[str], Path]:
+async def _uploaded_tabular(file: UploadFile) -> tuple[TemporaryDirectory[str], Path]:
     filename = Path(file.filename or "").name
-    if not filename or Path(filename).suffix.lower() != ".csv":
-        raise HTTPException(422, "CSVファイルを選択してください")
-    temporary = TemporaryDirectory(prefix="material-workbench-csv-")
+    if not filename or Path(filename).suffix.lower() not in {".csv", ".xlsx"}:
+        raise HTTPException(422, "CSVまたはExcel .xlsxファイルを選択してください")
+    temporary = TemporaryDirectory(prefix="material-workbench-tabular-")
     target = Path(temporary.name) / filename
     size = 0
     try:
         with target.open("wb") as stream:
             while chunk := await file.read(1024 * 1024):
                 size += len(chunk)
-                if size > MAX_CSV_BYTES:
-                    raise HTTPException(413, "CSVファイルは100 MB以下にしてください")
+                if size > MAX_TABULAR_BYTES:
+                    raise HTTPException(413, "CSVまたはExcelファイルは100 MB以下にしてください")
                 stream.write(chunk)
         return temporary, target
     except Exception:
@@ -252,11 +267,108 @@ async def _uploaded_csv(file: UploadFile) -> tuple[TemporaryDirectory[str], Path
         await file.close()
 
 
-def _inspection_payload(source: Path) -> CsvInspectionResponse:
-    inspected = inspect_task_source(source)
+def _workbook_sheets(source: Path) -> list[OnboardingWorksheet]:
+    workbook = load_workbook(source, read_only=False, data_only=False)
+    try:
+        return [
+            OnboardingWorksheet(name=sheet.title, state=sheet.sheet_state)
+            for sheet in workbook.worksheets
+        ]
+    finally:
+        workbook.close()
+
+
+def _validate_selected_worksheet(source: Path, sheet_name: str) -> None:
+    workbook = load_workbook(source, read_only=False, data_only=False)
+    try:
+        if sheet_name not in workbook.sheetnames:
+            raise ValueError("選択したsheetがworkbookにありません")
+        sheet = workbook[sheet_name]
+        if sheet.sheet_state != "visible":
+            raise ValueError("hidden sheetは単一表onboardingで選択できません")
+        if sheet.merged_cells.ranges:
+            raise ValueError("merged cellを含むsheetは単一の矩形表として扱えません")
+        if any(
+            cell.data_type == "f"
+            for row in sheet.iter_rows()
+            for cell in row
+        ):
+            raise ValueError("formula cellを含むsheetは保存値の由来を固定できないため扱えません")
+        populated_rows = [
+            row
+            for row in sheet.iter_rows(values_only=True)
+            if any(value not in (None, "") for value in row)
+        ]
+        if not populated_rows:
+            raise ValueError("選択したsheetに表がありません")
+        first = next(
+            index
+            for index, row in enumerate(sheet.iter_rows(values_only=True), start=1)
+            if any(value not in (None, "") for value in row)
+        )
+        last = max(
+            index
+            for index, row in enumerate(sheet.iter_rows(values_only=True), start=1)
+            if any(value not in (None, "") for value in row)
+        )
+        if first != 1:
+            raise ValueError("一行目がheaderではありません")
+        if any(
+            not any(value not in (None, "") for value in row)
+            for row in sheet.iter_rows(min_row=first, max_row=last, values_only=True)
+        ):
+            raise ValueError("表の途中に空行があり、単一の矩形表として扱えません")
+    finally:
+        workbook.close()
+
+
+def _inspection_payload(
+    source: Path,
+    *,
+    sheet_name: str | None = None,
+) -> CsvInspectionResponse:
+    source_kind: Literal["csv", "xlsx"] = (
+        "xlsx" if source.suffix.lower() == ".xlsx" else "csv"
+    )
+    worksheets = _workbook_sheets(source) if source_kind == "xlsx" else []
+    if source_kind == "xlsx" and sheet_name is None:
+        return CsvInspectionResponse(
+            source_filename=source.name,
+            source_sha256=file_sha256(source),
+            source_kind="xlsx",
+            reader_policy="xlsx-stored-values-no-formulas/v1",
+            worksheets=worksheets,
+            selected_sheet=None,
+            requires_sheet_selection=True,
+            rows=0,
+            relations=0,
+            grain="one-row-one-observation",
+            columns=[],
+            task_id_contract=CsvTaskIdContract(
+                pattern=TASK_ID_PATTERN,
+                min_length=TASK_ID_MIN_LENGTH,
+                example=TASK_ID_EXAMPLE,
+            ),
+            estimators=list(csv_onboarding_estimator_options()),
+            default_estimator_id="ridge.v1",
+            notice="visible sheetを明示選択してください。hidden sheetは選択できません。",
+        )
+    if source_kind == "xlsx":
+        assert sheet_name is not None
+        _validate_selected_worksheet(source, sheet_name)
+    inspected = inspect_task_source(source, sheet=sheet_name)
     return CsvInspectionResponse(
         source_filename=inspected.source.name,
         source_sha256=inspected.source_sha256,
+        source_kind=source_kind,
+        reader_policy=(
+            "xlsx-stored-values-no-formulas/v1"
+            if source_kind == "xlsx"
+            else "csv-utf8-header/v1"
+        ),
+        worksheets=worksheets,
+        selected_sheet=inspected.selected_sheet,
+        requires_sheet_selection=False,
         rows=inspected.row_count,
         relations=0,
         grain="one-row-one-observation",
@@ -287,15 +399,32 @@ def _inspection_payload(source: Path) -> CsvInspectionResponse:
     response_model=CsvInspectionResponse,
     responses={422: {"model": ApiError, "description": "Validation Error"}},
 )
-async def inspect_csv(file: UploadFile = File(...)) -> CsvInspectionResponse:
-    temporary, source = await _uploaded_csv(file)
+async def inspect_csv(
+    file: UploadFile = File(...),
+    sheet_name: str | None = Form(None),
+) -> CsvInspectionResponse:
+    temporary, source = await _uploaded_tabular(file)
     try:
-        return await run_in_threadpool(_inspection_payload, source)
+        return await run_in_threadpool(
+            _inspection_payload,
+            source,
+            sheet_name=sheet_name,
+        )
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("CSV_ONBOARDING_FAILED stage=inspect")
-        raise HTTPException(422, _FAILURE_MESSAGES["inspect"]) from exc
+        logger.info("CSV_ONBOARDING_FAILED stage=inspect error=%s", exc)
+        raise HTTPException(
+            422,
+            {
+                "code": "validation_error",
+                "message": str(exc) or _FAILURE_MESSAGES["inspect"],
+                "next_action": (
+                    "複数表、relation、formula、merged cellを含むExcelは"
+                    "Profile Workbenchで構造を確認してください。"
+                ),
+            },
+        ) from exc
     finally:
         temporary.cleanup()
 
@@ -336,6 +465,7 @@ def _new_onboarding_paths(
     estimator_id: str,
     grain_confirmation: str,
     relation_confirmation: str,
+    selected_sheet: str | None,
 ) -> OnboardingReservation:
     """Reserve new paths or recover one fully matching immutable identity."""
 
@@ -406,6 +536,7 @@ def _new_onboarding_paths(
                 estimator_id=estimator_id,
                 grain_confirmation=grain_confirmation,
                 relation_confirmation=relation_confirmation,
+                selected_sheet=selected_sheet,
             )
             config_path = model_store / "available-packages.json"
             relative_package = package_root.relative_to(model_store).as_posix()
@@ -503,8 +634,9 @@ async def prepare_csv_task(
     fields_json: str = Form(...),
     grain_confirmation: str = Form(...),
     relation_confirmation: str = Form(...),
+    sheet_name: str | None = Form(None),
 ) -> CsvPrepareResponse:
-    """Create, verify, promote, register, and reload one reviewed CSV Task."""
+    """Create, verify, promote, register, and reload one reviewed tabular Task."""
 
     try:
         csv_onboarding_estimator_recipe(estimator_id)
@@ -526,7 +658,16 @@ async def prepare_csv_task(
         logger.info("CSV_ONBOARDING_FAILED stage=fields error_type=%s", type(exc).__name__)
         raise HTTPException(422, _FAILURE_MESSAGES["fields"]) from exc
     try:
-        temporary, source = await _uploaded_csv(file)
+        temporary, source = await _uploaded_tabular(file)
+        if source.suffix.lower() == ".xlsx" and not sheet_name:
+            raise HTTPException(422, "Excelはsheetを明示確認してから準備してください")
+        if source.suffix.lower() == ".csv" and sheet_name:
+            raise HTTPException(422, "CSVにsheetは指定できません")
+        await run_in_threadpool(
+            _inspection_payload,
+            source,
+            sheet_name=sheet_name,
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -557,6 +698,7 @@ async def prepare_csv_task(
                     estimator_id=estimator_id,
                     grain_confirmation=grain_confirmation,
                     relation_confirmation=relation_confirmation,
+                    selected_sheet=sheet_name,
                 )
                 task_root = reservation.task_root
                 model_store = reservation.model_store
@@ -579,6 +721,7 @@ async def prepare_csv_task(
                         grain_confirmation=grain_confirmation,
                         relation_confirmation=relation_confirmation,
                         estimator_id=estimator_id,
+                        sheet=sheet_name,
                     )
                 if result.state != "ready" or result.profile_path is None:
                     raise ValueError("CSV onboarding requires a complete Task definition")
@@ -628,6 +771,19 @@ async def prepare_csv_task(
                     library_root=Path(request.app.state.data_library_root),
                     profile_path=result.profile_path,
                     name=label,
+                    member_provenance={
+                        "lineage_kind": "new_task_tabular_onboarding",
+                        "original_filename": source.name,
+                        "original_source_sha256": file_sha256(source),
+                        "selected_sheet": sheet_name,
+                        "reader_policy": (
+                            "xlsx-stored-values-no-formulas/v1"
+                            if source.suffix.lower() == ".xlsx"
+                            else "csv-utf8-header/v1"
+                        ),
+                        "header_policy": "first-row-non-empty-unique/v1",
+                        "canonical_snapshot_sha256": file_sha256(result.source_path),
+                    },
                     promote_existing_bundled=False,
                 )
                 if refresh is None:

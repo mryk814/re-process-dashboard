@@ -152,9 +152,12 @@ Model Packageはdata-onlyであり、allow-list済みruntime adapterだけが読
 
 外部sourceの定期更新は、Connector、Raw Snapshot、Curation Run、承認済みCanonical Dataset Revision、Training Snapshotを不変資産として分離する。取得は再学習・Package active化・既存Project更新を起動しない。詳細は[Source更新と承認付きDataset lifecycle](../contracts/source-data-lifecycle.md)を参照する。
 
-### CSV onboarding
+### CSV / 単一表XLSX onboarding
 
-**実装済み**：Data Libraryは、利用者が確認した一行一観測のCSVから標準Tabular Taskを準備できる。
+**実装済み**：Data Libraryは、利用者が確認した一行一観測のCSVまたは単一表XLSXから標準Tabular Taskを準備できる。
+XLSXはvisible sheetを明示選択し、stored valueの型を保持する。formula、merged cell、
+hidden sheetの選択、非矩形表はfail-closedとし、Profile Workbenchへ案内する。
+下流ではcanonical CSV snapshotを使い、元XLSXのdigest、sheet、reader policyをDataset provenanceへ固定する。
 画面経路はTask scaffold、allow-list済みstandard builderのbuild／verify、明示的promotion、
 Dataset登録、runtime再読込を行う。任意の学習コード・任意estimator・自動active切替ではない。
 外部training、標準builder、runtime inference、active Package切替の境界は
