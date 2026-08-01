@@ -181,8 +181,15 @@ test("Task refresh only announces Project availability for a matching Dataset", 
   await expect(guide.getByRole("status")).not.toContainText("Project作成で選べます");
 
   addedPackageId = matchingPackageId!;
+  const matchingRefreshResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/data-library/tasks/refresh"
+  ));
   await refresh.click();
-  await expect(guide.getByRole("status")).toContainText("Project作成で選べます");
+  expect((await matchingRefreshResponse).status()).toBe(200);
+  const matchingStatus = guide.getByRole("status");
+  await matchingStatus.waitFor();
+  await expect(matchingStatus).toContainText("Project作成で選べます");
 });
 
 test("Data Library separates update, mapping, and new Task onboarding", async ({ page }, testInfo) => {

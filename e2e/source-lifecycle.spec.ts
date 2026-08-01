@@ -257,7 +257,7 @@ test("source refresh stays separate from approval, training and activation", asy
   });
   await gotoDataLibraryAfterCatalog(page);
   const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
-  await expect(snapshotLink).toBeVisible();
+  await snapshotLink.waitFor();
   await snapshotLink.click();
   await expect.poll(() => new URL(page.url()).searchParams.get("revision")).toBe(policySnapshot.id);
   const selectionAudit = page.getByRole("region", { name: "学習行の選択方針" });
