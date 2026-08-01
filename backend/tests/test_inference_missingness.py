@@ -141,7 +141,20 @@ def test_interaction_only_input_is_not_inferred_as_structurally_inactive() -> No
         operation="preview",
     )
     assert explicit.fields[0].kind == "structural_not_applicable"
-    assert explicit.prediction_status == "final"
+    assert explicit.fields[0].imputed_value is None
+    assert explicit.missingness_support == "incompatible"
+    assert explicit.prediction_status == "blocked"
+
+    candidate.input_missing_kinds["process.inactive"] = "redacted"
+    redacted = assess_input_missingness(
+        candidate,
+        (inactive,),
+        {},
+        operation="preview",
+    )
+    assert redacted.fields[0].kind == "redacted"
+    assert redacted.fields[0].imputed_value is None
+    assert redacted.prediction_status == "blocked"
 
 
 def test_completion_lab_does_not_invent_decomposed_model_uncertainty() -> None:

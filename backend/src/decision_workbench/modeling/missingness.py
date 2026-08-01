@@ -97,9 +97,11 @@ def assess_input_missingness(
     effective_missing = False
     for path, kind in pattern:
         item = next(profile_input for profile_input in inputs if profile_input.path == path)
-        if kind == "structural_not_applicable":
-            applied_policy = "structural_not_applicable"
+        if kind in {"structural_not_applicable", "redacted"}:
+            applied_policy = kind
             imputed_value: float | str | None = None
+            effective_missing = True
+            incompatible = True
         elif kind == "unknown_category":
             policy = item.unknown_category
             applied_policy = policy.strategy
