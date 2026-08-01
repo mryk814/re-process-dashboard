@@ -8,6 +8,7 @@ import {
   catalogPath,
   getVerificationLevel,
   loadVerificationCatalog,
+  parseVerificationArguments,
   resolveRunner,
 } from "./verification-gates.mjs";
 
@@ -36,32 +37,6 @@ function describeCatalog(asJson) {
   }
 }
 
-function parsePlanArguments(args) {
-  const parsed = { planOnly: false, asJson: false, risks: [], reason: null, focusedArgs: [] };
-  const separator = args.indexOf("--");
-  const options = separator >= 0 ? args.slice(0, separator) : args;
-  parsed.focusedArgs = separator >= 0 ? args.slice(separator + 1) : [];
-  for (let index = 0; index < options.length; index += 1) {
-    const option = options[index];
-    if (option === "--plan") parsed.planOnly = true;
-    else if (option === "--json") parsed.asJson = true;
-    else if (option === "--risk") {
-      const risk = options[index + 1];
-      if (!risk) throw new Error("--risk requires a risk category");
-      parsed.risks.push(risk);
-      index += 1;
-    } else if (option === "--reason") {
-      const reason = options[index + 1];
-      if (!reason) throw new Error("--reason requires text");
-      parsed.reason = reason;
-      index += 1;
-    } else {
-      throw new Error(`unknown verification option: ${option}`);
-    }
-  }
-  return parsed;
-}
-
 if (argv[0] === "--list") {
   describeCatalog(argv.includes("--json"));
   process.exit(0);
@@ -79,7 +54,7 @@ if (levelId === "release") {
 
 let options;
 try {
-  options = parsePlanArguments(argv);
+  options = parseVerificationArguments(argv);
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
   process.exit(2);

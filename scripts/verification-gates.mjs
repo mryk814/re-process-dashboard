@@ -91,6 +91,36 @@ export function resolveRunner(gate, { focusedArgs = [], baseRef = "origin/main" 
   return { executable: gate.runner.executable, args };
 }
 
+export function parseVerificationArguments(args) {
+  const parsed = { planOnly: false, asJson: false, risks: [], reason: null, focusedArgs: [] };
+  const separator = args.indexOf("--");
+  const options = separator >= 0 ? args.slice(0, separator) : args;
+  if (separator >= 0) parsed.focusedArgs = args.slice(separator + 1);
+  for (let index = 0; index < options.length; index += 1) {
+    const option = options[index];
+    if (!option.startsWith("--")) {
+      parsed.focusedArgs.push(...options.slice(index));
+      break;
+    }
+    if (option === "--plan") parsed.planOnly = true;
+    else if (option === "--json") parsed.asJson = true;
+    else if (option === "--risk") {
+      const risk = options[index + 1];
+      if (!risk) throw new Error("--risk requires a risk category");
+      parsed.risks.push(risk);
+      index += 1;
+    } else if (option === "--reason") {
+      const reason = options[index + 1];
+      if (!reason) throw new Error("--reason requires text");
+      parsed.reason = reason;
+      index += 1;
+    } else {
+      throw new Error(`unknown verification option: ${option}`);
+    }
+  }
+  return parsed;
+}
+
 function pathMatches(path, matcher) {
   if (matcher.startsWith("prefix:")) return path.startsWith(matcher.slice("prefix:".length));
   if (matcher.startsWith("exact:")) return path === matcher.slice("exact:".length);
@@ -199,6 +229,8 @@ export function buildVerificationPlan({
   if (ciOwnsBackendFullSuite) {
     selectedGateReasons.delete("focused-pytest");
     select("full-pytest", "CI is the full-suite owner for backend risk on this commit");
+  } else if (focusedArgs.length > 0 && !selectedGateReasons.has("focused-pytest")) {
+    select("focused-pytest", "explicit focused tests were supplied");
   } else if (backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "backend risk requires focused evidence");
   }
