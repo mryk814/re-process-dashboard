@@ -205,10 +205,6 @@ def validate_recipe_capability(
         errors.append("standard estimators do not expose joint samples")
     for target in capability.targets:
         if recipe.estimator_id in {"lightgbm-binary.v1", "logistic.v1"}:
-            if target.target_kind != "binary":
-                errors.append(
-                    f"{target.target}: {recipe.estimator_id} requires a binary target"
-                )
             if tuple(target.point_statistics) != ("probability",):
                 errors.append(
                     f"{target.target}: binary estimator point statistic must be probability"
@@ -231,10 +227,6 @@ def validate_recipe_capability(
                 )
             continue
         if recipe.estimator_id == "poisson.v1":
-            if target.target_kind != "count":
-                errors.append(
-                    f"{target.target}: poisson.v1 requires a count target"
-                )
             if tuple(target.point_statistics) != ("rate",):
                 errors.append(
                     f"{target.target}: Poisson point statistic must be rate"
