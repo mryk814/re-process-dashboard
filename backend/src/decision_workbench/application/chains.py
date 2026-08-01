@@ -4,6 +4,7 @@ import uuid
 
 from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
+    ScalarChainAdapter,
 )
 from decision_workbench.application.chain.plan import (
     ChainExecutionError,
@@ -23,6 +24,11 @@ from decision_workbench.application.chain_evaluation import (
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
+    ChainStageLock,
+    StageContractSurface,
+    build_chain_revision,
+    task_contract_surface,
+    validate_chain_definition,
 )
 from decision_workbench.contracts.chain_api_contracts import (
     ActualConditionedVariantRequest,
@@ -31,6 +37,10 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainExecutionRequest,
     ChainGraphResponse,
     ChainGraphStageContract,
+    ChainStudioCatalogResponse,
+    ChainStudioDraftRequest,
+    ChainStudioDraftValidation,
+    ChainStudioStageCatalogItem,
     ChainTemplateItem,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -58,6 +68,8 @@ from decision_workbench.persistence.store import (
     Store,
 )
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
+from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.contracts.subsystem_availability import (
     WELDING_CHAIN_EVALUATION_SUBSYSTEM_ID,
     WELDING_CHAIN_SUBSYSTEM_ID,
@@ -116,6 +128,187 @@ def get_chain_revision(
     if revision is None:
         raise ChainNotFoundError("Chain Revisionが見つかりません")
     return revision
+
+
+def _scalar_task_surface(
+    registry: TaskRegistry,
+    task_id: str,
+) -> StageContractSurface:
+    definition = registry.contract_for(task_id).task_definition
+    return task_contract_surface(
+        definition,
+        contract_digest=semantic_digest(definition.model_dump(mode="json")),
+    )
+
+
+def _scalar_task_lock(
+    catalog: WorkspaceCatalog,
+    registry: TaskRegistry,
+    surface: StageContractSurface,
+) -> ChainStageLock:
+    """Resolve the exact existing Package and Dataset identity for one Task.
+
+    The editor never accepts a client-supplied package or dataset reference.
+    It can only publish a Task whose currently loaded runtime has one matching
+    catalog record and a single canonical Dataset View.
+    """
+
+    entry = registry.entry_for(surface.contract_id)
+    package = entry.model_package
+    package_refs = [
+        item
+        for item in catalog.list_model_package_refs()
+        if item.task_id == surface.contract_id
+        and item.manifest_digest == package.manifest_sha256
+        and item.task_contract_digest == surface.contract_digest
+    ]
+    if len(package_refs) != 1:
+        raise ChainValidationError(
+            f"Task {surface.contract_id} のModel Package参照を一意に固定できません"
+        )
+    profile_digest = package.manifest.provenance.dataset_profile_id
+    if not profile_digest.startswith("sha256:"):
+        raise ChainValidationError(
+            f"Task {surface.contract_id} のDataset Profile digestが不正です"
+        )
+    dataset_ids = {
+        dataset.id
+        for dataset in catalog.list_dataset_revisions()
+        if (profile := catalog.get_profile_revision(dataset.profile_revision_id)) is not None
+        and (asset := catalog.get_data_asset(dataset.data_asset_id)) is not None
+        and profile.profile_digest == profile_digest
+        and asset.sha256 == entry.predictor_runtime.data.source_sha256
+    }
+    view_ids = {
+        view.id
+        for view in catalog.list_dataset_view_revisions()
+        if view.kind == "single"
+        and len(view.members) == 1
+        and view.members[0].dataset_revision_id in dataset_ids
+        and view.view_id == f"single-{view.members[0].dataset_revision_id}"
+    }
+    if len(view_ids) != 1:
+        raise ChainValidationError(
+            f"Task {surface.contract_id} のDataset Viewを一意に固定できません"
+        )
+    return ChainStageLock(
+        contract_digest=surface.contract_digest,
+        package_manifest_digest=f"sha256:{package.manifest_sha256}",
+        dataset_view_revision_id=next(iter(view_ids)),
+        dataset_profile_digest=profile_digest,
+    )
+
+
+def scalar_chain_catalog(
+    registry: TaskRegistry,
+    workspace_catalog: WorkspaceCatalog,
+) -> ChainStudioCatalogResponse:
+    items: list[ChainStudioStageCatalogItem] = []
+    for task_id in registry.task_ids:
+        try:
+            registry.require_available(task_id)
+            surface = _scalar_task_surface(registry, task_id)
+            lock = _scalar_task_lock(workspace_catalog, registry, surface)
+            items.append(ChainStudioStageCatalogItem(
+                contract_id=task_id,
+                label=registry.contract_for(task_id).task_definition.label,
+                status="available",
+                surface=surface,
+                stage_lock=lock,
+            ))
+        except (ChainValidationError, TaskRegistryError, ValueError) as exc:
+            items.append(ChainStudioStageCatalogItem(
+                contract_id=task_id,
+                label=registry.contract_for(task_id).task_definition.label,
+                status="unavailable",
+                reason=str(exc),
+            ))
+    return ChainStudioCatalogResponse(stages=tuple(items))
+
+
+def _validate_scalar_draft(
+    payload: ChainStudioDraftRequest,
+    *,
+    registry: TaskRegistry,
+    workspace_catalog: WorkspaceCatalog,
+) -> tuple[dict[tuple[str, str], StageContractSurface], dict[str, ChainStageLock]]:
+    definition = payload.definition
+    if not 2 <= len(definition.stages) <= 4:
+        raise ChainValidationError("scalar ChainのStage数は2〜4にしてください")
+    if any(stage.stage_kind != "task" for stage in definition.stages):
+        raise ChainValidationError("scalar/v1 editorはTask Stageだけを公開できます")
+    catalog = scalar_chain_catalog(registry, workspace_catalog)
+    available = {
+        item.contract_id: item
+        for item in catalog.stages
+        if item.status == "available" and item.surface is not None
+        and item.stage_lock is not None
+    }
+    contracts: dict[tuple[str, str], StageContractSurface] = {}
+    locks: dict[str, ChainStageLock] = {}
+    for stage in definition.stages:
+        item = available.get(stage.contract_id)
+        if item is None:
+            unavailable = next((entry for entry in catalog.stages if entry.contract_id == stage.contract_id), None)
+            reason = unavailable.reason if unavailable is not None else "Stage catalogにありません"
+            raise ChainValidationError(
+                f"Task Stageを公開できません: {stage.contract_id}（{reason}）"
+            )
+        contracts[("task", stage.contract_id)] = item.surface
+        locks[stage.stage_id] = item.stage_lock
+    try:
+        validate_chain_definition(definition, contracts=contracts)
+        adapter = ScalarChainAdapter()
+        for port in definition.external_inputs:
+            adapter.candidate_path(port.path, port.value_kind, port.quantity)
+    except (ValueError, ChainCandidateAdapterError) as exc:
+        raise ChainValidationError(str(exc)) from exc
+    return contracts, locks
+
+
+def validate_scalar_chain_draft(
+    payload: ChainStudioDraftRequest,
+    *,
+    registry: TaskRegistry,
+    workspace_catalog: WorkspaceCatalog,
+) -> ChainStudioDraftValidation:
+    _validate_scalar_draft(
+        payload, registry=registry, workspace_catalog=workspace_catalog
+    )
+    return ChainStudioDraftValidation(
+        valid=True,
+        definition_digest=payload.definition.digest,
+        message="Task contract、binding、unit／basis、Package／Dataset固定を確認しました。",
+    )
+
+
+def publish_scalar_chain_draft(
+    payload: ChainStudioDraftRequest,
+    *,
+    store: Store,
+    registry: TaskRegistry,
+    workspace_catalog: WorkspaceCatalog,
+) -> ChainTemplateItem:
+    contracts, locks = _validate_scalar_draft(
+        payload, registry=registry, workspace_catalog=workspace_catalog
+    )
+    existing = [
+        revision for revision in store.list_chain_revisions()
+        if revision.chain_id == payload.definition.chain_id
+    ]
+    revision = build_chain_revision(
+        payload.definition,
+        revision=max((item.revision for item in existing), default=0) + 1,
+        contracts=contracts,
+        stage_locks=locks,
+    )
+    store.register_chain_definition(payload.definition)
+    store.register_chain_revision(revision, contracts=contracts)
+    return ChainTemplateItem(
+        definition_id=_definition_id(payload.definition),
+        definition=payload.definition,
+        revisions=(revision,),
+    )
 
 
 def get_project_chain_graph(project_id: str, store: Store) -> ChainGraphResponse:
@@ -506,6 +699,7 @@ class ChainUseCases:
         *,
         store: Store,
         workspace_catalog: WorkspaceCatalog,
+        task_registry: TaskRegistry,
         planning_use_case: ChainPlanningUseCase | None,
         execution_use_case: ChainExecutionUseCase | None,
         snapshot_use_case: ChainSnapshotUseCase | None,
@@ -515,6 +709,7 @@ class ChainUseCases:
     ) -> None:
         self.store = store
         self.workspace_catalog = workspace_catalog
+        self.task_registry = task_registry
         self._planning_use_case = planning_use_case
         self._execution_use_case = execution_use_case
         self._snapshot_use_case = snapshot_use_case
@@ -555,6 +750,28 @@ class ChainUseCases:
 
     def get_revision(self, revision_id: str) -> ChainRevision:
         return get_chain_revision(revision_id, self.store)
+
+    def studio_catalog(self) -> ChainStudioCatalogResponse:
+        return scalar_chain_catalog(self.task_registry, self.workspace_catalog)
+
+    def validate_studio_draft(
+        self, payload: ChainStudioDraftRequest
+    ) -> ChainStudioDraftValidation:
+        return validate_scalar_chain_draft(
+            payload,
+            registry=self.task_registry,
+            workspace_catalog=self.workspace_catalog,
+        )
+
+    def publish_studio_draft(
+        self, payload: ChainStudioDraftRequest
+    ) -> ChainTemplateItem:
+        return publish_scalar_chain_draft(
+            payload,
+            store=self.store,
+            registry=self.task_registry,
+            workspace_catalog=self.workspace_catalog,
+        )
 
     def graph(self, project_id: str) -> ChainGraphResponse:
         return get_project_chain_graph(project_id, self.store)

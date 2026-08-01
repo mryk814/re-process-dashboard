@@ -36,6 +36,88 @@ def _bundled_chain(client: TestClient) -> tuple[ChainDefinition, ChainRevision]:
     return definition, revision
 
 
+def _scalar_studio_definition(client: TestClient, *, label: str = "scalar Studio test") -> dict:
+    catalog = client.get("/api/chains/studio/catalog")
+    assert catalog.status_code == 200, catalog.text
+    stages = {item["contract_id"]: item for item in catalog.json()["stages"]}
+    stage_b = stages["welding-consumable-stage-b-v1"]
+    # The same Task is a legitimate scalar Chain case: C emitted by the first
+    # prediction is consumed as a typed input by the second.  B→C is not used
+    # here because its basis changes and must not be hidden by a conversion.
+    stage_c = stage_b
+    assert stage_b["status"] == stage_c["status"] == "available"
+    external_inputs: dict[str, dict] = {}
+    bindings: list[dict] = []
+    outputs = {port["path"]: port for port in stage_b["surface"]["output_ports"]}
+    for stage_id, surface in (("B1", stage_b["surface"]), ("B2", stage_c["surface"])):
+        for target in surface["input_ports"]:
+            source_output = outputs.get(target["path"]) if stage_id == "B2" else None
+            if source_output is not None:
+                bindings.append({
+                    "target_stage_id": stage_id,
+                    "target_input_path": target["path"],
+                    "source": {
+                        "source_kind": "stage_output",
+                        "stage_id": "B1",
+                        "output_key": target["path"],
+                    },
+                })
+                continue
+            path = f"candidate.{target['path']}"
+            external_inputs.setdefault(path, {**target, "path": path})
+            bindings.append({
+                "target_stage_id": stage_id,
+                "target_input_path": target["path"],
+                "source": {"source_kind": "external", "path": path},
+            })
+    return {
+        "chain_id": "scalar-studio-test",
+        "label": label,
+        "stages": [
+            {"stage_id": "B1", "stage_kind": "task", "contract_id": stage_b["contract_id"]},
+            {"stage_id": "B2", "stage_kind": "task", "contract_id": stage_c["contract_id"]},
+        ],
+        "external_inputs": list(external_inputs.values()),
+        "bindings": bindings,
+    }
+
+
+def test_scalar_chain_studio_validates_publishes_and_pins_server_catalog(
+    client: TestClient,
+) -> None:
+    definition = _scalar_studio_definition(client)
+    validated = client.post("/api/chains/studio/validate", json={"definition": definition})
+    assert validated.status_code == 200, validated.text
+    assert validated.json()["valid"] is True
+
+    published = client.post("/api/chains/studio/publish", json={"definition": definition})
+    assert published.status_code == 201, published.text
+    revision = published.json()["revisions"][0]
+    assert revision["revision"] == 1
+    assert all(stage["dataset_view_revision_id"] for stage in revision["stages"])
+    assert all(stage["package_manifest_digest"].startswith("sha256:") for stage in revision["stages"])
+
+    # A published revision is immutable; an edited draft becomes the next revision.
+    definition["label"] = "scalar Studio test revised"
+    republished = client.post("/api/chains/studio/publish", json={"definition": definition})
+    assert republished.status_code == 201, republished.text
+    assert republished.json()["revisions"][0]["revision"] == 2
+
+
+def test_scalar_chain_studio_fails_closed_for_non_scalar_external_path(
+    client: TestClient,
+) -> None:
+    definition = _scalar_studio_definition(client)
+    definition["external_inputs"][0]["path"] = "arbitrary.value"
+    for binding in definition["bindings"]:
+        if binding["source"]["source_kind"] == "external":
+            binding["source"]["path"] = "arbitrary.value"
+            break
+    response = client.post("/api/chains/studio/validate", json={"definition": definition})
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_chain_catalog_and_project_creation_pin_exact_revision(
     client: TestClient,
 ) -> None:

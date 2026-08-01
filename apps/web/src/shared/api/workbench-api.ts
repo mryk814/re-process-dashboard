@@ -41,6 +41,9 @@ export type ApiProjectDecisionInput = components["schemas"]["ProjectDecisionInpu
 export type ApiProjectGroupMoveInput = components["schemas"]["ProjectGroupMoveInput"];
 export type ApiProjectCreationOptions = components["schemas"]["ProjectCreationOptions"];
 export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
+export type ApiChainStudioCatalog = components["schemas"]["ChainStudioCatalogResponse"];
+export type ApiChainStudioDraft = components["schemas"]["ChainStudioDraftRequest"];
+export type ApiChainStudioDraftValidation = components["schemas"]["ChainStudioDraftValidation"];
 export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
@@ -255,6 +258,15 @@ export const workbenchApi = {
       params: { path: { project_id: projectId } },
       signal,
     }), "固定したChain構成を取得できませんでした。");
+  },
+  async chainStudioCatalog(signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/chains/studio/catalog", { signal }), "Chain StudioのTask catalogを取得できませんでした。");
+  },
+  async validateChainStudioDraft(body: ApiChainStudioDraft) {
+    return requireData(await apiClient.POST("/api/chains/studio/validate", { body }), "Chain draftを検証できませんでした。");
+  },
+  async publishChainStudioDraft(body: ApiChainStudioDraft) {
+    return requireData(await apiClient.POST("/api/chains/studio/publish", { body }), "Chain Revisionを公開できませんでした。");
   },
   async executeChain(projectId: string, candidateId: string, candidateRevision: number, requestId: string, signal?: AbortSignal) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/executions", {

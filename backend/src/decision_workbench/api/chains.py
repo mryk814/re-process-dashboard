@@ -17,6 +17,9 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainDistributionRequest,
     ChainExecutionRequest,
     ChainGraphResponse,
+    ChainStudioCatalogResponse,
+    ChainStudioDraftRequest,
+    ChainStudioDraftValidation,
     ChainTemplateItem,
 )
 from decision_workbench.contracts.chain_contracts import ChainRevision
@@ -81,6 +84,42 @@ def _call(operation):
 @router.get("", response_model=list[ChainTemplateItem], operation_id="listChainTemplates")
 def list_chain_templates(use_cases: ChainDependency) -> list[ChainTemplateItem]:
     return use_cases.list_templates()
+
+
+@router.get(
+    "/studio/catalog",
+    response_model=ChainStudioCatalogResponse,
+    operation_id="getChainStudioCatalog",
+)
+def get_chain_studio_catalog(
+    use_cases: ChainDependency,
+) -> ChainStudioCatalogResponse:
+    return _call(use_cases.studio_catalog)
+
+
+@router.post(
+    "/studio/validate",
+    response_model=ChainStudioDraftValidation,
+    operation_id="validateChainStudioDraft",
+)
+def validate_chain_studio_draft(
+    payload: ChainStudioDraftRequest,
+    use_cases: ChainDependency,
+) -> ChainStudioDraftValidation:
+    return _call(lambda: use_cases.validate_studio_draft(payload))
+
+
+@router.post(
+    "/studio/publish",
+    response_model=ChainTemplateItem,
+    status_code=201,
+    operation_id="publishChainStudioDraft",
+)
+def publish_chain_studio_draft(
+    payload: ChainStudioDraftRequest,
+    use_cases: ChainDependency,
+) -> ChainTemplateItem:
+    return _call(lambda: use_cases.publish_studio_draft(payload))
 
 
 @router.get(

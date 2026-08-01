@@ -3,6 +3,7 @@ import "../features/candidates/candidates.css";
 import "../features/workbench/workbench.css";
 import "../features/projects/projects.css";
 import "../features/projects/chain-graph.css";
+import "../features/projects/chain-studio.css";
 import "../features/screening/screening.css";
 import "../features/lineage/lineage.css";
 import "../features/quality/quality.css";
