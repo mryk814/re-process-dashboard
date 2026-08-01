@@ -272,20 +272,16 @@ export function ChainWorkbenchPage({
           }),
         ),
         workbenchApi.listChainCandidates(projectId),
-        workbenchApi.chainCandidateCapability(projectId).catch(() => null),
+        workbenchApi.chainCandidateCapability(projectId),
       ]).then(([inputResult, items, capability]) => {
-        const inferredAdapterId = capability?.adapter_id
-          ?? (inputResult.externalInputs.some((item) => item.kind === "sparse_blend")
-            ? "sparse_blend/v1"
-            : "scalar/v1");
-        const adapter = resolveChainCandidateEditorAdapter(inferredAdapterId);
+        const adapter = resolveChainCandidateEditorAdapter(capability.adapter_id);
         return {
         loadedContract: null,
         ...inputResult,
         items,
         starter: null,
         adapter: adapter ?? null,
-        unsupportedAdapterId: adapter ? null : inferredAdapterId,
+        unsupportedAdapterId: adapter ? null : capability.adapter_id,
       };
       })
       : workbenchApi.chainCandidateCapability(projectId).then((capability) => {
