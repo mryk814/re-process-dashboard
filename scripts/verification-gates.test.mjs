@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import {
   appendNotRunResults,
   buildVerificationPlan,
   classifyChangedPath,
   evaluateAcceptanceApplicability,
+  evaluateVerificationOutcome,
+  gateRunsOnPlatform,
   getVerificationLevel,
   loadVerificationCatalog,
   parseVerificationArguments,
   requiresBackendPytest,
+  verificationEvidenceMarkdown,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
 import { inspectAcceptanceReport, normalizedTextSha256 } from "./acceptance-status.mjs";
@@ -22,6 +27,12 @@ const planFor = (changedPaths, options = {}) => buildVerificationPlan({
   ...options,
 });
 const selectedIds = (plan) => plan.selectedGateIds;
+const passedResults = (plan) => plan.selectedGateIds.map((id) => ({
+  id,
+  status: "passed",
+  command: catalog.gates[id].command,
+  exitCode: 0,
+}));
 
 test("verification CLI keeps the documented direct focused-test syntax", () => {
   assert.deepEqual(
@@ -64,6 +75,17 @@ test("catalog declares four distinct levels, path rules, and complete gate metad
   assert.ok(getVerificationLevel(catalog, "pr").gates.includes("branch-diff"));
   assert.throws(() => validateVerificationCatalog({ ...catalog, levels: [...catalog.levels, catalog.levels[0]] }), /exactly four levels/);
   assert.throws(() => validateVerificationCatalog({ ...catalog, planning: { ...catalog.planning, pathRules: [] } }), /planning.pathRules/);
+  assert.throws(
+    () => validateVerificationCatalog({
+      ...catalog,
+      riskMatrix: catalog.riskMatrix.map((rule) => (
+        rule.risk === "pure-docs"
+          ? Object.fromEntries(Object.entries(rule).filter(([key]) => key !== "higherLevelDisposition"))
+          : rule
+      )),
+    }),
+    /higherLevelDisposition/,
+  );
 });
 
 test("docs-only plan retains document and diff gates without application build", () => {
@@ -95,7 +117,8 @@ test("focused product E2E specs stay at PR level while E2E infrastructure requir
   const infrastructure = planFor(["e2e/helpers.ts"]);
   assert.deepEqual(infrastructure.riskCategories, ["e2e-test-infrastructure"]);
   assert.equal(infrastructure.selectedLevel, "checkpoint");
-  assert.equal(infrastructure.completion, "incomplete");
+  assert.equal(infrastructure.completion, "follow_up");
+  assert.equal(infrastructure.followUpOwner, "epic-checkpoint");
   assert.ok(selectedIds(infrastructure).includes("failure-state-e2e"));
 });
 
@@ -130,21 +153,90 @@ test("unresolved backend authority is an explicit broad fallback, never an accid
   assert.ok(!selectedIds(plan).includes("full-pytest"));
 });
 
-test("migration and runtime security plans force safety gates regardless of normal PR level", () => {
+test("direct release risks select one executable acceptance gate", () => {
   const migration = planFor(["backend/src/decision_workbench/persistence/project_lifecycle_migration.py"]);
   assert.equal(migration.minimumRequiredLevel, "release");
   assert.equal(migration.selectedLevel, "release");
-  assert.equal(migration.completion, "incomplete");
-  assert.equal(migration.requiredFollowUp.command, "npm run acceptance:release");
-  assert.ok(selectedIds(migration).includes("legacy-workspace"));
+  assert.equal(migration.completion, "direct_evidence_required");
+  assert.equal(migration.requiredFollowUp, null);
+  assert.equal(migration.directEvidenceRequirements[0].command, "npm run acceptance:release");
+  assert.ok(selectedIds(migration).includes("release-acceptance"));
+  assert.ok(!selectedIds(migration).includes("legacy-workspace"));
   const runtimeSecurity = planFor(["backend/src/decision_workbench/api/security.py"]);
   assert.equal(runtimeSecurity.minimumRequiredLevel, "release");
-  assert.ok(selectedIds(runtimeSecurity).includes("security-boundary-tests"));
-  assert.ok(selectedIds(runtimeSecurity).includes("dependency-audit"));
+  assert.ok(selectedIds(runtimeSecurity).includes("release-acceptance"));
+  assert.ok(!selectedIds(runtimeSecurity).includes("security-boundary-tests"));
   const artifactLoader = planFor(["backend/src/decision_workbench/modeling/packages/loader.py"]);
   assert.equal(artifactLoader.minimumRequiredLevel, "release");
   assert.ok(selectedIds(artifactLoader).includes("model-package-contract-tests"));
-  assert.ok(artifactLoader.requiredManualGates.some((gate) => gate.id === "model-package-release-evidence"));
+  assert.equal(artifactLoader.completion, "follow_up");
+  assert.ok(artifactLoader.requiredFollowUps.some((item) => item.owner === "release-checkpoint"));
+  assert.ok(artifactLoader.requiredFollowUps.some((item) => item.command.startsWith("manual:")));
+  assert.deepEqual(artifactLoader.requiredManualGates, []);
+});
+
+test("model source is follow-up while an actual package artifact is direct release evidence", () => {
+  const source = planFor(["backend/src/decision_workbench/modeling/runtime.py"]);
+  assert.deepEqual(source.riskCategories, ["model-runtime"]);
+  assert.equal(source.completion, "follow_up");
+  assert.ok(selectedIds(source).includes("model-package-contract-tests"));
+  assert.ok(!selectedIds(source).includes("release-acceptance"));
+  assert.equal(evaluateVerificationOutcome({
+    plan: source,
+    gateResults: passedResults(source),
+  }).outcome, "passed_with_follow_up");
+
+  const artifact = planFor(["models/packages/example/manifest.json"]);
+  assert.deepEqual(artifact.riskCategories, ["model-runtime-artifact"]);
+  assert.equal(artifact.completion, "direct_evidence_required");
+  assert.ok(selectedIds(artifact).includes("release-acceptance"));
+  const missingResults = passedResults(artifact).map((result) => (
+    result.id === "release-acceptance"
+      ? { ...result, status: "not_run", exitCode: null }
+      : result
+  ));
+  assert.equal(evaluateVerificationOutcome({
+    plan: artifact,
+    gateResults: missingResults,
+  }).outcome, "failed");
+  assert.equal(evaluateVerificationOutcome({
+    plan: artifact,
+    gateResults: passedResults(artifact),
+  }).outcome, "passed");
+});
+
+test("stronger direct aggregate absorbs weaker follow-up gates without duplication", () => {
+  const mixed = planFor([
+    "models/packages/example/manifest.json",
+    "e2e/helpers.ts",
+  ]);
+  assert.deepEqual(mixed.directEvidenceRequirements.map((item) => item.command), [
+    "npm run acceptance:release",
+  ]);
+  assert.deepEqual(
+    mixed.requiredFollowUps.map(({ command, owner }) => ({ command, owner })),
+    [],
+  );
+  assert.ok(!selectedIds(mixed).includes("failure-state-e2e"));
+  assert.deepEqual(
+    selectedIds(mixed).filter((id) => id.endsWith("-acceptance")),
+    ["release-acceptance"],
+  );
+});
+
+test("a weaker direct aggregate preserves the stronger risk's follow-up owner", () => {
+  const mixed = planFor([
+    "unclassified.file",
+    "backend/src/decision_workbench/modeling/runtime.py",
+  ]);
+  assert.deepEqual(mixed.directEvidenceRequirements.map((item) => item.command), [
+    "npm run verify:checkpoint",
+  ]);
+  assert.ok(mixed.requiredFollowUps.every((item) => (
+    item.level === "release" && item.owner === "release-checkpoint"
+  )));
+  assert.ok(selectedIds(mixed).includes("checkpoint-acceptance"));
+  assert.ok(selectedIds(mixed).includes("model-package-contract-tests"));
 });
 
 test("checkpoint-only gates become selected only at checkpoint evidence level", () => {
@@ -160,9 +252,10 @@ test("unclassified paths receive the conservative full verification plan", () =>
   const plan = planFor(["unclassified.file"]);
   assert.deepEqual(plan.riskCategories, ["unknown"]);
   assert.equal(plan.minimumRequiredLevel, "checkpoint");
-  assert.equal(plan.completion, "incomplete");
-  assert.equal(plan.requiredFollowUp.command, "npm run verify:checkpoint");
-  assert.ok(selectedIds(plan).includes("full-pytest"));
+  assert.equal(plan.completion, "direct_evidence_required");
+  assert.equal(plan.directEvidenceRequirements[0].command, "npm run verify:checkpoint");
+  assert.ok(selectedIds(plan).includes("checkpoint-acceptance"));
+  assert.ok(!selectedIds(plan).includes("full-pytest"));
   assert.equal(plan.fullSuiteOwner.owner, "local");
 });
 
@@ -170,14 +263,19 @@ test("manual risk overrides require a reason and are recorded in the plan", () =
   assert.throws(() => planFor(["docs/readme.md"], { manualRiskOverrides: ["security"] }), /requires --reason/);
   const plan = planFor(["docs/readme.md"], { manualRiskOverrides: ["security"], manualOverrideReason: "generated code changes Origin handling" });
   assert.deepEqual(plan.manualOverrides, [{ risk: "security", reason: "generated code changes Origin handling" }]);
-  assert.ok(selectedIds(plan).includes("security-boundary-tests"));
+  assert.ok(selectedIds(plan).includes("release-acceptance"));
 });
 
 test("changed paths use catalog-driven high-risk precedence", () => {
   assert.equal(classifyChangedPath("docs/reports/checkpoint.json", catalog), "evidence");
   assert.equal(classifyChangedPath("apps/web/src/generated/api-types.ts", catalog), "api-contract");
   assert.equal(classifyChangedPath("backend/src/decision_workbench/persistence/store.py", catalog), "migration-workspace");
+  assert.equal(classifyChangedPath("models/packages/example/manifest.json", catalog), "model-runtime-artifact");
   assert.equal(classifyChangedPath("unclassified.file", catalog), "unknown");
+  assert.deepEqual(
+    planFor([".github/workflows/verify.yml"]).riskCategories,
+    ["verification-tooling"],
+  );
   assert.equal(requiresBackendPytest(["backend-application"]), true);
   assert.equal(requiresBackendPytest(["pure-docs", "frontend-presentation"]), false);
 });
@@ -216,4 +314,137 @@ test("catalog digest is stable across BOM and line-ending conventions", () => {
 test("selected gates after an early failure are recorded as not_run", () => {
   const results = appendNotRunResults(["docs-check", "web-unit"], [{ id: "docs-check", status: "failed" }], catalog);
   assert.deepEqual(results.map(({ id, status }) => ({ id, status })), [{ id: "docs-check", status: "failed" }, { id: "web-unit", status: "not_run" }]);
+});
+
+test("verification outcome fixtures keep direct failures separate from follow-up", () => {
+  const followUpCatalog = {
+    ...catalog,
+    riskMatrix: catalog.riskMatrix.map((rule) => (
+      rule.risk === "backend-application"
+        ? {
+            ...rule,
+            minimumLevel: "release",
+            higherLevelDisposition: "follow_up",
+            followUpOwner: "release-checkpoint",
+          }
+        : rule
+    )),
+  };
+  const focused = buildVerificationPlan({
+    catalog: followUpCatalog,
+    requestedLevel: "pr",
+    changedPaths: ["backend/src/decision_workbench/application/project_runtime.py"],
+    focusedArgs: ["backend/tests/test_api.py"],
+    commitSha: "fixture-sha",
+  });
+  const passedWithFollowUp = evaluateVerificationOutcome({
+    plan: focused,
+    gateResults: focused.selectedGateIds.map((id) => ({
+      id,
+      status: "passed",
+      command: followUpCatalog.gates[id].command,
+      exitCode: 0,
+    })),
+  });
+  assert.equal(passedWithFollowUp.outcome, "passed_with_follow_up");
+  assert.equal(
+    passedWithFollowUp.outcome_schema_version,
+    "verification-outcome/v1",
+  );
+  assert.deepEqual(passedWithFollowUp.direct_failures, []);
+  assert.equal(passedWithFollowUp.required_follow_ups[0].level, "release");
+  assert.equal(passedWithFollowUp.follow_up_owner, "release-checkpoint");
+
+  const failed = evaluateVerificationOutcome({
+    plan: focused,
+    gateResults: focused.selectedGateIds.map((id, index) => ({
+      id,
+      status: index === 0 ? "failed" : "passed",
+      command: followUpCatalog.gates[id].command,
+      exitCode: index === 0 ? 1 : 0,
+    })),
+  });
+  assert.equal(failed.outcome, "failed");
+  assert.equal(failed.direct_failures.length, 1);
+  assert.equal(failed.required_follow_ups.length, 1);
+});
+
+test("CI full-suite ownership remains pending until completion and fails on regression", () => {
+  const plan = planFor(
+    ["backend/src/decision_workbench/application/project_runtime.py"],
+    { ci: true },
+  );
+  const pending = evaluateVerificationOutcome({
+    plan,
+    gateResults: plan.selectedGateIds.map((id) => ({
+      id,
+      status: id === "full-pytest" ? "pending" : "passed",
+      command: catalog.gates[id].command,
+      exitCode: null,
+    })),
+  });
+  assert.equal(pending.outcome, "pending");
+  assert.deepEqual(pending.pending_gates, ["full-pytest"]);
+
+  const failed = evaluateVerificationOutcome({
+    plan,
+    gateResults: plan.selectedGateIds.map((id) => ({
+      id,
+      status: id === "full-pytest" ? "failed" : "passed",
+      command: catalog.gates[id].command,
+      exitCode: id === "full-pytest" ? 1 : 0,
+    })),
+  });
+  assert.equal(failed.outcome, "failed");
+  assert.equal(failed.direct_failures[0].id, "full-pytest");
+});
+
+test("docs pass, direct acceptance is result-aware, and structural follow-up stays green", () => {
+  const docs = planFor(["docs/operations/verification-policy.md"]);
+  const docsOutcome = evaluateVerificationOutcome({
+    plan: docs,
+    gateResults: passedResults(docs),
+  });
+  assert.equal(docsOutcome.outcome, "passed");
+  assert.match(verificationEvidenceMarkdown(docsOutcome), /Outcome: `passed`/);
+
+  const migration = planFor([
+    "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
+  ]);
+  const missingEvidence = passedResults(migration).map((result) => (
+    result.id === "release-acceptance"
+      ? { ...result, status: "not_run", exitCode: null }
+      : result
+  ));
+  const failed = evaluateVerificationOutcome({
+    plan: migration,
+    gateResults: missingEvidence,
+  });
+  assert.equal(failed.outcome, "failed");
+  assert.ok(failed.direct_failures.some((failure) => (
+    failure.kind === "required_evidence"
+  )));
+  assert.equal(evaluateVerificationOutcome({
+    plan: migration,
+    gateResults: passedResults(migration),
+  }).outcome, "passed");
+
+  const structural = planFor(["e2e/helpers.ts"]);
+  const structuralOutcome = evaluateVerificationOutcome({
+    plan: structural,
+    gateResults: passedResults(structural),
+  });
+  assert.equal(structuralOutcome.outcome, "passed_with_follow_up");
+  assert.equal(structuralOutcome.follow_up_owner, "epic-checkpoint");
+});
+
+test("verification workflow has separate direct and follow-up checks", () => {
+  const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
+  assert.match(workflow, /name: direct verification/);
+  assert.match(workflow, /name: verification follow-up/);
+  assert.match(workflow, /artifacts\/verification\/latest-pr\.json/);
+  assert.match(workflow, /runs-on: windows-latest/);
+  assert.match(workflow, /timeout-minutes: 45/);
+  assert.equal(gateRunsOnPlatform("windows", "linux"), false);
+  assert.equal(gateRunsOnPlatform("windows", "windows"), true);
 });

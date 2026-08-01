@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
@@ -7,9 +7,12 @@ import {
   buildVerificationPlan,
   catalogPath,
   getVerificationLevel,
+  gateRunsOnPlatform,
   loadVerificationCatalog,
   parseVerificationArguments,
   resolveRunner,
+  evaluateVerificationOutcome,
+  verificationEvidenceMarkdown,
 } from "./verification-gates.mjs";
 
 const argv = process.argv.slice(2);
@@ -97,9 +100,16 @@ function printPlan(value, asJson) {
   if (asJson) return process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
   process.stdout.write(`\n${value.label}: ${value.riskCategories.join(", ")}\n`);
   process.stdout.write(`Execution level: ${value.executionLevel}; selected evidence level: ${value.selectedLevel}\n`);
-  if (value.completion === "incomplete") {
-    process.stdout.write(`INCOMPLETE: ${value.incompleteReasons.join("; ")}\n`);
-    process.stdout.write(`Required follow-up: ${value.requiredFollowUp.command} (${value.requiredFollowUp.reason})\n`);
+  if (value.completion === "direct_evidence_required") {
+    process.stdout.write(`DIRECT EVIDENCE REQUIRED: ${value.incompleteReasons.join("; ")}\n`);
+    for (const item of value.directEvidenceRequirements) {
+      process.stdout.write(`- ${item.command} (${item.reason})\n`);
+    }
+  } else if (value.completion === "follow_up") {
+    process.stdout.write(`FOLLOW-UP PLANNED: ${value.incompleteReasons.join("; ")}\n`);
+    for (const item of value.requiredFollowUps) {
+      process.stdout.write(`- ${item.command} (owner: ${item.owner})\n`);
+    }
   }
   process.stdout.write(`Focused tests: ${value.focusedTests.tests.join(", ") || "none"} (${value.focusedTests.source})\n`);
   process.stdout.write(`Full suite owner: ${value.fullSuiteOwner.owner} @ ${value.fullSuiteOwner.commitSha ?? "unknown"}\n`);
@@ -119,6 +129,7 @@ printPlan(plan, false);
 const startedAt = new Date();
 let results = [];
 let exitCode = 0;
+const currentPlatform = process.platform === "win32" ? "windows" : process.platform;
 for (const gateId of plan.selectedGateIds) {
   const gate = catalog.gates[gateId];
   const resolvedRunner = resolveRunner(gate, { focusedArgs: plan.focusedTests.tests, baseRef: plan.baseRef });
@@ -127,7 +138,15 @@ for (const gateId of plan.selectedGateIds) {
   const grouped = process.env.GITHUB_ACTIONS === "true";
   process.stdout.write(grouped ? `::group::${gateId}\n` : `\n== ${gateId} ==\n`);
   const gateStartedAt = new Date();
-  const result = spawnSync(executable.command, args, { stdio: "inherit", env: process.env });
+  const platformSupported = gateRunsOnPlatform(gate.platform, currentPlatform);
+  const result = platformSupported
+    ? spawnSync(executable.command, args, { stdio: "inherit", env: process.env })
+    : {
+        status: 1,
+        error: new Error(
+          `${gateId} requires ${gate.platform}; current runner is ${currentPlatform}`,
+        ),
+      };
   const gateFinishedAt = new Date();
   if (grouped) process.stdout.write("::endgroup::\n");
   const status = result.error || result.status !== 0 ? "failed" : "passed";
@@ -136,16 +155,24 @@ for (const gateId of plan.selectedGateIds) {
 }
 if (exitCode !== 0) results = appendNotRunResults(plan.selectedGateIds, results, catalog);
 const finishedAt = new Date();
+const outcome = evaluateVerificationOutcome({ plan, gateResults: results });
+const evidenceMarkdown = verificationEvidenceMarkdown(outcome);
 const report = {
   ...plan,
   startedAt: startedAt.toISOString(),
   finishedAt: finishedAt.toISOString(),
   durationSeconds: Number(((finishedAt - startedAt) / 1_000).toFixed(3)),
-  status: exitCode === 0 && plan.completion === "ready" ? "passed" : exitCode === 0 ? "incomplete" : "failed",
+  status: outcome.outcome,
+  ...outcome,
+  pr_body_evidence: evidenceMarkdown,
   gates: results,
 };
 const artifactDirectory = resolve("artifacts", "verification");
 mkdirSync(artifactDirectory, { recursive: true });
 writeFileSync(resolve(artifactDirectory, `latest-${levelId}.json`), `${JSON.stringify(report, null, 2)}\n`);
 process.stdout.write(`\nVerification report: artifacts/verification/latest-${levelId}.json\n`);
-process.exit(exitCode === 0 && plan.completion === "incomplete" ? 3 : exitCode);
+process.stdout.write(`${evidenceMarkdown}\n`);
+if (process.env.GITHUB_STEP_SUMMARY) {
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${evidenceMarkdown}\n`);
+}
+process.exit(outcome.outcome === "failed" ? (exitCode || 1) : outcome.outcome === "pending" ? 2 : 0);

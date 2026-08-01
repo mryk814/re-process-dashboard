@@ -13,10 +13,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: normal change gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  direct-verification:
+    name: direct verification
+    runs-on: windows-latest
+    timeout-minutes: 45
     env:
       VERIFY_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
@@ -43,5 +43,32 @@ jobs:
           npm ci
           uv sync --frozen --extra dev
 
-      - name: Run normal PR verification
+      - name: Run direct PR verification
         run: npm run verify:pr
+
+      - name: Upload direct verification report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: direct-verification-report
+          path: artifacts/verification/latest-pr.json
+          if-no-files-found: warn
+
+  verification-follow-up:
+    name: verification follow-up
+    needs: direct-verification
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Download direct verification report
+        uses: actions/download-artifact@v7
+        with:
+          name: direct-verification-report
+          path: artifacts/verification
+        continue-on-error: true
+
+      - name: Publish follow-up notice
+        run: node scripts/verification-follow-up.mjs

@@ -211,3 +211,4 @@ $env:PLAYWRIGHT_REUSE_SERVER=1; $env:PLAYWRIGHT_API_PORT=8765; $env:PLAYWRIGHT_W
 GitHub Actionsの利用可否は一時的な運用状態であり、この文書の不変条件ではない。
 
 PRごとに現行checkを確認し、利用できない場合は`verify:pr`、必要なら`verify:checkpoint`または`acceptance:release`と、変更リスクに応じたbrowser／packaged smokeをPR本文へ記録する。
+structural PRは`direct verification`がpendingまたはfailedの間はmergeもadmin mergeもしない。`passed_with_follow_up`はdirect evidenceが揃った状態としてmerge可能だが、記録されたownerが節目のfollow-upを引き継ぐ。
