@@ -1,0 +1,5 @@
+sample_id,temperature_c,hardness_hv,toughness_j
+s-1,700,220,40
+s-2,750,240,
+s-3,800,,52
+s-4,850,260,

@@ -1,0 +1,184 @@
+{
+  "schema_version": "data-readiness/v1",
+  "generated_from": [
+    "backend/src/decision_workbench/developer_experience/readiness.py",
+    "backend/src/decision_workbench/task_composition/builtin/catalog.py",
+    "backend/src/decision_workbench/tasks/task_definitions"
+  ],
+  "tasks": [
+    {
+      "task_id": "annealed-properties-v1",
+      "label": "焼鈍後特性",
+      "source_shape": "relational_workbook",
+      "profile_family": "dataset-input-profile/v2",
+      "split_policy": "profile_defined",
+      "input_kinds": [
+        "composition",
+        "process",
+        "heat_pattern"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "battery-degradation-v1",
+      "label": "CALCE実測：電池容量劣化",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "grouped_cell",
+      "input_kinds": [
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "concrete-strength-v1",
+      "label": "コンクリート圧縮強度",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition",
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "flank-wear-v1",
+      "label": "逃げ面摩耗予測",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "grouped_tool_condition",
+      "input_kinds": [
+        "process",
+        "composition",
+        "categorical"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "heat-treatment-tradeoff-v1",
+      "label": "熱処理の硬さ・靭性",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "hot-rolled-properties-v1",
+      "label": "熱延後特性予測",
+      "source_shape": "relational_workbook",
+      "profile_family": "dataset-input-profile/v2",
+      "split_policy": "profile_defined",
+      "input_kinds": [
+        "composition",
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "mpea-hardness-process-v1",
+      "label": "MPEA文献：硬さと工程",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "mpea-literature-tys-v1",
+      "label": "MPEA文献：組成のみの降伏強さ参考推定（旧版）",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "mpea-room-tensile-v1",
+      "label": "MPEA文献：室温引張特性と工程",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "secom-yield-risk-v1",
+      "label": "SECOM実測：工程異常リスク",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "wear-curve-v1",
+      "label": "工具摩耗曲線",
+      "source_shape": "longitudinal_curve",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "grouped_tool_condition",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "welding-consumable-stage-b-v1",
+      "label": "溶接材料 Stage B：溶着金属成分",
+      "source_shape": "relational_workbook",
+      "profile_family": "dataset-input-profile/v2",
+      "split_policy": "profile_defined",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "welding-stage-c-properties-v1",
+      "label": "溶着金属成分から特性を予測",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "composition",
+        "process",
+        "categorical"
+      ],
+      "target_kind": "multi_target",
+      "standard_authoring": false
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+sample_id,alloy,temperature_c,strength_mpa
+s-1,A,700,300
+s-2,B,,360
+s-3,A,800,420

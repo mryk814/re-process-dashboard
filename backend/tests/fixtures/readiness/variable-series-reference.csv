@@ -1,0 +1,4 @@
+sample_id,condition,curve_file_ref,strength_mpa
+s-1,A,trace-001.csv,300
+s-2,B,trace-002.csv,360
+s-3,A,trace-003.csv,420

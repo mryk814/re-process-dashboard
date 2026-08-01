@@ -558,6 +558,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/developer/readiness/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Readiness Catalog
+         * @description Return the shipped shape catalog without changing Workspace state.
+         */
+        get: operations["get_readiness_catalog_api_developer_readiness_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/developer/readiness/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Readiness Preflight
+         * @description Classify an uploaded source in a temporary directory only.
+         *
+         *     This endpoint intentionally has no Workspace, Dataset, Profile, or Package
+         *     dependency.  A successful response is advice, not a registration.
+         */
+        post: operations["post_readiness_preflight_api_developer_readiness_preflight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnostics/inference": {
         parameters: {
             query?: never;
@@ -3446,6 +3489,16 @@ export interface components {
             /** Profile Digest */
             profile_digest?: string | null;
         };
+        /** Body_post_readiness_preflight_api_developer_readiness_preflight_post */
+        Body_post_readiness_preflight_api_developer_readiness_preflight_post: {
+            /** File */
+            file: string;
+            /**
+             * Target Columns Json
+             * @default []
+             */
+            target_columns_json: string;
+        };
         /** Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post */
         Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post: {
             /**
@@ -3843,6 +3896,25 @@ export interface components {
              * @enum {string}
              */
             capability: "mean_point" | "median_point" | "quantiles" | "standard_deviation" | "predictive_samples" | "joint_samples" | "parametric_distribution" | "goal_probability" | "support" | "explanation" | "normal_mean_std" | "conformal_interval";
+        };
+        /** CatalogEntry */
+        CatalogEntry: {
+            /** Profile Families */
+            profile_families: string[];
+            /** Reason */
+            reason: string;
+            /**
+             * Source Shape
+             * @enum {string}
+             */
+            source_shape: "independent_rows" | "repeated_measurements" | "longitudinal_curve" | "wide_multi_target" | "relational_workbook" | "variable_length_series";
+            /** Standard Onboarding */
+            standard_onboarding: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ready" | "profile_needed" | "task_slice_needed" | "unsupported";
         };
         /** CategoricalDomain */
         CategoricalDomain: {
@@ -9195,6 +9267,76 @@ export interface components {
             /** Source Byte Count */
             source_byte_count?: number | null;
         };
+        /** ReadinessCatalog */
+        ReadinessCatalog: {
+            /** Entries */
+            entries: components["schemas"]["CatalogEntry"][];
+            /**
+             * Schema Version
+             * @default data-readiness/v1
+             * @constant
+             */
+            schema_version: "data-readiness/v1";
+        };
+        /** ReadinessColumn */
+        ReadinessColumn: {
+            /** Missing */
+            missing: number;
+            /** Name */
+            name: string;
+            /** Non Empty */
+            non_empty: number;
+            /**
+             * Suggested Role
+             * @enum {string}
+             */
+            suggested_role: "row_id" | "candidate_input" | "fixed_context" | "grouping" | "time_axis" | "technical_metadata" | "target" | "unknown";
+        };
+        /** ReadinessPreflight */
+        ReadinessPreflight: {
+            /** Ambiguities */
+            ambiguities: string[];
+            /** Available Profile Families */
+            available_profile_families: string[];
+            /** Columns */
+            columns: components["schemas"]["ReadinessColumn"][];
+            /** Reasons */
+            reasons: string[];
+            /**
+             * Route
+             * @enum {string}
+             */
+            route: "standard_onboarding" | "profile_workbench" | "task_slice" | "unsupported";
+            /**
+             * Schema Version
+             * @default data-readiness/v1
+             * @constant
+             */
+            schema_version: "data-readiness/v1";
+            /** Source Filename */
+            source_filename: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Source Shape */
+            source_shape: ("independent_rows" | "repeated_measurements" | "longitudinal_curve" | "wide_multi_target" | "relational_workbook" | "variable_length_series") | null;
+            /** Standard Onboarding */
+            standard_onboarding: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ready" | "profile_needed" | "task_slice_needed" | "unsupported";
+            /**
+             * Target Availability
+             * @enum {string}
+             */
+            target_availability: "not_declared" | "complete" | "partial_by_target";
+            /**
+             * Workbook Sheets
+             * @default []
+             */
+            workbook_sheets: string[];
+        };
         /** RelationalConstraint */
         RelationalConstraint: {
             /** Left Path */
@@ -12232,6 +12374,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeveloperOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_readiness_catalog_api_developer_readiness_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessCatalog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    post_readiness_preflight_api_developer_readiness_preflight_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_post_readiness_preflight_api_developer_readiness_preflight_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessPreflight"];
                 };
             };
             /** @description Validation Error */

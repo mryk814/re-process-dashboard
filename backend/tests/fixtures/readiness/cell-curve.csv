@@ -1,0 +1,5 @@
+cell_id,cycle_index,discharge_rate_c,instrument_version,capacity_percent
+c-1,1,0.5,A,100
+c-1,2,0.5,A,99
+c-2,1,1.0,B,100
+c-2,2,1.0,B,97

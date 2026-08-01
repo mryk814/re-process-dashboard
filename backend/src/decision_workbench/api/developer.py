@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import json
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Annotated
 from zipfile import BadZipFile
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from openpyxl.utils.exceptions import InvalidFileException
 
 from decision_workbench.api.dependencies import (
@@ -19,6 +21,12 @@ from decision_workbench.api.dependencies import (
 )
 from decision_workbench.developer_experience.change_guide import change_guide_entries
 from decision_workbench.developer_experience.runtime_diagnostics import run_runtime_diagnostics
+from decision_workbench.developer_experience.readiness import (
+    ReadinessCatalog,
+    ReadinessPreflight,
+    preflight_source,
+    readiness_catalog,
+)
 from decision_workbench.developer_experience.schemas import (
     ChangeGuideEntry,
     DeveloperOverview,
@@ -83,6 +91,7 @@ _OBSERVATION_PROFILE_REGISTRY = (
 _OBSERVATION_API_ERRORS = {
     503: {"model": ApiError, "description": "Observation Profile Unavailable"},
 }
+_READINESS_MAX_BYTES = 100 * 1024 * 1024
 
 
 def _resource_root() -> Path:
@@ -164,6 +173,62 @@ def _observation_registration(profile_id: str) -> _ObservationProfileRegistratio
 @router.get("/change-guide", response_model=list[ChangeGuideEntry])
 def get_change_guide() -> list[ChangeGuideEntry]:
     return change_guide_entries()
+
+
+@router.get("/readiness/catalog", response_model=ReadinessCatalog)
+def get_readiness_catalog() -> ReadinessCatalog:
+    """Return the shipped shape catalog without changing Workspace state."""
+
+    return readiness_catalog()
+
+
+@router.post("/readiness/preflight", response_model=ReadinessPreflight)
+async def post_readiness_preflight(
+    file: UploadFile = File(...),
+    target_columns_json: str = Form("[]"),
+) -> ReadinessPreflight:
+    """Classify an uploaded source in a temporary directory only.
+
+    This endpoint intentionally has no Workspace, Dataset, Profile, or Package
+    dependency.  A successful response is advice, not a registration.
+    """
+
+    try:
+        target_columns = json.loads(target_columns_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(422, "target_columns_json must be a JSON string array") from exc
+    if not isinstance(target_columns, list) or any(
+        not isinstance(name, str) or not name.strip() for name in target_columns
+    ):
+        raise HTTPException(422, "target_columns_json must be a JSON string array")
+    filename = Path(file.filename or "").name
+    if not filename or Path(filename).suffix.lower() not in {".csv", ".xlsx"}:
+        raise HTTPException(422, "CSVまたはExcel .xlsxファイルを選択してください")
+    temporary = TemporaryDirectory(prefix="decision-workbench-readiness-")
+    source = Path(temporary.name) / filename
+    try:
+        size = 0
+        with source.open("wb") as stream:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > _READINESS_MAX_BYTES:
+                    raise HTTPException(413, "CSVまたはExcelファイルは100 MB以下にしてください")
+                stream.write(chunk)
+        return preflight_source(source, target_columns=tuple(name.strip() for name in target_columns))
+    except HTTPException:
+        raise
+    except (OSError, ValueError) as exc:
+        raise HTTPException(
+            422,
+            {
+                "code": "readiness_preflight_failed",
+                "message": str(exc),
+                "next_action": "形式が不明なsourceは標準Tabularとして続行せず、Profile WorkbenchまたはTask設計で確認してください。",
+            },
+        ) from exc
+    finally:
+        await file.close()
+        temporary.cleanup()
 
 
 @router.get(

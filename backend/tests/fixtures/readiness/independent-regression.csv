@@ -1,0 +1,4 @@
+sample_id,temperature_c,route,strength_mpa
+s-1,700,A,300
+s-2,750,B,360
+s-3,800,A,420
