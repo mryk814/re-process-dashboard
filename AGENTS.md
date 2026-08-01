@@ -67,6 +67,10 @@ npm run dev   # Web UI: 127.0.0.1:5180 / API: 127.0.0.1:8765
 npm.cmd run verify:edit -- backend/tests/test_screening_score.py
 ```
 
+Level 0は、小さな編集、commit、agent handoffのたびに反復する義務ではない。
+実装を意味のある一単位まで進めてから、その単位を反証できるfocused testを一度実行する。
+同じ失敗仮説を検証しないtest、変更と無関係なfull suite、直前と同じcommitへの同じgateは繰り返さない。
+
 通常のPRはLevel 1を使い、対象pytestを`--`以降へ渡す。
 
 ```powershell
@@ -74,6 +78,16 @@ npm.cmd run verify:pr -- backend/tests/test_screening_score.py
 ```
 
 複数PRをまとめた節目は`npm run verify:checkpoint`、配布・migration・restore・Packageなど高リスクの受入は`npm run acceptance:release`を使う。通常PRごとにLevel 2／3を要求しない。
+
+### 検証コストと作り込みを抑える
+
+- 関連Issueは実装を先にまとめ、各Issueでは変更箇所のfocused testを使う。full suite、default Playwright、checkpointは複数PRを統合した節目で一度だけ実行する。
+- 画面変更のmerge前証拠は、変更した操作経路を反証するfresh Playwright specに絞る。無関係なE2E全体を毎PRで実行しない。
+- Package実体、runtime adapter、migration、restore、配布物、security boundaryを変更していないPRへ、path名だけを理由に`acceptance:release`を要求しない。risk classifierが過大判定した場合は実際の変更境界と省略理由をPRへ記録し、節目のまとめ検証へ送る。
+- CIが同一commitのfull suiteを完走している場合、その証拠を再利用する。rebase後も変更が証拠文書だけなら、app全体のtestを最初からやり直さない。
+- gateを省略した場合は未実行として正確に記録する。成功扱いはしないが、未実行だけを理由に実装とmergeを無期限に止めない。
+- 検証のためだけの新しいframework、runner、fixture abstraction、互換layerは作らない。既存のgateと最小のhelperで不足を示せない場合だけ、検証tooling自体を別Issueとして扱う。
+- test追加は、科学的誤判断、データ破損、再現性崩壊、accessibility阻害、過去に起きた回帰のいずれかを具体的に防ぐものへ絞る。実装詳細の追認や既存coverageの重複は追加しない。
 
 4段階の選択、risk matrix、gateの唯一の正本は`docs/operations/verification-policy.md`と`scripts/verification-gates.json`に置く。未実行gateを成功扱いしない。
 
