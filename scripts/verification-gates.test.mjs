@@ -771,6 +771,11 @@ test("CI aggregation restores the logical verification outcome", () => {
     "electron-distribution",
   ]);
   assert.ok(packagingPlan.coverageGateIds.includes("windows-delivery"));
+  const packagedSmokePlan = ciPlanFor(["scripts/smoke-packaged.mjs"]);
+  assert.deepEqual(packagedSmokePlan.originalPlan.riskCategories, [
+    "electron-distribution",
+  ]);
+  assert.ok(packagedSmokePlan.coverageGateIds.includes("windows-delivery"));
   const distributionReport = aggregateVerificationShards({
     ciPlan: distributionPlan,
     shardReports: passedShardReports(distributionPlan),
