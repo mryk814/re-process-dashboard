@@ -8,8 +8,13 @@ them from a Task id, runtime class, or an interval shape.
 """
 from __future__ import annotations
 
+from decision_workbench.contracts.model_capability_contracts import (
+    CapabilityAvailability,
+    CapabilityRequirement,
+    ModelPackageCapabilityMatrix,
+    TargetCapabilityMatrix,
+)
 from decision_workbench.contracts.task_contracts import RuntimeCapability
-from decision_workbench.contracts.model_capability_contracts import CapabilityAvailability, CapabilityName, CapabilityRequirement, ModelPackageCapabilityMatrix, TargetCapabilityMatrix
 from decision_workbench.modeling.packages.contracts import ModelPackageManifest
 
 

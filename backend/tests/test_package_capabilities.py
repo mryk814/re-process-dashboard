@@ -3,6 +3,10 @@ from __future__ import annotations
 import pytest
 
 from decision_workbench.contracts.task_contracts import RuntimeCapability
+from decision_workbench.contracts.model_capability_contracts import (
+    CapabilityAvailability,
+    ModelPackageCapabilityMatrix,
+)
 from decision_workbench.modeling.package_capabilities import (
     CapabilityRequirement,
     package_capability_matrix,
@@ -58,3 +62,34 @@ def test_matrix_rejects_target_declaration_mismatch() -> None:
     capability = _capability().model_copy(update={"targets": _capability().targets[:-1]})
     with pytest.raises(ValueError, match="predictors do not match"):
         package_capability_matrix(_manifest(), capability, manifest_digest="a" * 64)
+
+
+def test_matrix_contract_rejects_duplicate_targets_and_invalid_joint_samples() -> None:
+    matrix = package_capability_matrix(
+        _manifest(),
+        _capability(),
+        manifest_digest="a" * 64,
+    )
+    with pytest.raises(ValueError, match="targets must be unique"):
+        ModelPackageCapabilityMatrix.model_validate(
+            {
+                **matrix.model_dump(mode="json"),
+                "targets": [matrix.targets[0], matrix.targets[0]],
+            }
+        )
+    with pytest.raises(ValueError, match="joint samples require predictive samples"):
+        ModelPackageCapabilityMatrix.model_validate(
+            {
+                **matrix.model_dump(mode="json"),
+                "joint_samples": True,
+            }
+        )
+
+
+def test_capability_availability_requires_reasons_only_when_unavailable() -> None:
+    CapabilityAvailability(available=True)
+    CapabilityAvailability(available=False, reasons=("理由",))
+    with pytest.raises(ValueError, match="availabilityと理由"):
+        CapabilityAvailability(available=True, reasons=("不要な理由",))
+    with pytest.raises(ValueError, match="availabilityと理由"):
+        CapabilityAvailability(available=False)
