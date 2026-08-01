@@ -21,6 +21,7 @@ CapabilityName = Literal[
     "support",
     "explanation",
     "normal_mean_std",
+    "conformal_interval",
 ]
 
 
@@ -58,6 +59,7 @@ class TargetCapabilityMatrix(ModelCapabilityContract):
         "unavailable",
     ]
     explanation: bool = False
+    conformal_interval: bool = False
 
     def supports(self, capability: CapabilityName) -> bool:
         return {
@@ -76,6 +78,7 @@ class TargetCapabilityMatrix(ModelCapabilityContract):
                 and self.standard_deviation
                 and self.predictive_family == "normal"
             ),
+            "conformal_interval": self.conformal_interval,
             "joint_samples": False,
         }[capability]
 

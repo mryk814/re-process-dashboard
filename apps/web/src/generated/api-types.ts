@@ -3774,7 +3774,7 @@ export interface components {
              * Capability
              * @enum {string}
              */
-            capability: "mean_point" | "median_point" | "quantiles" | "standard_deviation" | "predictive_samples" | "joint_samples" | "parametric_distribution" | "goal_probability" | "support" | "explanation" | "normal_mean_std";
+            capability: "mean_point" | "median_point" | "quantiles" | "standard_deviation" | "predictive_samples" | "joint_samples" | "parametric_distribution" | "goal_probability" | "support" | "explanation" | "normal_mean_std" | "conformal_interval";
         };
         /** CategoricalDomain */
         CategoricalDomain: {
@@ -10246,6 +10246,11 @@ export interface components {
         };
         /** TargetCapabilityMatrix */
         TargetCapabilityMatrix: {
+            /**
+             * Conformal Interval
+             * @default false
+             */
+            conformal_interval: boolean;
             /**
              * Explanation
              * @default false

@@ -3915,7 +3915,8 @@
               "goal_probability",
               "support",
               "explanation",
-              "normal_mean_std"
+              "normal_mean_std",
+              "conformal_interval"
             ],
             "title": "Capability",
             "type": "string"
@@ -20754,6 +20755,11 @@
       "TargetCapabilityMatrix": {
         "additionalProperties": false,
         "properties": {
+          "conformal_interval": {
+            "default": false,
+            "title": "Conformal Interval",
+            "type": "boolean"
+          },
           "explanation": {
             "default": false,
             "title": "Explanation",
