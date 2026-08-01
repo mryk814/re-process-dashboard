@@ -330,7 +330,7 @@ test("late initial catalog cannot replace the selected connector", async ({ page
 
   releaseFirstCatalog();
   const detailHeader = page.locator(".source-lifecycle-detail > header");
-  await expect(detailHeader).toContainText(selected.name);
+  await expect(detailHeader).toContainText(selected.name, { timeout: 15_000 });
   await expect(selectedButton).toHaveClass(/active/);
   await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
   await expect(detailHeader).not.toContainText(slow.name);

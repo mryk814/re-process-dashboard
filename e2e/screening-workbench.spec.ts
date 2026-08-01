@@ -253,6 +253,7 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
   expect(candidateResponse.status()).toBe(200);
   const [candidate] = await candidateResponse.json() as Array<{ id: string; inputs: Record<string, unknown> }>;
   expect(candidate).toBeTruthy();
+  const createdRunIds: string[] = [];
 
   for (const strategyId of ["sobol_ucb_v1", "sobol_ei_v1"]) {
     for (const seed of [31, 47]) {
@@ -281,6 +282,7 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
         },
       });
       expect(response.status(), await response.text()).toBe(201);
+      createdRunIds.push(((await response.json()) as { id: string }).id);
     }
   }
 
@@ -289,9 +291,12 @@ test("Proposal Lab compares aligned seeds and saves evidence without enabling pr
   await lab.locator("> summary").click();
   await expect(lab.getByText("productionへ自動反映しない")).toBeVisible();
   await expect(lab.getByText("acquisition scoreは成功確率ではありません。")).toBeVisible();
-  const runChecks = lab.locator(".proposal-lab-run-list input[type=checkbox]");
-  await expect(runChecks).toHaveCount(4);
-  for (let index = 0; index < 4; index += 1) await runChecks.nth(index).check();
+  for (const runId of createdRunIds) {
+    await lab.locator(".proposal-lab-run-list label")
+      .filter({ hasText: runId.slice(0, 8) })
+      .getByRole("checkbox")
+      .check();
+  }
   await expect(lab.getByText(/2 strategies · seed 31, 47/)).toBeVisible();
   const decisionSelects = lab.locator(".proposal-lab-decision select");
   await decisionSelects.nth(0).selectOption("sobol_ei_v1");

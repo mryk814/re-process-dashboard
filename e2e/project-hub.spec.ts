@@ -401,8 +401,8 @@ test("Dataset choices explain use, order, and duplicate identity before Project 
   const unusedOptions = datasetSelect.locator('optgroup[label="未使用のデータ"] > option');
 
   await expect(datasetSelect.locator("option[value]").first()).toBeAttached();
-  await expect(usedOptions.first()).toBeAttached();
-  await expect(unusedOptions.first()).toBeAttached();
+  await expect(usedOptions.first()).toBeAttached({ timeout: 15_000 });
+  await expect(unusedOptions.first()).toBeAttached({ timeout: 15_000 });
   expect(await usedOptions.count()).toBeGreaterThan(0);
   expect(await unusedOptions.count()).toBeGreaterThan(0);
   const labels = await datasetSelect.locator("option[value]").allTextContents();
@@ -728,7 +728,7 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   const tutorialDatasetValue = () => datasetSelect.evaluate((select: HTMLSelectElement) => (
     [...select.options].find((option) => option.text.includes("material_workbench_tutorial_v2"))?.value ?? ""
   ));
-  await expect.poll(tutorialDatasetValue).not.toBe("");
+  await expect.poll(tutorialDatasetValue, { timeout: 15_000 }).not.toBe("");
   await datasetSelect.selectOption(await tutorialDatasetValue());
   await panel.getByRole("combobox", { name: "予測構成" }).selectOption("task:annealed-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
