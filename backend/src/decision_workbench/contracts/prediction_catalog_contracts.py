@@ -193,6 +193,8 @@ class Prediction(BaseModel):
         if self.interval_method == "conformal":
             if self.interval_coverage_level is None or any(item is None for item in conformal_evidence):
                 raise ValueError("conformal interval requires complete calibration and wrapper identity")
+            if self.goal_probability is not None:
+                raise ValueError("conformal interval must not manufacture goal probability")
         elif any(item is not None for item in conformal_evidence):
             raise ValueError("only conformal intervals carry calibration or wrapper identity")
         return self

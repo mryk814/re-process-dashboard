@@ -295,6 +295,10 @@ def test_conformal_prediction_identity_keeps_complete_wrapper_evidence_in_snapsh
     saved = snapshot_payload["prediction"]["predictions"]["y"]
     assert saved["interval_wrapper_manifest_digest"] == f"sha256:{'b' * 64}"
     assert saved["interval_calibration_score_artifact_digest"] == f"sha256:{'c' * 64}"
+    invalid_goal_probability = prediction.model_dump()
+    invalid_goal_probability["goal_probability"] = 0.8
+    with pytest.raises(ValueError, match="must not manufacture goal probability"):
+        Prediction(**invalid_goal_probability)
 
 
 def test_nonconformal_prediction_rejects_conformal_only_evidence() -> None:
