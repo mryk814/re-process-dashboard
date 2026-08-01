@@ -265,6 +265,61 @@ test("new Task onboarding explains unresolved domain ranges before preparation",
   await expect(prepare).toHaveAttribute("aria-describedby", "csv-task-preparation-status");
 });
 
+test("single-table Excel requires an explicit visible sheet before using CSV onboarding fields", async ({ page }) => {
+  let inspections = 0;
+  await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
+    inspections += 1;
+    const selected = route.request().postDataBuffer()?.toString("utf8").includes("Measurements") ?? false;
+    await route.fulfill({
+      json: {
+        source_filename: "typed-source.xlsx",
+        source_sha256: "b".repeat(64),
+        source_kind: "xlsx",
+        reader_policy: "xlsx-stored-values-no-formulas/v1",
+        worksheets: [
+          { name: "Measurements", state: "visible" },
+          { name: "Internal", state: "hidden" },
+        ],
+        selected_sheet: selected ? "Measurements" : null,
+        requires_sheet_selection: !selected,
+        rows: selected ? 3 : 0,
+        relations: 0,
+        grain: "one-row-one-observation",
+        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
+        estimators: csvEstimatorOptions,
+        default_estimator_id: "ridge.v1",
+        notice: selected ? "stored valueを確認しました。" : "visible sheetを明示選択してください。",
+        columns: selected ? [
+          { name: "sample_id", kind: "categorical", non_empty: 3, observed_min: null, observed_max: null, choices: ["001", "002", "003"] },
+          { name: "strength", kind: "number", non_empty: 3, observed_min: 300, observed_max: 420, choices: [] },
+        ] : [],
+      },
+    });
+  });
+
+  await page.goto("/?view=data-library");
+  await page.getByRole("region", { name: "追加するデータはどれですか" }).getByRole("button", { name: /新しい予測問題/ }).click();
+  const onboarding = page.getByRole("region", { name: "完全に新しいTaskを準備" });
+  await onboarding.locator('input[type="file"]').setInputFiles({
+    name: "typed-source.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("mock workbook bytes"),
+  });
+  await onboarding.getByRole("button", { name: "Excelのsheetを確認" }).click();
+
+  await expect(onboarding.getByLabel("sheet")).toHaveValue("");
+  await expect(onboarding.getByRole("option", { name: "Internal（hidden・選択不可）" })).toHaveAttribute("disabled", "");
+  await expect(onboarding.locator(".csv-task-columns article")).toHaveCount(0);
+  await onboarding.getByLabel("sheet").selectOption("Measurements");
+  await onboarding.getByRole("button", { name: "選択sheetをプレビュー" }).click();
+
+  await expect(onboarding).toContainText("sheet: Measurements");
+  await expect(onboarding).toContainText("xlsx-stored-values-no-formulas/v1");
+  await expect(onboarding.locator(".csv-task-columns article")).toHaveCount(2);
+  await expect(onboarding.locator(".csv-task-columns article").first()).toContainText("categorical");
+  expect(inspections).toBe(2);
+});
+
 test("CSV onboarding validates Japanese canonical keys, task ID, observed training range, and typed storage recovery", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({

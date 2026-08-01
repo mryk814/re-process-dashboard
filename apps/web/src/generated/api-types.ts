@@ -151,7 +151,7 @@ export interface paths {
         put?: never;
         /**
          * Prepare Csv Task
-         * @description Create, verify, promote, register, and reload one reviewed CSV Task.
+         * @description Create, verify, promote, register, and reload one reviewed tabular Task.
          */
         post: operations["prepare_csv_task_api_data_library_csv_onboarding_prepare_post"];
         delete?: never;
@@ -3401,6 +3401,8 @@ export interface components {
         Body_inspect_csv_api_data_library_csv_onboarding_inspect_post: {
             /** File */
             file: string;
+            /** Sheet Name */
+            sheet_name?: string | null;
         };
         /** Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post */
         Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post: {
@@ -3426,6 +3428,8 @@ export interface components {
             label: string;
             /** Relation Confirmation */
             relation_confirmation: string;
+            /** Sheet Name */
+            sheet_name?: string | null;
             /** Task Id */
             task_id: string;
         };
@@ -4950,18 +4954,31 @@ export interface components {
             grain: "one-row-one-observation";
             /** Notice */
             notice: string;
+            /** Reader Policy */
+            reader_policy: string;
             /**
              * Relations
              * @constant
              */
             relations: 0;
+            /** Requires Sheet Selection */
+            requires_sheet_selection: boolean;
             /** Rows */
             rows: number;
+            /** Selected Sheet */
+            selected_sheet: string | null;
             /** Source Filename */
             source_filename: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "csv" | "xlsx";
             /** Source Sha256 */
             source_sha256: string;
             task_id_contract: components["schemas"]["CsvTaskIdContract"];
+            /** Worksheets */
+            worksheets: components["schemas"]["OnboardingWorksheet"][];
         };
         /**
          * CsvOnboardingEstimatorOption
@@ -7248,6 +7265,16 @@ export interface components {
             target_status: {
                 [key: string]: components["schemas"]["TargetCurationState"];
             };
+        };
+        /** OnboardingWorksheet */
+        OnboardingWorksheet: {
+            /** Name */
+            name: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "visible" | "hidden" | "veryHidden";
         };
         /** OperationDiagnostic */
         OperationDiagnostic: {

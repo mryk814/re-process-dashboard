@@ -96,10 +96,12 @@ export type CsvOnboardingResult<T> = {
 
 async function postCsvOnboarding<T>(
   path: "/api/data-library/csv-onboarding/inspect" | "/api/data-library/csv-onboarding/prepare",
-  body: Record<string, string | File>,
+  body: Record<string, string | File | null>,
 ): Promise<CsvOnboardingResult<T>> {
   const form = new FormData();
-  for (const [name, value] of Object.entries(body)) form.append(name, value);
+  for (const [name, value] of Object.entries(body)) {
+    if (value !== null) form.append(name, value);
+  }
   const response = await normalizedFetch(`${baseUrl}${path}`, { method: "POST", body: form });
   if (!response.ok) return { response, error: await response.json() };
   return { response, data: await response.json() };

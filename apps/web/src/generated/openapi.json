@@ -2753,6 +2753,17 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name"
           }
         },
         "required": [
@@ -2813,6 +2824,17 @@
           "relation_confirmation": {
             "title": "Relation Confirmation",
             "type": "string"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name"
           },
           "task_id": {
             "minLength": 6,
@@ -6957,17 +6979,44 @@
             "title": "Notice",
             "type": "string"
           },
+          "reader_policy": {
+            "title": "Reader Policy",
+            "type": "string"
+          },
           "relations": {
             "const": 0,
             "title": "Relations",
             "type": "integer"
           },
+          "requires_sheet_selection": {
+            "title": "Requires Sheet Selection",
+            "type": "boolean"
+          },
           "rows": {
             "title": "Rows",
             "type": "integer"
           },
+          "selected_sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Sheet"
+          },
           "source_filename": {
             "title": "Source Filename",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
+            "title": "Source Kind",
             "type": "string"
           },
           "source_sha256": {
@@ -6976,11 +7025,23 @@
           },
           "task_id_contract": {
             "$ref": "#/components/schemas/CsvTaskIdContract"
+          },
+          "worksheets": {
+            "items": {
+              "$ref": "#/components/schemas/OnboardingWorksheet"
+            },
+            "title": "Worksheets",
+            "type": "array"
           }
         },
         "required": [
           "source_filename",
           "source_sha256",
+          "source_kind",
+          "reader_policy",
+          "worksheets",
+          "selected_sheet",
+          "requires_sheet_selection",
           "rows",
           "relations",
           "grain",
@@ -13073,6 +13134,29 @@
           "provenance"
         ],
         "title": "ObservationTrainingRow",
+        "type": "object"
+      },
+      "OnboardingWorksheet": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "visible",
+              "hidden",
+              "veryHidden"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "OnboardingWorksheet",
         "type": "object"
       },
       "OperationDiagnostic": {
@@ -22215,7 +22299,7 @@
     },
     "/api/data-library/csv-onboarding/prepare": {
       "post": {
-        "description": "Create, verify, promote, register, and reload one reviewed CSV Task.",
+        "description": "Create, verify, promote, register, and reload one reviewed tabular Task.",
         "operationId": "prepare_csv_task_api_data_library_csv_onboarding_prepare_post",
         "requestBody": {
           "content": {

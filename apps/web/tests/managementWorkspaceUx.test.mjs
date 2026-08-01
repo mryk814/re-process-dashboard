@@ -158,6 +158,16 @@ test("CSV onboarding uses typed contract recovery and keeps authored ranges sepa
   assert.match(client, /CsvPrepareResponse/);
 });
 
+test("single-table Excel reuses CSV field authority only after explicit sheet confirmation", async () => {
+  const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
+  assert.match(content, /requires_sheet_selection/);
+  assert.match(content, /選択sheetをプレビュー/);
+  assert.match(content, /sheet\.state !== "visible"/);
+  assert.match(content, /\{readerPolicy\}/);
+  assert.match(content, /Profile Workbenchで構造を確認/);
+  assert.doesNotMatch(content, /XlsxTaskOnboarding|ExcelTaskOnboarding/);
+});
+
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {
   const content = await source("../src/features/data-library/ProfileWorkbenchPage.tsx");
   assert.match(content, /className="profile-next-action"/);

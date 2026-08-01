@@ -142,8 +142,15 @@ def _tabular_rows(source: Path, sheet: str | None) -> tuple[str | None, list[dic
         workbook.close()
 
 
-def _number(value: Any) -> float | None:
+def _number(value: Any, *, preserve_stored_type: bool = False) -> float | None:
     if value in (None, "") or isinstance(value, bool):
+        return None
+    if preserve_stored_type and isinstance(value, str):
+        return None
+    if (
+        isinstance(value, str)
+        and re.fullmatch(r"[+-]?0\d+", value.strip()) is not None
+    ):
         return None
     try:
         parsed = float(value)
@@ -163,7 +170,10 @@ def inspect_task_source(source: Path, *, sheet: str | None = None) -> SourceInsp
     columns: list[SourceColumn] = []
     for name in headers:
         raw = [row.get(name) for row in rows if row.get(name) not in (None, "")]
-        numbers = [_number(value) for value in raw]
+        numbers = [
+            _number(value, preserve_stored_type=selected_sheet is not None)
+            for value in raw
+        ]
         numeric = bool(raw) and all(value is not None for value in numbers)
         if numeric:
             values = [float(value) for value in numbers if value is not None]
@@ -398,6 +408,12 @@ def create_task_scaffold(
                 "original_filename": inspection.source.name,
                 "original_sha256": inspection.source_sha256,
                 "selected_sheet": inspection.selected_sheet,
+                "reader_policy": (
+                    "xlsx-stored-values-no-formulas/v1"
+                    if inspection.source.suffix.lower() == ".xlsx"
+                    else "csv-utf8-header/v1"
+                ),
+                "header_policy": "first-row-non-empty-unique/v1",
                 "materialized_csv": source_csv.name,
                 "materialized_sha256": file_sha256(source_csv),
                 "rows": inspection.row_count,

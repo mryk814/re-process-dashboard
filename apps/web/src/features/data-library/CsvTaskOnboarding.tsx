@@ -10,6 +10,7 @@ type FieldRole = "" | "composition" | "process" | "categorical" | "output";
 type Field = { column: string; role: FieldRole; key: string; label: string; unit: string; goal_direction: "at_least" | "at_most" | "target"; allowed_range: string; default_range: string; training_range: string; plausible_range: string; display_range: string };
 type OnboardingError = components["schemas"]["ApiError"];
 type TaskIdContract = components["schemas"]["CsvTaskIdContract"];
+type Worksheet = components["schemas"]["OnboardingWorksheet"];
 
 const canonicalKeyPattern = /^[A-Za-z][A-Za-z0-9_]*$/;
 const reservedCanonicalKeys = new Set(["__proto__", "constructor", "prototype"]);
@@ -78,9 +79,11 @@ export type PreparedCsvProjectBinding = PreparedProjectBinding;
 export function CsvTaskOnboarding({
   onPrepared,
   onOpenStorage,
+  onOpenProfileWorkbench,
 }: {
   onPrepared: (binding: PreparedCsvProjectBinding) => void;
   onOpenStorage?: () => void;
+  onOpenProfileWorkbench?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [rows, setRows] = useState(0);
@@ -97,16 +100,40 @@ export function CsvTaskOnboarding({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState(false);
+  const [worksheets, setWorksheets] = useState<Worksheet[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState("");
+  const [readerPolicy, setReaderPolicy] = useState("");
+  const [profileWorkbenchRecovery, setProfileWorkbenchRecovery] = useState(false);
 
-  async function inspect() {
+  const sourceKind = file?.name.toLowerCase().endsWith(".xlsx") ? "xlsx" : "csv";
+
+  async function inspect(sheetName?: string) {
     if (!file) return;
-    setLoading(true); setError(""); setStorageError(false); setMessage("");
-    const response = await inspectCsvOnboarding({ file });
+    setLoading(true); setError(""); setStorageError(false); setProfileWorkbenchRecovery(false); setMessage("");
+    const response = await inspectCsvOnboarding({
+      file,
+      ...(sheetName ? { sheet_name: sheetName } : {}),
+    });
     setLoading(false);
-    if (response.error) { setError(errorMessage(response.error, "CSVを確認できませんでした。")); return; }
-    if (!response.data) { setError("CSVを確認できませんでした。"); return; }
+    if (response.error) {
+      setProfileWorkbenchRecovery(sourceKind === "xlsx");
+      setError(errorMessage(response.error, "データを確認できませんでした。"));
+      return;
+    }
+    if (!response.data) { setError("データを確認できませんでした。"); return; }
     const data = response.data;
-    if (data.relations !== 0) { setError("この画面はrelationsなしのCSVだけを扱います。relationのあるデータは専用Task設計へ進んでください。"); return; }
+    setWorksheets(data.worksheets);
+    setReaderPolicy(data.reader_policy);
+    if (data.requires_sheet_selection) {
+      setRows(0);
+      setColumns([]);
+      setFields([]);
+      setSelectedSheet("");
+      setMessage(`${data.worksheets.length} sheetを確認しました。使用するvisible sheetを明示選択してください。`);
+      return;
+    }
+    if (data.relations !== 0) { setError("この画面はrelationsなしの単一表だけを扱います。relationのあるデータはProfile Workbenchへ進んでください。"); return; }
+    setSelectedSheet(data.selected_sheet ?? "");
     setRows(data.rows);
     setColumns(data.columns);
     setTaskIdContract(data.task_id_contract);
@@ -125,7 +152,8 @@ export function CsvTaskOnboarding({
   const selectedEstimator = estimators.find((item) => item.estimator_id === estimatorId);
   const taskIdIsValid = taskIdContract !== null && new RegExp(taskIdContract.pattern).test(taskId) && taskId.length >= taskIdContract.min_length;
   const preparationBlockers: string[] = [];
-  if (!file) preparationBlockers.push("CSVファイルを選択してください");
+  if (!file) preparationBlockers.push("CSVまたはExcelファイルを選択してください");
+  if (sourceKind === "xlsx" && !selectedSheet) preparationBlockers.push("使用するsheetを明示確認してください");
   if (!taskId.trim()) preparationBlockers.push("Task IDを入力してください");
   else if (!taskIdIsValid) preparationBlockers.push(`Task IDは利用可能文字と形式を確認してください（例: ${taskIdContract?.example ?? "—"}）`);
   if (!label.trim()) preparationBlockers.push("表示名を入力してください");
@@ -170,6 +198,7 @@ export function CsvTaskOnboarding({
     setLoading(true); setError(""); setStorageError(false); setMessage("");
     const response = await prepareCsvOnboarding({
       file,
+      ...(sourceKind === "xlsx" ? { sheet_name: selectedSheet } : {}),
       task_id: taskId,
       label,
       estimator_id: estimatorId,
@@ -213,10 +242,20 @@ export function CsvTaskOnboarding({
   }
 
   return <section className="csv-task-onboarding" aria-labelledby="csv-task-onboarding-heading">
-    <header><span className="overline">CSV NEW TASK</span><h3 id="csv-task-onboarding-heading">CSVから新しい予測問題を準備</h3><p>元CSVは読取専用です。観測範囲は表示するだけで、物理範囲には自動設定しません。</p></header>
-    <label>CSVファイル<input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setRows(0); setColumns([]); setFields([]); setTaskIdContract(null); setEstimators([]); setEstimatorId(""); setGrainConfirmed(false); setRelationsConfirmed(false); }} /></label>
-    <button className="outline-button" type="button" disabled={!file || loading} onClick={() => void inspect()}>{loading ? "確認中…" : "CSVをプレビュー"}</button>
+    <header><span className="overline">TABULAR NEW TASK</span><h3 id="csv-task-onboarding-heading">CSV / 単一表Excelから新しい予測問題を準備</h3><p>元ファイルは読取専用です。観測範囲は表示するだけで、物理範囲には自動設定しません。</p></header>
+    <label>CSVまたは単一表Excel<input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setRows(0); setColumns([]); setFields([]); setTaskIdContract(null); setEstimators([]); setEstimatorId(""); setGrainConfirmed(false); setRelationsConfirmed(false); setWorksheets([]); setSelectedSheet(""); setReaderPolicy(""); setProfileWorkbenchRecovery(false); setError(""); setMessage(""); }} /></label>
+    <button className="outline-button" type="button" disabled={!file || loading} onClick={() => void inspect()}>{loading ? "確認中…" : sourceKind === "xlsx" ? "Excelのsheetを確認" : "CSVをプレビュー"}</button>
+    {worksheets.length > 0 && columns.length === 0 && <fieldset className="csv-task-sheet-selection">
+      <legend>使用するsheetを明示確認</legend>
+      <label>sheet<select value={selectedSheet} onChange={(event) => setSelectedSheet(event.target.value)}>
+        <option value="">選択してください</option>
+        {worksheets.map((sheet) => <option key={sheet.name} value={sheet.name} disabled={sheet.state !== "visible"}>{sheet.name}{sheet.state === "visible" ? "" : `（${sheet.state}・選択不可）`}</option>)}
+      </select></label>
+      <small>複数sheetは自動結合しません。hidden sheet、relation、report形式はProfile Workbenchで確認します。</small>
+      <button className="outline-button" type="button" disabled={!selectedSheet || loading} onClick={() => void inspect(selectedSheet)}>{loading ? "確認中…" : "選択sheetをプレビュー"}</button>
+    </fieldset>}
     {columns.length > 0 && <>
+      {sourceKind === "xlsx" && <p className="csv-task-onboarding-note"><b>sheet: {selectedSheet}</b> · {readerPolicy} · stored valueの型を保持し、formulaは受け入れません。</p>}
       <label>Task ID<input value={taskId} onChange={(event) => setTaskId(event.target.value)} placeholder={taskIdContract?.example ?? ""} aria-invalid={Boolean(taskId && !taskIdIsValid)} aria-describedby="csv-task-id-help" /></label>
       <small id="csv-task-id-help">利用可能文字と形式はこのTask作成APIの契約に従います。例: {taskIdContract?.example ?? "—"}</small>
       <label>表示名<input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="コンクリート流動性" /></label>
@@ -224,7 +263,7 @@ export function CsvTaskOnboarding({
       <div className="csv-task-summary" aria-live="polite"><span>{rows}行</span><span>{columns.length}列</span><span>入力 {inputCount}項目</span><span>出力 {outputCount}項目</span></div>
       <p className="csv-task-onboarding-note">数値入力は、物理的許容範囲／通常範囲／学習範囲を明示してください。出力は妥当範囲／表示範囲を明示してください。</p>
       <div className="csv-task-columns">{fields.map((field, index) => { const column = columns[index]; const missing = Math.max(0, rows - column.non_empty); const observed = rangeText(column); const trainingFromObserved = Boolean(observed && field.training_range === observed); return <article key={field.column}><strong>{field.column}</strong><small>元列名: {field.column} · {column.kind} · 欠損 {missing}件 / {rows}件 · 観測 {column.observed_min ?? "—"}–{column.observed_max ?? "—"}</small><label>役割<select value={field.role} onChange={(event) => update(index, { role: event.target.value as FieldRole })}><option value="">使わない</option><option value="composition">入力: 組成</option><option value="process">入力: 条件</option><option value="categorical">入力: カテゴリ</option><option value="output">出力</option></select></label>{field.role && <><label>canonical key<input value={field.key} onChange={(event) => update(index, { key: event.target.value })} aria-invalid={!field.key || !canonicalKeyPattern.test(field.key) || reservedCanonicalKeys.has(field.key)} /></label><small>元列名との対応を確認して編集できます。英字で始まる英数字・_のみ。</small><label>表示名<input value={field.label} onChange={(event) => update(index, { label: event.target.value })} /></label>{field.role !== "categorical" && <label>単位<input value={field.unit} onChange={(event) => update(index, { unit: event.target.value })} placeholder="MPa / mm / kg/m³" /></label>}{field.role === "output" ? <><label>目標方向<select value={field.goal_direction} onChange={(event) => update(index, { goal_direction: event.target.value as Field["goal_direction"] })}><option value="at_least">以上</option><option value="at_most">以下</option><option value="target">目標</option></select></label><label>妥当範囲 min,max<input value={field.plausible_range} onChange={(event) => update(index, { plausible_range: event.target.value })} /></label><label>表示範囲 min,max<input value={field.display_range} onChange={(event) => update(index, { display_range: event.target.value })} /></label></> : field.role !== "categorical" && <><label>物理的許容範囲 min,max<input value={field.allowed_range} onChange={(event) => update(index, { allowed_range: event.target.value })} /></label><label>通常範囲 min,max<input value={field.default_range} onChange={(event) => update(index, { default_range: event.target.value })} /></label><label>学習範囲 min,max<input value={field.training_range} onChange={(event) => update(index, { training_range: event.target.value })} /></label>{observed && <button type="button" className="outline-button" onClick={() => update(index, { training_range: observed })}>観測範囲を学習範囲へ使用</button>}{trainingFromObserved && <small>現在の学習範囲は観測値由来です。物理的許容範囲・通常範囲には反映していません。</small>}</>}</>}</article>; })}</div>
-      <fieldset className="csv-task-confirmations"><legend>学習一行とrelationの確認</legend><label><input type="checkbox" checked={grainConfirmed} onChange={(event) => setGrainConfirmed(event.target.checked)} />1行=1観測であることを確認した</label><label><input type="checkbox" checked={relationsConfirmed} onChange={(event) => setRelationsConfirmed(event.target.checked)} />relationsなしであることを確認した</label><small>この標準CSV Taskはrelationsなしだけを扱います。relationのあるデータは、この画面から無理に準備せず専用Task設計へ進みます。</small></fieldset>
+      <fieldset className="csv-task-confirmations"><legend>学習一行とrelationの確認</legend><label><input type="checkbox" checked={grainConfirmed} onChange={(event) => setGrainConfirmed(event.target.checked)} />1行=1観測であることを確認した</label><label><input type="checkbox" checked={relationsConfirmed} onChange={(event) => setRelationsConfirmed(event.target.checked)} />relationsなしであることを確認した</label><small>この標準Taskはrelationsなしの矩形表だけを扱います。relationや複数表が必要なデータは、Profile Workbenchへ進みます。</small></fieldset>
       <section id="csv-task-preparation-status" className="csv-task-preparation-status" aria-labelledby="csv-task-preparation-status-heading">
         <h4 id="csv-task-preparation-status-heading">準備条件</h4>
         {preparationBlockers.length > 0 ? <ul>{preparationBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p>準備条件を満たしています。</p>}
@@ -233,6 +272,6 @@ export function CsvTaskOnboarding({
       <button className="primary-button" type="button" disabled={!canPrepare} aria-describedby={preparationBlockers.length > 0 ? "csv-task-preparation-status" : undefined} onClick={() => void prepare()}>{loading ? "準備中…" : "Task・モデル・Datasetを準備してProject作成へ"}</button>
     </>}
     {message && <p role="status">{message}</p>}
-    {error && <div role="alert" className="panel-error csv-task-onboarding-error"><p>{error}</p>{storageError && onOpenStorage && <button type="button" className="outline-button" onClick={onOpenStorage}>保存場所を管理して再確認</button>}</div>}
+    {error && <div role="alert" className="panel-error csv-task-onboarding-error"><p>{error}</p>{storageError && onOpenStorage && <button type="button" className="outline-button" onClick={onOpenStorage}>保存場所を管理して再確認</button>}{profileWorkbenchRecovery && onOpenProfileWorkbench && <button type="button" className="outline-button" onClick={onOpenProfileWorkbench}>Profile Workbenchで構造を確認</button>}</div>}
   </section>;
 }
