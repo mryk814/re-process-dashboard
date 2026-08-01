@@ -64,6 +64,29 @@ strategy is rejected unless the request explicitly permits deterministic
 fallback; fallback changes the stored strategy identity and keeps
 `fallback_from`.
 
+### Proposal Lab
+
+`proposal-lab-report/v1`は、保存済み`goal_search` Runをproduction実行から分離して
+比較する不変評価証拠である。serverはProject、Task、Package、Runtime Capability、
+Dataset／Training Snapshot、Design Space、Objective、base input、変数、generator、
+selector、selection policy／件数、distance、incumbent source、support policy、
+pool multiplier、budgetが一致するRunだけを受け付ける。新しいPackageはTraining
+Snapshot identityを使い、legacy Packageは`legacy_training_data`と明示した上で
+固定Training Data digestを使う。legacy evidenceを新しいSnapshotとは呼ばない。
+各strategyには同じ2個以上のseedが必要であり、pool、score、selection digest、
+目標達成率、hard outcome constraint達成率、support比率、duplicate、fallback、
+model call数、runtimeとseed感度を保存する。
+同一strategyのacquisition ID／version／parameterもseed間で固定する。
+hard constraintの`achieved=None`は達成に数えず、`constraint_unknown_rate`へ分ける。
+unknown feasibilityを既知constraint達成として扱わない。
+
+adoption memoはprimary criterionとtrade-offを保持するが、保存によってproduction
+registryを変更しない。`production`判定もreview evidenceであり、別のregistry変更を
+必要とする。既知のDesign Space／outcome constraintだけを評価し、未知feasibility
+modelを推測しない。現在のUCB／EIはmarginal acquisitionであり、greedy batch
+selectionをjoint acquisitionとして表示しない。ground-truth fixture、memory peak、
+sequential roundがない場合は、値を捏造せずreportのlimitationへ残す。
+
 UCB/LCB and EI require the typed `normal_mean_std` acquisition representation:
 the Runtime output must declare a mean point statistic and predictive standard
 deviation on an unconstrained continuous target. A median, probability, rate,

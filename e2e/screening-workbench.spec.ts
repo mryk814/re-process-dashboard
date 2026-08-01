@@ -242,6 +242,75 @@ test("range exploration uses the shared candidate table without leaving the scre
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
 });
 
+test("Proposal Lab compares aligned seeds and saves evidence without enabling production", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const candidateResponse = await request.get(`${api}/api/projects/default/candidates`);
+  expect(candidateResponse.status()).toBe(200);
+  const [candidate] = await candidateResponse.json() as Array<{ id: string; inputs: Record<string, unknown> }>;
+  expect(candidate).toBeTruthy();
+
+  for (const strategyId of ["sobol_ucb_v1", "sobol_ei_v1"]) {
+    for (const seed of [31, 47]) {
+      const proposal: Record<string, unknown> = {
+        strategy_id: strategyId,
+        exploration_parameter: 1.5,
+        pool_multiplier: 2,
+        support_policy: "supported_first",
+        fallback_policy: "reject",
+        incumbent_value: 500,
+      };
+      const response = await request.post(`${api}/api/screening?project_id=default`, {
+        data: {
+          purpose: "goal_search",
+          base_candidate_id: candidate.id,
+          base_inputs: candidate.inputs,
+          samples: 48,
+          seed,
+          target: "TS",
+          target_goal: { direction: "at_least", lower: 500 },
+          variables: {
+            "composition.C": { mode: "range", min: 0.04, max: 0.12 },
+            "process.ls_mpm": { mode: "range", min: 80, max: 130 },
+          },
+          proposal,
+        },
+      });
+      expect(response.status(), await response.text()).toBe(201);
+    }
+  }
+
+  await page.goto("/?view=explore&project=default");
+  const lab = page.locator(".proposal-lab");
+  await lab.locator("> summary").click();
+  await expect(lab.getByText("productionへ自動反映しない")).toBeVisible();
+  await expect(lab.getByText("acquisition scoreは成功確率ではありません。")).toBeVisible();
+  const runChecks = lab.locator(".proposal-lab-run-list input[type=checkbox]");
+  await expect(runChecks).toHaveCount(4);
+  for (let index = 0; index < 4; index += 1) await runChecks.nth(index).check();
+  await expect(lab.getByText(/2 strategies · seed 31, 47/)).toBeVisible();
+  const decisionSelects = lab.locator(".proposal-lab-decision select");
+  await decisionSelects.nth(0).selectOption("sobol_ei_v1");
+  await decisionSelects.nth(1).selectOption("no_adopt");
+  await lab.getByLabel("根拠").fill("支持範囲内率を主基準に、現時点では採用しない");
+  const reportResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/proposal-lab/reports")
+  ));
+  await lab.getByRole("button", { name: "評価記録を保存" }).click();
+  expect((await reportResponse).status()).toBe(201);
+  await expect(lab.getByText("sobol_ei_v1: 不採用")).toBeVisible();
+  await expect(lab.getByText("この記録はregistryを変更していません。")).toBeVisible();
+
+  await page.reload();
+  await page.locator(".proposal-lab > summary").click();
+  await expect(page.locator(".proposal-lab").getByText("sobol_ei_v1: 不採用")).toBeVisible();
+  await page.setViewportSize({ width: 600, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  const resumedDecisionTarget = page.locator(".proposal-lab .proposal-lab-decision select").first();
+  await resumedDecisionTarget.focus();
+  await expect(resumedDecisionTarget).toBeFocused();
+});
+
 test("saved exploration can be inspected through evidence and deleted when unused", async ({ page, request }) => {
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);

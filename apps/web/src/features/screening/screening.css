@@ -639,6 +639,71 @@
   margin-top: 6px;
 }
 
+.proposal-lab {
+  margin: 0 0 12px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.proposal-lab > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.proposal-lab > summary span { font-weight: 700; }
+.proposal-lab > summary small { color: #526276; }
+.proposal-lab-body { padding: 0 12px 12px; }
+.proposal-lab-body > p { margin: 0 0 9px; color: #526276; font-size: 12px; }
+
+.proposal-lab-run-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.proposal-lab-run-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid #d8e0e8;
+  border-radius: 6px;
+}
+
+.proposal-lab-run-list span { display: grid; gap: 2px; }
+.proposal-lab-run-list small { color: #526276; }
+.proposal-lab-ready { color: #28643c !important; font-weight: 700; }
+.proposal-lab-hint { margin-top: 8px !important; }
+
+.proposal-lab-decision {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(170px, 1fr) minmax(180px, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.proposal-lab-decision label { display: grid; gap: 3px; font-size: 11px; font-weight: 700; }
+.proposal-lab-rationale { grid-column: 1 / -2; }
+.proposal-lab-decision textarea { resize: vertical; }
+.proposal-lab-reports { margin-top: 12px; display: grid; gap: 7px; }
+.proposal-lab-reports h4 { margin: 0; }
+.proposal-lab-reports article { padding: 8px; border: 1px solid #d8e0e8; border-radius: 6px; }
+.proposal-lab-reports header { display: flex; justify-content: space-between; gap: 8px; }
+.proposal-lab-reports header small,
+.proposal-lab-reports article > small { color: #526276; }
+.proposal-lab-metrics { display: grid; gap: 3px; margin: 7px 0; font-size: 11px; }
+.proposal-lab-metrics span { display: flex; flex-wrap: wrap; gap: 5px; }
+.proposal-lab-reports article p { margin: 6px 0; }
+
+@media (max-width: 760px) {
+  .proposal-lab-decision { grid-template-columns: 1fr; }
+  .proposal-lab-rationale { grid-column: auto; }
+}
+
 .screening-run-evidence-summary,
 .screening-decision-reasons {
   display: grid;

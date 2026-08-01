@@ -15884,6 +15884,661 @@
         "title": "ProposalIncumbentResolution",
         "type": "object"
       },
+      "ProposalLabAdoptionMemo": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Run Ids",
+            "type": "array"
+          },
+          "primary_criterion": {
+            "minLength": 1,
+            "title": "Primary Criterion",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "registry_changed": {
+            "const": false,
+            "default": false,
+            "title": "Registry Changed",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "experimental",
+              "production",
+              "no_adopt"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_id": {
+            "minLength": 1,
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "trade_offs": {
+            "default": [],
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Trade Offs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "strategy_id",
+          "status",
+          "primary_criterion",
+          "rationale",
+          "evidence_run_ids"
+        ],
+        "title": "ProposalLabAdoptionMemo",
+        "type": "object"
+      },
+      "ProposalLabAdoptionMemoInput": {
+        "additionalProperties": false,
+        "properties": {
+          "primary_criterion": {
+            "minLength": 1,
+            "title": "Primary Criterion",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "experimental",
+              "production",
+              "no_adopt"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy_id": {
+            "minLength": 1,
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "trade_offs": {
+            "default": [],
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Trade Offs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "strategy_id",
+          "status",
+          "primary_criterion",
+          "rationale"
+        ],
+        "title": "ProposalLabAdoptionMemoInput",
+        "type": "object"
+      },
+      "ProposalLabCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_memos": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalLabAdoptionMemoInput"
+            },
+            "minItems": 1,
+            "title": "Adoption Memos",
+            "type": "array"
+          },
+          "evaluation_fixture_version": {
+            "default": "saved-screening-replay/v1",
+            "minLength": 1,
+            "title": "Evaluation Fixture Version",
+            "type": "string"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 4,
+            "title": "Run Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_ids",
+          "adoption_memos"
+        ],
+        "title": "ProposalLabCreateRequest",
+        "type": "object"
+      },
+      "ProposalLabProtocol": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "title": "Budget",
+            "type": "integer"
+          },
+          "constraint_scope": {
+            "const": "known_design_space_and_outcome_only",
+            "default": "known_design_space_and_outcome_only",
+            "title": "Constraint Scope",
+            "type": "string"
+          },
+          "dataset_identity_digest": {
+            "title": "Dataset Identity Digest",
+            "type": "string"
+          },
+          "design_space_digest": {
+            "title": "Design Space Digest",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^sha256:",
+            "title": "Digest",
+            "type": "string"
+          },
+          "distance_contract_digest": {
+            "pattern": "^sha256:",
+            "title": "Distance Contract Digest",
+            "type": "string"
+          },
+          "evaluation_fixture_version": {
+            "title": "Evaluation Fixture Version",
+            "type": "string"
+          },
+          "generator_id": {
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "generator_version": {
+            "title": "Generator Version",
+            "type": "string"
+          },
+          "incumbent_resolution_digest": {
+            "pattern": "^sha256:",
+            "title": "Incumbent Resolution Digest",
+            "type": "string"
+          },
+          "objective_digest": {
+            "title": "Objective Digest",
+            "type": "string"
+          },
+          "package_digest": {
+            "title": "Package Digest",
+            "type": "string"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "pool_multiplier": {
+            "title": "Pool Multiplier",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal_count": {
+            "title": "Proposal Count",
+            "type": "integer"
+          },
+          "runtime_capability_digest": {
+            "title": "Runtime Capability Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "proposal-lab-protocol/v1",
+            "default": "proposal-lab-protocol/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seeds": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seeds",
+            "type": "array"
+          },
+          "selection_policy_id": {
+            "title": "Selection Policy Id",
+            "type": "string"
+          },
+          "selection_policy_version": {
+            "title": "Selection Policy Version",
+            "type": "string"
+          },
+          "selector_id": {
+            "title": "Selector Id",
+            "type": "string"
+          },
+          "selector_version": {
+            "title": "Selector Version",
+            "type": "string"
+          },
+          "support_policy": {
+            "title": "Support Policy",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "training_identity_kind": {
+            "enum": [
+              "training_snapshot",
+              "legacy_training_data"
+            ],
+            "title": "Training Identity Kind",
+            "type": "string"
+          },
+          "training_snapshot_digest": {
+            "title": "Training Snapshot Digest",
+            "type": "string"
+          },
+          "training_snapshot_id": {
+            "title": "Training Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "project_id",
+          "task_id",
+          "package_id",
+          "package_digest",
+          "runtime_capability_digest",
+          "dataset_identity_digest",
+          "training_identity_kind",
+          "training_snapshot_id",
+          "training_snapshot_digest",
+          "design_space_digest",
+          "objective_digest",
+          "target",
+          "generator_id",
+          "generator_version",
+          "selector_id",
+          "selector_version",
+          "selection_policy_id",
+          "selection_policy_version",
+          "proposal_count",
+          "distance_contract_digest",
+          "incumbent_resolution_digest",
+          "support_policy",
+          "pool_multiplier",
+          "budget",
+          "seeds",
+          "evaluation_fixture_version"
+        ],
+        "title": "ProposalLabProtocol",
+        "type": "object"
+      },
+      "ProposalLabReport": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_memos": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalLabAdoptionMemo"
+            },
+            "title": "Adoption Memos",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ProposalLabProtocol"
+          },
+          "report_digest": {
+            "pattern": "^sha256:",
+            "title": "Report Digest",
+            "type": "string"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalLabRunMetric"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "proposal-lab-report/v1",
+            "default": "proposal-lab-report/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "strategy_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalLabStrategySummary"
+            },
+            "title": "Strategy Summaries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "created_at",
+          "report_digest",
+          "protocol",
+          "runs",
+          "strategy_summaries",
+          "adoption_memos",
+          "limitations"
+        ],
+        "title": "ProposalLabReport",
+        "type": "object"
+      },
+      "ProposalLabRunMetric": {
+        "additionalProperties": false,
+        "properties": {
+          "caution_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Caution Rate",
+            "type": "number"
+          },
+          "constraint_unknown_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Constraint Unknown Rate",
+            "type": "number"
+          },
+          "duplicate_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Duplicate Rate",
+            "type": "number"
+          },
+          "evaluated_count": {
+            "title": "Evaluated Count",
+            "type": "integer"
+          },
+          "extrapolated_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Extrapolated Rate",
+            "type": "number"
+          },
+          "failure_count": {
+            "minimum": 0.0,
+            "title": "Failure Count",
+            "type": "integer"
+          },
+          "fallback_count": {
+            "minimum": 0.0,
+            "title": "Fallback Count",
+            "type": "integer"
+          },
+          "feasible_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Feasible Rate",
+            "type": "number"
+          },
+          "goal_achievement_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Goal Achievement Rate",
+            "type": "number"
+          },
+          "memory_peak_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Peak Bytes"
+          },
+          "model_call_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Call Count"
+          },
+          "pool_digest": {
+            "title": "Pool Digest",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "runtime_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Ms"
+          },
+          "score_digest": {
+            "title": "Score Digest",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selected_count": {
+            "title": "Selected Count",
+            "type": "integer"
+          },
+          "selection_digest": {
+            "title": "Selection Digest",
+            "type": "string"
+          },
+          "strategy_id": {
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "strategy_version": {
+            "title": "Strategy Version",
+            "type": "string"
+          },
+          "supported_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Supported Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "run_id",
+          "strategy_id",
+          "strategy_version",
+          "seed",
+          "pool_digest",
+          "score_digest",
+          "selection_digest",
+          "evaluated_count",
+          "model_call_count",
+          "selected_count",
+          "goal_achievement_rate",
+          "feasible_rate",
+          "constraint_unknown_rate",
+          "supported_rate",
+          "caution_rate",
+          "extrapolated_rate",
+          "duplicate_rate",
+          "failure_count",
+          "fallback_count"
+        ],
+        "title": "ProposalLabRunMetric",
+        "type": "object"
+      },
+      "ProposalLabStrategySummary": {
+        "additionalProperties": false,
+        "properties": {
+          "acquisition_id": {
+            "title": "Acquisition Id",
+            "type": "string"
+          },
+          "acquisition_parameter_digest": {
+            "pattern": "^sha256:",
+            "title": "Acquisition Parameter Digest",
+            "type": "string"
+          },
+          "acquisition_scope": {
+            "enum": [
+              "marginal",
+              "joint"
+            ],
+            "title": "Acquisition Scope",
+            "type": "string"
+          },
+          "acquisition_version": {
+            "title": "Acquisition Version",
+            "type": "string"
+          },
+          "extrapolated_rate_range": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Extrapolated Rate Range",
+            "type": "number"
+          },
+          "goal_achievement_rate_range": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Goal Achievement Rate Range",
+            "type": "number"
+          },
+          "lifecycle_status_at_evaluation": {
+            "enum": [
+              "experimental",
+              "production",
+              "unavailable",
+              "no_adopt",
+              "retired"
+            ],
+            "title": "Lifecycle Status At Evaluation",
+            "type": "string"
+          },
+          "mean_constraint_unknown_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean Constraint Unknown Rate",
+            "type": "number"
+          },
+          "mean_feasible_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean Feasible Rate",
+            "type": "number"
+          },
+          "mean_goal_achievement_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean Goal Achievement Rate",
+            "type": "number"
+          },
+          "mean_supported_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean Supported Rate",
+            "type": "number"
+          },
+          "required_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Capabilities",
+            "type": "array"
+          },
+          "seeds": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seeds",
+            "type": "array"
+          },
+          "strategy_id": {
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "strategy_version": {
+            "title": "Strategy Version",
+            "type": "string"
+          },
+          "unavailable_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unavailable Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "strategy_id",
+          "strategy_version",
+          "acquisition_id",
+          "acquisition_version",
+          "acquisition_parameter_digest",
+          "lifecycle_status_at_evaluation",
+          "required_capabilities",
+          "unavailable_reasons",
+          "acquisition_scope",
+          "seeds",
+          "mean_goal_achievement_rate",
+          "mean_feasible_rate",
+          "mean_constraint_unknown_rate",
+          "mean_supported_rate",
+          "extrapolated_rate_range",
+          "goal_achievement_rate_range"
+        ],
+        "title": "ProposalLabStrategySummary",
+        "type": "object"
+      },
       "ProposalObjectiveExecution": {
         "additionalProperties": false,
         "description": "The production Objective subset actually translated into engine fields.",
@@ -16302,6 +16957,18 @@
           },
           "label": {
             "title": "Label",
+            "type": "string"
+          },
+          "lifecycle_status": {
+            "default": "production",
+            "enum": [
+              "experimental",
+              "production",
+              "unavailable",
+              "no_adopt",
+              "retired"
+            ],
+            "title": "Lifecycle Status",
             "type": "string"
           },
           "production_enabled": {
@@ -18384,6 +19051,30 @@
             "title": "Generated Count",
             "type": "integer"
           },
+          "memory_peak_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Peak Bytes"
+          },
+          "model_call_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Call Count"
+          },
           "proposed_count": {
             "anyOf": [
               {
@@ -18414,6 +19105,18 @@
             "minimum": 0.0,
             "title": "Rejection Rate",
             "type": "number"
+          },
+          "runtime_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Ms"
           },
           "selected_count": {
             "default": 0,
@@ -18584,6 +19287,18 @@
             ],
             "title": "Incumbent Value"
           },
+          "lifecycle_status": {
+            "default": "production",
+            "enum": [
+              "experimental",
+              "production",
+              "unavailable",
+              "no_adopt",
+              "retired"
+            ],
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
           "parameter_role": {
             "anyOf": [
               {
@@ -18609,6 +19324,26 @@
             "minimum": 1.0,
             "title": "Requested Count",
             "type": "integer"
+          },
+          "required_capabilities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Capabilities",
+            "type": "array"
+          },
+          "runtime_capability_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Capability Digest"
           },
           "seed": {
             "maximum": 2147483647.0,
@@ -29742,6 +30477,144 @@
           }
         },
         "summary": "List Project Objective Revisions"
+      }
+    },
+    "/api/projects/{project_id}/proposal-lab/reports": {
+      "get": {
+        "operationId": "list_proposal_lab_reports_api_projects__project_id__proposal_lab_reports_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProposalLabReport"
+                  },
+                  "title": "Response List Proposal Lab Reports Api Projects  Project Id  Proposal Lab Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Proposal Lab Reports"
+      },
+      "post": {
+        "operationId": "create_proposal_lab_report_api_projects__project_id__proposal_lab_reports_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalLabCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalLabReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Proposal Lab Report"
+      }
+    },
+    "/api/projects/{project_id}/proposal-lab/reports/{report_id}": {
+      "get": {
+        "operationId": "get_proposal_lab_report_api_projects__project_id__proposal_lab_reports__report_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalLabReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Proposal Lab Report"
       }
     },
     "/api/projects/{project_id}/proposal-strategies": {

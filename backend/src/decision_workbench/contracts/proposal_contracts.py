@@ -153,6 +153,19 @@ class ProposalStrategyDefinition(ContractModel):
     # availability decisions are made only from this shared capability contract.
     required_capabilities: tuple[CapabilityRequirement, ...] = ()
     production_enabled: bool = True
+    lifecycle_status: Literal[
+        "experimental",
+        "production",
+        "unavailable",
+        "no_adopt",
+        "retired",
+    ] = "production"
+
+    @model_validator(mode="after")
+    def lifecycle_matches_production_gate(self) -> "ProposalStrategyDefinition":
+        if self.production_enabled != (self.lifecycle_status == "production"):
+            raise ValueError("strategy lifecycleとproduction gateが一致しません")
+        return self
 
 
 class ProposalStrategyAvailability(ContractModel):

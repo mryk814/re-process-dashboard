@@ -104,6 +104,7 @@ STRATEGIES = (
         selector_version="1.0.0",
         requires_samples=True,
         production_enabled=False,
+        lifecycle_status="experimental",
         required_capabilities=(CapabilityRequirement(capability="predictive_samples"),),
     ),
     ProposalStrategyDefinition(
@@ -118,6 +119,7 @@ STRATEGIES = (
         selector_version="1.0.0",
         requires_standard_deviation=True,
         production_enabled=False,
+        lifecycle_status="experimental",
         required_capabilities=(CapabilityRequirement(capability="standard_deviation"),),
     ),
     ProposalStrategyDefinition(
@@ -131,6 +133,7 @@ STRATEGIES = (
         selector_id="ranked_top_k",
         selector_version="1.0.0",
         production_enabled=False,
+        lifecycle_status="experimental",
     ),
 )
 

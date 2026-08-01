@@ -37,6 +37,7 @@ import {
   type ScreeningResultSurface,
 } from "./ScreeningResultSurfaces";
 import { HistoricalEvidenceDrawer } from "../workbench";
+import { ProposalLabPanel } from "./ProposalLabPanel";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -1043,6 +1044,7 @@ export function ScreeningPage({
           )}
         </section>
       )}
+      <ProposalLabPanel projectId={projectId} runs={savedRuns} />
       <div className="screening-settings">
         {screeningMode !== "landscape" && <div className="screening-primary-settings">
           <label>

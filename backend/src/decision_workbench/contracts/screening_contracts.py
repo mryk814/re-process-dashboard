@@ -65,6 +65,17 @@ class ScreeningScoreContract(BaseModel):
 class ScreeningProposalStrategy(BaseModel):
     id: Annotated[str, Field(min_length=1)]
     version: Annotated[str, Field(min_length=1)]
+    runtime_capability_digest: Annotated[
+        str | None, Field(pattern=r"^sha256:")
+    ] = None
+    lifecycle_status: Literal[
+        "experimental",
+        "production",
+        "unavailable",
+        "no_adopt",
+        "retired",
+    ] = "production"
+    required_capabilities: tuple[str, ...] = ()
     seed: Annotated[int, Field(ge=0, le=2_147_483_647)]
     requested_count: Annotated[int, Field(ge=1)]
     pool_multiplier: Annotated[int, Field(ge=1)] = SCREENING_POOL_MULTIPLIER
@@ -113,6 +124,11 @@ class ScreeningProposalDiagnostics(BaseModel):
     selected_count: Annotated[int, Field(ge=0)] = 0
     displayed_count: Annotated[int | None, Field(ge=0)] = None
     proposed_count: Annotated[int | None, Field(ge=0)] = None
+    model_call_count: Annotated[int | None, Field(ge=0)] = None
+    runtime_ms: Annotated[
+        float | None, Field(ge=0, allow_inf_nan=False)
+    ] = None
+    memory_peak_bytes: Annotated[int | None, Field(ge=0)] = None
     coverage_by_path: dict[str, ProposalCoverageEvidence] = Field(default_factory=dict)
 
     @model_validator(mode="after")

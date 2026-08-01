@@ -57,6 +57,7 @@ from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.persistence.store import CandidateLimitError, Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
+from decision_workbench.modeling.model_lifecycle import runtime_capability_digest
 
 
 class ScreeningNotFoundError(LookupError):
@@ -525,6 +526,13 @@ class ScreeningService:
             result["proposal_strategy"] = {
                 "id": strategy.strategy_id,
                 "version": strategy.version,
+                "runtime_capability_digest": runtime_capability_digest(
+                    contract.runtime_capability
+                ),
+                "lifecycle_status": strategy.lifecycle_status,
+                "required_capabilities": tuple(
+                    item.capability for item in strategy.required_capabilities
+                ),
                 "seed": result["seed"],
                 "requested_count": payload.samples,
                 "pool_multiplier": proposal_request.pool_multiplier,

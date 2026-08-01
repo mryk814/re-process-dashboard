@@ -264,6 +264,82 @@ class EvidenceRepository:
             )
         return deleted.rowcount == 1
 
+    def create_proposal_lab_report(
+        self, *, project_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        report_digest = str(payload["report_digest"])
+        report_id = f"proposal-lab-{report_digest.removeprefix('sha256:')[:24]}"
+        created_at = _now()
+        with self._connect() as conn:
+            if conn.execute(
+                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+            ).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO proposal_lab_reports
+                    (id, project_id, payload, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    report_id,
+                    project_id,
+                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+        stored = self.get_proposal_lab_report(report_id, project_id)
+        if stored is None:
+            raise StoreDataIntegrityError("Proposal Lab reportを保存できませんでした")
+        if stored.get("report_digest") != report_digest:
+            raise StoreDataIntegrityError(
+                "Proposal Lab report IDが別のfull digestと衝突しました"
+            )
+        return stored
+
+    def get_proposal_lab_report(
+        self, report_id: str, project_id: str
+    ) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM proposal_lab_reports
+                WHERE id = ? AND project_id = ?
+                """,
+                (report_id, project_id),
+            ).fetchone()
+        return (
+            {
+                "id": row["id"],
+                "project_id": row["project_id"],
+                "created_at": row["created_at"],
+                **json.loads(row["payload"]),
+            }
+            if row
+            else None
+        )
+
+    def list_proposal_lab_reports(
+        self, project_id: str
+    ) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM proposal_lab_reports
+                WHERE project_id = ? ORDER BY created_at DESC
+                """,
+                (project_id,),
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "project_id": row["project_id"],
+                "created_at": row["created_at"],
+                **json.loads(row["payload"]),
+            }
+            for row in rows
+        ]
+
     @staticmethod
     def _decision_activity_run(row: sqlite3.Row) -> dict[str, Any]:
         return {

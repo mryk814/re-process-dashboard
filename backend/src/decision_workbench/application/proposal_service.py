@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import perf_counter
 from collections import defaultdict
 from typing import Any, Callable
 
@@ -246,11 +247,17 @@ def run_proposal(
     proposal_candidates = [
         candidate for _, candidate, _, _ in valid_candidates
     ]
+    batch_prediction = (
+        isinstance(runtime, BatchPredictionRuntime)
+        and runtime.supports_batch_prediction
+    )
+    evaluation_started = perf_counter()
     prediction_rows = _evaluate_proposal_pool(
         runtime,
         proposal_candidates,
         target_values=target_values,
     )
+    evaluation_runtime_ms = (perf_counter() - evaluation_started) * 1000
     for (
         pool_index,
         candidate,
@@ -548,6 +555,12 @@ def run_proposal(
                 if proposal_selection is not None
                 else 0
             ),
+            "model_call_count": (
+                1 if batch_prediction and proposal_candidates
+                else len(proposal_candidates)
+            ),
+            "runtime_ms": evaluation_runtime_ms,
+            "memory_peak_bytes": None,
             "rejected_count": sum(rejected_by_reason.values()),
             "rejection_rate": sum(rejected_by_reason.values()) / pool_size,
             "rejected_by_reason": dict(sorted(rejected_by_reason.items())),

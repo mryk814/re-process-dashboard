@@ -13,6 +13,11 @@ from ..application.screening import (
     ScreeningService,
     ScreeningValidationError,
 )
+from decision_workbench.application.proposal_lab import (
+    ProposalLabNotFoundError,
+    ProposalLabService,
+    ProposalLabValidationError,
+)
 from decision_workbench.contracts.evidence_contracts import (
     ScreeningCandidateBatchRequest,
     ScreeningCandidateBatchResponse,
@@ -20,6 +25,10 @@ from decision_workbench.contracts.evidence_contracts import (
 from decision_workbench.contracts.prediction_catalog_contracts import ScreeningRequest
 from decision_workbench.contracts.screening_contracts import ScreeningRunResponse
 from decision_workbench.contracts.proposal_contracts import ProposalStrategyAvailability
+from decision_workbench.contracts.proposal_lab_contracts import (
+    ProposalLabCreateRequest,
+    ProposalLabReport,
+)
 from decision_workbench.contracts.batch_proposal_contracts import BatchSelectorAvailability
 from decision_workbench.persistence.store import CandidateLimitError, ProjectNotFoundError, Store
 from decision_workbench.tasks.task_registry import TaskRegistry
@@ -39,6 +48,15 @@ def get_screening_service(
 
 
 ScreeningServiceDependency = Annotated[ScreeningService, Depends(get_screening_service)]
+
+
+def get_proposal_lab_service(store: StoreDependency) -> ProposalLabService:
+    return ProposalLabService(store)
+
+
+ProposalLabServiceDependency = Annotated[
+    ProposalLabService, Depends(get_proposal_lab_service)
+]
 SCREENING_ERRORS = (
     ProjectNotFoundError,
     ScreeningNotFoundError,
@@ -65,6 +83,16 @@ def _raise_screening_error(exc: Exception) -> None:
         raise HTTPException(422, str(exc)) from exc
     if isinstance(exc, CandidateLimitError):
         raise DomainApiException(409, "candidate_limit", str(exc)) from exc
+    raise exc
+
+
+def _raise_proposal_lab_error(exc: Exception) -> None:
+    if isinstance(exc, ProjectNotFoundError):
+        raise HTTPException(404, "プロジェクトが見つかりません") from exc
+    if isinstance(exc, ProposalLabNotFoundError):
+        raise HTTPException(404, str(exc)) from exc
+    if isinstance(exc, ProposalLabValidationError):
+        raise HTTPException(422, str(exc)) from exc
     raise exc
 
 
@@ -112,6 +140,55 @@ def list_batch_selectors(
         return service.available_batch_selectors(project_id, target)
     except SCREENING_ERRORS as exc:
         _raise_screening_error(exc)
+
+
+@router.post(
+    "/api/projects/{project_id}/proposal-lab/reports",
+    status_code=201,
+    response_model=ProposalLabReport,
+)
+def create_proposal_lab_report(
+    project_id: str,
+    payload: ProposalLabCreateRequest,
+    service: ProposalLabServiceDependency,
+) -> ProposalLabReport:
+    try:
+        return service.create(payload, project_id)
+    except (
+        ProjectNotFoundError,
+        ProposalLabNotFoundError,
+        ProposalLabValidationError,
+    ) as exc:
+        _raise_proposal_lab_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/proposal-lab/reports",
+    response_model=list[ProposalLabReport],
+)
+def list_proposal_lab_reports(
+    project_id: str,
+    service: ProposalLabServiceDependency,
+) -> list[ProposalLabReport]:
+    try:
+        return service.list(project_id)
+    except (ProjectNotFoundError, ProposalLabNotFoundError) as exc:
+        _raise_proposal_lab_error(exc)
+
+
+@router.get(
+    "/api/projects/{project_id}/proposal-lab/reports/{report_id}",
+    response_model=ProposalLabReport,
+)
+def get_proposal_lab_report(
+    project_id: str,
+    report_id: str,
+    service: ProposalLabServiceDependency,
+) -> ProposalLabReport:
+    try:
+        return service.get(report_id, project_id)
+    except (ProjectNotFoundError, ProposalLabNotFoundError) as exc:
+        _raise_proposal_lab_error(exc)
 
 
 @router.get("/api/screening/{run_id}", response_model=ScreeningRunResponse)
