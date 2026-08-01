@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskDefinitionContract } from "../candidates";
 import {
+  AccessibleTabList,
+  AccessibleTabPanel,
+} from "../../shared/ui/AccessibleTabs";
+import {
   workbenchApi,
   type ApiModelPackage,
   type ApiModelTrainingDataPage,
@@ -111,12 +115,36 @@ export function ModelTrainingDataInspector({
           </option>)}
         </select>
       </label>
-      <div className="training-data-tabs" role="tablist" aria-label="学習データの段階">
-        <button type="button" role="tab" aria-selected={stage === "curation"} className={stage === "curation" ? "active" : ""} onClick={() => { setStage("curation"); resetRows(); }}>元データ{page ? ` ${page.stage_counts.source_rows}` : ""}</button>
-        <button type="button" role="tab" aria-selected={stage === "selected"} className={stage === "selected" ? "active" : ""} onClick={() => { setStage("selected"); resetRows(); }}>採用データ{page ? ` ${page.stage_counts.selected_rows}` : ""}</button>
-        <button type="button" role="tab" aria-selected={stage === "features"} className={stage === "features" ? "active" : ""} onClick={() => { setStage("features"); resetRows(); }}>モデル入力{page ? ` ${page.stage_counts.model_rows}` : ""}</button>
-      </div>
+      <AccessibleTabList
+        idPrefix="training-data-stage"
+        label="学習データの段階"
+        className="training-data-tabs"
+        activation="manual"
+        items={[
+          { id: "curation", label: <>元データ{page ? ` ${page.stage_counts.source_rows}` : ""}</> },
+          { id: "selected", label: <>採用データ{page ? ` ${page.stage_counts.selected_rows}` : ""}</> },
+          { id: "features", label: <>モデル入力{page ? ` ${page.stage_counts.model_rows}` : ""}</> },
+        ]}
+        selected={stage}
+        onSelect={(next) => {
+          setStage(next);
+          resetRows();
+        }}
+      />
     </div>
+    {(["curation", "selected", "features"] as const)
+      .filter((item) => item !== stage)
+      .map((item) => <AccessibleTabPanel
+        key={item}
+        idPrefix="training-data-stage"
+        tabId={item}
+        active={false}
+      />)}
+    <AccessibleTabPanel
+      idPrefix="training-data-stage"
+      tabId={stage}
+      active
+    >
     {page && <div className="training-data-flow" aria-label="学習データの行数変化">
       <span><small>元データ</small><b>{page.stage_counts.source_rows.toLocaleString("ja-JP")}</b>行</span>
       <i aria-hidden="true">→</i>
@@ -190,5 +218,6 @@ export function ModelTrainingDataInspector({
           <div><dt>Feature Dataset</dt><dd>{page.feature_dataset_digest}</dd></div>
         </dl>
       </details>}
+    </AccessibleTabPanel>
   </details>;
 }
