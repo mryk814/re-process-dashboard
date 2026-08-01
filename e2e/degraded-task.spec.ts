@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
 
@@ -48,7 +50,7 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
     { exact: false },
   ).first()).toBeVisible();
   await expect(diagnostic.getByText("モデルPackage", { exact: true })).toBeVisible();
-  await expect(diagnostic.getByText(brokenPackage!, { exact: false })).toBeVisible();
+  await expect(diagnostic.getByText(basename(brokenPackage!), { exact: false })).toBeVisible();
   await expect(diagnostic.getByText("復旧の手掛かり", { exact: false })).toBeVisible();
 
   await page.getByRole("navigation", { name: "Project設定メニュー" })
