@@ -55,6 +55,12 @@ export function validateVerificationCatalog(catalog) {
     if (!levelIds.has(rule.minimumLevel)) {
       throw new Error(`risk ${rule.risk} references unknown level ${rule.minimumLevel}`);
     }
+    if (!["direct", "follow_up"].includes(rule.higherLevelDisposition)) {
+      throw new Error(`risk ${rule.risk} must declare higherLevelDisposition`);
+    }
+    if (rule.higherLevelDisposition === "follow_up" && !rule.followUpOwner) {
+      throw new Error(`follow-up risk ${rule.risk} must declare followUpOwner`);
+    }
     for (const gateId of [...(rule.requiredGates ?? []), ...(rule.checkpointOnly ?? [])]) {
       if (!catalog.gates[gateId]) throw new Error(`risk ${rule.risk} references unknown gate ${gateId}`);
     }
@@ -265,20 +271,54 @@ export function buildVerificationPlan({
       ? (ci ? "CI executes the required full suite for this commit" : "unknown paths require a local conservative full suite")
       : "CI is the sole full-suite owner; local verification records focused evidence only",
   };
+  const higherLevelRequirement = incomplete
+    ? {
+        level: minimumRequiredLevel,
+        command: minimumRequiredLevel === "release"
+          ? "npm run acceptance:release"
+          : "npm run verify:checkpoint",
+        reason: `${minimumRequiredLevel} evidence is required by ${effectiveRisks.join(", ")}`,
+      }
+    : null;
+  const blockingHigherLevelRisks = incomplete
+    ? effectiveRisks.filter((risk) => rules.get(risk).higherLevelDisposition === "direct")
+    : [];
+  const followUpRisks = incomplete
+    ? effectiveRisks.filter((risk) => rules.get(risk).higherLevelDisposition === "follow_up")
+    : [];
+  const directEvidenceRequirements = higherLevelRequirement && blockingHigherLevelRisks.length > 0
+    ? [{
+        ...higherLevelRequirement,
+        risks: blockingHigherLevelRisks,
+        status: "not_run",
+      }]
+    : [];
+  const requiredFollowUps = higherLevelRequirement && followUpRisks.length > 0
+    ? [{
+        ...higherLevelRequirement,
+        risks: followUpRisks,
+        owner: [...new Set(followUpRisks.map((risk) => rules.get(risk).followUpOwner))].join(", "),
+      }]
+    : [];
   return {
     schemaVersion: "verification-plan/v1",
     requestedLevel,
     executionLevel: requestedLevel,
     selectedLevel: minimumRequiredLevel,
     minimumRequiredLevel,
-    completion: incomplete ? "incomplete" : "ready",
+    completion: directEvidenceRequirements.length > 0
+      ? "direct_evidence_required"
+      : requiredFollowUps.length > 0
+        ? "follow_up"
+        : "ready",
     incompleteReasons: incomplete
       ? [`${requestedLevel} is below the ${minimumRequiredLevel} evidence level required by ${effectiveRisks.join(", ")}`]
       : [],
-    requiredFollowUp: incomplete
-      ? minimumRequiredLevel === "release"
-        ? { level: "release", command: "npm run acceptance:release", reason: "release evidence is required before this plan can pass" }
-        : { level: "checkpoint", command: "npm run verify:checkpoint", reason: "checkpoint evidence is required before this plan can pass" }
+    requiredFollowUp: requiredFollowUps[0] ?? null,
+    directEvidenceRequirements,
+    requiredFollowUps,
+    followUpOwner: requiredFollowUps.length > 0
+      ? [...new Set(requiredFollowUps.map((item) => item.owner))].join(", ")
       : null,
     baseRef,
     changedPaths,
@@ -292,6 +332,82 @@ export function buildVerificationPlan({
     skippedGates,
     fullSuiteOwner,
   };
+}
+
+export function gateRunsOnPlatform(gatePlatform, currentPlatform) {
+  return gatePlatform === "any"
+    || gatePlatform === currentPlatform
+    || gatePlatform === "docker";
+}
+
+export function evaluateVerificationOutcome({ plan, gateResults }) {
+  const byId = new Map(gateResults.map((result) => [result.id, result]));
+  const failedGates = gateResults
+    .filter((result) => result.status === "failed")
+    .map((result) => ({
+      kind: "gate",
+      id: result.id,
+      command: result.command ?? null,
+      exit_code: result.exitCode ?? null,
+      reason: result.error ?? "command failed",
+    }));
+  const missingDirectEvidence = [
+    ...(plan.directEvidenceRequirements ?? []),
+    ...(plan.requiredManualGates ?? []).map((gate) => ({
+      level: plan.minimumRequiredLevel,
+      command: gate.command,
+      reason: gate.reasons.join("; "),
+      risks: plan.riskCategories,
+      status: "not_run",
+    })),
+  ].map((requirement) => ({
+    kind: "required_evidence",
+    id: requirement.level,
+    command: requirement.command,
+    exit_code: null,
+    reason: requirement.reason,
+  }));
+  const directFailures = [...failedGates, ...missingDirectEvidence];
+  const pendingGates = plan.selectedGateIds.filter((gateId) => {
+    const result = byId.get(gateId);
+    return !result || ["pending", "not_run"].includes(result.status);
+  });
+  const outcome = directFailures.length > 0
+    ? "failed"
+    : pendingGates.length > 0
+      ? "pending"
+      : (plan.requiredFollowUps ?? []).length > 0
+        ? "passed_with_follow_up"
+        : "passed";
+  return {
+    outcome_schema_version: "verification-outcome/v1",
+    outcome,
+    direct_failures: directFailures,
+    required_follow_ups: plan.requiredFollowUps ?? [],
+    follow_up_owner: plan.followUpOwner ?? null,
+    full_suite_owner: plan.fullSuiteOwner,
+    commit_sha: plan.fullSuiteOwner.commitSha,
+    pending_gates: pendingGates,
+  };
+}
+
+export function verificationEvidenceMarkdown(outcome) {
+  const direct = outcome.direct_failures.length === 0
+    ? "none"
+    : outcome.direct_failures.map((failure) => `${failure.id}: ${failure.reason}`).join("; ");
+  const followUp = outcome.required_follow_ups.length === 0
+    ? "none"
+    : outcome.required_follow_ups
+      .map((item) => `${item.command} (${item.owner})`)
+      .join("; ");
+  return [
+    "## Verification evidence",
+    `- Outcome: \`${outcome.outcome}\``,
+    `- Commit: \`${outcome.commit_sha ?? "unknown"}\``,
+    `- Direct failures: ${direct}`,
+    `- Follow-up: ${followUp}`,
+    `- Full-suite owner: ${outcome.full_suite_owner.owner}`,
+  ].join("\n");
 }
 
 export function appendNotRunResults(selectedGateIds, results, catalog) {

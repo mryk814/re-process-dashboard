@@ -99,12 +99,35 @@ planは実行候補を示すplannerであり、作業者の検証予算を置き
 
 planの`selectedLevel`は横断証拠を含む推奨level、`executionLevel`は今実行するrunner levelです。
 
-現行runnerは後者が前者より低い場合に`incomplete`と非ゼロ終了を返します。この状態は、当該PRの直接証拠が失敗したことを必ずしも意味しません。検証予算により、次を区別して記録します。
+PR workflowは`direct verification`と`verification follow-up`を別checkとして表示します。
+前者だけが選択されたcommand、CI所有のfull suite、merge前必須 evidenceの成否を持ち、
+後者はEpic checkpoint等へ送った横断証拠とownerをwarning／summaryとして表示します。
+follow-upだけをdirect checkの非ゼロ終了へ混ぜません。
+
+verification artifactは次を固定fieldとして持ちます。
+
+```text
+outcome_schema_version: verification-outcome/v1
+outcome: passed | passed_with_follow_up | pending | failed
+direct_failures[]
+required_follow_ups[]
+follow_up_owner
+full_suite_owner
+commit_sha
+pr_body_evidence
+```
+
+検証予算により、次を区別して記録します。
 
 - `failed`: 当該変更の直接証拠が失敗した
 - `passed`: 当該変更の直接証拠が揃った
 - `passed_with_follow_up`: 直接証拠は揃い、横断checkpointを後で実行する
 - `blocked`: merge前にcompatibility／release証拠が必須
+
+runnerのexit codeは`failed`と`pending`だけを停止signalにする。
+`passed_with_follow_up`はexit 0だが、follow-up checkとPR evidenceにcommandとownerを残す。
+migration、release artifact、Package trust boundary等のmerge前必須 evidenceは
+`required_follow_ups`へ降格せず、未実行を`direct_failures`へ記録する。
 
 `migration`等の語を含むpathでも、保存形式や既存recordを実際に変更していなければ、自動的に`blocked`とはしません。
 
