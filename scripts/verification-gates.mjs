@@ -194,19 +194,74 @@ function strongestMinimumLevel(risks, rules, requestedLevel) {
   requestedLevel);
 }
 
+const pytestOptionsWithSeparateValue = new Set([
+  "-k",
+  "-m",
+  "-o",
+  "--assert",
+  "--basetemp",
+  "--capture",
+  "--color",
+  "--confcutdir",
+  "--deselect",
+  "--doctest-glob",
+  "--doctest-report",
+  "--durations",
+  "--durations-min",
+  "--ignore",
+  "--ignore-glob",
+  "--import-mode",
+  "--junit-prefix",
+  "--junitxml",
+  "--last-failed-no-failures",
+  "--log-cli-date-format",
+  "--log-cli-format",
+  "--log-cli-level",
+  "--log-date-format",
+  "--log-file",
+  "--log-file-date-format",
+  "--log-file-format",
+  "--log-file-level",
+  "--log-format",
+  "--log-level",
+  "--maxfail",
+  "--override-ini",
+  "--pastebin",
+  "--pdbcls",
+  "--rootdir",
+  "--tb",
+]);
+
+function isPythonPytestTarget(value) {
+  return /(?:^|\/)tests(?:\/|$)/.test(value)
+    || /\.py(?:::.+)?$/i.test(value);
+}
+
+function isNodeTestTarget(value) {
+  return /\.(?:[cm]?js|jsx|ts|tsx)$/i.test(value);
+}
+
 function focusedPytestArgs(args) {
   const normalized = args.map((value) => value.replaceAll("\\", "/"));
   const hasPythonTarget = normalized.some((value) => (
-    value.endsWith(".py")
-    || value === "tests"
-    || value.endsWith("/tests")
+    !isNodeTestTarget(value) && isPythonPytestTarget(value)
   ));
   if (!hasPythonTarget) return [];
-  return args.filter((value, index) => (
-    normalized[index].startsWith("-")
-    || !/(?:^|\/)[^/]+\.[a-z0-9]+$/i.test(normalized[index])
-    || normalized[index].endsWith(".py")
-  ));
+  let preserveNextValue = false;
+  return args.filter((value, index) => {
+    if (preserveNextValue) {
+      preserveNextValue = false;
+      return true;
+    }
+    const normalizedValue = normalized[index];
+    if (normalizedValue.startsWith("-")) {
+      const option = normalizedValue.split("=", 1)[0];
+      preserveNextValue = !normalizedValue.includes("=")
+        && pytestOptionsWithSeparateValue.has(option);
+      return true;
+    }
+    return !isNodeTestTarget(normalizedValue);
+  });
 }
 
 export function resolveFocusedTests({ catalog, changedPaths, focusedArgs = [] }) {

@@ -168,22 +168,39 @@ test("Node verification tests stay out of focused pytest and keep their owning g
     ["backend/src/decision_workbench/application/project_runtime.py"],
     {
       focusedArgs: [
-        "backend/tests/test_api.py",
+        "backend/tests/test_api.py::test_health",
         "scripts/verification-gates.test.mjs",
         "-k",
-        "focused_case",
+        "TestApi.test_health",
+        "--junitxml",
+        "reports/focused.xml",
+        "--rootdir",
+        "config.v1",
+        "--ignore",
+        "scripts/ignored.mjs",
       ],
     },
   );
   assert.deepEqual(explicitPlan.focusedTests.tests, [
-    "backend/tests/test_api.py",
+    "backend/tests/test_api.py::test_health",
     "-k",
-    "focused_case",
+    "TestApi.test_health",
+    "--junitxml",
+    "reports/focused.xml",
+    "--rootdir",
+    "config.v1",
+    "--ignore",
+    "scripts/ignored.mjs",
   ]);
 
   const nodeOnlyPlan = planFor(
     ["scripts/verification-gates.test.mjs"],
-    { focusedArgs: ["scripts/verification-gates.test.mjs"] },
+    {
+      focusedArgs: [
+        "scripts/verification-gates.test.mjs",
+        "tests/verification-gates.test.mjs",
+      ],
+    },
   );
   assert.deepEqual(nodeOnlyPlan.focusedTests.tests, []);
   assert.ok(!selectedIds(nodeOnlyPlan).includes("focused-pytest"));
