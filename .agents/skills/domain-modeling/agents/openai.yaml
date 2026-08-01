@@ -1,0 +1,7 @@
+interface:
+  display_name: "Domain Modeling"
+  short_description: "Sharpen domain language with repository authority"
+  default_prompt: "Use $domain-modeling explicitly to clarify this repository domain concept."
+
+policy:
+  allow_implicit_invocation: false

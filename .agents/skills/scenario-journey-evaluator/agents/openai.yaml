@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scenario Journey Evaluator"
+  short_description: "Run a real decision journey from a prepared Project"
+  default_prompt: "Use $scenario-journey-evaluator to evaluate a prepared Project journey."

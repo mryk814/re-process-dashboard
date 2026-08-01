@@ -20,3 +20,6 @@ data/source/*.xlsx binary
 data/source/**/*.xlsx binary
 # Observation evidence images are read as raw bytes and digested with the dataset.
 data/source/**/*.png binary
+
+# Preserve reviewed third-party text byte layout while accepting upstream Markdown hard breaks.
+.agents/vendor/** text eol=lf whitespace=-trailing-space

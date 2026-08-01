@@ -1,0 +1,4 @@
+interface:
+  display_name: "Re-process Architecture Review"
+  short_description: "Repository-aware architecture audit and change guardrails"
+  default_prompt: "Use $re-process-architecture-review to audit this architecture without changing code."

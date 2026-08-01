@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data Contributor"
+  short_description: "Onboard external data through the Data Library UI"
+  default_prompt: "Use $data-contributor to onboard this dataset through the Data Library UI."
