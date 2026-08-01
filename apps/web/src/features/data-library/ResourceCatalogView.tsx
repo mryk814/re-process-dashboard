@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  workbenchApi,
   type ApiDataLibraryDataset,
   type ApiModelPackageRef,
   type ApiProject,
@@ -9,7 +8,6 @@ import {
   compatibleTaskIdsForDataset,
   datasetDisplayName,
   modelPackageDecisionSummary,
-  modelPackageDisplayName,
   modelPackageDisplayNames,
   trainingDataset,
 } from "../../shared/dataLibraryPresentation";
@@ -25,6 +23,10 @@ import {
   dataLibraryResourceFamilies,
   type DataLibraryResources,
 } from "./useDataLibraryResources";
+import {
+  packageTrainingSnapshotLink,
+  useResourceCatalogActions,
+} from "./useResourceCatalogActions";
 import type { DataLibraryLocation } from "./location";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
@@ -32,34 +34,6 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("ja-JP"
 const modelStorageLabel = (item: ApiModelPackageRef) => item.storage_scope === "personal"
   ? "自分のモデル"
   : "同梱モデル";
-type UndoAction = { kind: "dataset" | "package"; id: string; archived: boolean; label: string };
-type PackageTrainingSnapshotLink = {
-  connectorId: string;
-  snapshotId: string;
-  snapshotDigest: string;
-  selectionPolicyDigest: string;
-};
-function packageTrainingSnapshotLink(
-  item: ApiModelPackageRef,
-): PackageTrainingSnapshotLink | null {
-  const provenance = item.manifest_json.provenance;
-  if (!provenance || typeof provenance !== "object") return null;
-  const lifecycle = (provenance as Record<string, unknown>).source_lifecycle;
-  if (!lifecycle || typeof lifecycle !== "object") return null;
-  const identity = lifecycle as Record<string, unknown>;
-  return typeof identity.connector_id === "string" && identity.connector_id.length > 0
-    && typeof identity.training_snapshot_id === "string" && identity.training_snapshot_id.length > 0
-    && typeof identity.training_snapshot_digest === "string" && identity.training_snapshot_digest.length > 0
-    && typeof identity.training_selection_policy_digest === "string" && identity.training_selection_policy_digest.length > 0
-    ? {
-      connectorId: identity.connector_id,
-      snapshotId: identity.training_snapshot_id,
-      snapshotDigest: identity.training_snapshot_digest,
-      selectionPolicyDigest: identity.training_selection_policy_digest,
-    }
-    : null;
-}
-
 export function ResourceCatalogView({
   projects,
   onAddDataset,
@@ -94,25 +68,15 @@ export function ResourceCatalogView({
     loadResources,
     retryResource,
   } = resources;
-  const [error, setError] = useState("");
+  const actions = useResourceCatalogActions({ resources, onNavigate });
   const [compareName, setCompareName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState("");
   const [modelGuideOpen, setModelGuideOpen] = useState(false);
   const [guideTaskId, setGuideTaskId] = useState("");
   const [copiedGuide, setCopiedGuide] = useState(false);
-  const [refreshingPackages, setRefreshingPackages] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState("");
-  const [refreshWarnings, setRefreshWarnings] = useState<Array<{
-    source: string;
-    reference?: string | null;
-    message: string;
-  }>>([]);
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
-  const [changingResourceId, setChangingResourceId] = useState("");
-  const [openingTrainingSnapshotId, setOpeningTrainingSnapshotId] = useState("");
-  const [undoAction, setUndoAction] = useState<UndoAction | null>(null);
   const taskLabel = useTaskLabels();
   const allResourcesUnavailable = dataLibraryResourceFamilies.every((family) => {
     const state = resourceStates[family];
@@ -135,35 +99,6 @@ export function ResourceCatalogView({
   />;
   const renderResourceLoading = (family: keyof typeof resourceStates) =>
     <DataLibraryResourceLoading family={family} resourceStates={resourceStates} />;
-
-  const openTrainingSnapshot = async (link: PackageTrainingSnapshotLink) => {
-    setOpeningTrainingSnapshotId(link.snapshotId);
-    setError("");
-    try {
-      const [snapshotDetail, connectorDetail] = await Promise.all([
-        workbenchApi.approvedTrainingSnapshot(link.snapshotId),
-        workbenchApi.sourceConnectorDetail(link.connectorId),
-      ]);
-      const belongsToConnector = connectorDetail.training_snapshots.some(
-        (item) => item.id === link.snapshotId,
-      );
-      const snapshotDigestMatches = snapshotDetail.snapshot.snapshot_digest === link.snapshotDigest;
-      const policyDigestMatches = snapshotDetail.snapshot.selection_policy_digest === link.selectionPolicyDigest;
-      if (!belongsToConnector || !snapshotDigestMatches || !policyDigestMatches) {
-        throw new Error("Model Packageが固定した学習Snapshotの識別情報が一致しません。");
-      }
-      onNavigate({
-        tab: "update",
-        connectorId: link.connectorId,
-        stage: "training",
-        revisionId: link.snapshotId,
-      });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "固定した学習Snapshotを確認できませんでした。");
-    } finally {
-      setOpeningTrainingSnapshotId("");
-    }
-  };
 
   const comparisonSets = options?.dataset_views.filter((view) => view.kind === "cohort_comparison") ?? [];
   const filteredDatasets = useMemo(
@@ -247,89 +182,16 @@ export function ResourceCatalogView({
     ].join("\n");
   }, [exactProfileMissing, guideTaskId, selectedDataset]);
 
-  async function changeDatasetState(item: ApiDataLibraryDataset) {
-    const id = item.dataset_revision.id;
-    const archived = !item.dataset_revision.archived_at;
-    setChangingResourceId(id);
-    setError("");
-    try {
-      await workbenchApi.setDatasetArchived(id, archived);
-      setUndoAction({ kind: "dataset", id, archived: !archived, label: datasetDisplayName(item) });
-      await loadResources(["options", "datasets"]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : archived ? "Datasetを利用停止できませんでした。" : "Datasetを復元できませんでした。");
-    } finally {
-      setChangingResourceId("");
-    }
-  }
-
-  async function changeModelPackageState(item: ApiModelPackageRef) {
-    const archived = !item.archived_at;
-    setChangingResourceId(item.id);
-    setError("");
-    try {
-      await workbenchApi.setModelPackageArchived(item.id, archived);
-      setUndoAction({ kind: "package", id: item.id, archived: !archived, label: modelPackageDisplayName(item) });
-      await loadResources(["modelPackages"]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : archived ? "Model Packageを利用停止できませんでした。" : "Model Packageを復元できませんでした。");
-    } finally {
-      setChangingResourceId("");
-    }
-  }
-
-  async function undoLastChange() {
-    if (!undoAction) return;
-    setChangingResourceId(undoAction.id);
-    setError("");
-    try {
-      if (undoAction.kind === "dataset") {
-        await workbenchApi.setDatasetArchived(undoAction.id, undoAction.archived);
-      } else {
-        await workbenchApi.setModelPackageArchived(undoAction.id, undoAction.archived);
-      }
-      setUndoAction(null);
-      await loadResources(undoAction.kind === "dataset" ? ["options", "datasets"] : ["modelPackages"]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "直前の操作を元に戻せませんでした。");
-    } finally {
-      setChangingResourceId("");
-    }
-  }
-
   const toggleDataset = (dataset: ApiDataLibraryDataset) => {
     const id = dataset.dataset_revision.id;
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
 
   async function createComparison() {
-    if (!options || selectedIds.length < 2 || !compareName.trim()) {
-      setError("比較名と2件以上のDatasetを選んでください。");
-      return;
-    }
-    try {
-      await workbenchApi.createDatasetView({
-        view_id: `cohort-${crypto.randomUUID()}`,
-        revision: 1,
-        name: compareName.trim(),
-        kind: "cohort_comparison",
-        members: selectedIds.map((dataset_revision_id, ordinal) => {
-          const dataset = options.datasets.find((item) => item.dataset_revision.id === dataset_revision_id);
-          return {
-            dataset_revision_id,
-            ordinal,
-            cohort_key: `cohort-${ordinal + 1}`,
-            cohort_label: dataset ? datasetDisplayName(dataset) : `Cohort ${ordinal + 1}`,
-            provenance_json: {},
-          };
-        }),
-      });
+    if (await actions.createComparison(compareName, selectedIds)) {
       onCompareOpenChange(false);
       setCompareName("");
       setSelectedIds([]);
-      await loadResources(["options", "datasets"]);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "比較セットを作成できませんでした。");
     }
   }
 
@@ -345,51 +207,7 @@ export function ResourceCatalogView({
       await navigator.clipboard.writeText(modelGuide);
       setCopiedGuide(true);
     } catch {
-      setError("PowerShell手順をコピーできませんでした。テキスト欄を選択してコピーしてください。");
-    }
-  };
-
-  const refreshModelPackages = async () => {
-    setRefreshingPackages(true);
-    setRefreshMessage("");
-    setRefreshWarnings([]);
-    setError("");
-    try {
-      const result = await workbenchApi.refreshTaskResources();
-      const warnings = result.warnings ?? [];
-      const refreshedLibrary = await loadResources(["options", "modelPackages"]);
-      setRefreshWarnings(warnings);
-      const addedTaskIds = result.added_task_ids ?? [];
-      const addedModelPackageIds = result.added_model_package_ids ?? [];
-      const added = [
-        ...(addedTaskIds.length > 0 ? [`新しいTask ${addedTaskIds.length}件`] : []),
-        ...(addedModelPackageIds.length > 0 ? [`新しいModel Package ${addedModelPackageIds.length}件`] : []),
-      ];
-      const selectablePackageIds = new Set(
-        addedModelPackageIds.filter((packageId) => {
-          const modelPackage = refreshedLibrary.modelPackages?.find((item) => item.id === packageId);
-          const dataset = trainingDataset(modelPackage, datasets);
-          return Boolean(
-            modelPackage
-            && dataset?.dataset_views?.some((view) => view.kind === "single")
-            && dataset.supported_task_ids.includes(modelPackage.task_id)
-            && refreshedLibrary.options?.task_contract_digests[modelPackage.task_id] === modelPackage.task_contract_digest,
-          );
-        }),
-      );
-      setRefreshMessage(warnings.length > 0
-        ? `${added.length > 0 ? `${added.join("・")}を反映。` : ""}${warnings.length}件は検証で除外されました。`
-        : !refreshedLibrary.options || !refreshedLibrary.modelPackages
-          ? "再読込は完了しましたが、一部のresourceを確認できませんでした。失敗した項目を再試行してからProject作成を確認してください。"
-          : selectablePackageIds.size > 0
-          ? `${added.join("・")}を反映しました。Project作成で選べます。`
-          : added.length > 0
-            ? `${added.join("・")}を再読込しましたが、対応するDatasetが登録されていないためProject作成にはまだ使えません。`
-          : "再読込は完了しました。新しく反映するTask／Model Packageはありません。");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "個人Model Packageを再読込できませんでした。");
-    } finally {
-      setRefreshingPackages(false);
+      actions.reportError("PowerShell手順をコピーできませんでした。テキスト欄を選択してコピーしてください。");
     }
   };
 
@@ -447,9 +265,9 @@ export function ResourceCatalogView({
             <button
               type="button"
               className={archived ? "outline-button resource-state-action" : "text-button resource-state-action"}
-              disabled={changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
-              onClick={() => void changeDatasetState(item)}
-            >{changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "利用可能に戻す" : "利用停止にする"}</button>
+              disabled={actions.changingResourceId === item.dataset_revision.id || (!archived && usingProjects.length > 0)}
+              onClick={() => void actions.changeDatasetState(item)}
+            >{actions.changingResourceId === item.dataset_revision.id ? "更新中…" : archived ? "利用可能に戻す" : "利用停止にする"}</button>
           </div>
         </details>
       </div>
@@ -466,11 +284,11 @@ export function ResourceCatalogView({
         onOpenStorage={onOpenStorage}
         onNavigate={onNavigate}
       />
-      {error && <p className="panel-error" role="alert">{error}</p>}
-      {undoAction && <div className="library-undo" role="status">
-        <span>{undoAction.label}を{undoAction.archived ? "復元" : "利用停止"}しました。</span>
-        <button type="button" className="text-button" disabled={changingResourceId === undoAction.id} onClick={() => void undoLastChange()}>元に戻す</button>
-        <button type="button" className="text-button library-undo-dismiss" aria-label="通知を閉じる" onClick={() => setUndoAction(null)}>×</button>
+      {actions.error && <p className="panel-error" role="alert">{actions.error}</p>}
+      {actions.undoAction && <div className="library-undo" role="status">
+        <span>{actions.undoAction.label}を{actions.undoAction.archived ? "復元" : "利用停止"}しました。</span>
+        <button type="button" className="text-button" disabled={actions.changingResourceId === actions.undoAction.id} onClick={() => void actions.undoLastChange()}>元に戻す</button>
+        <button type="button" className="text-button library-undo-dismiss" aria-label="通知を閉じる" onClick={actions.dismissUndo}>×</button>
       </div>}
       {compareOpen && options && <section id="dataset-comparison-builder" className="dataset-compare-builder" aria-labelledby="dataset-comparison-heading">
         <div><h3 id="dataset-comparison-heading">境界を保った比較セット</h3><p>設備・場所などの違いを残したまま並べます。学習用に自動結合はしません。</p></div>
@@ -576,9 +394,9 @@ export function ResourceCatalogView({
                   {trainingSnapshotLink && <button
                     type="button"
                     className="text-button model-package-snapshot-link"
-                    disabled={openingTrainingSnapshotId === trainingSnapshotLink.snapshotId}
-                    onClick={() => void openTrainingSnapshot(trainingSnapshotLink)}
-                  >{openingTrainingSnapshotId === trainingSnapshotLink.snapshotId ? "Snapshotを確認中…" : "固定した学習Snapshotを見る"}</button>}
+                    disabled={actions.openingTrainingSnapshotId === trainingSnapshotLink.snapshotId}
+                    onClick={() => void actions.openTrainingSnapshot(trainingSnapshotLink)}
+                  >{actions.openingTrainingSnapshotId === trainingSnapshotLink.snapshotId ? "Snapshotを確認中…" : "固定した学習Snapshotを見る"}</button>}
                   <details className="model-package-technical"><summary>前提・技術情報</summary><p>{decision?.uncertainty}</p><p>{decision?.caution}</p><dl><div><dt>パッケージID</dt><dd>{item.package_id}</dd></div><div><dt>マニフェスト識別子</dt><dd title={item.manifest_digest}>{shortDigest(item.manifest_digest)}</dd></div></dl></details>
                   <details className="resource-manage-menu">
                     <summary aria-label={`${packageDisplayNames.get(item.id)}の管理`}>管理</summary>
@@ -588,9 +406,9 @@ export function ResourceCatalogView({
                       <button
                         type="button"
                         className={item.archived_at ? "outline-button resource-state-action" : "text-button resource-state-action"}
-                        disabled={changingResourceId === item.id || (!item.archived_at && usingProjects.length > 0)}
-                        onClick={() => void changeModelPackageState(item)}
-                      >{changingResourceId === item.id ? "更新中…" : item.archived_at ? "利用可能に戻す" : "利用停止にする"}</button>
+                        disabled={actions.changingResourceId === item.id || (!item.archived_at && usingProjects.length > 0)}
+                        onClick={() => void actions.changeModelPackageState(item)}
+                      >{actions.changingResourceId === item.id ? "更新中…" : item.archived_at ? "利用可能に戻す" : "利用停止にする"}</button>
                     </div>
                   </details>
                 </article>;
@@ -617,13 +435,13 @@ export function ResourceCatalogView({
               <textarea aria-label="PowerShellモデル更新手順" readOnly value={modelGuide} rows={18} />
               <div className="model-update-actions">
                 <button className="primary-button" type="button" onClick={() => void copyModelGuide()}>{copiedGuide ? "コピーしました" : "PowerShell手順をコピー"}</button>
-                <button className="outline-button" type="button" disabled={refreshingPackages} onClick={() => void refreshModelPackages()}>{refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
+                <button className="outline-button" type="button" disabled={actions.refreshingPackages} onClick={() => void actions.refreshTaskResources()}>{actions.refreshingPackages ? "再読込中…" : "個人Taskとモデルを再読込"}</button>
                 <small>保存済み予測は再計算されません。検証済みの個人Taskも再起動なしで反映します。</small>
               </div>
-              {refreshMessage && <p role="status">{refreshMessage}</p>}
-              {refreshWarnings.length > 0 && <details className="model-refresh-warnings">
+              {actions.refreshMessage && <p role="status">{actions.refreshMessage}</p>}
+              {actions.refreshWarnings.length > 0 && <details className="model-refresh-warnings">
                 <summary>除外されたモデルを確認</summary>
-                <ul>{refreshWarnings.map((warning, index) => <li key={`${warning.source}:${warning.reference ?? index}`}>
+                <ul>{actions.refreshWarnings.map((warning, index) => <li key={`${warning.source}:${warning.reference ?? index}`}>
                   <strong>{warning.reference ?? "available-packages.json"}</strong>
                   <span>{warning.message}</span>
                   <small title={warning.source}>{warning.source}</small>

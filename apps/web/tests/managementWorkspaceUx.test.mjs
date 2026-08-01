@@ -61,7 +61,10 @@ test("observation training inspector exposes family cohorts, split groups, and e
 });
 
 test("data library collapses an empty comparison area and moves state changes into management menus", async () => {
-  const content = await source("../src/features/data-library/ResourceCatalogView.tsx");
+  const content = [
+    await source("../src/features/data-library/ResourceCatalogView.tsx"),
+    await source("../src/features/data-library/useResourceCatalogActions.ts"),
+  ].join("\n");
   assert.match(content, /comparisonSets\.length === 0 \? "comparison-empty"/);
   assert.match(content, /className="resource-manage-menu"/);
   assert.match(content, /const \[samplesOpen, setSamplesOpen\] = useState\(false\)/);
