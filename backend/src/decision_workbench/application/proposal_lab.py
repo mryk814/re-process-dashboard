@@ -83,6 +83,9 @@ def _identity(run: ScreeningRunResponse, fixture_version: str) -> dict[str, Any]
         },
         "generator_id": strategy.generator_id,
         "generator_version": strategy.generator_version,
+        "generator_parameters_digest": semantic_digest(
+            strategy.generator_parameters
+        ),
         "selector_id": strategy.selector_id,
         "selector_version": strategy.selector_version,
         "selection_policy_id": (
@@ -294,7 +297,10 @@ class ProposalLabService:
                 "adoption memoのstrategyは比較Runに含めてください"
             )
 
-        metrics = tuple(_run_metric(run) for run in raw_runs)
+        metrics = tuple(sorted(
+            (_run_metric(run) for run in raw_runs),
+            key=lambda item: (item.strategy_id, item.seed, item.run_id),
+        ))
         summaries = []
         for strategy_id, runs in sorted(by_strategy.items()):
             definition = definitions[strategy_id]
@@ -370,11 +376,14 @@ class ProposalLabService:
             ProposalLabAdoptionMemo(
                 **memo.model_dump(mode="json"),
                 evidence_run_ids=tuple(
-                    run.id for run in by_strategy[memo.strategy_id]
+                    sorted(run.id for run in by_strategy[memo.strategy_id])
                 ),
                 registry_changed=False,
             )
-            for memo in request.adoption_memos
+            for memo in sorted(
+                request.adoption_memos,
+                key=lambda item: item.strategy_id,
+            )
         )
         report_payload = {
             "schema_version": "proposal-lab-report/v1",

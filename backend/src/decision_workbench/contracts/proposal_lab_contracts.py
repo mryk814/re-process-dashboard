@@ -111,6 +111,7 @@ class ProposalLabProtocol(ContractModel):
     target: str
     generator_id: str
     generator_version: str
+    generator_parameters_digest: Annotated[str, Field(pattern=r"^sha256:")]
     selector_id: str
     selector_version: str
     selection_policy_id: str

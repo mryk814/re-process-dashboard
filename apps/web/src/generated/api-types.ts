@@ -8431,6 +8431,8 @@ export interface components {
             evaluation_fixture_version: string;
             /** Generator Id */
             generator_id: string;
+            /** Generator Parameters Digest */
+            generator_parameters_digest: string;
             /** Generator Version */
             generator_version: string;
             /** Incumbent Resolution Digest */

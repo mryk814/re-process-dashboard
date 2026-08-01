@@ -67,6 +67,7 @@ def test_proposal_lab_saves_reproducible_multi_seed_adoption_evidence(client) ->
     report = response.json()
     assert report["protocol"]["seeds"] == [31, 47]
     assert report["protocol"]["generator_id"] == "sobol"
+    assert report["protocol"]["generator_parameters_digest"].startswith("sha256:")
     assert report["protocol"]["proposal_count"] == 5
     assert report["protocol"]["runtime_capability_digest"].startswith("sha256:")
     assert report["protocol"]["incumbent_resolution_digest"].startswith("sha256:")
@@ -103,6 +104,20 @@ def test_proposal_lab_saves_reproducible_multi_seed_adoption_evidence(client) ->
     )
     assert repeated.status_code == 201
     assert repeated.json()["id"] == report["id"]
+
+    reordered = {
+        **request,
+        "run_ids": list(reversed(request["run_ids"])),
+    }
+    reordered_response = client.post(
+        "/api/projects/default/proposal-lab/reports", json=reordered
+    )
+    assert reordered_response.status_code == 201
+    assert reordered_response.json()["id"] == report["id"]
+
+    referenced = client.delete(f"/api/screening/{runs[0]['id']}")
+    assert referenced.status_code == 409
+    assert "Proposal Lab report" in referenced.text
 
     listed = client.get("/api/projects/default/proposal-lab/reports")
     assert listed.status_code == 200

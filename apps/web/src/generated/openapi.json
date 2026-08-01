@@ -16066,6 +16066,11 @@
             "title": "Generator Id",
             "type": "string"
           },
+          "generator_parameters_digest": {
+            "pattern": "^sha256:",
+            "title": "Generator Parameters Digest",
+            "type": "string"
+          },
           "generator_version": {
             "title": "Generator Version",
             "type": "string"
@@ -16177,6 +16182,7 @@
           "target",
           "generator_id",
           "generator_version",
+          "generator_parameters_digest",
           "selector_id",
           "selector_version",
           "selection_policy_id",
