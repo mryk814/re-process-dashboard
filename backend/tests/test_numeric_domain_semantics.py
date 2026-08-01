@@ -7,11 +7,16 @@ from pydantic import ValidationError
 
 from decision_workbench.contracts.candidate_project_contracts import Candidate, CandidateInput
 from decision_workbench.contracts.design_space_contracts import DesignSpaceDefinition, NumericDomain, default_design_space
-from decision_workbench.contracts.task_contracts import InputFieldDefinition, NumericRange
+from decision_workbench.contracts.task_contracts import (
+    InputFieldDefinition,
+    NumericRange,
+    persisted_task_definition_payload,
+)
 from decision_workbench.domain.design_space_validation import validate_candidate_in_design_space
 from decision_workbench.domain.proposal_generation import generate_candidates
 from decision_workbench.modeling.curve_grid import numeric_domain_grid
 from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.application.workspace_catalog_bootstrap import task_definition_digest
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -119,10 +124,49 @@ def test_narrowing_cannot_move_a_step_lattice_origin() -> None:
 
 def test_default_design_space_copies_task_integer_and_log_semantics() -> None:
     task = load_task_contracts()["battery-degradation-v1"].task_definition
-    design_space = default_design_space(task, task_contract_digest=semantic_digest(task.model_dump(mode="json")))
+    design_space = default_design_space(
+        task,
+        task_contract_digest=semantic_digest(persisted_task_definition_payload(task)),
+    )
     domains = {domain.path: domain for domain in design_space.numeric_domains}
     assert domains["process.cycle_index"].numeric_domain_kind == "integer"
     assert domains["process.discharge_rate_c"].search_scale == "log"
+
+
+def test_default_numeric_semantics_preserve_the_legacy_project_task_digest() -> None:
+    contracts = load_task_contracts()
+    task_id = "concrete-strength-v1"
+    definition = contracts[task_id].task_definition
+    legacy_payload = definition.model_dump(mode="json")
+    for group in legacy_payload["input_groups"]:
+        for field in group["fields"]:
+            field.pop("numeric_domain_kind")
+            field.pop("step")
+            field.pop("search_scale")
+    for output in legacy_payload["outputs"]:
+        for key in ("target_kind", "binary", "count", "ordinal"):
+            output.pop(key, None)
+
+    class Registry:
+        def contract_for(self, requested_task_id: str):
+            return contracts[requested_task_id]
+
+    registry = Registry()
+    assert task_definition_digest(registry, task_id) == semantic_digest(legacy_payload)
+    battery_legacy_payload = contracts[
+        "battery-degradation-v1"
+    ].task_definition.model_dump(mode="json")
+    for group in battery_legacy_payload["input_groups"]:
+        for field in group["fields"]:
+            field.pop("numeric_domain_kind")
+            field.pop("step")
+            field.pop("search_scale")
+    for output in battery_legacy_payload["outputs"]:
+        for key in ("target_kind", "binary", "count", "ordinal"):
+            output.pop(key, None)
+    assert task_definition_digest(
+        registry, "battery-degradation-v1"
+    ) != semantic_digest(battery_legacy_payload)
 
 
 def test_response_sampling_snaps_and_deduplicates_integer_step_and_log_domains() -> None:
@@ -145,3 +189,15 @@ def test_response_sampling_snaps_and_deduplicates_integer_step_and_log_domains()
     )
     values = numeric_domain_grid(1.0, 100.0, 3, field=logarithmic)
     assert values == pytest.approx([1.0, 10.0, 100.0])
+
+
+def test_response_sampling_never_clamps_a_lattice_point_to_an_invalid_requested_bound() -> None:
+    integer = _field(
+        numeric_domain_kind="integer",
+        default_range={"min": 1.0, "max": 10.0},
+        allowed_range={"min": 1.0, "max": 20.0},
+        training_range={"min": 1.0, "max": 10.0},
+    )
+    values = numeric_domain_grid(1.0000000005, 3.8, 15, field=integer)
+    assert values == [2.0, 3.0]
+    assert all(value.is_integer() for value in values)

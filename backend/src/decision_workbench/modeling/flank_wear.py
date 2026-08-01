@@ -27,6 +27,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.modeling.curve_grid import numeric_domain_grid
 from decision_workbench.data.profiles.canonicalization import canonicalize_workbook
 from decision_workbench.data.profiles.loading import (
     load_dataset_profile,
@@ -709,9 +710,20 @@ class FlankWearRuntime:
             if vary == axis:
                 raise ValueError("曲線の横軸と同じ変数は水準にできません")
             vary_meta = self._curve_variable_meta(candidate, target, vary)
+            vary_field = next(
+                field
+                for group in definition.input_groups
+                for field in group.fields
+                if field.path == vary
+            )
             unit = f" {vary_meta['unit']}" if vary_meta["unit"] else ""
             series = []
-            for level in np.linspace(vary_meta["min"], vary_meta["max"], levels):
+            for level in numeric_domain_grid(
+                vary_meta["min"],
+                vary_meta["max"],
+                levels,
+                field=vary_field,
+            ):
                 adjusted = candidate.model_copy(deep=True)
                 self._set_curve_variable(adjusted, vary, float(level))
                 series.append({

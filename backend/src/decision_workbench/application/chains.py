@@ -43,6 +43,7 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainStudioStageCatalogItem,
     ChainTemplateItem,
 )
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainCandidateCapability,
@@ -137,7 +138,7 @@ def _scalar_task_surface(
     definition = registry.contract_for(task_id).task_definition
     return task_contract_surface(
         definition,
-        contract_digest=semantic_digest(definition.model_dump(mode="json")),
+        contract_digest=semantic_digest(persisted_task_definition_payload(definition)),
     )
 
 

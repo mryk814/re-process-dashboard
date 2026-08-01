@@ -230,6 +230,50 @@ def test_battery_curves_are_monotone_and_discharge_rate_changes_degradation(
     assert prediction["model_meta"]["package"]["runtime_types"] == ["lightgbm.booster.v1"]
 
 
+def test_battery_curve_family_and_screening_use_task_numeric_domains(
+    client,
+    resources,
+) -> None:
+    runtime = resources.task_registry.runtime_for("battery-degradation-v1")
+    candidate = _candidate("battery-degradation-v1")
+    family = runtime.curve_family_result(
+        candidate,
+        "capacity_percent",
+        "process.discharge_rate_c",
+        3,
+        15,
+    )
+    assert [series["level"] for series in family["series"]] == pytest.approx(
+        [0.5, 2 ** -0.5, 1.0],
+        abs=5e-6,
+    )
+    project_id = "battery-degradation-v1-default"
+    base = client.get(f"/api/projects/{project_id}/candidates").json()[0]
+    response = client.post(
+        f"/api/screening?project_id={project_id}",
+        json={
+            "purpose": "design_space_map",
+            "base_candidate_id": base["id"],
+            "base_inputs": base["inputs"],
+            "samples": 48,
+            "seed": 671,
+            "target": "capacity_percent",
+            "variables": {
+                "process.cycle_index": {"mode": "range", "min": 1, "max": 100},
+                "process.discharge_rate_c": {"mode": "range", "min": 0.5, "max": 1.0},
+            },
+            "proposal": {"support_policy": "allow_with_warning"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    points = response.json()["points"]
+    assert points
+    assert all(
+        float(point["inputs"]["process.cycle_index"]).is_integer()
+        for point in points
+    )
+
+
 def test_battery_similarity_deduplicates_cells(resources) -> None:
     runtime = resources.task_registry.runtime_for("battery-degradation-v1")
     similar = runtime.similarity(_candidate("battery-degradation-v1"))

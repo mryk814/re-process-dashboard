@@ -12,6 +12,7 @@ from decision_workbench.contracts.task_contracts import (
     NumericRange,
     RuntimeCapability,
     TaskDefinition,
+    persisted_task_definition_payload,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
@@ -170,7 +171,7 @@ class ObjectiveDefinition(ContractModel):
     ) -> None:
         if self.task_id != task.id or runtime.task_id != task.id:
             raise ValueError("ObjectiveのTaskがTaskDefinitionと一致しません")
-        expected_digest = semantic_digest(task.model_dump(mode="json"))
+        expected_digest = semantic_digest(persisted_task_definition_payload(task))
         if self.task_contract_digest != expected_digest:
             raise ValueError("ObjectiveのTaskDefinition digestが一致しません")
         outputs = {output.key: output for output in task.outputs}

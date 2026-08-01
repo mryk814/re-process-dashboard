@@ -18,7 +18,10 @@ from decision_workbench.contracts.design_space_contracts import (
     NumericDomain,
 )
 from decision_workbench.contracts.candidate_project_contracts import Candidate
-from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.contracts.task_contracts import (
+    NumericRange,
+    persisted_task_definition_payload,
+)
 from decision_workbench.domain.batch_selector import select_experiment_batch
 from decision_workbench.domain.batch_selector import BatchSelectionError
 from decision_workbench.execution.inference_work_graph import semantic_digest
@@ -33,7 +36,7 @@ def _space(*, categorical: bool = False) -> DesignSpaceDefinition:
         name="Batch test",
         task_id="annealed-properties-v1",
         task_contract_digest=semantic_digest(
-            fixture.task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(fixture.task_definition)
         ),
         numeric_domains=(
             NumericDomain(

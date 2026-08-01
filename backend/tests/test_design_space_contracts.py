@@ -9,7 +9,10 @@ from decision_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
     NumericDomain,
 )
-from decision_workbench.contracts.task_contracts import NumericRange
+from decision_workbench.contracts.task_contracts import (
+    NumericRange,
+    persisted_task_definition_payload,
+)
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.tasks.task_registry import load_task_contracts
 from decision_workbench.contracts.candidate_project_contracts import (
@@ -29,7 +32,9 @@ def _battery_space(**updates: object) -> DesignSpaceDefinition:
         "design_space_id": "battery-safe-space",
         "name": "電池の安全な検討範囲",
         "task_id": "battery-degradation-v1",
-        "task_contract_digest": semantic_digest(task.model_dump(mode="json")),
+        "task_contract_digest": semantic_digest(
+            persisted_task_definition_payload(task)
+        ),
         "numeric_domains": (
             NumericDomain(
                 path="process.discharge_rate_c",
@@ -67,7 +72,7 @@ def test_design_space_categories_are_task_subset() -> None:
         design_space_id="invalid-alloy-family",
         name="不正な合金区分",
         task_id=task.id,
-        task_contract_digest=semantic_digest(task.model_dump(mode="json")),
+        task_contract_digest=semantic_digest(persisted_task_definition_payload(task)),
         categorical_domains=(CategoricalDomain(
             path="categorical.alloy_family",
             choices=("unknown-alloy",),
@@ -84,7 +89,7 @@ def test_composition_constraint_requires_declared_components_and_balance() -> No
         design_space_id="bad-simplex",
         name="不正な組成",
         task_id=task.id,
-        task_contract_digest=semantic_digest(task.model_dump(mode="json")),
+        task_contract_digest=semantic_digest(persisted_task_definition_payload(task)),
         composition_constraints=(
             CompositionTotalConstraint(
                 component_paths=("composition.C", "composition.missing"),
@@ -116,7 +121,9 @@ def test_design_space_generator_applies_simplex_balance() -> None:
     space = DesignSpaceDefinition(
         schema_version="design-space-definition/v1",
         design_space_id="simplex-space", name="Simplex", task_id=task_id,
-        task_contract_digest=semantic_digest(fixture.task_definition.model_dump(mode="json")),
+        task_contract_digest=semantic_digest(
+            persisted_task_definition_payload(fixture.task_definition)
+        ),
         numeric_domains=(NumericDomain(
             path="composition.C", mode="range", range=NumericRange(min=1, max=2),
         ),),
@@ -152,7 +159,9 @@ def test_screening_pool_diagnostics_validate_every_generated_candidate() -> None
     space = DesignSpaceDefinition(
         schema_version="design-space-definition/v1",
         design_space_id="screening-pool", name="Pool", task_id=task_id,
-        task_contract_digest=semantic_digest(fixture.task_definition.model_dump(mode="json")),
+        task_contract_digest=semantic_digest(
+            persisted_task_definition_payload(fixture.task_definition)
+        ),
         numeric_domains=(NumericDomain(
             path="composition.C", mode="range", range=NumericRange(min=0.01, max=0.2),
         ),),

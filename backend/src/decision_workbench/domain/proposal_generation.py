@@ -6,7 +6,11 @@ import math
 import numpy as np
 from scipy.stats import qmc
 
-from decision_workbench.contracts.design_space_contracts import DesignSpaceDefinition
+from decision_workbench.contracts.design_space_contracts import (
+    CompositionTotalConstraint,
+    DesignSpaceDefinition,
+    NumericDomain,
+)
 from decision_workbench.contracts.candidate_project_contracts import Candidate
 
 
@@ -158,6 +162,12 @@ def _apply_balance_remainder(
     for constraint in design_space.composition_constraints:
         if constraint.balance_path is None:
             continue
+        invalid_domains = _noncontinuous_balance_domains(design_space, constraint)
+        if invalid_domains:
+            raise ValueError(
+                "composition balanceはcontinuous + linear domainだけに対応します: "
+                + ", ".join(invalid_domains)
+            )
         remainder = constraint.total - sum(
             float(_read_scalar(candidate, path))
             for path in constraint.component_paths
@@ -183,6 +193,12 @@ def bounded_simplex_compatibility(
         return False, tuple(reasons)
     constraint = constraints[0]
     domains = {item.path: item for item in design_space.numeric_domains}
+    invalid_domains = _noncontinuous_balance_domains(design_space, constraint)
+    if invalid_domains:
+        reasons.append(
+            "bounded simplexはcontinuous + linear domainだけに対応します: "
+            + ", ".join(invalid_domains)
+        )
     conditional_composition_paths = {
         path
         for item in design_space.conditional_constraints
@@ -246,6 +262,22 @@ def bounded_simplex_compatibility(
                 "組成rangeの上下限では合計制約を満たす点を構成できません"
             )
     return not reasons, tuple(reasons)
+
+
+def _noncontinuous_balance_domains(
+    design_space: DesignSpaceDefinition,
+    constraint: CompositionTotalConstraint,
+) -> list[str]:
+    domains = {item.path: item for item in design_space.numeric_domains}
+    return [
+        path
+        for path in constraint.component_paths
+        if path in domains
+        and (
+            domains[path].numeric_domain_kind != "continuous"
+            or domains[path].search_scale != "linear"
+        )
+    ]
 
 
 def _bounded_simplex_bounds(
@@ -389,12 +421,9 @@ def _read_scalar(candidate: Candidate, path: str) -> float | str:
     return getattr(candidate.inputs, group)[key]
 
 
-def _snap_numeric_value(value: float, domain: object) -> float:
+def _snap_numeric_value(value: float, domain: NumericDomain) -> float:
     """Snap generated values to the immutable Design Space semantics."""
 
-    from decision_workbench.contracts.design_space_contracts import NumericDomain
-
-    assert isinstance(domain, NumericDomain)
     assert domain.range is not None
     if domain.numeric_domain_kind == "integer":
         value = float(round(value))

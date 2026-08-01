@@ -372,6 +372,16 @@ class TaskDefinition(ContractModel):
 def persisted_task_definition_payload(definition: TaskDefinition) -> dict[str, Any]:
     """Return the Task identity used by persisted Project and Chain bindings."""
     payload = definition.model_dump(mode="json")
+    for group in payload["input_groups"]:
+        for field in group["fields"]:
+            # Keep the pre-domain-semantics identity when behavior remains the
+            # historical continuous, linear default.
+            if field["numeric_domain_kind"] == "continuous":
+                field.pop("numeric_domain_kind")
+            if field["step"] is None:
+                field.pop("step")
+            if field["search_scale"] == "linear":
+                field.pop("search_scale")
     for output in payload["outputs"]:
         # Output semantics refine presentation and typed observations without
         # rebinding an existing Project or Chain revision. Package verification

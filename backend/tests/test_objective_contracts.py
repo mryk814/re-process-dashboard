@@ -6,6 +6,7 @@ from decision_workbench.contracts.objective_contracts import (
     ObjectiveTerm,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -20,7 +21,7 @@ def _definition(*terms: ObjectiveTerm, kind: str = "single_objective") -> Object
         name="Objective検証",
         task_id=fixture.task_definition.id,
         task_contract_digest=semantic_digest(
-            fixture.task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(fixture.task_definition)
         ),
         optimization_kind=kind,  # type: ignore[arg-type]
         terms=terms,

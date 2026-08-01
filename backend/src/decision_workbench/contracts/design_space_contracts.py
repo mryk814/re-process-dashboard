@@ -11,6 +11,7 @@ from decision_workbench.contracts.task_contracts import (
     NumericRange,
     RelationalConstraint,
     TaskDefinition,
+    persisted_task_definition_payload,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
@@ -110,7 +111,7 @@ class DesignSpaceDefinition(ContractModel):
     def validate_against(self, task: TaskDefinition) -> None:
         if self.task_id != task.id:
             raise ValueError("Design SpaceのTaskがTaskDefinitionと一致しません")
-        expected_digest = semantic_digest(task.model_dump(mode="json"))
+        expected_digest = semantic_digest(persisted_task_definition_payload(task))
         if self.task_contract_digest != expected_digest:
             raise ValueError("Design SpaceのTaskDefinition digestが一致しません")
         fields = {field.path: field for group in task.input_groups for field in group.fields}

@@ -20,8 +20,14 @@ from decision_workbench.contracts.candidate_project_contracts import (
 )
 from decision_workbench.contracts.prediction_catalog_contracts import ScreeningGoal
 from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequest
-from decision_workbench.contracts.task_contracts import NumericRange
-from decision_workbench.domain.proposal_generation import generate_candidates
+from decision_workbench.contracts.task_contracts import (
+    NumericRange,
+    persisted_task_definition_payload,
+)
+from decision_workbench.domain.proposal_generation import (
+    bounded_simplex_compatibility,
+    generate_candidates,
+)
 from decision_workbench.domain.proposal_geometry import proposal_distance
 from decision_workbench.application.proposal_service import (
     _proposal_coverage,
@@ -85,7 +91,7 @@ def _simplex_space(*, include_process: bool = False) -> DesignSpaceDefinition:
         name="Bounded simplex test",
         task_id="mpea-hardness-process-v1",
         task_contract_digest=semantic_digest(
-            fixture.task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(fixture.task_definition)
         ),
         fixed_values={
             f"composition.{key}": 0.0
@@ -322,7 +328,7 @@ def test_bounded_simplex_strategy_is_capability_gated_by_design_space() -> None:
     objective = objective_from_screening(
         task=fixture.task_definition,
         task_contract_digest=semantic_digest(
-            fixture.task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(fixture.task_definition)
         ),
         target="HV",
         target_goal=ScreeningGoal(direction="at_least", lower=300),
@@ -398,6 +404,28 @@ def test_bounded_simplex_strategy_is_capability_gated_by_design_space() -> None:
         }
         assert not availability["bounded_simplex_goal_v1"].available
         assert expected in availability["bounded_simplex_goal_v1"].reasons[0]
+
+
+def test_composition_balance_rejects_discrete_numeric_domains() -> None:
+    base = _mpea_candidate()
+    original = _simplex_space()
+    discrete = original.model_copy(
+        update={
+            "numeric_domains": (
+                original.numeric_domains[0].model_copy(
+                    update={"numeric_domain_kind": "integer"}
+                ),
+                original.numeric_domains[1],
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="continuous.*linear"):
+        generate_candidates(
+            "latin_hypercube", base, discrete, count=4, seed=671
+        )
+    compatible, reasons = bounded_simplex_compatibility(discrete)
+    assert not compatible
+    assert any("continuous" in reason and "linear" in reason for reason in reasons)
 
 
 def test_bounded_simplex_strategy_runs_through_api_and_persists_geometry(
@@ -546,10 +574,10 @@ def test_bounded_simplex_strategy_runs_through_api_and_persists_geometry(
 def test_generic_generator_binds_composition_distance_to_varying_composition() -> None:
     fixture = load_task_contracts()["mpea-hardness-process-v1"]
     objective = objective_from_screening(
-        task=fixture.task_definition,
-        task_contract_digest=semantic_digest(
-            fixture.task_definition.model_dump(mode="json")
-        ),
+            task=fixture.task_definition,
+            task_contract_digest=semantic_digest(
+                persisted_task_definition_payload(fixture.task_definition)
+            ),
         target="HV",
         target_goal=ScreeningGoal(direction="at_least", lower=300),
         secondary_goals={},

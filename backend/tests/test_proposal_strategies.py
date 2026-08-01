@@ -13,6 +13,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import ScreeningG
 from decision_workbench.domain.proposal_acquisition import acquisition_value
 from decision_workbench.domain.proposal_generation import _latin_hypercube_unit, _sobol_unit
 from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -31,7 +32,7 @@ def _objective():
     return objective_from_screening(
         task=contract.task_definition,
         task_contract_digest=semantic_digest(
-            contract.task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(contract.task_definition)
         ),
         target="TS",
         target_goal=ScreeningGoal(direction="at_least", lower=500),
@@ -247,10 +248,10 @@ def test_registry_rejects_positive_continuous_normal_approximation() -> None:
             target="lambda",
             target_kind="continuous_positive",
             objective=objective_from_screening(
-                task=contract.task_definition,
-                task_contract_digest=semantic_digest(
-                    contract.task_definition.model_dump(mode="json")
-                ),
+            task=contract.task_definition,
+            task_contract_digest=semantic_digest(
+                persisted_task_definition_payload(contract.task_definition)
+            ),
                 target="lambda",
                 target_goal=ScreeningGoal(direction="at_least", lower=80),
                 secondary_goals={},

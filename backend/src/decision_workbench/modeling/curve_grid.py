@@ -75,11 +75,18 @@ def numeric_domain_grid(
     snapped = [_snap(value, field) for value in values]
     if current is not None and math.isfinite(current) and start <= current <= end:
         snapped.append(_snap(current, field))
-    unique = sorted({
-        round(min(end, max(start, value)), 12)
-        for value in snapped
-        if start - 1e-9 <= value <= end + 1e-9
-    })
+    if field.numeric_domain_kind == "continuous":
+        unique = sorted({
+            round(min(end, max(start, value)), 12)
+            for value in snapped
+            if start - 1e-9 <= value <= end + 1e-9
+        })
+    else:
+        unique = sorted({
+            round(value, 12)
+            for value in snapped
+            if start <= value <= end
+        })
     return [float(value) for value in unique]
 
 

@@ -58,12 +58,19 @@ test("integer and log Task domains are enforced by API and shown by the candidat
   expect(curveValues.every((value) => Number.isInteger(value))).toBeTruthy();
 
   const curveFamily = await page.request.get(
-    `${apiBaseUrl}/api/projects/${project.id}/candidates/${candidate.id}/curve-family?expected_revision=${candidate.revision}&target=capacity_percent&points=15`,
+    `${apiBaseUrl}/api/projects/${project.id}/candidates/${candidate.id}/curve-family?expected_revision=${candidate.revision}&target=capacity_percent&vary=process.discharge_rate_c&levels=3&points=15`,
   );
   expect(curveFamily.status(), await curveFamily.text()).toBe(200);
-  const familyValues = (await curveFamily.json() as { series: Array<{ points: Array<{ x: number }> }> })
-    .series.flatMap((series) => series.points.map((point) => point.x));
+  const familyBody = await curveFamily.json() as {
+    series: Array<{ level: number; points: Array<{ x: number }> }>;
+  };
+  const familyValues = familyBody.series.flatMap((series) => series.points.map((point) => point.x));
   expect(familyValues.every((value) => Number.isInteger(value))).toBeTruthy();
+  expect(familyBody.series.map((series) => series.level)).toEqual([
+    0.5,
+    0.70711,
+    1,
+  ]);
 
   const contourParameters = new URLSearchParams({
     expected_revision: String(candidate.revision),
@@ -83,5 +90,6 @@ test("integer and log Task domains are enforced by API and shown by the candidat
   await page.goto(`/?view=candidates&project=${project.id}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
   await expect(page.getByRole("spinbutton", { name: "数値domain候補 サイクル数", exact: true })).toHaveAttribute("step", "1");
+  await expect(page.getByRole("slider", { name: "数値domain候補 放電レート", exact: true })).toHaveAttribute("step", "0.1");
   await expect(page.getByText("対数スケール")).toBeVisible();
 });

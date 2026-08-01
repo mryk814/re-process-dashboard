@@ -167,13 +167,27 @@ function sliderScale(input: NumericTaskInput, value: number, inputRanges: Record
   const start = rangePercent(learnedMin);
   const end = rangePercent(learnedMax);
   const numericStep = input.numeric_domain_kind === "integer" ? 1 : input.step ?? "any";
-  const toValue = (position: number) => logScale
+  const snapValue = (rawValue: number) => {
+    const step = input.numeric_domain_kind === "integer" ? 1 : input.step;
+    if (step == null) return clamp(rawValue, range.min, range.max);
+    const origin = input.allowed_range?.min ?? range.min;
+    const lowerIndex = Math.ceil((range.min - origin) / step - Number.EPSILON);
+    const upperIndex = Math.floor((range.max - origin) / step + Number.EPSILON);
+    const index = Math.min(
+      upperIndex,
+      Math.max(lowerIndex, Math.round((rawValue - origin) / step)),
+    );
+    return Math.round((origin + index * step) * 1e12) / 1e12;
+  };
+  const toValue = (position: number) => snapValue(logScale
     ? Math.exp(Math.log(range.min) + (position / 100) * (Math.log(range.max) - Math.log(range.min)))
-    : position;
+    : position);
   return {
     min: logScale ? 0 : range.min,
     max: logScale ? 100 : range.max,
-    step: logScale ? "any" : numericStep,
+    inputMin: range.min,
+    inputMax: range.max,
+    step: logScale ? 0.1 : numericStep,
     value: logScale ? rangePercent(Math.max(range.min, Math.min(range.max, value))) : Math.max(range.min, Math.min(range.max, value)),
     toValue,
     style: { background: `linear-gradient(90deg, #dfe6ee 0 ${start}%, #6bb69e ${start}% ${end}%, #dfe6ee ${end}% 100%)` },
@@ -227,7 +241,7 @@ function CandidateInputGroup({ candidate, group, numeric, inputRanges, fieldErro
           const scale = sliderScale(input, numberValue, inputRanges);
           return (
             <label className="slider-field" key={field.path}>
-              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={input.allowed_range?.min} max={input.allowed_range?.max} step={inputStep(input)} value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} />{field.unit && field.unit !== groupUnit ? <small>{field.unit}</small> : null}</em></span>
+              <span><b>{field.label}</b><em><input disabled={!field.editable} className="slider-number" type="number" min={scale.inputMin} max={scale.inputMax} step={inputStep(input)} value={missingOptionalValue ? "" : numberValue} placeholder={missingOptionalValue ? "未設定" : undefined} aria-label={`${candidate.label} ${field.label}の数値`} onChange={(event) => onInput(field.path, event.target.value === "" && !field.required ? undefined : Number(event.target.value))} />{field.unit && field.unit !== groupUnit ? <small>{field.unit}</small> : null}</em></span>
               {missingOptionalValue
                 ? <small>ヒートパターンの経過時間を使用中</small>
                 : <><input disabled={!field.editable} type="range" min={scale.min} max={scale.max} step={scale.step} value={scale.value} style={scale.style} aria-label={`${candidate.label} ${field.label}`} onChange={(event) => onInput(field.path, scale.toValue(Number(event.target.value)))} />{input.search_scale === "log" && <small>対数スケール</small>}</>}
