@@ -194,15 +194,30 @@ function strongestMinimumLevel(risks, rules, requestedLevel) {
   requestedLevel);
 }
 
+function focusedPytestArgs(args) {
+  const normalized = args.map((value) => value.replaceAll("\\", "/"));
+  const hasPythonTarget = normalized.some((value) => (
+    value.endsWith(".py")
+    || value === "tests"
+    || value.endsWith("/tests")
+  ));
+  if (!hasPythonTarget) return [];
+  return args.filter((value, index) => (
+    normalized[index].startsWith("-")
+    || !/(?:^|\/)[^/]+\.[a-z0-9]+$/i.test(normalized[index])
+    || normalized[index].endsWith(".py")
+  ));
+}
+
 export function resolveFocusedTests({ catalog, changedPaths, focusedArgs = [] }) {
   if (focusedArgs.length > 0) {
-    return { tests: focusedArgs, source: "explicit", fallback: false };
+    return { tests: focusedPytestArgs(focusedArgs), source: "explicit", fallback: false };
   }
   const normalizedPaths = changedPaths.map((path) => path.replaceAll("\\", "/"));
   const tests = new Set();
   for (const authority of catalog.planning.focusedTestAuthority ?? []) {
     if (normalizedPaths.some((path) => authority.matches.some((matcher) => pathMatches(path, matcher)))) {
-      authority.tests.forEach((testPath) => tests.add(testPath));
+      focusedPytestArgs(authority.tests).forEach((testPath) => tests.add(testPath));
     }
   }
   if (tests.size > 0) return { tests: [...tests].sort(), source: "authority-map", fallback: false };
@@ -303,9 +318,9 @@ export function buildVerificationPlan({
     }
   }
   const backendRiskDetected = requiresBackendPytest(effectiveRisks);
-  const focused = backendRiskDetected
+  const focused = backendRiskDetected || focusedArgs.length > 0
     ? resolveFocusedTests({ catalog, changedPaths, focusedArgs })
-    : { tests: focusedArgs, source: focusedArgs.length > 0 ? "explicit" : "not-needed", fallback: false };
+    : { tests: [], source: "not-needed", fallback: false };
   const ciOwnsBackendFullSuite = ci
     && backendRiskDetected
     && !effectiveRisks.includes("unknown")
@@ -313,7 +328,7 @@ export function buildVerificationPlan({
   if (ciOwnsBackendFullSuite) {
     selectedGateReasons.delete("focused-pytest");
     select("full-pytest", "CI is the full-suite owner for backend risk on this commit");
-  } else if (!directAggregateRequired && focusedArgs.length > 0 && !selectedGateReasons.has("focused-pytest")) {
+  } else if (!directAggregateRequired && focused.tests.length > 0 && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "explicit focused tests were supplied");
   } else if (!directAggregateRequired && backendRiskDetected && !selectedGateReasons.has("focused-pytest")) {
     select("focused-pytest", "backend risk requires focused evidence");

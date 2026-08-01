@@ -336,8 +336,7 @@
       {"matches": ["prefix:backend/src/decision_workbench/persistence/", "contains:migration", "contains:workspace_bundle"], "tests": ["backend/tests/test_legacy_workspace_acceptance.py"]},
       {"matches": ["prefix:backend/src/decision_workbench/modeling/", "contains:model_package", "contains:model-package", "contains:artifact"], "tests": ["backend/tests/test_model_packages.py", "backend/tests/test_runtime.py"]},
       {"matches": ["prefix:backend/src/decision_workbench/api/", "contains:openapi"], "tests": ["backend/tests/test_api.py", "backend/tests/test_openapi_contract.py"]},
-      {"matches": ["prefix:backend/"], "tests": ["backend/tests"]},
-      {"matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:scripts/verify.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"], "tests": ["scripts/verification-gates.test.mjs"]}
+      {"matches": ["prefix:backend/"], "tests": ["backend/tests"]}
     ],
     "unresolvedBackendFallback": {"tests": ["backend/tests"], "reason": "No authority-map entry matched a backend-risk path; run the explicit broad backend suite and record it as a fallback."}
   }

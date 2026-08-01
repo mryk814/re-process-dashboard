@@ -154,6 +154,42 @@ test("backend plan resolves authority-map focused tests and CI owns the full sui
   assert.match(ciPlan.skippedGates.find((gate) => gate.id === "focused-pytest").reason, /sole full-suite/);
 });
 
+test("Node verification tests stay out of focused pytest and keep their owning gate", () => {
+  const mixedPlan = planFor([
+    "backend/src/decision_workbench/application/project_runtime.py",
+    "scripts/verification-gates.test.mjs",
+  ]);
+  assert.deepEqual(mixedPlan.focusedTests.tests, ["backend/tests"]);
+  assert.ok(!mixedPlan.focusedTests.tests.includes("scripts/verification-gates.test.mjs"));
+  assert.ok(selectedIds(mixedPlan).includes("focused-pytest"));
+  assert.ok(selectedIds(mixedPlan).includes("verification-policy-tests"));
+
+  const explicitPlan = planFor(
+    ["backend/src/decision_workbench/application/project_runtime.py"],
+    {
+      focusedArgs: [
+        "backend/tests/test_api.py",
+        "scripts/verification-gates.test.mjs",
+        "-k",
+        "focused_case",
+      ],
+    },
+  );
+  assert.deepEqual(explicitPlan.focusedTests.tests, [
+    "backend/tests/test_api.py",
+    "-k",
+    "focused_case",
+  ]);
+
+  const nodeOnlyPlan = planFor(
+    ["scripts/verification-gates.test.mjs"],
+    { focusedArgs: ["scripts/verification-gates.test.mjs"] },
+  );
+  assert.deepEqual(nodeOnlyPlan.focusedTests.tests, []);
+  assert.ok(!selectedIds(nodeOnlyPlan).includes("focused-pytest"));
+  assert.ok(selectedIds(nodeOnlyPlan).includes("verification-policy-tests"));
+});
+
 test("unresolved backend authority is an explicit broad fallback, never an accidental full-suite default", () => {
   const noAuthorityCatalog = {
     ...catalog,
