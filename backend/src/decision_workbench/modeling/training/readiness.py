@@ -728,6 +728,8 @@ def resolve_estimator_contract_readiness(
     output: OutputDefinition,
     validation_plan: ValidationPlan | None,
     feature_recipe: FeatureRecipe | None,
+    canonical_feature_count: int | None = None,
+    has_categorical_features: bool | None = None,
     row_count: int,
     independent_group_count: int,
     has_missing_features: bool = False,
@@ -747,12 +749,12 @@ def resolve_estimator_contract_readiness(
             feature_count=(
                 len(feature_recipe.features)
                 if feature_recipe is not None
-                else 0
+                else canonical_feature_count or 0
             ),
             has_categorical_features=(
                 any(operation.kind == "one_hot" for operation in feature_recipe.operations)
                 if feature_recipe is not None
-                else False
+                else bool(has_categorical_features)
             ),
             has_missing_features=has_missing_features,
             has_count_exposure=(
@@ -774,7 +776,10 @@ def resolve_estimator_contract_readiness(
             ),
             feature_recipe=(
                 "ready"
-                if feature_recipe is not None
+                if (
+                    feature_recipe is not None
+                    or canonical_feature_count is not None
+                )
                 else "missing"
             ),
             missing_policy=missing_policy,
