@@ -484,9 +484,15 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await onboarding.getByLabel("relationsなしであることを確認した").check();
   await expect(prepare).toBeEnabled();
 
-  const prepared = page.waitForResponse((response) => response.url().includes("/api/data-library/csv-onboarding/prepare") && response.status() === 200);
+  const prepared = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/data-library/csv-onboarding/prepare"
+  ));
   await prepare.click();
-  const binding = await (await prepared).json() as {
+  const preparedResponse = await prepared;
+  const preparedBody = await preparedResponse.text();
+  expect(preparedResponse.status(), preparedBody).toBe(200);
+  const binding = JSON.parse(preparedBody) as {
     dataset_view_revision_id: string;
     dataset_revision_id: string;
     task_id: string;

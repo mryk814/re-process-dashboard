@@ -28,6 +28,7 @@ from decision_workbench.application.dataset_registration import (
     register_managed_dataset,
 )
 from decision_workbench.data.file_integrity import file_sha256
+import decision_workbench.developer_experience.task_scaffolding as task_scaffolding_module
 from decision_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
     create_task_scaffold,
@@ -307,6 +308,87 @@ def test_task_store_validation_applies_to_load_and_link(
             model_store,
         )
     assert not model_store.exists()
+
+
+def test_link_promoted_package_retries_a_transient_windows_replace_denial(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    task_store = tmp_path / "personal-tasks"
+    bundle_path = task_store / "retry-link-v1" / "bundle.json"
+    bundle_path.parent.mkdir(parents=True)
+    bundle_path.write_text(json.dumps({
+        "schema_version": "external-task-bundle/v1",
+        "package_path": None,
+    }), encoding="utf-8")
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    monkeypatch.setattr(
+        task_scaffolding_module,
+        "_WINDOWS_REPLACE_RETRY_ENABLED",
+        True,
+    )
+    real_replace = Path.replace
+    attempts = 0
+
+    def replace_after_one_denial(source: Path, target: Path) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise PermissionError("temporarily scanned")
+        return real_replace(source, target)
+
+    delays: list[float] = []
+    monkeypatch.setattr(Path, "replace", replace_after_one_denial)
+    monkeypatch.setattr(task_scaffolding_module.time, "sleep", delays.append)
+
+    package_path = tmp_path / "promoted-package"
+    assert link_promoted_package("retry-link-v1", package_path)
+    assert attempts == 2
+    assert delays == [0.05]
+    assert json.loads(bundle_path.read_text(encoding="utf-8"))["package_path"] == str(
+        package_path.resolve()
+    )
+    assert list(bundle_path.parent.glob(".bundle.*.json")) == []
+
+
+def test_link_promoted_package_reraises_exhausted_windows_replace_denial(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    task_store = tmp_path / "personal-tasks"
+    bundle_path = task_store / "blocked-link-v1" / "bundle.json"
+    bundle_path.parent.mkdir(parents=True)
+    original = {
+        "schema_version": "external-task-bundle/v1",
+        "package_path": None,
+    }
+    bundle_path.write_text(json.dumps(original), encoding="utf-8")
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    monkeypatch.setattr(
+        task_scaffolding_module,
+        "_WINDOWS_REPLACE_RETRY_ENABLED",
+        True,
+    )
+    failure = PermissionError("still scanned")
+    attempts = 0
+
+    def deny_replace(_source: Path, _target: Path) -> Path:
+        nonlocal attempts
+        attempts += 1
+        raise failure
+
+    delays: list[float] = []
+    monkeypatch.setattr(Path, "replace", deny_replace)
+    monkeypatch.setattr(task_scaffolding_module.time, "sleep", delays.append)
+
+    with pytest.raises(PermissionError) as caught:
+        link_promoted_package("blocked-link-v1", tmp_path / "promoted-package")
+
+    assert caught.value is failure
+    assert attempts == 6
+    assert delays == [0.05] * 5
+    assert json.loads(bundle_path.read_text(encoding="utf-8")) == original
+    assert list(bundle_path.parent.glob(".bundle.*.json")) == []
 
 
 def test_scaffold_keeps_unresolved_meaning_out_of_the_runtime_store(

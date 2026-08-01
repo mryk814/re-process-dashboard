@@ -11,6 +11,7 @@ import re
 import shutil
 from statistics import median
 from tempfile import NamedTemporaryFile
+import time
 from typing import Any, Literal, Sequence
 from uuid import uuid4
 
@@ -33,6 +34,9 @@ TASK_ID_MIN_LENGTH = 6
 TASK_ID_EXAMPLE = "concrete-slump-v1"
 _TASK_ID = re.compile(TASK_ID_PATTERN)
 _KEY = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+_WINDOWS_REPLACE_RETRY_ENABLED = os.name == "nt"
+_WINDOWS_REPLACE_MAX_RETRIES = 5
+_WINDOWS_REPLACE_RETRY_SECONDS = 0.05
 
 
 @dataclass(frozen=True)
@@ -684,5 +688,20 @@ def link_promoted_package(
         json.dump(payload, stream, ensure_ascii=False, indent=2)
         stream.write("\n")
         temporary = Path(stream.name)
-    temporary.replace(bundle_path)
+    try:
+        retries = 0
+        while True:
+            try:
+                temporary.replace(bundle_path)
+                break
+            except PermissionError:
+                if (
+                    not _WINDOWS_REPLACE_RETRY_ENABLED
+                    or retries >= _WINDOWS_REPLACE_MAX_RETRIES
+                ):
+                    raise
+                retries += 1
+                time.sleep(_WINDOWS_REPLACE_RETRY_SECONDS)
+    finally:
+        temporary.unlink(missing_ok=True)
     return True
