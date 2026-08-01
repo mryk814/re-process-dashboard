@@ -18,9 +18,9 @@ async function gotoReadyDataLibrary(page: Page) {
   for (const response of loadedResources) {
     expect(response.ok(), `${new URL(response.url()).pathname} initial load`).toBe(true);
   }
-  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  await page.getByRole("heading", { name: "使うデータを選ぶ" }).waitFor();
   const selectedDataset = page.locator(".dataset-context");
-  await expect(selectedDataset).toBeVisible();
+  await selectedDataset.waitFor();
   return selectedDataset;
 }
 

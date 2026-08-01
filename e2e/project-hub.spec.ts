@@ -729,11 +729,13 @@ test("new project creation requires an explicit empty or copy choice", async ({ 
   await expect(panel.getByRole("radio", { name: /新しい検討グループ/ })).toBeVisible();
   await panel.getByLabel("プロジェクト名").fill(`空の検討 ${Date.now()}`);
   const datasetSelect = panel.getByRole("combobox", { name: "Dataset", exact: true });
-  const tutorialDatasetValue = () => datasetSelect.evaluate((select: HTMLSelectElement) => (
-    [...select.options].find((option) => option.text.includes("material_workbench_tutorial_v2"))?.value ?? ""
-  ));
-  await expect.poll(tutorialDatasetValue, { timeout: 15_000 }).not.toBe("");
-  await datasetSelect.selectOption(await tutorialDatasetValue());
+  const tutorialDatasetOption = datasetSelect.locator("option").filter({
+    hasText: "material_workbench_tutorial_v2",
+  }).first();
+  await tutorialDatasetOption.waitFor({ state: "attached" });
+  const tutorialDatasetValue = await tutorialDatasetOption.getAttribute("value");
+  expect(tutorialDatasetValue).toBeTruthy();
+  await datasetSelect.selectOption(tutorialDatasetValue!);
   await panel.getByRole("combobox", { name: "予測構成" }).selectOption("task:annealed-properties-v1");
   await panel.getByRole("combobox", { name: "Model Package" }).selectOption({ index: 1 });
   await panel.getByRole("radio", { name: /空から開始/ }).check();
