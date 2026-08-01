@@ -112,6 +112,15 @@ function ReferenceIdentityDetails({ items }: { items: Array<[string, string | nu
   </details>;
 }
 
+function sampleSourceKindLabel(kind: ApiSampleGalleryItem["source_kind"]): string {
+  switch (kind) {
+    case "public": return "公開データ";
+    case "synthetic": return "合成データ";
+    case "generated_fixture": return "開発fixture";
+    case "bundled_demonstration": return "同梱デモ";
+  }
+}
+
 function bindingProvenanceLabel(provenance: string | null | undefined, generatedLabel: string): string {
   return provenance === "generated_default"
     ? generatedLabel
@@ -223,6 +232,7 @@ export function ProjectHub({
   const [archiving, setArchiving] = useState(false);
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
   const [sampleGallery, setSampleGallery] = useState<ApiSampleGalleryItem[]>([]);
+  const [sampleGalleryOpen, setSampleGalleryOpen] = useState(false);
   const [installingSampleId, setInstallingSampleId] = useState("");
   const [removingSampleId, setRemovingSampleId] = useState("");
   const [restoringProjectId, setRestoringProjectId] = useState("");
@@ -769,12 +779,15 @@ export function ProjectHub({
     ];
   }, [creationOptions?.project_series, projects]);
   const activeSeriesId = projectGroups.find((group) => group.projects.some((item) => item.id === activeProjectId))?.id ?? `project:${activeProjectId}`;
-  const uninstalledSamples = sampleGallery.filter((item) => !item.installed);
+  const gallerySamples = sampleGallery.filter((item) => !item.legacy);
+  const legacySamples = sampleGallery.filter((item) => item.legacy);
+  const uninstalledSamples = gallerySamples.filter((item) => !item.installed);
 
   async function installSamples(projectIds: string[]) {
     setInstallingSampleId(projectIds.length === 1 ? projectIds[0] : "all");
     try {
-      await onSampleGalleryInstall(projectIds);
+      const installed = await onSampleGalleryInstall(projectIds);
+      if (installed && projectIds.length === 1) setSampleGalleryOpen(false);
     } finally {
       setInstallingSampleId("");
     }
@@ -783,7 +796,8 @@ export function ProjectHub({
   async function removeSample(projectId: string) {
     setRemovingSampleId(projectId);
     try {
-      await onSampleGalleryRemove(projectId);
+      const removed = await onSampleGalleryRemove(projectId);
+      if (removed) setSampleGalleryOpen(false);
     } finally {
       setRemovingSampleId("");
     }
@@ -1300,37 +1314,23 @@ export function ProjectHub({
             </section>
           );
         })}</div>
-        {sampleGallery.length > 0 && <details className="sample-gallery-list">
-          <summary>同梱サンプルを管理 <span>{sampleGallery.length}件</span></summary>
-          <div className="sample-gallery-items">
-            {uninstalledSamples.length > 1 && <button
+        {gallerySamples.length > 0 && <button
+          type="button"
+          className="sample-gallery-open"
+          onClick={() => setSampleGalleryOpen(true)}
+        ><span>サンプルから始める</span><small>問い・来歴・使える機能で選ぶ</small></button>}
+        {legacySamples.length > 0 && <details className="sample-gallery-legacy-list">
+          <summary>以前の同梱サンプル <span>{legacySamples.length}件</span></summary>
+          <div>{legacySamples.map((item) => <div className="sample-gallery-item" key={item.project_id}>
+            <span><strong>{item.name}</strong><small>{item.remove_blocked_reason || "現在は新規追加できません"}</small></span>
+            <button
               type="button"
-              className="outline-button sample-gallery-add-all"
-              disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !uninstalledSamples.some((item) => item.available)}
-              onClick={() => void installSamples([])}
-            >{installingSampleId === "all" ? "追加中…" : `未追加の${uninstalledSamples.length}件を一括追加`}</button>}
-            {sampleGallery.map((item) => <div className="sample-gallery-item" key={item.project_id}>
-              <span>
-                <strong>{item.name}</strong>
-                <small>{item.installed
-                  ? item.remove_blocked_reason || "Workspaceに追加済み"
-                  : item.unavailable_reason || "必要なときだけWorkspaceへ追加します"}</small>
-              </span>
-              {item.installed ? <button
-                  type="button"
-                  className="outline-button"
-                  disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !item.removable}
-                  title={item.remove_blocked_reason || undefined}
-                  onClick={() => void removeSample(item.project_id)}
-                >{removingSampleId === item.project_id ? "処理中…" : "取り除く"}</button>
-                : <button
-                  type="button"
-                  className="outline-button"
-                  disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !item.available}
-                  onClick={() => void installSamples([item.project_id])}
-                >{installingSampleId === item.project_id ? "追加中…" : "追加"}</button>}
-            </div>)}
-          </div>
+              className="outline-button"
+              disabled={offline || Boolean(removingSampleId) || !item.removable}
+              title={item.remove_blocked_reason || undefined}
+              onClick={() => void removeSample(item.project_id)}
+            >{removingSampleId === item.project_id ? "処理中…" : "取り除く"}</button>
+          </div>)}</div>
         </details>}
         {archivedProjects.length > 0 && <details className="archived-project-list">
           <summary>アーカイブ済み <span>{archivedProjects.length}件</span></summary>
@@ -1344,6 +1344,62 @@ export function ProjectHub({
         <button type="button" className="outline-button project-list-create" disabled={createOpen || offline} onClick={toggleCreateProject}>＋ 新規プロジェクト</button>
       </aside>
       <div className="project-hub-content">
+        {sampleGalleryOpen && <section className="sample-gallery-panel" aria-label="同梱サンプルを選ぶ">
+          <header className="panel-title">
+            <div><span className="overline">SAMPLE GALLERY</span><h2>試したい問いからサンプルを選ぶ</h2></div>
+            <button type="button" className="outline-button" onClick={() => setSampleGalleryOpen(false)}>戻る</button>
+          </header>
+          <p className="sample-gallery-intro">予測モデル名ではなく、問い・データの来歴・利用できる判断支援を先に確認します。予測は実測値や実利用の保証ではありません。</p>
+          {uninstalledSamples.length > 1 && <button
+            type="button"
+            className="outline-button sample-gallery-add-all"
+            disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !uninstalledSamples.some((item) => item.available)}
+            onClick={() => void installSamples([])}
+          >{installingSampleId === "all" ? "追加中…" : `未追加の${uninstalledSamples.length}件を一括追加`}</button>}
+          <div className="sample-gallery-cards">
+            {gallerySamples.map((item) => <article className="sample-gallery-card" key={item.project_id}>
+              <header><span className={`sample-source-kind ${item.source_kind}`}>{sampleSourceKindLabel(item.source_kind)}</span><span>{item.domain}</span></header>
+              <h3>{item.name}</h3>
+              <p className="sample-gallery-question">{item.question}</p>
+              <p>{item.scenario_summary}</p>
+              <dl className="sample-gallery-facts">
+                <div><dt>データの形</dt><dd>{item.data_shape}</dd></div>
+                <div><dt>主な出力</dt><dd>{(item.outputs ?? []).map((output) => `${output.label}${output.unit ? `（${output.unit}）` : ""}`).join(" / ")}</dd></div>
+                <div><dt>使える判断支援</dt><dd className="sample-capability-list">{(item.capabilities ?? []).filter((capability) => capability.available).map((capability) => <span key={capability.id}>{capability.label}</span>)}</dd></div>
+              </dl>
+              <details className="sample-gallery-details">
+                <summary>来歴・利用条件・限界を確認</summary>
+                <dl>
+                  <div><dt>出典</dt><dd>{item.source_url.startsWith("http") ? <a href={item.source_url} target="_blank" rel="noreferrer">{item.source_label}</a> : item.source_label}</dd></div>
+                  <div><dt>利用条件</dt><dd>{item.license}</dd></div>
+                  <div><dt>引用</dt><dd>{item.citation}</dd></div>
+                  <div><dt>データ概要</dt><dd>{item.record_summary}</dd></div>
+                  <div className="sample-limitations"><dt>既知の限界</dt><dd>{item.limitations}</dd></div>
+                  <div><dt>利用不可の機能</dt><dd>{(item.capabilities ?? []).filter((capability) => !capability.available).map((capability) => `${capability.label}（${capability.unavailable_reason}）`).join(" / ") || "ありません"}</dd></div>
+                  {item.documentation_path && <div><dt>関連資料</dt><dd>{item.documentation_path}</dd></div>}
+                </dl>
+                <details className="sample-gallery-identity"><summary>技術的な識別情報</summary><dl><div><dt>Task</dt><dd>{item.task_id}</dd></div><div><dt>Package</dt><dd>{item.package_id || "現在利用不可"}</dd></div><div><dt>Package digest</dt><dd>{item.package_manifest_digest || "現在利用不可"}</dd></div></dl></details>
+              </details>
+              {item.installed ? <div className="sample-gallery-card-actions"><button
+                type="button"
+                className="outline-button"
+                onClick={() => { setSampleGalleryOpen(false); onSwitch(item.project_id); }}
+              >このサンプルを開く</button><button
+                type="button"
+                className="outline-button"
+                disabled={offline || Boolean(removingSampleId) || !item.removable}
+                title={item.remove_blocked_reason || undefined}
+                onClick={() => void removeSample(item.project_id)}
+              >{removingSampleId === item.project_id ? "処理中…" : "取り除く"}</button></div> : <button
+                type="button"
+                className="primary-button"
+                disabled={offline || Boolean(installingSampleId) || Boolean(removingSampleId) || !item.available}
+                title={item.unavailable_reason || undefined}
+                onClick={() => void installSamples([item.project_id])}
+              >{installingSampleId === item.project_id ? "追加中…" : "このサンプルで始める"}</button>}
+            </article>)}
+          </div>
+        </section>}
         {surface === "overview" ? <div className="page-intro project-hub-header">
           <div>
             <span className="overline">PROJECT OVERVIEW</span>

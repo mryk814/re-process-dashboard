@@ -12,7 +12,11 @@ from decision_workbench.task_composition.builtin.shared import (
     _standard_response_curve,
 )
 from decision_workbench.task_composition.builtin.sources import DATA_ROOT
-from decision_workbench.task_composition.descriptors import StarterProject, TaskModule
+from decision_workbench.task_composition.descriptors import (
+    SampleGalleryMetadata,
+    StarterProject,
+    TaskModule,
+)
 from decision_workbench.task_composition.ports import (
     DataDescriptor,
     DataLoader,
@@ -263,6 +267,20 @@ WELDING_STAGE_B_TASK_MODULE = TaskModule(
         _welding_stage_b_starter,
         seed_on_upgrade=True,
         distribution="gallery",
+        gallery_metadata=SampleGalleryMetadata(
+            question="原料配合と溶接条件から、溶着金属の成分をどこまで予測できるか？",
+            scenario_summary="原料・配合・施工をまたぐ多段構造を、Stage Bの成分予測として確認します。",
+            domain="溶接材料・多段工程",
+            data_shape="配合明細 + 工程条件 + 中間成分の関係データ",
+            source_kind="synthetic",
+            source_label="Bundled welding consumable multistage synthetic dataset",
+            source_url="docs/examples/welding-consumable-sample-dataset.md",
+            license="リポジトリ同梱の合成教材データ",
+            citation="Evidence Decision Workbench bundled synthetic welding sample",
+            record_summary="120配合・300施工。Stage Bは溶着金属成分16出力を扱います。",
+            limitations="実測値ではなく、冶金的な妥当性や実製造の保証は確認できません。多段の来歴・能力境界を読むための教材です。",
+            documentation_path="docs/examples/welding-consumable-sample-dataset.md",
+        ),
     ),
 )
 

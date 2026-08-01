@@ -51,6 +51,30 @@ class StarterProject:
         list[CandidateInput],
     ] | None = None
     distribution: Literal["quickstart", "gallery", "legacy_hidden"] = "legacy_hidden"
+    gallery_metadata: "SampleGalleryMetadata | None" = None
+
+
+@dataclass(frozen=True)
+class SampleGalleryMetadata:
+    """Editorial context for a user-facing starter Project.
+
+    Task, Package, and capability facts stay in their existing registries.  This
+    descriptor owns only the reason a person would choose this particular
+    starter, plus its source and limitation wording.
+    """
+
+    question: str
+    scenario_summary: str
+    domain: str
+    data_shape: str
+    source_kind: Literal["public", "synthetic", "generated_fixture", "bundled_demonstration"]
+    source_label: str
+    source_url: str
+    license: str
+    citation: str
+    record_summary: str
+    limitations: str
+    documentation_path: str = ""
 
 
 @dataclass(frozen=True)

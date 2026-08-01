@@ -17981,6 +17981,34 @@
         "title": "RuntimeOperationsCapability",
         "type": "object"
       },
+      "SampleGalleryCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "default": "",
+            "title": "Unavailable Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "available"
+        ],
+        "title": "SampleGalleryCapability",
+        "type": "object"
+      },
       "SampleGalleryInstallInput": {
         "properties": {
           "project_ids": {
@@ -18000,16 +18028,78 @@
             "title": "Available",
             "type": "boolean"
           },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/SampleGalleryCapability"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "citation": {
+            "title": "Citation",
+            "type": "string"
+          },
+          "data_shape": {
+            "title": "Data Shape",
+            "type": "string"
+          },
+          "documentation_path": {
+            "default": "",
+            "title": "Documentation Path",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "legacy": {
+            "default": false,
+            "title": "Legacy",
+            "type": "boolean"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "limitations": {
+            "title": "Limitations",
+            "type": "string"
           },
           "name": {
             "title": "Name",
             "type": "string"
           },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/SampleGalleryOutput"
+            },
+            "title": "Outputs",
+            "type": "array"
+          },
+          "package_id": {
+            "default": "",
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_manifest_digest": {
+            "default": "",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
           "project_id": {
             "title": "Project Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "record_summary": {
+            "title": "Record Summary",
             "type": "string"
           },
           "removable": {
@@ -18020,6 +18110,28 @@
           "remove_blocked_reason": {
             "default": "",
             "title": "Remove Blocked Reason",
+            "type": "string"
+          },
+          "scenario_summary": {
+            "title": "Scenario Summary",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "public",
+              "synthetic",
+              "generated_fixture",
+              "bundled_demonstration"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
             "type": "string"
           },
           "task_id": {
@@ -18037,9 +18149,43 @@
           "task_id",
           "name",
           "installed",
-          "available"
+          "available",
+          "question",
+          "scenario_summary",
+          "domain",
+          "data_shape",
+          "source_kind",
+          "source_label",
+          "source_url",
+          "license",
+          "citation",
+          "record_summary",
+          "limitations"
         ],
         "title": "SampleGalleryItem",
+        "type": "object"
+      },
+      "SampleGalleryOutput": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "default": "",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "SampleGalleryOutput",
         "type": "object"
       },
       "ScreeningCandidateBatchRequest": {
