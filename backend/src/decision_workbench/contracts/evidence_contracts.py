@@ -333,6 +333,13 @@ class ApiError(BaseModel):
         "batch_greedy_search_exhausted",
         "runtime_unavailable",
         "subsystem_unavailable",
+        "task-store-unconfigured",
+        "task-store-unavailable",
+        "task-id-invalid",
+        "model-store-unconfigured",
+        "model-store-unavailable",
+        "package-id-invalid",
+        "task-id-conflict",
     ]
     message: str
     next_action: str | None = None

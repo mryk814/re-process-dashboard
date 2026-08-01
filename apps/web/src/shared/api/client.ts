@@ -77,6 +77,46 @@ const normalizedFetch: typeof fetch = async (input, init) => {
 
 export const apiClient = createClient<paths>({ baseUrl, fetch: normalizedFetch });
 
+type CsvInspectionRequest = Omit<
+  components["schemas"]["Body_inspect_csv_api_data_library_csv_onboarding_inspect_post"],
+  "file"
+> & { file: File };
+type CsvPreparationRequest = Omit<
+  components["schemas"]["Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post"],
+  "file"
+> & { file: File };
+type CsvInspectionResponse = components["schemas"]["CsvInspectionResponse"];
+type CsvPreparationResponse = components["schemas"]["CsvPrepareResponse"];
+
+export type CsvOnboardingResult<T> = {
+  data?: T;
+  error?: ApiErrorPayload;
+  response: Response;
+};
+
+async function postCsvOnboarding<T>(
+  path: "/api/data-library/csv-onboarding/inspect" | "/api/data-library/csv-onboarding/prepare",
+  body: Record<string, string | File>,
+): Promise<CsvOnboardingResult<T>> {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(body)) form.append(name, value);
+  const response = await normalizedFetch(`${baseUrl}${path}`, { method: "POST", body: form });
+  if (!response.ok) return { response, error: await response.json() };
+  return { response, data: await response.json() };
+}
+
+export function inspectCsvOnboarding(
+  body: CsvInspectionRequest,
+): Promise<CsvOnboardingResult<CsvInspectionResponse>> {
+  return postCsvOnboarding("/api/data-library/csv-onboarding/inspect", body);
+}
+
+export function prepareCsvOnboarding(
+  body: CsvPreparationRequest,
+): Promise<CsvOnboardingResult<CsvPreparationResponse>> {
+  return postCsvOnboarding("/api/data-library/csv-onboarding/prepare", body);
+}
+
 function objectValue(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 }

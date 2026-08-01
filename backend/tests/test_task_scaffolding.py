@@ -652,6 +652,11 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         assert inspection.json()["rows"] == 30
         assert inspection.json()["relations"] == 0
         assert inspection.json()["notice"].startswith("観測最小値")
+        assert inspection.json()["task_id_contract"] == {
+            "pattern": "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$",
+            "min_length": 6,
+            "example": "concrete-slump-v1",
+        }
 
         with source.open("rb") as stream:
             prepared = client.post(
@@ -712,7 +717,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         )
         assert conflict.status_code == 422, conflict.text
         conflict_payload = conflict.json()
-        assert conflict_payload["code"] == "validation_error"
+        assert conflict_payload["code"] == "task-id-conflict"
         assert "異なる個人Task / Model" in conflict_payload["message"]
         assert "別のTask ID" in conflict_payload["next_action"]
 
@@ -776,6 +781,20 @@ def test_csv_onboarding_storage_failure_explains_reason_and_next_ui_action(
     source = _source(tmp_path / "new-source.csv")
 
     with TestClient(app) as client:
+        invalid_task_id = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id="日本語-v1",
+            label="Task ID検証",
+        )
+        assert invalid_task_id.status_code == 422, invalid_task_id.text
+        invalid_payload = invalid_task_id.json()
+        assert invalid_payload["code"] == "validation_error"
+        assert any(
+            item["path"].endswith("task_id")
+            for item in invalid_payload["field_errors"]
+        )
+
         health = client.get("/api/health")
         assert health.status_code == 200, health.text
         storage = health.json()["storage"]
@@ -791,7 +810,7 @@ def test_csv_onboarding_storage_failure_explains_reason_and_next_ui_action(
         )
         assert failed.status_code == 422, failed.text
         payload = failed.json()
-        assert payload["code"] == "validation_error"
+        assert payload["code"] == "model-store-unconfigured"
         assert "個人Model / Package" in payload["message"]
         assert "ワークスペース → 保存場所を管理" in payload["next_action"]
         assert not (task_store / task_id).exists()

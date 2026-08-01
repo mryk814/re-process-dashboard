@@ -11,9 +11,10 @@ import logging
 from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from decision_workbench.application.dataset_registration import (
@@ -32,6 +33,9 @@ from decision_workbench.developer_experience.task_scaffolding import (
     ScaffoldField,
     TASK_BUNDLE_SCHEMA_VERSION,
     TASK_SCAFFOLD_SCHEMA_VERSION,
+    TASK_ID_MIN_LENGTH,
+    TASK_ID_PATTERN,
+    TASK_ID_EXAMPLE,
     TaskScaffoldResult,
     create_task_scaffold,
     inspect_task_source,
@@ -43,6 +47,7 @@ from decision_workbench.modeling.model_lifecycle import (
 )
 from decision_workbench.modeling.model_package_verify import verify_model_package
 from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.contracts.evidence_contracts import ApiError
 
 
 router = APIRouter(prefix="/api/data-library/csv-onboarding", tags=["csv-onboarding"])
@@ -72,6 +77,42 @@ class OnboardingStorageError(ValueError):
             "message": self.message,
             "next_action": self.next_action,
         }
+
+
+class CsvInspectionColumn(BaseModel):
+    name: str
+    kind: Literal["number", "categorical"]
+    non_empty: int
+    observed_min: float | None
+    observed_max: float | None
+    choices: list[str]
+
+
+class CsvTaskIdContract(BaseModel):
+    pattern: str
+    min_length: int
+    example: str
+
+
+class CsvInspectionResponse(BaseModel):
+    source_filename: str
+    source_sha256: str
+    rows: int
+    relations: Literal[0]
+    grain: Literal["one-row-one-observation"]
+    columns: list[CsvInspectionColumn]
+    task_id_contract: CsvTaskIdContract
+    notice: str
+
+
+class CsvPrepareResponse(BaseModel):
+    state: Literal["ready"]
+    task_id: str
+    dataset_view_revision_id: str
+    dataset_revision_id: str
+    source_sha256: str
+    model_package_ref_id: str
+    reused_existing: bool
 
 
 @dataclass(frozen=True)
@@ -187,15 +228,15 @@ async def _uploaded_csv(file: UploadFile) -> tuple[TemporaryDirectory[str], Path
         await file.close()
 
 
-def _inspection_payload(source: Path) -> dict[str, Any]:
+def _inspection_payload(source: Path) -> CsvInspectionResponse:
     inspected = inspect_task_source(source)
-    return {
-        "source_filename": inspected.source.name,
-        "source_sha256": inspected.source_sha256,
-        "rows": inspected.row_count,
-        "relations": 0,
-        "grain": "one-row-one-observation",
-        "columns": [
+    return CsvInspectionResponse(
+        source_filename=inspected.source.name,
+        source_sha256=inspected.source_sha256,
+        rows=inspected.row_count,
+        relations=0,
+        grain="one-row-one-observation",
+        columns=[
             {
                 "name": item.name,
                 "kind": item.kind,
@@ -206,12 +247,21 @@ def _inspection_payload(source: Path) -> dict[str, Any]:
             }
             for item in inspected.columns
         ],
-        "notice": "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
-    }
+        task_id_contract=CsvTaskIdContract(
+            pattern=TASK_ID_PATTERN,
+            min_length=TASK_ID_MIN_LENGTH,
+            example=TASK_ID_EXAMPLE,
+        ),
+        notice="観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+    )
 
 
-@router.post("/inspect")
-async def inspect_csv(file: UploadFile = File(...)) -> dict[str, Any]:
+@router.post(
+    "/inspect",
+    response_model=CsvInspectionResponse,
+    responses={422: {"model": ApiError, "description": "Validation Error"}},
+)
+async def inspect_csv(file: UploadFile = File(...)) -> CsvInspectionResponse:
     temporary, source = await _uploaded_csv(file)
     try:
         return await run_in_threadpool(_inspection_payload, source)
@@ -403,17 +453,21 @@ async def _rollback_prepare_attempt(
             logger.exception("CSV_ONBOARDING_ROLLBACK_FAILED stage=runtime")
 
 
-@router.post("/prepare")
+@router.post(
+    "/prepare",
+    response_model=CsvPrepareResponse,
+    responses={422: {"model": ApiError, "description": "Validation Error"}},
+)
 async def prepare_csv_task(
     request: Request,
+    task_id: Annotated[str, Form(min_length=TASK_ID_MIN_LENGTH, pattern=TASK_ID_PATTERN)],
     file: UploadFile = File(...),
-    task_id: str = Form(...),
     label: str = Form(...),
     estimator_id: str = Form("ridge.v1"),
     fields_json: str = Form(...),
     grain_confirmation: str = Form(...),
     relation_confirmation: str = Form(...),
-) -> dict[str, Any]:
+) -> CsvPrepareResponse:
     """Create, verify, promote, register, and reload one reviewed CSV Task."""
 
     try:
@@ -538,15 +592,15 @@ async def prepare_csv_task(
                 )
                 if dataset_view is None or package is None:
                     raise RuntimeError("refreshed resources do not match the registered Dataset")
-                return {
-                    "state": "ready",
-                    "task_id": task_id,
-                    "dataset_view_revision_id": dataset_view.id,
-                    "dataset_revision_id": registration.dataset_revision_id,
-                    "source_sha256": registration.source_sha256,
-                    "model_package_ref_id": package.id,
-                    "reused_existing": reused_existing,
-                }
+                return CsvPrepareResponse(
+                    state="ready",
+                    task_id=task_id,
+                    dataset_view_revision_id=dataset_view.id,
+                    dataset_revision_id=registration.dataset_revision_id,
+                    source_sha256=registration.source_sha256,
+                    model_package_ref_id=package.id,
+                    reused_existing=reused_existing,
+                )
             except OnboardingStorageError as exc:
                 logger.info(
                     "CSV_ONBOARDING_FAILED stage=storage task_id=%s code=%s",
