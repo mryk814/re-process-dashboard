@@ -217,11 +217,11 @@ async def post_readiness_preflight(
         return preflight_source(source, target_columns=tuple(name.strip() for name in target_columns))
     except HTTPException:
         raise
-    except (OSError, ValueError) as exc:
+    except (BadZipFile, InvalidFileException, OSError, ValueError) as exc:
         raise HTTPException(
             422,
             {
-                "code": "readiness_preflight_failed",
+                "code": "validation_error",
                 "message": str(exc),
                 "next_action": "形式が不明なsourceは標準Tabularとして続行せず、Profile WorkbenchまたはTask設計で確認してください。",
             },

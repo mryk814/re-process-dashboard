@@ -105,11 +105,28 @@ _SOURCE_KIND = {
     "external_battery_degradation": ("longitudinal_curve", "grouped_cell"),
     "welding_stage_c": ("repeated_measurements", "grouped_weld_run"),
 }
+_PROFILE_FAMILY_BY_SOURCE_KIND = {
+    "welding_multistage": "welding-stage-b-profile/v1",
+    "primary": "dataset-input-profile/v2",
+    "flank_wear": "dataset-input-profile/v2",
+    "welding_stage_c": "observation-dataset-profile/v1",
+}
 _GROUP = re.compile(r"(?:^|[_\-])(group|batch|run|cell|specimen|entity|condition)(?:[_\-]|$)", re.I)
 _ROW_ID = re.compile(r"(?:^|[_\-])(id|uuid|record)(?:[_\-]|$)", re.I)
 _AXIS = re.compile(r"(?:^|[_\-])(time|timestamp|cycle|sequence|step|index|age)(?:[_\-]|$)", re.I)
 _TECHNICAL = re.compile(r"(?:operator|instrument|file|source|sheet|note|comment|metadata|version)", re.I)
 _SERIES = re.compile(r"(?:series|curve|trace|waveform|spectrum|signal).*(?:path|file|ref|reference)|(?:path|file|ref|reference).*(?:series|curve|trace|waveform|spectrum|signal)", re.I)
+_SHIPPED_TECHNICAL_COLUMNS = {
+    "test_date",
+    "specimen_number",
+    "specimen_position",
+    "notch_position",
+    "試験日",
+    "試験者",
+    "試験片番号",
+    "試験片位置",
+    "ノッチ位置",
+}
 
 
 def readiness_catalog() -> ReadinessCatalog:
@@ -117,14 +134,11 @@ def readiness_catalog() -> ReadinessCatalog:
 
 
 def _profile_schema(module: Any) -> str:
-    # Profile paths live inside the loaders, so retain the known public family by source shape.
-    shape, _ = _SOURCE_KIND.get(module.source_kind, ("independent_rows", "row_independent"))
-    return {
-        "independent_rows": "tabular-dataset-profile/v1",
-        "repeated_measurements": "observation-dataset-profile/v1",
-        "longitudinal_curve": "tabular-dataset-profile/v1",
-        "relational_workbook": "dataset-input-profile/v2",
-    }[shape]
+    # These source kinds are the stable adapter seams used by the shipped loaders.
+    # Unlisted built-in tabular tasks all use TabularProfileFamilyAdapter.
+    return _PROFILE_FAMILY_BY_SOURCE_KIND.get(
+        module.source_kind, "tabular-dataset-profile/v1"
+    )
 
 
 def build_readiness_inventory() -> ReadinessInventory:
@@ -194,6 +208,8 @@ def _role(name: str, targets: set[str]) -> ColumnRole:
         return "target"
     if _SERIES.search(name):
         return "fixed_context"
+    if name.strip() in _SHIPPED_TECHNICAL_COLUMNS:
+        return "technical_metadata"
     if _AXIS.search(name):
         return "time_axis"
     if _TECHNICAL.search(name):

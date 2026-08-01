@@ -49,7 +49,7 @@
       "task_id": "flank-wear-v1",
       "label": "逃げ面摩耗予測",
       "source_shape": "longitudinal_curve",
-      "profile_family": "tabular-dataset-profile/v1",
+      "profile_family": "dataset-input-profile/v2",
       "split_policy": "grouped_tool_condition",
       "input_kinds": [
         "process",
@@ -156,7 +156,7 @@
       "task_id": "welding-consumable-stage-b-v1",
       "label": "溶接材料 Stage B：溶着金属成分",
       "source_shape": "relational_workbook",
-      "profile_family": "dataset-input-profile/v2",
+      "profile_family": "welding-stage-b-profile/v1",
       "split_policy": "profile_defined",
       "input_kinds": [
         "composition",

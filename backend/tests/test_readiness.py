@@ -45,6 +45,29 @@ def test_preflight_keeps_group_time_and_technical_roles_out_of_candidate_inputs(
     assert {column.name for column in curve.columns if column.suggested_role == "candidate_input"} == {"discharge_rate_c"}
 
 
+def test_preflight_protects_shipped_observation_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "observation-export.csv"
+    source.write_text(
+        "composition.C,test_date,試験日,試験者,試験片番号,strength_mpa\n"
+        "0.05,2026-01-01,2026-01-01,A,T-1,500\n",
+        encoding="utf-8",
+    )
+
+    result = preflight_source(source, target_columns=("strength_mpa",))
+
+    technical = {
+        column.name
+        for column in result.columns
+        if column.suggested_role == "technical_metadata"
+    }
+    assert technical == {"test_date", "試験日", "試験者", "試験片番号"}
+    assert {
+        column.name
+        for column in result.columns
+        if column.suggested_role == "candidate_input"
+    } == {"composition.C"}
+
+
 def test_preflight_routes_partial_targets_and_missing_inputs_without_row_collapse() -> None:
     partial = preflight_source(FIXTURES / "partial-targets.csv", target_columns=("hardness_hv", "toughness_j"))
     same_count_different_rows = preflight_source(FIXTURES / "partial-targets-same-count.csv", target_columns=("hardness_hv", "toughness_j"))
@@ -94,6 +117,23 @@ def test_preflight_api_is_read_only_and_rejects_multiple_visible_tables(client: 
     assert client.get("/api/data-library/datasets").json() == before
 
 
+def test_preflight_api_rejects_corrupt_xlsx_as_invalid_input(client: TestClient) -> None:
+    response = client.post(
+        "/api/developer/readiness/preflight",
+        files={
+            "file": (
+                "corrupt.xlsx",
+                b"this is not an Excel workbook",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+        data={"target_columns_json": "[]"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_readiness_inventory_is_current_and_describes_each_task() -> None:
     expected = build_readiness_inventory().model_dump(mode="json")
     spec = importlib.util.spec_from_file_location("readiness_inventory_under_test", SCRIPT_PATH)
@@ -111,3 +151,7 @@ def test_readiness_inventory_is_current_and_describes_each_task() -> None:
     assert stage_c["source_shape"] == "repeated_measurements"
     assert stage_c["profile_family"] == "observation-dataset-profile/v1"
     assert stage_c["split_policy"] == "grouped_weld_run"
+    flank_wear = next(task for task in expected["tasks"] if task["task_id"] == "flank-wear-v1")
+    assert flank_wear["profile_family"] == "dataset-input-profile/v2"
+    stage_b = next(task for task in expected["tasks"] if task["task_id"] == "welding-consumable-stage-b-v1")
+    assert stage_b["profile_family"] == "welding-stage-b-profile/v1"
