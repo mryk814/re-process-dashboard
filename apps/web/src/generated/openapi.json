@@ -2797,6 +2797,25 @@
         "title": "Body_inspect_uploaded_workbook_api_profile_workbench_inspect_post",
         "type": "object"
       },
+      "Body_post_readiness_preflight_api_developer_readiness_preflight_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "target_columns_json": {
+            "default": "[]",
+            "title": "Target Columns Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_post_readiness_preflight_api_developer_readiness_preflight_post",
+        "type": "object"
+      },
       "Body_prepare_csv_task_api_data_library_csv_onboarding_prepare_post": {
         "properties": {
           "estimator_id": {
@@ -3972,6 +3991,56 @@
           "capability"
         ],
         "title": "CapabilityRequirement",
+        "type": "object"
+      },
+      "CatalogEntry": {
+        "properties": {
+          "profile_families": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Profile Families",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source_shape": {
+            "enum": [
+              "independent_rows",
+              "repeated_measurements",
+              "longitudinal_curve",
+              "wide_multi_target",
+              "relational_workbook",
+              "variable_length_series"
+            ],
+            "title": "Source Shape",
+            "type": "string"
+          },
+          "standard_onboarding": {
+            "title": "Standard Onboarding",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "profile_needed",
+              "task_slice_needed",
+              "unsupported"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_shape",
+          "state",
+          "profile_families",
+          "standard_onboarding",
+          "reason"
+        ],
+        "title": "CatalogEntry",
         "type": "object"
       },
       "CategoricalDomain": {
@@ -17923,6 +17992,187 @@
         "title": "RawSourceSnapshotSummary",
         "type": "object"
       },
+      "ReadinessCatalog": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "data-readiness/v1",
+            "default": "data-readiness/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "ReadinessCatalog",
+        "type": "object"
+      },
+      "ReadinessColumn": {
+        "properties": {
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "non_empty": {
+            "title": "Non Empty",
+            "type": "integer"
+          },
+          "suggested_role": {
+            "enum": [
+              "row_id",
+              "candidate_input",
+              "fixed_context",
+              "grouping",
+              "time_axis",
+              "technical_metadata",
+              "target",
+              "unknown"
+            ],
+            "title": "Suggested Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "suggested_role",
+          "non_empty",
+          "missing"
+        ],
+        "title": "ReadinessColumn",
+        "type": "object"
+      },
+      "ReadinessPreflight": {
+        "properties": {
+          "ambiguities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ambiguities",
+            "type": "array"
+          },
+          "available_profile_families": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Profile Families",
+            "type": "array"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ReadinessColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "route": {
+            "enum": [
+              "standard_onboarding",
+              "profile_workbench",
+              "task_slice",
+              "unsupported"
+            ],
+            "title": "Route",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "data-readiness/v1",
+            "default": "data-readiness/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "source_shape": {
+            "anyOf": [
+              {
+                "enum": [
+                  "independent_rows",
+                  "repeated_measurements",
+                  "longitudinal_curve",
+                  "wide_multi_target",
+                  "relational_workbook",
+                  "variable_length_series"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Shape"
+          },
+          "standard_onboarding": {
+            "title": "Standard Onboarding",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "profile_needed",
+              "task_slice_needed",
+              "unsupported"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_availability": {
+            "enum": [
+              "not_declared",
+              "complete",
+              "partial_by_target"
+            ],
+            "title": "Target Availability",
+            "type": "string"
+          },
+          "workbook_sheets": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Workbook Sheets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_filename",
+          "source_sha256",
+          "source_shape",
+          "state",
+          "available_profile_families",
+          "standard_onboarding",
+          "route",
+          "reasons",
+          "ambiguities",
+          "columns",
+          "target_availability"
+        ],
+        "title": "ReadinessPreflight",
+        "type": "object"
+      },
       "RelationalConstraint": {
         "additionalProperties": false,
         "properties": {
@@ -24430,6 +24680,80 @@
           }
         },
         "summary": "Get Overview",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/readiness/catalog": {
+      "get": {
+        "description": "Return the shipped shape catalog without changing Workspace state.",
+        "operationId": "get_readiness_catalog_api_developer_readiness_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Readiness Catalog",
+        "tags": [
+          "developer"
+        ]
+      }
+    },
+    "/api/developer/readiness/preflight": {
+      "post": {
+        "description": "Classify an uploaded source in a temporary directory only.\n\nThis endpoint intentionally has no Workspace, Dataset, Profile, or Package\ndependency.  A successful response is advice, not a registration.",
+        "operationId": "post_readiness_preflight_api_developer_readiness_preflight_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_readiness_preflight_api_developer_readiness_preflight_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessPreflight"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Readiness Preflight",
         "tags": [
           "developer"
         ]

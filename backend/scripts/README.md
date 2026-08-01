@@ -36,6 +36,7 @@ Migrationは任意実行する薄いCLIではなく、Workspace読込やshared-l
 | `operations/task_scaffold.py` | Personal Task onboarding | data-only Task／Profile／recipe scaffold | `npm run task:scaffold` | `operations/` |
 | `operations/verify_model_package.py` | Model runtime | Model Package契約の検証結果 | `docs/model-runtime-examples/index.md` | `operations/` |
 | `operations/task_inventory.py` | Task registry | production Task台帳の生成・drift検出 | `npm run task:inventory`, `backend/tests/test_developer_command_contracts.py` | `operations/` |
+| `operations/readiness_inventory.py` | Task intake | source shape／Profile family／split policyの導入前台帳を生成 | `docs/contracts/readiness-inventory.json`, `backend/tests/test_readiness.py` | `operations/` |
 | `operations/developer_doctor.py` | Developer experience | 開発環境診断JSON | `npm run dev:doctor` | `operations/` |
 | `operations/workspace_check.py` | Workspace preflight | Workspaceのread-only整合検査 | `npm run workspace:check` | `operations/` |
 | `operations/workspace_maintenance.py` | Workspace catalog | Package登録のinspect/deactivate監査 | `npm run workspace:maintenance` | `operations/` |

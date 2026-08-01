@@ -90,6 +90,17 @@ Profile候補が見つかることは、TaskDefinitionやFeature Pipelineの意�
 - Observation Dataset Profile：複数観測familyと行固有入力を保持する
 - Stage B Workbook Profile：特定の多段学習cohortを構築する
 
+### 導入前readiness診断
+
+`GET /api/developer/readiness/catalog` は、同梱済みのsource shapeと、標準onboarding／Profile Workbench／Task縦スライスの境界を返す。
+`POST /api/developer/readiness/preflight` はCSVまたはXLSXを一時領域で**read-only**に確認し、
+`target_columns_json`（JSON string array）を受けてsource shape、列の候補role、route、理由を返す。
+Dataset、Profile、Task、Model Package、active Packageは作成も変更もしない。
+
+```powershell
+curl.exe -F "file=@C:\data\measurements.csv" -F "target_columns_json=[\"strength\"]" http://127.0.0.1:8765/api/developer/readiness/preflight
+```
+
 新しいsourceを既存familyへ無理に合わせない。一方、新Profile familyを作る前に、既存familyのparameter追加で意味を保てないか確認する。
 
 ## 変更リスク
