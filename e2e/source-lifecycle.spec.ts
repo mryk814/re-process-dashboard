@@ -1,6 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
+async function gotoDataLibraryAfterCatalog(
+  page: import("@playwright/test").Page,
+) {
+  const catalogPaths = new Set([
+    "/api/project-creation-options",
+    "/api/data-library/datasets",
+    "/api/data-library/model-packages",
+  ]);
+  const loadedCatalogPaths = new Set<string>();
+  await Promise.all([
+    page.waitForResponse((response) => {
+      const path = new URL(response.url()).pathname;
+      if (response.status() === 200 && catalogPaths.has(path)) {
+        loadedCatalogPaths.add(path);
+      }
+      return loadedCatalogPaths.size === catalogPaths.size;
+    }),
+    page.goto("/?view=data-library"),
+  ]);
+}
+
 test("source refresh stays separate from approval, training and activation", async ({ page, request }) => {
   const optionsBefore = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
   const profile = optionsBefore.datasets[0].profile_revision;
@@ -200,7 +221,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.route("**/api/data-library/model-packages?include_archived=true", async (route) => {
     await route.fulfill({ json: linkedPackages });
   });
-  await page.goto("/?view=data-library");
+  await gotoDataLibraryAfterCatalog(page);
   const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
   await expect(snapshotLink).toBeVisible();
   await snapshotLink.click();

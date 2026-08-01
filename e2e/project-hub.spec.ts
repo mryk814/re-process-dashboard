@@ -561,7 +561,9 @@ test("archiving waits for a candidate save before changing project lifecycle", a
   expect((await staleSaveResponse).status()).toBe(200);
   expect((await archivedResponse).status()).toBe(204);
   await expect(page.locator(".workspace-notice.error")).toHaveCount(0);
-  await expect(page.locator(".workspace-notice.success")).toContainText("プロジェクトをアーカイブしました");
+  await page.locator(".workspace-notice.success", {
+    hasText: "プロジェクトをアーカイブしました",
+  }).waitFor();
 });
 
 test("a failed pending candidate save prevents project archiving", async ({ page }) => {
