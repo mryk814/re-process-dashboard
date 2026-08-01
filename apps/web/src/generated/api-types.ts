@@ -7485,6 +7485,14 @@ export interface components {
             goal_upper?: number | null;
             /** Goal Value */
             goal_value?: number | null;
+            /** Interval Calibration Dataset Digest */
+            interval_calibration_dataset_digest?: string | null;
+            /** Interval Calibration Sample Count */
+            interval_calibration_sample_count?: number | null;
+            /** Interval Coverage Level */
+            interval_coverage_level?: number | null;
+            /** Interval Method */
+            interval_method?: ("conformal" | "quantile" | "parametric" | "bayesian") | null;
             /** Lower */
             lower: number;
             /**

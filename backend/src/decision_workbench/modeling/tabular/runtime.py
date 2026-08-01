@@ -30,6 +30,8 @@ from decision_workbench.modeling.packages.contracts import (
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.ports import LoadedBatchPredictor
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
+from decision_workbench.modeling.conformal_intervals import VerifiedConformalWrapper
+from decision_workbench.modeling.package_capabilities import package_capability_matrix
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 from .data import TabularData
@@ -49,6 +51,8 @@ class TabularRegressionRuntime:
         self,
         data: TabularData,
         package_root: str | Path | VerifiedModelPackage,
+        *,
+        conformal_wrappers: Sequence[VerifiedConformalWrapper] = (),
     ) -> None:
         self.data = data
         self.profile = data.profile
@@ -79,6 +83,18 @@ class TabularRegressionRuntime:
             spec.target: self.model_package.load_predictor(spec.id)
             for spec in manifest.predictors
         }
+        self.capability_matrix = package_capability_matrix(
+            manifest,
+            load_task_contracts()[self.task_id].runtime_capability,
+            manifest_digest=self.model_package.manifest_sha256,
+        )
+        for wrapper in conformal_wrappers:
+            if wrapper.base_package.manifest_sha256 != self.model_package.manifest_sha256:
+                raise ValueError("conformal wrapper base Package does not match runtime Package")
+            if wrapper.manifest.target not in self.predictors:
+                raise ValueError("conformal wrapper target is not provided by runtime Package")
+            self.predictors[wrapper.manifest.target] = wrapper.load_predictor()
+            self.capability_matrix = wrapper.apply_capability(self.capability_matrix)
         stats_path = next(path for path in manifest.feature_pipeline.artifacts if path.endswith("training_stats.json"))
         self.training_stats = json.loads(
             self.model_package.artifact_path(stats_path).read_text(encoding="utf-8")
@@ -423,6 +439,10 @@ class TabularRegressionRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution["family"],
                 quantiles={level: round(value, 6) for level, value in quantiles.items()},
+                interval_method=(summary.prediction_interval.method if summary.prediction_interval is not None else "quantile" if quantiles else None),
+                interval_coverage_level=(summary.prediction_interval.coverage_level if summary.prediction_interval is not None else None),
+                interval_calibration_dataset_digest=(summary.prediction_interval.calibration.calibration_dataset_digest if summary.prediction_interval is not None and summary.prediction_interval.calibration is not None else None),
+                interval_calibration_sample_count=(summary.prediction_interval.calibration.calibration_sample_count if summary.prediction_interval is not None and summary.prediction_interval.calibration is not None else None),
                 goal_value=goal_value,
                 goal_lower=goal_lower,
                 goal_upper=goal_upper,
@@ -437,6 +457,31 @@ class TabularRegressionRuntime:
         uses_binary_lightgbm = any(
             item.target_kind == "binary"
             for item in self.model_package.manifest.predictors
+        )
+        uses_conformal_interval = any(
+            item.interval_method == "conformal" for item in predictions.values()
+        )
+        base_model_method = (
+            "calibrated gradient-boosted binary classifier with stratified validation"
+            if uses_binary_lightgbm
+            else "monotonic gradient-boosted trees with grouped validation"
+            if uses_monotone_lightgbm
+            else (
+                "regularized regression with grouped validation"
+                if self.profile.group_column
+                else "regularized regression with row-wise validation"
+            )
+        )
+        base_interval_method = (
+            "point probability with out-of-fold Platt calibration; no probability interval"
+            if uses_binary_lightgbm
+            else "grouped out-of-fold calibrated normal interval"
+            if uses_monotone_lightgbm
+            else (
+                "grouped out-of-fold residual quantiles"
+                if self.profile.group_column
+                else "row-wise out-of-fold residual quantiles"
+            )
         )
         pipeline = self.model_package.manifest.feature_pipeline
         pipeline_paths = {pipeline.spec, *pipeline.artifacts}
@@ -470,15 +515,9 @@ class TabularRegressionRuntime:
                     "id": self.model_package.manifest.package_id,
                     "version": self.model_package.manifest.package_version,
                     "method": (
-                        "calibrated gradient-boosted binary classifier with stratified validation"
-                        if uses_binary_lightgbm
-                        else "monotonic gradient-boosted trees with grouped validation"
-                        if uses_monotone_lightgbm
-                        else (
-                            "regularized regression with grouped validation"
-                            if self.profile.group_column
-                            else "regularized regression with row-wise validation"
-                        )
+                        f"{base_model_method}; split conformal prediction interval"
+                        if uses_conformal_interval
+                        else base_model_method
                     ),
                 },
                 "package": {
@@ -525,17 +564,7 @@ class TabularRegressionRuntime:
                     else {}
                 ),
                 "prediction_interval": {
-                    "method": (
-                        "point probability with out-of-fold Platt calibration; no probability interval"
-                        if uses_binary_lightgbm
-                        else "grouped out-of-fold calibrated normal interval"
-                        if uses_monotone_lightgbm
-                        else (
-                            "grouped out-of-fold residual quantiles"
-                            if self.profile.group_column
-                            else "row-wise out-of-fold residual quantiles"
-                        )
-                    ),
+                    "method": "split conformal prediction interval" if uses_conformal_interval else base_interval_method,
                     "coverage": (
                         "not reported for point probabilities"
                         if uses_binary_lightgbm
@@ -545,6 +574,20 @@ class TabularRegressionRuntime:
                         "stratified independent source rows"
                         if uses_binary_lightgbm
                         else self.profile.group_column or "independent source row"
+                    ),
+                    **(
+                        {
+                            "calibration": {
+                                target: {
+                                    "dataset_digest": item.interval_calibration_dataset_digest,
+                                    "sample_count": item.interval_calibration_sample_count,
+                                }
+                                for target, item in predictions.items()
+                                if item.interval_method == "conformal"
+                            }
+                        }
+                        if uses_conformal_interval
+                        else {}
                     ),
                 },
                 "similarity": {

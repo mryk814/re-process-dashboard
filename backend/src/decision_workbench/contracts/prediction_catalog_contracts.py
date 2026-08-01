@@ -139,6 +139,10 @@ class Prediction(BaseModel):
     point_statistic: Literal["mean", "median", "probability", "rate", "expected_category"]
     predictive_family: str
     quantiles: dict[str, float]
+    interval_method: Literal["conformal", "quantile", "parametric", "bayesian"] | None = None
+    interval_coverage_level: float | None = Field(default=None, gt=0, lt=1)
+    interval_calibration_dataset_digest: str | None = None
+    interval_calibration_sample_count: int | None = Field(default=None, ge=1)
     categories: list[str] = Field(default_factory=list)
     goal_value: float | None = None
     goal_lower: float | None = None

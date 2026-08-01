@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -11,6 +12,12 @@ from decision_workbench.contracts.model_capability_contracts import (
     CapabilityRequirement,
     ModelPackageCapabilityMatrix,
     TargetCapabilityMatrix,
+)
+from decision_workbench.contracts.prediction_catalog_contracts import Prediction
+from decision_workbench.contracts.task_contracts import (
+    RuntimeCapability,
+    RuntimeOperationsCapability,
+    TargetRuntimeCapability,
 )
 from decision_workbench.modeling.conformal_intervals import (
     evaluate_split_conformal,
@@ -43,6 +50,8 @@ def _base_package(root: Path):
         "features": [{"name": "x", "unit": "1", "meaning": "fixture", "group": "process"}],
     }), encoding="utf-8")
     artifact = root / "model-artifacts" / "linear.npz"
+    training_stats = root / "feature-pipeline" / "training_stats.json"
+    training_stats.write_text(json.dumps({"records": 1}), encoding="utf-8")
     np.savez(
         artifact,
         weights=np.array([1.0]),
@@ -51,12 +60,12 @@ def _base_package(root: Path):
         upper_offset=np.array(0.5),
     )
     manifest = {
-        "schema_version": "model-package/v1", "package_id": "point-fixture",
+        "schema_version": "model-package/v1", "package_id": "ridge-fixture",
         "package_version": "1", "task_id": "fixture-task", "input_schema_version": "candidate-v1",
-        "feature_pipeline": {"id": "fixture-pipeline", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["process.x"], "output_features": ["x"]},
-        "predictors": [{"id": "point", "target": "y", "unit": "MPa", "target_kind": "continuous", "runtime_type": "builtin.linear.v1", "artifact": "model-artifacts/linear.npz", "predictive_family": "empirical_quantiles", "feature_names": ["x"]}],
+        "feature_pipeline": {"id": "fixture-pipeline", "version": "1", "spec": "feature-pipeline/pipeline.json", "canonical_input_paths": ["process.x"], "output_features": ["x"], "artifacts": ["feature-pipeline/training_stats.json"]},
+        "predictors": [{"id": "point", "target": "y", "unit": "MPa", "target_kind": "continuous", "runtime_type": "builtin.linear.v1", "architecture_id": "profile_transformed_ridge_v1", "artifact": "model-artifacts/linear.npz", "predictive_family": "empirical_quantiles", "feature_names": ["x"], "config": {"training_method": "ridge.v1"}}],
         "provenance": {"training_data_id": "fixture", "feature_dataset_id": "fixture", "training_code_revision": "fixture"},
-        "artifacts": [_artifact(pipeline, "feature-pipeline/pipeline.json"), _artifact(artifact, "model-artifacts/linear.npz")],
+        "artifacts": [_artifact(pipeline, "feature-pipeline/pipeline.json"), _artifact(training_stats, "feature-pipeline/training_stats.json"), _artifact(artifact, "model-artifacts/linear.npz")],
     }
     (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return ModelPackageLoader().load(root)
@@ -107,7 +116,7 @@ def test_conformal_wrapper_enables_only_explicit_interval_capability(tmp_path: P
     package = _base_package(tmp_path / "base")
     wrapper = verify_conformal_wrapper(_wrapper(tmp_path / "wrapper", package), base_package=package)
     matrix = ModelPackageCapabilityMatrix(
-        task_id="fixture-task", package_id="point-fixture",
+        task_id="fixture-task", package_id="ridge-fixture",
         package_manifest_digest=f"sha256:{package.manifest_sha256}",
         targets=(TargetCapabilityMatrix(
             target="y", target_kind="continuous", predictive_family="empirical_quantiles",
@@ -127,6 +136,50 @@ def test_conformal_wrapper_enables_only_explicit_interval_capability(tmp_path: P
     assert upgraded.target("y").parametric_distribution is False
     assert upgraded.capability_layers[0].layer_id == "point-fixture-conformal"
     assert upgraded.capability_layers[0].manifest_digest.startswith("sha256:")
+
+
+def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import decision_workbench.modeling.tabular.runtime as runtime_module
+
+    package = _base_package(tmp_path / "base")
+    wrapper = verify_conformal_wrapper(_wrapper(tmp_path / "wrapper", package), base_package=package)
+    capability = RuntimeCapability(
+        schema_version="runtime-capability/v1",
+        task_id="fixture-task",
+        model_package_schema_version="model-package/v1",
+        targets=(TargetRuntimeCapability(
+            target="y", point_statistics=("mean",), standard_deviation=False,
+            quantiles=False, samples=False, parametric_distribution=False,
+            uncertainty_components=False, support=True, warnings=True,
+            goal_probability="unavailable",
+        ),),
+        operations=RuntimeOperationsCapability(
+            preview=True, detailed_prediction=True, response_curve=False,
+            similarity=False, snapshot=True, actual_measurement=False,
+        ),
+    )
+    monkeypatch.setattr(runtime_module, "load_task_definitions", lambda: {
+        "fixture-task": SimpleNamespace(outputs=()),
+    })
+    monkeypatch.setattr(runtime_module, "load_task_contracts", lambda: {
+        "fixture-task": SimpleNamespace(runtime_capability=capability),
+    })
+    monkeypatch.setattr(runtime_module, "feature_definitions", lambda profile: (SimpleNamespace(name="x"),))
+    monkeypatch.setattr(runtime_module, "validate_task_definition_canonical_inputs", lambda *args: None)
+    monkeypatch.setattr(runtime_module.TabularRegressionRuntime, "_verify_smoke", lambda self: None)
+    monkeypatch.setattr(runtime_module.TabularRegressionRuntime, "_build_support_reference", lambda self: None)
+
+    runtime = runtime_module.TabularRegressionRuntime(
+        SimpleNamespace(profile=SimpleNamespace(task_id="fixture-task")),
+        package,
+        conformal_wrappers=(wrapper,),
+    )
+
+    assert runtime.model_package.manifest_sha256 == package.manifest_sha256
+    assert runtime.predictors["y"].predict({"x": 2.0}).prediction_interval is not None
+    assert runtime.capability_matrix.target("y").conformal_interval is True
 
 
 def test_conformal_wrapper_rejects_base_or_calibration_identity_drift(tmp_path: Path) -> None:
@@ -177,3 +230,18 @@ def test_held_out_conformal_evaluation_reports_coverage_width_and_groups() -> No
     assert metrics.empirical_marginal_coverage == pytest.approx(2 / 3)
     assert metrics.mean_interval_width == pytest.approx(0.8)
     assert metrics.group_coverage == {"A": 1.0, "B": 0.0}
+
+
+def test_conformal_prediction_identity_keeps_calibration_evidence_without_goal_probability() -> None:
+    prediction = Prediction(
+        value=2.0, lower=1.6, upper=2.4, unit="MPa",
+        target_kind="continuous", point_statistic="mean",
+        predictive_family="empirical_quantiles", quantiles={},
+        interval_method="conformal", interval_coverage_level=0.8,
+        interval_calibration_dataset_digest=f"sha256:{'a' * 64}",
+        interval_calibration_sample_count=4,
+    )
+
+    assert prediction.interval_method == "conformal"
+    assert prediction.interval_calibration_sample_count == 4
+    assert prediction.goal_probability is None

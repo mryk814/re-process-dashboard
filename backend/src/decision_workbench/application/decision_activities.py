@@ -141,8 +141,9 @@ class DecisionActivityService:
             for operation in definition.required_operations:
                 if not getattr(contract.runtime_capability.operations, operation):
                     reasons.append(f"{operation}に対応する予測runtimeがありません")
+            runtime = self.resolver.resolve(project).runtime
             capability_resolution = resolve_capabilities(
-                self.registry.capability_matrix_for(project.task_id),
+                getattr(runtime, "capability_matrix", self.registry.capability_matrix_for(project.task_id)),
                 target=None,
                 requirements=definition.required_capabilities,
             )

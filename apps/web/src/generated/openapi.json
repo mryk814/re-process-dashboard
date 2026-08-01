@@ -13616,6 +13616,59 @@
             ],
             "title": "Goal Value"
           },
+          "interval_calibration_dataset_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Calibration Dataset Digest"
+          },
+          "interval_calibration_sample_count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Calibration Sample Count"
+          },
+          "interval_coverage_level": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Coverage Level"
+          },
+          "interval_method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "conformal",
+                  "quantile",
+                  "parametric",
+                  "bayesian"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Method"
+          },
           "lower": {
             "title": "Lower",
             "type": "number"
