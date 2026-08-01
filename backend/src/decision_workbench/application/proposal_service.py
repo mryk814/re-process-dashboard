@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from time import perf_counter
 from collections import defaultdict
 from typing import Any, Callable
@@ -24,6 +25,14 @@ from decision_workbench.domain.batch_selector import (
 )
 from decision_workbench.domain.proposal_acquisition import acquisition_value
 from decision_workbench.domain.proposal_generation import generate_candidates
+from decision_workbench.domain.proposal_generation import (
+    _apply_balance_remainder,
+    _read_scalar,
+    _set_value,
+    _snap_numeric_value,
+)
+from decision_workbench.design_priors.loader import VerifiedDesignPriorPackage
+from decision_workbench.design_priors.sampling import sample_prior
 from decision_workbench.domain.proposal_selection import select_proposal_shortlist
 from decision_workbench.domain.screening_score import (
     evaluate_screening_goal,
@@ -64,6 +73,8 @@ def generate_from_design_space(
 def _validate_screening_pool(
     generated: list[tuple[Candidate, dict[str, float | str]]],
     candidate_validator: Callable[[CandidateInput], None],
+    *,
+    prior_evidence: dict[int, dict[str, Any]] | None = None,
 ) -> tuple[
     list[tuple[int, Candidate, CandidateInput, dict[str, float | str]]],
     dict[str, int],
@@ -87,12 +98,100 @@ def _validate_screening_pool(
                     "pool_index": pool_index,
                     "inputs": applied,
                     "reason": reason,
+                    "design_prior_evidence": (prior_evidence or {}).get(pool_index),
                 }
             )
             continue
         candidate = Candidate.model_validate({**candidate.model_dump(), **candidate_input.model_dump()})
         valid_candidates.append((pool_index, candidate, candidate_input, applied))
     return valid_candidates, dict(sorted(rejected_by_reason.items())), rejections
+
+
+def _generate_from_design_prior(
+    base: Candidate,
+    design_space: DesignSpaceDefinition,
+    package: VerifiedDesignPriorPackage,
+    *,
+    generator_id: str,
+    lane: str,
+    count: int,
+    seed: int,
+) -> tuple[list[tuple[Candidate, dict[str, float | str]]], dict[int, dict[str, Any]]]:
+    """Apply a prior sample transparently; only the existing validator decides feasibility."""
+
+    samples = sample_prior(
+        package,
+        generator_id=generator_id,
+        lane=lane,
+        count=count,
+        seed=seed,
+        fixed_context=design_space.fixed_values,
+    )
+    numeric_domains = {
+        item.path: item
+        for item in (*design_space.numeric_domains, *design_space.heat_pattern_domains)
+    }
+    categories = {item.path: item for item in design_space.categorical_domains}
+    generated: list[tuple[Candidate, dict[str, float | str]]] = []
+    evidence: dict[int, dict[str, Any]] = {}
+    for index, sample in enumerate(samples):
+        candidate = base.model_copy(deep=True)
+        applied = dict(design_space.fixed_values)
+        transformations: list[str] = []
+        for path, value in design_space.fixed_values.items():
+            candidate = _set_value(candidate, path, value)
+        for path, domain in numeric_domains.items():
+            raw = sample.values[path]
+            if not isinstance(raw, (int, float)) or isinstance(raw, bool):
+                raise ValueError(f"Design Prior numeric input is invalid: {path}")
+            value = float(raw)
+            # Snap is an explicit lattice transform only when it cannot hide a
+            # range violation.  Out-of-range values remain raw and are rejected
+            # by the ordinary Task / Design Space validation path below.
+            if domain.range is not None and domain.range.min <= value <= domain.range.max:
+                snapped = _snap_numeric_value(value, domain)
+                if not math.isclose(value, snapped, rel_tol=0.0, abs_tol=1e-12):
+                    transformations.append(f"snap:{path}:{value:g}->{snapped:g}")
+                value = snapped
+            applied[path] = value
+            candidate = _set_value(candidate, path, value)
+        for path, domain in categories.items():
+            raw = sample.values[path]
+            if not isinstance(raw, str):
+                raise ValueError(f"Design Prior categorical input is invalid: {path}")
+            applied[path] = raw
+            candidate = _set_value(candidate, path, raw)
+        for conditional in design_space.conditional_constraints:
+            if _read_scalar(candidate, conditional.controller_path) not in conditional.active_choices:
+                for path, value in conditional.inactive_values.items():
+                    transformations.append(f"conditional_inactive:{path}")
+                    applied[path] = value
+                    candidate = _set_value(candidate, path, value)
+        candidate, balanced = _apply_balance_remainder(candidate, design_space)
+        if balanced:
+            transformations.extend(f"balance_remainder:{path}" for path in balanced)
+            applied.update(balanced)
+        generated.append((candidate, applied))
+        boundary_distances = []
+        for path, domain in numeric_domains.items():
+            if domain.range is None:
+                continue
+            value = float(_read_scalar(candidate, path))
+            span = max(domain.range.max - domain.range.min, 1e-12)
+            boundary_distances.append(
+                min(value - domain.range.min, domain.range.max - value) / span
+            )
+        evidence[index] = sample.evidence.model_copy(
+            update={
+                "transformations": tuple(transformations),
+                "design_space_boundary_proximity": (
+                    max(0.0, min(1.0, min(boundary_distances)))
+                    if boundary_distances
+                    else None
+                ),
+            }
+        ).model_dump(mode="json")
+    return generated, evidence
 
 
 def _apply_screening_goal_metadata(
@@ -211,23 +310,44 @@ def run_proposal(
     design_space: DesignSpaceDefinition | None = None,
     strategy: ProposalStrategyDefinition,
     batch_reference_candidates: dict[str, Candidate] | None = None,
+    design_prior_package: VerifiedDesignPriorPackage | None = None,
+    design_prior_generator_id: str | None = None,
+    design_prior_lane: str | None = None,
 ) -> dict[str, Any]:
     pool_size = request.samples * request.proposal.pool_multiplier
     if design_space is None:
         raise ValueError("Design Spaceなしでは候補を生成できません")
-    generated = generate_candidates(
-        strategy.generator_id,
-        base,
-        design_space,
-        count=pool_size,
-        seed=request.seed,
-        generator_version=strategy.generator_version,
-        parameters=strategy.generator_parameters,
-    )
+    prior_evidence: dict[int, dict[str, Any]] = {}
+    if strategy.generator_id == "design_prior":
+        if design_prior_package is None or design_prior_generator_id is None or design_prior_lane is None:
+            raise ValueError("Design Prior strategyには検証済みPackage参照が必要です")
+        generated, prior_evidence = _generate_from_design_prior(
+            base,
+            design_space,
+            design_prior_package,
+            generator_id=design_prior_generator_id,
+            lane=design_prior_lane,
+            count=pool_size,
+            seed=request.seed,
+        )
+    else:
+        generated = generate_candidates(
+            strategy.generator_id,
+            base,
+            design_space,
+            count=pool_size,
+            seed=request.seed,
+            generator_version=strategy.generator_version,
+            parameters=strategy.generator_parameters,
+        )
     points: list[dict[str, Any]] = []
     base_prediction = runtime.predict(base, detailed=False)
     valid_candidates, rejected_by_reason, proposal_rejections = (
-        _validate_screening_pool(generated, candidate_validator)
+        _validate_screening_pool(
+            generated,
+            candidate_validator,
+            prior_evidence=prior_evidence,
+        )
     )
 
     if len(valid_candidates) < request.samples:
@@ -314,6 +434,7 @@ def run_proposal(
             "acquisition_components": acquisition_components,
             "goal_evaluation": evaluation.model_dump(),
             "secondary_goal_evaluations": {key: item.model_dump() for key, item in secondary_evaluations.items()},
+            "design_prior_evidence": prior_evidence.get(pool_index),
         })
     support_rank = {"supported": 0, "caution": 1, "extrapolated": 2}
     eligible = [
@@ -507,6 +628,7 @@ def run_proposal(
                 and point["support"]["status"] == "extrapolated"
                 else "ranked_below_selection_cutoff"
             ),
+            "design_prior_evidence": prior_evidence.get(point["pool_index"]),
         }
         for point in points
     ]

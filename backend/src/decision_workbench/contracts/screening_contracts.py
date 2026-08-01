@@ -25,6 +25,10 @@ from decision_workbench.contracts.proposal_contracts import (
     ProposalRejectedCandidate,
     ProposalSelectionEvidence,
 )
+from decision_workbench.design_priors.contracts import (
+    DesignPriorPackageReference,
+    DesignPriorSampleEvidence,
+)
 
 class ScreeningPoint(BaseModel):
     index: int
@@ -39,6 +43,7 @@ class ScreeningPoint(BaseModel):
     score: float | None
     goal_evaluation: "ScreeningGoalEvaluation"
     secondary_goal_evaluations: dict[str, "ScreeningGoalEvaluation"] = Field(default_factory=dict)
+    design_prior_evidence: DesignPriorSampleEvidence | None = None
 
 
 class ScreeningGoalEvaluation(BaseModel):
@@ -188,6 +193,7 @@ class ScreeningRunResponse(BaseModel):
     ] = "legacy_screening"
     objective_execution: ProposalObjectiveExecution | None = None
     proposal_strategy: ScreeningProposalStrategy | None = None
+    design_prior: DesignPriorPackageReference | None = None
     proposal_diagnostics: ScreeningProposalDiagnostics | None = None
     proposal_pool: list[ProposalCandidateEvaluation] = Field(default_factory=list)
     proposal_rejections: list[ProposalRejectedCandidate] = Field(default_factory=list)
@@ -331,6 +337,12 @@ class ScreeningRunResponse(BaseModel):
                 raise ValueError("experiment batch requires its source and objective evidence")
         if self.schema_version == "screening-run/v8":
             assert self.proposal_diagnostics is not None
+            assert self.proposal_strategy is not None
+            if self.proposal_strategy.generator_id == "design_prior":
+                if self.design_prior is None:
+                    raise ValueError("Design Prior strategy requires pinned prior evidence")
+            elif self.design_prior is not None:
+                raise ValueError("non-prior strategy must not claim Design Prior evidence")
             if (
                 self.proposal_diagnostics.displayed_count is None
                 or self.proposal_diagnostics.proposed_count is None

@@ -64,6 +64,17 @@ STRATEGIES = (
         selector_version="1.0.0",
     ),
     ProposalStrategyDefinition(
+        strategy_id="design_prior_empirical_v1",
+        version="1.0.0",
+        label="Design Prior・経験分布",
+        generator_id="design_prior",
+        generator_version="1.0.0",
+        acquisition_id="goal_achievement",
+        acquisition_version="1.0.0",
+        selector_id="ranked_top_k",
+        selector_version="1.0.0",
+    ),
+    ProposalStrategyDefinition(
         strategy_id="sobol_ucb_v1",
         version="1.1.0",
         label="Sobol・UCB/LCB",
