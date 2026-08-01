@@ -56,6 +56,9 @@ from decision_workbench.persistence.project_repository import ProjectRepository
 from decision_workbench.persistence.project_starter_migration import (
     migrate_project_starter_identity,
 )
+from decision_workbench.persistence.proposal_lab_migration import (
+    migrate_proposal_lab_reports,
+)
 from decision_workbench.persistence.series_asset_migration import migrate_series_assets
 from decision_workbench.persistence.sqlite_connection import (
     initialize_sqlite,
@@ -130,6 +133,7 @@ class Store(
         migrate_project_design_spaces(self.path)
         migrate_project_objectives(self.path)
         migrate_project_starter_identity(self.path)
+        migrate_proposal_lab_reports(self.path)
         migrate_series_assets(self.path)
         migrate_data_lifecycle(self.path)
         migrate_data_lifecycle_payloads(self.path)

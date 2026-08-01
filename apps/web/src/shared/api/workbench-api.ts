@@ -34,6 +34,8 @@ export type ApiScreeningRequest = components["schemas"]["ScreeningRequest"];
 export type ApiScreeningRun = components["schemas"]["ScreeningRunResponse"];
 export type ApiScreeningCandidateBatch = components["schemas"]["ScreeningCandidateBatchResponse"];
 export type ApiProposalStrategyAvailability = components["schemas"]["ProposalStrategyAvailability"];
+export type ApiProposalLabCreateRequest = components["schemas"]["ProposalLabCreateRequest"];
+export type ApiProposalLabReport = components["schemas"]["ProposalLabReport"];
 export type ApiTaskDefinition = components["schemas"]["ResolvedTaskDefinition"];
 export type ApiTaskCatalogItem = components["schemas"]["TaskCatalogItem"];
 export type ApiProjectHistory = components["schemas"]["ProjectHistoryResponse"];
@@ -796,6 +798,17 @@ export const workbenchApi = {
     return requireData(await apiClient.GET("/api/projects/{project_id}/proposal-strategies", {
       params: { path: { project_id: projectId }, query: { target } },
     }), "提案戦略を取得できませんでした。");
+  },
+  async proposalLabReports(projectId: string) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/proposal-lab/reports", {
+      params: { path: { project_id: projectId } },
+    }), "Proposal Labの評価記録を取得できませんでした。");
+  },
+  async createProposalLabReport(projectId: string, body: ApiProposalLabCreateRequest) {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/proposal-lab/reports", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Proposal Labの評価記録を保存できませんでした。");
   },
   async createScreeningRun(projectId: string, body: ApiScreeningRequest) {
     return requireData(await apiClient.POST("/api/screening", { params: { query: { project_id: projectId } }, body }), "範囲探索を実行できませんでした。");

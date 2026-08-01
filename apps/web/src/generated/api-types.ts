@@ -1878,6 +1878,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/proposal-lab/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proposal Lab Reports */
+        get: operations["list_proposal_lab_reports_api_projects__project_id__proposal_lab_reports_get"];
+        put?: never;
+        /** Create Proposal Lab Report */
+        post: operations["create_proposal_lab_report_api_projects__project_id__proposal_lab_reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/proposal-lab/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proposal Lab Report */
+        get: operations["get_proposal_lab_report_api_projects__project_id__proposal_lab_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/proposal-strategies": {
         parameters: {
             query?: never;
@@ -8316,6 +8351,253 @@ export interface components {
             /** Value */
             value?: number | null;
         };
+        /** ProposalLabAdoptionMemo */
+        ProposalLabAdoptionMemo: {
+            /** Evidence Run Ids */
+            evidence_run_ids: string[];
+            /** Primary Criterion */
+            primary_criterion: string;
+            /** Rationale */
+            rationale: string;
+            /**
+             * Registry Changed
+             * @default false
+             * @constant
+             */
+            registry_changed: false;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "experimental" | "production" | "no_adopt";
+            /** Strategy Id */
+            strategy_id: string;
+            /**
+             * Trade Offs
+             * @default []
+             */
+            trade_offs: string[];
+        };
+        /** ProposalLabAdoptionMemoInput */
+        ProposalLabAdoptionMemoInput: {
+            /** Primary Criterion */
+            primary_criterion: string;
+            /** Rationale */
+            rationale: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "experimental" | "production" | "no_adopt";
+            /** Strategy Id */
+            strategy_id: string;
+            /**
+             * Trade Offs
+             * @default []
+             */
+            trade_offs: string[];
+        };
+        /** ProposalLabCreateRequest */
+        ProposalLabCreateRequest: {
+            /** Adoption Memos */
+            adoption_memos: components["schemas"]["ProposalLabAdoptionMemoInput"][];
+            /**
+             * Evaluation Fixture Version
+             * @default saved-screening-replay/v1
+             */
+            evaluation_fixture_version: string;
+            /** Run Ids */
+            run_ids: string[];
+        };
+        /** ProposalLabProtocol */
+        ProposalLabProtocol: {
+            /** Budget */
+            budget: number;
+            /**
+             * Constraint Scope
+             * @default known_design_space_and_outcome_only
+             * @constant
+             */
+            constraint_scope: "known_design_space_and_outcome_only";
+            /** Dataset Identity Digest */
+            dataset_identity_digest: string;
+            /** Design Space Digest */
+            design_space_digest: string;
+            /** Digest */
+            digest: string;
+            /** Distance Contract Digest */
+            distance_contract_digest: string;
+            /** Evaluation Fixture Version */
+            evaluation_fixture_version: string;
+            /** Generator Id */
+            generator_id: string;
+            /** Generator Parameters Digest */
+            generator_parameters_digest: string;
+            /** Generator Version */
+            generator_version: string;
+            /** Incumbent Resolution Digest */
+            incumbent_resolution_digest: string;
+            /** Objective Digest */
+            objective_digest: string;
+            /** Package Digest */
+            package_digest: string;
+            /** Package Id */
+            package_id: string;
+            /** Pool Multiplier */
+            pool_multiplier: number;
+            /** Project Id */
+            project_id: string;
+            /** Proposal Count */
+            proposal_count: number;
+            /** Runtime Capability Digest */
+            runtime_capability_digest: string;
+            /**
+             * Schema Version
+             * @default proposal-lab-protocol/v1
+             * @constant
+             */
+            schema_version: "proposal-lab-protocol/v1";
+            /** Seeds */
+            seeds: number[];
+            /** Selection Policy Id */
+            selection_policy_id: string;
+            /** Selection Policy Version */
+            selection_policy_version: string;
+            /** Selector Id */
+            selector_id: string;
+            /** Selector Version */
+            selector_version: string;
+            /** Support Policy */
+            support_policy: string;
+            /** Target */
+            target: string;
+            /** Task Id */
+            task_id: string;
+            /**
+             * Training Identity Kind
+             * @enum {string}
+             */
+            training_identity_kind: "training_snapshot" | "legacy_training_data";
+            /** Training Snapshot Digest */
+            training_snapshot_digest: string;
+            /** Training Snapshot Id */
+            training_snapshot_id: string;
+        };
+        /** ProposalLabReport */
+        ProposalLabReport: {
+            /** Adoption Memos */
+            adoption_memos: components["schemas"]["ProposalLabAdoptionMemo"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Limitations */
+            limitations: string[];
+            /** Project Id */
+            project_id: string;
+            protocol: components["schemas"]["ProposalLabProtocol"];
+            /** Report Digest */
+            report_digest: string;
+            /** Runs */
+            runs: components["schemas"]["ProposalLabRunMetric"][];
+            /**
+             * Schema Version
+             * @default proposal-lab-report/v1
+             * @constant
+             */
+            schema_version: "proposal-lab-report/v1";
+            /** Strategy Summaries */
+            strategy_summaries: components["schemas"]["ProposalLabStrategySummary"][];
+        };
+        /** ProposalLabRunMetric */
+        ProposalLabRunMetric: {
+            /** Caution Rate */
+            caution_rate: number;
+            /** Constraint Unknown Rate */
+            constraint_unknown_rate: number;
+            /** Duplicate Rate */
+            duplicate_rate: number;
+            /** Evaluated Count */
+            evaluated_count: number;
+            /** Extrapolated Rate */
+            extrapolated_rate: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Fallback Count */
+            fallback_count: number;
+            /** Feasible Rate */
+            feasible_rate: number;
+            /** Goal Achievement Rate */
+            goal_achievement_rate: number;
+            /** Memory Peak Bytes */
+            memory_peak_bytes?: number | null;
+            /** Model Call Count */
+            model_call_count: number | null;
+            /** Pool Digest */
+            pool_digest: string;
+            /** Run Id */
+            run_id: string;
+            /** Runtime Ms */
+            runtime_ms?: number | null;
+            /** Score Digest */
+            score_digest: string;
+            /** Seed */
+            seed: number;
+            /** Selected Count */
+            selected_count: number;
+            /** Selection Digest */
+            selection_digest: string;
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Version */
+            strategy_version: string;
+            /** Supported Rate */
+            supported_rate: number;
+        };
+        /** ProposalLabStrategySummary */
+        ProposalLabStrategySummary: {
+            /** Acquisition Id */
+            acquisition_id: string;
+            /** Acquisition Parameter Digest */
+            acquisition_parameter_digest: string;
+            /**
+             * Acquisition Scope
+             * @enum {string}
+             */
+            acquisition_scope: "marginal" | "joint";
+            /** Acquisition Version */
+            acquisition_version: string;
+            /** Extrapolated Rate Range */
+            extrapolated_rate_range: number;
+            /** Goal Achievement Rate Range */
+            goal_achievement_rate_range: number;
+            /**
+             * Lifecycle Status At Evaluation
+             * @enum {string}
+             */
+            lifecycle_status_at_evaluation: "experimental" | "production" | "unavailable" | "no_adopt" | "retired";
+            /** Mean Constraint Unknown Rate */
+            mean_constraint_unknown_rate: number;
+            /** Mean Feasible Rate */
+            mean_feasible_rate: number;
+            /** Mean Goal Achievement Rate */
+            mean_goal_achievement_rate: number;
+            /** Mean Supported Rate */
+            mean_supported_rate: number;
+            /** Required Capabilities */
+            required_capabilities: string[];
+            /** Seeds */
+            seeds: number[];
+            /** Strategy Id */
+            strategy_id: string;
+            /** Strategy Version */
+            strategy_version: string;
+            /** Unavailable Reasons */
+            unavailable_reasons: string[];
+        };
         /**
          * ProposalObjectiveExecution
          * @description The production Objective subset actually translated into engine fields.
@@ -8488,6 +8770,12 @@ export interface components {
             generator_version: string;
             /** Label */
             label: string;
+            /**
+             * Lifecycle Status
+             * @default production
+             * @enum {string}
+             */
+            lifecycle_status: "experimental" | "production" | "unavailable" | "no_adopt" | "retired";
             /**
              * Production Enabled
              * @default true
@@ -9430,6 +9718,10 @@ export interface components {
             evaluated_count: number;
             /** Generated Count */
             generated_count: number;
+            /** Memory Peak Bytes */
+            memory_peak_bytes?: number | null;
+            /** Model Call Count */
+            model_call_count?: number | null;
             /** Proposed Count */
             proposed_count?: number | null;
             /** Rejected By Reason */
@@ -9440,6 +9732,8 @@ export interface components {
             rejected_count: number;
             /** Rejection Rate */
             rejection_rate: number;
+            /** Runtime Ms */
+            runtime_ms?: number | null;
             /**
              * Selected Count
              * @default 0
@@ -9517,6 +9811,12 @@ export interface components {
             incumbent_resolution?: components["schemas"]["ProposalIncumbentResolution"] | null;
             /** Incumbent Value */
             incumbent_value?: number | null;
+            /**
+             * Lifecycle Status
+             * @default production
+             * @enum {string}
+             */
+            lifecycle_status: "experimental" | "production" | "unavailable" | "no_adopt" | "retired";
             /** Parameter Role */
             parameter_role?: ("confidence_multiplier" | "improvement_margin") | null;
             /**
@@ -9526,6 +9826,13 @@ export interface components {
             pool_multiplier: number;
             /** Requested Count */
             requested_count: number;
+            /**
+             * Required Capabilities
+             * @default []
+             */
+            required_capabilities: string[];
+            /** Runtime Capability Digest */
+            runtime_capability_digest?: string | null;
             /** Seed */
             seed: number;
             /**
@@ -16162,6 +16469,104 @@ export interface operations {
             };
             /** @description Task Runtime Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_proposal_lab_reports_api_projects__project_id__proposal_lab_reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalLabReport"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_proposal_lab_report_api_projects__project_id__proposal_lab_reports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalLabCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalLabReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_proposal_lab_report_api_projects__project_id__proposal_lab_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalLabReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

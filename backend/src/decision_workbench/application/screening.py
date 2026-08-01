@@ -57,6 +57,7 @@ from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.persistence.store import CandidateLimitError, Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
+from decision_workbench.modeling.model_lifecycle import runtime_capability_digest
 
 
 class ScreeningNotFoundError(LookupError):
@@ -525,6 +526,13 @@ class ScreeningService:
             result["proposal_strategy"] = {
                 "id": strategy.strategy_id,
                 "version": strategy.version,
+                "runtime_capability_digest": runtime_capability_digest(
+                    contract.runtime_capability
+                ),
+                "lifecycle_status": strategy.lifecycle_status,
+                "required_capabilities": tuple(
+                    item.capability for item in strategy.required_capabilities
+                ),
                 "seed": result["seed"],
                 "requested_count": payload.samples,
                 "pool_multiplier": proposal_request.pool_multiplier,
@@ -913,12 +921,24 @@ class ScreeningService:
             for item in self.store.list_screening_runs(project_id)
             if item.get("source_run_id") == run_id
         ]
-        if derived_candidates or derived_runs:
+        proposal_lab_reports = [
+            report
+            for report in self.store.list_proposal_lab_reports(project_id)
+            if any(
+                item.get("run_id") == run_id
+                for item in report.get("runs", [])
+            )
+        ]
+        if derived_candidates or derived_runs or proposal_lab_reports:
             references = []
             if derived_candidates:
                 references.append(f"候補 {len(derived_candidates)}件")
             if derived_runs:
                 references.append(f"後続の探索 {len(derived_runs)}件")
+            if proposal_lab_reports:
+                references.append(
+                    f"Proposal Lab report {len(proposal_lab_reports)}件"
+                )
             raise ScreeningReferencedError(
                 f"この探索は{'、'.join(references)}の作成元なので削除できません"
             )
