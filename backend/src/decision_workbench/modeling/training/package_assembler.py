@@ -10,6 +10,8 @@ import numpy as np
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.data.profile_family_registry import lifecycle_profile_for_data
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.modeling.missingness import pattern_digest
 from decision_workbench.modeling.model_lifecycle import (
     QualityReport,
     canonical_training_dataset,
@@ -39,7 +41,6 @@ from decision_workbench.modeling.training.readiness import (
     resolve_estimator_contract_readiness,
 )
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
-from decision_workbench.modeling.missingness import pattern_digest
 
 CandidateBuilder = Callable[[dict[str, Any], Any], CandidateInput | None]
 
@@ -98,7 +99,7 @@ def _missing_pattern_evidence(
     evidence: list[dict[str, Any]] = []
     for pattern in sorted(all_patterns):
         metrics_by_target: dict[str, dict[str, float | int]] = {}
-        training_count = 0
+        training_counts: list[int] = []
         for target, training_set in training_sets.items():
             rows = np.asarray(
                 [
@@ -107,7 +108,7 @@ def _missing_pattern_evidence(
                 ],
                 dtype=bool,
             )
-            training_count = max(training_count, int(rows.sum()))
+            training_counts.append(int(rows.sum()))
             evaluated = rows & training_set.quality_rows
             target_evidence: dict[str, float | int] = {
                 "evaluation_count": int(evaluated.sum()),
@@ -129,8 +130,8 @@ def _missing_pattern_evidence(
                 for path, kind in pattern
             ],
             "pattern_digest": pattern_digest(pattern),
-            "training_count": training_count,
-            "evaluation_count": max(
+            "training_count": min(training_counts, default=0),
+            "evaluation_count": min(
                 (
                     int(item["evaluation_count"])
                     for item in metrics_by_target.values()
@@ -225,7 +226,18 @@ def _build(
         str(item["name"])
         for item in canonical["feature_pipeline"]["features"]
     )
+    has_explicit_missing_policy = any(
+        item.numeric_missing.strategy != "reject"
+        or item.categorical_missing.strategy != "reject"
+        or item.unknown_category.strategy != "reject"
+        for item in data.profile.inputs
+    )
     missing_policy = canonical["feature_pipeline"].get("missing_policy")
+    if missing_policy is None and has_explicit_missing_policy:
+        missing_policy = {
+            "imputation_values": data.feature_imputation_values,
+            "digest": semantic_digest(data.feature_imputation_values),
+        }
     if missing_policy:
         missing_policy = {
             **missing_policy,

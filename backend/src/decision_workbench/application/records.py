@@ -26,10 +26,7 @@ from decision_workbench.persistence.store import Store
 from decision_workbench.tasks.task_registry import TaskRegistry
 from decision_workbench.contracts.task_contracts import OutputDefinition
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
-from decision_workbench.modeling.missingness import (
-    assess_input_missingness,
-    require_operation_allowed,
-)
+from decision_workbench.modeling.missingness import require_runtime_operation_allowed
 
 
 class RecordNotFoundError(LookupError):
@@ -114,17 +111,14 @@ class RecordService:
         project = self.projects.require(candidate.project_id)
         self.inference.require_operation(project.task_id, "snapshot")
         runtime = self.resolver.runtime_for(project)
-        if hasattr(runtime, "missing_policy_inputs"):
-            evidence = assess_input_missingness(
+        try:
+            require_runtime_operation_allowed(
+                runtime,
                 candidate,
-                runtime.missing_policy_inputs,
-                runtime.training_stats,
                 operation="snapshot",
             )
-            try:
-                require_operation_allowed(evidence)
-            except ValueError as exc:
-                raise RecordValidationError(str(exc)) from exc
+        except ValueError as exc:
+            raise RecordValidationError(str(exc)) from exc
         if result is None:
             result = self.inference.detailed_for(project, candidate)
         return SnapshotResponse.model_validate(
