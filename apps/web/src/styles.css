@@ -687,7 +687,7 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   .topbar nav {
     flex: 1 1 auto;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow: hidden;
   }
   .nav-button {

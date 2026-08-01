@@ -72,6 +72,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chains/studio/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Chain Studio Catalog */
+        get: operations["getChainStudioCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chains/studio/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Chain Studio Draft */
+        post: operations["publishChainStudioDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chains/studio/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Chain Studio Draft */
+        post: operations["validateChainStudioDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-library/csv-onboarding/inspect": {
         parameters: {
             query?: never;
@@ -4323,6 +4374,17 @@ export interface components {
              */
             status: "latest" | "running" | "stale" | "failed";
         };
+        /** ChainStageLock */
+        ChainStageLock: {
+            /** Contract Digest */
+            contract_digest: string;
+            /** Dataset Profile Digest */
+            dataset_profile_digest?: string | null;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+        };
         /**
          * ChainStageOutputDefinition
          * @description Presentation metadata for one output of a pinned Chain Stage.
@@ -4388,6 +4450,58 @@ export interface components {
             stage_uncertainty?: {
                 [key: string]: components["schemas"]["DistributionSummary"];
             };
+        };
+        /** ChainStudioCatalogResponse */
+        ChainStudioCatalogResponse: {
+            /**
+             * Adapter Id
+             * @default scalar/v1
+             * @constant
+             */
+            adapter_id: "scalar/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStudioStageCatalogItem"][];
+        };
+        /**
+         * ChainStudioDraftRequest
+         * @description A complete, still-unpublished Definition. Layout is deliberately absent.
+         */
+        ChainStudioDraftRequest: {
+            definition: components["schemas"]["ChainDefinition"];
+        };
+        /** ChainStudioDraftValidation */
+        ChainStudioDraftValidation: {
+            /** Definition Digest */
+            definition_digest: string;
+            /** Message */
+            message: string;
+            /** Valid */
+            valid: boolean;
+        };
+        /**
+         * ChainStudioStageCatalogItem
+         * @description One server-resolved task that may be used by the scalar Chain editor.
+         */
+        ChainStudioStageCatalogItem: {
+            /** Contract Id */
+            contract_id: string;
+            /** Label */
+            label: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Stage Kind
+             * @default task
+             * @constant
+             */
+            stage_kind: "task";
+            stage_lock?: components["schemas"]["ChainStageLock"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
+            surface?: components["schemas"]["StageContractSurface"] | null;
         };
         /** ChainTemplateItem */
         ChainTemplateItem: {
@@ -10630,6 +10744,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChainRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getChainStudioCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainStudioCatalogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    publishChainStudioDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainStudioDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainTemplateItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    validateChainStudioDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainStudioDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainStudioDraftValidation"];
                 };
             };
             /** @description Validation Error */

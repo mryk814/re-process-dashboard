@@ -4,6 +4,7 @@ import { navigationLocationNeedsNormalization, navigationUrl, readNavigationInte
 import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
   ChainGraphViewer,
+  ChainStudioPage,
   chainStagePath,
   projectScientificSettingsReadOnly,
   ProjectHub,
@@ -25,7 +26,7 @@ import {
 } from "../shared/api/workbench-api";
 
 type Tab = WorkbenchView;
-type HomeNavigationIcon = "project" | "data" | "workspace";
+type HomeNavigationIcon = "project" | "data" | "workspace" | "chain";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
@@ -41,6 +42,11 @@ function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
   if (icon === "project") {
     return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
       <path d="M3 4.5h5l1.4 1.7H17v9.3H3z" />
+    </svg>;
+  }
+  if (icon === "chain") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <circle cx="4" cy="10" r="2.2" /><circle cx="16" cy="5" r="2.2" /><circle cx="16" cy="15" r="2.2" /><path d="M6.1 9.1 13.8 5.9M6.1 10.9l7.7 3.2" />
     </svg>;
   }
   if (icon === "data") {
@@ -278,7 +284,7 @@ function App() {
     (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
-  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace";
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -421,6 +427,17 @@ function App() {
           >
             <HomeNavIcon icon="data" />
             <span className="nav-label-full">データライブラリ</span>
+          </button>
+          <button
+            type="button"
+            className={tab === "chain-studio" ? "nav-button active" : "nav-button"}
+            aria-label="Chain Studio"
+            data-short-label="Chain"
+            aria-current={tab === "chain-studio" ? "page" : undefined}
+            onClick={() => navigate({ view: "chain-studio" })}
+          >
+            <HomeNavIcon icon="chain" />
+            <span className="nav-label-full">Chain Studio</span>
           </button>
           <button
             ref={workspaceButtonRef}
@@ -594,6 +611,7 @@ function App() {
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
+        {tab === "chain-studio" && <ChainStudioPage />}
         {unavailableScopedTab && (
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}

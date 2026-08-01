@@ -12,6 +12,7 @@ from decision_workbench.contracts.blend_contracts import (
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
+    ChainStageLock,
     StageContractSurface,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -29,6 +30,35 @@ class ChainTemplateItem(ChainApiModel):
     definition_id: str
     definition: ChainDefinition
     revisions: tuple[ChainRevision, ...]
+
+
+class ChainStudioStageCatalogItem(ChainApiModel):
+    """One server-resolved task that may be used by the scalar Chain editor."""
+
+    stage_kind: Literal["task"] = "task"
+    contract_id: str
+    label: str
+    status: Literal["available", "unavailable"]
+    reason: str | None = None
+    surface: StageContractSurface | None = None
+    stage_lock: ChainStageLock | None = None
+
+
+class ChainStudioCatalogResponse(ChainApiModel):
+    adapter_id: Literal["scalar/v1"] = "scalar/v1"
+    stages: tuple[ChainStudioStageCatalogItem, ...]
+
+
+class ChainStudioDraftRequest(ChainApiModel):
+    """A complete, still-unpublished Definition. Layout is deliberately absent."""
+
+    definition: ChainDefinition
+
+
+class ChainStudioDraftValidation(ChainApiModel):
+    valid: bool
+    definition_digest: str
+    message: str
 
 
 class ChainGraphStageContract(ChainApiModel):

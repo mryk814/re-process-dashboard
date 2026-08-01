@@ -5499,6 +5499,51 @@
         "title": "ChainStageExecution",
         "type": "object"
       },
+      "ChainStageLock": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "dataset_profile_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Profile Digest"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
+          "package_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Package Manifest Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_digest",
+          "package_manifest_digest"
+        ],
+        "title": "ChainStageLock",
+        "type": "object"
+      },
       "ChainStageOutputDefinition": {
         "additionalProperties": false,
         "description": "Presentation metadata for one output of a pinned Chain Stage.",
@@ -5696,6 +5741,133 @@
           "point_estimates"
         ],
         "title": "ChainStageUncertainty",
+        "type": "object"
+      },
+      "ChainStudioCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_id": {
+            "const": "scalar/v1",
+            "default": "scalar/v1",
+            "title": "Adapter Id",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStudioStageCatalogItem"
+            },
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stages"
+        ],
+        "title": "ChainStudioCatalogResponse",
+        "type": "object"
+      },
+      "ChainStudioDraftRequest": {
+        "additionalProperties": false,
+        "description": "A complete, still-unpublished Definition. Layout is deliberately absent.",
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ChainDefinition"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "ChainStudioDraftRequest",
+        "type": "object"
+      },
+      "ChainStudioDraftValidation": {
+        "additionalProperties": false,
+        "properties": {
+          "definition_digest": {
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "definition_digest",
+          "message"
+        ],
+        "title": "ChainStudioDraftValidation",
+        "type": "object"
+      },
+      "ChainStudioStageCatalogItem": {
+        "additionalProperties": false,
+        "description": "One server-resolved task that may be used by the scalar Chain editor.",
+        "properties": {
+          "contract_id": {
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "stage_kind": {
+            "const": "task",
+            "default": "task",
+            "title": "Stage Kind",
+            "type": "string"
+          },
+          "stage_lock": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainStageLock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "surface": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageContractSurface"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "contract_id",
+          "label",
+          "status"
+        ],
+        "title": "ChainStudioStageCatalogItem",
         "type": "object"
       },
       "ChainTemplateItem": {
@@ -21712,6 +21884,119 @@
           }
         },
         "summary": "Get Chain Revision",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/api/chains/studio/catalog": {
+      "get": {
+        "operationId": "getChainStudioCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainStudioCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chain Studio Catalog",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/api/chains/studio/publish": {
+      "post": {
+        "operationId": "publishChainStudioDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainStudioDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainTemplateItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Chain Studio Draft",
+        "tags": [
+          "chains"
+        ]
+      }
+    },
+    "/api/chains/studio/validate": {
+      "post": {
+        "operationId": "validateChainStudioDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainStudioDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainStudioDraftValidation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Chain Studio Draft",
         "tags": [
           "chains"
         ]

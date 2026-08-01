@@ -6,6 +6,7 @@ export const WORKBENCH_VIEWS = [
   "candidates",
   "candidate-review",
   "chain-graph",
+  "chain-studio",
   "workspace",
   "quality",
   "lineage",

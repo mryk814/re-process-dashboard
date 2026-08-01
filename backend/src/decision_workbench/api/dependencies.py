@@ -181,6 +181,7 @@ def get_chain_use_cases(request: Request) -> ChainUseCases:
     return ChainUseCases(
         store=state.store,
         workspace_catalog=context.workspace_catalog,
+        task_registry=context.task_registry,
         planning_use_case=contribution.planning_use_case,
         execution_use_case=contribution.execution_use_case,
         snapshot_use_case=contribution.snapshot_use_case,
