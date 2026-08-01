@@ -23,6 +23,7 @@ from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInputs,
 )
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import DeterministicTransformCatalog
 from decision_workbench.tasks.task_registry import TaskRegistry
@@ -95,9 +96,9 @@ class ChainStageExecutor:
                 raise ChainExecutionError(str(exc)) from exc
         else:
             actual_contract = semantic_digest(
-                self.registry.contract_for(
-                    stage.contract_id
-                ).task_definition.model_dump(mode="json")
+                persisted_task_definition_payload(
+                    self.registry.contract_for(stage.contract_id).task_definition
+                )
             )
             if actual_contract != stage.contract_digest:
                 raise ChainExecutionError(

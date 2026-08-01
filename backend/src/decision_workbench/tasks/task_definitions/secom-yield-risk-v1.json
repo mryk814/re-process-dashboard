@@ -30,6 +30,11 @@
         "key": "fail_probability",
         "label": "異常確率",
         "unit": "1",
+        "target_kind": "binary",
+        "binary": {
+          "event_label": "異常",
+          "non_event_label": "正常"
+        },
         "goal_direction": "at_most",
         "measurement_keys": ["fail_probability"],
         "plausibility_range": {"min": 0, "max": 1},

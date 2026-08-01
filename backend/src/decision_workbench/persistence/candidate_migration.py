@@ -86,7 +86,7 @@ def _create_common_tables(conn: sqlite3.Connection) -> None:
         "CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1), archived_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS screening_runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS actual_measurements (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, snapshot_id TEXT NOT NULL, property TEXT NOT NULL, mean REAL NOT NULL, value_label TEXT, std REAL NOT NULL, replicates INTEGER NOT NULL, unit TEXT NOT NULL, experiment_no TEXT NOT NULL, measured_at TEXT, note TEXT NOT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL)",
     )
     for statement in statements:
@@ -120,6 +120,8 @@ def _ensure_project_columns(conn: sqlite3.Connection) -> None:
 def _ensure_actual_snapshot_column(conn: sqlite3.Connection) -> None:
     if "snapshot_id" not in _columns(conn, "actual_measurements"):
         conn.execute("ALTER TABLE actual_measurements ADD COLUMN snapshot_id TEXT NOT NULL DEFAULT ''")
+    if "value_label" not in _columns(conn, "actual_measurements"):
+        conn.execute("ALTER TABLE actual_measurements ADD COLUMN value_label TEXT")
 
 
 def _ensure_default_project(conn: sqlite3.Connection) -> None:
@@ -350,6 +352,7 @@ def migrate_candidate_storage(
                     raise CandidateMigrationError("candidate migration is marked complete but the legacy hot table exists")
                 _assert_canonical_rows(conn)
                 _validate_references(conn, "candidates")
+                _ensure_actual_snapshot_column(conn)
                 if not _candidate_safety_is_current(conn):
                     backup_path = _backup_database(path, conn, CANDIDATE_SAFETY_MIGRATION_ID)
                     callback("after_safety_backup")

@@ -212,8 +212,15 @@
             "type": "string"
           },
           "mean": {
-            "title": "Mean",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
           },
           "measured_at": {
             "anyOf": [
@@ -258,11 +265,38 @@
             "minLength": 1,
             "title": "Unit",
             "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "value_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Label"
           }
         },
         "required": [
           "property",
-          "mean",
           "unit",
           "id",
           "candidate_id",
@@ -280,8 +314,15 @@
             "type": "string"
           },
           "mean": {
-            "title": "Mean",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
           },
           "measured_at": {
             "anyOf": [
@@ -322,11 +363,38 @@
             "minLength": 1,
             "title": "Unit",
             "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "value_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Label"
           }
         },
         "required": [
           "property",
-          "mean",
           "unit"
         ],
         "title": "ActualMeasurementInput",
@@ -2136,6 +2204,27 @@
           "production_enabled"
         ],
         "title": "BatchSelectorDefinition",
+        "type": "object"
+      },
+      "BinaryOutputSemantics": {
+        "additionalProperties": false,
+        "properties": {
+          "event_label": {
+            "minLength": 1,
+            "title": "Event Label",
+            "type": "string"
+          },
+          "non_event_label": {
+            "minLength": 1,
+            "title": "Non Event Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_label",
+          "non_event_label"
+        ],
+        "title": "BinaryOutputSemantics",
         "type": "object"
       },
       "BlendEditorContext": {
@@ -6528,6 +6617,33 @@
           "source_ref"
         ],
         "title": "CopySourceRef",
+        "type": "object"
+      },
+      "CountOutputSemantics": {
+        "additionalProperties": false,
+        "properties": {
+          "count_unit": {
+            "minLength": 1,
+            "title": "Count Unit",
+            "type": "string"
+          },
+          "exposure_label": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure Label"
+          }
+        },
+        "required": [
+          "count_unit"
+        ],
+        "title": "CountOutputSemantics",
         "type": "object"
       },
       "CounterfactualInfeasibility": {
@@ -12085,6 +12201,16 @@
             "title": "Active Runtimes",
             "type": "array"
           },
+          "classification_diagnostics": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Classification Diagnostics",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -13272,9 +13398,48 @@
         "title": "OperationDiagnostic",
         "type": "object"
       },
+      "OrdinalOutputSemantics": {
+        "additionalProperties": false,
+        "properties": {
+          "categories": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 2,
+            "title": "Categories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "title": "OrdinalOutputSemantics",
+        "type": "object"
+      },
       "OutputDefinition": {
         "additionalProperties": false,
         "properties": {
+          "binary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BinaryOutputSemantics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "count": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountOutputSemantics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "goal_direction": {
             "enum": [
               "at_least",
@@ -13304,6 +13469,16 @@
             "title": "Measurement Keys",
             "type": "array"
           },
+          "ordinal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrdinalOutputSemantics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plausibility_range": {
             "anyOf": [
               {
@@ -13323,6 +13498,18 @@
                 "type": "null"
               }
             ]
+          },
+          "target_kind": {
+            "default": "continuous",
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal"
+            ],
+            "title": "Target Kind",
+            "type": "string"
           },
           "unit": {
             "minLength": 1,
@@ -22337,6 +22524,18 @@
           "target": {
             "minLength": 1,
             "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "default": "continuous",
+            "enum": [
+              "continuous",
+              "continuous_positive",
+              "binary",
+              "count",
+              "ordinal"
+            ],
+            "title": "Target Kind",
             "type": "string"
           },
           "uncertainty_components": {

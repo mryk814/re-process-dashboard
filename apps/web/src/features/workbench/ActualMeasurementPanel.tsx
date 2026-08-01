@@ -16,6 +16,7 @@ import {
   measurementMetadata,
   signedDifference,
 } from "./actualMeasurementPresentation";
+import { formatPredictionPoint } from "../../shared/predictionPresentation";
 
 type ActualDraft = {
   property: string;
@@ -94,14 +95,17 @@ export function ActualMeasurementPanel({
   }, [identity, firstOutput]);
 
   const selectedOutput = outputByKey.get(draft.property);
+  const targetKind = selectedOutput?.target_kind ?? "continuous";
   const mean = Number(draft.mean);
   const std = Number(draft.std);
   const replicates = Number(draft.replicates);
   // A single observation carries no measurable spread; ±0 would read as "no scatter".
   const singleMeasurement = replicates === 1;
+  const semanticSelection = targetKind === "binary" || targetKind === "ordinal";
   const valid = Boolean(selectedOutput)
     && draft.mean.trim() !== ""
-    && Number.isFinite(mean)
+    && (semanticSelection || Number.isFinite(mean))
+    && (targetKind !== "count" || (Number.isInteger(mean) && mean >= 0))
     && Number.isFinite(std)
     && std >= 0
     && Number.isInteger(replicates)
@@ -115,7 +119,8 @@ export function ActualMeasurementPanel({
     setError("");
     const body: ApiActualMeasurementInput = {
       property: selectedOutput.key,
-      mean,
+      mean: targetKind === "binary" || targetKind === "ordinal" ? null : mean,
+      value: targetKind === "binary" || targetKind === "ordinal" ? draft.mean : null,
       std: singleMeasurement ? 0 : std,
       replicates,
       unit: selectedOutput.unit,
@@ -167,7 +172,7 @@ export function ActualMeasurementPanel({
       {formOpen && (
         <div className="actual-measurement-form">
           <label>特性<select value={draft.property} onChange={(event) => setDraft((current) => ({ ...current, property: event.target.value }))}>{taskDefinition.outputs.map((output) => <option value={output.key} key={output.key}>{output.label}</option>)}</select></label>
-          <label>実測値<span className="actual-value-field"><input aria-label="実測値" type="number" step="any" value={draft.mean} onChange={(event) => setDraft((current) => ({ ...current, mean: event.target.value }))} /><small>{selectedOutput?.unit}</small></span></label>
+          <label>実測値<span className="actual-value-field">{targetKind === "binary" ? <select aria-label="実測値" value={draft.mean} onChange={(event) => setDraft((current) => ({ ...current, mean: event.target.value }))}><option value="">選択</option><option value={selectedOutput?.binary?.event_label ?? ""}>{selectedOutput?.binary?.event_label}</option><option value={selectedOutput?.binary?.non_event_label ?? ""}>{selectedOutput?.binary?.non_event_label}</option></select> : targetKind === "ordinal" ? <select aria-label="実測値" value={draft.mean} onChange={(event) => setDraft((current) => ({ ...current, mean: event.target.value }))}><option value="">選択</option>{selectedOutput?.ordinal?.categories.map((category) => <option value={category} key={category}>{category}</option>)}</select> : <input aria-label="実測値" type="number" min={targetKind === "count" ? "0" : undefined} step={targetKind === "count" ? "1" : "any"} value={draft.mean} onChange={(event) => setDraft((current) => ({ ...current, mean: event.target.value }))} />}<small>{selectedOutput?.unit}</small></span></label>
           <label>標準偏差<input aria-label="実測の標準偏差" type="number" min="0" step="any" disabled={singleMeasurement} value={singleMeasurement ? "" : draft.std} placeholder={singleMeasurement ? "1点測定" : undefined} onChange={(event) => setDraft((current) => ({ ...current, std: event.target.value }))} />{singleMeasurement && <small>1点測定ではばらつきを記録しません</small>}</label>
           <label>反復数<input aria-label="実測の反復数" type="number" min="1" max="999" step="1" value={draft.replicates} onChange={(event) => setDraft((current) => ({ ...current, replicates: event.target.value }))} /></label>
           <label>実験番号<input value={draft.experimentNo} onChange={(event) => setDraft((current) => ({ ...current, experimentNo: event.target.value }))} /></label>
@@ -187,14 +192,19 @@ export function ActualMeasurementPanel({
               const output = outputByKey.get(actual.property);
               const prediction = comparison.prediction.predictions[actual.property];
               const outputKey = output?.key ?? actual.property;
-              const difference = prediction && prediction.unit === actual.unit
-                ? actualDifference(actual.mean, prediction.value)
+              const actualValue = actual.value_label
+                ?? (output?.target_kind === "binary"
+                  ? actual.mean === 1 ? output.binary?.event_label : actual.mean === 0 ? output.binary?.non_event_label : undefined
+                  : undefined)
+                ?? formatValue(outputKey, actual.mean ?? 0);
+              const difference = prediction && prediction.unit === actual.unit && prediction.target_kind !== "binary"
+                ? actualDifference(actual.mean ?? 0, prediction.value)
                 : null;
               const metadata = measurementMetadata(actual);
               return <tr key={actual.id}>
                 <th>{output?.label ?? actual.property}<small>{actual.unit}</small></th>
-                <td>{prediction ? <><b>{formatValue(outputKey, prediction.value)}</b><small>{prediction.unit}</small></> : <span className="empty-cell">保存済みsnapshotに予測なし</span>}</td>
-                <td><b>{formatValue(outputKey, actual.mean)}</b><small>{actual.unit}{actual.std > 0 ? ` / ±${formatValue(outputKey, actual.std)}` : ""}</small></td>
+                <td>{prediction ? <><b>{formatPredictionPoint(prediction, (value) => formatValue(outputKey, value))}</b><small>{prediction.unit}</small></> : <span className="empty-cell">保存済みsnapshotに予測なし</span>}</td>
+                <td><b>{actualValue}</b><small>{actual.unit}{actual.std > 0 ? ` / ±${formatValue(outputKey, actual.std)}` : ""}</small></td>
                 <td className={difference == null ? "" : difference > 0 ? "actual-difference positive" : difference < 0 ? "actual-difference negative" : "actual-difference"}>{difference == null ? prediction ? "単位不一致" : "—" : <>{signedDifference(difference, (value) => formatValue(outputKey, value))}<small>{actual.unit}</small></>}</td>
                 <td><span className="actual-metadata">{metadata.map((item, index) => <small key={`${index}:${item}`}>{item}</small>)}</span></td>
                 <td><span className="actual-metadata"><small>編集版 {comparison.candidate_revision ?? "不明（旧形式）"}</small><small>{new Date(comparison.snapshot_created_at).toLocaleString("ja-JP")}</small><small title={comparison.provenance.package?.manifest_sha256}>{comparison.provenance.package?.id || "Package情報なし"}</small></span></td>

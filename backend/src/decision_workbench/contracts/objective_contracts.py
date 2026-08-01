@@ -184,6 +184,18 @@ class ObjectiveDefinition(ContractModel):
             capability = capabilities.get(term.output_key)
             if capability is None or not capability.point_statistics:
                 raise ValueError(f"ObjectiveのoutputをRuntimeが予測できません: {term.output_key}")
+            if (
+                "target_kind" in capability.model_fields_set
+                and capability.target_kind != output.target_kind
+            ):
+                raise ValueError(f"Objectiveのtarget kindがTaskと一致しません: {term.output_key}")
+            semantic_directions = {
+                "binary": {"at_least", "at_most"},
+                "count": {"at_least", "at_most", "between", "target"},
+                "ordinal": {"at_least", "at_most", "target"},
+            }.get(output.target_kind)
+            if semantic_directions is not None and term.direction not in semantic_directions | {None}:
+                raise ValueError(f"Objectiveの方向がtarget kindと一致しません: {term.output_key}")
             expected = output.goal_direction
             compatible = (
                 term.direction in {"between", None}

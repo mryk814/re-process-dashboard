@@ -24,6 +24,7 @@ from decision_workbench.contracts.evidence_contracts import (
 from decision_workbench.persistence.snapshot_reader import SnapshotPayloadError, candidate_input_from_snapshot
 from decision_workbench.persistence.store import Store
 from decision_workbench.tasks.task_registry import TaskRegistry
+from decision_workbench.contracts.task_contracts import OutputDefinition
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 
 
@@ -37,6 +38,40 @@ class RecordValidationError(ValueError):
 
 class RecordIntegrityError(RuntimeError):
     pass
+
+
+def normalize_actual_measurement(
+    payload: ActualMeasurementInput,
+    output: OutputDefinition,
+) -> ActualMeasurementInput:
+    """Resolve a user observation through the Task-owned output semantics."""
+    if output.target_kind in {"continuous", "continuous_positive"}:
+        if payload.mean is None:
+            raise RecordValidationError(f"{output.label}は数値の実測値を指定してください")
+        return payload.model_copy(update={"value_label": None})
+    if output.target_kind == "binary":
+        semantics = output.binary
+        assert semantics is not None
+        raw = payload.value if payload.value is not None else payload.mean
+        if raw == semantics.event_label or raw is True or raw == 1:
+            return payload.model_copy(update={"mean": 1.0, "value": None, "value_label": semantics.event_label})
+        if raw == semantics.non_event_label or raw is False or raw == 0:
+            return payload.model_copy(update={"mean": 0.0, "value": None, "value_label": semantics.non_event_label})
+        raise RecordValidationError(f"{output.label}は{semantics.event_label}または{semantics.non_event_label}を指定してください")
+    if output.target_kind == "count":
+        raw = payload.value if payload.value is not None else payload.mean
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not float(raw).is_integer() or raw < 0:
+            raise RecordValidationError(f"{output.label}は0以上の整数で指定してください")
+        return payload.model_copy(update={"mean": float(raw), "value": None, "value_label": None})
+    semantics = output.ordinal
+    assert semantics is not None
+    raw = payload.value
+    if isinstance(raw, str) and raw in semantics.categories:
+        index = semantics.categories.index(raw)
+        return payload.model_copy(update={"mean": float(index), "value": None, "value_label": raw})
+    if isinstance(raw, int) and not isinstance(raw, bool) and 0 <= raw < len(semantics.categories):
+        return payload.model_copy(update={"mean": float(raw), "value": None, "value_label": semantics.categories[raw]})
+    raise RecordValidationError(f"{output.label}は定義済みの順序カテゴリを指定してください")
 
 
 class RecordService:
@@ -143,6 +178,7 @@ class RecordService:
             raise RecordValidationError(
                 f"{output.label}（{payload.property}）の単位は {output.unit} です"
             )
+        payload = normalize_actual_measurement(payload, output)
         result = self.inference.detailed_for(project, candidate)
         if payload.property not in result.get("predictions", {}):
             raise RecordIntegrityError(

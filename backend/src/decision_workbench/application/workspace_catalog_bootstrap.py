@@ -20,6 +20,7 @@ from decision_workbench.contracts.data_library_contracts import (
     ModelPackageRefCreateInput,
     ModelPackageRegistrationWarning,
 )
+from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.tasks.task_registry import TaskRegistry
 from decision_workbench.persistence.workspace_catalog import (
     CatalogConflictError,
@@ -84,7 +85,7 @@ class ProjectBinding:
 
 def task_definition_digest(registry: TaskRegistry, task_id: str) -> str:
     definition = registry.contract_for(task_id).task_definition
-    return semantic_digest(definition.model_dump(mode="json"))
+    return semantic_digest(persisted_task_definition_payload(definition))
 
 
 def register_runtime_resources(

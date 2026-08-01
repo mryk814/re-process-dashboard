@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -185,6 +186,23 @@ class TaskPackageCatalog:
             runtime_type: optional_dependencies.get(runtime_type, True)
             for runtime_type in PREDICTOR_RUNTIME_TYPES
         }
+        classification_diagnostics: dict[str, dict[str, float]] = {}
+        diagnostics_artifact = next(
+            (item.path for item in manifest.artifacts if item.path == "reports/classification-diagnostics.json"),
+            None,
+        )
+        if diagnostics_artifact is not None:
+            try:
+                raw_diagnostics = json.loads(package.artifact_path(diagnostics_artifact).read_text(encoding="utf-8"))
+                targets = raw_diagnostics.get("targets", {})
+                if isinstance(targets, dict):
+                    classification_diagnostics = {
+                        str(target): {str(key): float(value) for key, value in values.items() if isinstance(value, (int, float))}
+                        for target, values in targets.items()
+                        if isinstance(values, dict)
+                    }
+            except (OSError, ValueError, TypeError):
+                classification_diagnostics = {}
         return {
             "id": manifest.package_id,
             "version": manifest.package_version,
@@ -206,6 +224,7 @@ class TaskPackageCatalog:
                 for item in manifest.predictors
             ],
             "quality_report": quality.model_dump(mode="json"),
+            "classification_diagnostics": classification_diagnostics,
         }
 
     def task_definitions(self) -> list[dict[str, Any]]:
