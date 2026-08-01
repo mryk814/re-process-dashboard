@@ -155,8 +155,8 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(page).toHaveURL(/view=profile-workbench/);
   const steps = page.getByRole("list", { name: "Dataset登録からProject作成まで" });
   await expect(steps).toContainText("Excel");
-  await expect(steps).toContainText("Profile候補");
-  await expect(steps).toContainText("構造差分");
+  await expect(steps).toContainText("Base Profile");
+  await expect(steps).toContainText("対応付け");
   await expect(steps).toContainText("Project作成");
 
   await page.locator('input[type="file"]').setInputFiles(

@@ -518,7 +518,8 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
 });
 
 test("Data Library blocks model updates when an exact personal Profile is missing", async ({ page }) => {
-  await page.route("**/api/data-library/datasets?*", async (route) => {
+  let targetDisplayName = "";
+  await page.route(/\/api\/data-library\/datasets(?:\?.*)?$/, async (route) => {
     const response = await route.fetch();
     const datasets = await response.json() as Array<Record<string, unknown>>;
     const target = datasets.find((item) => {
@@ -528,19 +529,34 @@ test("Data Library blocks model updates when an exact personal Profile is missin
         && "tasks" in profile.effective_profile_json;
     });
     expect(target).toBeTruthy();
+    const dataAsset = target!.data_asset as { original_filename: string };
+    const profileRevision = target!.profile_revision as { name: string };
+    targetDisplayName = `${dataAsset.original_filename.replace(/\.(xlsx|csv)$/i, "")} · ${profileRevision.name}`;
     target!.profile_available = false;
     await route.fulfill({ response, json: datasets });
   });
   await page.goto("/?view=data-library");
 
+  await expect.poll(() => targetDisplayName).not.toBe("");
+  const targetButton = page.getByRole("button", {
+    name: `${targetDisplayName}の詳細を表示`,
+  });
+  if (!await targetButton.isVisible()) {
+    await page.locator("details.bundled-dataset-group > summary").click();
+  }
+  await targetButton.click();
   const selectedDataset = page.locator(".dataset-context");
   await selectedDataset.getByRole("button", { name: "このデータでモデルを更新" }).click();
   const guide = page.getByRole("region", { name: "モデルを追加する" });
 
   await expect(guide.getByRole("alert")).toContainText("登録時のProfileが見つからない");
   await expect(guide.getByRole("alert")).toContainText("自動検出へ切り替える");
-  await expect(guide.getByRole("alert")).toContainText("WORKBENCH_PROFILE_STORE_PATH");
-  await expect(guide.getByRole("alert").locator("code")).toHaveText(/^[0-9a-f]{64}\.json$/);
+  await expect(guide.getByRole("alert")).toContainText("--profile");
+  await expect(guide.getByRole("alert")).toContainText("この画面では個人ファイルの保存先を表示しません");
+  await expect(guide.getByRole("alert")).not.toContainText("WORKBENCH_PROFILE_STORE_PATH");
+  await expect(guide.getByRole("alert").locator("code").filter({
+    hasText: /^[0-9a-f]{64}\.json$/,
+  })).toBeVisible();
   await expect(guide.getByRole("textbox", { name: "PowerShellモデル更新手順" })).not.toBeVisible();
   await expect(guide.getByRole("button", { name: "PowerShell手順をコピー" })).not.toBeVisible();
 });

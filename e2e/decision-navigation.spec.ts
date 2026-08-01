@@ -17,12 +17,14 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page.locator(".topbar nav").getByRole("button")).toHaveText([
     "プロジェクト",
     "データライブラリ",
+    "Chain Studio",
     "ワークスペース",
   ]);
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button")).toHaveText([
     "概要",
     "データ探索",
     "候補比較",
+    "Chain構成",
     "範囲探索",
     "候補確認",
     "設定",
