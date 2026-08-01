@@ -17,12 +17,13 @@ TaskDefinitionの科学的な許容範囲を広げることはできず、範囲
 
 Design SpaceはTaskDefinitionに対して保存前に検証します。
 
-- numeric range／候補値はTaskのallowed range内
+- numeric range／候補値はTaskのallowed range内で、integer／step（Taskのlattice originを含む）／log scaleを変えない
 - categorical choicesはTaskの選択肢の部分集合
 - composition total／balanceは宣言済み組成と単位だけを参照
 - conditional activationは宣言済みcontrollerと入力だけを参照
 
 範囲探索が作るrun-local Design Spaceは、Project Design Spaceをさらに狭めることしかできません。
+stepのnarrowingもTaskのallowed rangeをoriginとする同じlatticeを保ちます。
 ロバストネス解析の公差範囲も同じnumeric domain内に限定します。clipは行いません。
 
 ## Provenance

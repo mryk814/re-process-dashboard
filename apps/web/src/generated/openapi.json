@@ -10653,6 +10653,16 @@
             "title": "Label",
             "type": "string"
           },
+          "numeric_domain_kind": {
+            "default": "continuous",
+            "enum": [
+              "continuous",
+              "integer",
+              "step"
+            ],
+            "title": "Numeric Domain Kind",
+            "type": "string"
+          },
           "order": {
             "minimum": 0.0,
             "title": "Order",
@@ -10668,6 +10678,26 @@
             "default": true,
             "title": "Required",
             "type": "boolean"
+          },
+          "search_scale": {
+            "default": "linear",
+            "enum": [
+              "linear",
+              "log"
+            ],
+            "title": "Search Scale",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
           },
           "training_range": {
             "anyOf": [
@@ -12584,6 +12614,16 @@
             "title": "Mode",
             "type": "string"
           },
+          "numeric_domain_kind": {
+            "default": "continuous",
+            "enum": [
+              "continuous",
+              "integer",
+              "step"
+            ],
+            "title": "Numeric Domain Kind",
+            "type": "string"
+          },
           "path": {
             "minLength": 1,
             "title": "Path",
@@ -12598,6 +12638,37 @@
                 "type": "null"
               }
             ]
+          },
+          "search_scale": {
+            "default": "linear",
+            "enum": [
+              "linear",
+              "log"
+            ],
+            "title": "Search Scale",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "step_origin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Origin"
           },
           "values": {
             "default": [],

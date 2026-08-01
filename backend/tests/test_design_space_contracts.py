@@ -35,6 +35,7 @@ def _battery_space(**updates: object) -> DesignSpaceDefinition:
                 path="process.discharge_rate_c",
                 mode="range",
                 range=NumericRange(min=0.5, max=1.0),
+                search_scale="log",
             ),
         ),
         "categorical_domains": (),
@@ -52,6 +53,7 @@ def test_design_space_can_only_narrow_task_definition() -> None:
             path="process.discharge_rate_c",
             mode="range",
             range=NumericRange(min=0.01, max=8),
+            search_scale="log",
         ),
     ))
     with pytest.raises(ValueError, match="許容範囲"):

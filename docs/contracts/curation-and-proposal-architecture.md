@@ -102,6 +102,10 @@ a balance component are applied before candidate validation. A
 composition-total constraint with `balance_path` therefore produces an exact
 remainder rather than relying on later rejection.
 
+数値domainはTaskDefinitionを正本にします。integerとstepはTaskのlatticeへsnapし、
+log scaleは正の範囲だけを対数空間でsampleします。response curve／contourも同じ
+domain gridを使い、snap後の重複点は表示・評価しません。
+
 `bounded_simplex_goal_v1` is available only when one feasible balance constraint,
 at least two continuous non-balance composition ranges, and no conditional
 composition override are present. It uses seeded hit-and-run in the sum-zero

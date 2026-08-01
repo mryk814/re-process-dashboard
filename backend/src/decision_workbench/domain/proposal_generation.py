@@ -106,9 +106,16 @@ def generate_candidates(
             position = float(unit[row_index, column])
             column += 1
             if domain.range is not None:
-                value = domain.range.min + position * (
-                    domain.range.max - domain.range.min
-                )
+                if domain.search_scale == "log":
+                    value = math.exp(
+                        math.log(domain.range.min)
+                        + position * (math.log(domain.range.max) - math.log(domain.range.min))
+                    )
+                else:
+                    value = domain.range.min + position * (
+                        domain.range.max - domain.range.min
+                    )
+                value = _snap_numeric_value(value, domain)
             else:
                 value = domain.values[min(int(position * len(domain.values)), len(domain.values) - 1)]
             applied[domain.path] = float(value)
@@ -380,3 +387,18 @@ def _sample_bounded_simplex_points(
 def _read_scalar(candidate: Candidate, path: str) -> float | str:
     group, key = path.split(".", 1)
     return getattr(candidate.inputs, group)[key]
+
+
+def _snap_numeric_value(value: float, domain: object) -> float:
+    """Snap generated values to the immutable Design Space semantics."""
+
+    from decision_workbench.contracts.design_space_contracts import NumericDomain
+
+    assert isinstance(domain, NumericDomain)
+    assert domain.range is not None
+    if domain.numeric_domain_kind == "integer":
+        value = float(round(value))
+    elif domain.step is not None:
+        assert domain.step_origin is not None
+        value = domain.step_origin + round((value - domain.step_origin) / domain.step) * domain.step
+    return min(domain.range.max, max(domain.range.min, value))

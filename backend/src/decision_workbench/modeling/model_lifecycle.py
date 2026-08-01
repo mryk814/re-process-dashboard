@@ -219,10 +219,20 @@ def _semantic_digest(payload: Any) -> str:
 
 
 def task_input_contract_digest(task: TaskDefinition) -> str:
+    input_groups = [group.model_dump(mode="json") for group in task.input_groups]
+    # Numeric exploration semantics constrain candidate construction, not the
+    # canonical feature shape consumed by an immutable Model Package.  Keep
+    # existing Packages and saved prediction snapshots valid when a Task gains
+    # integer, step, or log search semantics.
+    for group in input_groups:
+        for field in group["fields"]:
+            field.pop("numeric_domain_kind", None)
+            field.pop("step", None)
+            field.pop("search_scale", None)
     return _semantic_digest({
         "schema_version": task.schema_version,
         "task_id": task.id,
-        "input_groups": [group.model_dump(mode="json") for group in task.input_groups],
+        "input_groups": input_groups,
     })
 
 
