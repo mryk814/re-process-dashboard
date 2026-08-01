@@ -51,7 +51,7 @@ test("broken Chain evaluation is isolated and explained without hiding Projects"
   await page.getByRole("button", { name: "候補比較" }).click();
   await expect(page.getByRole("region", { name: "Chain候補作業面" })).toBeVisible();
   await expect(page.getByText("保存済みの候補・実行結果・Snapshot・実測analysisは参照できます。")).toBeVisible();
-  await expect(page.getByText("固定されたA → B → Cを表示しています")).toBeVisible();
+  await expect(page.getByText("固定されたChainの最新実行を表示しています")).toBeVisible();
   await expect(page.getByRole("button", { name: "全Stageを固定" })).toBeDisabled();
   await expect(page.getByText(/現revisionを固定済み/)).toBeVisible();
   await expect(page.getByText("request degraded-e2e-saved-execution")).toBeVisible();

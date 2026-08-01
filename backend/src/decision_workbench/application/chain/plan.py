@@ -8,6 +8,7 @@ from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
     SparseBlendChainAdapter,
     candidate_adapter_for,
+    candidate_adapter_shape_for,
     candidate_path_for_revision,
 )
 from decision_workbench.contracts.chain_contracts import (
@@ -96,10 +97,10 @@ class ChainPlanningUseCase:
         """Declare which candidate surface this Chain needs, before any editing."""
 
         definition, revision, _identity = self._chain(project_id)
-        adapter = self.adapter_for(revision)
+        shape = candidate_adapter_shape_for(revision)
         return ChainCandidateCapability(
-            adapter_id=adapter.adapter_id,
-            sparse_blend=adapter.sparse_blend,
+            adapter_id=shape.adapter_id,
+            sparse_blend=shape.sparse_blend,
             external_input_paths=tuple(
                 port.path for port in definition.external_inputs
             ),

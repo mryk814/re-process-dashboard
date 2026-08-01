@@ -47,6 +47,15 @@ class ChainCandidateAdapterError(ValueError):
 
 
 @dataclass(frozen=True)
+class ChainCandidateAdapterShape:
+    """Read-only candidate shape derivable from a pinned Chain Revision."""
+
+    adapter_id: str
+    sparse_blend: bool
+    deterministic_stage: ChainStageRevision | None = None
+
+
+@dataclass(frozen=True)
 class ActualConditioningResult:
     """Typed adapter result for one immutable actual-conditioned variant."""
 
@@ -175,18 +184,10 @@ def candidate_path_for_revision(
 ) -> str:
     """Resolve candidate storage without loading a deterministic Transform."""
 
-    deterministic = [
-        stage
-        for stage in revision.stages
-        if stage.stage_kind == "deterministic_transform"
-    ]
-    if not deterministic:
+    shape = candidate_adapter_shape_for(revision)
+    if not shape.sparse_blend:
         return _scalar_candidate_path(external_path, value_kind, quantity)
-    if len(deterministic) == 1:
-        return _sparse_blend_candidate_path(external_path, value_kind, quantity)
-    raise ChainCandidateAdapterError(
-        "決定論的Stageを2段以上持つChainに対応するcandidate adapterがありません"
-    )
+    return _sparse_blend_candidate_path(external_path, value_kind, quantity)
 
 
 class ChainCandidateAdapter(Protocol):
@@ -523,14 +524,33 @@ def candidate_adapter_for(
 ) -> ChainCandidateAdapter:
     """Select an allow-listed adapter from the Chain Revision's stage shape."""
 
+    shape = candidate_adapter_shape_for(revision)
+    if not shape.sparse_blend:
+        return ScalarChainAdapter()
+    assert shape.deterministic_stage is not None
+    return SparseBlendChainAdapter(transform_catalog, shape.deterministic_stage)
+
+
+def candidate_adapter_shape_for(
+    revision: ChainRevision,
+) -> ChainCandidateAdapterShape:
+    """Resolve the candidate surface without loading a Transform catalog."""
+
     deterministic = [
         stage for stage in revision.stages
         if stage.stage_kind == "deterministic_transform"
     ]
     if not deterministic:
-        return ScalarChainAdapter()
+        return ChainCandidateAdapterShape(
+            adapter_id=ScalarChainAdapter.adapter_id,
+            sparse_blend=ScalarChainAdapter.sparse_blend,
+        )
     if len(deterministic) == 1:
-        return SparseBlendChainAdapter(transform_catalog, deterministic[0])
+        return ChainCandidateAdapterShape(
+            adapter_id=SparseBlendChainAdapter.adapter_id,
+            sparse_blend=SparseBlendChainAdapter.sparse_blend,
+            deterministic_stage=deterministic[0],
+        )
     raise ChainCandidateAdapterError(
         "決定論的Stageを2段以上持つChainに対応するcandidate adapterがありません"
     )

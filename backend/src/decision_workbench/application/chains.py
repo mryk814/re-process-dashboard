@@ -794,7 +794,9 @@ class ChainUseCases:
         )
 
     def candidate_capability(self, project_id: str) -> ChainCandidateCapability:
-        return get_chain_candidate_capability(project_id, self._planning())
+        return get_chain_candidate_capability(
+            project_id, self._planning(require_available=False)
+        )
 
     def candidate_contract(
         self,
