@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 export const catalogPath = resolve(import.meta.dirname, "verification-gates.json");
 
@@ -117,11 +117,15 @@ export function resolveExecutable(
     npmExecPath = process.env.npm_execpath,
   } = {},
 ) {
-  if (name === "npm" && npmExecPath) {
-    return { command: execPath, prefix: [npmExecPath] };
+  const nodeHostedNpmExecPath = npmExecPath
+    ?? (platform === "win32"
+      ? join(dirname(execPath), "node_modules", "npm", "bin", "npm-cli.js")
+      : null);
+  if (name === "npm" && nodeHostedNpmExecPath) {
+    return { command: execPath, prefix: [nodeHostedNpmExecPath] };
   }
-  if (name === "npx" && npmExecPath) {
-    return { command: execPath, prefix: [npmExecPath, "exec", "--"] };
+  if (name === "npx" && nodeHostedNpmExecPath) {
+    return { command: execPath, prefix: [nodeHostedNpmExecPath, "exec", "--"] };
   }
   if (name === "npm") {
     return { command: platform === "win32" ? "npm.cmd" : "npm", prefix: [] };

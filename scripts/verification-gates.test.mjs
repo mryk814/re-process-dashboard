@@ -100,6 +100,17 @@ test("npx uses the npm CLI through Node on a virtual Windows runner", () => {
     command: runtime.execPath,
     prefix: [runtime.npmExecPath, "exec", "--"],
   });
+  assert.deepEqual(resolveExecutable("npx", {
+    platform: "win32",
+    execPath: runtime.execPath,
+  }), {
+    command: runtime.execPath,
+    prefix: [
+      "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+      "exec",
+      "--",
+    ],
+  });
 });
 
 test("catalog declares four distinct levels, path rules, and complete gate metadata", () => {
