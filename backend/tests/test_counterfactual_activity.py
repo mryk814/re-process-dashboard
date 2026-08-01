@@ -34,6 +34,7 @@ from decision_workbench.contracts.task_contracts import (
     NumericRange,
     OutputDefinition,
     TaskDefinition,
+    persisted_task_definition_payload,
 )
 from decision_workbench.task_composition.candidate_family_adapters import (
     CANONICAL_CANDIDATE_ADAPTER,
@@ -93,7 +94,7 @@ def _toy_contracts():
             "output.Y": 3,
         },
     )
-    digest = semantic_digest(task.model_dump(mode="json"))
+    digest = semantic_digest(persisted_task_definition_payload(task))
     space = DesignSpaceDefinition(
         schema_version="design-space-definition/v1",
         design_space_id="toy-space",

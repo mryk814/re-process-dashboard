@@ -107,7 +107,11 @@ def _tabular_runtime(
 ) -> PredictionRuntime:
     from decision_workbench.modeling.tabular.runtime import TabularRegressionRuntime
 
-    return TabularRegressionRuntime(data, package)
+    return TabularRegressionRuntime(
+        data,
+        package,
+        missing_policy_inputs=data.profile.inputs,
+    )
 
 
 def _tabular_features(task_id: str) -> FeatureRowBuilder:

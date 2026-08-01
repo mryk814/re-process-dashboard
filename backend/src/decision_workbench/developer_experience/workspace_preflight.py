@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from decision_workbench.contracts.chain_contracts import ProjectScientificIdentity
 from decision_workbench.contracts.task_contracts import (
     TaskContractFixture,
+    persisted_task_definition_payload,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.model_lifecycle import (
@@ -251,7 +252,9 @@ def _package_findings(
         if row is None:
             continue
         current_contract = semantic_digest(
-            registry.contract_for(task_id).task_definition.model_dump(mode="json")
+            persisted_task_definition_payload(
+                registry.contract_for(task_id).task_definition
+            )
         )
         current_manifest = _canonical_json(
             package.manifest.model_dump(mode="json")

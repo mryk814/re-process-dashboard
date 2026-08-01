@@ -377,6 +377,7 @@ def _find_or_create_project(
                 "path": "process.cycle_index",
                 "mode": "values",
                 "values": [300.0, 400.0],
+                "numeric_domain_kind": "integer",
             }
         ],
     }

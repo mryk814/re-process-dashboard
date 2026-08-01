@@ -71,11 +71,11 @@ def _interval_method(summary: PredictiveSummary) -> str | None:
 
 def _missing_input_paths(
     candidate: CandidateInput,
-    profile: Any,
+    policy_inputs: Sequence[Any],
 ) -> list[str]:
     return [
         item.path
-        for item in profile.inputs
+        for item in policy_inputs
         if _get_path(candidate, item.path) in {None, ""}
     ]
 
@@ -92,6 +92,7 @@ def _with_imputation_note(message: str, missing_paths: Sequence[str]) -> str:
 
 class TabularRegressionRuntime:
     support_policy_id = "tabular-row-knn-v1"
+    missing_policy_inputs: tuple[Any, ...] = ()
 
     def __init__(
         self,
@@ -99,9 +100,11 @@ class TabularRegressionRuntime:
         package_root: str | Path | VerifiedModelPackage,
         *,
         conformal_wrappers: Sequence[VerifiedConformalWrapper] = (),
+        missing_policy_inputs: Sequence[Any] = (),
     ) -> None:
         self.data = data
         self.profile = data.profile
+        self.missing_policy_inputs = tuple(missing_policy_inputs)
         self.task_id = data.profile.task_id
         self.model_package = (
             package_root
@@ -183,7 +186,7 @@ class TabularRegressionRuntime:
             raise ValueError("Package missing-policy artifact digest is incompatible")
         required_imputation = {
             item.path
-            for item in self.profile.inputs
+            for item in self.missing_policy_inputs
             if item.numeric_missing.strategy == "training_median_with_indicator"
         }
         if (
@@ -383,7 +386,10 @@ class TabularRegressionRuntime:
     ) -> tuple[Support, list[dict[str, Any]]]:
         reference = self.support_references[target]
         vector = self._feature_bundle(candidate).values
-        candidate_missing = _missing_input_paths(candidate, self.profile)
+        candidate_missing = _missing_input_paths(
+            candidate,
+            self.missing_policy_inputs,
+        )
         normalized = (vector - reference["mean"]) / reference["scale"]
         distances = np.sqrt(((reference["vectors"] - normalized) ** 2).mean(axis=1))
         nearest = float(distances.min())
@@ -473,7 +479,7 @@ class TabularRegressionRuntime:
                 candidate_index = start + offset
                 candidate_missing = _missing_input_paths(
                     candidates[candidate_index],
-                    self.profile,
+                    self.missing_policy_inputs,
                 )
                 nearest = float(nearest_value)
                 if nearest <= supported:
