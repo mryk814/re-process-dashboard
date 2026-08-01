@@ -52,7 +52,7 @@ test("focused product E2E specs stay at PR level while E2E infrastructure requir
   const productSpec = planFor(["e2e/data-library-structure.spec.ts"]);
   assert.deepEqual(productSpec.riskCategories, ["frontend-presentation"]);
   assert.equal(productSpec.selectedLevel, "pr");
-  assert.equal(productSpec.completion, "complete");
+  assert.equal(productSpec.completion, "ready");
   assert.ok(!selectedIds(productSpec).includes("failure-state-e2e"));
 
   const infrastructure = planFor(["e2e/helpers.ts"]);
