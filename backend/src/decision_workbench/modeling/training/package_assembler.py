@@ -8,6 +8,7 @@ from typing import Any, Callable
 import numpy as np
 
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.data.profile_family_registry import lifecycle_profile_for_data
 from decision_workbench.modeling.model_lifecycle import (
     QualityReport,
@@ -23,13 +24,19 @@ from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
     feature_vector,
 )
+from decision_workbench.modeling.training.feature_recipe import (
+    apply_feature_recipe_to_canonical_dataset,
+    canonical_recipe_inputs,
+    save_feature_recipe_artifacts,
+    transform_feature_recipe,
+    validate_recipe_canonical_inputs,
+)
 from decision_workbench.modeling.training.recipe import (
     ConcreteEstimatorRecipe,
     LightGBMBinaryEstimatorRecipe,
     LightGBMRegressionEstimatorRecipe,
     validate_recipe_capability,
 )
-
 
 CandidateBuilder = Callable[[dict[str, Any], Any], CandidateInput | None]
 
@@ -88,9 +95,30 @@ def _build(
     package_id: str,
     package_version: str,
     positive_targets: frozenset[str],
+    feature_recipe: FeatureRecipe | None,
 ) -> None:
     validate_recipe_capability(recipe, contract.runtime_capability)
+    canonical_paths = tuple(
+        field.path
+        for group in sorted(
+            contract.task_definition.input_groups,
+            key=lambda item: item.order,
+        )
+        for field in sorted(group.fields, key=lambda item: item.order)
+    )
+    if feature_recipe is not None:
+        validate_recipe_canonical_inputs(feature_recipe, canonical_paths)
     canonical = canonical_training_dataset(task_id, data, contract)
+    feature_state = (
+        apply_feature_recipe_to_canonical_dataset(
+            canonical,
+            data,
+            candidate_builder,
+            feature_recipe,
+        )
+        if feature_recipe is not None
+        else None
+    )
     feature_dataset_id = canonical_training_dataset_digest(canonical)
     feature_names = tuple(
         str(item["name"])
@@ -118,14 +146,6 @@ def _build(
                 for item in data.profile.inputs
             },
         }
-    canonical_paths = tuple(
-        field.path
-        for group in sorted(
-            contract.task_definition.input_groups,
-            key=lambda item: item.order,
-        )
-        for field in sorted(group.fields, key=lambda item: item.order)
-    )
     artifacts_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
     reference_dir = destination / "reference"
@@ -141,6 +161,16 @@ def _build(
         folder.mkdir(parents=True, exist_ok=True)
 
     pipeline_path = feature_dir / "pipeline.json"
+    feature_recipe_path = feature_dir / "feature-recipe.json"
+    feature_state_path = feature_dir / "feature-state.json"
+    if feature_recipe is not None:
+        assert feature_state is not None
+        save_feature_recipe_artifacts(
+            feature_recipe,
+            feature_state,
+            feature_recipe_path,
+            feature_state_path,
+        )
     _write_json(
         pipeline_path,
         {
@@ -151,12 +181,29 @@ def _build(
                 {
                     "name": item["name"],
                     "unit": item["unit"],
-                    "meaning": item["name"],
+                    "meaning": item.get("meaning", item["name"]),
                     "group": item["group"],
                 }
                 for item in canonical["feature_pipeline"]["features"]
             ],
             **({"missing_policy": missing_policy} if missing_policy else {}),
+            **(
+                {
+                    "feature_recipe": {
+                        "schema_version": "feature-recipe-artifacts/v1",
+                        "recipe": feature_recipe_path.relative_to(
+                            destination
+                        ).as_posix(),
+                        "recipe_digest": feature_state.recipe_digest,
+                        "state": feature_state_path.relative_to(
+                            destination
+                        ).as_posix(),
+                        "state_digest": feature_state.state_digest,
+                    }
+                }
+                if feature_recipe is not None and feature_state is not None
+                else {}
+            ),
         },
     )
     recipe_path = reference_dir / "training-recipe.json"
@@ -182,7 +229,15 @@ def _build(
     predictors: list[dict[str, Any]] = []
     qualities = []
     diagnostics: dict[str, Any] = {}
-    files = [pipeline_path, recipe_path]
+    files = [
+        pipeline_path,
+        recipe_path,
+        *(
+            [feature_recipe_path, feature_state_path]
+            if feature_recipe is not None
+            else []
+        ),
+    ]
     trained_by_target = {}
     training_sets = {}
     output_by_key = {
@@ -215,6 +270,8 @@ def _build(
                 and target in recipe.validation_plans_by_target
                 else recipe.validation_plan
             ),
+            feature_recipe=feature_recipe,
+            feature_recipe_state=feature_state,
         )
         training_sets[target] = training_set
         artifact_path = artifacts_dir / (
@@ -376,7 +433,20 @@ def _build(
     smoke_input = smoke_dir / "input.json"
     _write_json(smoke_input, smoke_candidate.model_dump(mode="json"))
     smoke_feature_values = dict(smoke_row["features"])
-    if missing_policy:
+    if feature_recipe is not None:
+        assert feature_state is not None
+        smoke_feature_values = dict(
+            zip(
+                feature_names,
+                transform_feature_recipe(
+                    feature_recipe,
+                    feature_state,
+                    [canonical_recipe_inputs(smoke_candidate, feature_recipe)],
+                )[0],
+                strict=True,
+            )
+        )
+    elif missing_policy:
         for name, value in missing_policy["imputation_values"].items():
             if name in smoke_feature_values and not np.isfinite(
                 float(smoke_feature_values[name])
@@ -414,6 +484,14 @@ def _build(
             "artifacts": [
                 stats_path.relative_to(destination).as_posix(),
                 recipe_path.relative_to(destination).as_posix(),
+                *(
+                    [
+                        feature_recipe_path.relative_to(destination).as_posix(),
+                        feature_state_path.relative_to(destination).as_posix(),
+                    ]
+                    if feature_recipe is not None
+                    else []
+                ),
             ],
         },
         "predictors": predictors,
@@ -448,6 +526,7 @@ def build_standard_model_package(
     package_version: str,
     replace: bool,
     positive_targets: frozenset[str] = frozenset(),
+    feature_recipe: FeatureRecipe | None = None,
 ) -> None:
     with staged_package_destination(destination, replace=replace) as staging:
         _build(
@@ -460,6 +539,7 @@ def build_standard_model_package(
             package_id=package_id,
             package_version=package_version,
             positive_targets=positive_targets,
+            feature_recipe=feature_recipe,
         )
         verify_model_package(
             staging,

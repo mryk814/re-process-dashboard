@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from decision_workbench.contracts.feature_recipe_contracts import (
+    FeatureRecipe,
+    FeatureRecipeState,
+)
+from decision_workbench.modeling.training.feature_recipe import (
+    fit_feature_recipe,
+    transform_feature_recipe,
+)
 from decision_workbench.modeling.training.validation_plan import (
     ValidationPlan,
     build_validation_assignment,
@@ -39,6 +47,9 @@ class TargetTrainingSet:
     validation_diagnostics: dict[str, Any]
     imputed_feature_indices: tuple[int, ...] = ()
     final_imputation_values: tuple[tuple[int, float], ...] = ()
+    feature_recipe: FeatureRecipe | None = None
+    feature_recipe_state: FeatureRecipeState | None = None
+    recipe_rows: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def is_temporal_validation(self) -> bool:
@@ -149,10 +160,18 @@ def compile_target_training_set(
     folds: int = 5,
     seed: int = 20260730,
     validation_plan: ValidationPlan | None = None,
+    feature_recipe: FeatureRecipe | None = None,
+    feature_recipe_state: FeatureRecipeState | None = None,
 ) -> TargetTrainingSet:
-    feature_names = tuple(
-        str(item["name"])
-        for item in canonical_dataset["feature_pipeline"]["features"]
+    if (feature_recipe is None) != (feature_recipe_state is None):
+        raise ValueError("feature recipe and final state must be supplied together")
+    feature_names = (
+        tuple(item.name for item in feature_recipe.features)
+        if feature_recipe is not None
+        else tuple(
+            str(item["name"])
+            for item in canonical_dataset["feature_pipeline"]["features"]
+        )
     )
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for row in canonical_dataset["rows"]:
@@ -170,6 +189,7 @@ def compile_target_training_set(
     within_context_sse: list[float] = []
     within_context_df: list[int] = []
     validation_times: list[float] = []
+    recipe_rows: list[Mapping[str, Any]] = []
     within_sse = 0.0
     within_df = 0
     for replicate_context, rows in sorted(grouped.items()):
@@ -183,28 +203,50 @@ def compile_target_training_set(
                 f"{target}/{replicate_context}: replicate context must belong "
                 "to one validation group"
             )
-        feature_rows = np.asarray(
-            [
-                [float(row["features"][name]) for name in feature_names]
-                for row in rows
-            ],
-            dtype=float,
-        )
-        if np.isinf(feature_rows).any():
-            raise ValueError(
-                f"{target}/{replicate_context}: features must not be infinite"
+        if feature_recipe is not None:
+            raw_rows = [row.get("canonical_inputs") for row in rows]
+            if any(not isinstance(item, Mapping) for item in raw_rows):
+                raise ValueError(
+                    f"{target}/{replicate_context}: recipe requires canonical_inputs"
+                )
+            normalized = [
+                {
+                    path: item.get(path)
+                    for path in feature_recipe.canonical_input_paths
+                }
+                for item in raw_rows
+                if isinstance(item, Mapping)
+            ]
+            if any(item != normalized[0] for item in normalized[1:]):
+                raise ValueError(
+                    f"{target}/{replicate_context}: one replicate context has "
+                    "different canonical inputs"
+                )
+            recipe_rows.append(normalized[0])
+        else:
+            feature_rows = np.asarray(
+                [
+                    [float(row["features"][name]) for name in feature_names]
+                    for row in rows
+                ],
+                dtype=float,
             )
-        if not np.allclose(
-            feature_rows,
-            feature_rows[0],
-            rtol=1e-10,
-            atol=1e-12,
-            equal_nan=True,
-        ):
-            raise ValueError(
-                f"{target}/{replicate_context}: one replicate context has "
-                "different feature rows"
-            )
+            if np.isinf(feature_rows).any():
+                raise ValueError(
+                    f"{target}/{replicate_context}: features must not be infinite"
+                )
+            if not np.allclose(
+                feature_rows,
+                feature_rows[0],
+                rtol=1e-10,
+                atol=1e-12,
+                equal_nan=True,
+            ):
+                raise ValueError(
+                    f"{target}/{replicate_context}: one replicate context has "
+                    "different feature rows"
+                )
+            x_rows.append(feature_rows[0])
         values = np.asarray(
             [float(row["outputs"][target]) for row in rows],
             dtype=float,
@@ -213,7 +255,6 @@ def compile_target_training_set(
             raise ValueError(
                 f"{target}/{replicate_context}: outputs must be finite"
             )
-        x_rows.append(feature_rows[0])
         y_rows.append(float(values.mean()))
         replicate_contexts.append(replicate_context)
         validation_groups.append(next(iter(parent_keys)))
@@ -334,7 +375,15 @@ def compile_target_training_set(
                         f"{target}: binary training fold {fold} "
                         "must contain both classes"
                     )
-    x = np.vstack(x_rows)
+    if feature_recipe is not None:
+        assert feature_recipe_state is not None
+        x = transform_feature_recipe(
+            feature_recipe,
+            feature_recipe_state,
+            recipe_rows,
+        )
+    else:
+        x = np.vstack(x_rows)
     imputed_feature_indices = tuple(
         int(index)
         for index in np.flatnonzero(np.isnan(x).any(axis=0))
@@ -389,6 +438,9 @@ def compile_target_training_set(
         validation_diagnostics=assignment.diagnostics,
         imputed_feature_indices=imputed_feature_indices,
         final_imputation_values=final_imputation_values,
+        feature_recipe=feature_recipe,
+        feature_recipe_state=feature_recipe_state,
+        recipe_rows=tuple(recipe_rows),
     )
 
 
@@ -410,6 +462,27 @@ def prepared_feature_matrix(
         if transform_rows is None
         else np.asarray(transform_rows, dtype=bool)
     )
+    if data.feature_recipe is not None:
+        fitted_state = data.feature_recipe_state
+        if fit_rows is not None:
+            fitted_state = fit_feature_recipe(
+                data.feature_recipe,
+                [
+                    row
+                    for row, included in zip(data.recipe_rows, fit, strict=True)
+                    if included
+                ],
+            )
+        assert fitted_state is not None
+        return transform_feature_recipe(
+            data.feature_recipe,
+            fitted_state,
+            [
+                row
+                for row, included in zip(data.recipe_rows, transform, strict=True)
+                if included
+            ],
+        )
     values = np.asarray(data.x[transform], dtype=float).copy()
     final_values = dict(data.final_imputation_values)
     for index in data.imputed_feature_indices:

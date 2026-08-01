@@ -9,11 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from decision_workbench.modeling.packages.ports import (
-    LoadedDeterministicTransform,
-    LoadedPredictor,
-)
-from decision_workbench.modeling.packages.registry import AdapterRegistry
 from decision_workbench.modeling.packages.contracts import (
     MAX_ARTIFACT_BYTES,
     MAX_PACKAGE_ARTIFACTS,
@@ -23,6 +18,11 @@ from decision_workbench.modeling.packages.contracts import (
     ModelPackageManifest,
     PackageContractError,
 )
+from decision_workbench.modeling.packages.ports import (
+    LoadedDeterministicTransform,
+    LoadedPredictor,
+)
+from decision_workbench.modeling.packages.registry import AdapterRegistry
 
 
 @dataclass(frozen=True)
@@ -211,3 +211,42 @@ def _validate_feature_pipeline(
             "pipeline output feature order differs from model package manifest "
             "output_features"
         )
+    recipe_ref = pipeline.feature_recipe
+    if recipe_ref is None:
+        return
+    if {recipe_ref.recipe, recipe_ref.state} - set(expected.artifacts):
+        raise PackageContractError(
+            "feature recipe and state must be declared pipeline artifacts"
+        )
+    try:
+        from decision_workbench.modeling.training.feature_recipe import (
+            load_feature_recipe_artifacts,
+            recipe_digest,
+            validate_recipe_canonical_inputs,
+        )
+
+        recipe, state = load_feature_recipe_artifacts(
+            artifacts[recipe_ref.recipe],
+            artifacts[recipe_ref.state],
+        )
+    except (KeyError, OSError, ValueError) as exc:
+        raise PackageContractError(f"invalid feature recipe artifacts: {exc}") from exc
+    if (
+        recipe_ref.recipe_digest != state.recipe_digest
+        or recipe_ref.recipe_digest != recipe_digest(recipe)
+        or recipe_ref.state_digest != state.state_digest
+    ):
+        raise PackageContractError(
+            "feature recipe artifact digests differ from pipeline specification"
+        )
+    if tuple(feature.name for feature in recipe.features) != expected.output_features:
+        raise PackageContractError(
+            "feature recipe output order differs from model package manifest"
+        )
+    try:
+        validate_recipe_canonical_inputs(
+            recipe,
+            expected.canonical_input_paths,
+        )
+    except ValueError as exc:
+        raise PackageContractError(str(exc)) from exc

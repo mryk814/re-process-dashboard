@@ -4,6 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from decision_workbench.contracts.feature_recipe_contracts import (
+    FeatureRecipe,
+    FeatureRecipeState,
+)
 
 Severity = Literal["ok", "warning", "error"]
 Decision = Literal["no", "yes", "review_required"]
@@ -162,3 +166,22 @@ class RuntimeDiagnosticsReport(BaseModel):
     checks: list[DeveloperCheck]
     project_count: int
     task_ids: list[str]
+
+
+class FeatureRecipeInspectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recipe: FeatureRecipe
+    state: FeatureRecipeState
+    canonical_input: dict[str, Any]
+
+
+class FeatureRecipeInspectResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recipe_id: str
+    recipe_digest: str
+    state_digest: str
+    canonical_input: dict[str, Any]
+    steps: list[dict[str, Any]]
+    features: dict[str, float]

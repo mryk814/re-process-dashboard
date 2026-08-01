@@ -27,6 +27,7 @@ from decision_workbench.modeling.packages.contracts import (
     FEATURE_DATASET_DIGEST_FLOAT15,
     FEATURE_DATASET_DIGEST_LEGACY,
     FeatureDatasetDigestAlgorithm,
+    FeaturePipelineDocument,
     PackageContractError,
 )
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
@@ -620,6 +621,34 @@ def validate_training_provenance(
         contract,
         pipeline_version=package.manifest.feature_pipeline.version,
     )
+    pipeline_document = FeaturePipelineDocument.model_validate_json(
+        package.artifact_path(
+            package.manifest.feature_pipeline.spec
+        ).read_text(encoding="utf-8")
+    )
+    if pipeline_document.feature_recipe is not None:
+        from decision_workbench.modeling.training.feature_recipe import (
+            apply_feature_recipe_to_canonical_dataset,
+            load_feature_recipe_artifacts,
+        )
+
+        recipe_ref = pipeline_document.feature_recipe
+        recipe, state = load_feature_recipe_artifacts(
+            package.artifact_path(recipe_ref.recipe),
+            package.artifact_path(recipe_ref.state),
+        )
+        authoring = task_module(package.manifest.task_id).standard_model_authoring
+        if authoring is None:
+            raise PackageContractError(
+                "feature recipe package requires standard model authoring"
+            )
+        apply_feature_recipe_to_canonical_dataset(
+            canonical,
+            data,
+            authoring.candidate_builder,
+            recipe,
+            state,
+        )
     if package.manifest.provenance.feature_dataset_id != canonical_training_dataset_digest(
         canonical,
         algorithm=package.manifest.provenance.feature_dataset_digest_algorithm,

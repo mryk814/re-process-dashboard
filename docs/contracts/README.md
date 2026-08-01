@@ -9,6 +9,7 @@ ownerは各backend／frontend／modeling領域で、schema、保存意味、exec
 - [Curation and Proposal](curation-and-proposal-architecture.md)
 - [検討アクティビティ](decision-activities.md)
 - [特徴量パイプライン](feature-engineering.md)
+- [Feature Recipe](feature-recipe.md)
 - [推論実行](inference-execution.md)
 - [Model Package契約](model-package-contract.md)
 - [Objective Definition](objective-definition.md)

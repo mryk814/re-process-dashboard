@@ -7,11 +7,12 @@ has to pretend that a user ran an external command.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
 import shutil
+from pathlib import Path
 from typing import Any
 
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.data.profile_family_registry import (
     load_profile_document,
     profile_task_ids,
@@ -33,7 +34,12 @@ from decision_workbench.modeling.model_lifecycle import (
 from decision_workbench.modeling.model_package_verify import verify_model_package
 from decision_workbench.modeling.packages.contracts import PackageContractError
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
-from decision_workbench.modeling.training.package_assembler import build_standard_model_package
+from decision_workbench.modeling.training.feature_recipe import (
+    apply_feature_recipe_to_canonical_dataset,
+)
+from decision_workbench.modeling.training.package_assembler import (
+    build_standard_model_package,
+)
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.task_composition.catalog import resolve_task_source, task_module
 from decision_workbench.tasks.task_registry import load_task_contracts
@@ -75,6 +81,7 @@ def build_standard_package(
     estimator: str | None = None,
     estimator_options: dict[str, Any] | None = None,
     profile: Path | None = None,
+    feature_recipe_path: Path | None = None,
 ) -> dict[str, Any]:
     if output.exists() and not replace:
         raise FileExistsError(f"refusing to replace existing model package: {output}")
@@ -90,7 +97,21 @@ def build_standard_package(
         raise ValueError(f"{task_id} does not support standard estimator {selected_estimator}; supported: {supported}")
     data = _load_task_data(task_id, source, profile)
     contract = load_task_contracts()[task_id]
+    feature_recipe = (
+        FeatureRecipe.model_validate_json(
+            feature_recipe_path.read_text(encoding="utf-8")
+        )
+        if feature_recipe_path is not None
+        else None
+    )
     payload = canonical_training_dataset(task_id, data, contract)
+    if feature_recipe is not None:
+        apply_feature_recipe_to_canonical_dataset(
+            payload,
+            data,
+            authoring.candidate_builder,
+            feature_recipe,
+        )
     _write_json(dataset_output, payload, replace=replace)
     recipe = estimator_recipe(selected_estimator, selected_options)
     build_standard_model_package(
@@ -105,6 +126,7 @@ def build_standard_package(
         package_version=package_version,
         replace=replace,
         positive_targets=authoring.positive_targets,
+        feature_recipe=feature_recipe,
     )
     report = verify_model_package(output, task_id=task_id, source=source, profile=profile)
     manifest = ModelPackageLoader().load(output).manifest
