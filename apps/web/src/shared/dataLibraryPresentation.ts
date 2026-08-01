@@ -168,9 +168,7 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
   const manifest = asRecord(modelPackage.manifest_json);
   const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
   const records = predictors.map(asRecord).filter((item): item is Record<string, unknown> => item != null);
-  const estimatorIds = new Set(records.map((item) => standardTrainingMetadata(item)?.estimator_id).filter(
-    (item): item is string => typeof item === "string",
-  ));
+  const estimatorIds = new Set(modelPackageEstimatorIds(modelPackage));
   const runtimeTypes = new Set(records.map((item) => item.runtime_type).filter((item): item is string => typeof item === "string"));
   const architectureIds = new Set(records.map((item) => item.architecture_id).filter((item): item is string => typeof item === "string"));
   const family = estimatorIds.has("lightgbm-binary.v1")
@@ -200,6 +198,16 @@ export function modelPackageDisplayName(modelPackage: ApiModelPackageRef | undef
     ? manifest.package_version.replace(/^v/i, "")
     : "";
   return version ? `${family} · v${version}` : family;
+}
+
+export function modelPackageEstimatorIds(modelPackage: ApiModelPackageRef | undefined): string[] {
+  if (!modelPackage) return [];
+  const manifest = asRecord(modelPackage.manifest_json);
+  const predictors = Array.isArray(manifest?.predictors) ? manifest.predictors : [];
+  return [...new Set(predictors.map(asRecord)
+    .filter((item): item is Record<string, unknown> => item != null)
+    .map((item) => standardTrainingMetadata(item)?.estimator_id)
+    .filter((item): item is string => typeof item === "string"))];
 }
 
 export function modelPackageDisplayNames(

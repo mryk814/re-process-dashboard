@@ -1,4 +1,5 @@
 import type { CandidateSection } from "../shared/projectActionQuestions";
+import type { PreparedProjectBinding } from "../shared/preparedProjectBinding";
 
 export const WORKBENCH_VIEWS = [
   "project",
@@ -47,6 +48,7 @@ export type NavigationIntent = Readonly<{
   sourceRevisionId?: string;
   dataOnboardingMode?: DataOnboardingMode;
   baseDatasetRevisionId?: string;
+  preparedProjectBinding?: PreparedProjectBinding;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -112,6 +114,33 @@ export function readNavigationIntent(
     : undefined;
   const sourceRevisionId = sourceStage ? params.get("revision") || undefined : undefined;
   const requestedOnboardingMode = params.get("onboarding");
+  const preparedDatasetViewId = params.get("prepared_dataset_view");
+  const preparedDatasetRevisionId = params.get("prepared_dataset_revision");
+  const preparedTaskId = params.get("prepared_task");
+  const preparedModelPackageRefId = params.get("prepared_package");
+  const preparedSourceSha256 = params.get("prepared_source_sha256");
+  const preparedProjectBinding: PreparedProjectBinding | undefined = normalizedView === "project"
+    && preparedDatasetViewId
+    && preparedDatasetRevisionId
+    && preparedTaskId
+    && preparedModelPackageRefId
+    && preparedSourceSha256
+    ? {
+      datasetViewId: preparedDatasetViewId,
+      datasetRevisionId: preparedDatasetRevisionId,
+      taskId: preparedTaskId,
+      taskLabel: params.get("prepared_task_label") || preparedTaskId,
+      modelPackageRefId: preparedModelPackageRefId,
+      sourceSha256: preparedSourceSha256,
+      sourceFilename: params.get("prepared_source_name") || "CSV",
+      estimatorId: params.get("prepared_estimator") || "unknown",
+      estimatorLabel: params.get("prepared_estimator_label") || params.get("prepared_estimator") || "記録なし",
+      preparationResult: params.get("prepared_result") === "reused" ? "reused" : "new",
+      workspaceKind: params.get("prepared_workspace_kind") || "local",
+      workspaceDatabasePath: params.get("prepared_workspace_path") || "現在のWorkspace",
+      reloaded: true,
+    }
+    : undefined;
   const dataOnboardingMode = (normalizedView === "data-library" || normalizedView === "profile-workbench")
     && requestedOnboardingMode
     && DATA_ONBOARDING_MODES.has(requestedOnboardingMode as DataOnboardingMode)
@@ -144,6 +173,7 @@ export function readNavigationIntent(
     sourceRevisionId,
     dataOnboardingMode,
     baseDatasetRevisionId: params.get("base_dataset") || undefined,
+    preparedProjectBinding,
   });
 }
 
@@ -180,6 +210,21 @@ export function navigationUrl(intent: NavigationIntent): string {
     (intent.view === "data-library" || intent.view === "profile-workbench")
     && intent.baseDatasetRevisionId
   ) params.set("base_dataset", intent.baseDatasetRevisionId);
+  if (intent.view === "project" && intent.preparedProjectBinding) {
+    const binding = intent.preparedProjectBinding;
+    params.set("prepared_dataset_view", binding.datasetViewId);
+    params.set("prepared_dataset_revision", binding.datasetRevisionId);
+    params.set("prepared_task", binding.taskId);
+    params.set("prepared_task_label", binding.taskLabel);
+    params.set("prepared_package", binding.modelPackageRefId);
+    params.set("prepared_source_sha256", binding.sourceSha256);
+    params.set("prepared_source_name", binding.sourceFilename);
+    params.set("prepared_estimator", binding.estimatorId);
+    params.set("prepared_estimator_label", binding.estimatorLabel);
+    params.set("prepared_result", binding.preparationResult);
+    params.set("prepared_workspace_kind", binding.workspaceKind);
+    params.set("prepared_workspace_path", binding.workspaceDatabasePath);
+  }
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 
@@ -227,5 +272,6 @@ export function withView(
     baseDatasetRevisionId: view === "data-library" || view === "profile-workbench"
       ? current.baseDatasetRevisionId
       : undefined,
+    preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
   });
 }

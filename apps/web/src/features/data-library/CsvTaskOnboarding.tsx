@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { components } from "../../generated/api-types";
 import { inspectCsvOnboarding, prepareCsvOnboarding } from "../../shared/api/client";
+import { workbenchApi } from "../../shared/api/workbench-api";
+import type { PreparedProjectBinding } from "../../shared/preparedProjectBinding";
 
 type Column = components["schemas"]["CsvInspectionColumn"];
 type Estimator = components["schemas"]["CsvOnboardingEstimatorOption"];
@@ -71,14 +73,7 @@ const errorMessage = (error: OnboardingError | undefined, fallback: string) =>
     .filter(Boolean)
     .join("\n");
 
-export type PreparedCsvProjectBinding = {
-  datasetViewId: string;
-  datasetRevisionId: string;
-  taskId: string;
-  modelPackageRefId: string;
-  sourceSha256: string;
-  reloaded: true;
-};
+export type PreparedCsvProjectBinding = PreparedProjectBinding;
 
 export function CsvTaskOnboarding({
   onPrepared,
@@ -190,6 +185,13 @@ export function CsvTaskOnboarding({
     }
     if (!response.data) { setError("新しいTaskを準備できませんでした。"); return; }
     const data = response.data;
+    let workspace;
+    try {
+      workspace = (await workbenchApi.health()).workspace;
+    } catch {
+      setError("Task・Dataset・Model Packageは準備できましたが、保存先Workspaceを確認できませんでした。再読み込み後に同じ条件で準備を再実行してください。");
+      return;
+    }
     setMessage(data.reused_existing
       ? `${data.task_id}の保存済みTask・Modelを検証し、同じidentityでProject作成へ接続しました。`
       : `${data.task_id}を登録・検証・再読込しました。Project作成画面でidentityを確認できます。`);
@@ -197,8 +199,15 @@ export function CsvTaskOnboarding({
       datasetViewId: data.dataset_view_revision_id,
       datasetRevisionId: data.dataset_revision_id,
       taskId: data.task_id,
+      taskLabel: label,
       modelPackageRefId: data.model_package_ref_id,
       sourceSha256: data.source_sha256,
+      sourceFilename: file.name,
+      estimatorId,
+      estimatorLabel: selectedEstimator?.label ?? estimatorId,
+      preparationResult: data.reused_existing ? "reused" : "new",
+      workspaceKind: workspace.kind,
+      workspaceDatabasePath: workspace.database_path,
       reloaded: true,
     });
   }

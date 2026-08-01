@@ -411,23 +411,41 @@ test("private CSV is prepared into the exact Dataset, Task, and Package binding"
   await expect(page).toHaveURL(/view=project/);
   const creation = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
   await expect(creation).toBeVisible();
-  const receipt = creation.getByRole("status", { name: "CSV onboardingの準備結果" });
-  await expect(receipt).toContainText("Task・Dataset・Model Packageを準備し、再読込しました");
+  const receipt = creation.getByRole("status", { name: "準備済みbindingの確認" });
+  await expect(receipt).toContainText("準備済みbindingを確認");
   await expect(receipt).toContainText(binding.task_id);
   await expect(receipt).toContainText(binding.dataset_revision_id);
   await expect(receipt).toContainText(binding.model_package_ref_id);
   await expect(receipt).toContainText(binding.source_sha256);
+  await expect(receipt).toContainText("private-103-row-task.csv");
+  await expect(receipt).toContainText("Ridge");
+  await expect(receipt).toContainText("mean_point");
+  await expect(receipt).toContainText("Workspace保存先");
   const selects = creation.locator(".project-binding-flow select");
+  await expect(selects).toHaveCount(0);
+  await receipt.getByRole("button", { name: "別のデータ・Task・モデルを選ぶ" }).click();
   await expect(selects.nth(0)).toHaveValue(binding.dataset_view_revision_id);
   await expect(selects.nth(1)).toHaveValue(`task:${binding.task_id}`);
   await expect(selects.nth(2)).toHaveValue(binding.model_package_ref_id);
-  await creation.getByLabel("プロジェクト名").fill("103行CSV UI-only Project");
+  await receipt.getByRole("button", { name: "準備済みbindingへ戻す" }).click();
+  await expect(selects).toHaveCount(0);
+  await expect(page).toHaveURL(/prepared_dataset_view=/);
+  await page.reload();
+  await expect(page).toHaveURL(/prepared_dataset_view=/);
+  await expect(page.getByRole("status", { name: "準備済みbindingの確認" })).toContainText(binding.source_sha256, { timeout: 15_000 });
+  await page.goBack();
+  await expect(page).toHaveURL(/view=data-library/);
+  await page.goForward();
+  await expect(page.getByRole("status", { name: "準備済みbindingの確認" })).toContainText(binding.source_sha256, { timeout: 15_000 });
+  const restoredCreation = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
+  await expect(restoredCreation.locator(".project-binding-flow select")).toHaveCount(0);
+  await restoredCreation.getByLabel("プロジェクト名").fill("103行CSV UI-only Project");
   const createdResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/api/projects")
     && response.status() === 201
   ));
-  await creation.getByRole("button", { name: "固定してプロジェクトを作成" }).click();
+  await restoredCreation.getByRole("button", { name: "この組合せでProjectを作成" }).click();
   const project = await (await createdResponse).json() as {
     id: string;
     task_id: string;
