@@ -139,8 +139,9 @@ test("Chain outputs use the pinned labels, units, decimals, and uncertainty word
   await expect(historyCard.getByText("不確かさを伝播", { exact: true })).toBeVisible();
   await expect(historyCard).not.toContainText("現在のpreviewは未計算です");
 
-  await page.getByRole("button", { name: "目標値を設定" }).click();
-  await expect(page.locator("#project-target-settings .target-setting")).toHaveCount(7);
+  await expect(
+    page.getByRole("region", { name: "プロジェクトの目標値" }).locator(".target-setting"),
+  ).toHaveCount(7);
 
   const fixedRow = historyCard.locator(".chain-history-row").filter({
     has: page.getByText("全Stageを固定", { exact: true }),

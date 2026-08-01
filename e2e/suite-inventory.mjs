@@ -49,9 +49,14 @@ export const suiteInventory = {
     reason: "Chain Project、Candidate、Runを生成する。",
   },
   "chain-output-presentation.spec.ts": {
-    kind: "blocked",
-    cleanupOwner: "serial default suite until focused failure is repaired",
-    reason: "fresh processでも目標設定操作が45秒timeoutするため、安全な並列化前に既存failureの修正が必要。",
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "専用Chain ProjectとCandidateを作成し、目標値と判断履歴を更新する。",
+  },
+  "chain-studio.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "seeded DB disposal",
+    reason: "Chain、Project、Candidateを作成し、同一画面で公開から実行まで確認する。",
   },
   "data-library-structure.spec.ts": {
     kind: "blocked",
@@ -74,9 +79,9 @@ export const suiteInventory = {
     reason: "欠損Packageを注入する専用runtimeが必要。",
   },
   "domain-neutral-product.spec.ts": {
-    kind: "blocked",
-    cleanupOwner: "serial default suite until stale expectation is repaired",
-    reason: "fresh processで現行onboarding文言と旧期待値が不一致のため、更新前に並列化しない。",
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "専用ProjectとCandidateを作成し、Data Libraryへの画面遷移まで確認する。",
   },
   "first-run-guidance.spec.ts": {
     kind: "serial-journey",
@@ -97,6 +102,11 @@ export const suiteInventory = {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",
     reason: "default Projectの候補導線とhistoryを更新する。",
+  },
+  "numeric-domain-semantics.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "seeded DB disposal",
+    reason: "専用ProjectとCandidateを作成して数値domainのAPI／UI契約を確認する。",
   },
   "profile-workbench-authoring.spec.ts": {
     kind: "isolated",
