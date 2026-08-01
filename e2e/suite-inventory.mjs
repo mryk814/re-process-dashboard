@@ -59,9 +59,9 @@ export const suiteInventory = {
     reason: "Chain、Project、Candidateを作成し、同一画面で公開から実行まで確認する。",
   },
   "data-library-structure.spec.ts": {
-    kind: "blocked",
-    cleanupOwner: "serial default suite until focused failures are repaired",
-    reason: "同一file内で個人TaskとModel Packageを準備し、fresh processでもProfile/Model表示の既存assertが失敗する。",
+    kind: "serial-journey",
+    cleanupOwner: "seeded DB and personal store disposal",
+    reason: "同一file内で個人TaskとModel Packageを準備するため、default suiteで直列実行する。",
   },
   "decision-activity.spec.ts": {
     kind: "serial-journey",

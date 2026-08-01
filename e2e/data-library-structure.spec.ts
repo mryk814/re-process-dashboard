@@ -2,9 +2,36 @@ import { expect, test } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
 
 const csvEstimatorOptions = [
-  { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 } },
-  { estimator_id: "lightgbm-regression.v1", label: "LightGBM 回帰", summary: "非線形な関係を表せる tree 系。", available: true, unavailable_reason: null, dependency: "lightgbm", point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "moderate", artifact_size: "moderate", fixed_parameters: { num_boost_round: 200, folds: 5, seed: 20260730, predictive_family: "empirical_quantiles" } },
+  { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 }, readiness_schema_version: "standard-estimator-readiness/v1", runtime_type: "builtin.linear.v1", artifact_format: "bounded-npz", min_rows: 4, max_rows: 100_000, max_features: 512 },
+  { estimator_id: "lightgbm-regression.v1", label: "LightGBM 回帰", summary: "非線形な関係を表せる tree 系。", available: true, unavailable_reason: null, dependency: "lightgbm", point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "moderate", artifact_size: "moderate", fixed_parameters: { num_boost_round: 200, folds: 5, seed: 20260730, predictive_family: "empirical_quantiles" }, readiness_schema_version: "standard-estimator-readiness/v1", runtime_type: "lightgbm.booster.v1", artifact_format: "lightgbm-native-text", min_rows: 4, max_rows: 1_000_000, max_features: 2_048 },
 ];
+
+function csvInspection(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    source_filename: "private-demo.csv",
+    source_sha256: "c".repeat(64),
+    source_kind: "csv",
+    reader_policy: "csv-utf8-header/v1",
+    worksheets: [],
+    selected_sheet: null,
+    requires_sheet_selection: false,
+    rows: 103,
+    relations: 0,
+    grain: "one-row-one-observation",
+    task_id_contract: {
+      pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$",
+      min_length: 6,
+      example: "concrete-slump-v1",
+    },
+    estimators: csvEstimatorOptions,
+    default_estimator_id: "ridge.v1",
+    notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+    columns: [],
+    ...overrides,
+  };
+}
 
 test("Data Library keeps models in the selected dataset context", async ({ page }) => {
   await page.goto("/?view=data-library");
@@ -144,13 +171,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     inspected += 1;
     await route.fulfill({
-        json: {
-          rows: 103,
-          relations: 0,
-          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-          estimators: csvEstimatorOptions,
-          default_estimator_id: "ridge.v1",
-          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: csvInspection({
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -159,7 +180,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
           observed_max: index < 7 ? 10 : 590,
           choices: [],
         })),
-      },
+      }),
     });
   });
   await page.goto("/?view=data-library");
@@ -194,7 +215,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
   }
   await expect(newTask).toContainText("入力 7項目");
   await expect(newTask).toContainText("出力 3項目");
-  await expect(newTask).toContainText("relationsなしだけを扱います");
+  await expect(newTask).toContainText("relationsなしの矩形表だけを扱います");
   await expect(newTask).toContainText("物理範囲には自動設定しません");
   expect(inspected).toBe(1);
   await newTask.screenshot({ path: testInfo.outputPath("new-task-onboarding.png") });
@@ -209,13 +230,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
 test("new Task onboarding explains unresolved domain ranges before preparation", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({
-        json: {
-          rows: 103,
-          relations: 0,
-          task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-          estimators: csvEstimatorOptions,
-          default_estimator_id: "ridge.v1",
-          notice: "観測最小値・最大値は要約です。物理的な許容範囲や目標値には自動で使いません。",
+        json: csvInspection({
         columns: Array.from({ length: 10 }, (_, index) => ({
           name: index < 7 ? `input_${index + 1}` : `output_${index - 6}`,
           kind: "number",
@@ -224,7 +239,7 @@ test("new Task onboarding explains unresolved domain ranges before preparation",
           observed_max: index < 7 ? 10 : 590,
           choices: [],
         })),
-      },
+      }),
     });
   });
   await page.goto("/?view=data-library");
@@ -271,7 +286,7 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
     inspections += 1;
     const selected = route.request().postDataBuffer()?.toString("utf8").includes("Measurements") ?? false;
     await route.fulfill({
-      json: {
+      json: csvInspection({
         source_filename: "typed-source.xlsx",
         source_sha256: "b".repeat(64),
         source_kind: "xlsx",
@@ -283,17 +298,12 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
         selected_sheet: selected ? "Measurements" : null,
         requires_sheet_selection: !selected,
         rows: selected ? 3 : 0,
-        relations: 0,
-        grain: "one-row-one-observation",
-        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-        estimators: csvEstimatorOptions,
-        default_estimator_id: "ridge.v1",
         notice: selected ? "stored valueを確認しました。" : "visible sheetを明示選択してください。",
         columns: selected ? [
           { name: "sample_id", kind: "categorical", non_empty: 3, observed_min: null, observed_max: null, choices: ["001", "002", "003"] },
           { name: "strength", kind: "number", non_empty: 3, observed_min: 300, observed_max: 420, choices: [] },
         ] : [],
-      },
+      }),
     });
   });
 
@@ -323,21 +333,16 @@ test("single-table Excel requires an explicit visible sheet before using CSV onb
 test("CSV onboarding validates Japanese canonical keys, task ID, observed training range, and typed storage recovery", async ({ page }) => {
   await page.route("**/api/data-library/csv-onboarding/inspect", async (route) => {
     await route.fulfill({
-      json: {
+      json: csvInspection({
         source_filename: "日本語列.csv",
         source_sha256: "a".repeat(64),
-        rows: 2,
-        relations: 0,
-        task_id_contract: { pattern: "^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$", min_length: 6, example: "concrete-slump-v1" },
-        estimators: csvEstimatorOptions,
-        default_estimator_id: "ridge.v1",
-        grain: "one-row-one-observation",
+        rows: 4,
         notice: "観測範囲は要約です。",
         columns: [
-          { name: "温度", kind: "number", non_empty: 2, observed_min: 700, observed_max: 850, choices: [] },
-          { name: "強度", kind: "number", non_empty: 2, observed_min: 310, observed_max: 590, choices: [] },
+          { name: "温度", kind: "number", non_empty: 4, observed_min: 700, observed_max: 850, choices: [] },
+          { name: "強度", kind: "number", non_empty: 4, observed_min: 310, observed_max: 590, choices: [] },
         ],
-      },
+      }),
     });
   });
   await page.route("**/api/data-library/csv-onboarding/prepare", async (route) => {
