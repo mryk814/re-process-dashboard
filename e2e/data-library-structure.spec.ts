@@ -1,5 +1,28 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { apiBaseUrl } from "./helpers";
+
+async function gotoReadyDataLibrary(page: Page) {
+  const resourcePaths = [
+    "/api/project-creation-options",
+    "/api/data-library/datasets",
+    "/api/data-library/model-packages",
+  ];
+  const responses = resourcePaths.map((path) => page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === path
+      && (path === "/api/project-creation-options" || url.searchParams.get("include_archived") === "true");
+  }));
+  const resourcesReady = Promise.all(responses);
+  await page.goto("/?view=data-library");
+  const loadedResources = await resourcesReady;
+  for (const response of loadedResources) {
+    expect(response.ok(), `${new URL(response.url()).pathname} initial load`).toBe(true);
+  }
+  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  const selectedDataset = page.locator(".dataset-context");
+  await expect(selectedDataset).toBeVisible();
+  return selectedDataset;
+}
 
 const csvEstimatorOptions = [
   { estimator_id: "ridge.v1", label: "Ridge 回帰（既定）", summary: "軽量な線形 baseline。", available: true, unavailable_reason: null, dependency: null, point_statistic: "mean", quantiles: true, standard_deviation: false, parametric_distribution: false, goal_probability: "unavailable", training_cost: "light", artifact_size: "small", fixed_parameters: { alpha: 1, folds: 5, seed: 20260730 }, readiness_schema_version: "standard-estimator-readiness/v1", runtime_type: "builtin.linear.v1", artifact_format: "bounded-npz", min_rows: 4, max_rows: 100_000, max_features: 512 },
@@ -95,9 +118,7 @@ test("Data Library keeps Dataset and Task evidence when only Model Package refre
     });
   });
 
-  await page.goto("/?view=data-library");
-  const selectedDataset = page.locator(".dataset-context");
-  await expect(page.getByRole("heading", { name: "使うデータを選ぶ" })).toBeVisible();
+  const selectedDataset = await gotoReadyDataLibrary(page);
   await expect(selectedDataset.getByRole("heading", { name: "このデータで使うモデル" })).toBeVisible();
   await expect(selectedDataset.getByText("GP（安定ARD） · v2.1.0-stable-ard", { exact: true })).toBeVisible();
 
@@ -183,7 +204,7 @@ test("Data Library separates update, mapping, and new Task onboarding", async ({
       }),
     });
   });
-  await page.goto("/?view=data-library");
+  await gotoReadyDataLibrary(page);
 
   const paths = page.getByRole("region", { name: "追加するデータはどれですか" });
   await expect(paths.getByRole("button", { name: /更新版/ })).toBeEnabled();
@@ -535,7 +556,7 @@ test("Data Library blocks model updates when an exact personal Profile is missin
     target!.profile_available = false;
     await route.fulfill({ response, json: datasets });
   });
-  await page.goto("/?view=data-library");
+  await gotoReadyDataLibrary(page);
 
   await expect.poll(() => targetDisplayName).not.toBe("");
   const targetButton = page.getByRole("button", {
@@ -570,9 +591,7 @@ test("Data Library distinguishes personal models from bundled models", async ({ 
       json: packages.map((item) => ({ ...item, storage_scope: "personal" })),
     });
   });
-  await page.goto("/?view=data-library");
-
-  const selectedDataset = page.locator(".dataset-context");
+  const selectedDataset = await gotoReadyDataLibrary(page);
   await expect(selectedDataset.getByText("自分のモデル", { exact: true }).first()).toBeVisible();
   await expect(selectedDataset.getByText("同梱モデル", { exact: true })).toHaveCount(0);
 });
