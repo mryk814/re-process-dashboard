@@ -1,12 +1,21 @@
 param(
     [string]$ReportPath = "artifacts/main-acceptance/latest.json",
-    [string[]]$IncludeGate = @()
+    [string[]]$IncludeGate = @(),
+    [string]$VerificationCatalogPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$verificationCatalogPath = Join-Path $PSScriptRoot "verification-gates.json"
+$verificationCatalogPath = if ($VerificationCatalogPath) {
+    if ([IO.Path]::IsPathRooted($VerificationCatalogPath)) {
+        $VerificationCatalogPath
+    } else {
+        Join-Path $repositoryRoot $VerificationCatalogPath
+    }
+} else {
+    Join-Path $PSScriptRoot "verification-gates.json"
+}
 $verificationCatalog = Get-Content -LiteralPath $verificationCatalogPath -Raw -Encoding utf8 |
     ConvertFrom-Json
 $releaseLevel = @($verificationCatalog.levels | Where-Object { $_.id -eq "release" })
@@ -74,20 +83,31 @@ function Invoke-Captured {
         # Native stderr contains expected warnings (for example openpyxl).
         # Capture it in the log and use the process exit code as the gate.
         $ErrorActionPreference = "Continue"
-        $output = @(& $Executable @Arguments 2>&1 | Tee-Object -FilePath $logPath)
+        $output = @(
+            & $Executable @Arguments 2>&1 |
+                Tee-Object -FilePath $logPath |
+                ForEach-Object {
+                    Write-Host "$_"
+                    $_
+                }
+        )
         $exitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousErrorActionPreference
     }
     $timer.Stop()
-    $summary = @(
-        $output |
-            ForEach-Object { "$_" } |
-            Where-Object {
-                $_ -match "(passed|failed|skipped|tests|pass|fail|Installer:|Folder ZIP:|OK$)"
-            } |
-            Select-Object -Last 20
-    )
+    $textOutput = @($output | ForEach-Object { "$_" })
+    $summary = if ($exitCode -eq 0) {
+        @(
+            $textOutput |
+                Where-Object {
+                    $_ -match "(passed|failed|skipped|tests|pass|fail|Installer:|Folder ZIP:|OK$)"
+                } |
+                Select-Object -Last 20
+        )
+    } else {
+        @($textOutput | Select-Object -Last 200)
+    }
     $results.Add([ordered]@{
         name = $Name
         status = if ($exitCode -eq 0) { "passed" } else { "failed" }
@@ -146,7 +166,11 @@ $environment = [ordered]@{
     npm = Read-Version "npm.cmd" @("--version")
     uv = Read-Version "uv.exe" @("--version")
     python = Read-Version "uv.exe" @("run", "python", "--version")
-    verificationCatalog = "scripts/verification-gates.json"
+    verificationCatalog = if ($VerificationCatalogPath) {
+        $VerificationCatalogPath.Replace("\", "/")
+    } else {
+        "scripts/verification-gates.json"
+    }
 }
 $failure = $null
 

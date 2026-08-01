@@ -457,9 +457,14 @@ test("docs pass, direct acceptance is result-aware, and structural follow-up sta
 
 test("verification workflow has separate direct and follow-up checks", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
+  const acceptanceRunner = readFileSync(resolve(import.meta.dirname, "run-main-acceptance.ps1"), "utf8");
   assert.match(workflow, /name: direct verification/);
   assert.match(workflow, /name: verification follow-up/);
   assert.match(workflow, /artifacts\/verification\/latest-pr\.json/);
+  assert.match(workflow, /name: main-acceptance-diagnostics/);
+  assert.match(workflow, /artifacts\/main-acceptance\/\*\*\/\*\.log/);
+  assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
+  assert.match(acceptanceRunner, /Select-Object -Last 200/);
   assert.match(workflow, /runs-on: windows-latest/);
   assert.match(workflow, /timeout-minutes: 45/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);

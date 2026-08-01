@@ -54,6 +54,16 @@ jobs:
           path: artifacts/verification/latest-pr.json
           if-no-files-found: warn
 
+      - name: Upload main acceptance diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: main-acceptance-diagnostics
+          path: |
+            artifacts/main-acceptance/**/*.json
+            artifacts/main-acceptance/**/*.log
+          if-no-files-found: ignore
+
   verification-follow-up:
     name: verification follow-up
     needs: direct-verification
