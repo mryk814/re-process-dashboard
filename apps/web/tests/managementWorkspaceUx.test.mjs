@@ -119,6 +119,13 @@ test("Data Library onboarding helper text keeps normal-text contrast", async () 
   );
 });
 
+test("CSV onboarding distinguishes a newly prepared Task from a reused identity", async () => {
+  const content = await source("../src/features/data-library/CsvTaskOnboarding.tsx");
+  assert.match(content, /reused_existing\?: boolean/);
+  assert.match(content, /data\.reused_existing/);
+  assert.match(content, /保存済みTask・Modelを検証し、同じidentityでProject作成へ接続しました/);
+});
+
 test("Profile Workbench keeps numbering in one stepper and states the next action", async () => {
   const content = await source("../src/features/data-library/ProfileWorkbenchPage.tsx");
   assert.match(content, /className="profile-next-action"/);

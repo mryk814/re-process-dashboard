@@ -146,12 +146,15 @@ export function CsvTaskOnboarding({
       task_id?: string;
       model_package_ref_id?: string;
       source_sha256?: string;
+      reused_existing?: boolean;
     };
     if (data.state !== "ready" || !data.dataset_view_revision_id || !data.dataset_revision_id || !data.task_id || !data.model_package_ref_id || !data.source_sha256) {
       setError(`未解決: ${(data.unresolved ?? []).join(" / ")}`);
       return;
     }
-    setMessage(`${data.task_id}を登録・検証・再読込しました。Project作成画面でidentityを確認できます。`);
+    setMessage(data.reused_existing
+      ? `${data.task_id}の保存済みTask・Modelを検証し、同じidentityでProject作成へ接続しました。`
+      : `${data.task_id}を登録・検証・再読込しました。Project作成画面でidentityを確認できます。`);
     onPrepared({
       datasetViewId: data.dataset_view_revision_id,
       datasetRevisionId: data.dataset_revision_id,
