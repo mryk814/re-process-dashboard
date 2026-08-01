@@ -811,7 +811,7 @@ export function ProjectHub({
   useEffect(() => {
     if (!requestedDatasetViewId || !creationOptions) return;
     const dataset = datasetByView.get(requestedDatasetViewId);
-    if (!dataset) {
+    if (!dataset && !requestedProjectBinding?.reloaded) {
       setError("選択したDatasetをプロジェクト作成に利用できません。");
       onCreationIntentConsumed();
       return;
@@ -819,7 +819,11 @@ export function ProjectHub({
     focusCreationFormRef.current = true;
     setCreateOpen(true);
     setCreateMode("empty");
-    setNewProjectName(`${datasetDisplayName(dataset)} 検討`);
+    setNewProjectName(
+      dataset
+        ? `${datasetDisplayName(dataset)} 検討`
+        : `${requestedProjectBinding?.taskLabel ?? "準備済みbinding"} 検討`,
+    );
     setNewDatasetViewId(requestedDatasetViewId);
     setNewTaskId(requestedProjectBinding?.taskId ?? "");
     setNewModelPackageRefId(requestedProjectBinding?.modelPackageRefId ?? "");
