@@ -1,8 +1,9 @@
 """Dependency-light ports shared by task composition consumers."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Literal, Mapping, Protocol, Sequence, runtime_checkable
 
 from decision_workbench.contracts.chain_uncertainty_contracts import StageSampleResult
 from decision_workbench.contracts.candidate_project_contracts import (
@@ -10,6 +11,30 @@ from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
 )
 from decision_workbench.data.profiles.schema import DatasetInputProfile
+from decision_workbench.contracts.task_contracts import InputFieldDefinition
+
+
+@dataclass(frozen=True)
+class NumericSamplingPolicy:
+    """Task-owned numeric semantics passed explicitly to a curve handler."""
+
+    field: InputFieldDefinition | None
+    include_current: bool = True
+    deduplication: Literal["preserve_requested_count_when_possible"] = (
+        "preserve_requested_count_when_possible"
+    )
+
+    @property
+    def allowed_range(self) -> tuple[float, float] | None:
+        if self.field is None or self.field.allowed_range is None:
+            return None
+        return (self.field.allowed_range.min, self.field.allowed_range.max)
+
+    @property
+    def practical_range(self) -> tuple[float, float] | None:
+        if self.field is None or self.field.default_range is None:
+            return None
+        return (self.field.default_range.min, self.field.default_range.max)
 
 
 @runtime_checkable
@@ -155,11 +180,20 @@ ResponseCurveHandler = Callable[
         tuple[float, float] | None,
         str | None,
         float | None,
+        NumericSamplingPolicy,
     ],
     dict[str, Any],
 ]
 CurveFamilyHandler = Callable[
-    [PredictionRuntime, Candidate, str, str | None, int, int],
+    [
+        PredictionRuntime,
+        Candidate,
+        str,
+        str | None,
+        int,
+        int,
+        NumericSamplingPolicy,
+    ],
     dict[str, Any],
 ]
 DataLoader = Callable[[Path, DatasetInputProfile | None], DataDescriptor]

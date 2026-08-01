@@ -18,6 +18,7 @@ from decision_workbench.contracts.task_contracts import (
 )
 from decision_workbench.data.importer import training_context_key
 from decision_workbench.data.profile_family_registry import (
+    build_canonical_training_features,
     lifecycle_profile_for_data,
     load_profile_document,
     normalize_profile_digest_payload,
@@ -395,25 +396,17 @@ def canonical_training_dataset(
                 else build_hot_rolling_features_v2(candidate, defaults)
             )
     rows: list[dict[str, Any]] = []
+    runtime_bundles: dict[str, Any] = {}
     for observation in data.observations:
         if not observation["eligible"]:
             continue
-        training_features: dict[str, float] | None = None
-        if runtime_profile.__class__.__name__ == "TabularDatasetProfile":
-            from decision_workbench.modeling.tabular.features import (
-                build_tabular_training_features_from_observation,
-            )
-
-            bundle, training_features = (
-                build_tabular_training_features_from_observation(
-                    observation,
-                    data.feature_imputation_values,
-                    runtime_profile,
-                )
-            )
-        else:
-            bundle = builder(observation, data.medians)
-        if bundle is None:
+        feature_set = build_canonical_training_features(
+            runtime_profile,
+            data,
+            observation,
+            builder,
+        )
+        if feature_set is None:
             continue
         outputs: dict[str, float] = {}
         for output in contract.task_definition.outputs:
@@ -424,11 +417,12 @@ def canonical_training_dataset(
                 outputs[output.key] = float(observation["outputs"][source_column])
         if not outputs:
             continue
-        training_features = training_features or bundle.as_dict()
+        observation_id = str(observation["id"])
+        runtime_bundles[observation_id] = feature_set.runtime_bundle
         training_row = {
-            "observation_id": str(observation["id"]),
+            "observation_id": observation_id,
             "parent_key": str(observation["parent_key"]),
-            "features": training_features,
+            "features": feature_set.training_features,
             "outputs": outputs,
         }
         if observation.get("condition_context_id"):
@@ -441,23 +435,7 @@ def canonical_training_dataset(
     rows.sort(key=lambda item: (training_context_key(item), item["observation_id"]))
     if not rows:
         raise ValueError(f"no eligible canonical training rows for {task_id}")
-    first_observation = next(
-        row
-        for row in data.observations
-        if row["id"] == rows[0]["observation_id"]
-    )
-    if runtime_profile.__class__.__name__ == "TabularDatasetProfile":
-        from decision_workbench.modeling.tabular.features import (
-            build_tabular_features_from_observation,
-        )
-
-        first_bundle = build_tabular_features_from_observation(
-            first_observation,
-            data.feature_imputation_values,
-            runtime_profile,
-        )
-    else:
-        first_bundle = builder(first_observation, data.medians)
+    first_bundle = runtime_bundles[rows[0]["observation_id"]]
     assert first_bundle is not None
     return {
         "schema_version": "canonical-training-dataset/v1",

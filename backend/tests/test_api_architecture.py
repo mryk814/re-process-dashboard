@@ -17,6 +17,14 @@ GENERIC_CANDIDATE_USE_CASES = (
     ROOT / "backend/src/decision_workbench/application/decision_activity_counterfactual.py",
     ROOT / "backend/src/decision_workbench/application/decision_activity_difference.py",
 )
+EXPLICIT_POLICY_BOUNDARIES = {
+    "curve sampling": ROOT
+    / "backend/src/decision_workbench/modeling/curve_grid.py",
+    "canonical training": ROOT
+    / "backend/src/decision_workbench/modeling/model_lifecycle.py",
+    "validation roles": ROOT
+    / "backend/src/decision_workbench/modeling/training/feature_dataset.py",
+}
 FORBIDDEN_PREFIXES = (
     "decision_workbench.data",
     "decision_workbench.modeling",
@@ -93,3 +101,15 @@ def test_generic_candidate_use_cases_do_not_interpret_candidate_family_layout() 
         "Generic application use cases must resolve path/value/balance/heat "
         "semantics through CandidateFamilyAdapter."
     )
+
+
+def test_generic_modeling_boundaries_do_not_reintroduce_ambient_or_family_magic() -> None:
+    sources = {
+        name: path.read_text(encoding="utf-8")
+        for name, path in EXPLICIT_POLICY_BOUNDARIES.items()
+    }
+
+    assert "ContextVar" not in sources["curve sampling"]
+    assert "TabularDatasetProfile" not in sources["canonical training"]
+    assert "__class__.__name__" not in sources["canonical training"]
+    assert "fold_ids == -" not in sources["validation roles"]

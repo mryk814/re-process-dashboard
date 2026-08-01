@@ -474,6 +474,7 @@ class HotRollingRuntime:
         variable: str,
         points: int,
         axis_range: tuple[float, float] | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         if target not in self.output_keys:
             raise ValueError(f"Unsupported response-curve target: {target}")
@@ -498,7 +499,13 @@ class HotRollingRuntime:
         curve: list[dict[str, Any]] = []
         predictor = self.predictors[target]
         current = self._candidate_value(candidate, variable)
-        for x_value in anchored_curve_grid(start, end, points, current=current):
+        for x_value in anchored_curve_grid(
+            start,
+            end,
+            points,
+            current=current,
+            policy=sampling_policy,
+        ):
             adjusted = candidate.model_copy(deep=True)
             values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
             values[name] = float(x_value)
@@ -554,3 +561,4 @@ class HotRollingRuntime:
             result["warnings"].append(support.message)
         return result
 from decision_workbench.modeling.curve_grid import anchored_curve_grid
+from decision_workbench.task_composition.ports import NumericSamplingPolicy

@@ -896,6 +896,7 @@ class ModelRuntime:
         axis_range: tuple[float, float] | None = None,
         stage_name: str | None = None,
         stage_position_m: float | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> list[dict[str, float]]:
         if target not in self.models:
             return []
@@ -904,7 +905,13 @@ class ModelRuntime:
         lower_offset, upper_offset = model.interval_offsets()
         curve: list[dict[str, float]] = []
         current = self._curve_variable_current(candidate, variable, stage_name, stage_position_m)
-        for x_value in anchored_curve_grid(start, end, points, current=current):
+        for x_value in anchored_curve_grid(
+            start,
+            end,
+            points,
+            current=current,
+            policy=sampling_policy,
+        ):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, variable, float(x_value), stage_name, stage_position_m)
             adjusted_vector = self.vector_for_candidate(adjusted)
@@ -938,6 +945,7 @@ class ModelRuntime:
         axis_range: tuple[float, float] | None = None,
         stage_name: str | None = None,
         stage_position_m: float | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         if target not in self.output_keys:
             raise ValueError(f"Unsupported response-curve target: {target}")
@@ -958,9 +966,19 @@ class ModelRuntime:
                 stage_position_m,
                 target,
             ),
-            "points": self.response_curve(candidate, target, variable, points, axis_range, stage_name, stage_position_m),
+            "points": self.response_curve(
+                candidate,
+                target,
+                variable,
+                points,
+                axis_range,
+                stage_name,
+                stage_position_m,
+                sampling_policy,
+            ),
             "output_range": output_range,
             "point_count": points,
             "policy_id": "anchored-grid-v1",
         }
 from decision_workbench.modeling.curve_grid import anchored_curve_grid
+from decision_workbench.task_composition.ports import NumericSamplingPolicy

@@ -12,7 +12,10 @@ from decision_workbench.contracts.task_contracts import (
     ResponseContourSurfaceDefinition,
     TaskDefinition,
 )
-from decision_workbench.task_composition.ports import PredictionRuntime
+from decision_workbench.task_composition.ports import (
+    NumericSamplingPolicy,
+    PredictionRuntime,
+)
 
 EXPLORER = DataExplorerCapability(
     quality=True,
@@ -48,9 +51,15 @@ def _standard_response_curve(
     axis_range: tuple[float, float] | None,
     _stage_name: str | None,
     _stage_position_m: float | None,
+    sampling_policy: NumericSamplingPolicy,
 ) -> dict[str, Any]:
     return runtime.response_curve_result(
-        candidate, target, variable, points, axis_range
+        candidate,
+        target,
+        variable,
+        points,
+        axis_range,
+        sampling_policy=sampling_policy,
     )
 
 
@@ -61,8 +70,16 @@ def _curve_family(
     vary: str | None,
     levels: int,
     points: int,
+    sampling_policy: NumericSamplingPolicy,
 ) -> dict[str, Any]:
-    return runtime.curve_family_result(candidate, target, vary, levels, points)
+    return runtime.curve_family_result(
+        candidate,
+        target,
+        vary,
+        levels,
+        points,
+        sampling_policy=sampling_policy,
+    )
 
 
 def _application_capability(

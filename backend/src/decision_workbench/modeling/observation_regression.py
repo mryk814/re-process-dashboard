@@ -33,6 +33,7 @@ from decision_workbench.data.observation_profile import (
 )
 from decision_workbench.domain.goal_targets import goal_fields
 from decision_workbench.modeling.curve_grid import anchored_curve_grid
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
 )
@@ -600,6 +601,7 @@ class ObservationRegressionRuntime:
         variable: str,
         points: int,
         axis_range: tuple[float, float] | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         if target not in self.output_keys:
             raise ValueError(f"unknown response curve target: {target}")
@@ -610,7 +612,13 @@ class ObservationRegressionRuntime:
         current = float(candidate.inputs.process["test_temperature_c"])
         low, high = axis_range or (training_min, training_max)
         curve = []
-        for x_value in anchored_curve_grid(low, high, points, current=current):
+        for x_value in anchored_curve_grid(
+            low,
+            high,
+            points,
+            current=current,
+            policy=sampling_policy,
+        ):
             adjusted = candidate.model_copy(deep=True)
             if variable in self.spec.target_features[target]:
                 adjusted.inputs.process["test_temperature_c"] = float(x_value)

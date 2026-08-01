@@ -1,28 +1,11 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 import math
 
 import numpy as np
 
 from decision_workbench.contracts.task_contracts import InputFieldDefinition
-
-
-_numeric_domain_field: ContextVar[InputFieldDefinition | None] = ContextVar(
-    "numeric_domain_field", default=None
-)
-
-
-@contextmanager
-def use_numeric_domain(field: InputFieldDefinition | None):
-    """Apply Task-owned scalar semantics during one response computation."""
-
-    token = _numeric_domain_field.set(field)
-    try:
-        yield
-    finally:
-        _numeric_domain_field.reset(token)
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 
 
 def anchored_curve_grid(
@@ -31,12 +14,36 @@ def anchored_curve_grid(
     points: int,
     *,
     current: float | None = None,
+    policy: NumericSamplingPolicy | None = None,
 ) -> list[float]:
     """Build a fixed-size sweep grid that includes the candidate's current value."""
 
-    field = _numeric_domain_field.get()
-    if field is not None and field.kind == "number":
-        return numeric_domain_grid(start, end, points, field=field, current=current)
+    if policy is not None:
+        selected_current = current if policy.include_current else None
+        if policy.field is not None and policy.field.kind == "number":
+            return numeric_domain_grid(
+                start,
+                end,
+                points,
+                field=policy.field,
+                current=selected_current,
+            )
+        return _linear_anchored_grid(
+            start,
+            end,
+            points,
+            current=selected_current,
+        )
+    return _linear_anchored_grid(start, end, points, current=current)
+
+
+def _linear_anchored_grid(
+    start: float,
+    end: float,
+    points: int,
+    *,
+    current: float | None,
+) -> list[float]:
     values = [float(value) for value in np.linspace(start, end, points)]
     if (
         current is None
