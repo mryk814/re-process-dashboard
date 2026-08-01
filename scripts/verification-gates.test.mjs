@@ -13,6 +13,7 @@ import {
   loadVerificationCatalog,
   parseVerificationArguments,
   requiresBackendPytest,
+  resolveExecutable,
   verificationEvidenceMarkdown,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
@@ -67,6 +68,22 @@ test("explicit focused tests are selected even when changed paths are not backen
     tests: ["backend/tests/test_data_library_api.py"],
     source: "explicit",
     fallback: false,
+  });
+});
+
+test("npx uses the npm CLI through Node on a virtual Windows runner", () => {
+  const runtime = {
+    platform: "win32",
+    execPath: "C:\\Program Files\\nodejs\\node.exe",
+    npmExecPath: "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+  };
+  assert.deepEqual(resolveExecutable("npm", runtime), {
+    command: runtime.execPath,
+    prefix: [runtime.npmExecPath],
+  });
+  assert.deepEqual(resolveExecutable("npx", runtime), {
+    command: runtime.execPath,
+    prefix: [runtime.npmExecPath, "exec", "--"],
   });
 });
 
