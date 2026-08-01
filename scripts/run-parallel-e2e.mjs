@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { resolveE2ePorts } from "./e2e-port-allocation.mjs";
 
 const root = process.cwd();
 const playwrightCli = join(root, "node_modules", "@playwright", "test", "cli.js");
@@ -15,11 +16,12 @@ function run(label, executable, args, environment = {}) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+const { apiPort, webPort } = await resolveE2ePorts();
 run(
   "Shared read-only E2E with Playwright workers",
   process.execPath,
   [playwrightCli, "test", "--config", "playwright.read-only.config.ts"],
-  { PLAYWRIGHT_API_PORT: process.env.PLAYWRIGHT_API_PORT ?? "9141", PLAYWRIGHT_WEB_PORT: process.env.PLAYWRIGHT_WEB_PORT ?? "5461" },
+  { PLAYWRIGHT_API_PORT: String(apiPort), PLAYWRIGHT_WEB_PORT: String(webPort) },
 );
 run(
   "Isolated mutable E2E with fresh spec processes",

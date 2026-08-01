@@ -26,6 +26,7 @@ node scripts/run-parallel-e2e.mjs
 
 前半はread-only specをPlaywright worker 2で実行する。spec内のlarge lineage readは順序を保つので、`fullyParallel`にはしない。
 後半はmutableでもProject／Candidate／Runをspec外へ漏らせるものを、別API/Web processとして最大2本動かす。
+read-only段も固定portを持たず、`PLAYWRIGHT_API_PORT`／`PLAYWRIGHT_WEB_PORT`が未指定ならOSから別portを取得する。明示指定した二つが同じportなら起動前に停止する。
 各実行はOSから別々に取得したAPI/Web portを使い、`test-results/isolated-e2e-*/report.json`へspec、port、exit code、output directoryを記録する。
 
 mutable specはretryを許可しない。runnerは`PLAYWRIGHT_ISOLATED_RETRIES`が`0`以外ならserverを起動する前に停止し、run IDをreportへ残す。これにより、失敗した最初のmutationを同じresource identityへ二重適用するretryを「たまたま通る」結果にしない。
