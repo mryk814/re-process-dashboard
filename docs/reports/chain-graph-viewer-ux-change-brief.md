@@ -16,7 +16,7 @@ ProjectのChain Revision、Definition digest、Stageのcontract／Package／Data
 
 ## 現在のjourneyと認知負荷
 
-Project内の「Chain構成」→ 左から右へStageを確認 → 気になるexternal inputまたはbindingを選ぶ → inspectorで端点と変換を読む。図を使わない場合は同じ順番のbinding表から確認する。覚え続ける情報はなく、固定参照は各nodeで必要時に開く。候補未選択・実行未実施は実行状態なしとして残し、推測した最新表示にはしない。
+Project内の「Chain構成」→ 外部入力とStageを確認 → 実際のbinding railを選ぶ → inspectorで両端のport surfaceと変換を読む。図を使わない場合は同じ接続のbinding表から確認する。覚え続ける情報はなく、固定参照は各nodeで必要時に開く。候補未選択・実行未実施は実行状態なしとして残し、推測した最新表示にはしない。
 
 ## 構造案
 
@@ -34,7 +34,7 @@ Project内の「Chain構成」→ 左から右へStageを確認 → 気になる
 
 ## 既定表示と技術詳細
 
-既定ではChain label、revision/digestの短縮表示、Stage kind、contract ID、入出力binding数、live freshnessを表示する。digest全文、Package/Dataset/Profile lock、conversion factor/offset、canonical pathはdetailsまたはinspectorへ後送りする。
+既定ではChain label、revision/digestの短縮表示、Stage kind、contract ID、固定surface上の入出力port数、live freshnessを表示する。各binding railはsource／target canonical path、分岐または合流、unit conversionを文字で示す。digest全文、Package/Dataset/Profile lock、value kind／quantity／unit／basis、conversion factor/offsetはdetailsまたはinspectorへ後送りする。
 
 ## 削除・統合・後送り
 
@@ -42,13 +42,13 @@ Project内の「Chain構成」→ 左から右へStageを確認 → 気になる
 
 ## 守る証拠とidentity
 
-Chain Definition／Revision、binding digest、unit conversion digest、Stage contract／Package／Dataset lockを読み取り専用で表示する。latest／running／stale／failedはStage executionのstateをそのまま表示し、未実行をlatestと扱わない。DefinitionにないStage outputのtype、quantity、basisは推測で補わずdegradedとして明示する。
+Chain Definition／Revision、binding digest、unit conversion digest、Stage contract／Package／Dataset lockを読み取り専用で表示する。Stage portのvalue kind／quantity／unit／basisは、Chain Revision登録時に検証したStageContractSurfaceをRevision外の添付表へ保存して読む。latest／running／stale／failedはStage executionのstateをそのまま表示し、未実行をlatestと扱わない。surfaceが存在しない旧Revisionだけは推測で補わず、理由付きdegradedとして明示する。
 
 ## 受入観察と反証結果
 
 - Stage名や数に依存せず、external input、branch／merge、conversionをbinding tableとgraphの双方で確認できる。
-- TabキーとEnter／Spaceだけでexternal port、node、binding inspectorへ到達できる。
+- TabキーとEnter／Spaceだけでbinding rail、node、binding inspectorへ到達できる。
 - 候補をURLで開いたとき、Stageごとのlatest等が表示される。
-- fresh Playwrightでtable、fixed lock、keyboard inspector、axeを確認した。
+- fresh Playwrightでactual railとtableの端点同値、fixed lock、keyboard inspector、axeを確認する。
 
-残る制約は、既存Chain DefinitionがStage outputの完全なport surfaceを永続化していないことである。そのためこのviewerはDefinitionが持つpathとconversionを表示し、欠けた物理metadataを現在のTaskや材料固有名から補完しない。
+残る制約は、migration以前に登録され、再登録もされないRevisionには添付surfaceがないことだけである。その場合も現行Task・material名・任意のfallbackから推論せず、該当stageとedgeをdegradedにする。

@@ -274,6 +274,7 @@ def test_store_registers_immutable_definition_and_revision_idempotently(
     assert store.list_chain_definitions() == [definition]
     assert store.list_chain_revisions() == [revision]
     assert store.get_chain_revision(revision_id) == revision
+    assert store.get_chain_stage_contract_surfaces(revision_id) == {"A": contract}
 
     conflicting = revision.model_copy(
         update={"revision_digest": "sha256:" + "c" * 64}

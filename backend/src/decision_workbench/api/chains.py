@@ -16,6 +16,7 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainCandidateContractResponse,
     ChainDistributionRequest,
     ChainExecutionRequest,
+    ChainGraphResponse,
     ChainTemplateItem,
 )
 from decision_workbench.contracts.chain_contracts import ChainRevision
@@ -92,6 +93,18 @@ def get_chain_revision(
     use_cases: ChainDependency,
 ) -> ChainRevision:
     return _call(lambda: use_cases.get_revision(revision_id))
+
+
+@execution_router.get(
+    "/{project_id}/chain/graph",
+    response_model=ChainGraphResponse,
+    operation_id="getProjectChainGraph",
+)
+def get_project_chain_graph(
+    project_id: str,
+    use_cases: ChainDependency,
+) -> ChainGraphResponse:
+    return _call(lambda: use_cases.graph(project_id))
 
 
 @execution_router.get(

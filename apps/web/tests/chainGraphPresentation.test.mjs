@@ -1,54 +1,61 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  buildChainGraph,
-  revisionStage,
-  stageBindingCounts,
-  stageStatus,
-} from "../src/features/projects/chainGraphPresentation.ts";
+import { buildChainGraph, revisionStage, stageBindingCounts, stageStatus } from "../src/features/projects/chainGraphPresentation.ts";
 
-const definition = {
-  external_inputs: [{
-    path: "external.temperature_c",
-    value_kind: "number",
-    quantity: "temperature",
-    basis: null,
-    unit: "°C",
-  }],
-  stages: [
-    { stage_id: "prepare", stage_kind: "deterministic_transform", contract_id: "prepare/v1" },
-    { stage_id: "measure", stage_kind: "task", contract_id: "measure/v1" },
-    { stage_id: "score", stage_kind: "task", contract_id: "score/v1" },
-  ],
-  bindings: [
-    { target_stage_id: "prepare", target_input_path: "temperature", source: { source_kind: "external", path: "external.temperature_c" }, conversion: null },
-    { target_stage_id: "measure", target_input_path: "prepared", source: { source_kind: "stage_output", stage_id: "prepare", output_key: "prepared" }, conversion: { conversion_id: "c-to-k", source_unit: "°C", target_unit: "K", factor: 1, offset: 273.15 } },
-    { target_stage_id: "score", target_input_path: "measurement", source: { source_kind: "stage_output", stage_id: "measure", output_key: "measurement" }, conversion: null },
-    { target_stage_id: "score", target_input_path: "temperature", source: { source_kind: "external", path: "external.temperature_c" }, conversion: null },
+const port = (path, unit = "K") => ({ path, value_kind: "number", quantity: "temperature", basis: null, unit });
+const surface = (stage_id, input_ports, output_ports) => ({
+  stage_id, status: "available", surface: { stage_kind: "task", contract_id: `${stage_id}/v1`, contract_digest: `sha256:${stage_id}`, input_ports, output_ports },
+});
+const graph = {
+  definition: {
+    label: "generic graph", external_inputs: [port("external.feed", "°C")],
+    stages: [{ stage_id: "alpha", stage_kind: "task", contract_id: "alpha/v1" }, { stage_id: "beta", stage_kind: "task", contract_id: "beta/v1" }, { stage_id: "gamma", stage_kind: "task", contract_id: "gamma/v1" }],
+    bindings: [
+      { target_stage_id: "alpha", target_input_path: "feed", source: { source_kind: "external", path: "external.feed" }, conversion: null },
+      { target_stage_id: "beta", target_input_path: "feed", source: { source_kind: "external", path: "external.feed" }, conversion: { conversion_id: "c-to-k", source_unit: "°C", target_unit: "K", factor: 1, offset: 273.15 } },
+      { target_stage_id: "gamma", target_input_path: "alpha_result", source: { source_kind: "stage_output", stage_id: "alpha", output_key: "result" }, conversion: null },
+      { target_stage_id: "gamma", target_input_path: "beta_result", source: { source_kind: "stage_output", stage_id: "beta", output_key: "result" }, conversion: null },
+    ],
+  },
+  revision: { stages: [{ stage_id: "gamma", contract_digest: "sha256:abc" }] },
+  stage_contracts: [
+    surface("alpha", [port("feed", "°C")], [port("result")]),
+    surface("beta", [port("feed")], [port("result")]),
+    surface("gamma", [port("alpha_result"), port("beta_result")], [port("score")]),
   ],
 };
 
-test("builds external, branch, merge, and conversion edges without stage-name assumptions", () => {
-  const edges = buildChainGraph(definition);
+test("renders scalar ports plus actual branch, merge, and conversion bindings", () => {
+  const edges = buildChainGraph(graph);
   assert.equal(edges.length, 4);
-  assert.equal(edges[0].source.kind, "external");
-  assert.equal(edges[1].source.label, "prepare.prepared");
+  assert.equal(edges[0].source.label, "external.feed");
+  assert.equal(edges[0].target.label, "alpha.feed");
+  assert.equal(edges[0].sourcePort.value_kind, "number");
+  assert.equal(edges[0].targetPort.quantity, "temperature");
+  assert.equal(edges[0].branchCount, 2);
   assert.equal(edges[1].binding.conversion.conversion_id, "c-to-k");
-  assert.equal(edges[3].target.label, "score.temperature");
-  assert.equal(edges[0].sourcePort.unit, "°C");
+  assert.equal(edges[1].binding.conversion.offset, 273.15);
+  assert.equal(edges[2].sourcePort.path, "result");
+  assert.equal(edges[2].mergeCount, 2);
 });
 
-test("derives node counts and live status per stage", () => {
-  assert.deepEqual(stageBindingCounts(definition, "score"), { inputs: 2, outputs: 0 });
-  assert.deepEqual(stageBindingCounts(definition, "prepare"), { inputs: 1, outputs: 1 });
-  const execution = { stages: [{ stage_id: "measure", status: "stale" }] };
-  assert.equal(stageStatus(execution, "measure"), "stale");
-  assert.equal(stageStatus(execution, "missing"), "未実行");
+test("marks only a missing fixed stage surface as degraded without inferring a port", () => {
+  const degraded = structuredClone(graph);
+  degraded.stage_contracts = degraded.stage_contracts.map((item) => item.stage_id === "beta"
+    ? { stage_id: "beta", status: "unavailable", reason: "このRevisionのsurfaceは保存されていません。", surface: null }
+    : item);
+  const edge = buildChainGraph(degraded).find((item) => item.source.label === "beta.result");
+  assert.equal(edge.status, "unavailable");
+  assert.equal(edge.sourcePort, undefined);
+  assert.match(edge.reason, /保存されていません/);
 });
 
-test("looks up only the revision lock matching the generic stage id", () => {
-  const revision = { stages: [{ stage_id: "score", contract_digest: "sha256:abc" }] };
-  assert.equal(revisionStage(revision, "score").contract_digest, "sha256:abc");
-  assert.equal(revisionStage(revision, "prepare"), undefined);
+test("uses fixed surface port counts and generic revision/live stage lookup", () => {
+  assert.deepEqual(stageBindingCounts(graph, "gamma"), { inputs: 2, outputs: 1 });
+  assert.deepEqual(stageBindingCounts(graph, "alpha"), { inputs: 1, outputs: 1 });
+  assert.equal(stageStatus({ stages: [{ stage_id: "beta", status: "stale" }] }, "beta"), "stale");
+  assert.equal(stageStatus(null, "missing"), "未実行");
+  assert.equal(revisionStage(graph.revision, "gamma").contract_digest, "sha256:abc");
+  assert.equal(revisionStage(graph.revision, "alpha"), undefined);
 });

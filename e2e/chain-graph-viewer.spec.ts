@@ -41,20 +41,30 @@ async function createExecutedChain(page: import("@playwright/test").Page) {
   return { project, candidate };
 }
 
-test("Chain graph is read-only, keyboard reachable, and has a same-meaning binding table", async ({ page }) => {
+test("Chain graph renders actual edges, keeps the table equivalent, and is keyboard reachable", async ({ page }) => {
   const { project, candidate } = await createExecutedChain(page);
   await page.goto(`/?view=chain-graph&project=${project.id}&candidate=${candidate.id}`);
 
   await expect(page.locator("#chain-graph-heading")).toBeVisible();
   await expect(page.getByText("binding一覧", { exact: true })).toBeVisible();
   await expect(page.locator(".chain-graph-table-wrap tbody tr")).not.toHaveCount(0);
+  await expect(page.locator(".chain-graph-rail")).not.toHaveCount(0);
   await expect(page.locator(".chain-graph-node.latest")).not.toHaveCount(0);
   await expect(page.getByText("固定参照", { exact: true }).first()).toBeVisible();
 
-  const firstExternalPort = page.locator(".chain-graph-external-port").first();
-  await firstExternalPort.focus();
+  const visualEdges = await page.locator(".chain-graph-rail").evaluateAll((items) => items.map((item) => ({
+    source: item.getAttribute("data-source"), target: item.getAttribute("data-target"),
+  })));
+  const tableEdges = await page.locator(".chain-graph-table-wrap tbody tr").evaluateAll((items) => items.map((item) => ({
+    source: item.getAttribute("data-source"), target: item.getAttribute("data-target"),
+  })));
+  expect(visualEdges).toEqual(tableEdges);
+
+  const firstRail = page.locator(".chain-graph-rail").first();
+  await firstRail.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Binding inspector" })).toBeVisible();
+  await expect(page.getByText("source value kind", { exact: true })).toBeVisible();
   await expect(page.getByText("source unit", { exact: true })).toBeVisible();
   await expect(page.getByText("target unit", { exact: true })).toBeVisible();
 

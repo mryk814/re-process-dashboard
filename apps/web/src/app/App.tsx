@@ -258,7 +258,6 @@ function App() {
   const activeChainRevision = "revision" in activeChainContext
     ? activeChainContext.revision
     : resolveFixedChain(chainIdentity, chainTemplates).revision;
-  const activeChainTemplate = resolveFixedChain(chainIdentity, chainTemplates).template;
   const taskUnavailable = taskAvailability?.status === "unavailable";
   const unavailableScopedTab = taskUnavailable
     && !chainProject
@@ -612,23 +611,10 @@ function App() {
             candidateId: selectedId || undefined,
           })} stagePath={chainStagePath(activeChainRevision)} />
         )}
-        {tab === "chain-graph" && chainProject && activeChainContext.status === "available" && activeChainTemplate && activeChainRevision && (
+        {tab === "chain-graph" && chainProject && (
           <ChainGraphViewer
             projectId={activeProjectId}
             candidateId={selectedId || navigation.candidateId}
-            template={activeChainTemplate}
-            revision={activeChainRevision}
-          />
-        )}
-        {tab === "chain-graph" && chainProject && activeChainContext.status !== "available" && (
-          <WorkbenchEmptyState
-            loading={activeChainContext.status === "loading"}
-            error={activeChainContext.status === "offline"
-              ? "APIへ接続できないため、固定したChain Revisionを表示できません。"
-              : activeChainContext.status === "unresolved"
-                ? `固定したChain Revisionを解決できません（${activeChainContext.chainRevisionId}）。`
-                : "Chainの固定参照を取得できませんでした。再読み込みしてください。"}
-            onCreate={() => undefined}
           />
         )}
         {tab === "workspace" && (
