@@ -21,6 +21,9 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.contracts.task_contracts import (
+    persisted_task_definition_payload,
+)
 from decision_workbench.data.importer import (
     WorkbookData,
     composition_names,
@@ -34,6 +37,7 @@ from decision_workbench.domain.goal_targets import (
     normal_goal_probability,
 )
 from decision_workbench.domain.heat_time import line_speed_scaled_times
+from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.feature_pipeline import (
     FEATURE_DEFINITIONS,
     FEATURE_PIPELINE_ID,
@@ -168,6 +172,12 @@ class SupportReference:
 class ModelRuntime:
     task_id = TASK_ID
     support_policy_id = SIMILARITY_VERSION
+    task_contract_digest = semantic_digest(
+        persisted_task_definition_payload(load_task_definitions()[TASK_ID])
+    )
+    canonical_input_schema_version = load_task_definitions()[
+        TASK_ID
+    ].canonical_candidate_schema_version
 
     def __init__(
         self,

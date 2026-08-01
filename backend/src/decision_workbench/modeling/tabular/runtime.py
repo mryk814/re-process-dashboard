@@ -20,6 +20,9 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.contracts.task_contracts import (
+    persisted_task_definition_payload,
+)
 from decision_workbench.data.profiles.loading import load_task_definitions
 from decision_workbench.domain.goal_targets import goal_fields
 from decision_workbench.execution.inference_work_graph import semantic_digest
@@ -118,6 +121,12 @@ class TabularRegressionRuntime:
         )
         manifest = self.model_package.manifest
         self.task_definition = load_task_definitions()[self.task_id]
+        self.task_contract_digest = semantic_digest(
+            persisted_task_definition_payload(self.task_definition)
+        )
+        self.canonical_input_schema_version = (
+            self.task_definition.canonical_candidate_schema_version
+        )
         self.output_definitions = {
             item.key: item for item in self.task_definition.outputs
         }
@@ -641,6 +650,14 @@ class TabularRegressionRuntime:
                 goal_upper=goal_upper,
                 goal_probability=None if goal_probability is None else round(goal_probability, 4),
                 goal_direction=goal_direction,
+                uncertainty_components=(
+                    None
+                    if summary.uncertainty_components is None
+                    else {
+                        name: round(float(component), 6)
+                        for name, component in summary.uncertainty_components.items()
+                    }
+                ),
             )
             warnings.extend(summary.warnings)
         runtime_types = sorted({

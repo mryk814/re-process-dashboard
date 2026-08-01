@@ -20,18 +20,40 @@ from decision_workbench.modeling.missingness import missing_pattern
 
 def _model_uncertainty(prediction: object) -> float:
     components = getattr(prediction, "uncertainty_components", None) or {}
-    if "model" in components:
-        return max(float(components["model"]), 0.0)
-    if getattr(prediction, "predictive_family", None) != "normal":
-        raise ValueError(
-            "このPredictive Modelはmodel uncertaintyを分解できないため、"
-            "Completion Labでcombined uncertaintyを推定できません"
-        )
-    return max(
-        float(prediction.upper - prediction.lower)  # type: ignore[attr-defined]
-        / (2 * 1.6448536269514722),
-        0.0,
+    if "total_predictive_std" in components:
+        return max(float(components["total_predictive_std"]), 0.0)
+    if "total_predictive_variance" in components:
+        return math.sqrt(max(float(components["total_predictive_variance"]), 0.0))
+    raise ValueError(
+        "このPredictive Modelはmodel uncertaintyを分解できないため、"
+        "Completion Labでcombined uncertaintyを推定できません"
     )
+
+
+def _validate_runtime_binding(
+    runtime: object,
+    package: VerifiedDesignPriorPackage,
+) -> None:
+    manifest = package.manifest
+    task_id = getattr(runtime, "task_id", None)
+    task_contract_digest = getattr(runtime, "task_contract_digest", None)
+    schema_version = getattr(runtime, "canonical_input_schema_version", None)
+    if (
+        task_id != manifest.task_id
+        or task_contract_digest != manifest.task_contract_digest
+        or schema_version != manifest.canonical_input_schema_version
+    ):
+        raise ValueError(
+            "Design Prior PackageのTask、contract、canonical schemaが"
+            "Predictive runtimeと一致しません"
+        )
+    runtime_paths = {
+        item.path for item in runtime.missing_policy_inputs  # type: ignore[attr-defined]
+    }
+    if not set(manifest.canonical_input_paths).issubset(runtime_paths):
+        raise ValueError(
+            "Design Prior Packageのcanonical inputがPredictive runtimeと一致しません"
+        )
 
 
 def run_missing_completion_lab(
@@ -45,6 +67,7 @@ def run_missing_completion_lab(
 ) -> MissingCompletionLabReport:
     if not 2 <= sample_count <= 256:
         raise ValueError("Completion Labのsample_countは2から256の範囲で指定してください")
+    _validate_runtime_binding(runtime, package)
     profile_inputs = runtime.missing_policy_inputs  # type: ignore[attr-defined]
     pattern = missing_pattern(candidate, profile_inputs)
     missing_paths = tuple(

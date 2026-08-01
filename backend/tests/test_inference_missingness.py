@@ -171,6 +171,11 @@ def test_completion_lab_does_not_invent_decomposed_model_uncertainty() -> None:
 
     with pytest.raises(ValueError, match="model uncertainty"):
         _model_uncertainty(prediction)
+    normal_without_components = prediction.model_copy(
+        update={"predictive_family": "normal"}
+    )
+    with pytest.raises(ValueError, match="model uncertainty"):
+        _model_uncertainty(normal_without_components)
 
 
 def test_empirical_completion_lab_separates_model_and_input_uncertainty(
@@ -212,6 +217,9 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
     package = DesignPriorPackageLoader().load(package_root)
 
     class Runtime:
+        task_id = "fixture"
+        task_contract_digest = "sha256:" + "1" * 64
+        canonical_input_schema_version = "candidate-v1"
         missing_policy_inputs = (
             _input("process.temperature"),
             _input("process.time"),
@@ -231,9 +239,38 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
                         point_statistic="mean",
                         predictive_family="normal",
                         quantiles={"0.05": value - 1.0, "0.95": value + 1.0},
+                        uncertainty_components={
+                            "total_predictive_std": 1.0,
+                        },
                     )
                 }
             }
+
+    class WrongTaskRuntime(Runtime):
+        task_id = "other"
+
+    with pytest.raises(ValueError, match="Task、contract、canonical schema"):
+        run_missing_completion_lab(
+            WrongTaskRuntime(),
+            _candidate(temperature=705.0),
+            package,
+            generator_id="empirical_rows",
+            sample_count=2,
+            seed=9,
+        )
+
+    class WrongContractRuntime(Runtime):
+        task_contract_digest = "sha256:" + "3" * 64
+
+    with pytest.raises(ValueError, match="Task、contract、canonical schema"):
+        run_missing_completion_lab(
+            WrongContractRuntime(),
+            _candidate(temperature=705.0),
+            package,
+            generator_id="empirical_rows",
+            sample_count=2,
+            seed=9,
+        )
 
     report = run_missing_completion_lab(
         Runtime(),
