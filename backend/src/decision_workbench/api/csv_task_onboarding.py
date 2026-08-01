@@ -65,6 +65,9 @@ _FAILURE_MESSAGES = {
     "fields": "列の設定を確認してください。",
     "storage": "個人TaskまたはModelの保存先を確認してください。",
     "prepare": "Taskとモデルを準備できませんでした。列の役割と範囲を確認してもう一度試してください。",
+    "build": "Estimatorの学習またはPackage buildに失敗しました。選択したEstimatorと入力列を確認してください。",
+    "verify": "作成したModel Packageが安全契約を満たしませんでした。Estimatorの説明と入力設定を確認してください。",
+    "promote": "検証済みModel Packageを利用可能状態へ昇格できませんでした。個人Model保存先を確認してください。",
     "dataset": "DatasetをData Libraryへ登録できませんでした。準備した内容は取り消しました。もう一度試してください。",
     "refresh": "新しいTaskを再読込できませんでした。準備した内容は取り消しました。もう一度試してください。",
 }
@@ -583,6 +586,7 @@ async def prepare_csv_task(
                     estimator_slug = estimator_id.replace(".", "-")
                     candidate = result.root / f"candidate-package-{estimator_slug}"
                     feature_dataset = result.root / f"feature-dataset-{estimator_slug}.json"
+                    stage = "build"
                     await run_in_threadpool(
                         build_standard_package,
                         task_id,
@@ -595,6 +599,15 @@ async def prepare_csv_task(
                         estimator=estimator_id,
                         profile=result.profile_path,
                     )
+                    stage = "verify"
+                    await run_in_threadpool(
+                        verify_model_package,
+                        candidate,
+                        task_id=task_id,
+                        source=result.source_path,
+                        profile=result.profile_path,
+                    )
+                    stage = "promote"
                     await run_in_threadpool(
                         promote_personal_package,
                         task_id,

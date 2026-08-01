@@ -862,6 +862,49 @@ def test_csv_onboarding_storage_failure_explains_reason_and_next_ui_action(
         assert not (task_store / task_id).exists()
 
 
+def test_csv_onboarding_reports_the_failed_model_lifecycle_stage(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    task_id = "csv-ui-verify-failure-v1"
+    task_store = tmp_path / "personal-tasks"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
+    monkeypatch.setattr(
+        contributions_module,
+        "bootstrap_welding_chain",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            WeldingChainBootstrapError("not part of this Task smoke")
+        ),
+    )
+    monkeypatch.setattr(
+        csv_onboarding_module,
+        "verify_model_package",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("fixture verification failure")
+        ),
+    )
+    app = create_app(
+        db_path=tmp_path / "workspace.db",
+        data_library_path=tmp_path / "data-library",
+        model_store_path=tmp_path / "personal-models",
+        _resources=resources,
+    )
+    source = _source(tmp_path / "new-source.csv")
+
+    with TestClient(app) as client:
+        failed = _prepare_csv_onboarding(
+            client,
+            source=source,
+            task_id=task_id,
+            label="検証stage",
+        )
+
+    assert failed.status_code == 422, failed.text
+    assert "安全契約" in failed.json()["message"]
+    assert not (task_store / task_id).exists()
+
+
 def test_csv_onboarding_registration_failure_removes_new_task_and_package(
     tmp_path: Path,
     monkeypatch,
