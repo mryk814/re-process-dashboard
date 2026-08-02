@@ -11,6 +11,8 @@ export function provenanceNavigation(
       return { view: "lineage", projectId, entityKey: provenance.source_ref.entity_key };
     case "screening":
       return { view: "explore", projectId, screeningRunId: provenance.source_ref.run_id };
+    case "historical_observation":
+      return null;
     case "copy":
       return {
         view: "candidates",

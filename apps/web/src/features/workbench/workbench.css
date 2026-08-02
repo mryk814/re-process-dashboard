@@ -299,6 +299,23 @@
   color: #245d55;
   font-variant-numeric: tabular-nums;
 }
+.candidate-origin-historical-identity {
+  flex: 1 1 220px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.candidate-origin-historical-identity small {
+  margin-left: 0;
+  white-space: normal;
+}
+.candidate-origin-historical-identity details {
+  max-width: 100%;
+}
+.candidate-origin-historical-identity code {
+  overflow-wrap: anywhere;
+}
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

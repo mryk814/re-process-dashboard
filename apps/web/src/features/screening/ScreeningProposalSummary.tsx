@@ -116,15 +116,11 @@ export function ScreeningProposalSummary({
   targetLabel,
   showAnotherSample,
   onAnotherSample,
-  onSaveBatch,
-  batchSaveCount,
 }: {
   result: ApiScreeningRun;
   targetLabel?: string;
   showAnotherSample: boolean;
   onAnotherSample: () => void;
-  onSaveBatch: () => void;
-  batchSaveCount: number;
 }) {
   const diagnostics = result.proposal_diagnostics;
   const rejectionReasons = diagnostics?.rejected_by_reason ?? {};
@@ -362,14 +358,7 @@ export function ScreeningProposalSummary({
               }, {})).map(([reason, count]) => <span key={reason} title={reason}>{displayReason(reason)} {count}件 </span>)}
             </p>
           )}
-          <button
-            className="primary-button"
-            disabled={!batchSaveCount}
-            onClick={onSaveBatch}
-          >
-            {batchSaveCount ? `提案した${batchSaveCount}条件を候補へ保存` : "提案条件は保存済み"}
-          </button>
-          <small>反復は同じ候補条件に複数観測を計画するため、候補保存時は1条件にまとめます。</small>
+          <small>下の実験バッチ表で、判断へ進める条件だけを1件ずつ候補として採用します。Control／反復は同じ候補条件の観測計画なので、新しい候補にはしません。</small>
         </details>
       )}
       {showAnotherSample && !result.batch_proposal && (

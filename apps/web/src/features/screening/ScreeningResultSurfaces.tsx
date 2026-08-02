@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 import { supportStatusLabel } from "../../shared/supportPresentation";
+import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 
 export type ScreeningResultSurface = "map" | "proposals" | "evaluated";
 
@@ -210,7 +211,19 @@ const batchRoleLabels: Record<
   replicate: "反復",
 };
 
-export function ScreeningBatchTable({ result }: { result: ApiScreeningRun }) {
+export function ScreeningBatchTable({
+  result,
+  stockedPointIndices = new Set<number>(),
+  remainingCandidateCapacity = 0,
+  promotionPendingPointIndex = null,
+  onPromote = () => {},
+}: {
+  result: ApiScreeningRun;
+  stockedPointIndices?: Set<number>;
+  remainingCandidateCapacity?: number;
+  promotionPendingPointIndex?: number | null;
+  onPromote?: (pointIndex: number) => void;
+}) {
   const batch = result.batch_proposal;
   if (!batch) return null;
   return (
@@ -237,11 +250,16 @@ export function ScreeningBatchTable({ result }: { result: ApiScreeningRun }) {
               <th>価値</th>
               <th>多様性</th>
               <th>コスト</th>
+              <th>候補</th>
             </tr>
           </thead>
           <tbody>
-            {batch.selected.map((item) => (
-              <tr key={`${item.order}-${item.pool_index}`}>
+            {batch.selected.map((item) => {
+              const candidatePoint = item.source === "acquisition_ranked" && item.point_index != null
+                ? item.point_index
+                : null;
+              const stocked = candidatePoint != null && stockedPointIndices.has(candidatePoint);
+              return <tr key={`${item.order}-${item.pool_index}`}>
                 <th scope="row">{item.order}</th>
                 <td>
                   {item.source === "exact_control"
@@ -254,8 +272,19 @@ export function ScreeningBatchTable({ result }: { result: ApiScreeningRun }) {
                 <td>{displayNumber(item.acquisition_component)}</td>
                 <td>{displayNumber(item.diversity_component)}</td>
                 <td>{displayNumber(item.estimated_cost)}</td>
-              </tr>
-            ))}
+                <td>
+                  {candidatePoint == null
+                    ? <small>Control／反復は新しい候補にしません</small>
+                    : <CandidateAddButton
+                        compact
+                        disabled={stocked || remainingCandidateCapacity < 1 || promotionPendingPointIndex != null}
+                        onClick={() => onPromote(candidatePoint)}
+                      >
+                        {stocked ? "追加済み" : promotionPendingPointIndex === candidatePoint ? "追加中…" : "この条件を候補にする"}
+                      </CandidateAddButton>}
+                </td>
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>

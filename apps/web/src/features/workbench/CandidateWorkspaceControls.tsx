@@ -7,7 +7,11 @@ import {
   type TaskDefinitionContract,
   type TaskOutputDefinition,
 } from "../candidates";
-import { workbenchApi, type ApiCandidateOriginEvidence } from "../../shared/api/workbench-api";
+import {
+  workbenchApi,
+  type ApiCandidateOriginEvidence,
+  type ApiHistoricalObservationEvidence,
+} from "../../shared/api/workbench-api";
 import { HistoricalEvidenceDrawer } from "./HistoricalEvidenceDrawer";
 import { originMeasurements, type OriginMeasurement } from "./originEvidence";
 
@@ -32,15 +36,48 @@ export function CandidateOrigin({
   const provenance = candidate.raw.provenance as CandidateProvenance;
   const hasOriginNavigation = provenance.source_kind !== "direct" && provenance.source_kind !== "manual";
   const lineageReference = provenance.source_kind === "lineage" ? provenance.source_ref : null;
-  const referenceOrigin = lineageReference !== null;
+  const historicalReference = provenance.source_kind === "historical_observation"
+    ? provenance.source_ref
+    : null;
+  const referenceOrigin = lineageReference !== null || historicalReference !== null;
   const [measurements, setMeasurements] = useState<OriginMeasurement[] | null>(null);
   const [originEvidence, setOriginEvidence] = useState<ApiCandidateOriginEvidence | null>(null);
+  const [, setHistoricalEvidence] = useState<ApiHistoricalObservationEvidence | null>(null);
   const [originEvidenceState, setOriginEvidenceState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   useEffect(() => {
     setEvidenceOpen(false);
     setMeasurements(null);
     setOriginEvidence(null);
+    setHistoricalEvidence(null);
+    if (provenance.source_kind === "historical_observation") {
+      const controller = new AbortController();
+      setOriginEvidenceState("loading");
+      void workbenchApi.historicalObservationEvidence(projectId, candidate.id, controller.signal)
+        .then((evidence) => {
+          if (controller.signal.aborted) return;
+          setHistoricalEvidence(evidence);
+          setMeasurements(outputs.flatMap((output) => {
+            const value = evidence.actual_outputs[output.key];
+            return typeof value === "number" ? [{
+              key: output.key,
+              label: output.label,
+              mean: value,
+              std: 0,
+              count: 1,
+              unit: output.unit,
+            }] : [];
+          }));
+          setOriginEvidenceState("ready");
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setMeasurements([]);
+            setOriginEvidenceState("error");
+          }
+        });
+      return () => controller.abort();
+    }
     if (provenance.source_kind !== "lineage") {
       setOriginEvidenceState("idle");
       return;
@@ -71,9 +108,9 @@ export function CandidateOrigin({
       {referenceOrigin && (
         <span
           className="candidate-origin-measurements"
-          title="候補化した時点の作成元実測です。候補の条件を編集しても、この参考値は変わりません。"
+          title="候補化した時点の過去実測です。現在の予測値、予測区間、支持範囲とは別の証拠です。"
         >
-          <small>作成元実測</small>
+          <small>{historicalReference ? "過去の実測値（actual）" : "作成元実測"}</small>
           {measurements?.length
             ? measurements.map((measurement) => (
                 <b
@@ -101,8 +138,18 @@ export function CandidateOrigin({
         >
           派生元 revision {provenance.source_ref.candidate_revision} を見る
         </button>
-      ) : referenceOrigin ? (
+      ) : lineageReference ? (
         <button type="button" className="outline-button" onClick={() => setEvidenceOpen(true)}>作成元の実績を見る</button>
+      ) : historicalReference ? (
+        <span className="candidate-origin-historical-identity">
+          <small>実測record {historicalReference.observation_id} · 親条件 {historicalReference.parent_key} · {historicalReference.source_label}</small>
+          <small>Dataset Revision {historicalReference.dataset_view_revision_id}</small>
+          <small>現在の予測値・区間・支持範囲は候補結果として別に表示しています</small>
+          <details>
+            <summary>固定参照の詳細</summary>
+            <code>{historicalReference.source_sha256}</code>
+          </details>
+        </span>
       ) : hasOriginNavigation ? (
         <button type="button" className="outline-button" onClick={onOpen}>作成元へ戻る</button>
       ) : (

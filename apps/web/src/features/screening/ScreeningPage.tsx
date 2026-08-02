@@ -317,6 +317,7 @@ export function ScreeningPage({
   const [resultSurface, setResultSurface] = useState<ScreeningResultSurface>("map");
   const [editorOpen, setEditorOpen] = useState(true);
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
+  const [promotingBatchPointIndex, setPromotingBatchPointIndex] = useState<number | null>(null);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
   const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const variableSelectRefs = useRef<Array<HTMLSelectElement | null>>([]);
@@ -492,6 +493,7 @@ export function ScreeningPage({
       ? run.proposal_selection?.selected.map((item) => item.point_index) ?? []
       : [];
     setSelectedPointIndices(proposedIndices);
+    setPromotingBatchPointIndex(null);
     setFocusedPointIndex(
       proposedIndices[0] ?? run.representative_points[0]?.index ?? null,
     );
@@ -838,23 +840,25 @@ export function ScreeningPage({
         : []
     )) ?? [],
   ));
-  const newBatchPointIndices = batchPointIndices.filter((index) => !stockedPointIndices.has(index));
-  const persistBatch = async () => {
-    if (!result || !newBatchPointIndices.length) return;
-    if (newBatchPointIndices.length > remainingCandidateCapacity) {
-      setError(`提案batchを保存するには候補枠があと${newBatchPointIndices.length}件必要です。`);
+  const persistBatchMember = async (pointIndex: number) => {
+    if (!result || !batchPointIndices.includes(pointIndex) || stockedPointIndices.has(pointIndex)) return;
+    if (remainingCandidateCapacity < 1) {
+      setError("候補枠に空きがないため、この実験条件を候補にできません。");
       return;
     }
     try {
+      setPromotingBatchPointIndex(pointIndex);
       const response = await workbenchApi.candidatesFromScreening(
         projectId,
         result.id,
-        newBatchPointIndices,
+        [pointIndex],
       );
       response.candidates.forEach((candidate) => onCandidate(fromApiCandidate(candidate)));
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "提案batchを候補へ保存できませんでした。");
+      setError(cause instanceof Error ? cause.message : "実験バッチの条件を候補にできませんでした。");
+    } finally {
+      setPromotingBatchPointIndex(null);
     }
   };
   const movedConditionFields = result
@@ -1095,9 +1099,11 @@ export function ScreeningPage({
                 >
                   <b>{outputs.find((output) => output.key === run.target)?.label ?? run.target}</b> → {goalSummary(run.target_goal, run.target_value)} /{" "}
                   {run.samples}点表示
-                  {run.proposal_diagnostics?.proposed_count != null
-                    ? ` · ${run.proposal_diagnostics.proposed_count}件提案`
-                    : ""}{" "}
+                    {run.batch_proposal
+                      ? ` · 実験バッチ ${run.batch_proposal.selected.length}枠`
+                      : run.proposal_diagnostics?.proposed_count != null
+                      ? ` · ${run.proposal_diagnostics.proposed_count}件提案`
+                      : ""}{" "}
                   <small>
                     基準: {candidates.find((candidate) => candidate.id === run.base_candidate_id)?.label ?? run.base_candidate_id?.slice(0, 8) ?? "旧保存データ"} ·{" "}
                     {Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field, spec]) => `${axisLabel(field)}=${spec.mode === "range" ? `${number(spec.min ?? 0, 3)}–${number(spec.max ?? 0, 3)}` : (spec.values ?? []).join("/")}`).join(" / ") || "変更なし"} ·{" "}
@@ -1132,8 +1138,6 @@ export function ScreeningPage({
           result={result}
           targetLabel={outputs.find((output) => output.key === result.target)?.label}
           showAnotherSample={screeningMode !== "batch"}
-          batchSaveCount={newBatchPointIndices.length}
-          onSaveBatch={() => { void persistBatch(); }}
           onAnotherSample={() => {
             if (screeningMode === "batch") return;
             const nextSeed = nextScreeningSeed(seed);
@@ -2026,7 +2030,13 @@ export function ScreeningPage({
           </section>
           )}
           {displayedResultSurface === "proposals" && selectionSurface.kind === "batch" && (
-            <ScreeningBatchTable result={result} />
+            <ScreeningBatchTable
+              result={result}
+              stockedPointIndices={stockedPointIndices}
+              remainingCandidateCapacity={remainingCandidateCapacity}
+              promotionPendingPointIndex={promotingBatchPointIndex}
+              onPromote={(pointIndex) => { void persistBatchMember(pointIndex); }}
+            />
           )}
           {displayedResultSurface === "evaluated" && (
             <ScreeningEvaluatedTable

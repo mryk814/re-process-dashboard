@@ -36,6 +36,7 @@ export function SimilarityEvidencePanel({
   targetSpecific,
   ready,
   onAddCandidate,
+  onAddHistoricalCandidate,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -50,6 +51,7 @@ export function SimilarityEvidencePanel({
     processKey?: string,
     meltKey?: string,
   ) => Promise<boolean>;
+  onAddHistoricalCandidate: (observationId: string) => Promise<boolean>;
 }) {
   const [surface, setSurface] = useState(() => emptyInferenceSurface<ApiSimilarObservation[]>());
   const [addingKey, setAddingKey] = useState("");
@@ -148,11 +150,16 @@ export function SimilarityEvidencePanel({
   };
   const prepareCandidate = async (item: ApiSimilarObservation) => {
     const entityKey = item.process_key;
-    if (!entityKey) return;
     const rowKey = similarObservationRowKey(item);
     setAddingKey(rowKey);
     setChoiceErrors((current) => ({ ...current, [rowKey]: "" }));
     try {
+      if (!entityKey) {
+        if (await onAddHistoricalCandidate(item.observation_id)) {
+          setAddedChoiceKeys((current) => current.includes(rowKey) ? current : [...current, rowKey]);
+        }
+        return;
+      }
       const lineage = await workbenchApi.lineage(projectId, entityKey);
       const matchingProcess = (lineage.candidate_options ?? []).filter(
         (option) => option.process_key === entityKey,
@@ -261,11 +268,11 @@ export function SimilarityEvidencePanel({
                   </div>;
                 })() : <CandidateAddButton
                   compact
-                  disabled={!item.process_key || addingKey.startsWith(similarObservationRowKey(item))}
-                  title={item.process_key ? undefined : "この実測には候補化できる工程条件の対応がありません"}
+                  disabled={addingKey.startsWith(similarObservationRowKey(item)) || addedChoiceKeys.includes(similarObservationRowKey(item))}
+                  title={item.process_key ? undefined : "この実測recordの入力条件を候補として採用します。実測値は証拠として残ります。"}
                   onClick={() => void prepareCandidate(item)}
                 >
-                  {addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "候補にする"}
+                  {addedChoiceKeys.includes(similarObservationRowKey(item)) ? "候補に追加済み" : addingKey.startsWith(similarObservationRowKey(item)) ? "追加中…" : "この実測を候補にする"}
                 </CandidateAddButton>}
                 {choiceErrors[similarObservationRowKey(item)] && <small className="similar-choice-error" role="alert">{choiceErrors[similarObservationRowKey(item)]}</small>}
               </td>

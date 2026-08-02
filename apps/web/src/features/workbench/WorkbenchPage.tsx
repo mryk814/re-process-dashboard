@@ -28,6 +28,7 @@ import {
 import { apiBaseUrl } from "../../shared/api/client";
 import type { TargetGoal } from "../../shared/targetGoals";
 import {
+  workbenchApi,
   type ApiCandidate,
   type ApiProject,
   type ApiPreview,
@@ -462,6 +463,11 @@ export function WorkbenchPage(props: WorkbenchProps) {
           targetSpecific={operations?.target_specific_similarity === true}
           ready={["idle", "saved"].includes(saveState)}
           onAddCandidate={onAddCandidateFromLineage}
+          onAddHistoricalCandidate={async (observationId) => {
+            const created = await workbenchApi.createCandidateFromHistoricalObservation(projectId, observationId);
+            onOptimizedCandidate(created.candidate);
+            return true;
+          }}
         />;
       case "feature_engineering":
         return <FeatureEngineeringPanel preview={preview} />;
