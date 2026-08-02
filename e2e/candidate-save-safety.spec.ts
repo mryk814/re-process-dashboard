@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import {
   apiBaseUrl,
   createProjectWithCandidate,
+  openCandidateInputs,
   starterCandidate,
 } from "./helpers";
 
@@ -130,6 +131,7 @@ test("normal Candidate save settles before navigation and failure retains the dr
   );
 
   await page.goto(`/?view=candidates&project=${project.id}&candidate=${candidate.id}`);
+  await openCandidateInputs(page);
   const numeric = page.locator(
     ".comparison-detail-table tbody tr.selected-row input[type=number]",
   ).first();
@@ -299,6 +301,7 @@ test("Actual draft survives Candidate revision churn until explicit rebase", asy
   );
   const candidate = await projectCandidate(page.request, project.id);
   await page.goto(`/?view=candidates&project=${project.id}&candidate=${candidate.id}`);
+  await openCandidateInputs(page);
   const panel = page.getByRole("region", { name: "予測と実測の照合" });
   await panel.getByRole("button", { name: "実測を登録" }).click();
   await panel.getByLabel("実測値", { exact: true }).fill("512");

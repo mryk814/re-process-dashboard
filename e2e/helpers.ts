@@ -1,10 +1,20 @@
-import { expect, type APIRequestContext, type APIResponse } from "@playwright/test";
+import { expect, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 
 /**
  * Every spec must resolve the API port the same way playwright.config.ts does.
  * Hard-coding 8875 makes the suite fail whenever the default port is taken.
  */
 export const apiBaseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8875"}`;
+
+export async function openCandidateInputs(page: Page) {
+  const openButton = page.getByRole("button", { name: "選択候補の入力を開く" });
+  await expect(openButton).toBeVisible();
+  await openButton.click();
+  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("material-workbench:layout:candidate-inspector-collapsed:v2")
+  ))).toBe("false");
+}
 
 type CreationOptions = {
   datasets: Array<{

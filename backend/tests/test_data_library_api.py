@@ -47,6 +47,26 @@ EXPECTED_DATASET_IDENTITIES = {
         "welding_consumable_multistage_synthetic_dataset.xlsx",
         ("welding-stage-c-properties-v1",),
     ),
+    (
+        "welding-graph-tensile-ts-v1-observations",
+        "welding_consumable_multistage_synthetic_dataset.xlsx",
+        ("welding-graph-tensile-ts-v1",),
+    ),
+    (
+        "welding-graph-toughness-v1-observations",
+        "welding_consumable_multistage_synthetic_dataset.xlsx",
+        ("welding-graph-toughness-v1",),
+    ),
+    (
+        "welding-graph-corrosion-v1-observations",
+        "welding_consumable_multistage_synthetic_dataset.xlsx",
+        ("welding-graph-corrosion-v1",),
+    ),
+    (
+        "welding-graph-deposition-efficiency-synthetic-v1",
+        "welding_deposition_efficiency_synthetic.csv",
+        ("welding-graph-deposition-efficiency-v1",),
+    ),
 }
 
 

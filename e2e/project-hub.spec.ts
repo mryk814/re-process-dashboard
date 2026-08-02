@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl, createProjectWithCandidate } from "./helpers";
+import { apiBaseUrl, createProjectWithCandidate, openCandidateInputs } from "./helpers";
 
 async function candidateRevision(
   page: import("@playwright/test").Page,
@@ -443,6 +443,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
 
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   const selectedRow = page.locator(".candidate-name-table tbody tr.selected-row");
   const candidateName = await selectedRow.getByRole("textbox").inputValue();
   const candidateId = new URL(page.url()).searchParams.get("candidate");
@@ -453,7 +454,6 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await page.getByRole("button", { name: new RegExp(`${candidateName}の詳細予測を保存`) }).click();
   expect((await detailed).status()).toBe(200);
 
-  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
   const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const value = Number(await numeric.inputValue());
   const saved = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname.endsWith(`/candidates/${candidateId}`));

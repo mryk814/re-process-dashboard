@@ -1,0 +1,19 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "CHARPY_ENERGY",
+      "parent_conditions": 300,
+      "mae": 16.70013561059544,
+      "rmse": 21.012848547106845,
+      "interval_coverage_90": 0.8988888888888888,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 2700
+    }
+  ],
+  "validation_plans": null,
+  "validation_diagnostics": null,
+  "validation_evidence": null
+}

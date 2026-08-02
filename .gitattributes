@@ -15,6 +15,8 @@ infrastructure/compose/migrations/*.sql text eol=lf
 # including newlines embedded in quoted CSV fields.
 data/source/*.csv -text
 data/source/**/*.csv -text
+# Prediction Graph fixture bytes are Package training provenance too.
+data/fixtures/prediction-graph/*.csv binary
 # Excel workbooks are also byte-addressed Package inputs.
 data/source/*.xlsx binary
 data/source/**/*.xlsx binary

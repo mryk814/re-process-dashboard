@@ -4,13 +4,17 @@ import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
 
 const brokenPackage = process.env.PLAYWRIGHT_BROKEN_TASK_PACKAGE;
+const brokenProjectId = process.env.PLAYWRIGHT_BROKEN_PROJECT_ID;
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 
 test("an unavailable task keeps fixed references and read-only diagnostics accessible", async ({
   page,
   request,
 }) => {
-  test.skip(!brokenPackage, "PLAYWRIGHT_BROKEN_TASK_PACKAGE is required");
+  test.skip(
+    !brokenPackage || !brokenProjectId,
+    "PLAYWRIGHT_BROKEN_TASK_PACKAGE and PLAYWRIGHT_BROKEN_PROJECT_ID are required",
+  );
 
   const projectsResponse = await request.get(`http://127.0.0.1:${apiPort}/api/projects`);
   expect(projectsResponse.ok()).toBe(true);
@@ -21,13 +25,24 @@ test("an unavailable task keeps fixed references and read-only diagnostics acces
     model_package_ref_id: string | null;
     model_package_manifest_digest: string | null;
   }>;
-  const project = projects.find((item) => item.task_id === "heat-treatment-tradeoff-v1");
+  const project = projects.find((item) => item.id === brokenProjectId);
   expect(project).toBeTruthy();
+  expect(project?.task_id).toBe("heat-treatment-tradeoff-v1");
   expect(project?.dataset_view_revision_id).toBeTruthy();
   expect(project?.model_package_ref_id).toBeTruthy();
   expect(project?.model_package_manifest_digest).toBeTruthy();
 
+  const taskDefinitionUrl = `${apiPort}/api/projects/${project!.id}/task-definition`;
+  const taskDefinitionResponse = page.waitForResponse((response) => (
+    response.url().includes(taskDefinitionUrl)
+    && response.request().method() === "GET"
+  ));
   await page.goto(`/?view=project&project=${project!.id}`);
+  const resolvedTaskDefinition = await taskDefinitionResponse;
+  expect(resolvedTaskDefinition.status()).toBe(200);
+  expect((await resolvedTaskDefinition.json() as {
+    availability: { status: string };
+  }).availability.status).toBe("unavailable");
   await expect(page.getByText("この予測タスクは一時的に利用できません").first()).toBeVisible();
   await expect(page.getByRole("alert").filter({ hasText: "固定参照を確認できません" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "設定", exact: true })).toBeVisible();

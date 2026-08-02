@@ -479,6 +479,70 @@
       "data_explorer": null
     },
     {
+      "task_id": "welding-graph-deposition-efficiency-v1",
+      "label": "Graph比較用: 溶着効率proxy",
+      "outputs": [
+        {
+          "key": "deposition_efficiency_pct",
+          "label": "溶着効率proxy",
+          "unit": "%"
+        }
+      ],
+      "source": {
+        "kind": "external_task:welding-graph-deposition-efficiency-v1",
+        "path": "data/fixtures/prediction-graph/welding_deposition_efficiency_synthetic.csv",
+        "sha256": "a59e60dc72abcb059fbf353e2f60df7a4fd187cc2d78d78086aff31889e71518",
+        "profile_id": "welding-graph-deposition-efficiency-synthetic-v1",
+        "profile_path": "backend/src/decision_workbench/data/tabular-profile-welding-graph-deposition-efficiency-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-graph-deposition-efficiency-ridge-v2",
+        "previous": null,
+        "package_id": "welding-graph-deposition-efficiency-ridge-v2",
+        "version": "1.1.0",
+        "manifest_sha256": "d5707c6d37dc4b23476b8cdcc1607977d196f8c9cf4e0d2c448af35da9819d44",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": true,
+        "similarity": true,
+        "target_specific_similarity": false,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "response_curve",
+            "order": 0
+          },
+          {
+            "kind": "similarity",
+            "order": 10
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 20
+          }
+        ],
+        "project_creation": false,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
+      },
+      "data_explorer": {
+        "schema_version": "data-explorer-capability/v1",
+        "quality": true,
+        "lineage": false,
+        "candidate_creation": false
+      }
+    },
+    {
       "task_id": "heat-treatment-tradeoff-v1",
       "label": "熱処理の硬さ・靭性",
       "outputs": [
@@ -1274,6 +1338,171 @@
         "lineage": false,
         "candidate_creation": false
       }
+    },
+    {
+      "task_id": "welding-graph-tensile-ts-v1",
+      "label": "Graph比較用: 引張強さ",
+      "outputs": [
+        {
+          "key": "TS",
+          "label": "引張強さ",
+          "unit": "MPa"
+        }
+      ],
+      "source": {
+        "kind": "welding_graph_synthetic_demonstration",
+        "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
+        "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+        "profile_id": "welding-graph-tensile-ts-v1-observations",
+        "profile_path": "backend/src/decision_workbench/data/observation-profile-welding-graph-tensile-ts-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-graph-tensile-ts-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-tensile-ts-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "2c710e9533a04db4e721f44d8f6b5faf456a0af1943993f980d7d520b7d3d3b8",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
+        "project_creation": false,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
+      },
+      "data_explorer": null
+    },
+    {
+      "task_id": "welding-graph-toughness-v1",
+      "label": "Graph比較用: 吸収エネルギー",
+      "outputs": [
+        {
+          "key": "CHARPY_ENERGY",
+          "label": "吸収エネルギー",
+          "unit": "J"
+        }
+      ],
+      "source": {
+        "kind": "welding_graph_synthetic_demonstration",
+        "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
+        "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+        "profile_id": "welding-graph-toughness-v1-observations",
+        "profile_path": "backend/src/decision_workbench/data/observation-profile-welding-graph-toughness-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-graph-toughness-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-toughness-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "c32dd07d275a5a0ac15fe5c9bc7ec8ab5db3ecb40b10867326cfa643e00a46c6",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
+        "project_creation": false,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
+      },
+      "data_explorer": null
+    },
+    {
+      "task_id": "welding-graph-corrosion-v1",
+      "label": "Graph比較用: 腐食速度",
+      "outputs": [
+        {
+          "key": "CORROSION_RATE",
+          "label": "腐食速度",
+          "unit": "mm/year"
+        }
+      ],
+      "source": {
+        "kind": "welding_graph_synthetic_demonstration",
+        "path": "data/source/welding_consumable_multistage_synthetic_dataset.xlsx",
+        "sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+        "profile_id": "welding-graph-corrosion-v1-observations",
+        "profile_path": "backend/src/decision_workbench/data/observation-profile-welding-graph-corrosion-v1.json"
+      },
+      "active_package": {
+        "path": "packages/welding-graph-corrosion-ridge-v1",
+        "previous": null,
+        "package_id": "welding-graph-corrosion-ridge-v1",
+        "version": "1.0.0",
+        "manifest_sha256": "4866c818e6d7e82dea1d494eb6f553dd5934e9e91e46e08488ebc438a2992571",
+        "runtime_types": [
+          "builtin.linear.v1"
+        ]
+      },
+      "runtime_operations": {
+        "preview": true,
+        "detailed_prediction": true,
+        "response_curve": false,
+        "similarity": true,
+        "target_specific_similarity": true,
+        "snapshot": true,
+        "actual_measurement": false
+      },
+      "application_capability": {
+        "workbench_surfaces": [
+          {
+            "kind": "similarity",
+            "order": 0
+          },
+          {
+            "kind": "feature_engineering",
+            "order": 10
+          }
+        ],
+        "project_creation": false,
+        "candidate_excel_import": false,
+        "candidate_excel_export": false,
+        "sparse_blend": false,
+        "sparse_blend_transform_id": null
+      },
+      "data_explorer": null
     }
   ]
 }

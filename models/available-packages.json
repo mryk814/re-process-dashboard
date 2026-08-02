@@ -15,6 +15,10 @@
     "packages/secom-yield-lightgbm-calibrated-v1",
     "packages/mpea-room-tensile-ridge-v2",
     "packages/mpea-hardness-ridge-v2",
-    "packages/welding-stage-c-ridge-v1"
+    "packages/welding-stage-c-ridge-v1",
+    "packages/welding-graph-tensile-ts-ridge-v1",
+    "packages/welding-graph-toughness-ridge-v1",
+    "packages/welding-graph-corrosion-ridge-v1",
+    "packages/welding-graph-deposition-efficiency-ridge-v2"
   ]
 }

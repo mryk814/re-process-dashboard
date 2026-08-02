@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiBaseUrl } from "./helpers";
+import { apiBaseUrl, openCandidateInputs } from "./helpers";
 
 test("inference runs only for changed candidates and visible selected curves", async ({ page }) => {
   let previewRequests = 0;
@@ -29,6 +29,7 @@ test("inference runs only for changed candidates and visible selected curves", a
 
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   await expect.poll(() => previewRequests).toBe(3);
   await expect.poll(() => inferenceResponses.filter((item) => item.kind === "preview").length).toBe(3);
   const initialPreviews = inferenceResponses.filter((item) => item.kind === "preview");
@@ -224,7 +225,6 @@ test("inference runs only for changed candidates and visible selected curves", a
     failedPreviewResponse = true;
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "forced preview failure" }) });
   }, { times: 1 });
-  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
   const failedPreviewNumeric = page.locator(".candidate-inspector input.slider-number").first();
   const savedValue = Number(await failedPreviewNumeric.inputValue());
   const saveBeforeFailedPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));

@@ -1,0 +1,15 @@
+{
+  "schema_version": "standard-estimator-training-diagnostics/v1",
+  "estimator_id": "ridge.v1",
+  "targets": {
+    "deposition_efficiency_pct": {
+      "estimator_id": "ridge.v1",
+      "alpha": 1.0,
+      "folds": 5,
+      "seed": 20260730,
+      "cohort_digest": "sha256:e5961e14b8e5e6027c6e02de8b0a8caf4bf0bd120edf58841b10c58aac36a067",
+      "fold_digest": "sha256:e8032d496c8306e1e3a34a272ee4b36b302bab0e8335b5e5f1019dc3555d1699",
+      "evaluation": "outer-fold-refit-with-inner-calibration"
+    }
+  }
+}

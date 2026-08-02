@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 
 WELDING_STAGE_C_TASK_ID = "welding-stage-c-properties-v1"
 WELDING_STAGE_B_TASK_ID = "welding-consumable-stage-b-v1"
+WELDING_GRAPH_TENSILE_TASK_ID = "welding-graph-tensile-ts-v1"
+WELDING_GRAPH_TOUGHNESS_TASK_ID = "welding-graph-toughness-v1"
+WELDING_GRAPH_CORROSION_TASK_ID = "welding-graph-corrosion-v1"
 _WELDING_STAGE_B_PROFILE = DATA_ROOT / "welding-stage-b-profile-v1.json"
 _OBSERVATION_DECLARATIONS: dict[str, dict[str, Any]] = {
     WELDING_STAGE_C_TASK_ID: {
@@ -52,6 +55,33 @@ _OBSERVATION_DECLARATIONS: dict[str, dict[str, Any]] = {
             "BRITTLE_FRACTURE": (0.0, 100.0),
             "CORROSION_RATE": (0.0, None),
         },
+    },
+    WELDING_GRAPH_TENSILE_TASK_ID: {
+        "task_id": WELDING_GRAPH_TENSILE_TASK_ID,
+        "profile_path": DATA_ROOT
+        / "observation-profile-welding-graph-tensile-ts-v1.json",
+        "feature_transform_id": "welding-graph-tensile-ts-transform",
+        "feature_transform_version": "1.0.0",
+        "support_policy_id": "welding-graph-tensile-group-knn-v1",
+        "output_bounds": {"TS": (0.0, None)},
+    },
+    WELDING_GRAPH_TOUGHNESS_TASK_ID: {
+        "task_id": WELDING_GRAPH_TOUGHNESS_TASK_ID,
+        "profile_path": DATA_ROOT
+        / "observation-profile-welding-graph-toughness-v1.json",
+        "feature_transform_id": "welding-graph-toughness-transform",
+        "feature_transform_version": "1.0.0",
+        "support_policy_id": "welding-graph-toughness-group-knn-v1",
+        "output_bounds": {"CHARPY_ENERGY": (0.0, None)},
+    },
+    WELDING_GRAPH_CORROSION_TASK_ID: {
+        "task_id": WELDING_GRAPH_CORROSION_TASK_ID,
+        "profile_path": DATA_ROOT
+        / "observation-profile-welding-graph-corrosion-v1.json",
+        "feature_transform_id": "welding-graph-corrosion-transform",
+        "feature_transform_version": "1.0.0",
+        "support_policy_id": "welding-graph-corrosion-group-knn-v1",
+        "output_bounds": {"CORROSION_RATE": (0.0, None)},
     },
 }
 
@@ -325,4 +355,50 @@ WELDING_STAGE_C_TASK_MODULE = TaskModule(
     ),
     response_curve=_standard_response_curve,
     data_explorer=TABULAR_EXPLORER,
+)
+
+
+def _graph_property_task_module(
+    task_id: str,
+    label: str,
+) -> TaskModule:
+    return TaskModule(
+        task_id=task_id,
+        package_override_env=(
+            "DECISION_WORKBENCH_"
+            + task_id.upper().replace("-", "_")
+            + "_MODEL_PACKAGE"
+        ),
+        source_env="WORKBENCH_WELDING_STAGE_C_SOURCE_PATH",
+        source_kind="welding_graph_synthetic_demonstration",
+        default_source=Path(
+            "data/source/welding_consumable_multistage_synthetic_dataset.xlsx"
+        ),
+        data_loader=_observation_loader(task_id),
+        runtime_factory=_observation_runtime,
+        feature_row_builder=_observation_features(task_id),
+        training_inspector=CANONICAL_TRAINING_INSPECTOR,
+        specialized_package_builder=_observation_builder(task_id),
+        application=_application_capability(
+            actual_measurement=False,
+            response_curve=False,
+            similarity=True,
+            project_creation=False,
+        ),
+    )
+
+
+WELDING_GRAPH_PROPERTY_TASK_MODULES = (
+    _graph_property_task_module(
+        WELDING_GRAPH_TENSILE_TASK_ID,
+        "Graph比較用: 引張強さ",
+    ),
+    _graph_property_task_module(
+        WELDING_GRAPH_TOUGHNESS_TASK_ID,
+        "Graph比較用: 吸収エネルギー",
+    ),
+    _graph_property_task_module(
+        WELDING_GRAPH_CORROSION_TASK_ID,
+        "Graph比較用: 腐食速度",
+    ),
 )

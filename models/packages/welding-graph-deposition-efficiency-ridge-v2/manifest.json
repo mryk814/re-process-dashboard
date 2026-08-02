@@ -1,0 +1,146 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "welding-graph-deposition-efficiency-ridge-v2",
+  "package_version": "1.1.0",
+  "task_id": "welding-graph-deposition-efficiency-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:5ca9787338e79bc25303280647887d7f76613535a04287b390254eed7c041fe7",
+  "runtime_capability_digest": "sha256:58d4ed8750daef1492ac31d5578d8136ca7e3cb893e246d7d814d0acce9f8015",
+  "feature_pipeline": {
+    "id": "welding-graph-deposition-efficiency-v1-profile-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "process.heat_input_kj_per_mm",
+      "process.voltage_v",
+      "process.gas_flow_l_per_min",
+      "process.wire_feed_speed_m_per_min"
+    ],
+    "output_features": [
+      "process.heat_input_kj_per_mm",
+      "process.heat_input_kj_per_mm__square",
+      "process.voltage_v",
+      "process.voltage_v__square",
+      "process.gas_flow_l_per_min",
+      "process.gas_flow_l_per_min__square",
+      "process.wire_feed_speed_m_per_min",
+      "process.wire_feed_speed_m_per_min__square"
+    ],
+    "artifacts": [
+      "reference/training_stats.json",
+      "reference/training-recipe.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "deposition_efficiency_pct-ridge",
+      "target": "deposition_efficiency_pct",
+      "unit": "%",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "profile_transformed_ridge_v1",
+      "artifact": "model-artifacts/deposition_efficiency_pct.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "process.heat_input_kj_per_mm",
+        "process.heat_input_kj_per_mm__square",
+        "process.voltage_v",
+        "process.voltage_v__square",
+        "process.gas_flow_l_per_min",
+        "process.gas_flow_l_per_min__square",
+        "process.wire_feed_speed_m_per_min",
+        "process.wire_feed_speed_m_per_min__square"
+      ],
+      "config": {
+        "training_method": "ridge.v1",
+        "training_unit": "replicate_context_mean",
+        "validation_method": "5-fold grouped validation CV",
+        "interval_method": "nested grouped OOF residual quantiles",
+        "ridge_alpha": 1.0,
+        "seed": 20260730,
+        "training": {
+          "schema_version": "standard-training-metadata/v1",
+          "estimator_id": "ridge.v1",
+          "training_unit": "replicate_context_mean",
+          "validation": {
+            "method": "grouped_kfold",
+            "folds": 5,
+            "cohort_digest": "sha256:e5961e14b8e5e6027c6e02de8b0a8caf4bf0bd120edf58841b10c58aac36a067",
+            "fold_digest": "sha256:e8032d496c8306e1e3a34a272ee4b36b302bab0e8335b5e5f1019dc3555d1699",
+            "plan": {
+              "schema_version": "validation-plan/v1",
+              "strategy": "grouped_kfold",
+              "folds": 5,
+              "holdout_fraction": null,
+              "seed": 20260730,
+              "group_key": "parent_key",
+              "time_key": null,
+              "gap": 0,
+              "minimum_train_size": 2,
+              "class_balance_policy": null
+            },
+            "plan_digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+          },
+          "uncertainty": "nested grouped OOF residual quantiles",
+          "parameters": {
+            "alpha": 1.0,
+            "seed": 20260730
+          }
+        }
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:a59e60dc72abcb059fbf353e2f60df7a4fd187cc2d78d78086aff31889e71518",
+    "feature_dataset_id": "sha256:8abc4d7b5c1643ee3deb265e56245eabfd4a196558dc7bac8335769744e04a01",
+    "training_code_revision": "standard-model-training/v1:ridge.v1",
+    "dataset_profile_id": "sha256:1192df59d8063935ee36abb189aa350927543c51367311671b56ba36cbed85b1"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "a488095efbbb3c140225d2a0587317210a36d3da4af73fdcb70fd6ed71c4ef16",
+      "bytes": 1562
+    },
+    {
+      "path": "reference/training-recipe.json",
+      "sha256": "bea1ac34f73a57a5dd42e0afce3bbfbda98e081ac9c4392f1dc3a7e94e325140",
+      "bytes": 1207
+    },
+    {
+      "path": "model-artifacts/deposition_efficiency_pct.npz",
+      "sha256": "e6ca5c5272f7e2d59596687aa995c946b7665b91c250afc27bced8f69cc833fe",
+      "bytes": 1108
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "37f1f294ca12abf8c96fb2c6c2d07885cfe20b98235b1a77dfbffe8f564186c8",
+      "bytes": 2881
+    },
+    {
+      "path": "reports/training-diagnostics.json",
+      "sha256": "a7126abfbfa4b27417b9f5d73f64bf91cea12f3db1d7a6d6f4465040e8bb9742",
+      "bytes": 512
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "60230e5f9357241bb9ce48b6f49b943bdd6d5e45487395e973e6a0512b24265a",
+      "bytes": 10778
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "68b9c11753e45ae867afec89a6066792f5cd7085ebc87d0d04bbfb51ed72042a",
+      "bytes": 620
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "20e314b0c67f952765ba91a41d5cc073b9ccac018218ee99524da1aa6e228001",
+      "bytes": 47
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

@@ -40,7 +40,12 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   await page.getByRole("link", { name: "JSONを出力" }).click();
   expect((await download).suggestedFilename()).toMatch(/\.json$/);
 
+  const registrationResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/profile-workbench/register"
+  ));
   await page.getByRole("button", { name: "この内容で登録" }).click();
+  expect((await registrationResponse).status()).toBe(200);
   await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
   await page.getByRole("button", { name: "このDatasetでプロジェクト作成" }).click();
   await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();

@@ -21,7 +21,11 @@ from decision_workbench.contracts.subsystem_availability import (
 from decision_workbench.modeling.packages.contracts import PackageContractError
 from decision_workbench.persistence.store import ChainCatalogConflictError
 from decision_workbench.persistence.welding_chain_bootstrap import (
+    WELDING_CHAIN_ID,
     WeldingChainBootstrapError,
+)
+from decision_workbench.persistence.welding_prediction_graph_bootstrap import (
+    WeldingPredictionGraphBootstrapError,
 )
 
 
@@ -425,3 +429,37 @@ def test_chain_catalog_conflict_remains_fail_fast(
         TestClient(app),
     ):
         pass
+
+
+def test_prediction_graph_fixture_failure_keeps_legacy_chain_available(
+    tmp_path: Path,
+    app_resources: AppResources,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unavailable_fixture(**_: object) -> tuple[str, str]:
+        raise WeldingPredictionGraphBootstrapError(
+            "injected fixture TaskRegistry mismatch"
+        )
+
+    monkeypatch.setattr(
+        contributions_module,
+        "bootstrap_welding_prediction_graphs",
+        unavailable_fixture,
+    )
+    app = create_app(
+        db_path=tmp_path / "workbench.db",
+        data_library_path=tmp_path / "data-library",
+        _resources=app_resources,
+    )
+    with TestClient(app) as client:
+        availability = {
+            item["subsystem_id"]: item
+            for item in client.get("/api/subsystem-availability").json()
+        }
+        assert availability[WELDING_CHAIN_SUBSYSTEM_ID]["status"] == "available"
+        definitions = client.get("/api/chains")
+        assert definitions.status_code == 200, definitions.text
+        assert any(
+            item["definition"].get("chain_id") == WELDING_CHAIN_ID
+            for item in definitions.json()
+        )

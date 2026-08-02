@@ -359,7 +359,7 @@ def get_overview(
     items: list[DeveloperOverviewItem] = []
     for project in store.list_projects():
         identity = project.scientific_identity
-        # Chain Projectは単一Taskを持たず、利用停止中のTaskはentryを返さない。
+        # Graph Projectは単一Taskを持たず、利用停止中のTaskはentryを返さない。
         # どちらも一覧の1行として出す。1件のためにページ全体を落とさない。
         entry = None
         if identity.identity_kind == "single_task" and project.task_id:
@@ -403,12 +403,25 @@ def get_overview(
         chain_revision_id = (
             identity.chain_revision_id if identity.identity_kind == "chain" else None
         )
+        graph_revision_id = (
+            identity.graph_revision_id
+            if identity.identity_kind == "prediction_graph"
+            else None
+        )
         if identity.identity_kind == "chain":
             revision = store.get_chain_revision(identity.chain_revision_id)
             validation_status = (
                 "ok"
                 if revision is not None
                 and revision.revision_digest == identity.chain_revision_digest
+                else "error"
+            )
+        elif identity.identity_kind == "prediction_graph":
+            revision = store.get_chain_revision(identity.graph_revision_id)
+            validation_status = (
+                "ok"
+                if revision is not None
+                and revision.revision_digest == identity.graph_revision_digest
                 else "error"
             )
         else:
@@ -422,6 +435,7 @@ def get_overview(
             project_name=project.name,
             identity_kind=identity.identity_kind,
             chain_revision_id=chain_revision_id,
+            graph_revision_id=graph_revision_id,
             dataset_view_revision_id=project.dataset_view_revision_id,
             dataset_revision_ids=dataset_ids,
             source_filename=asset.original_filename if asset else None,

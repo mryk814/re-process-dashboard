@@ -1,0 +1,36 @@
+{
+  "schema_version": "model-training-recipe/v1",
+  "task_id": "welding-graph-deposition-efficiency-v1",
+  "estimator": {
+    "estimator_id": "ridge.v1",
+    "alpha": 1.0,
+    "folds": 5,
+    "seed": 20260730
+  },
+  "rows": {
+    "unit": "replicate_context_mean",
+    "replicate_context": "condition_context_id_else_observation_id",
+    "validation_group": "parent_key"
+  },
+  "feature_dataset_id": "sha256:8abc4d7b5c1643ee3deb265e56245eabfd4a196558dc7bac8335769744e04a01",
+  "evaluation": {
+    "deposition_efficiency_pct": {
+      "cohort_digest": "sha256:e5961e14b8e5e6027c6e02de8b0a8caf4bf0bd120edf58841b10c58aac36a067",
+      "fold_digest": "sha256:e8032d496c8306e1e3a34a272ee4b36b302bab0e8335b5e5f1019dc3555d1699",
+      "folds": 5,
+      "validation_plan": {
+        "schema_version": "validation-plan/v1",
+        "strategy": "grouped_kfold",
+        "folds": 5,
+        "holdout_fraction": null,
+        "seed": 20260730,
+        "group_key": "parent_key",
+        "time_key": null,
+        "gap": 0,
+        "minimum_train_size": 2,
+        "class_balance_policy": null
+      },
+      "validation_plan_digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+    }
+  }
+}

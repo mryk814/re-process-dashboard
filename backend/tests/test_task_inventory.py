@@ -53,4 +53,7 @@ def test_packaged_source_paths_ignore_personal_external_task_store(
     sources = _inventory_module().packaged_source_paths()
 
     assert len(sources) == len({module.default_source for module in BUILTIN_TASK_MODULES.values()})
-    assert all(path.startswith("data/source/") for path in sources)
+    assert all(
+        path.startswith(("data/source/", "data/fixtures/prediction-graph/"))
+        for path in sources
+    )

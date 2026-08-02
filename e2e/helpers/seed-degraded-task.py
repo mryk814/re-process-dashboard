@@ -12,6 +12,7 @@ from decision_workbench.app import create_app
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", type=Path, required=True)
+    parser.add_argument("--project-id-file", type=Path, required=True)
     args = parser.parse_args()
     os.environ["WORKBENCH_DEMO_SEED"] = "all"
 
@@ -37,6 +38,10 @@ def main() -> None:
             },
         )
         response.raise_for_status()
+        args.project_id_file.write_text(
+            response.json()["id"],
+            encoding="utf-8",
+        )
 
 
 if __name__ == "__main__":

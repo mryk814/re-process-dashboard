@@ -12,11 +12,20 @@ from decision_workbench.bootstrap.contributions import (
     WELDING_BLEND_CONTRIBUTION_ID,
     WeldingBlendContributionConfig,
 )
+from decision_workbench.bootstrap.resources import AppResources, prepare_app_resources
 
 
-def _seed(database: Path, data_library: Path) -> tuple[str, str]:
+def _seed(
+    database: Path,
+    data_library: Path,
+    resources: AppResources,
+) -> tuple[str, str]:
     with TestClient(
-        create_app(db_path=database, data_library_path=data_library)
+        create_app(
+            db_path=database,
+            data_library_path=data_library,
+            _resources=resources,
+        )
     ) as client:
         template = next(
             item
@@ -81,7 +90,8 @@ def main() -> None:
 
     args.db.unlink(missing_ok=True)
     data_library = args.db.with_name(f"{args.db.stem}-data-library")
-    _seed(args.db, data_library)
+    resources = prepare_app_resources()
+    _seed(args.db, data_library, resources)
     degraded_app = create_app(
         db_path=args.db,
         data_library_path=data_library,
@@ -91,6 +101,7 @@ def main() -> None:
                 chain_evaluation_path=args.broken_evaluation,
             )
         },
+        _resources=resources,
     )
     uvicorn.run(degraded_app, host="127.0.0.1", port=args.port)
 

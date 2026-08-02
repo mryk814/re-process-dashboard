@@ -29,6 +29,13 @@ from decision_workbench.tasks.task_registry import DataExplorerEntry, TaskRegist
 # coverage is intentionally about the checked-in catalog, so keep that set
 # explicit instead of discovering a developer's Personal Tasks here.
 BUNDLED_TASK_IDS = tuple(sorted(BUILTIN_TASK_MODULES))
+PROJECT_TASK_IDS = tuple(
+    sorted(
+        task_id
+        for task_id, module in BUILTIN_TASK_MODULES.items()
+        if module.application.project_creation
+    )
+)
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "decision_workbench" / "tasks" / "task_definitions"
 ACTIVE_PACKAGES = Path(__file__).parents[2] / "models" / "active-packages.json"
 REPOSITORY_ROOT = Path(__file__).parents[2]
@@ -150,7 +157,13 @@ def test_every_task_declares_an_ordered_allow_list_of_workbench_surfaces(client)
         "welding-consumable-stage-b-v1",
         "welding-stage-c-properties-v1",
     }
-    assert input_space_tasks == set(BUNDLED_TASK_IDS) - {"mpea-literature-tys-v1"}
+    assert input_space_tasks == set(BUNDLED_TASK_IDS) - {
+        "mpea-literature-tys-v1",
+        "welding-graph-corrosion-v1",
+        "welding-graph-deposition-efficiency-v1",
+        "welding-graph-tensile-ts-v1",
+        "welding-graph-toughness-v1",
+    }
 
 
 def test_active_package_set_rejects_missing_or_unknown_task() -> None:
@@ -453,7 +466,7 @@ def test_edited_legacy_annealing_starters_are_not_rewritten(client) -> None:
     assert all(candidate.revision == 2 for candidate in preserved)
 
 
-@pytest.mark.parametrize("task_id", BUNDLED_TASK_IDS)
+@pytest.mark.parametrize("task_id", PROJECT_TASK_IDS)
 def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) -> None:
     if task_id == "annealed-properties-v1":
         project_id = "default"

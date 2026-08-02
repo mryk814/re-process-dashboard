@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createProjectWithCandidate } from "./helpers";
+import { createProjectWithCandidate, openCandidateInputs } from "./helpers";
 
 test("annealing candidate keeps line-speed and elapsed-time editing semantics aligned", async ({ page, request }) => {
   const project = await createProjectWithCandidate(
@@ -10,6 +10,7 @@ test("annealing candidate keeps line-speed and elapsed-time editing semantics al
   );
   await page.goto(`/?view=candidates&project=${project.id}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
 
   const timeBasis = page.getByRole("combobox", { name: "ヒートパターンの時間基準" });
   const lineSpeed = page.getByRole("spinbutton", { name: "基準候補 LSの数値" });

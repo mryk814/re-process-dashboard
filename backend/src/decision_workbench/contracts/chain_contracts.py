@@ -176,6 +176,28 @@ class GraphInput(ChainContractModel):
         return self
 
 
+class DecisionOutputEvidence(ChainContractModel):
+    """Reader-facing evidence boundary that is also part of Graph identity."""
+
+    evidence_kind: Literal[
+        "measured",
+        "synthetic_demonstration",
+        "unverified",
+    ]
+    unit_or_scale: Annotated[str, Field(min_length=1)]
+    goal_direction: Literal["at_least", "at_most", "target", "none"]
+    source_variables: Annotated[tuple[str, ...], Field(min_length=1)]
+    causal_claim: Literal["none"] = "none"
+    production_use: Literal["prohibited"]
+    limitation: Annotated[str, Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def source_variables_are_unique(self) -> "DecisionOutputEvidence":
+        if len(self.source_variables) != len(set(self.source_variables)):
+            raise ValueError("Decision Output source variables must be unique")
+        return self
+
+
 class DecisionOutput(ChainContractModel):
     output_id: Annotated[str, Field(min_length=1)]
     source_stage_id: Annotated[str, Field(min_length=1)]
@@ -189,6 +211,7 @@ class DecisionOutput(ChainContractModel):
         "diagnostic",
     ]
     required_for_complete_result: bool
+    evidence: DecisionOutputEvidence | None = None
 
 
 class PredictionGraphTopology(ChainContractModel):
@@ -280,6 +303,11 @@ def _prediction_graph_scientific_payload(
                 "source_output_key": item.source_output_key,
                 "role": item.role,
                 "required_for_complete_result": item.required_for_complete_result,
+                **(
+                    {"evidence": item.evidence.model_dump(mode="json")}
+                    if item.evidence is not None
+                    else {}
+                ),
             }
             for item in sorted(
                 definition.decision_outputs,

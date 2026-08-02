@@ -11,6 +11,7 @@ from decision_workbench.task_composition.builtin.hot_rolling import (
 )
 from decision_workbench.task_composition.builtin.tabular import TABULAR_TASK_MODULES
 from decision_workbench.task_composition.builtin.welding import (
+    WELDING_GRAPH_PROPERTY_TASK_MODULES,
     WELDING_STAGE_B_TASK_MODULE,
     WELDING_STAGE_C_TASK_MODULE,
 )
@@ -23,6 +24,7 @@ _BUILTIN_TASK_MODULE_SEQUENCE: tuple[TaskModule, ...] = (
     FLANK_WEAR_TASK_MODULE,
     *TABULAR_TASK_MODULES,
     WELDING_STAGE_C_TASK_MODULE,
+    *WELDING_GRAPH_PROPERTY_TASK_MODULES,
 )
 BUILTIN_TASK_MODULES: dict[str, TaskModule] = {
     module.task_id: module for module in _BUILTIN_TASK_MODULE_SEQUENCE

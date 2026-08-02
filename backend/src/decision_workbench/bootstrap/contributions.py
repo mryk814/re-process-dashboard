@@ -72,6 +72,10 @@ from decision_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
     bootstrap_welding_chain,
 )
+from decision_workbench.persistence.welding_prediction_graph_bootstrap import (
+    WeldingPredictionGraphBootstrapError,
+    bootstrap_welding_prediction_graphs,
+)
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import TaskRegistry
@@ -273,6 +277,11 @@ class WeldingBlendApplicationContribution:
             transform_catalog,
             defer_resources=defer_resources,
         )
+        self._bootstrap_prediction_graph_fixtures(
+            context,
+            transform_catalog,
+            defer_resources=defer_resources,
+        )
         evaluation_catalog = self._load_evaluation_catalog(context)
         planning, execution, snapshots, uncertainty = _build_chain_services(
             context,
@@ -308,6 +317,11 @@ class WeldingBlendApplicationContribution:
         revision_id = current.chain_revision_id
         if promote_deferred and current.transform_catalog is not None:
             revision_id = self._bootstrap_chain(
+                context,
+                current.transform_catalog,
+                defer_resources=False,
+            )
+            self._bootstrap_prediction_graph_fixtures(
                 context,
                 current.transform_catalog,
                 defer_resources=False,
@@ -451,6 +465,29 @@ class WeldingBlendApplicationContribution:
                 exc=exc,
             )
             return None
+
+    def _bootstrap_prediction_graph_fixtures(
+        self,
+        context: ApplicationContributionContext,
+        transform_catalog: DeterministicTransformCatalog | None,
+        *,
+        defer_resources: bool,
+    ) -> None:
+        if transform_catalog is None or defer_resources:
+            return
+        try:
+            bootstrap_welding_prediction_graphs(
+                store=context.store,
+                workspace_catalog=context.workspace_catalog,
+                task_registry=context.task_registry,
+                transform_catalog=transform_catalog,
+            )
+        except WeldingPredictionGraphBootstrapError as exc:
+            logger.warning(
+                "Bundled Prediction Graph fixtures are unavailable; "
+                "legacy welding Chain remains active: %s",
+                exc,
+            )
 
     def _load_evaluation_catalog(
         self, context: ApplicationContributionContext

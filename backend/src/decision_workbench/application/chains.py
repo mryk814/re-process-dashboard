@@ -323,17 +323,23 @@ def get_project_chain_graph(project_id: str, store: Store) -> ChainGraphResponse
     if project is None:
         raise ChainNotFoundError("Chain Projectが見つかりません")
     identity = project.scientific_identity
-    if identity.identity_kind != "chain":
-        raise ChainConflictError("このAPIはChain Project専用です")
-    revision = store.get_chain_revision(identity.chain_revision_id)
-    if revision is None or revision.revision_digest != identity.chain_revision_digest:
-        raise ChainConflictError("固定されたChain Revisionを解決できません")
+    if identity.identity_kind == "chain":
+        revision_id = identity.chain_revision_id
+        revision_digest = identity.chain_revision_digest
+    elif identity.identity_kind == "prediction_graph":
+        revision_id = identity.graph_revision_id
+        revision_digest = identity.graph_revision_digest
+    else:
+        raise ChainConflictError("このAPIはGraph Project専用です")
+    revision = store.get_chain_revision(revision_id)
+    if revision is None or revision.revision_digest != revision_digest:
+        raise ChainConflictError("固定されたGraph Revisionを解決できません")
     definition = store.get_chain_definition(
         revision.chain_id, revision.chain_definition_digest
     )
     if definition is None:
         raise ChainConflictError("固定されたChain Definitionを解決できません")
-    surfaces = store.get_chain_stage_contract_surfaces(identity.chain_revision_id)
+    surfaces = store.get_chain_stage_contract_surfaces(revision_id)
     resolved: list[ChainGraphStageContract] = []
     for stage in revision.stages:
         surface = surfaces.get(stage.stage_id)

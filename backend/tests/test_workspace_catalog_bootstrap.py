@@ -36,6 +36,7 @@ EXPECTED_ASSET_FILENAMES = {
     "secom_stress.csv",
     "mpea_ground_truth_18021833.csv",
     "welding_consumable_multistage_synthetic_dataset.xlsx",
+    "welding_deposition_efficiency_synthetic.csv",
 }
 EXPECTED_PROFILE_IDS = {
     "thin-sheet-tutorial-v1",
@@ -51,6 +52,10 @@ EXPECTED_PROFILE_IDS = {
     "mpea-zenodo-18021833-hardness-v1",
     "welding-consumable-stage-b-v1",
     "welding-consumable-stage-c-observations-v1",
+    "welding-graph-corrosion-v1-observations",
+    "welding-graph-deposition-efficiency-synthetic-v1",
+    "welding-graph-tensile-ts-v1-observations",
+    "welding-graph-toughness-v1-observations",
 }
 EXPECTED_MODEL_PACKAGES = {
     ("annealed-properties-v1", "annealed-gp-stable-ard-process-v2"),
@@ -72,6 +77,13 @@ EXPECTED_MODEL_PACKAGES = {
     ("wear-curve-v1", "wear-curve-ridge-external-v1"),
     ("welding-consumable-stage-b-v1", "welding-consumable-stage-b-ridge-v3"),
     ("welding-stage-c-properties-v1", "welding-stage-c-ridge-v1"),
+    ("welding-graph-corrosion-v1", "welding-graph-corrosion-ridge-v1"),
+    (
+        "welding-graph-deposition-efficiency-v1",
+        "welding-graph-deposition-efficiency-ridge-v2",
+    ),
+    ("welding-graph-tensile-ts-v1", "welding-graph-tensile-ts-ridge-v1"),
+    ("welding-graph-toughness-v1", "welding-graph-toughness-ridge-v1"),
 }
 
 

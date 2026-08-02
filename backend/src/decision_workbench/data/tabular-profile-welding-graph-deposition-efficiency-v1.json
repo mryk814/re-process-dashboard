@@ -1,0 +1,44 @@
+{
+  "schema_version": "tabular-dataset-profile/v1",
+  "profile_id": "welding-graph-deposition-efficiency-synthetic-v1",
+  "name": "Prediction Graph用の決定論的な溶着効率proxy",
+  "task_id": "welding-graph-deposition-efficiency-v1",
+  "package_id": "welding-graph-deposition-efficiency-ridge-v2",
+  "id_column": "row_id",
+  "group_column": null,
+  "inputs": [
+    {
+      "path": "process.heat_input_kj_per_mm",
+      "column": "heat_input_kj_per_mm",
+      "kind": "number",
+      "unit": "kJ/mm"
+    },
+    {
+      "path": "process.voltage_v",
+      "column": "voltage_v",
+      "kind": "number",
+      "unit": "V"
+    },
+    {
+      "path": "process.gas_flow_l_per_min",
+      "column": "gas_flow_l_per_min",
+      "kind": "number",
+      "unit": "L/min"
+    },
+    {
+      "path": "process.wire_feed_speed_m_per_min",
+      "column": "wire_feed_speed_m_per_min",
+      "kind": "number",
+      "unit": "m/min"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "deposition_efficiency_pct",
+      "column": "deposition_efficiency_pct",
+      "unit": "%",
+      "lower_bound": 0,
+      "upper_bound": 100
+    }
+  ]
+}

@@ -194,7 +194,7 @@ def refresh_single_task_project_identities(database: str | Path) -> int:
 
     Workspace bootstrap may bind a formerly-unbound legacy Project after the
     schema migration. This mirrors that already-recorded provenance; it never
-    derives a package or rewrites a Chain identity.
+    derives a package or rewrites a Chain／Prediction Graph identity.
     """
 
     conn = connect_sqlite(database)
@@ -210,7 +210,7 @@ def refresh_single_task_project_identities(database: str | Path) -> int:
         changed = 0
         for row in rows:
             current = json.loads(str(row[7]))
-            if current.get("identity_kind") == "chain":
+            if current.get("identity_kind") != "single_task":
                 continue
             identity = _single_task_identity_from_row(row)
             encoded = _identity_json(identity)

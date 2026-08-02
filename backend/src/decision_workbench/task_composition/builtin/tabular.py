@@ -42,6 +42,9 @@ SECOM_YIELD_TASK_ID = "secom-yield-risk-v1"
 MPEA_LEGACY_TYS_TASK_ID = "mpea-literature-tys-v1"
 MPEA_ROOM_TENSILE_TASK_ID = "mpea-room-tensile-v1"
 MPEA_HARDNESS_TASK_ID = "mpea-hardness-process-v1"
+WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID = (
+    "welding-graph-deposition-efficiency-v1"
+)
 
 _TABULAR_PROFILES = {
     HEAT_TREATMENT_TASK_ID: DATA_ROOT / "tabular-profile-heat-treatment-v1.json",
@@ -216,6 +219,7 @@ def external_tabular_task_module(
     estimator_ids: tuple[str, ...],
     default_estimator_id: str,
     package_path: Path | None,
+    project_creation: bool = True,
 ) -> TaskModule:
     """Compose a reviewed data-only Task bundle without loading Python code."""
 
@@ -242,6 +246,7 @@ def external_tabular_task_module(
             actual_measurement=False,
             response_curve=True,
             similarity=True,
+            project_creation=project_creation,
         ),
         starter_project=_tabular_starter(task_id, label),
         response_curve=_standard_response_curve,
@@ -250,6 +255,20 @@ def external_tabular_task_module(
 
 
 TABULAR_TASK_MODULES = (
+    external_tabular_task_module(
+        task_id=WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
+        label="Graph比較用: 溶着効率proxy",
+        source_path=Path(
+            "data/fixtures/prediction-graph/"
+            "welding_deposition_efficiency_synthetic.csv"
+        ),
+        profile_path=DATA_ROOT
+        / "tabular-profile-welding-graph-deposition-efficiency-v1.json",
+        estimator_ids=("ridge.v1",),
+        default_estimator_id="ridge.v1",
+        package_path=None,
+        project_creation=False,
+    ),
     TaskModule(
         task_id=HEAT_TREATMENT_TASK_ID,
         package_override_env="DECISION_WORKBENCH_HEAT_TREATMENT_MODEL_PACKAGE",

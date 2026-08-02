@@ -1,0 +1,184 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "welding-graph-deposition-efficiency-v1",
+    "label": "Graph比較用: 溶着効率proxy",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "process",
+        "order": 0,
+        "label": "合成proxy入力",
+        "fields": [
+          {
+            "path": "process.heat_input_kj_per_mm",
+            "kind": "number",
+            "order": 0,
+            "label": "入熱",
+            "unit": "kJ/mm",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.8,
+              "max": 2.0
+            },
+            "allowed_range": {
+              "min": 0.1,
+              "max": 10
+            },
+            "training_range": {
+              "min": 0.8,
+              "max": 2.0
+            }
+          },
+          {
+            "path": "process.voltage_v",
+            "kind": "number",
+            "order": 1,
+            "label": "電圧",
+            "unit": "V",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 22,
+              "max": 34
+            },
+            "allowed_range": {
+              "min": 1,
+              "max": 100
+            },
+            "training_range": {
+              "min": 22,
+              "max": 34
+            }
+          },
+          {
+            "path": "process.gas_flow_l_per_min",
+            "kind": "number",
+            "order": 2,
+            "label": "ガス流量",
+            "unit": "L/min",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 12,
+              "max": 24
+            },
+            "allowed_range": {
+              "min": 0.1,
+              "max": 100
+            },
+            "training_range": {
+              "min": 12,
+              "max": 24
+            }
+          },
+          {
+            "path": "process.wire_feed_speed_m_per_min",
+            "kind": "number",
+            "order": 3,
+            "label": "ワイヤ送給速度",
+            "unit": "m/min",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 5,
+              "max": 11
+            },
+            "allowed_range": {
+              "min": 0.1,
+              "max": 30
+            },
+            "training_range": {
+              "min": 5,
+              "max": 11
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "key": "deposition_efficiency_pct",
+        "label": "溶着効率proxy",
+        "unit": "%",
+        "goal_direction": "at_least",
+        "measurement_keys": [
+          "deposition_efficiency_pct"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 100
+        },
+        "preferred_display_range": {
+          "min": 55,
+          "max": 88
+        }
+      }
+    ],
+    "display_decimals": {
+      "process.heat_input_kj_per_mm": 2,
+      "process.voltage_v": 1,
+      "process.gas_flow_l_per_min": 1,
+      "process.wire_feed_speed_m_per_min": 1,
+      "output.deposition_efficiency_pct": 1
+    },
+    "fixed_context": [
+      {
+        "path": "context.evidence",
+        "order": 0,
+        "label": "証拠境界",
+        "value": "決定論的な合成demonstration。実測・因果・production品質を主張しない"
+      }
+    ],
+    "constraints": [],
+    "response_curve_variables": []
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "welding-graph-deposition-efficiency-v1",
+    "composition": {},
+    "process": {
+      "heat_input_kj_per_mm": 1.35,
+      "voltage_v": 28.0,
+      "gas_flow_l_per_min": 18.0,
+      "wire_feed_speed_m_per_min": 8.0
+    },
+    "heat_pattern": null,
+    "categorical": {},
+    "provenance": {
+      "source_kind": "direct",
+      "source_ref": null
+    }
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "welding-graph-deposition-efficiency-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {
+        "target": "deposition_efficiency_pct",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      }
+    ],
+    "joint_samples": false,
+    "operations": {
+      "preview": true,
+      "detailed_prediction": true,
+      "response_curve": true,
+      "similarity": true,
+      "snapshot": true,
+      "actual_measurement": false
+    }
+  }
+}

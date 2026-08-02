@@ -167,6 +167,57 @@
       "standard_authoring": false
     },
     {
+      "task_id": "welding-graph-corrosion-v1",
+      "label": "Graph比較用: 腐食速度",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "split_policy": "grouped_weld_run",
+      "input_kinds": [
+        "composition",
+        "categorical"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "welding-graph-deposition-efficiency-v1",
+      "label": "Graph比較用: 溶着効率proxy",
+      "source_shape": "independent_rows",
+      "profile_family": "tabular-dataset-profile/v1",
+      "split_policy": "row_independent",
+      "input_kinds": [
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": true
+    },
+    {
+      "task_id": "welding-graph-tensile-ts-v1",
+      "label": "Graph比較用: 引張強さ",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "split_policy": "grouped_weld_run",
+      "input_kinds": [
+        "composition",
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
+      "task_id": "welding-graph-toughness-v1",
+      "label": "Graph比較用: 吸収エネルギー",
+      "source_shape": "repeated_measurements",
+      "profile_family": "observation-dataset-profile/v1",
+      "split_policy": "grouped_weld_run",
+      "input_kinds": [
+        "composition",
+        "process"
+      ],
+      "target_kind": "single_target",
+      "standard_authoring": false
+    },
+    {
       "task_id": "welding-stage-c-properties-v1",
       "label": "溶着金属成分から特性を予測",
       "source_shape": "repeated_measurements",
