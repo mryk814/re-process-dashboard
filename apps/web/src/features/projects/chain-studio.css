@@ -38,6 +38,50 @@
   font-size: 11px;
 }
 
+.chain-studio-draft-bar,
+.chain-studio-draft-error,
+.chain-studio-draft-conflict {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.chain-studio-draft-bar > div,
+.chain-studio-draft-error > div,
+.chain-studio-draft-conflict > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.chain-studio-draft-bar small,
+.chain-studio-draft-conflict small {
+  color: #5d6775;
+  font-size: 11px;
+}
+
+.chain-studio-draft-error,
+.chain-studio-draft-conflict {
+  border-color: #e2b66f;
+  background: #fff8e9;
+  color: #75420a;
+}
+
+.chain-studio-draft-error > div span,
+.chain-studio-draft-conflict > div span {
+  font-size: 12px;
+}
+
+.chain-studio-draft-conflict > div:last-child {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .chain-studio-panel {
   display: grid;
   gap: 10px;
@@ -563,6 +607,17 @@
   .chain-studio-fields,
   .chain-studio-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .chain-studio-draft-bar,
+  .chain-studio-draft-error,
+  .chain-studio-draft-conflict {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chain-studio-draft-conflict > div:last-child {
+    flex-wrap: wrap;
   }
 
   .chain-studio-inspector {

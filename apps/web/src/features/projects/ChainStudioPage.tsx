@@ -32,6 +32,11 @@ import {
   type GraphPort,
   type SourceOption,
 } from "./predictionGraphDraft";
+import {
+  predictionGraphDraftContent,
+  predictionGraphDraftSummary,
+} from "./predictionGraphDraftPersistence";
+import { usePredictionGraphDraft } from "./usePredictionGraphDraft";
 
 type Props = {
   onProjectCreated: (project: ApiProject) => void;
@@ -85,6 +90,7 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const [validation, setValidation] = useState<ApiPredictionGraphValidation>();
   const [published, setPublished] = useState<ApiPredictionGraphPublishResponse>();
   const [projectName, setProjectName] = useState("新しい判断Project");
+  const [hasEdited, setHasEdited] = useState(false);
   const [submitting, setSubmitting] = useState<"validate" | "publish" | null>(null);
   const [actionError, setActionError] = useState<string>();
   const [zoom, setZoom] = useState(1);
@@ -98,7 +104,9 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const mounted = useRef(true);
   const requestGeneration = useRef(0);
   const submissionPending = useRef(false);
-  // Draft lifetime stays screen-local in this PR. Cross-screen persistence is tracked by #716.
+  const completedProjectNavigation = useRef(false);
+  const appliedResumeId = useRef<string | undefined>(undefined);
+  const draftPersistence = usePredictionGraphDraft();
 
   useEffect(() => {
     mounted.current = true;
@@ -122,9 +130,34 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     };
   }, []);
 
-  useEffect(() => registerNavigationGuard(
-    async () => !submissionPending.current,
-  ), [registerNavigationGuard]);
+  useEffect(() => registerNavigationGuard(async () => (
+    completedProjectNavigation.current
+    || (
+      !submissionPending.current
+      && (!hasEdited || window.confirm("保存していないGraph draftがあります。この画面を離れますか？"))
+    )
+  )), [hasEdited, registerNavigationGuard]);
+
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasEdited) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [hasEdited]);
+
+  useEffect(() => {
+    const resumed = draftPersistence.resumedDocument;
+    if (!resumed || appliedResumeId.current === resumed.draft_id) return;
+    appliedResumeId.current = resumed.draft_id;
+    setDefinition(resumed.content.definition);
+    setProjectName(resumed.content.project_name);
+    setValidation(undefined);
+    setPublished(undefined);
+    setActionError(undefined);
+    setHasEdited(false);
+  }, [draftPersistence.resumedDocument]);
 
   useEffect(() => {
     for (const input of definition?.inputs ?? []) {
@@ -208,6 +241,27 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     setValidation(undefined);
     setPublished(undefined);
     setActionError(undefined);
+    setHasEdited(true);
+  }
+
+  async function saveDraft(overwrite = false) {
+    if (!definition) return;
+    const content = predictionGraphDraftContent(definition, projectName);
+    const saved = overwrite
+      ? await draftPersistence.overwriteServerVersion(content)
+      : await draftPersistence.save(content);
+    if (saved) setHasEdited(false);
+  }
+
+  function openServerDraft() {
+    const current = draftPersistence.useServerVersion();
+    if (!current) return;
+    setDefinition(current.content.definition);
+    setProjectName(current.content.project_name);
+    setValidation(undefined);
+    setPublished(undefined);
+    setActionError(undefined);
+    setHasEdited(false);
   }
 
   function selectSource(option: SourceOption) {
@@ -328,6 +382,8 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
       if (!isCurrent()) return;
       submissionPending.current = false;
       setSubmitting(null);
+      setHasEdited(false);
+      completedProjectNavigation.current = true;
       onProjectCreated(project);
     } catch (reason) {
       if (!isCurrent()) return;
@@ -350,7 +406,7 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     });
   }
 
-  if (loading) {
+  if (loading || draftPersistence.phase === "loading") {
     return <section className="chain-studio-state" aria-live="polite">
       <span className="overline">PREDICTION GRAPH STUDIO</span>
       <h2>利用できるNodeを読み込み中です</h2>
@@ -372,6 +428,13 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const selectedOutput = selection?.kind === "output"
     ? definition?.decision_outputs.find((item) => item.output_id === selection.id)
     : undefined;
+  const savedSummary = draftPersistence.document
+    ? predictionGraphDraftSummary(draftPersistence.document)
+    : undefined;
+  const conflictSummary = draftPersistence.conflict
+    ? predictionGraphDraftSummary(draftPersistence.conflict.current)
+    : undefined;
+  const editingLocked = submitting !== null || draftPersistence.phase === "saving";
 
   return <section className="chain-studio" aria-labelledby="chain-studio-heading">
     <header className="chain-studio-header">
@@ -386,14 +449,50 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
       </div>
     </header>
 
-    <fieldset className="chain-studio-edit-lock" disabled={submitting !== null} aria-busy={submitting !== null}>
+    <section className="chain-studio-draft-bar" aria-labelledby="graph-draft-status">
+      <div>
+        <span className="overline">MUTABLE DRAFT</span>
+        <strong id="graph-draft-status">{savedSummary ? `保存済み v${savedSummary.version}` : "まだ保存されていません"}</strong>
+        <small>{savedSummary
+          ? `${new Date(savedSummary.updatedAt).toLocaleString("ja-JP")} · 不完全な状態でも再開できます`
+          : "公開とは別に、作業途中のGraphとProject名を保存できます"}</small>
+      </div>
+      <button
+        type="button"
+        className="outline-button"
+        disabled={editingLocked || draftPersistence.resumeFailed}
+        onClick={() => void saveDraft()}
+      >{draftPersistence.phase === "saving" ? "draft保存中…" : savedSummary && !hasEdited ? "draftを再保存" : "draftを保存"}</button>
+    </section>
+
+    {draftPersistence.error && <section className="chain-studio-draft-error" role="alert">
+      <div><strong>{draftPersistence.resumeFailed ? "保存済みdraftを再開できませんでした" : "draftを保存できませんでした"}</strong><span>{draftPersistence.error}</span></div>
+      {draftPersistence.resumeFailed && <button type="button" onClick={() => void draftPersistence.retryResume()}>保存済みdraftを再読込</button>}
+    </section>}
+
+    {conflictSummary && <section className="chain-studio-draft-conflict" role="alert">
+      <div>
+        <strong>サーバーに新しいdraft v{conflictSummary.version}があります</strong>
+        <span>サーバー版: {conflictSummary.graphLabel} ／ {conflictSummary.projectName}</span>
+        <small>手元の編集は保持しています。どちらを残すか選んでください。自動では統合しません。</small>
+      </div>
+      <div>
+        <button type="button" onClick={openServerDraft}>サーバー版を開く</button>
+        <button type="button" className="danger-outline-button" onClick={() => void saveDraft(true)}>手元版で上書き</button>
+      </div>
+    </section>}
+
+    <fieldset className="chain-studio-edit-lock" disabled={editingLocked} aria-busy={editingLocked}>
       <legend className="sr-only">Prediction Graph draft編集</legend>
     <section className="chain-studio-panel chain-studio-identity" aria-labelledby="graph-identity">
       <h3 id="graph-identity">Graphの目的</h3>
       <div className="chain-studio-fields">
         <label>Graph ID<input value={definition.graph_id} onChange={(event) => change({ ...definition, graph_id: event.target.value })} /></label>
         <label>表示名／目的<input value={definition.label} onChange={(event) => change({ ...definition, label: event.target.value })} /></label>
-        <label>作成するProject名<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label>
+        <label>作成するProject名<input value={projectName} onChange={(event) => {
+          setProjectName(event.target.value);
+          setHasEdited(true);
+        }} /></label>
       </div>
     </section>
 

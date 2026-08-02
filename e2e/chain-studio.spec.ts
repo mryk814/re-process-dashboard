@@ -37,6 +37,41 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await page.getByLabel("Graph ID").fill(graphId);
   await page.getByLabel("表示名／目的").fill("Graph Studio keyboard smoke");
   await page.getByLabel("作成するProject名").fill("Graph Studio Project smoke");
+  await page.getByRole("button", { name: "draftを保存" }).click();
+  await expect(page.getByText("保存済み v1")).toBeVisible();
+  const draftId = await page.evaluate(() => window.localStorage.getItem(
+    "decision-workbench.prediction-graph-draft-id",
+  ));
+  expect(draftId).toBeTruthy();
+  const draftResponse = await page.request.get(`${apiBaseUrl}/api/prediction-graph-drafts/${draftId}`);
+  expect(draftResponse.status(), await draftResponse.text()).toBe(200);
+  const serverDraft = await draftResponse.json() as {
+    version: number;
+    content: {
+      definition: { label: string };
+      project_name: string;
+    };
+  };
+  serverDraft.content.definition.label = "別画面で保存したGraph";
+  serverDraft.content.project_name = "別画面で保存したProject";
+  const competingSave = await page.request.put(
+    `${apiBaseUrl}/api/prediction-graph-drafts/${draftId}`,
+    { data: { expected_version: serverDraft.version, content: serverDraft.content } },
+  );
+  expect(competingSave.status(), await competingSave.text()).toBe(200);
+
+  await page.getByLabel("表示名／目的").fill("手元で続けたGraph");
+  await page.getByRole("button", { name: "draftを保存" }).click();
+  const conflict = page.getByRole("alert").filter({ hasText: "サーバーに新しいdraft v2があります" });
+  await expect(conflict).toContainText("別画面で保存したGraph ／ 別画面で保存したProject");
+  await conflict.getByRole("button", { name: "手元版で上書き" }).click();
+  await expect(page.getByText("保存済み v3")).toBeVisible();
+
+  await page.reload();
+  await expect(heading).toBeVisible();
+  await expect(page.getByLabel("表示名／目的")).toHaveValue("手元で続けたGraph");
+  await expect(page.getByLabel("作成するProject名")).toHaveValue("Graph Studio Project smoke");
+  await expect(page.getByText("保存済み v3")).toBeVisible();
 
   await page.locator(".model-node .chain-studio-node-title").click();
   await expect(page.locator(".chain-studio-inspector")).toContainText("contract digest");
@@ -108,6 +143,7 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
 
   await page.goto("/?view=chain-studio");
   await expect(heading).toBeVisible();
+  await page.getByLabel("Graph ID").fill(`${graphId}-navigation-guard`);
   const publishCount = publishRequests.length;
   const projectCreateCount = projectCreateRequests.length;
   let releasePublish!: () => void;

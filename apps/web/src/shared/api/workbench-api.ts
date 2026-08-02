@@ -51,6 +51,12 @@ export type ApiPredictionGraphDefinition = components["schemas"]["PredictionGrap
 export type ApiPredictionGraphValidation = components["schemas"]["PredictionGraphDraftValidation"];
 export type ApiPredictionGraphPublishResponse = components["schemas"]["PredictionGraphPublishResponse"];
 export type ApiPredictionGraphProjectCreate = components["schemas"]["PredictionGraphProjectCreateRequest"];
+export type ApiPredictionGraphDraftContent = components["schemas"]["PredictionGraphDraftContent"];
+export type ApiPredictionGraphDraftDocument = components["schemas"]["PredictionGraphDraftDocument"];
+export type ApiPredictionGraphDraftConflict = components["schemas"]["PredictionGraphDraftConflictResponse"];
+export type ApiPredictionGraphDraftSaveResult =
+  | { status: "saved"; document: ApiPredictionGraphDraftDocument }
+  | { status: "conflict"; conflict: ApiPredictionGraphDraftConflict };
 export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
@@ -290,6 +296,43 @@ export const workbenchApi = {
   },
   async predictionGraphCatalog(signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/prediction-graphs/catalog", { signal }), "Prediction Graph catalogを取得できませんでした。");
+  },
+  async createPredictionGraphDraft(content: ApiPredictionGraphDraftContent) {
+    return requireData(await apiClient.POST("/api/prediction-graph-drafts", {
+      body: { content },
+    }), "Prediction Graph draftを保存できませんでした。");
+  },
+  async predictionGraphDraft(draftId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graph-drafts/{draft_id}", {
+      params: { path: { draft_id: draftId } },
+      signal,
+    }), "保存済みのPrediction Graph draftを取得できませんでした。");
+  },
+  async updatePredictionGraphDraft(
+    draftId: string,
+    expectedVersion: number,
+    content: ApiPredictionGraphDraftContent,
+  ): Promise<ApiPredictionGraphDraftSaveResult> {
+    const result = await apiClient.PUT("/api/prediction-graph-drafts/{draft_id}", {
+      params: { path: { draft_id: draftId } },
+      body: { expected_version: expectedVersion, content },
+    });
+    if (result.data !== undefined) return { status: "saved", document: result.data };
+    if (
+      result.response.status === 409
+      && result.error !== undefined
+      && "current" in result.error
+      && result.error.code === "revision_conflict"
+    ) {
+      return { status: "conflict", conflict: result.error };
+    }
+    return {
+      status: "saved",
+      document: requireData<ApiPredictionGraphDraftDocument>(
+        result,
+        "Prediction Graph draftを更新できませんでした。",
+      ),
+    };
   },
   async validatePredictionGraph(definition: ApiPredictionGraphDefinition) {
     return requireData(await apiClient.POST("/api/prediction-graphs/validate", { body: { definition } }), "Prediction Graphを検証できませんでした。");
