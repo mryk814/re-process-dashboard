@@ -308,8 +308,11 @@ test("source refresh stays separate from approval, training and activation", asy
   ));
   await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
   expect((await approvalResponse).status()).toBe(201);
-  await repeatedSection.getByLabel("用途").fill("更新版の再評価");
-  const createTrainingSnapshot = repeatedSection.getByRole(
+  await page.reload();
+  const approvedSection = page.locator(".source-lifecycle-section");
+  await expect(approvedSection.getByRole("heading", { name: "データ更新" })).toBeVisible();
+  await approvedSection.getByLabel("用途").fill("更新版の再評価");
+  const createTrainingSnapshot = approvedSection.getByRole(
     "button",
     { name: "学習用スナップショットを作成" },
   );

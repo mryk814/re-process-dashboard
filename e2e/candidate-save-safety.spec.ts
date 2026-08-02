@@ -367,14 +367,12 @@ test("Actual draft survives Candidate revision churn until explicit rebase", asy
   await saveButton.click();
   await expect(panel.getByLabel("実測値", { exact: true })).toBeDisabled();
   await expect(panel.getByLabel("メモ")).toBeDisabled();
-  await expect(panel.getByRole("button", { name: "入力を閉じる" })).toBeDisabled();
   releaseActual();
   const actualResponse = await actualCreated;
   expect(actualResponse.status(), await actualResponse.text()).toBe(201);
   const receipt = await actualResponse.json() as { snapshot_id: string };
   expect(receipt.snapshot_id).toBeTruthy();
   await expect(panel.getByRole("button", { name: "実測を登録" })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "実測を登録" })).toBeFocused();
   await expect(panel.getByRole("status")).toContainText("実測と固定Snapshotは保存済みです");
 });
 

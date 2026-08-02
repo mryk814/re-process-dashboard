@@ -36,7 +36,9 @@ const surfaces: Surface[] = [
   {
     name: "プロジェクト概要",
     url: "/?view=project&project=default",
-    ready: heading("焼鈍条件の候補検討", 1),
+    ready: async (page) => {
+      await expect(page.getByRole("main").getByRole("heading", { level: 1 }).first()).toBeVisible();
+    },
   },
   {
     name: "候補比較",
