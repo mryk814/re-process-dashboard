@@ -410,10 +410,6 @@ test("late initial catalog cannot replace the selected connector", async ({ page
   };
   const slow = await createConnector(`遅い接続先-${Date.now()}`);
   const selected = await createConnector(`選択接続先-${Date.now()}`);
-  const selectedDetailResponse = page.waitForResponse((response) => (
-    response.request().method() === "GET"
-    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
-  ));
   let releaseFirstCatalog = () => {};
   const firstCatalogGate = new Promise<void>((resolve) => {
     releaseFirstCatalog = resolve;
@@ -441,19 +437,27 @@ test("late initial catalog cannot replace the selected connector", async ({ page
     const url = new URL(window.location.href);
     url.searchParams.set("connector", connectorId);
     window.history.pushState({}, "", url);
-    window.dispatchEvent(new PopStateEvent("popstate"));
   }, selected.id);
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(slow.id);
+
+  const selectedDetailResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
+  ));
+  await page.goForward();
   expect((await selectedDetailResponse).status()).toBe(200);
   await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+
+  const detailHeader = page.locator(".source-lifecycle-detail > header");
+  await expect(detailHeader).toContainText(selected.name);
+  await expect(detailHeader).not.toContainText(slow.name);
 
   releaseFirstCatalog();
   const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
   const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
-  const detailHeader = page.locator(".source-lifecycle-detail > header");
-  await expect(detailHeader).toContainText(selected.name);
   await expect(selectedButton).toHaveClass(/active/);
   await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
-  await expect(detailHeader).not.toContainText(slow.name);
 });
 
 test("reason audit loads a blocked row beyond the first hundred without quarantine", async ({ page, request }) => {
