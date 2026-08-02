@@ -93,6 +93,18 @@ modelを推測しない。現在のUCB／EIはmarginal acquisitionであり、gr
 selectionをjoint acquisitionとして表示しない。ground-truth fixture、memory peak、
 sequential roundがない場合は、値を捏造せずreportのlimitationへ残す。
 
+`generative-design-lab-report/v1`は、この境界を合成hidden-oracle fixtureへ適用する
+research-only証拠である。同じfixture、seed、candidate budget、batch sizeでLHS、
+Sobol、empirical rows、kNN local、category-conditioned Gaussian rank copulaを比較し、
+小さなmixed fixtureだけでtiny VAEを実学習する。hard feasibility、観測近傍距離、
+predictive support、objective gap、batch diversityは別指標のまま保存する。
+offline optimization trapでは直接objective選抜と、距離penaltyを明示した
+conservative＋diversity選抜を比較する。Labのadoption memoはkNN／copula／policyを
+`experimental`、tiny VAEを`no_adopt`とし、production registry、Package、
+Project、保存済みRunを変更しない。正本の数値証拠と再生成commandは
+[`Generative Design Lab adoption memo`](../research/generative-design-lab-adoption-memo.md)
+に置く。
+
 UCB/LCB and EI require the typed `normal_mean_std` acquisition representation:
 the Runtime output must declare a mean point statistic and predictive standard
 deviation on an unconstrained continuous target. A median, probability, rate,
