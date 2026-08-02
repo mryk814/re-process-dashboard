@@ -33,11 +33,24 @@ from decision_workbench.contracts.chain_execution_contracts import (
     PredictionGraphExecution,
     PredictionGraphSnapshot,
 )
+from decision_workbench.contracts.prediction_graph_draft_contracts import (
+    PredictionGraphDraftCreateRequest,
+    PredictionGraphDraftDocument,
+    PredictionGraphDraftUpdateRequest,
+)
+from decision_workbench.persistence.prediction_graph_draft_repository import (
+    PredictionGraphDraftConflictError,
+    PredictionGraphDraftNotFoundError,
+)
 
 from .dependencies import get_prediction_graph_use_cases
 
 
 router = APIRouter(prefix="/api/prediction-graphs", tags=["prediction-graphs"])
+draft_router = APIRouter(
+    prefix="/api/prediction-graph-drafts",
+    tags=["prediction-graph-drafts"],
+)
 GraphDependency = Annotated[
     PredictionGraphUseCases,
     Depends(get_prediction_graph_use_cases),
@@ -62,6 +75,59 @@ def _call(operation: Callable[[], T]) -> T:
         raise HTTPException(422, str(exc)) from exc
     except ChainConflictError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+def _call_draft(operation: Callable[[], T]) -> T:
+    try:
+        return operation()
+    except PredictionGraphDraftNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PredictionGraphDraftConflictError as exc:
+        raise HTTPException(
+            409,
+            {
+                "code": "revision_conflict",
+                "message": str(exc),
+            },
+        ) from exc
+
+
+@draft_router.post(
+    "",
+    response_model=PredictionGraphDraftDocument,
+    status_code=201,
+    operation_id="createPredictionGraphDraft",
+)
+def create_draft(
+    payload: PredictionGraphDraftCreateRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphDraftDocument:
+    return _call_draft(lambda: use_cases.create_draft(payload))
+
+
+@draft_router.get(
+    "/{draft_id}",
+    response_model=PredictionGraphDraftDocument,
+    operation_id="getPredictionGraphDraft",
+)
+def get_draft(
+    draft_id: str,
+    use_cases: GraphDependency,
+) -> PredictionGraphDraftDocument:
+    return _call_draft(lambda: use_cases.get_draft(draft_id))
+
+
+@draft_router.put(
+    "/{draft_id}",
+    response_model=PredictionGraphDraftDocument,
+    operation_id="updatePredictionGraphDraft",
+)
+def update_draft(
+    draft_id: str,
+    payload: PredictionGraphDraftUpdateRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphDraftDocument:
+    return _call_draft(lambda: use_cases.update_draft(draft_id, payload))
 
 
 @router.get(

@@ -695,6 +695,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graph-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Draft */
+        post: operations["createPredictionGraphDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graph-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["getPredictionGraphDraft"];
+        /** Update Draft */
+        put: operations["updatePredictionGraphDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graphs/catalog": {
         parameters: {
             query?: never;
@@ -8570,6 +8605,133 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
         };
+        /** PredictionGraphDraftContent */
+        PredictionGraphDraftContent: {
+            definition: components["schemas"]["PredictionGraphDraftDefinition"];
+            /**
+             * Project Name
+             * @default
+             */
+            project_name: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-draft-content/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-draft-content/v1";
+        };
+        /** PredictionGraphDraftCreateRequest */
+        PredictionGraphDraftCreateRequest: {
+            content: components["schemas"]["PredictionGraphDraftContent"];
+        };
+        /** PredictionGraphDraftDecisionOutput */
+        PredictionGraphDraftDecisionOutput: {
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Output Id */
+            output_id: string;
+            /** Required For Complete Result */
+            required_for_complete_result: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary_objective" | "hard_constraint" | "secondary_outcome" | "diagnostic";
+            /** Source Output Key */
+            source_output_key: string;
+            /** Source Stage Id */
+            source_stage_id: string;
+        };
+        /**
+         * PredictionGraphDraftDefinition
+         * @description Syntactically typed graph content without publish-time completeness checks.
+         */
+        PredictionGraphDraftDefinition: {
+            /**
+             * Bindings
+             * @default []
+             */
+            bindings: components["schemas"]["ChainBinding"][];
+            /**
+             * Decision Outputs
+             * @default []
+             */
+            decision_outputs: components["schemas"]["PredictionGraphDraftDecisionOutput"][];
+            /** Graph Id */
+            graph_id: string;
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: components["schemas"]["PredictionGraphDraftInput"][];
+            /** Label */
+            label: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-definition/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-definition/v1";
+            /**
+             * Stages
+             * @default []
+             */
+            stages: components["schemas"]["ChainStage"][];
+        };
+        /** PredictionGraphDraftDocument */
+        PredictionGraphDraftDocument: {
+            content: components["schemas"]["PredictionGraphDraftContent"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Draft Id */
+            draft_id: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-draft/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-draft/v1";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** PredictionGraphDraftInput */
+        PredictionGraphDraftInput: {
+            /** Default Presentation Group */
+            default_presentation_group: string;
+            /** Input Id */
+            input_id: string;
+            /** Label */
+            label: string;
+            port: components["schemas"]["ChainPort"];
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "design_variable" | "scenario_context" | "fixed_parameter";
+            /** Value Source */
+            value_source: components["schemas"]["CandidateGraphInputSource"] | components["schemas"]["ProjectGraphInputSource"] | components["schemas"]["FixedGraphInputSource"];
+        };
+        /** PredictionGraphDraftUpdateRequest */
+        PredictionGraphDraftUpdateRequest: {
+            content: components["schemas"]["PredictionGraphDraftContent"];
+            /** Expected Version */
+            expected_version: number;
+        };
         /** PredictionGraphDraftValidation */
         PredictionGraphDraftValidation: {
             /** Candidate Adapter Id */
@@ -14104,6 +14266,105 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphDraftCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDraftDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDraftDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updatePredictionGraphDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphDraftUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDraftDocument"];
                 };
             };
             /** @description Validation Error */

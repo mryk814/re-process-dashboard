@@ -70,6 +70,7 @@ PROJECT_PERSISTENCE = ProjectPersistenceInventory(
         "dataset_view_members",
         "dataset_view_revisions",
         "model_package_refs",
+        "prediction_graph_drafts",
         "project_series",
         "raw_series_assets",
         "raw_source_snapshots",
