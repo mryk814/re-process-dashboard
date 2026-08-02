@@ -10,10 +10,14 @@ import {
 import {
   workbenchApi,
   type ApiCandidateOriginEvidence,
-  type ApiHistoricalObservationEvidence,
 } from "../../shared/api/workbench-api";
 import { HistoricalEvidenceDrawer } from "./HistoricalEvidenceDrawer";
 import { originMeasurements, type OriginMeasurement } from "./originEvidence";
+import {
+  historicalEvidenceWarning,
+  storedHistoricalMeasurements,
+  type HistoricalEvidenceWarning,
+} from "./historicalEvidenceIntegrity";
 
 
 export function CandidateOrigin({
@@ -43,54 +47,27 @@ export function CandidateOrigin({
   const referenceOrigin = lineageReference !== null || historicalReference !== null;
   const [measurements, setMeasurements] = useState<OriginMeasurement[] | null>(null);
   const [originEvidence, setOriginEvidence] = useState<ApiCandidateOriginEvidence | null>(null);
-  const [, setHistoricalEvidence] = useState<ApiHistoricalObservationEvidence | null>(null);
-  const [historicalIntegrityError, setHistoricalIntegrityError] = useState("");
+  const [historicalWarning, setHistoricalWarning] = useState<HistoricalEvidenceWarning | null>(null);
   const [originEvidenceState, setOriginEvidenceState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   useEffect(() => {
     setEvidenceOpen(false);
     setMeasurements(null);
     setOriginEvidence(null);
-    setHistoricalEvidence(null);
-    setHistoricalIntegrityError("");
+    setHistoricalWarning(null);
     if (provenance.source_kind === "historical_observation") {
       const controller = new AbortController();
       setOriginEvidenceState("loading");
       void workbenchApi.historicalObservationEvidence(projectId, candidate.id, controller.signal)
         .then((evidence) => {
           if (controller.signal.aborted) return;
-          setHistoricalEvidence(evidence);
-          setMeasurements(outputs.flatMap((output) => {
-            const value = evidence.actual_outputs[output.key];
-            return typeof value === "number" ? [{
-              key: output.key,
-              label: output.label,
-              mean: value,
-              std: 0,
-              count: 1,
-              unit: output.unit,
-            }] : [];
-          }));
+          setMeasurements(storedHistoricalMeasurements(evidence.actual_outputs, outputs));
           setOriginEvidenceState("ready");
         })
         .catch((cause) => {
           if (!controller.signal.aborted) {
-            setMeasurements(outputs.flatMap((output) => {
-              const value = historicalActualOutputs[output.key];
-              return typeof value === "number" ? [{
-                key: output.key,
-                label: output.label,
-                mean: value,
-                std: 0,
-                count: 1,
-                unit: output.unit,
-              }] : [];
-            }));
-            setHistoricalIntegrityError(
-              cause instanceof Error
-                ? cause.message
-                : "保存済み実測recordのsource identityを再解決できません",
-            );
+            setMeasurements(storedHistoricalMeasurements(historicalActualOutputs, outputs));
+            setHistoricalWarning(historicalEvidenceWarning(cause));
             setOriginEvidenceState("error");
           }
         });
@@ -139,7 +116,7 @@ export function CandidateOrigin({
                 </b>
               ))
             : <b>—</b>}
-          {historicalIntegrityError && <small className="candidate-origin-integrity-error" role="alert">保存時に固定したactualを表示しています。source identityの再検証に失敗しました: {historicalIntegrityError}</small>}
+          {historicalWarning && <small className={`candidate-origin-integrity-error ${historicalWarning.kind}`} role="alert">保存時に固定したactualを表示しています。{historicalWarning.message}</small>}
         </span>
       )}
       {broken ? (

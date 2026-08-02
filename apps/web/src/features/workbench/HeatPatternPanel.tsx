@@ -33,6 +33,7 @@ export function HeatPattern({
   onAdd: () => void;
   onDelete: (index: number) => void;
 }) {
+  const readOnly = candidate.raw.provenance?.source_kind === "historical_observation";
   const width = 440;
   const height = 228;
   const pad = { left: 48, right: 28, top: 18, bottom: 42 };
@@ -60,6 +61,7 @@ export function HeatPattern({
   const timeTickDigits = timeSpan >= 100 ? 0 : timeSpan >= 10 ? 1 : 2;
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const dragPoint = (event: PointerEvent<SVGCircleElement>, index: number) => {
+    if (readOnly) return;
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return;
     const bounds = svg.getBoundingClientRect();
@@ -81,7 +83,7 @@ export function HeatPattern({
     onUpdate(index, "temperature", temperature);
   };
   return (
-    <section className="chart-panel heat-panel">
+    <section className={`chart-panel heat-panel${readOnly ? " read-only" : ""}`}>
       <div className="panel-title">
         <h2>
           ヒートパターン <span>（焼鈍温度・時間）</span>
@@ -95,6 +97,7 @@ export function HeatPattern({
           <span>時間基準</span>
           <select
             aria-label="ヒートパターンの時間基準"
+            disabled={readOnly}
             value={candidate.heatTimeBasis}
             onChange={(event) => onTimeBasisChange(event.target.value as HeatTimeBasis)}
           >
@@ -117,7 +120,7 @@ export function HeatPattern({
         viewBox={`0 0 ${width} ${height}`}
         className="heat-chart"
         role="group"
-        aria-label="候補を重ねたヒートパターン。選択候補の温度点をドラッグして編集できます。"
+        aria-label={readOnly ? "候補を重ねたヒートパターン。過去の実測record由来のため読み取り専用です。" : "候補を重ねたヒートパターン。選択候補の温度点をドラッグして編集できます。"}
       >
         <g className="grid-lines">
           {[0, .25, .5, .75, 1].map((ratio) => Math.round(maxTemp * ratio / 50) * 50).map((value) => (
@@ -175,7 +178,8 @@ export function HeatPattern({
         {candidate.heat.map((point, index) => (
           <circle
             role="img"
-            tabIndex={0}
+            tabIndex={readOnly ? -1 : 0}
+            aria-disabled={readOnly || undefined}
             aria-label={`${number(point.time, 2)}分, ${point.temperature}度`}
             key={`${point.time}-${index}`}
             cx={x(point.time)}
@@ -186,11 +190,11 @@ export function HeatPattern({
             onMouseLeave={() => setHoveredHeatPoint(null)}
             onFocus={() => setHoveredHeatPoint({ x: x(point.time), y: y(point.temperature), lines: [candidate.label, point.stageName || point.stageCategory || `点 ${index + 1}`, `時間 ${number(point.time, 2)} min`, `温度 ${number(point.temperature, 0)} °C`] })}
             onBlur={() => setHoveredHeatPoint(null)}
-            onPointerDown={(event) => {
+            onPointerDown={readOnly ? undefined : (event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               dragPoint(event, index);
             }}
-            onPointerMove={(event) =>
+            onPointerMove={readOnly ? undefined : (event) =>
               event.currentTarget.hasPointerCapture(event.pointerId) &&
               dragPoint(event, index)
             }
@@ -212,8 +216,8 @@ export function HeatPattern({
       <div className="heat-edit">
         <div>
           <b>ヒートパターン編集</b>
-          <span>点をドラッグ、または数値を編集</span>
-          <button className="text-button" onClick={onAdd}>
+          <span>{readOnly ? "過去の実測recordから作成した候補のため編集できません" : "点をドラッグ、または数値を編集"}</span>
+          <button className="text-button" disabled={readOnly} onClick={onAdd}>
             点を追加
           </button>
         </div>
@@ -226,10 +230,10 @@ export function HeatPattern({
               {candidate.heat.map((point, index) => (
                 <tr key={`${point.time}-${index}`}>
                   <th scope="row">{index + 1}</th>
-                  <td><input type="text" value={point.stageName ?? point.stageCategory ?? ""} aria-label={`点${index + 1}の工程名`} onChange={(event) => onUpdate(index, "stageName", event.target.value)} /></td>
-                  <td><input type="number" step="0.01" disabled={candidate.heatTimeBasis === "line_speed"} value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
-                  <td><input type="number" value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
-                  <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
+                  <td><input type="text" disabled={readOnly} value={point.stageName ?? point.stageCategory ?? ""} aria-label={`点${index + 1}の工程名`} onChange={(event) => onUpdate(index, "stageName", event.target.value)} /></td>
+                  <td><input type="number" step="0.01" disabled={readOnly || candidate.heatTimeBasis === "line_speed"} value={Number(point.time.toFixed(3))} aria-label={`点${index + 1}の時間（分）`} onChange={(event) => onUpdate(index, "time", Number(event.target.value))} /></td>
+                  <td><input type="number" disabled={readOnly} value={point.temperature} aria-label={`点${index + 1}の温度（℃）`} onChange={(event) => onUpdate(index, "temperature", Number(event.target.value))} /></td>
+                  <td><button className="icon-delete" aria-label={`点${index + 1}を削除`} disabled={readOnly || candidate.heat.length <= 2} onClick={() => onDelete(index)}>×</button></td>
                 </tr>
               ))}
             </tbody>

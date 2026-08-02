@@ -1620,6 +1620,10 @@
   stroke: #fff;
   stroke-width: 2px;
 }
+.heat-panel.read-only .heat-chart circle {
+  cursor: default;
+  opacity: .62;
+}
 .heat-chart .svg-chart-hit-target[fill="transparent"] { cursor: crosshair; stroke: transparent; stroke-width: 0; }
 .heat-edit {
   border-top: 1px solid #d8e0ea;
