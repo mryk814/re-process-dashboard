@@ -961,6 +961,8 @@ function reusableSource(ciPlan, { baseRef = ciPlan.originalPlan.baseRef } = {}) 
   return {
     headSha: "source-head-sha",
     testedCommit: "source-merge-sha",
+    runStatus: "completed",
+    runConclusion: "success",
     directReport: {
       status: "passed",
       commit_sha: "source-merge-sha",
@@ -995,6 +997,7 @@ test("same-base E2E follow-up reuses green backend and delivery shards", () => {
   assert.equal(report.testedCommit, ciPlan.testedCommit);
   assert.equal(report.evidence.kind, "reused");
   assert.equal(report.evidence.sourceCommit, "source-merge-sha");
+  assert.equal(report.evidence.sourceRunConclusion, "success");
 });
 
 test("direct verification records executed, reused, and skipped shard evidence", () => {
@@ -1019,6 +1022,7 @@ test("direct verification records executed, reused, and skipped shard evidence",
   assert.match(aggregation.pr_body_evidence, /executed: /);
   assert.match(aggregation.pr_body_evidence, /reused: 1/);
   assert.match(aggregation.pr_body_evidence, /skipped: /);
+  assert.match(aggregation.pr_body_evidence, /run 1234 \(success\)/);
   assert.equal(
     aggregation.ci_aggregation.shards.find((shard) => shard.id === "backend-science").evidence.kind,
     "reused",
@@ -1059,19 +1063,6 @@ test("base or high-risk changes never reuse shard evidence", () => {
   });
   assert.equal(highRisk.reusedShardIds.length, 0);
 
-  for (const status of ["failed", "pending", "cancelled"]) {
-    const direct = reusableSource(ciPlan);
-    direct.directReport.status = status;
-    const refused = planShardEvidenceReuse({
-      ciPlan,
-      source: direct,
-      changedPathsSinceSource: ["e2e/navigation-intent.spec.ts"],
-      sourceIsAncestor: true,
-      classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
-    });
-    assert.equal(refused.reusedShardIds.length, 0);
-  }
-
   const mismatchedMergeEvidence = reusableSource(ciPlan);
   mismatchedMergeEvidence.directReport.commit_sha = "different-merge-sha";
   const mismatched = planShardEvidenceReuse({
@@ -1084,19 +1075,104 @@ test("base or high-risk changes never reuse shard evidence", () => {
   assert.equal(mismatched.reusedShardIds.length, 0);
 });
 
-test("reusable run selection only accepts a successful ancestor for the same PR", () => {
+test("completed failed or cancelled runs reuse only individually green shard artifacts", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  for (const conclusion of ["failure", "cancelled"]) {
+    const source = reusableSource(ciPlan);
+    source.runConclusion = conclusion;
+    source.directReport.status = "failed";
+    const failed = source.shardReports.find((report) => report.shardId === "browser-standard");
+    failed.status = "failed";
+    failed.gates[0].status = "failed";
+    const cancelled = source.shardReports.find((report) => report.shardId === "windows-delivery");
+    cancelled.status = "cancelled";
+    cancelled.gates = cancelled.gates.map((gate) => ({ ...gate, status: "not_run" }));
+    const pending = source.shardReports.find((report) => report.shardId === "recovery-failure-state");
+    pending.status = "pending";
+    pending.gates = pending.gates.map((gate) => ({ ...gate, status: "not_run" }));
+    source.shardReports = source.shardReports.filter(
+      (report) => report.shardId !== "recovery-chain-degraded",
+    );
+
+    const reuse = planShardEvidenceReuse({
+      ciPlan,
+      source,
+      changedPathsSinceSource: ["docs/reports/follow-up.md"],
+      sourceIsAncestor: true,
+      classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+    });
+    assert.ok(reuse.reusedShardIds.includes("backend-science"));
+    assert.ok(reuse.executedShardIds.includes("browser-standard"));
+    assert.ok(reuse.executedShardIds.includes("windows-delivery"));
+    assert.ok(reuse.executedShardIds.includes("recovery-failure-state"));
+    assert.ok(reuse.executedShardIds.includes("recovery-chain-degraded"));
+  }
+});
+
+test("cancelled E2E run reuses unaffected green contract delivery and recovery shards", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const source = reusableSource(ciPlan);
+  source.runConclusion = "cancelled";
+  source.directReport.status = "failed";
+  const browser = source.shardReports.find((report) => report.shardId === "browser-standard");
+  browser.status = "failed";
+  browser.gates[0].status = "failed";
+  source.shardReports = source.shardReports.filter(
+    (report) => report.shardId !== "backend-science",
+  );
+
+  const reuse = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: [
+      "e2e/profile-workbench-authoring.spec.ts",
+      "e2e/source-lifecycle.spec.ts",
+    ],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.ok(reuse.executedShardIds.includes("browser-standard"));
+  assert.ok(reuse.executedShardIds.includes("backend-science"));
+  for (const shardId of [
+    "contract-build",
+    "windows-delivery",
+    "recovery-failure-state",
+    "recovery-chain-degraded",
+  ]) {
+    assert.ok(reuse.reusedShardIds.includes(shardId), shardId);
+  }
+});
+
+test("in-progress workflow runs cannot provide reusable shard evidence", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const source = reusableSource(ciPlan);
+  source.runStatus = "in_progress";
+  source.runConclusion = null;
+  const reuse = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["docs/reports/follow-up.md"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.equal(reuse.reusedShardIds.length, 0);
+  assert.deepEqual(reuse.executedShardIds, ciPlan.shards.map((shard) => shard.id));
+});
+
+test("reusable run selection accepts completed ancestors regardless of overall conclusion", () => {
   const selected = selectReusableWorkflowRun({
     currentHeadSha: "current-head",
     pullRequestNumber: 735,
     isAncestorCommit: (candidate, current) => candidate === "older" && current === "current-head",
     runs: [
-      { id: 1, conclusion: "failure", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T00:00:00Z" },
-      { id: 2, conclusion: "success", head_sha: "other", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T01:00:00Z" },
-      { id: 3, conclusion: "success", head_sha: "older", pull_requests: [{ number: 734 }], updated_at: "2026-08-02T02:00:00Z" },
-      { id: 4, conclusion: "success", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T03:00:00Z" },
+      { id: 1, status: "in_progress", conclusion: null, head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T04:00:00Z" },
+      { id: 2, status: "completed", conclusion: "success", head_sha: "other", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T01:00:00Z" },
+      { id: 3, status: "completed", conclusion: "success", head_sha: "older", pull_requests: [{ number: 734 }], updated_at: "2026-08-02T02:00:00Z" },
+      { id: 4, status: "completed", conclusion: "cancelled", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T03:00:00Z" },
     ],
   });
   assert.equal(selected.id, 4);
+  assert.equal(selected.conclusion, "cancelled");
 });
 
 test("CI plan validation binds commit, catalog, and plan contents", () => {

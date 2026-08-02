@@ -30,7 +30,6 @@ import {
 export const ciPlanSchemaVersion = "verification-ci-plan/v1";
 export const shardReportSchemaVersion = "verification-shard/v2";
 const legacyShardReportSchemaVersion = "verification-shard/v1";
-const reusableDirectOutcomes = new Set(["passed", "passed_with_follow_up"]);
 const reuseInvalidatingRisks = new Set([
   "migration-workspace",
   "model-runtime-artifact",
@@ -73,6 +72,13 @@ const absorbedByFullPytest = [
 function changedPathMatchesShard(path, shardId) {
   const normalized = path.replaceAll("\\", "/");
   const starts = (prefix) => normalized.startsWith(prefix);
+  const sharedE2eInfrastructure = starts("e2e/helpers/")
+    || starts("e2e/fixtures/")
+    || normalized === "e2e/helpers.ts"
+    || normalized === "e2e/global-teardown.mjs"
+    || normalized === "e2e/owned-database-cleanup.mjs"
+    || normalized === "e2e/owned-database-cleanup.test.mjs"
+    || starts("playwright.");
   switch (shardId) {
     case "backend-science":
       return starts("backend/") || starts("models/");
@@ -87,9 +93,21 @@ function changedPathMatchesShard(path, shardId) {
         || normalized === "package-lock.json"
         || normalized === "uv.lock";
     case "recovery-failure-state":
-      return starts("apps/web/") || starts("e2e/") || starts("backend/");
+      return starts("apps/web/")
+        || starts("backend/")
+        || sharedE2eInfrastructure
+        || [
+          "e2e/api-offline.spec.ts",
+          "e2e/accessibility-smoke.spec.ts",
+          "e2e/degraded-task.spec.ts",
+          "e2e/startup-diagnostic.spec.ts",
+        ].includes(normalized);
     case "recovery-chain-degraded":
-      return starts("apps/web/") || starts("e2e/") || starts("backend/") || starts("models/");
+      return starts("apps/web/")
+        || starts("backend/")
+        || starts("models/")
+        || sharedE2eInfrastructure
+        || normalized === "e2e/chain-degraded.spec.ts";
     case "windows-delivery":
       return starts("apps/desktop/")
         || starts("packaging/")
@@ -129,8 +147,8 @@ export function planShardEvidenceReuse({
   });
   if (!source || !sourceIsAncestor) return executeEverything("no eligible ancestor source run");
   const sourceReport = source.directReport;
-  if (!reusableDirectOutcomes.has(sourceReport?.status)) {
-    return executeEverything("source direct verification is not green");
+  if (source.runStatus !== "completed") {
+    return executeEverything("source workflow run is not completed");
   }
   if (!source.testedCommit || !sourceReport.commit_sha || sourceReport.commit_sha !== source.testedCommit) {
     return executeEverything("source direct report does not identify its tested merge commit");
@@ -174,6 +192,7 @@ export function materializeReusedShardReport({ ciPlan, source, shardId, sourceRu
     evidence: {
       kind: "reused",
       sourceRunId: String(sourceRunId),
+      sourceRunConclusion: source.runConclusion ?? null,
       sourceCommit: source.testedCommit,
       sourceBaseRef: source.directReport.baseRef,
       sourcePlanDigest: sourceReport.planDigest,
@@ -573,7 +592,12 @@ function invalidShardReason({ report, expectedShard, ciPlan }) {
     return `executed shard ${expectedShard.id} has an invalid evidence source`;
   }
   if (report.evidence?.kind === "reused") {
-    if (!report.evidence.sourceRunId || !report.evidence.sourceCommit || !report.evidence.sourceBaseRef) {
+    if (
+      !report.evidence.sourceRunId
+      || !Object.hasOwn(report.evidence, "sourceRunConclusion")
+      || !report.evidence.sourceCommit
+      || !report.evidence.sourceBaseRef
+    ) {
       return `reused shard ${expectedShard.id} has incomplete source evidence`;
     }
   } else if (report.evidence?.kind !== "executed") {
@@ -775,7 +799,7 @@ export function aggregateVerificationShards({
       status: report.status ?? "invalid",
       evidence: reused ? "reused" : "executed",
       source: reused
-        ? `run ${report.evidence.sourceRunId} @ ${report.evidence.sourceCommit}`
+        ? `run ${report.evidence.sourceRunId} (${report.evidence.sourceRunConclusion ?? "unknown"}) @ ${report.evidence.sourceCommit}`
         : report.testedCommit,
     };
   });
@@ -1001,7 +1025,7 @@ function isAncestor(ancestor, descendant) {
 export function selectReusableWorkflowRun({ runs, pullRequestNumber, currentHeadSha, isAncestorCommit }) {
   return runs
     .filter((run) => (
-      run.conclusion === "success"
+      run.status === "completed"
       && run.head_sha
       && run.head_sha !== currentHeadSha
       && run.pull_requests?.some((pr) => pr.number === pullRequestNumber)
@@ -1026,7 +1050,7 @@ async function findReusableWorkflowRun() {
   const currentHeadSha = event.pull_request?.head?.sha;
   if (!pullRequestNumber || !currentHeadSha) return null;
   const apiUrl = process.env.GITHUB_API_URL ?? "https://api.github.com";
-  const url = `${apiUrl}/repos/${repository}/actions/workflows/verify.yml/runs?event=pull_request&status=success&per_page=100`;
+  const url = `${apiUrl}/repos/${repository}/actions/workflows/verify.yml/runs?event=pull_request&status=completed&per_page=100`;
   const response = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -1042,7 +1066,14 @@ async function findReusableWorkflowRun() {
     currentHeadSha,
     isAncestorCommit: isAncestor,
   });
-  return run ? { runId: String(run.id), headSha: run.head_sha } : null;
+  return run
+    ? {
+        runId: String(run.id),
+        headSha: run.head_sha,
+        status: run.status,
+        conclusion: run.conclusion ?? null,
+      }
+    : null;
 }
 
 function appendReuseOutput(path, reuse) {
@@ -1109,6 +1140,8 @@ async function main() {
       ? {
           headSha: sourceRun.headSha,
           testedCommit: directReport.commit_sha,
+          runStatus: sourceRun.status,
+          runConclusion: sourceRun.conclusion,
           directReport,
           shardReports: loadShardReports(resolve(options["source-shards"] ?? "artifacts/verification/prior-shards")),
         }
