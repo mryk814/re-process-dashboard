@@ -1143,6 +1143,30 @@ test("cancelled E2E run reuses unaffected green contract delivery and recovery s
   }
 });
 
+test("recovery-specific E2E edits invalidate only their owning recovery shard", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const source = reusableSource(ciPlan);
+  const failureState = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["e2e/api-offline.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.ok(failureState.executedShardIds.includes("recovery-failure-state"));
+  assert.ok(failureState.reusedShardIds.includes("recovery-chain-degraded"));
+
+  const chainDegraded = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["e2e/chain-degraded.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.ok(chainDegraded.executedShardIds.includes("recovery-chain-degraded"));
+  assert.ok(chainDegraded.reusedShardIds.includes("recovery-failure-state"));
+});
+
 test("in-progress workflow runs cannot provide reusable shard evidence", () => {
   const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
   const source = reusableSource(ciPlan);
