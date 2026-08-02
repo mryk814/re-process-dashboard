@@ -250,6 +250,8 @@ test("range exploration uses the shared candidate table without leaving the scre
 test("failed screening keeps the last successful result and offers an actionable retry", async ({ page, request }) => {
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
+  const editorDisclosure = page.locator(".screening-editor-disclosure");
+  await expect(editorDisclosure).toHaveAttribute("open", "");
 
   const firstResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -260,7 +262,16 @@ test("failed screening keeps the last successful result and offers an actionable
   expect(firstRun.status(), await firstRun.text()).toBe(201);
   const firstRunId = ((await firstRun.json()) as { id: string }).id;
   await expect(page).toHaveURL(new RegExp(`screening=${firstRunId}`));
-  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
+  const decisionEvidence = page.getByRole("region", { name: "探索条件と提案診断" });
+  await expect(decisionEvidence).toBeVisible();
+  await expect(editorDisclosure).not.toHaveAttribute("open", "");
+  expect(await page.evaluate(() => {
+    const evidence = document.querySelector('[aria-label="探索条件と提案診断"]');
+    const editor = document.querySelector(".screening-editor-disclosure");
+    return Boolean(evidence && editor && (evidence.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
+  await page.setViewportSize({ width: 640, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
   const rejectScreening = async (route: Route) => {
     if (route.request().method() !== "POST") {
@@ -284,6 +295,9 @@ test("failed screening keeps the last successful result and offers an actionable
   };
   await page.route("**/api/screening?project_id=*", rejectScreening);
 
+  await editorDisclosure.locator("> summary").focus();
+  await editorDisclosure.locator("> summary").press("Enter");
+  await expect(editorDisclosure).toHaveAttribute("open", "");
   await runScreening(page);
   const failure = page.getByRole("alert", { name: "入力条件を確認してください" });
   await expect(failure).toContainText("炭素量の最小値を確認してください。");
@@ -292,6 +306,7 @@ test("failed screening keeps the last successful result and offers an actionable
   await expect(failure.getByRole("button", { name: "同じ条件で再実行" })).toBeEnabled();
   await expect(page).toHaveURL(new RegExp(`screening=${firstRunId}`));
   await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
+  await expect(editorDisclosure).toHaveAttribute("open", "");
 
   await page.unroute("**/api/screening?project_id=*", rejectScreening);
   const retryResponse = page.waitForResponse((response) => (

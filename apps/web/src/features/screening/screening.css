@@ -83,7 +83,39 @@
 .screening-settings {
   display: grid;
   gap: 12px;
-  margin: 20px 0;
+  margin: 0;
+  padding: 12px;
+}
+
+.screening-editor-disclosure {
+  margin: 14px 0 20px;
+  border: 1px solid #cbd8e7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.screening-editor-disclosure > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 10px 12px;
+  color: #294969;
+  cursor: pointer;
+}
+
+.screening-editor-disclosure > summary span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.screening-editor-disclosure > summary small {
+  color: #617086;
+  font-size: 11px;
+}
+
+.screening-editor-disclosure[open] > summary {
+  border-bottom: 1px solid #d8e1eb;
+  background: #f7faff;
 }
 
 .screening-primary-settings {
