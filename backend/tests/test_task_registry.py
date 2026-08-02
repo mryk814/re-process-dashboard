@@ -483,6 +483,7 @@ def test_both_tasks_use_the_same_project_preview_contract(client, task_id: str) 
     assert set(body) == {
         "task_id", "candidate_id", "mode", "predictions", "support", "warnings", "model_meta",
         "model_support", "canonical_input", "similar", "heat_pattern", "response_curve",
+        "input_completeness", "prediction_status", "input_missingness",
     }
 
 

@@ -56,6 +56,22 @@ import {
   type WorkbenchSurfaceKind,
 } from "./workbenchSurfaceRegistry";
 
+function missingPolicyLabel(
+  policy: string,
+  value: string | number | null | undefined,
+): string {
+  const method = policy === "training_median_with_indicator"
+    ? "学習データの中央値"
+    : policy === "constant"
+      ? "固定値"
+      : policy === "map_to_missing_category"
+        ? "欠損カテゴリ"
+        : policy === "map_to_other_category"
+          ? "明示カテゴリ"
+          : policy;
+  return value == null ? method : `${method}（${String(value)}）`;
+}
+
 export function WorkbenchEmptyState({
   loading,
   error,
@@ -513,6 +529,37 @@ export function WorkbenchPage(props: WorkbenchProps) {
             </div>
           </div>}
         </div>
+        {preview?.prediction_status === "provisional" && preview.input_missingness && <aside
+          className="warning missingness-warning"
+          aria-label="入力不足を含む予測"
+        >
+          <strong>補完を含む暫定予測</strong>
+          <span>
+            未入力: {preview.input_missingness.fields
+              .filter((field) => field.kind !== "structural_not_applicable")
+              .map((field) => field.path)
+              .join("、")}
+          </span>
+          <span>
+            補完方法: {preview.input_missingness.fields
+              .filter((field) => field.kind !== "structural_not_applicable")
+              .map((field) => `${field.path}: ${missingPolicyLabel(
+                field.applied_policy,
+                field.imputed_value,
+              )}`)
+              .join("、")}
+          </span>
+          <span>
+            欠損pattern: {preview.input_missingness.missingness_support === "supported"
+              ? "検証実績あり"
+              : preview.input_missingness.missingness_support === "sparse"
+                ? "検証件数が少ない"
+                : "学習時に未観測"}
+          </span>
+          {!preview.input_missingness.uncertainty_propagated && <span>
+            欠損値のばらつきは予測区間へ追加していません
+          </span>}
+        </aside>}
         <CandidateOrigin
           projectId={projectId}
           candidate={selected}

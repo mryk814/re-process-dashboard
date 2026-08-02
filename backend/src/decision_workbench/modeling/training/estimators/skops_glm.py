@@ -168,6 +168,7 @@ def _logistic(
         predict=lambda values: float(
             model.predict_proba(values.reshape(1, -1))[0, 1]
         ),
+        evaluation_predictions=probabilities,
     )
 
 
@@ -275,6 +276,7 @@ def _poisson(
             "interval_observations": int(len(evaluated_y)),
         },
         predict=lambda values: float(model.predict(values.reshape(1, -1))[0]),
+        evaluation_predictions=rates,
     )
 
 

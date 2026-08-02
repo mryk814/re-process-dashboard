@@ -26,6 +26,7 @@ from decision_workbench.persistence.store import Store
 from decision_workbench.tasks.task_registry import TaskRegistry
 from decision_workbench.contracts.task_contracts import OutputDefinition
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
+from decision_workbench.modeling.missingness import require_runtime_operation_allowed
 
 
 class RecordNotFoundError(LookupError):
@@ -85,6 +86,7 @@ class RecordService:
         self.store = store
         self.registry = registry
         self.inference = inference
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
         self.candidates = CandidateService(store, registry, resolver)
 
@@ -109,6 +111,15 @@ class RecordService:
     def create_snapshot_for(self, candidate: Candidate, result: dict[str, Any] | None = None) -> SnapshotResponse:
         project = self.projects.require(candidate.project_id)
         self.inference.require_operation(project.task_id, "snapshot")
+        runtime = self.resolver.runtime_for(project)
+        try:
+            require_runtime_operation_allowed(
+                runtime,
+                candidate,
+                operation="snapshot",
+            )
+        except ValueError as exc:
+            raise RecordValidationError(str(exc)) from exc
         if result is None:
             result = self.inference.detailed_for(project, candidate)
         return SnapshotResponse.model_validate(

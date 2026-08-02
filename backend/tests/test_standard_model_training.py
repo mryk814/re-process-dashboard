@@ -21,6 +21,9 @@ from decision_workbench.modeling.training.feature_dataset import (
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.recipe import validate_recipe_capability
+from decision_workbench.modeling.training.package_assembler import (
+    _target_point_error,
+)
 from decision_workbench.task_composition.builtin.catalog import BUILTIN_TASK_MODULES
 from decision_workbench.task_composition.catalog import registered_task_modules
 from decision_workbench.task_composition.catalog import resolve_task_source, task_module
@@ -286,6 +289,24 @@ def test_lightgbm_auc_is_tie_aware_and_row_order_invariant() -> None:
     ) == pytest.approx(expected)
 
 
+def test_missing_pattern_metrics_follow_target_semantics() -> None:
+    binary_name, binary_value = _target_point_error(
+        np.asarray([0.0, 1.0]),
+        np.asarray([0.2, 0.8]),
+        "binary",
+    )
+    count_name, count_value = _target_point_error(
+        np.asarray([0.0, 3.0]),
+        np.asarray([0.5, 2.5]),
+        "count",
+    )
+
+    assert binary_name == "brier_score"
+    assert binary_value == pytest.approx(0.04)
+    assert count_name == "mean_poisson_deviance"
+    assert count_value >= 0
+
+
 def test_model_workflow_builds_hot_rolling_gp_without_a_new_task_builder(
     tmp_path: Path,
 ) -> None:
@@ -432,6 +453,32 @@ def test_tabular_ridge_package_builds_with_fold_fitted_missing_policy(
         "composition.carbon_pct"
     ] == 1
     assert stats["missing_policy"]["digest"].startswith("sha256:")
+    assert stats["missing_policy"]["policy_digest"].startswith("sha256:")
+    assert stats["missing_policy"]["training_rows"] == len(rows)
+    assert stats["missing_policy"]["pattern_support_policy"][
+        "policy_id"
+    ] == "evaluated-missing-pattern"
+    assert stats["missing_policy"]["pattern_support_policy"][
+        "policy_digest"
+    ].startswith("sha256:")
+    missing_pattern = next(
+        item
+        for item in stats["missing_policy"]["pattern_evidence"]
+        if item["pattern"]
+    )
+    assert missing_pattern["pattern"] == [{
+        "path": "composition.carbon_pct",
+        "kind": "not_measured",
+    }]
+    assert missing_pattern["training_count"] == 1
+    assert missing_pattern["evaluation_count"] == 1
+    assert all(
+        evidence["rmse"] >= 0
+        and evidence["prediction_failure_rate"] == 0
+        and "point_shift_vs_complete" in evidence
+        and "rmse_delta_vs_complete" in evidence
+        for evidence in missing_pattern["metrics_by_target"].values()
+    )
 
 
 def test_omitting_estimator_uses_the_task_default_training_recipe(

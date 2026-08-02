@@ -10,6 +10,9 @@ from decision_workbench.contracts.batch_proposal_contracts import BatchProposalD
 from decision_workbench.contracts.candidate_project_contracts import CandidateInputs, HeatPoint
 from decision_workbench.contracts.objective_contracts import ObjectiveDefinition
 from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequest
+from decision_workbench.contracts.missingness_contracts import (
+    InputMissingnessEvidence,
+)
 
 class ScreeningVariable(BaseModel):
     mode: Literal["fixed", "range", "list"]
@@ -356,6 +359,33 @@ class PredictionResponse(BaseModel):
     similar: list[SimilarObservation]
     heat_pattern: list[HeatPoint]
     response_curve: list[dict[str, float]] | None = None
+    input_completeness: Literal[
+        "complete", "imputed", "native_missing", "blocked"
+    ] = "complete"
+    prediction_status: Literal["final", "provisional", "blocked"] = "final"
+    input_missingness: InputMissingnessEvidence | None = None
+
+    @model_validator(mode="after")
+    def missingness_status_has_one_authority(self) -> "PredictionResponse":
+        if self.input_missingness is None:
+            if (
+                self.input_completeness != "complete"
+                or self.prediction_status != "final"
+            ):
+                raise ValueError(
+                    "non-final prediction status requires input missingness evidence"
+                )
+            return self
+        if (
+            self.input_completeness
+            != self.input_missingness.input_completeness
+            or self.prediction_status
+            != self.input_missingness.prediction_status
+        ):
+            raise ValueError(
+                "prediction status must match input missingness evidence"
+            )
+        return self
 
 
 class RuntimeAvailability(BaseModel):

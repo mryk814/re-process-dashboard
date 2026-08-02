@@ -1023,6 +1023,17 @@
 .historical-evidence-technical dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .historical-evidence-status { margin: 12px 0 0; color: #526276; font-size: 11px; }
 .historical-evidence-status.warning { color: #91550d; }
+
+.missingness-warning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 10px;
+}
+
+.missingness-warning strong {
+  flex-basis: 100%;
+}
 .historical-evidence-drawer > footer {
   display: flex;
   align-items: end;

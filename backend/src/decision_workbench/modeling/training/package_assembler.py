@@ -10,6 +10,11 @@ import numpy as np
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
 from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.data.profile_family_registry import lifecycle_profile_for_data
+from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.modeling.missingness import (
+    pattern_digest,
+    pattern_support_policy_document,
+)
 from decision_workbench.modeling.model_lifecycle import (
     QualityReport,
     canonical_training_dataset,
@@ -41,6 +46,183 @@ from decision_workbench.modeling.training.readiness import (
 from decision_workbench.modeling.training.validation_plan import ValidationPlan
 
 CandidateBuilder = Callable[[dict[str, Any], Any], CandidateInput | None]
+
+
+def _source_missing_pattern(
+    observation: dict[str, Any],
+    profile: Any,
+) -> tuple[tuple[str, str], ...]:
+    policies = (
+        observation.get("run_context", {})
+        .get("curation", {})
+        .get("predictor_policies", {})
+    )
+    pattern: list[tuple[str, str]] = []
+    for item in profile.inputs:
+        source_state = (policies.get(item.column) or {}).get("source_state")
+        if source_state not in {
+            "missing",
+            "unknown_category",
+            "structural_not_applicable",
+            "redacted",
+        }:
+            continue
+        kind = (
+            source_state
+            if source_state in {
+                "unknown_category",
+                "structural_not_applicable",
+                "redacted",
+            }
+            else "not_measured"
+        )
+        pattern.append((item.path, kind))
+    return tuple(sorted(pattern))
+
+
+def _missing_pattern_evidence(
+    canonical: dict[str, Any],
+    data: Any,
+    training_sets: dict[str, Any],
+    trained_by_target: dict[str, Any],
+    output_by_key: dict[str, Any],
+) -> list[dict[str, Any]]:
+    observations = {
+        str(row["id"]): row
+        for row in data.observations
+    }
+    patterns_by_context: dict[str, tuple[tuple[str, str], ...]] = {}
+    for row in canonical["rows"]:
+        observation_id = str(row["observation_id"])
+        observation = observations.get(observation_id)
+        if observation is None:
+            continue
+        context = str(row.get("condition_context_id") or observation_id)
+        pattern = _source_missing_pattern(observation, data.profile)
+        existing = patterns_by_context.get(context, ())
+        patterns_by_context[context] = tuple(sorted(set((*existing, *pattern))))
+
+    all_patterns = {
+        patterns_by_context.get(context, ())
+        for training_set in training_sets.values()
+        for context in training_set.replicate_contexts
+    }
+    complete_metrics: dict[str, tuple[float, float]] = {}
+    for target, training_set in training_sets.items():
+        predictions = trained_by_target[target].evaluation_predictions
+        if predictions is None:
+            continue
+        complete = np.asarray(
+            [
+                patterns_by_context.get(context, ()) == ()
+                for context in training_set.replicate_contexts
+            ],
+            dtype=bool,
+        ) & training_set.quality_rows
+        finite = complete & np.isfinite(predictions)
+        if not np.any(finite):
+            continue
+        complete_metrics[target] = (
+            float(np.mean(predictions[finite])),
+            _target_point_error(
+                training_set.y[finite],
+                predictions[finite],
+                output_by_key[target].target_kind,
+            )[1],
+        )
+    evidence: list[dict[str, Any]] = []
+    for pattern in sorted(all_patterns):
+        metrics_by_target: dict[str, dict[str, float | int]] = {}
+        training_counts: list[int] = []
+        for target, training_set in training_sets.items():
+            rows = np.asarray(
+                [
+                    patterns_by_context.get(context, ()) == pattern
+                    for context in training_set.replicate_contexts
+                ],
+                dtype=bool,
+            )
+            training_counts.append(int(rows.sum()))
+            evaluated = rows & training_set.quality_rows
+            target_evidence: dict[str, float | int] = {
+                "evaluation_count": int(evaluated.sum()),
+            }
+            predictions = trained_by_target[target].evaluation_predictions
+            if predictions is not None and np.any(evaluated):
+                finite = evaluated & np.isfinite(predictions)
+                target_evidence["prediction_failure_rate"] = float(
+                    1.0 - (int(finite.sum()) / int(evaluated.sum()))
+                )
+                if np.any(finite):
+                    metric_name, point_error = _target_point_error(
+                        training_set.y[finite],
+                        predictions[finite],
+                        output_by_key[target].target_kind,
+                    )
+                    point_mean = float(np.mean(predictions[finite]))
+                    target_evidence.update({
+                        metric_name: point_error,
+                        "point_prediction_mean": point_mean,
+                    })
+                    if output_by_key[target].target_kind == "binary":
+                        target_evidence["calibration_error"] = float(
+                            abs(
+                                np.mean(training_set.y[finite])
+                                - np.mean(predictions[finite])
+                            )
+                        )
+                    if target in complete_metrics:
+                        complete_mean, complete_error = complete_metrics[target]
+                        target_evidence.update({
+                            "point_shift_vs_complete": point_mean - complete_mean,
+                            f"{metric_name}_delta_vs_complete": (
+                                point_error - complete_error
+                            ),
+                        })
+            else:
+                target_evidence["prediction_failure_rate"] = (
+                    1.0 if np.any(evaluated) else 0.0
+                )
+            metrics_by_target[target] = target_evidence
+        evidence.append({
+            "pattern": [
+                {"path": path, "kind": kind}
+                for path, kind in pattern
+            ],
+            "pattern_digest": pattern_digest(pattern),
+            "training_count": min(training_counts, default=0),
+            "evaluation_count": min(
+                (
+                    int(item["evaluation_count"])
+                    for item in metrics_by_target.values()
+                ),
+                default=0,
+            ),
+            "metrics_by_target": metrics_by_target,
+        })
+    return evidence
+
+
+def _target_point_error(
+    observed: np.ndarray,
+    predicted: np.ndarray,
+    target_kind: str,
+) -> tuple[str, float]:
+    if target_kind == "binary":
+        return "brier_score", float(np.mean((observed - predicted) ** 2))
+    if target_kind == "count":
+        safe_prediction = np.maximum(predicted, 1e-12)
+        terms = safe_prediction.copy()
+        positive = observed > 0
+        terms[positive] = (
+            observed[positive]
+            * np.log(observed[positive] / safe_prediction[positive])
+            - (observed[positive] - safe_prediction[positive])
+        )
+        return "mean_poisson_deviance", float(2 * np.mean(terms))
+    if target_kind == "ordinal":
+        return "ordinal_mae", float(np.mean(np.abs(observed - predicted)))
+    return "rmse", float(np.sqrt(np.mean((observed - predicted) ** 2)))
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -126,7 +308,19 @@ def _build(
         str(item["name"])
         for item in canonical["feature_pipeline"]["features"]
     )
+    profile_inputs = tuple(getattr(data.profile, "inputs", ()))
+    has_explicit_missing_policy = any(
+        item.numeric_missing.strategy != "reject"
+        or item.categorical_missing.strategy != "reject"
+        or item.unknown_category.strategy != "reject"
+        for item in profile_inputs
+    )
     missing_policy = canonical["feature_pipeline"].get("missing_policy")
+    if missing_policy is None and has_explicit_missing_policy:
+        missing_policy = {
+            "imputation_values": data.feature_imputation_values,
+            "digest": semantic_digest(data.feature_imputation_values),
+        }
     if missing_policy:
         missing_policy = {
             **missing_policy,
@@ -137,7 +331,7 @@ def _build(
                     ] == "missing"
                     for row in data.observations
                 )
-                for item in data.profile.inputs
+                for item in profile_inputs
             },
             "policy_by_input": {
                 item.path: {
@@ -145,7 +339,7 @@ def _build(
                     "categorical_missing": item.categorical_missing.model_dump(mode="json"),
                     "unknown_category": item.unknown_category.model_dump(mode="json"),
                 }
-                for item in data.profile.inputs
+                for item in profile_inputs
             },
         }
     artifacts_dir = destination / "model-artifacts"
@@ -412,6 +606,21 @@ def _build(
             ) / len(canonical["rows"])
             for target in output_by_key
         }
+        missing_policy["training_rows"] = len(data.observations)
+        missing_policy["policy_digest"] = canonical_training_dataset_digest({
+            "policy_by_input": missing_policy["policy_by_input"],
+            "imputation_values": missing_policy["imputation_values"],
+        })
+        missing_policy["pattern_support_policy"] = (
+            pattern_support_policy_document()
+        )
+        missing_policy["pattern_evidence"] = _missing_pattern_evidence(
+            canonical,
+            data,
+            training_sets,
+            trained_by_target,
+            output_by_key,
+        )
     _write_json(
         stats_path,
         {

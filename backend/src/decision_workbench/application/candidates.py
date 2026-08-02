@@ -35,6 +35,7 @@ from decision_workbench.persistence.store import (
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from decision_workbench.modeling.missingness import require_runtime_operation_allowed
 
 
 class CandidateNotFoundError(LookupError):
@@ -134,9 +135,20 @@ class CandidateService:
         entry = self.registry.entry_for(project.task_id)
         if not entry.application_capability.candidate_excel_export:
             raise CandidateValidationError("Excel候補exportはこの予測タスクでは利用できません")
+        runtime = self.resolver.runtime_for(project)
+        candidates = self.store.list_candidates(project_id)
+        for candidate in candidates:
+            try:
+                require_runtime_operation_allowed(
+                    runtime,
+                    candidate,
+                    operation="export",
+                )
+            except ValueError as exc:
+                raise CandidateValidationError(str(exc)) from exc
         return candidates_xlsx(
-            self.store.list_candidates(project_id),
-            self.resolver.runtime_for(project),
+            candidates,
+            runtime,
             task_id=project.task_id,
         )
 

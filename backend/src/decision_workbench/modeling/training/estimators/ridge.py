@@ -252,4 +252,5 @@ def train(
             "evaluation": "outer-fold-refit-with-inner-calibration",
         },
         predict=lambda values: float(values @ weights + bias),
+        evaluation_predictions=predictions,
     )

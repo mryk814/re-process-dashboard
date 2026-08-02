@@ -17,6 +17,7 @@ class TrainedPredictor:
     quality: TargetQualityMetric
     diagnostics: dict[str, Any]
     predict: Callable[[np.ndarray], float]
+    evaluation_predictions: np.ndarray | None = None
 
 
 def standard_training_metadata(

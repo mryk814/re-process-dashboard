@@ -280,29 +280,32 @@ def _honest_grouped_predictions(
 def _honest_grouped_quality(
     data: TargetTrainingSet,
     recipe: ExactGPEstimatorRecipe,
-) -> TargetQualityMetric:
+) -> tuple[TargetQualityMetric, np.ndarray]:
     predictions, predictive_variance = _honest_grouped_predictions(data, recipe)
     quality_rows = data.quality_rows
     residuals = data.y[quality_rows] - predictions[quality_rows]
     evaluated_variance = predictive_variance[quality_rows]
     z90 = 1.6448536269514722
-    return TargetQualityMetric(
-        target=data.target,
-        parent_conditions=len(set(data.validation_groups)),
-        mae=float(np.mean(np.abs(residuals))),
-        rmse=float(np.sqrt(np.mean(residuals**2))),
-        interval_coverage_90=float(
-            np.mean(
-                np.abs(residuals)
-                <= z90 * np.sqrt(evaluated_variance)
-            )
+    return (
+        TargetQualityMetric(
+            target=data.target,
+            parent_conditions=len(set(data.validation_groups)),
+            mae=float(np.mean(np.abs(residuals))),
+            rmse=float(np.sqrt(np.mean(residuals**2))),
+            interval_coverage_90=float(
+                np.mean(
+                    np.abs(residuals)
+                    <= z90 * np.sqrt(evaluated_variance)
+                )
+            ),
+            interval_coverage_method=(
+                "temporal-holdout-predictive-interval"
+                if data.is_temporal_validation
+                else "grouped-fold-predictive-interval"
+            ),
+            interval_coverage_observations=int(quality_rows.sum()),
         ),
-        interval_coverage_method=(
-            "temporal-holdout-predictive-interval"
-            if data.is_temporal_validation
-            else "grouped-fold-predictive-interval"
-        ),
-        interval_coverage_observations=int(quality_rows.sum()),
+        predictions,
     )
 
 
@@ -316,7 +319,7 @@ def train(
             f"{data.target}: exact GP received {len(data.y)} rows; "
             f"recipe max_rows is {recipe.max_rows}"
         )
-    quality = _honest_grouped_quality(data, recipe)
+    quality, evaluation_predictions = _honest_grouped_quality(data, recipe)
     fitted = _fit_model(data, np.ones(len(data.y), dtype=bool), recipe)
     diagnostics = dict(fitted.diagnostics)
     diagnostics.update({
@@ -391,4 +394,5 @@ def train(
         quality=quality,
         diagnostics=diagnostics,
         predict=predict,
+        evaluation_predictions=evaluation_predictions,
     )

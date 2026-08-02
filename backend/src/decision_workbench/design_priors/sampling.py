@@ -81,6 +81,100 @@ def sample_prior(
     raise ValueError(f"unregistered Design Prior generator: {generator_id}")
 
 
+def sample_conditional_completions(
+    package: VerifiedDesignPriorPackage,
+    *,
+    generator_id: Literal["empirical_rows", "knn_local"],
+    count: int,
+    seed: int,
+    observed: dict[str, float | str],
+    missing_paths: tuple[str, ...],
+) -> list[PriorSample]:
+    """Complete only missing inputs; observed candidate values remain authoritative."""
+
+    canonical = set(package.manifest.canonical_input_paths)
+    if not missing_paths or not set(missing_paths) <= canonical:
+        raise ValueError("completion paths must be non-empty canonical Design Prior inputs")
+    if set(observed) & set(missing_paths):
+        raise ValueError("observed and missing completion paths must be disjoint")
+    rows = list(package.observations_for(generator_id).rows)
+    numeric = set(package.quality_report.numeric_paths)
+    categorical_observed = {
+        path: value for path, value in observed.items() if path not in numeric
+    }
+    compatible = [
+        row
+        for row in rows
+        if all(row.inputs.get(path) == value for path, value in categorical_observed.items())
+    ]
+    if len(compatible) < 2:
+        raise ValueError("observed category contextに一致するDesign Prior観測が2件未満です")
+    numeric_observed = [path for path in observed if path in numeric]
+    scales = {
+        path: max(
+            max(float(row.inputs[path]) for row in compatible)
+            - min(float(row.inputs[path]) for row in compatible),
+            1e-12,
+        )
+        for path in numeric_observed
+    }
+
+    def distance(row: object) -> float:
+        if not numeric_observed:
+            return 0.0
+        inputs = row.inputs  # type: ignore[attr-defined]
+        return float(np.sqrt(np.mean([
+            ((float(inputs[path]) - float(observed[path])) / scales[path]) ** 2
+            for path in numeric_observed
+        ])))
+
+    nearest = sorted(compatible, key=lambda row: (distance(row), row.sample_id))
+    neighbor_count = min(
+        len(nearest),
+        next(
+            item.max_neighbors
+            for item in package.manifest.generators
+            if item.generator_id == generator_id
+        ),
+    )
+    neighbors = nearest[:neighbor_count]
+    rng = np.random.default_rng(seed)
+    samples: list[PriorSample] = []
+    for _ in range(count):
+        anchor = neighbors[int(rng.integers(len(neighbors)))]
+        values = {
+            path: anchor.inputs[path]
+            for path in missing_paths
+        }
+        neighbor_id = None
+        if generator_id == "knn_local":
+            other = neighbors[int(rng.integers(len(neighbors)))]
+            neighbor_id = other.sample_id
+            alpha = float(rng.uniform(0.15, 0.65))
+            for path in missing_paths:
+                if path in numeric:
+                    values[path] = (
+                        (1.0 - alpha) * float(anchor.inputs[path])
+                        + alpha * float(other.inputs[path])
+                    )
+        samples.append(
+            PriorSample(
+                values=values,
+                evidence=_evidence(
+                    package,
+                    generator_id=generator_id,
+                    lane="balanced",
+                    seed=seed,
+                    raw_id=anchor.sample_id,
+                    neighbor_id=neighbor_id,
+                    distance=distance(anchor),
+                    band=_typicality_band(distance(anchor)),
+                ),
+            )
+        )
+    return samples
+
+
 def _empirical(package: VerifiedDesignPriorPackage, rows: list, *, lane: str, seed: int, index: int) -> PriorSample:
     row = rows[index]
     return PriorSample(
