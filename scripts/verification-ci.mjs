@@ -64,12 +64,6 @@ const shardByGate = new Map([
   ["chain-degraded-e2e", "recovery-chain-degraded"],
   ["windows-delivery", "windows-delivery"],
 ]);
-const absorbedByFullPytest = [
-  "security-boundary-tests",
-  "model-package-contract-tests",
-  "legacy-workspace",
-];
-
 function changedPathMatchesShard(path, shardId) {
   const normalized = path.replaceAll("\\", "/");
   const starts = (prefix) => normalized.startsWith(prefix);
@@ -290,11 +284,21 @@ function executionGatesFor(logicalGateId, catalog, plan) {
   return gateIds;
 }
 
-function deduplicateExecutionGates(gateIds) {
+function deduplicateExecutionGates(gateIds, catalog) {
+  const selectedGateIds = new Set(gateIds);
   const absorbedGates = {};
-  if (gateIds.includes("full-pytest")) {
-    for (const gateId of absorbedByFullPytest) {
-      if (gateIds.includes(gateId)) absorbedGates[gateId] = "full-pytest";
+  for (const ownerGateId of gateIds) {
+    for (const gateId of catalog.gates[ownerGateId]?.absorbs ?? []) {
+      if (!catalog.gates[gateId]) {
+        throw new Error(`gate ${ownerGateId} absorbs unknown gate: ${gateId}`);
+      }
+      if (!selectedGateIds.has(gateId) || gateId === ownerGateId) continue;
+      if (absorbedGates[gateId] && absorbedGates[gateId] !== ownerGateId) {
+        throw new Error(
+          `gate ${gateId} is absorbed by both ${absorbedGates[gateId]} and ${ownerGateId}`,
+        );
+      }
+      absorbedGates[gateId] = ownerGateId;
     }
   }
   return {
@@ -329,6 +333,7 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
   }
   const { executionGateIds, absorbedGates } = deduplicateExecutionGates(
     coverageGateIds,
+    catalog,
   );
   const shards = shardOrder
     .map((id) => ({
@@ -423,6 +428,7 @@ export function validateCiPlan(
     }
     const expectedDeduplication = deduplicateExecutionGates(
       expectedCoverageGateIds,
+      catalog,
     );
     if (
       JSON.stringify(ciPlan.coverageGateIds)

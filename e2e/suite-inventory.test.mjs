@@ -29,6 +29,7 @@ test("parallel selections contain only deliberately isolated or read-only specs"
     "workspace-scope.spec.ts",
   ]);
   assert.deepEqual(isolatedSpecs, [
+    "analysis-navigation-resume.spec.ts",
     "annealing-time-basis.spec.ts",
     "chain-graph-viewer.spec.ts",
     "chain-input-contract.spec.ts",

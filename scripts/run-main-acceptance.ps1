@@ -1,10 +1,32 @@
 param(
     [string]$ReportPath = "artifacts/main-acceptance/latest.json",
     [string[]]$IncludeGate = @(),
-    [string]$VerificationCatalogPath = ""
+    [string]$VerificationCatalogPath = "",
+    [switch]$SelectionOnly
 )
 
 $ErrorActionPreference = "Stop"
+$isWindowsPlatform = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+
+function Get-PlatformExecutable {
+    param([string]$Executable)
+    if ($isWindowsPlatform) {
+        $resolved = switch ($Executable) {
+            "node" { "node.exe" }
+            "npm" { "npm.cmd" }
+            "npx" { "npx.cmd" }
+            "uv" { "uv.exe" }
+            "powershell" { "powershell.exe" }
+            default { $Executable }
+        }
+        return $resolved
+    }
+    $resolved = switch ($Executable) {
+        "powershell" { "pwsh" }
+        default { $Executable }
+    }
+    return $resolved
+}
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $verificationCatalogPath = if ($VerificationCatalogPath) {
@@ -38,6 +60,46 @@ foreach ($gateId in $selectedGateIds) {
         throw "manual verification gate cannot be automated by acceptance: $gateId"
     }
 }
+
+$absorbedGates = [ordered]@{}
+foreach ($ownerGateId in $selectedGateIds) {
+    $ownerGate = $verificationCatalog.gates.PSObject.Properties[$ownerGateId].Value
+    foreach ($gateId in @($ownerGate.absorbs) | Where-Object { "$_" }) {
+        if ($gateId -notin $knownGateIds) {
+            throw "gate $ownerGateId absorbs unknown gate: $gateId"
+        }
+        if (-not $selectedGateIds.Contains("$gateId") -or $gateId -eq $ownerGateId) {
+            continue
+        }
+        if ($absorbedGates.Contains("$gateId") -and $absorbedGates[$gateId] -ne $ownerGateId) {
+            throw "gate $gateId is absorbed by both $($absorbedGates[$gateId]) and $ownerGateId"
+        }
+        $absorbedGates[$gateId] = $ownerGateId
+    }
+}
+$executionGateIds = @(
+    $selectedGateIds | Where-Object { -not $absorbedGates.Contains($_) }
+)
+$gateEnvironment = [ordered]@{}
+if (
+    $executionGateIds -contains "default-playwright" -and
+    $executionGateIds -contains "failure-state-e2e"
+) {
+    $gateEnvironment["failure-state-e2e"] = [ordered]@{
+        VERIFICATION_SKIP_STANDARD_FAILURE_SPECS = "1"
+    }
+}
+
+if ($SelectionOnly) {
+    [ordered]@{
+        selectedGates = @($selectedGateIds)
+        executionGates = @($executionGateIds)
+        absorbedGates = $absorbedGates
+        gateEnvironment = $gateEnvironment
+    } | ConvertTo-Json -Depth 6 -Compress
+    return
+}
+
 $startedAt = Get-Date
 $runId = $startedAt.ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $logRoot = Join-Path $repositoryRoot "artifacts/main-acceptance/$runId"
@@ -71,7 +133,8 @@ function Invoke-Captured {
     param(
         [string]$Name,
         [string]$Executable,
-        [string[]]$Arguments
+        [string[]]$Arguments,
+        [Collections.IDictionary]$Environment = @{}
     )
 
     $safeName = $Name.ToLowerInvariant() -replace "[^a-z0-9]+", "-"
@@ -79,7 +142,12 @@ function Invoke-Captured {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     Write-Host "`n== $Name =="
     $previousErrorActionPreference = $ErrorActionPreference
+    $previousEnvironment = [ordered]@{}
     try {
+        foreach ($key in $Environment.Keys) {
+            $previousEnvironment[$key] = [Environment]::GetEnvironmentVariable($key, "Process")
+            [Environment]::SetEnvironmentVariable($key, "$($Environment[$key])", "Process")
+        }
         # Native stderr contains expected warnings (for example openpyxl).
         # Capture it in the log and use the process exit code as the gate.
         $ErrorActionPreference = "Continue"
@@ -93,6 +161,9 @@ function Invoke-Captured {
         )
         $exitCode = $LASTEXITCODE
     } finally {
+        foreach ($key in $previousEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($key, $previousEnvironment[$key], "Process")
+        }
         $ErrorActionPreference = $previousErrorActionPreference
     }
     $timer.Stop()
@@ -162,10 +233,10 @@ if ($worktreeChanges.Count -gt 0) {
 $environment = [ordered]@{
     os = [Environment]::OSVersion.VersionString
     powershell = "$($PSVersionTable.PSVersion)"
-    node = Read-Version "node.exe" @("--version")
-    npm = Read-Version "npm.cmd" @("--version")
-    uv = Read-Version "uv.exe" @("--version")
-    python = Read-Version "uv.exe" @("run", "python", "--version")
+    node = Read-Version (Get-PlatformExecutable "node") @("--version")
+    npm = Read-Version (Get-PlatformExecutable "npm") @("--version")
+    uv = Read-Version (Get-PlatformExecutable "uv") @("--version")
+    python = Read-Version (Get-PlatformExecutable "uv") @("run", "python", "--version")
     verificationCatalog = if ($VerificationCatalogPath) {
         $VerificationCatalogPath.Replace("\", "/")
     } else {
@@ -176,15 +247,9 @@ $failure = $null
 
 Push-Location $repositoryRoot
 try {
-    foreach ($gateId in $selectedGateIds) {
+    foreach ($gateId in $executionGateIds) {
         $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
-        $executable = switch ("$($gate.runner.executable)") {
-            "npm" { "npm.cmd" }
-            "npx" { "npx.cmd" }
-            "uv" { "uv.exe" }
-            "powershell" { "powershell.exe" }
-            default { "$($gate.runner.executable)" }
-        }
+        $executable = Get-PlatformExecutable "$($gate.runner.executable)"
         $arguments = @(
             foreach ($argument in @($gate.runner.args)) {
                 if ("$argument" -eq '$BASE...HEAD') {
@@ -194,12 +259,38 @@ try {
                 }
             }
         )
-        Invoke-Captured "$gateId" $executable $arguments
+        $gateSpecificEnvironment = if ($gateEnvironment.Contains($gateId)) {
+            $gateEnvironment[$gateId]
+        } else {
+            @{}
+        }
+        Invoke-Captured "$gateId" $executable $arguments $gateSpecificEnvironment
     }
 } catch {
     $failure = "$_"
 } finally {
     Pop-Location
+}
+
+foreach ($gateId in $absorbedGates.Keys) {
+    $ownerGateId = "$($absorbedGates[$gateId])"
+    $ownerResult = @($results | Where-Object { $_.name -eq $ownerGateId })
+    $passed = $ownerResult.Count -eq 1 -and $ownerResult[0].status -eq "passed"
+    $gate = $verificationCatalog.gates.PSObject.Properties[$gateId].Value
+    $results.Add([ordered]@{
+        name = "$gateId"
+        status = if ($passed) { "passed" } else { "failed" }
+        command = "$($gate.command)"
+        exitCode = if ($passed) { 0 } else { 1 }
+        durationSeconds = 0
+        log = $null
+        summary = if ($passed) {
+            @("covered by $ownerGateId")
+        } else {
+            @("absorbing gate failed or was not run: $ownerGateId")
+        }
+        evidenceSource = $ownerGateId
+    })
 }
 
 $version = (Get-Content -LiteralPath (Join-Path $repositoryRoot "package.json") -Raw |
@@ -271,6 +362,8 @@ $report = [ordered]@{
     worktreeChangesAtStart = $worktreeChanges
     verificationCatalogSha256 = Get-NormalizedTextSha256 -Path $verificationCatalogPath
     selectedGates = @($selectedGateIds)
+    executionGates = @($executionGateIds)
+    absorbedGates = $absorbedGates
     omittedGates = $omittedGates
     clearedInheritedPlaywrightEnvironment = $inheritedPlaywrightEnvironment
     cleanIsolatedPlaywright = $true

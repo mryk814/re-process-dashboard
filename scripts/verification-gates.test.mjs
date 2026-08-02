@@ -727,6 +727,40 @@ test("CI plan expands aggregate acceptance without dropping or duplicating gates
   );
 });
 
+test("catalog-declared full pytest absorption removes every contained pytest gate", () => {
+  assert.deepEqual(catalog.gates["full-pytest"].absorbs, [
+    "focused-pytest",
+    "security-boundary-tests",
+    "model-package-contract-tests",
+    "legacy-workspace",
+  ]);
+  const basePlan = planFor(
+    ["backend/src/decision_workbench/api/projects.py"],
+    { ci: true },
+  );
+  const ciPlan = createCiPlan({
+    plan: {
+      ...basePlan,
+      selectedGateIds: [
+        "focused-pytest",
+        "checkpoint-acceptance",
+      ],
+      verificationCatalogSha256: "catalog-sha",
+    },
+    catalog,
+  });
+  assert.deepEqual(ciPlan.absorbedGates, {
+    "focused-pytest": "full-pytest",
+    "security-boundary-tests": "full-pytest",
+  });
+  assert.ok(ciPlan.coverageGateIds.includes("focused-pytest"));
+  assert.ok(ciPlan.coverageGateIds.includes("security-boundary-tests"));
+  assert.ok(!ciPlan.executionGateIds.includes("focused-pytest"));
+  assert.ok(!ciPlan.executionGateIds.includes("security-boundary-tests"));
+  assert.ok(ciPlan.executionGateIds.includes("full-pytest"));
+  validateCiPlan(ciPlan, { catalog });
+});
+
 test("CI aggregation restores the logical verification outcome", () => {
   const ciPlan = ciPlanFor([
     "backend/src/decision_workbench/persistence/project_lifecycle_migration.py",
