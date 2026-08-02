@@ -434,6 +434,7 @@ function App() {
         } else {
           setRequestedProjectBinding(undefined);
         }
+        setRequestedModelLibraryProject(intent.modelLibraryProject);
         rememberNavigation(intent);
         const targetProjectId = intent.projectId ?? activeProjectId;
         void session.openLocation(targetProjectId, intent.candidateId);

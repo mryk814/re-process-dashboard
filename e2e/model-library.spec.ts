@@ -20,7 +20,18 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page.getByRole("combobox", { name: /Dataset/ })).not.toHaveValue("");
   await expect(page.getByRole("combobox", { name: /予測構成/ })).not.toHaveValue("");
   await expect(page.getByRole("combobox", { name: /Model Package/ })).not.toHaveValue("");
+  const selectedDatasetView = await page.getByRole("combobox", { name: /Dataset/ }).inputValue();
+  const selectedPrediction = await page.getByRole("combobox", { name: /予測構成/ }).inputValue();
+  const selectedPackage = await page.getByRole("combobox", { name: /Model Package/ }).inputValue();
 
+  await page.goBack();
+  await expect(page).toHaveURL(/view=model-library.*asset=packages/);
+  await page.goForward();
+  await expect(page).toHaveURL(/view=project.*model_project_kind=single_task/);
+  await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: /Dataset/ })).toHaveValue(selectedDatasetView);
+  await expect(page.getByRole("combobox", { name: /予測構成/ })).toHaveValue(selectedPrediction);
+  await expect(page.getByRole("combobox", { name: /Model Package/ })).toHaveValue(selectedPackage);
   await page.goBack();
   await expect(page).toHaveURL(/view=model-library.*asset=packages/);
   await page.getByRole("tab", { name: /Prediction Graph/ }).click();
