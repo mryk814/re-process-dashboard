@@ -13,6 +13,7 @@ from decision_workbench.contracts.chain_contracts import (
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainSnapshot,
+    PredictionGraphSnapshot,
 )
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
@@ -962,6 +963,20 @@ class WorkbenchUnitOfWork:
     def insert_chain_snapshot(
         self, project_id: str, snapshot: ChainSnapshot
     ) -> ChainSnapshot:
+        return self._insert_snapshot(project_id, snapshot)
+
+    def insert_prediction_graph_snapshot(
+        self,
+        project_id: str,
+        snapshot: PredictionGraphSnapshot,
+    ) -> PredictionGraphSnapshot:
+        return self._insert_snapshot(project_id, snapshot)
+
+    def _insert_snapshot(
+        self,
+        project_id: str,
+        snapshot: ChainSnapshot | PredictionGraphSnapshot,
+    ) -> ChainSnapshot | PredictionGraphSnapshot:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             candidate = conn.execute(

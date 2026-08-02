@@ -28,8 +28,8 @@ from decision_workbench.contracts.blend_contracts import (
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainDomainReference,
-    ChainRevision,
     ChainStageRevision,
+    GraphRevisionRef,
     UnitConversion,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -177,7 +177,7 @@ def _sparse_blend_candidate_path(
 
 
 def candidate_path_for_revision(
-    revision: ChainRevision,
+    revision: GraphRevisionRef,
     external_path: str,
     value_kind: str,
     quantity: str,
@@ -519,7 +519,7 @@ class SparseBlendChainAdapter:
 
 
 def candidate_adapter_for(
-    revision: ChainRevision,
+    revision: GraphRevisionRef,
     transform_catalog: DeterministicTransformCatalog,
 ) -> ChainCandidateAdapter:
     """Select an allow-listed adapter from the Chain Revision's stage shape."""
@@ -532,7 +532,7 @@ def candidate_adapter_for(
 
 
 def candidate_adapter_shape_for(
-    revision: ChainRevision,
+    revision: GraphRevisionRef,
 ) -> ChainCandidateAdapterShape:
     """Resolve the candidate surface without loading a Transform catalog."""
 

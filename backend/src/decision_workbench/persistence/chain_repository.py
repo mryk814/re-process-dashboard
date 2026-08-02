@@ -20,6 +20,10 @@ from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainExecution,
     ChainSnapshot,
+    PredictionGraphExecution,
+    PredictionGraphSnapshot,
+    parse_execution_json,
+    parse_snapshot_json,
 )
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
@@ -308,9 +312,28 @@ class ChainRepository:
                 "SELECT execution_json FROM chain_execution_state WHERE scope_id=?",
                 (scope_id,),
             ).fetchone()
+        if row is None:
+            return None
+        execution = parse_execution_json(row["execution_json"])
+        return execution if isinstance(execution, ChainExecution) else None
+
+    def get_prediction_graph_execution(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> PredictionGraphExecution | None:
+        scope_id = self.chain_execution_scope(project_id, candidate_id)
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT execution_json FROM chain_execution_state WHERE scope_id=?",
+                (scope_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        execution = parse_execution_json(row["execution_json"])
         return (
-            ChainExecution.model_validate_json(row["execution_json"])
-            if row is not None
+            execution
+            if isinstance(execution, PredictionGraphExecution)
             else None
         )
 
@@ -376,6 +399,20 @@ class ChainRepository:
     def save_chain_execution_if_current(
         self, execution: ChainExecution, generation: int
     ) -> bool:
+        return self._save_execution_if_current(execution, generation)
+
+    def save_prediction_graph_execution_if_current(
+        self,
+        execution: PredictionGraphExecution,
+        generation: int,
+    ) -> bool:
+        return self._save_execution_if_current(execution, generation)
+
+    def _save_execution_if_current(
+        self,
+        execution: ChainExecution | PredictionGraphExecution,
+        generation: int,
+    ) -> bool:
         scope_id = self.chain_execution_scope(
             execution.project_id, execution.candidate_id
         )
@@ -420,9 +457,33 @@ class ChainRepository:
                     else (snapshot_id,)
                 ),
             ).fetchone()
+        if row is None:
+            return None
+        snapshot = parse_snapshot_json(row["payload_json"])
+        return snapshot if isinstance(snapshot, ChainSnapshot) else None
+
+    def get_prediction_graph_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> PredictionGraphSnapshot | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM chain_snapshot_records WHERE id=?"
+                + (" AND project_id=?" if project_id is not None else ""),
+                (
+                    (snapshot_id, project_id)
+                    if project_id is not None
+                    else (snapshot_id,)
+                ),
+            ).fetchone()
+        if row is None:
+            return None
+        snapshot = parse_snapshot_json(row["payload_json"])
         return (
-            ChainSnapshot.model_validate_json(row["payload_json"])
-            if row is not None
+            snapshot
+            if isinstance(snapshot, PredictionGraphSnapshot)
             else None
         )
 
@@ -525,7 +586,34 @@ class ChainRepository:
                 "WHERE project_id=? AND candidate_id=? ORDER BY created_at DESC",
                 (project_id, candidate_id),
             ).fetchall()
-        return [ChainSnapshot.model_validate_json(row["payload_json"]) for row in rows]
+        snapshots = [
+            parse_snapshot_json(row["payload_json"]) for row in rows
+        ]
+        return [
+            snapshot
+            for snapshot in snapshots
+            if isinstance(snapshot, ChainSnapshot)
+        ]
+
+    def list_prediction_graph_snapshots(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> list[PredictionGraphSnapshot]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM chain_snapshot_records "
+                "WHERE project_id=? AND candidate_id=? ORDER BY created_at DESC",
+                (project_id, candidate_id),
+            ).fetchall()
+        snapshots = [
+            parse_snapshot_json(row["payload_json"]) for row in rows
+        ]
+        return [
+            snapshot
+            for snapshot in snapshots
+            if isinstance(snapshot, PredictionGraphSnapshot)
+        ]
 
     def insert_chain_analysis_variant(
         self, variant: ActualConditionedVariant
