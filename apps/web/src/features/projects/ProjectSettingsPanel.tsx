@@ -27,7 +27,9 @@ export type ProjectSettingsPanelProps = {
   open: boolean;
   project: ApiProject | null;
   loading: boolean;
-  error: string;
+  projectError: string;
+  groupNameError: string;
+  groupMembershipError: string;
   disabled: boolean;
   outputs: OutputDefinition[];
   targetValues: Record<string, TargetGoal>;
@@ -65,7 +67,9 @@ export function ProjectSettingsPanel({
   open,
   project,
   loading,
-  error,
+  projectError,
+  groupNameError,
+  groupMembershipError,
   disabled,
   outputs,
   targetValues,
@@ -116,7 +120,7 @@ export function ProjectSettingsPanel({
     aria-label="プロジェクト設定"
     aria-busy={loading}
   >
-    {error && <p className="panel-error" role="alert">{error}</p>}
+    {projectError && <p className="panel-error" role="alert">{projectError}</p>}
     <div className="project-form">
       {!showActiveSeriesMembership && !groupSettingsOpen && <div className="project-group-entry">
         <button
@@ -146,6 +150,9 @@ export function ProjectSettingsPanel({
             disabled={controlsDisabled || !membershipChanged}
             onClick={() => void onMoveProjectToGroup()}
           >{membershipTargetSeriesId === null ? "このプロジェクトをグループから外す" : "このプロジェクトを移動"}</button>
+          {groupMembershipError && (
+            <small className="panel-error" role="alert">{groupMembershipError}</small>
+          )}
           <small>同じ目的で続けた複数の検討をまとめます。続き元の関係とは別です。候補・判断履歴・続き元は変わりません。</small>
           {membershipEmptiesFixedSeries && <small className="warning-note">外すとグループ「{fixedSeries?.name}」は所属プロジェクトが無くなり、一覧から閉じられます。グループ名を選び直せば戻せます。</small>}
         </div>
@@ -163,6 +170,7 @@ export function ProjectSettingsPanel({
             disabled={controlsDisabled || !seriesName.trim()}
             onClick={() => void onSaveSeriesName()}
           >名前を保存</button>
+          {groupNameError && <small className="panel-error" role="alert">{groupNameError}</small>}
           <small>このグループに含まれるすべてのプロジェクトへ反映されます</small>
         </div>}
       </>}
