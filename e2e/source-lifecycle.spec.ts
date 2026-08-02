@@ -122,6 +122,7 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(recipeResponse.ok()).toBeTruthy();
+  const recipe = await recipeResponse.json() as { id: string };
 
   await page.reload();
   await page.getByRole("tab", { name: "データ更新" }).click();
@@ -142,9 +143,17 @@ test("source refresh stays separate from approval, training and activation", asy
   if (await curationPanel.getAttribute("open") === null) {
     await curationPanel.locator("summary").click();
   }
-  await curationPanel.getByLabel("品質判定レシピ").selectOption({ label: "E2E JSON品質判定 v1" });
+  const recipeSelect = curationPanel.getByLabel("品質判定レシピ");
+  await recipeSelect.selectOption(recipe.id);
+  await expect(recipeSelect).toHaveValue(recipe.id);
   await curationPanel.getByLabel("データセットプロファイル").selectOption(profile.id);
+  const curationResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/curation-runs")
+  ));
   await section.getByRole("button", { name: "品質判定を実行" }).click();
+  const curationRun = await (await curationResponse).json() as { recipe_id: string };
+  expect(curationRun.recipe_id).toBe(recipe.id);
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
   await expect(section.locator(".source-quality-summary")).toContainText("CHECK-02");
   await expect(section.locator(".source-quality-summary")).toContainText("必須項目がありません");
