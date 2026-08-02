@@ -50,6 +50,7 @@ import {
   type PreparedProjectBinding,
 } from "../../shared/preparedProjectBinding";
 import { preparedBindingBlockers } from "./preparedBindingValidation";
+import type { ModelLibraryProjectIntent } from "../../shared/modelLibrary";
 import { defaultGoalLabel, ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import {
   projectGroupMembershipState,
@@ -84,6 +85,7 @@ type Props = {
   requestedSnapshotId?: string;
   requestedDatasetViewId?: string;
   requestedProjectBinding?: Omit<PreparedProjectBinding, "datasetViewId">;
+  requestedModelLibraryProject?: ModelLibraryProjectIntent;
   requestedSettingsSection?: ProjectSettingsSection;
   renderScientificSettings?: (
     project: ApiProject,
@@ -269,6 +271,7 @@ export function ProjectHub({
   requestedSnapshotId,
   requestedDatasetViewId,
   requestedProjectBinding,
+  requestedModelLibraryProject,
   requestedSettingsSection,
   renderScientificSettings,
   onProjectChanged,
@@ -288,6 +291,7 @@ export function ProjectHub({
   const [modelPackage, setModelPackage] = useState<ApiModelPackage | null>(null);
   const [creationOptions, setCreationOptions] = useState<ApiProjectCreationOptions | null>(null);
   const [chainTemplates, setChainTemplates] = useState<ApiChainTemplate[]>([]);
+  const [chainTemplatesLoaded, setChainTemplatesLoaded] = useState(false);
   const [chainEvaluation, setChainEvaluation] = useState<{
     projectId: string;
     value: ApiChainEvaluation;
@@ -335,6 +339,7 @@ export function ProjectHub({
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState("");
+  const [modelLibraryIntentBlocked, setModelLibraryIntentBlocked] = useState(false);
   const [preparationReceipt, setPreparationReceipt] = useState<PreparedProjectBinding>();
   const [manualBindingSelectionOpen, setManualBindingSelectionOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"empty" | "copy">("empty");
@@ -344,6 +349,7 @@ export function ProjectHub({
   const [newModelPackageRefId, setNewModelPackageRefId] = useState("");
   const [newChainId, setNewChainId] = useState("");
   const [newChainRevisionId, setNewChainRevisionId] = useState("");
+  const [newGraphProject, setNewGraphProject] = useState<Extract<ModelLibraryProjectIntent, { kind: "graph" }>>();
   const [newProjectGroupChoice, setNewProjectGroupChoice] = useState<"none" | "existing" | "new">("none");
   const [newProjectSeriesId, setNewProjectSeriesId] = useState("");
   const [newProjectSeriesName, setNewProjectSeriesName] = useState("");
@@ -536,7 +542,12 @@ export function ProjectHub({
         }
       }),
       workbenchApi.projectCreationOptions().then((item) => !controller.signal.aborted && setCreationOptions(item)),
-      workbenchApi.listChainTemplates().then((items) => !controller.signal.aborted && setChainTemplates(items)),
+      workbenchApi.listChainTemplates().then((items) => {
+        if (!controller.signal.aborted) {
+          setChainTemplates(items);
+          setChainTemplatesLoaded(true);
+        }
+      }),
     ];
     if (!taskUnavailable && identityProject && !predictionGraphIdentity) {
       if (chainIdentity) {
@@ -831,6 +842,14 @@ export function ProjectHub({
       && `${revision.chain_id}:r${revision.revision}` === newChainRevisionId
     ),
   );
+  const selectedGraphTemplate = newGraphProject
+    ? chainTemplates.find((item) => item.definition_id === newGraphProject.definitionId)
+    : undefined;
+  const selectedGraphRevision = selectedGraphTemplate?.revisions.find((revision) => (
+    revision.schema_version === "prediction-graph-revision/v1"
+    && `${revision.graph_id}:r${revision.revision}` === newGraphProject?.revisionId
+    && revision.revision_digest === newGraphProject.revisionDigest
+  ));
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const persistedProject = projects.find((item) => item.id === activeProjectId);
@@ -1060,6 +1079,7 @@ export function ProjectHub({
 
   useEffect(() => {
     if (!requestedDatasetViewId || !creationOptions) return;
+    setModelLibraryIntentBlocked(false);
     const dataset = datasetByView.get(requestedDatasetViewId);
     if (!dataset && !requestedProjectBinding?.reloaded) {
       setError("選択したDatasetをプロジェクト作成に利用できません。");
@@ -1090,6 +1110,97 @@ export function ProjectHub({
     setContinuationReason("");
     onCreationIntentConsumed();
   }, [creationOptions, datasetByView, onCreationIntentConsumed, requestedDatasetViewId, requestedProjectBinding]);
+
+  useEffect(() => {
+    if (
+      !requestedModelLibraryProject
+      || !creationOptions
+      || (requestedModelLibraryProject.kind === "graph" && !chainTemplatesLoaded)
+    ) return;
+    focusCreationFormRef.current = true;
+    setCreateOpen(true);
+    setCreateMode("empty");
+    setManualBindingSelectionOpen(false);
+    setPreparationReceipt(undefined);
+    setCreationError("");
+
+    if (requestedModelLibraryProject.kind === "single_task") {
+      const dataset = datasetByView.get(requestedModelLibraryProject.datasetViewRevisionId);
+      const modelPackage = creationOptions.model_packages.find(
+        (item) => item.id === requestedModelLibraryProject.packageReferenceId,
+      );
+      const blockers = [
+        !dataset && "Dataset View Revisionを現在のWorkspaceで解決できません。",
+        dataset?.dataset_revision.id !== requestedModelLibraryProject.datasetRevisionId
+          && "Dataset RevisionがModel Libraryで選択したidentityと一致しません。",
+        !compatibleTaskIdsForDataset(dataset, creationOptions).includes(requestedModelLibraryProject.taskId)
+          && "選択したPrediction TaskはこのDatasetに対応していません。",
+        !modelPackage && "Model Package referenceを現在のWorkspaceで解決できません。",
+        modelPackage?.task_id !== requestedModelLibraryProject.taskId
+          && "Model PackageのTask identityが選択内容と一致しません。",
+        modelPackage?.manifest_digest !== requestedModelLibraryProject.packageManifestDigest
+          && "Model Packageのmanifest digestが選択内容と一致しません。",
+        modelPackage && !compatiblePackagesForDatasetTask(
+          dataset,
+          requestedModelLibraryProject.taskId,
+          creationOptions,
+        ).some((item) => item.id === modelPackage.id)
+          && "Model Packageは選択したDataset・Profile・Prediction Taskを学習元としていません。",
+      ].filter((item): item is string => Boolean(item));
+      setNewGraphProject(undefined);
+      setNewProjectName(dataset ? `${datasetDisplayName(dataset)} 検討` : "Model Libraryからの検討");
+      setNewDatasetViewId(requestedModelLibraryProject.datasetViewRevisionId);
+      setNewTaskId(requestedModelLibraryProject.taskId);
+      setNewModelPackageRefId(requestedModelLibraryProject.packageReferenceId);
+      setNewChainId("");
+      setNewChainRevisionId("");
+      setModelLibraryIntentBlocked(blockers.length > 0);
+      if (blockers.length) setCreationError(blockers.join(" "));
+    } else {
+      const template = chainTemplates.find(
+        (item) => item.definition_id === requestedModelLibraryProject.definitionId,
+      );
+      const revision = template?.revisions.find((item) => {
+        const graphId = item.schema_version === "chain-revision/v1" ? item.chain_id : item.graph_id;
+        return `${graphId}:r${item.revision}` === requestedModelLibraryProject.revisionId;
+      });
+      const blockers = [
+        !template && "Graph Definitionを現在のWorkspaceで解決できません。",
+        !revision && "Graph Revisionを現在のWorkspaceで解決できません。",
+        revision?.revision_digest !== requestedModelLibraryProject.revisionDigest
+          && "Graph Revision digestがModel Libraryで選択したidentityと一致しません。",
+      ].filter((item): item is string => Boolean(item));
+      setNewProjectName(`${template?.definition.label ?? requestedModelLibraryProject.graphId} 検討`);
+      if (revision?.schema_version === "chain-revision/v1") {
+        setNewGraphProject(undefined);
+        setNewChainId(revision.chain_id);
+        setNewChainRevisionId(requestedModelLibraryProject.revisionId);
+        setNewDatasetViewId(requestedModelLibraryProject.datasetViewRevisionId ?? "");
+      } else {
+        setNewGraphProject(requestedModelLibraryProject);
+        setNewChainId("");
+        setNewChainRevisionId("");
+        setNewDatasetViewId("");
+      }
+      setNewTaskId("");
+      setNewModelPackageRefId("");
+      setModelLibraryIntentBlocked(blockers.length > 0);
+      if (blockers.length) setCreationError(blockers.join(" "));
+    }
+    setNewProjectGroupChoice("none");
+    setNewProjectSeriesId("");
+    setNewProjectSeriesName("");
+    setPredecessorProjectId("");
+    setContinuationReason("");
+    onCreationIntentConsumed();
+  }, [
+    chainTemplates,
+    chainTemplatesLoaded,
+    creationOptions,
+    datasetByView,
+    onCreationIntentConsumed,
+    requestedModelLibraryProject,
+  ]);
 
   useEffect(() => {
     if (!createOpen || !focusCreationFormRef.current) return;
@@ -1222,15 +1333,19 @@ export function ProjectHub({
   async function createProject() {
     const taskId = createMode === "copy" ? copyTaskId : newTaskId;
     const creatingChain = createMode === "empty" && Boolean(newChainId);
+    const creatingGraph = createMode === "empty" && Boolean(newGraphProject);
     const trimmedSeriesName = newProjectSeriesName.trim();
-    if (!newProjectName.trim() || !newDatasetViewId) return setCreationError("Datasetとプロジェクト名を確認してください。");
+    if (modelLibraryIntentBlocked) return setCreationError("Model Libraryで選択したidentityを現在のWorkspaceで検証できません。");
+    if (!newProjectName.trim() || (!creatingGraph && !newDatasetViewId)) return setCreationError("Datasetとプロジェクト名を確認してください。");
+    if (creatingGraph && !selectedGraphRevision) return setCreationError("Prediction Graph Revisionを現在のcatalogで確認できません。");
     if (creatingChain && !selectedChainRevision) return setCreationError("Chain TemplateとRevisionを確認してください。");
-    if (!creatingChain && (!taskId || !newModelPackageRefId)) return setCreationError("予測タスクとModel Packageを確認してください。");
+    if (!creatingChain && !creatingGraph && (!taskId || !newModelPackageRefId)) return setCreationError("予測タスクとModel Packageを確認してください。");
     if (createMode === "copy" && !candidate) return setCreationError("コピーする現在候補がありません。");
     if (newProjectGroupChoice === "existing" && !newProjectSeriesId) return setCreationError("追加する検討グループを選択してください。");
     if (newProjectGroupChoice === "new" && !trimmedSeriesName) return setCreationError("新しい検討グループ名を入力してください。");
     setCreating(true);
     setCreationError("");
+    setModelLibraryIntentBlocked(false);
     try {
       const initialCandidate = createMode === "copy" && candidate ? {
         ...toApiCandidate(candidate),
@@ -1248,7 +1363,20 @@ export function ProjectHub({
         predecessor_project_id: predecessorProjectId || undefined,
         continuation_reason: continuationReason,
       };
-      const created = await workbenchApi.createProject(creatingChain ? {
+      const created = creatingGraph ? await workbenchApi.createPredictionGraphProject({
+        graph_revision_id: newGraphProject!.revisionId,
+        graph_revision_digest: newGraphProject!.revisionDigest,
+        project_binding_revision: 1,
+        project_binding_values: {},
+        project: {
+          ...shared,
+          task_id: "",
+          task_contract_digest: "",
+          model_package_manifest_digest: "",
+          dataset_view_revision_id: null,
+          model_package_ref_id: null,
+        },
+      }) : await workbenchApi.createProject(creatingChain ? {
         ...shared,
         task_id: "",
         task_contract_digest: "",
@@ -1395,6 +1523,7 @@ export function ProjectHub({
 
   const resetCreateProjectForm = () => {
     setCreationError("");
+    setModelLibraryIntentBlocked(false);
     setCreating(false);
     setCreateMode("empty");
     setNewProjectName("");
@@ -1403,6 +1532,7 @@ export function ProjectHub({
     setNewModelPackageRefId("");
     setNewChainId("");
     setNewChainRevisionId("");
+    setNewGraphProject(undefined);
     setNewProjectGroupChoice("none");
     setNewProjectSeriesId("");
     setNewProjectSeriesName("");
@@ -1976,10 +2106,31 @@ export function ProjectHub({
       )}
       {surface === "overview" && predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "グループなし"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
-      {surface === "overview" && <ProjectCreationPanel
+      {surface === "overview" && createOpen && newGraphProject && <section className="project-create-panel" aria-label="Prediction Graph Projectを作成" aria-busy={creating}>
+        <div className="panel-title project-create-heading">
+          <div><h3>新しいプロジェクト</h3><span>Model Libraryで選んだimmutable Graph Revisionを固定します</span></div>
+          <button type="button" className="outline-button" disabled={creating} onClick={closeCreateProject}>作成をやめる</button>
+        </div>
+        {creationError && <p className="panel-error" role="alert">{creationError}</p>}
+        <section className="project-preparation-receipt">
+          <dl>
+            <div><dt>Prediction Graph</dt><dd><strong>{selectedGraphTemplate?.definition.label ?? newGraphProject.graphId}</strong><code>{newGraphProject.graphId}</code></dd></div>
+            <div><dt>Definition</dt><dd><code>{newGraphProject.definitionId}</code></dd></div>
+            <div><dt>Immutable Revision</dt><dd><code>{newGraphProject.revisionId}</code><small>digest: {newGraphProject.revisionDigest}</small></dd></div>
+            <div><dt>Project binding</dt><dd><strong>revision 1</strong><small>固定値なしで開始</small></dd></div>
+          </dl>
+        </section>
+        <label>プロジェクト名<input ref={projectNameInputRef} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} /></label>
+        <footer className="project-create-actions">
+          <button type="button" className="primary-button" disabled={creating || Boolean(creationError) || !selectedGraphRevision || !newProjectName.trim()} onClick={() => void createProject()}>
+            {creating ? "作成中…" : "このRevisionでProjectを作成"}
+          </button>
+        </footer>
+      </section>}
+      {surface === "overview" && !newGraphProject && <ProjectCreationPanel
         open={createOpen}
         loading={creating}
-        disabled={offline}
+        disabled={offline || modelLibraryIntentBlocked}
         error={creationError}
         preparedBindingReview={preparedBindingReview}
         manualBindingSelectionOpen={manualBindingSelectionOpen}

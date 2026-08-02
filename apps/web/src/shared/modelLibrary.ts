@@ -1,0 +1,53 @@
+import type { ApiPredictionGraphDefinition } from "./api/workbench-api";
+
+export type ModelLibraryTab = "tasks" | "packages" | "transforms" | "graphs";
+
+export type ModelLibraryProjectIntent =
+  | Readonly<{
+      kind: "single_task";
+      datasetViewRevisionId: string;
+      datasetRevisionId: string;
+      taskId: string;
+      packageReferenceId: string;
+      packageManifestDigest: string;
+    }>
+  | Readonly<{
+      kind: "graph";
+      graphId: string;
+      definitionId: string;
+      revisionId: string;
+      revisionDigest: string;
+      datasetViewRevisionId?: string;
+    }>;
+
+export type ModelLibraryDataIntent = Readonly<{
+  datasetRevisionId?: string;
+  packageReferenceId?: string;
+}>;
+
+/**
+ * A package handoff is focused at most once while its URL identity is active.
+ * Changing identity clears the completed marker so browser back can focus the
+ * earlier package again after an unresolved or incompatible handoff.
+ */
+export function clearFocusedPackageIntentOnChange(
+  focusedIdentity: string | undefined,
+  currentIdentity: string | undefined,
+): string | undefined {
+  return focusedIdentity === currentIdentity ? focusedIdentity : undefined;
+}
+
+/**
+ * A Studio draft may be mutable, but the evidence boundary of the selected
+ * published Graph remains part of the starting scientific context.  It must
+ * stay visible and travel with the draft until the author explicitly changes
+ * the Graph.
+ */
+export function draftDefinitionFromCatalog(
+  definition: ApiPredictionGraphDefinition,
+): ApiPredictionGraphDefinition {
+  return {
+    ...definition,
+    decision_outputs: definition.decision_outputs.map((output) => ({ ...output })),
+  };
+}

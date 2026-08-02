@@ -16,9 +16,11 @@ import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage, type PreparedCsvProjectBinding } from "../features/data-library";
+import { ModelLibraryPage } from "../features/model-library";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
+import type { ModelLibraryProjectIntent } from "../shared/modelLibrary";
 import {
   workbenchApi,
   type ApiChainTemplate,
@@ -27,7 +29,7 @@ import {
 
 type Tab = WorkbenchView;
 type NavigationGuard = () => Promise<boolean>;
-type HomeNavigationIcon = "project" | "data" | "workspace" | "chain";
+type HomeNavigationIcon = "project" | "data" | "workspace" | "chain" | "model";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
 const navigationHistoryIndexKey = "workbenchNavigationIndex";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
@@ -49,6 +51,11 @@ function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
   if (icon === "chain") {
     return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
       <circle cx="4" cy="10" r="2.2" /><circle cx="16" cy="5" r="2.2" /><circle cx="16" cy="15" r="2.2" /><path d="M6.1 9.1 13.8 5.9M6.1 10.9l7.7 3.2" />
+    </svg>;
+  }
+  if (icon === "model") {
+    return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3.5 4h13v12h-13zM6.5 7h7M6.5 10h7M6.5 13h4" />
     </svg>;
   }
   if (icon === "data") {
@@ -173,6 +180,9 @@ function App() {
       return rest;
     },
   );
+  const [requestedModelLibraryProject, setRequestedModelLibraryProject] = useState<ModelLibraryProjectIntent | undefined>(
+    () => navigation.modelLibraryProject,
+  );
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
   const [subsystemAvailabilityLoaded, setSubsystemAvailabilityLoaded] = useState(false);
@@ -240,6 +250,8 @@ function App() {
     stage?: "raw" | "curation" | "approval" | "training";
     revisionId?: string;
     onboardingMode?: "revision" | "mapping" | "new-task";
+    datasetRevisionId?: string;
+    packageReferenceId?: string;
   }, replace = false) => navigate({
     view: "data-library",
     dataLibraryTab: location.tab,
@@ -247,6 +259,10 @@ function App() {
     sourceStage: location.stage,
     sourceRevisionId: location.revisionId,
     dataOnboardingMode: location.onboardingMode,
+    modelLibraryData: {
+      datasetRevisionId: location.datasetRevisionId,
+      packageReferenceId: location.packageReferenceId,
+    },
   }, replace), [navigate]);
 
   function openWorkspaceStorage() {
@@ -361,7 +377,7 @@ function App() {
       || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
-  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio";
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio" || tab === "model-library";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -418,6 +434,17 @@ function App() {
     });
   }
 
+  function startProjectFromModelLibrary(intent: ModelLibraryProjectIntent) {
+    setRequestedModelLibraryProject(intent);
+    setRequestedDatasetViewId(undefined);
+    setRequestedProjectBinding(undefined);
+    navigate({
+      view: "project",
+      projectId: activeProjectId,
+      modelLibraryProject: intent,
+    });
+  }
+
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
       if (restoringHistory.current) {
@@ -449,6 +476,7 @@ function App() {
         } else {
           setRequestedProjectBinding(undefined);
         }
+        setRequestedModelLibraryProject(intent.modelLibraryProject);
         rememberNavigation(intent);
         const targetProjectId = intent.projectId ?? activeProjectId;
         void session.openLocation(targetProjectId, intent.candidateId);
@@ -573,14 +601,14 @@ function App() {
           </button>
           <button
             type="button"
-            className={tab === "chain-studio" ? "nav-button active" : "nav-button"}
-            aria-label="Chain Studio"
-            data-short-label="Chain"
-            aria-current={tab === "chain-studio" ? "page" : undefined}
-            onClick={() => navigate({ view: "chain-studio" })}
+            className={tab === "model-library" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
+            aria-label="Model Library"
+            data-short-label="Model"
+            aria-current={tab === "model-library" || tab === "chain-studio" ? "page" : undefined}
+            onClick={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
           >
-            <HomeNavIcon icon="chain" />
-            <span className="nav-label-full">Chain Studio</span>
+            <HomeNavIcon icon="model" />
+            <span className="nav-label-full">Model Library</span>
           </button>
           <button
             ref={workspaceButtonRef}
@@ -696,6 +724,7 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedProjectBinding={requestedProjectBinding}
+            requestedModelLibraryProject={requestedModelLibraryProject}
             requestedSettingsSection={navigation.projectSettings}
             onOpenSettings={(projectSettings = "general", replace = false) => navigate({
               view: "project-settings",
@@ -718,7 +747,11 @@ function App() {
               }, true)}
               onProjectChanged={handleProjectChanged}
             />}
-            onCreationIntentConsumed={() => { setRequestedDatasetViewId(undefined); setRequestedProjectBinding(undefined); }}
+            onCreationIntentConsumed={() => {
+              setRequestedDatasetViewId(undefined);
+              setRequestedProjectBinding(undefined);
+              setRequestedModelLibraryProject(undefined);
+            }}
           />
         )}
         {tab === "data-library" && <DataLibraryPage
@@ -729,6 +762,8 @@ function App() {
             stage: navigation.sourceStage,
             revisionId: navigation.sourceRevisionId,
             onboardingMode: navigation.dataOnboardingMode,
+            datasetRevisionId: navigation.modelLibraryData?.datasetRevisionId,
+            packageReferenceId: navigation.modelLibraryData?.packageReferenceId,
           }}
           onNavigate={navigateDataLibrary}
           onAddDataset={(mode, baseDatasetRevisionId) => navigate({
@@ -744,6 +779,44 @@ function App() {
             adminSection: "developer",
             developerTab: "training",
           })}
+          onOpenModelLibrary={(datasetRevisionId) => navigate({
+            view: "model-library",
+            modelLibraryTab: "packages",
+            modelLibraryData: { datasetRevisionId },
+          })}
+        />}
+        {tab === "model-library" && <ModelLibraryPage
+          tab={navigation.modelLibraryTab ?? "tasks"}
+          onTabChange={(modelLibraryTab) => navigate({
+            view: "model-library",
+            modelLibraryTab,
+            modelLibraryData: navigation.modelLibraryData,
+          })}
+          dataContext={navigation.modelLibraryData}
+          onClearDataContext={() => navigate({
+            view: "model-library",
+            modelLibraryTab: navigation.modelLibraryTab ?? "tasks",
+          }, true)}
+          onOpenDataLibrary={(modelLibraryData) => navigate({
+            view: "data-library",
+            modelLibraryData,
+          })}
+          onOpenStudio={async (definition) => {
+            if (!definition) {
+              navigate({ view: "chain-studio" });
+              return;
+            }
+            const draft = await workbenchApi.createPredictionGraphDraft({
+              schema_version: "prediction-graph-draft-content/v1",
+              definition,
+              project_name: `${definition.label || "新しい判断Graph"} 検討`,
+            });
+            navigate({
+              view: "chain-studio",
+              draftId: draft.draft_id,
+            });
+          }}
+          onStartProject={startProjectFromModelLibrary}
         />}
         {tab === "profile-workbench" && <ProfileWorkbenchPage
           onOpenDataLibrary={() => navigate({ view: "data-library" })}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ApiDataLibraryDataset,
   type ApiModelPackageRef,
@@ -27,6 +27,7 @@ import {
   packageTrainingSnapshotLink,
   useResourceCatalogActions,
 } from "./useResourceCatalogActions";
+import { clearFocusedPackageIntentOnChange } from "../../shared/modelLibrary";
 import type { DataLibraryLocation } from "./location";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
@@ -39,6 +40,7 @@ export function ResourceCatalogView({
   onAddDataset,
   onStartProject,
   onOpenTrainingData,
+  onOpenModelLibrary,
   onOpenStorage,
   location,
   onNavigate,
@@ -53,6 +55,7 @@ export function ResourceCatalogView({
   ) => void;
   onStartProject: (datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) => void;
   onOpenTrainingData: (projectId: string) => void;
+  onOpenModelLibrary: (datasetRevisionId: string) => void;
   onOpenStorage: () => void;
   location: DataLibraryLocation;
   onNavigate: (location: DataLibraryLocation, replace?: boolean) => void;
@@ -71,12 +74,13 @@ export function ResourceCatalogView({
   const actions = useResourceCatalogActions({ resources, onNavigate });
   const [compareName, setCompareName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedDatasetId, setSelectedDatasetId] = useState("");
+  const [selectedDatasetId, setSelectedDatasetId] = useState(location.datasetRevisionId ?? "");
   const [modelGuideOpen, setModelGuideOpen] = useState(false);
   const [guideTaskId, setGuideTaskId] = useState("");
   const [copiedGuide, setCopiedGuide] = useState(false);
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
+  const focusedPackageIntentRef = useRef<string | undefined>(undefined);
   const taskLabel = useTaskLabels();
   const allResourcesUnavailable = dataLibraryResourceFamilies.every((family) => {
     const state = resourceStates[family];
@@ -111,9 +115,22 @@ export function ResourceCatalogView({
   );
   const managedDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "managed");
   const bundledDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "bundled");
-  const selectedDataset = filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
-    ?? managedDatasets[0]
-    ?? bundledDatasets[0];
+  const requestedDataset = location.datasetRevisionId
+    ? datasets.find((item) => item.dataset_revision.id === location.datasetRevisionId)
+    : undefined;
+  const requestedPackage = location.packageReferenceId
+    ? modelPackages.find((item) => item.id === location.packageReferenceId)
+    : undefined;
+  const requestedDatasetVisible = Boolean(
+    requestedDataset
+    && !requestedDataset.dataset_revision.archived_at
+    && filteredDatasets.some((item) => item.dataset_revision.id === requestedDataset.dataset_revision.id),
+  );
+  const selectedDataset = location.datasetRevisionId
+    ? requestedDatasetVisible ? requestedDataset : undefined
+    : filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
+      ?? managedDatasets[0]
+      ?? bundledDatasets[0];
   const selectedEffectiveProfile = selectedDataset?.profile_revision.effective_profile_json;
   const selectedLineage = selectedDataset?.dataset_views
     ?.flatMap((view) => view.members)
@@ -132,6 +149,32 @@ export function ResourceCatalogView({
   const selectedDatasetPackages = selectedDataset
     ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
     : [];
+  const requestedPackageIsSelected = Boolean(
+    requestedPackage && selectedDatasetPackages.some((item) => item.id === requestedPackage.id),
+  );
+  const datasetsLoaded = resourceStates.datasets.phase === "ready" || Boolean(resourceStates.datasets.loadedAt);
+  const modelPackagesLoaded = resourceStates.modelPackages.phase === "ready" || Boolean(resourceStates.modelPackages.loadedAt);
+  const modelLibraryFocusErrors = [
+    location.datasetRevisionId && datasetsLoaded && !requestedDataset
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）を現在のWorkspaceで解決できません。`
+      : undefined,
+    location.datasetRevisionId && requestedDataset?.dataset_revision.archived_at
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）は利用停止中です。`
+      : undefined,
+    location.datasetRevisionId && requestedDataset && !requestedDatasetVisible && !requestedDataset.dataset_revision.archived_at
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）は現在の表示条件では確認できません。`
+      : undefined,
+    location.packageReferenceId && modelPackagesLoaded && !requestedPackage
+      ? `指定されたModel Package（${location.packageReferenceId}）を現在のWorkspaceで解決できません。`
+      : undefined,
+    location.packageReferenceId && requestedPackage?.archived_at
+      ? `指定されたModel Package（${location.packageReferenceId}）は利用停止中です。`
+      : undefined,
+    location.packageReferenceId && requestedPackage && selectedDataset
+      && !selectedDatasetPackages.some((item) => item.id === requestedPackage.id)
+      ? "指定されたModel Packageは、指定されたDataset Revisionの学習済みPackageではありません。"
+      : undefined,
+  ].filter((message): message is string => Boolean(message));
   const packageDisplayNames = useMemo(
     () => modelPackageDisplayNames(modelPackages),
     [modelPackages],
@@ -143,6 +186,46 @@ export function ResourceCatalogView({
       ? current
       : selectedDataset.supported_task_ids[0] ?? "");
   }, [selectedDataset?.dataset_revision.id]);
+  useEffect(() => {
+    if (!location.datasetRevisionId) return;
+    const requested = datasets.find((item) => item.dataset_revision.id === location.datasetRevisionId);
+    if (requested) setSelectedDatasetId(requested.dataset_revision.id);
+  }, [datasets, location.datasetRevisionId]);
+  useEffect(() => {
+    const focusIdentity = location.packageReferenceId
+      ? `${location.datasetRevisionId ?? ""}:${location.packageReferenceId}`
+      : undefined;
+    focusedPackageIntentRef.current = clearFocusedPackageIntentOnChange(
+      focusedPackageIntentRef.current,
+      focusIdentity,
+    );
+    if (
+      !focusIdentity
+      || focusedPackageIntentRef.current === focusIdentity
+      || !requestedPackage
+      || !requestedPackageIsSelected
+    ) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-model-package-ref="${CSS.escape(requestedPackage.id)}"]`,
+      );
+      if (!target) return;
+      focusedPackageIntentRef.current = focusIdentity;
+      target.scrollIntoView({ block: "nearest" });
+      target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    location.datasetRevisionId,
+    location.packageReferenceId,
+    requestedPackage?.id,
+    requestedPackageIsSelected,
+  ]);
+  const clearModelLibraryFocus = () => onNavigate({
+    ...location,
+    datasetRevisionId: undefined,
+    packageReferenceId: undefined,
+  }, true);
   const modelGuide = useMemo(() => {
     if (!selectedDataset || !guideTaskId || exactProfileMissing) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -332,6 +415,14 @@ export function ResourceCatalogView({
             </details>
           </div>}
           {resourceStates.datasets.phase === "ready" && filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
+          {modelLibraryFocusErrors.length > 0 && <div className="data-library-resource-error" role="alert">
+            <div>
+              <strong>Model Libraryから指定された参照を確認できません</strong>
+              <ul>{modelLibraryFocusErrors.map((message) => <li key={message}>{message}</li>)}</ul>
+              <p>ほかのDatasetとModel Packageの一覧はそのまま確認できます。</p>
+            </div>
+            <button type="button" className="outline-button" onClick={clearModelLibraryFocus}>一覧から選び直す</button>
+          </div>}
         </section>
 
         {selectedDataset && <section className="data-library-section dataset-context" aria-labelledby="dataset-context-heading">
@@ -342,6 +433,11 @@ export function ResourceCatalogView({
               <p>{selectedDataset.supported_task_ids.map(taskLabel).join(" / ") || "予測タスク未定義"}</p>
             </div>
             <div className="dataset-context-actions">
+              <button
+                className="outline-button"
+                type="button"
+                onClick={() => onOpenModelLibrary(selectedDataset.dataset_revision.id)}
+              >利用中のモデル資産を見る</button>
               <button className="outline-button" type="button" disabled={selectedDataset.supported_task_ids.length === 0} onClick={() => openModelGuide()}>このデータでモデルを更新</button>
             </div>
           </header>
@@ -368,7 +464,14 @@ export function ResourceCatalogView({
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
                 const trainingSnapshotLink = packageTrainingSnapshotLink(item);
-                return <article key={item.id}>
+                return <article
+                  key={item.id}
+                  data-model-package-ref={item.id}
+                  tabIndex={location.packageReferenceId === item.id ? -1 : undefined}
+                  aria-label={location.packageReferenceId === item.id
+                    ? `${packageDisplayNames.get(item.id)}（Model Libraryから選択）`
+                    : undefined}
+                >
                   <div>
                     <strong>{packageDisplayNames.get(item.id)}</strong>
                     <span title={item.task_id}>{taskLabel(item.task_id)}</span>

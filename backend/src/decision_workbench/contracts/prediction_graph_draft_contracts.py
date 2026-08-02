@@ -14,6 +14,7 @@ from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainPort,
     ChainStage,
+    DecisionOutputEvidence,
     GraphInputSource,
 )
 
@@ -45,6 +46,7 @@ class PredictionGraphDraftDecisionOutput(PredictionGraphDraftModel):
         "diagnostic",
     ]
     required_for_complete_result: bool
+    evidence: DecisionOutputEvidence | None = None
 
 
 class PredictionGraphDraftDefinition(PredictionGraphDraftModel):

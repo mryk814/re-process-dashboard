@@ -118,6 +118,11 @@ export const suiteInventory = {
     cleanupOwner: "none",
     reason: "seeded lineage assetを読むだけで、API mutationを行わない。",
   },
+  "model-library.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "Model Libraryから固定identityを確認し、Prediction Graph draftとProject作成導線を検証する。",
+  },
   "navigation-intent.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",

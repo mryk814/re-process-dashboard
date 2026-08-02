@@ -57,6 +57,7 @@ export type ApiPredictionGraphDraftConflict = components["schemas"]["PredictionG
 export type ApiPredictionGraphDraftSaveResult =
   | { status: "saved"; document: ApiPredictionGraphDraftDocument }
   | { status: "conflict"; conflict: ApiPredictionGraphDraftConflict };
+export type ApiModelLibraryCatalog = components["schemas"]["ModelLibraryCatalog"];
 export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
@@ -296,6 +297,9 @@ export const workbenchApi = {
   },
   async predictionGraphCatalog(signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/prediction-graphs/catalog", { signal }), "Prediction Graph catalogを取得できませんでした。");
+  },
+  async modelLibraryCatalog(signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/model-library", { signal }), "Model Libraryを取得できませんでした。");
   },
   async createPredictionGraphDraft(content: ApiPredictionGraphDraftContent) {
     return requireData(await apiClient.POST("/api/prediction-graph-drafts", {

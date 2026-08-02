@@ -96,6 +96,44 @@ def test_draft_api_retains_incomplete_and_unavailable_references(
     assert loaded_response.json() == created
 
 
+def test_draft_api_preserves_decision_output_evidence(client: TestClient) -> None:
+    content = _request_content()
+    definition = cast(dict[str, object], content["definition"])
+    definition["decision_outputs"] = [
+        {
+            "output_id": "strength",
+            "source_stage_id": "model",
+            "source_output_key": "strength_mpa",
+            "label": "強さ",
+            "group": "mechanical",
+            "role": "primary_objective",
+            "required_for_complete_result": True,
+            "evidence": {
+                "evidence_kind": "synthetic_demonstration",
+                "unit_or_scale": "MPa",
+                "goal_direction": "at_least",
+                "source_variables": ["candidate.composition"],
+                "causal_claim": "none",
+                "production_use": "prohibited",
+                "limitation": "教育用の合成根拠です",
+            },
+        },
+    ]
+
+    response = client.post("/api/prediction-graph-drafts", json={"content": content})
+
+    assert response.status_code == 201, response.text
+    assert response.json()["content"]["definition"]["decision_outputs"][0]["evidence"] == {
+        "evidence_kind": "synthetic_demonstration",
+        "unit_or_scale": "MPa",
+        "goal_direction": "at_least",
+        "source_variables": ["candidate.composition"],
+        "causal_claim": "none",
+        "production_use": "prohibited",
+        "limitation": "教育用の合成根拠です",
+    }
+
+
 def test_draft_api_rejects_stale_expected_version_without_overwriting(
     client: TestClient,
 ) -> None:
