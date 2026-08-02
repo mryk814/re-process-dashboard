@@ -33,6 +33,11 @@ export const suiteInventory = {
     cleanupOwner: "seeded DB disposal",
     reason: "比較基準の選択をdefault Projectへ保存する。",
   },
+  "candidate-save-safety.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "単段／Chain ProjectとCandidateを作成し、保存競合と画面離脱境界を確認する。",
+  },
   "chain-degraded.spec.ts": {
     kind: "dedicated-runtime",
     cleanupOwner: "chain degraded config",
@@ -83,6 +88,11 @@ export const suiteInventory = {
     cleanupOwner: "fresh DB disposal",
     reason: "専用ProjectとCandidateを作成し、Data Libraryへの画面遷移まで確認する。",
   },
+  "evidence-resource-states.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "default Project上でQuality／Lineageの失敗応答と再試行を注入する。",
+  },
   "first-run-guidance.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",
@@ -92,6 +102,11 @@ export const suiteInventory = {
     kind: "serial-journey",
     cleanupOwner: "seeded DB disposal",
     reason: "default Candidateの予測状態を更新する。",
+  },
+  "interval-semantics.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "専用ProjectとScreening Runを作成し、区間意味の画面契約を確認する。",
   },
   "microstructure-evidence.spec.ts": {
     kind: "shared-read-only",
@@ -117,6 +132,11 @@ export const suiteInventory = {
     kind: "serial-journey",
     cleanupOwner: "spec API cleanup",
     reason: "Project groupとdefault Projectを広く更新する。",
+  },
+  "project-resource-failure.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "default Projectの参照取得失敗と局所再試行を注入する。",
   },
   "responsive-navigation.spec.ts": {
     kind: "shared-read-only",
@@ -152,6 +172,11 @@ export const suiteInventory = {
     kind: "serial-journey",
     cleanupOwner: "fresh DB disposal",
     reason: "Connector、Raw Snapshot、Curation Runを相互参照しながら作成する。",
+  },
+  "source-lifecycle-resource-failure.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "ConnectorとCuration Runを作成し、reason row取得失敗と局所再試行を注入する。",
   },
   "startup-diagnostic.spec.ts": {
     kind: "dedicated-runtime",

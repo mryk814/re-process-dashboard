@@ -124,8 +124,7 @@ test("source refresh stays separate from approval, training and activation", asy
   expect(recipeResponse.ok()).toBeTruthy();
   const recipe = await recipeResponse.json() as { id: string };
 
-  await page.reload();
-  await page.getByRole("tab", { name: "データ更新" }).click();
+  await page.goto(`/?view=data-library&tab=update&connector=${connector.id}`);
   const section = page.locator(".source-lifecycle-section");
   await expect(section.getByRole("heading", { name: "データ更新" })).toBeVisible();
   await expect(section.getByRole("button", { name: /E2E共有object/ })).toBeVisible();
