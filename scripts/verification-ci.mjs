@@ -555,6 +555,25 @@ export function exitCodeForResult(result) {
   return result.status ?? (result.error || result.signal ? 1 : 0);
 }
 
+export function runWithDiagnosticHandles({
+  stdoutPath,
+  stderrPath,
+  run,
+  open = openSync,
+  close = closeSync,
+}) {
+  let stdoutHandle = null;
+  let stderrHandle = null;
+  try {
+    stdoutHandle = open(stdoutPath, "w");
+    stderrHandle = open(stderrPath, "w");
+    return run(stdoutHandle, stderrHandle);
+  } finally {
+    if (stderrHandle !== null) close(stderrHandle);
+    if (stdoutHandle !== null) close(stdoutHandle);
+  }
+}
+
 function runnerFailureDiagnostics({ shardId, testedCommit, error }) {
   const directory = diagnosticRoot(shardId);
   const identity = diagnosticIdentity({ shardId, testedCommit });
@@ -632,19 +651,20 @@ function runGateIds({
     }
     const result = platformSupported
       ? (() => {
-          const stdoutHandle = gateDiagnostics ? openSync(gateDiagnostics.stdout, "w") : "inherit";
-          const stderrHandle = gateDiagnostics ? openSync(gateDiagnostics.stderr, "w") : "inherit";
-          try {
+          if (!gateDiagnostics) {
             return spawnSync(executable.command, args, {
-              stdio: ["ignore", stdoutHandle, stderrHandle],
+              stdio: "inherit",
               env: gateEnvironment,
             });
-          } finally {
-            if (gateDiagnostics) {
-              closeSync(stdoutHandle);
-              closeSync(stderrHandle);
-            }
           }
+          return runWithDiagnosticHandles({
+            stdoutPath: gateDiagnostics.stdout,
+            stderrPath: gateDiagnostics.stderr,
+            run: (stdoutHandle, stderrHandle) => spawnSync(executable.command, args, {
+              stdio: ["ignore", stdoutHandle, stderrHandle],
+              env: gateEnvironment,
+            }),
+          });
         })()
       : {
           status: 1,

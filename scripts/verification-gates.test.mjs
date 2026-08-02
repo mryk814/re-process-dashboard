@@ -38,6 +38,7 @@ import {
   materializeReusedShardReport,
   planShardEvidenceReuse,
   readDiagnosticTail,
+  runWithDiagnosticHandles,
   shardReportSchemaVersion,
   selectReusableWorkflowRun,
   validateCiPlan,
@@ -1444,13 +1445,33 @@ test("CI shard diagnostics stream and bound logs without an in-memory runner buf
   assert.equal(exitCodeForResult({ status: 0, signal: null }), 0);
 });
 
+test("CI shard diagnostics close stdout when stderr setup fails", () => {
+  const closed = [];
+  let opens = 0;
+  assert.throws(
+    () => runWithDiagnosticHandles({
+      stdoutPath: "stdout.log",
+      stderrPath: "stderr.log",
+      open: () => {
+        opens += 1;
+        if (opens === 1) return 42;
+        throw new Error("cannot open stderr");
+      },
+      close: (handle) => closed.push(handle),
+      run: () => assert.fail("runner must not start after stderr open failure"),
+    }),
+    /cannot open stderr/,
+  );
+  assert.deepEqual(closed, [42]);
+});
+
 test("CI workflow uploads diagnostics even when a shard fails or the workflow is cancelled", () => {
   const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
   const diagnosticsUpload = workflow.slice(
     workflow.indexOf("- name: Upload shard diagnostics and Playwright reports"),
-    workflow.indexOf("- name: Upload verification shard report"),
+    workflow.indexOf("- name: Record diagnostics artifact upload outcome"),
   );
-  assert.match(diagnosticsUpload, /if: always\(\)/);
+  assert.match(diagnosticsUpload, /if: failure\(\) \|\| cancelled\(\)/);
   assert.match(diagnosticsUpload, /continue-on-error: true/);
   assert.match(diagnosticsUpload, /if-no-files-found: warn/);
   assert.match(diagnosticsUpload, /retention-days: 7/);
