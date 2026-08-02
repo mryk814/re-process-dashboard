@@ -695,6 +695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/model-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Library Catalog */
+        get: operations["getModelLibraryCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graphs/catalog": {
         parameters: {
             query?: never;
@@ -7666,6 +7683,35 @@ export interface components {
             /** Output */
             output: string;
         };
+        /** ModelAssetState */
+        ModelAssetState: {
+            /**
+             * Availability
+             * @enum {string}
+             */
+            availability: "available" | "degraded" | "unavailable";
+            /**
+             * Impact
+             * @default
+             */
+            impact: string;
+            /**
+             * Lifecycle
+             * @default current
+             * @enum {string}
+             */
+            lifecycle: "current" | "superseded" | "research_only" | "compatibility_only";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Recovery Hint
+             * @default
+             */
+            recovery_hint: string;
+        };
         /** ModelIdentity */
         ModelIdentity: {
             /**
@@ -7685,6 +7731,294 @@ export interface components {
             version: string;
         } & {
             [key: string]: unknown;
+        };
+        /** ModelLibraryCatalog */
+        ModelLibraryCatalog: {
+            /** Graphs */
+            graphs: components["schemas"]["ModelLibraryGraphAsset"][];
+            /** Packages */
+            packages: components["schemas"]["ModelLibraryPackageAsset"][];
+            /**
+             * Schema Version
+             * @default model-library-catalog/v1
+             * @constant
+             */
+            schema_version: "model-library-catalog/v1";
+            /** Tasks */
+            tasks: components["schemas"]["ModelLibraryTaskAsset"][];
+            /** Transforms */
+            transforms: components["schemas"]["ModelLibraryTransformAsset"][];
+        };
+        /** ModelLibraryDataReference */
+        ModelLibraryDataReference: {
+            /** Connector Id */
+            connector_id?: string | null;
+            /**
+             * Dataset Revision Ids
+             * @default []
+             */
+            dataset_revision_ids: string[];
+            /**
+             * Dataset View Revision Ids
+             * @default []
+             */
+            dataset_view_revision_ids: string[];
+            /**
+             * Profile Digests
+             * @default []
+             */
+            profile_digests: string[];
+            /**
+             * Profile Revision Ids
+             * @default []
+             */
+            profile_revision_ids: string[];
+            /**
+             * Source Names
+             * @default []
+             */
+            source_names: string[];
+            /**
+             * Source Sha256S
+             * @default []
+             */
+            source_sha256s: string[];
+            /** Training Snapshot Id */
+            training_snapshot_id?: string | null;
+        };
+        /** ModelLibraryGraphAsset */
+        ModelLibraryGraphAsset: {
+            /**
+             * Asset Type
+             * @default graph
+             * @constant
+             */
+            asset_type: "graph";
+            /**
+             * Compatible Task Ids
+             * @default []
+             */
+            compatible_task_ids: string[];
+            /**
+             * Compatible Transform Ids
+             * @default []
+             */
+            compatible_transform_ids: string[];
+            /** Definitions */
+            definitions: components["schemas"]["ModelLibraryGraphDefinition"][];
+            /** Graph Id */
+            graph_id: string;
+            /** Label */
+            label: string;
+            /** Latest Revision Id */
+            latest_revision_id?: string | null;
+            /**
+             * Project References
+             * @default []
+             */
+            project_references: components["schemas"]["ModelLibraryProjectReference"][];
+            state: components["schemas"]["ModelAssetState"];
+        };
+        /** ModelLibraryGraphDefinition */
+        ModelLibraryGraphDefinition: {
+            /** Definition */
+            definition: components["schemas"]["ChainDefinition"] | components["schemas"]["PredictionGraphDefinition"];
+            /** Definition Digest */
+            definition_digest: string;
+            /** Definition Id */
+            definition_id: string;
+            projection: components["schemas"]["PredictionGraphProjection"];
+            /** Revisions */
+            revisions: components["schemas"]["ModelLibraryGraphRevision"][];
+        };
+        /** ModelLibraryGraphRevision */
+        ModelLibraryGraphRevision: {
+            /**
+             * Project References
+             * @default []
+             */
+            project_references: components["schemas"]["ModelLibraryProjectReference"][];
+            /** Revision */
+            revision: number;
+            /** Revision Contract */
+            revision_contract: components["schemas"]["ChainRevision"] | components["schemas"]["PredictionGraphRevision"];
+            /** Revision Digest */
+            revision_digest: string;
+            /** Revision Id */
+            revision_id: string;
+            /** Stages */
+            stages: components["schemas"]["ModelLibraryGraphStageReference"][];
+            state: components["schemas"]["ModelAssetState"];
+        };
+        /** ModelLibraryGraphStageReference */
+        ModelLibraryGraphStageReference: {
+            /** Available */
+            available: boolean;
+            /** Contract Digest */
+            contract_digest: string;
+            /** Contract Id */
+            contract_id: string;
+            data_references: components["schemas"]["ModelLibraryDataReference"];
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Stage Id */
+            stage_id: string;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "task" | "deterministic_transform";
+        };
+        /** ModelLibraryPackageAsset */
+        ModelLibraryPackageAsset: {
+            /**
+             * Asset Type
+             * @default package
+             * @constant
+             */
+            asset_type: "package";
+            data_references: components["schemas"]["ModelLibraryDataReference"];
+            /**
+             * Graph Revision Ids
+             * @default []
+             */
+            graph_revision_ids: string[];
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Package Id */
+            package_id: string;
+            /**
+             * Predictor Targets
+             * @default []
+             */
+            predictor_targets: string[];
+            /**
+             * Project References
+             * @default []
+             */
+            project_references: components["schemas"]["ModelLibraryProjectReference"][];
+            /**
+             * Quality Summary Available
+             * @default false
+             */
+            quality_summary_available: boolean;
+            /** Reference Id */
+            reference_id: string;
+            /**
+             * Runtime Types
+             * @default []
+             */
+            runtime_types: string[];
+            state: components["schemas"]["ModelAssetState"];
+            /**
+             * Storage Scope
+             * @enum {string}
+             */
+            storage_scope: "bundled" | "personal";
+            /** Task Contract Digest */
+            task_contract_digest: string;
+            /** Task Id */
+            task_id: string;
+            /** Version */
+            version: string;
+        };
+        /** ModelLibraryPort */
+        ModelLibraryPort: {
+            /** Basis */
+            basis?: string | null;
+            /** Label */
+            label: string;
+            /** Path */
+            path: string;
+            /** Quantity */
+            quantity?: string | null;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /** Unit */
+            unit?: string | null;
+            /** Value Kind */
+            value_kind: string;
+        };
+        /** ModelLibraryProjectReference */
+        ModelLibraryProjectReference: {
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /** Project Id */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+        };
+        /** ModelLibraryTaskAsset */
+        ModelLibraryTaskAsset: {
+            /**
+             * Asset Type
+             * @default task
+             * @constant
+             */
+            asset_type: "task";
+            /** Contract Digest */
+            contract_digest: string;
+            /** Graph Authoring Ready */
+            graph_authoring_ready: boolean;
+            /**
+             * Graph Revision Ids
+             * @default []
+             */
+            graph_revision_ids: string[];
+            /** Inputs */
+            inputs: components["schemas"]["ModelLibraryPort"][];
+            /** Label */
+            label: string;
+            /** Onboarding Ready */
+            onboarding_ready: boolean;
+            /** Outputs */
+            outputs: components["schemas"]["ModelLibraryPort"][];
+            /**
+             * Package Reference Ids
+             * @default []
+             */
+            package_reference_ids: string[];
+            /**
+             * Project References
+             * @default []
+             */
+            project_references: components["schemas"]["ModelLibraryProjectReference"][];
+            state: components["schemas"]["ModelAssetState"];
+            /** Task Id */
+            task_id: string;
+        };
+        /** ModelLibraryTransformAsset */
+        ModelLibraryTransformAsset: {
+            /**
+             * Asset Type
+             * @default transform
+             * @constant
+             */
+            asset_type: "transform";
+            /**
+             * Graph Revision Ids
+             * @default []
+             */
+            graph_revision_ids: string[];
+            /** Label */
+            label: string;
+            /** Package Manifest Digest */
+            package_manifest_digest?: string | null;
+            state: components["schemas"]["ModelAssetState"];
+            surface?: components["schemas"]["StageContractSurface"] | null;
+            /** Transform Id */
+            transform_id: string;
         };
         /** ModelMetadata */
         ModelMetadata: {
@@ -14068,6 +14402,35 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getModelLibraryCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelLibraryCatalog"];
                 };
             };
             /** @description Validation Error */

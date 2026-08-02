@@ -16,6 +16,9 @@ from decision_workbench.application.catalog.training_inspector import (
 )
 from decision_workbench.application.chains import ChainUseCases
 from decision_workbench.application.data_library import DataLibraryUseCases
+from decision_workbench.application.model_library import (
+    ModelLibraryCatalogService,
+)
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.application.prediction_graphs import (
     PredictionGraphUseCases,
@@ -172,6 +175,23 @@ def get_data_library_use_cases(request: Request) -> DataLibraryUseCases:
         available_packages_paths=state.available_packages_paths,
         personal_available_packages_paths=state.personal_available_packages_paths,
         package_origins=state.model_package_origins,
+    )
+
+
+def get_model_library_catalog_service(
+    request: Request,
+) -> ModelLibraryCatalogService:
+    state = request.app.state
+    context = get_runtime_context(request)
+    contribution = get_application_contribution_runtime(
+        request,
+        "welding-blend",
+    )
+    return ModelLibraryCatalogService(
+        store=state.store,
+        workspace_catalog=context.workspace_catalog,
+        task_registry=context.task_registry,
+        transform_catalog=contribution.transform_catalog,
     )
 
 
