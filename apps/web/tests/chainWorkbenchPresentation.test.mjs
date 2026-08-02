@@ -141,7 +141,7 @@ test("Chain candidate identity survives reload and same-project history navigati
   assert.match(session, /onLocationReplace\(projectId, candidateId\)/);
   assert.match(
     session,
-    /projectId === activeProjectIdRef\.current[\s\S]*identity_kind === "chain"[\s\S]*return;/,
+    /project && project\.scientific_identity\?\.identity_kind !== "single_task"[\s\S]*onLocationReplace\(projectId, candidateId\)[\s\S]*return true;/,
   );
   assert.match(source, /initialCandidateId === selectedId/);
   assert.match(

@@ -42,7 +42,7 @@ test("the unavailable panel uses Japanese and opens reference diagnostics", () =
 });
 
 test("chain projects load their immutable revision without entering the single-task candidate runtime", () => {
-  assert.match(session, /project\?\.scientific_identity\?\.identity_kind === "chain"/);
+  assert.match(session, /project && project\.scientific_identity\?\.identity_kind !== "single_task"/);
   assert.match(session, /setTaskDefinition\(null\)/);
   assert.match(session, /setResolvedTaskDefinition\(null\)/);
   assert.match(session, /editor\.acceptServerCandidates\(\[\]\)/);
@@ -62,9 +62,9 @@ test("chain projects explain single-task-only views instead of failing inside th
   assert.match(app, /const chainScopedTab = chainProject/);
   assert.match(app, /ChainModeUnavailablePanel/);
   assert.match(app, /tab === "candidate-review" \|\| tab === "explore"/);
-  assert.match(app, /&& !chainProject && !taskUnavailable/);
-  assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject/);
-  assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject/);
+  assert.match(app, /&& !chainProject && !predictionGraphProject && !taskUnavailable/);
+  assert.match(app, /tab === "lineage" && !taskUnavailable && !chainProject && !predictionGraphProject/);
+  assert.match(app, /tab === "quality" && !taskUnavailable && !chainProject && !predictionGraphProject/);
   assert.doesNotMatch(app, /tab === "settings"/);
 });
 
