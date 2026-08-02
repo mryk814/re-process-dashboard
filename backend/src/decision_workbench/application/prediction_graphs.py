@@ -63,6 +63,9 @@ from decision_workbench.contracts.chain_execution_contracts import (
     PredictionGraphExecution,
     PredictionGraphSnapshot,
 )
+from decision_workbench.contracts.subsystem_availability import (
+    WELDING_TRANSFORM_RESOURCE_ID,
+)
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
@@ -274,6 +277,17 @@ class PredictionGraphUseCases:
                         status="unavailable",
                         reason=str(exc),
                     ))
+        else:
+            stages.append(PredictionGraphStageCatalogItem(
+                stage_kind="deterministic_transform",
+                contract_id=WELDING_TRANSFORM_RESOURCE_ID,
+                label=WELDING_TRANSFORM_RESOURCE_ID,
+                status="unavailable",
+                reason=(
+                    "決定論的Transform catalogを読み込めません。"
+                    "active-transforms.jsonとPackageを確認してください。"
+                ),
+            ))
         adapter_ids = ["scalar/v1"]
         if self.transform_catalog is not None:
             adapter_ids.append("sparse_blend/v1")
@@ -300,6 +314,7 @@ class PredictionGraphUseCases:
                     for error in exc.errors(include_url=False)
                 ),
             )
+        definition_digest = definition.digest
         try:
             _, _, revision = self._prepare_authoring(definition)
         except (

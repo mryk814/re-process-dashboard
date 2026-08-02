@@ -947,6 +947,16 @@ def test_prediction_graph_authoring_catalog_validates_and_publishes_transform(
     assert validation.status_code == 200, validation.text
     assert validation.json()["valid"] is True
     assert validation.json()["candidate_adapter_id"] == "sparse_blend/v1"
+    scientific_digest = PredictionGraphDefinition.model_validate(definition).digest
+    assert validation.json()["definition_digest"] == scientific_digest
+
+    presentation_only = {**definition, "label": "Presentation-only label"}
+    presentation_validation = client.post(
+        "/api/prediction-graphs/validate",
+        json={"definition": presentation_only},
+    )
+    assert presentation_validation.status_code == 200, presentation_validation.text
+    assert presentation_validation.json()["definition_digest"] == scientific_digest
 
     invalid = {
         **definition,
@@ -1027,6 +1037,29 @@ def test_prediction_graph_authoring_catalog_validates_and_publishes_transform(
     assert published_stage["package_manifest_digest"] == (
         transform["stage_lock"]["package_manifest_digest"]
     )
+
+
+def test_prediction_graph_authoring_reports_unavailable_transform(
+    client,
+) -> None:
+    use_cases = client.app.state.prediction_graph_use_cases
+    transform_catalog = use_cases.transform_catalog
+    use_cases.transform_catalog = None
+    try:
+        catalog_response = client.get("/api/prediction-graphs/catalog")
+    finally:
+        use_cases.transform_catalog = transform_catalog
+
+    assert catalog_response.status_code == 200, catalog_response.text
+    unavailable_transform = next(
+        item
+        for item in catalog_response.json()["stages"]
+        if item["stage_kind"] == "deterministic_transform"
+    )
+    assert unavailable_transform["contract_id"] == "welding-stage-a-v1"
+    assert unavailable_transform["status"] == "unavailable"
+    assert unavailable_transform["surface"] is None
+    assert unavailable_transform["stage_lock"] is None
 
 
 def test_v1_execution_parser_remains_byte_shape_compatible() -> None:
