@@ -189,7 +189,7 @@ function ProjectResourceRecovery({
             ? `${label}は現在利用できません`
             : state.phase === "stale"
               ? `${label}を更新できませんでした`
-              : `${label}を取得できませんでした`}</strong>
+              : state.error || `${label}を取得できませんでした`}</strong>
           : <strong>{label}は取得済みです</strong>}
       {loading && state.loadedAt && <>
         <p>{retained}を表示したまま更新しています。</p>
@@ -585,12 +585,20 @@ export function ProjectHub({
       && Boolean(chainEvaluationResourceState.loadedAt);
     if (!retainsCurrentEvidence) setChainEvaluation(null);
     setChainEvaluationResourceState((current) => beginProjectResourceLoad(current, scope));
-    if (!subsystemAvailabilityLoaded) return () => controller.abort();
+    if (!subsystemAvailabilityLoaded || !fixedChainId) return () => controller.abort();
     if (subsystemAvailabilityError) {
       setChainEvaluationResourceState((current) => rejectProjectResourceLoad(
         current,
         scope,
-        "Chain評価の利用状況を確認できませんでした。",
+        "Chain評価の利用状況を取得できませんでした。",
+      ));
+      return () => controller.abort();
+    }
+    if (!chainEvaluationSubsystem) {
+      setChainEvaluationResourceState((current) => rejectProjectResourceLoad(
+        current,
+        scope,
+        "Chain評価の利用状況を取得できませんでした。",
       ));
       return () => controller.abort();
     }
@@ -624,6 +632,7 @@ export function ProjectHub({
     chainIdentity?.chain_revision_id,
     chainEvaluationRevision,
     chainEvaluationSubsystem?.status,
+    fixedChainId,
     subsystemAvailabilityError,
     subsystemAvailabilityLoaded,
   ]);

@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from "@playwright/test";
+import { expect, type APIRequestContext, type APIResponse } from "@playwright/test";
 
 /**
  * Every spec must resolve the API port the same way playwright.config.ts does.
@@ -120,7 +120,16 @@ export async function createProjectWithBinding(
 }
 
 export async function starterCandidate(request: APIRequestContext, taskId: string) {
-  const response = await request.get(`${apiBaseUrl}/api/task-definitions`);
+  const taskDefinitionsUrl = `${apiBaseUrl}/api/task-definitions`;
+  let response: APIResponse;
+  try {
+    response = await request.get(taskDefinitionsUrl);
+  } catch {
+    // The Windows asyncio server can reset a keep-alive connection while the
+    // serial suite switches between large fixture requests. Retry only this
+    // idempotent catalog read; HTTP failures still fail below.
+    response = await request.get(taskDefinitionsUrl);
+  }
   expect(response.status(), "task-definitions").toBe(200);
   const catalog = await response.json() as Array<{
     definition: { task_definition: { id: string } };

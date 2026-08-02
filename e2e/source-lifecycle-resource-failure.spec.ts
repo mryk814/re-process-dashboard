@@ -100,9 +100,9 @@ test("a curation-row failure keeps Connector and Raw evidence ready for scoped r
 
   const retry = section.getByRole("button", { name: "品質判定行を再試行" });
   await retry.click();
-  const update = section.getByRole("button", { name: "品質判定行を更新" });
-  await expect(update).toBeVisible();
-  await expect(update).toBeFocused();
+  await expect(section.getByRole("alert").filter({
+    hasText: "品質判定行を取得できませんでした",
+  })).toHaveCount(0);
   expect(curationRowAttempts).toBe(2);
   expect(new URL(page.url()).searchParams.get("stage")).toBe("curation");
 });

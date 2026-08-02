@@ -15817,6 +15817,35 @@
         "title": "PredictionComparison",
         "type": "object"
       },
+      "PredictionGraphCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_adapter_ids": {
+            "items": {
+              "enum": [
+                "scalar/v1",
+                "sparse_blend/v1"
+              ],
+              "type": "string"
+            },
+            "title": "Candidate Adapter Ids",
+            "type": "array"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphStageCatalogItem"
+            },
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidate_adapter_ids",
+          "stages"
+        ],
+        "title": "PredictionGraphCatalogResponse",
+        "type": "object"
+      },
       "PredictionGraphDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -15877,6 +15906,64 @@
           "decision_outputs"
         ],
         "title": "PredictionGraphDefinition",
+        "type": "object"
+      },
+      "PredictionGraphDraftValidation": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_adapter_id": {
+            "anyOf": [
+              {
+                "enum": [
+                  "scalar/v1",
+                  "sparse_blend/v1"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Adapter Id"
+          },
+          "definition_digest": {
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "findings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphValidationFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "definition_digest"
+        ],
+        "title": "PredictionGraphDraftValidation",
+        "type": "object"
+      },
+      "PredictionGraphDraftValidationRequest": {
+        "additionalProperties": false,
+        "description": "Raw draft payload so invalid topology can return structured findings.",
+        "properties": {
+          "definition": {
+            "additionalProperties": true,
+            "title": "Definition",
+            "type": "object"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "PredictionGraphDraftValidationRequest",
         "type": "object"
       },
       "PredictionGraphExecution": {
@@ -16419,6 +16506,74 @@
         "title": "PredictionGraphSnapshotIdentity",
         "type": "object"
       },
+      "PredictionGraphStageCatalogItem": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_id": {
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "stage_kind": {
+            "enum": [
+              "task",
+              "deterministic_transform"
+            ],
+            "title": "Stage Kind",
+            "type": "string"
+          },
+          "stage_lock": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainStageLock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "surface": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageContractSurface"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stage_kind",
+          "contract_id",
+          "label",
+          "status"
+        ],
+        "title": "PredictionGraphStageCatalogItem",
+        "type": "object"
+      },
       "PredictionGraphStageExecution": {
         "additionalProperties": false,
         "properties": {
@@ -16713,6 +16868,82 @@
           "affected_nodes_by_input"
         ],
         "title": "PredictionGraphTopology",
+        "type": "object"
+      },
+      "PredictionGraphValidationFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "unbound_required_input",
+              "port_mismatch",
+              "unknown_stage_contract",
+              "unavailable_stage_contract",
+              "unsupported_candidate_adapter",
+              "cycle",
+              "terminal_output_missing",
+              "fixed_parameter_missing",
+              "invalid_graph"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "suggested_action": {
+            "title": "Suggested Action",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/PredictionGraphValidationTarget"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "target",
+          "suggested_action"
+        ],
+        "title": "PredictionGraphValidationFinding",
+        "type": "object"
+      },
+      "PredictionGraphValidationTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "port_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port Path"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "graph",
+              "stage",
+              "input",
+              "binding",
+              "decision_output"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_kind",
+          "target_id"
+        ],
+        "title": "PredictionGraphValidationTarget",
         "type": "object"
       },
       "PredictionIntervalIdentity": {
@@ -28282,6 +28513,37 @@
         "summary": "Health"
       }
     },
+    "/api/prediction-graphs/catalog": {
+      "get": {
+        "operationId": "getPredictionGraphCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catalog",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
     "/api/prediction-graphs/projects": {
       "post": {
         "operationId": "createPredictionGraphProject",
@@ -28749,6 +29011,47 @@
           }
         },
         "summary": "Publish",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/validate": {
+      "post": {
+        "operationId": "validatePredictionGraph",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphDraftValidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftValidation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate",
         "tags": [
           "prediction-graphs"
         ]

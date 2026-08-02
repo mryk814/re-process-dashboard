@@ -122,9 +122,9 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(recipeResponse.ok()).toBeTruthy();
+  const recipe = await recipeResponse.json() as { id: string };
 
-  await page.reload();
-  await page.getByRole("tab", { name: "データ更新" }).click();
+  await page.goto(`/?view=data-library&tab=update&connector=${connector.id}`);
   const section = page.locator(".source-lifecycle-section");
   await expect(section.getByRole("heading", { name: "データ更新" })).toBeVisible();
   await expect(section.getByRole("button", { name: /E2E共有object/ })).toBeVisible();
@@ -136,7 +136,23 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.locator(".source-stage-rail")).toContainText("1版");
   await expect(section.locator(".source-stage-rail")).toContainText("0版");
 
+  const curationPanel = section.locator("details.source-action-panel").filter({
+    hasText: "品質判定レシピとデータセットプロファイル",
+  });
+  if (await curationPanel.getAttribute("open") === null) {
+    await curationPanel.locator("summary").click();
+  }
+  const recipeSelect = curationPanel.getByLabel("品質判定レシピ");
+  await recipeSelect.selectOption(recipe.id);
+  await expect(recipeSelect).toHaveValue(recipe.id);
+  await curationPanel.getByLabel("データセットプロファイル").selectOption(profile.id);
+  const curationResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/curation-runs")
+  ));
   await section.getByRole("button", { name: "品質判定を実行" }).click();
+  const curationRun = await (await curationResponse).json() as { recipe_id: string };
+  expect(curationRun.recipe_id).toBe(recipe.id);
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
   await expect(section.locator(".source-quality-summary")).toContainText("CHECK-02");
   await expect(section.locator(".source-quality-summary")).toContainText("必須項目がありません");
@@ -282,17 +298,40 @@ test("source refresh stays separate from approval, training and activation", asy
   });
   expect(secondFetch.ok()).toBeTruthy();
   const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
+  const repeatedCurationPanel = repeatedSection.locator("details.source-action-panel").filter({
+    hasText: "品質判定レシピとデータセットプロファイル",
+  });
+  if (await repeatedCurationPanel.getAttribute("open") === null) {
+    await repeatedCurationPanel.locator("summary").click();
+  }
+  await repeatedCurationPanel.getByLabel("品質判定レシピ").selectOption(recipe.id);
+  await repeatedCurationPanel.getByLabel("データセットプロファイル").selectOption(profile.id);
   await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
   await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
+  const approvalResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && /^\/api\/data-lifecycle\/curation-runs\/[^/]+\/approve$/.test(
+      new URL(response.url()).pathname,
+    )
+  ));
   await repeatedSection.getByRole("button", { name: "正規データセットを承認" }).click();
-  await repeatedSection.getByLabel("用途").fill("更新版の再評価");
+  expect((await approvalResponse).status()).toBe(201);
+  await page.reload();
+  const approvedSection = page.locator(".source-lifecycle-section");
+  await expect(approvedSection.getByRole("heading", { name: "データ更新" })).toBeVisible();
+  await approvedSection.getByLabel("用途").fill("更新版の再評価");
+  const createTrainingSnapshot = approvedSection.getByRole(
+    "button",
+    { name: "学習用スナップショットを作成" },
+  );
+  await expect(createTrainingSnapshot).toBeEnabled();
   const trainingSnapshotResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && /^\/api\/data-lifecycle\/canonical-dataset-revisions\/[^/]+\/training-snapshots$/.test(
       new URL(response.url()).pathname,
     )
   ));
-  await repeatedSection.getByRole("button", { name: "学習用スナップショットを作成" }).click();
+  await createTrainingSnapshot.click();
   expect((await trainingSnapshotResponse).status()).toBe(201);
 
   await page.reload();
@@ -470,7 +509,7 @@ test("reason audit loads a blocked row beyond the first hundred without quaranti
   const summary = page.locator(".source-quality-summary");
   await expect(summary).toContainText("隔離0");
   await expect(summary).toContainText("停止2");
-  await summary.getByText("理由付きの行").click();
+  await summary.getByText("理由付きの行", { exact: true }).click();
   await expect(summary.getByText("行識別キーが重複しています").first()).toBeVisible();
   await expect(summary.getByText(/accepted-000/).first()).toBeVisible();
 });

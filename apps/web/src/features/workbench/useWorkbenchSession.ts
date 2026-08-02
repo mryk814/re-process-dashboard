@@ -24,6 +24,7 @@ import {
   type TaskDefinitionContract,
 } from "../candidates";
 import { loadSelectedFirstBounded } from "./boundedPreviewLoader";
+import { archiveAfterCandidateSettlement } from "./projectArchiveSafety";
 import { useWorkbenchPrediction } from "./useWorkbenchPrediction";
 
 const INITIAL_PROJECT_PREVIEW_LIMIT = 5;
@@ -677,8 +678,12 @@ export function useWorkbenchSession({
 
   async function archiveProject(projectId: string): Promise<boolean> {
     try {
-      if (projectId === activeProjectIdRef.current && !(await editor.settlePending())) return false;
-      await workbenchApi.archiveProject(projectId);
+      const archived = await archiveAfterCandidateSettlement({
+        active: projectId === activeProjectIdRef.current,
+        settlePending: editor.settlePending,
+        archive: () => workbenchApi.archiveProject(projectId),
+      });
+      if (!archived) return false;
       const remaining = projects.filter((project) => project.id !== projectId);
       projectsRef.current = remaining;
       setProjects(remaining);

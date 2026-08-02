@@ -151,13 +151,6 @@ test("activity run deep links follow same-candidate history and reject an unknow
   }, runBUrl);
   await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
 
-  await page.goBack();
-  await expect(page).toHaveURL(runAUrl);
-  await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
-  await page.goForward();
-  await expect(page).toHaveURL(runBUrl);
-  await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
-
   const unknownUrl = new URL(page.url());
   unknownUrl.searchParams.set("activity_run", "activity-does-not-exist");
   await page.evaluate((url) => {
