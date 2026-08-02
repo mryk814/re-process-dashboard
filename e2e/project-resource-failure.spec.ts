@@ -25,7 +25,9 @@ test("a failed Project reference refresh does not replace independently ready co
 
   const retry = page.getByRole("button", { name: "Project参照情報を再試行" });
   await retry.click();
-  await expect(page.getByRole("button", { name: "Project参照情報を更新" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({
+    hasText: "Project参照情報を取得できませんでした",
+  })).toHaveCount(0);
   expect(modelPackageAttempts).toBe(2);
   await expect(page.getByText("次の作業", { exact: true })).toBeVisible();
 });

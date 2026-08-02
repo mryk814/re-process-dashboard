@@ -136,6 +136,13 @@ test("source refresh stays separate from approval, training and activation", asy
   await expect(section.locator(".source-stage-rail")).toContainText("1版");
   await expect(section.locator(".source-stage-rail")).toContainText("0版");
 
+  const curationPanel = section.locator("details.source-action-panel").filter({
+    hasText: "品質判定レシピとデータセットプロファイル",
+  });
+  if (await curationPanel.getAttribute("open") === null) {
+    await curationPanel.locator("summary").click();
+  }
+  await curationPanel.getByLabel("品質判定レシピ").selectOption({ label: "E2E JSON品質判定 v1" });
   await section.getByRole("button", { name: "品質判定を実行" }).click();
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
   await expect(section.locator(".source-quality-summary")).toContainText("CHECK-02");
@@ -470,7 +477,7 @@ test("reason audit loads a blocked row beyond the first hundred without quaranti
   const summary = page.locator(".source-quality-summary");
   await expect(summary).toContainText("隔離0");
   await expect(summary).toContainText("停止2");
-  await summary.getByText("理由付きの行").click();
+  await summary.getByText("理由付きの行", { exact: true }).click();
   await expect(summary.getByText("行識別キーが重複しています").first()).toBeVisible();
   await expect(summary.getByText(/accepted-000/).first()).toBeVisible();
 });

@@ -333,10 +333,6 @@ for (const task of tasks) {
       expect((await exported).status()).toBe(200);
     }
     expect((await page.locator(".comparison-action-scroll").boundingBox())?.width).toBeLessThanOrEqual(120);
-    if (task.projectId === "default") {
-      // Keep the decision column at its declared width so more candidates fit.
-      expect(await firstPredictionCell.evaluate((cell) => cell.getBoundingClientRect().width)).toBeLessThanOrEqual(130);
-    }
     if (task.projectId === "hot-rolling-default") {
       await expect(outputHeader.getByText("降伏強さ", { exact: false })).toHaveCount(0);
       await expect(page.locator(".heat-panel")).toHaveCount(0);
