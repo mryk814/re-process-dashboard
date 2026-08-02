@@ -181,9 +181,25 @@
 .actual-value-field input { border-radius: 4px 0 0 4px; text-align: right; }
 .actual-value-field small { height: 29px; border: 1px solid #bcc9d8; border-left: 0; border-radius: 0 4px 4px 0; padding: 7px 6px; background: #f1f4f8; color: #536277; white-space: nowrap; }
 .actual-measurement-form .primary-button { min-height: 29px; padding: 4px 9px; font-size: 11px; white-space: nowrap; }
+.actual-revision-warning {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 5px;
+  border: 1px solid #d8b16c;
+  border-radius: 4px;
+  padding: 8px 9px;
+  background: #fff8e8;
+  color: #68410a;
+  font-size: 11px;
+}
+.actual-revision-warning > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.actual-revision-warning button { min-height: 29px; padding: 4px 8px; font-size: 11px; }
+.actual-revision-warning .danger { color: #9d2018; }
 .actual-form-hint { grid-column: 1 / -1; color: #8a5a00; font-size: 10px; }
 .actual-measurement-panel > .panel-error,
+.actual-measurement-panel > .panel-notice,
 .actual-measurement-panel > .empty-evidence { margin: 0; padding: 10px 11px; }
+.actual-measurement-panel > .panel-notice { color: #315f45; background: #edf8f0; }
 .actual-comparison-scroll { overflow-x: auto; }
 .actual-comparison-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 11px; }
 .actual-comparison-table th,
