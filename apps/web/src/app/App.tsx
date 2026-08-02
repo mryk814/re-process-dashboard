@@ -750,6 +750,12 @@ function App() {
           onStartProject={startProjectForDataset}
         />}
         {tab === "chain-studio" && <ChainStudioPage
+          draftId={navigation.draftId}
+          onDraftIdChange={(draftId) => commitNavigation({
+            ...navigationRef.current,
+            view: "chain-studio",
+            draftId,
+          }, true)}
           registerNavigationGuard={registerNavigationGuard}
           onProjectCreated={(project) => {
             void session.loadCreatedProject(project).then((loaded) => {

@@ -15994,6 +15994,307 @@
         "title": "PredictionGraphDefinition",
         "type": "object"
       },
+      "PredictionGraphDraftConflictResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "revision_conflict",
+            "default": "revision_conflict",
+            "title": "Code",
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/PredictionGraphDraftDocument"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "current"
+        ],
+        "title": "PredictionGraphDraftConflictResponse",
+        "type": "object"
+      },
+      "PredictionGraphDraftContent": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/PredictionGraphDraftDefinition"
+          },
+          "project_name": {
+            "default": "",
+            "title": "Project Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-draft-content/v1",
+            "default": "prediction-graph-draft-content/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "PredictionGraphDraftContent",
+        "type": "object"
+      },
+      "PredictionGraphDraftCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/PredictionGraphDraftContent"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "PredictionGraphDraftCreateRequest",
+        "type": "object"
+      },
+      "PredictionGraphDraftDecisionOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "required_for_complete_result": {
+            "title": "Required For Complete Result",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "primary_objective",
+              "hard_constraint",
+              "secondary_outcome",
+              "diagnostic"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_output_key": {
+            "minLength": 1,
+            "title": "Source Output Key",
+            "type": "string"
+          },
+          "source_stage_id": {
+            "minLength": 1,
+            "title": "Source Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output_id",
+          "source_stage_id",
+          "source_output_key",
+          "label",
+          "group",
+          "role",
+          "required_for_complete_result"
+        ],
+        "title": "PredictionGraphDraftDecisionOutput",
+        "type": "object"
+      },
+      "PredictionGraphDraftDefinition": {
+        "additionalProperties": false,
+        "description": "Syntactically typed graph content without publish-time completeness checks.",
+        "properties": {
+          "bindings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChainBinding"
+            },
+            "title": "Bindings",
+            "type": "array"
+          },
+          "decision_outputs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphDraftDecisionOutput"
+            },
+            "title": "Decision Outputs",
+            "type": "array"
+          },
+          "graph_id": {
+            "title": "Graph Id",
+            "type": "string"
+          },
+          "inputs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PredictionGraphDraftInput"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-definition/v1",
+            "default": "prediction-graph-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChainStage"
+            },
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "graph_id",
+          "label"
+        ],
+        "title": "PredictionGraphDraftDefinition",
+        "type": "object"
+      },
+      "PredictionGraphDraftDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/PredictionGraphDraftContent"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "draft_id": {
+            "minLength": 1,
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-draft/v1",
+            "default": "prediction-graph-draft/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "draft_id",
+          "version",
+          "content",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PredictionGraphDraftDocument",
+        "type": "object"
+      },
+      "PredictionGraphDraftInput": {
+        "additionalProperties": false,
+        "properties": {
+          "default_presentation_group": {
+            "title": "Default Presentation Group",
+            "type": "string"
+          },
+          "input_id": {
+            "minLength": 1,
+            "title": "Input Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "port": {
+            "$ref": "#/components/schemas/ChainPort"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "design_variable",
+              "scenario_context",
+              "fixed_parameter"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "value_source": {
+            "discriminator": {
+              "mapping": {
+                "candidate": "#/components/schemas/CandidateGraphInputSource",
+                "fixed_value": "#/components/schemas/FixedGraphInputSource",
+                "project_binding": "#/components/schemas/ProjectGraphInputSource"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CandidateGraphInputSource"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectGraphInputSource"
+              },
+              {
+                "$ref": "#/components/schemas/FixedGraphInputSource"
+              }
+            ],
+            "title": "Value Source"
+          }
+        },
+        "required": [
+          "input_id",
+          "label",
+          "port",
+          "role",
+          "value_source",
+          "default_presentation_group"
+        ],
+        "title": "PredictionGraphDraftInput",
+        "type": "object"
+      },
+      "PredictionGraphDraftUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/PredictionGraphDraftContent"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_version",
+          "content"
+        ],
+        "title": "PredictionGraphDraftUpdateRequest",
+        "type": "object"
+      },
       "PredictionGraphDraftValidation": {
         "additionalProperties": false,
         "properties": {
@@ -28597,6 +28898,169 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/prediction-graph-drafts": {
+      "post": {
+        "operationId": "createPredictionGraphDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphDraftCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Draft",
+        "tags": [
+          "prediction-graph-drafts"
+        ]
+      }
+    },
+    "/api/prediction-graph-drafts/{draft_id}": {
+      "get": {
+        "operationId": "getPredictionGraphDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Draft",
+        "tags": [
+          "prediction-graph-drafts"
+        ]
+      },
+      "put": {
+        "operationId": "updatePredictionGraphDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphDraftUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftConflictResponse"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Revision Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Draft",
+        "tags": [
+          "prediction-graph-drafts"
+        ]
       }
     },
     "/api/prediction-graphs/catalog": {

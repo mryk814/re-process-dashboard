@@ -56,6 +56,12 @@ from decision_workbench.persistence.project_repository import ProjectRepository
 from decision_workbench.persistence.project_starter_migration import (
     migrate_project_starter_identity,
 )
+from decision_workbench.persistence.prediction_graph_draft_migration import (
+    migrate_prediction_graph_drafts,
+)
+from decision_workbench.persistence.prediction_graph_draft_repository import (
+    PredictionGraphDraftRepository,
+)
 from decision_workbench.persistence.proposal_lab_migration import (
     migrate_proposal_lab_reports,
 )
@@ -95,6 +101,7 @@ from decision_workbench.domain.candidate_policy import MAX_CANDIDATES_PER_PROJEC
 class Store(
     WorkbenchUnitOfWork,
     ChainRepository,
+    PredictionGraphDraftRepository,
     ProjectRepository,
     CandidateRepository,
     EvidenceRepository,
@@ -122,6 +129,7 @@ class Store(
         migrate_workspace_maintenance_events(self.path)
         migrate_project_lifecycle(self.path)
         migrate_chain_catalog(self.path)
+        migrate_prediction_graph_drafts(self.path)
         migrate_chain_graph_surfaces(self.path)
         migrate_chain_analysis_variant(self.path)
         migrate_chain_execution_cas(self.path)

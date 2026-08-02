@@ -17,6 +17,9 @@ from decision_workbench.application.chain.graph_snapshot import (
     PredictionGraphSnapshotUseCase,
 )
 from decision_workbench.application.chain.plan import ChainExecutionError
+from decision_workbench.application.prediction_graph_drafts import (
+    PredictionGraphDraftUseCases,
+)
 from decision_workbench.application.chains import (
     ChainCandidateRevisionError,
     ChainConflictError,
@@ -62,6 +65,11 @@ from decision_workbench.contracts.chain_contracts import (
 from decision_workbench.contracts.chain_execution_contracts import (
     PredictionGraphExecution,
     PredictionGraphSnapshot,
+)
+from decision_workbench.contracts.prediction_graph_draft_contracts import (
+    PredictionGraphDraftCreateRequest,
+    PredictionGraphDraftDocument,
+    PredictionGraphDraftUpdateRequest,
 )
 from decision_workbench.contracts.subsystem_availability import (
     WELDING_TRANSFORM_RESOURCE_ID,
@@ -237,6 +245,23 @@ class PredictionGraphUseCases:
         self.workspace_catalog = workspace_catalog
         self.task_registry = task_registry
         self.transform_catalog = transform_catalog
+        self.drafts = PredictionGraphDraftUseCases(store)
+
+    def create_draft(
+        self,
+        payload: PredictionGraphDraftCreateRequest,
+    ) -> PredictionGraphDraftDocument:
+        return self.drafts.create(payload)
+
+    def get_draft(self, draft_id: str) -> PredictionGraphDraftDocument:
+        return self.drafts.get(draft_id)
+
+    def update_draft(
+        self,
+        draft_id: str,
+        payload: PredictionGraphDraftUpdateRequest,
+    ) -> PredictionGraphDraftDocument:
+        return self.drafts.update(draft_id, payload)
 
     def catalog(self) -> PredictionGraphCatalogResponse:
         task_items = scalar_chain_catalog(

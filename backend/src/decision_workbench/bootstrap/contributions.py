@@ -17,6 +17,7 @@ from decision_workbench.api.blend_optimization import (
 from decision_workbench.api.chains import execution_router
 from decision_workbench.api.chains import router as chains_router
 from decision_workbench.api.prediction_graphs import (
+    draft_router as prediction_graph_drafts_router,
     router as prediction_graphs_router,
 )
 from decision_workbench.api.transforms import router as transforms_router
@@ -260,6 +261,7 @@ class WeldingBlendApplicationContribution:
     routers: tuple[APIRouter, ...] = (
         chains_router,
         execution_router,
+        prediction_graph_drafts_router,
         prediction_graphs_router,
         blend_optimization_router,
         transforms_router,
