@@ -93,9 +93,13 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const edgeAnchors = useRef(new Map<string, HTMLElement>());
   const [edgePaths, setEdgePaths] = useState<Array<{ key: string; kind: "binding" | "decision_output"; d: string }>>([]);
+  const candidatePaths = useRef(new Map<string, string>());
+  const mounted = useRef(true);
+  const requestGeneration = useRef(0);
   // Draft lifetime stays screen-local in this PR. Cross-screen persistence is tracked by #716.
 
   useEffect(() => {
+    mounted.current = true;
     const controller = new AbortController();
     void workbenchApi.predictionGraphCatalog(controller.signal).then((response) => {
       if (controller.signal.aborted) return;
@@ -109,8 +113,20 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
       setCatalogError(reason instanceof Error ? reason.message : "Prediction Graph catalogを取得できませんでした。");
       setLoading(false);
     });
-    return () => controller.abort();
+    return () => {
+      mounted.current = false;
+      requestGeneration.current += 1;
+      controller.abort();
+    };
   }, []);
+
+  useEffect(() => {
+    for (const input of definition?.inputs ?? []) {
+      if (input.value_source.source_kind === "candidate") {
+        candidatePaths.current.set(input.input_id, input.value_source.candidate_path);
+      }
+    }
+  }, [definition]);
 
   const stagesByLayer = useMemo(
     () => definition ? topologicalLayers(definition) : [],
@@ -239,35 +255,43 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
 
   async function validateDraft() {
     if (!definition) return undefined;
+    const generation = ++requestGeneration.current;
+    const isCurrent = () => mounted.current && requestGeneration.current === generation;
     setSubmitting("validate");
     setActionError(undefined);
     try {
       const result = await workbenchApi.validatePredictionGraph(definition);
+      if (!isCurrent()) return undefined;
       setValidation(result);
       if (result.findings[0]) focusFinding(result.findings[0]);
       return result;
     } catch (reason) {
+      if (!isCurrent()) return undefined;
       setActionError(reason instanceof Error ? reason.message : "Prediction Graphを検証できませんでした。");
       return undefined;
     } finally {
-      setSubmitting(null);
+      if (isCurrent()) setSubmitting(null);
     }
   }
 
   async function publishAndCreateProject() {
     if (!definition) return;
+    const generation = ++requestGeneration.current;
+    const isCurrent = () => mounted.current && requestGeneration.current === generation;
     setSubmitting("publish");
     setActionError(undefined);
     try {
       let revision = published;
       if (!revision) {
         const checked = await workbenchApi.validatePredictionGraph(definition);
+        if (!isCurrent()) return;
         setValidation(checked);
         if (!checked.valid) {
           if (checked.findings[0]) focusFinding(checked.findings[0]);
           return;
         }
         revision = await workbenchApi.publishPredictionGraph(definition);
+        if (!isCurrent()) return;
         setPublished(revision);
       }
       const project = await workbenchApi.createPredictionGraphProject({
@@ -290,11 +314,13 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
         project_binding_revision: 1,
         project_binding_values: {},
       });
+      if (!isCurrent()) return;
       onProjectCreated(project);
     } catch (reason) {
+      if (!isCurrent()) return;
       setActionError(reason instanceof Error ? reason.message : "Revisionの公開またはProject作成に失敗しました。");
     } finally {
-      setSubmitting(null);
+      if (isCurrent()) setSubmitting(null);
     }
   }
 
@@ -489,7 +515,12 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
           {definition.inputs.length === 0 && <p className="chain-studio-empty">Binding一覧からInputを作成してください。</p>}
           {definition.inputs.map((input) => <div className="chain-studio-linear-row" key={input.input_id}>
             <label>label<input value={input.label} onFocus={() => setSelection({ kind: "input", id: input.input_id })} onChange={(event) => change({ ...definition, inputs: definition.inputs.map((item) => item.input_id === input.input_id ? { ...item, label: event.target.value } : item) })} /></label>
-            <label>role<select value={input.role} onFocus={() => setSelection({ kind: "input", id: input.input_id })} onChange={(event) => change(setInputRole(definition, input.input_id, event.target.value as typeof input.role))}>
+            <label>role<select value={input.role} onFocus={() => setSelection({ kind: "input", id: input.input_id })} onChange={(event) => change(setInputRole(
+              definition,
+              input.input_id,
+              event.target.value as typeof input.role,
+              candidatePaths.current.get(input.input_id),
+            ))}>
               <option value="design_variable">Design Input</option><option value="scenario_context">Context Input</option>
               {input.port.value_kind !== "sparse_blend" && <option value="fixed_parameter">Fixed parameter</option>}
             </select></label>

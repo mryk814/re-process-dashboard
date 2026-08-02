@@ -203,6 +203,7 @@ export function setInputRole(
   definition: ApiPredictionGraphDefinition,
   inputId: string,
   role: GraphInput["role"],
+  preservedCandidatePath?: string,
 ) {
   return {
     ...definition,
@@ -210,6 +211,10 @@ export function setInputRole(
       if (input.input_id !== inputId || (role === "fixed_parameter" && input.port.value_kind === "sparse_blend")) {
         return input;
       }
+      const candidateSourcePath = input.value_source.source_kind === "candidate"
+        ? input.value_source.candidate_path
+        : preservedCandidatePath;
+      if (role !== "fixed_parameter" && !candidateSourcePath) return input;
       return {
         ...input,
         role,
@@ -221,9 +226,7 @@ export function setInputRole(
             }
           : {
               source_kind: "candidate" as const,
-              candidate_path: input.value_source.source_kind === "candidate"
-                ? input.value_source.candidate_path
-                : candidatePath({ ...input.port, path: input.label }),
+              candidate_path: candidateSourcePath!,
             },
       };
     }),

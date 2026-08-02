@@ -7,6 +7,12 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   const graphId = `graph-studio-e2e-${Date.now()}`;
   const serverErrors: string[] = [];
   const taskDefinitionRequests: string[] = [];
+  const publishRequests: string[] = [];
+  const projectCreateRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/prediction-graphs/publish")) publishRequests.push(request.url());
+    if (request.url().endsWith("/api/prediction-graphs/projects")) projectCreateRequests.push(request.url());
+  });
   page.on("response", (response) => {
     if (response.status() >= 500) {
       serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
@@ -84,6 +90,7 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   expect(projectId).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Graph Studio Project smoke", exact: true })).toBeVisible();
   await expect(page.getByText("Prediction Graph Revisionを固定したProjectです")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Graph Studio Project smoke/ })).toContainText(`Graph Revision · ${graphId}:r1`);
 
   const projectResponse = await page.request.get(`${apiBaseUrl}/api/projects/${projectId}`);
   expect(projectResponse.status(), await projectResponse.text()).toBe(200);
@@ -98,5 +105,19 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await expect(page.getByRole("heading", { name: "この画面はPrediction Graph Projectでは利用できません" })).toBeVisible();
   expect(taskDefinitionRequests.filter((url) => url.includes(`/api/projects/${projectId}/task-definition`))).toEqual([]);
   await expectNoBlockingAxeViolations(page);
+
+  await page.goto("/?view=chain-studio");
+  await expect(heading).toBeVisible();
+  const publishCount = publishRequests.length;
+  const projectCreateCount = projectCreateRequests.length;
+  const validationStarted = page.waitForRequest((request) => request.url().endsWith("/api/prediction-graphs/validate"));
+  await page.getByRole("button", { name: "Revisionを公開してProjectを作成" }).click();
+  await validationStarted;
+  await page.getByRole("button", { name: "データライブラリ" }).click();
+  await expect(page).toHaveURL(/view=data-library/);
+  await page.waitForTimeout(300);
+  expect(publishRequests).toHaveLength(publishCount);
+  expect(projectCreateRequests).toHaveLength(projectCreateCount);
+  await expect(page).toHaveURL(/view=data-library/);
   expect(serverErrors).toEqual([]);
 });

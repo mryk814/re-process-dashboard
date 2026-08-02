@@ -1550,6 +1550,9 @@ export function ProjectHub({
             ? `${revision.template.definition.label} · r${revision.revision.revision} · ${revision.revision.stages.map((stage) => stage.stage_id).join(" → ")}`
             : `Chain Revision · ${itemIdentity.chain_revision_id}`;
         }
+        if (itemIdentity?.identity_kind === "prediction_graph") {
+          return `Graph Revision · ${itemIdentity.graph_revision_id}`;
+        }
         const datasetLabel = datasetByView.get(item.dataset_view_revision_id ?? "")
           ?.data_asset.original_filename.replace(/\.xlsx$/i, "") ?? "Dataset未解決";
         return `${datasetLabel} · ${taskLabels.get(item.task_id) ?? item.task_id}`;

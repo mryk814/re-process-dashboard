@@ -103,8 +103,24 @@ test("preserves the catalog canonical candidate group and path for numeric input
     source_kind: "candidate",
     candidate_path: "composition.C",
   });
+  const canonicalPath = definition.inputs[0].value_source.candidate_path;
+  const fixed = setInputRole(
+    definition,
+    definition.inputs[0].input_id,
+    "fixed_parameter",
+    canonicalPath,
+  );
+  const relabeled = {
+    ...fixed,
+    inputs: fixed.inputs.map((input) => ({ ...input, label: "炭素量" })),
+  };
   assert.deepEqual(
-    setInputRole(definition, definition.inputs[0].input_id, "scenario_context").inputs[0].value_source,
+    setInputRole(
+      relabeled,
+      definition.inputs[0].input_id,
+      "scenario_context",
+      canonicalPath,
+    ).inputs[0].value_source,
     { source_kind: "candidate", candidate_path: "composition.C" },
   );
 });
