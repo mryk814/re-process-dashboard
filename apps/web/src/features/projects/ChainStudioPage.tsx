@@ -40,6 +40,8 @@ import {
 import { usePredictionGraphDraft } from "./usePredictionGraphDraft";
 
 type Props = {
+  draftId?: string;
+  onDraftIdChange: (draftId: string | undefined) => void;
   onProjectCreated: (project: ApiProject) => void;
   registerNavigationGuard: (guard: () => Promise<boolean>) => () => void;
 };
@@ -80,7 +82,12 @@ function selectionKey(selection: DraftSelection | undefined) {
   return `${selection.kind}:${selection.id}`;
 }
 
-export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: Props) {
+export function ChainStudioPage({
+  draftId,
+  onDraftIdChange,
+  onProjectCreated,
+  registerNavigationGuard,
+}: Props) {
   const [catalog, setCatalog] = useState<ApiPredictionGraphCatalog>();
   const [definition, setDefinition] = useState<ApiPredictionGraphDefinition>();
   const [loading, setLoading] = useState(true);
@@ -109,7 +116,7 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const completedProjectNavigation = useRef(false);
   const appliedResumeId = useRef<string | undefined>(undefined);
   const catalogController = useRef<AbortController | undefined>(undefined);
-  const draftPersistence = usePredictionGraphDraft();
+  const draftPersistence = usePredictionGraphDraft(draftId, onDraftIdChange);
 
   const loadCatalog = useCallback(async () => {
     catalogController.current?.abort();

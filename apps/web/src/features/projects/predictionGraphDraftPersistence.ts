@@ -5,25 +5,6 @@ import type {
   ApiPredictionGraphDraftDocument,
 } from "../../shared/api/workbench-api";
 
-export function predictionGraphDraftIdFromLocation(
-  search: string,
-  hash: string,
-): string | undefined {
-  const queryId = new URLSearchParams(search).get("draft");
-  if (queryId) return queryId;
-  return new URLSearchParams(hash.replace(/^#/, "")).get("draft") || undefined;
-}
-
-export function predictionGraphDraftUrl(href: string, draftId: string | undefined): string {
-  const url = new URL(href);
-  url.searchParams.delete("draft");
-  const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
-  if (draftId) hash.set("draft", draftId);
-  else hash.delete("draft");
-  url.hash = hash.toString();
-  return url.toString();
-}
-
 export function predictionGraphDraftContent(
   definition: ApiPredictionGraphDefinition,
   projectName: string,

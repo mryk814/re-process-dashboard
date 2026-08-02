@@ -7,17 +7,13 @@ import type {
   ApiPredictionGraphDraftDocument,
 } from "../../shared/api/workbench-api";
 import { workbenchApi } from "../../shared/api/workbench-api";
-import {
-  predictionGraphDraftIdFromLocation,
-  predictionGraphDraftUrl,
-} from "./predictionGraphDraftPersistence";
 
 type DraftPhase = "loading" | "ready" | "saving";
 
-export function usePredictionGraphDraft() {
-  const [requestedDraftId, setRequestedDraftId] = useState(
-    () => predictionGraphDraftIdFromLocation(window.location.search, window.location.hash),
-  );
+export function usePredictionGraphDraft(
+  requestedDraftId: string | undefined,
+  onDraftIdChange: (draftId: string | undefined) => void,
+) {
   const [phase, setPhase] = useState<DraftPhase>("loading");
   const [document, setDocument] = useState<ApiPredictionGraphDraftDocument>();
   const [resumedDocument, setResumedDocument] = useState<ApiPredictionGraphDraftDocument>();
@@ -27,6 +23,12 @@ export function usePredictionGraphDraft() {
 
   const resume = useCallback(async (signal?: AbortSignal) => {
     if (!requestedDraftId) {
+      setError(undefined);
+      setResumeFailed(false);
+      setPhase("ready");
+      return;
+    }
+    if (document?.draft_id === requestedDraftId) {
       setError(undefined);
       setResumeFailed(false);
       setPhase("ready");
@@ -49,22 +51,13 @@ export function usePredictionGraphDraft() {
     } finally {
       if (!signal?.aborted) setPhase("ready");
     }
-  }, [requestedDraftId]);
+  }, [document?.draft_id, requestedDraftId]);
 
   useEffect(() => {
     const controller = new AbortController();
     void resume(controller.signal);
     return () => controller.abort();
   }, [resume]);
-
-  useEffect(() => {
-    if (!document) return;
-    window.history.replaceState(
-      window.history.state,
-      "",
-      predictionGraphDraftUrl(window.location.href, document.draft_id),
-    );
-  }, [document]);
 
   const save = useCallback(async (
     content: ApiPredictionGraphDraftContent,
@@ -77,6 +70,7 @@ export function usePredictionGraphDraft() {
       if (!document) {
         const created = await workbenchApi.createPredictionGraphDraft(content);
         setDocument(created);
+        onDraftIdChange(created.draft_id);
         return created;
       }
       const result = await workbenchApi.updatePredictionGraphDraft(
@@ -96,7 +90,7 @@ export function usePredictionGraphDraft() {
     } finally {
       setPhase("ready");
     }
-  }, [document]);
+  }, [document, onDraftIdChange]);
 
   const useServerVersion = useCallback(() => {
     if (!conflict) return undefined;
@@ -111,19 +105,14 @@ export function usePredictionGraphDraft() {
   ) => conflict ? save(content, conflict.current.version) : Promise.resolve(undefined), [conflict, save]);
 
   const startNewDraft = useCallback(() => {
-    window.history.replaceState(
-      window.history.state,
-      "",
-      predictionGraphDraftUrl(window.location.href, undefined),
-    );
     setDocument(undefined);
     setResumedDocument(undefined);
     setConflict(undefined);
     setError(undefined);
     setResumeFailed(false);
     setPhase("ready");
-    setRequestedDraftId(undefined);
-  }, []);
+    onDraftIdChange(undefined);
+  }, [onDraftIdChange]);
 
   return {
     phase,

@@ -40,20 +40,24 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await page.getByLabel("作成するProject名").fill("Graph Studio Project smoke");
   await page.getByRole("button", { name: "draftを保存" }).click();
   await expect(page.getByText("保存済み v1")).toBeVisible();
-  await expect(page).toHaveURL(/#draft=/);
-  const draftId = new URLSearchParams(new URL(page.url()).hash.slice(1)).get("draft");
+  await expect(page).toHaveURL(/[?&]draft=/);
+  const draftId = new URL(page.url()).searchParams.get("draft");
   expect(draftId).toBeTruthy();
   const secondTab = await page.context().newPage();
-  await secondTab.goto(`/?view=chain-studio#draft=${draftId}`);
+  await secondTab.goto(`/?view=chain-studio&draft=${draftId}`);
   await expect(secondTab.getByLabel("Graph ID")).toHaveValue(graphId);
   await expect(secondTab.getByText("保存済み v1")).toBeVisible();
+  await secondTab.getByRole("button", { name: "データライブラリ" }).click();
+  await expect(secondTab).toHaveURL(/view=data-library/);
+  expect(new URL(secondTab.url()).searchParams.has("draft")).toBe(false);
+  expect(new URL(secondTab.url()).hash).not.toContain("draft");
   await secondTab.close();
   const missingDraftTab = await page.context().newPage();
-  await missingDraftTab.goto("/?view=chain-studio#draft=other-workspace-draft");
+  await missingDraftTab.goto("/?view=chain-studio&draft=other-workspace-draft");
   await expect(missingDraftTab.getByRole("alert").filter({ hasText: "保存済みdraftを再開できませんでした" })).toContainText(
     "draft other-workspace-draft は現在のWorkspaceにありません。",
   );
-  await expect(missingDraftTab).toHaveURL(/#draft=other-workspace-draft$/);
+  await expect(missingDraftTab).toHaveURL(/[?&]draft=other-workspace-draft/);
   await expect(missingDraftTab.getByLabel("Graph ID")).toBeDisabled();
   await expect(missingDraftTab.getByRole("button", { name: "新しいdraftを開始" })).toBeVisible();
   await missingDraftTab.close();

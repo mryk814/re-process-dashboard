@@ -60,6 +60,7 @@ export type NavigationIntent = Readonly<{
   chainSnapshotId?: string;
   activityId?: string;
   activityRunId?: string;
+  draftId?: string;
   candidateSection?: CandidateSection;
   snapshotId?: string;
   adminSection?: AdminSection;
@@ -223,6 +224,7 @@ export function readNavigationIntent(
       : undefined,
     activityId: params.get("activity") || undefined,
     activityRunId: params.get("activity_run") || undefined,
+    draftId: normalizedView === "chain-studio" ? params.get("draft") || undefined : undefined,
     candidateSection: params.get("candidate_section") === "actuals" ? "actuals" : undefined,
     snapshotId: params.get("snapshot") || undefined,
     adminSection: normalizedView === "workspace" && adminSection && ADMIN_SECTIONS.has(adminSection as AdminSection) ? adminSection as AdminSection : undefined,
@@ -268,6 +270,7 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "candidates" && intent.chainSnapshotId) params.set("chain_snapshot", intent.chainSnapshotId);
   if (intent.activityId) params.set("activity", intent.activityId);
   if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
+  if (intent.view === "chain-studio" && intent.draftId) params.set("draft", intent.draftId);
   if (intent.candidateSection) params.set("candidate_section", intent.candidateSection);
   if (intent.snapshotId) params.set("snapshot", intent.snapshotId);
   if (intent.view === "workspace" && intent.adminSection) params.set("admin", intent.adminSection);
@@ -303,7 +306,12 @@ export function navigationUrl(intent: NavigationIntent): string {
     params.set("prepared_workspace_kind", binding.workspaceKind);
     params.set("prepared_workspace_path", binding.workspaceDatabasePath);
   }
-  return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  const currentHash = window.location.hash;
+  const hash = new URLSearchParams(currentHash.replace(/^#/, ""));
+  const normalizedHash = hash.has("draft")
+    ? (hash.delete("draft"), hash.toString() ? `#${hash.toString()}` : "")
+    : currentHash;
+  return `${window.location.pathname}?${params.toString()}${normalizedHash}`;
 }
 
 /**
@@ -344,6 +352,7 @@ export function withView(
     chainSnapshotId: view === "candidates" ? current.chainSnapshotId : undefined,
     activityId: view === "candidate-review" ? current.activityId : undefined,
     activityRunId: view === "candidate-review" ? current.activityRunId : undefined,
+    draftId: view === "chain-studio" ? current.draftId : undefined,
     candidateSection: view === "candidates" ? current.candidateSection : undefined,
     snapshotId: view === "project" ? current.snapshotId : undefined,
     adminSection: view === "workspace" ? current.adminSection : undefined,

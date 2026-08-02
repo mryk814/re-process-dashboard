@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  predictionGraphDraftIdFromLocation,
   predictionGraphDraftContent,
   predictionGraphDraftSummary,
-  predictionGraphDraftUrl,
   samePredictionGraphDraft,
   unavailablePredictionGraphReferences,
 } from "../src/features/projects/predictionGraphDraftPersistence.ts";
+
+async function navigationModule(search, hash = "") {
+  globalThis.window = { location: { search, pathname: "/", hash } };
+  return import(`../src/app/navigation.ts?draft-case=${encodeURIComponent(`${search}${hash}`)}`);
+}
 
 const definition = {
   schema_version: "prediction-graph-definition/v1",
@@ -56,24 +59,26 @@ test("summarizes the current server revision without replacing local content", (
   });
 });
 
-test("uses the URL as the exact draft resume identity without changing other navigation context", () => {
-  assert.equal(predictionGraphDraftIdFromLocation("?view=chain-studio", "#draft=draft-a"), "draft-a");
-  assert.equal(predictionGraphDraftIdFromLocation("?view=chain-studio&draft=legacy-query", ""), "legacy-query");
-  assert.equal(predictionGraphDraftIdFromLocation("?view=chain-studio", ""), undefined);
+test("scopes exact draft navigation identity to Chain Studio", async () => {
+  const studio = await navigationModule("?view=chain-studio&project=default&draft=draft-a");
+  const intent = studio.readNavigationIntent();
+  assert.equal(intent.draftId, "draft-a");
   assert.equal(
-    predictionGraphDraftUrl(
-      "http://127.0.0.1:5180/?view=chain-studio&project=default",
-      "draft-b",
-    ),
-    "http://127.0.0.1:5180/?view=chain-studio&project=default#draft=draft-b",
+    studio.navigationUrl(intent),
+    "/?view=chain-studio&project=default&draft=draft-a",
   );
-  assert.equal(
-    predictionGraphDraftUrl(
-      "http://127.0.0.1:5180/?view=chain-studio&project=default#draft=draft-b",
-      undefined,
-    ),
-    "http://127.0.0.1:5180/?view=chain-studio&project=default",
-  );
+
+  const libraryIntent = studio.withView(intent, "data-library");
+  assert.equal(libraryIntent.draftId, undefined);
+  assert.doesNotMatch(studio.navigationUrl(libraryIntent), /draft=/);
+
+  const leakedQuery = await navigationModule("?view=data-library&draft=draft-a");
+  assert.equal(leakedQuery.readNavigationIntent().draftId, undefined);
+  assert.equal(leakedQuery.navigationUrl(leakedQuery.readNavigationIntent()), "/?view=data-library");
+
+  const leakedHash = await navigationModule("?view=chain-studio", "#draft=draft-a");
+  assert.equal(leakedHash.readNavigationIntent().draftId, undefined);
+  assert.equal(leakedHash.navigationUrl(leakedHash.readNavigationIntent()), "/?view=chain-studio");
 });
 
 test("reports unavailable stage identity and retained dependent work", () => {
