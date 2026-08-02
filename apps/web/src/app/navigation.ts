@@ -1,5 +1,10 @@
 import type { CandidateSection } from "../shared/projectActionQuestions";
 import type { PreparedProjectBinding } from "../shared/preparedProjectBinding";
+import type {
+  ModelLibraryDataIntent,
+  ModelLibraryProjectIntent,
+  ModelLibraryTab,
+} from "../shared/modelLibrary";
 
 export const WORKBENCH_VIEWS = [
   "project",
@@ -8,6 +13,7 @@ export const WORKBENCH_VIEWS = [
   "candidate-review",
   "chain-graph",
   "chain-studio",
+  "model-library",
   "workspace",
   "quality",
   "lineage",
@@ -69,12 +75,15 @@ export type NavigationIntent = Readonly<{
   developerGuideId?: string;
   projectSettings?: "general" | "targets" | "scientific" | "ranges" | "display" | "task" | "evidence";
   dataLibraryTab?: DataLibraryTab;
+  modelLibraryTab?: ModelLibraryTab;
   sourceConnectorId?: string;
   sourceStage?: SourceLifecycleStage;
   sourceRevisionId?: string;
   dataOnboardingMode?: DataOnboardingMode;
   baseDatasetRevisionId?: string;
   preparedProjectBinding?: PreparedProjectBinding;
+  modelLibraryProject?: ModelLibraryProjectIntent;
+  modelLibraryData?: ModelLibraryDataIntent;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -82,6 +91,7 @@ const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", 
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
 const SOURCE_STAGES = new Set<SourceLifecycleStage>(["raw", "curation", "approval", "training"]);
 const DATA_ONBOARDING_MODES = new Set<DataOnboardingMode>(["revision", "mapping", "new-task"]);
+const MODEL_LIBRARY_TABS = new Set<ModelLibraryTab>(["tasks", "packages", "transforms", "graphs"]);
 const WORKBENCH_PRIMARY_SURFACE_SET = new Set<string>(WORKBENCH_PRIMARY_SURFACES);
 const SCREENING_RESULT_SURFACE_SET = new Set<string>(SCREENING_RESULT_SURFACES);
 
@@ -136,6 +146,12 @@ export function readNavigationIntent(
       ? "update"
       : "browse"
     : undefined;
+  const requestedModelLibraryTab = params.get("asset");
+  const modelLibraryTab: ModelLibraryTab | undefined = normalizedView === "model-library"
+    && requestedModelLibraryTab
+    && MODEL_LIBRARY_TABS.has(requestedModelLibraryTab as ModelLibraryTab)
+    ? requestedModelLibraryTab as ModelLibraryTab
+    : normalizedView === "model-library" ? "tasks" : undefined;
   const sourceConnectorId = dataLibraryTab === "update" ? requestedConnectorId : undefined;
   const sourceStage = sourceConnectorId && requestedStage && SOURCE_STAGES.has(requestedStage as SourceLifecycleStage)
     ? requestedStage as SourceLifecycleStage
@@ -167,6 +183,44 @@ export function readNavigationIntent(
       workspaceKind: params.get("prepared_workspace_kind") || "local",
       workspaceDatabasePath: params.get("prepared_workspace_path") || "現在のWorkspace",
       reloaded: true,
+    }
+    : undefined;
+  const modelProjectKind = params.get("model_project_kind");
+  const modelLibraryProject: ModelLibraryProjectIntent | undefined = normalizedView === "project"
+    && modelProjectKind === "single_task"
+    && params.get("model_dataset_view")
+    && params.get("model_dataset_revision")
+    && params.get("model_task")
+    && params.get("model_package")
+    && params.get("model_package_digest")
+    ? {
+      kind: "single_task",
+      datasetViewRevisionId: params.get("model_dataset_view")!,
+      datasetRevisionId: params.get("model_dataset_revision")!,
+      taskId: params.get("model_task")!,
+      packageReferenceId: params.get("model_package")!,
+      packageManifestDigest: params.get("model_package_digest")!,
+    }
+    : normalizedView === "project"
+      && modelProjectKind === "graph"
+      && params.get("model_graph")
+      && params.get("model_definition")
+      && params.get("model_revision")
+      && params.get("model_revision_digest")
+      ? {
+        kind: "graph",
+        graphId: params.get("model_graph")!,
+        definitionId: params.get("model_definition")!,
+        revisionId: params.get("model_revision")!,
+        revisionDigest: params.get("model_revision_digest")!,
+        datasetViewRevisionId: params.get("model_dataset_view") || undefined,
+      }
+      : undefined;
+  const modelLibraryData: ModelLibraryDataIntent | undefined = normalizedView === "data-library"
+    && (params.get("focus_dataset_revision") || params.get("focus_package"))
+    ? {
+      datasetRevisionId: params.get("focus_dataset_revision") || undefined,
+      packageReferenceId: params.get("focus_package") || undefined,
     }
     : undefined;
   const dataOnboardingMode = (normalizedView === "data-library" || normalizedView === "profile-workbench")
@@ -235,12 +289,15 @@ export function readNavigationIntent(
     developerGuideId: params.get("developer_guide") || undefined,
     projectSettings,
     dataLibraryTab,
+    modelLibraryTab,
     sourceConnectorId,
     sourceStage,
     sourceRevisionId,
     dataOnboardingMode,
     baseDatasetRevisionId: params.get("base_dataset") || undefined,
     preparedProjectBinding,
+    modelLibraryProject,
+    modelLibraryData,
   });
 }
 
@@ -280,9 +337,18 @@ export function navigationUrl(intent: NavigationIntent): string {
     params.set("project_settings", intent.projectSettings);
   }
   if (intent.view === "data-library" && intent.dataLibraryTab === "update") params.set("tab", "update");
+  if (intent.view === "model-library" && intent.modelLibraryTab && intent.modelLibraryTab !== "tasks") {
+    params.set("asset", intent.modelLibraryTab);
+  }
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
+  if (intent.view === "data-library" && intent.modelLibraryData?.datasetRevisionId) {
+    params.set("focus_dataset_revision", intent.modelLibraryData.datasetRevisionId);
+  }
+  if (intent.view === "data-library" && intent.modelLibraryData?.packageReferenceId) {
+    params.set("focus_package", intent.modelLibraryData.packageReferenceId);
+  }
   if (
     (intent.view === "data-library" || intent.view === "profile-workbench")
     && intent.dataOnboardingMode
@@ -305,6 +371,23 @@ export function navigationUrl(intent: NavigationIntent): string {
     params.set("prepared_result", binding.preparationResult);
     params.set("prepared_workspace_kind", binding.workspaceKind);
     params.set("prepared_workspace_path", binding.workspaceDatabasePath);
+  }
+  if (intent.view === "project" && intent.modelLibraryProject) {
+    const project = intent.modelLibraryProject;
+    params.set("model_project_kind", project.kind);
+    if (project.kind === "single_task") {
+      params.set("model_dataset_view", project.datasetViewRevisionId);
+      params.set("model_dataset_revision", project.datasetRevisionId);
+      params.set("model_task", project.taskId);
+      params.set("model_package", project.packageReferenceId);
+      params.set("model_package_digest", project.packageManifestDigest);
+    } else {
+      params.set("model_graph", project.graphId);
+      params.set("model_definition", project.definitionId);
+      params.set("model_revision", project.revisionId);
+      params.set("model_revision_digest", project.revisionDigest);
+      if (project.datasetViewRevisionId) params.set("model_dataset_view", project.datasetViewRevisionId);
+    }
   }
   const currentHash = window.location.hash;
   const hash = new URLSearchParams(currentHash.replace(/^#/, ""));
@@ -361,6 +444,7 @@ export function withView(
     developerGuideId: view === "workspace" && current.adminSection === "developer" ? current.developerGuideId : undefined,
     projectSettings: view === "project-settings" ? current.projectSettings : undefined,
     dataLibraryTab: view === "data-library" ? current.dataLibraryTab : undefined,
+    modelLibraryTab: view === "model-library" ? current.modelLibraryTab : undefined,
     sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,
     sourceStage: view === "data-library" ? current.sourceStage : undefined,
     sourceRevisionId: view === "data-library" ? current.sourceRevisionId : undefined,
@@ -371,5 +455,7 @@ export function withView(
       ? current.baseDatasetRevisionId
       : undefined,
     preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
+    modelLibraryProject: view === "project" ? current.modelLibraryProject : undefined,
+    modelLibraryData: view === "data-library" ? current.modelLibraryData : undefined,
   });
 }
