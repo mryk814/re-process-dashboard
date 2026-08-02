@@ -73,17 +73,21 @@ function candidatePayload(candidate: ApiCandidate): ApiCandidateInput {
 export function ChainWorkbenchPage({
   projectId,
   initialCandidateId,
+  requestedSnapshotId,
   unavailable,
   displayDecimalOverrides,
   registerNavigationGuard,
   onCandidateSelected,
+  onSnapshotSelected,
 }: {
   projectId: string;
   initialCandidateId?: string;
+  requestedSnapshotId?: string;
   unavailable?: ApiSubsystemAvailability;
   displayDecimalOverrides?: Record<string, number>;
   registerNavigationGuard: (guard: () => Promise<boolean>) => () => void;
   onCandidateSelected: (candidateId: string) => void;
+  onSnapshotSelected: (snapshotId?: string) => void;
 }) {
   const readOnly = Boolean(unavailable);
   const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
@@ -98,7 +102,7 @@ export function ChainWorkbenchPage({
   const [selectedId, setSelectedId] = useState(initialCandidateId ?? "");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [snapshots, setSnapshots] = useState<ApiChainSnapshot[]>([]);
-  const [viewedSnapshotId, setViewedSnapshotId] = useState("");
+  const [snapshotState, setSnapshotState] = useState<"loading" | "ready" | "error">("loading");
   const [variants, setVariants] = useState<ApiActualConditionedVariant[]>([]);
   const [draftActualId, setDraftActualId] = useState("");
   const [actualDraft, setActualDraft] = useState<Record<string, string>>({});
@@ -127,9 +131,12 @@ export function ChainWorkbenchPage({
   const comparisonSnapshot = snapshots.find(
     (snapshot) => snapshot.identity.candidate_revision === selected?.revision,
   );
-  const viewedSnapshot = snapshots.find(
-    (snapshot) => snapshot.snapshot_id === viewedSnapshotId,
-  ) ?? comparisonSnapshot ?? snapshots[0];
+  const requestedSnapshot = requestedSnapshotId
+    ? snapshots.find((snapshot) => snapshot.snapshot_id === requestedSnapshotId)
+    : undefined;
+  const viewedSnapshot = requestedSnapshotId
+    ? requestedSnapshot
+    : comparisonSnapshot ?? snapshots[0];
   const latestVariant = variants.find(
     (variant) => variant.identity.base_candidate_revision === selected?.revision,
   );
@@ -222,6 +229,7 @@ export function ChainWorkbenchPage({
     token: CandidateRequestToken,
     supportsActualComparison = candidateAdapter?.evidence.supportsActualComparison ?? false,
   ) {
+    setSnapshotState("loading");
     try {
       const [nextExecution, nextSnapshots, nextVariants] = await Promise.all([
         workbenchApi.chainExecution(projectId, candidateId).catch(() => null),
@@ -233,15 +241,12 @@ export function ChainWorkbenchPage({
       if (!candidateRequests.current.isCurrent(token)) return;
       setExecution(nextExecution);
       setSnapshots(nextSnapshots);
-      setViewedSnapshotId((current) => (
-        nextSnapshots.some((snapshot) => snapshot.snapshot_id === current)
-          ? current
-          : nextSnapshots[0]?.snapshot_id ?? ""
-      ));
+      setSnapshotState("ready");
       setVariants(nextVariants);
       setStatusMessage(nextExecution ? "固定されたChainの最新実行を表示しています" : "まだChainを実行していません");
     } catch (cause) {
       if (candidateRequests.current.isCurrent(token)) {
+        setSnapshotState("error");
         setStatusMessage(cause instanceof Error ? cause.message : "Chain候補の計算状態を読み込めませんでした");
       }
     }
@@ -696,7 +701,7 @@ export function ChainWorkbenchPage({
       const snapshot = await workbenchApi.createChainSnapshot(projectId, selected.id, selected.revision);
       if (!candidateRequests.current.isCurrent(candidateToken)) return;
       setSnapshots((items) => [snapshot, ...items.filter((item) => item.snapshot_id !== snapshot.snapshot_id)]);
-      setViewedSnapshotId(snapshot.snapshot_id);
+      onSnapshotSelected(snapshot.snapshot_id);
       setStatusMessage("現在の全Stageをスナップショットに固定しました");
     } catch (cause) {
       if (candidateRequests.current.isCurrent(candidateToken)) {
@@ -878,11 +883,24 @@ export function ChainWorkbenchPage({
       </div>
     </div>
 
+    {requestedSnapshotId && snapshotState === "loading" && <section className="chain-snapshot-evidence task-unavailable-panel" role="status">
+      <h3>固定Snapshotを確認しています</h3>
+      <p>共有されたSnapshot identityを、この候補の保存済み証跡から照合しています。</p>
+    </section>}
+    {requestedSnapshotId && snapshotState === "ready" && !requestedSnapshot && <section className="chain-snapshot-evidence task-unavailable-panel" role="status">
+      <h3>指定された固定Snapshotを表示できません</h3>
+      <p><code>{requestedSnapshotId}</code> は、このChain候補にありません。</p>
+      <button type="button" className="outline-button" onClick={() => onSnapshotSelected()}>現在の固定Snapshotを表示</button>
+    </section>}
+    {requestedSnapshotId && snapshotState === "error" && <section className="chain-snapshot-evidence task-unavailable-panel" role="alert">
+      <h3>固定Snapshotを照合できません</h3>
+      <p>保存済み証跡を取得できなかったため、指定identityを別のSnapshotへ置き換えていません。</p>
+    </section>}
     {viewedSnapshot && <details className="chain-snapshot-evidence" open={readOnly ? true : undefined}>
       <summary>固定Snapshotの証跡 <b>{snapshots.length}</b></summary>
       <div className="chain-snapshot-heading">
         <label>固定時点
-          <select value={viewedSnapshot.snapshot_id} onChange={(event) => setViewedSnapshotId(event.target.value)}>
+          <select value={viewedSnapshot.snapshot_id} onChange={(event) => onSnapshotSelected(event.target.value)}>
             {snapshots.map((snapshot) => (
               <option key={snapshot.snapshot_id} value={snapshot.snapshot_id}>
                 編集版 {snapshot.identity.candidate_revision} · {new Date(snapshot.created_at).toLocaleString("ja-JP")}

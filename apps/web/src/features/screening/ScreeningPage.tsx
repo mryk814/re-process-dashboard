@@ -159,7 +159,10 @@ export function ScreeningPage({
   taskDefinition,
   resolvedTaskDefinition,
   initialRunId,
+  requestedResultSurface,
+  resultSurfaceError,
   onRunChange,
+  onResultSurfaceChange,
   onSelectCandidate,
   onCandidate,
   onCompare,
@@ -172,7 +175,10 @@ export function ScreeningPage({
   taskDefinition: TaskDefinitionContract | null;
   resolvedTaskDefinition: ResolvedTaskDefinition | null;
   initialRunId?: string;
+  requestedResultSurface?: ScreeningResultSurface;
+  resultSurfaceError?: string;
   onRunChange: (runId: string) => void;
+  onResultSurfaceChange: (surface: ScreeningResultSurface) => void;
   onSelectCandidate: (candidateId: string) => void;
   onCandidate: (candidate: Candidate) => void;
   onCompare: () => void;
@@ -756,6 +762,13 @@ export function ScreeningPage({
   const selectionSurface = result
     ? screeningSelectionSurface(result)
     : { kind: "none" as const, label: "提案候補" as const, count: 0, available: false };
+  const displayedResultSurface = resultSurfaceError
+    ? undefined
+    : requestedResultSurface ?? resultSurface;
+  const unavailableResultSurface = resultSurfaceError
+    ?? (displayedResultSurface === "proposals" && !selectionSurface.available
+      ? displayedResultSurface
+      : undefined);
   const proposedPointIndices = new Set(
     selectionSurface.kind === "proposal"
       ? result?.proposal_selection?.selected.map((item) => item.point_index) ?? []
@@ -1667,11 +1680,20 @@ export function ScreeningPage({
               void run(nextSeed);
             }}
           />
+          {unavailableResultSurface ? <section className="task-unavailable-panel" role="status">
+            <h3>指定された探索結果を表示できません</h3>
+            <p><code>{unavailableResultSurface}</code> は、この固定Runで利用できる結果面にありません。</p>
+            <div className="button-row">
+              <button type="button" className="outline-button" onClick={() => onResultSurfaceChange("map")}>地図を表示</button>
+              <button type="button" className="outline-button" onClick={() => onResultSurfaceChange("evaluated")}>全評価点を表示</button>
+            </div>
+          </section> : displayedResultSurface && <>
           <ScreeningResultSurfaceTabs
-            value={resultSurface}
+            value={displayedResultSurface}
             onChange={(surface) => {
               setResultSurface(surface);
               setHoveredScreenPoint(null);
+              onResultSurfaceChange(surface);
             }}
             selectionLabel={selectionSurface.label}
             selectionCount={selectionSurface.count}
@@ -1682,7 +1704,7 @@ export function ScreeningPage({
             }
             selectionAvailable={selectionSurface.available}
           />
-          {resultSurface === "map" && (
+          {displayedResultSurface === "map" && (
           <section
             id="screening-result-panel-map"
             className="screening-map-surface"
@@ -1923,7 +1945,7 @@ export function ScreeningPage({
           </div>
           </section>
           )}
-          {resultSurface === "proposals" && selectionSurface.kind === "proposal" && (
+          {displayedResultSurface === "proposals" && selectionSurface.kind === "proposal" && (
           <section
             id="screening-result-panel-proposals"
             className="screening-proposal-surface"
@@ -1959,10 +1981,10 @@ export function ScreeningPage({
           />
           </section>
           )}
-          {resultSurface === "proposals" && selectionSurface.kind === "batch" && (
+          {displayedResultSurface === "proposals" && selectionSurface.kind === "batch" && (
             <ScreeningBatchTable result={result} />
           )}
-          {resultSurface === "evaluated" && (
+          {displayedResultSurface === "evaluated" && (
             <ScreeningEvaluatedTable
               result={result}
               axisLabel={axisLabel}
@@ -1973,6 +1995,7 @@ export function ScreeningPage({
               }
             />
           )}
+          </>}
           <ScreeningRunEvidence result={result} />
         </>
       )}

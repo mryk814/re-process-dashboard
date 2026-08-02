@@ -115,6 +115,9 @@ type WorkbenchProps = {
   taskDefinition: TaskDefinitionContract | null;
   operations?: RuntimeOperations;
   application?: ApplicationCapability;
+  requestedPrimarySurface?: WorkbenchSurfaceKind;
+  primarySurfaceError?: string;
+  onPrimarySurfaceChange: (surface: WorkbenchSurfaceKind) => void;
   saveState: CandidateSaveState;
   saveStates: Record<string, CandidateSaveState>;
   fieldErrors: Array<{ path: string; message: string }>;
@@ -182,6 +185,9 @@ export function WorkbenchPage(props: WorkbenchProps) {
     taskDefinition,
     operations,
     application,
+    requestedPrimarySurface,
+    primarySurfaceError,
+    onPrimarySurfaceChange,
     saveState,
     saveStates,
     fieldErrors,
@@ -225,8 +231,6 @@ export function WorkbenchPage(props: WorkbenchProps) {
     onLoadRemainingPreviews,
     children,
   } = props;
-  const [activePrimarySurface, setActivePrimarySurface] =
-    useState<WorkbenchSurfaceKind>("response_curve");
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorDragWidth, setInspectorDragWidth] = useState<number | null>(null);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => storedLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, false));
@@ -261,13 +265,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
   const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
   const evidenceSurfaces = workbenchSurfacesInZone(application, "analysis_evidence");
   const afterAnalysisSurfaces = workbenchSurfacesInZone(application, "after_analysis");
-  const selectedPrimarySurface = primarySurfaces.find(
-    (surface) => surface.kind === activePrimarySurface,
-  ) ?? primarySurfaces[0];
-  useEffect(() => {
-    if (primarySurfaces.some((surface) => surface.kind === activePrimarySurface)) return;
-    if (primarySurfaces[0]) setActivePrimarySurface(primarySurfaces[0].kind);
-  }, [application?.workbench_surfaces, activePrimarySurface]);
+  const selectedPrimarySurface = primarySurfaceError
+    ? undefined
+    : requestedPrimarySurface
+      ? primarySurfaces.find((surface) => surface.kind === requestedPrimarySurface)
+      : primarySurfaces[0];
+  const unavailablePrimarySurface = primarySurfaceError
+    ?? (requestedPrimarySurface && !selectedPrimarySurface ? requestedPrimarySurface : undefined);
   useEffect(() => {
     if (
       candidateSection !== "actuals"
@@ -642,7 +646,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
           style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}
           data-workbench-surface-zone="analysis"
         >
-          {selectedPrimarySurface ? <div className="workbench-surface-deck">
+          {unavailablePrimarySurface ? <div className="workbench-surface-deck task-unavailable-panel" role="status">
+            <h3>指定された分析面を表示できません</h3>
+            <p><code>{unavailablePrimarySurface}</code> は、このPrediction Taskが宣言した分析面にありません。</p>
+            {primarySurfaces[0] && <button
+              type="button"
+              className="outline-button"
+              onClick={() => onPrimarySurfaceChange(primarySurfaces[0].kind)}
+            >利用可能な分析面を表示</button>}
+          </div> : selectedPrimarySurface ? <div className="workbench-surface-deck">
             {primarySurfaces.length > 1 ? <AccessibleTabList
               idPrefix="workbench-surface"
               label="予測の見方"
@@ -652,7 +664,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
                 label: workbenchSurfaceRegistry[surface.kind].label,
               }))}
               selected={selectedPrimarySurface.kind}
-              onSelect={setActivePrimarySurface}
+              onSelect={onPrimarySurfaceChange}
             /> : null}
             {primarySurfaces.map((surface) => primarySurfaces.length > 1
               ? <AccessibleTabPanel

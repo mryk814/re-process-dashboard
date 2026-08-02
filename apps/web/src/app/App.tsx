@@ -765,6 +765,15 @@ function App() {
           <ChainGraphViewer
             projectId={activeProjectId}
             candidateId={selectedId || navigation.candidateId}
+            requestedInspection={navigation.chainInspection}
+            inspectionError={navigation.chainInspectionError}
+            onInspectionChange={(chainInspection) => navigate({
+              ...navigationRef.current,
+              view: "chain-graph",
+              projectId: activeProjectId,
+              chainInspection,
+              chainInspectionError: undefined,
+            }, true)}
           />
         )}
         {tab === "workspace" && (
@@ -814,16 +823,35 @@ function App() {
           <ChainWorkbenchPage
             projectId={activeProjectId}
             initialCandidateId={navigation.candidateId}
+            requestedSnapshotId={navigation.chainSnapshotId}
             unavailable={activeChainContext.status === "unavailable"
               ? activeChainContext.availability
               : undefined}
             displayDecimalOverrides={activeProject?.display_decimals}
             registerNavigationGuard={registerNavigationGuard}
-            onCandidateSelected={(candidateId) => navigate({
-              view: "candidates",
-              projectId: activeProjectId,
-              candidateId,
-            }, true)}
+            onCandidateSelected={(candidateId) => {
+              const current = navigationRef.current;
+              const changedCandidate = Boolean(
+                current.candidateId && current.candidateId !== candidateId,
+              );
+              navigate({
+                ...current,
+                view: "candidates",
+                projectId: activeProjectId,
+                candidateId,
+                chainSnapshotId: changedCandidate ? undefined : current.chainSnapshotId,
+              }, true);
+            }}
+            onSnapshotSelected={(chainSnapshotId) => {
+              const current = navigationRef.current;
+              navigate({
+                ...current,
+                view: "candidates",
+                projectId: activeProjectId,
+                candidateId: current.candidateId,
+                chainSnapshotId,
+              }, true);
+            }}
           />
         )}
         {(tab === "candidates" || tab === "candidate-review" || tab === "explore") && !chainProject && !predictionGraphProject && !taskUnavailable &&
@@ -842,6 +870,13 @@ function App() {
               taskDefinition={taskDefinition}
               operations={operations}
               application={resolvedTaskDefinition?.application}
+              requestedPrimarySurface={navigation.workbenchSurface}
+              primarySurfaceError={navigation.workbenchSurfaceError}
+              onPrimarySurfaceChange={(surface) => navigate({
+                ...navigationRef.current,
+                workbenchSurface: surface as NavigationIntent["workbenchSurface"],
+                workbenchSurfaceError: undefined,
+              }, true)}
               saveState={editor.saveStates[selected.id] ?? "idle"}
               saveStates={editor.saveStates}
               fieldErrors={editor.fieldErrors[selected.id] ?? []}
@@ -918,11 +953,26 @@ function App() {
                 taskDefinition={taskDefinition}
                 resolvedTaskDefinition={resolvedTaskDefinition}
                 initialRunId={navigation.screeningRunId}
-                onRunChange={(screeningRunId) => navigate({
+                requestedResultSurface={navigation.screeningResultSurface}
+                resultSurfaceError={navigation.screeningResultSurfaceError}
+                onRunChange={(screeningRunId) => {
+                  const current = navigationRef.current;
+                  const changedRun = current.screeningRunId !== screeningRunId;
+                  navigate({
+                    ...current,
+                    view: "explore",
+                    projectId: activeProjectId,
+                    screeningRunId,
+                    screeningResultSurface: changedRun ? undefined : current.screeningResultSurface,
+                    screeningResultSurfaceError: changedRun ? undefined : current.screeningResultSurfaceError,
+                  }, true);
+                }}
+                onResultSurfaceChange={(screeningResultSurface) => navigate({
                   ...navigationRef.current,
                   view: "explore",
                   projectId: activeProjectId,
-                  screeningRunId,
+                  screeningResultSurface,
+                  screeningResultSurfaceError: undefined,
                 }, true)}
                 onSelectCandidate={(candidateId) => selectCandidate(candidateId)}
                 onCandidate={(candidate) => {
