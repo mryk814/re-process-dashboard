@@ -43,7 +43,7 @@ source-of-truth: URL, history, and NavigationIntent semantics
 | `onboarding` / `base_dataset` | Data LibraryまたはProfile Workbenchの追加導線（`revision`、`mapping`、`new-task`）と更新元Dataset revision |
 | `prepared_*` | onboarding直後に確認するDataset／Task／Package／source／Estimator／Workspaceの固定binding。`project`画面だけで復元する |
 | `model_project_kind` と `model_*` | Model LibraryからProject作成面へ渡す固定identity。single TaskではDataset View／Dataset／Task／Package／manifest、GraphではGraph／Definition／immutable Revision／digestを一組で復元する |
-| `focus_dataset_revision` / `focus_package` | Model LibraryからData Libraryへ渡す確認対象。未解決・利用停止・表示条件外なら別資産へfallbackせず、その参照のerrorを表示する |
+| `focus_dataset_revision` / `focus_package` | Model LibraryからData Libraryへ渡す確認対象、またはData LibraryからModel Libraryへ渡すDataset文脈。未解決・利用停止・表示条件外なら別資産へfallbackしない |
 
 未知の`view`は`project`へ、未知のenum値・依存先のないresource指定は省略へ正規化します。
 たとえば`revision`は有効な`connector`と`stage`があるData Library更新画面だけで意味を持ちます。

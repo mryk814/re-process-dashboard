@@ -40,6 +40,7 @@ export function ResourceCatalogView({
   onAddDataset,
   onStartProject,
   onOpenTrainingData,
+  onOpenModelLibrary,
   onOpenStorage,
   location,
   onNavigate,
@@ -54,6 +55,7 @@ export function ResourceCatalogView({
   ) => void;
   onStartProject: (datasetViewRevisionId: string, binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">) => void;
   onOpenTrainingData: (projectId: string) => void;
+  onOpenModelLibrary: (datasetRevisionId: string) => void;
   onOpenStorage: () => void;
   location: DataLibraryLocation;
   onNavigate: (location: DataLibraryLocation, replace?: boolean) => void;
@@ -431,6 +433,11 @@ export function ResourceCatalogView({
               <p>{selectedDataset.supported_task_ids.map(taskLabel).join(" / ") || "予測タスク未定義"}</p>
             </div>
             <div className="dataset-context-actions">
+              <button
+                className="outline-button"
+                type="button"
+                onClick={() => onOpenModelLibrary(selectedDataset.dataset_revision.id)}
+              >利用中のモデル資産を見る</button>
               <button className="outline-button" type="button" disabled={selectedDataset.supported_task_ids.length === 0} onClick={() => openModelGuide()}>このデータでモデルを更新</button>
             </div>
           </header>

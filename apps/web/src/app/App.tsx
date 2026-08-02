@@ -601,21 +601,10 @@ function App() {
           </button>
           <button
             type="button"
-            className={tab === "chain-studio" ? "nav-button active" : "nav-button"}
-            aria-label="Chain Studio"
-            data-short-label="Chain"
-            aria-current={tab === "chain-studio" ? "page" : undefined}
-            onClick={() => navigate({ view: "chain-studio" })}
-          >
-            <HomeNavIcon icon="chain" />
-            <span className="nav-label-full">Chain Studio</span>
-          </button>
-          <button
-            type="button"
-            className={tab === "model-library" ? "nav-button active" : "nav-button"}
+            className={tab === "model-library" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
             aria-label="Model Library"
             data-short-label="Model"
-            aria-current={tab === "model-library" ? "page" : undefined}
+            aria-current={tab === "model-library" || tab === "chain-studio" ? "page" : undefined}
             onClick={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
           >
             <HomeNavIcon icon="model" />
@@ -790,13 +779,24 @@ function App() {
             adminSection: "developer",
             developerTab: "training",
           })}
+          onOpenModelLibrary={(datasetRevisionId) => navigate({
+            view: "model-library",
+            modelLibraryTab: "packages",
+            modelLibraryData: { datasetRevisionId },
+          })}
         />}
         {tab === "model-library" && <ModelLibraryPage
           tab={navigation.modelLibraryTab ?? "tasks"}
           onTabChange={(modelLibraryTab) => navigate({
             view: "model-library",
             modelLibraryTab,
+            modelLibraryData: navigation.modelLibraryData,
           })}
+          dataContext={navigation.modelLibraryData}
+          onClearDataContext={() => navigate({
+            view: "model-library",
+            modelLibraryTab: navigation.modelLibraryTab ?? "tasks",
+          }, true)}
           onOpenDataLibrary={(modelLibraryData) => navigate({
             view: "data-library",
             modelLibraryData,

@@ -109,6 +109,24 @@ test("Data Library deep link keeps dataset and package focus", async () => {
   );
 });
 
+test("Data Library can open Model Library with the selected Dataset context", async () => {
+  const navigation = await navigationModule("?view=data-library");
+  const intent = {
+    view: "model-library",
+    modelLibraryTab: "packages",
+    modelLibraryData: {
+      datasetRevisionId: "dataset-r3",
+    },
+  };
+
+  const roundTrip = navigation.readNavigationIntent(
+    new URL(navigation.navigationUrl(intent), "http://localhost").search,
+  );
+  assert.equal(roundTrip.modelLibraryTab, "packages");
+  assert.equal(roundTrip.modelLibraryData?.datasetRevisionId, "dataset-r3");
+  assert.equal(roundTrip.modelLibraryData?.packageReferenceId, undefined);
+});
+
 test("a changed package handoff clears completed focus so Back can focus again", async () => {
   const { clearFocusedPackageIntentOnChange } = await import("../src/shared/modelLibrary.ts");
   const focusA = "dataset-a:package-a";

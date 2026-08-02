@@ -13,6 +13,8 @@ test("Model Library compares assets and hands off without changing them", async 
   }).filter({
     has: page.getByText("利用可能", { exact: true }),
   }).first();
+  await availablePackage.getByText("Pipeline・検証・固定参照").click();
+  await expect(availablePackage.getByText(/Quality summary/)).toBeVisible();
   await availablePackage.getByRole("button", { name: "Projectを作成", exact: true }).click();
   await expect(page).toHaveURL(/view=project.*model_project_kind=single_task/);
   await expect(page).toHaveURL(/model_dataset_view=.+model_dataset_revision=.+model_task=.+model_package=.+model_package_digest=.+/);
@@ -69,6 +71,8 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page).toHaveURL(/view=chain-studio.*draft=.+/);
   await expect(page.getByRole("heading", { name: "入力・Model・判断出力を直接つなぐ" })).toBeVisible();
   await expect(page.locator(".chain-studio-draft-bar")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Model Library" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Chain Studio" })).toHaveCount(0);
 
   await page.goBack();
   await expect(page).toHaveURL(/view=model-library.*asset=graphs/);
@@ -76,4 +80,7 @@ test("Model Library compares assets and hands off without changing them", async 
   await page.locator(".model-asset-card").first().getByRole("button", { name: "対応データを確認" }).click();
   await expect(page).toHaveURL(/view=data-library.*focus_dataset_revision=.+focus_package=.+/);
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
+  await page.getByRole("button", { name: "利用中のモデル資産を見る" }).click();
+  await expect(page).toHaveURL(/view=model-library.*asset=packages.*focus_dataset_revision=.+/);
+  await expect(page.getByRole("status")).toContainText(/Package \d+件 \/ Graph \d+件/);
 });

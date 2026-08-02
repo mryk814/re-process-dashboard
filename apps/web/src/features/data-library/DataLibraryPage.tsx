@@ -12,6 +12,7 @@ export function DataLibraryPage({
   onAddDataset,
   onStartProject,
   onOpenTrainingData,
+  onOpenModelLibrary,
   onOpenStorage,
   location,
   onNavigate,
@@ -26,6 +27,7 @@ export function DataLibraryPage({
     binding?: Omit<PreparedCsvProjectBinding, "datasetViewId">,
   ) => void;
   onOpenTrainingData: (projectId: string) => void;
+  onOpenModelLibrary: (datasetRevisionId: string) => void;
   onOpenStorage: () => void;
   location: DataLibraryLocation;
   onNavigate: (location: DataLibraryLocation, replace?: boolean) => void;
@@ -51,6 +53,7 @@ export function DataLibraryPage({
         onAddDataset={onAddDataset}
         onStartProject={onStartProject}
         onOpenTrainingData={onOpenTrainingData}
+        onOpenModelLibrary={onOpenModelLibrary}
         onOpenStorage={onOpenStorage}
         location={location}
         onNavigate={onNavigate}

@@ -216,7 +216,7 @@ export function readNavigationIntent(
         datasetViewRevisionId: params.get("model_dataset_view") || undefined,
       }
       : undefined;
-  const modelLibraryData: ModelLibraryDataIntent | undefined = normalizedView === "data-library"
+  const modelLibraryData: ModelLibraryDataIntent | undefined = (normalizedView === "data-library" || normalizedView === "model-library")
     && (params.get("focus_dataset_revision") || params.get("focus_package"))
     ? {
       datasetRevisionId: params.get("focus_dataset_revision") || undefined,
@@ -343,10 +343,10 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
-  if (intent.view === "data-library" && intent.modelLibraryData?.datasetRevisionId) {
+  if ((intent.view === "data-library" || intent.view === "model-library") && intent.modelLibraryData?.datasetRevisionId) {
     params.set("focus_dataset_revision", intent.modelLibraryData.datasetRevisionId);
   }
-  if (intent.view === "data-library" && intent.modelLibraryData?.packageReferenceId) {
+  if ((intent.view === "data-library" || intent.view === "model-library") && intent.modelLibraryData?.packageReferenceId) {
     params.set("focus_package", intent.modelLibraryData.packageReferenceId);
   }
   if (
@@ -456,6 +456,6 @@ export function withView(
       : undefined,
     preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
     modelLibraryProject: view === "project" ? current.modelLibraryProject : undefined,
-    modelLibraryData: view === "data-library" ? current.modelLibraryData : undefined,
+    modelLibraryData: view === "data-library" || view === "model-library" ? current.modelLibraryData : undefined,
   });
 }

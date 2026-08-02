@@ -92,13 +92,17 @@ function dataReferenceEntries(
 
 export function ModelLibraryPage({
   tab,
+  dataContext,
   onTabChange,
+  onClearDataContext,
   onOpenDataLibrary,
   onOpenStudio,
   onStartProject,
 }: {
   tab: ModelLibraryTab;
+  dataContext?: ModelLibraryDataIntent;
   onTabChange: (tab: ModelLibraryTab) => void;
+  onClearDataContext: () => void;
   onOpenDataLibrary: (intent?: ModelLibraryDataIntent) => void;
   onOpenStudio: (definition?: ApiPredictionGraphDefinition) => Promise<void>;
   onStartProject: (intent: ModelLibraryProjectIntent) => void;
@@ -152,11 +156,24 @@ export function ModelLibraryPage({
     <button className="primary-button" type="button" onClick={() => setRequestVersion((value) => value + 1)}>再試行</button>
   </section>;
 
+  const contextDatasetRevisionId = dataContext?.datasetRevisionId;
+  const relatedPackages = contextDatasetRevisionId
+    ? catalog.packages.filter((item) => item.data_references.dataset_revision_ids.includes(contextDatasetRevisionId))
+    : catalog.packages;
+  const relatedPackageDigests = new Set(relatedPackages.map((item) => item.manifest_digest));
+  const relatedGraphs = contextDatasetRevisionId
+    ? catalog.graphs.filter((graph) => graph.definitions.some((definition) =>
+      definition.revisions.some((revision) => revision.stages.some((stage) =>
+        stage.data_references.dataset_revision_ids.includes(contextDatasetRevisionId)
+        || relatedPackageDigests.has(stage.package_manifest_digest),
+      )),
+    ))
+    : catalog.graphs;
   const counts: Record<ModelLibraryTab, number> = {
     tasks: catalog.tasks.length,
-    packages: catalog.packages.length,
+    packages: relatedPackages.length,
     transforms: catalog.transforms.length,
-    graphs: catalog.graphs.length,
+    graphs: relatedGraphs.length,
   };
 
   return <section className="model-library-page">
@@ -176,6 +193,13 @@ export function ModelLibraryPage({
     {error && <div className="model-library-refresh-error" role="alert">
       <span>{error}。取得済みの一覧を保持しています。</span>
       <button type="button" className="text-button" onClick={() => setRequestVersion((value) => value + 1)}>再試行</button>
+    </div>}
+    {contextDatasetRevisionId && <div className="model-library-refresh-error" role="status">
+      <span>
+        Dataset Revision <code>{contextDatasetRevisionId}</code> を固定参照する
+        Package {relatedPackages.length}件 / Graph {relatedGraphs.length}件を表示しています。
+      </span>
+      <button type="button" className="text-button" onClick={onClearDataContext}>全資産を見る</button>
     </div>}
     <div className="model-library-tabs" role="tablist" aria-label="モデル資産種別">
       {tabs.map((item, index) => <button
@@ -244,10 +268,18 @@ export function ModelLibraryPage({
     </div>}
 
     {tab === "packages" && <div className="model-asset-list" role="tabpanel" id="model-library-panel-packages" aria-labelledby="model-library-tab-packages">
-      {catalog.packages.length === 0 && <EmptyAssetState label="Model Package" />}
-      {catalog.packages.map((item) => {
-        const datasetViewId = item.data_references.dataset_view_revision_ids[0];
-        const datasetRevisionId = item.data_references.dataset_revision_ids[0];
+      {relatedPackages.length === 0 && (contextDatasetRevisionId
+        ? <div className="model-library-empty" role="status"><strong>このDatasetを固定参照するModel Packageはありません</strong><span>全資産表示へ戻るか、Data Libraryで別のDatasetを選んでください。</span></div>
+        : <EmptyAssetState label="Model Package" />)}
+      {relatedPackages.map((item) => {
+        const datasetRevisionId = contextDatasetRevisionId
+          ?? item.data_references.dataset_revision_ids[0];
+        const datasetViewId = contextDatasetRevisionId
+          ? item.data_references.dataset_revision_ids.length === 1
+            && item.data_references.dataset_view_revision_ids.length === 1
+            ? item.data_references.dataset_view_revision_ids[0]
+            : undefined
+          : item.data_references.dataset_view_revision_ids[0];
         const projectAvailable = Boolean(datasetViewId && datasetRevisionId && item.state.availability === "available");
         const projectUnavailableId = `package-project-unavailable-${item.reference_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
         return <article className="model-asset-card" key={item.reference_id}>
@@ -263,19 +295,24 @@ export function ModelLibraryPage({
               className="primary-button"
               disabled={!projectAvailable}
               aria-describedby={!projectAvailable ? projectUnavailableId : undefined}
-              onClick={() => projectAvailable && onStartProject({
-                kind: "single_task",
-                datasetViewRevisionId: datasetViewId,
-                datasetRevisionId,
-                taskId: item.task_id,
-                packageReferenceId: item.reference_id,
-                packageManifestDigest: item.manifest_digest,
-              })}
+              onClick={() => {
+                if (!projectAvailable || !datasetViewId || !datasetRevisionId) return;
+                onStartProject({
+                  kind: "single_task",
+                  datasetViewRevisionId: datasetViewId,
+                  datasetRevisionId,
+                  taskId: item.task_id,
+                  packageReferenceId: item.reference_id,
+                  packageManifestDigest: item.manifest_digest,
+                });
+              }}
             >Projectを作成</button>
           </div>
           {!projectAvailable && <p id={projectUnavailableId} className="model-action-reason">
             {item.state.availability !== "available"
               ? `${item.state.reason}。${item.state.recovery_hint}`
+              : contextDatasetRevisionId && !datasetViewId
+                ? "このPackageには複数のDataset／View参照があります。Data Libraryで利用するViewを選んでからProjectを作成してください。"
               : "Dataset ViewとDataset Revisionの固定参照が揃うとProjectを作成できます。"}
           </p>}
           <IdentityDetails title="Pipeline・検証・固定参照" entries={[
@@ -283,6 +320,7 @@ export function ModelLibraryPage({
             ["Feature Pipeline", item.feature_pipeline ? `${item.feature_pipeline.identity_id} · ${item.feature_pipeline.version}` : "記録なし"],
             ["Feature Recipe", item.feature_recipe ? `${item.feature_recipe.identity_id} · ${item.feature_recipe.version} · ${shortDigest(item.feature_recipe.digest)}` : "未使用"],
             ["Validation Plan", item.validation_plans.map((plan) => `${plan.target}: ${plan.strategy} (${shortDigest(plan.digest)})`).join(" / ") || "記録なし"],
+            ["Quality summary", item.quality_summary_available ? "品質要約あり" : "未登録"],
             ["Training source", item.data_references.source_names.join(" / ") || "記録なし"],
             ...dataReferenceEntries(item.data_references),
           ]} />
@@ -305,24 +343,43 @@ export function ModelLibraryPage({
     </div>}
 
     {tab === "graphs" && <div className="model-asset-list" role="tabpanel" id="model-library-panel-graphs" aria-labelledby="model-library-tab-graphs">
-      {catalog.graphs.length === 0 && <EmptyAssetState label="Prediction Graph" />}
-      {catalog.graphs.map((graph) => <article className="model-asset-card model-graph-card" key={graph.graph_id}>
+      {relatedGraphs.length === 0 && (contextDatasetRevisionId
+        ? <div className="model-library-empty" role="status"><strong>このDatasetを固定参照するPrediction Graphはありません</strong><span>全資産表示へ戻るか、Data Libraryで別のDatasetを選んでください。</span></div>
+        : <EmptyAssetState label="Prediction Graph" />)}
+      {relatedGraphs.map((graph) => <article className="model-asset-card model-graph-card" key={graph.graph_id}>
         <header><div><span className="model-asset-kind">PREDICTION GRAPH</span><h2>{graph.label}</h2><code>{graph.graph_id}</code></div><AssetStateSummary state={graph.state} /></header>
         <p>Task {graph.compatible_task_ids.length}件 · Transform {graph.compatible_transform_ids.length}件 · Project {graph.project_references.length}件</p>
-        {graph.definitions.map((definition) => {
+        {graph.definitions.filter((definition) => !contextDatasetRevisionId || definition.revisions.some((revision) =>
+          revision.stages.some((stage) =>
+            stage.data_references.dataset_revision_ids.includes(contextDatasetRevisionId)
+            || relatedPackageDigests.has(stage.package_manifest_digest),
+          ),
+        )).map((definition) => {
+          const visibleRevisions = contextDatasetRevisionId
+            ? definition.revisions.filter((revision) => revision.stages.some((stage) =>
+              stage.data_references.dataset_revision_ids.includes(contextDatasetRevisionId)
+              || relatedPackageDigests.has(stage.package_manifest_digest),
+            ))
+            : definition.revisions;
           const studioDefinition = definition.definition.schema_version === "prediction-graph-definition/v1"
             ? definition.definition
             : undefined;
           const studioAvailable = Boolean(studioDefinition);
           const studioReasonId = `studio-unavailable-${definition.definition_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
           return <details className="model-graph-detail" key={definition.definition_id}>
-          <summary>{definition.revisions.length}件の固定Revision · input {definition.projection.inputs.length} · decision output {definition.projection.decision_outputs.length}</summary>
+          <summary>{visibleRevisions.length}件の固定Revision · input {definition.projection.inputs.length} · decision output {definition.projection.decision_outputs.length}</summary>
           <div className="model-graph-flow">
             <section><h3>Inputs</h3><ul>{definition.projection.inputs.map((input) => <li key={input.input_id}>{input.label}</li>)}</ul></section>
             <section><h3>Stages / fixed references</h3>
               <p className="model-graph-layers">Branch layers: {definition.projection.topology.topological_layers.map((layer) => layer.join(" + ")).join(" → ")}</p>
-              {definition.revisions.map((revision) => {
-                const datasetViewRevisionId = revision.stages.flatMap((stage) => stage.data_references.dataset_view_revision_ids)[0];
+              {visibleRevisions.map((revision) => {
+                const directContextStages = contextDatasetRevisionId
+                  ? revision.stages.filter((stage) => stage.data_references.dataset_revision_ids.includes(contextDatasetRevisionId))
+                  : revision.stages;
+                const contextViewIds = [...new Set(directContextStages.flatMap((stage) => stage.data_references.dataset_view_revision_ids))];
+                const datasetViewRevisionId = contextDatasetRevisionId
+                  ? contextViewIds.length === 1 ? contextViewIds[0] : undefined
+                  : contextViewIds[0];
                 const projectAvailable = revision.state.availability === "available"
                   && revision.stages.every((stage) => stage.available);
                 const projectReasonId = `graph-project-unavailable-${revision.revision_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
