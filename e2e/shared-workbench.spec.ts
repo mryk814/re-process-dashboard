@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCandidateInputs } from "./helpers";
 
 const tasks = [
   { projectId: "default", outputLabels: ["引張強さ", "降伏強さ", "全伸び", "穴広げ率 λ"], hasHeatPattern: true, responseCurve: true },
@@ -315,6 +316,7 @@ for (const task of tasks) {
 
     await page.goto(`/?view=candidates&project=${task.projectId}`);
     await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+    await openCandidateInputs(page);
     await expect(page.locator(".comparison-prediction-table")).toBeVisible();
     const outputHeader = page.locator(".comparison-detail-table thead");
     await expect(outputHeader.locator(".decision-output-col")).toHaveCount(task.outputLabels.length);
@@ -489,6 +491,7 @@ test("preview capability disables initial and edited-candidate requests", async 
 
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   await expect(page.getByRole("alert")).toContainText("このタスクではプレビューを利用できません");
   await page.waitForTimeout(600);
   expect(previewRequests).toBe(0);

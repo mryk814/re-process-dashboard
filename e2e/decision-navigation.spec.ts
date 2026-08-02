@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
+import { apiBaseUrl as api, createProjectWithCandidate, openCandidateInputs } from "./helpers";
 
 async function createIsolatedProject(request: APIRequestContext) {
   const project = await createProjectWithCandidate(
@@ -159,6 +159,7 @@ test("hot rolling remains a project task and uses task labels", async ({ page })
   await page.goto("/?view=candidates&project=hot-rolling-default");
   await expect(page.locator(".topbar nav")).not.toContainText("熱延");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   await expect(page.getByText("均熱温度", { exact: true }).first()).toBeVisible();
   await expect(
     page.locator(".comparison-detail-table thead").getByRole("columnheader", { name: /引張強さ/ }),

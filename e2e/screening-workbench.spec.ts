@@ -181,8 +181,9 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.getByRole("button", { name: "図を元の大きさに戻す" }).click();
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("引張強さ");
   await expect(page.getByRole("region", { name: "選択した探索点の詳細" })).toContainText("降伏強さ");
-  await page.locator(".screening-editor-disclosure > summary").click();
-  await rows.nth(2).locator("input").nth(0).fill("0.9");
+  const editorDisclosure = page.locator(".screening-editor-disclosure");
+  await editorDisclosure.locator("> summary").click();
+  await editorDisclosure.locator(".variable-table tbody tr").nth(2).locator("input").nth(0).fill("0.9");
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
 
   await page.getByLabel("選別する特性").selectOption("YS");

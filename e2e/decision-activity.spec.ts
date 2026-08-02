@@ -21,11 +21,21 @@ async function openDecisionActivities(page: import("@playwright/test").Page) {
   await expect(panel).toBeVisible();
 }
 
+async function openActivityRunControls(page: import("@playwright/test").Page) {
+  const controls = page.locator(".activity-run-controls");
+  await expect(controls).toBeVisible();
+  const body = controls.locator(".activity-settings-collapsed-body");
+  if (!(await body.isVisible())) await controls.locator("summary").click();
+  await expect(body).toBeVisible();
+}
+
 async function runRobustness(page: import("@playwright/test").Page): Promise<RobustnessReading> {
   const sensitivityOnly = page.getByRole("button", { name: "目標なしでばらつきだけ見る" });
-  const tolerance = page.getByRole("spinbutton", { name: "Cの公差幅" });
-  await expect(sensitivityOnly.or(tolerance)).toBeVisible();
+  const controls = page.locator(".activity-run-controls");
+  await expect(sensitivityOnly.or(controls)).toBeVisible();
   if (await sensitivityOnly.isVisible()) await sensitivityOnly.click();
+  await openActivityRunControls(page);
+  const tolerance = page.getByRole("spinbutton", { name: "Cの公差幅" });
   await expect(tolerance).toBeVisible();
   await tolerance.fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("64");
@@ -264,6 +274,8 @@ test("goal-less robustness explains the prerequisite and offers sensitivity-only
 
   await page.goto(`/?view=candidates&project=${project.id}`);
   await openDecisionActivities(page);
+  await page.getByRole("navigation", { name: "検討アクティビティの選択" })
+    .getByRole("button", { name: "入力ばらつきに強いか" }).click();
   await expect(page.getByText("目標達成率を確認するには、Projectの目標値が必要です")).toBeVisible();
   await expect(page.getByRole("button", { name: "目標を設定する" })).toBeVisible();
   await expect(page.locator(".activity-settings")).toHaveCount(0);
@@ -280,6 +292,7 @@ test("goal-less robustness explains the prerequisite and offers sensitivity-only
     page.getByText("この解析の実行時に、この特性の目標が未設定だったため達成率は算出していません。").first(),
   ).toBeVisible();
 
+  await openActivityRunControls(page);
   await page.getByRole("button", { name: "目標を設定する" }).click();
   await expect(page).toHaveURL(/view=project-settings.*project_settings=targets/);
 });
@@ -341,6 +354,7 @@ test("Decision Activity controls reflow without page-level overflow on mobile", 
   await openDecisionActivities(page);
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
     .getByRole("button", { name: "2案の差は何が効いているか" }).click();
+  await openActivityRunControls(page);
 
   const comparisonControl = await page.getByRole("combobox", { name: "比較候補" }).boundingBox();
   const differenceAction = await page.getByRole("button", { name: "差分を分解" }).boundingBox();

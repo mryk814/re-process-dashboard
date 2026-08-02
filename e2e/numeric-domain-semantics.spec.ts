@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl, createProjectWithCandidate, starterCandidate } from "./helpers";
+import { apiBaseUrl, createProjectWithCandidate, openCandidateInputs, starterCandidate } from "./helpers";
 
 test("integer and log Task domains are enforced by API and shown by the candidate editor", async ({ page }) => {
   const project = await createProjectWithCandidate(
@@ -89,6 +89,7 @@ test("integer and log Task domains are enforced by API and shown by the candidat
 
   await page.goto(`/?view=candidates&project=${project.id}`);
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   await expect(page.getByRole("spinbutton", { name: "数値domain候補 サイクル数", exact: true })).toHaveAttribute("step", "1");
   await expect(page.getByRole("slider", { name: "数値domain候補 放電レート", exact: true })).toHaveAttribute("step", "0.1");
   await expect(page.getByText("対数スケール")).toBeVisible();

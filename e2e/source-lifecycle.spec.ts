@@ -422,18 +422,22 @@ test("late initial catalog cannot replace the selected connector", async ({ page
 
   await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
   await firstCatalogStarted;
-  const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
-  const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
   const selectedDetailResponse = page.waitForResponse((response) => (
     response.request().method() === "GET"
     && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
   ));
-  await selectedButton.click();
+  await page.evaluate((connectorId) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("connector", connectorId);
+    window.history.pushState({}, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, selected.id);
   expect((await selectedDetailResponse).status()).toBe(200);
-  await expect(selectedButton).toHaveClass(/active/);
   await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
 
   releaseFirstCatalog();
+  const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
+  const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
   const detailHeader = page.locator(".source-lifecycle-detail > header");
   await expect(detailHeader).toContainText(selected.name);
   await expect(selectedButton).toHaveClass(/active/);

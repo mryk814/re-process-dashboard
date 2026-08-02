@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl, createProjectWithCandidate } from "./helpers";
+import { apiBaseUrl, createProjectWithCandidate, openCandidateInputs } from "./helpers";
 
 async function candidateRevision(
   page: import("@playwright/test").Page,
@@ -443,6 +443,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
 
   await page.getByRole("button", { name: "候補比較", exact: true }).click();
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
+  await openCandidateInputs(page);
   const selectedRow = page.locator(".candidate-name-table tbody tr.selected-row");
   const candidateName = await selectedRow.getByRole("textbox").inputValue();
   const candidateId = new URL(page.url()).searchParams.get("candidate");
