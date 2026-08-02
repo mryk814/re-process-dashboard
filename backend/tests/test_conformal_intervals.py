@@ -173,7 +173,14 @@ def test_tabular_runtime_injects_verified_wrapper_without_changing_base_package(
     )
     output = SimpleNamespace(key="y", lower_bound=None, upper_bound=None)
     monkeypatch.setattr(runtime_module, "load_task_definitions", lambda: {
-        "fixture-task": SimpleNamespace(outputs=(SimpleNamespace(key="y", goal_direction="at_least"),)),
+        "fixture-task": SimpleNamespace(
+            outputs=(SimpleNamespace(key="y", goal_direction="at_least"),),
+            canonical_candidate_schema_version="canonical-candidate/v1",
+            model_dump=lambda **_: {
+                "input_groups": [],
+                "outputs": [{"key": "y"}],
+            },
+        ),
     })
     monkeypatch.setattr(runtime_module, "load_task_contracts", lambda: {
         "fixture-task": SimpleNamespace(runtime_capability=capability),
