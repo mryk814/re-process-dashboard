@@ -101,21 +101,15 @@ class PredictionGraphUseCases:
                     self.task_registry,
                     surface,
                 )
-            existing = [
-                revision
-                for revision in self.store.list_chain_revisions()
-                if getattr(revision, "graph_id", None) == definition.graph_id
-            ]
-            revision = build_prediction_graph_revision(
-                definition,
-                revision=max(
-                    (item.revision for item in existing),
-                    default=0,
+            def build_revision(revision_number: int):
+                return build_prediction_graph_revision(
+                    definition,
+                    revision=revision_number,
+                    contracts=contracts,
+                    stage_locks=locks,
                 )
-                + 1,
-                contracts=contracts,
-                stage_locks=locks,
-            )
+
+            revision = build_revision(1)
             for graph_input in definition.inputs:
                 source = graph_input.value_source
                 if source.source_kind != "candidate":
@@ -131,10 +125,10 @@ class PredictionGraphUseCases:
                         "Prediction Graph candidate sourceをcanonical pathへ"
                         f"解決できません: {source.candidate_path}"
                     )
-            self.store.register_chain_definition(definition)
-            self.store.register_chain_revision(
-                revision,
+            _, revision = self.store.publish_prediction_graph(
+                definition,
                 contracts=contracts,
+                revision_factory=build_revision,
             )
         except ChainValidationError:
             raise

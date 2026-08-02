@@ -311,6 +311,13 @@ class PredictionGraphDefinition(ChainContractModel):
             raise ValueError("Prediction Graph input ids must be unique")
         if len(output_ids) != len(set(output_ids)):
             raise ValueError("Prediction Graph decision output ids must be unique")
+        if not any(
+            item.required_for_complete_result
+            for item in self.decision_outputs
+        ):
+            raise ValueError(
+                "Prediction Graph requires at least one required decision output"
+            )
         target_keys = [
             (binding.target_stage_id, binding.target_input_path)
             for binding in self.bindings

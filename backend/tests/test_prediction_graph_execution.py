@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import inspect
 from types import SimpleNamespace
@@ -198,6 +199,18 @@ def _revision():
             for stage_id in ("A", "B", "C")
         },
     )
+
+
+def test_prediction_graph_requires_a_required_decision_output() -> None:
+    payload = _graph().model_dump(mode="json")
+    for output in payload["decision_outputs"]:
+        output["required_for_complete_result"] = False
+
+    with pytest.raises(
+        ValueError,
+        match="at least one required decision output",
+    ):
+        PredictionGraphDefinition.model_validate(payload)
 
 
 def _project_identity(
@@ -607,6 +620,59 @@ def test_prediction_graph_project_uses_dedicated_store_creation_entry(
         )
     project = store.create_prediction_graph_project(payload, identity)
     assert project.scientific_identity == identity
+
+
+def test_prediction_graph_publish_allocates_revisions_atomically(
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path / "graph-publish-concurrency.db")
+    graph = _graph()
+    contracts = _graph_contracts()
+    locks = {
+        stage_id: ChainStageLock(
+            contract_digest=contracts[
+                (
+                    "deterministic_transform",
+                    f"runtime-{stage_id.lower()}",
+                )
+            ].contract_digest,
+            package_manifest_digest=(
+                "sha256:" + stage_id.lower() * 64
+            ),
+        )
+        for stage_id in ("A", "B", "C")
+    }
+
+    def publish():
+        return store.publish_prediction_graph(
+            graph,
+            contracts=contracts,
+            revision_factory=lambda revision: build_prediction_graph_revision(
+                graph,
+                revision=revision,
+                contracts=contracts,
+                stage_locks=locks,
+            ),
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        published = list(pool.map(lambda _: publish(), range(2)))
+
+    assert sorted(revision.revision for _, revision in published) == [1, 2]
+    assert sorted(record_id for record_id, _ in published) == [
+        "dependency-runtime:r1",
+        "dependency-runtime:r2",
+    ]
+    assert [
+        revision.revision
+        for revision in store.list_chain_revisions()
+        if getattr(revision, "graph_id", None) == graph.graph_id
+    ] == [1, 2]
+    assert [
+        definition
+        for definition in store.list_chain_definitions()
+        if getattr(definition, "graph_id", None) == graph.graph_id
+    ] == [graph]
 
 
 def test_prediction_graph_planner_uses_only_persisted_project_binding() -> None:

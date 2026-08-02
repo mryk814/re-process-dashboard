@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
@@ -36,38 +36,48 @@ from decision_workbench.persistence.store_support import (
 
 
 class ChainRepository:
-    def register_chain_definition(self, definition: GraphDefinitionRef) -> str:
+    @staticmethod
+    def _register_chain_definition_in_connection(
+        conn: sqlite3.Connection,
+        definition: GraphDefinitionRef,
+    ) -> str:
         record_id = (
             f"{definition.chain_id}@{definition.digest.removeprefix('sha256:')[:12]}"
         )
-        with self._connect() as conn:
-            existing = conn.execute(
-                "SELECT id,definition_json FROM chain_definitions "
-                "WHERE definition_digest=?",
-                (definition.digest,),
-            ).fetchone()
-            if existing is not None:
-                if (
-                    parse_graph_definition_json(existing["definition_json"])
-                    != definition
-                ):
-                    raise ChainCatalogConflictError(
-                        "同じdigestのChain Definitionに異なる内容があります"
-                    )
-                return str(existing["id"])
-            conn.execute(
-                "INSERT INTO chain_definitions("
-                "id,chain_id,definition_digest,definition_json,created_at"
-                ") VALUES (?,?,?,?,?)",
-                (
-                    record_id,
-                    definition.chain_id,
-                    definition.digest,
-                    definition.model_dump_json(),
-                    _now(),
-                ),
-            )
+        existing = conn.execute(
+            "SELECT id,definition_json FROM chain_definitions "
+            "WHERE definition_digest=?",
+            (definition.digest,),
+        ).fetchone()
+        if existing is not None:
+            if (
+                parse_graph_definition_json(existing["definition_json"])
+                != definition
+            ):
+                raise ChainCatalogConflictError(
+                    "同じdigestのChain Definitionに異なる内容があります"
+                )
+            return str(existing["id"])
+        conn.execute(
+            "INSERT INTO chain_definitions("
+            "id,chain_id,definition_digest,definition_json,created_at"
+            ") VALUES (?,?,?,?,?)",
+            (
+                record_id,
+                definition.chain_id,
+                definition.digest,
+                definition.model_dump_json(),
+                _now(),
+            ),
+        )
         return record_id
+
+    def register_chain_definition(self, definition: GraphDefinitionRef) -> str:
+        with self._connect() as conn:
+            return self._register_chain_definition_in_connection(
+                conn,
+                definition,
+            )
 
     @staticmethod
     def _register_stage_contract_surfaces(
@@ -139,83 +149,124 @@ class ChainRepository:
             else None
         )
 
+    @classmethod
+    def _register_chain_revision_in_connection(
+        cls,
+        conn: sqlite3.Connection,
+        revision: GraphRevisionRef,
+        *,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+    ) -> str:
+        record_id = f"{revision.chain_id}:r{revision.revision}"
+        definition_row = conn.execute(
+            "SELECT definition_json FROM chain_definitions "
+            "WHERE chain_id=? AND definition_digest=?",
+            (revision.chain_id, revision.chain_definition_digest),
+        ).fetchone()
+        if definition_row is None:
+            raise ChainCatalogConflictError(
+                "Chain Revisionが参照するDefinitionを先に登録してください"
+            )
+        definition = parse_graph_definition_json(
+            definition_row["definition_json"]
+        )
+        try:
+            if isinstance(definition, ChainDefinition) and isinstance(
+                revision, ChainRevision
+            ):
+                validate_chain_revision(
+                    definition,
+                    revision,
+                    contracts=contracts,
+                )
+            elif isinstance(
+                definition, PredictionGraphDefinition
+            ) and isinstance(revision, PredictionGraphRevision):
+                validate_prediction_graph_revision(
+                    definition,
+                    revision,
+                    contracts=contracts,
+                )
+            else:
+                raise ValueError(
+                    "DefinitionとRevisionのschema familyが一致しません"
+                )
+        except ValueError as exc:
+            raise ChainCatalogConflictError(str(exc)) from exc
+        existing = conn.execute(
+            "SELECT id,revision_json FROM chain_revisions "
+            "WHERE id=? OR revision_digest=?",
+            (record_id, revision.revision_digest),
+        ).fetchone()
+        if existing is not None:
+            if (
+                parse_graph_revision_json(existing["revision_json"])
+                != revision
+            ):
+                raise ChainCatalogConflictError(
+                    "同じChain revision番号またはdigestに異なる内容があります"
+                )
+            cls._register_stage_contract_surfaces(
+                conn, record_id=record_id, revision=revision, contracts=contracts
+            )
+            return str(existing["id"])
+        conn.execute(
+            "INSERT INTO chain_revisions("
+            "id,chain_id,revision,revision_digest,revision_json,created_at"
+            ") VALUES (?,?,?,?,?,?)",
+            (
+                record_id,
+                revision.chain_id,
+                revision.revision,
+                revision.revision_digest,
+                revision.model_dump_json(),
+                _now(),
+            ),
+        )
+        cls._register_stage_contract_surfaces(
+            conn, record_id=record_id, revision=revision, contracts=contracts
+        )
+        return record_id
+
     def register_chain_revision(
         self,
         revision: GraphRevisionRef,
         *,
         contracts: Mapping[tuple[str, str], StageContractSurface],
     ) -> str:
-        record_id = f"{revision.chain_id}:r{revision.revision}"
         with self._connect() as conn:
-            definition_row = conn.execute(
-                "SELECT definition_json FROM chain_definitions "
-                "WHERE chain_id=? AND definition_digest=?",
-                (revision.chain_id, revision.chain_definition_digest),
+            return self._register_chain_revision_in_connection(
+                conn,
+                revision,
+                contracts=contracts,
+            )
+
+    def publish_prediction_graph(
+        self,
+        definition: PredictionGraphDefinition,
+        *,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+        revision_factory: Callable[[int], PredictionGraphRevision],
+    ) -> tuple[str, PredictionGraphRevision]:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT COALESCE(MAX(revision), 0) AS latest_revision "
+                "FROM chain_revisions WHERE chain_id=?",
+                (definition.graph_id,),
             ).fetchone()
-            if definition_row is None:
+            revision = revision_factory(int(row["latest_revision"]) + 1)
+            if revision.graph_id != definition.graph_id:
                 raise ChainCatalogConflictError(
-                    "Chain Revisionが参照するDefinitionを先に登録してください"
+                    "Prediction Graph DefinitionとRevisionのidentityが一致しません"
                 )
-            definition = parse_graph_definition_json(
-                definition_row["definition_json"]
+            self._register_chain_definition_in_connection(conn, definition)
+            record_id = self._register_chain_revision_in_connection(
+                conn,
+                revision,
+                contracts=contracts,
             )
-            try:
-                if isinstance(definition, ChainDefinition) and isinstance(
-                    revision, ChainRevision
-                ):
-                    validate_chain_revision(
-                        definition,
-                        revision,
-                        contracts=contracts,
-                    )
-                elif isinstance(
-                    definition, PredictionGraphDefinition
-                ) and isinstance(revision, PredictionGraphRevision):
-                    validate_prediction_graph_revision(
-                        definition,
-                        revision,
-                        contracts=contracts,
-                    )
-                else:
-                    raise ValueError(
-                        "DefinitionとRevisionのschema familyが一致しません"
-                    )
-            except ValueError as exc:
-                raise ChainCatalogConflictError(str(exc)) from exc
-            existing = conn.execute(
-                "SELECT id,revision_json FROM chain_revisions "
-                "WHERE id=? OR revision_digest=?",
-                (record_id, revision.revision_digest),
-            ).fetchone()
-            if existing is not None:
-                if (
-                    parse_graph_revision_json(existing["revision_json"])
-                    != revision
-                ):
-                    raise ChainCatalogConflictError(
-                        "同じChain revision番号またはdigestに異なる内容があります"
-                    )
-                self._register_stage_contract_surfaces(
-                    conn, record_id=record_id, revision=revision, contracts=contracts
-                )
-                return str(existing["id"])
-            conn.execute(
-                "INSERT INTO chain_revisions("
-                "id,chain_id,revision,revision_digest,revision_json,created_at"
-                ") VALUES (?,?,?,?,?,?)",
-                (
-                    record_id,
-                    revision.chain_id,
-                    revision.revision,
-                    revision.revision_digest,
-                    revision.model_dump_json(),
-                    _now(),
-                ),
-            )
-            self._register_stage_contract_surfaces(
-                conn, record_id=record_id, revision=revision, contracts=contracts
-            )
-        return record_id
+            return record_id, revision
 
     def list_chain_revisions(self) -> list[GraphRevisionRef]:
         with self._connect() as conn:
