@@ -37,3 +37,15 @@ test("historical observation provenance is not rendered as direct input or linea
     },
   }), "過去の実測record slump-042");
 });
+
+test("batch candidate provenance keeps its Run and member role visible", () => {
+  assert.equal(provenanceLabel({
+    source_kind: "screening",
+    source_ref: {
+      run_id: "batch-run-123456",
+      point_id: "12",
+      batch_member_order: 3,
+      batch_member_role: "diversity",
+    },
+  }), "実験バッチ batch-ru / 枠 3 / 多様性");
+});
