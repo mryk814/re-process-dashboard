@@ -460,6 +460,12 @@ export function diagnosticIdentity({ shardId, testedCommit }) {
   const e2eRunId = process.env.PLAYWRIGHT_E2E_RUN_ID ?? null;
   const database = process.env.PLAYWRIGHT_DB_PATH
     ?? (e2eRunId ? resolve(tmpdir(), `decision-workbench-e2e-${e2eRunId}.db`) : null);
+  const modelStore = process.env.PLAYWRIGHT_MODEL_STORE_PATH
+    ?? (e2eRunId ? resolve(tmpdir(), `decision-workbench-e2e-models-${e2eRunId}`) : null);
+  const profileStore = process.env.PLAYWRIGHT_PROFILE_STORE_PATH
+    ?? (e2eRunId ? resolve(tmpdir(), `decision-workbench-e2e-profiles-${e2eRunId}`) : null);
+  const taskStore = process.env.PLAYWRIGHT_TASK_STORE_PATH
+    ?? (e2eRunId ? resolve(tmpdir(), `decision-workbench-e2e-tasks-${e2eRunId}`) : null);
   return {
     schemaVersion: "verification-shard-diagnostics/v1",
     shardId,
@@ -477,14 +483,14 @@ export function diagnosticIdentity({ shardId, testedCommit }) {
       workers: process.env.PLAYWRIGHT_WORKERS ?? "1",
       retries: process.env.PLAYWRIGHT_RETRIES ?? "0",
       ports: {
-        api: process.env.PLAYWRIGHT_API_PORT ?? null,
-        web: process.env.PLAYWRIGHT_WEB_PORT ?? null,
+        api: process.env.PLAYWRIGHT_API_PORT ?? "8875",
+        web: process.env.PLAYWRIGHT_WEB_PORT ?? "5199",
       },
       workspace: {
         database,
-        modelStore: process.env.PLAYWRIGHT_MODEL_STORE_PATH ?? null,
-        profileStore: process.env.PLAYWRIGHT_PROFILE_STORE_PATH ?? null,
-        taskStore: process.env.PLAYWRIGHT_TASK_STORE_PATH ?? null,
+        modelStore,
+        profileStore,
+        taskStore,
       },
     },
   };
@@ -498,24 +504,55 @@ export function failureExcerpt(output) {
     .join("\n") || null;
 }
 
-function writeGateDiagnostics({ directory, gateId, stdout, stderr, identity }) {
+export function readDiagnosticTail(path, maximumBytes = 64 * 1024) {
+  const bytes = statSync(path).size;
+  const length = Math.min(bytes, maximumBytes);
+  const descriptor = openSync(path, "r");
+  const buffer = Buffer.allocUnsafe(length);
+  try {
+    readSync(descriptor, buffer, 0, length, Math.max(0, bytes - length));
+  } finally {
+    closeSync(descriptor);
+  }
+  const omitted = bytes > length ? `[earlier ${bytes - length} bytes preserved in the artifact]\n` : "";
+  return `${omitted}${buffer.toString("utf8")}`;
+}
+
+export function boundDiagnosticLog(path, maximumBytes = 8 * 1024 * 1024) {
+  const bytes = statSync(path).size;
+  if (bytes <= maximumBytes) return 0;
+  const descriptor = openSync(path, "r");
+  const tail = Buffer.allocUnsafe(maximumBytes);
+  try {
+    readSync(descriptor, tail, 0, maximumBytes, bytes - maximumBytes);
+  } finally {
+    closeSync(descriptor);
+  }
+  const omitted = bytes - maximumBytes;
+  writeFileSync(path, Buffer.concat([
+    Buffer.from(`[earlier ${omitted} bytes omitted to keep this diagnostic artifact bounded]\n`),
+    tail,
+  ]));
+  return omitted;
+}
+
+function prepareGateDiagnostics({ directory, gateId, identity }) {
   mkdirSync(directory, { recursive: true });
   const safeGateId = gateId.replaceAll(/[^a-z0-9-]/gi, "-");
   const stdoutPath = resolve(directory, `${safeGateId}.stdout.log`);
   const stderrPath = resolve(directory, `${safeGateId}.stderr.log`);
-  const serverLogPath = resolve(directory, `${safeGateId}.server.log`);
-  writeFileSync(stdoutPath, stdout);
-  writeFileSync(stderrPath, stderr);
-  // Playwright's webServer output is emitted through the test runner. Keep the
-  // combined stream under a server-log name so it is available beside reports.
-  writeFileSync(serverLogPath, `${stdout}${stderr}`);
+  // Playwright's webServer output is emitted through the test runner stdout.
+  // Refer to that one file as the server log rather than copying it a third time.
   return {
     stdout: stdoutPath,
     stderr: stderrPath,
-    serverLog: serverLogPath,
-    failureExcerpt: failureExcerpt(`${stdout}\n${stderr}`),
+    serverLog: stdoutPath,
     identity,
   };
+}
+
+export function exitCodeForResult(result) {
+  return result.status ?? (result.error || result.signal ? 1 : 0);
 }
 
 function runnerFailureDiagnostics({ shardId, testedCommit, error }) {
@@ -582,11 +619,33 @@ function runGateIds({
     process.stdout.write(`::group::${gateId}\n`);
     const gateStartedAt = new Date();
     const platformSupported = gateRunsOnPlatform(gate.platform, currentPlatform);
-    const result = platformSupported
-      ? spawnSync(executable.command, args, {
-          encoding: "utf8",
-          env: gateEnvironment,
+    const gateDiagnostics = diagnosticsDirectory
+      ? prepareGateDiagnostics({
+          directory: diagnosticsDirectory,
+          gateId,
+          identity: shardIdentity,
         })
+      : null;
+    if (gateDiagnostics) {
+      writeFileSync(gateDiagnostics.stdout, "");
+      writeFileSync(gateDiagnostics.stderr, "");
+    }
+    const result = platformSupported
+      ? (() => {
+          const stdoutHandle = gateDiagnostics ? openSync(gateDiagnostics.stdout, "w") : "inherit";
+          const stderrHandle = gateDiagnostics ? openSync(gateDiagnostics.stderr, "w") : "inherit";
+          try {
+            return spawnSync(executable.command, args, {
+              stdio: ["ignore", stdoutHandle, stderrHandle],
+              env: gateEnvironment,
+            });
+          } finally {
+            if (gateDiagnostics) {
+              closeSync(stdoutHandle);
+              closeSync(stderrHandle);
+            }
+          }
+        })()
       : {
           status: 1,
           error: new Error(
@@ -594,9 +653,18 @@ function runGateIds({
           ),
         };
     const gateFinishedAt = new Date();
-    const stdout = result.stdout ?? "";
-    const stderr = result.stderr ?? "";
-    const diagnosticStderr = result.error ? `${stderr}${result.error.message}\n` : stderr;
+    if (result.error && gateDiagnostics) {
+      appendFileSync(gateDiagnostics.stderr, `${result.error.message}\n`);
+    }
+    if (gateDiagnostics) {
+      boundDiagnosticLog(gateDiagnostics.stdout);
+      boundDiagnosticLog(gateDiagnostics.stderr);
+    }
+    const stdout = gateDiagnostics ? readDiagnosticTail(gateDiagnostics.stdout) : result.stdout ?? "";
+    const stderr = gateDiagnostics ? readDiagnosticTail(gateDiagnostics.stderr) : result.stderr ?? "";
+    const diagnosticStderr = gateDiagnostics
+      ? stderr
+      : (result.error ? `${stderr}${result.error.message}\n` : stderr);
     if (stdout) process.stdout.write(stdout);
     if (stderr) process.stderr.write(stderr);
     process.stdout.write("::endgroup::\n");
@@ -605,19 +673,17 @@ function runGateIds({
       id: gateId,
       status,
       command: [executable.command, ...args].join(" "),
-      exitCode: result.status ?? (result.error ? 1 : 0),
+      exitCode: exitCodeForResult(result),
+      signal: result.signal ?? null,
       durationSeconds: Number(
         ((gateFinishedAt - gateStartedAt) / 1_000).toFixed(3),
       ),
       error: result.error?.message ?? null,
-      diagnostics: diagnosticsDirectory
-        ? writeGateDiagnostics({
-            directory: diagnosticsDirectory,
-            gateId,
-            stdout,
-            stderr: diagnosticStderr,
-            identity: shardIdentity,
-          })
+      diagnostics: gateDiagnostics
+        ? {
+            ...gateDiagnostics,
+            failureExcerpt: failureExcerpt(`${stdout}\n${diagnosticStderr}`),
+          }
         : null,
     });
     if (status === "failed") {
@@ -766,6 +832,13 @@ function invalidShardReason({ report, expectedShard, ciPlan }) {
   }
   if (!["passed", "failed"].includes(report.status)) {
     return `shard ${expectedShard.id} has invalid status ${report.status}`;
+  }
+  if (
+    report.status === "failed"
+    && report.diagnostics
+    && report.diagnostics.upload?.outcome !== "success"
+  ) {
+    return `shard ${expectedShard.id} failed to upload its diagnostics artifact (${report.diagnostics.upload?.outcome ?? "not recorded"})`;
   }
   const invalidGateStatus = report.gates?.find(
     (result) => !["passed", "failed", "not_run"].includes(result.status),

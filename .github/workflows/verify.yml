@@ -170,7 +170,7 @@ jobs:
         run: node scripts/verification-ci.mjs run-shard --plan artifacts/verification/ci-plan.json --shard ${{ matrix.shard.id }} --output artifacts/verification/shards/${{ matrix.shard.id }}.json
 
       - name: Publish shard diagnostics summary
-        if: always()
+        if: failure() || cancelled()
         shell: pwsh
         run: |
           $reportPath = "artifacts/verification/shards/${{ matrix.shard.id }}.json"
@@ -196,7 +196,9 @@ jobs:
           }
 
       - name: Upload shard diagnostics and Playwright reports
-        if: always()
+        id: upload-diagnostics
+        if: failure() || cancelled()
+        continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
           name: verification-shard-diagnostics-${{ matrix.shard.id }}
@@ -204,6 +206,29 @@ jobs:
             artifacts/verification/diagnostics/${{ matrix.shard.id }}
             artifacts/playwright/${{ matrix.shard.id }}
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Record diagnostics artifact upload outcome
+        if: always()
+        shell: pwsh
+        env:
+          DIAGNOSTICS_UPLOAD_OUTCOME: ${{ steps.upload-diagnostics.outcome }}
+        run: |
+          $reportPath = "artifacts/verification/shards/${{ matrix.shard.id }}.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            $outcome = if ($env:DIAGNOSTICS_UPLOAD_OUTCOME) { $env:DIAGNOSTICS_UPLOAD_OUTCOME } else { "skipped" }
+            $report.diagnostics | Add-Member -NotePropertyName upload -NotePropertyValue ([ordered]@{
+              required = $report.status -ne "passed"
+              attempted = $outcome -ne "skipped"
+              outcome = $outcome
+            }) -Force
+            [IO.File]::WriteAllText(
+              (Resolve-Path $reportPath),
+              (($report | ConvertTo-Json -Depth 100) + "`n"),
+              [Text.UTF8Encoding]::new($false)
+            )
+          }
 
       - name: Upload verification shard report
         if: always()
