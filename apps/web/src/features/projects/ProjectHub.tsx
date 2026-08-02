@@ -1140,6 +1140,12 @@ export function ProjectHub({
           && "Model PackageのTask identityが選択内容と一致しません。",
         modelPackage?.manifest_digest !== requestedModelLibraryProject.packageManifestDigest
           && "Model Packageのmanifest digestが選択内容と一致しません。",
+        modelPackage && !compatiblePackagesForDatasetTask(
+          dataset,
+          requestedModelLibraryProject.taskId,
+          creationOptions,
+        ).some((item) => item.id === modelPackage.id)
+          && "Model Packageは選択したDataset・Profile・Prediction Taskを学習元としていません。",
       ].filter((item): item is string => Boolean(item));
       setNewGraphProject(undefined);
       setNewProjectName(dataset ? `${datasetDisplayName(dataset)} 検討` : "Model Libraryからの検討");

@@ -111,9 +111,22 @@ export function ResourceCatalogView({
   );
   const managedDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "managed");
   const bundledDatasets = filteredDatasets.filter((item) => item.data_asset.locator_kind === "bundled");
-  const selectedDataset = filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
-    ?? managedDatasets[0]
-    ?? bundledDatasets[0];
+  const requestedDataset = location.datasetRevisionId
+    ? datasets.find((item) => item.dataset_revision.id === location.datasetRevisionId)
+    : undefined;
+  const requestedPackage = location.packageReferenceId
+    ? modelPackages.find((item) => item.id === location.packageReferenceId)
+    : undefined;
+  const requestedDatasetVisible = Boolean(
+    requestedDataset
+    && !requestedDataset.dataset_revision.archived_at
+    && filteredDatasets.some((item) => item.dataset_revision.id === requestedDataset.dataset_revision.id),
+  );
+  const selectedDataset = location.datasetRevisionId
+    ? requestedDatasetVisible ? requestedDataset : undefined
+    : filteredDatasets.find((item) => item.dataset_revision.id === selectedDatasetId)
+      ?? managedDatasets[0]
+      ?? bundledDatasets[0];
   const selectedEffectiveProfile = selectedDataset?.profile_revision.effective_profile_json;
   const selectedLineage = selectedDataset?.dataset_views
     ?.flatMap((view) => view.members)
@@ -132,6 +145,29 @@ export function ResourceCatalogView({
   const selectedDatasetPackages = selectedDataset
     ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
     : [];
+  const datasetsLoaded = resourceStates.datasets.phase === "ready" || Boolean(resourceStates.datasets.loadedAt);
+  const modelPackagesLoaded = resourceStates.modelPackages.phase === "ready" || Boolean(resourceStates.modelPackages.loadedAt);
+  const modelLibraryFocusErrors = [
+    location.datasetRevisionId && datasetsLoaded && !requestedDataset
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）を現在のWorkspaceで解決できません。`
+      : undefined,
+    location.datasetRevisionId && requestedDataset?.dataset_revision.archived_at
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）は利用停止中です。`
+      : undefined,
+    location.datasetRevisionId && requestedDataset && !requestedDatasetVisible && !requestedDataset.dataset_revision.archived_at
+      ? `指定されたDataset Revision（${location.datasetRevisionId}）は現在の表示条件では確認できません。`
+      : undefined,
+    location.packageReferenceId && modelPackagesLoaded && !requestedPackage
+      ? `指定されたModel Package（${location.packageReferenceId}）を現在のWorkspaceで解決できません。`
+      : undefined,
+    location.packageReferenceId && requestedPackage?.archived_at
+      ? `指定されたModel Package（${location.packageReferenceId}）は利用停止中です。`
+      : undefined,
+    location.packageReferenceId && requestedPackage && selectedDataset
+      && !selectedDatasetPackages.some((item) => item.id === requestedPackage.id)
+      ? "指定されたModel Packageは、指定されたDataset Revisionの学習済みPackageではありません。"
+      : undefined,
+  ].filter((message): message is string => Boolean(message));
   const packageDisplayNames = useMemo(
     () => modelPackageDisplayNames(modelPackages),
     [modelPackages],
@@ -158,6 +194,11 @@ export function ResourceCatalogView({
       target?.focus({ preventScroll: true });
     });
   }, [location.packageReferenceId, selectedDataset?.dataset_revision.id]);
+  const clearModelLibraryFocus = () => onNavigate({
+    ...location,
+    datasetRevisionId: undefined,
+    packageReferenceId: undefined,
+  }, true);
   const modelGuide = useMemo(() => {
     if (!selectedDataset || !guideTaskId || exactProfileMissing) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -347,6 +388,14 @@ export function ResourceCatalogView({
             </details>
           </div>}
           {resourceStates.datasets.phase === "ready" && filteredDatasets.length === 0 && <p className="library-empty">この状態のDatasetはありません。</p>}
+          {modelLibraryFocusErrors.length > 0 && <div className="data-library-resource-error" role="alert">
+            <div>
+              <strong>Model Libraryから指定された参照を確認できません</strong>
+              <ul>{modelLibraryFocusErrors.map((message) => <li key={message}>{message}</li>)}</ul>
+              <p>ほかのDatasetとModel Packageの一覧はそのまま確認できます。</p>
+            </div>
+            <button type="button" className="outline-button" onClick={clearModelLibraryFocus}>一覧から選び直す</button>
+          </div>}
         </section>
 
         {selectedDataset && <section className="data-library-section dataset-context" aria-labelledby="dataset-context-heading">
