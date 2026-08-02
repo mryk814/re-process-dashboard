@@ -186,8 +186,18 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await page.keyboard.press("Enter");
   await expect(page.locator(".chain-studio-canvas .transform-node")).toHaveCount(0);
 
+  const publishResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/prediction-graphs/publish"
+  ));
+  const projectCreateResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/prediction-graphs/projects"
+  ));
   await page.getByRole("button", { name: "Revisionを公開してProjectを作成" }).focus();
   await page.keyboard.press("Enter");
+  expect((await publishResponse).status()).toBe(201);
+  expect((await projectCreateResponse).status()).toBe(201);
   await expect(page).toHaveURL(/view=project.*project=/);
   const projectId = new URL(page.url()).searchParams.get("project");
   expect(projectId).toBeTruthy();
