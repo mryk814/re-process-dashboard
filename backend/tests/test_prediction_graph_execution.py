@@ -821,6 +821,13 @@ def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
         "prediction_graph"
     )
     project_id = response.json()["id"]
+    task_definition_response = client.get(
+        f"/api/projects/{project_id}/task-definition"
+    )
+    assert task_definition_response.status_code == 409
+    assert "Project-level TaskDefinitionがありません" in (
+        task_definition_response.text
+    )
     task_catalog = client.get("/api/task-definitions")
     assert task_catalog.status_code == 200, task_catalog.text
     starter = next(

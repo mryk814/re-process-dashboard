@@ -260,6 +260,10 @@ class TaskPackageCatalog:
         identity = project.scientific_identity
         if identity.identity_kind == "single_task":
             return self.registry.resolved_definition_for(identity.task_id)
+        if identity.identity_kind == "prediction_graph":
+            raise CatalogConflictError(
+                "Prediction Graph ProjectにはProject-level TaskDefinitionがありません",
+            )
         revision = self.store.get_chain_revision(identity.chain_revision_id)
         if (
             revision is None
