@@ -132,8 +132,8 @@ export function planShardEvidenceReuse({
   if (!reusableDirectOutcomes.has(sourceReport?.status)) {
     return executeEverything("source direct verification is not green");
   }
-  if (sourceReport.commit_sha !== source.commitSha) {
-    return executeEverything("source direct report commit does not match its workflow run");
+  if (!source.testedCommit || !sourceReport.commit_sha || sourceReport.commit_sha !== source.testedCommit) {
+    return executeEverything("source direct report does not identify its tested merge commit");
   }
   if (sourceReport.baseRef !== ciPlan.originalPlan.baseRef) {
     return executeEverything("base SHA changed since the source evidence");
@@ -150,7 +150,7 @@ export function planShardEvidenceReuse({
   for (const shard of ciPlan.shards) {
     const report = sourceByShard.get(shard.id);
     const changed = changedPathsSinceSource.some((path) => changedPathMatchesShard(path, shard.id));
-    if (!changed && sourceShardIsGreen(report, source.commitSha, ciPlan.verificationCatalogSha256, shard)) {
+    if (!changed && sourceShardIsGreen(report, source.testedCommit, ciPlan.verificationCatalogSha256, shard)) {
       reusedShardIds.push(shard.id);
     }
   }
@@ -174,7 +174,7 @@ export function materializeReusedShardReport({ ciPlan, source, shardId, sourceRu
     evidence: {
       kind: "reused",
       sourceRunId: String(sourceRunId),
-      sourceCommit: source.commitSha,
+      sourceCommit: source.testedCommit,
       sourceBaseRef: source.directReport.baseRef,
       sourcePlanDigest: sourceReport.planDigest,
     },
@@ -998,26 +998,33 @@ function isAncestor(ancestor, descendant) {
   return spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant]).status === 0;
 }
 
-export function selectReusableWorkflowRun({ runs, pullRequestNumber, currentCommit, isAncestorCommit }) {
+export function selectReusableWorkflowRun({ runs, pullRequestNumber, currentHeadSha, isAncestorCommit }) {
   return runs
     .filter((run) => (
       run.conclusion === "success"
       && run.head_sha
-      && run.head_sha !== currentCommit
+      && run.head_sha !== currentHeadSha
       && run.pull_requests?.some((pr) => pr.number === pullRequestNumber)
-      && isAncestorCommit(run.head_sha, currentCommit)
+      && isAncestorCommit(run.head_sha, currentHeadSha)
     ))
     .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ?? null;
 }
 
-async function findReusableWorkflowRun({ currentCommit }) {
+function pullRequestHeadSha() {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath || !existsSync(eventPath)) return null;
+  return JSON.parse(readFileSync(eventPath, "utf8")).pull_request?.head?.sha ?? null;
+}
+
+async function findReusableWorkflowRun() {
   const token = process.env.GITHUB_TOKEN;
   const repository = process.env.GITHUB_REPOSITORY;
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!token || !repository || !eventPath || !existsSync(eventPath)) return null;
   const event = JSON.parse(readFileSync(eventPath, "utf8"));
   const pullRequestNumber = event.pull_request?.number;
-  if (!pullRequestNumber) return null;
+  const currentHeadSha = event.pull_request?.head?.sha;
+  if (!pullRequestNumber || !currentHeadSha) return null;
   const apiUrl = process.env.GITHUB_API_URL ?? "https://api.github.com";
   const url = `${apiUrl}/repos/${repository}/actions/workflows/verify.yml/runs?event=pull_request&status=success&per_page=100`;
   const response = await fetch(url, {
@@ -1032,10 +1039,10 @@ async function findReusableWorkflowRun({ currentCommit }) {
   const run = selectReusableWorkflowRun({
     runs: payload.workflow_runs ?? [],
     pullRequestNumber,
-    currentCommit,
+    currentHeadSha,
     isAncestorCommit: isAncestor,
   });
-  return run ? { runId: String(run.id), commitSha: run.head_sha } : null;
+  return run ? { runId: String(run.id), headSha: run.head_sha } : null;
 }
 
 function appendReuseOutput(path, reuse) {
@@ -1079,7 +1086,7 @@ async function main() {
     return 0;
   }
   if (command === "find-reusable-run") {
-    const source = await findReusableWorkflowRun({ currentCommit: currentCommit() });
+    const source = await findReusableWorkflowRun();
     writeJson(resolve(options.output ?? "artifacts/verification/reusable-run.json"), source);
     if (options["github-output"]) {
       appendFileSync(options["github-output"], `run_id=${source?.runId ?? ""}\n`);
@@ -1100,19 +1107,23 @@ async function main() {
     const directReport = readJsonIfPresent(options["source-report"]);
     const source = sourceRun && directReport
       ? {
-          commitSha: sourceRun.commitSha,
+          headSha: sourceRun.headSha,
+          testedCommit: directReport.commit_sha,
           directReport,
           shardReports: loadShardReports(resolve(options["source-shards"] ?? "artifacts/verification/prior-shards")),
         }
       : null;
-    const changedPathsSinceSource = source
-      ? gitDiffPaths(source.commitSha, ciPlan.testedCommit)
+    const currentHeadSha = pullRequestHeadSha();
+    const changedPathsSinceSource = source && currentHeadSha
+      ? gitDiffPaths(source.headSha, currentHeadSha)
       : [];
     const reuse = planShardEvidenceReuse({
       ciPlan,
       source,
       changedPathsSinceSource,
-      sourceIsAncestor: source ? isAncestor(source.commitSha, ciPlan.testedCommit) : false,
+      sourceIsAncestor: source && currentHeadSha
+        ? isAncestor(source.headSha, currentHeadSha)
+        : false,
       classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
     });
     const reportsDirectory = resolve(dirname(options.output), "reused-shards");

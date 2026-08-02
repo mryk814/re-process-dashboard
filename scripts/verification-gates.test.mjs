@@ -955,14 +955,15 @@ test("CI aggregation fails closed for missing, stale, and duplicate evidence", (
 function reusableSource(ciPlan, { baseRef = ciPlan.originalPlan.baseRef } = {}) {
   const reports = passedShardReports(ciPlan).map((report) => ({
     ...report,
-    testedCommit: "source-sha",
-    evidence: { kind: "executed", sourceCommit: "source-sha" },
+    testedCommit: "source-merge-sha",
+    evidence: { kind: "executed", sourceCommit: "source-merge-sha" },
   }));
   return {
-    commitSha: "source-sha",
+    headSha: "source-head-sha",
+    testedCommit: "source-merge-sha",
     directReport: {
       status: "passed",
-      commit_sha: "source-sha",
+      commit_sha: "source-merge-sha",
       baseRef,
       verificationCatalogSha256: "catalog-sha",
     },
@@ -973,6 +974,7 @@ function reusableSource(ciPlan, { baseRef = ciPlan.originalPlan.baseRef } = {}) 
 test("same-base E2E follow-up reuses green backend and delivery shards", () => {
   const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
   const source = reusableSource(ciPlan);
+  assert.notEqual(source.headSha, source.testedCommit);
   const reuse = planShardEvidenceReuse({
     ciPlan,
     source,
@@ -992,7 +994,7 @@ test("same-base E2E follow-up reuses green backend and delivery shards", () => {
   });
   assert.equal(report.testedCommit, ciPlan.testedCommit);
   assert.equal(report.evidence.kind, "reused");
-  assert.equal(report.evidence.sourceCommit, "source-sha");
+  assert.equal(report.evidence.sourceCommit, "source-merge-sha");
 });
 
 test("direct verification records executed, reused, and skipped shard evidence", () => {
@@ -1069,13 +1071,24 @@ test("base or high-risk changes never reuse shard evidence", () => {
     });
     assert.equal(refused.reusedShardIds.length, 0);
   }
+
+  const mismatchedMergeEvidence = reusableSource(ciPlan);
+  mismatchedMergeEvidence.directReport.commit_sha = "different-merge-sha";
+  const mismatched = planShardEvidenceReuse({
+    ciPlan,
+    source: mismatchedMergeEvidence,
+    changedPathsSinceSource: ["e2e/navigation-intent.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.equal(mismatched.reusedShardIds.length, 0);
 });
 
 test("reusable run selection only accepts a successful ancestor for the same PR", () => {
   const selected = selectReusableWorkflowRun({
-    currentCommit: "current",
+    currentHeadSha: "current-head",
     pullRequestNumber: 735,
-    isAncestorCommit: (candidate) => candidate === "older",
+    isAncestorCommit: (candidate, current) => candidate === "older" && current === "current-head",
     runs: [
       { id: 1, conclusion: "failure", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T00:00:00Z" },
       { id: 2, conclusion: "success", head_sha: "other", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T01:00:00Z" },
