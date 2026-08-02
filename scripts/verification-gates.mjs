@@ -567,6 +567,22 @@ export function gateRunsOnPlatform(gatePlatform, currentPlatform) {
     || gatePlatform === "docker";
 }
 
+export function verificationGateEnvironment(
+  baseEnvironment,
+  gateId,
+  executionGateIds,
+) {
+  const environment = { ...baseEnvironment };
+  delete environment.VERIFICATION_SKIP_STANDARD_FAILURE_SPECS;
+  if (
+    gateId === "failure-state-e2e"
+    && executionGateIds.includes("default-playwright")
+  ) {
+    environment.VERIFICATION_SKIP_STANDARD_FAILURE_SPECS = "1";
+  }
+  return environment;
+}
+
 export function evaluateVerificationOutcome({ plan, gateResults }) {
   const byId = new Map(gateResults.map((result) => [result.id, result]));
   const failedGates = gateResults

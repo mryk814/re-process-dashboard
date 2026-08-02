@@ -111,21 +111,6 @@ test("long bundled dataset names stay inside the project list on the overview", 
   expect(dimensions.itemsScrollWidth).toBeLessThanOrEqual(dimensions.itemsClientWidth);
 });
 
-test("a single-project series is shown as a direct project without collapse hierarchy", async ({ page }) => {
-  const createdResponse = await createProjectFromDefault(page, `単独プロジェクト ${Date.now()}`);
-  expect(createdResponse.status()).toBe(201);
-  const created = await createdResponse.json() as { id: string };
-  await gotoProjectAfterCreationOptions(page, created.id);
-
-  const activeGroup = page.locator('.project-list-item[aria-current="page"]').locator("xpath=ancestor::section");
-  await expect(activeGroup).toHaveClass(/singleton/);
-  await expect(activeGroup.locator(".project-list-group-toggle")).toHaveCount(0);
-  await expect(activeGroup.locator(".project-list-item")).toHaveCount(1);
-  await expect(page.getByText("その他の検討", { exact: true })).toHaveCount(0);
-
-  expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
-});
-
 test("a one-project series stays out of the overview until grouping is requested", async ({ page }) => {
   const groupName = `単独グループ ${Date.now()}`;
   const createdResponse = await createProjectFromDefault(
@@ -380,83 +365,6 @@ test("switching from single-Task scientific settings to a Chain normalizes the s
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
-test("Dataset choices explain use, order, and duplicate identity before Project creation", async ({ page }) => {
-  const boundProjectName = `Dataset結合確認 ${Date.now()}`;
-  const boundProjectResponse = await createProjectFromDefault(page, boundProjectName);
-  expect(boundProjectResponse.status(), await boundProjectResponse.text()).toBe(201);
-  const projectResponse = await page.request.get(`${apiBaseUrl}/api/projects/default`);
-  expect(projectResponse.status()).toBe(200);
-  const defaultProject = await projectResponse.json() as {
-    name: string;
-    dataset_view_revision_id: string;
-  };
-  const optionsResponse = await page.request.get(`${apiBaseUrl}/api/project-creation-options`);
-  expect(optionsResponse.status()).toBe(200);
-  const options = await optionsResponse.json() as {
-    datasets: Array<{
-      data_asset: { original_filename: string };
-      dataset_revision: { id: string };
-      dataset_views?: Array<{ id: string; name: string }>;
-      profile_revision: { name: string; revision: number };
-    }>;
-  };
-  const source = options.datasets.find(
-    (dataset) => dataset.data_asset.original_filename === "material_workbench_tutorial_v2.xlsx",
-  );
-  expect(source).toBeTruthy();
-  const duplicateLogicalId = `e2e-duplicate-${Date.now()}`;
-  const duplicateResponse = await page.request.post(`${apiBaseUrl}/api/data-library/views`, {
-    data: {
-      view_id: duplicateLogicalId,
-      revision: 1,
-      name: source!.dataset_views?.[0]?.name ?? "material_workbench_tutorial_v2",
-      kind: "single",
-      members: [{ dataset_revision_id: source!.dataset_revision.id, ordinal: 0 }],
-    },
-  });
-  expect(duplicateResponse.status()).toBe(201);
-  const duplicateView = await duplicateResponse.json() as { id: string };
-
-  await gotoProjectAfterCreationOptions(page, "default");
-  await page.getByRole("button", { name: "新規プロジェクト" }).click();
-  const panel = page.getByRole("region", { name: "新規プロジェクトの開始方法" });
-  const datasetSelect = panel.getByRole("combobox", { name: "Dataset", exact: true });
-  const usedOptions = datasetSelect.locator('optgroup[label="利用中のデータ"] > option');
-  const unusedOptions = datasetSelect.locator('optgroup[label="未使用のデータ"] > option');
-
-  await expect(datasetSelect.locator("option[value]").first()).toBeAttached();
-  await expect(usedOptions.first()).toBeAttached({ timeout: 15_000 });
-  await expect(unusedOptions.first()).toBeAttached({ timeout: 15_000 });
-  expect(await usedOptions.count()).toBeGreaterThan(0);
-  expect(await unusedOptions.count()).toBeGreaterThan(0);
-  const labels = await datasetSelect.locator("option[value]").allTextContents();
-  expect(new Set(labels).size).toBe(labels.length);
-  expect(labels.join(" ")).not.toContain("thin-sheet-tutorial-v1");
-  const useCounts = (await usedOptions.allTextContents()).map(
-    (label) => Number(label.match(/利用中(\d+)件/)?.[1] ?? 0),
-  );
-  expect(useCounts).toEqual([...useCounts].sort((left, right) => right - left));
-
-  const duplicateLabels = labels.filter((label) => label.includes("material_workbench_tutorial_v2"));
-  expect(duplicateLabels.length).toBeGreaterThanOrEqual(2);
-  expect(duplicateLabels.every((label) => label.includes("登録") && label.includes("…"))).toBe(true);
-
-  await datasetSelect.selectOption(defaultProject.dataset_view_revision_id);
-  const fixedContent = panel.getByRole("region", { name: "作成後に固定される内容" });
-  const fixedDataset = options.datasets.find(
-    (dataset) => dataset.dataset_views?.some((view) => view.id === defaultProject.dataset_view_revision_id),
-  );
-  expect(fixedDataset).toBeTruthy();
-  await expect(fixedContent).toContainText("利用中:");
-  await expect(fixedContent).toContainText(boundProjectName);
-  await expect(fixedContent).toContainText(
-    `${fixedDataset!.profile_revision.name} · r${fixedDataset!.profile_revision.revision}`,
-  );
-  await datasetSelect.selectOption(duplicateView.id);
-  await expect(datasetSelect).toHaveValue(duplicateView.id);
-  await expect(fixedContent).toContainText("このDatasetを使うProjectはありません");
-});
-
 test("a continuation can switch prediction task without leaving its series", async ({ page }) => {
   const sourceResponse = await createProjectFromDefault(
     page,
@@ -526,36 +434,6 @@ test("project settings keep one fixed reference display and archiving at the bot
   expect((await page.request.delete(`${apiBaseUrl}/api/projects/${created.id}`)).status()).toBe(204);
 });
 
-test("project overview leads with next work and goals while fixed references live in settings", async ({ page }) => {
-  await page.goto("/?view=project&project=default");
-
-  const goal = page.getByRole("region", { name: "プロジェクトの目標値" });
-  const nextWork = page.locator(".project-next-actions");
-
-  await expect(goal).toBeVisible();
-  await expect(nextWork).toBeVisible();
-  await expect(page.locator(".project-inline-name h2").getByRole("textbox", { name: "プロジェクト名" })).toBeVisible();
-  await expect(goal.getByRole("group", { name: "目標値を設定" })).toBeVisible();
-  await expect(goal.getByRole("button", { name: "目標値を保存" })).toBeDisabled();
-  await expect(page.locator(".project-reference-details")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /自分のデータ/ })).toHaveCount(1);
-
-  const readingOrder = await page.locator(".project-hub-content").evaluate((content) => {
-    const goalElement = content.querySelector(".project-goal-strip");
-    const nextWorkElement = content.querySelector(".project-next-actions");
-    const historyElement = content.querySelector(".project-history-section");
-    if (!goalElement || !nextWorkElement || !historyElement) return [];
-    return [nextWorkElement, goalElement, historyElement]
-      .map((element) => Array.from(content.children).indexOf(element));
-  });
-  expect(readingOrder).toEqual([...readingOrder].sort((left, right) => left - right));
-
-  await page.getByRole("button", { name: "設定", exact: true }).click();
-  await page.getByRole("navigation", { name: "Project設定カテゴリ" })
-    .getByRole("button", { name: "証拠・管理" }).click();
-  await expect(page.locator(".project-reference-strip")).toBeVisible();
-});
-
 test("project hub separates current revision from fixed snapshot and restores a new candidate", async ({ page }) => {
   await page.goto("/?view=project&project=default");
   await expect(page.getByRole("heading", { name: "次の作業" })).toBeVisible();
@@ -575,6 +453,7 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await page.getByRole("button", { name: new RegExp(`${candidateName}の詳細予測を保存`) }).click();
   expect((await detailed).status()).toBe(200);
 
+  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
   const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const value = Number(await numeric.inputValue());
   const saved = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname.endsWith(`/candidates/${candidateId}`));

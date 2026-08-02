@@ -12,26 +12,51 @@ source-of-truth: e2e/suite-inventory.mjs
 
 | 区分 | 実行方法 | stateの扱い |
 | --- | --- | --- |
-| `shared-read-only` | `node scripts/run-parallel-e2e.mjs` のread-only段 | seeded Workspaceを読むだけ。spec単位で2 workerまで許可する |
+| `shared-read-only` | `npx playwright test --config playwright.read-only.config.ts` | seeded Workspaceを読むだけ。spec単位で2 workerまで許可する |
 | `isolated` | `node scripts/run-isolated-e2e.mjs` | specごとにfresh API、Web、SQLite、Model/Profile/Task storeを持つ |
 | `serial-journey` | `npx playwright test` | `default` Projectのmutationまたは文脈継続を意図して検証するためworkers: 1 |
 | `dedicated-runtime` | 個別config／runner | degraded、startup、sample galleryなど専用process条件を持つ |
 | `blocked` | default serial suiteのまま | fresh実行でも既存failureがある。retryやparallel化で隠さず、先にfailureを直す |
 
-## 並列回帰
+## focused並列実行
 
 ```powershell
-node scripts/run-parallel-e2e.mjs
+npx playwright test --config playwright.read-only.config.ts
+node scripts/run-isolated-e2e.mjs
 ```
 
-前半はread-only specをPlaywright worker 2で実行する。spec内のlarge lineage readは順序を保つので、`fullyParallel`にはしない。
-後半はmutableでもProject／Candidate／Runをspec外へ漏らせるものを、別API/Web processとして最大2本動かす。
-read-only段も固定portを持たず、`PLAYWRIGHT_API_PORT`／`PLAYWRIGHT_WEB_PORT`が未指定ならOSから別portを取得する。明示指定した二つが同じportなら起動前に停止する。
-各実行はOSから別々に取得したAPI/Web portを使い、`test-results/isolated-e2e-*/report.json`へspec、port、exit code、output directoryを記録する。
+この二つはdefault E2E全体の代替ではない。
+前者は`shared-read-only`だけ、後者は`isolated`だけを実行するfocused runnerであり、
+`serial-journey`と`dedicated-runtime`を含まない。
+通常の全体gateは引き続き`npx playwright test`と専用runnerで構成する。
+
+read-only configはPlaywright worker 2で実行する。spec内のlarge lineage readは順序を保つので、`fullyParallel`にはしない。
+isolated runnerはmutableでもProject／Candidate／Runをspec外へ漏らせるものを、別API/Web processとして最大2本動かす。
+どちらも固定portを持たず、`PLAYWRIGHT_API_PORT`／`PLAYWRIGHT_WEB_PORT`が未指定ならOSから別portを取得する。明示指定した二つが同じportなら起動前に停止する。
+read-only configの結果は通常のPlaywright reporterへ出力する。
+isolated runnerは各specをOSから別々に取得したAPI/Web portで実行し、
+`test-results/isolated-e2e-*/report.json`へspec、port、exit code、output directoryを記録する。
 
 mutable specはretryを許可しない。runnerは`PLAYWRIGHT_ISOLATED_RETRIES`が`0`以外ならserverを起動する前に停止し、run IDをreportへ残す。これにより、失敗した最初のmutationを同じresource identityへ二重適用するretryを「たまたま通る」結果にしない。
 
 cleanupはglobal teardownの終了時に行う。DB、WAL/SHM、Model/Profile/Task storeの結果は各runの`owned-e2e-cleanup-*.jsonl`に`removed`、`busy`、`failed`として残す。cleanup問題をserver stderrだけで判断しない。
+
+## assertion owner
+
+一つのfailure modeを複数layerで繰り返さない。
+純粋な表示分岐と入力permutationはWeb unit、科学・保存・API契約はpytest、
+履歴、reload、back／forward、実操作、遅延raceだけをPlaywrightが所有する。
+
+2026-08-02の棚卸しでは、次の重複browser assertionを既存ownerへ一本化した。
+
+| browserで削除した確認 | 維持するowner |
+| --- | --- |
+| unknown navigation query／developer locationの文言分岐 | `firstRunProjectActions.test.mjs`、`activityRunNavigation.test.mjs` |
+| developer guideの順序・警告 | `changeGuideCard.test.mjs` |
+| Lineageの工程条件分離 | `backend/tests/test_api.py`と実graph操作journey |
+| 単一series／overview／Dataset choiceの表示分岐 | `optionalProjectSeriesPresentation.test.mjs`、`taskAvailabilityPresentation.test.mjs`、`dataLibraryPresentation.test.mjs` |
+| hot rolling入力fieldとproposal geometry | `backend/tests/test_projects.py`、`backend/tests/test_proposal_geometry.py`、`screeningProposalSummary.test.mjs` |
+| single-table Excelとpersonal modelの説明分岐 | `managementWorkspaceUx.test.mjs`、`backend/tests/test_xlsx_task_onboarding.py` |
 
 ## 順序依存guard
 
