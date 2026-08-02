@@ -41,4 +41,3 @@ data approval、Package activation、Graph publication、Project内の候補条�
 - unavailable／research-onlyの理由、影響、回復方法を操作前に読める。
 - Graph detailでinput、stage、decision output、fixed Revisionを確認してStudioへ移動できる。
 - Task／PackageからData Libraryへ移動でき、Dataset参照を持つPackageは既存Project作成面へ進める。
-
