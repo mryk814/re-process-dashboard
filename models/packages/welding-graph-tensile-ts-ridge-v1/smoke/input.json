@@ -1,0 +1,44 @@
+{
+  "name": "Stage C package smoke",
+  "inputs": {
+    "composition": {
+      "C": 0.06507,
+      "Si": 0.268545,
+      "Mn": 1.05455,
+      "P": 0.01301,
+      "S": 0.00638,
+      "Ni": 0.43375,
+      "Cr": 0.104355,
+      "Mo": 0.020135,
+      "Cu": 0.0,
+      "Ti": 0.025115,
+      "B": 0.0004,
+      "Nb": 0.0,
+      "V": 0.0,
+      "Al": 0.02148,
+      "N": 0.00545,
+      "O": 0.046865
+    },
+    "process": {
+      "heat_input_kj_per_mm": 1.262,
+      "preheat_temp_c": 80.0
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "blend": null,
+  "editor_state": {
+    "locked_material_ids": []
+  },
+  "blend_validation": {
+    "status": "not_applicable",
+    "issues": [],
+    "design_space_digest": null
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  },
+  "input_missing_kinds": {}
+}

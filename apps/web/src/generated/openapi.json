@@ -9460,6 +9460,16 @@
       "DecisionOutput": {
         "additionalProperties": false,
         "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionOutputEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "group": {
             "minLength": 1,
             "title": "Group",
@@ -9510,6 +9520,72 @@
           "required_for_complete_result"
         ],
         "title": "DecisionOutput",
+        "type": "object"
+      },
+      "DecisionOutputEvidence": {
+        "additionalProperties": false,
+        "description": "Reader-facing evidence boundary that is also part of Graph identity.",
+        "properties": {
+          "causal_claim": {
+            "const": "none",
+            "default": "none",
+            "title": "Causal Claim",
+            "type": "string"
+          },
+          "evidence_kind": {
+            "enum": [
+              "measured",
+              "synthetic_demonstration"
+            ],
+            "title": "Evidence Kind",
+            "type": "string"
+          },
+          "goal_direction": {
+            "enum": [
+              "at_least",
+              "at_most",
+              "target",
+              "none"
+            ],
+            "title": "Goal Direction",
+            "type": "string"
+          },
+          "limitation": {
+            "minLength": 1,
+            "title": "Limitation",
+            "type": "string"
+          },
+          "production_use": {
+            "enum": [
+              "allowed",
+              "prohibited"
+            ],
+            "title": "Production Use",
+            "type": "string"
+          },
+          "source_variables": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Variables",
+            "type": "array"
+          },
+          "unit_or_scale": {
+            "minLength": 1,
+            "title": "Unit Or Scale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_kind",
+          "unit_or_scale",
+          "goal_direction",
+          "source_variables",
+          "production_use",
+          "limitation"
+        ],
+        "title": "DecisionOutputEvidence",
         "type": "object"
       },
       "DesignPriorPackageReference": {

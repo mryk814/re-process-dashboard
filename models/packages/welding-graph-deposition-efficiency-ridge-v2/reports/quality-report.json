@@ -1,0 +1,94 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "deposition_efficiency_pct",
+      "parent_conditions": 625,
+      "mae": 0.6504457154957921,
+      "rmse": 0.7878650858655402,
+      "interval_coverage_90": 0.96,
+      "interval_coverage_method": "nested-grouped-oof-residual-quantiles",
+      "interval_coverage_observations": 625
+    }
+  ],
+  "validation_plans": {
+    "deposition_efficiency_pct": {
+      "schema_version": "validation-plan/v1",
+      "strategy": "grouped_kfold",
+      "folds": 5,
+      "holdout_fraction": null,
+      "seed": 20260730,
+      "group_key": "parent_key",
+      "time_key": null,
+      "gap": 0,
+      "minimum_train_size": 2,
+      "class_balance_policy": null,
+      "digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+    }
+  },
+  "validation_diagnostics": {
+    "deposition_efficiency_pct": {
+      "schema_version": "validation-diagnostics/v1",
+      "strategy": "grouped_kfold",
+      "folds": [
+        {
+          "fold": 0,
+          "evaluation_rows": 125,
+          "training_rows": 500,
+          "calibration_rows": null,
+          "class_ratio": null
+        },
+        {
+          "fold": 1,
+          "evaluation_rows": 125,
+          "training_rows": 500,
+          "calibration_rows": null,
+          "class_ratio": null
+        },
+        {
+          "fold": 2,
+          "evaluation_rows": 125,
+          "training_rows": 500,
+          "calibration_rows": null,
+          "class_ratio": null
+        },
+        {
+          "fold": 3,
+          "evaluation_rows": 125,
+          "training_rows": 500,
+          "calibration_rows": null,
+          "class_ratio": null
+        },
+        {
+          "fold": 4,
+          "evaluation_rows": 125,
+          "training_rows": 500,
+          "calibration_rows": null,
+          "class_ratio": null
+        }
+      ],
+      "group_overlap": false,
+      "temporal_order_verified": false,
+      "time_ranges": null,
+      "validation_groups": 625,
+      "preprocessing": {
+        "fit_scope": "training_fold_only",
+        "policy": "all data-derived preprocessing and calibration are fit without evaluation rows",
+        "not_applicable": [
+          "imputation:canonical_features_require_finite_values",
+          "feature_selection:feature_pipeline_is_fixed_before_training"
+        ],
+        "final_model_fit": "full_target_cohort_after_honest_evaluation"
+      }
+    }
+  },
+  "validation_evidence": {
+    "deposition_efficiency_pct": {
+      "cohort_digest": "sha256:e5961e14b8e5e6027c6e02de8b0a8caf4bf0bd120edf58841b10c58aac36a067",
+      "fold_digest": "sha256:e8032d496c8306e1e3a34a272ee4b36b302bab0e8335b5e5f1019dc3555d1699",
+      "validation_plan_digest": "sha256:c16c1d56334cc0aca2d02884889d3cb02da13b4fc49c1df1755915523d429d1a"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "stage-c-training-stats/v1",
+  "records": {
+    "TS": 600
+  },
+  "groups_by_target": {
+    "TS": 300
+  },
+  "families": {
+    "tensile": {
+      "source_rows": 600,
+      "usable_input_rows": 600,
+      "split_groups": 300
+    }
+  },
+  "profile_id": "welding-graph-tensile-ts-v1-observations",
+  "profile_digest": "sha256:60cc8677b313c348bbb6128443861aa792dcf4b167149791b78bdfe3ef7de0ef",
+  "source_sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8"
+}

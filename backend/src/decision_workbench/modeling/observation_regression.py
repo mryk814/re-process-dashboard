@@ -689,20 +689,36 @@ def stage_c_starter_candidates(
         for path, value in medians.items()
         if path.startswith("composition.")
     }
-    heat = medians["process.heat_input_kj_per_mm"]
-    preheat = medians["process.preheat_temp_c"]
-    solutions = spec.categorical_choices["categorical.test_solution"]
+    heat = medians.get("process.heat_input_kj_per_mm")
+    preheat = medians.get("process.preheat_temp_c")
+    solutions = spec.categorical_choices.get("categorical.test_solution")
     return [
         CandidateInput(
             name=label,
             inputs={
                 "composition": composition,
                 "process": {
-                    "heat_input_kj_per_mm": round(heat * factor, 4),
-                    "preheat_temp_c": round(preheat, 2),
-                    "test_temperature_c": temperature,
+                    **(
+                        {"heat_input_kj_per_mm": round(heat * factor, 4)}
+                        if heat is not None
+                        else {}
+                    ),
+                    **(
+                        {"preheat_temp_c": round(preheat, 2)}
+                        if preheat is not None
+                        else {}
+                    ),
+                    **(
+                        {"test_temperature_c": temperature}
+                        if "process.test_temperature_c" in medians
+                        else {}
+                    ),
                 },
-                "categorical": {"test_solution": solutions[index % len(solutions)]},
+                "categorical": (
+                    {"test_solution": solutions[index % len(solutions)]}
+                    if solutions
+                    else {}
+                ),
                 "heat_pattern": None,
             },
         )

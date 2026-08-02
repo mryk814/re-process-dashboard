@@ -1,0 +1,141 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "welding-graph-corrosion-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "welding-graph-corrosion-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:8e1f8a4d7a53ebebb04a07dd4ea98aa24968ffe6ec07ca9180db4297cc6237a9",
+  "runtime_capability_digest": "sha256:8aae75293b7d554d0c5d7a5c8762f8e371f0c3e6620fb26d37e4271b7907372e",
+  "feature_pipeline": {
+    "id": "welding-graph-corrosion-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "categorical.test_solution"
+    ],
+    "output_features": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "categorical.test_solution::3.5%NaCl",
+      "categorical.test_solution::5%H2SO4"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "CORROSION_RATE-ridge",
+      "target": "CORROSION_RATE",
+      "unit": "mm/year",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/CORROSION_RATE.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "categorical.test_solution::3.5%NaCl",
+        "categorical.test_solution::5%H2SO4"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "corrosion",
+        "training_cohort": "corrosion:target-usable",
+        "training_rows": 103,
+        "evaluation_groups": 103,
+        "profile_digest": "sha256:1cdb1ecdb3df4f629ba3506929f7bb47a0a723b112555c3853135754b700cfc5",
+        "ridge_alpha": 1.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+    "feature_dataset_id": "sha256:400b904e31ab483c9224087f294ebfb413772a42cffb1b8b48428dd48202b6a5",
+    "training_code_revision": "stage-c-family-ridge-grouped-v1",
+    "dataset_profile_id": "sha256:1cdb1ecdb3df4f629ba3506929f7bb47a0a723b112555c3853135754b700cfc5"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "797f1f6ce5ef2d764515bf53a09d5309ea636c0b3d4884b018425fb669bfcbda",
+      "bytes": 3192
+    },
+    {
+      "path": "model-artifacts/CORROSION_RATE.npz",
+      "sha256": "d3fe2925cde361ad14a9c81a0324a24046e1793bdccad8151b6a0833a490b64a",
+      "bytes": 1188
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "74147b8c5df49ee21564aaf76e1360b861cf75e71a68889412427d65f5736735",
+      "bytes": 523
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "eacdebe3b342e4281dfabdbb902cc98d11434213349ce8e86ddcc01fa4fc4ce9",
+      "bytes": 537
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "3f3477259ef9c1a96f4910f477439155e120c3cd6bfda2b32120f5c10d62d86d",
+      "bytes": 823
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "d1ad2f53405632c30b48baff1b940d8cacbc414a6c78e8938e73533cb3bb221d",
+      "bytes": 34
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

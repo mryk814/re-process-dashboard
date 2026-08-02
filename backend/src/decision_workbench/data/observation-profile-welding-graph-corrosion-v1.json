@@ -1,0 +1,202 @@
+{
+  "schema_version": "observation-dataset-profile/v1",
+  "id": "welding-graph-corrosion-v1-observations",
+  "task_id": "welding-graph-corrosion-v1",
+  "relation_sheet": "relationEx",
+  "entities": [
+    {
+      "role": "weld_run",
+      "sheet": "溶接施工",
+      "key_column": "溶接施工_key**",
+      "relation_column": "溶接施工_key**"
+    },
+    {
+      "role": "welding_condition",
+      "sheet": "溶接条件",
+      "key_column": "溶接条件_key**",
+      "relation_column": "溶接条件_key**"
+    },
+    {
+      "role": "weld_metal",
+      "sheet": "溶着金属成分",
+      "key_column": "溶着金属成分_key**",
+      "relation_column": "溶着金属成分_key**"
+    }
+  ],
+  "families": [
+    {
+      "id": "corrosion",
+      "sheet": "腐食試験",
+      "relation_column": "腐食試験_key**",
+      "observation_id_column": "腐食試験_key**",
+      "split_group_role": "weld_run",
+      "inputs": [
+        {
+          "path": "composition.C",
+          "role": "weld_metal",
+          "column": "C[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Si",
+          "role": "weld_metal",
+          "column": "Si[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Mn",
+          "role": "weld_metal",
+          "column": "Mn[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.P",
+          "role": "weld_metal",
+          "column": "P[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.S",
+          "role": "weld_metal",
+          "column": "S[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Ni",
+          "role": "weld_metal",
+          "column": "Ni[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Cr",
+          "role": "weld_metal",
+          "column": "Cr[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Mo",
+          "role": "weld_metal",
+          "column": "Mo[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Cu",
+          "role": "weld_metal",
+          "column": "Cu[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Ti",
+          "role": "weld_metal",
+          "column": "Ti[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.B",
+          "role": "weld_metal",
+          "column": "B[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Nb",
+          "role": "weld_metal",
+          "column": "Nb[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.V",
+          "role": "weld_metal",
+          "column": "V[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.Al",
+          "role": "weld_metal",
+          "column": "Al[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.N",
+          "role": "weld_metal",
+          "column": "N[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "composition.O",
+          "role": "weld_metal",
+          "column": "O[%]",
+          "kind": "numeric",
+          "source_unit": "%",
+          "canonical_unit": "mass% deposited metal"
+        },
+        {
+          "path": "categorical.test_solution",
+          "role": "corrosion",
+          "column": "試験液",
+          "kind": "categorical"
+        }
+      ],
+      "outputs": [
+        {
+          "key": "CORROSION_RATE",
+          "column": "腐食速度[mm/year]",
+          "source_unit": "mm/year",
+          "canonical_unit": "mm/year"
+        }
+      ],
+      "metadata": [
+        {
+          "key": "test_date",
+          "column": "試験日"
+        },
+        {
+          "key": "operator",
+          "column": "試験者"
+        }
+      ],
+      "fixed_context": [
+        {
+          "path": "context.test_method",
+          "column": "試験方法",
+          "expected": "浸漬試験"
+        },
+        {
+          "path": "context.immersion_time_h",
+          "column": "浸漬時間[h]",
+          "expected": 336,
+          "unit": "h"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,483 @@
+{
+  "task_definition": {
+    "schema_version": "task-definition/v1",
+    "id": "welding-graph-corrosion-v1",
+    "label": "Graph比較用: 腐食速度",
+    "canonical_candidate_schema_version": "canonical-candidate/v1",
+    "input_groups": [
+      {
+        "key": "composition",
+        "order": 0,
+        "label": "溶着金属成分",
+        "fields": [
+          {
+            "path": "composition.C",
+            "kind": "number",
+            "order": 0,
+            "label": "C",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.02,
+              "max": 0.15
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1
+            },
+            "training_range": {
+              "min": 0.02057,
+              "max": 0.14539
+            }
+          },
+          {
+            "path": "composition.Si",
+            "kind": "number",
+            "order": 1,
+            "label": "Si",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.02,
+              "max": 0.8
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 5
+            },
+            "training_range": {
+              "min": 0.02943,
+              "max": 0.7351
+            }
+          },
+          {
+            "path": "composition.Mn",
+            "kind": "number",
+            "order": 2,
+            "label": "Mn",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.1,
+              "max": 2.1
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 10
+            },
+            "training_range": {
+              "min": 0.15955,
+              "max": 1.98826
+            }
+          },
+          {
+            "path": "composition.P",
+            "kind": "number",
+            "order": 3,
+            "label": "P",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.02
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.1
+            },
+            "training_range": {
+              "min": 0.00169,
+              "max": 0.01675
+            }
+          },
+          {
+            "path": "composition.S",
+            "kind": "number",
+            "order": 4,
+            "label": "S",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.01
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.1
+            },
+            "training_range": {
+              "min": 0.00073,
+              "max": 0.00818
+            }
+          },
+          {
+            "path": "composition.Ni",
+            "kind": "number",
+            "order": 5,
+            "label": "Ni",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 9.2
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 40
+            },
+            "training_range": {
+              "min": 0,
+              "max": 8.78107
+            }
+          },
+          {
+            "path": "composition.Cr",
+            "kind": "number",
+            "order": 6,
+            "label": "Cr",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 16.5
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 35
+            },
+            "training_range": {
+              "min": 0,
+              "max": 15.95116
+            }
+          },
+          {
+            "path": "composition.Mo",
+            "kind": "number",
+            "order": 7,
+            "label": "Mo",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.4
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 10
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.35993
+            }
+          },
+          {
+            "path": "composition.Cu",
+            "kind": "number",
+            "order": 8,
+            "label": "Cu",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.22
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 5
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.20322
+            }
+          },
+          {
+            "path": "composition.Ti",
+            "kind": "number",
+            "order": 9,
+            "label": "Ti",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.07
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 2
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.06478
+            }
+          },
+          {
+            "path": "composition.B",
+            "kind": "number",
+            "order": 10,
+            "label": "B",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.0032
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 0.1
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.00289
+            }
+          },
+          {
+            "path": "composition.Nb",
+            "kind": "number",
+            "order": 11,
+            "label": "Nb",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.06
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 2
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.05318
+            }
+          },
+          {
+            "path": "composition.V",
+            "kind": "number",
+            "order": 12,
+            "label": "V",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.04
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 2
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.03586
+            }
+          },
+          {
+            "path": "composition.Al",
+            "kind": "number",
+            "order": 13,
+            "label": "Al",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0,
+              "max": 0.08
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 5
+            },
+            "training_range": {
+              "min": 0,
+              "max": 0.07155
+            }
+          },
+          {
+            "path": "composition.N",
+            "kind": "number",
+            "order": 14,
+            "label": "N",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.002,
+              "max": 0.01
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1
+            },
+            "training_range": {
+              "min": 0.00308,
+              "max": 0.00943
+            }
+          },
+          {
+            "path": "composition.O",
+            "kind": "number",
+            "order": 15,
+            "label": "O",
+            "unit": "mass% deposited metal",
+            "required": true,
+            "editable": true,
+            "default_range": {
+              "min": 0.025,
+              "max": 0.07
+            },
+            "allowed_range": {
+              "min": 0,
+              "max": 1
+            },
+            "training_range": {
+              "min": 0.0273,
+              "max": 0.06334
+            }
+          }
+        ]
+      },
+      {
+        "key": "categorical",
+        "order": 2,
+        "label": "腐食試験条件",
+        "fields": [
+          {
+            "path": "categorical.test_solution",
+            "kind": "categorical",
+            "order": 0,
+            "label": "試験液",
+            "required": true,
+            "editable": true,
+            "choices": [
+              "3.5%NaCl",
+              "5%H2SO4"
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "key": "CORROSION_RATE",
+        "label": "腐食速度",
+        "unit": "mm/year",
+        "goal_direction": "at_most",
+        "measurement_keys": [
+          "CORROSION_RATE",
+          "腐食速度[mm/year]"
+        ],
+        "plausibility_range": {
+          "min": 0,
+          "max": 20
+        },
+        "preferred_display_range": {
+          "min": 0,
+          "max": 5
+        }
+      }
+    ],
+    "display_decimals": {
+      "composition.C": 4,
+      "composition.Si": 4,
+      "composition.Mn": 4,
+      "composition.P": 5,
+      "composition.S": 5,
+      "composition.Ni": 4,
+      "composition.Cr": 4,
+      "composition.Mo": 4,
+      "composition.Cu": 4,
+      "composition.Ti": 5,
+      "composition.B": 6,
+      "composition.Nb": 5,
+      "composition.V": 5,
+      "composition.Al": 5,
+      "composition.N": 6,
+      "composition.O": 5,
+      "output.CORROSION_RATE": 4
+    },
+    "fixed_context": [
+      {
+        "path": "context.fixture",
+        "order": 0,
+        "label": "用途",
+        "value": "Prediction Graph split-package synthetic demonstration"
+      }
+    ],
+    "constraints": [],
+    "response_curve_variables": []
+  },
+  "canonical_candidate": {
+    "schema_version": "canonical-candidate/v1",
+    "task_id": "welding-graph-corrosion-v1",
+    "composition": {
+      "C": 0.06521,
+      "Si": 0.26804,
+      "Mn": 1.05375,
+      "P": 0.013,
+      "S": 0.00638,
+      "Ni": 0.43117,
+      "Cr": 0.10388,
+      "Mo": 0.02002,
+      "Cu": 0,
+      "Ti": 0.02513,
+      "B": 0.0004,
+      "Nb": 0,
+      "V": 0,
+      "Al": 0.02147,
+      "N": 0.00546,
+      "O": 0.04687
+    },
+    "process": {},
+    "heat_pattern": null,
+    "categorical": {
+      "test_solution": "3.5%NaCl"
+    },
+    "provenance": {
+      "source_kind": "direct",
+      "source_ref": null
+    }
+  },
+  "runtime_capability": {
+    "schema_version": "runtime-capability/v1",
+    "task_id": "welding-graph-corrosion-v1",
+    "model_package_schema_version": "model-package/v1",
+    "targets": [
+      {
+        "target": "CORROSION_RATE",
+        "point_statistics": [
+          "mean"
+        ],
+        "standard_deviation": false,
+        "quantiles": true,
+        "samples": false,
+        "parametric_distribution": false,
+        "uncertainty_components": false,
+        "support": true,
+        "warnings": true,
+        "goal_probability": "unavailable"
+      }
+    ],
+    "joint_samples": false,
+    "operations": {
+      "preview": true,
+      "detailed_prediction": true,
+      "response_curve": false,
+      "similarity": true,
+      "target_specific_similarity": true,
+      "snapshot": true,
+      "actual_measurement": false
+    }
+  }
+}

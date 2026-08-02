@@ -72,6 +72,9 @@ from decision_workbench.persistence.welding_chain_bootstrap import (
     WeldingChainBootstrapError,
     bootstrap_welding_chain,
 )
+from decision_workbench.persistence.welding_prediction_graph_bootstrap import (
+    bootstrap_welding_prediction_graphs,
+)
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import TaskRegistry
@@ -416,6 +419,12 @@ class WeldingBlendApplicationContribution:
             return None
         try:
             revision_id = bootstrap_welding_chain(
+                store=context.store,
+                workspace_catalog=context.workspace_catalog,
+                task_registry=context.task_registry,
+                transform_catalog=transform_catalog,
+            )
+            bootstrap_welding_prediction_graphs(
                 store=context.store,
                 workspace_catalog=context.workspace_catalog,
                 task_registry=context.task_registry,

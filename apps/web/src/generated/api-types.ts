@@ -6161,6 +6161,7 @@ export interface components {
         };
         /** DecisionOutput */
         DecisionOutput: {
+            evidence?: components["schemas"]["DecisionOutputEvidence"] | null;
             /** Group */
             group: string;
             /** Label */
@@ -6178,6 +6179,39 @@ export interface components {
             source_output_key: string;
             /** Source Stage Id */
             source_stage_id: string;
+        };
+        /**
+         * DecisionOutputEvidence
+         * @description Reader-facing evidence boundary that is also part of Graph identity.
+         */
+        DecisionOutputEvidence: {
+            /**
+             * Causal Claim
+             * @default none
+             * @constant
+             */
+            causal_claim: "none";
+            /**
+             * Evidence Kind
+             * @enum {string}
+             */
+            evidence_kind: "measured" | "synthetic_demonstration";
+            /**
+             * Goal Direction
+             * @enum {string}
+             */
+            goal_direction: "at_least" | "at_most" | "target" | "none";
+            /** Limitation */
+            limitation: string;
+            /**
+             * Production Use
+             * @enum {string}
+             */
+            production_use: "allowed" | "prohibited";
+            /** Source Variables */
+            source_variables: string[];
+            /** Unit Or Scale */
+            unit_or_scale: string;
         };
         /**
          * DesignPriorPackageReference

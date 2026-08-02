@@ -1,0 +1,60 @@
+{
+  "id": "welding-graph-deposition-efficiency-v1-profile-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "process.heat_input_kj_per_mm",
+    "process.voltage_v",
+    "process.gas_flow_l_per_min",
+    "process.wire_feed_speed_m_per_min"
+  ],
+  "features": [
+    {
+      "name": "process.heat_input_kj_per_mm",
+      "unit": "kJ/mm",
+      "meaning": "process.heat_input_kj_per_mm",
+      "group": "process"
+    },
+    {
+      "name": "process.heat_input_kj_per_mm__square",
+      "unit": "kJ/mm^2",
+      "meaning": "process.heat_input_kj_per_mm__square",
+      "group": "process"
+    },
+    {
+      "name": "process.voltage_v",
+      "unit": "V",
+      "meaning": "process.voltage_v",
+      "group": "process"
+    },
+    {
+      "name": "process.voltage_v__square",
+      "unit": "V^2",
+      "meaning": "process.voltage_v__square",
+      "group": "process"
+    },
+    {
+      "name": "process.gas_flow_l_per_min",
+      "unit": "L/min",
+      "meaning": "process.gas_flow_l_per_min",
+      "group": "process"
+    },
+    {
+      "name": "process.gas_flow_l_per_min__square",
+      "unit": "L/min^2",
+      "meaning": "process.gas_flow_l_per_min__square",
+      "group": "process"
+    },
+    {
+      "name": "process.wire_feed_speed_m_per_min",
+      "unit": "m/min",
+      "meaning": "process.wire_feed_speed_m_per_min",
+      "group": "process"
+    },
+    {
+      "name": "process.wire_feed_speed_m_per_min__square",
+      "unit": "m/min^2",
+      "meaning": "process.wire_feed_speed_m_per_min__square",
+      "group": "process"
+    }
+  ]
+}

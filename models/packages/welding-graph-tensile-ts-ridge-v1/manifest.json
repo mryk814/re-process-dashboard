@@ -1,0 +1,142 @@
+{
+  "schema_version": "model-package/v1",
+  "package_id": "welding-graph-tensile-ts-ridge-v1",
+  "package_version": "1.0.0",
+  "task_id": "welding-graph-tensile-ts-v1",
+  "input_schema_version": "canonical-candidate/v1",
+  "input_contract_digest": "sha256:3e4a83c5b573213e94868c24af7e48481023012740e22903c491ae65e9195055",
+  "runtime_capability_digest": "sha256:90b816d812d74f4ae3bd831ed7aec7680a82a307f75395c1f85f12c111651d4e",
+  "feature_pipeline": {
+    "id": "welding-graph-tensile-ts-transform",
+    "version": "1.0.0",
+    "spec": "feature-pipeline/pipeline.json",
+    "canonical_input_paths": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "process.heat_input_kj_per_mm",
+      "process.preheat_temp_c"
+    ],
+    "output_features": [
+      "composition.C",
+      "composition.Si",
+      "composition.Mn",
+      "composition.P",
+      "composition.S",
+      "composition.Ni",
+      "composition.Cr",
+      "composition.Mo",
+      "composition.Cu",
+      "composition.Ti",
+      "composition.B",
+      "composition.Nb",
+      "composition.V",
+      "composition.Al",
+      "composition.N",
+      "composition.O",
+      "process.heat_input_kj_per_mm",
+      "process.preheat_temp_c"
+    ],
+    "artifacts": [
+      "reference/training_stats.json"
+    ]
+  },
+  "predictors": [
+    {
+      "id": "TS-ridge",
+      "target": "TS",
+      "unit": "MPa",
+      "target_kind": "continuous",
+      "runtime_type": "builtin.linear.v1",
+      "architecture_id": "stage_c_family_ridge_v1",
+      "artifact": "model-artifacts/TS.npz",
+      "predictive_family": "empirical_quantiles",
+      "feature_names": [
+        "composition.C",
+        "composition.Si",
+        "composition.Mn",
+        "composition.P",
+        "composition.S",
+        "composition.Ni",
+        "composition.Cr",
+        "composition.Mo",
+        "composition.Cu",
+        "composition.Ti",
+        "composition.B",
+        "composition.Nb",
+        "composition.V",
+        "composition.Al",
+        "composition.N",
+        "composition.O",
+        "process.heat_input_kj_per_mm",
+        "process.preheat_temp_c"
+      ],
+      "config": {
+        "training_unit": "individual_observation",
+        "validation": "5-fold grouped by weld-run key",
+        "observation_family": "tensile",
+        "training_cohort": "tensile:target-usable",
+        "training_rows": 600,
+        "evaluation_groups": 300,
+        "profile_digest": "sha256:60cc8677b313c348bbb6128443861aa792dcf4b167149791b78bdfe3ef7de0ef",
+        "ridge_alpha": 1.0
+      }
+    }
+  ],
+  "provenance": {
+    "training_data_id": "sha256:dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8",
+    "feature_dataset_id": "sha256:b3cd5390eefd5f8f009867a3d8280261ad0110a391a8b3dc7a7eaeff35cdef8f",
+    "training_code_revision": "stage-c-family-ridge-grouped-v1",
+    "dataset_profile_id": "sha256:60cc8677b313c348bbb6128443861aa792dcf4b167149791b78bdfe3ef7de0ef"
+  },
+  "artifacts": [
+    {
+      "path": "feature-pipeline/pipeline.json",
+      "sha256": "a4cb84c3cced13dd3fd28557aed8ea230e2046840f03940d9913bf44ff1cdb8a",
+      "bytes": 3186
+    },
+    {
+      "path": "model-artifacts/TS.npz",
+      "sha256": "4ff2640c41183f889338b6ca82bbb25eca56946c857732eb3ab8a420698a5449",
+      "bytes": 1188
+    },
+    {
+      "path": "reference/training_stats.json",
+      "sha256": "af802de88fd1504fb8601ea7623a8bff401d61d781cea6a2f95a926643c5f041",
+      "bytes": 498
+    },
+    {
+      "path": "reports/quality-report.json",
+      "sha256": "948a74d23eb0471d945a3f60d0e6c56a2674a849336855694ab8bc0e16513696",
+      "bytes": 523
+    },
+    {
+      "path": "smoke/input.json",
+      "sha256": "63318ec4a1cae90cbaaddbb164c8eaf98d57625a72dc1be4f6d860394bcfd531",
+      "bytes": 866
+    },
+    {
+      "path": "smoke/expected.json",
+      "sha256": "d8d039f893a6b0804248605c7b94cc6298a02849ae72505c09b1aa33adbab907",
+      "bytes": 24
+    }
+  ],
+  "smoke_test": {
+    "input": "smoke/input.json",
+    "expected": "smoke/expected.json"
+  },
+  "quality_report": "reports/quality-report.json"
+}

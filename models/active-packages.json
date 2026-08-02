@@ -52,6 +52,22 @@
     "welding-stage-c-properties-v1": {
       "active": "packages/welding-stage-c-ridge-v1",
       "previous": null
+    },
+    "welding-graph-tensile-ts-v1": {
+      "active": "packages/welding-graph-tensile-ts-ridge-v1",
+      "previous": null
+    },
+    "welding-graph-toughness-v1": {
+      "active": "packages/welding-graph-toughness-ridge-v1",
+      "previous": null
+    },
+    "welding-graph-corrosion-v1": {
+      "active": "packages/welding-graph-corrosion-ridge-v1",
+      "previous": null
+    },
+    "welding-graph-deposition-efficiency-v1": {
+      "active": "packages/welding-graph-deposition-efficiency-ridge-v2",
+      "previous": null
     }
   }
 }

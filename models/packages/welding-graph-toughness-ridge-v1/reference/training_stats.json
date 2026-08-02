@@ -1,0 +1,19 @@
+{
+  "schema_version": "stage-c-training-stats/v1",
+  "records": {
+    "CHARPY_ENERGY": 2700
+  },
+  "groups_by_target": {
+    "CHARPY_ENERGY": 300
+  },
+  "families": {
+    "charpy": {
+      "source_rows": 2700,
+      "usable_input_rows": 2700,
+      "split_groups": 300
+    }
+  },
+  "profile_id": "welding-graph-toughness-v1-observations",
+  "profile_digest": "sha256:6724d65ce1bffedaae8a4ff6496982a5a2b598ec4db8811e16ade18b117a0904",
+  "source_sha256": "dcaad240b934a4ada810fc9577d075ea58ad457b2a373938463f29f72301a7c8"
+}

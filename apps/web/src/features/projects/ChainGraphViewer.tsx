@@ -155,6 +155,24 @@ export function ChainGraphViewer({
       })}</div>
     </section>
 
+    {graph.prediction_graph.decision_outputs.length > 0 && <section className="chain-graph-outputs" aria-labelledby="chain-outputs-heading">
+      <div className="chain-graph-section-title"><div><h3 id="chain-outputs-heading">Decision Output summary</h3><p>判断軸を先に確認し、Stage／Packageの詳細はGraphへ下げています。</p></div></div>
+      <div className="chain-graph-output-grid">{graph.prediction_graph.decision_outputs.map((output) => {
+        const status = stageStatus(execution, output.source_stage_id);
+        return <article className={`chain-graph-output ${status}`} key={output.output_id}>
+          <div><span>{output.group}</span><em>{freshnessLabel(status)}</em></div>
+          <strong>{output.label}</strong>
+          <small>{output.source_stage_id}.{output.source_output_key} · {output.role}</small>
+          {output.evidence && <div className="chain-graph-output-evidence">
+            {output.evidence.evidence_kind === "synthetic_demonstration"
+              && <b>synthetic demonstration · production利用不可</b>}
+            <span>{output.evidence.unit_or_scale} · goal {output.evidence.goal_direction} · causal claim {output.evidence.causal_claim}</span>
+            <details><summary>証拠境界</summary><p>{output.evidence.limitation}</p><p>source: {output.evidence.source_variables.join(", ")}</p></details>
+          </div>}
+        </article>;
+      })}</div>
+    </section>}
+
     <section className="chain-graph-routes" aria-labelledby="chain-routes-heading"><div className="chain-graph-section-title"><div><h3 id="chain-routes-heading">実際の接続</h3><p>各railは固定Definitionのbinding一件です。分岐・合流・変換を文字でも確認できます。</p></div></div><div className="chain-graph-rails">{edges.map((edge) => <EdgeButton key={edge.id} edge={edge} selected={selectedEdgeId === edge.id} onSelect={() => onInspectionChange({ kind: "edge", id: edge.id })} />)}</div></section>
 
     <section className="chain-graph-bindings" aria-labelledby="chain-bindings-heading"><div className="chain-graph-section-title"><div><h3 id="chain-bindings-heading">binding一覧</h3><p>railと同じ接続を、表形式でも確認できます。</p></div></div><div className="chain-graph-table-wrap"><table><thead><tr><th scope="col">source</th><th scope="col">target</th><th scope="col">変換 / 接続</th><th scope="col">詳細</th></tr></thead><tbody>{edges.map((edge) => <tr key={edge.id} data-chain-edge={edge.id} data-source={edge.source.label} data-target={edge.target.label} className={selectedEdgeId === edge.id ? "selected" : undefined}><th scope="row">{edge.source.label}</th><td>{edge.target.label}</td><td>{edge.binding.conversion ? `${edge.binding.conversion.conversion_id} (${edge.binding.conversion.source_unit} → ${edge.binding.conversion.target_unit})` : "変換なし"}{edge.branchCount > 1 ? ` · 分岐 ${edge.branchCount}` : edge.mergeCount > 1 ? ` · 合流 ${edge.mergeCount}` : ""}</td><td><button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "edge", id: edge.id })}>確認</button></td></tr>)}</tbody></table></div></section>

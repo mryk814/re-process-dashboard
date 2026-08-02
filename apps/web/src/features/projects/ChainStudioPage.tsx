@@ -369,6 +369,9 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     ? definition.stages.find((stage) => stage.stage_id === selection.id)
     : undefined;
   const selectedCatalog = selectedStage ? stageCatalogItem(catalog, selectedStage) : undefined;
+  const selectedOutput = selection?.kind === "output"
+    ? definition?.decision_outputs.find((item) => item.output_id === selection.id)
+    : undefined;
 
   return <section className="chain-studio" aria-labelledby="chain-studio-heading">
     <header className="chain-studio-header">
@@ -517,6 +520,8 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
                 <b>{output.label}</b><small>{output.role.replaceAll("_", " ")} · {output.required_for_complete_result ? "required" : "optional"}</small>
               </button>
               <span className="chain-studio-terminal-source">← {output.source_stage_id}.{output.source_output_key}</span>
+              {output.evidence?.evidence_kind === "synthetic_demonstration"
+                && <span className="sample-source-kind synthetic">synthetic demonstration · production不可</span>}
             </article>)}
           </div>
         </div>
@@ -620,6 +625,15 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
           <div><dt>Package digest</dt><dd>{selectedCatalog.stage_lock?.package_manifest_digest}</dd></div>
           <div><dt>Dataset View</dt><dd>{selectedCatalog.stage_lock?.dataset_view_revision_id ?? "Transformは対象外"}</dd></div>
           <div><dt>Profile digest</dt><dd>{selectedCatalog.stage_lock?.dataset_profile_digest ?? "Transformは対象外"}</dd></div>
+        </dl>}
+        {selectedOutput?.evidence && <dl>
+          <div><dt>evidence</dt><dd>{selectedOutput.evidence.evidence_kind}</dd></div>
+          <div><dt>unit / scale</dt><dd>{selectedOutput.evidence.unit_or_scale}</dd></div>
+          <div><dt>goal</dt><dd>{selectedOutput.evidence.goal_direction}</dd></div>
+          <div><dt>source variables</dt><dd>{selectedOutput.evidence.source_variables.join(", ")}</dd></div>
+          <div><dt>causal claim</dt><dd>{selectedOutput.evidence.causal_claim}</dd></div>
+          <div><dt>production use</dt><dd>{selectedOutput.evidence.production_use}</dd></div>
+          <div><dt>limitation</dt><dd>{selectedOutput.evidence.limitation}</dd></div>
         </dl>}
         {selection?.kind === "binding" && (() => {
           const stage = definition.stages.find((item) => item.stage_id === selection.id);

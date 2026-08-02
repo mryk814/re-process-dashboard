@@ -1,0 +1,19 @@
+{
+  "schema_version": "model-quality-report/v1",
+  "split": "grouped-parent-condition-k-fold",
+  "folds": 5,
+  "targets": [
+    {
+      "target": "CORROSION_RATE",
+      "parent_conditions": 103,
+      "mae": 0.047440086497721516,
+      "rmse": 0.06003669824952895,
+      "interval_coverage_90": 0.883495145631068,
+      "interval_coverage_method": "cross-fitted-oof-residual-quantiles",
+      "interval_coverage_observations": 103
+    }
+  ],
+  "validation_plans": null,
+  "validation_diagnostics": null,
+  "validation_evidence": null
+}

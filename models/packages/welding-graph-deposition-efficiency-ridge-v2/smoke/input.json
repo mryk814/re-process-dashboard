@@ -1,0 +1,29 @@
+{
+  "name": "standard estimator package smoke",
+  "inputs": {
+    "composition": {},
+    "process": {
+      "heat_input_kj_per_mm": 0.8,
+      "voltage_v": 22.0,
+      "gas_flow_l_per_min": 12.0,
+      "wire_feed_speed_m_per_min": 5.0
+    },
+    "categorical": {},
+    "heat_pattern": null,
+    "heat_time_basis": "line_speed"
+  },
+  "blend": null,
+  "editor_state": {
+    "locked_material_ids": []
+  },
+  "blend_validation": {
+    "status": "not_applicable",
+    "issues": [],
+    "design_space_digest": null
+  },
+  "provenance": {
+    "source_kind": "direct",
+    "source_ref": null
+  },
+  "input_missing_kinds": {}
+}

@@ -352,12 +352,12 @@ function App() {
     && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "candidate-review");
   const predictionGraphScopedTab = predictionGraphProject
     && (tab === "candidates" || tab === "candidate-review" || tab === "explore"
-      || tab === "lineage" || tab === "quality" || tab === "chain-graph");
+      || tab === "lineage" || tab === "quality");
   const dataExplorer = taskUnavailable || predictionGraphProject ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (predictionGraphProject && (item.id === "project" || item.id === "project-settings"))
+    (predictionGraphProject && (item.id === "project" || item.id === "chain-graph" || item.id === "project-settings"))
       || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
@@ -780,7 +780,7 @@ function App() {
             projectId: activeProjectId,
           })} />
         )}
-        {tab === "chain-graph" && chainProject && (
+        {tab === "chain-graph" && (chainProject || predictionGraphProject) && (
           <ChainGraphViewer
             projectId={activeProjectId}
             candidateId={selectedId || navigation.candidateId}

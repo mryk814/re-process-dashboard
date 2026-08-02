@@ -1,0 +1,141 @@
+{
+  "id": "welding-graph-toughness-transform",
+  "version": "1.0.0",
+  "canonical_input_paths": [
+    "composition.C",
+    "composition.Si",
+    "composition.Mn",
+    "composition.P",
+    "composition.S",
+    "composition.Ni",
+    "composition.Cr",
+    "composition.Mo",
+    "composition.Cu",
+    "composition.Ti",
+    "composition.B",
+    "composition.Nb",
+    "composition.V",
+    "composition.Al",
+    "composition.N",
+    "composition.O",
+    "process.heat_input_kj_per_mm",
+    "process.preheat_temp_c",
+    "process.test_temperature_c"
+  ],
+  "features": [
+    {
+      "name": "composition.C",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.C",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Si",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Si",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mn",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Mn",
+      "group": "composition"
+    },
+    {
+      "name": "composition.P",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.P",
+      "group": "composition"
+    },
+    {
+      "name": "composition.S",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.S",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ni",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Ni",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cr",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Cr",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Mo",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Mo",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Cu",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Cu",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Ti",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Ti",
+      "group": "composition"
+    },
+    {
+      "name": "composition.B",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.B",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Nb",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Nb",
+      "group": "composition"
+    },
+    {
+      "name": "composition.V",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.V",
+      "group": "composition"
+    },
+    {
+      "name": "composition.Al",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.Al",
+      "group": "composition"
+    },
+    {
+      "name": "composition.N",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.N",
+      "group": "composition"
+    },
+    {
+      "name": "composition.O",
+      "unit": "mass% deposited metal",
+      "meaning": "composition.O",
+      "group": "composition"
+    },
+    {
+      "name": "process.heat_input_kj_per_mm",
+      "unit": "kJ/mm",
+      "meaning": "process.heat_input_kj_per_mm",
+      "group": "process"
+    },
+    {
+      "name": "process.preheat_temp_c",
+      "unit": "°C",
+      "meaning": "process.preheat_temp_c",
+      "group": "process"
+    },
+    {
+      "name": "process.test_temperature_c",
+      "unit": "°C",
+      "meaning": "process.test_temperature_c",
+      "group": "process"
+    }
+  ]
+}
