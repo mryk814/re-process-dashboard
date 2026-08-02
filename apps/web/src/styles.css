@@ -602,6 +602,64 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   font-weight: 600;
 }
 
+.screening-run-failure {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 0;
+  border: 1px solid #d9a49d;
+  border-left: 4px solid #b42318;
+  border-radius: 5px;
+  background: #fff6f5;
+  padding: 11px 12px;
+  color: #5f2922;
+}
+
+.screening-run-failure.validation {
+  border-color: #e4bd72;
+  border-left-color: #a66a00;
+  background: #fff9ed;
+  color: #5f4317;
+}
+
+.screening-run-failure-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.screening-run-failure-copy p,
+.screening-run-failure-copy ul {
+  margin: 0;
+}
+
+.screening-run-failure-copy ul {
+  padding-left: 20px;
+}
+
+.screening-run-failure-copy li {
+  margin-top: 3px;
+}
+
+.screening-run-failure-copy small {
+  color: #6f5b57;
+}
+
+.screening-run-failure > .outline-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 660px) {
+  .screening-run-failure {
+    flex-direction: column;
+  }
+
+  .screening-run-failure > .outline-button {
+    align-self: stretch;
+  }
+}
+
 .implausible-output {
   background: #fffaf2;
   color: #8a4e06;

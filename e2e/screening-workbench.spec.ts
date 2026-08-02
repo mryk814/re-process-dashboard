@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page, type Route } from "@playwright/test";
 import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
 
 async function runScreening(page: Page) {
@@ -245,6 +245,91 @@ test("range exploration uses the shared candidate table without leaving the scre
   await candidateButtons.nth(0).click();
   await expect(page.getByText(/未実行の条件変更/)).toBeVisible();
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
+});
+
+test("failed screening keeps the last successful result and offers an actionable retry", async ({ page, request }) => {
+  const project = await createProject(request, "annealed-properties-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+
+  const firstResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await runScreening(page);
+  const firstRun = await firstResponse;
+  expect(firstRun.status(), await firstRun.text()).toBe(201);
+  const firstRunId = ((await firstRun.json()) as { id: string }).id;
+  await expect(page).toHaveURL(new RegExp(`screening=${firstRunId}`));
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
+
+  const rejectScreening = async (route: Route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 422,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "validation_error",
+        message: "炭素量の最小値を確認してください。",
+        field_errors: [
+          {
+            path: "body.variables.composition.C.min",
+            message: "0以上にしてください。",
+          },
+        ],
+      }),
+    });
+  };
+  await page.route("**/api/screening?project_id=*", rejectScreening);
+
+  await runScreening(page);
+  const failure = page.getByRole("alert", { name: "入力条件を確認してください" });
+  await expect(failure).toContainText("炭素量の最小値を確認してください。");
+  await expect(failure).toContainText("探索変数「C");
+  await expect(failure).toContainText("最後に成功した探索結果はそのまま表示");
+  await expect(failure.getByRole("button", { name: "同じ条件で再実行" })).toBeEnabled();
+  await expect(page).toHaveURL(new RegExp(`screening=${firstRunId}`));
+  await expect(page.getByRole("region", { name: "探索条件と提案診断" })).toBeVisible();
+
+  await page.unroute("**/api/screening?project_id=*", rejectScreening);
+  const retryResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/screening"
+  ));
+  await failure.getByRole("button", { name: "同じ条件で再実行" }).click();
+  expect((await retryResponse).status()).toBe(201);
+  await expect(failure).toHaveCount(0);
+  await expect(page).not.toHaveURL(new RegExp(`screening=${firstRunId}(?:&|$)`));
+});
+
+test("screening transport failure verifies saved runs before retry and clears on Project switch", async ({ page, request }) => {
+  const project = await createProject(request, "annealed-properties-v1");
+  const nextProject = await createProject(request, "annealed-properties-v1");
+  await page.goto(`/?view=explore&project=${project.id}`);
+
+  const dropScreeningResponse = async (route: Route) => {
+    if (route.request().method() === "POST") {
+      await route.abort("connectionrefused");
+      return;
+    }
+    await route.continue();
+  };
+  await page.route("**/api/screening?project_id=*", dropScreeningResponse);
+  await runScreening(page);
+
+  const failure = page.getByRole("alert", { name: "APIに接続できませんでした" });
+  await expect(failure).toContainText("Runが保存された可能性");
+  await expect(failure).toContainText("保存状況は未確認");
+  await expect(failure.getByRole("button", { name: "保存済みRunを確認" })).toBeEnabled();
+  await expect(page.locator(".screening-run-footer .primary-button")).toBeDisabled();
+  await failure.getByRole("button", { name: "保存済みRunを確認" }).click();
+  await expect(failure.getByRole("status")).toContainText("保存済みRun一覧を更新しました");
+  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
+
+  await page.goto(`/?view=explore&project=${nextProject.id}`);
+  await expect(page.getByRole("alert", { name: "APIに接続できませんでした" })).toHaveCount(0);
 });
 
 test("Proposal Lab compares aligned seeds and saves evidence without enabling production", async ({ page, request }) => {
