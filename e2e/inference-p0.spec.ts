@@ -224,6 +224,7 @@ test("inference runs only for changed candidates and visible selected curves", a
     failedPreviewResponse = true;
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "forced preview failure" }) });
   }, { times: 1 });
+  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
   const failedPreviewNumeric = page.locator(".candidate-inspector input.slider-number").first();
   const savedValue = Number(await failedPreviewNumeric.inputValue());
   const saveBeforeFailedPreview = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().includes("/candidates/"));

@@ -3,6 +3,7 @@ import { type KeyboardEvent, useRef } from "react";
 export const workbenchLayoutStorage = {
   inspectorWidth: "material-workbench:layout:inspector-width:v1",
   inspectorCollapsed: "material-workbench:layout:inspector-collapsed:v1",
+  candidateInspectorCollapsed: "material-workbench:layout:candidate-inspector-collapsed:v2",
   curveShare: "material-workbench:layout:curve-share:v1",
   comparisonHeight: "material-workbench:layout:comparison-height:v1",
   reviewComparisonHeight: "material-workbench:layout:review-comparison-height:v1",

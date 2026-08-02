@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 import { expectNoBlockingAxeViolations } from "./axe";
 import { apiBaseUrl } from "./helpers";
 
-test("candidate input pane snaps closed and restores its previous width", async ({ page }, testInfo) => {
+test("candidate comparison starts with judgment and opens optional input editing", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1180, height: 820 });
   await page.goto("/?view=candidates&project=default");
   await page.evaluate(() => {
     localStorage.setItem("material-workbench:layout:inspector-width:v1", "330");
-    localStorage.removeItem("material-workbench:layout:inspector-collapsed:v1");
+    localStorage.removeItem("material-workbench:layout:candidate-inspector-collapsed:v2");
   });
   await page.reload();
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
@@ -15,8 +15,39 @@ test("candidate input pane snaps closed and restores its previous width", async 
   const inspector = page.getByRole("complementary", { name: "選択候補の入力", exact: true });
   const workspace = page.locator(".central-workspace");
   const resizer = page.getByRole("separator", { name: "選択候補の入力パネル幅を調整" });
-  await expect(inspector).toBeVisible();
+  const collapsed = page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" });
+  await expect(collapsed).toBeVisible();
+  await expect(inspector).toHaveCount(0);
+  await expect(resizer).toHaveCount(0);
+  await expect(page.getByRole("complementary", { name: "候補比較の判断サマリー" })).toBeVisible();
+  await expect(page.locator(".comparison-grid")).toBeVisible();
+  await expect(page.getByText("判断と根拠を先に確認", { exact: false })).toBeVisible();
+  await expect(page.locator(".comparison-input-table input").first()).toBeDisabled();
+  await expect(page.locator(".candidate-name-table input").first()).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => {
+    const summary = document.querySelector(".candidate-decision-summary");
+    const table = document.querySelector(".comparison-grid");
+    const origin = document.querySelector(".candidate-origin");
+    return Boolean(
+      summary
+      && table
+      && origin
+      && (summary.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (table.compareDocumentPosition(origin) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("material-workbench:layout:candidate-inspector-collapsed:v2")
+  ))).toBe("true");
+
+  await page.locator(".candidate-inspector").evaluate((element) => {
+    element.dataset.preservationProbe = "kept";
+  });
+  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
+  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
   await expect(resizer).toHaveAttribute("aria-valuenow", "330");
+  await expect(page.locator(".comparison-input-table input").first()).toBeEnabled();
+  await expect(page.locator(".candidate-name-table input").first()).toBeEnabled();
   const expandedWorkspaceWidth = await workspace.evaluate((element) => element.clientWidth);
 
   const box = await resizer.boundingBox();
@@ -25,30 +56,11 @@ test("candidate input pane snaps closed and restores its previous width", async 
   await page.mouse.down();
   await page.mouse.move(box!.x + box!.width / 2 - 100, box!.y + 80, { steps: 8 });
   await page.mouse.up();
-
-  const collapsed = page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" });
   await expect(collapsed).toBeVisible();
-  await expect(inspector).toHaveCount(0);
-  await expect(resizer).toHaveCount(0);
   await expect.poll(() => workspace.evaluate((element) => element.clientWidth))
     .toBeGreaterThan(expandedWorkspaceWidth + 250);
-  await expect.poll(() => page.evaluate(() => (
-    localStorage.getItem("material-workbench:layout:inspector-collapsed:v1")
-  ))).toBe("true");
-
-  await page.reload();
-  await expect(page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" })).toBeVisible();
-  await page.locator(".candidate-inspector").evaluate((element) => {
-    element.dataset.preservationProbe = "kept";
-  });
-  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
-  await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
-  await expect(resizer).toHaveAttribute("aria-valuenow", "330");
 
   const collapseButton = page.getByRole("button", { name: "入力パネルを折りたたむ" });
-  await collapseButton.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("complementary", { name: "折りたたまれた選択候補の入力" })).toBeVisible();
   await expect(page.getByRole("button", { name: "選択候補の入力を開く" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
@@ -56,7 +68,7 @@ test("candidate input pane snaps closed and restores its previous width", async 
   await expect(resizer).toHaveAttribute("aria-valuenow", "330");
   await expect(inspector).toHaveAttribute("data-preservation-probe", "kept");
   await expect.poll(() => page.evaluate(() => (
-    localStorage.getItem("material-workbench:layout:inspector-collapsed:v1")
+    localStorage.getItem("material-workbench:layout:candidate-inspector-collapsed:v2")
   ))).toBe("false");
   await page.reload();
   await expect(page.getByRole("complementary", { name: "選択候補の入力", exact: true })).toBeVisible();
@@ -77,6 +89,7 @@ test("a narrow candidate input pane reflows fields without horizontal overflow",
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.addInitScript(() => {
     localStorage.setItem("material-workbench:layout:inspector-width:v1", "260");
+    localStorage.setItem("material-workbench:layout:candidate-inspector-collapsed:v2", "false");
   });
   await page.goto("/?view=candidates&project=default");
   await expect(page.getByRole("heading", { name: /候補比較表/ })).toBeVisible();
