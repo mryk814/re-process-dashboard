@@ -138,6 +138,27 @@ def test_workspace_preflight_detects_catalog_conflict_without_writing(
     assert "別workspace" in finding.recovery_hint
 
 
+def test_workspace_preflight_accepts_bootstrapped_catalog_identity_metadata(
+    tmp_path: Path,
+    app_resources,
+) -> None:
+    database = tmp_path / "workbench.db"
+    with TestClient(
+        create_app(db_path=database, _resources=app_resources)
+    ):
+        pass
+
+    report = inspect_workspace_compatibility(
+        database,
+        app_resources.task_registry,
+    )
+
+    assert report.status == "ok"
+    assert not any(
+        finding.stage == "catalog" for finding in report.findings
+    )
+
+
 def test_workspace_preflight_does_not_misclassify_invalid_package_as_catalog_conflict(
     tmp_path: Path,
     app_resources,

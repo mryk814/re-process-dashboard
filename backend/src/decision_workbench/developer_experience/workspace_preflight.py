@@ -259,6 +259,13 @@ def _package_findings(
         current_manifest = _canonical_json(
             package.manifest.model_dump(mode="json")
         )
+        try:
+            registered_manifest = json.loads(row["manifest_json"])
+            if isinstance(registered_manifest, dict):
+                registered_manifest.pop("_catalog_identity", None)
+            comparable_manifest = _canonical_json(registered_manifest)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            comparable_manifest = row["manifest_json"]
         mismatches: list[str] = []
         if row["task_id"] != task_id:
             mismatches.append(
@@ -269,7 +276,7 @@ def _package_findings(
                 "task_contract_digest: "
                 f"登録={row['task_contract_digest']} / 現行={current_contract}"
             )
-        if row["manifest_json"] != current_manifest:
+        if comparable_manifest != current_manifest:
             mismatches.append("manifest内容が現行Packageと異なります")
         if not mismatches:
             continue
