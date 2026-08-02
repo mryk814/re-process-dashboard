@@ -37,6 +37,37 @@ from decision_workbench.persistence.store_support import (
 
 class ChainRepository:
     @staticmethod
+    def _validate_revision_pair(
+        definition: GraphDefinitionRef,
+        revision: GraphRevisionRef,
+        *,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+    ) -> None:
+        try:
+            if isinstance(definition, ChainDefinition) and isinstance(
+                revision, ChainRevision
+            ):
+                validate_chain_revision(
+                    definition,
+                    revision,
+                    contracts=contracts,
+                )
+            elif isinstance(
+                definition, PredictionGraphDefinition
+            ) and isinstance(revision, PredictionGraphRevision):
+                validate_prediction_graph_revision(
+                    definition,
+                    revision,
+                    contracts=contracts,
+                )
+            else:
+                raise ValueError(
+                    "DefinitionとRevisionのschema familyが一致しません"
+                )
+        except ValueError as exc:
+            raise ChainCatalogConflictError(str(exc)) from exc
+
+    @staticmethod
     def _register_chain_definition_in_connection(
         conn: sqlite3.Connection,
         definition: GraphDefinitionRef,
@@ -156,6 +187,7 @@ class ChainRepository:
         revision: GraphRevisionRef,
         *,
         contracts: Mapping[tuple[str, str], StageContractSurface],
+        validate: bool = True,
     ) -> str:
         record_id = f"{revision.chain_id}:r{revision.revision}"
         definition_row = conn.execute(
@@ -170,29 +202,12 @@ class ChainRepository:
         definition = parse_graph_definition_json(
             definition_row["definition_json"]
         )
-        try:
-            if isinstance(definition, ChainDefinition) and isinstance(
-                revision, ChainRevision
-            ):
-                validate_chain_revision(
-                    definition,
-                    revision,
-                    contracts=contracts,
-                )
-            elif isinstance(
-                definition, PredictionGraphDefinition
-            ) and isinstance(revision, PredictionGraphRevision):
-                validate_prediction_graph_revision(
-                    definition,
-                    revision,
-                    contracts=contracts,
-                )
-            else:
-                raise ValueError(
-                    "DefinitionとRevisionのschema familyが一致しません"
-                )
-        except ValueError as exc:
-            raise ChainCatalogConflictError(str(exc)) from exc
+        if validate:
+            cls._validate_revision_pair(
+                definition,
+                revision,
+                contracts=contracts,
+            )
         existing = conn.execute(
             "SELECT id,revision_json FROM chain_revisions "
             "WHERE id=? OR revision_digest=?",
@@ -240,6 +255,42 @@ class ChainRepository:
                 revision,
                 contracts=contracts,
             )
+
+    def register_prediction_graph_bundle(
+        self,
+        items: tuple[
+            tuple[PredictionGraphDefinition, PredictionGraphRevision],
+            ...,
+        ],
+        *,
+        contracts: Mapping[tuple[str, str], StageContractSurface],
+    ) -> tuple[str, ...]:
+        """Register a prebuilt fixture bundle atomically."""
+
+        if not items:
+            raise ChainCatalogConflictError(
+                "Prediction Graph bundleには1件以上必要です"
+            )
+        for definition, revision in items:
+            self._validate_revision_pair(
+                definition,
+                revision,
+                contracts=contracts,
+            )
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            record_ids: list[str] = []
+            for definition, revision in items:
+                self._register_chain_definition_in_connection(conn, definition)
+                record_ids.append(
+                    self._register_chain_revision_in_connection(
+                        conn,
+                        revision,
+                        contracts=contracts,
+                        validate=False,
+                    )
+                )
+            return tuple(record_ids)
 
     def publish_prediction_graph(
         self,

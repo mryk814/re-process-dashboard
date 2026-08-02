@@ -174,7 +174,7 @@ export function ChainGraphViewer({
           <small>{output.source_stage_id}.{output.source_output_key} · {output.role}</small>
           {output.evidence && <div className="chain-graph-output-evidence">
             <b>{output.evidence.evidence_kind.replaceAll("_", " ")}</b>
-            <b>production利用: {output.evidence.production_use === "allowed" ? "可" : "不可"}</b>
+            <b>production利用: 不可</b>
             <span>{output.evidence.unit_or_scale} · goal {output.evidence.goal_direction} · causal claim {output.evidence.causal_claim}</span>
             <details><summary>証拠境界</summary><p>{output.evidence.limitation}</p><p>source: {output.evidence.source_variables.join(", ")}</p></details>
           </div>}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 
 import pytest
 
@@ -9,11 +10,14 @@ from decision_workbench.contracts.chain_contracts import (
     DecisionOutputEvidence,
     PredictionGraphDefinition,
 )
+from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.welding_chain_bootstrap import WELDING_CHAIN_ID
 from decision_workbench.persistence.welding_prediction_graph_bootstrap import (
     WELDING_MULTI_OUTPUT_GRAPH_ID,
     WELDING_SPLIT_OUTPUT_GRAPH_ID,
+    WeldingPredictionGraphBootstrapError,
+    bootstrap_welding_prediction_graphs,
 )
-from decision_workbench.persistence.welding_chain_bootstrap import WELDING_CHAIN_ID
 from fastapi.testclient import TestClient
 
 
@@ -107,7 +111,7 @@ def test_graph_presentation_order_does_not_change_scientific_identity(
     assert presentation_only.digest == split.digest
 
 
-def test_production_evidence_requires_immutable_measured_provenance() -> None:
+def test_production_evidence_fails_closed_without_server_authority() -> None:
     base = {
         "unit_or_scale": "MPa",
         "goal_direction": "at_least",
@@ -117,16 +121,21 @@ def test_production_evidence_requires_immutable_measured_provenance() -> None:
     }
     with pytest.raises(
         ValueError,
-        match="immutable provenance",
+        match="prohibited",
     ):
         DecisionOutputEvidence(
             **base,
             evidence_kind="measured",
             production_use="allowed",
+            provenance={
+                "dataset_view_revision_id": "dataset-view:fake:r999",
+                "dataset_profile_digest": f"sha256:{'1' * 64}",
+                "source_snapshot_digest": f"sha256:{'2' * 64}",
+            },
         )
     with pytest.raises(
         ValueError,
-        match="immutable provenance",
+        match="prohibited",
     ):
         DecisionOutputEvidence(
             **base,
@@ -134,17 +143,49 @@ def test_production_evidence_requires_immutable_measured_provenance() -> None:
             production_use="allowed",
         )
 
-    pinned = DecisionOutputEvidence(
+    measured = DecisionOutputEvidence(
         **base,
         evidence_kind="measured",
-        production_use="allowed",
-        provenance={
-            "dataset_view_revision_id": "dataset-view:validation:r3",
-            "dataset_profile_digest": f"sha256:{'1' * 64}",
-            "source_snapshot_digest": f"sha256:{'2' * 64}",
-        },
+        production_use="prohibited",
     )
-    assert pinned.production_use == "allowed"
+    assert measured.production_use == "prohibited"
+
+
+def test_fixture_bundle_rolls_back_when_second_definition_insert_fails(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path / "atomic-fixture.db")
+    with store._connect() as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_second_graph "
+            "BEFORE INSERT ON chain_definitions "
+            f"WHEN NEW.chain_id='{WELDING_SPLIT_OUTPUT_GRAPH_ID}' "
+            "BEGIN SELECT RAISE(ABORT, 'injected second registration failure'); END"
+        )
+
+    with pytest.raises(
+        WeldingPredictionGraphBootstrapError,
+        match="injected second registration failure",
+    ):
+        bootstrap_welding_prediction_graphs(
+            store=store,
+            workspace_catalog=client.app.state.workspace_catalog,
+            task_registry=client.app.state.task_registry,
+            transform_catalog=client.app.state.deterministic_transform_catalog,
+        )
+
+    with store._connect() as connection:
+        definitions = connection.execute(
+            "SELECT COUNT(*) FROM chain_definitions WHERE chain_id IN (?, ?)",
+            (WELDING_MULTI_OUTPUT_GRAPH_ID, WELDING_SPLIT_OUTPUT_GRAPH_ID),
+        ).fetchone()[0]
+        revisions = connection.execute(
+            "SELECT COUNT(*) FROM chain_revisions WHERE chain_id IN (?, ?)",
+            (WELDING_MULTI_OUTPUT_GRAPH_ID, WELDING_SPLIT_OUTPUT_GRAPH_ID),
+        ).fetchone()[0]
+    assert definitions == 0
+    assert revisions == 0
 
 
 def _graph_project(client: TestClient) -> tuple[dict, dict]:

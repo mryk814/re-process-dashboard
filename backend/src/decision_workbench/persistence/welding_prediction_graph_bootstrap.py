@@ -1,6 +1,7 @@
 """Bundled material Graphs comparing multi-output and split Packages."""
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Mapping
 
 from pydantic import ValidationError
@@ -513,7 +514,9 @@ def bootstrap_welding_prediction_graphs(
         }
         stage_a_entry = transform_catalog.entry(STAGE_A_ID)
         definitions = welding_prediction_graph_definitions(surfaces)
-        revision_ids: list[str] = []
+        bundle: list[
+            tuple[PredictionGraphDefinition, PredictionGraphRevision]
+        ] = []
         for definition in definitions:
             locks = {
                 stage.stage_id: (
@@ -540,10 +543,11 @@ def bootstrap_welding_prediction_graphs(
                 contracts=contracts,
                 stage_locks=locks,
             )
-            store.register_chain_definition(definition)
-            revision_ids.append(
-                store.register_chain_revision(revision, contracts=contracts)
-            )
+            bundle.append((definition, revision))
+        revision_ids = store.register_prediction_graph_bundle(
+            tuple(bundle),
+            contracts=contracts,
+        )
         return revision_ids[0], revision_ids[1]
     except (
         ChainCatalogConflictError,
@@ -551,5 +555,6 @@ def bootstrap_welding_prediction_graphs(
         TaskRegistryError,
         ValidationError,
         ValueError,
+        sqlite3.DatabaseError,
     ) as exc:
         raise WeldingPredictionGraphBootstrapError(str(exc)) from exc

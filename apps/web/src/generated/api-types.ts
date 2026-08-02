@@ -6205,26 +6205,13 @@ export interface components {
             limitation: string;
             /**
              * Production Use
-             * @enum {string}
+             * @constant
              */
-            production_use: "allowed" | "prohibited";
-            provenance?: components["schemas"]["DecisionOutputProvenance"] | null;
+            production_use: "prohibited";
             /** Source Variables */
             source_variables: string[];
             /** Unit Or Scale */
             unit_or_scale: string;
-        };
-        /**
-         * DecisionOutputProvenance
-         * @description Immutable measured-data references required for production use.
-         */
-        DecisionOutputProvenance: {
-            /** Dataset Profile Digest */
-            dataset_profile_digest: string;
-            /** Dataset View Revision Id */
-            dataset_view_revision_id: string;
-            /** Source Snapshot Digest */
-            source_snapshot_digest: string;
         };
         /**
          * DesignPriorPackageReference
