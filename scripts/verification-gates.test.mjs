@@ -1421,6 +1421,11 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /name: direct-verification-report/);
   assert.match(workflow, /name: main-acceptance-diagnostics/);
   assert.match(workflow, /name: Publish shard diagnostics summary/);
+  assert.ok(
+    workflow.indexOf("name: Publish shard diagnostics summary")
+      > workflow.indexOf("name: Record diagnostics artifact upload outcome"),
+    "diagnostics summary must read the finalized shard report",
+  );
   assert.match(workflow, /name: verification-shard-diagnostics-\$\{\{ matrix\.shard\.id \}\}/);
   assert.match(workflow, /PLAYWRIGHT_CI_DIAGNOSTICS: "1"/);
   assert.match(workflow, /artifacts\/verification\/diagnostics\/\$\{\{ matrix\.shard\.id \}\}/);
