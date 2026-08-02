@@ -11,6 +11,7 @@ import test from "node:test";
 import {
   appendNotRunResults,
   buildVerificationPlan,
+  classifyChangedPaths,
   classifyChangedPath,
   evaluateAcceptanceApplicability,
   evaluateVerificationOutcome,
@@ -29,7 +30,10 @@ import {
   buildParallelAcceptanceReport,
   ciPlanSchemaVersion,
   createCiPlan,
+  materializeReusedShardReport,
+  planShardEvidenceReuse,
   shardReportSchemaVersion,
+  selectReusableWorkflowRun,
   validateCiPlan,
 } from "./verification-ci.mjs";
 import { inspectAcceptanceReport, normalizedTextSha256 } from "./acceptance-status.mjs";
@@ -665,6 +669,10 @@ function passedShardReports(ciPlan) {
       durationSeconds: 1,
       error: null,
     })),
+    evidence: {
+      kind: "executed",
+      sourceCommit: ciPlan.testedCommit,
+    },
   }));
 }
 
@@ -944,6 +952,153 @@ test("CI aggregation fails closed for missing, stale, and duplicate evidence", (
   );
 });
 
+function reusableSource(ciPlan, { baseRef = ciPlan.originalPlan.baseRef } = {}) {
+  const reports = passedShardReports(ciPlan).map((report) => ({
+    ...report,
+    testedCommit: "source-merge-sha",
+    evidence: { kind: "executed", sourceCommit: "source-merge-sha" },
+  }));
+  return {
+    headSha: "source-head-sha",
+    testedCommit: "source-merge-sha",
+    directReport: {
+      status: "passed",
+      commit_sha: "source-merge-sha",
+      baseRef,
+      verificationCatalogSha256: "catalog-sha",
+    },
+    shardReports: reports,
+  };
+}
+
+test("same-base E2E follow-up reuses green backend and delivery shards", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const source = reusableSource(ciPlan);
+  assert.notEqual(source.headSha, source.testedCommit);
+  const reuse = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["e2e/prediction-graph-material-fixture.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.ok(reuse.reusedShardIds.includes("backend-science"));
+  assert.ok(reuse.reusedShardIds.includes("windows-delivery"));
+  assert.ok(reuse.executedShardIds.includes("browser-standard"));
+
+  const report = materializeReusedShardReport({
+    ciPlan,
+    source,
+    shardId: "backend-science",
+    sourceRunId: "1234",
+  });
+  assert.equal(report.testedCommit, ciPlan.testedCommit);
+  assert.equal(report.evidence.kind, "reused");
+  assert.equal(report.evidence.sourceCommit, "source-merge-sha");
+});
+
+test("direct verification records executed, reused, and skipped shard evidence", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const source = reusableSource(ciPlan);
+  const reports = passedShardReports(ciPlan);
+  const backendIndex = reports.findIndex((report) => report.shardId === "backend-science");
+  reports[backendIndex] = materializeReusedShardReport({
+    ciPlan,
+    source,
+    shardId: "backend-science",
+    sourceRunId: "1234",
+  });
+  const aggregation = aggregateVerificationShards({
+    ciPlan,
+    shardReports: reports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(aggregation.outcome, "passed");
+  assert.match(aggregation.pr_body_evidence, /executed: /);
+  assert.match(aggregation.pr_body_evidence, /reused: 1/);
+  assert.match(aggregation.pr_body_evidence, /skipped: /);
+  assert.equal(
+    aggregation.ci_aggregation.shards.find((shard) => shard.id === "backend-science").evidence.kind,
+    "reused",
+  );
+});
+
+test("same-base backend-only follow-up reuses green browser evidence", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const reuse = planShardEvidenceReuse({
+    ciPlan,
+    source: reusableSource(ciPlan),
+    changedPathsSinceSource: ["backend/src/decision_workbench/application/candidates.py"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.ok(reuse.executedShardIds.includes("backend-science"));
+  assert.ok(reuse.reusedShardIds.includes("browser-standard"));
+});
+
+test("base or high-risk changes never reuse shard evidence", () => {
+  const ciPlan = ciPlanFor(["apps/desktop/src/main.ts"]);
+  const baseChanged = planShardEvidenceReuse({
+    ciPlan,
+    source: reusableSource(ciPlan, { baseRef: "different-base-sha" }),
+    changedPathsSinceSource: ["e2e/navigation-intent.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.equal(baseChanged.reusedShardIds.length, 0);
+  assert.deepEqual(baseChanged.executedShardIds, ciPlan.shards.map((shard) => shard.id));
+
+  const highRisk = planShardEvidenceReuse({
+    ciPlan,
+    source: reusableSource(ciPlan),
+    changedPathsSinceSource: ["backend/src/decision_workbench/api/security.py"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.equal(highRisk.reusedShardIds.length, 0);
+
+  for (const status of ["failed", "pending", "cancelled"]) {
+    const direct = reusableSource(ciPlan);
+    direct.directReport.status = status;
+    const refused = planShardEvidenceReuse({
+      ciPlan,
+      source: direct,
+      changedPathsSinceSource: ["e2e/navigation-intent.spec.ts"],
+      sourceIsAncestor: true,
+      classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+    });
+    assert.equal(refused.reusedShardIds.length, 0);
+  }
+
+  const mismatchedMergeEvidence = reusableSource(ciPlan);
+  mismatchedMergeEvidence.directReport.commit_sha = "different-merge-sha";
+  const mismatched = planShardEvidenceReuse({
+    ciPlan,
+    source: mismatchedMergeEvidence,
+    changedPathsSinceSource: ["e2e/navigation-intent.spec.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.equal(mismatched.reusedShardIds.length, 0);
+});
+
+test("reusable run selection only accepts a successful ancestor for the same PR", () => {
+  const selected = selectReusableWorkflowRun({
+    currentHeadSha: "current-head",
+    pullRequestNumber: 735,
+    isAncestorCommit: (candidate, current) => candidate === "older" && current === "current-head",
+    runs: [
+      { id: 1, conclusion: "failure", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T00:00:00Z" },
+      { id: 2, conclusion: "success", head_sha: "other", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T01:00:00Z" },
+      { id: 3, conclusion: "success", head_sha: "older", pull_requests: [{ number: 734 }], updated_at: "2026-08-02T02:00:00Z" },
+      { id: 4, conclusion: "success", head_sha: "older", pull_requests: [{ number: 735 }], updated_at: "2026-08-02T03:00:00Z" },
+    ],
+  });
+  assert.equal(selected.id, 4);
+});
+
 test("CI plan validation binds commit, catalog, and plan contents", () => {
   const ciPlan = ciPlanFor(["docs/operations/verification-policy.md"]);
   assert.equal(
@@ -984,7 +1139,10 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /node scripts\/verification-ci\.mjs plan/);
   assert.match(workflow, /node scripts\/verification-ci\.mjs run-shard/);
   assert.match(workflow, /node scripts\/verification-ci\.mjs aggregate/);
-  assert.match(workflow, /needs: \[verification-plan, verification-shards\]/);
+  assert.match(workflow, /verification-evidence-reuse:/);
+  assert.match(workflow, /needs: \[verification-plan, verification-evidence-reuse, verification-shards\]/);
+  assert.match(workflow, /find-reusable-run/);
+  assert.match(workflow, /verification-evidence-reuse/);
   assert.match(workflow, /name: direct-verification-report/);
   assert.match(workflow, /name: main-acceptance-diagnostics/);
   assert.match(workflow, /artifacts\/main-acceptance\/latest\.json/);

@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -24,6 +25,7 @@ jobs:
       catalog_sha256: ${{ steps.plan.outputs.catalog_sha256 }}
       plan_digest: ${{ steps.plan.outputs.plan_digest }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      reuse_run_id: ${{ steps.reuse-run.outputs.run_id }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -44,14 +46,88 @@ jobs:
           path: artifacts/verification/ci-plan.json
           if-no-files-found: error
 
+      - name: Find same-base reusable evidence
+        id: reuse-run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verification-ci.mjs find-reusable-run --output artifacts/verification/reusable-run.json --github-output $env:GITHUB_OUTPUT
+
+      - name: Upload reusable evidence candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-reusable-run
+          path: artifacts/verification/reusable-run.json
+          if-no-files-found: error
+
+  verification-evidence-reuse:
+    name: verification evidence reuse
+    needs: verification-plan
+    runs-on: windows-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.reuse.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.verification-plan.outputs.commit_sha }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.20.0
+
+      - name: Download immutable verification plan
+        uses: actions/download-artifact@v7
+        with:
+          name: verification-plan
+          path: artifacts/verification
+
+      - name: Download reusable evidence candidate
+        uses: actions/download-artifact@v7
+        with:
+          name: verification-reusable-run
+          path: artifacts/verification
+
+      - name: Download reusable direct verification report
+        if: needs.verification-plan.outputs.reuse_run_id != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: direct-verification-report
+          run-id: ${{ needs.verification-plan.outputs.reuse_run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/verification/prior-direct
+        continue-on-error: true
+
+      - name: Download reusable shard reports
+        if: needs.verification-plan.outputs.reuse_run_id != ''
+        uses: actions/download-artifact@v7
+        with:
+          pattern: verification-shard-*
+          run-id: ${{ needs.verification-plan.outputs.reuse_run_id }}
+          github-token: ${{ github.token }}
+          path: artifacts/verification/prior-shards
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Select executed and reused shards
+        id: reuse
+        run: node scripts/verification-ci.mjs reuse --plan artifacts/verification/ci-plan.json --source-run artifacts/verification/reusable-run.json --source-report artifacts/verification/prior-direct/latest-pr.json --source-shards artifacts/verification/prior-shards --output artifacts/verification/reuse/reuse.json --github-output $env:GITHUB_OUTPUT
+
+      - name: Upload reused shard reports
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-evidence-reuse
+          path: artifacts/verification/reuse
+          if-no-files-found: error
+
   verification-shards:
     name: verification shard (${{ matrix.shard.id }})
-    needs: verification-plan
+    needs: [verification-plan, verification-evidence-reuse]
     runs-on: windows-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.verification-plan.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.verification-evidence-reuse.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -98,7 +174,7 @@ jobs:
 
   direct-verification:
     name: direct verification
-    needs: [verification-plan, verification-shards]
+    needs: [verification-plan, verification-evidence-reuse, verification-shards]
     if: always()
     runs-on: windows-latest
     timeout-minutes: 5
@@ -126,6 +202,21 @@ jobs:
           path: artifacts/verification/shards
           merge-multiple: true
         continue-on-error: true
+
+      - name: Download reusable shard reports
+        uses: actions/download-artifact@v7
+        with:
+          name: verification-evidence-reuse
+          path: artifacts/verification/reuse
+        continue-on-error: true
+
+      - name: Include reusable shard reports
+        shell: pwsh
+        run: |
+          $source = "artifacts/verification/reuse/reused-shards"
+          if (Test-Path $source) {
+            Copy-Item "$source/*" "artifacts/verification/shards" -Force
+          }
 
       - name: Aggregate direct PR verification
         run: node scripts/verification-ci.mjs aggregate --plan artifacts/verification/ci-plan.json --shards artifacts/verification/shards --output artifacts/verification/latest-pr.json --acceptance-output artifacts/main-acceptance/latest.json
