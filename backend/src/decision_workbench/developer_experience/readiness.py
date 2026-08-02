@@ -104,12 +104,17 @@ _SOURCE_KIND = {
     "external_wear_curve": ("longitudinal_curve", "grouped_tool_condition"),
     "external_battery_degradation": ("longitudinal_curve", "grouped_cell"),
     "welding_stage_c": ("repeated_measurements", "grouped_weld_run"),
+    "welding_graph_synthetic_demonstration": (
+        "repeated_measurements",
+        "grouped_weld_run",
+    ),
 }
 _PROFILE_FAMILY_BY_SOURCE_KIND = {
     "welding_multistage": "welding-stage-b-profile/v1",
     "primary": "dataset-input-profile/v2",
     "flank_wear": "dataset-input-profile/v2",
     "welding_stage_c": "observation-dataset-profile/v1",
+    "welding_graph_synthetic_demonstration": "observation-dataset-profile/v1",
 }
 _GROUP = re.compile(r"(?:^|[_\-])(group|batch|run|cell|specimen|entity|condition)(?:[_\-]|$)", re.I)
 _ROW_ID = re.compile(r"(?:^|[_\-])(id|uuid|record)(?:[_\-]|$)", re.I)

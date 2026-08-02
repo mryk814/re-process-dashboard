@@ -448,16 +448,20 @@ class ObservationRegressionRuntime:
         ), similar
 
     def evidence(self, candidate: Candidate) -> tuple[Support, list[dict[str, Any]]]:
-        return self._support(candidate, "TS", True)
+        return self._support(candidate, self.task_definition.outputs[0].key, True)
 
     def support_summary(self, candidate: Candidate) -> Support:
-        return self._support(candidate, "TS", False)[0]
+        return self._support(
+            candidate,
+            self.task_definition.outputs[0].key,
+            False,
+        )[0]
 
     def support_by_target(self, candidate: Candidate) -> dict[str, Support]:
         return {target: self._support(candidate, target, False)[0] for target in self.output_keys}
 
     def similarity(self, candidate: Candidate, limit: int = 6, target: str | None = None) -> list[dict[str, Any]]:
-        selected = target or "TS"
+        selected = target or self.task_definition.outputs[0].key
         if selected not in self.output_keys:
             raise ValueError(f"unknown similarity target: {selected}")
         return self._support(candidate, selected, True)[1][:limit]

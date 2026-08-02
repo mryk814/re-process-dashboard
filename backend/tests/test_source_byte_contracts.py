@@ -15,7 +15,12 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BYTE_ADDRESSED_PREFIXES = ("data/source/", "models/", "examples/model-packages/")
+BYTE_ADDRESSED_PREFIXES = (
+    "data/source/",
+    "data/fixtures/prediction-graph/",
+    "models/",
+    "examples/model-packages/",
+)
 
 
 def _git(*arguments: str) -> str:
@@ -51,14 +56,30 @@ def _checkout_rewrites_line_endings(attributes: dict[str, str]) -> bool:
 
 
 def _attributes_by_path(paths: list[str]) -> dict[str, dict[str, str]]:
-    output = _git("check-attr", "-z", "text", "eol", "--", *paths)
-    fields = output.split("\0")
     resolved: dict[str, dict[str, str]] = {path: {} for path in paths}
+    chunk: list[str] = []
+    chunk_chars = 0
+    for path in paths:
+        if chunk and chunk_chars + len(path) + 1 > 12_000:
+            _merge_attributes(resolved, chunk)
+            chunk = []
+            chunk_chars = 0
+        chunk.append(path)
+        chunk_chars += len(path) + 1
+    if chunk:
+        _merge_attributes(resolved, chunk)
+    return resolved
+
+
+def _merge_attributes(
+    resolved: dict[str, dict[str, str]],
+    paths: list[str],
+) -> None:
+    fields = _git("check-attr", "-z", "text", "eol", "--", *paths).split("\0")
     for index in range(0, len(fields) - 3 + 1, 3):
         path, attribute, value = fields[index], fields[index + 1], fields[index + 2]
         if path in resolved:
             resolved[path][attribute] = value
-    return resolved
 
 
 def test_byte_addressed_artifacts_are_never_line_ending_converted() -> None:

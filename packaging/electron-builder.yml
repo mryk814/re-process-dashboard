@@ -21,6 +21,8 @@ extraResources:
     to: data/source/cutting_tool_flank_wear_synthetic_dataset.xlsx
   - from: data/source/welding_consumable_multistage_synthetic_dataset.xlsx
     to: data/source/welding_consumable_multistage_synthetic_dataset.xlsx
+  - from: data/fixtures/prediction-graph/welding_deposition_efficiency_synthetic.csv
+    to: data/fixtures/prediction-graph/welding_deposition_efficiency_synthetic.csv
   - from: data/source/external
     to: data/source/external
   # 組織の顕微鏡写真は観測の証拠。Datasetと同じくbyte単位で配布する。
@@ -86,6 +88,14 @@ extraResources:
     to: models/packages/welding-stage-c-ridge-v1
   - from: models/packages/welding-consumable-stage-b-ridge-v3
     to: models/packages/welding-consumable-stage-b-ridge-v3
+  - from: models/packages/welding-graph-tensile-ts-ridge-v1
+    to: models/packages/welding-graph-tensile-ts-ridge-v1
+  - from: models/packages/welding-graph-toughness-ridge-v1
+    to: models/packages/welding-graph-toughness-ridge-v1
+  - from: models/packages/welding-graph-corrosion-ridge-v1
+    to: models/packages/welding-graph-corrosion-ridge-v1
+  - from: models/packages/welding-graph-deposition-efficiency-ridge-v2
+    to: models/packages/welding-graph-deposition-efficiency-ridge-v2
 win:
   icon: packaging/icons/icon.ico
   target:
