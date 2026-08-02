@@ -6,7 +6,7 @@ source-of-truth: URL, history, and NavigationIntent semantics
 -->
 
 <!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,workspace,quality,lineage,explore,data-library,profile-workbench -->
-<!-- current-contract:navigation-query:activity,activity_run,admin,base_dataset,candidate,candidate_section,connector,developer_guide,developer_tab,entity,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,snapshot,stage,tab,view -->
+<!-- current-contract:navigation-query:activity,activity_run,admin,base_dataset,candidate,candidate_section,chain_edge,chain_snapshot,chain_stage,connector,developer_guide,developer_tab,entity,evidence_surface,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,screening_surface,snapshot,stage,tab,view -->
 <!-- current-contract:navigation-fallback:project -->
 
 # NavigationIntent と候補の作成元
@@ -31,6 +31,9 @@ source-of-truth: URL, history, and NavigationIntent semantics
 | `admin` | 開発・管理画面のsection。`developer`、`ranges`、`display`、`task`、`model` |
 | `activity` / `activity_run` | `candidate-review`で開くActivityとRun |
 | `candidate_section` | `candidates`で開く候補section。現在は`actuals`だけを明示する |
+| `evidence_surface` / `chain_snapshot` | `candidates`で開くEvidence surfaceと固定Chain snapshot |
+| `screening_surface` | `explore`で開くScreening結果surface |
+| `chain_stage` / `chain_edge` | `chain-graph`で調べるstageまたはedge。両方の指定は曖昧として扱う |
 | `developer_tab` / `developer_guide` | `workspace`のdeveloper sectionで開くtabとguide |
 | `project_settings` | `project-settings`で開くsection。`general`、`targets`、`scientific`、`ranges`、`display`、`task`、`evidence` |
 | `tab` | Data Libraryの表示。省略は`browse`、`update`はデータ更新を開く |
