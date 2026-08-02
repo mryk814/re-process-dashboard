@@ -51,6 +51,7 @@ import { PredictionSpacePanel } from "./PredictionSpacePanel";
 import { InputSpacePanel } from "./InputSpacePanel";
 import {
   workbenchSurfaceRegistry,
+  resolvePrimaryWorkbenchSurface,
   workbenchSurfacesInZone,
   type WorkbenchSurface,
   type WorkbenchSurfaceKind,
@@ -262,16 +263,16 @@ export function WorkbenchPage(props: WorkbenchProps) {
       ? setExploreComparisonHeight
       : setComparisonHeight;
   const beforeActivitySurfaces = workbenchSurfacesInZone(application, "before_activity");
-  const primarySurfaces = workbenchSurfacesInZone(application, "analysis_primary");
+  const primarySurfaceResolution = resolvePrimaryWorkbenchSurface(
+    application,
+    requestedPrimarySurface,
+    primarySurfaceError,
+  );
+  const primarySurfaces = primarySurfaceResolution.surfaces;
   const evidenceSurfaces = workbenchSurfacesInZone(application, "analysis_evidence");
   const afterAnalysisSurfaces = workbenchSurfacesInZone(application, "after_analysis");
-  const selectedPrimarySurface = primarySurfaceError
-    ? undefined
-    : requestedPrimarySurface
-      ? primarySurfaces.find((surface) => surface.kind === requestedPrimarySurface)
-      : primarySurfaces[0];
-  const unavailablePrimarySurface = primarySurfaceError
-    ?? (requestedPrimarySurface && !selectedPrimarySurface ? requestedPrimarySurface : undefined);
+  const selectedPrimarySurface = primarySurfaceResolution.selected;
+  const unavailablePrimarySurface = primarySurfaceResolution.unavailable;
   useEffect(() => {
     if (
       candidateSection !== "actuals"
@@ -640,7 +641,14 @@ export function WorkbenchPage(props: WorkbenchProps) {
             {renderSurface(surface)}
           </div>
         ))}
-        {mode === "comparison" && (primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
+        {mode === "comparison" && primarySurfaceResolution.status === "loading" && <div
+          className="workbench-surface-deck"
+          role="status"
+        >
+          分析面を読み込んでいます。
+        </div>}
+        {mode === "comparison" && primarySurfaceResolution.status === "ready"
+          && (primarySurfaces.length > 0 || evidenceSurfaces.length > 0) && <div
           ref={lowerPanelsRef}
           className={`workbench-lower-grid${primarySurfaces.length ? "" : " no-response-curves"}`}
           style={{ "--response-curve-share": `${effectiveCurveShare}%` } as CSSProperties}

@@ -64,9 +64,41 @@ test("unknown and ambiguous selections remain explainable instead of normalizing
   );
   const ambiguousIntent = ambiguous.readNavigationIntent();
   assert.equal(ambiguousIntent.chainInspection, undefined);
-  assert.equal(ambiguousIntent.chainInspectionError, "A\u001fedge-1");
+  assert.deepEqual(ambiguousIntent.chainInspectionError, {
+    kind: "ambiguous",
+    stageId: "A",
+    edgeId: "edge-1",
+  });
   assert.match(ambiguous.navigationUrl(ambiguousIntent), /chain_stage=A/);
   assert.match(ambiguous.navigationUrl(ambiguousIntent), /chain_edge=edge-1/);
+});
+
+test("workbench surface availability waits for the application capability", async () => {
+  const { resolvePrimaryWorkbenchSurface } = await import(
+    `../src/features/workbench/workbenchSurfaceRegistry.ts?analysis=${Date.now()}-${Math.random()}`
+  );
+  assert.deepEqual(
+    resolvePrimaryWorkbenchSurface(undefined, "prediction_space"),
+    { status: "loading", surfaces: [] },
+  );
+
+  const application = {
+    candidate_excel_export: false,
+    candidate_excel_import: false,
+    project_creation: true,
+    sparse_blend: false,
+    workbench_surfaces: [
+      { kind: "response_curve", order: 10 },
+      { kind: "prediction_space", order: 20 },
+    ],
+  };
+  const resolved = resolvePrimaryWorkbenchSurface(
+    application,
+    "prediction_space",
+  );
+  assert.equal(resolved.status, "ready");
+  assert.equal(resolved.selected?.kind, "prediction_space");
+  assert.equal(resolved.unavailable, undefined);
 });
 
 test("view changes retain only identities owned by the destination", async () => {

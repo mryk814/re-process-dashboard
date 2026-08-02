@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { apiBaseUrl, createProjectWithCandidate } from "./helpers";
+import { apiBaseUrl, createProjectWithCandidate, starterCandidate } from "./helpers";
 
 test("analysis selections survive share, reload, and browser travel without silent fallback", async ({ page, request }) => {
   test.setTimeout(120_000);
@@ -10,6 +10,12 @@ test("analysis selections survive share, reload, and browser travel without sile
     `分析位置の共有 ${Date.now()}`,
     "基準候補",
   );
+  const starter = await starterCandidate(request, "annealed-properties-v1");
+  const secondCandidateResponse = await request.post(
+    `${apiBaseUrl}/api/projects/${project.id}/candidates`,
+    { data: { ...starter, name: "比較候補" } },
+  );
+  expect(secondCandidateResponse.status(), await secondCandidateResponse.text()).toBe(201);
 
   await page.goto(`/?view=candidates&project=${project.id}&evidence_surface=not-real`);
   await expect(page.getByRole("heading", { name: "指定された分析面を表示できません" })).toBeVisible();
@@ -22,6 +28,9 @@ test("analysis selections survive share, reload, and browser travel without sile
   const selectedSurfaceKind = new URL(page.url()).searchParams.get("evidence_surface");
   expect(selectedSurfaceKind).toBeTruthy();
   await page.reload();
+  await expect(page.locator(`#${selectedSurfaceId}`)).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "比較候補を選択" }).click();
+  await expect(page).toHaveURL(new RegExp(`evidence_surface=${selectedSurfaceKind}`));
   await expect(page.locator(`#${selectedSurfaceId}`)).toHaveAttribute("aria-selected", "true");
 
   await page.getByRole("navigation", { name: "プロジェクト内メニュー" })
@@ -41,6 +50,11 @@ test("analysis selections survive share, reload, and browser travel without sile
   await page.getByRole("button", { name: "全評価点を表示" }).click();
   await expect(page).toHaveURL(/screening_surface=evaluated/);
   await page.reload();
+  await expect(page.locator(".screening-evaluated-table")).toBeVisible();
+  const sharedRunId = new URL(page.url()).searchParams.get("screening");
+  await page.getByRole("button", { name: "基準候補を選択" }).click();
+  await expect(page).toHaveURL(new RegExp(`screening=${sharedRunId}`));
+  await expect(page).toHaveURL(/screening_surface=evaluated/);
   await expect(page.locator(".screening-evaluated-table")).toBeVisible();
 
   const chainsResponse = await request.get(`${apiBaseUrl}/api/chains`);
@@ -86,6 +100,16 @@ test("analysis selections survive share, reload, and browser travel without sile
   );
   expect(snapshotResponse.status(), await snapshotResponse.text()).toBe(201);
   const snapshot = await snapshotResponse.json() as { snapshot_id: string };
+
+  await page.goto(`/?view=chain-graph&project=${chainProject.id}&candidate=${candidate.id}&chain_stage=stage-A&chain_edge=edge-A`);
+  const ambiguousInspector = page.getByRole("complementary", { name: "Chain inspector" });
+  await expect(ambiguousInspector.getByRole("heading", { name: "検査対象を1つに絞ってください" })).toBeVisible();
+  await expect(ambiguousInspector).toContainText("stage-A");
+  await expect(ambiguousInspector).toContainText("edge-A");
+  await expect(ambiguousInspector).toContainText("どちらか一方だけを指定してください");
+  await ambiguousInspector.getByRole("button", { name: "Stageを表示" }).click();
+  await expect(page).toHaveURL(/chain_stage=stage-A/);
+  await expect(page).not.toHaveURL(/chain_edge=/);
 
   await page.goto(`/?view=chain-graph&project=${chainProject.id}&candidate=${candidate.id}&chain_stage=missing-stage`);
   await expect(page.getByRole("heading", { name: "指定された検査対象を表示できません" })).toBeVisible();

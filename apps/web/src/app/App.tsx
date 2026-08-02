@@ -271,13 +271,24 @@ function App() {
       );
     },
     onCandidateSelected: (projectId, candidateId) => {
-      const currentView = navigationRef.current.view;
+      const current = navigationRef.current;
+      const currentView = current.view;
+      const nextView = currentView === "candidate-review" || currentView === "explore"
+        ? currentView
+        : "candidates";
+      const sameProject = !current.projectId || current.projectId === projectId;
+      const changedCandidate = !sameProject || current.candidateId !== candidateId;
       navigate({
-        view: currentView === "candidate-review" || currentView === "explore"
-          ? currentView
-          : "candidates",
+        ...current,
+        ...withView(
+          sameProject ? current : { view: nextView, projectId, candidateId },
+          nextView,
+        ),
+        view: nextView,
         projectId,
         candidateId,
+        chainSnapshotId: changedCandidate ? undefined : current.chainSnapshotId,
+        activityRunId: changedCandidate ? undefined : current.activityRunId,
       }, true);
     },
     onOpenProvenance: (provenance) => {
@@ -355,14 +366,22 @@ function App() {
 
   function selectCandidate(candidateId: string, replace = true) {
     session.selectCandidate(candidateId, false);
+    const current = navigationRef.current;
+    const nextView = tab === "candidate-review"
+      ? "candidate-review"
+      : tab === "explore"
+        ? "explore"
+        : "candidates";
+    const changedCandidate = Boolean(current.projectId && current.projectId !== activeProjectId)
+      || current.candidateId !== candidateId;
     navigate({
-      view: tab === "candidate-review"
-        ? "candidate-review"
-        : tab === "explore"
-          ? "explore"
-          : "candidates",
+      ...current,
+      ...withView(current, nextView),
+      view: nextView,
       projectId: activeProjectId,
       candidateId,
+      chainSnapshotId: changedCandidate ? undefined : current.chainSnapshotId,
+      activityRunId: changedCandidate ? undefined : current.activityRunId,
     }, replace);
   }
 

@@ -35,6 +35,11 @@ export type ChainInspection = Readonly<{
   kind: "stage" | "edge";
   id: string;
 }>;
+export type ChainInspectionError = Readonly<{
+  kind: "ambiguous";
+  stageId: string;
+  edgeId: string;
+}>;
 
 export type NavigationIntent = Readonly<{
   view: WorkbenchView;
@@ -51,7 +56,7 @@ export type NavigationIntent = Readonly<{
   screeningResultSurface?: ScreeningResultSurfaceNavigation;
   screeningResultSurfaceError?: string;
   chainInspection?: ChainInspection;
-  chainInspectionError?: string;
+  chainInspectionError?: ChainInspectionError;
   chainSnapshotId?: string;
   activityId?: string;
   activityRunId?: string;
@@ -207,7 +212,11 @@ export function readNavigationIntent(
       : undefined,
     chainInspection,
     chainInspectionError: normalizedView === "chain-graph" && requestedChainStage && requestedChainEdge
-      ? `${requestedChainStage}\u001f${requestedChainEdge}`
+      ? {
+        kind: "ambiguous" as const,
+        stageId: requestedChainStage,
+        edgeId: requestedChainEdge,
+      }
       : undefined,
     chainSnapshotId: normalizedView === "candidates"
       ? params.get("chain_snapshot") || undefined
@@ -249,9 +258,8 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "explore" && intent.screeningResultSurfaceError) params.set("screening_surface", intent.screeningResultSurfaceError);
   else if (intent.view === "explore" && intent.screeningResultSurface) params.set("screening_surface", intent.screeningResultSurface);
   if (intent.view === "chain-graph" && intent.chainInspectionError) {
-    const [stage, edge] = intent.chainInspectionError.split("\u001f", 2);
-    if (stage) params.set("chain_stage", stage);
-    if (edge) params.set("chain_edge", edge);
+    params.set("chain_stage", intent.chainInspectionError.stageId);
+    params.set("chain_edge", intent.chainInspectionError.edgeId);
   } else if (intent.view === "chain-graph" && intent.chainInspection?.kind === "stage") {
     params.set("chain_stage", intent.chainInspection.id);
   } else if (intent.view === "chain-graph" && intent.chainInspection?.kind === "edge") {

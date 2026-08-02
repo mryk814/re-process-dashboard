@@ -12,11 +12,16 @@ import {
 } from "./chainGraphPresentation";
 
 type ChainInspection = { kind: "stage" | "edge"; id: string };
+type ChainInspectionError = {
+  kind: "ambiguous";
+  stageId: string;
+  edgeId: string;
+};
 type Props = {
   projectId: string;
   candidateId?: string;
   requestedInspection?: ChainInspection;
-  inspectionError?: string;
+  inspectionError?: ChainInspectionError;
   onInspectionChange: (inspection?: ChainInspection) => void;
 };
 
@@ -92,8 +97,9 @@ export function ChainGraphViewer({
   const selectedStageId = requestedInspection?.kind === "stage" ? requestedInspection.id : undefined;
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId);
   const selectedStage = graph?.definition.stages.find((stage) => stage.stage_id === selectedStageId);
-  const unavailableInspection = inspectionError
-    ?? (requestedInspection && !selectedEdge && !selectedStage ? requestedInspection.id : undefined);
+  const unavailableInspection = requestedInspection && !selectedEdge && !selectedStage
+    ? requestedInspection.id
+    : undefined;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -153,8 +159,14 @@ export function ChainGraphViewer({
 
     <section className="chain-graph-bindings" aria-labelledby="chain-bindings-heading"><div className="chain-graph-section-title"><div><h3 id="chain-bindings-heading">binding一覧</h3><p>railと同じ接続を、表形式でも確認できます。</p></div></div><div className="chain-graph-table-wrap"><table><thead><tr><th scope="col">source</th><th scope="col">target</th><th scope="col">変換 / 接続</th><th scope="col">詳細</th></tr></thead><tbody>{edges.map((edge) => <tr key={edge.id} data-chain-edge={edge.id} data-source={edge.source.label} data-target={edge.target.label} className={selectedEdgeId === edge.id ? "selected" : undefined}><th scope="row">{edge.source.label}</th><td>{edge.target.label}</td><td>{edge.binding.conversion ? `${edge.binding.conversion.conversion_id} (${edge.binding.conversion.source_unit} → ${edge.binding.conversion.target_unit})` : "変換なし"}{edge.branchCount > 1 ? ` · 分岐 ${edge.branchCount}` : edge.mergeCount > 1 ? ` · 合流 ${edge.mergeCount}` : ""}</td><td><button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "edge", id: edge.id })}>確認</button></td></tr>)}</tbody></table></div></section>
 
-    {(selectedEdge || selectedStage || unavailableInspection) && <aside className="chain-graph-inspector" aria-live="polite" aria-label="Chain inspector">
-      {unavailableInspection ? <>
+    {(selectedEdge || selectedStage || unavailableInspection || inspectionError) && <aside className="chain-graph-inspector" aria-live="polite" aria-label="Chain inspector">
+      {inspectionError ? <>
+        <h3>検査対象を1つに絞ってください</h3>
+        <p>Stage <code>{inspectionError.stageId}</code> と Binding <code>{inspectionError.edgeId}</code> が同時に指定されています。</p>
+        <p><code>chain_stage</code> と <code>chain_edge</code> は、どちらか一方だけを指定してください。</p>
+        <button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "stage", id: inspectionError.stageId })}>Stageを表示</button>
+        <button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "edge", id: inspectionError.edgeId })}>Bindingを表示</button>
+      </> : unavailableInspection ? <>
         <h3>指定された検査対象を表示できません</h3>
         <p><code>{unavailableInspection}</code> は、この固定Chain Revisionにありません。</p>
         <button type="button" className="outline-button" onClick={() => onInspectionChange()}>選択を解除</button>
