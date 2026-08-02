@@ -7,16 +7,25 @@ const source = await readFile(
   "utf8",
 );
 
-test("Screening reads as question, current evidence, then optional edit", () => {
-  const question = source.indexOf('<section className="screening-mode-picker"');
-  const evidence = source.indexOf("<ScreeningProposalSummary", question);
-  const editor = source.indexOf('className="screening-editor-disclosure"', evidence);
-  const detailedEvidence = source.indexOf("<ScreeningResultSurfaceTabs", editor);
+test("Screening composition renders judgment, history, detailed evidence, then optional edit", () => {
+  const layout = source.slice(
+    source.indexOf("function ScreeningQuestionFirstLayout"),
+    source.indexOf("function number("),
+  );
+  const judgmentSlot = layout.indexOf("{judgment}");
+  const historySlot = layout.indexOf("{history}");
+  const evidenceSlot = layout.indexOf("{evidence}");
+  const editorSlot = layout.indexOf("{editor}");
 
-  assert.ok(question >= 0);
-  assert.ok(evidence > question);
-  assert.ok(editor > evidence);
-  assert.ok(detailedEvidence > editor);
+  assert.ok(judgmentSlot >= 0);
+  assert.ok(historySlot > judgmentSlot);
+  assert.ok(evidenceSlot > historySlot);
+  assert.ok(editorSlot > evidenceSlot);
+
+  const question = source.indexOf('<section className="screening-mode-picker"');
+  const action = source.indexOf('className="screening-question-action"', question);
+  const layoutUse = source.indexOf("<ScreeningQuestionFirstLayout", action);
+  assert.ok(question >= 0 && action > question && layoutUse > action);
 });
 
 test("successful Run closes editing and field diagnosis reopens it", () => {
@@ -25,8 +34,11 @@ test("successful Run closes editing and field diagnosis reopens it", () => {
   assert.match(source, /if \(failure\.fieldErrors\.length > 0\) setEditorOpen\(true\)/);
 });
 
-test("the page header no longer duplicates the Run action", () => {
-  const pageIntro = source.match(/<div className="page-intro">([\s\S]*?)<\/div>\s*\{compositionBalanceNotice/);
-  assert.ok(pageIntro);
-  assert.doesNotMatch(pageIntro[1], /onClick=\{\(\) => \{\s*void run\(\)/);
+test("the question area owns the only primary Run action", () => {
+  assert.equal(source.match(/className="screening-question-action"/g)?.length, 1);
+  assert.doesNotMatch(source, /screening-run-footer/);
+  assert.match(
+    source,
+    /className="screening-question-action"[\s\S]*?className="primary-button"[\s\S]*?void run\(\)/,
+  );
 });

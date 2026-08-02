@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -44,6 +44,28 @@ import {
   screeningFailureFieldLabel,
   type ScreeningExecutionFailure,
 } from "./screeningExecutionFailure";
+
+function ScreeningQuestionFirstLayout({
+  judgment,
+  history,
+  evidence,
+  editor,
+  drawer,
+}: {
+  judgment: ReactNode;
+  history: ReactNode;
+  evidence: ReactNode;
+  editor: ReactNode;
+  drawer: ReactNode;
+}) {
+  return <>
+    {judgment}
+    {history}
+    {evidence}
+    {editor}
+    {drawer}
+  </>;
+}
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -1037,7 +1059,27 @@ export function ScreeningPage({
           })}
         </div>
       </section>
+      <div className="screening-question-action">
+        <span>
+          <b>{screeningModes.find((mode) => mode.id === screeningMode)?.label}</b>
+          {screeningMode === "batch" && opportunitySourceRun
+            ? ` · 元の有望候補Run ${opportunitySourceRun.id.slice(0, 8)}`
+            : ` · ${variables.filter((row) => row.mode !== "fixed").length}変数`}
+        </span>
+        <button
+          type="button"
+          className="primary-button"
+          disabled={actionDisabled}
+          title={actionTitle}
+          aria-busy={running}
+          onClick={() => { void run(); }}
+        >
+          {running ? "計算中…" : actionLabel}
+        </button>
+      </div>
       {effectiveDraftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
+      <ScreeningQuestionFirstLayout
+      history={<>
       {savedRuns.length > 0 && (
         <section className="saved-runs">
           <h3>保存済み探索</h3>
@@ -1083,6 +1125,8 @@ export function ScreeningPage({
         </section>
       )}
       <ProposalLabPanel projectId={projectId} runs={savedRuns} />
+      </>}
+      judgment={<>
       {result && (
         <ScreeningProposalSummary
           result={result}
@@ -1147,6 +1191,8 @@ export function ScreeningPage({
           </button>
         </section>
       )}
+      </>}
+      editor={<>
       <details
         className="screening-editor-disclosure"
         open={editorOpen}
@@ -1671,26 +1717,10 @@ export function ScreeningPage({
           </button>
         </section>
         )}
-        <div className="screening-run-footer">
-          <span>
-            <b>{screeningModes.find((mode) => mode.id === screeningMode)?.label}</b>
-            {screeningMode === "batch" && opportunitySourceRun
-              ? ` · 元の有望候補Run ${opportunitySourceRun.id.slice(0, 8)}`
-              : ` · ${variables.filter((row) => row.mode !== "fixed").length}変数`}
-          </span>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={actionDisabled}
-            title={actionTitle}
-            aria-busy={running}
-            onClick={() => { void run(); }}
-          >
-            {running ? "計算中…" : actionLabel}
-          </button>
-        </div>
       </div>
       </details>
+      </>}
+      evidence={<>
       {error && <p className="warning">{error}</p>}
       {result && (
         <>
@@ -2013,6 +2043,8 @@ export function ScreeningPage({
           <ScreeningRunEvidence result={result} />
         </>
       )}
+      </>}
+      drawer={
       <HistoricalEvidenceDrawer
         open={detailItem != null}
         projectId={projectId}
@@ -2031,6 +2063,8 @@ export function ScreeningPage({
         taskDefinition={taskDefinition}
         displayDecimalOverrides={project?.display_decimals}
         onClose={() => setDetailItem(null)}
+      />
+      }
       />
     </div>
   );

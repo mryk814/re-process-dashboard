@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page, type Route } from "@pl
 import { apiBaseUrl as api, createProjectWithCandidate } from "./helpers";
 
 async function runScreening(page: Page) {
-  await page.locator(".screening-run-footer .primary-button").click();
+  await page.locator(".screening-question-action .primary-button").click();
 }
 
 async function openAdvancedSettings(page: Page) {
@@ -65,11 +65,11 @@ test("screening variable editor stays compact, validates rows, and contains narr
   await firstMinimum.fill("10");
   await firstMaximum.fill("5");
   await expect(page.getByRole("alert").filter({ hasText: "最小値は最大値より小さくしてください。" })).toBeVisible();
-  await expect(page.locator(".screening-run-footer .primary-button")).toBeDisabled();
+  await expect(page.locator(".screening-question-action .primary-button")).toBeDisabled();
   await firstMinimum.fill("0.05");
   await firstMaximum.fill("0.1");
   await expect(page.getByRole("alert").filter({ hasText: "最小値は最大値より小さくしてください。" })).toHaveCount(0);
-  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
+  await expect(page.locator(".screening-question-action .primary-button")).toBeEnabled();
 
   await page.setViewportSize({ width: 900, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -92,11 +92,11 @@ test("annealed screening keeps draft separate and batches multiple points into s
   await page.goto(`/?view=explore&project=${project.id}`);
   await expect(page.getByRole("heading", { name: "範囲探索" })).toBeVisible();
   await expect(page.getByText("まず、いま知りたいことを選びます。")).toHaveCount(0);
-  await expect(page.locator(".screening-run-footer").getByRole("button", { name: "64点を評価" })).toBeVisible();
+  await expect(page.locator(".screening-question-action").getByRole("button", { name: "64点を評価" })).toBeVisible();
   const modes = page.locator(".screening-mode-options");
   await expect(modes.getByRole("button", { name: /領域を見る/ })).toBeVisible();
   await expect(modes.getByRole("button", { name: /領域を見る/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
+  await expect(page.locator(".screening-question-action .primary-button")).toBeEnabled();
   await expect(modes.getByRole("button", { name: /実験バッチを組む/ })).toBeDisabled();
   await expect(page.locator(".screening-advanced-settings")).not.toHaveAttribute("open", "");
   await expect(page.getByLabel("乱数seed")).not.toBeVisible();
@@ -237,7 +237,7 @@ test("range exploration uses the shared candidate table without leaving the scre
   const runResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && new URL(response.url()).pathname === "/api/screening"
   );
-  await page.locator(".screening-run-footer .primary-button").click();
+  await page.locator(".screening-question-action .primary-button").click();
   expect((await runRequest).postDataJSON().base_candidate_id).toBe(selectedCandidateId);
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".screening-mode-options").getByRole("button", { name: /実験バッチを組む/ })).toBeEnabled();
@@ -251,7 +251,10 @@ test("failed screening keeps the last successful result and offers an actionable
   const project = await createProject(request, "annealed-properties-v1");
   await page.goto(`/?view=explore&project=${project.id}`);
   const editorDisclosure = page.locator(".screening-editor-disclosure");
+  const runAction = page.locator(".screening-question-action .primary-button");
   await expect(editorDisclosure).toHaveAttribute("open", "");
+  await expect(runAction).toBeVisible();
+  await expect(page.locator(".screening-question-action .primary-button")).toHaveCount(1);
 
   const firstResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -265,10 +268,21 @@ test("failed screening keeps the last successful result and offers an actionable
   const decisionEvidence = page.getByRole("region", { name: "探索条件と提案診断" });
   await expect(decisionEvidence).toBeVisible();
   await expect(editorDisclosure).not.toHaveAttribute("open", "");
+  await expect(runAction).toBeVisible();
   expect(await page.evaluate(() => {
-    const evidence = document.querySelector('[aria-label="探索条件と提案診断"]');
+    const judgment = document.querySelector('[aria-label="探索条件と提案診断"]');
+    const history = document.querySelector(".saved-runs");
+    const evidence = document.querySelector(".screening-result-tabs");
     const editor = document.querySelector(".screening-editor-disclosure");
-    return Boolean(evidence && editor && (evidence.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING));
+    return Boolean(
+      judgment
+      && history
+      && evidence
+      && editor
+      && (judgment.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (history.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (evidence.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING)
+    );
   })).toBe(true);
   await page.setViewportSize({ width: 640, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -338,10 +352,10 @@ test("screening transport failure verifies saved runs before retry and clears on
   await expect(failure).toContainText("Runが保存された可能性");
   await expect(failure).toContainText("保存状況は未確認");
   await expect(failure.getByRole("button", { name: "保存済みRunを確認" })).toBeEnabled();
-  await expect(page.locator(".screening-run-footer .primary-button")).toBeDisabled();
+  await expect(page.locator(".screening-question-action .primary-button")).toBeDisabled();
   await failure.getByRole("button", { name: "保存済みRunを確認" }).click();
   await expect(failure.getByRole("status")).toContainText("保存済みRun一覧を更新しました");
-  await expect(page.locator(".screening-run-footer .primary-button")).toBeEnabled();
+  await expect(page.locator(".screening-question-action .primary-button")).toBeEnabled();
 
   await page.goto(`/?view=explore&project=${nextProject.id}`);
   await expect(page.getByRole("alert", { name: "APIに接続できませんでした" })).toHaveCount(0);

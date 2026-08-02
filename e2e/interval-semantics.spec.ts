@@ -18,7 +18,7 @@ test("Screening and Response Curve expose interval meaning without guessing 90%"
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/screening"
   ));
-  await page.locator(".screening-run-footer .primary-button").click();
+  await page.locator(".screening-question-action .primary-button").click();
   expect((await screeningResponse).status()).toBe(201);
 
   const screeningLabel = "Bayesian予測区間（90%）";
