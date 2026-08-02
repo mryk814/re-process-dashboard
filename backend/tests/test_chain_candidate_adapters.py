@@ -33,10 +33,12 @@ from decision_workbench.application.payload_normalization import plain_payload
 from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
     ChainDefinition,
+    ChainPort,
     ChainRevision,
     ChainSnapshotIdentityV2,
     ChainStage,
     ChainStageRevision,
+    ExternalBindingSource,
     StageOutputBindingSource,
     UnitConversion,
 )
@@ -156,8 +158,35 @@ def test_candidate_capability_reads_revision_shape_without_transform_catalog() -
             assert (chain_id, definition_digest) == (
                 "chain", revision.chain_definition_digest
             )
-            return SimpleNamespace(
-                external_inputs=(SimpleNamespace(path="candidate.blend"),)
+            return ChainDefinition(
+                chain_id="chain",
+                label="read-only capability fixture",
+                stages=tuple(
+                    ChainStage(
+                        stage_id=stage.stage_id,
+                        stage_kind=stage.stage_kind,
+                        contract_id=stage.contract_id,
+                    )
+                    for stage in revision.stages
+                ),
+                external_inputs=(
+                    ChainPort(
+                        path="candidate.blend",
+                        value_kind="sparse_blend",
+                        quantity="blend",
+                        unit="sparse-blend/v1",
+                    ),
+                ),
+                bindings=(
+                    ChainBinding(
+                        target_stage_id=revision.stages[0].stage_id,
+                        target_input_path="blend",
+                        source=ExternalBindingSource(
+                            source_kind="external",
+                            path="candidate.blend",
+                        ),
+                    ),
+                ),
             )
 
     planning = ChainPlanningUseCase(
