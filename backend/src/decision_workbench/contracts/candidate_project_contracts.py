@@ -227,9 +227,9 @@ class ProjectCreateInput(ProjectInput):
         identity = self.scientific_identity
         if identity is None:
             return self
-        if identity.identity_kind == "chain":
+        if identity.identity_kind in {"chain", "prediction_graph"}:
             if "task_id" in self.model_fields_set and self.task_id:
-                raise ValueError("Chain Projectへtask_idを同時指定できません")
+                raise ValueError("Graph Projectへtask_idを同時指定できません")
             legacy_bindings = (
                 self.dataset_view_revision_id,
                 self.task_contract_digest,
@@ -238,7 +238,7 @@ class ProjectCreateInput(ProjectInput):
             )
             if any(legacy_bindings):
                 raise ValueError(
-                    "Chain Projectへ単一TaskのDataset/Package参照を同時指定できません"
+                    "Graph Projectへ単一TaskのDataset/Package参照を同時指定できません"
                 )
         elif "task_id" in self.model_fields_set and self.task_id != identity.task_id:
             raise ValueError("single-Task identityとtask_idが一致しません")
@@ -343,5 +343,5 @@ class Project(ProjectInput):
             if self.task_id != self.scientific_identity.task_id:
                 raise ValueError("Project task_id disagrees with single-Task identity")
         elif self.task_id:
-            raise ValueError("Chain Project must not masquerade as a Prediction Task")
+            raise ValueError("Graph Project must not masquerade as a Prediction Task")
         return self

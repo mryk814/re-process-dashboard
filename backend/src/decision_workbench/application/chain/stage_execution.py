@@ -12,8 +12,8 @@ from decision_workbench.application.chain.plan import ChainExecutionError, set_p
 from decision_workbench.application.payload_normalization import plain_payload
 from decision_workbench.contracts.chain_contracts import (
     ChainBinding,
-    ChainDefinition,
     ChainStageRevision,
+    GraphDefinitionRef,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ChainStageExecution,
@@ -44,7 +44,7 @@ class ChainStageExecutor:
 
     def _canonical_input(
         self,
-        definition: ChainDefinition,
+        definition: GraphDefinitionRef,
         stage_id: str,
         external: Mapping[str, Any],
         upstream_outputs: Mapping[str, Mapping[str, Any]],

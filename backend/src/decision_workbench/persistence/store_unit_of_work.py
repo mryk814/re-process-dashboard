@@ -9,10 +9,14 @@ from decision_workbench.persistence.project_persistence_inventory import (
 from decision_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ChainRevision,
+    PredictionGraphDefinition,
+    PredictionGraphProjectIdentity,
+    PredictionGraphRevision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainSnapshot,
+    PredictionGraphSnapshot,
 )
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionRun,
@@ -225,6 +229,86 @@ class WorkbenchUnitOfWork:
             raise ChainCatalogConflictError(
                 "Prediction Graph Revisionは現行Chain Projectとして保存できません"
             )
+        return self._create_pinned_graph_project(
+            payload,
+            identity,
+            initial_candidate,
+        )
+
+    def create_prediction_graph_project(
+        self,
+        payload: ProjectCreateInput,
+        identity: PredictionGraphProjectIdentity,
+        initial_candidate: CandidateInput | None = None,
+    ) -> Project:
+        """Persist only a Prediction Graph v1 project for its dedicated runtime."""
+
+        revision = self.get_chain_revision(identity.graph_revision_id)
+        if (
+            revision is None
+            or revision.revision_digest != identity.graph_revision_digest
+        ):
+            raise ChainCatalogConflictError(
+                "選択したPrediction Graph RevisionのIDまたはdigestが"
+                "登録内容と一致しません"
+            )
+        if not isinstance(revision, PredictionGraphRevision):
+            raise ChainCatalogConflictError(
+                "legacy Chain RevisionはPrediction Graph Projectとして保存できません"
+            )
+        definition = self.get_chain_definition(
+            revision.graph_id,
+            revision.graph_definition_digest,
+        )
+        if not isinstance(definition, PredictionGraphDefinition):
+            raise ChainCatalogConflictError(
+                "Prediction Graph Definitionを解決できません"
+            )
+        expected = {
+            item.value_source.binding_key: item
+            for item in definition.inputs
+            if item.value_source.source_kind == "project_binding"
+        }
+        supplied = identity.project_binding.values
+        unknown = sorted(set(supplied) - set(expected))
+        missing = sorted(
+            key
+            for key in expected
+            if key not in supplied
+        )
+        invalid = sorted(
+            key
+            for key, value in supplied.items()
+            if key in expected
+            and (
+                (
+                    expected[key].port.value_kind == "number"
+                    and not isinstance(value, float)
+                )
+                or (
+                    expected[key].port.value_kind == "categorical"
+                    and not isinstance(value, str)
+                )
+                or expected[key].port.value_kind == "sparse_blend"
+            )
+        )
+        if unknown or missing or invalid:
+            raise ChainCatalogConflictError(
+                "Prediction Graph Project bindingがDefinitionと一致しません: "
+                f"unknown={unknown}, missing={missing}, invalid={invalid}"
+            )
+        return self._create_pinned_graph_project(
+            payload,
+            identity,
+            initial_candidate,
+        )
+
+    def _create_pinned_graph_project(
+        self,
+        payload: ProjectCreateInput,
+        identity: ChainProjectIdentity | PredictionGraphProjectIdentity,
+        initial_candidate: CandidateInput | None,
+    ) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         if (
             initial_candidate is not None
@@ -254,8 +338,18 @@ class WorkbenchUnitOfWork:
                 if (
                     source is None
                     or source["revision"] != reference.candidate_revision
-                    or source_identity.get("identity_kind") != "chain"
-                    or ChainProjectIdentity.model_validate(source_identity) != identity
+                    or source_identity.get("identity_kind")
+                    != identity.identity_kind
+                    or (
+                        (
+                            ChainProjectIdentity.model_validate(source_identity)
+                            if identity.identity_kind == "chain"
+                            else PredictionGraphProjectIdentity.model_validate(
+                                source_identity
+                            )
+                        )
+                        != identity
+                    )
                 ):
                     raise CandidateCopyConflictError(
                         "コピー元候補のChain Revisionまたはcandidate revisionが一致しません"
@@ -962,6 +1056,20 @@ class WorkbenchUnitOfWork:
     def insert_chain_snapshot(
         self, project_id: str, snapshot: ChainSnapshot
     ) -> ChainSnapshot:
+        return self._insert_snapshot(project_id, snapshot)
+
+    def insert_prediction_graph_snapshot(
+        self,
+        project_id: str,
+        snapshot: PredictionGraphSnapshot,
+    ) -> PredictionGraphSnapshot:
+        return self._insert_snapshot(project_id, snapshot)
+
+    def _insert_snapshot(
+        self,
+        project_id: str,
+        snapshot: ChainSnapshot | PredictionGraphSnapshot,
+    ) -> ChainSnapshot | PredictionGraphSnapshot:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             candidate = conn.execute(

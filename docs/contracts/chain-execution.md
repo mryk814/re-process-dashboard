@@ -106,6 +106,33 @@ snapshotは次を一つの不変recordとして保存する。
 snapshotと最新実行状態、Stage memoはSQLiteへ保存されるため、API再起動後も同じRevisionと結果を読み直せる。
 元Excelや既存の単段prediction snapshotへChain結果を書き込まない。
 
+## Prediction Graph Phase A
+
+`prediction-graph-definition/v1`はlegacy Chain実行入口へ流さず、
+`PredictionGraphPlanningUseCase`、`PredictionGraphExecutionUseCase`、
+`PredictionGraphSnapshotUseCase`の専用interfaceで扱う。
+Phase Aではbounded worker poolを使わず、binding edgeから導出したtopological layerを
+安定したnode ID順に直列実行する。同じlayer内の順序は実行の決定性だけを担い、
+科学的な依存関係にはしない。
+
+node failureは当該nodeを`failed`、そのdescendantだけを
+`blocked_by_upstream`とし、独立branchの実行を継続する。
+Candidate変更時もcanonical input digestが変わったnodeとそのdescendantだけを
+`stale`にし、無関係branchの保持結果を`latest`のまま再利用する。
+memo、Project/candidate scopeのgeneration CAS、superseded commit拒否は
+legacy Chainと同じ永続化interfaceを利用する。
+
+terminal decision outputはsource nodeのstatusを固定し、Graph全体を次で要約する。
+
+- `complete`: required terminal outputがすべて`latest`
+- `partial`: required outputは不足するが、独立branchの利用可能outputがある
+- `unavailable`: `latest`なterminal outputがない
+
+`prediction-graph-snapshot/v1`は全node latestを要求しない。
+required terminal outputがすべてlatestの場合だけ作成し、informational branchを含む
+全node evidenceとterminal statusを一つの不変recordに固定する。
+保存済み`chain-execution/v1`、`chain-snapshot/v1`とそのidentityは書き換えない。
+
 ## 分布伝播は点推定とは別の明示実行
 
 通常の編集では従来どおり点推定だけを自動更新する。

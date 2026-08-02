@@ -17,6 +17,9 @@ from decision_workbench.application.catalog.training_inspector import (
 from decision_workbench.application.chains import ChainUseCases
 from decision_workbench.application.data_library import DataLibraryUseCases
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
+from decision_workbench.application.prediction_graphs import (
+    PredictionGraphUseCases,
+)
 from decision_workbench.contracts.blend_contracts import BlendContractRegistry
 from decision_workbench.contracts.candidate_project_contracts import Project
 from decision_workbench.contracts.subsystem_availability import (
@@ -189,6 +192,13 @@ def get_chain_use_cases(request: Request) -> ChainUseCases:
         evaluation_catalog=contribution.evaluation_catalog,
         subsystem_registry=state.subsystem_availability,
     )
+
+
+def get_prediction_graph_use_cases(request: Request) -> PredictionGraphUseCases:
+    contribution = get_application_contribution_runtime(
+        request, "welding-blend"
+    )
+    return contribution.prediction_graph_use_cases
 
 
 def project_or_404(store: Store, project_id: str) -> Project:

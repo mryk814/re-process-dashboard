@@ -133,7 +133,7 @@ def get_chain_revision(
     return revision
 
 
-def _scalar_task_surface(
+def resolve_task_stage_surface(
     registry: TaskRegistry,
     task_id: str,
 ) -> StageContractSurface:
@@ -144,7 +144,7 @@ def _scalar_task_surface(
     )
 
 
-def _scalar_task_lock(
+def resolve_task_stage_lock(
     catalog: WorkspaceCatalog,
     registry: TaskRegistry,
     surface: StageContractSurface,
@@ -210,8 +210,12 @@ def scalar_chain_catalog(
     for task_id in registry.task_ids:
         try:
             registry.require_available(task_id)
-            surface = _scalar_task_surface(registry, task_id)
-            lock = _scalar_task_lock(workspace_catalog, registry, surface)
+            surface = resolve_task_stage_surface(registry, task_id)
+            lock = resolve_task_stage_lock(
+                workspace_catalog,
+                registry,
+                surface,
+            )
             items.append(ChainStudioStageCatalogItem(
                 contract_id=task_id,
                 label=registry.contract_for(task_id).task_definition.label,
