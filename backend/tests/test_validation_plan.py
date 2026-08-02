@@ -5,8 +5,11 @@ import pytest
 from pydantic import ValidationError
 
 from decision_workbench.modeling.training.validation_plan import (
+    TEMPORAL_VALIDATION_ROLE_IDS,
     ValidationPlan,
+    ValidationRowRole,
     build_validation_assignment,
+    temporal_role_rows,
 )
 from decision_workbench.modeling.training.feature_dataset import (
     compile_target_training_set,
@@ -155,14 +158,28 @@ def test_temporal_holdout_keeps_future_out_of_training_and_honors_gap() -> None:
         times=(7, 0, 6, 1, 5, 2, 4, 3),
         plan=plan,
     )
-    evaluation_indexes = np.flatnonzero(result.fold_ids == 0)
+    evaluation_indexes = np.flatnonzero(
+        temporal_role_rows(result.fold_ids, ValidationRowRole.EVALUATION)
+    )
     assert set(evaluation_indexes) == {0, 2}
     assert max(
         time
         for index, time in enumerate((7, 0, 6, 1, 5, 2, 4, 3))
-        if result.fold_ids[index] == -1
+        if temporal_role_rows(
+            result.fold_ids,
+            ValidationRowRole.MODEL_TRAIN,
+        )[index]
     ) < min((7, 6))
-    assert set(result.fold_ids) == {-3, -2, -1, 0}
+    assert {
+        role: TEMPORAL_VALIDATION_ROLE_IDS[role]
+        for role in ValidationRowRole
+    } == {
+        ValidationRowRole.MODEL_TRAIN: -1,
+        ValidationRowRole.CALIBRATION: -3,
+        ValidationRowRole.EVALUATION: 0,
+        ValidationRowRole.EMBARGO_GAP: -2,
+    }
+    assert set(result.fold_ids) == set(TEMPORAL_VALIDATION_ROLE_IDS.values())
     assert result.diagnostics["temporal_order_verified"] is True
 
 

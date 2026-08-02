@@ -21,7 +21,11 @@ from decision_workbench.task_composition.descriptors import (
     StarterProject,
     TaskModule,
 )
-from decision_workbench.task_composition.ports import DataDescriptor, PredictionRuntime
+from decision_workbench.task_composition.ports import (
+    DataDescriptor,
+    NumericSamplingPolicy,
+    PredictionRuntime,
+)
 from decision_workbench.task_composition.training_inspector import (
     CANONICAL_TRAINING_INSPECTOR,
 )
@@ -196,13 +200,21 @@ def _annealed_response_curve(
     axis_range: tuple[float, float] | None,
     stage_name: str | None,
     stage_position_m: float | None,
+    sampling_policy: NumericSamplingPolicy,
 ) -> dict[str, Any]:
     if variable.startswith("heat.") and variable != "heat.stage_temperature_c":
         raise ValueError(
             "ヒートパターンは工程名温度またはラインスピードで操作してください"
         )
     return runtime.response_curve_result(  # type: ignore[attr-defined]
-        candidate, target, variable, points, axis_range, stage_name, stage_position_m
+        candidate,
+        target,
+        variable,
+        points,
+        axis_range,
+        stage_name,
+        stage_position_m,
+        sampling_policy=sampling_policy,
     )
 
 

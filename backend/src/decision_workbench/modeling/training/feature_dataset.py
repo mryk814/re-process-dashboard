@@ -17,8 +17,10 @@ from decision_workbench.modeling.training.feature_recipe import (
 )
 from decision_workbench.modeling.training.validation_plan import (
     ValidationPlan,
+    ValidationRowRole,
     build_validation_assignment,
     grouped_kfold_plan,
+    temporal_role_rows,
 )
 
 
@@ -61,17 +63,26 @@ class TargetTrainingSet:
     @property
     def quality_rows(self) -> np.ndarray:
         if self.is_temporal_validation:
-            return self.fold_ids == 0
+            return temporal_role_rows(
+                self.fold_ids,
+                ValidationRowRole.EVALUATION,
+            )
         return np.ones(len(self.y), dtype=bool)
 
     def training_rows_for_fold(self, fold: int) -> np.ndarray:
         if self.is_temporal_validation:
-            return self.fold_ids == -1
+            return temporal_role_rows(
+                self.fold_ids,
+                ValidationRowRole.MODEL_TRAIN,
+            )
         return self.fold_ids != fold
 
     @property
     def temporal_calibration_rows(self) -> np.ndarray:
-        return self.fold_ids == -3
+        return temporal_role_rows(
+            self.fold_ids,
+            ValidationRowRole.CALIBRATION,
+        )
 
 
 def _replicate_context(row: Mapping[str, Any]) -> str:
@@ -358,9 +369,15 @@ def compile_target_training_set(
     if target_kind == "binary":
         if plan.strategy in {"temporal_holdout", "grouped_temporal"}:
             binary_cohorts = {
-                "training": fold_ids == -1,
-                "calibration": fold_ids == -3,
-                "holdout": fold_ids == 0,
+                "training": temporal_role_rows(
+                    fold_ids, ValidationRowRole.MODEL_TRAIN
+                ),
+                "calibration": temporal_role_rows(
+                    fold_ids, ValidationRowRole.CALIBRATION
+                ),
+                "holdout": temporal_role_rows(
+                    fold_ids, ValidationRowRole.EVALUATION
+                ),
             }
             for cohort_name, rows in binary_cohorts.items():
                 if set(np.unique(y[rows])) != {0.0, 1.0}:

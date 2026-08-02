@@ -14,10 +14,14 @@ from decision_workbench.contracts.task_contracts import (
 )
 from decision_workbench.domain.design_space_validation import validate_candidate_in_design_space
 from decision_workbench.domain.proposal_generation import generate_candidates
-from decision_workbench.modeling.curve_grid import numeric_domain_grid
+from decision_workbench.modeling.curve_grid import (
+    anchored_curve_grid,
+    numeric_domain_grid,
+)
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.application.workspace_catalog_bootstrap import task_definition_digest
 from decision_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 
 
 def _field(**updates: object) -> InputFieldDefinition:
@@ -216,6 +220,21 @@ def test_response_sampling_includes_current_without_exceeding_requested_count() 
     assert 7.0 in cases[0]
     assert 3.5 in cases[1]
     assert 20.0 in cases[2]
+
+
+def test_numeric_sampling_policy_carries_task_ranges_and_sampling_semantics_explicitly() -> None:
+    field = _field(numeric_domain_kind="step", step=0.5)
+    policy = NumericSamplingPolicy(field)
+
+    assert policy.allowed_range == (0.0, 20.0)
+    assert policy.practical_range == (0.0, 10.0)
+    assert anchored_curve_grid(
+        1.0,
+        2.0,
+        15,
+        current=1.5,
+        policy=policy,
+    ) == [1.0, 1.5, 2.0]
 
 
 def test_response_sampling_fills_discrete_lattice_inside_non_lattice_bounds() -> None:

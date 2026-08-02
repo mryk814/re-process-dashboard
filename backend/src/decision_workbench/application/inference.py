@@ -20,9 +20,10 @@ from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveNotApplicableError,
     ResponseCurveTrainingRangeUnavailableError,
 )
-from decision_workbench.modeling.curve_grid import numeric_domain_grid, use_numeric_domain
+from decision_workbench.modeling.curve_grid import numeric_domain_grid
 from decision_workbench.persistence.store import Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError, TaskUnavailableError
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 
 
 class InferenceValidationError(ValueError):
@@ -128,6 +129,7 @@ class InferenceService:
                 ),
                 None,
             )
+            sampling_policy = NumericSamplingPolicy(field)
             return self.graph.execute(
                 self.key(project, candidate, "curve", parameters={"target": target, "variable": variable, "points": points, "range_min": range_min, "range_max": range_max, "stage_name": stage_name, "stage_position_m": stage_position_m, "policy_id": "anchored-grid-v1"}, uses_package=True),
                 lambda: self._response_curve_with_domain(
@@ -140,7 +142,7 @@ class InferenceService:
                     axis_range,
                     stage_name,
                     stage_position_m,
-                    field,
+                    sampling_policy,
                 ),
             )
         except ResponseCurveNotApplicableError as exc:
@@ -170,10 +172,18 @@ class InferenceService:
                 ),
                 None,
             )
+            sampling_policy = NumericSamplingPolicy(axis_field)
             return self.graph.execute(
                 self.key(project, candidate, "curve_family", parameters={"target": target, "vary": vary, "levels": levels, "points": points, "policy_id": "anchored-axis-grid-v1"}, uses_package=True),
                 lambda: self._curve_family_with_domain(
-                    handler, runtime, candidate, target, vary or None, levels, points, axis_field
+                    handler,
+                    runtime,
+                    candidate,
+                    target,
+                    vary or None,
+                    levels,
+                    points,
+                    sampling_policy,
                 ),
             )
         except ValueError as exc:
@@ -222,10 +232,24 @@ class InferenceService:
         try:
             runtime = self.resolver.runtime_for(project)
             curve_handler = self.registry.response_curve_for(project.task_id)
+            fields = {
+                item.path: item
+                for group in definition.input_groups
+                for item in group.fields
+                if item.kind == "number"
+            }
 
             def axis_metadata(variable: str) -> dict[str, Any]:
                 payload = curve_handler(
-                    runtime, candidate, target, variable, 3, None, None, None
+                    runtime,
+                    candidate,
+                    target,
+                    variable,
+                    3,
+                    None,
+                    None,
+                    None,
+                    NumericSamplingPolicy(fields.get(variable)),
                 )
                 metadata = dict(payload["variable"])
                 training_range = metadata.get("training_range")
@@ -239,12 +263,6 @@ class InferenceService:
 
             x_axis = axis_metadata(x_variable)
             y_axis = axis_metadata(y_variable)
-            fields = {
-                item.path: item
-                for group in definition.input_groups
-                for item in group.fields
-                if item.kind == "number"
-            }
             x_field = fields.get(x_variable)
             y_field = fields.get(y_variable)
             x_values = self._domain_grid(x_axis["min"], x_axis["max"], points, x_field)
@@ -363,12 +381,19 @@ class InferenceService:
         axis_range: tuple[float, float] | None,
         stage_name: str | None,
         stage_position_m: float | None,
-        field: Any,
+        sampling_policy: NumericSamplingPolicy,
     ) -> dict[str, Any]:
-        with use_numeric_domain(field):
-            return handler(
-                runtime, candidate, target, variable, points, axis_range, stage_name, stage_position_m
-            )
+        return handler(
+            runtime,
+            candidate,
+            target,
+            variable,
+            points,
+            axis_range,
+            stage_name,
+            stage_position_m,
+            sampling_policy,
+        )
 
     @staticmethod
     def _curve_family_with_domain(
@@ -379,10 +404,17 @@ class InferenceService:
         vary: str | None,
         levels: int,
         points: int,
-        axis_field: Any,
+        sampling_policy: NumericSamplingPolicy,
     ) -> dict[str, Any]:
-        with use_numeric_domain(axis_field):
-            return handler(runtime, candidate, target, vary, levels, points)
+        return handler(
+            runtime,
+            candidate,
+            target,
+            vary,
+            levels,
+            points,
+            sampling_policy,
+        )
 
     def similar(
         self,

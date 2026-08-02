@@ -28,6 +28,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Support,
 )
 from decision_workbench.modeling.curve_grid import numeric_domain_grid
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 from decision_workbench.data.profiles.canonicalization import canonicalize_workbook
 from decision_workbench.data.profiles.loading import (
     load_dataset_profile,
@@ -616,13 +617,22 @@ class FlankWearRuntime:
         lower = -30.0 if name == "rake_angle_deg" else 0.001 if name in {"cutting_speed_mpm", "feed_mm_rev", "depth_of_cut_mm"} else 0.0
         candidate.inputs.process[name] = max(lower, float(value))
 
-    def _sweep_axis(self, candidate: Candidate, target: str, axis: str, axis_meta: dict[str, Any], points: int) -> list[dict[str, float]]:
+    def _sweep_axis(
+        self,
+        candidate: Candidate,
+        target: str,
+        axis: str,
+        axis_meta: dict[str, Any],
+        points: int,
+        sampling_policy: NumericSamplingPolicy | None = None,
+    ) -> list[dict[str, float]]:
         curve: list[dict[str, float]] = []
         for x_value in anchored_curve_grid(
             axis_meta["min"],
             axis_meta["max"],
             points,
             current=axis_meta.get("current"),
+            policy=sampling_policy,
         ):
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, axis, float(x_value))
@@ -658,6 +668,7 @@ class FlankWearRuntime:
         vary_variable: str | None,
         levels: int,
         points: int,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         """摩耗曲線（横軸=curve axis）を、別の設計変数を数水準ふって重ねる。
 
@@ -682,7 +693,14 @@ class FlankWearRuntime:
             series = [{
                 "level": None,
                 "label": "現在の候補",
-                "points": self._sweep_axis(candidate, target, axis, axis_meta, points),
+                "points": self._sweep_axis(
+                    candidate,
+                    target,
+                    axis,
+                    axis_meta,
+                    points,
+                    sampling_policy,
+                ),
             }]
         elif vary_variable.startswith("categorical."):
             name = vary_variable.removeprefix("categorical.")
@@ -703,7 +721,14 @@ class FlankWearRuntime:
                 series.append({
                     "level": choice,
                     "label": choice,
-                    "points": self._sweep_axis(adjusted, target, axis, axis_meta, points),
+                    "points": self._sweep_axis(
+                        adjusted,
+                        target,
+                        axis,
+                        axis_meta,
+                        points,
+                        sampling_policy,
+                    ),
                 })
         else:
             vary = _normalize_curve_variable(vary_variable)
@@ -729,7 +754,14 @@ class FlankWearRuntime:
                 series.append({
                     "level": round(float(level), 4),
                     "label": f"{vary_meta['label']} {round(float(level), 4):g}{unit}",
-                    "points": self._sweep_axis(adjusted, target, axis, axis_meta, points),
+                    "points": self._sweep_axis(
+                        adjusted,
+                        target,
+                        axis,
+                        axis_meta,
+                        points,
+                        sampling_policy,
+                    ),
                 })
         return {
             "target": target,
@@ -749,6 +781,7 @@ class FlankWearRuntime:
         variable: str,
         points: int,
         axis_range: tuple[float, float] | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         if target not in self.predictors:
             raise ValueError(f"Unsupported response-curve target: {target}")
@@ -765,7 +798,14 @@ class FlankWearRuntime:
         return {
             "target": target,
             "variable": meta,
-            "points": self._sweep_axis(candidate, target, variable, meta, points),
+            "points": self._sweep_axis(
+                candidate,
+                target,
+                variable,
+                meta,
+                points,
+                sampling_policy,
+            ),
             "output_range": None if not observed else {"min": round(min(observed), 4), "max": round(max(observed), 4)},
             "point_count": points,
             "policy_id": "anchored-grid-v1",

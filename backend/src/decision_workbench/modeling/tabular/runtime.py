@@ -46,6 +46,7 @@ from decision_workbench.modeling.training.feature_recipe import (
     validate_recipe_canonical_inputs,
 )
 from decision_workbench.tasks.task_registry import load_task_contracts
+from decision_workbench.task_composition.ports import NumericSamplingPolicy
 
 from .data import TabularData
 from .features import (
@@ -899,6 +900,7 @@ class TabularRegressionRuntime:
         variable: str,
         points: int,
         axis_range: tuple[float, float] | None = None,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         if target not in self.predictors:
             raise ValueError(f"Unsupported response-curve target: {target}")
@@ -912,7 +914,13 @@ class TabularRegressionRuntime:
         if axis_range is not None:
             low, high = axis_range
         curve = []
-        for x_value in anchored_curve_grid(low, high, points, current=current):
+        for x_value in anchored_curve_grid(
+            low,
+            high,
+            points,
+            current=current,
+            policy=sampling_policy,
+        ):
             adjusted = candidate.model_copy(deep=True)
             _set_path(adjusted, variable, float(x_value))
             summary = self.predictors[target].predict(
@@ -980,11 +988,18 @@ class TabularRegressionRuntime:
         vary_variable: str | None,
         levels: int,
         points: int,
+        sampling_policy: NumericSamplingPolicy | None = None,
     ) -> dict[str, Any]:
         axis = self.profile.curve_axis_path
         if axis is None:
             raise ValueError("この予測タスクには曲線軸がありません")
-        axis_result = self.response_curve_result(candidate, target, axis, points)
+        axis_result = self.response_curve_result(
+            candidate,
+            target,
+            axis,
+            points,
+            sampling_policy=sampling_policy,
+        )
         series: list[dict[str, Any]] = []
         vary_meta: dict[str, Any] | None = None
         vary_categorical: dict[str, Any] | None = None
@@ -1005,7 +1020,13 @@ class TabularRegressionRuntime:
                 for choice in item.choices:
                     adjusted = candidate.model_copy(deep=True)
                     adjusted.inputs.categorical[vary_variable.split(".", 1)[1]] = choice
-                    curve = self.response_curve_result(adjusted, target, axis, points)
+                    curve = self.response_curve_result(
+                        adjusted,
+                        target,
+                        axis,
+                        points,
+                        sampling_policy=sampling_policy,
+                    )
                     series.append({"level": choice, "label": choice, "points": curve["points"]})
             else:
                 task_field = next(
@@ -1035,7 +1056,13 @@ class TabularRegressionRuntime:
                 ):
                     adjusted = candidate.model_copy(deep=True)
                     _set_path(adjusted, vary_variable, float(level))
-                    curve = self.response_curve_result(adjusted, target, axis, points)
+                    curve = self.response_curve_result(
+                        adjusted,
+                        target,
+                        axis,
+                        points,
+                        sampling_policy=sampling_policy,
+                    )
                     unit = f" {item.unit}" if item.unit else ""
                     series.append({
                         "level": round(float(level), 5),

@@ -23,6 +23,66 @@ class ProfileInspectionUnavailableError(ProfileFamilyUnavailableError):
 
 
 @dataclass(frozen=True)
+class CanonicalTrainingFeatures:
+    runtime_bundle: Any
+    training_features: dict[str, float]
+
+
+class CanonicalTrainingFeaturePort(Protocol):
+    def build_training(
+        self,
+        profile: Any,
+        data: Any,
+        observation: Mapping[str, Any],
+        builder: Callable[[Mapping[str, Any], Mapping[str, float]], Any],
+    ) -> CanonicalTrainingFeatures | None: ...
+
+
+@dataclass(frozen=True)
+class DefaultCanonicalTrainingFeaturePort:
+    def build_training(
+        self,
+        profile: Any,
+        data: Any,
+        observation: Mapping[str, Any],
+        builder: Callable[[Mapping[str, Any], Mapping[str, float]], Any],
+    ) -> CanonicalTrainingFeatures | None:
+        del profile
+        bundle = builder(observation, data.medians)
+        if bundle is None:
+            return None
+        return CanonicalTrainingFeatures(bundle, bundle.as_dict())
+
+
+@dataclass(frozen=True)
+class TabularCanonicalTrainingFeaturePort:
+    def build_training(
+        self,
+        profile: Any,
+        data: Any,
+        observation: Mapping[str, Any],
+        builder: Callable[[Mapping[str, Any], Mapping[str, float]], Any],
+    ) -> CanonicalTrainingFeatures | None:
+        del builder
+        from decision_workbench.modeling.tabular.features import (
+            build_tabular_training_features_from_observation,
+        )
+
+        bundle, training_features = build_tabular_training_features_from_observation(
+            observation,
+            data.feature_imputation_values,
+            profile,
+        )
+        if bundle is None:
+            return None
+        return CanonicalTrainingFeatures(bundle, training_features)
+
+
+DEFAULT_CANONICAL_TRAINING_FEATURES = DefaultCanonicalTrainingFeaturePort()
+TABULAR_CANONICAL_TRAINING_FEATURES = TabularCanonicalTrainingFeaturePort()
+
+
+@dataclass(frozen=True)
 class ProfileRegistrationMetadata:
     profile_id: str
     task_ids: tuple[str, ...]
@@ -31,6 +91,7 @@ class ProfileRegistrationMetadata:
 
 class ProfileFamilyAdapter(Protocol):
     schema_version: str
+    canonical_training_features: CanonicalTrainingFeaturePort
 
     def load_path(
         self,
@@ -136,6 +197,9 @@ def _generic_validation(source: Path, profile_path: Path, profile: Any) -> dict[
 @dataclass(frozen=True)
 class DatasetInputProfileFamilyAdapter:
     schema_version: str = "dataset-input-profile/v2"
+    canonical_training_features: CanonicalTrainingFeaturePort = (
+        DEFAULT_CANONICAL_TRAINING_FEATURES
+    )
 
     def load_path(self, path: Path, task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         from decision_workbench.data.profiles.loading import load_dataset_profile
@@ -220,6 +284,9 @@ class DatasetInputProfileFamilyAdapter:
 @dataclass(frozen=True)
 class TabularProfileFamilyAdapter:
     schema_version: str = "tabular-dataset-profile/v1"
+    canonical_training_features: CanonicalTrainingFeaturePort = (
+        TABULAR_CANONICAL_TRAINING_FEATURES
+    )
 
     def load_path(self, path: Path, task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         del task_definitions
@@ -305,6 +372,9 @@ class TabularProfileFamilyAdapter:
 @dataclass(frozen=True)
 class ObservationProfileFamilyAdapter:
     schema_version: str = "observation-dataset-profile/v1"
+    canonical_training_features: CanonicalTrainingFeaturePort = (
+        DEFAULT_CANONICAL_TRAINING_FEATURES
+    )
 
     def load_path(self, path: Path, task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         del task_definitions
@@ -369,6 +439,9 @@ class ObservationProfileFamilyAdapter:
 @dataclass(frozen=True)
 class StageBProfileFamilyAdapter:
     schema_version: str = "welding-stage-b-profile/v1"
+    canonical_training_features: CanonicalTrainingFeaturePort = (
+        DEFAULT_CANONICAL_TRAINING_FEATURES
+    )
 
     def load_path(self, path: Path, task_definitions: Mapping[str, TaskDefinition] | None = None) -> Any:
         del task_definitions
@@ -531,6 +604,16 @@ def profile_output_columns(
     profile: Any, task_id: str
 ) -> dict[str, tuple[str, ...]]:
     return PROFILE_FAMILY_REGISTRY.resolve_profile(profile).output_columns(profile, task_id)
+
+
+def build_canonical_training_features(
+    profile: Any,
+    data: Any,
+    observation: Mapping[str, Any],
+    builder: Callable[[Mapping[str, Any], Mapping[str, float]], Any],
+) -> CanonicalTrainingFeatures | None:
+    port = PROFILE_FAMILY_REGISTRY.resolve_profile(profile).canonical_training_features
+    return port.build_training(profile, data, observation, builder)
 
 
 def profile_task_ids(profile: Any) -> tuple[str, ...]:

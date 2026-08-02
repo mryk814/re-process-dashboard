@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 import hashlib
 import json
-from typing import Annotated, Any, Literal, Sequence
+from types import MappingProxyType
+from typing import Annotated, Any, Literal, Mapping, Sequence
 
 import numpy as np
 from pydantic import Field, model_validator
@@ -19,6 +21,28 @@ ValidationStrategy = Literal[
     "temporal_holdout",
     "grouped_temporal",
 ]
+
+
+class ValidationRowRole(str, Enum):
+    MODEL_TRAIN = "model_train"
+    CALIBRATION = "calibration"
+    EVALUATION = "evaluation"
+    EMBARGO_GAP = "embargo_gap"
+
+
+TEMPORAL_VALIDATION_ROLE_IDS: Mapping[ValidationRowRole, int] = MappingProxyType({
+    ValidationRowRole.MODEL_TRAIN: -1,
+    ValidationRowRole.CALIBRATION: -3,
+    ValidationRowRole.EVALUATION: 0,
+    ValidationRowRole.EMBARGO_GAP: -2,
+})
+
+
+def temporal_role_rows(
+    fold_ids: np.ndarray,
+    role: ValidationRowRole,
+) -> np.ndarray:
+    return fold_ids == TEMPORAL_VALIDATION_ROLE_IDS[role]
 
 
 class ValidationPlan(ContractModel):
@@ -271,10 +295,20 @@ def _temporal_assignment(
                 f"{target}: grouped temporal holdout crosses groups: "
                 + ", ".join(sorted(overlap))
             )
-    fold_ids = np.full(len(keys), -2, dtype=int)
-    fold_ids[ordered[:model_train_end]] = -1
-    fold_ids[ordered[model_train_end:train_end]] = -3
-    fold_ids[list(held_out)] = 0
+    fold_ids = np.full(
+        len(keys),
+        TEMPORAL_VALIDATION_ROLE_IDS[ValidationRowRole.EMBARGO_GAP],
+        dtype=int,
+    )
+    fold_ids[ordered[:model_train_end]] = TEMPORAL_VALIDATION_ROLE_IDS[
+        ValidationRowRole.MODEL_TRAIN
+    ]
+    fold_ids[ordered[model_train_end:train_end]] = TEMPORAL_VALIDATION_ROLE_IDS[
+        ValidationRowRole.CALIBRATION
+    ]
+    fold_ids[list(held_out)] = TEMPORAL_VALIDATION_ROLE_IDS[
+        ValidationRowRole.EVALUATION
+    ]
     assignments = tuple(
         (keys[index], int(fold_ids[index]))
         for index in range(len(keys))
@@ -315,9 +349,13 @@ def build_validation_assignment(
             "training_rows": int(
                 np.sum(fold_ids != fold)
                 if plan.strategy not in {"temporal_holdout", "grouped_temporal"}
-                else np.sum(fold_ids == -1)
+                else np.sum(
+                    temporal_role_rows(fold_ids, ValidationRowRole.MODEL_TRAIN)
+                )
             ),
-            "calibration_rows": int(np.sum(fold_ids == -3))
+            "calibration_rows": int(
+                np.sum(temporal_role_rows(fold_ids, ValidationRowRole.CALIBRATION))
+            )
             if plan.strategy in {"temporal_holdout", "grouped_temporal"}
             else None,
             "class_ratio": (
@@ -337,9 +375,15 @@ def build_validation_assignment(
                 "max": float(np.max(numeric_times[rows])),
             }
             for name, rows in {
-                "training": fold_ids == -1,
-                "calibration": fold_ids == -3,
-                "holdout": fold_ids == 0,
+                "training": temporal_role_rows(
+                    fold_ids, ValidationRowRole.MODEL_TRAIN
+                ),
+                "calibration": temporal_role_rows(
+                    fold_ids, ValidationRowRole.CALIBRATION
+                ),
+                "holdout": temporal_role_rows(
+                    fold_ids, ValidationRowRole.EVALUATION
+                ),
             }.items()
             if np.any(rows)
         }
