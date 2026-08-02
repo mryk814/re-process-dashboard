@@ -5,8 +5,8 @@ owner: web navigation
 source-of-truth: URL, history, and NavigationIntent semantics
 -->
 
-<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,workspace,quality,lineage,explore,data-library,profile-workbench -->
-<!-- current-contract:navigation-query:activity,activity_run,admin,base_dataset,candidate,candidate_section,connector,developer_guide,developer_tab,entity,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,snapshot,stage,tab,view -->
+<!-- current-contract:navigation-views:project,project-settings,candidates,candidate-review,chain-graph,chain-studio,model-library,workspace,quality,lineage,explore,data-library,profile-workbench -->
+<!-- current-contract:navigation-query:activity,activity_run,admin,asset,base_dataset,candidate,candidate_section,clone_definition,clone_graph,clone_revision,connector,developer_guide,developer_tab,entity,focus_dataset_revision,focus_package,model_dataset_revision,model_dataset_view,model_definition,model_graph,model_package,model_package_digest,model_project_kind,model_revision,model_revision_digest,model_task,onboarding,prepared_dataset_revision,prepared_dataset_view,prepared_estimator,prepared_estimator_label,prepared_package,prepared_result,prepared_source_name,prepared_source_sha256,prepared_task,prepared_task_label,prepared_workspace_kind,prepared_workspace_path,project,project_settings,quality_issue,quality_key,quality_sheet,quality_type,revision,screening,snapshot,stage,tab,view -->
 <!-- current-contract:navigation-fallback:project -->
 
 # NavigationIntent と候補の作成元
@@ -18,7 +18,7 @@ source-of-truth: URL, history, and NavigationIntent semantics
 
 | query | 意味 |
 |---|---|
-| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`chain-graph`、`chain-studio`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
+| `view` | 表示画面。`project`、`project-settings`、`candidates`、`candidate-review`、`chain-graph`、`chain-studio`、`model-library`、`workspace`、`quality`、`lineage`、`explore`、`data-library`、`profile-workbench` |
 | `project` | 対象プロジェクトID |
 | `candidate` | 比較または履歴で選択する候補ID |
 | `entity` | 工程系譜で選択するentity key |
@@ -34,6 +34,10 @@ source-of-truth: URL, history, and NavigationIntent semantics
 | `developer_tab` / `developer_guide` | `workspace`のdeveloper sectionで開くtabとguide |
 | `project_settings` | `project-settings`で開くsection。`general`、`targets`、`scientific`、`ranges`、`display`、`task`、`evidence` |
 | `tab` | Data Libraryの表示。省略は`browse`、`update`はデータ更新を開く |
+| `asset` | Model Libraryの資産種別。省略は`tasks`、ほかに`packages`、`transforms`、`graphs` |
+| `model_*` | Model LibraryからProjectへ渡すTask／Package／Graphと固定Revisionのidentity |
+| `clone_*` | Model LibraryからChain Studioへ複製するGraphの固定identity |
+| `focus_dataset_revision` / `focus_package` | Model LibraryからData Libraryで確認するDataset revisionまたはPackage |
 | `connector` / `stage` / `revision` | Data Libraryの更新履歴で開く接続先、段階（`raw`、`curation`、`approval`、`training`）、不変resource ID |
 | `onboarding` / `base_dataset` | Data LibraryまたはProfile Workbenchの追加導線（`revision`、`mapping`、`new-task`）と更新元Dataset revision |
 | `prepared_*` | onboarding直後に確認するDataset／Task／Package／source／Estimator／Workspaceの固定binding。`project`画面だけで復元する |
