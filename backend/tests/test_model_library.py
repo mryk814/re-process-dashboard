@@ -122,6 +122,12 @@ def test_model_library_relates_tasks_packages_data_and_legacy_graphs(
         package["state"]["lifecycle"] == "research_only"
         for package in explicitly_experimental
     )
+    assert all(
+        package["feature_pipeline"]
+        and package["predictor_families"]
+        and package["validation_plans"]
+        for package in explicitly_experimental
+    )
     legacy_revisions = [
         revision
         for graph in payload["graphs"]
@@ -142,7 +148,7 @@ def test_model_library_relates_tasks_packages_data_and_legacy_graphs(
     )
 
 
-def _publish_status_fixture(client: TestClient) -> str:
+def _publish_status_fixture(client: TestClient) -> tuple[str, str]:
     context = _runtime_context(client)
     registry = context.task_registry
     catalog = context.workspace_catalog
@@ -178,7 +184,7 @@ def _publish_status_fixture(client: TestClient) -> str:
         == task_lock.package_manifest_digest.removeprefix("sha256:")
     )
     historical_digest = "sha256:" + "f" * 64
-    catalog.upsert_model_package_ref(
+    historical_package = catalog.upsert_model_package_ref(
         ModelPackageRefCreateInput(
             package_id=active_package.package_id,
             task_id=active_package.task_id,
@@ -329,15 +335,24 @@ def _publish_status_fixture(client: TestClient) -> str:
         },
     )
     store.register_chain_revision(second, contracts=contracts)
-    return definition.graph_id
+    return definition.graph_id, historical_package.id
 
 
 def test_model_library_distinguishes_degraded_superseded_and_unavailable(
     client: TestClient,
 ) -> None:
-    graph_id = _publish_status_fixture(client)
+    graph_id, historical_package_id = _publish_status_fixture(client)
 
     payload = client.get("/api/model-library").json()
+    historical_package = next(
+        item
+        for item in payload["packages"]
+        if item["reference_id"] == historical_package_id
+    )
+    assert historical_package["state"]["availability"] == "unavailable"
+    assert historical_package["feature_pipeline"]
+    assert historical_package["predictor_families"]
+    assert historical_package["validation_plans"]
     graph = next(item for item in payload["graphs"] if item["graph_id"] == graph_id)
     revisions = sorted(
         (

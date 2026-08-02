@@ -19,7 +19,6 @@ from decision_workbench.contracts.chain_contracts import (
     project_prediction_graph,
 )
 from decision_workbench.contracts.data_library_contracts import ModelPackageRef
-from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.contracts.model_library_contracts import (
     ModelAssetState,
     ModelLibraryCatalog,
@@ -44,12 +43,7 @@ from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
 )
-from decision_workbench.modeling.model_lifecycle import QualityReport
-from decision_workbench.modeling.packages.contracts import (
-    FeaturePipelineDocument,
-    ModelPackageManifest,
-)
-from decision_workbench.modeling.training.validation_plan import ValidationPlan
+from decision_workbench.modeling.packages.contracts import ModelPackageManifest
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import (
@@ -816,9 +810,15 @@ class ModelLibraryCatalogService:
         assets: list[ModelLibraryPackageAsset] = []
         for package in sorted(package_refs, key=lambda item: item.id):
             manifest = package.manifest_json
+            manifest_authority = dict(manifest)
+            catalog_identity = _record(
+                manifest_authority.pop("_catalog_identity", None)
+            )
             typed_manifest: ModelPackageManifest | None = None
             try:
-                typed_manifest = ModelPackageManifest.model_validate(manifest)
+                typed_manifest = ModelPackageManifest.model_validate(
+                    manifest_authority
+                )
             except ValueError:
                 pass
             research_only = _package_is_research_only(manifest)
@@ -937,91 +937,29 @@ class ModelLibraryCatalogService:
                 else None
             )
             feature_recipe = None
-            validation_plans: tuple[
-                ModelLibraryValidationPlanIdentity, ...
-            ] = ()
             try:
-                entry = self.task_registry.entry_for(package.task_id)
-                verified = entry.model_package
-                if not _same_digest(
-                    entry.package_digest,
-                    package.manifest_digest,
-                ):
-                    raise TaskRegistryError("package is not active")
-                if typed_manifest is not None and typed_manifest.feature_pipeline:
-                    pipeline = FeaturePipelineDocument.model_validate_json(
-                        verified.artifact_path(
-                            typed_manifest.feature_pipeline.spec
-                        ).read_text(encoding="utf-8")
+                raw_recipe = catalog_identity.get("feature_recipe")
+                if raw_recipe is not None:
+                    feature_recipe = (
+                        ModelLibraryVersionedIdentity.model_validate(
+                            raw_recipe
+                        )
                     )
-                    if pipeline.feature_recipe is not None:
-                        recipe = FeatureRecipe.model_validate_json(
-                            verified.artifact_path(
-                                pipeline.feature_recipe.recipe
-                            ).read_text(encoding="utf-8")
-                        )
-                        feature_recipe = ModelLibraryVersionedIdentity(
-                            identity_id=recipe.id,
-                            version=recipe.version,
-                            digest=pipeline.feature_recipe.recipe_digest,
-                        )
-                if typed_manifest is not None and typed_manifest.quality_report:
-                    quality = QualityReport.model_validate_json(
-                        verified.artifact_path(
-                            typed_manifest.quality_report
-                        ).read_text(encoding="utf-8")
-                    )
-                    identities = []
-                    for target, payload in sorted(
-                        (quality.validation_plans or {}).items()
-                    ):
-                        plan_payload = dict(payload)
-                        digest = plan_payload.pop("digest", None)
-                        plan = ValidationPlan.model_validate(plan_payload)
-                        if not isinstance(digest, str):
-                            evidence = (quality.validation_evidence or {}).get(
-                                target
-                            )
-                            digest = (
-                                evidence.validation_plan_digest
-                                if evidence is not None
-                                else None
-                            )
-                        if digest is not None:
-                            identities.append(
-                                ModelLibraryValidationPlanIdentity(
-                                    target=target,
-                                    schema_version=plan.schema_version,
-                                    strategy=plan.strategy,
-                                    digest=digest,
-                                    identity_source="validation_plan",
-                                )
-                            )
-                    if not identities:
-                        identities.extend(
-                            ModelLibraryValidationPlanIdentity(
-                                target=metric.target,
-                                schema_version=quality.schema_version,
-                                strategy=quality.split,
-                                digest=semantic_digest(
-                                    {
-                                        "schema_version": (
-                                            quality.schema_version
-                                        ),
-                                        "split": quality.split,
-                                        "folds": quality.folds,
-                                        "target": metric.target,
-                                    }
-                                ),
-                                identity_source="quality_report_split",
-                            )
-                            for metric in quality.targets
-                        )
-                    validation_plans = tuple(identities)
-            except (KeyError, OSError, TaskRegistryError, ValueError):
-                # Historical references remain visible without reading their
-                # locators; verified artifact identities are active-package only.
+            except ValueError:
                 pass
+            validation_plans = tuple(
+                identity
+                for payload in catalog_identity.get(
+                    "validation_plans",
+                    (),
+                )
+                if isinstance(payload, dict)
+                for identity in (
+                    ModelLibraryValidationPlanIdentity.model_validate(
+                        payload
+                    ),
+                )
+            )
             assets.append(
                 ModelLibraryPackageAsset(
                     reference_id=package.id,

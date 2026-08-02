@@ -673,76 +673,108 @@ class WorkspaceCatalog:
                     manifest_json,
                 )
                 if stored_without_locator != immutable_without_locator:
-                    latest_maintenance = conn.execute(
-                        "SELECT id,operation FROM workspace_maintenance_events "
-                        "WHERE resource_kind='model_package_ref' "
-                        "AND resource_id=? "
-                        "ORDER BY created_at DESC,id DESC LIMIT 1",
-                        (row["id"],),
-                    ).fetchone()
-                    references = model_package_reference_labels(conn, row)
-                    if (
-                        row["archived_at"] is None
-                        or latest_maintenance is None
-                        or latest_maintenance["operation"] != "deactivate"
-                        or references
-                    ):
-                        raise CatalogConflictError(
-                            f"Model Package {payload.package_id} ({payload.manifest_digest}) は別内容で登録済みです"
-                        )
-                    previous = {
-                        key: row[key]
-                        for key in (
-                            "package_id",
-                            "task_id",
-                            "task_contract_digest",
-                            "manifest_digest",
-                            "locator",
-                            "manifest_json",
-                            "archived_at",
-                        )
-                    }
-                    conn.execute(
-                        "UPDATE model_package_refs SET task_id=?,task_contract_digest=?,"
-                        "locator=?,manifest_json=?,archived_at=NULL WHERE id=?",
-                        (
-                            payload.task_id,
-                            payload.task_contract_digest,
-                            payload.locator,
-                            manifest_json,
-                            row["id"],
-                        ),
+                    stored_manifest = json.loads(row["manifest_json"])
+                    incoming_manifest = json.loads(manifest_json)
+                    stored_authority = dict(stored_manifest)
+                    incoming_authority = dict(incoming_manifest)
+                    stored_authority.pop("_catalog_identity", None)
+                    incoming_authority.pop("_catalog_identity", None)
+                    identity_refresh = (
+                        stored_authority == incoming_authority
+                        and row["package_id"] == payload.package_id
+                        and row["task_id"] == payload.task_id
+                        and row["task_contract_digest"]
+                        == payload.task_contract_digest
+                        and row["manifest_digest"]
+                        == payload.manifest_digest
                     )
-                    conn.execute(
-                        "INSERT INTO workspace_maintenance_events("
-                        "id,operation,resource_kind,resource_id,reason,detail_json,created_at"
-                        ") VALUES (?,?,?,?,?,?,?)",
-                        (
-                            f"maintenance-{uuid4()}",
-                            "reactivate-current-contract",
-                            "model_package_ref",
-                            row["id"],
-                            "明示的に利用停止された未参照登録を現行contractで再登録",
-                            _canonical_json(
-                                {
-                                    "previous": previous,
-                                    "current": {
-                                        "task_id": payload.task_id,
-                                        "task_contract_digest": payload.task_contract_digest,
-                                        "manifest_json": manifest_json,
-                                        "locator": payload.locator,
-                                    },
-                                    "deactivation_event_id": latest_maintenance["id"],
-                                }
+                    if identity_refresh:
+                        conn.execute(
+                            "UPDATE model_package_refs SET locator=?,"
+                            "manifest_json=? "
+                            "WHERE id=?",
+                            (
+                                payload.locator,
+                                manifest_json,
+                                row["id"],
                             ),
-                            _now(),
-                        ),
-                    )
-                    row = conn.execute(
-                        "SELECT * FROM model_package_refs WHERE id=?",
-                        (row["id"],),
-                    ).fetchone()
-                    stored = immutable
+                        )
+                        row = conn.execute(
+                            "SELECT * FROM model_package_refs WHERE id=?",
+                            (row["id"],),
+                        ).fetchone()
+                        stored = immutable
+                    else:
+                        latest_maintenance = conn.execute(
+                            "SELECT id,operation FROM workspace_maintenance_events "
+                            "WHERE resource_kind='model_package_ref' "
+                            "AND resource_id=? "
+                            "ORDER BY created_at DESC,id DESC LIMIT 1",
+                            (row["id"],),
+                        ).fetchone()
+                        references = model_package_reference_labels(conn, row)
+                        if (
+                            row["archived_at"] is None
+                            or latest_maintenance is None
+                            or latest_maintenance["operation"] != "deactivate"
+                            or references
+                        ):
+                            raise CatalogConflictError(
+                                f"Model Package {payload.package_id} ({payload.manifest_digest}) は別内容で登録済みです"
+                            )
+                        previous = {
+                            key: row[key]
+                            for key in (
+                                "package_id",
+                                "task_id",
+                                "task_contract_digest",
+                                "manifest_digest",
+                                "locator",
+                                "manifest_json",
+                                "archived_at",
+                            )
+                        }
+                        conn.execute(
+                            "UPDATE model_package_refs SET task_id=?,task_contract_digest=?,"
+                            "locator=?,manifest_json=?,archived_at=NULL WHERE id=?",
+                            (
+                                payload.task_id,
+                                payload.task_contract_digest,
+                                payload.locator,
+                                manifest_json,
+                                row["id"],
+                            ),
+                        )
+                        conn.execute(
+                            "INSERT INTO workspace_maintenance_events("
+                            "id,operation,resource_kind,resource_id,reason,detail_json,created_at"
+                            ") VALUES (?,?,?,?,?,?,?)",
+                            (
+                                f"maintenance-{uuid4()}",
+                                "reactivate-current-contract",
+                                "model_package_ref",
+                                row["id"],
+                                "明示的に利用停止された未参照登録を現行contractで再登録",
+                                _canonical_json(
+                                    {
+                                        "previous": previous,
+                                        "current": {
+                                            "task_id": payload.task_id,
+                                            "task_contract_digest": payload.task_contract_digest,
+                                            "manifest_json": manifest_json,
+                                            "locator": payload.locator,
+                                        },
+                                        "deactivation_event_id": latest_maintenance["id"],
+                                    }
+                                ),
+                                _now(),
+                            ),
+                        )
+                        row = conn.execute(
+                            "SELECT * FROM model_package_refs WHERE id=?",
+                            (row["id"],),
+                        ).fetchone()
+                        stored = immutable
                 if stored != immutable:
                     # Package identity is fixed by package_id + manifest digest.
                     # Rebind only the operational location when a portable

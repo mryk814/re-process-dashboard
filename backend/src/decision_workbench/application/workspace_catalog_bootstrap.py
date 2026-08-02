@@ -16,6 +16,7 @@ from decision_workbench.application.dataset_registration import (
 )
 from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.contracts.data_library_contracts import (
     ModelPackageRefCreateInput,
     ModelPackageRegistrationWarning,
@@ -27,13 +28,21 @@ from decision_workbench.persistence.workspace_catalog import (
     WorkspaceCatalog,
 )
 from decision_workbench.persistence.sqlite_connection import sqlite_connection
-from decision_workbench.modeling.packages.contracts import PackageContractError
+from decision_workbench.modeling.packages.contracts import (
+    FeaturePipelineDocument,
+    PackageContractError,
+)
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.packages.verification import (
+    VerifiedModelPackage,
+)
 from decision_workbench.modeling.model_lifecycle import (
     AVAILABLE_PACKAGES_PATH,
+    QualityReport,
     runtime_capability_digest,
     task_input_contract_digest,
 )
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 from decision_workbench.persistence.chain_catalog_migration import (
     refresh_single_task_project_identities,
 )
@@ -83,6 +92,85 @@ class ProjectBinding:
     model_package_manifest_digest: str
 
 
+def _catalog_manifest(package: VerifiedModelPackage) -> dict[str, object]:
+    """Persist only browser-safe identities derived from verified artifacts."""
+
+    manifest = package.manifest.model_dump(mode="json")
+    feature_recipe = None
+    validation_plans: list[dict[str, str]] = []
+    pipeline_spec = package.manifest.feature_pipeline
+    if pipeline_spec is not None:
+        pipeline = FeaturePipelineDocument.model_validate_json(
+            package.artifact_path(pipeline_spec.spec).read_text(
+                encoding="utf-8"
+            )
+        )
+        if pipeline.feature_recipe is not None:
+            recipe = FeatureRecipe.model_validate_json(
+                package.artifact_path(
+                    pipeline.feature_recipe.recipe
+                ).read_text(encoding="utf-8")
+            )
+            feature_recipe = {
+                "identity_id": recipe.id,
+                "version": recipe.version,
+                "digest": pipeline.feature_recipe.recipe_digest,
+            }
+    if package.manifest.quality_report is not None:
+        quality = QualityReport.model_validate_json(
+            package.artifact_path(
+                package.manifest.quality_report
+            ).read_text(encoding="utf-8")
+        )
+        for target, payload in sorted(
+            (quality.validation_plans or {}).items()
+        ):
+            plan_payload = dict(payload)
+            digest = plan_payload.pop("digest", None)
+            plan = ValidationPlan.model_validate(plan_payload)
+            if not isinstance(digest, str):
+                evidence = (quality.validation_evidence or {}).get(target)
+                digest = (
+                    evidence.validation_plan_digest
+                    if evidence is not None
+                    else None
+                )
+            if digest is not None:
+                validation_plans.append(
+                    {
+                        "target": target,
+                        "schema_version": plan.schema_version,
+                        "strategy": plan.strategy,
+                        "digest": digest,
+                        "identity_source": "validation_plan",
+                    }
+                )
+        if not validation_plans:
+            validation_plans.extend(
+                {
+                    "target": metric.target,
+                    "schema_version": quality.schema_version,
+                    "strategy": quality.split,
+                    "digest": semantic_digest(
+                        {
+                            "schema_version": quality.schema_version,
+                            "split": quality.split,
+                            "folds": quality.folds,
+                            "target": metric.target,
+                        }
+                    ),
+                    "identity_source": "quality_report_split",
+                }
+                for metric in quality.targets
+            )
+    manifest["_catalog_identity"] = {
+        "schema_version": "model-package-catalog-identity/v1",
+        "feature_recipe": feature_recipe,
+        "validation_plans": validation_plans,
+    }
+    return manifest
+
+
 def task_definition_digest(registry: TaskRegistry, task_id: str) -> str:
     definition = registry.contract_for(task_id).task_definition
     return semantic_digest(persisted_task_definition_payload(definition))
@@ -123,7 +211,7 @@ def register_runtime_resources(
             task_contract_digest=contract_digest,
             manifest_digest=package.manifest_sha256,
             locator=str(package.root),
-            manifest_json=package.manifest.model_dump(mode="json"),
+            manifest_json=_catalog_manifest(package),
         ))
         if package_origins is not None:
             package_origins[package_ref.id] = "bundled"
@@ -265,7 +353,7 @@ def register_available_packages(
                 ),
                 manifest_digest=package.manifest_sha256,
                 locator=str(package.root),
-                manifest_json=package.manifest.model_dump(mode="json"),
+                manifest_json=_catalog_manifest(package),
             ))
             if package_origins is not None:
                 package_origins[package_ref.id] = storage_scope
