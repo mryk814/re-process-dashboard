@@ -40,3 +40,27 @@ export function workbenchSurfacesInZone(
     (surface) => workbenchSurfaceRegistry[surface.kind].zone === zone,
   );
 }
+
+export type PrimaryWorkbenchSurfaceResolution =
+  | { status: "loading"; surfaces: []; selected?: undefined; unavailable?: undefined }
+  | { status: "ready"; surfaces: WorkbenchSurface[]; selected?: WorkbenchSurface; unavailable?: string };
+
+export function resolvePrimaryWorkbenchSurface(
+  application: ApplicationCapability | undefined,
+  requested?: WorkbenchSurfaceKind,
+  requestedError?: string,
+): PrimaryWorkbenchSurfaceResolution {
+  if (!application) return { status: "loading", surfaces: [] };
+  const surfaces = workbenchSurfacesInZone(application, "analysis_primary");
+  const selected = requestedError
+    ? undefined
+    : requested
+      ? surfaces.find((surface) => surface.kind === requested)
+      : surfaces[0];
+  return {
+    status: "ready",
+    surfaces,
+    selected,
+    unavailable: requestedError ?? (requested && !selected ? requested : undefined),
+  };
+}

@@ -22,6 +22,24 @@ export type DeveloperTab = "overview" | "training" | "guide" | "diagnostics";
 export type DataLibraryTab = "browse" | "update";
 export type SourceLifecycleStage = "raw" | "curation" | "approval" | "training";
 export type DataOnboardingMode = "revision" | "mapping" | "new-task";
+export const WORKBENCH_PRIMARY_SURFACES = [
+  "response_curve",
+  "prediction_space",
+  "input_space",
+  "response_contour",
+] as const;
+export type WorkbenchPrimarySurface = (typeof WORKBENCH_PRIMARY_SURFACES)[number];
+export const SCREENING_RESULT_SURFACES = ["map", "proposals", "evaluated"] as const;
+export type ScreeningResultSurfaceNavigation = (typeof SCREENING_RESULT_SURFACES)[number];
+export type ChainInspection = Readonly<{
+  kind: "stage" | "edge";
+  id: string;
+}>;
+export type ChainInspectionError = Readonly<{
+  kind: "ambiguous";
+  stageId: string;
+  edgeId: string;
+}>;
 
 export type NavigationIntent = Readonly<{
   view: WorkbenchView;
@@ -33,6 +51,13 @@ export type NavigationIntent = Readonly<{
   qualitySheet?: string;
   qualityKey?: string;
   screeningRunId?: string;
+  workbenchSurface?: WorkbenchPrimarySurface;
+  workbenchSurfaceError?: string;
+  screeningResultSurface?: ScreeningResultSurfaceNavigation;
+  screeningResultSurfaceError?: string;
+  chainInspection?: ChainInspection;
+  chainInspectionError?: ChainInspectionError;
+  chainSnapshotId?: string;
   activityId?: string;
   activityRunId?: string;
   candidateSection?: CandidateSection;
@@ -56,6 +81,8 @@ const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", 
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
 const SOURCE_STAGES = new Set<SourceLifecycleStage>(["raw", "curation", "approval", "training"]);
 const DATA_ONBOARDING_MODES = new Set<DataOnboardingMode>(["revision", "mapping", "new-task"]);
+const WORKBENCH_PRIMARY_SURFACE_SET = new Set<string>(WORKBENCH_PRIMARY_SURFACES);
+const SCREENING_RESULT_SURFACE_SET = new Set<string>(SCREENING_RESULT_SURFACES);
 
 export function isLegacyQualityAdminNavigation(search = window.location.search): boolean {
   const params = new URLSearchParams(search);
@@ -146,6 +173,25 @@ export function readNavigationIntent(
     && DATA_ONBOARDING_MODES.has(requestedOnboardingMode as DataOnboardingMode)
     ? requestedOnboardingMode as DataOnboardingMode
     : undefined;
+  const requestedWorkbenchSurface = params.get("evidence_surface") || undefined;
+  const workbenchSurface = normalizedView === "candidates" && requestedWorkbenchSurface
+    && WORKBENCH_PRIMARY_SURFACE_SET.has(requestedWorkbenchSurface)
+    ? requestedWorkbenchSurface as WorkbenchPrimarySurface
+    : undefined;
+  const requestedScreeningSurface = params.get("screening_surface") || undefined;
+  const screeningResultSurface = normalizedView === "explore" && requestedScreeningSurface
+    && SCREENING_RESULT_SURFACE_SET.has(requestedScreeningSurface)
+    ? requestedScreeningSurface as ScreeningResultSurfaceNavigation
+    : undefined;
+  const requestedChainStage = params.get("chain_stage") || undefined;
+  const requestedChainEdge = params.get("chain_edge") || undefined;
+  const chainInspection = normalizedView === "chain-graph"
+    ? requestedChainStage && !requestedChainEdge
+      ? { kind: "stage" as const, id: requestedChainStage }
+      : requestedChainEdge && !requestedChainStage
+        ? { kind: "edge" as const, id: requestedChainEdge }
+        : undefined
+    : undefined;
   return Object.freeze({
     view: normalizedView,
     projectId: params.get("project") || undefined,
@@ -156,6 +202,25 @@ export function readNavigationIntent(
     qualitySheet: params.get("quality_sheet") || undefined,
     qualityKey: params.get("quality_key") || undefined,
     screeningRunId: params.get("screening") || undefined,
+    workbenchSurface,
+    workbenchSurfaceError: normalizedView === "candidates" && requestedWorkbenchSurface && !workbenchSurface
+      ? requestedWorkbenchSurface
+      : undefined,
+    screeningResultSurface,
+    screeningResultSurfaceError: normalizedView === "explore" && requestedScreeningSurface && !screeningResultSurface
+      ? requestedScreeningSurface
+      : undefined,
+    chainInspection,
+    chainInspectionError: normalizedView === "chain-graph" && requestedChainStage && requestedChainEdge
+      ? {
+        kind: "ambiguous" as const,
+        stageId: requestedChainStage,
+        edgeId: requestedChainEdge,
+      }
+      : undefined,
+    chainSnapshotId: normalizedView === "candidates"
+      ? params.get("chain_snapshot") || undefined
+      : undefined,
     activityId: params.get("activity") || undefined,
     activityRunId: params.get("activity_run") || undefined,
     candidateSection: params.get("candidate_section") === "actuals" ? "actuals" : undefined,
@@ -188,6 +253,19 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.qualitySheet) params.set("quality_sheet", intent.qualitySheet);
   if (intent.qualityKey) params.set("quality_key", intent.qualityKey);
   if (intent.screeningRunId) params.set("screening", intent.screeningRunId);
+  if (intent.view === "candidates" && intent.workbenchSurfaceError) params.set("evidence_surface", intent.workbenchSurfaceError);
+  else if (intent.view === "candidates" && intent.workbenchSurface) params.set("evidence_surface", intent.workbenchSurface);
+  if (intent.view === "explore" && intent.screeningResultSurfaceError) params.set("screening_surface", intent.screeningResultSurfaceError);
+  else if (intent.view === "explore" && intent.screeningResultSurface) params.set("screening_surface", intent.screeningResultSurface);
+  if (intent.view === "chain-graph" && intent.chainInspectionError) {
+    params.set("chain_stage", intent.chainInspectionError.stageId);
+    params.set("chain_edge", intent.chainInspectionError.edgeId);
+  } else if (intent.view === "chain-graph" && intent.chainInspection?.kind === "stage") {
+    params.set("chain_stage", intent.chainInspection.id);
+  } else if (intent.view === "chain-graph" && intent.chainInspection?.kind === "edge") {
+    params.set("chain_edge", intent.chainInspection.id);
+  }
+  if (intent.view === "candidates" && intent.chainSnapshotId) params.set("chain_snapshot", intent.chainSnapshotId);
   if (intent.activityId) params.set("activity", intent.activityId);
   if (intent.activityRunId) params.set("activity_run", intent.activityRunId);
   if (intent.candidateSection) params.set("candidate_section", intent.candidateSection);
@@ -253,6 +331,17 @@ export function withView(
     qualitySheet: view === "quality" || view === "lineage" ? current.qualitySheet : undefined,
     qualityKey: view === "quality" || view === "lineage" ? current.qualityKey : undefined,
     screeningRunId: view === "explore" ? current.screeningRunId : undefined,
+    workbenchSurface: view === "candidates"
+      ? current.workbenchSurface
+      : undefined,
+    workbenchSurfaceError: view === "candidates"
+      ? current.workbenchSurfaceError
+      : undefined,
+    screeningResultSurface: view === "explore" ? current.screeningResultSurface : undefined,
+    screeningResultSurfaceError: view === "explore" ? current.screeningResultSurfaceError : undefined,
+    chainInspection: view === "chain-graph" ? current.chainInspection : undefined,
+    chainInspectionError: view === "chain-graph" ? current.chainInspectionError : undefined,
+    chainSnapshotId: view === "candidates" ? current.chainSnapshotId : undefined,
     activityId: view === "candidate-review" ? current.activityId : undefined,
     activityRunId: view === "candidate-review" ? current.activityRunId : undefined,
     candidateSection: view === "candidates" ? current.candidateSection : undefined,

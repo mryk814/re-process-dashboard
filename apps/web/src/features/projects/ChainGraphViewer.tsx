@@ -11,7 +11,19 @@ import {
   type ChainGraphEdge,
 } from "./chainGraphPresentation";
 
-type Props = { projectId: string; candidateId?: string };
+type ChainInspection = { kind: "stage" | "edge"; id: string };
+type ChainInspectionError = {
+  kind: "ambiguous";
+  stageId: string;
+  edgeId: string;
+};
+type Props = {
+  projectId: string;
+  candidateId?: string;
+  requestedInspection?: ChainInspection;
+  inspectionError?: ChainInspectionError;
+  onInspectionChange: (inspection?: ChainInspection) => void;
+};
 
 function freshnessLabel(status: ReturnType<typeof stageStatus>) {
   return status === "latest" ? "最新" : status === "running" ? "再計算中"
@@ -69,15 +81,25 @@ export function ChainGraphReadOnlyState({ loading, message }: { loading?: boolea
   </section>;
 }
 
-export function ChainGraphViewer({ projectId, candidateId }: Props) {
+export function ChainGraphViewer({
+  projectId,
+  candidateId,
+  requestedInspection,
+  inspectionError,
+  onInspectionChange,
+}: Props) {
   const [graph, setGraph] = useState<ApiChainGraph | null>(null);
   const [graphState, setGraphState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [execution, setExecution] = useState<ApiChainExecution | null>(null);
   const [executionState, setExecutionState] = useState<"loading" | "ready" | "unavailable">(candidateId ? "loading" : "unavailable");
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
-  const [selectedStageId, setSelectedStageId] = useState<string>();
   const edges = useMemo(() => graph ? buildChainGraph(graph) : [], [graph]);
+  const selectedEdgeId = requestedInspection?.kind === "edge" ? requestedInspection.id : undefined;
+  const selectedStageId = requestedInspection?.kind === "stage" ? requestedInspection.id : undefined;
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId);
+  const selectedStage = graph?.definition.stages.find((stage) => stage.stage_id === selectedStageId);
+  const unavailableInspection = requestedInspection && !selectedEdge && !selectedStage
+    ? requestedInspection.id
+    : undefined;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -125,7 +147,7 @@ export function ChainGraphViewer({ projectId, candidateId }: Props) {
         const status = stageStatus(execution, stage.stage_id);
         const contract = graph.stage_contracts.find((item) => item.stage_id === stage.stage_id);
         return <article key={stage.stage_id} className={`chain-graph-node ${status}`}>
-          <button type="button" className="chain-graph-node-button" aria-pressed={selectedStageId === stage.stage_id} onClick={() => { setSelectedStageId(stage.stage_id); setSelectedEdgeId(undefined); }}><span className="chain-graph-node-order">{stage.stage_id}</span><span><b>{stage.stage_kind === "task" ? "予測Task" : "決定論的Transform"}</b><small>{stage.contract_id}</small></span><em>{freshnessLabel(status)}</em></button>
+          <button type="button" className="chain-graph-node-button" aria-pressed={selectedStageId === stage.stage_id} onClick={() => onInspectionChange({ kind: "stage", id: stage.stage_id })}><span className="chain-graph-node-order">{stage.stage_id}</span><span><b>{stage.stage_kind === "task" ? "予測Task" : "決定論的Transform"}</b><small>{stage.contract_id}</small></span><em>{freshnessLabel(status)}</em></button>
           <div className="chain-graph-node-counts"><span>input {counts.inputs}</span><span>output {counts.outputs}</span></div>
           <p className="chain-graph-node-surface">{contract?.surface ? `${contract.surface.contract_id} · ${shortDigest(contract.surface.contract_digest)}` : `surface未解決: ${contract?.reason ?? "理由不明"}`}</p>
           {lock && <details className="chain-graph-locks"><summary>固定参照</summary><dl><div><dt>contract</dt><dd title={lock.contract_digest}>{shortDigest(lock.contract_digest)}</dd></div><div><dt>package</dt><dd title={lock.package_manifest_digest}>{shortDigest(lock.package_manifest_digest)}</dd></div>{lock.dataset_view_revision_id && <div><dt>dataset view</dt><dd>{lock.dataset_view_revision_id}</dd></div>}{lock.dataset_profile_digest && <div><dt>profile</dt><dd title={lock.dataset_profile_digest}>{shortDigest(lock.dataset_profile_digest)}</dd></div>}</dl></details>}
@@ -133,10 +155,31 @@ export function ChainGraphViewer({ projectId, candidateId }: Props) {
       })}</div>
     </section>
 
-    <section className="chain-graph-routes" aria-labelledby="chain-routes-heading"><div className="chain-graph-section-title"><div><h3 id="chain-routes-heading">実際の接続</h3><p>各railは固定Definitionのbinding一件です。分岐・合流・変換を文字でも確認できます。</p></div></div><div className="chain-graph-rails">{edges.map((edge) => <EdgeButton key={edge.id} edge={edge} selected={selectedEdgeId === edge.id} onSelect={() => { setSelectedEdgeId(edge.id); setSelectedStageId(undefined); }} />)}</div></section>
+    <section className="chain-graph-routes" aria-labelledby="chain-routes-heading"><div className="chain-graph-section-title"><div><h3 id="chain-routes-heading">実際の接続</h3><p>各railは固定Definitionのbinding一件です。分岐・合流・変換を文字でも確認できます。</p></div></div><div className="chain-graph-rails">{edges.map((edge) => <EdgeButton key={edge.id} edge={edge} selected={selectedEdgeId === edge.id} onSelect={() => onInspectionChange({ kind: "edge", id: edge.id })} />)}</div></section>
 
-    <section className="chain-graph-bindings" aria-labelledby="chain-bindings-heading"><div className="chain-graph-section-title"><div><h3 id="chain-bindings-heading">binding一覧</h3><p>railと同じ接続を、表形式でも確認できます。</p></div></div><div className="chain-graph-table-wrap"><table><thead><tr><th scope="col">source</th><th scope="col">target</th><th scope="col">変換 / 接続</th><th scope="col">詳細</th></tr></thead><tbody>{edges.map((edge) => <tr key={edge.id} data-chain-edge={edge.id} data-source={edge.source.label} data-target={edge.target.label} className={selectedEdgeId === edge.id ? "selected" : undefined}><th scope="row">{edge.source.label}</th><td>{edge.target.label}</td><td>{edge.binding.conversion ? `${edge.binding.conversion.conversion_id} (${edge.binding.conversion.source_unit} → ${edge.binding.conversion.target_unit})` : "変換なし"}{edge.branchCount > 1 ? ` · 分岐 ${edge.branchCount}` : edge.mergeCount > 1 ? ` · 合流 ${edge.mergeCount}` : ""}</td><td><button type="button" className="outline-button" onClick={() => { setSelectedEdgeId(edge.id); setSelectedStageId(undefined); }}>確認</button></td></tr>)}</tbody></table></div></section>
+    <section className="chain-graph-bindings" aria-labelledby="chain-bindings-heading"><div className="chain-graph-section-title"><div><h3 id="chain-bindings-heading">binding一覧</h3><p>railと同じ接続を、表形式でも確認できます。</p></div></div><div className="chain-graph-table-wrap"><table><thead><tr><th scope="col">source</th><th scope="col">target</th><th scope="col">変換 / 接続</th><th scope="col">詳細</th></tr></thead><tbody>{edges.map((edge) => <tr key={edge.id} data-chain-edge={edge.id} data-source={edge.source.label} data-target={edge.target.label} className={selectedEdgeId === edge.id ? "selected" : undefined}><th scope="row">{edge.source.label}</th><td>{edge.target.label}</td><td>{edge.binding.conversion ? `${edge.binding.conversion.conversion_id} (${edge.binding.conversion.source_unit} → ${edge.binding.conversion.target_unit})` : "変換なし"}{edge.branchCount > 1 ? ` · 分岐 ${edge.branchCount}` : edge.mergeCount > 1 ? ` · 合流 ${edge.mergeCount}` : ""}</td><td><button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "edge", id: edge.id })}>確認</button></td></tr>)}</tbody></table></div></section>
 
-    {(selectedEdge || selectedStageId) && <aside className="chain-graph-inspector" aria-live="polite" aria-label="Chain inspector">{selectedEdge && <><h3>Binding inspector</h3><dl>{portDetails(selectedEdge).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl><p className="chain-graph-inspector-note">portの型・quantity・unit・basisは、Projectに固定されたStage surfaceだけを表示します。surfaceが残っていない古いRevisionは理由を示し、推測では補いません。</p></>}{selectedStageId && (() => { const stage = graph.definition.stages.find((item) => item.stage_id === selectedStageId)!; const lock = revisionStage(graph.revision, selectedStageId); const live = execution?.stages.find((item) => item.stage_id === selectedStageId); const contract = graph.stage_contracts.find((item) => item.stage_id === selectedStageId); return <><h3>Stage inspector · {stage.stage_id}</h3><dl><div><dt>kind</dt><dd>{stage.stage_kind}</dd></div><div><dt>contract</dt><dd>{stage.contract_id}</dd></div><div><dt>surface</dt><dd>{contract?.surface ? contract.surface.contract_digest : contract?.reason ?? "固定surfaceなし"}</dd></div><div><dt>contract digest</dt><dd>{lock?.contract_digest ?? "固定参照を解決できません"}</dd></div><div><dt>package digest</dt><dd>{lock?.package_manifest_digest ?? "固定参照を解決できません"}</dd></div><div><dt>live state</dt><dd>{freshnessLabel(stageStatus(execution, stage.stage_id))}</dd></div>{live?.error && <div><dt>error</dt><dd>{live.error}</dd></div>}</dl></>; })()}</aside>}
+    {(selectedEdge || selectedStage || unavailableInspection || inspectionError) && <aside className="chain-graph-inspector" aria-live="polite" aria-label="Chain inspector">
+      {inspectionError ? <>
+        <h3>検査対象を1つに絞ってください</h3>
+        <p>Stage <code>{inspectionError.stageId}</code> と Binding <code>{inspectionError.edgeId}</code> が同時に指定されています。</p>
+        <p><code>chain_stage</code> と <code>chain_edge</code> は、どちらか一方だけを指定してください。</p>
+        <button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "stage", id: inspectionError.stageId })}>Stageを表示</button>
+        <button type="button" className="outline-button" onClick={() => onInspectionChange({ kind: "edge", id: inspectionError.edgeId })}>Bindingを表示</button>
+      </> : unavailableInspection ? <>
+        <h3>指定された検査対象を表示できません</h3>
+        <p><code>{unavailableInspection}</code> は、この固定Chain Revisionにありません。</p>
+        <button type="button" className="outline-button" onClick={() => onInspectionChange()}>選択を解除</button>
+      </> : selectedEdge ? <>
+        <h3>Binding inspector</h3>
+        <dl>{portDetails(selectedEdge).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+        <p className="chain-graph-inspector-note">portの型・quantity・unit・basisは、Projectに固定されたStage surfaceだけを表示します。surfaceが残っていない古いRevisionは理由を示し、推測では補いません。</p>
+      </> : selectedStage && (() => {
+        const lock = revisionStage(graph.revision, selectedStage.stage_id);
+        const live = execution?.stages.find((item) => item.stage_id === selectedStage.stage_id);
+        const contract = graph.stage_contracts.find((item) => item.stage_id === selectedStage.stage_id);
+        return <><h3>Stage inspector · {selectedStage.stage_id}</h3><dl><div><dt>kind</dt><dd>{selectedStage.stage_kind}</dd></div><div><dt>contract</dt><dd>{selectedStage.contract_id}</dd></div><div><dt>surface</dt><dd>{contract?.surface ? contract.surface.contract_digest : contract?.reason ?? "固定surfaceなし"}</dd></div><div><dt>contract digest</dt><dd>{lock?.contract_digest ?? "固定参照を解決できません"}</dd></div><div><dt>package digest</dt><dd>{lock?.package_manifest_digest ?? "固定参照を解決できません"}</dd></div><div><dt>live state</dt><dd>{freshnessLabel(stageStatus(execution, selectedStage.stage_id))}</dd></div>{live?.error && <div><dt>error</dt><dd>{live.error}</dd></div>}</dl></>;
+      })()}
+    </aside>}
   </section>;
 }
