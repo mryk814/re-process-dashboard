@@ -4,7 +4,11 @@ import { SupportBadge } from "../../../shared/ui/SupportBadge";
 import { formatTaskNumber } from "../../../shared/taskPresentation";
 import { presentCounterfactualTarget } from "./counterfactualPresentation";
 import type { DecisionActivityViewProps } from "./types";
-import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
+import {
+  ActivityRunControls,
+  ActivityRunHistory,
+  ActivityRunProvenance,
+} from "./ActivityRunEvidence";
 
 /** Change distance is a normalised L1 value, not a task output. */
 const distanceFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 3 });
@@ -105,23 +109,15 @@ export function CounterfactualActivityView({
 
   return <>
     <p className="activity-question">{availability.definition.question}</p>
-    {availability.available
-      ? <section className="activity-settings">{settings}</section>
-      : <details className="activity-settings activity-settings-collapsed">
-          <summary>実行設定を確認</summary>
-          <div className="activity-settings-collapsed-body">{settings}</div>
-        </details>}
-
-    <ActivityRunHistory label="保存済み目標到達案" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
     {saveError && <p className="panel-error" role="alert">{saveError}</p>}
     {activeRun && result && <section className="activity-result">
+      <div className="activity-result-heading"><span className="overline">CURRENT EVIDENCE</span><h3>現在の変更案</h3></div>
       <div className="activity-result-meta">
         <span>基準候補の編集版 {result.base_candidate_revision}</span>
         <span>{result.evaluated_count}条件を評価</span>
         <span>変更量＝正規化L1</span>
       </div>
-      <ActivityRunProvenance run={activeRun} />
       {result.status === "infeasible" && <div className="activity-unavailable">
         <strong>現在の範囲では目標へ届く案を確認できませんでした</strong>
         {result.infeasibility.map((item) => <span key={item.target}>
@@ -169,6 +165,13 @@ export function CounterfactualActivityView({
         </button>
       </article>)}
       <ul className="activity-warnings">{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+      <ActivityRunProvenance run={activeRun} />
     </section>}
+
+    <ActivityRunHistory label="保存済み目標到達案" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
+
+    <ActivityRunControls hasResult={Boolean(result)} available={availability.available}>
+      {settings}
+    </ActivityRunControls>
   </>;
 }
