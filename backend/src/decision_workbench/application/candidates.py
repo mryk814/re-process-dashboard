@@ -190,6 +190,13 @@ class CandidateService:
             raise CandidateValidationError(str(exc)) from exc
         if existing.provenance != candidate_input.provenance:
             raise CandidateProvenanceImmutableError("候補の作成元は変更できません")
+        if (
+            existing.provenance.source_kind == "historical_observation"
+            and existing.inputs != candidate_input.inputs
+        ):
+            raise CandidateProvenanceImmutableError(
+                "過去の実測recordから作成した候補の入力条件は変更できません"
+            )
         candidate_input = self._prepare(
             project.task_id,
             candidate_input,
