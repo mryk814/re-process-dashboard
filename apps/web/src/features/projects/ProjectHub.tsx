@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ApiClientError } from "../../shared/api/client";
 import { formatPredictionPoint, predictionHasInterval, predictionIntervalLabel } from "../../shared/predictionPresentation";
 import { assessPrediction, resolveOutputDefinition } from "../../shared/outputPresentation";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
@@ -51,13 +52,20 @@ import {
 import { preparedBindingBlockers } from "./preparedBindingValidation";
 import { defaultGoalLabel, ProjectSettingsPanel } from "./ProjectSettingsPanel";
 import {
-  isCurrentProjectSettingsRequest,
   projectGroupMembershipState,
   ungroupedMembershipValue,
 } from "./projectSettingsState";
 import { useProjectHistory } from "./useProjectHistory";
+import {
+  beginProjectResourceLoad,
+  initialProjectResourceState,
+  rejectProjectResourceLoad,
+  resolveProjectResourceLoad,
+  type ProjectResourceState,
+} from "./projectResourceState";
 
 type ProjectSettingsSection = "general" | "targets" | "scientific" | "ranges" | "display" | "task" | "evidence";
+type ProjectSettingsResource = "project" | "project-name" | "group-name" | "group-membership";
 
 type Props = {
   surface: "overview" | "settings";
@@ -142,6 +150,67 @@ function unresolvedReferenceLabel(kind: string, identifier: string | null | unde
 
 const formatNumber = (value: number, digits = 1) => value.toLocaleString("ja-JP", { maximumFractionDigits: digits });
 const formatDate = (value: string) => new Date(value).toLocaleString("ja-JP");
+const resourceLoadedAt = (value: string | null) => value
+  ? new Date(value).toLocaleString("ja-JP")
+  : "";
+const resourceUnavailable = (cause: unknown) => cause instanceof ApiClientError && (
+  cause.availability?.status === "unavailable"
+  || cause.code === "subsystem_unavailable"
+  || cause.code === "runtime_unavailable"
+);
+
+function ProjectResourceRecovery({
+  state,
+  label,
+  retained,
+  onRetry,
+  showReadyAction = false,
+}: {
+  state: ProjectResourceState;
+  label: string;
+  retained: string;
+  onRetry: () => void;
+  showReadyAction?: boolean;
+}) {
+  if ((state.phase === "ready" || state.phase === "empty") && !showReadyAction) return null;
+  const loading = state.phase === "loading";
+  const failed = state.phase === "stale"
+    || state.phase === "error"
+    || state.phase === "unavailable";
+  return <div
+    className={failed ? "data-library-resource-error" : "empty-evidence"}
+    role={failed ? "alert" : "status"}
+  >
+    <div>
+      {loading
+        ? <strong>{label}を読み込んでいます</strong>
+        : failed
+          ? <strong>{state.unavailable
+            ? `${label}は現在利用できません`
+            : state.phase === "stale"
+              ? `${label}を更新できませんでした`
+              : `${label}を取得できませんでした`}</strong>
+          : <strong>{label}は取得済みです</strong>}
+      {loading && state.loadedAt && <>
+        <p>{retained}を表示したまま更新しています。</p>
+        <small>表示中の内容の取得時刻: {resourceLoadedAt(state.loadedAt)}</small>
+      </>}
+      {state.phase === "stale" && <>
+        <p>{retained}は保持しています。最新情報として扱わないでください。</p>
+        <small>この画面での取得時刻: {resourceLoadedAt(state.loadedAt)}</small>
+      </>}
+      {(state.phase === "error" || state.phase === "unavailable") && (
+        <p>{retained}は未確認です。ほかの取得済み情報はそのまま利用できます。</p>
+      )}
+    </div>
+    <button
+      type="button"
+      className="outline-button"
+      disabled={loading}
+      onClick={onRetry}
+    >{loading ? `${label}を読込中…` : failed ? `${label}を再試行` : `${label}を更新`}</button>
+  </div>;
+}
 // 所属変更のselectでは、未選択（空文字）と「グループなしへ移動」を別の値で持つ。
 type ChainStage = ApiChainSnapshot["stages"][number];
 type ChainOutputDefinition = ChainStage["output_definitions"][number];
@@ -229,11 +298,34 @@ export function ProjectHub({
   const [selectedChainSnapshot, setSelectedChainSnapshot] =
     useState<ApiChainSnapshot | null>(null);
   const [error, setError] = useState("");
-  const [settingsPending, setSettingsPending] = useState(false);
-  const [settingsError, setSettingsError] = useState("");
+  const [overviewResourceState, setOverviewResourceState] = useState(
+    () => initialProjectResourceState(activeProjectId),
+  );
+  const [overviewRevision, setOverviewRevision] = useState(0);
+  const [chainEvaluationResourceState, setChainEvaluationResourceState] = useState(
+    () => initialProjectResourceState(activeProjectId),
+  );
+  const [chainEvaluationRevision, setChainEvaluationRevision] = useState(0);
+  const initialSnapshotScope = `${activeProjectId}:${requestedSnapshotId ?? ""}`;
+  const [snapshotResourceState, setSnapshotResourceState] = useState(
+    () => initialProjectResourceState(initialSnapshotScope),
+  );
+  const [snapshotRevision, setSnapshotRevision] = useState(0);
+  const [settingsPendingResource, setSettingsPendingResource] =
+    useState<ProjectSettingsResource | null>(null);
+  const [settingsErrors, setSettingsErrors] = useState<
+    Partial<Record<ProjectSettingsResource, string>>
+  >({});
+  const settingsPending = settingsPendingResource !== null;
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [archiveCommandError, setArchiveCommandError] = useState("");
+  const [archiveRestoreError, setArchiveRestoreError] = useState("");
   const [archivedProjects, setArchivedProjects] = useState<ApiProject[]>([]);
+  const [archiveListResourceState, setArchiveListResourceState] = useState(
+    () => initialProjectResourceState("archived-projects"),
+  );
+  const [archiveListRevision, setArchiveListRevision] = useState(0);
   const [sampleGallery, setSampleGallery] = useState<ApiSampleGalleryItem[]>([]);
   const [sampleGalleryOpen, setSampleGalleryOpen] = useState(false);
   const [installingSampleId, setInstallingSampleId] = useState("");
@@ -262,6 +354,8 @@ export function ProjectHub({
   const [groupMembershipId, setGroupMembershipId] = useState("");
   const [groupSettingsOpen, setGroupSettingsOpen] = useState(false);
   const [decisionNote, setDecisionNote] = useState("");
+  const [decisionPending, setDecisionPending] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
   const [collapsedSeriesIds, setCollapsedSeriesIds] = useState<Set<string>>(() => new Set());
   const activeProjectRef = useRef(activeProjectId);
   const initializedSeriesIdsRef = useRef(new Set<string>());
@@ -272,7 +366,23 @@ export function ProjectHub({
   const targetDraftDirtyRef = useRef(false);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const focusCreationFormRef = useRef(false);
+  const loadedOverviewProjectRef = useRef<string | null>(null);
+  const projectRequestGenerationRef = useRef({
+    projectId: activeProjectId,
+    generation: 0,
+  });
+  if (projectRequestGenerationRef.current.projectId !== activeProjectId) {
+    projectRequestGenerationRef.current = {
+      projectId: activeProjectId,
+      generation: projectRequestGenerationRef.current.generation + 1,
+    };
+  }
   activeProjectRef.current = activeProjectId;
+  const isCurrentProjectRequest = (projectId: string, generation: number) => (
+    activeProjectRef.current === projectId
+    && projectRequestGenerationRef.current.projectId === projectId
+    && projectRequestGenerationRef.current.generation === generation
+  );
   const {
     history,
     state: historyState,
@@ -286,6 +396,17 @@ export function ProjectHub({
   const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
     ? identityProject.scientific_identity
     : null;
+  const overviewScope = chainIdentity
+    ? `${activeProjectId}:chain:${chainIdentity.chain_revision_id}`
+    : [
+      activeProjectId,
+      "single",
+      identityProject?.task_id ?? "",
+      identityProject?.dataset_view_revision_id ?? "",
+      identityProject?.model_package_ref_id ?? "",
+      identityProject?.model_package_manifest_digest ?? "",
+      identityProject?.task_contract_digest ?? "",
+    ].join(":");
   const { template: fixedChain, revision: fixedChainRevision } = resolveFixedChain(
     chainIdentity,
     chainTemplates,
@@ -338,9 +459,13 @@ export function ProjectHub({
       : selected);
     setError("");
     setArchiveOpen(false);
-    setSettingsPending(false);
-    setSettingsError("");
+    setSettingsPendingResource(null);
+    setSettingsErrors({});
+    setArchiveCommandError("");
+    setArchiveRestoreError("");
     setDecisionNote("");
+    setDecisionPending(false);
+    setDecisionError("");
     decisionDraftRef.current = { key: "", dirty: false };
   }, [projects, activeProjectId]);
 
@@ -356,13 +481,29 @@ export function ProjectHub({
 
   useEffect(() => {
     let active = true;
+    setArchiveListResourceState((current) => beginProjectResourceLoad(
+      current,
+      "archived-projects",
+    ));
     void workbenchApi.listProjects(true).then((items) => {
-      if (active) setArchivedProjects(items.filter((item) => item.archived_at));
-    }).catch(() => {
-      if (active) setArchivedProjects([]);
+      if (!active) return;
+      const archived = items.filter((item) => item.archived_at);
+      setArchivedProjects(archived);
+      setArchiveListResourceState(resolveProjectResourceLoad(
+        "archived-projects",
+        archived.length === 0,
+      ));
+    }).catch((cause) => {
+      if (!active) return;
+      setArchiveListResourceState((current) => rejectProjectResourceLoad(
+        current,
+        "archived-projects",
+        "アーカイブ済みProjectを取得できませんでした。",
+        resourceUnavailable(cause),
+      ));
     });
     return () => { active = false; };
-  }, [projects]);
+  }, [projects, archiveListRevision]);
 
   useEffect(() => {
     let active = true;
@@ -376,12 +517,13 @@ export function ProjectHub({
 
   useEffect(() => {
     const controller = new AbortController();
-    setError("");
-    setSelectedSnapshot(null);
-    setSelectedChainSnapshot(null);
-    setModelPackage(null);
-    setChainEvaluation(null);
-    setChainTaskDefinition(null);
+    const scope = overviewScope;
+    const retainsCurrentEvidence = loadedOverviewProjectRef.current === scope;
+    if (!retainsCurrentEvidence) {
+      setModelPackage(null);
+      setChainTaskDefinition(null);
+    }
+    setOverviewResourceState((current) => beginProjectResourceLoad(current, scope));
     const requests = [
       workbenchApi.listTaskDefinitions().then((items) => {
         if (!controller.signal.aborted) {
@@ -401,27 +543,8 @@ export function ProjectHub({
             ) {
               setChainTaskDefinition(item);
             }
-          }).catch(() => {
-            if (
-              !controller.signal.aborted
-              && activeProjectRef.current === activeProjectId
-            ) {
-              setChainTaskDefinition(null);
-            }
           }),
         );
-        if (
-          subsystemAvailabilityLoaded
-          && chainEvaluationSubsystem?.status === "available"
-        ) {
-          requests.push(
-            workbenchApi.projectChainEvaluation(activeProjectId, controller.signal).then((item) => {
-              if (!controller.signal.aborted && activeProjectRef.current === activeProjectId) {
-                setChainEvaluation({ projectId: activeProjectId, value: item });
-              }
-            }),
-          );
-        }
       } else {
         requests.push(
           workbenchApi.modelPackage(activeProjectId).then((item) => {
@@ -430,52 +553,138 @@ export function ProjectHub({
         );
       }
     }
-    void Promise.all(requests).catch((cause) => {
-      if (controller.signal.aborted) return;
-      setError(cause instanceof Error ? cause.message : "プロジェクト概要を取得できませんでした。");
+    void Promise.all(requests).then(() => {
+      if (controller.signal.aborted || activeProjectRef.current !== activeProjectId) return;
+      loadedOverviewProjectRef.current = scope;
+      setOverviewResourceState(resolveProjectResourceLoad(scope));
+    }).catch((cause) => {
+      if (controller.signal.aborted || activeProjectRef.current !== activeProjectId) return;
+      setOverviewResourceState((current) => rejectProjectResourceLoad(
+        current,
+        scope,
+        "Project参照情報を取得できませんでした。",
+        resourceUnavailable(cause),
+      ));
     });
     return () => controller.abort();
-    // Recovering the workspace also recovers this overview: one retry is enough.
   }, [
     activeProjectId,
-    chainIdentity?.chain_revision_id,
-    chainEvaluationSubsystem?.status,
-    subsystemAvailabilityLoaded,
+    overviewScope,
     identityProject?.id,
     taskUnavailable,
     offline,
+    overviewRevision,
   ]);
 
   useEffect(() => {
-    if (
-      !requestedSnapshotId
-      || (
+    if (!chainIdentity) return;
+    const scope = `${activeProjectId}:${chainIdentity.chain_revision_id}`;
+    const controller = new AbortController();
+    const retainsCurrentEvidence = chainEvaluation?.projectId === activeProjectId
+      && chainEvaluationResourceState.scope === scope
+      && Boolean(chainEvaluationResourceState.loadedAt);
+    if (!retainsCurrentEvidence) setChainEvaluation(null);
+    setChainEvaluationResourceState((current) => beginProjectResourceLoad(current, scope));
+    if (!subsystemAvailabilityLoaded) return () => controller.abort();
+    if (subsystemAvailabilityError) {
+      setChainEvaluationResourceState((current) => rejectProjectResourceLoad(
+        current,
+        scope,
+        "Chain評価の利用状況を確認できませんでした。",
+      ));
+      return () => controller.abort();
+    }
+    if (chainEvaluationSubsystem?.status === "unavailable") {
+      setChainEvaluationResourceState((current) => rejectProjectResourceLoad(
+        current,
+        scope,
+        "Chain評価は現在利用できません。",
+        true,
+      ));
+      return () => controller.abort();
+    }
+    void workbenchApi.projectChainEvaluation(activeProjectId, controller.signal)
+      .then((item) => {
+        if (controller.signal.aborted || activeProjectRef.current !== activeProjectId) return;
+        setChainEvaluation({ projectId: activeProjectId, value: item });
+        setChainEvaluationResourceState(resolveProjectResourceLoad(scope));
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted || activeProjectRef.current !== activeProjectId) return;
+        setChainEvaluationResourceState((current) => rejectProjectResourceLoad(
+          current,
+          scope,
+          "Chain評価を取得できませんでした。",
+          resourceUnavailable(cause),
+        ));
+      });
+    return () => controller.abort();
+  }, [
+    activeProjectId,
+    chainIdentity?.chain_revision_id,
+    chainEvaluationRevision,
+    chainEvaluationSubsystem?.status,
+    subsystemAvailabilityError,
+    subsystemAvailabilityLoaded,
+  ]);
+
+  useEffect(() => {
+    if (!requestedSnapshotId) return;
+    const controller = new AbortController();
+    const scope = `${activeProjectId}:${chainIdentity ? "chain" : "single"}:${requestedSnapshotId}`;
+    const retainsCurrentEvidence = snapshotResourceState.scope === scope
+      && Boolean(snapshotResourceState.loadedAt)
+      && (
         chainIdentity
           ? selectedChainSnapshot?.snapshot_id === requestedSnapshotId
           : selectedSnapshot?.id === requestedSnapshotId
-      )
-    ) return;
-    const controller = new AbortController();
+      );
+    if (!retainsCurrentEvidence) {
+      setSelectedSnapshot(null);
+      setSelectedChainSnapshot(null);
+    }
+    setSnapshotResourceState((current) => beginProjectResourceLoad(current, scope));
     if (chainIdentity) {
       workbenchApi.chainSnapshot(activeProjectId, requestedSnapshotId, controller.signal)
         .then((item) => {
           if (!controller.signal.aborted) {
             setSelectedSnapshot(null);
             setSelectedChainSnapshot(item);
+            setSnapshotResourceState(resolveProjectResourceLoad(scope));
           }
         })
-        .catch((cause) => !controller.signal.aborted && setError(cause instanceof Error ? cause.message : "Chain Snapshotを参照できません。"));
+        .catch((cause) => !controller.signal.aborted && setSnapshotResourceState(
+          (current) => rejectProjectResourceLoad(
+            current,
+            scope,
+            "Chain Snapshotを参照できませんでした。",
+            resourceUnavailable(cause),
+          ),
+        ));
     } else if (operations?.snapshot) {
       workbenchApi.snapshot(activeProjectId, requestedSnapshotId, controller.signal)
         .then((item) => {
           if (!controller.signal.aborted) {
             setSelectedChainSnapshot(null);
             setSelectedSnapshot(item);
+            setSnapshotResourceState(resolveProjectResourceLoad(scope));
           }
         })
-        .catch((cause) => !controller.signal.aborted && setError(cause instanceof Error ? cause.message : "保存済み予測を参照できません。"));
+        .catch((cause) => !controller.signal.aborted && setSnapshotResourceState(
+          (current) => rejectProjectResourceLoad(
+            current,
+            scope,
+            "保存済み予測を参照できませんでした。",
+            resourceUnavailable(cause),
+          ),
+        ));
     } else {
-      return;
+      setSnapshotResourceState((current) => rejectProjectResourceLoad(
+        current,
+        scope,
+        "このProjectではSnapshotを参照できません。",
+        true,
+      ));
     }
     return () => controller.abort();
   }, [
@@ -483,8 +692,7 @@ export function ProjectHub({
     chainIdentity?.chain_revision_id,
     operations?.snapshot,
     requestedSnapshotId,
-    selectedChainSnapshot?.snapshot_id,
-    selectedSnapshot?.id,
+    snapshotRevision,
   ]);
 
   useEffect(() => {
@@ -886,16 +1094,22 @@ export function ProjectHub({
 
   async function saveProject(
     nextProject = project,
-    options: { syncNameDraft?: boolean; syncTargetDraft?: boolean } = {},
+    options: {
+      syncNameDraft?: boolean;
+      syncTargetDraft?: boolean;
+      resource?: Extract<ProjectSettingsResource, "project" | "project-name">;
+    } = {},
   ) {
     if (!nextProject || settingsPending) return;
+    const resource = options.resource ?? "project";
     const requestProjectId = activeProjectId;
+    const requestGeneration = projectRequestGenerationRef.current.generation;
     if (nextProject.id !== requestProjectId || activeProjectRef.current !== requestProjectId) return;
-    setSettingsPending(true);
-    setSettingsError("");
+    setSettingsPendingResource(resource);
+    setSettingsErrors((current) => ({ ...current, [resource]: "" }));
     try {
       const saved = await workbenchApi.updateProject(requestProjectId, nextProject);
-      if (activeProjectRef.current !== requestProjectId) return;
+      if (!isCurrentProjectRequest(requestProjectId, requestGeneration)) return;
       setProject((current) => options.syncNameDraft && current?.id === saved.id
         ? { ...current, name: saved.name }
         : saved);
@@ -905,12 +1119,17 @@ export function ProjectHub({
       }
       if (options.syncTargetDraft) targetDraftDirtyRef.current = false;
       onProjectChanged(saved);
-    } catch (cause) {
-      if (activeProjectRef.current === requestProjectId) {
-        setSettingsError(cause instanceof Error ? cause.message : "プロジェクトを保存できませんでした。");
+    } catch {
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
+        setSettingsErrors((current) => ({
+          ...current,
+          [resource]: resource === "project-name"
+            ? "Project名を保存できませんでした。入力した名前は保持しています。同じボタンで再試行できます。"
+            : "Project設定を保存できませんでした。入力内容は保持しています。同じボタンで再試行できます。",
+        }));
       }
     } finally {
-      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) setSettingsPendingResource(null);
     }
   }
 
@@ -918,57 +1137,68 @@ export function ProjectHub({
     const trimmedSeriesName = seriesName.trim();
     if (!fixedSeries || !trimmedSeriesName || settingsPending) return;
     const requestProjectId = activeProjectId;
-    setSettingsPending(true);
-    setSettingsError("");
+    const requestGeneration = projectRequestGenerationRef.current.generation;
+    setSettingsPendingResource("group-name");
+    setSettingsErrors((current) => ({ ...current, "group-name": "" }));
     try {
       const savedSeries = await workbenchApi.updateProjectSeries(fixedSeries.id, trimmedSeriesName, fixedSeries.description);
-      if (activeProjectRef.current !== requestProjectId) return;
+      if (!isCurrentProjectRequest(requestProjectId, requestGeneration)) return;
       setCreationOptions((current) => current ? {
         ...current,
         project_series: current.project_series.map((item) => item.id === savedSeries.id ? savedSeries : item),
       } : current);
-    } catch (cause) {
-      if (activeProjectRef.current === requestProjectId) {
-        setSettingsError(cause instanceof Error ? cause.message : "検討グループ名を保存できませんでした。");
+    } catch {
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
+        setSettingsErrors((current) => ({
+          ...current,
+          "group-name": "検討グループ名を保存できませんでした。入力した名前は保持しています。同じボタンで再試行できます。",
+        }));
       }
     } finally {
-      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) setSettingsPendingResource(null);
     }
   }
 
   async function moveProjectToGroup() {
     if (!project || !membershipChanged || settingsPending) return;
     const requestProjectId = project.id;
-    setSettingsPending(true);
-    setSettingsError("");
+    const requestGeneration = projectRequestGenerationRef.current.generation;
+    setSettingsPendingResource("group-membership");
+    setSettingsErrors((current) => ({ ...current, "group-membership": "" }));
     try {
       const moved = await workbenchApi.moveProjectToGroup(requestProjectId, {
         project_series_id: membershipTargetSeriesId,
         expected_project_series_id: project.project_series_id ?? null,
       });
-      if (activeProjectRef.current !== requestProjectId) return;
+      if (!isCurrentProjectRequest(requestProjectId, requestGeneration)) return;
       setProject(moved);
       setGroupMembershipId(moved.project_series_id ?? "");
       onProjectChanged(moved);
       try {
         const refreshedOptions = await workbenchApi.projectCreationOptions();
-        if (activeProjectRef.current !== requestProjectId) return;
+        if (!isCurrentProjectRequest(requestProjectId, requestGeneration)) return;
         setCreationOptions(refreshedOptions);
         setSeriesName(
           refreshedOptions.project_series.find((item) => item.id === moved.project_series_id)?.name ?? "",
         );
       } catch {
-        if (isCurrentProjectSettingsRequest(requestProjectId, activeProjectRef.current)) {
-          setSettingsError("所属は変更しましたが、グループ一覧を更新できませんでした。");
+        if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
+          setSettingsErrors((current) => ({
+            ...current,
+            "group-membership": "所属は変更しましたが、グループ一覧を更新できませんでした。Projectの所属は保持されています。",
+          }));
         }
       }
-    } catch (cause) {
-      if (isCurrentProjectSettingsRequest(requestProjectId, activeProjectRef.current)) {
+    } catch {
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
         setGroupMembershipId(project.project_series_id ?? "");
-        setSettingsError(cause instanceof Error ? cause.message : "所属グループを変更できませんでした。");
+        setSettingsErrors((current) => ({
+          ...current,
+          "group-membership": "所属グループを変更できませんでした。現在の所属は変わっていません。選択し直して再試行できます。",
+        }));
       }
     } finally {
-      if (activeProjectRef.current === requestProjectId) setSettingsPending(false);
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) setSettingsPendingResource(null);
     }
   }
 
@@ -1034,52 +1264,61 @@ export function ProjectHub({
     }
   }
 
-  async function openSnapshot(snapshotId: string) {
-    const requestProjectId = activeProjectId;
-    try {
-      const loaded = await workbenchApi.snapshot(requestProjectId, snapshotId);
-      if (activeProjectRef.current !== requestProjectId) return;
-      setSelectedChainSnapshot(null);
-      setSelectedSnapshot(loaded);
-      onSnapshotNavigate(snapshotId);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "保存済み予測を参照できませんでした。");
-    }
+  function openSnapshot(snapshotId: string) {
+    onSnapshotNavigate(snapshotId);
   }
 
   function openChainSnapshot(snapshot: ApiChainSnapshot) {
     setSelectedSnapshot(null);
     setSelectedChainSnapshot(snapshot);
+    setSnapshotResourceState(resolveProjectResourceLoad(
+      `${activeProjectId}:chain:${snapshot.snapshot_id}`,
+    ));
     onSnapshotNavigate(snapshot.snapshot_id);
   }
 
   async function saveDecision(clear = false) {
-    const evidence = selectedSnapshot
+    const evidence = visibleSelectedSnapshot
       ? {
-        candidateId: selectedSnapshot.candidate_id,
-        snapshotId: selectedSnapshot.id,
+        candidateId: visibleSelectedSnapshot.candidate_id,
+        snapshotId: visibleSelectedSnapshot.id,
       }
-      : selectedChainSnapshot
+      : visibleSelectedChainSnapshot
         ? {
-          candidateId: selectedChainSnapshot.identity.candidate_id,
-          snapshotId: selectedChainSnapshot.snapshot_id,
+          candidateId: visibleSelectedChainSnapshot.identity.candidate_id,
+          snapshotId: visibleSelectedChainSnapshot.snapshot_id,
         }
         : null;
     if (!evidence) return;
-    if (!clear && !decisionNote.trim()) return setError("採用判断には理由を入力してください。");
+    if (!clear && !decisionNote.trim()) {
+      setDecisionError("採用判断には理由を入力してください。入力内容は保持しています。");
+      return;
+    }
+    if (decisionPending) return;
+    const requestProjectId = activeProjectId;
+    const requestGeneration = projectRequestGenerationRef.current.generation;
+    setDecisionPending(true);
+    setDecisionError("");
     try {
-      const requestProjectId = activeProjectId;
       const saved = await workbenchApi.updateProjectDecision(requestProjectId, clear ? { candidate_id: "", snapshot_id: "", note: "" } : {
         candidate_id: evidence.candidateId,
         snapshot_id: evidence.snapshotId,
         note: decisionNote.trim(),
       });
-      if (activeProjectRef.current !== requestProjectId) return;
+      if (!isCurrentProjectRequest(requestProjectId, requestGeneration)) return;
       setProject(saved);
       onProjectChanged(saved);
-      await reloadHistory(undefined, requestProjectId);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "採用判断を保存できませんでした。");
+      void reloadHistory(undefined, requestProjectId).catch(() => {
+        if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
+          setDecisionError("採用判断は保存しましたが、判断履歴を更新できませんでした。履歴だけを再試行してください。");
+        }
+      });
+    } catch {
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) {
+        setDecisionError("採用判断を保存できませんでした。入力内容は保持しています。同じ操作で再試行できます。");
+      }
+    } finally {
+      if (isCurrentProjectRequest(requestProjectId, requestGeneration)) setDecisionPending(false);
     }
   }
 
@@ -1234,17 +1473,25 @@ export function ProjectHub({
   async function archiveCurrentProject() {
     if (!project || !canArchiveProject || archiving) return;
     setArchiving(true);
+    setArchiveCommandError("");
     const archived = await onProjectArchived(project.id);
     setArchiving(false);
-    if (archived) setArchiveOpen(false);
+    if (archived) {
+      setArchiveOpen(false);
+    } else {
+      setArchiveCommandError("Projectをアーカイブできませんでした。Projectと保存済み証拠は変更されていません。同じボタンで再試行できます。");
+    }
   }
 
   async function restoreArchivedProject(projectId: string) {
     if (restoringProjectId) return;
     setRestoringProjectId(projectId);
+    setArchiveRestoreError("");
     const restored = await onProjectRestored(projectId);
     if (restored) {
       setArchivedProjects((items) => items.filter((item) => item.id !== projectId));
+    } else {
+      setArchiveRestoreError("Archived Projectを復元できませんでした。保存済み証拠は変更されていません。同じProjectの復元を再試行できます。");
     }
     setRestoringProjectId("");
   }
@@ -1292,6 +1539,24 @@ export function ProjectHub({
       })()}</small>
     </button>
   );
+  const currentOverviewState = overviewResourceState.scope === overviewScope
+    ? overviewResourceState
+    : initialProjectResourceState(overviewScope);
+  const chainEvaluationScope = `${activeProjectId}:${chainIdentity?.chain_revision_id ?? ""}`;
+  const currentChainEvaluationState = chainEvaluationResourceState.scope === chainEvaluationScope
+    ? chainEvaluationResourceState
+    : initialProjectResourceState(chainEvaluationScope);
+  const snapshotScope = `${activeProjectId}:${chainIdentity ? "chain" : "single"}:${requestedSnapshotId ?? ""}`;
+  const currentSnapshotState = snapshotResourceState.scope === snapshotScope
+    ? snapshotResourceState
+    : initialProjectResourceState(snapshotScope);
+  const visibleSelectedSnapshot = selectedSnapshot?.id === requestedSnapshotId
+    ? selectedSnapshot
+    : null;
+  const visibleSelectedChainSnapshot =
+    selectedChainSnapshot?.snapshot_id === requestedSnapshotId
+      ? selectedChainSnapshot
+      : null;
 
   return (
     <div className="page-panel project-hub">
@@ -1350,6 +1615,14 @@ export function ProjectHub({
             >{removingSampleId === item.project_id ? "処理中…" : "取り除く"}</button>
           </div>)}</div>
         </details>}
+        <ProjectResourceRecovery
+          state={archiveListResourceState}
+          label="アーカイブ一覧"
+          retained="アーカイブ済みProject"
+          onRetry={() => setArchiveListRevision((value) => value + 1)}
+          showReadyAction
+        />
+        {archiveRestoreError && <p className="panel-error" role="alert">{archiveRestoreError}</p>}
         {archivedProjects.length > 0 && <details className="archived-project-list">
           <summary>アーカイブ済み <span>{archivedProjects.length}件</span></summary>
           <div>{archivedProjects.map((item) => <div className="archived-project-item" key={item.id}>
@@ -1432,6 +1705,7 @@ export function ProjectHub({
                   disabled={!project || offline || settingsPending}
                   onChange={(event) => {
                     projectNameDirtyRef.current = true;
+                    setSettingsErrors((current) => ({ ...current, "project-name": "" }));
                     setProjectNameDraft(event.target.value);
                   }}
                 />
@@ -1447,14 +1721,17 @@ export function ProjectHub({
                   || offline
                   || settingsPending
                 }
-                onClick={() => persistedProject && void saveProject(
-                  { ...persistedProject, name: projectNameDraft.trim() },
-                  { syncNameDraft: true },
-                )}
-              >{settingsPending ? "保存中…" : "名前を保存"}</button>}
-              <span className="project-name-save-state" role="status">
-                {settingsPending ? "保存中" : settingsError ? "保存できませんでした" : ""}
-              </span>
+                 onClick={() => persistedProject && void saveProject(
+                   { ...persistedProject, name: projectNameDraft.trim() },
+                   { syncNameDraft: true, resource: "project-name" },
+                 )}
+               >{settingsPendingResource === "project-name" ? "保存中…" : "名前を保存"}</button>}
+               <span className="project-name-save-state" role="status">
+                 {settingsPendingResource === "project-name" ? "保存中" : ""}
+               </span>
+               {settingsErrors["project-name"] && (
+                 <small className="panel-error" role="alert">{settingsErrors["project-name"]}</small>
+               )}
             </div>
           </div>
           <div className="project-actions">
@@ -1509,6 +1786,15 @@ export function ProjectHub({
           <strong>Chainの利用状況を確認しています</strong>
           <span>利用可否が確定するまで、Chainの実行と続きの作成を停止しています。</span>
         </section>
+      )}
+      {surface === "overview" && (
+        <ProjectResourceRecovery
+          state={currentOverviewState}
+          label="Project参照情報"
+          retained="固定参照・作成条件"
+          onRetry={() => setOverviewRevision((value) => value + 1)}
+          showReadyAction
+        />
       )}
       {error && <p className="panel-error" role="alert">{error}</p>}
       {surface === "overview" && unresolvedReferences.length > 0 && <section className="project-reference-warning" role="alert">
@@ -1627,21 +1913,28 @@ export function ProjectHub({
           </section>}
       </details>}
       {surface === "overview" && chainIdentity && (
-        subsystemAvailabilityError
-          ? <section className="chain-evaluation-panel unavailable" role="alert">
-            <strong>Chain評価の利用状況を取得できません</strong>
-            <p>評価APIは呼び出していません。利用可否の取得後に再読み込みしてください。</p>
-          </section>
-          : chainEvaluationSubsystem?.status === "unavailable"
-          ? <section className="chain-evaluation-panel unavailable" role="status">
-            <strong>{chainEvaluationSubsystem.message}</strong>
-            <p>{chainEvaluationSubsystem.impact}</p>
-            <small>原因: {chainEvaluationSubsystem.cause}</small>
-            <small>復旧: {chainEvaluationSubsystem.recovery_hint}</small>
-          </section>
-          : chainEvaluation?.projectId === activeProjectId
-            ? <ChainEvaluationPanel evaluation={chainEvaluation.value} stagePath={fixedStagePath} />
-            : <section className="chain-evaluation-panel loading" aria-live="polite">Chain評価を読み込んでいます。</section>
+        <>
+          <ProjectResourceRecovery
+            state={currentChainEvaluationState}
+            label="Chain評価"
+            retained="取得済みのChain評価"
+            onRetry={() => setChainEvaluationRevision((value) => value + 1)}
+            showReadyAction
+          />
+          {currentChainEvaluationState.unavailable
+            && chainEvaluationSubsystem?.status === "unavailable" && (
+            <section className="chain-evaluation-panel unavailable" role="status">
+              <strong>{chainEvaluationSubsystem.message}</strong>
+              <p>{chainEvaluationSubsystem.impact}</p>
+              <small>原因: {chainEvaluationSubsystem.cause}</small>
+              <small>復旧: {chainEvaluationSubsystem.recovery_hint}</small>
+            </section>
+          )}
+          {chainEvaluation?.projectId === activeProjectId
+            && currentChainEvaluationState.loadedAt && (
+            <ChainEvaluationPanel evaluation={chainEvaluation.value} stagePath={fixedStagePath} />
+          )}
+        </>
       )}
       {surface === "overview" && predecessorProject && <section className="project-continuation-link" aria-label="このプロジェクトの続き元"><span>続き元</span><button type="button" onClick={() => onSwitch(predecessorProject.id)}>{predecessorProject.name}</button><small>{predecessorSeries?.name ?? "グループなし"}{project?.continuation_reason ? ` · ${project.continuation_reason}` : ""}</small></section>}
 
@@ -1827,7 +2120,9 @@ export function ProjectHub({
         open
         project={project}
         loading={settingsPending}
-        error={settingsError}
+        projectError={settingsErrors.project ?? ""}
+        groupNameError={settingsErrors["group-name"] ?? ""}
+        groupMembershipError={settingsErrors["group-membership"] ?? ""}
         disabled={projectOperationDisabled({
           operation: "metadata",
           offline,
@@ -1851,15 +2146,24 @@ export function ProjectHub({
           setGroupMembershipId(project?.project_series_id ?? "");
           setGroupSettingsOpen(true);
         }}
-        onGroupMembershipChange={setGroupMembershipId}
+        onGroupMembershipChange={(value) => {
+          setSettingsErrors((current) => ({ ...current, "group-membership": "" }));
+          setGroupMembershipId(value);
+        }}
         onMoveProjectToGroup={moveProjectToGroup}
-        onSeriesNameChange={setSeriesName}
+        onSeriesNameChange={(value) => {
+          setSettingsErrors((current) => ({ ...current, "group-name": "" }));
+          setSeriesName(value);
+        }}
         onSaveSeriesName={saveSeriesName}
-        onProjectChange={setProject}
+        onProjectChange={(value) => {
+          setSettingsErrors((current) => ({ ...current, project: "" }));
+          setProject(value);
+        }}
         onTargetModeChange={setTargetMode}
         onScalarTargetChange={setScalarTarget}
         onRangeTargetChange={setRangeTarget}
-        onSave={() => saveProject(project, { syncTargetDraft: true })}
+        onSave={() => saveProject(project, { syncTargetDraft: true, resource: "project" })}
       />}
 
       {surface === "settings" && effectiveSettingsCategory === "scientific" && !chainIdentity && project && renderScientificSettings?.(
@@ -1888,26 +2192,39 @@ export function ProjectHub({
         onOpenChainSnapshot={openChainSnapshot}
       />}
 
-      {surface === "overview" && selectedSnapshot?.payload.prediction && <section className="snapshot-detail project-snapshot-detail">
+      {surface === "overview" && requestedSnapshotId && <ProjectResourceRecovery
+        state={currentSnapshotState}
+        label="Snapshot"
+        retained="取得済みのSnapshot"
+        onRetry={() => setSnapshotRevision((value) => value + 1)}
+        showReadyAction
+      />}
+
+      {surface === "overview" && visibleSelectedSnapshot?.payload.prediction && <section className="snapshot-detail project-snapshot-detail">
         <div className="panel-title"><h3>固定した予測の詳細</h3><button className="outline-button" onClick={() => { setSelectedSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>
-        <p>{formatDate(selectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === selectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
-        <span className="decision-snapshot-badge">{!selectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : selectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
-        <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{orderedPredictions(selectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}</td><td>{predictionHasInterval(value) ? <>{formatOutputNumber(key, value.lower)}–{formatOutputNumber(key, value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
-        <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable || offline} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
-        <CandidateAddButton disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(selectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
+        <p>{formatDate(visibleSelectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === visibleSelectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
+        <span className="decision-snapshot-badge">{!visibleSelectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : visibleSelectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
+        <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{orderedPredictions(visibleSelectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}</td><td>{predictionHasInterval(value) ? <>{formatOutputNumber(key, value.lower)}–{formatOutputNumber(key, value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
+        <div className="snapshot-decision-form">
+          <label>判断理由<textarea disabled={taskUnavailable || offline || decisionPending} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionError(""); setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label>
+          <button className="outline-button" disabled={taskUnavailable || offline || decisionPending} onClick={() => void saveDecision(false)}>{decisionPending ? "保存中…" : "採用判断として固定"}</button>
+          {project?.decision_snapshot_id === visibleSelectedSnapshot.id && <button className="outline-button" disabled={taskUnavailable || offline || decisionPending} onClick={() => void saveDecision(true)}>{decisionPending ? "保存中…" : "採用判断を解除"}</button>}
+          {decisionError && <p className="panel-error" role="alert">{decisionError}</p>}
+        </div>
+        <CandidateAddButton disabled={taskUnavailable || offline} onClick={() => void restoreSnapshot(visibleSelectedSnapshot.id)}>この時点から新しい候補を作る</CandidateAddButton>
       </section>}
 
-      {surface === "overview" && selectedChainSnapshot && (() => {
-        const terminalStage = terminalChainStage(selectedChainSnapshot.stages);
+      {surface === "overview" && visibleSelectedChainSnapshot && (() => {
+        const terminalStage = terminalChainStage(visibleSelectedChainSnapshot.stages);
         const predictions = chainStagePredictions(terminalStage);
         const selectedCandidateName = history?.candidates.find(
-          (item) => item.candidate.id === selectedChainSnapshot.identity.candidate_id,
+          (item) => item.candidate.id === visibleSelectedChainSnapshot.identity.candidate_id,
         )?.candidate.name ?? "保存時の候補";
         return <section className="snapshot-detail project-snapshot-detail chain-snapshot-detail">
           <div className="panel-title"><h3>全Stageを固定した詳細</h3><button className="outline-button" onClick={() => { setSelectedChainSnapshot(null); onSnapshotNavigate(undefined); }}>閉じる</button></div>
-          <p>{formatDate(selectedChainSnapshot.created_at)} / {selectedCandidateName} / 編集版 {selectedChainSnapshot.identity.candidate_revision}</p>
+          <p>{formatDate(visibleSelectedChainSnapshot.created_at)} / {selectedCandidateName} / 編集版 {visibleSelectedChainSnapshot.identity.candidate_revision}</p>
           <div className="chain-fixed-stage-list" aria-label="固定したStage">
-            {selectedChainSnapshot.stages.map((stage) => <span key={stage.stage_id}>Stage {stage.stage_id} · {stage.status === "latest" ? "固定済み" : stage.status}</span>)}
+            {visibleSelectedChainSnapshot.stages.map((stage) => <span key={stage.stage_id}>Stage {stage.stage_id} · {stage.status === "latest" ? "固定済み" : stage.status}</span>)}
           </div>
           {terminalStage?.output_definitions.length
             ? <table className="quality-table"><thead><tr><th>終端Stageの特性</th><th>固定した予測</th><th>不確かさ</th></tr></thead><tbody>{terminalStage.output_definitions.map((definition) => {
@@ -1924,12 +2241,18 @@ export function ProjectHub({
               </tr>;
             })}</tbody></table>
             : <p className="chain-output-unavailable">このSnapshotの終端Stage出力定義を確認できません。</p>}
-          <div className="snapshot-decision-form"><label>判断理由<textarea disabled={taskUnavailable || offline} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionNote(event.target.value); }} placeholder="この時点のChain結果を採用判断に使う理由" /></label><button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(false)}>採用判断として固定</button>{project?.decision_snapshot_id === selectedChainSnapshot.snapshot_id && <button className="outline-button" disabled={taskUnavailable || offline} onClick={() => void saveDecision(true)}>採用判断を解除</button>}</div>
-          <button className="outline-button" onClick={() => onNavigate("candidates", selectedChainSnapshot.identity.candidate_id)}>Chain候補を開く</button>
+          <div className="snapshot-decision-form">
+            <label>判断理由<textarea disabled={taskUnavailable || offline || decisionPending} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionError(""); setDecisionNote(event.target.value); }} placeholder="この時点のChain結果を採用判断に使う理由" /></label>
+            <button className="outline-button" disabled={taskUnavailable || offline || decisionPending} onClick={() => void saveDecision(false)}>{decisionPending ? "保存中…" : "採用判断として固定"}</button>
+            {project?.decision_snapshot_id === visibleSelectedChainSnapshot.snapshot_id && <button className="outline-button" disabled={taskUnavailable || offline || decisionPending} onClick={() => void saveDecision(true)}>{decisionPending ? "保存中…" : "採用判断を解除"}</button>}
+            {decisionError && <p className="panel-error" role="alert">{decisionError}</p>}
+          </div>
+          <button className="outline-button" onClick={() => onNavigate("candidates", visibleSelectedChainSnapshot.identity.candidate_id)}>Chain候補を開く</button>
         </section>;
       })()}
 
       {surface === "settings" && settingsCategory === "evidence" && canArchiveProject && project && <section className="project-danger-zone" aria-label="プロジェクトのアーカイブ">
+        {archiveCommandError && <p className="panel-error" role="alert">{archiveCommandError}</p>}
         {!archiveOpen ? <button className="danger-outline-button" disabled={offline} onClick={() => setArchiveOpen(true)}>プロジェクトをアーカイブ</button> : <div className="project-delete-panel" aria-label="プロジェクトのアーカイブ確認">
           <div><strong>「{project.name}」をアーカイブしますか？</strong><p>一覧から外します。候補・予測履歴・実測データは保持され、後から復元できます。</p></div>
           <div className="project-delete-actions"><button className="danger-button" disabled={offline || archiving} onClick={() => void archiveCurrentProject()}>{archiving ? "アーカイブ中…" : "アーカイブする"}</button><button className="outline-button" disabled={archiving} onClick={() => setArchiveOpen(false)}>キャンセル</button></div>
