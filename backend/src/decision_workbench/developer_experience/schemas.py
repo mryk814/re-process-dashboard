@@ -131,8 +131,9 @@ class DeveloperOverviewItem(BaseModel):
 
     project_id: str
     project_name: str
-    identity_kind: Literal["single_task", "chain"] = "single_task"
+    identity_kind: Literal["single_task", "chain", "prediction_graph"] = "single_task"
     chain_revision_id: str | None = None
+    graph_revision_id: str | None = None
     dataset_view_revision_id: str | None = None
     dataset_revision_ids: list[str] = []
     source_filename: str | None = None

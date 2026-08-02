@@ -6486,12 +6486,14 @@ export interface components {
             feature_pipeline_id?: string | null;
             /** Feature Pipeline Version */
             feature_pipeline_version?: string | null;
+            /** Graph Revision Id */
+            graph_revision_id?: string | null;
             /**
              * Identity Kind
              * @default single_task
              * @enum {string}
              */
-            identity_kind: "single_task" | "chain";
+            identity_kind: "single_task" | "chain" | "prediction_graph";
             /** Package Id */
             package_id?: string | null;
             /** Package Manifest Digest */

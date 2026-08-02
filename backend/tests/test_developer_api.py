@@ -122,6 +122,56 @@ def test_overview_lists_chain_projects_instead_of_failing_on_their_empty_task(
     assert item["active_package"] is False
 
 
+def test_overview_preserves_prediction_graph_project_identity(
+    client: TestClient,
+) -> None:
+    graph = next(
+        item
+        for item in client.get("/api/chains").json()
+        if item["definition"].get("graph_id")
+        == "welding-material-split-output-demo-v1"
+    )
+    revision = graph["revisions"][0]
+    graph_revision_id = f"{revision['graph_id']}:r{revision['revision']}"
+    created = client.post(
+        "/api/prediction-graphs/projects",
+        json={
+            "project": {
+                "name": "Prediction Graph構成一覧",
+                "purpose": "Developer overview identity contract",
+                "description": "",
+                "notes": "",
+                "task_id": "",
+                "task_contract_digest": "",
+                "model_package_manifest_digest": "",
+                "response_curve_points": 17,
+                "continuation_reason": "",
+                "decision_candidate_id": "",
+                "decision_snapshot_id": "",
+                "decision_note": "",
+            },
+            "graph_revision_id": graph_revision_id,
+            "graph_revision_digest": revision["revision_digest"],
+            "project_binding_revision": 1,
+            "project_binding_values": {},
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    response = client.get("/api/developer/overview")
+    assert response.status_code == 200, response.text
+    item = next(
+        item
+        for item in response.json()["items"]
+        if item["project_id"] == created.json()["id"]
+    )
+    assert item["identity_kind"] == "prediction_graph"
+    assert item["graph_revision_id"] == graph_revision_id
+    assert item["task_id"] == ""
+    assert item["validation_status"] == "ok"
+    assert item["active_package"] is False
+
+
 def test_observation_training_profile_is_inspectable_before_model_packaging(
     client: TestClient,
 ) -> None:

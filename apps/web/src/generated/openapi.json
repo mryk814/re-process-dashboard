@@ -10256,11 +10256,23 @@
             ],
             "title": "Feature Pipeline Version"
           },
+          "graph_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Revision Id"
+          },
           "identity_kind": {
             "default": "single_task",
             "enum": [
               "single_task",
-              "chain"
+              "chain",
+              "prediction_graph"
             ],
             "title": "Identity Kind",
             "type": "string"

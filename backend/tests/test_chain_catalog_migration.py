@@ -168,6 +168,46 @@ def test_catalog_bootstrap_binding_is_mirrored_without_inventing_identity(
     assert identity["model_package_manifest_digest"] == "manifest-r2"
 
 
+def test_catalog_bootstrap_refresh_preserves_prediction_graph_identity(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "prediction-graph.db"
+    _workspace(path)
+    migrate_chain_catalog(path)
+    identity = {
+        "identity_kind": "prediction_graph",
+        "graph_revision_id": "material-graph-v1:r1",
+        "graph_revision_digest": f"sha256:{'1' * 64}",
+        "project_binding": {
+            "schema_version": "prediction-graph-project-binding/v1",
+            "revision": 1,
+            "values": {},
+            "digest": f"sha256:{'2' * 64}",
+        },
+    }
+    encoded = json.dumps(
+        identity,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "UPDATE projects SET task_id='',dataset_view_revision_id=NULL,"
+            "task_contract_digest='',model_package_ref_id=NULL,"
+            "model_package_manifest_digest='',scientific_identity_json=? "
+            "WHERE id='default'",
+            (encoded,),
+        )
+
+    assert refresh_single_task_project_identities(path) == 0
+    with sqlite3.connect(path) as conn:
+        preserved = conn.execute(
+            "SELECT scientific_identity_json FROM projects WHERE id='default'"
+        ).fetchone()[0]
+    assert preserved == encoded
+
+
 def test_chain_catalog_migration_rejects_partial_binding_and_rolls_back(
     tmp_path: Path,
 ) -> None:

@@ -128,6 +128,11 @@ export const suiteInventory = {
     cleanupOwner: "seeded DB disposal",
     reason: "専用ProjectとCandidateを作成して数値domainのAPI／UI契約を確認する。",
   },
+  "prediction-graph-material-fixture.spec.ts": {
+    kind: "serial-journey",
+    cleanupOwner: "fresh DB disposal",
+    reason: "Prediction Graph Project、Candidate、Executionを作成して同梱fixtureを確認する。",
+  },
   "profile-workbench-authoring.spec.ts": {
     kind: "isolated",
     cleanupOwner: "fresh spec process",
