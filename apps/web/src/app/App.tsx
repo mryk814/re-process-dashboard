@@ -716,7 +716,10 @@ function App() {
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
-        {tab === "chain-studio" && <ChainStudioPage />}
+        {tab === "chain-studio" && <ChainStudioPage onProjectCreated={(projectId) => {
+          navigate({ view: "project", projectId });
+          void session.loadProject(projectId);
+        }} />}
         {unavailableScopedTab && (
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}
