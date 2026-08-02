@@ -71,7 +71,7 @@ test("flank-wear uses the shared workbench under the domain-neutral product iden
   ).toBeVisible();
   await expect(page.locator(".screening-variable-editor")).toBeVisible();
   await expect(
-    page.locator(".screening-run-footer").getByRole("button", {
+    page.locator(".screening-question-action").getByRole("button", {
       name: /点を評価/,
     }),
   ).toBeEnabled();

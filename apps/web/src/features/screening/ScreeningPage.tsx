@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { fromApiCandidate, toApiCandidate, type CandidateViewModel as Candidate, type ResolvedTaskDefinition, type TaskDefinitionContract } from "../candidates";
 import {
   workbenchApi,
@@ -44,6 +44,28 @@ import {
   screeningFailureFieldLabel,
   type ScreeningExecutionFailure,
 } from "./screeningExecutionFailure";
+
+function ScreeningQuestionFirstLayout({
+  judgment,
+  history,
+  evidence,
+  editor,
+  drawer,
+}: {
+  judgment: ReactNode;
+  history: ReactNode;
+  evidence: ReactNode;
+  editor: ReactNode;
+  drawer: ReactNode;
+}) {
+  return <>
+    {judgment}
+    {history}
+    {evidence}
+    {editor}
+    {drawer}
+  </>;
+}
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -293,6 +315,7 @@ export function ScreeningPage({
   const [colorMetric, setColorMetric] = useState("score");
   const [chartExpanded, setChartExpanded] = useState(false);
   const [resultSurface, setResultSurface] = useState<ScreeningResultSurface>("map");
+  const [editorOpen, setEditorOpen] = useState(true);
   const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
   const [focusedPointIndex, setFocusedPointIndex] = useState<number | null>(null);
   const [hoveredScreenPoint, setHoveredScreenPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
@@ -376,6 +399,7 @@ export function ScreeningPage({
     setProposalSelectionPolicy("ranked_top_k_v1");
     setProposalDiversityWeight(0.75);
     setResult(null);
+    setEditorOpen(true);
     setSelectedPointIndices([]);
     setFocusedPointIndex(null);
     setDetailItem(null);
@@ -397,6 +421,7 @@ export function ScreeningPage({
     const requestProjectId = projectId;
     runRequestSequence.current += 1;
     setResult(null);
+    setEditorOpen(true);
     setRunFailure(null);
     setRunRecoveryStatus("");
     setSavedRuns([]);
@@ -456,6 +481,7 @@ export function ScreeningPage({
     ));
   const applyResult = (run: ScreenResult) => {
     setResult(run);
+    setEditorOpen(false);
     const varying = Object.entries(run.variables).filter(([, spec]) => spec.mode !== "fixed").map(([field]) => field);
     setXAxis(varying[0] ?? "");
     setYAxis(varying[1] ?? "");
@@ -629,7 +655,9 @@ export function ScreeningPage({
       onRunChange(created.id);
     } catch (cause) {
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
-      setRunFailure(screeningExecutionFailure(cause));
+      const failure = screeningExecutionFailure(cause);
+      setRunFailure(failure);
+      if (failure.fieldErrors.length > 0) setEditorOpen(true);
     } finally {
       if (sequence === runRequestSequence.current && activeProjectRef.current === requestProjectId) {
         setRunning(false);
@@ -975,6 +1003,7 @@ export function ScreeningPage({
       if (result?.id !== opportunitySourceRun.id) await loadRun(opportunitySourceRun.id);
     }
     setScreeningMode(mode);
+    setEditorOpen(true);
     setError("");
     setRunFailure(null);
     setRunRecoveryStatus("");
@@ -1001,17 +1030,6 @@ export function ScreeningPage({
         </div>
         <div className="screening-page-actions">
           <span className="screening-capacity" role="status">{candidateCapacityLabel}</span>
-          <button
-            className="primary-button"
-            disabled={actionDisabled}
-            title={actionTitle}
-            aria-busy={running}
-            onClick={() => {
-              void run();
-            }}
-          >
-            {running ? "計算中…" : actionLabel}
-          </button>
         </div>
       </div>
       {compositionBalanceNotice && <p className="screening-balance-notice">組成制約: {compositionBalanceNotice}</p>}
@@ -1041,7 +1059,27 @@ export function ScreeningPage({
           })}
         </div>
       </section>
+      <div className="screening-question-action">
+        <span>
+          <b>{screeningModes.find((mode) => mode.id === screeningMode)?.label}</b>
+          {screeningMode === "batch" && opportunitySourceRun
+            ? ` · 元の有望候補Run ${opportunitySourceRun.id.slice(0, 8)}`
+            : ` · ${variables.filter((row) => row.mode !== "fixed").length}変数`}
+        </span>
+        <button
+          type="button"
+          className="primary-button"
+          disabled={actionDisabled}
+          title={actionTitle}
+          aria-busy={running}
+          onClick={() => { void run(); }}
+        >
+          {running ? "計算中…" : actionLabel}
+        </button>
+      </div>
       {effectiveDraftDirty && result && <p className="screening-draft-notice">未実行の条件変更があります。図と点詳細は最後に実行した条件のままです。</p>}
+      <ScreeningQuestionFirstLayout
+      history={<>
       {savedRuns.length > 0 && (
         <section className="saved-runs">
           <h3>保存済み探索</h3>
@@ -1087,6 +1125,89 @@ export function ScreeningPage({
         </section>
       )}
       <ProposalLabPanel projectId={projectId} runs={savedRuns} />
+      </>}
+      judgment={<>
+      {result && (
+        <ScreeningProposalSummary
+          result={result}
+          targetLabel={outputs.find((output) => output.key === result.target)?.label}
+          showAnotherSample={screeningMode !== "batch"}
+          batchSaveCount={newBatchPointIndices.length}
+          onSaveBatch={() => { void persistBatch(); }}
+          onAnotherSample={() => {
+            if (screeningMode === "batch") return;
+            const nextSeed = nextScreeningSeed(seed);
+            setSeed(nextSeed);
+            void run(nextSeed);
+          }}
+        />
+      )}
+      {runFailure && (
+        <section className={`screening-run-failure ${runFailure.kind}`} role="alert" aria-labelledby="screening-run-failure-title">
+          <div className="screening-run-failure-copy">
+            <strong id="screening-run-failure-title">{runFailure.title}</strong>
+            <p>{runFailure.message}</p>
+            {runFailure.fieldErrors.length > 0 && (
+              <ul>
+                {runFailure.fieldErrors.map((fieldError, index) => (
+                  <li key={`${fieldError.path}-${index}`}>
+                    <b>{screeningFailureFieldLabel(
+                      fieldError.path,
+                      new Map(options.map((option) => [option.value, option.label])),
+                    )}:</b>{" "}
+                    {fieldError.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <small>
+              {runFailure.persistence === "not_saved"
+                ? result
+                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。失敗した実行は保存されていません。"
+                  : "入力条件は保持しています。失敗した実行は保存されていません。"
+                : result
+                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。今回のRunの保存状況は未確認です。"
+                  : "入力条件は保持しています。今回のRunの保存状況は未確認です。"}
+            </small>
+            {runRecoveryStatus === "checked" && (
+              <small role="status">保存済みRun一覧を更新しました。該当Runがない場合だけ再実行してください。</small>
+            )}
+            {runRecoveryStatus === "failed" && (
+              <small role="status">保存済みRunを確認できませんでした。接続復旧後にもう一度確認してください。</small>
+            )}
+          </div>
+          <button
+            type="button"
+            className="outline-button"
+            disabled={running || runRecoveryStatus === "checking" || (runFailure.persistence === "not_saved" && actionDisabled)}
+            onClick={() => {
+              if (runFailure.persistence === "not_saved") void run();
+              else void checkSavedRunsAfterFailure();
+            }}
+          >
+            {runFailure.persistence === "not_saved"
+              ? running ? "再実行中…" : "同じ条件で再実行"
+              : runRecoveryStatus === "checking" ? "確認中…" : "保存済みRunを確認"}
+          </button>
+        </section>
+      )}
+      </>}
+      editor={<>
+      <details
+        className="screening-editor-disclosure"
+        open={editorOpen}
+        onToggle={(event) => setEditorOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <span>探索条件を編集</span>
+          <small>
+            {screeningModes.find((mode) => mode.id === screeningMode)?.label}
+            {" · "}
+            {screeningMode === "batch" && opportunitySourceRun
+              ? `元Run ${opportunitySourceRun.id.slice(0, 8)}`
+              : `${variables.filter((row) => row.mode !== "fixed").length}変数`}
+          </small>
+        </summary>
       <div className="screening-settings">
         {screeningMode !== "landscape" && <div className="screening-primary-settings">
           <label>
@@ -1596,90 +1717,13 @@ export function ScreeningPage({
           </button>
         </section>
         )}
-        <div className="screening-run-footer">
-          <span>
-            <b>{screeningModes.find((mode) => mode.id === screeningMode)?.label}</b>
-            {screeningMode === "batch" && opportunitySourceRun
-              ? ` · 元の有望候補Run ${opportunitySourceRun.id.slice(0, 8)}`
-              : ` · ${variables.filter((row) => row.mode !== "fixed").length}変数`}
-          </span>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={actionDisabled}
-            title={actionTitle}
-            aria-busy={running}
-            onClick={() => { void run(); }}
-          >
-            {running ? "計算中…" : actionLabel}
-          </button>
-        </div>
       </div>
-      {runFailure && (
-        <section className={`screening-run-failure ${runFailure.kind}`} role="alert" aria-labelledby="screening-run-failure-title">
-          <div className="screening-run-failure-copy">
-            <strong id="screening-run-failure-title">{runFailure.title}</strong>
-            <p>{runFailure.message}</p>
-            {runFailure.fieldErrors.length > 0 && (
-              <ul>
-                {runFailure.fieldErrors.map((fieldError, index) => (
-                  <li key={`${fieldError.path}-${index}`}>
-                    <b>{screeningFailureFieldLabel(
-                      fieldError.path,
-                      new Map(options.map((option) => [option.value, option.label])),
-                    )}:</b>{" "}
-                    {fieldError.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <small>
-              {runFailure.persistence === "not_saved"
-                ? result
-                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。失敗した実行は保存されていません。"
-                  : "入力条件は保持しています。失敗した実行は保存されていません。"
-                : result
-                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。今回のRunの保存状況は未確認です。"
-                  : "入力条件は保持しています。今回のRunの保存状況は未確認です。"}
-            </small>
-            {runRecoveryStatus === "checked" && (
-              <small role="status">保存済みRun一覧を更新しました。該当Runがない場合だけ再実行してください。</small>
-            )}
-            {runRecoveryStatus === "failed" && (
-              <small role="status">保存済みRunを確認できませんでした。接続復旧後にもう一度確認してください。</small>
-            )}
-          </div>
-          <button
-            type="button"
-            className="outline-button"
-            disabled={running || runRecoveryStatus === "checking" || (runFailure.persistence === "not_saved" && actionDisabled)}
-            onClick={() => {
-              if (runFailure.persistence === "not_saved") void run();
-              else void checkSavedRunsAfterFailure();
-            }}
-          >
-            {runFailure.persistence === "not_saved"
-              ? running ? "再実行中…" : "同じ条件で再実行"
-              : runRecoveryStatus === "checking" ? "確認中…" : "保存済みRunを確認"}
-          </button>
-        </section>
-      )}
+      </details>
+      </>}
+      evidence={<>
       {error && <p className="warning">{error}</p>}
       {result && (
         <>
-          <ScreeningProposalSummary
-            result={result}
-            targetLabel={outputs.find((output) => output.key === result.target)?.label}
-            showAnotherSample={screeningMode !== "batch"}
-            batchSaveCount={newBatchPointIndices.length}
-            onSaveBatch={() => { void persistBatch(); }}
-            onAnotherSample={() => {
-              if (screeningMode === "batch") return;
-              const nextSeed = nextScreeningSeed(seed);
-              setSeed(nextSeed);
-              void run(nextSeed);
-            }}
-          />
           {unavailableResultSurface ? <section className="task-unavailable-panel" role="status">
             <h3>指定された探索結果を表示できません</h3>
             <p><code>{unavailableResultSurface}</code> は、この固定Runで利用できる結果面にありません。</p>
@@ -1999,6 +2043,8 @@ export function ScreeningPage({
           <ScreeningRunEvidence result={result} />
         </>
       )}
+      </>}
+      drawer={
       <HistoricalEvidenceDrawer
         open={detailItem != null}
         projectId={projectId}
@@ -2017,6 +2063,8 @@ export function ScreeningPage({
         taskDefinition={taskDefinition}
         displayDecimalOverrides={project?.display_decimals}
         onClose={() => setDetailItem(null)}
+      />
+      }
       />
     </div>
   );

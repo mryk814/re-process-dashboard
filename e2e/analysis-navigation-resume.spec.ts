@@ -40,7 +40,7 @@ test("analysis selections survive share, reload, and browser travel without sile
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/screening"
   ));
-  await page.locator(".screening-run-footer .primary-button").click();
+  await page.locator(".screening-question-action .primary-button").click();
   expect((await runResponse).status()).toBe(201);
   await expect(page.locator(".screening-result-tabs")).toBeVisible();
   const screeningUrl = new URL(page.url());
