@@ -13909,6 +13909,26 @@
           "data_references": {
             "$ref": "#/components/schemas/ModelLibraryDataReference"
           },
+          "feature_pipeline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelLibraryVersionedIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feature_recipe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelLibraryVersionedIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "graph_revision_ids": {
             "default": [],
             "items": {
@@ -13926,6 +13946,14 @@
             "minLength": 1,
             "title": "Package Id",
             "type": "string"
+          },
+          "predictor_families": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryPredictorFamily"
+            },
+            "title": "Predictor Families",
+            "type": "array"
           },
           "predictor_targets": {
             "default": [],
@@ -13981,6 +14009,14 @@
             "minLength": 1,
             "title": "Task Id",
             "type": "string"
+          },
+          "validation_plans": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryValidationPlanIdentity"
+            },
+            "title": "Validation Plans",
+            "type": "array"
           },
           "version": {
             "title": "Version",
@@ -14064,6 +14100,50 @@
           "value_kind"
         ],
         "title": "ModelLibraryPort",
+        "type": "object"
+      },
+      "ModelLibraryPredictorFamily": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture Id"
+          },
+          "predictive_family": {
+            "minLength": 1,
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "predictor_id": {
+            "minLength": 1,
+            "title": "Predictor Id",
+            "type": "string"
+          },
+          "runtime_type": {
+            "minLength": 1,
+            "title": "Runtime Type",
+            "type": "string"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predictor_id",
+          "target",
+          "runtime_type",
+          "predictive_family"
+        ],
+        "title": "ModelLibraryPredictorFamily",
         "type": "object"
       },
       "ModelLibraryProjectReference": {
@@ -14237,6 +14317,80 @@
           "state"
         ],
         "title": "ModelLibraryTransformAsset",
+        "type": "object"
+      },
+      "ModelLibraryValidationPlanIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "minLength": 1,
+            "title": "Digest",
+            "type": "string"
+          },
+          "identity_source": {
+            "enum": [
+              "validation_plan",
+              "quality_report_split"
+            ],
+            "title": "Identity Source",
+            "type": "string"
+          },
+          "schema_version": {
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "strategy": {
+            "minLength": 1,
+            "title": "Strategy",
+            "type": "string"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "schema_version",
+          "strategy",
+          "digest",
+          "identity_source"
+        ],
+        "title": "ModelLibraryValidationPlanIdentity",
+        "type": "object"
+      },
+      "ModelLibraryVersionedIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "identity_id": {
+            "minLength": 1,
+            "title": "Identity Id",
+            "type": "string"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_id",
+          "version"
+        ],
+        "title": "ModelLibraryVersionedIdentity",
         "type": "object"
       },
       "ModelMetadata": {

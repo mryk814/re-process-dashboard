@@ -19,6 +19,7 @@ from decision_workbench.contracts.chain_contracts import (
     project_prediction_graph,
 )
 from decision_workbench.contracts.data_library_contracts import ModelPackageRef
+from decision_workbench.contracts.feature_recipe_contracts import FeatureRecipe
 from decision_workbench.contracts.model_library_contracts import (
     ModelAssetState,
     ModelLibraryCatalog,
@@ -28,10 +29,13 @@ from decision_workbench.contracts.model_library_contracts import (
     ModelLibraryGraphRevision,
     ModelLibraryGraphStageReference,
     ModelLibraryPackageAsset,
+    ModelLibraryPredictorFamily,
     ModelLibraryPort,
     ModelLibraryProjectReference,
     ModelLibraryTaskAsset,
     ModelLibraryTransformAsset,
+    ModelLibraryValidationPlanIdentity,
+    ModelLibraryVersionedIdentity,
 )
 from decision_workbench.contracts.task_contracts import (
     persisted_task_definition_payload,
@@ -40,6 +44,12 @@ from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
 )
+from decision_workbench.modeling.model_lifecycle import QualityReport
+from decision_workbench.modeling.packages.contracts import (
+    FeaturePipelineDocument,
+    ModelPackageManifest,
+)
+from decision_workbench.modeling.training.validation_plan import ValidationPlan
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import (
@@ -342,6 +352,14 @@ class ModelLibraryCatalogService:
             )
             if digest != stage.contract_digest:
                 return "固定したTask contractを現在のcatalogで解決できません"
+            active_digest = self.task_registry.entry_for(
+                stage.contract_id
+            ).package_digest
+            if not _same_digest(
+                active_digest,
+                stage.package_manifest_digest,
+            ):
+                return "固定したModel Packageは現在のruntimeでactiveではありません"
         except TaskRegistryError:
             return "固定したPrediction Taskを現在のcatalogで解決できません"
         packages = [
@@ -798,6 +816,11 @@ class ModelLibraryCatalogService:
         assets: list[ModelLibraryPackageAsset] = []
         for package in sorted(package_refs, key=lambda item: item.id):
             manifest = package.manifest_json
+            typed_manifest: ModelPackageManifest | None = None
+            try:
+                typed_manifest = ModelPackageManifest.model_validate(manifest)
+            except ValueError:
+                pass
             research_only = _package_is_research_only(manifest)
             reason = ""
             recovery = ""
@@ -890,6 +913,115 @@ class ModelLibraryCatalogService:
                 or project.id in graph_project_ids
             )
             version = manifest.get("package_version")
+            predictor_families = (
+                tuple(
+                    ModelLibraryPredictorFamily(
+                        predictor_id=predictor.id,
+                        target=predictor.target,
+                        runtime_type=predictor.runtime_type,
+                        predictive_family=predictor.predictive_family,
+                        architecture_id=predictor.architecture_id,
+                    )
+                    for predictor in typed_manifest.predictors
+                )
+                if typed_manifest is not None
+                else ()
+            )
+            feature_pipeline = (
+                ModelLibraryVersionedIdentity(
+                    identity_id=typed_manifest.feature_pipeline.id,
+                    version=typed_manifest.feature_pipeline.version,
+                )
+                if typed_manifest is not None
+                and typed_manifest.feature_pipeline is not None
+                else None
+            )
+            feature_recipe = None
+            validation_plans: tuple[
+                ModelLibraryValidationPlanIdentity, ...
+            ] = ()
+            try:
+                entry = self.task_registry.entry_for(package.task_id)
+                verified = entry.model_package
+                if not _same_digest(
+                    entry.package_digest,
+                    package.manifest_digest,
+                ):
+                    raise TaskRegistryError("package is not active")
+                if typed_manifest is not None and typed_manifest.feature_pipeline:
+                    pipeline = FeaturePipelineDocument.model_validate_json(
+                        verified.artifact_path(
+                            typed_manifest.feature_pipeline.spec
+                        ).read_text(encoding="utf-8")
+                    )
+                    if pipeline.feature_recipe is not None:
+                        recipe = FeatureRecipe.model_validate_json(
+                            verified.artifact_path(
+                                pipeline.feature_recipe.recipe
+                            ).read_text(encoding="utf-8")
+                        )
+                        feature_recipe = ModelLibraryVersionedIdentity(
+                            identity_id=recipe.id,
+                            version=recipe.version,
+                            digest=pipeline.feature_recipe.recipe_digest,
+                        )
+                if typed_manifest is not None and typed_manifest.quality_report:
+                    quality = QualityReport.model_validate_json(
+                        verified.artifact_path(
+                            typed_manifest.quality_report
+                        ).read_text(encoding="utf-8")
+                    )
+                    identities = []
+                    for target, payload in sorted(
+                        (quality.validation_plans or {}).items()
+                    ):
+                        plan_payload = dict(payload)
+                        digest = plan_payload.pop("digest", None)
+                        plan = ValidationPlan.model_validate(plan_payload)
+                        if not isinstance(digest, str):
+                            evidence = (quality.validation_evidence or {}).get(
+                                target
+                            )
+                            digest = (
+                                evidence.validation_plan_digest
+                                if evidence is not None
+                                else None
+                            )
+                        if digest is not None:
+                            identities.append(
+                                ModelLibraryValidationPlanIdentity(
+                                    target=target,
+                                    schema_version=plan.schema_version,
+                                    strategy=plan.strategy,
+                                    digest=digest,
+                                    identity_source="validation_plan",
+                                )
+                            )
+                    if not identities:
+                        identities.extend(
+                            ModelLibraryValidationPlanIdentity(
+                                target=metric.target,
+                                schema_version=quality.schema_version,
+                                strategy=quality.split,
+                                digest=semantic_digest(
+                                    {
+                                        "schema_version": (
+                                            quality.schema_version
+                                        ),
+                                        "split": quality.split,
+                                        "folds": quality.folds,
+                                        "target": metric.target,
+                                    }
+                                ),
+                                identity_source="quality_report_split",
+                            )
+                            for metric in quality.targets
+                        )
+                    validation_plans = tuple(identities)
+            except (KeyError, OSError, TaskRegistryError, ValueError):
+                # Historical references remain visible without reading their
+                # locators; verified artifact identities are active-package only.
+                pass
             assets.append(
                 ModelLibraryPackageAsset(
                     reference_id=package.id,
@@ -902,6 +1034,10 @@ class ModelLibraryCatalogService:
                     state=state,
                     runtime_types=_package_runtime_types(manifest),
                     predictor_targets=_package_targets(manifest),
+                    predictor_families=predictor_families,
+                    feature_pipeline=feature_pipeline,
+                    feature_recipe=feature_recipe,
+                    validation_plans=validation_plans,
                     quality_summary_available=isinstance(
                         manifest.get("quality_report"),
                         str,
@@ -917,24 +1053,46 @@ class ModelLibraryCatalogService:
         self,
         graph_revisions: tuple[ModelLibraryGraphRevision, ...],
     ) -> tuple[ModelLibraryTransformAsset, ...]:
-        if self.transform_catalog is None:
-            return ()
         assets: list[ModelLibraryTransformAsset] = []
-        for transform_id in self.transform_catalog.transform_ids:
-            try:
-                surface, lock = self.transform_catalog.authoring_contract(
-                    transform_id
-                )
-                state = ModelAssetState(availability="available")
-            except (KeyError, ValueError) as exc:
+        persisted_ids = {
+            stage.contract_id
+            for revision in graph_revisions
+            for stage in revision.stages
+            if stage.stage_kind == "deterministic_transform"
+        }
+        current_ids = (
+            set(self.transform_catalog.transform_ids)
+            if self.transform_catalog is not None
+            else set()
+        )
+        for transform_id in sorted(current_ids | persisted_ids):
+            if (
+                self.transform_catalog is None
+                or transform_id not in current_ids
+            ):
                 surface = None
                 lock = None
                 state = ModelAssetState(
                     availability="unavailable",
-                    reason=str(exc),
-                    impact="新しいGraph Revisionへ追加できません",
-                    recovery_hint="Transform Packageとallow-listを確認してください",
+                    reason="現在のTransform catalogに登録されていません",
+                    impact="既存Graphの利用箇所は確認できますが、新しいRevisionへ追加できません",
+                    recovery_hint="Transform Packageとallow-listを復旧してください",
                 )
+            else:
+                try:
+                    surface, lock = self.transform_catalog.authoring_contract(
+                        transform_id
+                    )
+                    state = ModelAssetState(availability="available")
+                except (KeyError, ValueError) as exc:
+                    surface = None
+                    lock = None
+                    state = ModelAssetState(
+                        availability="unavailable",
+                        reason=str(exc),
+                        impact="新しいGraph Revisionへ追加できません",
+                        recovery_hint="Transform Packageとallow-listを確認してください",
+                    )
             assets.append(
                 ModelLibraryTransformAsset(
                     transform_id=transform_id,
