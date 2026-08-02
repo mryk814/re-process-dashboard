@@ -53,7 +53,17 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   expect(new URL(secondTab.url()).hash).not.toContain("draft");
   await secondTab.close();
   const missingDraftTab = await page.context().newPage();
+  const missingDraftResponse = missingDraftTab.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/prediction-graph-drafts/other-workspace-draft"
+  ));
+  const missingDraftCatalogResponse = missingDraftTab.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/prediction-graphs/catalog"
+  ));
   await missingDraftTab.goto("/?view=chain-studio&draft=other-workspace-draft");
+  expect((await missingDraftResponse).status()).toBe(404);
+  expect((await missingDraftCatalogResponse).status()).toBe(200);
   await expect(missingDraftTab.getByRole("alert").filter({ hasText: "保存済みdraftを再開できませんでした" })).toContainText(
     "draft other-workspace-draft は現在のWorkspaceにありません。",
   );
