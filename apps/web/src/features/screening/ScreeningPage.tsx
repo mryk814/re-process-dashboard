@@ -39,6 +39,11 @@ import {
 } from "./ScreeningResultSurfaces";
 import { HistoricalEvidenceDrawer } from "../workbench";
 import { ProposalLabPanel } from "./ProposalLabPanel";
+import {
+  screeningExecutionFailure,
+  screeningFailureFieldLabel,
+  type ScreeningExecutionFailure,
+} from "./screeningExecutionFailure";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -271,6 +276,8 @@ export function ScreeningPage({
   const [showAllSavedRuns, setShowAllSavedRuns] = useState(false);
   const [detailItem, setDetailItem] = useState<ApiSimilarObservation | null>(null);
   const [error, setError] = useState("");
+  const [runFailure, setRunFailure] = useState<ScreeningExecutionFailure | null>(null);
+  const [runRecoveryStatus, setRunRecoveryStatus] = useState<"" | "checking" | "checked" | "failed">("");
   const [running, setRunning] = useState(false);
   const [candidateCapacity, setCandidateCapacity] = useState<ApiCandidateCapacity | null>(null);
   const [candidateCapacityError, setCandidateCapacityError] = useState("");
@@ -384,6 +391,8 @@ export function ScreeningPage({
     const requestProjectId = projectId;
     runRequestSequence.current += 1;
     setResult(null);
+    setRunFailure(null);
+    setRunRecoveryStatus("");
     setSavedRuns([]);
     setPendingDeleteRunId("");
     setDeletingRunId("");
@@ -487,7 +496,12 @@ export function ScreeningPage({
     ? displayedOpportunityRun
     : undefined;
   const run = async (requestedSeed = seed) => {
-    if (running) return;
+    if (
+      running
+      || (runFailure?.persistence === "unknown" && runRecoveryStatus !== "checked")
+    ) return;
+    setRunFailure(null);
+    setRunRecoveryStatus("");
     if (!baseCandidate) return setError("基準条件を読み込めませんでした。");
     if (screeningMode !== "landscape" && !fixedObjective && !screeningGoalFromDraft(targetGoal)) {
       return setError("有望候補を探すには主目標を入力してください。");
@@ -609,15 +623,7 @@ export function ScreeningPage({
       onRunChange(created.id);
     } catch (cause) {
       if (sequence !== runRequestSequence.current || activeProjectRef.current !== requestProjectId) return;
-      setResult(null);
-      setSelectedPointIndices([]);
-      setFocusedPointIndex(null);
-      setDetailItem(null);
-      setResultSurface("map");
-      onRunChange("");
-      setError(
-        `範囲探索を実行できませんでした。${cause instanceof Error && cause.message ? ` ${cause.message}` : ""}`,
-      );
+      setRunFailure(screeningExecutionFailure(cause));
     } finally {
       if (sequence === runRequestSequence.current && activeProjectRef.current === requestProjectId) {
         setRunning(false);
@@ -628,6 +634,8 @@ export function ScreeningPage({
     const sequence = ++runRequestSequence.current;
     const requestProjectId = projectId;
     setError("");
+    setRunFailure(null);
+    setRunRecoveryStatus("");
     let run: ScreenResult;
     try {
       run = await workbenchApi.screeningRun(requestProjectId, runId);
@@ -928,7 +936,10 @@ export function ScreeningPage({
     && (!Number.isInteger(proposalCount) || proposalCount < 1 || proposalCount > 10)
     ? "提案件数は1〜10件で入力してください"
     : "";
+  const runConfirmationRequired = runFailure?.persistence === "unknown"
+    && runRecoveryStatus !== "checked";
   const actionDisabled = running
+    || runConfirmationRequired
     || !baseCandidateId
     || !baseCandidate
     || Boolean(activeVariableError)
@@ -939,6 +950,7 @@ export function ScreeningPage({
   const actionTitle = activeVariableError
     || activeObjectiveUnsupportedReason
     || proposalCountError
+    || (runConfirmationRequired ? "保存済みRunを確認してから再実行してください" : "")
     || (screeningMode !== "landscape" && !primaryGoalReady
       ? "主目標を入力してください"
       : screeningMode === "batch" && !opportunitySourceRun
@@ -951,6 +963,22 @@ export function ScreeningPage({
     }
     setScreeningMode(mode);
     setError("");
+    setRunFailure(null);
+    setRunRecoveryStatus("");
+  };
+  const checkSavedRunsAfterFailure = async () => {
+    if (runRecoveryStatus === "checking") return;
+    const requestProjectId = projectId;
+    setRunRecoveryStatus("checking");
+    try {
+      const runs = await workbenchApi.listScreeningRuns(requestProjectId);
+      if (activeProjectRef.current !== requestProjectId) return;
+      setSavedRuns(runs);
+      setRunRecoveryStatus("checked");
+    } catch {
+      if (activeProjectRef.current !== requestProjectId) return;
+      setRunRecoveryStatus("failed");
+    }
   };
   return (
     <div className="explore-page">
@@ -1574,6 +1602,55 @@ export function ScreeningPage({
           </button>
         </div>
       </div>
+      {runFailure && (
+        <section className={`screening-run-failure ${runFailure.kind}`} role="alert" aria-labelledby="screening-run-failure-title">
+          <div className="screening-run-failure-copy">
+            <strong id="screening-run-failure-title">{runFailure.title}</strong>
+            <p>{runFailure.message}</p>
+            {runFailure.fieldErrors.length > 0 && (
+              <ul>
+                {runFailure.fieldErrors.map((fieldError, index) => (
+                  <li key={`${fieldError.path}-${index}`}>
+                    <b>{screeningFailureFieldLabel(
+                      fieldError.path,
+                      new Map(options.map((option) => [option.value, option.label])),
+                    )}:</b>{" "}
+                    {fieldError.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <small>
+              {runFailure.persistence === "not_saved"
+                ? result
+                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。失敗した実行は保存されていません。"
+                  : "入力条件は保持しています。失敗した実行は保存されていません。"
+                : result
+                  ? "入力条件と、最後に成功した探索結果はそのまま表示しています。今回のRunの保存状況は未確認です。"
+                  : "入力条件は保持しています。今回のRunの保存状況は未確認です。"}
+            </small>
+            {runRecoveryStatus === "checked" && (
+              <small role="status">保存済みRun一覧を更新しました。該当Runがない場合だけ再実行してください。</small>
+            )}
+            {runRecoveryStatus === "failed" && (
+              <small role="status">保存済みRunを確認できませんでした。接続復旧後にもう一度確認してください。</small>
+            )}
+          </div>
+          <button
+            type="button"
+            className="outline-button"
+            disabled={running || runRecoveryStatus === "checking" || (runFailure.persistence === "not_saved" && actionDisabled)}
+            onClick={() => {
+              if (runFailure.persistence === "not_saved") void run();
+              else void checkSavedRunsAfterFailure();
+            }}
+          >
+            {runFailure.persistence === "not_saved"
+              ? running ? "再実行中…" : "同じ条件で再実行"
+              : runRecoveryStatus === "checking" ? "確認中…" : "保存済みRunを確認"}
+          </button>
+        </section>
+      )}
       {error && <p className="warning">{error}</p>}
       {result && (
         <>
