@@ -78,12 +78,23 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page.locator(".chain-studio-draft-bar")).toBeVisible();
   await expect(page.getByRole("button", { name: "Model Library" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Chain Studio" })).toHaveCount(0);
+});
 
-  await page.goBack();
-  await expect(page).toHaveURL(/view=model-library.*asset=graphs/);
-  await page.getByRole("tab", { name: /Prediction Task/ }).click();
+test("Model Library and Data Library preserve Dataset context bidirectionally", async ({ page }) => {
+  const catalogResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/model-library"
+  ));
+  await page.goto("/?view=model-library&asset=tasks");
+  expect((await catalogResponse).status()).toBe(200);
+
+  const datasetsResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/data-library/datasets"
+  ));
   await page.locator(".model-asset-card").first().getByRole("button", { name: "対応データを確認" }).click();
   await expect(page).toHaveURL(/view=data-library.*focus_dataset_revision=.+focus_package=.+/);
+  expect((await datasetsResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
   await page.getByRole("button", { name: "利用中のモデル資産を見る" }).click();
   await expect(page).toHaveURL(/view=model-library.*asset=packages.*focus_dataset_revision=.+/);
