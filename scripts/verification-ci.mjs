@@ -309,6 +309,50 @@ function deduplicateExecutionGates(gateIds, catalog) {
   };
 }
 
+const lightweightDirectGateIds = [
+  "working-tree-diff",
+  "branch-diff",
+  "verification-policy-tests",
+];
+
+const sameOrderedValues = (actual, expected) => (
+  Array.isArray(actual)
+  && JSON.stringify(actual) === JSON.stringify(expected)
+);
+
+export function ciExecutionMode(ciPlan) {
+  const plan = ciPlan.originalPlan;
+  const identityExpansions = Object.fromEntries(
+    lightweightDirectGateIds.map((gateId) => [gateId, [gateId]]),
+  );
+  const isStrictVerificationToolingPlan = (
+    plan?.requestedLevel === "pr"
+    && plan.executionLevel === "pr"
+    && plan.selectedLevel === "pr"
+    && plan.minimumRequiredLevel === "pr"
+    && plan.completion === "ready"
+    && sameOrderedValues(plan.incompleteReasons, [])
+    && plan.requiredFollowUp === null
+    && plan.followUpOwner === null
+    && sameOrderedValues(plan.detectedRiskCategories, ["verification-tooling"])
+    && sameOrderedValues(plan.riskCategories, ["verification-tooling"])
+    && sameOrderedValues(plan.selectedGateIds, lightweightDirectGateIds)
+    && sameOrderedValues(plan.requiredManualGates, [])
+    && sameOrderedValues(plan.directEvidenceRequirements, [])
+    && sameOrderedValues(plan.requiredFollowUps, [])
+    && sameOrderedValues(plan.manualOverrides, [])
+    && JSON.stringify(ciPlan.logicalGateExpansions) === JSON.stringify(identityExpansions)
+    && sameOrderedValues(ciPlan.coverageGateIds, lightweightDirectGateIds)
+    && sameOrderedValues(ciPlan.executionGateIds, lightweightDirectGateIds)
+    && JSON.stringify(ciPlan.absorbedGates) === "{}"
+    && Array.isArray(ciPlan.shards)
+    && ciPlan.shards.length === 1
+    && ciPlan.shards[0]?.id === "contract-build"
+    && sameOrderedValues(ciPlan.shards[0]?.gateIds, lightweightDirectGateIds)
+  );
+  return isStrictVerificationToolingPlan ? "lightweight-direct" : "sharded";
+}
+
 export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
   if (plan.schemaVersion !== "verification-plan/v1") {
     throw new Error("CI planning requires verification-plan/v1");
@@ -343,7 +387,7 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
       ),
     }))
     .filter((shard) => shard.gateIds.length > 0);
-  const ciPlan = {
+  const planWithoutExecutionMode = {
     schemaVersion: ciPlanSchemaVersion,
     testedCommit: plan.fullSuiteOwner.commitSha,
     verificationCatalogSha256: plan.verificationCatalogSha256,
@@ -353,6 +397,10 @@ export function createCiPlan({ plan, catalog = loadVerificationCatalog() }) {
     executionGateIds,
     absorbedGates,
     shards,
+  };
+  const ciPlan = {
+    ...planWithoutExecutionMode,
+    executionMode: ciExecutionMode(planWithoutExecutionMode),
   };
   return { ...ciPlan, planDigest: digestCiPlan(ciPlan) };
 }
@@ -376,6 +424,9 @@ export function validateCiPlan(
   }
   if (ciPlan.originalPlan.verificationCatalogSha256 !== ciPlan.verificationCatalogSha256) {
     throw new Error("CI plan catalog digest does not match the verification plan");
+  }
+  if (ciPlan.executionMode !== ciExecutionMode(ciPlan)) {
+    throw new Error("CI plan execution mode does not match its contents");
   }
   if (digestCiPlan(ciPlan) !== ciPlan.planDigest) {
     throw new Error("CI plan digest does not match its contents");
@@ -1234,6 +1285,7 @@ function appendGitHubOutput(path, ciPlan) {
       `commit_sha=${ciPlan.testedCommit}`,
       `catalog_sha256=${ciPlan.verificationCatalogSha256}`,
       `plan_digest=${ciPlan.planDigest}`,
+      `execution_mode=${ciPlan.executionMode}`,
       `matrix=${JSON.stringify(matrix)}`,
       "",
     ].join("\n"),

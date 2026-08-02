@@ -24,6 +24,7 @@ jobs:
       commit_sha: ${{ steps.plan.outputs.commit_sha }}
       catalog_sha256: ${{ steps.plan.outputs.catalog_sha256 }}
       plan_digest: ${{ steps.plan.outputs.plan_digest }}
+      execution_mode: ${{ steps.plan.outputs.execution_mode }}
       matrix: ${{ steps.plan.outputs.matrix }}
       reuse_run_id: ${{ steps.reuse-run.outputs.run_id }}
     steps:
@@ -48,11 +49,13 @@ jobs:
 
       - name: Find same-base reusable evidence
         id: reuse-run
+        if: steps.plan.outputs.execution_mode != 'lightweight-direct'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/verification-ci.mjs find-reusable-run --output artifacts/verification/reusable-run.json --github-output $env:GITHUB_OUTPUT
 
       - name: Upload reusable evidence candidate
+        if: steps.plan.outputs.execution_mode != 'lightweight-direct'
         uses: actions/upload-artifact@v6
         with:
           name: verification-reusable-run
@@ -62,6 +65,7 @@ jobs:
   verification-evidence-reuse:
     name: verification evidence reuse
     needs: verification-plan
+    if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
     runs-on: windows-latest
     timeout-minutes: 5
     outputs:
@@ -123,6 +127,7 @@ jobs:
   verification-shards:
     name: verification shard (${{ matrix.shard.id }})
     needs: [verification-plan, verification-evidence-reuse]
+    if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
     runs-on: windows-latest
     timeout-minutes: 60
     strategy:
@@ -254,6 +259,12 @@ jobs:
         with:
           node-version: 22.20.0
 
+      - uses: astral-sh/setup-uv@v6
+        if: needs.verification-plan.outputs.execution_mode == 'lightweight-direct'
+        with:
+          version: 0.9.15
+          enable-cache: false
+
       - name: Download immutable verification plan
         uses: actions/download-artifact@v7
         with:
@@ -262,6 +273,7 @@ jobs:
         continue-on-error: true
 
       - name: Download verification shard reports
+        if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
         uses: actions/download-artifact@v7
         with:
           pattern: verification-shard-*
@@ -270,6 +282,7 @@ jobs:
         continue-on-error: true
 
       - name: Download reusable shard reports
+        if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
         uses: actions/download-artifact@v7
         with:
           name: verification-evidence-reuse
@@ -277,6 +290,7 @@ jobs:
         continue-on-error: true
 
       - name: Include reusable shard reports
+        if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
         shell: pwsh
         run: |
           $source = "artifacts/verification/reuse/reused-shards"
@@ -284,7 +298,80 @@ jobs:
             Copy-Item "$source/*" "artifacts/verification/shards" -Force
           }
 
+      - name: Run lightweight direct verification
+        id: lightweight-direct
+        if: needs.verification-plan.outputs.execution_mode == 'lightweight-direct'
+        env:
+          PLAYWRIGHT_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-contract-build
+          PLAYWRIGHT_CI_DIAGNOSTICS: "1"
+        run: node scripts/verification-ci.mjs run-shard --plan artifacts/verification/ci-plan.json --shard contract-build --output artifacts/verification/shards/contract-build.json
+
+      - name: Upload lightweight direct diagnostics
+        id: upload-lightweight-diagnostics
+        if: always() && needs.verification-plan.outputs.execution_mode == 'lightweight-direct' && (failure() || cancelled())
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-shard-diagnostics-contract-build
+          path: artifacts/verification/diagnostics/contract-build
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Record lightweight diagnostics artifact upload outcome
+        if: always() && needs.verification-plan.outputs.execution_mode == 'lightweight-direct'
+        shell: pwsh
+        env:
+          DIAGNOSTICS_UPLOAD_OUTCOME: ${{ steps.upload-lightweight-diagnostics.outcome }}
+        run: |
+          $reportPath = "artifacts/verification/shards/contract-build.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            $outcome = if ($env:DIAGNOSTICS_UPLOAD_OUTCOME) { $env:DIAGNOSTICS_UPLOAD_OUTCOME } else { "skipped" }
+            $report.diagnostics | Add-Member -NotePropertyName upload -NotePropertyValue ([ordered]@{
+              required = $report.status -ne "passed"
+              attempted = $outcome -ne "skipped"
+              outcome = $outcome
+            }) -Force
+            [IO.File]::WriteAllText(
+              (Resolve-Path $reportPath),
+              (($report | ConvertTo-Json -Depth 100) + "`n"),
+              [Text.UTF8Encoding]::new($false)
+            )
+          }
+
+      - name: Publish lightweight direct diagnostics summary
+        if: always() && needs.verification-plan.outputs.execution_mode == 'lightweight-direct' && (failure() || cancelled())
+        shell: pwsh
+        run: |
+          $reportPath = "artifacts/verification/shards/contract-build.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            @(
+              "## $($report.shardId) diagnostics"
+              ""
+              "- tested merge SHA: ``$($report.testedCommit)``"
+              "- PR head SHA: ``$($report.diagnostics.identity.pullRequestHeadSha)``"
+              "- run/shard: $($report.diagnostics.identity.github.runId) / $($report.diagnostics.identity.github.runAttempt) / $($report.shardId)"
+            ) | Add-Content $env:GITHUB_STEP_SUMMARY
+            foreach ($gate in @($report.diagnostics.failedGates)) {
+              @("", "### failed gate: $($gate.id)", "", '```text', $gate.failureExcerpt, '```') |
+                Add-Content $env:GITHUB_STEP_SUMMARY
+            }
+          } else {
+            "## contract-build diagnostics`n`nShard report was not written; inspect the uploaded runner diagnostics." |
+              Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload lightweight verification shard report
+        if: always() && needs.verification-plan.outputs.execution_mode == 'lightweight-direct'
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-shard-contract-build
+          path: artifacts/verification/shards/contract-build.json
+          if-no-files-found: error
+
       - name: Aggregate direct PR verification
+        if: always()
         run: node scripts/verification-ci.mjs aggregate --plan artifacts/verification/ci-plan.json --shards artifacts/verification/shards --output artifacts/verification/latest-pr.json --acceptance-output artifacts/main-acceptance/latest.json
 
       - name: Upload direct verification report
@@ -305,8 +392,8 @@ jobs:
 
   verification-follow-up:
     name: verification follow-up
-    needs: direct-verification
-    if: always()
+    needs: [verification-plan, direct-verification]
+    if: always() && needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

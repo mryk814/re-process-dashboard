@@ -30,6 +30,7 @@ import {
   aggregateVerificationShards,
   buildParallelAcceptanceReport,
   boundDiagnosticLog,
+  ciExecutionMode,
   ciPlanSchemaVersion,
   createCiPlan,
   diagnosticIdentity,
@@ -1398,8 +1399,71 @@ test("CI plan validation binds commit, catalog, and plan contents", () => {
         index === 0 ? { ...shard, gateIds: [] } : shard
       )),
     }),
-    /digest does not match/,
+    /execution mode does not match|digest does not match/,
   );
+});
+
+test("CI uses the lightweight direct path only for the exact PR verification-tooling contract", () => {
+  const lightweight = ciPlanFor(["scripts/verification-ci.mjs"]);
+  assert.equal(lightweight.executionMode, "lightweight-direct");
+  assert.equal(ciExecutionMode(lightweight), "lightweight-direct");
+  assert.deepEqual(lightweight.originalPlan.riskCategories, ["verification-tooling"]);
+  assert.deepEqual(lightweight.executionGateIds, [
+    "working-tree-diff",
+    "branch-diff",
+    "verification-policy-tests",
+  ]);
+  assert.deepEqual(lightweight.shards, [{
+    id: "contract-build",
+    gateIds: [
+      "working-tree-diff",
+      "branch-diff",
+      "verification-policy-tests",
+    ],
+  }]);
+  validateCiPlan(lightweight, { catalog });
+
+  const mixed = ciPlanFor([
+    "scripts/verification-ci.mjs",
+    "apps/web/src/features/workbench/Panel.tsx",
+  ]);
+  assert.equal(mixed.executionMode, "sharded");
+
+  const checkpointPlan = planFor(
+    ["scripts/verification-ci.mjs"],
+    { ci: true, requestedLevel: "checkpoint" },
+  );
+  const checkpoint = createCiPlan({
+    plan: {
+      ...checkpointPlan,
+      verificationCatalogSha256: "catalog-sha",
+    },
+    catalog,
+  });
+  assert.equal(checkpoint.executionMode, "sharded");
+
+  assert.throws(
+    () => validateCiPlan({ ...lightweight, executionMode: "sharded" }, { catalog }),
+    /execution mode does not match/,
+  );
+
+  const [failedReport] = passedShardReports(lightweight);
+  failedReport.status = "failed";
+  failedReport.gates[0] = {
+    ...failedReport.gates[0],
+    status: "failed",
+    exitCode: 1,
+    error: "synthetic lightweight failure",
+  };
+  failedReport.diagnostics = { upload: { outcome: "success" } };
+  const failedAggregation = aggregateVerificationShards({
+    ciPlan: lightweight,
+    shardReports: [failedReport],
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(failedAggregation.outcome, "failed");
 });
 
 test("verification workflow shards execution and preserves required check compatibility", () => {
@@ -1416,6 +1480,23 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /node scripts\/verification-ci\.mjs aggregate/);
   assert.match(workflow, /verification-evidence-reuse:/);
   assert.match(workflow, /needs: \[verification-plan, verification-evidence-reuse, verification-shards\]/);
+  assert.match(
+    workflow,
+    /direct-verification:[\s\S]+needs: \[verification-plan, verification-evidence-reuse, verification-shards\][\s\S]+if: always\(\)/,
+  );
+  assert.match(
+    workflow,
+    /direct-verification:[\s\S]+actions\/setup-node@v7\.0\.0[\s\S]+astral-sh\/setup-uv@v6[\s\S]+execution_mode == 'lightweight-direct'/,
+  );
+  assert.match(workflow, /execution_mode: \$\{\{ steps\.plan\.outputs\.execution_mode \}\}/);
+  assert.match(
+    workflow,
+    /verification-evidence-reuse:[\s\S]+if: needs\.verification-plan\.outputs\.execution_mode != 'lightweight-direct'/,
+  );
+  assert.match(
+    workflow,
+    /verification-shards:[\s\S]+if: needs\.verification-plan\.outputs\.execution_mode != 'lightweight-direct'/,
+  );
   assert.match(workflow, /find-reusable-run/);
   assert.match(workflow, /verification-evidence-reuse/);
   assert.match(workflow, /name: direct-verification-report/);
@@ -1430,6 +1511,32 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /PLAYWRIGHT_CI_DIAGNOSTICS: "1"/);
   assert.match(workflow, /artifacts\/verification\/diagnostics\/\$\{\{ matrix\.shard\.id \}\}/);
   assert.match(workflow, /artifacts\/playwright\/\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /name: Run lightweight direct verification/);
+  assert.match(workflow, /--shard contract-build --output artifacts\/verification\/shards\/contract-build\.json/);
+  assert.match(workflow, /name: Upload lightweight direct diagnostics/);
+  assert.match(
+    workflow,
+    /name: Upload lightweight direct diagnostics[\s\S]+if: always\(\)[^\n]+\(failure\(\) \|\| cancelled\(\)\)/,
+  );
+  assert.match(workflow, /name: Upload lightweight verification shard report/);
+  assert.ok(
+    workflow.indexOf("name: Record lightweight diagnostics artifact upload outcome")
+      > workflow.indexOf("name: Upload lightweight direct diagnostics"),
+    "lightweight diagnostics upload outcome must be written after the upload",
+  );
+  assert.ok(
+    workflow.indexOf("name: Aggregate direct PR verification")
+      > workflow.indexOf("name: Record lightweight diagnostics artifact upload outcome"),
+    "direct aggregation must read the finalized lightweight shard report",
+  );
+  assert.match(
+    workflow,
+    /name: Aggregate direct PR verification[\s\S]+if: always\(\)/,
+  );
+  assert.match(
+    workflow,
+    /verification-follow-up:[\s\S]+needs: \[verification-plan, direct-verification\][\s\S]+execution_mode != 'lightweight-direct'/,
+  );
   assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/main-acceptance\/latest\.json/);
   assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
