@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ApiDataLibraryDataset,
   type ApiModelPackageRef,
@@ -77,6 +77,7 @@ export function ResourceCatalogView({
   const [copiedGuide, setCopiedGuide] = useState(false);
   const [samplesOpen, setSamplesOpen] = useState(false);
   const [datasetStateFilter, setDatasetStateFilter] = useState("available");
+  const focusedPackageIntentRef = useRef<string | undefined>(undefined);
   const taskLabel = useTaskLabels();
   const allResourcesUnavailable = dataLibraryResourceFamilies.every((family) => {
     const state = resourceStates[family];
@@ -145,6 +146,9 @@ export function ResourceCatalogView({
   const selectedDatasetPackages = selectedDataset
     ? modelPackages.filter((item) => trainingDataset(item, datasets)?.dataset_revision.id === selectedDataset.dataset_revision.id)
     : [];
+  const requestedPackageIsSelected = Boolean(
+    requestedPackage && selectedDatasetPackages.some((item) => item.id === requestedPackage.id),
+  );
   const datasetsLoaded = resourceStates.datasets.phase === "ready" || Boolean(resourceStates.datasets.loadedAt);
   const modelPackagesLoaded = resourceStates.modelPackages.phase === "ready" || Boolean(resourceStates.modelPackages.loadedAt);
   const modelLibraryFocusErrors = [
@@ -185,15 +189,34 @@ export function ResourceCatalogView({
     if (requested) setSelectedDatasetId(requested.dataset_revision.id);
   }, [datasets, location.datasetRevisionId]);
   useEffect(() => {
-    if (!location.packageReferenceId) return;
-    window.requestAnimationFrame(() => {
+    const focusIdentity = location.packageReferenceId
+      ? `${location.datasetRevisionId ?? ""}:${location.packageReferenceId}`
+      : undefined;
+    if (!focusIdentity) {
+      focusedPackageIntentRef.current = undefined;
+      return;
+    }
+    if (
+      focusedPackageIntentRef.current === focusIdentity
+      || !requestedPackage
+      || !requestedPackageIsSelected
+    ) return;
+    const frame = window.requestAnimationFrame(() => {
       const target = document.querySelector<HTMLElement>(
-        `[data-model-package-ref="${CSS.escape(location.packageReferenceId!)}"]`,
+        `[data-model-package-ref="${CSS.escape(requestedPackage.id)}"]`,
       );
-      target?.scrollIntoView({ block: "nearest" });
-      target?.focus({ preventScroll: true });
+      if (!target) return;
+      focusedPackageIntentRef.current = focusIdentity;
+      target.scrollIntoView({ block: "nearest" });
+      target.focus({ preventScroll: true });
     });
-  }, [location.packageReferenceId, selectedDataset?.dataset_revision.id]);
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    location.datasetRevisionId,
+    location.packageReferenceId,
+    requestedPackage?.id,
+    requestedPackageIsSelected,
+  ]);
   const clearModelLibraryFocus = () => onNavigate({
     ...location,
     datasetRevisionId: undefined,
