@@ -176,8 +176,19 @@ test("source refresh stays separate from approval, training and activation", asy
   expect(optionsUnapproved.datasets).toEqual(optionsBefore.datasets);
   expect(optionsUnapproved.model_packages).toEqual(optionsBefore.model_packages);
 
+  const initialApprovalResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && /^\/api\/data-lifecycle\/curation-runs\/[^/]+\/approve$/.test(
+      new URL(response.url()).pathname,
+    )
+  ));
   await overrideApproval.click();
-  await expect(section.getByRole("button", { name: "学習用スナップショットを作成" })).toBeVisible();
+  expect((await initialApprovalResponse).status()).toBe(201);
+  const initialCreateTrainingSnapshot = section.getByRole(
+    "button",
+    { name: "学習用スナップショットを作成" },
+  );
+  await expect(initialCreateTrainingSnapshot).toBeEnabled();
   await expect(section.getByLabel("分割group field")).toHaveAttribute("placeholder", "id");
   await expect(section.getByLabel("fold数")).toHaveValue("2");
   await expect(section).toContainText("再学習・有効化は行っていません");
@@ -190,7 +201,7 @@ test("source refresh stays separate from approval, training and activation", asy
   expect(approvedRevision.override_count).toBe(1);
   expect(approvedRevision.approved_row_count).toBe(3);
 
-  await section.getByRole("button", { name: "学習用スナップショットを作成" }).click();
+  await initialCreateTrainingSnapshot.click();
   await expect(section.getByText("学習用スナップショット作成済み")).toBeVisible();
   await expect(section).toContainText("2行");
   await expect(section).toContainText("再学習・モデル検証・有効化は別の操作です");
