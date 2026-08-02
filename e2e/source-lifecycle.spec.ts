@@ -387,7 +387,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.unrouteAll({ behavior: "wait" });
 });
 
-test("late initial catalog cannot replace the selected connector", async ({ page, request }) => {
+test("late catalog refresh cannot replace the selected connector", async ({ page, request }) => {
   const createConnector = async (name: string) => {
     const response = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
       data: {
@@ -410,57 +410,57 @@ test("late initial catalog cannot replace the selected connector", async ({ page
   };
   const slow = await createConnector(`遅い接続先-${Date.now()}`);
   const selected = await createConnector(`選択接続先-${Date.now()}`);
-  let releaseFirstCatalog = () => {};
-  const firstCatalogGate = new Promise<void>((resolve) => {
-    releaseFirstCatalog = resolve;
+  let releaseCatalogRefresh = () => {};
+  const catalogRefreshGate = new Promise<void>((resolve) => {
+    releaseCatalogRefresh = resolve;
   });
-  let markFirstCatalogStarted = () => {};
-  const firstCatalogStarted = new Promise<void>((resolve) => {
-    markFirstCatalogStarted = resolve;
+  let markCatalogRefreshStarted = () => {};
+  const catalogRefreshStarted = new Promise<void>((resolve) => {
+    markCatalogRefreshStarted = resolve;
   });
-  let firstCatalogWasStarted = false;
-  let markFirstCatalogSettled = () => {};
-  const firstCatalogSettled = new Promise<void>((resolve) => {
-    markFirstCatalogSettled = resolve;
+  let catalogRefreshWasStarted = false;
+  let markCatalogRefreshSettled = () => {};
+  const catalogRefreshSettled = new Promise<void>((resolve) => {
+    markCatalogRefreshSettled = resolve;
   });
-  let catalogRequestCount = 0;
-  await page.route("**/api/data-lifecycle", async (route) => {
-    catalogRequestCount += 1;
-    if (catalogRequestCount !== 1) {
-      await route.continue();
-      return;
-    }
-    const response = await route.fetch();
-    firstCatalogWasStarted = true;
-    markFirstCatalogStarted();
-    await firstCatalogGate;
-    try {
-      await route.fulfill({ response });
-    } finally {
-      markFirstCatalogSettled();
-    }
-  });
-
   try {
     await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
-    await firstCatalogStarted;
     const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
+    const slowButton = connectorNav.getByRole("button").filter({ hasText: slow.name });
     const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
+    await expect(slowButton).toHaveClass(/active/);
+    await expect(selectedButton).toBeVisible();
+
+    await page.route("**/api/data-lifecycle", async (route) => {
+      const response = await route.fetch();
+      catalogRefreshWasStarted = true;
+      markCatalogRefreshStarted();
+      await catalogRefreshGate;
+      try {
+        await route.fulfill({ response });
+      } finally {
+        markCatalogRefreshSettled();
+      }
+    });
+    const refreshCatalogButton = page.getByRole("button", { name: "接続先一覧を更新" });
+    await refreshCatalogButton.click();
+    await catalogRefreshStarted;
     await selectedButton.click();
     await expect(selectedButton).toHaveClass(/active/);
     await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
 
-    releaseFirstCatalog();
-    await firstCatalogSettled;
+    releaseCatalogRefresh();
+    await catalogRefreshSettled;
+    await expect(refreshCatalogButton).toBeEnabled();
     const detailHeader = page.locator(".source-lifecycle-detail > header");
     await expect(detailHeader).toContainText(selected.name);
     await expect(selectedButton).toHaveClass(/active/);
     await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
     await expect(detailHeader).not.toContainText(slow.name);
   } finally {
-    releaseFirstCatalog();
-    if (firstCatalogWasStarted) {
-      await firstCatalogSettled;
+    releaseCatalogRefresh();
+    if (catalogRefreshWasStarted) {
+      await catalogRefreshSettled;
     }
     await page.unrouteAll({ behavior: "wait" });
   }
