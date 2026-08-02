@@ -31,7 +31,6 @@ import {
 
 export const ciPlanSchemaVersion = "verification-ci-plan/v1";
 export const shardReportSchemaVersion = "verification-shard/v2";
-const legacyShardReportSchemaVersion = "verification-shard/v1";
 const reuseInvalidatingRisks = new Set([
   "migration-workspace",
   "model-runtime-artifact",
@@ -139,13 +138,26 @@ function changedPathMatchesShard(path, shardId) {
   }
 }
 
-function sourceShardIsGreen(report, sourceCommit, catalogSha256, expectedShard) {
-  if (!report || ![legacyShardReportSchemaVersion, shardReportSchemaVersion].includes(report.schemaVersion)) {
+function sourceShardIsGreen(
+  report,
+  sourceCommit,
+  sourcePlanDigest,
+  catalogSha256,
+  expectedShard,
+) {
+  if (!report || report.schemaVersion !== shardReportSchemaVersion) {
     return false;
   }
   if (report.shardId !== expectedShard.id || report.testedCommit !== sourceCommit) return false;
+  if (!sourcePlanDigest || report.planDigest !== sourcePlanDigest) return false;
   if (report.verificationCatalogSha256 !== catalogSha256 || report.runnerOS !== "windows") return false;
   if (JSON.stringify(report.expectedGateIds) !== JSON.stringify(expectedShard.gateIds)) return false;
+  if (
+    report.evidence?.kind !== "executed"
+    || report.evidence.sourceCommit !== sourceCommit
+  ) {
+    return false;
+  }
   if (report.status !== "passed" || report.cleanIsolatedPlaywright !== true) return false;
   return expectedShard.gateIds.every((gateId) => (
     report.gates?.find((gate) => gate.id === gateId)?.status === "passed"
@@ -154,54 +166,105 @@ function sourceShardIsGreen(report, sourceCommit, catalogSha256, expectedShard) 
 
 export function planShardEvidenceReuse({
   ciPlan,
-  source = null,
-  changedPathsSinceSource = [],
-  sourceIsAncestor = false,
+  sources = [],
   classifyPaths,
 }) {
-  const executeEverything = (reason) => ({
-    reason,
-    reusedShardIds: [],
-    executedShardIds: ciPlan.shards.map((shard) => shard.id),
-  });
-  if (!source || !sourceIsAncestor) return executeEverything("no eligible ancestor source run");
-  const sourceReport = source.directReport;
-  if (source.runStatus !== "completed") {
-    return executeEverything("source workflow run is not completed");
-  }
-  if (!source.testedCommit || !sourceReport.commit_sha || sourceReport.commit_sha !== source.testedCommit) {
-    return executeEverything("source direct report does not identify its tested merge commit");
-  }
-  if (sourceReport.baseRef !== ciPlan.originalPlan.baseRef) {
-    return executeEverything("base SHA changed since the source evidence");
-  }
-  if (sourceReport.verificationCatalogSha256 !== ciPlan.verificationCatalogSha256) {
-    return executeEverything("verification catalog changed since the source evidence");
-  }
-  const changedRisks = classifyPaths(changedPathsSinceSource);
-  if (changedRisks.some((risk) => reuseInvalidatingRisks.has(risk))) {
-    return executeEverything(`reuse is forbidden for ${changedRisks.filter((risk) => reuseInvalidatingRisks.has(risk)).join(", ")}`);
-  }
-  const sourceByShard = new Map((source.shardReports ?? []).map((report) => [report.shardId, report]));
-  const reusedShardIds = [];
-  for (const shard of ciPlan.shards) {
-    const report = sourceByShard.get(shard.id);
-    const changed = changedPathsSinceSource.some((path) => changedPathMatchesShard(path, shard.id));
-    if (!changed && sourceShardIsGreen(report, source.testedCommit, ciPlan.verificationCatalogSha256, shard)) {
-      reusedShardIds.push(shard.id);
+  const selections = [];
+  const rejectedSources = [];
+  for (const source of sources) {
+    const sourceReport = source.directReport;
+    let rejection = null;
+    if (source.runStatus !== "completed") {
+      rejection = "workflow run is not completed";
+    } else if (!source.sourceIsAncestor) {
+      rejection = "source head is not an ancestor of the current head";
+    } else if (
+      !source.testedCommit
+      || !sourceReport?.commit_sha
+      || sourceReport.commit_sha !== source.testedCommit
+    ) {
+      rejection = "direct report does not identify its tested merge commit";
+    } else if (sourceReport.baseRef !== ciPlan.originalPlan.baseRef) {
+      rejection = "base SHA changed since the source evidence";
+    } else if (
+      sourceReport.verificationCatalogSha256
+      !== ciPlan.verificationCatalogSha256
+    ) {
+      rejection = "verification catalog changed since the source evidence";
+    } else {
+      const changedRisks = classifyPaths(source.changedPathsSinceSource ?? []);
+      const invalidatingRisks = changedRisks.filter(
+        (risk) => reuseInvalidatingRisks.has(risk),
+      );
+      if (invalidatingRisks.length > 0) {
+        rejection = `reuse is forbidden for ${invalidatingRisks.join(", ")}`;
+      }
+    }
+    if (rejection) {
+      rejectedSources.push({
+        sourceRunId: String(source.runId),
+        reason: rejection,
+      });
+      continue;
+    }
+
+    for (const shard of ciPlan.shards) {
+      if (selections.some((selection) => selection.shardId === shard.id)) {
+        continue;
+      }
+      const sourceReports = (source.shardReports ?? []).filter(
+        (report) => report.shardId === shard.id,
+      );
+      const report = sourceReports.length === 1 ? sourceReports[0] : null;
+      const changed = (source.changedPathsSinceSource ?? [])
+        .some((path) => changedPathMatchesShard(path, shard.id));
+      if (
+        !changed
+        && sourceShardIsGreen(
+          report,
+          source.testedCommit,
+          sourceReport.ci_aggregation?.planDigest,
+          ciPlan.verificationCatalogSha256,
+          shard,
+        )
+      ) {
+        selections.push({
+          shardId: shard.id,
+          sourceRunId: String(source.runId),
+          sourceRunConclusion: source.runConclusion ?? null,
+          sourceHeadSha: source.headSha,
+          sourceCommit: source.testedCommit,
+          sourceBaseRef: sourceReport.baseRef,
+          sourcePlanDigest: report.planDigest,
+          report,
+        });
+      }
     }
   }
+  const reusedShardIds = ciPlan.shards
+    .map((shard) => shard.id)
+    .filter((id) => selections.some((selection) => selection.shardId === id));
   return {
-    reason: reusedShardIds.length > 0 ? "same-base green source evidence" : "no shard has reusable source evidence",
+    reason: reusedShardIds.length > 0
+      ? "same-base direct green source evidence"
+      : "no shard has reusable direct green source evidence",
     reusedShardIds,
     executedShardIds: ciPlan.shards.map((shard) => shard.id).filter((id) => !reusedShardIds.includes(id)),
+    selections: selections.map(({ report, ...selection }) => selection),
+    selectedReports: Object.fromEntries(
+      selections.map((selection) => [selection.shardId, selection.report]),
+    ),
+    rejectedSources,
   };
 }
 
-export function materializeReusedShardReport({ ciPlan, source, shardId, sourceRunId }) {
-  const shard = ciPlan.shards.find((candidate) => candidate.id === shardId);
-  const sourceReport = source.shardReports.find((candidate) => candidate.shardId === shardId);
-  if (!shard || !sourceReport) throw new Error(`cannot materialize reusable shard: ${shardId}`);
+export function materializeReusedShardReport({ ciPlan, selection, sourceReport }) {
+  const shard = ciPlan.shards.find(
+    (candidate) => candidate.id === selection.shardId,
+  );
+  if (!shard || !sourceReport) {
+    throw new Error(`cannot materialize reusable shard: ${selection.shardId}`);
+  }
   return {
     ...structuredClone(sourceReport),
     schemaVersion: shardReportSchemaVersion,
@@ -210,11 +273,12 @@ export function materializeReusedShardReport({ ciPlan, source, shardId, sourceRu
     expectedGateIds: shard.gateIds,
     evidence: {
       kind: "reused",
-      sourceRunId: String(sourceRunId),
-      sourceRunConclusion: source.runConclusion ?? null,
-      sourceCommit: source.testedCommit,
-      sourceBaseRef: source.directReport.baseRef,
-      sourcePlanDigest: sourceReport.planDigest,
+      sourceRunId: selection.sourceRunId,
+      sourceRunConclusion: selection.sourceRunConclusion,
+      sourceHeadSha: selection.sourceHeadSha,
+      sourceCommit: selection.sourceCommit,
+      sourceBaseRef: selection.sourceBaseRef,
+      sourcePlanDigest: selection.sourcePlanDigest,
     },
   };
 }
@@ -887,8 +951,10 @@ function invalidShardReason({ report, expectedShard, ciPlan }) {
     if (
       !report.evidence.sourceRunId
       || !Object.hasOwn(report.evidence, "sourceRunConclusion")
+      || !report.evidence.sourceHeadSha
       || !report.evidence.sourceCommit
       || !report.evidence.sourceBaseRef
+      || !report.evidence.sourcePlanDigest
     ) {
       return `reused shard ${expectedShard.id} has incomplete source evidence`;
     }
@@ -1098,7 +1164,7 @@ export function aggregateVerificationShards({
       status: report.status ?? "invalid",
       evidence: reused ? "reused" : "executed",
       source: reused
-        ? `run ${report.evidence.sourceRunId} (${report.evidence.sourceRunConclusion ?? "unknown"}) @ ${report.evidence.sourceCommit}`
+        ? `run ${report.evidence.sourceRunId} (${report.evidence.sourceRunConclusion ?? "unknown"}) head ${report.evidence.sourceHeadSha} / tested merge ${report.evidence.sourceCommit}`
         : report.testedCommit,
     };
   });
@@ -1292,20 +1358,49 @@ function appendGitHubOutput(path, ciPlan) {
   );
 }
 
-function loadShardReports(directory) {
+function filesBelow(directory) {
   try {
-    return readdirSync(directory, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map((entry) => JSON.parse(readFileSync(resolve(directory, entry.name), "utf8")));
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const path = resolve(directory, entry.name);
+      return entry.isDirectory() ? filesBelow(path) : [path];
+    });
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;
   }
 }
 
+export function loadShardReports(directory) {
+  try {
+    return readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => JSON.parse(
+        readFileSync(resolve(directory, entry.name), "utf8"),
+      ))
+      .filter((report) => report?.shardId);
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+export function loadNestedShardReports(directory) {
+  return filesBelow(directory)
+    .filter((path) => path.endsWith(".json"))
+    .map((path) => JSON.parse(readFileSync(path, "utf8")))
+    .filter((report) => report?.shardId);
+}
+
 function readJsonIfPresent(path) {
   if (!path || !existsSync(resolve(path))) return null;
   return JSON.parse(readFileSync(resolve(path), "utf8"));
+}
+
+function findJsonByName(directory, name) {
+  const path = filesBelow(directory).find(
+    (candidate) => candidate.split(/[\\/]/).at(-1) === name,
+  );
+  return path ? JSON.parse(readFileSync(path, "utf8")) : null;
 }
 
 function gitDiffPaths(fromCommit, toCommit) {
@@ -1322,7 +1417,12 @@ function isAncestor(ancestor, descendant) {
   return spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant]).status === 0;
 }
 
-export function selectReusableWorkflowRun({ runs, pullRequestNumber, currentHeadSha, isAncestorCommit }) {
+export function selectReusableWorkflowRuns({
+  runs,
+  pullRequestNumber,
+  currentHeadSha,
+  isAncestorCommit,
+}) {
   return runs
     .filter((run) => (
       run.status === "completed"
@@ -1331,7 +1431,7 @@ export function selectReusableWorkflowRun({ runs, pullRequestNumber, currentHead
       && run.pull_requests?.some((pr) => pr.number === pullRequestNumber)
       && isAncestorCommit(run.head_sha, currentHeadSha)
     ))
-    .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ?? null;
+    .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
 }
 
 function pullRequestHeadSha() {
@@ -1340,17 +1440,28 @@ function pullRequestHeadSha() {
   return JSON.parse(readFileSync(eventPath, "utf8")).pull_request?.head?.sha ?? null;
 }
 
-async function findReusableWorkflowRun() {
+async function findReusableWorkflowRuns() {
   const token = process.env.GITHUB_TOKEN;
   const repository = process.env.GITHUB_REPOSITORY;
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!token || !repository || !eventPath || !existsSync(eventPath)) return null;
+  if (!token || !repository || !eventPath || !existsSync(eventPath)) {
+    return {
+      schemaVersion: "verification-reuse-candidates/v1",
+      runs: [],
+    };
+  }
   const event = JSON.parse(readFileSync(eventPath, "utf8"));
   const pullRequestNumber = event.pull_request?.number;
   const currentHeadSha = event.pull_request?.head?.sha;
-  if (!pullRequestNumber || !currentHeadSha) return null;
+  const currentHeadRef = event.pull_request?.head?.ref;
+  if (!pullRequestNumber || !currentHeadSha || !currentHeadRef) {
+    return {
+      schemaVersion: "verification-reuse-candidates/v1",
+      runs: [],
+    };
+  }
   const apiUrl = process.env.GITHUB_API_URL ?? "https://api.github.com";
-  const url = `${apiUrl}/repos/${repository}/actions/workflows/verify.yml/runs?event=pull_request&status=completed&per_page=100`;
+  const url = `${apiUrl}/repos/${repository}/actions/workflows/verify.yml/runs?event=pull_request&status=completed&branch=${encodeURIComponent(currentHeadRef)}&per_page=100`;
   const response = await fetch(url, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -1358,22 +1469,29 @@ async function findReusableWorkflowRun() {
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    return {
+      schemaVersion: "verification-reuse-candidates/v1",
+      runs: [],
+    };
+  }
   const payload = await response.json();
-  const run = selectReusableWorkflowRun({
+  const runs = selectReusableWorkflowRuns({
     runs: payload.workflow_runs ?? [],
     pullRequestNumber,
     currentHeadSha,
     isAncestorCommit: isAncestor,
   });
-  return run
-    ? {
-        runId: String(run.id),
-        headSha: run.head_sha,
-        status: run.status,
-        conclusion: run.conclusion ?? null,
-      }
-    : null;
+  return {
+    schemaVersion: "verification-reuse-candidates/v1",
+    runs: runs.map((run) => ({
+      runId: String(run.id),
+      headSha: run.head_sha,
+      status: run.status,
+      conclusion: run.conclusion ?? null,
+      updatedAt: run.updated_at,
+    })),
+  };
 }
 
 function appendReuseOutput(path, reuse) {
@@ -1416,12 +1534,12 @@ async function main() {
     process.stdout.write(`CI verification plan: ${output}\n`);
     return 0;
   }
-  if (command === "find-reusable-run") {
-    const source = await findReusableWorkflowRun();
-    writeJson(resolve(options.output ?? "artifacts/verification/reusable-run.json"), source);
-    if (options["github-output"]) {
-      appendFileSync(options["github-output"], `run_id=${source?.runId ?? ""}\n`);
-    }
+  if (command === "find-reusable-runs") {
+    const candidates = await findReusableWorkflowRuns();
+    writeJson(
+      resolve(options.output ?? "artifacts/verification/reusable-runs.json"),
+      candidates,
+    );
     return 0;
   }
   if (command === "reuse") {
@@ -1434,52 +1552,68 @@ async function main() {
       currentCatalogSha256: verificationCatalogSha256(),
       catalog,
     });
-    const sourceRun = readJsonIfPresent(options["source-run"]);
-    const directReport = readJsonIfPresent(options["source-report"]);
-    const source = sourceRun && directReport
-      ? {
-          headSha: sourceRun.headSha,
-          testedCommit: directReport.commit_sha,
-          runStatus: sourceRun.status,
-          runConclusion: sourceRun.conclusion,
-          directReport,
-          shardReports: loadShardReports(resolve(options["source-shards"] ?? "artifacts/verification/prior-shards")),
-        }
-      : null;
+    const candidateManifest = readJsonIfPresent(options["source-runs"]) ?? {
+      schemaVersion: "verification-reuse-candidates/v1",
+      runs: [],
+    };
+    if (
+      candidateManifest.schemaVersion !== "verification-reuse-candidates/v1"
+      || !Array.isArray(candidateManifest.runs)
+    ) {
+      throw new Error("reusable run candidate manifest is invalid");
+    }
+    const sourceEvidenceDirectory = resolve(
+      options["source-evidence"]
+      ?? "artifacts/verification/reuse-candidates",
+    );
     const currentHeadSha = pullRequestHeadSha();
-    const changedPathsSinceSource = source && currentHeadSha
-      ? gitDiffPaths(source.headSha, currentHeadSha)
-      : [];
+    const sources = candidateManifest.runs.map((sourceRun) => {
+      const sourceDirectory = resolve(
+        sourceEvidenceDirectory,
+        String(sourceRun.runId),
+      );
+      const directReport = findJsonByName(sourceDirectory, "latest-pr.json");
+      return {
+        runId: String(sourceRun.runId),
+        headSha: sourceRun.headSha,
+        testedCommit: directReport?.commit_sha ?? null,
+        runStatus: sourceRun.status,
+        runConclusion: sourceRun.conclusion,
+        directReport,
+        shardReports: loadNestedShardReports(sourceDirectory),
+        sourceIsAncestor: Boolean(
+          directReport
+          && currentHeadSha
+          && isAncestor(sourceRun.headSha, currentHeadSha),
+        ),
+        changedPathsSinceSource: directReport && currentHeadSha
+          ? gitDiffPaths(sourceRun.headSha, currentHeadSha)
+          : [],
+      };
+    });
     const reuse = planShardEvidenceReuse({
       ciPlan,
-      source,
-      changedPathsSinceSource,
-      sourceIsAncestor: source && currentHeadSha
-        ? isAncestor(source.headSha, currentHeadSha)
-        : false,
+      sources,
       classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
     });
     const reportsDirectory = resolve(dirname(options.output), "reused-shards");
     mkdirSync(reportsDirectory, { recursive: true });
-    if (source) {
-      for (const shardId of reuse.reusedShardIds) {
-        writeJson(
-          resolve(reportsDirectory, `${shardId}.json`),
-          materializeReusedShardReport({
-            ciPlan,
-            source,
-            shardId,
-            sourceRunId: sourceRun.runId,
-          }),
-        );
-      }
+    for (const selection of reuse.selections) {
+      writeJson(
+        resolve(reportsDirectory, `${selection.shardId}.json`),
+        materializeReusedShardReport({
+          ciPlan,
+          selection,
+          sourceReport: reuse.selectedReports[selection.shardId],
+        }),
+      );
     }
+    const { selectedReports, ...serializableReuse } = reuse;
     const output = {
-      schemaVersion: "verification-evidence-reuse/v1",
+      schemaVersion: "verification-evidence-reuse/v2",
       currentCommit: ciPlan.testedCommit,
-      sourceRun: sourceRun ?? null,
-      changedPathsSinceSource,
-      ...reuse,
+      sourceRuns: candidateManifest.runs,
+      ...serializableReuse,
     };
     writeJson(resolve(options.output), output);
     appendReuseOutput(options["github-output"], reuse);

@@ -122,6 +122,9 @@ shard reportは途中証拠であり、単独ではmerge evidenceにしない。
 最終の`direct verification` jobが、commit SHA、verification catalog digest、
 plan digest、期待したshardとgateの一意性を照合し、
 元のverification plan／outcome schemaへ集約したreportだけを正本とする。
+同一PR・同一baseのancestor runを再利用する場合は、shardごとに直近の直接実行green
+raw reportを選ぶ。前runが作ったreused reportを再利用してtrust chainを伸ばさず、
+source run、PR head SHA、tested merge SHAを集約summaryへ残す。
 shard artifactの欠落、重複、別SHA、別catalog、別planはdirect failureとして扱う。
 Level 3をshard実行した場合も、Windows配布物のbytes／SHA-256とisolated
 Playwright状態を集約し、`main-acceptance/v2` reportを残す。
