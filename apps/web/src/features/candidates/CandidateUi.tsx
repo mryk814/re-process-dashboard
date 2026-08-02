@@ -283,6 +283,7 @@ export function CandidateInspector({
   className?: string;
   hidden?: boolean;
 }) {
+  const inputsReadOnly = candidate.raw.provenance?.source_kind === "historical_observation";
   const numeric = new Map(numericTaskInputs(taskDefinition).map((input) => [input.path, input]));
   const groups = orderedInputGroups(taskDefinition);
   const heatGroup = groups.find((group) => group.key === "heat_pattern");
@@ -323,9 +324,12 @@ export function CandidateInspector({
         {saveState === "conflict" && <span className="candidate-conflict-actions"><button type="button" onClick={onReload}>再読込</button><button type="button" onClick={onCopyDraft}>変更をコピー</button></span>}
       </div>
       {unplacedErrors.length > 0 && <div className="candidate-field-errors" role="alert">{unplacedErrors.map((error) => <small className="field-error" key={`${error.path}:${error.message}`}><b>{unplacedErrorLabel(error.path)}:</b> {error.message}</small>)}</div>}
-      {primaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}
-      {heatGroup && (heatGroup.fields.every((field) => field.editable) ? heatPattern : <fieldset className="readonly-heat-pattern" disabled>{heatPattern}</fieldset>)}
-      {auxiliaryGroups.length > 0 && <details className="task-auxiliary-inputs"><summary>その他の入力</summary>{auxiliaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}</details>}
+      {inputsReadOnly && <small className="candidate-historical-input-note">過去の実測recordから作成した候補の入力条件は編集できません</small>}
+      <fieldset className="candidate-input-readonly" disabled={inputsReadOnly}>
+        {primaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}
+        {heatGroup && (heatGroup.fields.every((field) => field.editable) ? heatPattern : <fieldset className="readonly-heat-pattern" disabled>{heatPattern}</fieldset>)}
+        {auxiliaryGroups.length > 0 && <details className="task-auxiliary-inputs"><summary>その他の入力</summary>{auxiliaryGroups.map((group) => <CandidateInputGroup key={group.key} candidate={candidate} group={group} numeric={numeric} inputRanges={inputRanges} fieldErrors={fieldErrors} onInput={onInput} />)}</details>}
+      </fieldset>
       {taskDefinition.fixed_context.length > 0 && <dl className="task-fixed-context">{[...taskDefinition.fixed_context].sort((a, b) => a.order - b.order).map((item) => <div key={item.path}><dt>{item.label}</dt><dd>{String(item.value)}</dd></div>)}</dl>}
     </aside>
   );
@@ -610,6 +614,7 @@ export function ComparisonTable({
   };
   const renderField = (candidate: CandidateViewModel, field: (typeof inputFields)[number]) => {
     const current = getCandidateInputValue(candidate.raw.inputs, field.path);
+    const inputsReadOnly = candidate.raw.provenance?.source_kind === "historical_observation";
     const differsFromReference = Boolean(
       referenceCandidate
       && candidate.id !== referenceCandidate.id
@@ -618,10 +623,10 @@ export function ComparisonTable({
     const differenceTitle = differsFromReference ? `基準「${referenceCandidate?.label}」と異なります` : undefined;
     const cellClass = `composition-col${field.kind === "number" ? " numeric-cell" : ""}${differsFromReference ? " reference-difference-cell" : ""}`;
     const marker = differsFromReference ? <span className="reference-difference-marker" aria-label={differenceTitle} title={differenceTitle}>≠</span> : null;
-    if (field.kind === "categorical") return <td className={cellClass} key={field.path}>{marker}<select disabled={!editingEnabled || !field.editable} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
+    if (field.kind === "categorical") return <td className={cellClass} key={field.path}>{marker}<select disabled={!editingEnabled || !field.editable || inputsReadOnly} aria-label={`${candidate.label} ${field.label}`} value={String(current ?? "")} onFocus={() => onSelect(candidate.id)} onChange={(event) => onInput(candidate.id, field.path, event.target.value)}>{field.choices.map((choice) => <option key={choice}>{choice}</option>)}</select></td>;
     const key = `${candidate.id}:${field.path}`;
     const value = drafts[key] ?? (typeof current === "number" ? formatInputNumber(current, taskDefinition, field.path, displayDecimalOverrides) : "");
-    return <td className={cellClass} key={field.path}>{marker}<input disabled={!editingEnabled || !field.editable} type="number" min={field.allowed_range?.min} max={field.allowed_range?.max} step={inputStep(field)} value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
+    return <td className={cellClass} key={field.path}>{marker}<input disabled={!editingEnabled || !field.editable || inputsReadOnly} type="number" min={field.allowed_range?.min} max={field.allowed_range?.max} step={inputStep(field)} value={value} aria-label={`${candidate.label} ${field.label}`} onFocus={() => { onSelect(candidate.id); setDrafts((items) => ({ ...items, [key]: typeof current === "number" ? String(current) : "" })); }} onChange={(event) => setDrafts((items) => ({ ...items, [key]: event.target.value }))} onBlur={(event) => { const raw = event.target.value; const next = Number(raw); setDrafts((items) => { const { [key]: _, ...rest } = items; return rest; }); if (raw === "" && !field.required) onInput(candidate.id, field.path, undefined); else if (Number.isFinite(next) && next !== current) onInput(candidate.id, field.path, next); }} /></td>;
   };
   const outputTargetKind = (key: string) => candidates
     .map((candidate) => previewsByCandidate[candidate.id]?.predictions[key]?.target_kind)

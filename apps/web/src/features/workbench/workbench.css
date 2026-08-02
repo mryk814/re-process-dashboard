@@ -306,6 +306,19 @@
   align-items: flex-start;
   gap: 2px;
 }
+
+.candidate-input-readonly {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.candidate-historical-input-note,
+.candidate-origin-integrity-error {
+  display: block;
+  color: #8a4a14;
+}
 .candidate-origin-historical-identity small {
   margin-left: 0;
   white-space: normal;

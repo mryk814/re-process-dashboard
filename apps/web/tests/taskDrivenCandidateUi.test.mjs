@@ -279,6 +279,37 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   assert.match(comparison, /title="パラメトリック予測区間（90%） 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
 });
 
+test("historical-observation candidates keep every input surface read-only", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const historical = {
+    ...candidate,
+    raw: {
+      ...candidate.raw,
+      provenance: {
+        source_kind: "historical_observation",
+        source_ref: {
+          observation_id: "OBS-42",
+          parent_key: "batch-42",
+          source_label: "historical.csv",
+          dataset_view_revision_id: "dataset-42",
+          source_sha256: "a".repeat(64),
+          actual_outputs: { TS: 500 },
+        },
+      },
+    },
+  };
+  const inspector = renderInspector({ candidate: historical, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {} });
+  const comparison = renderComparison({ candidates: [historical], selectedId: historical.id, taskDefinition: definition, previewsByCandidate: {}, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(inspector, /過去の実測recordから作成した候補の入力条件は編集できません/);
+  assert.match(inspector, /class="candidate-input-readonly" disabled=""/);
+  assert.match(comparison, /<input disabled="" type="number"/);
+});
+
 test("physically implausible interval is marked on the interval without condemning an in-range point", () => {
   const definition = {
     input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],

@@ -109,6 +109,16 @@ class CandidateService:
             payload,
             project.design_space,
         )
+        if prepared.provenance.source_kind == "historical_observation":
+            candidate = self.store.create_or_get_historical_observation_candidate(
+                prepared,
+                project_id,
+            )
+            if candidate.archived_at is not None:
+                raise CandidateArchivedError(
+                    "この過去の実測recordから作成した候補はarchive済みです。復元してから使ってください"
+                )
+            return candidate
         return self.store.create_candidate(prepared, project_id)
 
     def import_xlsx(self, project_id: str, contents: bytes) -> CandidateImportResponse:

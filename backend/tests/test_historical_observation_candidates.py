@@ -30,6 +30,18 @@ def test_tabular_historical_observation_is_promoted_with_fixed_source_evidence(c
     assert reference["actual_outputs"] == row["actual_outputs"]
     assert candidate["inputs"] == row["inputs"]
 
+    repeated = client.post(
+        f"/api/projects/{project['id']}/historical-observations/{row['observation_id']}/candidate"
+    )
+    assert repeated.status_code == 201, repeated.text
+    assert repeated.json()["candidate"]["id"] == candidate["id"]
+    historical_candidates = [
+        item
+        for item in client.get(f"/api/projects/{project['id']}/candidates").json()
+        if item["provenance"]["source_kind"] == "historical_observation"
+    ]
+    assert [item["id"] for item in historical_candidates] == [candidate["id"]]
+
     restored = client.get(
         f"/api/projects/{project['id']}/candidates/{candidate['id']}/historical-evidence"
     )
@@ -53,3 +65,13 @@ def test_tabular_historical_observation_is_promoted_with_fixed_source_evidence(c
     )
     assert rejected_update.status_code == 409
     assert "入力条件は変更できません" in rejected_update.json()["message"]
+
+    archived = client.delete(
+        f"/api/projects/{project['id']}/candidates/{candidate['id']}?expected_revision={candidate['revision']}"
+    )
+    assert archived.status_code == 204, archived.text
+    archived_repeat = client.post(
+        f"/api/projects/{project['id']}/historical-observations/{row['observation_id']}/candidate"
+    )
+    assert archived_repeat.status_code == 409
+    assert archived_repeat.json()["code"] == "candidate_archived"

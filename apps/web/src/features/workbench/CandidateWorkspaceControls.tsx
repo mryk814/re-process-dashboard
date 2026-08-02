@@ -39,10 +39,12 @@ export function CandidateOrigin({
   const historicalReference = provenance.source_kind === "historical_observation"
     ? provenance.source_ref
     : null;
+  const historicalActualOutputs = historicalReference?.actual_outputs ?? {};
   const referenceOrigin = lineageReference !== null || historicalReference !== null;
   const [measurements, setMeasurements] = useState<OriginMeasurement[] | null>(null);
   const [originEvidence, setOriginEvidence] = useState<ApiCandidateOriginEvidence | null>(null);
   const [, setHistoricalEvidence] = useState<ApiHistoricalObservationEvidence | null>(null);
+  const [historicalIntegrityError, setHistoricalIntegrityError] = useState("");
   const [originEvidenceState, setOriginEvidenceState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   useEffect(() => {
@@ -50,6 +52,7 @@ export function CandidateOrigin({
     setMeasurements(null);
     setOriginEvidence(null);
     setHistoricalEvidence(null);
+    setHistoricalIntegrityError("");
     if (provenance.source_kind === "historical_observation") {
       const controller = new AbortController();
       setOriginEvidenceState("loading");
@@ -70,9 +73,24 @@ export function CandidateOrigin({
           }));
           setOriginEvidenceState("ready");
         })
-        .catch(() => {
+        .catch((cause) => {
           if (!controller.signal.aborted) {
-            setMeasurements([]);
+            setMeasurements(outputs.flatMap((output) => {
+              const value = historicalActualOutputs[output.key];
+              return typeof value === "number" ? [{
+                key: output.key,
+                label: output.label,
+                mean: value,
+                std: 0,
+                count: 1,
+                unit: output.unit,
+              }] : [];
+            }));
+            setHistoricalIntegrityError(
+              cause instanceof Error
+                ? cause.message
+                : "保存済み実測recordのsource identityを再解決できません",
+            );
             setOriginEvidenceState("error");
           }
         });
@@ -121,6 +139,7 @@ export function CandidateOrigin({
                 </b>
               ))
             : <b>—</b>}
+          {historicalIntegrityError && <small className="candidate-origin-integrity-error" role="alert">保存時に固定したactualを表示しています。source identityの再検証に失敗しました: {historicalIntegrityError}</small>}
         </span>
       )}
       {broken ? (
