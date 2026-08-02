@@ -56,6 +56,7 @@ import {
   type WorkbenchSurface,
   type WorkbenchSurfaceKind,
 } from "./workbenchSurfaceRegistry";
+import { candidateInspectorDefaultCollapsed } from "./candidateQuestionFirst";
 
 function missingPolicyLabel(
   policy: string,
@@ -234,7 +235,16 @@ export function WorkbenchPage(props: WorkbenchProps) {
   } = props;
   const [inspectorWidth, setInspectorWidth] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.inspectorWidth, 330), 260, 520));
   const [inspectorDragWidth, setInspectorDragWidth] = useState<number | null>(null);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(() => storedLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, false));
+  const [candidateInspectorCollapsed, setCandidateInspectorCollapsed] = useState(() => storedLayoutBoolean(
+    workbenchLayoutStorage.candidateInspectorCollapsed,
+    candidateInspectorDefaultCollapsed("comparison"),
+  ));
+  const [exploreInspectorCollapsed, setExploreInspectorCollapsed] = useState(() => storedLayoutBoolean(
+    workbenchLayoutStorage.inspectorCollapsed,
+    candidateInspectorDefaultCollapsed("explore"),
+  ));
+  const inspectorCollapsed = mode === "explore" ? exploreInspectorCollapsed : candidateInspectorCollapsed;
+  const setInspectorCollapsed = mode === "explore" ? setExploreInspectorCollapsed : setCandidateInspectorCollapsed;
   const [inspectorMax, setInspectorMax] = useState(520);
   const [curveShare, setCurveShare] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.curveShare, 50), 30, 70));
   const [comparisonHeight, setComparisonHeight] = useState(() => clampLayoutValue(storedLayoutNumber(workbenchLayoutStorage.comparisonHeight, 270), 180, 900));
@@ -281,7 +291,14 @@ export function WorkbenchPage(props: WorkbenchProps) {
     actualMeasurementRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [candidateSection, application?.workbench_surfaces, selected.id]);
   useEffect(() => saveLayoutNumber(workbenchLayoutStorage.inspectorWidth, inspectorWidth), [inspectorWidth]);
-  useEffect(() => saveLayoutBoolean(workbenchLayoutStorage.inspectorCollapsed, inspectorCollapsed), [inspectorCollapsed]);
+  useEffect(() => saveLayoutBoolean(
+    workbenchLayoutStorage.candidateInspectorCollapsed,
+    candidateInspectorCollapsed,
+  ), [candidateInspectorCollapsed]);
+  useEffect(() => saveLayoutBoolean(
+    workbenchLayoutStorage.inspectorCollapsed,
+    exploreInspectorCollapsed,
+  ), [exploreInspectorCollapsed]);
   useEffect(() => {
     const narrow = window.matchMedia("(max-width: 820px)");
     const collapseAtNarrowWidth = () => {
@@ -290,7 +307,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
     collapseAtNarrowWidth();
     narrow.addEventListener("change", collapseAtNarrowWidth);
     return () => narrow.removeEventListener("change", collapseAtNarrowWidth);
-  }, []);
+  }, [mode]);
   useEffect(() => {
     if (inspectorFocusTarget.current === null) return;
     const target = inspectorFocusTarget.current === "expand"
@@ -522,7 +539,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
                   ? "確認する候補"
                   : "探索の基準候補"}{" "}
               <span>
-                {mode === "explore" ? "（選択中の候補から条件を動かす）" : "（セルを直接編集）"}
+                {mode === "explore" ? "（選択中の候補から条件を動かす）" : "（判断と根拠を先に確認）"}
               </span>
             </h2>
           </div>
@@ -565,7 +582,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
             欠損値のばらつきは予測区間へ追加していません
           </span>}
         </aside>}
-        <CandidateOrigin
+        {mode === "explore" && <CandidateOrigin
           projectId={projectId}
           candidate={selected}
           outputs={taskDefinition?.outputs ?? []}
@@ -573,8 +590,8 @@ export function WorkbenchPage(props: WorkbenchProps) {
           displayDecimalOverrides={project?.display_decimals}
           broken={originBroken}
           onOpen={onOpenOrigin}
-        />
-        {(selected.raw.blend || application?.sparse_blend) && <BlendEditorPanel
+        />}
+        {mode === "explore" && (selected.raw.blend || application?.sparse_blend) && <BlendEditorPanel
           projectId={projectId}
           candidate={selected}
           transformId={application?.sparse_blend_transform_id ?? undefined}
@@ -608,6 +625,7 @@ export function WorkbenchPage(props: WorkbenchProps) {
           loadingRemainingPreviews={loadingRemainingPreviews}
           onLoadRemainingPreviews={onLoadRemainingPreviews}
           context={mode === "explore" ? "explore" : "comparison"}
+          editingEnabled={mode === "explore" || !inspectorCollapsed}
         />}
         {taskDefinition && <SplitResizer
           className="comparison-height-resizer"
@@ -620,6 +638,15 @@ export function WorkbenchPage(props: WorkbenchProps) {
           onChange={setActiveComparisonHeight}
           onDrag={(startValue, deltaY) => startValue + deltaY}
           onReset={() => setActiveComparisonHeight(mode === "comparison" ? 270 : 210)}
+        />}
+        {mode !== "explore" && <CandidateOrigin
+          projectId={projectId}
+          candidate={selected}
+          outputs={taskDefinition?.outputs ?? []}
+          taskDefinition={taskDefinition}
+          displayDecimalOverrides={project?.display_decimals}
+          broken={originBroken}
+          onOpen={onOpenOrigin}
         />}
         {mode === "explore" && children}
         {mode === "review" && taskDefinition && <DecisionActivityPanel
@@ -708,6 +735,13 @@ export function WorkbenchPage(props: WorkbenchProps) {
         {mode === "comparison" && afterAnalysisSurfaces.map((surface) => <div key={surface.kind} data-workbench-surface={surface.kind}>
           {renderSurface(surface)}
         </div>)}
+        {mode !== "explore" && (selected.raw.blend || application?.sparse_blend) && <BlendEditorPanel
+          projectId={projectId}
+          candidate={selected}
+          transformId={application?.sparse_blend_transform_id ?? undefined}
+          onBlend={onBlend}
+          onLocks={onBlendLocks}
+        />}
       </section>
     </div>
   );
