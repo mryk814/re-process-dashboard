@@ -143,6 +143,7 @@ test("source refresh stays separate from approval, training and activation", asy
     await curationPanel.locator("summary").click();
   }
   await curationPanel.getByLabel("品質判定レシピ").selectOption({ label: "E2E JSON品質判定 v1" });
+  await curationPanel.getByLabel("データセットプロファイル").selectOption(profile.id);
   await section.getByRole("button", { name: "品質判定を実行" }).click();
   await expect(section.locator(".source-quality-summary")).toContainText("隔離");
   await expect(section.locator(".source-quality-summary")).toContainText("CHECK-02");
