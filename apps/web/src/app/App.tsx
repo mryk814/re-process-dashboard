@@ -730,11 +730,14 @@ function App() {
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
-        {tab === "chain-studio" && <ChainStudioPage onProjectCreated={(project) => {
-          void session.loadCreatedProject(project).then((loaded) => {
-            if (loaded) navigate({ view: "project", projectId: project.id });
-          });
-        }} />}
+        {tab === "chain-studio" && <ChainStudioPage
+          registerNavigationGuard={registerNavigationGuard}
+          onProjectCreated={(project) => {
+            void session.loadCreatedProject(project).then((loaded) => {
+              if (loaded) navigate({ view: "project", projectId: project.id });
+            });
+          }}
+        />}
         {unavailableScopedTab && (
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}

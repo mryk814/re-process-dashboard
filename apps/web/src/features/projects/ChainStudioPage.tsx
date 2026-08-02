@@ -35,6 +35,7 @@ import {
 
 type Props = {
   onProjectCreated: (project: ApiProject) => void;
+  registerNavigationGuard: (guard: () => Promise<boolean>) => () => void;
 };
 
 function portLabel(port: GraphPort) {
@@ -73,7 +74,7 @@ function selectionKey(selection: DraftSelection | undefined) {
   return `${selection.kind}:${selection.id}`;
 }
 
-export function ChainStudioPage({ onProjectCreated }: Props) {
+export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: Props) {
   const [catalog, setCatalog] = useState<ApiPredictionGraphCatalog>();
   const [definition, setDefinition] = useState<ApiPredictionGraphDefinition>();
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
   const candidatePaths = useRef(new Map<string, string>());
   const mounted = useRef(true);
   const requestGeneration = useRef(0);
+  const submissionPending = useRef(false);
   // Draft lifetime stays screen-local in this PR. Cross-screen persistence is tracked by #716.
 
   useEffect(() => {
@@ -119,6 +121,10 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
       controller.abort();
     };
   }, []);
+
+  useEffect(() => registerNavigationGuard(
+    async () => !submissionPending.current,
+  ), [registerNavigationGuard]);
 
   useEffect(() => {
     for (const input of definition?.inputs ?? []) {
@@ -257,6 +263,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
     if (!definition) return undefined;
     const generation = ++requestGeneration.current;
     const isCurrent = () => mounted.current && requestGeneration.current === generation;
+    submissionPending.current = true;
     setSubmitting("validate");
     setActionError(undefined);
     try {
@@ -270,7 +277,10 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
       setActionError(reason instanceof Error ? reason.message : "Prediction Graphを検証できませんでした。");
       return undefined;
     } finally {
-      if (isCurrent()) setSubmitting(null);
+      if (isCurrent()) {
+        submissionPending.current = false;
+        setSubmitting(null);
+      }
     }
   }
 
@@ -278,6 +288,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
     if (!definition) return;
     const generation = ++requestGeneration.current;
     const isCurrent = () => mounted.current && requestGeneration.current === generation;
+    submissionPending.current = true;
     setSubmitting("publish");
     setActionError(undefined);
     try {
@@ -315,12 +326,17 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
         project_binding_values: {},
       });
       if (!isCurrent()) return;
+      submissionPending.current = false;
+      setSubmitting(null);
       onProjectCreated(project);
     } catch (reason) {
       if (!isCurrent()) return;
       setActionError(reason instanceof Error ? reason.message : "Revisionの公開またはProject作成に失敗しました。");
     } finally {
-      if (isCurrent()) setSubmitting(null);
+      if (isCurrent()) {
+        submissionPending.current = false;
+        setSubmitting(null);
+      }
     }
   }
 
