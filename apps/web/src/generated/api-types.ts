@@ -7954,6 +7954,8 @@ export interface components {
              */
             asset_type: "package";
             data_references: components["schemas"]["ModelLibraryDataReference"];
+            feature_pipeline?: components["schemas"]["ModelLibraryVersionedIdentity"] | null;
+            feature_recipe?: components["schemas"]["ModelLibraryVersionedIdentity"] | null;
             /**
              * Graph Revision Ids
              * @default []
@@ -7963,6 +7965,11 @@ export interface components {
             manifest_digest: string;
             /** Package Id */
             package_id: string;
+            /**
+             * Predictor Families
+             * @default []
+             */
+            predictor_families: components["schemas"]["ModelLibraryPredictorFamily"][];
             /**
              * Predictor Targets
              * @default []
@@ -7995,6 +8002,11 @@ export interface components {
             task_contract_digest: string;
             /** Task Id */
             task_id: string;
+            /**
+             * Validation Plans
+             * @default []
+             */
+            validation_plans: components["schemas"]["ModelLibraryValidationPlanIdentity"][];
             /** Version */
             version: string;
         };
@@ -8017,6 +8029,19 @@ export interface components {
             unit?: string | null;
             /** Value Kind */
             value_kind: string;
+        };
+        /** ModelLibraryPredictorFamily */
+        ModelLibraryPredictorFamily: {
+            /** Architecture Id */
+            architecture_id?: string | null;
+            /** Predictive Family */
+            predictive_family: string;
+            /** Predictor Id */
+            predictor_id: string;
+            /** Runtime Type */
+            runtime_type: string;
+            /** Target */
+            target: string;
         };
         /** ModelLibraryProjectReference */
         ModelLibraryProjectReference: {
@@ -8090,6 +8115,31 @@ export interface components {
             surface?: components["schemas"]["StageContractSurface"] | null;
             /** Transform Id */
             transform_id: string;
+        };
+        /** ModelLibraryValidationPlanIdentity */
+        ModelLibraryValidationPlanIdentity: {
+            /** Digest */
+            digest: string;
+            /**
+             * Identity Source
+             * @enum {string}
+             */
+            identity_source: "validation_plan" | "quality_report_split";
+            /** Schema Version */
+            schema_version: string;
+            /** Strategy */
+            strategy: string;
+            /** Target */
+            target: string;
+        };
+        /** ModelLibraryVersionedIdentity */
+        ModelLibraryVersionedIdentity: {
+            /** Digest */
+            digest?: string | null;
+            /** Identity Id */
+            identity_id: string;
+            /** Version */
+            version: string;
         };
         /** ModelMetadata */
         ModelMetadata: {

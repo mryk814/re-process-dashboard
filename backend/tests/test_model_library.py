@@ -19,6 +19,9 @@ from decision_workbench.contracts.chain_contracts import (
     StageContractSurface,
     build_prediction_graph_revision,
 )
+from decision_workbench.contracts.data_library_contracts import (
+    ModelPackageRefCreateInput,
+)
 
 
 def _runtime_context(client: TestClient):
@@ -59,6 +62,25 @@ def test_model_library_lists_four_asset_families_without_local_locators(
     assert '"locator"' not in encoded
     assert '"manifest_json"' not in encoded
     assert "c:\\\\" not in encoded
+    predictive_packages = [
+        item for item in payload["packages"] if item["predictor_families"]
+    ]
+    assert predictive_packages
+    assert all(item["feature_pipeline"] for item in predictive_packages)
+    assert all(
+        {
+            "predictor_id",
+            "target",
+            "runtime_type",
+            "predictive_family",
+            "architecture_id",
+        }
+        == set(family)
+        for item in predictive_packages
+        for family in item["predictor_families"]
+    )
+    assert all("feature_recipe" in item for item in predictive_packages)
+    assert any(item["validation_plans"] for item in predictive_packages)
     after = (
         len(store.list_projects(include_archived=True)),
         len(store.list_chain_definitions()),
@@ -145,6 +167,27 @@ def _publish_status_fixture(client: TestClient) -> str:
         task_lock = candidate_lock
         break
     assert task_id and task_surface is not None and task_lock is not None
+    active_package = next(
+        package
+        for package in catalog.list_model_package_refs(
+            include_archived=True
+        )
+        if package.task_id == task_id
+        and package.task_contract_digest == task_lock.contract_digest
+        and package.manifest_digest.removeprefix("sha256:")
+        == task_lock.package_manifest_digest.removeprefix("sha256:")
+    )
+    historical_digest = "sha256:" + "f" * 64
+    catalog.upsert_model_package_ref(
+        ModelPackageRefCreateInput(
+            package_id=active_package.package_id,
+            task_id=active_package.task_id,
+            task_contract_digest=active_package.task_contract_digest,
+            manifest_digest=historical_digest,
+            locator=active_package.locator,
+            manifest_json=active_package.manifest_json,
+        )
+    )
     optional_surface = StageContractSurface(
         stage_kind="deterministic_transform",
         contract_id="missing-optional-transform",
@@ -280,7 +323,7 @@ def _publish_status_fixture(client: TestClient) -> str:
         contracts=contracts,
         stage_locks={
             "required-task": task_lock.model_copy(
-                update={"package_manifest_digest": "sha256:" + "f" * 64}
+                update={"package_manifest_digest": historical_digest}
             ),
             "optional-transform": optional_lock,
         },
@@ -311,6 +354,22 @@ def test_model_library_distinguishes_degraded_superseded_and_unavailable(
     assert revisions[0]["state"]["lifecycle"] == "superseded"
     assert revisions[1]["state"]["availability"] == "unavailable"
     assert revisions[1]["state"]["lifecycle"] == "current"
+    required_stage = next(
+        stage
+        for stage in revisions[1]["stages"]
+        if stage["stage_id"] == "required-task"
+    )
+    assert "active" in required_stage["reason"]
+    transform = next(
+        item
+        for item in payload["transforms"]
+        if item["transform_id"] == "missing-optional-transform"
+    )
+    assert transform["state"]["availability"] == "unavailable"
+    assert transform["graph_revision_ids"] == [
+        f"{graph_id}:r1",
+        f"{graph_id}:r2",
+    ]
     assert graph["latest_revision_id"] == f"{graph_id}:r2"
     assert graph["state"] == revisions[1]["state"]
     for revision in revisions:

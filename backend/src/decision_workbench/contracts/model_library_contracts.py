@@ -85,6 +85,28 @@ class ModelLibraryTaskAsset(ModelLibraryContract):
     graph_authoring_ready: bool
 
 
+class ModelLibraryPredictorFamily(ModelLibraryContract):
+    predictor_id: Annotated[str, Field(min_length=1)]
+    target: Annotated[str, Field(min_length=1)]
+    runtime_type: Annotated[str, Field(min_length=1)]
+    predictive_family: Annotated[str, Field(min_length=1)]
+    architecture_id: str | None = None
+
+
+class ModelLibraryVersionedIdentity(ModelLibraryContract):
+    identity_id: Annotated[str, Field(min_length=1)]
+    version: Annotated[str, Field(min_length=1)]
+    digest: str | None = None
+
+
+class ModelLibraryValidationPlanIdentity(ModelLibraryContract):
+    target: Annotated[str, Field(min_length=1)]
+    schema_version: Annotated[str, Field(min_length=1)]
+    strategy: Annotated[str, Field(min_length=1)]
+    digest: Annotated[str, Field(min_length=1)]
+    identity_source: Literal["validation_plan", "quality_report_split"]
+
+
 class ModelLibraryPackageAsset(ModelLibraryContract):
     asset_type: Literal["package"] = "package"
     reference_id: Annotated[str, Field(min_length=1)]
@@ -97,6 +119,10 @@ class ModelLibraryPackageAsset(ModelLibraryContract):
     state: ModelAssetState
     runtime_types: tuple[str, ...] = ()
     predictor_targets: tuple[str, ...] = ()
+    predictor_families: tuple[ModelLibraryPredictorFamily, ...] = ()
+    feature_pipeline: ModelLibraryVersionedIdentity | None = None
+    feature_recipe: ModelLibraryVersionedIdentity | None = None
+    validation_plans: tuple[ModelLibraryValidationPlanIdentity, ...] = ()
     quality_summary_available: bool = False
     data_references: ModelLibraryDataReference
     graph_revision_ids: tuple[str, ...] = ()
