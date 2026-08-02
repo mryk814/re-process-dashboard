@@ -41,9 +41,9 @@ test("screening keeps the first result surface compact and offers an explicit ex
 
 test("screening separates map, proposals, and evaluated evidence surfaces", () => {
   assert.match(screeningSource, /<ScreeningResultSurfaceTabs/);
-  assert.match(screeningSource, /resultSurface === "map"/);
-  assert.match(screeningSource, /resultSurface === "proposals"/);
-  assert.match(screeningSource, /resultSurface === "evaluated"/);
+  assert.match(screeningSource, /displayedResultSurface === "map"/);
+  assert.match(screeningSource, /displayedResultSurface === "proposals"/);
+  assert.match(screeningSource, /displayedResultSurface === "evaluated"/);
   assert.match(screeningSource, /inverse_distance_weighted_display|interpolation\.method/);
   assert.match(screeningSource, /modelの追加予測ではありません/);
   assert.match(screeningSource, /固定断面ではありません/);
