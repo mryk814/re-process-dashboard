@@ -454,7 +454,6 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await page.getByRole("button", { name: new RegExp(`${candidateName}の詳細予測を保存`) }).click();
   expect((await detailed).status()).toBe(200);
 
-  await page.getByRole("button", { name: "選択候補の入力を開く" }).click();
   const numeric = page.locator(".comparison-detail-table tbody tr.selected-row input[type=number]").first();
   const value = Number(await numeric.inputValue());
   const saved = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname.endsWith(`/candidates/${candidateId}`));
