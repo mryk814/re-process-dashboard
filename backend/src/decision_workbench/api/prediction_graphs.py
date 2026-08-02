@@ -1,0 +1,172 @@
+"""Dedicated transport for Prediction Graph v1 projects and evidence."""
+from __future__ import annotations
+
+from typing import Annotated, Callable, TypeVar
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from decision_workbench.application.chains import (
+    ChainCandidateRevisionError,
+    ChainConflictError,
+    ChainNotFoundError,
+    ChainValidationError,
+)
+from decision_workbench.application.prediction_graphs import (
+    PredictionGraphUseCases,
+)
+from decision_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+    CandidateUpdate,
+    Project,
+)
+from decision_workbench.contracts.chain_api_contracts import (
+    ChainExecutionRequest,
+    PredictionGraphProjectCreateRequest,
+)
+from decision_workbench.contracts.chain_execution_contracts import (
+    PredictionGraphExecution,
+    PredictionGraphSnapshot,
+)
+
+from .dependencies import get_prediction_graph_use_cases
+
+
+router = APIRouter(prefix="/api/prediction-graphs", tags=["prediction-graphs"])
+GraphDependency = Annotated[
+    PredictionGraphUseCases,
+    Depends(get_prediction_graph_use_cases),
+]
+T = TypeVar("T")
+
+
+def _call(operation: Callable[[], T]) -> T:
+    try:
+        return operation()
+    except ChainCandidateRevisionError as exc:
+        raise HTTPException(
+            409,
+            {
+                "message": str(exc),
+                "current": exc.current.model_dump(mode="json"),
+            },
+        ) from exc
+    except ChainNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ChainValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except ChainConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post(
+    "/projects",
+    response_model=Project,
+    status_code=201,
+    operation_id="createPredictionGraphProject",
+)
+def create_project(
+    payload: PredictionGraphProjectCreateRequest,
+    use_cases: GraphDependency,
+) -> Project:
+    return _call(lambda: use_cases.create_project(payload))
+
+
+@router.post(
+    "/projects/{project_id}/candidates",
+    response_model=Candidate,
+    status_code=201,
+    operation_id="createPredictionGraphCandidate",
+)
+def create_candidate(
+    project_id: str,
+    payload: CandidateInput,
+    use_cases: GraphDependency,
+) -> Candidate:
+    return _call(lambda: use_cases.create_candidate(project_id, payload))
+
+
+@router.put(
+    "/projects/{project_id}/candidates/{candidate_id}",
+    response_model=Candidate,
+    operation_id="updatePredictionGraphCandidate",
+)
+def update_candidate(
+    project_id: str,
+    candidate_id: str,
+    payload: CandidateUpdate,
+    use_cases: GraphDependency,
+) -> Candidate:
+    return _call(
+        lambda: use_cases.update_candidate(project_id, candidate_id, payload)
+    )
+
+
+@router.post(
+    "/projects/{project_id}/candidates/{candidate_id}/executions",
+    response_model=PredictionGraphExecution,
+    operation_id="executePredictionGraph",
+)
+def execute(
+    project_id: str,
+    candidate_id: str,
+    payload: ChainExecutionRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphExecution:
+    return _call(lambda: use_cases.execute(project_id, candidate_id, payload))
+
+
+@router.get(
+    "/projects/{project_id}/candidates/{candidate_id}/execution",
+    response_model=PredictionGraphExecution,
+    operation_id="getPredictionGraphExecution",
+)
+def latest_execution(
+    project_id: str,
+    candidate_id: str,
+    use_cases: GraphDependency,
+) -> PredictionGraphExecution:
+    return _call(lambda: use_cases.latest_execution(project_id, candidate_id))
+
+
+@router.post(
+    "/projects/{project_id}/candidates/{candidate_id}/snapshots",
+    response_model=PredictionGraphSnapshot,
+    status_code=201,
+    operation_id="createPredictionGraphSnapshot",
+)
+def create_snapshot(
+    project_id: str,
+    candidate_id: str,
+    payload: ChainExecutionRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphSnapshot:
+    return _call(
+        lambda: use_cases.create_snapshot(project_id, candidate_id, payload)
+    )
+
+
+@router.get(
+    "/projects/{project_id}/candidates/{candidate_id}/snapshots",
+    response_model=list[PredictionGraphSnapshot],
+    operation_id="listPredictionGraphSnapshots",
+)
+def list_snapshots(
+    project_id: str,
+    candidate_id: str,
+    use_cases: GraphDependency,
+) -> list[PredictionGraphSnapshot]:
+    return _call(lambda: use_cases.list_snapshots(project_id, candidate_id))
+
+
+@router.get(
+    "/projects/{project_id}/snapshots/{snapshot_id}",
+    response_model=PredictionGraphSnapshot,
+    operation_id="getPredictionGraphSnapshot",
+)
+def get_snapshot(
+    project_id: str,
+    snapshot_id: str,
+    use_cases: GraphDependency,
+) -> PredictionGraphSnapshot:
+    return _call(lambda: use_cases.snapshot(project_id, snapshot_id))

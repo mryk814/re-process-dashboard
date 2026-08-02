@@ -21,10 +21,10 @@ from decision_workbench.application.chain_candidate_adapters import (
 )
 from decision_workbench.contracts.candidate_project_contracts import Candidate
 from decision_workbench.contracts.chain_contracts import (
-    ChainProjectIdentity,
     ChainStageRevision,
     DecisionOutput,
     PredictionGraphDefinition,
+    PredictionGraphProjectIdentity,
     PredictionGraphRevision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -60,7 +60,6 @@ class PredictionGraphExecutionUseCase:
         project_id: str,
         candidate_id: str,
         candidate_revision: int,
-        project_bindings: Mapping[str, Any] | None = None,
         request_id: str | None = None,
         debounce_ms: int = 250,
     ) -> PredictionGraphExecution:
@@ -75,7 +74,6 @@ class PredictionGraphExecutionUseCase:
             project_id,
             candidate_id,
             candidate_revision,
-            project_bindings=project_bindings,
         )
         if candidate.blend_validation.status == "invalid":
             reasons = " / ".join(
@@ -159,6 +157,7 @@ class PredictionGraphExecutionUseCase:
                         stage_id,
                         candidate.revision,
                         blockers,
+                        identity.project_binding.digest,
                     ),
                     canonical_input=(
                         previous_by_stage[stage_id].canonical_input
@@ -222,6 +221,7 @@ class PredictionGraphExecutionUseCase:
                     stage_by_id,
                     previous_by_stage,
                     candidate.revision,
+                    identity.project_binding.digest,
                 ),
                 outputs_by_stage=outputs_by_stage,
                 status="running",
@@ -355,7 +355,6 @@ class PredictionGraphExecutionUseCase:
         candidate_revision: int,
         request_id: str,
         generation: int,
-        project_bindings: Mapping[str, Any] | None = None,
     ) -> PredictionGraphExecution | None:
         previous = self.store.get_prediction_graph_execution(
             project_id,
@@ -374,7 +373,6 @@ class PredictionGraphExecutionUseCase:
             project_id,
             candidate_id,
             candidate_revision,
-            project_bindings=project_bindings,
         )
         previous_by_stage = {stage.stage_id: stage for stage in previous.stages}
         stage_by_id = {stage.stage_id: stage for stage in revision.stages}
@@ -404,6 +402,7 @@ class PredictionGraphExecutionUseCase:
                         stage_id,
                         candidate_revision,
                         stale_dependencies,
+                        identity.project_binding.digest,
                     ),
                     canonical_input=(
                         previous_stage.canonical_input
@@ -466,7 +465,6 @@ class PredictionGraphExecutionUseCase:
             revision=revision,
             stages=tuple(stages),
             outputs_by_stage=outputs,
-            status="stale",
             created_at=previous.created_at,
         )
         return (
@@ -487,7 +485,7 @@ class PredictionGraphExecutionUseCase:
         request_id: str,
         project_id: str,
         candidate: Candidate,
-        identity: ChainProjectIdentity,
+        identity: PredictionGraphProjectIdentity,
         definition: PredictionGraphDefinition,
         revision: PredictionGraphRevision,
         stages: tuple[PredictionGraphStageExecution, ...],
@@ -521,8 +519,10 @@ class PredictionGraphExecutionUseCase:
             project_id=project_id,
             candidate_id=candidate.id,
             candidate_revision=candidate.revision,
-            graph_revision_id=identity.chain_revision_id,
-            graph_revision_digest=identity.chain_revision_digest,
+            graph_revision_id=identity.graph_revision_id,
+            graph_revision_digest=identity.graph_revision_digest,
+            project_binding_revision=identity.project_binding.revision,
+            project_binding_digest=identity.project_binding.digest,
             status=summary_status,
             stages=stages,
             terminal_outputs=terminal_outputs,
@@ -612,6 +612,7 @@ class PredictionGraphExecutionUseCase:
         stage_by_id: Mapping[str, ChainStageRevision],
         previous_by_stage: Mapping[str, PredictionGraphStageExecution],
         candidate_revision: int,
+        project_binding_digest: str,
     ) -> tuple[PredictionGraphStageExecution, ...]:
         pending = [
             self._retained(
@@ -622,6 +623,7 @@ class PredictionGraphExecutionUseCase:
                     stage_id,
                     candidate_revision,
                     (),
+                    project_binding_digest,
                 ),
                 canonical_input=(
                     previous_by_stage[stage_id].canonical_input
@@ -638,12 +640,14 @@ class PredictionGraphExecutionUseCase:
         stage_id: str,
         candidate_revision: int,
         dependencies: tuple[str, ...],
+        project_binding_digest: str,
     ) -> str:
         return semantic_digest(
             {
                 "state": "pending_graph_dependencies",
                 "stage_id": stage_id,
                 "candidate_revision": candidate_revision,
+                "project_binding_digest": project_binding_digest,
                 "dependencies": dependencies,
             }
         )
@@ -652,7 +656,7 @@ class PredictionGraphExecutionUseCase:
         self,
         project_id: str,
         candidate: Candidate,
-        identity: ChainProjectIdentity,
+        identity: PredictionGraphProjectIdentity,
         revision: PredictionGraphRevision,
         request_id: str,
         previous: PredictionGraphExecution | None,
@@ -692,8 +696,10 @@ class PredictionGraphExecutionUseCase:
             project_id=project_id,
             candidate_id=candidate.id,
             candidate_revision=candidate.revision,
-            graph_revision_id=identity.chain_revision_id,
-            graph_revision_digest=identity.chain_revision_digest,
+            graph_revision_id=identity.graph_revision_id,
+            graph_revision_digest=identity.graph_revision_digest,
+            project_binding_revision=identity.project_binding.revision,
+            project_binding_digest=identity.project_binding.digest,
             status="superseded",
             stages=stages,
             terminal_outputs=terminal_outputs,

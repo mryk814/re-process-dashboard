@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Mapping
 import uuid
 
 from decision_workbench.application.chain.graph_plan import (
@@ -37,7 +36,6 @@ class PredictionGraphSnapshotUseCase:
         project_id: str,
         candidate_id: str,
         candidate_revision: int,
-        project_bindings: Mapping[str, Any] | None = None,
     ) -> PredictionGraphSnapshot:
         (
             candidate,
@@ -50,7 +48,6 @@ class PredictionGraphSnapshotUseCase:
             project_id,
             candidate_id,
             candidate_revision,
-            project_bindings=project_bindings,
         )
         execution = self.store.get_prediction_graph_execution(
             project_id,
@@ -60,8 +57,11 @@ class PredictionGraphSnapshotUseCase:
             execution is None
             or execution.status != "complete"
             or execution.candidate_revision != candidate_revision
-            or execution.graph_revision_id != identity.chain_revision_id
-            or execution.graph_revision_digest != identity.chain_revision_digest
+            or execution.graph_revision_id != identity.graph_revision_id
+            or execution.graph_revision_digest != identity.graph_revision_digest
+            or execution.project_binding_revision
+            != identity.project_binding.revision
+            or execution.project_binding_digest != identity.project_binding.digest
         ):
             raise ChainExecutionError(
                 "required terminal outputsが最新のGraph結果を先に実行してください"
@@ -92,8 +92,10 @@ class PredictionGraphSnapshotUseCase:
         snapshot = PredictionGraphSnapshot(
             snapshot_id=str(uuid.uuid4()),
             identity=PredictionGraphSnapshotIdentity(
-                graph_revision_id=identity.chain_revision_id,
+                graph_revision_id=identity.graph_revision_id,
                 graph_revision_digest=revision.revision_digest,
+                project_binding_revision=identity.project_binding.revision,
+                project_binding_digest=identity.project_binding.digest,
                 candidate_id=candidate.id,
                 candidate_revision=candidate.revision,
                 candidate_adapter_id=adapter.adapter_id,

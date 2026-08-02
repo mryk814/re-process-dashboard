@@ -293,6 +293,10 @@ class PredictionGraphExecution(ChainContractModel):
     graph_revision_digest: Annotated[
         str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
     ]
+    project_binding_revision: Annotated[int, Field(ge=1)]
+    project_binding_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
     status: Literal[
         "running",
         "complete",
@@ -384,6 +388,10 @@ class PredictionGraphSnapshotIdentity(ChainContractModel):
     )
     graph_revision_id: Annotated[str, Field(min_length=1)]
     graph_revision_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    project_binding_revision: Annotated[int, Field(ge=1)]
+    project_binding_digest: Annotated[
         str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
     ]
     candidate_id: Annotated[str, Field(min_length=1)]

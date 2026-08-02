@@ -695,6 +695,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graphs/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Project */
+        post: operations["createPredictionGraphProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Candidate */
+        post: operations["createPredictionGraphCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Candidate */
+        put: operations["updatePredictionGraphCandidate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/execution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest Execution */
+        get: operations["getPredictionGraphExecution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute */
+        post: operations["executePredictionGraph"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Snapshots */
+        get: operations["listPredictionGraphSnapshots"];
+        put?: never;
+        /** Create Snapshot */
+        post: operations["createPredictionGraphSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Snapshot */
+        get: operations["getPredictionGraphSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile-workbench/inspect": {
         parameters: {
             query?: never;
@@ -8352,6 +8472,110 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
         };
+        /** PredictionGraphExecution */
+        PredictionGraphExecution: {
+            /**
+             * Blocked Stage Ids
+             * @default []
+             */
+            blocked_stage_ids: string[];
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Failed Stage Ids
+             * @default []
+             */
+            failed_stage_ids: string[];
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            /** Project Binding Digest */
+            project_binding_digest: string;
+            /** Project Binding Revision */
+            project_binding_revision: number;
+            /** Project Id */
+            project_id: string;
+            /** Request Id */
+            request_id: string;
+            /**
+             * Schema Version
+             * @default prediction-graph-execution/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-execution/v1";
+            /** Stages */
+            stages: components["schemas"]["PredictionGraphStageExecution"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "complete" | "partial" | "unavailable" | "stale" | "superseded";
+            /** Terminal Outputs */
+            terminal_outputs: components["schemas"]["PredictionGraphTerminalOutput"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PredictionGraphProjectBinding */
+        PredictionGraphProjectBinding: {
+            /** Digest */
+            digest: string;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @default prediction-graph-project-binding/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-project-binding/v1";
+            /** Values */
+            values?: {
+                [key: string]: number | string;
+            };
+        };
+        /** PredictionGraphProjectCreateRequest */
+        PredictionGraphProjectCreateRequest: {
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            project: components["schemas"]["ProjectCreateInput"];
+            /**
+             * Project Binding Revision
+             * @default 1
+             */
+            project_binding_revision: number;
+            /** Project Binding Values */
+            project_binding_values?: {
+                [key: string]: number | string;
+            };
+        };
+        /** PredictionGraphProjectIdentity */
+        PredictionGraphProjectIdentity: {
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            identity_kind: "prediction_graph";
+            project_binding: components["schemas"]["PredictionGraphProjectBinding"];
+        };
         /** PredictionGraphProjection */
         PredictionGraphProjection: {
             /** Decision Outputs */
@@ -8401,6 +8625,142 @@ export interface components {
             topology_digest: string;
             /** Unit Conversion Digest */
             unit_conversion_digest: string;
+        };
+        /** PredictionGraphSnapshot */
+        PredictionGraphSnapshot: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** External Input */
+            external_input: {
+                [key: string]: unknown;
+            };
+            identity: components["schemas"]["PredictionGraphSnapshotIdentity"];
+            /** Request Id */
+            request_id: string;
+            /** Required Output Ids */
+            required_output_ids: string[];
+            /**
+             * Schema Version
+             * @default prediction-graph-snapshot/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-snapshot/v1";
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Stages */
+            stages: components["schemas"]["PredictionGraphStageExecution"][];
+            /** Terminal Outputs */
+            terminal_outputs: components["schemas"]["PredictionGraphTerminalOutput"][];
+        };
+        /** PredictionGraphSnapshotIdentity */
+        PredictionGraphSnapshotIdentity: {
+            /** Candidate Adapter Id */
+            candidate_adapter_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /**
+             * Domain References
+             * @default []
+             */
+            domain_references: components["schemas"]["ChainDomainReference"][];
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            /** Project Binding Digest */
+            project_binding_digest: string;
+            /** Project Binding Revision */
+            project_binding_revision: number;
+            /**
+             * Schema Version
+             * @default prediction-graph-snapshot-identity/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-snapshot-identity/v1";
+        };
+        /** PredictionGraphStageExecution */
+        PredictionGraphStageExecution: {
+            /**
+             * Blocked By Stage Ids
+             * @default []
+             */
+            blocked_by_stage_ids: string[];
+            /**
+             * Cache Hit
+             * @default false
+             */
+            cache_hit: boolean;
+            /** Canonical Input */
+            canonical_input: {
+                [key: string]: unknown;
+            };
+            /** Completed At */
+            completed_at?: string | null;
+            /** Contract Digest */
+            contract_digest: string;
+            /** Error */
+            error?: string | null;
+            /**
+             * Output Definitions
+             * @default []
+             */
+            output_definitions: components["schemas"]["ChainStageOutputDefinition"][];
+            /** Package Manifest Digest */
+            package_manifest_digest: string;
+            /** Requested Input Digest */
+            requested_input_digest: string;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Result Input Digest */
+            result_input_digest?: string | null;
+            /** Stage Id */
+            stage_id: string;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "latest" | "running" | "stale" | "failed" | "blocked_by_upstream" | "unavailable";
+        };
+        /** PredictionGraphTerminalOutput */
+        PredictionGraphTerminalOutput: {
+            /**
+             * Blocked By Stage Ids
+             * @default []
+             */
+            blocked_by_stage_ids: string[];
+            /** Error */
+            error?: string | null;
+            /** Output Id */
+            output_id: string;
+            /** Required For Complete Result */
+            required_for_complete_result: boolean;
+            /** Result Input Digest */
+            result_input_digest?: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary_objective" | "hard_constraint" | "secondary_outcome" | "diagnostic";
+            /** Source Output Key */
+            source_output_key: string;
+            /** Source Stage Id */
+            source_stage_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "latest" | "running" | "stale" | "failed" | "blocked_by_upstream" | "unavailable";
+            /** Value */
+            value?: unknown | null;
         };
         /** PredictionGraphTopology */
         PredictionGraphTopology: {
@@ -8845,7 +9205,7 @@ export interface components {
                 };
             };
             /** Scientific Identity */
-            scientific_identity: components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"];
+            scientific_identity: components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"] | components["schemas"]["PredictionGraphProjectIdentity"];
             /**
              * Starter
              * @default false
@@ -8958,7 +9318,7 @@ export interface components {
                 };
             };
             /** Scientific Identity */
-            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"]) | null;
+            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"] | components["schemas"]["PredictionGraphProjectIdentity"]) | null;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
@@ -9185,7 +9545,7 @@ export interface components {
                 };
             };
             /** Scientific Identity */
-            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"]) | null;
+            scientific_identity?: (components["schemas"]["SingleTaskProjectIdentity"] | components["schemas"]["ChainProjectIdentity"] | components["schemas"]["PredictionGraphProjectIdentity"]) | null;
             /** Target Values */
             target_values?: {
                 [key: string]: number | components["schemas"]["TargetRange"];
@@ -13565,6 +13925,278 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphProjectCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updatePredictionGraphCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphExecution"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    executePredictionGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphExecution"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listPredictionGraphSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphSnapshot"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChainExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphSnapshot"];
                 };
             };
             /** @description Validation Error */

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import inspect
 from types import SimpleNamespace
 from typing import Any
 
@@ -35,6 +36,9 @@ from decision_workbench.contracts.chain_contracts import (
     ExternalBindingSource,
     GraphInput,
     PredictionGraphDefinition,
+    PredictionGraphProjectBinding,
+    PredictionGraphProjectIdentity,
+    ProjectGraphInputSource,
     StageContractSurface,
     StageOutputBindingSource,
     build_prediction_graph_revision,
@@ -196,6 +200,27 @@ def _revision():
     )
 
 
+def _project_identity(
+    revision_id: str,
+    revision_digest: str,
+    values: dict[str, float | str] | None = None,
+) -> PredictionGraphProjectIdentity:
+    binding_payload = {
+        "schema_version": "prediction-graph-project-binding/v1",
+        "revision": 1,
+        "values": values or {},
+    }
+    return PredictionGraphProjectIdentity(
+        identity_kind="prediction_graph",
+        graph_revision_id=revision_id,
+        graph_revision_digest=revision_digest,
+        project_binding=PredictionGraphProjectBinding(
+            **binding_payload,
+            digest=semantic_digest(binding_payload),
+        ),
+    )
+
+
 class _Adapter:
     adapter_id = "graph-test/v1"
 
@@ -218,13 +243,11 @@ class _Planning:
         project_id: str,
         candidate_id: str,
         candidate_revision: int,
-        *,
-        project_bindings=None,
     ):
         project = self.store.get_project(project_id)
         assert project is not None
         identity = project.scientific_identity
-        assert isinstance(identity, ChainProjectIdentity)
+        assert isinstance(identity, PredictionGraphProjectIdentity)
         candidate = self.store.get_candidate_revision(
             candidate_id,
             candidate_revision,
@@ -311,11 +334,7 @@ def _workspace(tmp_path: Path):
         revision,
         contracts=_graph_contracts(),
     )
-    identity = ChainProjectIdentity(
-        identity_kind="chain",
-        chain_revision_id=revision_id,
-        chain_revision_digest=revision.revision_digest,
-    )
+    identity = _project_identity(revision_id, revision.revision_digest)
     project = store.create_prediction_graph_project(
         ProjectCreateInput(
             name="Graph runtime",
@@ -381,7 +400,7 @@ def test_direct_failure_blocks_only_descendants_and_independent_branch_continues
 def test_candidate_change_marks_only_affected_branch_and_descendants_stale(
     tmp_path: Path,
 ) -> None:
-    store, project, candidate, _executor, execution, _snapshots = _workspace(
+    store, project, candidate, _executor, execution, snapshots = _workspace(
         tmp_path
     )
     first = execution.execute(
@@ -416,6 +435,7 @@ def test_candidate_change_marks_only_affected_branch_and_descendants_stale(
     )
 
     assert stale is not None
+    assert stale.status == "complete"
     assert [stage.status for stage in stale.stages] == [
         "latest",
         "stale",
@@ -423,6 +443,14 @@ def test_candidate_change_marks_only_affected_branch_and_descendants_stale(
     ]
     assert stale.stages[0].result == first.stages[0].result
     assert stale.stages[2].result == first.stages[2].result
+    frozen = snapshots.snapshot(
+        project_id=project.id,
+        candidate_id=candidate.id,
+        candidate_revision=updated.revision,
+    )
+    terminal = {item.output_id: item for item in frozen.terminal_outputs}
+    assert terminal["required-result"].status == "latest"
+    assert terminal["branch-diagnostic"].status == "stale"
 
 
 def test_snapshot_requires_complete_required_outputs_and_round_trips(
@@ -543,7 +571,7 @@ def test_prediction_graph_planner_rejects_legacy_or_missing_revision() -> None:
     )
     planning = PredictionGraphPlanningUseCase(store, transform_catalog=None)
 
-    with pytest.raises(ChainExecutionError, match="legacy Chain Revision"):
+    with pytest.raises(ChainExecutionError, match="固定Graph Revision"):
         planning.resolve("project", "candidate", 1)
 
 
@@ -558,11 +586,7 @@ def test_prediction_graph_project_uses_dedicated_store_creation_entry(
         revision,
         contracts=_graph_contracts(),
     )
-    identity = ChainProjectIdentity(
-        identity_kind="chain",
-        chain_revision_id=revision_id,
-        chain_revision_digest=revision.revision_digest,
-    )
+    identity = _project_identity(revision_id, revision.revision_digest)
     payload = ProjectCreateInput(
         name="Dedicated Graph Project",
         task_id="",
@@ -573,9 +597,106 @@ def test_prediction_graph_project_uses_dedicated_store_creation_entry(
         ChainCatalogConflictError,
         match="現行Chain Projectとして保存できません",
     ):
-        store.create_chain_project(payload, identity)
+        store.create_chain_project(
+            payload,
+            ChainProjectIdentity(
+                identity_kind="chain",
+                chain_revision_id=revision_id,
+                chain_revision_digest=revision.revision_digest,
+            ),
+        )
     project = store.create_prediction_graph_project(payload, identity)
     assert project.scientific_identity == identity
+
+
+def test_prediction_graph_planner_uses_only_persisted_project_binding() -> None:
+    definition = _graph()
+    inputs = tuple(
+        (
+            item.model_copy(
+                update={
+                    "value_source": ProjectGraphInputSource(
+                        source_kind="project_binding",
+                        binding_key="scenario.y",
+                    )
+                }
+            )
+            if item.input_id == "graph.y"
+            else item
+        )
+        for item in definition.inputs
+    )
+    definition = definition.model_copy(update={"inputs": inputs})
+    identity = _project_identity(
+        "dependency-runtime:r1",
+        "sha256:" + "a" * 64,
+        {"scenario.y": 7.0},
+    )
+    candidate = CandidateInput(
+        name="Candidate",
+        inputs=CandidateInputs(
+            composition={},
+            process={"x": 2, "y": 999},
+        ),
+    )
+    adapter = SimpleNamespace(
+        external_values=lambda _candidate: {
+            "candidate.process.x": 2,
+            "candidate.process.y": 999,
+        }
+    )
+
+    external = PredictionGraphPlanningUseCase._external_values(
+        definition,
+        identity,
+        adapter,
+        candidate,
+    )
+
+    assert external == {"graph.x": 2, "graph.y": 7.0}
+    assert "project_bindings" not in inspect.signature(
+        PredictionGraphPlanningUseCase.resolve
+    ).parameters
+    assert "project_bindings" not in inspect.signature(
+        PredictionGraphExecutionUseCase.execute
+    ).parameters
+    assert "project_bindings" not in inspect.signature(
+        PredictionGraphSnapshotUseCase.snapshot
+    ).parameters
+
+
+def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
+    assert client.app.state.prediction_graph_use_cases is not None
+    graph = _graph()
+    revision = _revision()
+    client.app.state.store.register_chain_definition(graph)
+    revision_id = client.app.state.store.register_chain_revision(
+        revision,
+        contracts=_graph_contracts(),
+    )
+    response = client.post(
+        "/api/prediction-graphs/projects",
+        json={
+            "project": {"name": "API Graph Project"},
+            "graph_revision_id": revision_id,
+            "graph_revision_digest": revision.revision_digest,
+            "project_binding_values": {},
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["scientific_identity"]["identity_kind"] == (
+        "prediction_graph"
+    )
+    paths = client.app.openapi()["paths"]
+    assert "/api/prediction-graphs/projects" in paths
+    assert (
+        "/api/prediction-graphs/projects/{project_id}/candidates/"
+        "{candidate_id}/executions"
+    ) in paths
+    assert (
+        "/api/prediction-graphs/projects/{project_id}/candidates/"
+        "{candidate_id}/snapshots"
+    ) in paths
 
 
 def test_v1_execution_parser_remains_byte_shape_compatible() -> None:

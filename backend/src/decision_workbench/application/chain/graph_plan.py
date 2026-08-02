@@ -1,7 +1,7 @@
 """Resolve only Prediction Graph v1 plans for the dependency-aware runtime."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any
 
 from decision_workbench.application.chain.plan import ChainExecutionError
 from decision_workbench.application.chain_candidate_adapters import (
@@ -9,10 +9,13 @@ from decision_workbench.application.chain_candidate_adapters import (
     ChainCandidateAdapterError,
     candidate_adapter_for,
 )
-from decision_workbench.contracts.candidate_project_contracts import Candidate
+from decision_workbench.contracts.candidate_project_contracts import (
+    Candidate,
+    CandidateInput,
+)
 from decision_workbench.contracts.chain_contracts import (
-    ChainProjectIdentity,
     PredictionGraphDefinition,
+    PredictionGraphProjectIdentity,
     PredictionGraphRevision,
 )
 from decision_workbench.modeling.transform_catalog import (
@@ -50,39 +53,17 @@ class PredictionGraphPlanningUseCase:
         project_id: str,
         candidate_id: str,
         candidate_revision: int,
-        *,
-        project_bindings: Mapping[str, Any] | None = None,
     ) -> tuple[
         Candidate,
         PredictionGraphDefinition,
         PredictionGraphRevision,
-        ChainProjectIdentity,
+        PredictionGraphProjectIdentity,
         ChainCandidateAdapter,
         dict[str, Any],
     ]:
-        project = self.store.get_project(project_id)
-        if project is None:
-            raise ChainExecutionError("Prediction Graph Projectが見つかりません")
-        identity = project.scientific_identity
-        if identity.identity_kind != "chain":
-            raise ChainExecutionError(
-                "Prediction Graph runtimeには固定Graph Revisionが必要です"
-            )
-        revision = self.store.get_chain_revision(identity.chain_revision_id)
-        if not isinstance(revision, PredictionGraphRevision):
-            raise ChainExecutionError(
-                "legacy Chain RevisionはPrediction Graph runtimeへ渡せません"
-            )
-        if revision.revision_digest != identity.chain_revision_digest:
-            raise ChainExecutionError("固定されたGraph Revision digestが一致しません")
-        definition = self.store.get_chain_definition(
-            revision.graph_id,
-            revision.graph_definition_digest,
+        definition, revision, identity, adapter = self._resolve_project(
+            project_id
         )
-        if not isinstance(definition, PredictionGraphDefinition):
-            raise ChainExecutionError(
-                "Prediction Graph RevisionのDefinitionを解決できません"
-            )
         candidate = self.store.get_candidate_revision(
             candidate_id,
             candidate_revision,
@@ -92,9 +73,74 @@ class PredictionGraphPlanningUseCase:
             raise ChainExecutionError(
                 "指定したPrediction Graph candidate revisionが見つかりません"
             )
+        try:
+            external = self._external_values(
+                definition,
+                identity,
+                adapter,
+                candidate,
+            )
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+        return candidate, definition, revision, identity, adapter, external
+
+    def prepare_candidate(
+        self,
+        project_id: str,
+        payload: CandidateInput,
+    ) -> CandidateInput:
+        definition, _, identity, adapter = self._resolve_project(project_id)
+        try:
+            prepared = adapter.prepare_candidate(payload)
+            self._external_values(definition, identity, adapter, prepared)
+        except ChainCandidateAdapterError as exc:
+            raise ChainExecutionError(str(exc)) from exc
+        return prepared
+
+    def _resolve_project(
+        self,
+        project_id: str,
+    ) -> tuple[
+        PredictionGraphDefinition,
+        PredictionGraphRevision,
+        PredictionGraphProjectIdentity,
+        ChainCandidateAdapter,
+    ]:
+        project = self.store.get_project(project_id)
+        if project is None:
+            raise ChainExecutionError("Prediction Graph Projectが見つかりません")
+        identity = project.scientific_identity
+        if identity.identity_kind != "prediction_graph":
+            raise ChainExecutionError(
+                "Prediction Graph runtimeには固定Graph Revisionが必要です"
+            )
+        revision = self.store.get_chain_revision(identity.graph_revision_id)
+        if not isinstance(revision, PredictionGraphRevision):
+            raise ChainExecutionError(
+                "legacy Chain RevisionはPrediction Graph runtimeへ渡せません"
+            )
+        if revision.revision_digest != identity.graph_revision_digest:
+            raise ChainExecutionError("固定されたGraph Revision digestが一致しません")
+        definition = self.store.get_chain_definition(
+            revision.graph_id,
+            revision.graph_definition_digest,
+        )
+        if not isinstance(definition, PredictionGraphDefinition):
+            raise ChainExecutionError(
+                "Prediction Graph RevisionのDefinitionを解決できません"
+            )
         adapter = self.adapter_for(revision)
+        return definition, revision, identity, adapter
+
+    @staticmethod
+    def _external_values(
+        definition: PredictionGraphDefinition,
+        identity: PredictionGraphProjectIdentity,
+        adapter: ChainCandidateAdapter,
+        candidate: Candidate | CandidateInput,
+    ) -> dict[str, Any]:
         adapter_values = adapter.external_values(candidate)
-        bindings = dict(project_bindings or {})
+        bindings = identity.project_binding.values
         external: dict[str, Any] = {}
         for graph_input in definition.inputs:
             source = graph_input.value_source
@@ -120,11 +166,4 @@ class PredictionGraphPlanningUseCase:
                     f"{source.candidate_path}"
                 )
             external[graph_input.input_id] = adapter_values[adapter_path]
-        return (
-            candidate,
-            definition,
-            revision,
-            identity,
-            adapter,
-            external,
-        )
+        return external

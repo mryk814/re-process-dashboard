@@ -611,8 +611,44 @@ class ChainProjectIdentity(ChainContractModel):
     chain_revision_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
 
 
+class PredictionGraphProjectBinding(ChainContractModel):
+    schema_version: Literal["prediction-graph-project-binding/v1"] = (
+        "prediction-graph-project-binding/v1"
+    )
+    revision: Annotated[int, Field(ge=1)] = 1
+    values: dict[
+        Annotated[str, Field(min_length=1)],
+        Annotated[float, Field(allow_inf_nan=False)] | str,
+    ] = Field(default_factory=dict)
+    digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+    @model_validator(mode="after")
+    def digest_matches_values(self) -> "PredictionGraphProjectBinding":
+        expected = semantic_digest(
+            {
+                "schema_version": self.schema_version,
+                "revision": self.revision,
+                "values": self.values,
+            }
+        )
+        if self.digest != expected:
+            raise ValueError("Prediction Graph Project binding digestが一致しません")
+        return self
+
+
+class PredictionGraphProjectIdentity(ChainContractModel):
+    identity_kind: Literal["prediction_graph"]
+    graph_revision_id: Annotated[str, Field(min_length=1)]
+    graph_revision_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    project_binding: PredictionGraphProjectBinding
+
+
 ProjectScientificIdentity = Annotated[
-    SingleTaskProjectIdentity | ChainProjectIdentity,
+    SingleTaskProjectIdentity
+    | ChainProjectIdentity
+    | PredictionGraphProjectIdentity,
     Field(discriminator="identity_kind"),
 ]
 

@@ -16,6 +16,9 @@ from decision_workbench.api.blend_optimization import (
 )
 from decision_workbench.api.chains import execution_router
 from decision_workbench.api.chains import router as chains_router
+from decision_workbench.api.prediction_graphs import (
+    router as prediction_graphs_router,
+)
 from decision_workbench.api.transforms import router as transforms_router
 from decision_workbench.application.chain_evaluation import (
     DEFAULT_CHAIN_EVALUATION_PATH,
@@ -33,6 +36,18 @@ from decision_workbench.application.chain.snapshot import (
 )
 from decision_workbench.application.chain.stage_execution import (
     ChainStageExecutor,
+)
+from decision_workbench.application.chain.graph_execution import (
+    PredictionGraphExecutionUseCase,
+)
+from decision_workbench.application.chain.graph_plan import (
+    PredictionGraphPlanningUseCase,
+)
+from decision_workbench.application.chain.graph_snapshot import (
+    PredictionGraphSnapshotUseCase,
+)
+from decision_workbench.application.prediction_graphs import (
+    PredictionGraphUseCases,
 )
 from decision_workbench.application.chain_uncertainty import (
     ChainUncertaintyService,
@@ -128,6 +143,7 @@ class WeldingBlendContributionRuntime:
     planning_use_case: ChainPlanningUseCase
     execution_use_case: ChainExecutionUseCase
     snapshot_use_case: ChainSnapshotUseCase
+    prediction_graph_use_cases: PredictionGraphUseCases
     uncertainty_service: ChainUncertaintyService | None
 
     def install_state(self, app: FastAPI) -> None:
@@ -138,6 +154,7 @@ class WeldingBlendContributionRuntime:
         app.state.chain_planning_use_case = self.planning_use_case
         app.state.chain_execution_use_case = self.execution_use_case
         app.state.chain_snapshot_use_case = self.snapshot_use_case
+        app.state.prediction_graph_use_cases = self.prediction_graph_use_cases
         app.state.chain_uncertainty_service = self.uncertainty_service
 
 
@@ -208,6 +225,27 @@ def _build_chain_services(
     )
 
 
+def _build_prediction_graph_use_cases(
+    context: ApplicationContributionContext,
+    transform_catalog: DeterministicTransformCatalog | None,
+) -> PredictionGraphUseCases:
+    planning = PredictionGraphPlanningUseCase(
+        context.store,
+        transform_catalog,
+    )
+    execution = PredictionGraphExecutionUseCase(
+        planning,
+        ChainStageExecutor(context.task_registry, transform_catalog),
+        ChainExecutionCoordinator(),
+    )
+    return PredictionGraphUseCases(
+        store=context.store,
+        planning=planning,
+        execution=execution,
+        snapshots=PredictionGraphSnapshotUseCase(planning),
+    )
+
+
 @dataclass(frozen=True)
 class WeldingBlendApplicationContribution:
     config: WeldingBlendContributionConfig
@@ -215,6 +253,7 @@ class WeldingBlendApplicationContribution:
     routers: tuple[APIRouter, ...] = (
         chains_router,
         execution_router,
+        prediction_graphs_router,
         blend_optimization_router,
         transforms_router,
     )
@@ -247,6 +286,10 @@ class WeldingBlendApplicationContribution:
             planning_use_case=planning,
             execution_use_case=execution,
             snapshot_use_case=snapshots,
+            prediction_graph_use_cases=_build_prediction_graph_use_cases(
+                context,
+                transform_catalog,
+            ),
             uncertainty_service=uncertainty,
         )
 
@@ -278,6 +321,10 @@ class WeldingBlendApplicationContribution:
             planning_use_case=planning,
             execution_use_case=execution,
             snapshot_use_case=snapshots,
+            prediction_graph_use_cases=_build_prediction_graph_use_cases(
+                context,
+                current.transform_catalog,
+            ),
             uncertainty_service=uncertainty,
         )
 

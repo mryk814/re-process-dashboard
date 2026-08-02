@@ -21,7 +21,10 @@ from decision_workbench.contracts.chain_execution_contracts import (
     ChainCandidateInputDefinition,
     IntermediateActualRecord,
 )
-from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.candidate_project_contracts import (
+    CandidateInput,
+    ProjectCreateInput,
+)
 
 
 class ChainApiModel(BaseModel):
@@ -81,6 +84,14 @@ class ChainExecutionRequest(ChainApiModel):
     candidate_revision: int = Field(ge=1)
     request_id: str | None = None
     debounce_ms: int = Field(default=250, ge=0, le=1000)
+
+
+class PredictionGraphProjectCreateRequest(ChainApiModel):
+    project: ProjectCreateInput
+    graph_revision_id: str = Field(min_length=1)
+    graph_revision_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    project_binding_revision: int = Field(default=1, ge=1)
+    project_binding_values: dict[str, float | str] = Field(default_factory=dict)
 
 
 class ChainDistributionRequest(ChainApiModel):
