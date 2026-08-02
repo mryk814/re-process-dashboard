@@ -86,6 +86,7 @@ class RecordService:
         self.store = store
         self.registry = registry
         self.inference = inference
+        self.resolver = resolver
         self.projects = ProjectService(store, registry)
         self.candidates = CandidateService(store, registry, resolver)
 
