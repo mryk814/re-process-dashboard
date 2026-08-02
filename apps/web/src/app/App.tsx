@@ -26,8 +26,10 @@ import {
 } from "../shared/api/workbench-api";
 
 type Tab = WorkbenchView;
+type NavigationGuard = () => Promise<boolean>;
 type HomeNavigationIcon = "project" | "data" | "workspace" | "chain";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
+const navigationHistoryIndexKey = "workbenchNavigationIndex";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
   { id: "project", label: "概要", active: ["project"] },
   { id: "lineage", label: "データ探索", active: ["lineage", "quality"], requiresDataExplorer: true },
@@ -172,10 +174,14 @@ function App() {
   const workspaceDialogReturnFocusRef = useRef<HTMLElement | null>(null);
   const [desktopWorkspaceNotice, setDesktopWorkspaceNotice] = useState<WorkspaceNotice | null>(null);
   const navigationRef = useRef(navigation);
+  const navigationGuardsRef = useRef(new Set<NavigationGuard>());
+  const navigationRequestSequence = useRef(0);
+  const navigationHistoryIndex = useRef(0);
+  const restoringHistory = useRef(false);
   const workspaceButtonRef = useRef<HTMLButtonElement>(null);
   const tab = navigation.view;
 
-  const navigate = useCallback((intent: NavigationIntent, replace = false) => {
+  const commitNavigation = useCallback((intent: NavigationIntent, replace = false) => {
     const next = Object.freeze(intent);
     navigationRef.current = next;
     setNavigation(next);
@@ -183,8 +189,40 @@ function App() {
     const target = navigationUrl(next);
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (target !== current) {
-      window.history[replace ? "replaceState" : "pushState"]({}, "", target);
+      const nextIndex = replace ? navigationHistoryIndex.current : navigationHistoryIndex.current + 1;
+      window.history[replace ? "replaceState" : "pushState"](
+        { ...window.history.state, [navigationHistoryIndexKey]: nextIndex },
+        "",
+        target,
+      );
+      navigationHistoryIndex.current = nextIndex;
     }
+  }, []);
+
+  const navigate = useCallback((intent: NavigationIntent, replace = false) => {
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (navigationUrl(intent) === current) {
+      commitNavigation(intent, true);
+      return;
+    }
+    const sequence = ++navigationRequestSequence.current;
+    const guards = [...navigationGuardsRef.current];
+    if (!guards.length) {
+      commitNavigation(intent, replace);
+      return;
+    }
+    void Promise.all(guards.map((guard) => guard())).then((results) => {
+      if (results.every(Boolean) && sequence === navigationRequestSequence.current) {
+        commitNavigation(intent, replace);
+      }
+    });
+  }, [commitNavigation]);
+
+  const registerNavigationGuard = useCallback((guard: NavigationGuard) => {
+    navigationGuardsRef.current.add(guard);
+    return () => {
+      navigationGuardsRef.current.delete(guard);
+    };
   }, []);
 
   const navigateDataLibrary = useCallback((location: {
@@ -257,6 +295,11 @@ function App() {
     taskAvailability,
   } = session;
   const { error: previewError, preview, previewsByCandidate } = prediction;
+  const candidateSettlementRef = useRef(editor.settlePending);
+  candidateSettlementRef.current = editor.settlePending;
+  useEffect(() => registerNavigationGuard(
+    () => candidateSettlementRef.current(),
+  ), [registerNavigationGuard]);
   const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
   const chainIdentity = activeProject?.scientific_identity?.identity_kind === "chain"
     ? activeProject.scientific_identity
@@ -343,23 +386,63 @@ function App() {
   }
 
   useEffect(() => {
-    const onPopState = () => {
+    const onPopState = (event: PopStateEvent) => {
+      if (restoringHistory.current) {
+        restoringHistory.current = false;
+        navigationRequestSequence.current += 1;
+        return;
+      }
       const intent = readNavigationIntent();
-      if (navigationLocationNeedsNormalization(intent)) {
-        window.history.replaceState({}, "", navigationUrl(intent));
+      const previous = navigationRef.current;
+      const previousIndex = navigationHistoryIndex.current;
+      const stateIndex = Reflect.get(event.state ?? {}, navigationHistoryIndexKey);
+      const targetIndex = typeof stateIndex === "number" ? stateIndex : null;
+      const sequence = ++navigationRequestSequence.current;
+      const applyIntent = () => {
+        if (navigationLocationNeedsNormalization(intent)) {
+          window.history.replaceState(
+            { ...window.history.state, [navigationHistoryIndexKey]: targetIndex ?? previousIndex },
+            "",
+            navigationUrl(intent),
+          );
+        }
+        if (targetIndex !== null) navigationHistoryIndex.current = targetIndex;
+        navigationRef.current = intent;
+        setNavigation(intent);
+        setRequestedDatasetViewId(intent.preparedProjectBinding?.datasetViewId);
+        if (intent.preparedProjectBinding) {
+          const { datasetViewId: _datasetViewId, ...binding } = intent.preparedProjectBinding;
+          setRequestedProjectBinding(binding);
+        } else {
+          setRequestedProjectBinding(undefined);
+        }
+        rememberNavigation(intent);
+        const targetProjectId = intent.projectId ?? activeProjectId;
+        void session.openLocation(targetProjectId, intent.candidateId);
+      };
+      const guards = [...navigationGuardsRef.current];
+      if (!guards.length) {
+        applyIntent();
+        return;
       }
-      navigationRef.current = intent;
-      setNavigation(intent);
-      setRequestedDatasetViewId(intent.preparedProjectBinding?.datasetViewId);
-      if (intent.preparedProjectBinding) {
-        const { datasetViewId: _datasetViewId, ...binding } = intent.preparedProjectBinding;
-        setRequestedProjectBinding(binding);
-      } else {
-        setRequestedProjectBinding(undefined);
-      }
-      rememberNavigation(intent);
-      const targetProjectId = intent.projectId ?? activeProjectId;
-      void session.openLocation(targetProjectId, intent.candidateId);
+      void Promise.all(guards.map((guard) => guard())).then((results) => {
+        if (sequence !== navigationRequestSequence.current) return;
+        if (results.every(Boolean)) {
+          applyIntent();
+          return;
+        }
+        if (targetIndex !== null && targetIndex !== previousIndex) {
+          restoringHistory.current = true;
+          window.history.go(previousIndex - targetIndex);
+        } else {
+          window.history.pushState(
+            { ...window.history.state, [navigationHistoryIndexKey]: previousIndex },
+            "",
+            navigationUrl(previous),
+          );
+        }
+        rememberNavigation(previous);
+      });
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -369,9 +452,14 @@ function App() {
     const current = navigationRef.current;
     rememberNavigation(current);
     const params = new URLSearchParams(window.location.search);
-    if (!params.has("view") || navigationLocationNeedsNormalization(current)) {
-      window.history.replaceState({}, "", navigationUrl(current));
-    }
+    const target = !params.has("view") || navigationLocationNeedsNormalization(current)
+      ? navigationUrl(current)
+      : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.history.replaceState(
+      { ...window.history.state, [navigationHistoryIndexKey]: navigationHistoryIndex.current },
+      "",
+      target,
+    );
   }, []);
 
   useEffect(() => {
@@ -556,11 +644,6 @@ function App() {
             onSampleGalleryInstall={(projectIds) => session.installSampleProjects(projectIds)}
             onSampleGalleryRemove={(projectId) => session.removeSampleProject(projectId)}
             onSwitch={(projectId) => {
-              navigate({
-                view: tab === "project-settings" ? "project-settings" : "project",
-                projectId,
-                projectSettings: tab === "project-settings" ? navigation.projectSettings : undefined,
-              }, true);
               void session.loadProject(projectId);
             }}
             onNavigate={(view, candidateId, options) => {
@@ -708,6 +791,7 @@ function App() {
               ? activeChainContext.availability
               : undefined}
             displayDecimalOverrides={activeProject?.display_decimals}
+            registerNavigationGuard={registerNavigationGuard}
             onCandidateSelected={(candidateId) => navigate({
               view: "candidates",
               projectId: activeProjectId,

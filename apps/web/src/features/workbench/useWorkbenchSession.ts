@@ -113,7 +113,17 @@ export function useWorkbenchSession({
     return next;
   }
 
-  async function loadProject(projectId: string, candidateId?: string) {
+  async function loadProject(projectId: string, candidateId?: string): Promise<boolean> {
+    if (
+      projectId !== activeProjectIdRef.current
+      && !(await editor.settlePending())
+    ) {
+      onLocationReplace(
+        activeProjectIdRef.current,
+        selectedIdRef.current || undefined,
+      );
+      return false;
+    }
     const sequence = ++loadSequence.current;
     loadPreviewController.current?.abort();
     const previewController = new AbortController();
@@ -140,7 +150,7 @@ export function useWorkbenchSession({
       prediction.reset();
       setApiState("ready");
       setNotice(null);
-      return;
+      return true;
     }
     const [listedCandidates, resolved] = await Promise.all([
       workbenchApi.listCandidates(projectId),
@@ -160,7 +170,7 @@ export function useWorkbenchSession({
     const imported = apiCandidates.map(fromApiCandidate);
     validateResolvedTaskDefinition(resolved);
     const definition = resolved.task_definition;
-    if (sequence !== loadSequence.current) return;
+    if (sequence !== loadSequence.current) return false;
     editor.acceptServerCandidates(apiCandidates);
     activeProjectIdRef.current = projectId;
     setActiveProjectId(projectId);
@@ -183,7 +193,7 @@ export function useWorkbenchSession({
       resolved.availability.status === "unavailable"
       || !imported.length
       || !resolved.runtime_capability.operations.preview
-    ) return;
+    ) return true;
     // Preview loading is best effort. A failure here belongs to the preview surface,
     // never to the connection state: project, contract and candidates are already loaded.
     try {
@@ -224,7 +234,7 @@ export function useWorkbenchSession({
         }
       },
     });
-    if (sequence !== loadSequence.current || previewController.signal.aborted) return;
+    if (sequence !== loadSequence.current || previewController.signal.aborted) return false;
     const backgroundEntries = previewEntries.filter(([candidateId]) => candidateId !== nextSelectedId);
       prediction.acceptProjectPreviews(
         initialPreviewCandidates.filter((candidate) => candidate.id !== nextSelectedId),
@@ -235,6 +245,7 @@ export function useWorkbenchSession({
     } catch {
       // Keep the loaded project usable; the comparison surface reports the preview error.
     }
+    return true;
   }
 
   /**
@@ -286,23 +297,24 @@ export function useWorkbenchSession({
     }
   }
 
-  async function openLocation(projectId: string, candidateId?: string) {
+  async function openLocation(projectId: string, candidateId?: string): Promise<boolean> {
     const currentProject = projectsRef.current.find((item) => item.id === projectId);
     if (
       projectId === activeProjectIdRef.current
       && currentProject?.scientific_identity?.identity_kind === "chain"
     ) {
-      return;
+      return true;
     }
     if (
       projectId !== activeProjectIdRef.current
       || (candidateId && !candidatesRef.current.some((candidate) => candidate.id === candidateId))
     ) {
-      await loadProject(projectId, candidateId);
+      return loadProject(projectId, candidateId);
     } else if (candidateId) {
       selectedIdRef.current = candidateId;
       setSelectedId(candidateId);
     }
+    return true;
   }
 
   async function openWorkspace(cancelled = () => false) {
