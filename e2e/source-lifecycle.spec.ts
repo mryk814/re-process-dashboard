@@ -399,6 +399,10 @@ test("late initial catalog cannot replace the selected connector", async ({ page
   };
   const slow = await createConnector(`遅い接続先-${Date.now()}`);
   const selected = await createConnector(`選択接続先-${Date.now()}`);
+  const selectedDetailResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
+  ));
   let releaseFirstCatalog = () => {};
   const firstCatalogGate = new Promise<void>((resolve) => {
     releaseFirstCatalog = resolve;
@@ -422,10 +426,6 @@ test("late initial catalog cannot replace the selected connector", async ({ page
 
   await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
   await firstCatalogStarted;
-  const selectedDetailResponse = page.waitForResponse((response) => (
-    response.request().method() === "GET"
-    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
-  ));
   await page.evaluate((connectorId) => {
     const url = new URL(window.location.href);
     url.searchParams.set("connector", connectorId);

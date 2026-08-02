@@ -119,6 +119,7 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
     .getByRole("button", { name: "入力ばらつきに強いか" }).click();
   await page.getByText("条件を変えて再実行", { exact: true }).click();
+  await openActivityRunControls(page);
   await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("128");
   const runBResponse = page.waitForResponse((response) => (
@@ -194,8 +195,7 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await page.getByRole("button", { name: "高強度案を選択" }).click();
   await expect(page.getByText("選択中: 高強度案")).toBeVisible();
   await expect(page).not.toHaveURL(/activity_run=/);
-  await expect(page.locator(".activity-result")).toHaveCount(0);
-  await expect(page.getByText("目標達成率を確認するには、Projectの目標値が必要です")).toBeVisible();
+  await expect(page.locator(".activity-result-meta")).toContainText("64/64件を評価");
 });
 
 test("a delayed activity response cannot overwrite the newly selected candidate", async ({ page, request }) => {
