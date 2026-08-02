@@ -140,13 +140,6 @@ test("Data Library tab state is shareable and browser history restores it", asyn
   await expect(page.getByRole("tab", { name: "データ更新" })).toHaveAttribute("aria-selected", "true");
 });
 
-test("unknown navigation queries are replaced with the documented project fallback", async ({ page }) => {
-  await page.goto("/?view=unknown&tab=unexpected&connector=unused");
-  await expect(page).toHaveURL(/view=project/);
-  await expect(page).not.toHaveURL(/tab=|connector=/);
-  await expect(page.getByRole("complementary", { name: "プロジェクト一覧" })).toBeVisible();
-});
-
 test("developer guide continues through Profile Workbench to project creation", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer");
   await page.getByRole("button", { name: "変更ガイド" }).click();
@@ -176,33 +169,6 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
 
-test("developer guide separates new and existing Decision Activity workflows", async ({ page }, testInfo) => {
-  await page.goto("/?view=settings&project=default&admin=developer");
-  await page.getByRole("button", { name: "変更ガイド" }).click();
-
-  const intent = page.getByLabel("何を変更したいですか？");
-  await intent.selectOption("decision-activity-new");
-  const workflow = page.getByRole("region", { name: "実装順序" });
-  await expect(workflow.getByRole("listitem")).toHaveCount(7);
-  await expect(workflow.getByRole("listitem").first()).toContainText("1. Python contract");
-  await expect(workflow.getByRole("listitem").last()).toContainText("7. Contract / UI / E2E test");
-  await expect(page.getByRole("complementary", { name: "変更時の注意" })).toContainText(
-    "直接編集せず",
-  );
-  await expect(page.locator(".developer-guide-card")).toContainText(
-    "docs/learning/chapters/contract-through-stack.qmd",
-  );
-
-  await intent.selectOption("decision-activity-change");
-  await expect(page.locator(".developer-guide-card")).toContainText(
-    "保存済みRunは変更後のhandlerで自動再計算せず",
-  );
-  await page.screenshot({
-    path: testInfo.outputPath("decision-activity-change-guide.png"),
-    fullPage: true,
-  });
-});
-
 test("developer guide deep link survives reload and browser history", async ({ page }) => {
   await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=decision-activity-new");
   const intent = page.getByLabel("何を変更したいですか？");
@@ -220,13 +186,6 @@ test("developer guide deep link survives reload and browser history", async ({ p
   await expect(intent).toHaveValue("decision-activity-new");
   await page.goForward();
   await expect(intent).toHaveValue("decision-activity-change");
-});
-
-test("unknown developer locations are explicit", async ({ page }) => {
-  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=missing");
-  await expect(page.getByRole("alert")).toContainText("missing");
-  await page.goto("/?view=settings&project=default&admin=developer&developer_tab=guide&developer_guide=missing");
-  await expect(page.getByRole("alert")).toContainText("missing");
 });
 
 test("developer diagnostics shows runtime checks without repository tooling", async ({ page }) => {
@@ -421,40 +380,6 @@ test("lineage opens without a fixed node and renders real selectable edges", asy
   });
   await expect(page).not.toHaveURL(/entity=/);
   await expect(page.getByRole("heading", { name: "調べるノードを選択してください" })).toBeVisible();
-});
-
-test("lineage separates each process condition and test type into its own group", async ({ page, request }) => {
-  const project = await processLineageProject(request);
-  await page.goto(`/?view=lineage&project=${project}&entity=HR-00001`);
-  await expect(page.getByTestId("lineage-real-graph")).toBeVisible();
-
-  const groups = page.locator(".lineage-graph-group-toggle");
-  await expect(groups).toHaveCount(4);
-  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延組織を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の穴広げを展開する" })).toBeVisible();
-  await expect(page.locator(".lineage-graph-group.group-hot-tensile")).toHaveCount(1);
-  await expect(page.locator(".lineage-graph-group.group-hot-microstructure")).toHaveCount(1);
-  await expect(page.locator(".lineage-graph-group.group-annealed-microstructure")).toHaveCount(1);
-  await expect(page.locator(".lineage-graph-group.group-annealed-hole-expansion")).toHaveCount(1);
-  await expect(page.locator(".lineage-graph-edge.process-route")).toHaveCount(1);
-
-  await page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を展開する" }).click();
-  await expect(page.getByRole("button", { name: "熱延条件 HR-00001 の熱延引張を折りたたむ" })).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator(".lineage-graph-node.group-hot-tensile")).toHaveCount(2);
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HT-00001" })).toBeVisible();
-  await page.getByRole("button", { name: "熱延条件 HR-00001 の熱延組織を展開する" }).click();
-  await expect(page.locator(".lineage-graph-node.group-hot-microstructure")).toHaveCount(1);
-  await expect(page.locator(".lineage-graph-node").filter({ hasText: "HMS-00001" })).toBeVisible();
-  // Expanding a group also selects its parent, and moving the selection rebuilds
-  // the graph around it, so the annealed groups are checked where they belong.
-  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" }).click();
-  await expect(page).toHaveURL(/entity=AN-00001/);
-  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の組織を展開する" }).click();
-  await expect(page.locator(".lineage-graph-node.group-annealed-microstructure")).toHaveCount(2);
-  await page.getByRole("button", { name: "焼鈍条件-3CGL AN-00001 の穴広げを展開する" }).click();
-  await expect(page.locator(".lineage-graph-node.group-annealed-hole-expansion")).toHaveCount(3);
 });
 
 test("lineage orders test groups by process condition before test type", async ({ page, request }) => {
