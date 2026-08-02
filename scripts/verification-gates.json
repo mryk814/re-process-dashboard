@@ -97,12 +97,13 @@
       "runner": {"executable": "npm", "args": ["run", "security:audit"]}
     },
     "full-pytest": {
-      "command": "uv run --extra dev python -m pytest",
+      "command": "uv run --extra dev python -m pytest --durations=20 --durations-min=1",
       "purpose": "backendの科学・永続化・API契約を横断検証する。",
-      "estimatedMinutes": "4-7",
+      "estimatedMinutes": "12-20",
       "platform": "any",
       "riskCategories": ["backend", "persistence", "model-package"],
-      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest"]}
+      "absorbs": ["focused-pytest", "security-boundary-tests", "model-package-contract-tests", "legacy-workspace"],
+      "runner": {"executable": "uv", "args": ["run", "--extra", "dev", "python", "-m", "pytest", "--durations=20", "--durations-min=1"]}
     },
     "web-unit": {
       "command": "npm run test -w apps/web",
@@ -145,12 +146,12 @@
       "runner": {"executable": "npm", "args": ["run", "build", "-w", "apps/web"]}
     },
     "verification-policy-tests": {
-      "command": "node --test scripts/verification-gates.test.mjs",
-      "purpose": "risk分類、gate選択、focused test authorityの契約を検証する。",
+      "command": "node --test scripts/verification-gates.test.mjs scripts/run-main-acceptance.test.mjs e2e/suite-inventory.test.mjs",
+      "purpose": "risk分類、gate選択、acceptance重複排除、focused test authority、E2E suite inventoryの契約を検証する。",
       "estimatedMinutes": "<1",
       "platform": "any",
       "riskCategories": ["verification-tooling"],
-      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs"]}
+      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs", "scripts/run-main-acceptance.test.mjs", "e2e/suite-inventory.test.mjs"]}
     },
     "checkpoint-acceptance": {
       "command": "npm run verify:checkpoint",
@@ -331,7 +332,7 @@
       {"risk": "shared-recovery-test-infrastructure", "matches": ["exact:e2e/axe.ts"]},
       {"risk": "chain-degraded-test-infrastructure", "matches": ["exact:playwright.chain-degraded.config.ts", "exact:e2e/chain-degraded.spec.ts", "prefix:e2e/fixtures/"]},
       {"risk": "e2e-test-infrastructure", "matches": ["exact:playwright.config.ts", "exact:playwright.startup-diagnostic.config.ts", "exact:e2e/api-offline.spec.ts", "exact:e2e/accessibility-smoke.spec.ts", "exact:e2e/degraded-task.spec.ts", "exact:e2e/startup-diagnostic.spec.ts", "exact:e2e/global-teardown.mjs", "exact:e2e/helpers.ts", "exact:e2e/helpers/seed-degraded-task.py", "exact:e2e/owned-database-cleanup.mjs", "exact:e2e/owned-database-cleanup.test.mjs", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
-      {"risk": "verification-tooling", "matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:scripts/verify.mjs", "exact:scripts/verification-ci.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"]},
+      {"risk": "verification-tooling", "matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:e2e/suite-inventory.mjs", "exact:e2e/suite-inventory.test.mjs", "exact:scripts/verify.mjs", "exact:scripts/verification-ci.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/run-main-acceptance.ps1", "exact:scripts/run-main-acceptance.test.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"]},
       {"risk": "compose-shared-lab", "matches": ["prefix:compose.", "prefix:infrastructure/compose/", "contains:/shared_lab/", "contains:run-shared-lab", "contains:run-compose"]},
       {"risk": "frontend-presentation", "matches": ["prefix:apps/web/", "prefix:e2e/"]},
       {"risk": "backend-application", "matches": ["prefix:backend/"]}

@@ -13,6 +13,11 @@ export const suiteInventory = {
     cleanupOwner: "spec API cleanup",
     reason: "default Projectと追加Projectの両方を更新するアクセシビリティjourney。",
   },
+  "analysis-navigation-resume.spec.ts": {
+    kind: "isolated",
+    cleanupOwner: "fresh spec process",
+    reason: "専用の単段／Chain Project、Candidate、Run、Snapshotを作成して分析位置の復元を確認する。",
+  },
   "annealing-time-basis.spec.ts": {
     kind: "isolated",
     cleanupOwner: "fresh spec process",
