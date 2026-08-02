@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 
 function recorded(value: string | number | null | undefined): string {
@@ -35,6 +36,24 @@ export function ActivityRunHistory({
         >{visibleLabel}</button>;
       })}</div>
   </nav>;
+}
+
+export function ActivityRunControls({
+  hasResult,
+  available,
+  children,
+}: {
+  hasResult: boolean;
+  available: boolean;
+  children: ReactNode;
+}) {
+  return <details
+    className="activity-settings activity-settings-collapsed activity-run-controls"
+    open={!hasResult && available}
+  >
+    <summary>{hasResult ? "条件を変えて再実行" : "解析条件を設定"}</summary>
+    <div className="activity-settings-collapsed-body">{children}</div>
+  </details>;
 }
 
 export function ActivityRunProvenance({ run }: { run: ApiDecisionActivityRun }) {

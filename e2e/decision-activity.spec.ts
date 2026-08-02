@@ -108,6 +108,7 @@ test("activity run deep links follow same-candidate history and reject an unknow
 
   await page.getByRole("navigation", { name: "検討アクティビティの選択" })
     .getByRole("button", { name: "入力ばらつきに強いか" }).click();
+  await page.getByText("条件を変えて再実行", { exact: true }).click();
   await page.getByRole("spinbutton", { name: "Cの公差幅" }).fill("0.01");
   await page.getByRole("spinbutton", { name: "サンプル数" }).fill("128");
   const runBResponse = page.waitForResponse((response) => (
@@ -139,6 +140,26 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
   await page.reload();
   await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
+  await expect(page.getByText("入力のばらつきで予測がどの程度動くか", { exact: true })).toBeVisible();
+  const questionPrecedesEvidence = await page.evaluate(() => {
+    const question = document.querySelector(".activity-question");
+    const evidence = document.querySelector(".activity-result");
+    return Boolean(
+      question
+      && evidence
+      && (question.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
+  });
+  expect(questionPrecedesEvidence).toBe(true);
+  await expect(page.getByText("条件を変えて再実行", { exact: true })).toBeVisible();
+  const currentEvidence = await page.locator(".activity-result").boundingBox();
+  const history = await page.getByRole("navigation", { name: "保存済みロバストネス解析" }).boundingBox();
+  const controls = await page.locator(".activity-run-controls").boundingBox();
+  expect(currentEvidence).not.toBeNull();
+  expect(history).not.toBeNull();
+  expect(controls).not.toBeNull();
+  expect(currentEvidence!.y).toBeLessThan(history!.y);
+  expect(history!.y).toBeLessThan(controls!.y);
 
   await page.evaluate((url) => {
     window.history.replaceState({}, "", url);
@@ -159,6 +180,12 @@ test("activity run deep links follow same-candidate history and reject an unknow
   }, unknownUrl.toString());
   await expect(page.getByRole("alert")).toContainText("この候補では見つかりません");
   await expect(page.locator(".activity-result")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "高強度案を選択" }).click();
+  await expect(page.getByText("選択中: 高強度案")).toBeVisible();
+  await expect(page).not.toHaveURL(/activity_run=/);
+  await expect(page.locator(".activity-result")).toHaveCount(0);
+  await expect(page.getByText("目標達成率を確認するには、Projectの目標値が必要です")).toBeVisible();
 });
 
 test("a delayed activity response cannot overwrite the newly selected candidate", async ({ page, request }) => {

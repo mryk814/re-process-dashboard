@@ -5,7 +5,11 @@ import { supportStatusLabel } from "../../../shared/supportPresentation";
 import { signedDifference } from "../actualMeasurementPresentation";
 import { candidateDifferenceOptions } from "./candidateDifferenceOptions";
 import type { DecisionActivityViewProps } from "./types";
-import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
+import {
+  ActivityRunControls,
+  ActivityRunHistory,
+  ActivityRunProvenance,
+} from "./ActivityRunEvidence";
 
 const signedFormat = new Intl.NumberFormat("ja-JP", {
   maximumFractionDigits: 4,
@@ -70,46 +74,14 @@ export function CandidateDifferenceActivityView({
 
   return <>
     <p className="activity-question">{availability.definition.question}</p>
-    <section className="activity-settings">
-      <div className="panel-title"><h3>比較する候補</h3><span>この候補との予測差を分解します</span></div>
-      <div className="activity-run-settings candidate-difference-run-settings">
-        <label>比較候補
-          <select
-            aria-label="比較候補"
-            value={comparisonKey}
-            onChange={(event) => setComparisonKey(event.target.value)}
-            disabled={options.length === 0}
-          >
-            {options.some((item) => item.kind === "history") && <optgroup label="この候補の履歴">
-              {options.filter((item) => item.kind === "history").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
-            </optgroup>}
-            {options.some((item) => item.kind === "candidate") && <optgroup label="別の候補">
-              {options.filter((item) => item.kind === "candidate").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
-            </optgroup>}
-          </select>
-        </label>
-        <button type="button" className="primary-button" disabled={!canRun} onClick={() => {
-          if (!comparison) return;
-          void onRun({
-            schema_version: "candidate-difference-parameters/v1",
-            comparison_candidate_id: comparison.candidateId,
-            comparison_revision: comparison.revision,
-          });
-        }}>{running ? "分解中…" : "差分を分解"}</button>
-      </div>
-      {options.length === 0 && <small>比較できる過去版または別の候補がありません。</small>}
-      {!ready && <small>候補の入力を保存すると実行できます。</small>}
-    </section>
-
-    <ActivityRunHistory label="保存済み候補差分" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
 
     {activeRun && result && <section className="activity-result">
+      <div className="activity-result-heading"><span className="overline">CURRENT EVIDENCE</span><h3>現在の差分説明</h3></div>
       <div className="activity-result-meta">
         <span>編集版 {activeRun.provenance.candidate_revision}</span>
         <span>比較 {candidateLabels.get(result.comparison_candidate_id) ?? result.comparison_candidate_id} 編集版 {result.comparison_candidate_revision}</span>
         <span>相違した入力 {result.changed_input_count}件</span>
       </div>
-      <ActivityRunProvenance run={activeRun} />
       <div className="activity-targets">{result.target_summaries.map((summary) => <article key={summary.target}>
         <header><strong>{outputLabels.get(summary.target) ?? summary.target}</strong><b>差 {signedDifference(summary.difference, (value) => outputNumber(summary.target, value))} {summary.unit}</b></header>
         <dl>
@@ -140,6 +112,40 @@ export function CandidateDifferenceActivityView({
         <small>比較候補にその入力だけを戻した局所的な差です。因果効果ではありません。</small>
       </details>)}
       <ul className="activity-warnings">{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+      <ActivityRunProvenance run={activeRun} />
     </section>}
+
+    <ActivityRunHistory label="保存済み候補差分" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
+
+    <ActivityRunControls hasResult={Boolean(result)} available={availability.available}>
+      <div className="panel-title"><h3>比較する候補</h3><span>この候補との予測差を分解します</span></div>
+      <div className="activity-run-settings candidate-difference-run-settings">
+        <label>比較候補
+          <select
+            aria-label="比較候補"
+            value={comparisonKey}
+            onChange={(event) => setComparisonKey(event.target.value)}
+            disabled={options.length === 0}
+          >
+            {options.some((item) => item.kind === "history") && <optgroup label="この候補の履歴">
+              {options.filter((item) => item.kind === "history").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
+            </optgroup>}
+            {options.some((item) => item.kind === "candidate") && <optgroup label="別の候補">
+              {options.filter((item) => item.kind === "candidate").map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
+            </optgroup>}
+          </select>
+        </label>
+        <button type="button" className="primary-button" disabled={!canRun} onClick={() => {
+          if (!comparison) return;
+          void onRun({
+            schema_version: "candidate-difference-parameters/v1",
+            comparison_candidate_id: comparison.candidateId,
+            comparison_revision: comparison.revision,
+          });
+        }}>{running ? "分解中…" : "差分を分解"}</button>
+      </div>
+      {options.length === 0 && <small>比較できる過去版または別の候補がありません。</small>}
+      {!ready && <small>候補の入力を保存すると実行できます。</small>}
+    </ActivityRunControls>
   </>;
 }

@@ -1681,6 +1681,7 @@
 .activity-settings-collapsed { padding: 0; background: #fbfcfe; }
 .activity-settings-collapsed > summary { cursor: pointer; padding: 11px 13px; color: #29415d; font-size: 12px; font-weight: 700; }
 .activity-settings-collapsed-body { border-top: 1px solid #d8e0ea; padding: 13px; }
+.activity-run-controls:not([open]) { background: #fff; }
 .activity-tolerance-list { display: grid; gap: 5px; }
 .activity-tolerance-list > div { display: grid; grid-template-columns: minmax(0, 1fr) 126px auto; align-items: center; gap: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px; font-size: 12px; }
 .activity-tolerance-list > div > span:first-child { display: flex; gap: 4px; align-items: baseline; min-width: 0; }
@@ -1706,6 +1707,9 @@
 .activity-run-history button { border: 1px solid #ccd6e2; border-radius: 5px; background: #fff; padding: 6px 9px; color: #536277; font-size: 11px; white-space: nowrap; }
 .activity-run-history button.active { border-color: #1f5fc4; background: #edf4ff; color: #164f9f; }
 .activity-result { display: grid; gap: 12px; }
+.activity-result-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.activity-result-heading h3 { margin: 0; color: #20344b; font-size: 15px; }
+.activity-result-heading .overline { color: #5d6775; }
 .activity-result-meta { display: flex; flex-wrap: wrap; gap: 6px; color: #526276; font-size: 11px; }
 .activity-result-meta span { border: 1px solid #d8e0ea; border-radius: 4px; background: #f8fafc; padding: 5px 8px; }
 .activity-run-history button[aria-current="true"]::before {

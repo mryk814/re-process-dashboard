@@ -3,7 +3,11 @@ import { getCandidateInputValue, numericTaskInputs } from "../../candidates";
 import { formatTaskNumber } from "../../../shared/taskPresentation";
 import type { ApiDecisionActivityRun } from "../../../shared/api/workbench-api";
 import type { DecisionActivityViewProps } from "./types";
-import { ActivityRunHistory, ActivityRunProvenance } from "./ActivityRunEvidence";
+import {
+  ActivityRunControls,
+  ActivityRunHistory,
+  ActivityRunProvenance,
+} from "./ActivityRunEvidence";
 
 const percentFormat = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 0 });
 const EXTRAPOLATION_NOTICE_RATE = 0.2;
@@ -133,62 +137,15 @@ export function RobustnessActivityView({
   const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
   const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
-    {hasConfiguredGoals && <p className="activity-question">{availability.definition.question}</p>}
-    {!hasConfiguredGoals && !sensitivityOnlyConfirmed && <section className="activity-prerequisite" role="status">
-      <strong>目標達成率を確認するには、Projectの目標値が必要です</strong>
-      <span>目標なしでも、入力ばらつきによる予測の振れ幅とモデル支持範囲は確認できます。</span>
-      <div>
-        <button type="button" className="primary-button" onClick={onConfigureGoals}>目標を設定する</button>
-        <button type="button" className="outline-button" onClick={() => setSensitivityOnlyConfirmed(true)}>目標なしでばらつきだけ見る</button>
-      </div>
-    </section>}
-    {!hasConfiguredGoals && sensitivityOnlyConfirmed && <div className="activity-goal-less-mode">
-      <p className="activity-question">入力のばらつきで予測がどの程度動くか</p>
-      <button type="button" className="text-button" onClick={onConfigureGoals}>目標を設定する</button>
-    </div>}
-    {(hasConfiguredGoals || sensitivityOnlyConfirmed) && <section className="activity-settings">
-      <div className="panel-title"><h3>入力の公差</h3><span>現在値を中心とした±幅</span></div>
-      <div className="activity-tolerance-list">
-        {Object.entries(tolerances).map(([path, amount]) => {
-          const field = fieldByPath.get(path);
-          return <div key={path}>
-            <span><b>{field?.label ?? path}</b><small>{field?.unit}</small></span>
-            <label>± <input aria-label={`${field?.label ?? path}の公差幅`} type="number" min="0" step="any" value={amount} onChange={(event) => setTolerances((current) => ({ ...current, [path]: Number(event.target.value) }))} /></label>
-            <button type="button" className="text-button" aria-label={`${field?.label ?? path}を公差対象から外す`} onClick={() => setTolerances((current) => {
-              const { [path]: _removed, ...remaining } = current;
-              return remaining;
-            })}>外す</button>
-          </div>;
-        })}
-      </div>
-      {remainingFields.length > 0 && <div className="activity-add-tolerance">
-        <select aria-label="追加する公差対象" value={nextField} onChange={(event) => setNextField(event.target.value)}>
-          {remainingFields.map((field) => <option value={field.path} key={field.path}>{field.label}</option>)}
-        </select>
-        <button type="button" className="outline-button" onClick={addTolerance}>公差を追加</button>
-      </div>}
-      <div className="activity-run-settings">
-        <label>サンプル数<input type="number" min={8} max={500} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label>
-        <label>乱数シード（seed）<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
-        <button type="button" className="primary-button" disabled={!canRun} onClick={() => void onRun({
-          schema_version: "robustness-parameters/v1",
-          sample_count: sampleCount,
-          seed,
-          tolerance_profile: {
-            fields: Object.fromEntries(
-              Object.entries(tolerances).map(([path, amount]) => [path, { kind: "absolute" as const, amount }]),
-            ),
-          },
-        })}>{running ? "解析中…" : hasConfiguredGoals ? "公差内を解析" : "ばらつきを解析"}</button>
-      </div>
-      {!ready && <small>候補の入力を保存すると実行できます。</small>}
-    </section>}
-
-    <ActivityRunHistory label="保存済みロバストネス解析" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
+    <p className="activity-question">
+      {hasConfiguredGoals
+        ? availability.definition.question
+        : "入力のばらつきで予測がどの程度動くか"}
+    </p>
 
     {activeRun && result && <section className="activity-result">
+      <div className="activity-result-heading"><span className="overline">CURRENT EVIDENCE</span><h3>現在の判断材料</h3></div>
       <div className="activity-result-meta"><span>編集版 {activeRun.provenance.candidate_revision}</span><span>{result.accepted_samples}/{result.requested_samples}件を評価</span></div>
-      <ActivityRunProvenance run={activeRun} />
       {result.extrapolated_rate >= EXTRAPOLATION_NOTICE_RATE && <div className="activity-extrapolation-notice" role="status">
         <strong>{result.extrapolated_rate >= 1
           ? "この解析は、すべてのサンプルがモデルの学習範囲外です"
@@ -225,6 +182,58 @@ export function RobustnessActivityView({
         {result.failure_examples.map((example) => <div key={example.sample_index}><span>{Object.entries(example.varied_inputs).map(([path, value]) => `${fieldByPath.get(path)?.label ?? path} ${inputNumber(path, value)}`).join(" / ")}</span><b>{example.failed_targets.length ? `${example.failed_targets.join(", ")} 未達` : "支持範囲外"}</b></div>)}
       </details>}
       <ul className="activity-warnings">{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+      <ActivityRunProvenance run={activeRun} />
     </section>}
+
+    <ActivityRunHistory label="保存済みロバストネス解析" runs={runs} activeRunId={activeRunId} onSelectRun={onSelectRun} />
+
+    {!hasConfiguredGoals && !sensitivityOnlyConfirmed && !result && <section className="activity-prerequisite" role="status">
+      <strong>目標達成率を確認するには、Projectの目標値が必要です</strong>
+      <span>目標なしでも、入力ばらつきによる予測の振れ幅とモデル支持範囲は確認できます。</span>
+      <div>
+        <button type="button" className="primary-button" onClick={onConfigureGoals}>目標を設定する</button>
+        <button type="button" className="outline-button" onClick={() => setSensitivityOnlyConfirmed(true)}>目標なしでばらつきだけ見る</button>
+      </div>
+    </section>}
+    {(hasConfiguredGoals || sensitivityOnlyConfirmed || Boolean(result)) && <ActivityRunControls hasResult={Boolean(result)} available={availability.available}>
+      {!hasConfiguredGoals && <div className="activity-goal-less-mode">
+        <button type="button" className="text-button" onClick={onConfigureGoals}>目標を設定する</button>
+      </div>}
+      <div className="panel-title"><h3>入力の公差</h3><span>現在値を中心とした±幅</span></div>
+      <div className="activity-tolerance-list">
+        {Object.entries(tolerances).map(([path, amount]) => {
+          const field = fieldByPath.get(path);
+          return <div key={path}>
+            <span><b>{field?.label ?? path}</b><small>{field?.unit}</small></span>
+            <label>± <input aria-label={`${field?.label ?? path}の公差幅`} type="number" min="0" step="any" value={amount} onChange={(event) => setTolerances((current) => ({ ...current, [path]: Number(event.target.value) }))} /></label>
+            <button type="button" className="text-button" aria-label={`${field?.label ?? path}を公差対象から外す`} onClick={() => setTolerances((current) => {
+              const { [path]: _removed, ...remaining } = current;
+              return remaining;
+            })}>外す</button>
+          </div>;
+        })}
+      </div>
+      {remainingFields.length > 0 && <div className="activity-add-tolerance">
+        <select aria-label="追加する公差対象" value={nextField} onChange={(event) => setNextField(event.target.value)}>
+          {remainingFields.map((field) => <option value={field.path} key={field.path}>{field.label}</option>)}
+        </select>
+        <button type="button" className="outline-button" onClick={addTolerance}>公差を追加</button>
+      </div>}
+      <div className="activity-run-settings">
+        <label>サンプル数<input type="number" min={8} max={500} value={sampleCount} onChange={(event) => setSampleCount(Number(event.target.value))} /></label>
+        <label>乱数シード（seed）<input type="number" min={0} value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
+        <button type="button" className="primary-button" disabled={!canRun} onClick={() => void onRun({
+          schema_version: "robustness-parameters/v1",
+          sample_count: sampleCount,
+          seed,
+          tolerance_profile: {
+            fields: Object.fromEntries(
+              Object.entries(tolerances).map(([path, amount]) => [path, { kind: "absolute" as const, amount }]),
+            ),
+          },
+        })}>{running ? "解析中…" : hasConfiguredGoals ? "公差内を解析" : "ばらつきを解析"}</button>
+      </div>
+      {!ready && <small>候補の入力を保存すると実行できます。</small>}
+    </ActivityRunControls>}
   </>;
 }
