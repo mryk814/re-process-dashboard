@@ -50,6 +50,7 @@ export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
+export type ApiModelLibraryCatalog = components["schemas"]["ModelLibraryCatalog"];
 export type ApiSubsystemAvailability = components["schemas"]["SubsystemAvailability"];
 export type ApiWorkspaceHealth = {
   ready: boolean;
@@ -269,6 +270,12 @@ export const workbenchApi = {
   },
   async chainStudioCatalog(signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/chains/studio/catalog", { signal }), "Chain StudioのTask catalogを取得できませんでした。");
+  },
+  async modelLibraryCatalog(signal?: AbortSignal) {
+    return requireData(
+      await apiClient.GET("/api/model-library", { signal }),
+      "Model Libraryを取得できませんでした。",
+    );
   },
   async validateChainStudioDraft(body: ApiChainStudioDraft) {
     return requireData(await apiClient.POST("/api/chains/studio/validate", { body }), "Chain draftを検証できませんでした。");

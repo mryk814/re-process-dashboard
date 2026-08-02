@@ -1,5 +1,6 @@
 import type { CandidateSection } from "../shared/projectActionQuestions";
 import type { PreparedProjectBinding } from "../shared/preparedProjectBinding";
+import type { ModelLibraryTab } from "../shared/modelLibrary";
 
 export const WORKBENCH_VIEWS = [
   "project",
@@ -8,6 +9,7 @@ export const WORKBENCH_VIEWS = [
   "candidate-review",
   "chain-graph",
   "chain-studio",
+  "model-library",
   "workspace",
   "quality",
   "lineage",
@@ -43,6 +45,7 @@ export type NavigationIntent = Readonly<{
   developerGuideId?: string;
   projectSettings?: "general" | "targets" | "scientific" | "ranges" | "display" | "task" | "evidence";
   dataLibraryTab?: DataLibraryTab;
+  modelLibraryTab?: ModelLibraryTab;
   sourceConnectorId?: string;
   sourceStage?: SourceLifecycleStage;
   sourceRevisionId?: string;
@@ -56,6 +59,7 @@ const ADMIN_SECTIONS = new Set<AdminSection>(["developer", "ranges", "display", 
 const DEVELOPER_TABS = new Set<DeveloperTab>(["overview", "training", "guide", "diagnostics"]);
 const SOURCE_STAGES = new Set<SourceLifecycleStage>(["raw", "curation", "approval", "training"]);
 const DATA_ONBOARDING_MODES = new Set<DataOnboardingMode>(["revision", "mapping", "new-task"]);
+const MODEL_LIBRARY_TABS = new Set<ModelLibraryTab>(["tasks", "packages", "transforms", "graphs"]);
 
 export function isLegacyQualityAdminNavigation(search = window.location.search): boolean {
   const params = new URLSearchParams(search);
@@ -108,6 +112,12 @@ export function readNavigationIntent(
       ? "update"
       : "browse"
     : undefined;
+  const requestedModelLibraryTab = params.get("asset");
+  const modelLibraryTab: ModelLibraryTab | undefined = normalizedView === "model-library"
+    && requestedModelLibraryTab
+    && MODEL_LIBRARY_TABS.has(requestedModelLibraryTab as ModelLibraryTab)
+    ? requestedModelLibraryTab as ModelLibraryTab
+    : normalizedView === "model-library" ? "tasks" : undefined;
   const sourceConnectorId = dataLibraryTab === "update" ? requestedConnectorId : undefined;
   const sourceStage = sourceConnectorId && requestedStage && SOURCE_STAGES.has(requestedStage as SourceLifecycleStage)
     ? requestedStage as SourceLifecycleStage
@@ -168,6 +178,7 @@ export function readNavigationIntent(
     developerGuideId: params.get("developer_guide") || undefined,
     projectSettings,
     dataLibraryTab,
+    modelLibraryTab,
     sourceConnectorId,
     sourceStage,
     sourceRevisionId,
@@ -199,6 +210,9 @@ export function navigationUrl(intent: NavigationIntent): string {
     params.set("project_settings", intent.projectSettings);
   }
   if (intent.view === "data-library" && intent.dataLibraryTab === "update") params.set("tab", "update");
+  if (intent.view === "model-library" && intent.modelLibraryTab && intent.modelLibraryTab !== "tasks") {
+    params.set("asset", intent.modelLibraryTab);
+  }
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
@@ -263,6 +277,7 @@ export function withView(
     developerGuideId: view === "workspace" && current.adminSection === "developer" ? current.developerGuideId : undefined,
     projectSettings: view === "project-settings" ? current.projectSettings : undefined,
     dataLibraryTab: view === "data-library" ? current.dataLibraryTab : undefined,
+    modelLibraryTab: view === "model-library" ? current.modelLibraryTab : undefined,
     sourceConnectorId: view === "data-library" ? current.sourceConnectorId : undefined,
     sourceStage: view === "data-library" ? current.sourceStage : undefined,
     sourceRevisionId: view === "data-library" ? current.sourceRevisionId : undefined,

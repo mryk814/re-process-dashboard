@@ -16,6 +16,7 @@ import { LineagePage } from "../features/lineage";
 import { DataExploreNavigation, LiveDataQualityPage } from "../features/quality";
 import { ProjectScopedSettings, WorkspaceAdminPage } from "../features/admin";
 import { DataLibraryPage, ProfileWorkbenchPage, type PreparedCsvProjectBinding } from "../features/data-library";
+import { ModelLibraryPage } from "../features/model-library";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
@@ -27,7 +28,7 @@ import {
 
 type Tab = WorkbenchView;
 type NavigationGuard = () => Promise<boolean>;
-type HomeNavigationIcon = "project" | "data" | "workspace" | "chain";
+type HomeNavigationIcon = "project" | "data" | "model" | "workspace";
 const lastNavigationStorageKey = "material-workbench-last-navigation";
 const navigationHistoryIndexKey = "workbenchNavigationIndex";
 const projectNavItems: Array<{ id: Tab; label: string; active: Tab[]; requiresDataExplorer?: boolean }> = [
@@ -46,7 +47,7 @@ function HomeNavIcon({ icon }: { icon: HomeNavigationIcon }) {
       <path d="M3 4.5h5l1.4 1.7H17v9.3H3z" />
     </svg>;
   }
-  if (icon === "chain") {
+  if (icon === "model") {
     return <svg className="home-nav-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
       <circle cx="4" cy="10" r="2.2" /><circle cx="16" cy="5" r="2.2" /><circle cx="16" cy="15" r="2.2" /><path d="M6.1 9.1 13.8 5.9M6.1 10.9l7.7 3.2" />
     </svg>;
@@ -336,7 +337,7 @@ function App() {
     (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
-  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio";
+  const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "model-library" || tab === "workspace" || tab === "chain-studio";
   const dataLibraryMode = tab === "data-library" || tab === "profile-workbench";
 
   function selectCandidate(candidateId: string, replace = true) {
@@ -540,14 +541,14 @@ function App() {
           </button>
           <button
             type="button"
-            className={tab === "chain-studio" ? "nav-button active" : "nav-button"}
-            aria-label="Chain Studio"
-            data-short-label="Chain"
-            aria-current={tab === "chain-studio" ? "page" : undefined}
-            onClick={() => navigate({ view: "chain-studio" })}
+            className={tab === "model-library" || tab === "chain-studio" ? "nav-button active" : "nav-button"}
+            aria-label="Model Library"
+            data-short-label="Model"
+            aria-current={tab === "model-library" || tab === "chain-studio" ? "page" : undefined}
+            onClick={() => navigate({ view: "model-library", modelLibraryTab: "tasks" })}
           >
-            <HomeNavIcon icon="chain" />
-            <span className="nav-label-full">Chain Studio</span>
+            <HomeNavIcon icon="model" />
+            <span className="nav-label-full">Model Library</span>
           </button>
           <button
             ref={workspaceButtonRef}
@@ -685,7 +686,10 @@ function App() {
               }, true)}
               onProjectChanged={handleProjectChanged}
             />}
-            onCreationIntentConsumed={() => { setRequestedDatasetViewId(undefined); setRequestedProjectBinding(undefined); }}
+            onCreationIntentConsumed={() => {
+              setRequestedDatasetViewId(undefined);
+              setRequestedProjectBinding(undefined);
+            }}
           />
         )}
         {tab === "data-library" && <DataLibraryPage
@@ -714,6 +718,16 @@ function App() {
         />}
         {tab === "profile-workbench" && <ProfileWorkbenchPage
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
+          onStartProject={startProjectForDataset}
+        />}
+        {tab === "model-library" && <ModelLibraryPage
+          tab={navigation.modelLibraryTab ?? "tasks"}
+          onTabChange={(modelLibraryTab) => navigate({
+            view: "model-library",
+            modelLibraryTab,
+          })}
+          onOpenDataLibrary={() => navigate({ view: "data-library" })}
+          onOpenStudio={() => navigate({ view: "chain-studio" })}
           onStartProject={startProjectForDataset}
         />}
         {tab === "chain-studio" && <ChainStudioPage />}
