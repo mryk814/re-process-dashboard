@@ -94,54 +94,36 @@ class PredictionGraphDraftRepository:
         now: datetime,
     ) -> PredictionGraphDraftDocument:
         timestamp = now.isoformat()
+        content_json = _content_json(content)
         with self._connect() as connection:  # type: ignore[attr-defined]
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT draft_id,version,content_json,created_at,updated_at "
-                "FROM prediction_graph_drafts WHERE draft_id=?",
-                (draft_id,),
-            ).fetchone()
-            if row is None:
-                raise PredictionGraphDraftNotFoundError(
-                    f"Prediction Graph draftが見つかりません: {draft_id}"
-                )
-            current = _document(row)
-            if current.version != expected_version:
-                raise PredictionGraphDraftConflictError(
-                    "Prediction Graph draftは別の画面で更新されています",
-                    current,
-                )
             next_version = expected_version + 1
-            cursor = connection.execute(
+            updated = connection.execute(
                 "UPDATE prediction_graph_drafts "
                 "SET version=?,content_json=?,updated_at=? "
-                "WHERE draft_id=? AND version=?",
+                "WHERE draft_id=? AND version=? "
+                "RETURNING created_at",
                 (
                     next_version,
-                    _content_json(content),
+                    content_json,
                     timestamp,
                     draft_id,
                     expected_version,
                 ),
-            )
-            if cursor.rowcount != 1:
-                latest_row = connection.execute(
-                    "SELECT draft_id,version,content_json,created_at,updated_at "
-                    "FROM prediction_graph_drafts WHERE draft_id=?",
-                    (draft_id,),
-                ).fetchone()
-                if latest_row is None:
-                    raise PredictionGraphDraftNotFoundError(
-                        f"Prediction Graph draftが見つかりません: {draft_id}"
-                    )
-                raise PredictionGraphDraftConflictError(
-                    "Prediction Graph draftは別の画面で更新されています",
-                    _document(latest_row),
+            ).fetchone()
+        if updated is None:
+            current = self.get_prediction_graph_draft(draft_id)
+            if current is None:
+                raise PredictionGraphDraftNotFoundError(
+                    f"Prediction Graph draftが見つかりません: {draft_id}"
                 )
+            raise PredictionGraphDraftConflictError(
+                "Prediction Graph draftは別の画面で更新されています",
+                current,
+            )
         return PredictionGraphDraftDocument(
             draft_id=draft_id,
             version=next_version,
             content=content,
-            created_at=current.created_at,
+            created_at=str(updated["created_at"]),
             updated_at=now,
         )

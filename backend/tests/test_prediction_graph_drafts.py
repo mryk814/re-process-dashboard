@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Barrier, Event
 from typing import cast
 
 from fastapi.testclient import TestClient
+import pytest
 
 from decision_workbench.application.workspace_bundle import (
     commit_workspace_restore,
@@ -30,6 +33,10 @@ from decision_workbench.contracts.prediction_graph_draft_contracts import (
     PredictionGraphDraftDefinition,
 )
 from decision_workbench.persistence.store import Store
+from decision_workbench.persistence import prediction_graph_draft_repository
+from decision_workbench.persistence.prediction_graph_draft_repository import (
+    PredictionGraphDraftConflictError,
+)
 from decision_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -135,6 +142,91 @@ def test_draft_api_rejects_stale_expected_version_without_overwriting(
         ]["$ref"]
         == "#/components/schemas/PredictionGraphDraftConflictResponse"
     )
+
+
+def test_draft_serialization_does_not_hold_the_workspace_write_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = Store(tmp_path / "workbench.db")
+    original = store.create_prediction_graph_draft(
+        draft_id="concurrent-reader",
+        content=_incomplete_content(),
+        now=datetime(2026, 8, 2, tzinfo=UTC),
+    )
+    serializing = Event()
+    release_serialization = Event()
+    original_content_json = prediction_graph_draft_repository._content_json
+
+    def blocked_content_json(content: PredictionGraphDraftContent) -> str:
+        if content.definition.label == "保存後":
+            serializing.set()
+            assert release_serialization.wait(timeout=2)
+        return original_content_json(content)
+
+    monkeypatch.setattr(
+        prediction_graph_draft_repository,
+        "_content_json",
+        blocked_content_json,
+    )
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        update = executor.submit(
+            store.replace_prediction_graph_draft,
+            draft_id=original.draft_id,
+            expected_version=original.version,
+            content=_incomplete_content(label="保存後"),
+            now=datetime(2026, 8, 2, 0, 1, tzinfo=UTC),
+        )
+        assert serializing.wait(timeout=2)
+        parallel_write = executor.submit(
+            store.create_prediction_graph_draft,
+            draft_id="parallel-write",
+            content=_incomplete_content(label="別draft"),
+            now=datetime(2026, 8, 2, 0, 0, 30, tzinfo=UTC),
+        )
+        assert parallel_write.result(timeout=1).draft_id == "parallel-write"
+        release_serialization.set()
+        assert update.result(timeout=2).version == 2
+
+
+def test_concurrent_draft_updates_allow_exactly_one_version_winner(
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path / "workbench.db")
+    original = store.create_prediction_graph_draft(
+        draft_id="concurrent-cas",
+        content=_incomplete_content(),
+        now=datetime(2026, 8, 2, tzinfo=UTC),
+    )
+    start = Barrier(3)
+
+    def update(label: str, minute: int):
+        start.wait()
+        return store.replace_prediction_graph_draft(
+            draft_id=original.draft_id,
+            expected_version=original.version,
+            content=_incomplete_content(label=label),
+            now=datetime(2026, 8, 2, 0, minute, tzinfo=UTC),
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        attempts = [
+            executor.submit(update, "同時更新A", 1),
+            executor.submit(update, "同時更新B", 2),
+        ]
+        start.wait()
+        winners = []
+        conflicts = []
+        for attempt in attempts:
+            try:
+                winners.append(attempt.result(timeout=2))
+            except PredictionGraphDraftConflictError as conflict:
+                conflicts.append(conflict)
+
+    assert len(winners) == 1
+    assert len(conflicts) == 1
+    assert winners[0].version == 2
+    assert conflicts[0].current == winners[0]
 
 
 def _published_graph() -> tuple[
