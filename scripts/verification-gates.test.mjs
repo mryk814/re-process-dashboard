@@ -1165,6 +1165,48 @@ test("recovery-specific E2E edits invalidate only their owning recovery shard", 
   });
   assert.ok(chainDegraded.executedShardIds.includes("recovery-chain-degraded"));
   assert.ok(chainDegraded.reusedShardIds.includes("recovery-failure-state"));
+
+  const sharedAxe = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["e2e/axe.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  for (const shardId of [
+    "browser-standard",
+    "recovery-failure-state",
+    "recovery-chain-degraded",
+  ]) {
+    assert.ok(sharedAxe.executedShardIds.includes(shardId), shardId);
+  }
+  for (const shardId of ["backend-science", "contract-build", "windows-delivery"]) {
+    assert.ok(sharedAxe.reusedShardIds.includes(shardId), shardId);
+  }
+
+  for (const runner of [
+    "scripts/run-failure-state-e2e.mjs",
+    "scripts/run-degraded-task-e2e.mjs",
+  ]) {
+    assert.ok(selectedIds(planFor([runner])).includes("failure-state-e2e"), runner);
+    const runnerReuse = planShardEvidenceReuse({
+      ciPlan,
+      source,
+      changedPathsSinceSource: [runner],
+      sourceIsAncestor: true,
+      classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+    });
+    assert.deepEqual(runnerReuse.executedShardIds, ["recovery-failure-state"]);
+  }
+
+  const chainConfig = planShardEvidenceReuse({
+    ciPlan,
+    source,
+    changedPathsSinceSource: ["playwright.chain-degraded.config.ts"],
+    sourceIsAncestor: true,
+    classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+  });
+  assert.deepEqual(chainConfig.executedShardIds, ["recovery-chain-degraded"]);
 });
 
 test("in-progress workflow runs cannot provide reusable shard evidence", () => {

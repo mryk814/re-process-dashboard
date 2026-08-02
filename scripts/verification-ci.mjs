@@ -74,16 +74,25 @@ function changedPathMatchesShard(path, shardId) {
   const starts = (prefix) => normalized.startsWith(prefix);
   const sharedE2eInfrastructure = starts("e2e/helpers/")
     || starts("e2e/fixtures/")
+    || normalized === "e2e/axe.ts"
     || normalized === "e2e/helpers.ts"
     || normalized === "e2e/global-teardown.mjs"
     || normalized === "e2e/owned-database-cleanup.mjs"
-    || normalized === "e2e/owned-database-cleanup.test.mjs"
-    || starts("playwright.");
+    || normalized === "e2e/owned-database-cleanup.test.mjs";
   switch (shardId) {
     case "backend-science":
       return starts("backend/") || starts("models/");
     case "browser-standard":
-      return starts("apps/web/") || starts("e2e/") || starts("playwright.");
+      return starts("apps/web/")
+        || (
+          starts("e2e/")
+          && ![
+            "e2e/chain-degraded.spec.ts",
+            "e2e/startup-diagnostic.spec.ts",
+            "e2e/sample-gallery.spec.ts",
+          ].includes(normalized)
+        )
+        || normalized === "playwright.config.ts";
     case "contract-build":
       return starts("apps/web/")
         || starts("apps/desktop/")
@@ -96,6 +105,10 @@ function changedPathMatchesShard(path, shardId) {
       return starts("apps/web/")
         || starts("backend/")
         || sharedE2eInfrastructure
+        || normalized === "scripts/run-failure-state-e2e.mjs"
+        || normalized === "scripts/run-degraded-task-e2e.mjs"
+        || normalized === "playwright.config.ts"
+        || normalized === "playwright.startup-diagnostic.config.ts"
         || [
           "e2e/api-offline.spec.ts",
           "e2e/accessibility-smoke.spec.ts",
@@ -107,6 +120,7 @@ function changedPathMatchesShard(path, shardId) {
         || starts("backend/")
         || starts("models/")
         || sharedE2eInfrastructure
+        || normalized === "playwright.chain-degraded.config.ts"
         || normalized === "e2e/chain-degraded.spec.ts";
     case "windows-delivery":
       return starts("apps/desktop/")
