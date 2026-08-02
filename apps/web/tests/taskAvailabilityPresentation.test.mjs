@@ -121,7 +121,7 @@ test("unresolved fixed references retain the raw project identifiers", () => {
 test("the fixed reference strip reads in Japanese and keeps digests in one collapsed block", () => {
   const strip = projectHub.slice(
     projectHub.indexOf('className="project-reference-strip"'),
-    projectHub.indexOf('className="chain-evaluation-panel loading"'),
+    projectHub.indexOf('surface === "overview" && chainIdentity && ('),
   );
   for (const label of ["参照データセット", "予測タスク", "予測モデル", "探索範囲（Design Space）", "判断基準（Objective）", "検討グループ", "参照Chain", "固定した版"]) {
     assert.ok(strip.includes(`<span>${label}</span>`), `${label} is a Japanese strip heading`);

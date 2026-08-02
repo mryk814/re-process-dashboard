@@ -88,8 +88,9 @@ test("an unopened workspace states one recovery action instead of loading foreve
   // The history reports failure, and recovers with the workspace.
   assert.match(hub, /error=\{historyState === "error"\}/);
   assert.match(history, /履歴を再取得/);
-  // Dependency lists get reformatted; the recovery dependency itself must stay.
-  assert.match(hub, /Recovering the workspace also recovers this overview[\s\S]{0,300}\boffline\b/);
+  // The overview request follows the workspace's offline state, so the shell retry
+  // remains the single recovery action instead of adding a second competing control.
+  assert.match(hub, /useEffect\(\(\) => \{[\s\S]*setOverviewResourceState[\s\S]*\boffline\b[\s\S]*overviewRevision[\s\S]*\]\);/);
 });
 
 test("changes are inert while the workspace is offline", async () => {
