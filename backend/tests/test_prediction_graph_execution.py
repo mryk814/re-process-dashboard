@@ -47,7 +47,7 @@ from decision_workbench.contracts.chain_execution_contracts import (
     parse_snapshot_json,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
-from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.store import ChainCatalogConflictError, Store
 
 
 def _port(path: str, quantity: str) -> ChainPort:
@@ -316,7 +316,7 @@ def _workspace(tmp_path: Path):
         chain_revision_id=revision_id,
         chain_revision_digest=revision.revision_digest,
     )
-    project = store.create_chain_project(
+    project = store.create_prediction_graph_project(
         ProjectCreateInput(
             name="Graph runtime",
             task_id="",
@@ -545,6 +545,37 @@ def test_prediction_graph_planner_rejects_legacy_or_missing_revision() -> None:
 
     with pytest.raises(ChainExecutionError, match="legacy Chain Revision"):
         planning.resolve("project", "candidate", 1)
+
+
+def test_prediction_graph_project_uses_dedicated_store_creation_entry(
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path / "graph-project-entry.db")
+    graph = _graph()
+    revision = _revision()
+    store.register_chain_definition(graph)
+    revision_id = store.register_chain_revision(
+        revision,
+        contracts=_graph_contracts(),
+    )
+    identity = ChainProjectIdentity(
+        identity_kind="chain",
+        chain_revision_id=revision_id,
+        chain_revision_digest=revision.revision_digest,
+    )
+    payload = ProjectCreateInput(
+        name="Dedicated Graph Project",
+        task_id="",
+        scientific_identity=identity,
+    )
+
+    with pytest.raises(
+        ChainCatalogConflictError,
+        match="現行Chain Projectとして保存できません",
+    ):
+        store.create_chain_project(payload, identity)
+    project = store.create_prediction_graph_project(payload, identity)
+    assert project.scientific_identity == identity
 
 
 def test_v1_execution_parser_remains_byte_shape_compatible() -> None:

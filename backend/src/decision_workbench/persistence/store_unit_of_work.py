@@ -9,6 +9,7 @@ from decision_workbench.persistence.project_persistence_inventory import (
 from decision_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
     ChainRevision,
+    PredictionGraphRevision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
@@ -226,6 +227,45 @@ class WorkbenchUnitOfWork:
             raise ChainCatalogConflictError(
                 "Prediction Graph Revisionは現行Chain Projectとして保存できません"
             )
+        return self._create_pinned_graph_project(
+            payload,
+            identity,
+            initial_candidate,
+        )
+
+    def create_prediction_graph_project(
+        self,
+        payload: ProjectCreateInput,
+        identity: ChainProjectIdentity,
+        initial_candidate: CandidateInput | None = None,
+    ) -> Project:
+        """Persist only a Prediction Graph v1 project for its dedicated runtime."""
+
+        revision = self.get_chain_revision(identity.chain_revision_id)
+        if (
+            revision is None
+            or revision.revision_digest != identity.chain_revision_digest
+        ):
+            raise ChainCatalogConflictError(
+                "選択したPrediction Graph RevisionのIDまたはdigestが"
+                "登録内容と一致しません"
+            )
+        if not isinstance(revision, PredictionGraphRevision):
+            raise ChainCatalogConflictError(
+                "legacy Chain RevisionはPrediction Graph Projectとして保存できません"
+            )
+        return self._create_pinned_graph_project(
+            payload,
+            identity,
+            initial_candidate,
+        )
+
+    def _create_pinned_graph_project(
+        self,
+        payload: ProjectCreateInput,
+        identity: ChainProjectIdentity,
+        initial_candidate: CandidateInput | None,
+    ) -> Project:
         project_id, now = str(uuid.uuid4()), _now()
         if (
             initial_candidate is not None
