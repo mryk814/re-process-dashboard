@@ -27,6 +27,7 @@ import {
   packageTrainingSnapshotLink,
   useResourceCatalogActions,
 } from "./useResourceCatalogActions";
+import { clearFocusedPackageIntentOnChange } from "../../shared/modelLibrary";
 import type { DataLibraryLocation } from "./location";
 
 const shortDigest = (value: string) => value.replace(/^sha256:/, "").slice(0, 10);
@@ -192,12 +193,13 @@ export function ResourceCatalogView({
     const focusIdentity = location.packageReferenceId
       ? `${location.datasetRevisionId ?? ""}:${location.packageReferenceId}`
       : undefined;
-    if (!focusIdentity) {
-      focusedPackageIntentRef.current = undefined;
-      return;
-    }
+    focusedPackageIntentRef.current = clearFocusedPackageIntentOnChange(
+      focusedPackageIntentRef.current,
+      focusIdentity,
+    );
     if (
-      focusedPackageIntentRef.current === focusIdentity
+      !focusIdentity
+      || focusedPackageIntentRef.current === focusIdentity
       || !requestedPackage
       || !requestedPackageIsSelected
     ) return;

@@ -26,6 +26,18 @@ export type ModelLibraryDataIntent = Readonly<{
 }>;
 
 /**
+ * A package handoff is focused at most once while its URL identity is active.
+ * Changing identity clears the completed marker so browser back can focus the
+ * earlier package again after an unresolved or incompatible handoff.
+ */
+export function clearFocusedPackageIntentOnChange(
+  focusedIdentity: string | undefined,
+  currentIdentity: string | undefined,
+): string | undefined {
+  return focusedIdentity === currentIdentity ? focusedIdentity : undefined;
+}
+
+/**
  * A Studio draft may be mutable, but the evidence boundary of the selected
  * published Graph remains part of the starting scientific context.  It must
  * stay visible and travel with the draft until the author explicitly changes

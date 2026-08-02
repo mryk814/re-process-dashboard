@@ -109,6 +109,25 @@ test("Data Library deep link keeps dataset and package focus", async () => {
   );
 });
 
+test("a changed package handoff clears completed focus so Back can focus again", async () => {
+  const { clearFocusedPackageIntentOnChange } = await import("../src/shared/modelLibrary.ts");
+  const focusA = "dataset-a:package-a";
+  const unresolvedFocusB = "dataset-b:package-b";
+
+  let focusedIdentity = focusA;
+  focusedIdentity = clearFocusedPackageIntentOnChange(focusedIdentity, unresolvedFocusB);
+  assert.equal(focusedIdentity, undefined);
+
+  focusedIdentity = clearFocusedPackageIntentOnChange(focusedIdentity, focusA);
+  assert.equal(focusedIdentity, undefined);
+
+  focusedIdentity = focusA;
+  assert.equal(
+    clearFocusedPackageIntentOnChange(focusedIdentity, focusA),
+    focusA,
+  );
+});
+
 test("a new Graph draft keeps the published Decision Output evidence boundary", async () => {
   const { draftDefinitionFromCatalog } = await import("../src/shared/modelLibrary.ts");
   const definition = {
