@@ -21,6 +21,7 @@ from decision_workbench.contracts.workspace_bundle_contracts import (
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
+    deterministic_transform_stage_surface,
 )
 from decision_workbench.persistence.sqlite_connection import (
     connect_sqlite,
@@ -39,9 +40,6 @@ from decision_workbench.persistence.data_lifecycle_payload_storage import (
 from decision_workbench.contracts.data_lifecycle_contracts import (
     CurationRun,
     RawSourceSnapshot,
-)
-from decision_workbench.persistence.welding_chain_bootstrap import (
-    welding_stage_a_surface,
 )
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
@@ -257,7 +255,10 @@ def _validate_restored_references(
                         continue
                     try:
                         transform_entry = transform_catalog.entry(stage.contract_id)
-                        surface = welding_stage_a_surface(transform_entry.package)
+                        surface = deterministic_transform_stage_surface(
+                            stage.contract_id,
+                            transform_entry.package,
+                        )
                     except Exception as exc:
                         unresolved.append(f"{project.id}/{stage.stage_id}: {exc}")
                         continue

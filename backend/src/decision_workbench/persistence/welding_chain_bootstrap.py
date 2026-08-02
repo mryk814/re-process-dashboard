@@ -19,9 +19,8 @@ from decision_workbench.contracts.task_contracts import persisted_task_definitio
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
-    deterministic_transform_contract_digest,
+    deterministic_transform_stage_surface,
 )
-from decision_workbench.modeling.packages.verification import VerifiedModelPackage
 from decision_workbench.persistence.store import Store
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import TaskRegistry
@@ -37,50 +36,13 @@ class WeldingChainBootstrapError(RuntimeError):
     """Bundled Task/Package/Profile records cannot form the declared Chain."""
 
 
-def welding_stage_a_surface(package: VerifiedModelPackage) -> StageContractSurface:
-    manifest = package.manifest
-    spec = manifest.deterministic_transforms[0]
-    contract_digest = deterministic_transform_contract_digest(package)
-    outputs = [
-        ChainPort(
-            path=name,
-            value_kind="number",
-            quantity=name,
-            basis="whole_wire",
-            unit="mass% whole wire",
-        )
-        for name in spec.output_names
-    ]
-    outputs.extend(
-        ChainPort(
-            path=name,
-            value_kind="number",
-            quantity=name,
-            unit="µm",
-        )
-        for name in spec.auxiliary_feature_names
-    )
-    return StageContractSurface(
-        stage_kind="deterministic_transform",
-        contract_id=STAGE_A_ID,
-        contract_digest=contract_digest,
-        input_ports=(
-            ChainPort(
-                path="blend",
-                value_kind="sparse_blend",
-                quantity="blend",
-                basis="core",
-                unit="sparse-blend/v1",
-            ),
-        ),
-        output_ports=tuple(outputs),
-    )
-
-
 def _stage_a_surface(
     catalog: DeterministicTransformCatalog,
 ) -> StageContractSurface:
-    return welding_stage_a_surface(catalog.entry(STAGE_A_ID).package)
+    return deterministic_transform_stage_surface(
+        STAGE_A_ID,
+        catalog.entry(STAGE_A_ID).package,
+    )
 
 
 def _task_surface(

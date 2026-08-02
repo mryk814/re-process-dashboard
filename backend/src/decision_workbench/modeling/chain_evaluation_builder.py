@@ -35,10 +35,10 @@ from decision_workbench.modeling.tabular.features import (
 )
 from decision_workbench.modeling.transform_catalog import (
     deterministic_transform_contract_digest,
+    deterministic_transform_stage_surface,
 )
 from decision_workbench.persistence.welding_chain_bootstrap import (
     welding_chain_definition,
-    welding_stage_a_surface,
 )
 from decision_workbench.tasks.task_registry import load_task_contracts
 
@@ -363,7 +363,10 @@ def build_chain_evaluation(
     )
     contracts = load_task_contracts()
     chain_definition = welding_chain_definition(
-        welding_stage_a_surface(ModelPackageLoader().load(Path(stage_a_package))),
+        deterministic_transform_stage_surface(
+            STAGE_A_ID,
+            ModelPackageLoader().load(Path(stage_a_package)),
+        ),
         task_contract_surface(
             contracts[STAGE_B_ID].task_definition,
             contract_digest=stages[1].contract_digest,

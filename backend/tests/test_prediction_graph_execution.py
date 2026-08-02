@@ -872,6 +872,156 @@ def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
     ) in paths
 
 
+def test_prediction_graph_authoring_catalog_validates_and_publishes_transform(
+    client,
+) -> None:
+    catalog_response = client.get("/api/prediction-graphs/catalog")
+    assert catalog_response.status_code == 200, catalog_response.text
+    catalog = catalog_response.json()
+    assert catalog["candidate_adapter_ids"] == ["scalar/v1", "sparse_blend/v1"]
+    transform = next(
+        item
+        for item in catalog["stages"]
+        if item["stage_kind"] == "deterministic_transform"
+    )
+    assert transform["status"] == "available"
+    assert transform["surface"]["input_ports"][0]["value_kind"] == "sparse_blend"
+    assert transform["stage_lock"]["package_manifest_digest"].startswith("sha256:")
+
+    surface = transform["surface"]
+    graph_input = {
+        "input_id": "graph.blend",
+        "label": "原料配合",
+        "port": {**surface["input_ports"][0], "path": "graph.blend"},
+        "role": "design_variable",
+        "value_source": {
+            "source_kind": "candidate",
+            "candidate_path": "blend",
+        },
+        "default_presentation_group": "design",
+    }
+    definition = {
+        "graph_id": "transform-authoring-graph",
+        "label": "Transform authoring graph",
+        "stages": [
+            {
+                "stage_id": "blend-transform",
+                "stage_kind": "deterministic_transform",
+                "contract_id": transform["contract_id"],
+            }
+        ],
+        "inputs": [graph_input],
+        "bindings": [
+            {
+                "target_stage_id": "blend-transform",
+                "target_input_path": "blend",
+                "source": {
+                    "source_kind": "external",
+                    "path": "graph.blend",
+                },
+            }
+        ],
+        "decision_outputs": [
+            {
+                "output_id": "decision.composition",
+                "source_stage_id": "blend-transform",
+                "source_output_key": surface["output_ports"][0]["path"],
+                "label": surface["output_ports"][0]["path"],
+                "group": "composition",
+                "role": "diagnostic",
+                "required_for_complete_result": True,
+            }
+        ],
+    }
+    validation = client.post(
+        "/api/prediction-graphs/validate",
+        json={"definition": definition},
+    )
+    assert validation.status_code == 200, validation.text
+    assert validation.json()["valid"] is True
+    assert validation.json()["candidate_adapter_id"] == "sparse_blend/v1"
+
+    invalid = {
+        **definition,
+        "inputs": [
+            {
+                **graph_input,
+                "port": {
+                    **graph_input["port"],
+                    "quantity": "not-a-blend",
+                },
+            }
+        ],
+    }
+    invalid_response = client.post(
+        "/api/prediction-graphs/validate",
+        json={"definition": invalid},
+    )
+    assert invalid_response.status_code == 200, invalid_response.text
+    finding = invalid_response.json()["findings"][0]
+    assert finding["code"] == "port_mismatch"
+    assert finding["target"] == {
+        "target_kind": "binding",
+        "target_id": "blend-transform",
+        "port_path": "blend",
+    }
+    cyclic = {
+        **definition,
+        "graph_id": "cyclic-authoring-graph",
+        "stages": [
+            {
+                **definition["stages"][0],
+                "stage_id": stage_id,
+            }
+            for stage_id in ("transform-a", "transform-b")
+        ],
+        "inputs": [],
+        "bindings": [
+            {
+                "target_stage_id": "transform-a",
+                "target_input_path": "blend",
+                "source": {
+                    "source_kind": "stage_output",
+                    "stage_id": "transform-b",
+                    "output_key": surface["output_ports"][0]["path"],
+                },
+            },
+            {
+                "target_stage_id": "transform-b",
+                "target_input_path": "blend",
+                "source": {
+                    "source_kind": "stage_output",
+                    "stage_id": "transform-a",
+                    "output_key": surface["output_ports"][0]["path"],
+                },
+            },
+        ],
+        "decision_outputs": [
+            {
+                **definition["decision_outputs"][0],
+                "source_stage_id": "transform-a",
+            }
+        ],
+    }
+    cyclic_response = client.post(
+        "/api/prediction-graphs/validate",
+        json={"definition": cyclic},
+    )
+    assert cyclic_response.status_code == 200, cyclic_response.text
+    assert cyclic_response.json()["findings"][0]["code"] == "cycle"
+
+    publish = client.post(
+        "/api/prediction-graphs/publish",
+        json={"definition": definition},
+    )
+    assert publish.status_code == 201, publish.text
+    published_stage = publish.json()["revision"]["stages"][0]
+    assert published_stage["contract_digest"] == surface["contract_digest"]
+    assert published_stage["package_manifest_digest"] == (
+        transform["stage_lock"]["package_manifest_digest"]
+    )
+
+
 def test_v1_execution_parser_remains_byte_shape_compatible() -> None:
     payload = {
         "schema_version": "chain-execution/v1",

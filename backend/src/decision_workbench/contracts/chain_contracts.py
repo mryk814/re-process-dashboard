@@ -932,9 +932,16 @@ def validate_prediction_graph_definition(
                     "binding references unknown Graph stage output: "
                     f"{binding.source.stage_id}.{binding.source.output_key}"
                 )
+        source_label = (
+            binding.source.path
+            if binding.source.source_kind == "external"
+            else f"{binding.source.stage_id}.{binding.source.output_key}"
+        )
+        target_label = f"{binding.target_stage_id}.{binding.target_input_path}"
         if source_port.value_kind != target_port.value_kind:
             raise ValueError(
-                f"binding type mismatch: {source_port.value_kind!r} -> "
+                f"binding {source_label} -> {target_label} type mismatch: "
+                f"{source_port.value_kind!r} -> "
                 f"{target_port.value_kind!r}"
             )
         if (
@@ -942,21 +949,26 @@ def validate_prediction_graph_definition(
             or source_port.basis != target_port.basis
         ):
             raise ValueError(
-                "binding physical quantity or basis mismatch: "
+                f"binding {source_label} -> {target_label} physical quantity "
+                "or basis mismatch: "
                 f"{source_port.quantity!r}/{source_port.basis!r} -> "
                 f"{target_port.quantity!r}/{target_port.basis!r}"
             )
         if binding.conversion is None:
             if source_port.unit != target_port.unit:
                 raise ValueError(
-                    f"binding unit mismatch: {source_port.unit!r} -> "
+                    f"binding {source_label} -> {target_label} unit mismatch: "
+                    f"{source_port.unit!r} -> "
                     f"{target_port.unit!r}"
                 )
         elif (
             binding.conversion.source_unit != source_port.unit
             or binding.conversion.target_unit != target_port.unit
         ):
-            raise ValueError("unit conversion does not match binding port units")
+            raise ValueError(
+                f"binding {source_label} -> {target_label} conversion does not "
+                "match binding port units"
+            )
 
     for stage in definition.stages:
         contract = contracts[(stage.stage_kind, stage.contract_id)]

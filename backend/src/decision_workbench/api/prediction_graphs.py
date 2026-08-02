@@ -22,6 +22,9 @@ from decision_workbench.contracts.candidate_project_contracts import (
 )
 from decision_workbench.contracts.chain_api_contracts import (
     ChainExecutionRequest,
+    PredictionGraphCatalogResponse,
+    PredictionGraphDraftValidation,
+    PredictionGraphDraftValidationRequest,
     PredictionGraphPublishRequest,
     PredictionGraphPublishResponse,
     PredictionGraphProjectCreateRequest,
@@ -59,6 +62,29 @@ def _call(operation: Callable[[], T]) -> T:
         raise HTTPException(422, str(exc)) from exc
     except ChainConflictError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+@router.get(
+    "/catalog",
+    response_model=PredictionGraphCatalogResponse,
+    operation_id="getPredictionGraphCatalog",
+)
+def catalog(
+    use_cases: GraphDependency,
+) -> PredictionGraphCatalogResponse:
+    return _call(use_cases.catalog)
+
+
+@router.post(
+    "/validate",
+    response_model=PredictionGraphDraftValidation,
+    operation_id="validatePredictionGraph",
+)
+def validate(
+    payload: PredictionGraphDraftValidationRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphDraftValidation:
+    return _call(lambda: use_cases.validate(payload))
 
 
 @router.post(

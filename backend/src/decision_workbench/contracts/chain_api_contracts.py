@@ -1,7 +1,7 @@
 """Transport-neutral request and response contracts for Chain use cases."""
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -94,6 +94,63 @@ class PredictionGraphProjectCreateRequest(ChainApiModel):
     graph_revision_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     project_binding_revision: int = Field(default=1, ge=1)
     project_binding_values: dict[str, float | str] = Field(default_factory=dict)
+
+
+class PredictionGraphStageCatalogItem(ChainApiModel):
+    stage_kind: Literal["task", "deterministic_transform"]
+    contract_id: str
+    label: str
+    status: Literal["available", "unavailable"]
+    reason: str | None = None
+    surface: StageContractSurface | None = None
+    stage_lock: ChainStageLock | None = None
+
+
+class PredictionGraphCatalogResponse(ChainApiModel):
+    candidate_adapter_ids: tuple[Literal["scalar/v1", "sparse_blend/v1"], ...]
+    stages: tuple[PredictionGraphStageCatalogItem, ...]
+
+
+class PredictionGraphValidationTarget(ChainApiModel):
+    target_kind: Literal[
+        "graph",
+        "stage",
+        "input",
+        "binding",
+        "decision_output",
+    ]
+    target_id: str
+    port_path: str | None = None
+
+
+class PredictionGraphValidationFinding(ChainApiModel):
+    code: Literal[
+        "unbound_required_input",
+        "port_mismatch",
+        "unknown_stage_contract",
+        "unavailable_stage_contract",
+        "unsupported_candidate_adapter",
+        "cycle",
+        "terminal_output_missing",
+        "fixed_parameter_missing",
+        "invalid_graph",
+    ]
+    message: str
+    target: PredictionGraphValidationTarget
+    suggested_action: str
+
+
+class PredictionGraphDraftValidationRequest(ChainApiModel):
+    """Raw draft payload so invalid topology can return structured findings."""
+
+    definition: dict[str, Any]
+
+
+class PredictionGraphDraftValidation(ChainApiModel):
+    valid: bool
+    definition_digest: str
+    candidate_adapter_id: Literal["scalar/v1", "sparse_blend/v1"] | None = None
+    findings: tuple[PredictionGraphValidationFinding, ...] = ()
 
 
 class PredictionGraphPublishRequest(ChainApiModel):

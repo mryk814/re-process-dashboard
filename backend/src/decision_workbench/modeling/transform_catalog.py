@@ -29,6 +29,11 @@ from decision_workbench.contracts.blend_contracts import (
     SparseBlendDesignSpace,
     describe_blend_materials,
 )
+from decision_workbench.contracts.chain_contracts import (
+    ChainPort,
+    ChainStageLock,
+    StageContractSurface,
+)
 from decision_workbench.contracts.stage_a_contracts import (
     STAGE_A_AUXILIARY_SOURCE_PRESENTATION,
     STAGE_A_COMPONENT_OUTPUT_UNIT,
@@ -164,6 +169,49 @@ def deterministic_transform_contract_digest(
     )
 
 
+def deterministic_transform_stage_surface(
+    transform_id: str,
+    package: VerifiedModelPackage,
+) -> StageContractSurface:
+    """Project one verified, allow-listed Transform Package to Graph I/O."""
+
+    spec = package.manifest.deterministic_transforms[0]
+    outputs = [
+        ChainPort(
+            path=name,
+            value_kind="number",
+            quantity=name,
+            basis="whole_wire",
+            unit=STAGE_A_COMPONENT_OUTPUT_UNIT,
+        )
+        for name in spec.output_names
+    ]
+    outputs.extend(
+        ChainPort(
+            path=name,
+            value_kind="number",
+            quantity=name,
+            unit="µm",
+        )
+        for name in spec.auxiliary_feature_names
+    )
+    return StageContractSurface(
+        stage_kind="deterministic_transform",
+        contract_id=transform_id,
+        contract_digest=deterministic_transform_contract_digest(package),
+        input_ports=(
+            ChainPort(
+                path="blend",
+                value_kind="sparse_blend",
+                quantity="blend",
+                basis="core",
+                unit="sparse-blend/v1",
+            ),
+        ),
+        output_ports=tuple(outputs),
+    )
+
+
 class DeterministicTransformCatalog:
     def __init__(
         self,
@@ -191,6 +239,25 @@ class DeterministicTransformCatalog:
             return self._entries[transform_id]
         except KeyError as exc:
             raise KeyError(f"unknown deterministic transform: {transform_id}") from exc
+
+    def authoring_contract(
+        self,
+        transform_id: str,
+    ) -> tuple[StageContractSurface, ChainStageLock]:
+        """Resolve the active Transform contract and immutable Package lock."""
+
+        entry = self.entry(transform_id)
+        surface = deterministic_transform_stage_surface(
+            transform_id,
+            entry.package,
+        )
+        return (
+            surface,
+            ChainStageLock(
+                contract_digest=surface.contract_digest,
+                package_manifest_digest=f"sha256:{entry.package.manifest_sha256}",
+            ),
+        )
 
     def execute(
         self,

@@ -695,6 +695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graphs/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["getPredictionGraphCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graphs/projects": {
         parameters: {
             query?: never;
@@ -826,6 +843,23 @@ export interface paths {
         put?: never;
         /** Publish */
         post: operations["publishPredictionGraph"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate */
+        post: operations["validatePredictionGraph"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8470,6 +8504,13 @@ export interface components {
             /** Snapshot Id */
             snapshot_id: string;
         };
+        /** PredictionGraphCatalogResponse */
+        PredictionGraphCatalogResponse: {
+            /** Candidate Adapter Ids */
+            candidate_adapter_ids: ("scalar/v1" | "sparse_blend/v1")[];
+            /** Stages */
+            stages: components["schemas"]["PredictionGraphStageCatalogItem"][];
+        };
         /** PredictionGraphDefinition */
         PredictionGraphDefinition: {
             /** Bindings */
@@ -8492,6 +8533,30 @@ export interface components {
             schema_version: "prediction-graph-definition/v1";
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
+        };
+        /** PredictionGraphDraftValidation */
+        PredictionGraphDraftValidation: {
+            /** Candidate Adapter Id */
+            candidate_adapter_id?: ("scalar/v1" | "sparse_blend/v1") | null;
+            /** Definition Digest */
+            definition_digest: string;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["PredictionGraphValidationFinding"][];
+            /** Valid */
+            valid: boolean;
+        };
+        /**
+         * PredictionGraphDraftValidationRequest
+         * @description Raw draft payload so invalid topology can return structured findings.
+         */
+        PredictionGraphDraftValidationRequest: {
+            /** Definition */
+            definition: {
+                [key: string]: unknown;
+            };
         };
         /** PredictionGraphExecution */
         PredictionGraphExecution: {
@@ -8715,6 +8780,27 @@ export interface components {
              */
             schema_version: "prediction-graph-snapshot-identity/v1";
         };
+        /** PredictionGraphStageCatalogItem */
+        PredictionGraphStageCatalogItem: {
+            /** Contract Id */
+            contract_id: string;
+            /** Label */
+            label: string;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Stage Kind
+             * @enum {string}
+             */
+            stage_kind: "task" | "deterministic_transform";
+            stage_lock?: components["schemas"]["ChainStageLock"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
+            surface?: components["schemas"]["StageContractSurface"] | null;
+        };
         /** PredictionGraphStageExecution */
         PredictionGraphStageExecution: {
             /**
@@ -8814,6 +8900,31 @@ export interface components {
             };
             /** Topological Layers */
             topological_layers: string[][];
+        };
+        /** PredictionGraphValidationFinding */
+        PredictionGraphValidationFinding: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "unbound_required_input" | "port_mismatch" | "unknown_stage_contract" | "unavailable_stage_contract" | "unsupported_candidate_adapter" | "cycle" | "terminal_output_missing" | "fixed_parameter_missing" | "invalid_graph";
+            /** Message */
+            message: string;
+            /** Suggested Action */
+            suggested_action: string;
+            target: components["schemas"]["PredictionGraphValidationTarget"];
+        };
+        /** PredictionGraphValidationTarget */
+        PredictionGraphValidationTarget: {
+            /** Port Path */
+            port_path?: string | null;
+            /** Target Id */
+            target_id: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "graph" | "stage" | "input" | "binding" | "decision_output";
         };
         /** PredictionIntervalIdentity */
         PredictionIntervalIdentity: {
@@ -13970,6 +14081,35 @@ export interface operations {
             };
         };
     };
+    getPredictionGraphCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphCatalogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     createPredictionGraphProject: {
         parameters: {
             query?: never;
@@ -14262,6 +14402,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionGraphPublishResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    validatePredictionGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphDraftValidationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDraftValidation"];
                 };
             };
             /** @description Validation Error */

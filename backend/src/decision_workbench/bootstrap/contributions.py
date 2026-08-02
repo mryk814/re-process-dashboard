@@ -245,6 +245,7 @@ def _build_prediction_graph_use_cases(
         snapshots=PredictionGraphSnapshotUseCase(planning),
         workspace_catalog=context.workspace_catalog,
         task_registry=context.task_registry,
+        transform_catalog=transform_catalog,
     )
 
 
