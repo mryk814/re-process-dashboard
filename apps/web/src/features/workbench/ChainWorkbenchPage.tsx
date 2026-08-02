@@ -75,12 +75,14 @@ export function ChainWorkbenchPage({
   initialCandidateId,
   unavailable,
   displayDecimalOverrides,
+  registerNavigationGuard,
   onCandidateSelected,
 }: {
   projectId: string;
   initialCandidateId?: string;
   unavailable?: ApiSubsystemAvailability;
   displayDecimalOverrides?: Record<string, number>;
+  registerNavigationGuard: (guard: () => Promise<boolean>) => () => void;
   onCandidateSelected: (candidateId: string) => void;
 }) {
   const readOnly = Boolean(unavailable);
@@ -109,6 +111,10 @@ export function ChainWorkbenchPage({
   const [uncertaintyPanelOpen, setUncertaintyPanelOpen] = useState(false);
   const uncertaintyPanel = useRef<HTMLDetailsElement | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
+  const scheduledCandidate = useRef<ApiCandidate | null>(null);
+  const invalidNumericDrafts = useRef(new Set<string>());
+  const inFlightSaves = useRef(new Set<Promise<boolean>>());
+  const settlePendingRef = useRef<() => Promise<boolean>>(async () => true);
   const requestSequence = useRef(0);
   const saveQueue = useRef(new LatestSaveQueue<ApiCandidate>());
   const candidateRequests = useRef(new CandidateRequestGeneration());
@@ -332,6 +338,8 @@ export function ChainWorkbenchPage({
       setCandidateInputDefinitions(externalInputs);
       setCandidateInputError(inputError);
       setCandidates(items);
+      invalidNumericDrafts.current.clear();
+      scheduledCandidate.current = null;
       authoritative.current = new Map(items.map((item) => [item.id, item]));
       const candidateId = items.some((item) => item.id === initialCandidateId)
         ? initialCandidateId!
@@ -360,6 +368,8 @@ export function ChainWorkbenchPage({
       candidateRequests.current.invalidate();
       requestSequence.current += 1;
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+      scheduledCandidate.current = null;
     };
   }, [projectId, readOnly]);
 
@@ -452,7 +462,7 @@ export function ChainWorkbenchPage({
     } : current);
   }
 
-  async function persistCandidate(optimistic: ApiCandidate) {
+  async function persistCandidate(optimistic: ApiCandidate): Promise<boolean> {
     const candidateToken = candidateRequests.current.current();
     const initial = authoritative.current.get(optimistic.id) ?? optimistic;
     const basePayload = candidatePayload(initial);
@@ -482,25 +492,57 @@ export function ChainWorkbenchPage({
     try {
       const saved = await queued.promise;
       authoritative.current.set(saved.id, saved);
-      if (!queued.isLatest()) return;
+      if (!queued.isLatest()) return true;
       setCandidates((items) => items.map((item) => item.id === saved.id ? saved : item));
-      if (!candidateRequests.current.isCurrent(candidateToken)) return;
+      if (!candidateRequests.current.isCurrent(candidateToken)) return true;
       if (saved.blend_validation?.status === "invalid") {
         setStatusMessage("成立条件を確認してください。draftは保存しましたが、Chainは実行していません");
-        return;
+        return true;
       }
-      await execute(saved);
+      void execute(saved);
+      return true;
     } catch (cause) {
       if (
         queued.isLatest()
         && candidateRequests.current.isCurrent(candidateToken)
       ) {
-        setStatusMessage(cause instanceof Error ? cause.message : "Chain候補を保存できませんでした");
+        if (scheduledCandidate.current === null) scheduledCandidate.current = optimistic;
+        const message = cause instanceof Error ? cause.message : "Chain候補を保存できませんでした";
+        setStatusMessage(`${message} 入力はこの画面に保持しています。移動をもう一度試すと保存を再試行します`);
       }
+      return !queued.isLatest();
     } finally {
       queued.release();
     }
   }
+
+  function startCandidateSave(optimistic: ApiCandidate): Promise<boolean> {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    if (scheduledCandidate.current === optimistic) scheduledCandidate.current = null;
+    const operation = persistCandidate(optimistic);
+    inFlightSaves.current.add(operation);
+    void operation.finally(() => inFlightSaves.current.delete(operation));
+    return operation;
+  }
+
+  async function settlePending(): Promise<boolean> {
+    if (invalidNumericDrafts.current.size > 0) return false;
+    while (true) {
+      const pending = scheduledCandidate.current;
+      if (pending) void startCandidateSave(pending);
+      const operations = [...inFlightSaves.current];
+      if (!operations.length) return scheduledCandidate.current === null;
+      const results = await Promise.all(operations);
+      if (!results.every(Boolean) || invalidNumericDrafts.current.size > 0) return false;
+      if (scheduledCandidate.current === null && inFlightSaves.current.size === 0) return true;
+    }
+  }
+  settlePendingRef.current = settlePending;
+
+  useEffect(() => registerNavigationGuard(
+    () => settlePendingRef.current(),
+  ), [registerNavigationGuard]);
 
   function editNumeric(
     definition: ChainCandidateInputDefinition,
@@ -514,12 +556,18 @@ export function ChainWorkbenchPage({
     }));
     if (!rawValue.trim()) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+      scheduledCandidate.current = null;
+      invalidNumericDrafts.current.add(definition.candidate_path);
       setStatusMessage("空欄は0として保存しません。数値を入力してください");
       return;
     }
     const value = Number(rawValue);
     if (!Number.isFinite(value)) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+      scheduledCandidate.current = null;
+      invalidNumericDrafts.current.add(definition.candidate_path);
       setStatusMessage("有限の数値を入力してください");
       return;
     }
@@ -528,11 +576,15 @@ export function ChainWorkbenchPage({
       || value > definition.allowed_range!.max
     ) {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+      scheduledCandidate.current = null;
+      invalidNumericDrafts.current.add(definition.candidate_path);
       setStatusMessage(
         `${definition.label}は許容範囲 ${formatAllowedRange(definition)}で入力してください`,
       );
       return;
     }
+    invalidNumericDrafts.current.delete(definition.candidate_path);
     candidateRequests.current.activate(projectId, selected.id);
     requestSequence.current += 1;
     const optimistic: ApiCandidate = {
@@ -547,8 +599,9 @@ export function ChainWorkbenchPage({
     markStagesStale(definition.affected_stage_ids);
     setStatusMessage("編集停止後に自動保存・再計算します");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    scheduledCandidate.current = optimistic;
     saveTimer.current = window.setTimeout(() => {
-      void persistCandidate(optimistic);
+      void startCandidateSave(optimistic);
     }, 450);
   }
 
@@ -562,7 +615,6 @@ export function ChainWorkbenchPage({
       || !definition.editable
       || !definition.choices.includes(value)
     ) return;
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveQueue.current.supersede(selected.id);
     candidateRequests.current.activate(projectId, selected.id);
     requestSequence.current += 1;
@@ -579,7 +631,8 @@ export function ChainWorkbenchPage({
     )));
     markStagesStale(definition.affected_stage_ids);
     setStatusMessage("選択を保存し、下流を自動再計算しています");
-    void persistCandidate(optimistic);
+    scheduledCandidate.current = optimistic;
+    void startCandidateSave(optimistic);
   }
 
   function editBlend(
@@ -598,7 +651,8 @@ export function ChainWorkbenchPage({
     setCandidates((items) => items.map((item) => item.id === selected.id ? optimistic : item));
     markStagesStale(blendInputDefinition.affected_stage_ids);
     setStatusMessage("配合を保存し、A → B → Cを自動再計算します");
-    void persistCandidate(optimistic);
+    scheduledCandidate.current = optimistic;
+    void startCandidateSave(optimistic);
   }
 
   async function createStarterCandidate() {
@@ -680,6 +734,21 @@ export function ChainWorkbenchPage({
     }
   }
 
+  async function selectChainCandidate(candidateId: string) {
+    if (!(await settlePending())) return;
+    invalidNumericDrafts.current.clear();
+    const candidateToken = candidateRequests.current.activate(projectId, candidateId);
+    requestSequence.current += 1;
+    setSelectedId(candidateId);
+    setBusy(false);
+    setDraftActualId("");
+    setActualDraft({});
+    onCandidateSelected(candidateId);
+    setExecution(null);
+    setStatusMessage("Chain候補を切り替えています");
+    await loadCandidateEvidence(candidateId, candidateToken);
+  }
+
   if (!selected) {
     return <section className="chain-workbench chain-empty">
       <h2>Chain候補</h2>
@@ -710,19 +779,9 @@ export function ChainWorkbenchPage({
     </div>}
     <header className="chain-workbench-header">
       <div><span className="overline">CHAIN WORKBENCH</span><h2>{selected.name}</h2></div>
-      <label>候補
+        <label>候補
         <select value={selected.id} onChange={(event) => {
-          const candidateId = event.target.value;
-          const candidateToken = candidateRequests.current.activate(projectId, candidateId);
-          requestSequence.current += 1;
-          setSelectedId(candidateId);
-          setBusy(false);
-          setDraftActualId("");
-          setActualDraft({});
-          onCandidateSelected(candidateId);
-          setExecution(null);
-          setStatusMessage("Chain候補を切り替えています");
-          void loadCandidateEvidence(candidateId, candidateToken);
+          void selectChainCandidate(event.target.value);
         }}>
           {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name} · r{candidate.revision}</option>)}
         </select>

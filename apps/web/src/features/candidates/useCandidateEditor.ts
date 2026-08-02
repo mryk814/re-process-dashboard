@@ -80,6 +80,7 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       if (!queued.isLatest() || activeProjectId.current !== projectId) return true;
       const contractError = candidateSaveContractError(saved, draftPayload);
       if (contractError) {
+        scheduledDrafts.current.set(candidateId, { candidate, previous });
         setSaveState(candidateId, "error");
         onNotify("error", contractError);
         return false;
@@ -94,35 +95,38 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
       previewControllers.current.get(candidateId)?.abort();
       const previewController = new AbortController();
       previewControllers.current.set(candidateId, previewController);
-      try {
-        const preview = await workbenchApi.previewCandidate(projectId, candidateId, saved.revision, inputIdentity, previewController.signal);
-        const current = authoritative.current.get(candidateId);
-        if (
-          activeProjectId.current !== projectId
-          || previewControllers.current.get(candidateId) !== previewController
-          || candidateInputIdentity(current?.inputs) !== inputIdentity
-        ) return true;
-        onPreview(candidateId, preview, inputIdentity, saved.revision);
-      } catch (cause) {
-        const current = authoritative.current.get(candidateId);
-        if (
-          activeProjectId.current !== projectId
-          || previewControllers.current.get(candidateId) !== previewController
-          || candidateInputIdentity(current?.inputs) !== inputIdentity
-        ) return true;
-        if (previewController.signal.aborted) return true;
-        onPreview(candidateId, null, inputIdentity, saved.revision, cause);
-        onNotify("error", "入力は保存しましたが、予測結果を更新できませんでした");
-      } finally {
-        if (previewControllers.current.get(candidateId) === previewController) {
-          previewControllers.current.delete(candidateId);
+      void (async () => {
+        try {
+          const preview = await workbenchApi.previewCandidate(projectId, candidateId, saved.revision, inputIdentity, previewController.signal);
+          const current = authoritative.current.get(candidateId);
+          if (
+            activeProjectId.current !== projectId
+            || previewControllers.current.get(candidateId) !== previewController
+            || candidateInputIdentity(current?.inputs) !== inputIdentity
+          ) return;
+          onPreview(candidateId, preview, inputIdentity, saved.revision);
+        } catch (cause) {
+          const current = authoritative.current.get(candidateId);
+          if (
+            activeProjectId.current !== projectId
+            || previewControllers.current.get(candidateId) !== previewController
+            || candidateInputIdentity(current?.inputs) !== inputIdentity
+          ) return;
+          if (previewController.signal.aborted) return;
+          onPreview(candidateId, null, inputIdentity, saved.revision, cause);
+          onNotify("error", "入力は保存しましたが、予測結果を更新できませんでした");
+        } finally {
+          if (previewControllers.current.get(candidateId) === previewController) {
+            previewControllers.current.delete(candidateId);
+          }
         }
-      }
+      })();
       return true;
     } catch (error) {
       if (!queued.isLatest() || activeProjectId.current !== projectId) return true;
       const apiError = error instanceof ApiClientError ? error : undefined;
       if (apiError?.currentCandidate) authoritative.current.set(candidateId, apiError.currentCandidate);
+      scheduledDrafts.current.set(candidateId, { candidate, previous });
       setFieldErrors((current) => ({ ...current, [candidateId]: apiError?.fieldErrors ?? [] }));
       setSaveState(candidateId, apiError?.kind === "conflict" ? "conflict" : "error");
       onNotify("error", apiError?.kind === "conflict"
@@ -142,10 +146,15 @@ export function useCandidateEditor({ projectId, setCandidates, previewAvailable,
   }
 
   async function settlePending() {
-    const drafts = [...scheduledDrafts.current.values()];
-    for (const { candidate, previous } of drafts) void flush(candidate, previous);
-    const results = await Promise.all([...inFlightFlushes.current]);
-    return results.every(Boolean);
+    while (true) {
+      const drafts = [...scheduledDrafts.current.values()];
+      for (const { candidate, previous } of drafts) void flush(candidate, previous);
+      const operations = [...inFlightFlushes.current];
+      if (!operations.length) return scheduledDrafts.current.size === 0;
+      const results = await Promise.all(operations);
+      if (!results.every(Boolean)) return false;
+      if (scheduledDrafts.current.size === 0 && inFlightFlushes.current.size === 0) return true;
+    }
   }
 
   function markDirty(candidateId: string) {
