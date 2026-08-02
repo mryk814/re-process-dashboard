@@ -71,7 +71,7 @@ export function ResourceCatalogView({
   const actions = useResourceCatalogActions({ resources, onNavigate });
   const [compareName, setCompareName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedDatasetId, setSelectedDatasetId] = useState("");
+  const [selectedDatasetId, setSelectedDatasetId] = useState(location.datasetRevisionId ?? "");
   const [modelGuideOpen, setModelGuideOpen] = useState(false);
   const [guideTaskId, setGuideTaskId] = useState("");
   const [copiedGuide, setCopiedGuide] = useState(false);
@@ -143,6 +143,21 @@ export function ResourceCatalogView({
       ? current
       : selectedDataset.supported_task_ids[0] ?? "");
   }, [selectedDataset?.dataset_revision.id]);
+  useEffect(() => {
+    if (!location.datasetRevisionId) return;
+    const requested = datasets.find((item) => item.dataset_revision.id === location.datasetRevisionId);
+    if (requested) setSelectedDatasetId(requested.dataset_revision.id);
+  }, [datasets, location.datasetRevisionId]);
+  useEffect(() => {
+    if (!location.packageReferenceId) return;
+    window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-model-package-ref="${CSS.escape(location.packageReferenceId!)}"]`,
+      );
+      target?.scrollIntoView({ block: "nearest" });
+      target?.focus({ preventScroll: true });
+    });
+  }, [location.packageReferenceId, selectedDataset?.dataset_revision.id]);
   const modelGuide = useMemo(() => {
     if (!selectedDataset || !guideTaskId || exactProfileMissing) return "";
     const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -368,7 +383,14 @@ export function ResourceCatalogView({
                 const decision = modelPackageDecisionSummary(item);
                 const usingProjects = projects.filter((project) => project.model_package_ref_id === item.id);
                 const trainingSnapshotLink = packageTrainingSnapshotLink(item);
-                return <article key={item.id}>
+                return <article
+                  key={item.id}
+                  data-model-package-ref={item.id}
+                  tabIndex={location.packageReferenceId === item.id ? -1 : undefined}
+                  aria-label={location.packageReferenceId === item.id
+                    ? `${packageDisplayNames.get(item.id)}（Model Libraryから選択）`
+                    : undefined}
+                >
                   <div>
                     <strong>{packageDisplayNames.get(item.id)}</strong>
                     <span title={item.task_id}>{taskLabel(item.task_id)}</span>

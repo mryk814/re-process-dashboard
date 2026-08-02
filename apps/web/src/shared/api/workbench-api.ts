@@ -51,6 +51,7 @@ export type ApiChainDistributionCapability = components["schemas"]["ChainDistrib
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
 export type ApiChainEvaluation = components["schemas"]["ResolvedChainEvaluation"];
 export type ApiModelLibraryCatalog = components["schemas"]["ModelLibraryCatalog"];
+export type ApiPredictionGraphProjectCreateRequest = components["schemas"]["PredictionGraphProjectCreateRequest"];
 export type ApiSubsystemAvailability = components["schemas"]["SubsystemAvailability"];
 export type ApiWorkspaceHealth = {
   ready: boolean;
@@ -276,6 +277,11 @@ export const workbenchApi = {
       await apiClient.GET("/api/model-library", { signal }),
       "Model Libraryを取得できませんでした。",
     );
+  },
+  async createPredictionGraphProject(body: ApiPredictionGraphProjectCreateRequest) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects", {
+      body,
+    }), "Prediction Graph Projectを作成できませんでした。");
   },
   async validateChainStudioDraft(body: ApiChainStudioDraft) {
     return requireData(await apiClient.POST("/api/chains/studio/validate", { body }), "Chain draftを検証できませんでした。");

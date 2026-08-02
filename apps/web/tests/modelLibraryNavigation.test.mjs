@@ -46,3 +46,69 @@ test("Model Library selection is discarded when leaving the library", async () =
   assert.equal(project.modelLibraryTab, undefined);
 });
 
+test("Model Library single-task Project handoff preserves every fixed identity", async () => {
+  const navigation = await navigationModule("?view=model-library&asset=packages");
+  const intent = {
+    view: "project",
+    modelLibraryProject: {
+      kind: "single_task",
+      datasetViewRevisionId: "view-r7",
+      datasetRevisionId: "dataset-r3",
+      taskId: "task-v1",
+      packageReferenceId: "package-ref",
+      packageManifestDigest: "sha256:manifest",
+    },
+  };
+  const url = navigation.navigationUrl(intent);
+  const roundTrip = navigation.readNavigationIntent(new URL(url, "http://localhost").search);
+
+  assert.deepEqual(roundTrip.modelLibraryProject, intent.modelLibraryProject);
+});
+
+test("Graph clone and immutable Project handoffs round trip independently", async () => {
+  const navigation = await navigationModule("?view=model-library&asset=graphs");
+  const clone = {
+    view: "chain-studio",
+    modelLibraryStudio: {
+      graphId: "graph-v1",
+      definitionId: "definition-abc",
+      revisionId: "graph-v1:r4",
+    },
+  };
+  const project = {
+    view: "project",
+    modelLibraryProject: {
+      kind: "graph",
+      graphId: "graph-v1",
+      definitionId: "definition-abc",
+      revisionId: "graph-v1:r4",
+      revisionDigest: "sha256:revision",
+      datasetViewRevisionId: "view-r7",
+    },
+  };
+
+  assert.deepEqual(
+    navigation.readNavigationIntent(new URL(navigation.navigationUrl(clone), "http://localhost").search).modelLibraryStudio,
+    clone.modelLibraryStudio,
+  );
+  assert.deepEqual(
+    navigation.readNavigationIntent(new URL(navigation.navigationUrl(project), "http://localhost").search).modelLibraryProject,
+    project.modelLibraryProject,
+  );
+});
+
+test("Data Library deep link keeps dataset and package focus", async () => {
+  const navigation = await navigationModule("?view=model-library&asset=packages");
+  const intent = {
+    view: "data-library",
+    modelLibraryData: {
+      datasetRevisionId: "dataset-r3",
+      packageReferenceId: "package-ref",
+    },
+  };
+
+  assert.deepEqual(
+    navigation.readNavigationIntent(new URL(navigation.navigationUrl(intent), "http://localhost").search).modelLibraryData,
+    intent.modelLibraryData,
+  );
+});

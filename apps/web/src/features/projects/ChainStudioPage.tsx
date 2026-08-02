@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ApiChainStudioCatalog, ApiChainStudioDraft } from "../../shared/api/workbench-api";
 import { workbenchApi } from "../../shared/api/workbench-api";
+import type { ModelLibraryStudioIntent } from "../../shared/modelLibrary";
 
 type CatalogStage = ApiChainStudioCatalog["stages"][number];
 type SurfacePort = NonNullable<CatalogStage["surface"]>["input_ports"][number];
@@ -82,7 +83,7 @@ function newStageId(stages: SelectedStage[]) {
   return `S${index}`;
 }
 
-export function ChainStudioPage() {
+export function ChainStudioPage({ cloneIntent }: { cloneIntent?: ModelLibraryStudioIntent }) {
   const [catalog, setCatalog] = useState<CatalogStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -93,22 +94,47 @@ export function ChainStudioPage() {
   const [validation, setValidation] = useState<string>();
   const [published, setPublished] = useState<string>();
   const [submitting, setSubmitting] = useState<"validate" | "publish" | null>(null);
+  const [cloneIdentity, setCloneIdentity] = useState<ModelLibraryStudioIntent>();
 
   useEffect(() => {
     const controller = new AbortController();
-    void workbenchApi.chainStudioCatalog(controller.signal).then((response) => {
+    void Promise.all([
+      workbenchApi.chainStudioCatalog(controller.signal),
+      cloneIntent ? workbenchApi.modelLibraryCatalog(controller.signal) : Promise.resolve(null),
+    ]).then(([response, modelLibrary]) => {
       if (controller.signal.aborted) return;
       const available = response.stages.filter((item) => item.status === "available" && item.surface);
       setCatalog(response.stages);
-      setStages((current) => current.length ? current : available.slice(0, 1).map((item, index) => ({ id: `S${index + 1}`, contractId: item.contract_id })).concat(
-        available[0] ? [{ id: "S2", contractId: available[0].contract_id }] : [],
-      ));
+      const graph = modelLibrary?.graphs.find((item) => item.graph_id === cloneIntent?.graphId);
+      const definition = graph?.definitions.find((item) => item.definition_id === cloneIntent?.definitionId);
+      const revision = definition?.revisions.find((item) => item.revision_id === cloneIntent?.revisionId);
+      if (cloneIntent && (!graph || !definition || !revision)) {
+        setError("Model Libraryで選択したGraph Definition／Revisionを現在のcatalogで解決できませんでした。");
+      } else if (cloneIntent && definition?.definition.schema_version !== "chain-definition/v1") {
+        setError("このPrediction Graph Definitionはscalar Chain Studioでは編集できません。");
+      } else if (cloneIntent && definition?.definition.schema_version === "chain-definition/v1") {
+        const cloned = definition.definition;
+        setChainId(`${cloned.chain_id}-draft`);
+        setLabel(`${cloned.label} の改版`);
+        setStages(cloned.stages.map((stage) => ({ id: stage.stage_id, contractId: stage.contract_id })));
+        setSelectedSources(Object.fromEntries(cloned.bindings.map((binding) => [
+          `${binding.target_stage_id}:${binding.target_input_path}`,
+          binding.source.source_kind === "external"
+            ? `external:${binding.source.path}`
+            : `stage:${binding.source.stage_id}:${binding.source.output_key}`,
+        ])));
+        setCloneIdentity(cloneIntent);
+      } else {
+        setStages((current) => current.length ? current : available.slice(0, 1).map((item, index) => ({ id: `S${index + 1}`, contractId: item.contract_id })).concat(
+          available[0] ? [{ id: "S2", contractId: available[0].contract_id }] : [],
+        ));
+      }
       setLoading(false);
     }).catch((reason: unknown) => {
       if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : "Task catalogを取得できませんでした。"); setLoading(false); }
     });
     return () => controller.abort();
-  }, []);
+  }, [cloneIntent]);
 
   const available = useMemo(() => catalog.filter((item) => item.status === "available" && item.surface), [catalog]);
   const draft = useMemo(() => buildDraft(chainId, label, stages, catalog, selectedSources), [chainId, label, stages, catalog, selectedSources]);
@@ -160,6 +186,9 @@ export function ChainStudioPage() {
       <div><span className="overline">CHAIN STUDIO · SCALAR/V1</span><h2 id="chain-studio-heading">予測Taskを固定したChainとして公開する</h2><p>ここではTask、接続、外部入力を決めます。Package／Datasetの版はサーバが現在の利用可能な参照から固定し、配置情報は保存しません。</p></div>
       <div className="chain-studio-scope"><strong>今回扱わないもの</strong><span>任意code、Transform、疎配合、未登録の単位変換</span></div>
     </header>
+    {cloneIdentity && <p className="chain-studio-success" role="status">
+      Model Libraryの {cloneIdentity.graphId} / {cloneIdentity.definitionId} / {cloneIdentity.revisionId} を新しいdraftへ複製しました。元Revisionは変更しません。
+    </p>}
 
     <section className="chain-studio-panel" aria-labelledby="chain-studio-identity"><h3 id="chain-studio-identity">draftの名前</h3><div className="chain-studio-fields"><label>Chain ID<input value={chainId} onChange={(event) => { setChainId(event.target.value); setValidation(undefined); setPublished(undefined); }} /></label><label>表示名<input value={label} onChange={(event) => { setLabel(event.target.value); setValidation(undefined); setPublished(undefined); }} /></label></div></section>
 

@@ -265,6 +265,26 @@
   font-size: 12px;
 }
 
+.model-action-reason {
+  margin: 7px 0 0;
+  color: #6b4d1f;
+  font-size: 12px;
+}
+
+.model-graph-revision > code,
+.model-graph-revision > small {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #5d6775;
+  font-size: 11px;
+}
+
+.model-graph-revision-actions {
+  display: flex;
+  margin-top: 8px;
+}
+
 @media (max-width: 760px) {
   .model-library-page {
     padding: 14px;

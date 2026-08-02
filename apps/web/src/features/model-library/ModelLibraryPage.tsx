@@ -3,7 +3,12 @@ import {
   workbenchApi,
   type ApiModelLibraryCatalog,
 } from "../../shared/api/workbench-api";
-import type { ModelLibraryTab } from "../../shared/modelLibrary";
+import type {
+  ModelLibraryDataIntent,
+  ModelLibraryProjectIntent,
+  ModelLibraryStudioIntent,
+  ModelLibraryTab,
+} from "../../shared/modelLibrary";
 
 type AssetState = ApiModelLibraryCatalog["tasks"][number]["state"];
 
@@ -71,6 +76,19 @@ function EmptyAssetState({ label }: { label: string }) {
   </div>;
 }
 
+function dataReferenceEntries(
+  reference: ApiModelLibraryCatalog["packages"][number]["data_references"],
+): Array<[string, string]> {
+  return [
+    ["Dataset View Revision", reference.dataset_view_revision_ids.join(" / ") || "記録なし"],
+    ["Dataset Revision", reference.dataset_revision_ids.join(" / ") || "記録なし"],
+    ["Profile Revision", reference.profile_revision_ids.join(" / ") || "記録なし"],
+    ["Profile digest", reference.profile_digests.map(shortDigest).join(" / ") || "記録なし"],
+    ["Training Snapshot", reference.training_snapshot_id ?? "記録なし"],
+    ["Connector", reference.connector_id ?? "記録なし"],
+  ];
+}
+
 export function ModelLibraryPage({
   tab,
   onTabChange,
@@ -80,9 +98,9 @@ export function ModelLibraryPage({
 }: {
   tab: ModelLibraryTab;
   onTabChange: (tab: ModelLibraryTab) => void;
-  onOpenDataLibrary: () => void;
-  onOpenStudio: () => void;
-  onStartProject: (datasetViewRevisionId: string) => void;
+  onOpenDataLibrary: (intent?: ModelLibraryDataIntent) => void;
+  onOpenStudio: (intent?: ModelLibraryStudioIntent) => void;
+  onStartProject: (intent: ModelLibraryProjectIntent) => void;
 }) {
   const [catalog, setCatalog] = useState<ApiModelLibraryCatalog | null>(null);
   const [error, setError] = useState("");
@@ -135,8 +153,8 @@ export function ModelLibraryPage({
         <p>利用できる契約と固定Revisionを比較し、データ準備、Project利用、Graph authoringへ進みます。</p>
       </div>
       <div className="model-library-header-actions">
-        <button type="button" className="outline-button" onClick={onOpenDataLibrary}>Data Library</button>
-        <button type="button" className="primary-button" onClick={onOpenStudio}>Graphを作成</button>
+        <button type="button" className="outline-button" onClick={() => onOpenDataLibrary()}>Data Library</button>
+        <button type="button" className="primary-button" onClick={() => onOpenStudio()}>Graphを作成</button>
       </div>
     </header>
     {error && <div className="model-library-refresh-error" role="alert">
@@ -173,20 +191,33 @@ export function ModelLibraryPage({
         const packageWithData = catalog.packages.find((item) =>
           item.task_id === task.task_id
           && item.data_references.dataset_view_revision_ids.length > 0
+          && item.data_references.dataset_revision_ids.length > 0
           && item.state.availability === "available");
+        const projectUnavailableId = `task-project-unavailable-${task.task_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
         return <article className="model-asset-card" key={task.task_id}>
           <header><div><span className="model-asset-kind">TASK</span><h2>{task.label}</h2><code>{task.task_id}</code></div><AssetStateSummary state={task.state} /></header>
           <p>{task.inputs.length}入力から{task.outputs.length}出力を予測 · Package {task.package_reference_ids.length}件 · Graph {task.graph_revision_ids.length}件</p>
           <div className="model-asset-actions">
-            <button type="button" className="outline-button" onClick={onOpenDataLibrary}>対応データを確認</button>
+            <button type="button" className="outline-button" onClick={() => onOpenDataLibrary({
+              datasetRevisionId: packageWithData?.data_references.dataset_revision_ids[0],
+              packageReferenceId: packageWithData?.reference_id,
+            })}>対応データを確認</button>
             <button
               type="button"
               className="primary-button"
               disabled={!packageWithData}
-              title={packageWithData ? undefined : "利用可能なPackageとDataset参照が必要です"}
-              onClick={() => packageWithData && onStartProject(packageWithData.data_references.dataset_view_revision_ids[0])}
+              aria-describedby={!packageWithData ? projectUnavailableId : undefined}
+              onClick={() => packageWithData && onStartProject({
+                kind: "single_task",
+                datasetViewRevisionId: packageWithData.data_references.dataset_view_revision_ids[0],
+                datasetRevisionId: packageWithData.data_references.dataset_revision_ids[0],
+                taskId: task.task_id,
+                packageReferenceId: packageWithData.reference_id,
+                packageManifestDigest: packageWithData.manifest_digest,
+              })}
             >Projectを作成</button>
           </div>
+          {!packageWithData && <p id={projectUnavailableId} className="model-action-reason">利用可能なPackageとDataset参照が揃うとProjectを作成できます。</p>}
           <IdentityDetails title="入出力と契約identity" entries={[
             ["Task contract", shortDigest(task.contract_digest)],
             ["Inputs", task.inputs.map((port) => `${port.label}${port.unit && port.unit !== "1" ? ` (${port.unit})` : ""}`).join(" / ")],
@@ -200,19 +231,44 @@ export function ModelLibraryPage({
       {catalog.packages.length === 0 && <EmptyAssetState label="Model Package" />}
       {catalog.packages.map((item) => {
         const datasetViewId = item.data_references.dataset_view_revision_ids[0];
+        const datasetRevisionId = item.data_references.dataset_revision_ids[0];
+        const projectAvailable = Boolean(datasetViewId && datasetRevisionId && item.state.availability === "available");
+        const projectUnavailableId = `package-project-unavailable-${item.reference_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
         return <article className="model-asset-card" key={item.reference_id}>
           <header><div><span className="model-asset-kind">PACKAGE · {item.storage_scope === "personal" ? "PERSONAL" : "BUNDLED"}</span><h2>{item.package_id}</h2><span>{taskLabels.get(item.task_id) ?? item.task_id} · {item.version}</span></div><AssetStateSummary state={item.state} /></header>
           <p>{item.predictor_families.map((predictor) => `${predictor.target}: ${predictor.predictive_family}`).join(" · ") || "predictor identityなし"}</p>
           <div className="model-asset-actions">
-            <button type="button" className="outline-button" onClick={onOpenDataLibrary}>Data Libraryで確認</button>
-            <button type="button" className="primary-button" disabled={!datasetViewId || item.state.availability !== "available"} onClick={() => datasetViewId && onStartProject(datasetViewId)}>Projectを作成</button>
+            <button type="button" className="outline-button" onClick={() => onOpenDataLibrary({
+              datasetRevisionId,
+              packageReferenceId: item.reference_id,
+            })}>Data Libraryで確認</button>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!projectAvailable}
+              aria-describedby={!projectAvailable ? projectUnavailableId : undefined}
+              onClick={() => projectAvailable && onStartProject({
+                kind: "single_task",
+                datasetViewRevisionId: datasetViewId,
+                datasetRevisionId,
+                taskId: item.task_id,
+                packageReferenceId: item.reference_id,
+                packageManifestDigest: item.manifest_digest,
+              })}
+            >Projectを作成</button>
           </div>
+          {!projectAvailable && <p id={projectUnavailableId} className="model-action-reason">
+            {item.state.availability !== "available"
+              ? `${item.state.reason}。${item.state.recovery_hint}`
+              : "Dataset ViewとDataset Revisionの固定参照が揃うとProjectを作成できます。"}
+          </p>}
           <IdentityDetails title="Pipeline・検証・固定参照" entries={[
             ["Manifest", shortDigest(item.manifest_digest)],
             ["Feature Pipeline", item.feature_pipeline ? `${item.feature_pipeline.identity_id} · ${item.feature_pipeline.version}` : "記録なし"],
             ["Feature Recipe", item.feature_recipe ? `${item.feature_recipe.identity_id} · ${item.feature_recipe.version} · ${shortDigest(item.feature_recipe.digest)}` : "未使用"],
             ["Validation Plan", item.validation_plans.map((plan) => `${plan.target}: ${plan.strategy} (${shortDigest(plan.digest)})`).join(" / ") || "記録なし"],
             ["Training source", item.data_references.source_names.join(" / ") || "記録なし"],
+            ...dataReferenceEntries(item.data_references),
           ]} />
         </article>;
       })}
@@ -237,20 +293,73 @@ export function ModelLibraryPage({
       {catalog.graphs.map((graph) => <article className="model-asset-card model-graph-card" key={graph.graph_id}>
         <header><div><span className="model-asset-kind">PREDICTION GRAPH</span><h2>{graph.label}</h2><code>{graph.graph_id}</code></div><AssetStateSummary state={graph.state} /></header>
         <p>Task {graph.compatible_task_ids.length}件 · Transform {graph.compatible_transform_ids.length}件 · Project {graph.project_references.length}件</p>
-        {graph.definitions.map((definition) => <details className="model-graph-detail" key={definition.definition_id}>
+        {graph.definitions.map((definition) => {
+          const cloneRevision = definition.revisions.find((revision) => revision.revision_id === graph.latest_revision_id)
+            ?? definition.revisions.at(-1);
+          const studioAvailable = definition.definition.schema_version === "chain-definition/v1" && Boolean(cloneRevision);
+          const studioReasonId = `studio-unavailable-${definition.definition_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
+          return <details className="model-graph-detail" key={definition.definition_id}>
           <summary>{definition.revisions.length}件の固定Revision · input {definition.projection.inputs.length} · decision output {definition.projection.decision_outputs.length}</summary>
           <div className="model-graph-flow">
             <section><h3>Inputs</h3><ul>{definition.projection.inputs.map((input) => <li key={input.input_id}>{input.label}</li>)}</ul></section>
             <section><h3>Stages / fixed references</h3>
               <p className="model-graph-layers">Branch layers: {definition.projection.topology.topological_layers.map((layer) => layer.join(" + ")).join(" → ")}</p>
-              {definition.revisions.map((revision) => <div className="model-graph-revision" key={revision.revision_id}>
+              {definition.revisions.map((revision) => {
+                const datasetViewRevisionId = revision.stages.flatMap((stage) => stage.data_references.dataset_view_revision_ids)[0];
+                const projectAvailable = revision.state.availability === "available"
+                  && revision.stages.every((stage) => stage.available);
+                const projectReasonId = `graph-project-unavailable-${revision.revision_id.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
+                return <div className="model-graph-revision" key={revision.revision_id}>
               <strong>Revision {revision.revision}</strong><span>{lifecycleLabel[revision.state.lifecycle]} · {availabilityLabel[revision.state.availability]}</span>
-              <ul>{revision.stages.map((stage) => <li key={stage.stage_id}><b>{stage.stage_id}</b><span>{stage.contract_id} · {shortDigest(stage.package_manifest_digest)}</span>{!stage.available && <small>{stage.reason}</small>}</li>)}</ul>
-            </div>)}</section>
+              <code>{revision.revision_id} · {shortDigest(revision.revision_digest)}</code>
+              <ul>{revision.stages.map((stage) => <li key={stage.stage_id}>
+                <b>{stage.stage_id}</b>
+                <span>{stage.contract_id} · {shortDigest(stage.package_manifest_digest)}</span>
+                <small>{dataReferenceEntries(stage.data_references).map(([label, value]) => `${label}: ${value}`).join(" · ")}</small>
+                {!stage.available && <small>{stage.reason}</small>}
+              </li>)}</ul>
+              <small>Project refs: {revision.project_references.map((project) => project.project_id).join(" / ") || "未使用"}</small>
+              <div className="model-graph-revision-actions">
+                <button
+                  type="button"
+                  className="outline-button"
+                  disabled={!projectAvailable}
+                  aria-describedby={!projectAvailable ? projectReasonId : undefined}
+                  onClick={() => projectAvailable && onStartProject({
+                    kind: "graph",
+                    graphId: graph.graph_id,
+                    definitionId: definition.definition_id,
+                    revisionId: revision.revision_id,
+                    revisionDigest: revision.revision_digest,
+                    datasetViewRevisionId,
+                  })}
+                >このRevisionでProjectを作成</button>
+              </div>
+              {!projectAvailable && <p id={projectReasonId} className="model-action-reason">
+                {revision.state.reason}。{revision.state.recovery_hint}
+              </p>}
+            </div>;
+              })}</section>
             <section><h3>Decision outputs</h3><ul>{definition.projection.decision_outputs.map((output) => <li key={output.output_id}>{output.label}<small>{output.required_for_complete_result ? "必須" : "任意"}</small></li>)}</ul></section>
           </div>
-        </details>)}
-        <div className="model-asset-actions"><button type="button" className="primary-button" onClick={onOpenStudio}>Studioで新しいRevisionを作成</button></div>
+          <div className="model-asset-actions">
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!studioAvailable}
+              aria-describedby={!studioAvailable ? studioReasonId : undefined}
+              onClick={() => cloneRevision && onOpenStudio({
+                graphId: graph.graph_id,
+                definitionId: definition.definition_id,
+                revisionId: cloneRevision.revision_id,
+              })}
+            >Studioで新しいRevisionを作成</button>
+          </div>
+          {!studioAvailable && <p id={studioReasonId} className="model-action-reason">
+            Prediction Graph authoringは現在Studio対象外です。固定RevisionのProject利用は上の操作から開始できます。
+          </p>}
+        </details>;
+        })}
       </article>)}
     </div>}
   </section>;

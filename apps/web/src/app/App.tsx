@@ -20,6 +20,9 @@ import { ModelLibraryPage } from "../features/model-library";
 import { WorkspaceManagerDialog } from "../features/workspace";
 import { WorkspaceNoticeBanner } from "../shared/ui/WorkspaceNoticeBanner";
 import type { WorkspaceNotice } from "../shared/workspaceNotice";
+import type {
+  ModelLibraryProjectIntent,
+} from "../shared/modelLibrary";
 import {
   workbenchApi,
   type ApiChainTemplate,
@@ -164,6 +167,9 @@ function App() {
       const { datasetViewId: _datasetViewId, ...rest } = binding;
       return rest;
     },
+  );
+  const [requestedModelLibraryProject, setRequestedModelLibraryProject] = useState<ModelLibraryProjectIntent | undefined>(
+    () => navigation.modelLibraryProject,
   );
   const [retrying, setRetrying] = useState(false);
   const [subsystemAvailability, setSubsystemAvailability] = useState<ApiSubsystemAvailability[]>([]);
@@ -383,6 +389,17 @@ function App() {
       preparedProjectBinding: binding
         ? { datasetViewId: datasetViewRevisionId, ...binding }
         : undefined,
+    });
+  }
+
+  function startProjectFromModelLibrary(intent: ModelLibraryProjectIntent) {
+    setRequestedModelLibraryProject(intent);
+    setRequestedDatasetViewId(undefined);
+    setRequestedProjectBinding(undefined);
+    navigate({
+      view: "project",
+      projectId: activeProjectId,
+      modelLibraryProject: intent,
     });
   }
 
@@ -664,6 +681,7 @@ function App() {
             requestedSnapshotId={navigation.snapshotId}
             requestedDatasetViewId={requestedDatasetViewId}
             requestedProjectBinding={requestedProjectBinding}
+            requestedModelLibraryProject={requestedModelLibraryProject}
             requestedSettingsSection={navigation.projectSettings}
             onOpenSettings={(projectSettings = "general", replace = false) => navigate({
               view: "project-settings",
@@ -689,6 +707,7 @@ function App() {
             onCreationIntentConsumed={() => {
               setRequestedDatasetViewId(undefined);
               setRequestedProjectBinding(undefined);
+              setRequestedModelLibraryProject(undefined);
             }}
           />
         )}
@@ -700,6 +719,8 @@ function App() {
             stage: navigation.sourceStage,
             revisionId: navigation.sourceRevisionId,
             onboardingMode: navigation.dataOnboardingMode,
+            datasetRevisionId: navigation.modelLibraryData?.datasetRevisionId,
+            packageReferenceId: navigation.modelLibraryData?.packageReferenceId,
           }}
           onNavigate={navigateDataLibrary}
           onAddDataset={(mode, baseDatasetRevisionId) => navigate({
@@ -725,12 +746,18 @@ function App() {
           onTabChange={(modelLibraryTab) => navigate({
             view: "model-library",
             modelLibraryTab,
+          }, true)}
+          onOpenDataLibrary={(modelLibraryData) => navigate({
+            view: "data-library",
+            modelLibraryData,
           })}
-          onOpenDataLibrary={() => navigate({ view: "data-library" })}
-          onOpenStudio={() => navigate({ view: "chain-studio" })}
-          onStartProject={startProjectForDataset}
+          onOpenStudio={(modelLibraryStudio) => navigate({
+            view: "chain-studio",
+            modelLibraryStudio,
+          })}
+          onStartProject={startProjectFromModelLibrary}
         />}
-        {tab === "chain-studio" && <ChainStudioPage />}
+        {tab === "chain-studio" && <ChainStudioPage cloneIntent={navigation.modelLibraryStudio} />}
         {unavailableScopedTab && (
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}

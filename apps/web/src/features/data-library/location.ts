@@ -4,4 +4,6 @@ export type DataLibraryLocation = Readonly<{
   stage?: "raw" | "curation" | "approval" | "training";
   revisionId?: string;
   onboardingMode?: "revision" | "mapping" | "new-task";
+  datasetRevisionId?: string;
+  packageReferenceId?: string;
 }>;

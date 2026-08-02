@@ -1,6 +1,11 @@
 import type { CandidateSection } from "../shared/projectActionQuestions";
 import type { PreparedProjectBinding } from "../shared/preparedProjectBinding";
-import type { ModelLibraryTab } from "../shared/modelLibrary";
+import type {
+  ModelLibraryDataIntent,
+  ModelLibraryProjectIntent,
+  ModelLibraryStudioIntent,
+  ModelLibraryTab,
+} from "../shared/modelLibrary";
 
 export const WORKBENCH_VIEWS = [
   "project",
@@ -52,6 +57,9 @@ export type NavigationIntent = Readonly<{
   dataOnboardingMode?: DataOnboardingMode;
   baseDatasetRevisionId?: string;
   preparedProjectBinding?: PreparedProjectBinding;
+  modelLibraryProject?: ModelLibraryProjectIntent;
+  modelLibraryStudio?: ModelLibraryStudioIntent;
+  modelLibraryData?: ModelLibraryDataIntent;
 }>;
 
 const VIEW_SET = new Set<string>(WORKBENCH_VIEWS);
@@ -151,6 +159,54 @@ export function readNavigationIntent(
       reloaded: true,
     }
     : undefined;
+  const modelProjectKind = params.get("model_project_kind");
+  const modelLibraryProject: ModelLibraryProjectIntent | undefined = normalizedView === "project"
+    && modelProjectKind === "single_task"
+    && params.get("model_dataset_view")
+    && params.get("model_dataset_revision")
+    && params.get("model_task")
+    && params.get("model_package")
+    && params.get("model_package_digest")
+    ? {
+      kind: "single_task",
+      datasetViewRevisionId: params.get("model_dataset_view")!,
+      datasetRevisionId: params.get("model_dataset_revision")!,
+      taskId: params.get("model_task")!,
+      packageReferenceId: params.get("model_package")!,
+      packageManifestDigest: params.get("model_package_digest")!,
+    }
+    : normalizedView === "project"
+      && modelProjectKind === "graph"
+      && params.get("model_graph")
+      && params.get("model_definition")
+      && params.get("model_revision")
+      && params.get("model_revision_digest")
+      ? {
+        kind: "graph",
+        graphId: params.get("model_graph")!,
+        definitionId: params.get("model_definition")!,
+        revisionId: params.get("model_revision")!,
+        revisionDigest: params.get("model_revision_digest")!,
+        datasetViewRevisionId: params.get("model_dataset_view") || undefined,
+      }
+      : undefined;
+  const modelLibraryStudio: ModelLibraryStudioIntent | undefined = normalizedView === "chain-studio"
+    && params.get("clone_graph")
+    && params.get("clone_definition")
+    && params.get("clone_revision")
+    ? {
+      graphId: params.get("clone_graph")!,
+      definitionId: params.get("clone_definition")!,
+      revisionId: params.get("clone_revision")!,
+    }
+    : undefined;
+  const modelLibraryData: ModelLibraryDataIntent | undefined = normalizedView === "data-library"
+    && (params.get("focus_dataset_revision") || params.get("focus_package"))
+    ? {
+      datasetRevisionId: params.get("focus_dataset_revision") || undefined,
+      packageReferenceId: params.get("focus_package") || undefined,
+    }
+    : undefined;
   const dataOnboardingMode = (normalizedView === "data-library" || normalizedView === "profile-workbench")
     && requestedOnboardingMode
     && DATA_ONBOARDING_MODES.has(requestedOnboardingMode as DataOnboardingMode)
@@ -185,6 +241,9 @@ export function readNavigationIntent(
     dataOnboardingMode,
     baseDatasetRevisionId: params.get("base_dataset") || undefined,
     preparedProjectBinding,
+    modelLibraryProject,
+    modelLibraryStudio,
+    modelLibraryData,
   });
 }
 
@@ -216,6 +275,12 @@ export function navigationUrl(intent: NavigationIntent): string {
   if (intent.view === "data-library" && intent.sourceConnectorId) params.set("connector", intent.sourceConnectorId);
   if (intent.view === "data-library" && intent.sourceStage) params.set("stage", intent.sourceStage);
   if (intent.view === "data-library" && intent.sourceRevisionId) params.set("revision", intent.sourceRevisionId);
+  if (intent.view === "data-library" && intent.modelLibraryData?.datasetRevisionId) {
+    params.set("focus_dataset_revision", intent.modelLibraryData.datasetRevisionId);
+  }
+  if (intent.view === "data-library" && intent.modelLibraryData?.packageReferenceId) {
+    params.set("focus_package", intent.modelLibraryData.packageReferenceId);
+  }
   if (
     (intent.view === "data-library" || intent.view === "profile-workbench")
     && intent.dataOnboardingMode
@@ -238,6 +303,28 @@ export function navigationUrl(intent: NavigationIntent): string {
     params.set("prepared_result", binding.preparationResult);
     params.set("prepared_workspace_kind", binding.workspaceKind);
     params.set("prepared_workspace_path", binding.workspaceDatabasePath);
+  }
+  if (intent.view === "project" && intent.modelLibraryProject) {
+    const project = intent.modelLibraryProject;
+    params.set("model_project_kind", project.kind);
+    if (project.kind === "single_task") {
+      params.set("model_dataset_view", project.datasetViewRevisionId);
+      params.set("model_dataset_revision", project.datasetRevisionId);
+      params.set("model_task", project.taskId);
+      params.set("model_package", project.packageReferenceId);
+      params.set("model_package_digest", project.packageManifestDigest);
+    } else {
+      params.set("model_graph", project.graphId);
+      params.set("model_definition", project.definitionId);
+      params.set("model_revision", project.revisionId);
+      params.set("model_revision_digest", project.revisionDigest);
+      if (project.datasetViewRevisionId) params.set("model_dataset_view", project.datasetViewRevisionId);
+    }
+  }
+  if (intent.view === "chain-studio" && intent.modelLibraryStudio) {
+    params.set("clone_graph", intent.modelLibraryStudio.graphId);
+    params.set("clone_definition", intent.modelLibraryStudio.definitionId);
+    params.set("clone_revision", intent.modelLibraryStudio.revisionId);
   }
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
@@ -288,5 +375,8 @@ export function withView(
       ? current.baseDatasetRevisionId
       : undefined,
     preparedProjectBinding: view === "project" ? current.preparedProjectBinding : undefined,
+    modelLibraryProject: view === "project" ? current.modelLibraryProject : undefined,
+    modelLibraryStudio: view === "chain-studio" ? current.modelLibraryStudio : undefined,
+    modelLibraryData: view === "data-library" ? current.modelLibraryData : undefined,
   });
 }
