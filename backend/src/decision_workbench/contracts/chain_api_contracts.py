@@ -1,7 +1,7 @@
 """Transport-neutral request and response contracts for Chain use cases."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +14,9 @@ from decision_workbench.contracts.chain_contracts import (
     ChainStageLock,
     GraphDefinitionRef,
     GraphRevisionRef,
+    PredictionGraphDefinition,
     PredictionGraphProjection,
+    PredictionGraphRevision,
     StageContractSurface,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -92,6 +94,16 @@ class PredictionGraphProjectCreateRequest(ChainApiModel):
     graph_revision_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     project_binding_revision: int = Field(default=1, ge=1)
     project_binding_values: dict[str, float | str] = Field(default_factory=dict)
+
+
+class PredictionGraphPublishRequest(ChainApiModel):
+    definition: PredictionGraphDefinition
+
+
+class PredictionGraphPublishResponse(ChainApiModel):
+    definition: PredictionGraphDefinition
+    graph_revision_id: Annotated[str, Field(min_length=1)]
+    revision: PredictionGraphRevision
 
 
 class ChainDistributionRequest(ChainApiModel):

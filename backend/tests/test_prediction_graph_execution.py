@@ -667,19 +667,86 @@ def test_prediction_graph_planner_uses_only_persisted_project_binding() -> None:
 
 def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
     assert client.app.state.prediction_graph_use_cases is not None
-    graph = _graph()
-    revision = _revision()
-    client.app.state.store.register_chain_definition(graph)
-    revision_id = client.app.state.store.register_chain_revision(
-        revision,
-        contracts=_graph_contracts(),
+    task_id = "welding-consumable-stage-b-v1"
+    catalog_response = client.get("/api/chains/studio/catalog")
+    assert catalog_response.status_code == 200, catalog_response.text
+    stage_catalog = next(
+        item
+        for item in catalog_response.json()["stages"]
+        if item["contract_id"] == task_id
     )
+    surface = stage_catalog["surface"]
+    graph_inputs = []
+    bindings = []
+    for index, target in enumerate(surface["input_ports"]):
+        input_id = f"graph.input.{index}"
+        graph_inputs.append(
+            {
+                "input_id": input_id,
+                "label": target["path"],
+                "port": {**target, "path": input_id},
+                "role": "design_variable",
+                "value_source": {
+                    "source_kind": "candidate",
+                    "candidate_path": target["path"],
+                },
+                "default_presentation_group": "design",
+            }
+        )
+        bindings.append(
+            {
+                "target_stage_id": "model",
+                "target_input_path": target["path"],
+                "source": {
+                    "source_kind": "external",
+                    "path": input_id,
+                },
+            }
+        )
+    decision_outputs = [
+        {
+            "output_id": f"decision.{index}",
+            "source_stage_id": "model",
+            "source_output_key": output["path"],
+            "label": output["path"],
+            "group": "decision",
+            "role": (
+                "primary_objective"
+                if index == 0
+                else "secondary_outcome"
+            ),
+            "required_for_complete_result": True,
+        }
+        for index, output in enumerate(surface["output_ports"])
+    ]
+    publish = client.post(
+        "/api/prediction-graphs/publish",
+        json={
+            "definition": {
+                "graph_id": "api-published-graph",
+                "label": "API-published graph",
+                "stages": [
+                    {
+                        "stage_id": "model",
+                        "stage_kind": "task",
+                        "contract_id": task_id,
+                    }
+                ],
+                "inputs": graph_inputs,
+                "bindings": bindings,
+                "decision_outputs": decision_outputs,
+            }
+        },
+    )
+    assert publish.status_code == 201, publish.text
+    published = publish.json()
+    revision = published["revision"]
     response = client.post(
         "/api/prediction-graphs/projects",
         json={
             "project": {"name": "API Graph Project"},
-            "graph_revision_id": revision_id,
-            "graph_revision_digest": revision.revision_digest,
+            "graph_revision_id": published["graph_revision_id"],
+            "graph_revision_digest": revision["revision_digest"],
             "project_binding_values": {},
         },
     )
@@ -687,7 +754,47 @@ def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
     assert response.json()["scientific_identity"]["identity_kind"] == (
         "prediction_graph"
     )
+    project_id = response.json()["id"]
+    task_catalog = client.get("/api/task-definitions")
+    assert task_catalog.status_code == 200, task_catalog.text
+    starter = next(
+        item["starter_candidate"]
+        for item in task_catalog.json()
+        if item["definition"]["task_definition"]["id"] == task_id
+    )
+    starter["blend"] = None
+    candidate_response = client.post(
+        f"/api/prediction-graphs/projects/{project_id}/candidates",
+        json=starter,
+    )
+    assert candidate_response.status_code == 201, candidate_response.text
+    candidate = candidate_response.json()
+    execution_response = client.post(
+        f"/api/prediction-graphs/projects/{project_id}/candidates/"
+        f"{candidate['id']}/executions",
+        json={
+            "candidate_revision": candidate["revision"],
+            "request_id": "api-only-execution",
+            "debounce_ms": 0,
+        },
+    )
+    assert execution_response.status_code == 200, execution_response.text
+    assert execution_response.json()["status"] == "complete"
+    snapshot_response = client.post(
+        f"/api/prediction-graphs/projects/{project_id}/candidates/"
+        f"{candidate['id']}/snapshots",
+        json={
+            "candidate_revision": candidate["revision"],
+            "request_id": "api-only-snapshot",
+            "debounce_ms": 0,
+        },
+    )
+    assert snapshot_response.status_code == 201, snapshot_response.text
+    assert snapshot_response.json()["request_id"] == (
+        execution_response.json()["request_id"]
+    )
     paths = client.app.openapi()["paths"]
+    assert "/api/prediction-graphs/publish" in paths
     assert "/api/prediction-graphs/projects" in paths
     assert (
         "/api/prediction-graphs/projects/{project_id}/candidates/"

@@ -18,6 +18,12 @@ from decision_workbench.application.chains import (
     ChainConflictError,
     ChainNotFoundError,
     ChainValidationError,
+    resolve_task_stage_lock,
+    resolve_task_stage_surface,
+)
+from decision_workbench.application.chain_candidate_adapters import (
+    ChainCandidateAdapterError,
+    candidate_path_for_revision,
 )
 from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
@@ -28,11 +34,14 @@ from decision_workbench.contracts.candidate_project_contracts import (
 )
 from decision_workbench.contracts.chain_api_contracts import (
     ChainExecutionRequest,
+    PredictionGraphPublishRequest,
+    PredictionGraphPublishResponse,
     PredictionGraphProjectCreateRequest,
 )
 from decision_workbench.contracts.chain_contracts import (
     PredictionGraphProjectBinding,
     PredictionGraphProjectIdentity,
+    build_prediction_graph_revision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     PredictionGraphExecution,
@@ -44,6 +53,8 @@ from decision_workbench.persistence.store import (
     ChainCatalogConflictError,
     Store,
 )
+from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
+from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 
 
 class PredictionGraphUseCases:
@@ -56,11 +67,92 @@ class PredictionGraphUseCases:
         planning: PredictionGraphPlanningUseCase,
         execution: PredictionGraphExecutionUseCase,
         snapshots: PredictionGraphSnapshotUseCase,
+        workspace_catalog: WorkspaceCatalog,
+        task_registry: TaskRegistry,
     ) -> None:
         self.store = store
         self.planning = planning
         self.execution = execution
         self.snapshots = snapshots
+        self.workspace_catalog = workspace_catalog
+        self.task_registry = task_registry
+
+    def publish(
+        self,
+        payload: PredictionGraphPublishRequest,
+    ) -> PredictionGraphPublishResponse:
+        definition = payload.definition
+        if any(stage.stage_kind != "task" for stage in definition.stages):
+            raise ChainValidationError(
+                "最小Prediction Graph publish入口はTask Stageのみ公開できます"
+            )
+        contracts = {}
+        locks = {}
+        try:
+            for stage in definition.stages:
+                self.task_registry.require_available(stage.contract_id)
+                surface = resolve_task_stage_surface(
+                    self.task_registry,
+                    stage.contract_id,
+                )
+                contracts[(stage.stage_kind, stage.contract_id)] = surface
+                locks[stage.stage_id] = resolve_task_stage_lock(
+                    self.workspace_catalog,
+                    self.task_registry,
+                    surface,
+                )
+            existing = [
+                revision
+                for revision in self.store.list_chain_revisions()
+                if getattr(revision, "graph_id", None) == definition.graph_id
+            ]
+            revision = build_prediction_graph_revision(
+                definition,
+                revision=max(
+                    (item.revision for item in existing),
+                    default=0,
+                )
+                + 1,
+                contracts=contracts,
+                stage_locks=locks,
+            )
+            for graph_input in definition.inputs:
+                source = graph_input.value_source
+                if source.source_kind != "candidate":
+                    continue
+                resolved = candidate_path_for_revision(
+                    revision,
+                    f"candidate.{source.candidate_path}",
+                    graph_input.port.value_kind,
+                    graph_input.port.quantity,
+                )
+                if resolved != source.candidate_path:
+                    raise ChainValidationError(
+                        "Prediction Graph candidate sourceをcanonical pathへ"
+                        f"解決できません: {source.candidate_path}"
+                    )
+            self.store.register_chain_definition(definition)
+            self.store.register_chain_revision(
+                revision,
+                contracts=contracts,
+            )
+        except ChainValidationError:
+            raise
+        except (
+            ChainCandidateAdapterError,
+            ChainCatalogConflictError,
+            TaskRegistryError,
+            KeyError,
+            ValueError,
+        ) as exc:
+            raise ChainValidationError(str(exc)) from exc
+        return PredictionGraphPublishResponse(
+            definition=definition,
+            graph_revision_id=(
+                f"{revision.graph_id}:r{revision.revision}"
+            ),
+            revision=revision,
+        )
 
     def create_project(
         self,

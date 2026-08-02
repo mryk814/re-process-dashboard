@@ -22,6 +22,8 @@ from decision_workbench.contracts.candidate_project_contracts import (
 )
 from decision_workbench.contracts.chain_api_contracts import (
     ChainExecutionRequest,
+    PredictionGraphPublishRequest,
+    PredictionGraphPublishResponse,
     PredictionGraphProjectCreateRequest,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -70,6 +72,19 @@ def create_project(
     use_cases: GraphDependency,
 ) -> Project:
     return _call(lambda: use_cases.create_project(payload))
+
+
+@router.post(
+    "/publish",
+    response_model=PredictionGraphPublishResponse,
+    status_code=201,
+    operation_id="publishPredictionGraph",
+)
+def publish(
+    payload: PredictionGraphPublishRequest,
+    use_cases: GraphDependency,
+) -> PredictionGraphPublishResponse:
+    return _call(lambda: use_cases.publish(payload))
 
 
 @router.post(

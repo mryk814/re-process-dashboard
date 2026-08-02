@@ -243,6 +243,8 @@ def _build_prediction_graph_use_cases(
         planning=planning,
         execution=execution,
         snapshots=PredictionGraphSnapshotUseCase(planning),
+        workspace_catalog=context.workspace_catalog,
+        task_registry=context.task_registry,
     )
 
 

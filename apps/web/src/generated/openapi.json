@@ -16151,6 +16151,42 @@
         "title": "PredictionGraphProjection",
         "type": "object"
       },
+      "PredictionGraphPublishRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/PredictionGraphDefinition"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "PredictionGraphPublishRequest",
+        "type": "object"
+      },
+      "PredictionGraphPublishResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/PredictionGraphDefinition"
+          },
+          "graph_revision_id": {
+            "minLength": 1,
+            "title": "Graph Revision Id",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PredictionGraphRevision"
+          }
+        },
+        "required": [
+          "definition",
+          "graph_revision_id",
+          "revision"
+        ],
+        "title": "PredictionGraphPublishResponse",
+        "type": "object"
+      },
       "PredictionGraphRevision": {
         "additionalProperties": false,
         "properties": {
@@ -28642,6 +28678,47 @@
           }
         },
         "summary": "Get Snapshot",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/publish": {
+      "post": {
+        "operationId": "publishPredictionGraph",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphPublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphPublishResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
         "tags": [
           "prediction-graphs"
         ]

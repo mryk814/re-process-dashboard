@@ -815,6 +815,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graphs/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publishPredictionGraph"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile-workbench/inspect": {
         parameters: {
             query?: never;
@@ -8602,6 +8619,17 @@ export interface components {
             source_schema_version: "chain-definition/v1" | "prediction-graph-definition/v1";
             topology: components["schemas"]["PredictionGraphTopology"];
         };
+        /** PredictionGraphPublishRequest */
+        PredictionGraphPublishRequest: {
+            definition: components["schemas"]["PredictionGraphDefinition"];
+        };
+        /** PredictionGraphPublishResponse */
+        PredictionGraphPublishResponse: {
+            definition: components["schemas"]["PredictionGraphDefinition"];
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            revision: components["schemas"]["PredictionGraphRevision"];
+        };
         /** PredictionGraphRevision */
         PredictionGraphRevision: {
             /** Binding Digest */
@@ -14197,6 +14225,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionGraphSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    publishPredictionGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphPublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphPublishResponse"];
                 };
             };
             /** @description Validation Error */
