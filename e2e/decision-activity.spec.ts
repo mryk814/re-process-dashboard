@@ -140,6 +140,17 @@ test("activity run deep links follow same-candidate history and reject an unknow
   await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
   await page.reload();
   await expect(page.locator(".activity-result-meta")).toContainText("128/128件を評価");
+  await expect(page.getByText("入力のばらつきで予測がどの程度動くか", { exact: true })).toBeVisible();
+  const questionPrecedesEvidence = await page.evaluate(() => {
+    const question = document.querySelector(".activity-question");
+    const evidence = document.querySelector(".activity-result");
+    return Boolean(
+      question
+      && evidence
+      && (question.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
+  });
+  expect(questionPrecedesEvidence).toBe(true);
   await expect(page.getByText("条件を変えて再実行", { exact: true })).toBeVisible();
   const currentEvidence = await page.locator(".activity-result").boundingBox();
   const history = await page.getByRole("navigation", { name: "保存済みロバストネス解析" }).boundingBox();

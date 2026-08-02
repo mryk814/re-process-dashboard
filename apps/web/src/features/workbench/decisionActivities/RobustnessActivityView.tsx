@@ -137,7 +137,11 @@ export function RobustnessActivityView({
   const inputNumber = (path: string, value: number) => formatTaskNumber(value, taskDefinition, path, displayDecimalOverrides);
   const goalDirections = new Map(taskDefinition.outputs.map((output) => [output.key, output.goal_direction]));
   return <>
-    {hasConfiguredGoals && <p className="activity-question">{availability.definition.question}</p>}
+    <p className="activity-question">
+      {hasConfiguredGoals
+        ? availability.definition.question
+        : "入力のばらつきで予測がどの程度動くか"}
+    </p>
 
     {activeRun && result && <section className="activity-result">
       <div className="activity-result-heading"><span className="overline">CURRENT EVIDENCE</span><h3>現在の判断材料</h3></div>
@@ -193,7 +197,6 @@ export function RobustnessActivityView({
     </section>}
     {(hasConfiguredGoals || sensitivityOnlyConfirmed || Boolean(result)) && <ActivityRunControls hasResult={Boolean(result)} available={availability.available}>
       {!hasConfiguredGoals && <div className="activity-goal-less-mode">
-        <p className="activity-question">入力のばらつきで予測がどの程度動くか</p>
         <button type="button" className="text-button" onClick={onConfigureGoals}>目標を設定する</button>
       </div>}
       <div className="panel-title"><h3>入力の公差</h3><span>現在値を中心とした±幅</span></div>
