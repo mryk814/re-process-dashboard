@@ -30,6 +30,8 @@ import {
   buildParallelAcceptanceReport,
   ciPlanSchemaVersion,
   createCiPlan,
+  diagnosticIdentity,
+  failureExcerpt,
   materializeReusedShardReport,
   planShardEvidenceReuse,
   shardReportSchemaVersion,
@@ -1359,6 +1361,12 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /verification-evidence-reuse/);
   assert.match(workflow, /name: direct-verification-report/);
   assert.match(workflow, /name: main-acceptance-diagnostics/);
+  assert.match(workflow, /name: Publish shard diagnostics summary/);
+  assert.match(workflow, /name: verification-shard-diagnostics-\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /PLAYWRIGHT_CI_DIAGNOSTICS: "1"/);
+  assert.match(workflow, /artifacts\/verification\/diagnostics\/\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /artifacts\/playwright\/\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/main-acceptance\/latest\.json/);
   assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
   assert.match(acceptanceRunner, /Select-Object -Last 200/);
@@ -1368,4 +1376,29 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(failureStateRunner, /covered by default-playwright/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
+});
+
+test("CI shard diagnostics preserve success and failure identity without changing gate outcomes", () => {
+  const success = diagnosticIdentity({ shardId: "contract-build", testedCommit: "abc123" });
+  assert.equal(success.testedMergeSha, "abc123");
+  assert.equal(success.shardId, "contract-build");
+  assert.equal(success.playwright.workers, "1");
+  assert.equal(success.playwright.retries, "0");
+
+  assert.equal(failureExcerpt("all green"), null);
+  assert.match(
+    failureExcerpt("1) source lifecycle\nError: synthetic failure\nExpected: ready"),
+    /source lifecycle[\s\S]+synthetic failure/,
+  );
+});
+
+test("CI workflow uploads diagnostics even when a shard fails or the workflow is cancelled", () => {
+  const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
+  const diagnosticsUpload = workflow.slice(
+    workflow.indexOf("- name: Upload shard diagnostics and Playwright reports"),
+    workflow.indexOf("- name: Upload verification shard report"),
+  );
+  assert.match(diagnosticsUpload, /if: always\(\)/);
+  assert.match(diagnosticsUpload, /if-no-files-found: warn/);
+  assert.match(diagnosticsUpload, /verification-shard-diagnostics-/);
 });

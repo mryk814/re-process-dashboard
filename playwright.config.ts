@@ -37,6 +37,22 @@ const taskStore = process.env.PLAYWRIGHT_TASK_STORE_PATH
   ?? join(tmpdir(), `decision-workbench-e2e-tasks-${e2eRunId}`);
 if (ownsTaskStore) process.env.PLAYWRIGHT_OWNED_TASK_STORE_PATH = taskStore;
 const outputDir = process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results";
+const ciDiagnostics = process.env.PLAYWRIGHT_CI_DIAGNOSTICS === "1";
+const reporter = ciDiagnostics
+  ? [
+      ["list"],
+      ["html", {
+        outputFolder: process.env.PLAYWRIGHT_HTML_OUTPUT_DIR ?? join(outputDir, "html"),
+        open: "never",
+      }],
+      ["blob", {
+        outputDir: process.env.PLAYWRIGHT_BLOB_OUTPUT_DIR ?? join(outputDir, "blob"),
+      }],
+      ["junit", {
+        outputFile: process.env.PLAYWRIGHT_JUNIT_OUTPUT_FILE ?? join(outputDir, "junit.xml"),
+      }],
+    ]
+  : undefined;
 if (ownsDatabase || ownsModelStore || ownsProfileStore || ownsTaskStore) {
   process.env.PLAYWRIGHT_CLEANUP_REPORT_PATH = resolve(
     outputDir,
@@ -52,6 +68,7 @@ export default defineConfig({
   testIgnore: ["chain-degraded.spec.ts", "startup-diagnostic.spec.ts", "sample-gallery.spec.ts"],
   timeout: 45_000,
   outputDir,
+  reporter,
   metadata: {
     e2eCleanupReportPath: process.env.PLAYWRIGHT_CLEANUP_REPORT_PATH,
     e2eOwnedPaths: {
