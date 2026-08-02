@@ -358,7 +358,14 @@ def register_available_packages(
             if package_origins is not None:
                 package_origins[package_ref.id] = storage_scope
             registered += 1
-        except (OSError, PackageContractError, WorkspaceCatalogBootstrapError, CatalogConflictError) as exc:
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+            PackageContractError,
+            WorkspaceCatalogBootstrapError,
+            CatalogConflictError,
+        ) as exc:
             message = (
                 str(exc)
                 if isinstance(exc, (WorkspaceCatalogBootstrapError, CatalogConflictError))
