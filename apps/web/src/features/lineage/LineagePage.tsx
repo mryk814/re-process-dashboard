@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fromApiCandidate, type CandidateViewModel as Candidate, type TaskOutputDefinition } from "../candidates";
+import { ApiClientError } from "../../shared/api/client";
 import { assessOutputValues, resolveOutputDefinition } from "../../shared/outputPresentation";
 import {
   workbenchApi,
@@ -10,6 +11,12 @@ import {
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { LineageGraph } from "./LineageGraph";
+import {
+  beginLineageResourceLoad,
+  initialLineageResourceState,
+  rejectLineageResourceLoad,
+  resolveLineageResourceLoad,
+} from "./lineageResourceState";
 
 function number(value: number, digits = 0) {
   return value.toLocaleString("ja-JP", {
@@ -39,6 +46,21 @@ function primaryConditionPresentation(sourceColumn: string) {
     unit: unitMatch?.[2] ?? "",
     sourceColumn,
   };
+}
+
+function lineageResourceUnavailable(cause: unknown) {
+  if (!(cause instanceof ApiClientError)) return false;
+  return cause.availability?.status === "unavailable"
+    || cause.code === "subsystem_unavailable"
+    || cause.code === "runtime_unavailable"
+    || cause.code === "task-store-unconfigured"
+    || cause.code === "task-store-unavailable"
+    || cause.code === "model-store-unconfigured"
+    || cause.code === "model-store-unavailable";
+}
+
+function clientLoadedAt(value: string | null) {
+  return value ? new Date(value).toLocaleString("ja-JP") : "";
 }
 
 type HeatStageSegment = {
@@ -112,7 +134,12 @@ export function LineagePage({
   const [query, setQuery] = useState("");
   const [entityType, setEntityType] = useState("");
   const [issueFilter, setIssueFilter] = useState<"all" | "with_issues" | "without_issues">("all");
+  const indexScope = JSON.stringify([projectId, query.trim(), entityType, issueFilter]);
   const [reviews, setReviews] = useState<ApiLineageNodeReview[]>([]);
+  const [reviewResourceState, setReviewResourceState] = useState(
+    () => initialLineageResourceState(projectId),
+  );
+  const [reviewRevision, setReviewRevision] = useState(0);
   const [reviewLedgerOpen, setReviewLedgerOpen] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>("noted");
   const [reviewNote, setReviewNote] = useState("");
@@ -121,6 +148,9 @@ export function LineagePage({
   const [graphLimit, setGraphLimit] = useState(40);
   const [showAllReachable, setShowAllReachable] = useState(false);
   const [index, setIndex] = useState<ApiLineageIndex | null>(null);
+  const [indexResourceState, setIndexResourceState] = useState(
+    () => initialLineageResourceState(indexScope),
+  );
   const [data, setData] = useState<ApiLineage | null>(null);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
@@ -131,6 +161,8 @@ export function LineagePage({
   const [hoveredHeatPoint, setHoveredHeatPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const activeProjectRef = useRef(projectId);
   const activeEntityRef = useRef(entityKey);
+  const loadedIndexScopeRef = useRef<string | null>(null);
+  const loadedReviewProjectRef = useRef<string | null>(null);
   const outputLabel = (raw: string) => {
     const definition = outputs.find((output) => raw === output.key || raw.startsWith(`${output.key}[`) || (output.key === "lambda" && raw.startsWith("λ")));
     return definition ? `${definition.label}${definition.unit ? ` (${definition.unit})` : ""}` : raw;
@@ -174,31 +206,61 @@ export function LineagePage({
     setReviewNote("");
     setReviewSaveState("idle");
   }, [projectId]);
-  const refreshReviews = () =>
-    workbenchApi.lineageReviews(projectId).then((payload) => setReviews(payload.items));
   useEffect(() => {
     let cancelled = false;
+    const scope = projectId;
+    const retainsCurrentEvidence = loadedReviewProjectRef.current === scope;
+    if (!retainsCurrentEvidence) setReviews([]);
+    setReviewResourceState((current) => beginLineageResourceLoad(current, scope));
     workbenchApi.lineageReviews(projectId)
       .then((payload) => {
-        if (!cancelled) setReviews(payload.items);
+        if (cancelled) return;
+        loadedReviewProjectRef.current = scope;
+        setReviews(payload.items);
+        setReviewResourceState(resolveLineageResourceLoad(scope, payload.items.length === 0));
       })
-      .catch(() => undefined);
+      .catch((cause) => {
+        if (cancelled) return;
+        setReviewResourceState((current) => rejectLineageResourceLoad(
+          current,
+          scope,
+          "確認メモを取得できませんでした。",
+          lineageResourceUnavailable(cause),
+        ));
+      });
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, reviewRevision]);
   useEffect(() => {
     const controller = new AbortController();
+    const scope = indexScope;
+    const retainsCurrentEvidence = loadedIndexScopeRef.current === scope;
+    if (!retainsCurrentEvidence) setIndex(null);
+    setIndexResourceState((current) => beginLineageResourceLoad(current, scope));
     const timer = window.setTimeout(() => {
       workbenchApi.lineageIndex(projectId, query.trim(), entityType, issueFilter, controller.signal)
-        .then(setIndex)
-        .catch(() => undefined);
+        .then((payload) => {
+          if (controller.signal.aborted) return;
+          loadedIndexScopeRef.current = scope;
+          setIndex(payload);
+          setIndexResourceState(resolveLineageResourceLoad(scope, payload.items.length === 0));
+        })
+        .catch((cause) => {
+          if (controller.signal.aborted) return;
+          setIndexResourceState((current) => rejectLineageResourceLoad(
+            current,
+            scope,
+            "実績・工程の検索結果を取得できませんでした。",
+            lineageResourceUnavailable(cause),
+          ));
+        });
     }, 180);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [projectId, query, entityType, issueFilter, indexRevision]);
+  }, [projectId, query, entityType, issueFilter, indexRevision, indexScope]);
   useEffect(() => {
     if (!entityKey) {
       setData(null);
@@ -240,7 +302,7 @@ export function LineagePage({
         note: reviewNote.trim(),
       });
       setData({ ...data, review });
-      await refreshReviews();
+      setReviewRevision((value) => value + 1);
       setIndexRevision((value) => value + 1);
       setReviewSaveState("saved");
     } catch {
@@ -255,7 +317,7 @@ export function LineagePage({
       setData({ ...data, review: null });
       setReviewStatus("noted");
       setReviewNote("");
-      await refreshReviews();
+      setReviewRevision((value) => value + 1);
       setIndexRevision((value) => value + 1);
       setReviewSaveState("idle");
     } catch {
@@ -368,6 +430,14 @@ export function LineagePage({
   const selectedGroupProperties = Array.from(new Set(
     selectedGroupRows.flatMap(({ observation }) => Object.keys(observation?.outputs ?? {})),
   ));
+  const currentIndexState = indexResourceState.scope === indexScope
+    ? indexResourceState
+    : initialLineageResourceState(indexScope);
+  const currentIndex = loadedIndexScopeRef.current === indexScope ? index : null;
+  const currentReviewState = reviewResourceState.scope === projectId
+    ? reviewResourceState
+    : initialLineageResourceState(projectId);
+  const currentReviews = loadedReviewProjectRef.current === projectId ? reviews : [];
   return (
     <div className="page-panel lineage-page">
       {qualityIssueId && (
@@ -386,11 +456,11 @@ export function LineagePage({
       </div>
       <div className={`lineage-workspace${data ? "" : " no-detail"}`}>
         <aside className="lineage-browser" aria-label="系譜ノード検索">
-          {index && (
+          {currentIndex && (
             <div className="lineage-source-facts">
-              <span><b>{number(index.total_entities)}</b> エンティティ</span>
-              <span><b>{number(index.relation_rows)}</b> 関係レコード</span>
-              <span className={index.detected_issues ? "has-issue" : ""}><b>{index.detected_issues}</b> 検出問題</span>
+              <span><b>{number(currentIndex.total_entities)}</b> エンティティ</span>
+              <span><b>{number(currentIndex.relation_rows)}</b> 関係レコード</span>
+              <span className={currentIndex.detected_issues ? "has-issue" : ""}><b>{currentIndex.detected_issues}</b> 検出問題</span>
             </div>
           )}
           <label htmlFor="lineage-query">ノードを検索</label>
@@ -405,8 +475,8 @@ export function LineagePage({
             種別
             <select value={entityType} onChange={(event) => setEntityType(event.target.value)}>
               <option value="">すべて</option>
-              {Object.keys(index?.counts_by_type ?? {}).map((type) => (
-                <option key={type} value={type}>{type} ({index?.counts_by_type[type]})</option>
+              {Object.keys(currentIndex?.counts_by_type ?? {}).map((type) => (
+                <option key={type} value={type}>{type} ({currentIndex?.counts_by_type[type]})</option>
               ))}
             </select>
           </label>
@@ -421,20 +491,101 @@ export function LineagePage({
               <option value="without_issues">問題なし</option>
             </select>
           </label>
+          <button
+            type="button"
+            className="outline-button"
+            disabled={currentIndexState.phase === "loading"}
+            onClick={() => setIndexRevision((value) => value + 1)}
+          >
+            {currentIndexState.phase === "loading"
+              ? "検索結果を読込中…"
+              : currentIndexState.phase === "stale"
+                || currentIndexState.phase === "error"
+                || currentIndexState.phase === "unavailable"
+                ? "検索結果を再試行"
+                : "検索結果を更新"}
+          </button>
+          {currentIndexState.phase === "loading" && (
+            <p className="empty-evidence" role="status">
+              {currentIndex && currentIndexState.loadedAt
+                ? `検索結果を更新しています。表示中の結果は、この画面で ${clientLoadedAt(currentIndexState.loadedAt)} に取得した内容です。`
+                : "検索結果を読み込んでいます。"}
+            </p>
+          )}
+          {currentIndexState.phase === "stale" && (
+            <div className="data-library-resource-error" role="alert">
+              <div>
+                <strong>検索結果を更新できませんでした</strong>
+                <p>表示中の結果は保持しています。最新の検索結果として扱わないでください。</p>
+                <small>この画面での取得時刻: {clientLoadedAt(currentIndexState.loadedAt)}</small>
+              </div>
+            </div>
+          )}
+          {(currentIndexState.phase === "error" || currentIndexState.phase === "unavailable") && (
+            <div className="data-library-resource-error" role="alert">
+              <div>
+                <strong>{currentIndexState.phase === "unavailable"
+                  ? "実績・工程の検索は現在利用できません"
+                  : "実績・工程の検索結果を取得できませんでした"}</strong>
+                <p>検索結果は未確認です。一致する実績が0件という意味ではありません。</p>
+                <small>「検索結果を再試行」は、この検索条件だけを読み直します。</small>
+              </div>
+            </div>
+          )}
           <div className="lineage-review-ledger-tools">
             <button
               type="button"
               className={reviewLedgerOpen ? "active" : ""}
               onClick={() => setReviewLedgerOpen((open) => !open)}
             >
-              確認メモ {reviews.length}件
+              確認メモ {currentReviewState.loadedAt ? `${currentReviews.length}件` : "未取得"}
             </button>
-            <button type="button" disabled={!reviews.length} onClick={() => void exportReviews()}>CSV</button>
+            <button type="button" disabled={!currentReviews.length} onClick={() => void exportReviews()}>CSV</button>
+            <button
+              type="button"
+              disabled={currentReviewState.phase === "loading"}
+              onClick={() => setReviewRevision((value) => value + 1)}
+            >
+              {currentReviewState.phase === "loading"
+                ? "メモを読込中…"
+                : currentReviewState.phase === "stale"
+                  || currentReviewState.phase === "error"
+                  || currentReviewState.phase === "unavailable"
+                  ? "メモを再試行"
+                  : "メモを更新"}
+            </button>
           </div>
+          {currentReviewState.phase === "loading" && (
+            <p className="empty-evidence" role="status">
+              {currentReviews.length || currentReviewState.loadedAt
+                ? `確認メモを更新しています。表示中の内容は、この画面で ${clientLoadedAt(currentReviewState.loadedAt)} に取得したものです。`
+                : "確認メモを読み込んでいます。"}
+            </p>
+          )}
+          {currentReviewState.phase === "stale" && (
+            <div className="data-library-resource-error" role="alert">
+              <div>
+                <strong>確認メモを更新できませんでした</strong>
+                <p>表示中のメモは保持しています。最新の台帳として扱わないでください。</p>
+                <small>この画面での取得時刻: {clientLoadedAt(currentReviewState.loadedAt)}</small>
+              </div>
+            </div>
+          )}
+          {(currentReviewState.phase === "error" || currentReviewState.phase === "unavailable") && (
+            <div className="data-library-resource-error" role="alert">
+              <div>
+                <strong>{currentReviewState.phase === "unavailable"
+                  ? "確認メモは現在利用できません"
+                  : "確認メモを取得できませんでした"}</strong>
+                <p>メモ件数は未確認です。0件という意味ではありません。</p>
+                <small>「メモを再試行」は、確認メモだけを読み直します。</small>
+              </div>
+            </div>
+          )}
           {reviewLedgerOpen ? (
             <>
               <div className="lineage-result-list lineage-review-list">
-                {reviews.map((review) => (
+                {currentReviews.map((review) => (
                   <button
                     key={review.entity_key}
                     type="button"
@@ -449,14 +600,19 @@ export function LineagePage({
                     {review.note && <span className="lineage-review-note">{review.note}</span>}
                   </button>
                 ))}
-                {!reviews.length && <p className="empty-evidence">確認メモはまだありません。</p>}
+                {!currentReviews.length && currentReviewState.phase === "empty" && (
+                  <p className="empty-evidence">確認メモはまだありません。</p>
+                )}
+                {!currentReviews.length && currentReviewState.phase === "stale" && (
+                  <p className="empty-evidence">前回取得時点では確認メモはありませんでした。</p>
+                )}
               </div>
               <small className="lineage-result-limit">非表示にしたキーもここから開けます。</small>
             </>
           ) : (
             <>
               <div className="lineage-result-list">
-                {(index?.items ?? []).map((item) => (
+                {(currentIndex?.items ?? []).map((item) => (
                   <button
                     key={`${item.entity_type}-${item.key}`}
                     type="button"
@@ -485,10 +641,19 @@ export function LineagePage({
                     )}
                   </button>
                 ))}
-                {index && !index.items.length && <p className="empty-evidence">一致するキーはありません。</p>}
+                {currentIndex && !currentIndex.items.length && currentIndexState.phase === "empty" && (
+                  <p className="empty-evidence">一致するキーはありません。</p>
+                )}
+                {currentIndex && !currentIndex.items.length && currentIndexState.phase === "stale" && (
+                  <p className="empty-evidence">前回取得時点では一致するキーはありませんでした。</p>
+                )}
               </div>
               <small className="lineage-result-limit">
-                {index ? `${number(index.matched_entities ?? index.items.length)}件中${number(index.items.length)}件を表示` : "検索中"}
+                {currentIndex
+                  ? `${number(currentIndex.matched_entities ?? currentIndex.items.length)}件中${number(currentIndex.items.length)}件を表示`
+                  : currentIndexState.phase === "loading"
+                    ? "検索中"
+                    : "検索結果は未取得"}
                 {" · "}一度に最大200件まで表示。選択するとグラフを開きます。
               </small>
             </>
@@ -911,7 +1076,7 @@ export function LineagePage({
             <span className="overline">ノード未選択</span>
             <h3>調べるノードを選択してください</h3>
             <p>左の検索欄からノードを選ぶと、実在する関係線と前後工程を表示します。</p>
-            {index && <p>{number(index.total_entities)}ノード / {number(index.relation_rows)}関係 / {index.detected_issues}件の品質問題</p>}
+            {currentIndex && <p>{number(currentIndex.total_entities)}ノード / {number(currentIndex.relation_rows)}関係 / {currentIndex.detected_issues}件の品質問題</p>}
           </section>
         </main>
       )}

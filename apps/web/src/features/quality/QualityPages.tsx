@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ApiClientError } from "../../shared/api/client";
 import { workbenchApi, type ApiQuality } from "../../shared/api/workbench-api";
+import {
+  beginQualityResourceLoad,
+  initialQualityResourceState,
+  rejectQualityResourceLoad,
+  resolveQualityResourceLoad,
+} from "./qualityResourceState";
 
 export type QualityFilters = Readonly<{
   issueId?: string;
@@ -38,6 +45,21 @@ function groupQualityIssues(issues: readonly DetectedIssue[]): readonly QualityI
   return [...groups.values()];
 }
 
+function resourceUnavailable(cause: unknown) {
+  if (!(cause instanceof ApiClientError)) return false;
+  return cause.availability?.status === "unavailable"
+    || cause.code === "subsystem_unavailable"
+    || cause.code === "runtime_unavailable"
+    || cause.code === "task-store-unconfigured"
+    || cause.code === "task-store-unavailable"
+    || cause.code === "model-store-unconfigured"
+    || cause.code === "model-store-unavailable";
+}
+
+function clientLoadedAt(value: string | null) {
+  return value ? new Date(value).toLocaleString("ja-JP") : "";
+}
+
 export function DataExploreNavigation({
   active,
   qualityAvailable,
@@ -72,20 +94,43 @@ export function LiveDataQualityPage({
   showReferenceScenarios?: boolean;
 }) {
   const [data, setData] = useState<ApiQuality | null>(null);
-  const [error, setError] = useState(false);
+  const [resourceState, setResourceState] = useState(
+    () => initialQualityResourceState(projectId),
+  );
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [exportError, setExportError] = useState("");
   const [copiedKey, setCopiedKey] = useState("");
   const [copyError, setCopyError] = useState("");
   const [groupOpenState, setGroupOpenState] = useState<Record<string, boolean>>({});
+  const loadedProjectRef = useRef<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    setData(null);
-    setError(false);
+    const scope = projectId;
+    const retainsCurrentEvidence = loadedProjectRef.current === scope;
+    if (!retainsCurrentEvidence) setData(null);
+    setResourceState((current) => beginQualityResourceLoad(current, scope));
     workbenchApi.quality(projectId)
-      .then((quality) => { if (!cancelled) setData(quality); })
-      .catch(() => { if (!cancelled) setError(true); });
+      .then((quality) => {
+        if (cancelled) return;
+        loadedProjectRef.current = scope;
+        setData(quality);
+        setResourceState(resolveQualityResourceLoad(scope, quality.detected_total === 0));
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setResourceState((current) => rejectQualityResourceLoad(
+          current,
+          scope,
+          "データ品質の検出結果を取得できませんでした。",
+          resourceUnavailable(cause),
+        ));
+      });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, refreshRevision]);
+  const currentResourceState = resourceState.scope === projectId
+    ? resourceState
+    : initialQualityResourceState(projectId);
+  const currentData = loadedProjectRef.current === projectId ? data : null;
   const labels: Record<DetectedIssue["issue_type"], string> = {
     missing_key: "キー欠損",
     orphan_entity: "孤立",
@@ -98,9 +143,9 @@ export function LiveDataQualityPage({
     predictor_missing: "入力条件の欠損",
   };
   const updateFilters = (patch: Partial<QualityFilters>) => onFiltersChange({ ...filters, ...patch, issueId: undefined });
-  const sheets = Array.from(new Set(data?.detected_issues.map((issue) => issue.source_sheet) ?? [])).sort();
+  const sheets = Array.from(new Set(currentData?.detected_issues.map((issue) => issue.source_sheet) ?? [])).sort();
   const normalizedKey = filters.key?.trim().toLocaleLowerCase("ja-JP") ?? "";
-  const visibleIssues = data?.detected_issues.filter((issue) =>
+  const visibleIssues = currentData?.detected_issues.filter((issue) =>
     (!filters.type || issue.issue_type === filters.type)
     && (!filters.sheet || issue.source_sheet === filters.sheet)
     && (!normalizedKey || `${issue.entity_key} ${issue.missing_reference_key ?? ""}`.toLocaleLowerCase("ja-JP").includes(normalizedKey))
@@ -140,28 +185,67 @@ export function LiveDataQualityPage({
           <p>元データを変更せず、関係・値域・分布から実際の問題を検出します。</p>
         </div>
         <div className="quality-summary-actions">
+          <button
+            className="outline-button"
+            type="button"
+            disabled={currentResourceState.phase === "loading"}
+            onClick={() => setRefreshRevision((value) => value + 1)}
+          >
+            {currentResourceState.phase === "loading"
+              ? "データ品質を読込中…"
+              : currentResourceState.phase === "stale"
+                || currentResourceState.phase === "error"
+                || currentResourceState.phase === "unavailable"
+                ? "データ品質を再試行"
+                : "データ品質を更新"}
+          </button>
           <button className="outline-button" onClick={() => void exportCsv()}>検出結果をCSV出力</button>
         </div>
       </div>
       {exportError && <p className="empty-evidence" role="alert">{exportError}</p>}
       {copyError && <p className="empty-evidence" role="alert">{copyError}</p>}
-      {error ? (
-        <p className="empty-evidence">データ品質を取得できません。API接続を確認してください。</p>
-      ) : data ? (
+      {currentResourceState.phase === "loading" && (
+        <p className="empty-evidence" role="status">
+          {currentData && currentResourceState.loadedAt
+            ? `データ品質を更新しています。表示中の結果は、この画面で ${clientLoadedAt(currentResourceState.loadedAt)} に取得した内容です。`
+            : "データ品質を読み込んでいます。"}
+        </p>
+      )}
+      {currentResourceState.phase === "stale" && (
+        <div className="data-library-resource-error" role="alert">
+          <div>
+            <strong>データ品質を更新できませんでした</strong>
+            <p>表示中の検出結果は保持しています。最新の結果として扱わないでください。</p>
+            <small>この画面での取得時刻: {clientLoadedAt(currentResourceState.loadedAt)}</small>
+          </div>
+        </div>
+      )}
+      {(currentResourceState.phase === "error" || currentResourceState.phase === "unavailable") && (
+        <div className="data-library-resource-error" role="alert">
+          <div>
+            <strong>{currentResourceState.phase === "unavailable"
+              ? "このProjectのデータ品質は現在利用できません"
+              : "データ品質を取得できませんでした"}</strong>
+            <p>検出結果は未確認です。問題が0件という意味ではありません。</p>
+            <small>この画面の「データ品質を再試行」は、この検出結果だけを読み直します。</small>
+          </div>
+        </div>
+      )}
+      {currentData ? (
         <>
           <details className="technical-contract dataset-identity">
             <summary>参照データを確認</summary>
-            <span>{data.dataset.task_id}</span>
-            <span>{data.dataset.profile_id}</span>
-            <code title={data.dataset.source_sha256}>source sha256:{data.dataset.source_sha256.slice(0, 12)}…</code>
-            <small>{data.dataset.source_path}</small>
-            <small>{data.dataset.profile_path}</small>
+            <span>{currentData.dataset.task_id}</span>
+            <span>{currentData.dataset.profile_id}</span>
+            <code title={currentData.dataset.source_sha256}>source sha256:{currentData.dataset.source_sha256.slice(0, 12)}…</code>
+            <small>{currentData.dataset.source_path}</small>
+            <small>{currentData.dataset.profile_path}</small>
           </details>
           <div className="quality-summary">
             <button type="button" className={!filters.type ? "active" : ""} onClick={() => updateFilters({ type: undefined })}>
-              <b>{data.detected_total}</b>件を実検出
+              <b>{currentData.detected_total}</b>件を実検出
             </button>
-            {Object.entries(data.detected_by_type).map(([type, count]) => (
+            {Object.entries(currentData.detected_by_type).map(([type, count]) => (
               <button type="button" className={filters.type === type ? "active" : ""} key={type} onClick={() => updateFilters({ type })}>
                 <b>{count}</b>{labels[type as DetectedIssue["issue_type"]] ?? type}
               </button>
@@ -210,17 +294,17 @@ export function LiveDataQualityPage({
                   </div>
                 </details>;
               })}
-            </div> : data.detected_total === 0
+            </div> : currentData.detected_total === 0
               ? <div className="quality-empty-state"><strong>問題は検出されませんでした</strong><p>検出は完了しています。元データやProfileが変わったときに再確認してください。</p></div>
-              : <div className="quality-empty-state filtered"><strong>絞り込みに一致する問題はありません</strong><p>{data.detected_total.toLocaleString("ja-JP")}件の検出結果は残っています。</p><button type="button" className="outline-button" onClick={clearFilters}>すべての問題を表示</button></div>}
+              : <div className="quality-empty-state filtered"><strong>絞り込みに一致する問題はありません</strong><p>{currentData.detected_total.toLocaleString("ja-JP")}件の検出結果は残っています。</p><button type="button" className="outline-button" onClick={clearFilters}>すべての問題を表示</button></div>}
           </>
           {showReferenceScenarios && <details className="reference-scenarios">
-            <summary>Excelに用意された確認用シナリオ（{data.reference_scenarios.length}件）</summary>
+            <summary>Excelに用意された確認用シナリオ（{currentData.reference_scenarios.length}件）</summary>
             <p>ここは検出結果ではなく、アプリの気づきを検証するために元データへ用意された参照ケースです。</p>
-            <table className="quality-table"><tbody>{data.reference_scenarios.map((scenario) => <tr key={scenario.scenario_id}><td>{scenario.分類}</td><td>{scenario.対象キー}</td><td>{scenario.期待する気づき}</td></tr>)}</tbody></table>
+            <table className="quality-table"><tbody>{currentData.reference_scenarios.map((scenario) => <tr key={scenario.scenario_id}><td>{scenario.分類}</td><td>{scenario.対象キー}</td><td>{scenario.期待する気づき}</td></tr>)}</tbody></table>
           </details>}
         </>
-      ) : <p className="empty-evidence">データ品質を読み込んでいます。</p>}
+      ) : null}
     </div>
   );
 }
