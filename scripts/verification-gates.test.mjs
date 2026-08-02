@@ -1173,6 +1173,8 @@ test("recovery-specific E2E edits invalidate only their owning recovery shard", 
     sourceIsAncestor: true,
     classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
   });
+  assert.ok(selectedIds(planFor(["e2e/axe.ts"])).includes("failure-state-e2e"));
+  assert.ok(selectedIds(planFor(["e2e/axe.ts"])).includes("chain-degraded-e2e"));
   for (const shardId of [
     "browser-standard",
     "recovery-failure-state",
@@ -1206,7 +1208,77 @@ test("recovery-specific E2E edits invalidate only their owning recovery shard", 
     sourceIsAncestor: true,
     classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
   });
+  assert.ok(
+    selectedIds(planFor(["playwright.chain-degraded.config.ts"]))
+      .includes("chain-degraded-e2e"),
+  );
+  assert.ok(
+    !selectedIds(planFor(["playwright.chain-degraded.config.ts"]))
+      .includes("failure-state-e2e"),
+  );
   assert.deepEqual(chainConfig.executedShardIds, ["recovery-chain-degraded"]);
+
+  const ownershipCases = [
+    {
+      path: "e2e/fixtures/broken-chain-evaluation.json",
+      executed: ["recovery-chain-degraded"],
+      requiredGates: ["chain-degraded-e2e"],
+    },
+    {
+      path: "e2e/helpers.ts",
+      executed: ["browser-standard", "recovery-failure-state"],
+      requiredGates: ["failure-state-e2e"],
+    },
+    {
+      path: "e2e/global-teardown.mjs",
+      executed: ["browser-standard", "recovery-failure-state"],
+      requiredGates: ["failure-state-e2e"],
+    },
+    {
+      path: "e2e/owned-database-cleanup.mjs",
+      executed: ["browser-standard", "recovery-failure-state"],
+      requiredGates: ["failure-state-e2e"],
+    },
+    {
+      path: "e2e/owned-database-cleanup.test.mjs",
+      executed: ["recovery-failure-state"],
+      requiredGates: ["failure-state-e2e"],
+    },
+    {
+      path: "e2e/helpers/build-profile-workbench-fixture.py",
+      executed: ["browser-standard"],
+      requiredGates: [],
+    },
+    {
+      path: "e2e/helpers/seed-degraded-task.py",
+      executed: ["recovery-failure-state"],
+      requiredGates: ["failure-state-e2e"],
+    },
+  ];
+  for (const ownership of ownershipCases) {
+    const requestedGateIds = selectedIds(planFor([ownership.path]));
+    for (const gateId of ownership.requiredGates) {
+      assert.ok(requestedGateIds.includes(gateId), `${ownership.path}: ${gateId}`);
+    }
+    for (const gateId of ["failure-state-e2e", "chain-degraded-e2e"]) {
+      if (!ownership.requiredGates.includes(gateId)) {
+        assert.ok(!requestedGateIds.includes(gateId), `${ownership.path}: ${gateId}`);
+      }
+    }
+    const result = planShardEvidenceReuse({
+      ciPlan,
+      source,
+      changedPathsSinceSource: [ownership.path],
+      sourceIsAncestor: true,
+      classifyPaths: (paths) => classifyChangedPaths(paths, catalog),
+    });
+    assert.deepEqual(result.executedShardIds, ownership.executed, ownership.path);
+    assert.equal(
+      result.reusedShardIds.length,
+      ciPlan.shards.length - ownership.executed.length,
+      ownership.path,
+    );
+  }
 });
 
 test("in-progress workflow runs cannot provide reusable shard evidence", () => {

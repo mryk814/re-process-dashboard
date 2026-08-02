@@ -72,13 +72,23 @@ const absorbedByFullPytest = [
 function changedPathMatchesShard(path, shardId) {
   const normalized = path.replaceAll("\\", "/");
   const starts = (prefix) => normalized.startsWith(prefix);
-  const sharedE2eInfrastructure = starts("e2e/helpers/")
-    || starts("e2e/fixtures/")
-    || normalized === "e2e/axe.ts"
-    || normalized === "e2e/helpers.ts"
-    || normalized === "e2e/global-teardown.mjs"
-    || normalized === "e2e/owned-database-cleanup.mjs"
-    || normalized === "e2e/owned-database-cleanup.test.mjs";
+  const axeInfrastructure = normalized === "e2e/axe.ts";
+  const browserFailureInfrastructure = [
+    "e2e/helpers.ts",
+    "e2e/global-teardown.mjs",
+    "e2e/owned-database-cleanup.mjs",
+  ].includes(normalized);
+  const failureOnlyInfrastructure = [
+    "e2e/owned-database-cleanup.test.mjs",
+    "e2e/helpers/seed-degraded-task.py",
+  ].includes(normalized);
+  const browserExcludedE2e = starts("e2e/fixtures/")
+    || failureOnlyInfrastructure
+    || [
+      "e2e/chain-degraded.spec.ts",
+      "e2e/startup-diagnostic.spec.ts",
+      "e2e/sample-gallery.spec.ts",
+    ].includes(normalized);
   switch (shardId) {
     case "backend-science":
       return starts("backend/") || starts("models/");
@@ -86,11 +96,7 @@ function changedPathMatchesShard(path, shardId) {
       return starts("apps/web/")
         || (
           starts("e2e/")
-          && ![
-            "e2e/chain-degraded.spec.ts",
-            "e2e/startup-diagnostic.spec.ts",
-            "e2e/sample-gallery.spec.ts",
-          ].includes(normalized)
+          && !browserExcludedE2e
         )
         || normalized === "playwright.config.ts";
     case "contract-build":
@@ -104,7 +110,9 @@ function changedPathMatchesShard(path, shardId) {
     case "recovery-failure-state":
       return starts("apps/web/")
         || starts("backend/")
-        || sharedE2eInfrastructure
+        || axeInfrastructure
+        || browserFailureInfrastructure
+        || failureOnlyInfrastructure
         || normalized === "scripts/run-failure-state-e2e.mjs"
         || normalized === "scripts/run-degraded-task-e2e.mjs"
         || normalized === "playwright.config.ts"
@@ -119,7 +127,8 @@ function changedPathMatchesShard(path, shardId) {
       return starts("apps/web/")
         || starts("backend/")
         || starts("models/")
-        || sharedE2eInfrastructure
+        || axeInfrastructure
+        || starts("e2e/fixtures/")
         || normalized === "playwright.chain-degraded.config.ts"
         || normalized === "e2e/chain-degraded.spec.ts";
     case "windows-delivery":
