@@ -332,20 +332,40 @@ def test_nonconformal_prediction_rejects_conformal_only_evidence() -> None:
         Prediction(**invalid)
 
 
-def test_interval_method_uses_declared_or_distribution_semantics() -> None:
-    import decision_workbench.modeling.tabular.runtime as runtime_module
-    from decision_workbench.modeling.packages.contracts import PredictionInterval, PredictiveSummary
+def test_interval_method_uses_only_declared_semantics() -> None:
+    from decision_workbench.modeling.packages.contracts import (
+        PredictionInterval,
+        PredictiveSummary,
+        PredictorSpec,
+        prediction_interval_semantics,
+    )
 
     normal = PredictiveSummary(
         target="y", target_kind="continuous", unit="MPa", point_statistic="mean",
         point_estimate=2.0, quantiles={"0.05": 1.6, "0.95": 2.4},
         distribution={"family": "normal", "support": "real"},
     )
-    empirical = normal.model_copy(update={"distribution": {"family": "empirical_quantiles", "support": "real"}})
+    posterior_normal = normal.model_copy(update={"distribution": {
+        "family": "normal",
+        "support": "real",
+        "approximation": "posterior_predictive_moment_matched",
+    }})
     declared_bayesian = normal.model_copy(update={"prediction_interval": PredictionInterval(
         method="bayesian", coverage_level=0.9, lower=1.6, upper=2.4,
     )})
+    residual_quantile_spec = PredictorSpec(
+        id="linear", target="y", unit="MPa", target_kind="continuous",
+        runtime_type="builtin.linear.v1", artifact="model.npz",
+        predictive_family="empirical_quantiles", feature_names=("x",),
+    )
+    gp_spec = residual_quantile_spec.model_copy(update={
+        "id": "gp",
+        "runtime_type": "builtin.exact_gp.v1",
+        "predictive_family": "normal",
+    })
 
-    assert runtime_module._interval_method(normal) == "parametric"
-    assert runtime_module._interval_method(empirical) == "quantile"
-    assert runtime_module._interval_method(declared_bayesian) == "bayesian"
+    assert prediction_interval_semantics(normal) == (None, None)
+    assert prediction_interval_semantics(posterior_normal) == (None, None)
+    assert prediction_interval_semantics(normal, residual_quantile_spec) == ("quantile", 0.9)
+    assert prediction_interval_semantics(normal, gp_spec) == ("bayesian", 0.9)
+    assert prediction_interval_semantics(declared_bayesian) == ("bayesian", 0.9)

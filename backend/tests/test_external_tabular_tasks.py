@@ -268,6 +268,8 @@ def test_battery_curve_family_and_screening_use_task_numeric_domains(
     assert response.status_code == 201, response.text
     points = response.json()["points"]
     assert points
+    assert {point["prediction"]["interval_method"] for point in points} == {"parametric"}
+    assert {point["prediction"]["interval_coverage_level"] for point in points} == {0.9}
     assert all(
         float(point["inputs"]["process.cycle_index"]).is_integer()
         for point in points

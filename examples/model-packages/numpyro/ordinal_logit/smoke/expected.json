@@ -22,6 +22,14 @@
       ]
     },
     "uncertainty_components": null,
+    "prediction_interval": {
+      "method": "bayesian",
+      "coverage_level": 0.9,
+      "lower": 0.0,
+      "upper": 3.0,
+      "calibration": null,
+      "conformal_wrapper": null
+    },
     "warnings": []
   },
   "capability": {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { clampToRange, isOutsideRange } from "../../shared/outputPresentation";
+import { formatPredictionInterval } from "../../shared/predictionPresentation";
 import { isTargetRange, type TargetGoal } from "../../shared/targetGoals";
 import {
   categoricalTaskInputs,
@@ -241,6 +242,10 @@ function CurveFamilyChart({
   const yTicks = [minValue, (minValue + maxValue) / 2, maxValue];
   const xDigits = chartDigits(minX, maxX);
   const yDigits = chartDigits(minValue, maxValue);
+  const intervalText = (point: CurvePoint) => formatPredictionInterval(
+    point,
+    (value) => number(value, yDigits),
+  );
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
@@ -254,10 +259,10 @@ function CurveFamilyChart({
           const band = `${item.points.map((point, pointIndex) => `${pointIndex ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(Math.max(point.lower, minValue))}`).join(" ")} Z`;
           return <g key={item.label}>{bandVisible && <path d={band} fill={color} opacity=".12" />}<path d={line} fill="none" stroke={color} strokeWidth={series.length === 1 ? "2.5" : "1.8"} />{item.points.map((point, pointIndex) => <circle
             className="svg-chart-hit-target" role="img" tabIndex={pointIndex === 0 ? 0 : -1} key={`${item.label}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
-            aria-label={`${item.label}, ${payload.axis.label} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            aria-label={`${item.label}, ${payload.axis.label} ${number(point.x, xDigits)}, ${output.label} ${number(point.value, yDigits)} ${output.unit}${bandVisible && intervalText(point) ? `, ${intervalText(point)}` : ""}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible && intervalText(point) ? [intervalText(point)!] : [])] })}
             onMouseLeave={() => setHoveredPoint(null)}
-            onFocus={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible ? [`90%区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] : [])] })}
+            onFocus={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.label, `${payload.axis.label} ${number(point.x, xDigits)} ${payload.axis.unit}`, `${output.label} ${number(point.value, yDigits)} ${output.unit}`, ...(bandVisible && intervalText(point) ? [intervalText(point)!] : [])] })}
             onBlur={() => setHoveredPoint(null)}
           />)}</g>;
         })}
@@ -705,6 +710,10 @@ function ResponseCurveMiniChart({
   const yText = (value: number) => binary
     ? `${number(value * 100, 1)}%`
     : `${number(value, yDigits)} ${output.unit}`.trim();
+  const intervalText = (point: CurvePoint | NonNullable<ApiPreview["predictions"]>[string]) => formatPredictionInterval(
+    point,
+    (value) => binary ? `${number(value * 100, 1)}%` : number(value, yDigits),
+  );
   const xAxisLabel = xUnit ? `${xLabel} (${xUnit})` : xLabel;
   const outsideCurrentCandidates = series.filter((item) => {
     if (!item.points.length) return false;
@@ -737,8 +746,8 @@ function ResponseCurveMiniChart({
             : null);
           return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} />{quantileLines}<path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
             className="svg-chart-hit-target" role="img" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
-            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${yText(point.value)}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(point.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(point.lower, yDigits)}–${number(point.upper, yDigits)}`] })}
+            aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${yText(point.value)}${intervalText(point) ? `, ${intervalText(point)}` : ""}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(point.value)}`, intervalText(point) ?? (binary ? "校正済み点確率" : "区間は利用不可")] })}
             onMouseLeave={() => setHoveredPoint(null)}
           />)}{item.points.map((point, pointIndex) => pointIndex === 0 || pointIndex === item.points.length - 1 ? <circle
             key={`endpoint-${item.candidate.id}-${point.x}`}
@@ -750,10 +759,10 @@ function ResponseCurveMiniChart({
             aria-hidden="true"
           /> : null)}{item.prediction && Number.isFinite(item.currentX) && <circle
             className="svg-chart-hit-target" role="img" tabIndex={0} cx={x(item.currentX)} cy={y(item.prediction.value)} r={item.candidate.id === selectedId ? "4" : "2.5"} fill="#fff" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"}
-            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${yText(item.prediction.value)}`}
-            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            aria-label={`${item.candidate.label}の現在値、${xLabel} ${number(item.currentX, xDigits)}、${output.label} ${yText(item.prediction.value)}${intervalText(item.prediction) ? `、${intervalText(item.prediction)}` : ""}`}
+            onMouseEnter={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, intervalText(item.prediction!) ?? (binary ? "校正済み点確率" : "区間は利用不可")] })}
             onMouseLeave={() => setHoveredPoint(null)}
-            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, binary ? "校正済み点確率" : `予測区間 ${number(item.prediction!.lower, yDigits)}–${number(item.prediction!.upper, yDigits)}`] })}
+            onFocus={() => setHoveredPoint({ x: x(item.currentX), y: y(item.prediction!.value), lines: [item.candidate.label, `現在の${xLabel} ${number(item.currentX, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(item.prediction!.value)}`, intervalText(item.prediction!) ?? (binary ? "校正済み点確率" : "区間は利用不可")] })}
             onBlur={() => setHoveredPoint(null)}
           />}</g>;
         })}

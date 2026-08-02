@@ -12,6 +12,7 @@ import { candidateInputIdentity } from "../../shared/api/inferenceRequestCache";
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { SvgChartTooltip } from "../../shared/ui/SvgChartTooltip";
 import { assessPrediction, clampToRange, resolveOutputDefinition } from "../../shared/outputPresentation";
+import { formatPredictionInterval } from "../../shared/predictionPresentation";
 import { formatTaskNumber } from "../../shared/taskPresentation";
 import { supportStatusLabel } from "../../shared/supportPresentation";
 import {
@@ -1730,11 +1731,17 @@ export function ScreeningPage({
                   : 35 + Math.floor(index / 12) * 50;
               const targetOutput = resolveOutputDefinition(outputs, result.target);
               const targetAssessment = assessPrediction(targetOutput, point.prediction);
+              const intervalText = formatPredictionInterval(
+                point.prediction,
+                (value) => point.prediction.target_kind === "binary"
+                  ? `${number(value * 100, 1)}%`
+                  : outputNumber(result.target, value),
+              );
               const tooltipLines = [
                 `点 ${point.index + 1}`,
                 ...axes.map((axis, axisIndex) => `${axisLabel(axis)} ${number(Number(point.inputs[axis]), axisIndex === 0 ? xDigits : yDigits)}`),
                 `${outputs.find((output) => output.key === result.target)?.label ?? result.target} ${outputNumber(result.target, point.prediction.value)} ${point.prediction.unit}`,
-                `90%区間 ${outputNumber(result.target, point.prediction.lower)}–${outputNumber(result.target, point.prediction.upper)}`,
+                ...(intervalText ? [intervalText] : []),
                 ...(targetAssessment.warning ? [`⚠ ${targetAssessment.warning}`] : []),
                 ...(proposedPointIndices.has(point.index) ? ["提案候補"] : []),
                 point.support.message,
@@ -1793,13 +1800,19 @@ export function ScreeningPage({
               {Object.entries({ [result.target]: focusedPoint.prediction, ...(focusedPoint.predictions ?? {}) }).map(([key, prediction]) => {
                 const output = resolveOutputDefinition(outputs, key);
                 const assessment = assessPrediction(output, prediction);
+                const interval = formatPredictionInterval(
+                  prediction,
+                  (value) => prediction.target_kind === "binary"
+                    ? `${number(value * 100, 1)}%`
+                    : outputNumber(key, value),
+                );
                 const evaluation = key === result.target
                   ? focusedPoint.goal_evaluation
                   : focusedPoint.secondary_goal_evaluations?.[key];
                 return <div className={assessment.implausible ? "implausible-output" : undefined} title={assessment.warning ?? undefined} key={key}>
                   <b>{output?.label ?? key}</b>
                   <strong>{outputNumber(key, prediction.value)} {prediction.unit}</strong>
-                  <small>{outputNumber(key, prediction.lower)}–{outputNumber(key, prediction.upper)}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>
+                  <small>{interval ?? "区間は利用不可"}{prediction.goal_probability != null ? ` / 達成確率 ${Math.round(prediction.goal_probability * 100)}%` : ""}</small>
                   {assessment.implausible && <em className="output-warning-badge">⚠ 物理範囲外</em>}
                   {evaluation && <em>{goalEvaluationLabel(evaluation, key === result.target)}</em>}
                 </div>;

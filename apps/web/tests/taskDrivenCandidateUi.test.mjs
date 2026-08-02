@@ -266,7 +266,7 @@ test("non-editable fields are disabled and goal probability remains visible", ()
     fixed_context: [],
   };
   const preview = {
-    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: { "0.05": 480, "0.95": 520 }, goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
+    predictions: { TS: { value: 500, lower: 480, upper: 520, unit: "MPa", target_kind: "continuous", point_statistic: "mean", predictive_family: "normal", quantiles: { "0.05": 480, "0.95": 520 }, interval_method: "parametric", interval_coverage_level: 0.9, goal_probability: 0.82, uncertainty_components: { latent_model_std: 12, observation_noise_std: 8 } } },
     support: { status: "supported" },
   };
   const inspector = renderInspector({ candidate, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {}, onReload() {}, onCopyDraft() {} });
@@ -275,8 +275,8 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   assert.match(comparison, /disabled=""/);
   assert.match(comparison, /達成確率 82%/);
   assert.match(comparison, /value="0.10000"/);
-  assert.match(comparison, /区間 480.0–520.0/);
-  assert.match(comparison, /title="90%予測区間 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
+  assert.match(comparison, /パラメトリック予測区間（90%） 480.0–520.0/);
+  assert.match(comparison, /title="パラメトリック予測区間（90%） 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
 });
 
 test("physically implausible interval is marked on the interval without condemning an in-range point", () => {
@@ -304,11 +304,11 @@ test("quantile-only output keeps quantile wording and unavailable goal semantics
     fixed_context: [],
   };
   const preview = {
-    predictions: { Q: { value: 12, lower: 8, upper: 17, unit: "MPa", target_kind: "continuous", point_statistic: "median", predictive_family: "empirical_quantiles", quantiles: { "0.05": 8, "0.5": 12, "0.95": 17 }, goal_probability: null } },
+    predictions: { Q: { value: 12, lower: 8, upper: 17, unit: "MPa", target_kind: "continuous", point_statistic: "median", predictive_family: "empirical_quantiles", quantiles: { "0.05": 8, "0.5": 12, "0.95": 17 }, interval_method: "quantile", interval_coverage_level: 0.9, goal_probability: null } },
     support: { status: "supported" },
   };
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: { Q: 15 }, onSelect() {}, onName() {}, onInput() {} });
-  assert.match(comparison, /title="5–95%分位 8.0–17.0"/);
+  assert.match(comparison, /title="予測分位点区間（90%） 8.0–17.0"/);
   assert.match(comparison, /達成率なし/);
   assert.doesNotMatch(comparison, /90%予測区間|計算中|±0/);
 });
@@ -324,7 +324,7 @@ test("binary count and ordinal outputs avoid regression-only presentation", () =
     display_decimals: { "composition.C": 5, "output.binary": 2, "output.count": 0, "output.ordinal": 1 },
     fixed_context: [],
   };
-  const base = { goal_probability: null, uncertainty_components: null };
+  const base = { goal_probability: null, uncertainty_components: null, interval_method: "quantile", interval_coverage_level: 0.9 };
   const preview = {
     predictions: {
       binary: { ...base, value: 0.42, lower: 0.2, upper: 0.7, unit: "1", target_kind: "binary", point_statistic: "probability", predictive_family: "bernoulli_logit", quantiles: { "0.05": 0.2, "0.95": 0.7 } },
@@ -335,9 +335,9 @@ test("binary count and ordinal outputs avoid regression-only presentation", () =
   };
   const comparison = renderComparison({ candidates: [candidate], selectedId: candidate.id, taskDefinition: definition, previewsByCandidate: { [candidate.id]: preview }, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
   assert.match(comparison, />42%/);
-  assert.match(comparison, /5–95%確率分位/);
+  assert.match(comparison, /確率分位点区間（90%）/);
   assert.match(comparison, /medium（期待 1.4）/);
-  assert.match(comparison, /5–95%カテゴリ分位/);
+  assert.match(comparison, /カテゴリ分位点区間（90%）/);
   assert.doesNotMatch(comparison, />0.42 <small>1|medium（期待 1.4） <small>1/);
 });
 

@@ -50,6 +50,7 @@ from decision_workbench.modeling.flank_wear_feature_pipeline import (
     build_flank_wear_features_from_observation,
 )
 from decision_workbench.modeling.packages.contracts import (
+    prediction_interval_semantics,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
@@ -286,6 +287,7 @@ class FlankWearRuntime:
         stats = json.loads(self.model_package.artifact_path(stats_path).read_text(encoding="utf-8"))
         self.composition_defaults = {name: float(value) for name, value in stats["composition_defaults"].items()}
         self.training_counts = {name: int(value) for name, value in stats["records"].items()}
+        self.predictor_specs = {spec.target: spec for spec in manifest.predictors}
         self.predictors = {spec.target: self.model_package.load_predictor(spec.id) for spec in manifest.predictors}
         self._verify_package_smoke()
         self._build_support_reference()
@@ -441,6 +443,9 @@ class FlankWearRuntime:
         warnings: list[str] = []
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             warnings.extend(summary.warnings)
             goal = (target_values or {}).get(target)
             goal_probability = None if goal is None else self._goal_probability(summary, goal)
@@ -455,6 +460,8 @@ class FlankWearRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution.get("family", "empirical_quantiles"),
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                interval_method=interval_method,
+                interval_coverage_level=interval_coverage_level,
                 categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_lower=goal_lower,
@@ -637,6 +644,9 @@ class FlankWearRuntime:
             adjusted = candidate.model_copy(deep=True)
             self._set_curve_variable(adjusted, axis, float(x_value))
             summary = self.predictors[target].predict(build_flank_wear_features(adjusted, self.composition_defaults).as_dict())
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             value = summary.point_estimate
             lower, upper = predictive_interval(summary)
             curve.append({
@@ -648,6 +658,8 @@ class FlankWearRuntime:
                 "point_statistic": summary.point_statistic,
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
                 "quantiles": {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "interval_method": interval_method,
+                "interval_coverage_level": interval_coverage_level,
                 "categories": list(summary.distribution.get("categories", [])),
             })
         return curve

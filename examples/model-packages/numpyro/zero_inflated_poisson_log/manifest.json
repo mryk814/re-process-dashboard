@@ -60,8 +60,8 @@
     },
     {
       "path": "smoke/expected.json",
-      "sha256": "b749ad54a728a0e1850c93673f6ceda623ef6944fafd786a60f71a24229afb79",
-      "bytes": 774
+      "sha256": "96b9b78ae84b0feffec331de8b306dcf8a4f498e56721313350ad85bfb83ff46",
+      "bytes": 967
     },
     {
       "path": "reports/quality-report.json",

@@ -43,6 +43,7 @@ from decision_workbench.modeling.observation_training_spec import (
     observation_training_spec,
 )
 from decision_workbench.modeling.packages.contracts import (
+    prediction_interval_semantics,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
@@ -269,6 +270,7 @@ class ObservationRegressionRuntime:
         if manifest.feature_pipeline.output_features != self.spec.pipeline_features:
             raise ValueError("Observation package feature pipeline is incompatible")
         specs = {item.target: item for item in manifest.predictors}
+        self.predictor_specs = specs
         if set(specs) != set(self.spec.target_family):
             raise ValueError("Observation package predictors are incomplete")
         for target, expected in self.spec.target_features.items():
@@ -471,6 +473,9 @@ class ObservationRegressionRuntime:
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             lower, upper = predictive_interval(summary)
             point = summary.point_estimate
             minimum, maximum = self.spec.output_bounds_for(target)
@@ -492,6 +497,8 @@ class ObservationRegressionRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution["family"],
                 quantiles={level: round(value, 6) for level, value in quantiles.items()},
+                interval_method=interval_method,
+                interval_coverage_level=interval_coverage_level,
                 goal_value=goal_value,
                 goal_lower=goal_lower,
                 goal_upper=goal_upper,
@@ -623,6 +630,9 @@ class ObservationRegressionRuntime:
             if variable in self.spec.target_features[target]:
                 adjusted.inputs.process["test_temperature_c"] = float(x_value)
             summary = self.predictors[target].predict(candidate_feature_values(adjusted, self.spec))
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             lower, upper = predictive_interval(summary)
             minimum, maximum = self.spec.output_bounds_for(target)
             value = max(minimum, summary.point_estimate)
@@ -638,6 +648,8 @@ class ObservationRegressionRuntime:
                 "point_statistic": summary.point_statistic,
                 "predictive_family": summary.distribution["family"],
                 "quantiles": {"0.05": round(lower, 5), "0.95": round(upper, 5)},
+                "interval_method": interval_method,
+                "interval_coverage_level": interval_coverage_level,
             })
         field = next(
             field

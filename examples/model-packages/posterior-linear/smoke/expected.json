@@ -21,6 +21,14 @@
       "epistemic_std": 0.22111948951868735,
       "aleatoric_std": 0.42273164326476503
     },
+    "prediction_interval": {
+      "method": "bayesian",
+      "coverage_level": 0.9,
+      "lower": -1.7156815567045136,
+      "upper": -0.06575460712233969,
+      "calibration": null,
+      "conformal_wrapper": null
+    },
     "warnings": []
   },
   "capability": {

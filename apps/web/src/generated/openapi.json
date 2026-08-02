@@ -8191,6 +8191,36 @@
             "title": "Categories",
             "type": "array"
           },
+          "interval_coverage_level": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Coverage Level"
+          },
+          "interval_method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "conformal",
+                  "quantile",
+                  "parametric",
+                  "bayesian"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Method"
+          },
           "lower": {
             "title": "Lower",
             "type": "number"

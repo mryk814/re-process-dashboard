@@ -97,6 +97,8 @@ def test_hot_rolling_response_curve_uses_existing_numeric_inputs(client) -> None
     assert curve["points"][0]["x"] == 850.0
     assert curve["points"][-1]["x"] == 900.0
     assert all(point["lower"] < point["upper"] for point in curve["points"])
+    assert {point["interval_method"] for point in curve["points"]} == {"bayesian"}
+    assert {point["interval_coverage_level"] for point in curve["points"]} == {0.9}
 
     unsupported = client.get(
         f"/api/projects/{project_id}/candidates/{candidate['id']}/response-curve",
