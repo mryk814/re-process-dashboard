@@ -534,7 +534,7 @@ test("reason audit loads a blocked row beyond the first hundred without quaranti
   const summary = page.locator(".source-quality-summary");
   await expect(summary).toContainText("隔離0");
   await expect(summary).toContainText("停止2");
-  await summary.getByText("理由付きの行", { exact: true }).click();
-  await expect(summary.getByText("行識別キーが重複しています").first()).toBeVisible();
-  await expect(summary.getByText(/accepted-000/).first()).toBeVisible();
+  const reasonDetails = summary.locator("details");
+  await expect(reasonDetails).toContainText("行識別キーが重複しています");
+  await expect(reasonDetails).toContainText("accepted-000");
 });

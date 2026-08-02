@@ -13544,6 +13544,51 @@
         "title": "MissingIndicatorOperation",
         "type": "object"
       },
+      "ModelAssetState": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "enum": [
+              "available",
+              "degraded",
+              "unavailable"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "impact": {
+            "default": "",
+            "title": "Impact",
+            "type": "string"
+          },
+          "lifecycle": {
+            "default": "current",
+            "enum": [
+              "current",
+              "superseded",
+              "research_only",
+              "compatibility_only"
+            ],
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "recovery_hint": {
+            "default": "",
+            "title": "Recovery Hint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "availability"
+        ],
+        "title": "ModelAssetState",
+        "type": "object"
+      },
       "ModelIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -13564,6 +13609,874 @@
           }
         },
         "title": "ModelIdentity",
+        "type": "object"
+      },
+      "ModelLibraryCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "graphs": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryGraphAsset"
+            },
+            "title": "Graphs",
+            "type": "array"
+          },
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryPackageAsset"
+            },
+            "title": "Packages",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "model-library-catalog/v1",
+            "default": "model-library-catalog/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryTaskAsset"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "transforms": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryTransformAsset"
+            },
+            "title": "Transforms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tasks",
+          "packages",
+          "transforms",
+          "graphs"
+        ],
+        "title": "ModelLibraryCatalog",
+        "type": "object"
+      },
+      "ModelLibraryDataReference": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector Id"
+          },
+          "dataset_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dataset Revision Ids",
+            "type": "array"
+          },
+          "dataset_view_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dataset View Revision Ids",
+            "type": "array"
+          },
+          "profile_digests": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Profile Digests",
+            "type": "array"
+          },
+          "profile_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Profile Revision Ids",
+            "type": "array"
+          },
+          "source_names": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Names",
+            "type": "array"
+          },
+          "source_sha256s": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Sha256S",
+            "type": "array"
+          },
+          "training_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Snapshot Id"
+          }
+        },
+        "title": "ModelLibraryDataReference",
+        "type": "object"
+      },
+      "ModelLibraryGraphAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_type": {
+            "const": "graph",
+            "default": "graph",
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "compatible_task_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible Task Ids",
+            "type": "array"
+          },
+          "compatible_transform_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Compatible Transform Ids",
+            "type": "array"
+          },
+          "definitions": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryGraphDefinition"
+            },
+            "title": "Definitions",
+            "type": "array"
+          },
+          "graph_id": {
+            "minLength": 1,
+            "title": "Graph Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "latest_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Revision Id"
+          },
+          "project_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryProjectReference"
+            },
+            "title": "Project References",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ModelAssetState"
+          }
+        },
+        "required": [
+          "graph_id",
+          "label",
+          "state",
+          "definitions"
+        ],
+        "title": "ModelLibraryGraphAsset",
+        "type": "object"
+      },
+      "ModelLibraryGraphDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "discriminator": {
+              "mapping": {
+                "chain-definition/v1": "#/components/schemas/ChainDefinition",
+                "prediction-graph-definition/v1": "#/components/schemas/PredictionGraphDefinition"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainDefinition"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphDefinition"
+              }
+            ],
+            "title": "Definition"
+          },
+          "definition_digest": {
+            "minLength": 1,
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "definition_id": {
+            "minLength": 1,
+            "title": "Definition Id",
+            "type": "string"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/PredictionGraphProjection"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryGraphRevision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition_id",
+          "definition_digest",
+          "definition",
+          "projection",
+          "revisions"
+        ],
+        "title": "ModelLibraryGraphDefinition",
+        "type": "object"
+      },
+      "ModelLibraryGraphRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "project_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryProjectReference"
+            },
+            "title": "Project References",
+            "type": "array"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revision_contract": {
+            "discriminator": {
+              "mapping": {
+                "chain-revision/v1": "#/components/schemas/ChainRevision",
+                "prediction-graph-revision/v1": "#/components/schemas/PredictionGraphRevision"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainRevision"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphRevision"
+              }
+            ],
+            "title": "Revision Contract"
+          },
+          "revision_digest": {
+            "minLength": 1,
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "revision_id": {
+            "minLength": 1,
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryGraphStageReference"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ModelAssetState"
+          }
+        },
+        "required": [
+          "revision_id",
+          "revision",
+          "revision_digest",
+          "state",
+          "revision_contract",
+          "stages"
+        ],
+        "title": "ModelLibraryGraphRevision",
+        "type": "object"
+      },
+      "ModelLibraryGraphStageReference": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "contract_digest": {
+            "minLength": 1,
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "contract_id": {
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "data_references": {
+            "$ref": "#/components/schemas/ModelLibraryDataReference"
+          },
+          "package_manifest_digest": {
+            "minLength": 1,
+            "title": "Package Manifest Digest",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage_id": {
+            "minLength": 1,
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "stage_kind": {
+            "enum": [
+              "task",
+              "deterministic_transform"
+            ],
+            "title": "Stage Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_id",
+          "stage_kind",
+          "contract_id",
+          "contract_digest",
+          "package_manifest_digest",
+          "data_references",
+          "available"
+        ],
+        "title": "ModelLibraryGraphStageReference",
+        "type": "object"
+      },
+      "ModelLibraryPackageAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_type": {
+            "const": "package",
+            "default": "package",
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "data_references": {
+            "$ref": "#/components/schemas/ModelLibraryDataReference"
+          },
+          "feature_pipeline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelLibraryVersionedIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feature_recipe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelLibraryVersionedIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "graph_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Graph Revision Ids",
+            "type": "array"
+          },
+          "manifest_digest": {
+            "minLength": 1,
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "package_id": {
+            "minLength": 1,
+            "title": "Package Id",
+            "type": "string"
+          },
+          "predictor_families": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryPredictorFamily"
+            },
+            "title": "Predictor Families",
+            "type": "array"
+          },
+          "predictor_targets": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Predictor Targets",
+            "type": "array"
+          },
+          "project_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryProjectReference"
+            },
+            "title": "Project References",
+            "type": "array"
+          },
+          "quality_summary_available": {
+            "default": false,
+            "title": "Quality Summary Available",
+            "type": "boolean"
+          },
+          "reference_id": {
+            "minLength": 1,
+            "title": "Reference Id",
+            "type": "string"
+          },
+          "runtime_types": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Runtime Types",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ModelAssetState"
+          },
+          "storage_scope": {
+            "enum": [
+              "bundled",
+              "personal"
+            ],
+            "title": "Storage Scope",
+            "type": "string"
+          },
+          "task_contract_digest": {
+            "minLength": 1,
+            "title": "Task Contract Digest",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "validation_plans": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryValidationPlanIdentity"
+            },
+            "title": "Validation Plans",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference_id",
+          "package_id",
+          "version",
+          "task_id",
+          "task_contract_digest",
+          "manifest_digest",
+          "storage_scope",
+          "state",
+          "data_references"
+        ],
+        "title": "ModelLibraryPackageAsset",
+        "type": "object"
+      },
+      "ModelLibraryPort": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_kind": {
+            "minLength": 1,
+            "title": "Value Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "label",
+          "value_kind"
+        ],
+        "title": "ModelLibraryPort",
+        "type": "object"
+      },
+      "ModelLibraryPredictorFamily": {
+        "additionalProperties": false,
+        "properties": {
+          "architecture_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture Id"
+          },
+          "predictive_family": {
+            "minLength": 1,
+            "title": "Predictive Family",
+            "type": "string"
+          },
+          "predictor_id": {
+            "minLength": 1,
+            "title": "Predictor Id",
+            "type": "string"
+          },
+          "runtime_type": {
+            "minLength": 1,
+            "title": "Runtime Type",
+            "type": "string"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predictor_id",
+          "target",
+          "runtime_type",
+          "predictive_family"
+        ],
+        "title": "ModelLibraryPredictorFamily",
+        "type": "object"
+      },
+      "ModelLibraryProjectReference": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "minLength": 1,
+            "title": "Project Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name"
+        ],
+        "title": "ModelLibraryProjectReference",
+        "type": "object"
+      },
+      "ModelLibraryTaskAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_type": {
+            "const": "task",
+            "default": "task",
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "contract_digest": {
+            "minLength": 1,
+            "title": "Contract Digest",
+            "type": "string"
+          },
+          "graph_authoring_ready": {
+            "title": "Graph Authoring Ready",
+            "type": "boolean"
+          },
+          "graph_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Graph Revision Ids",
+            "type": "array"
+          },
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryPort"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "onboarding_ready": {
+            "title": "Onboarding Ready",
+            "type": "boolean"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryPort"
+            },
+            "title": "Outputs",
+            "type": "array"
+          },
+          "package_reference_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Package Reference Ids",
+            "type": "array"
+          },
+          "project_references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ModelLibraryProjectReference"
+            },
+            "title": "Project References",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ModelAssetState"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "label",
+          "contract_digest",
+          "state",
+          "inputs",
+          "outputs",
+          "onboarding_ready",
+          "graph_authoring_ready"
+        ],
+        "title": "ModelLibraryTaskAsset",
+        "type": "object"
+      },
+      "ModelLibraryTransformAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_type": {
+            "const": "transform",
+            "default": "transform",
+            "title": "Asset Type",
+            "type": "string"
+          },
+          "graph_revision_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Graph Revision Ids",
+            "type": "array"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "package_manifest_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Manifest Digest"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ModelAssetState"
+          },
+          "surface": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageContractSurface"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transform_id": {
+            "minLength": 1,
+            "title": "Transform Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transform_id",
+          "label",
+          "state"
+        ],
+        "title": "ModelLibraryTransformAsset",
+        "type": "object"
+      },
+      "ModelLibraryValidationPlanIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "minLength": 1,
+            "title": "Digest",
+            "type": "string"
+          },
+          "identity_source": {
+            "enum": [
+              "validation_plan",
+              "quality_report_split"
+            ],
+            "title": "Identity Source",
+            "type": "string"
+          },
+          "schema_version": {
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "strategy": {
+            "minLength": 1,
+            "title": "Strategy",
+            "type": "string"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "schema_version",
+          "strategy",
+          "digest",
+          "identity_source"
+        ],
+        "title": "ModelLibraryValidationPlanIdentity",
+        "type": "object"
+      },
+      "ModelLibraryVersionedIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "identity_id": {
+            "minLength": 1,
+            "title": "Identity Id",
+            "type": "string"
+          },
+          "version": {
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identity_id",
+          "version"
+        ],
+        "title": "ModelLibraryVersionedIdentity",
         "type": "object"
       },
       "ModelMetadata": {
@@ -28898,6 +29811,37 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/model-library": {
+      "get": {
+        "operationId": "getModelLibraryCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelLibraryCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model Library Catalog",
+        "tags": [
+          "model-library"
+        ]
       }
     },
     "/api/prediction-graph-drafts": {

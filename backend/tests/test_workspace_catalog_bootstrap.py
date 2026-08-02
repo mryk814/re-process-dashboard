@@ -21,7 +21,9 @@ from decision_workbench.application.workspace_catalog_bootstrap import (
     WorkspaceCatalogBootstrapError,
     audit_project_bindings,
     migrate_replaced_model_package_projects,
+    register_available_packages,
 )
+import decision_workbench.application.workspace_catalog_bootstrap as catalog_bootstrap
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -168,6 +170,50 @@ def test_bootstrap_is_idempotent_and_preserves_first_binding(
     assert second["dataset_view_revision_id"] == first["dataset_view_revision_id"]
     assert second["model_package_manifest_digest"] == first["model_package_manifest_digest"]
     assert second["binding_migrated_at"] == first["binding_migrated_at"]
+
+
+def test_optional_catalog_identity_failure_uses_package_warning_boundary(
+    tmp_path: Path,
+    app_resources: AppResources,
+    monkeypatch,
+) -> None:
+    database = tmp_path / "workbench.db"
+    with TestClient(
+        create_app(db_path=database, _resources=app_resources)
+    ) as client:
+        warnings = []
+        monkeypatch.setattr(
+            catalog_bootstrap,
+            "_catalog_manifest",
+            lambda package: (_ for _ in ()).throw(
+                ValueError("invalid optional quality artifact")
+            ),
+        )
+
+        registered = register_available_packages(
+            client.app.state.workspace_catalog,
+            app_resources.task_registry,
+            Path("models/available-packages.json"),
+            warnings=warnings,
+            strict=False,
+        )
+        with pytest.raises(
+            WorkspaceCatalogBootstrapError,
+            match="invalid optional quality artifact",
+        ):
+            register_available_packages(
+                client.app.state.workspace_catalog,
+                app_resources.task_registry,
+                Path("models/available-packages.json"),
+                strict=True,
+            )
+
+    assert registered == 0
+    assert warnings
+    assert all(
+        "invalid optional quality artifact" in warning.message
+        for warning in warnings
+    )
 
 
 def test_bootstrap_upgrades_a_project_pinned_to_the_previous_tutorial_package(

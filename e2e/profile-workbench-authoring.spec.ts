@@ -47,7 +47,12 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   await page.getByRole("button", { name: "この内容で登録" }).click();
   expect((await registrationResponse).status()).toBe(200);
   await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
+  const creationOptionsResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/project-creation-options"
+  ));
   await page.getByRole("button", { name: "このDatasetでプロジェクト作成" }).click();
+  expect((await creationOptionsResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();
   await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
