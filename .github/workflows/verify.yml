@@ -26,7 +26,6 @@ jobs:
       plan_digest: ${{ steps.plan.outputs.plan_digest }}
       execution_mode: ${{ steps.plan.outputs.execution_mode }}
       matrix: ${{ steps.plan.outputs.matrix }}
-      reuse_run_id: ${{ steps.reuse-run.outputs.run_id }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -47,19 +46,18 @@ jobs:
           path: artifacts/verification/ci-plan.json
           if-no-files-found: error
 
-      - name: Find same-base reusable evidence
-        id: reuse-run
+      - name: Find same-base reusable evidence runs
         if: steps.plan.outputs.execution_mode != 'lightweight-direct'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/verification-ci.mjs find-reusable-run --output artifacts/verification/reusable-run.json --github-output $env:GITHUB_OUTPUT
+        run: node scripts/verification-ci.mjs find-reusable-runs --output artifacts/verification/reusable-runs.json
 
-      - name: Upload reusable evidence candidate
+      - name: Upload reusable evidence candidates
         if: steps.plan.outputs.execution_mode != 'lightweight-direct'
         uses: actions/upload-artifact@v6
         with:
-          name: verification-reusable-run
-          path: artifacts/verification/reusable-run.json
+          name: verification-reusable-runs
+          path: artifacts/verification/reusable-runs.json
           if-no-files-found: error
 
   verification-evidence-reuse:
@@ -67,9 +65,10 @@ jobs:
     needs: verification-plan
     if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
     runs-on: windows-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
       matrix: ${{ steps.reuse.outputs.matrix }}
+      executed_shards: ${{ steps.reuse.outputs.executed_shards }}
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -86,36 +85,59 @@ jobs:
           name: verification-plan
           path: artifacts/verification
 
-      - name: Download reusable evidence candidate
+      - name: Download reusable evidence candidates
         uses: actions/download-artifact@v7
         with:
-          name: verification-reusable-run
+          name: verification-reusable-runs
           path: artifacts/verification
 
-      - name: Download reusable direct verification report
-        if: needs.verification-plan.outputs.reuse_run_id != ''
-        uses: actions/download-artifact@v7
-        with:
-          name: direct-verification-report
-          run-id: ${{ needs.verification-plan.outputs.reuse_run_id }}
-          github-token: ${{ github.token }}
-          path: artifacts/verification/prior-direct
-        continue-on-error: true
-
-      - name: Download reusable shard reports
-        if: needs.verification-plan.outputs.reuse_run_id != ''
-        uses: actions/download-artifact@v7
-        with:
-          pattern: verification-shard-*
-          run-id: ${{ needs.verification-plan.outputs.reuse_run_id }}
-          github-token: ${{ github.token }}
-          path: artifacts/verification/prior-shards
-          merge-multiple: true
-        continue-on-error: true
+      - name: Download direct shard evidence from candidate runs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $manifest = Get-Content -Raw artifacts/verification/reusable-runs.json | ConvertFrom-Json
+          $plan = Get-Content -Raw artifacts/verification/ci-plan.json | ConvertFrom-Json
+          $artifactNames = @("direct-verification-report") + @(
+            $plan.shards | ForEach-Object { "verification-shard-$($_.id)" }
+          )
+          $evaluatedRuns = @()
+          foreach ($candidate in $manifest.runs) {
+            $runRoot = "artifacts/verification/reuse-candidates/$($candidate.runId)"
+            New-Item -ItemType Directory -Force $runRoot | Out-Null
+            $downloadArgs = @(
+              "run", "download", $candidate.runId,
+              "--repo", $env:GITHUB_REPOSITORY,
+              "--dir", $runRoot
+            )
+            foreach ($artifactName in $artifactNames) {
+              $downloadArgs += @("--name", $artifactName)
+            }
+            gh @downloadArgs
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "Run $($candidate.runId) has no downloadable direct shard evidence."
+              continue
+            }
+            $evaluatedRuns += $candidate
+            [ordered]@{
+              schemaVersion = $manifest.schemaVersion
+              runs = $evaluatedRuns
+            } | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 artifacts/verification/evaluated-runs.json
+            node scripts/verification-ci.mjs reuse --plan artifacts/verification/ci-plan.json --source-runs artifacts/verification/evaluated-runs.json --source-evidence artifacts/verification/reuse-candidates --output artifacts/verification/reuse-probe/reuse.json
+            if ($LASTEXITCODE -ne 0) {
+              throw "Reusable evidence probe failed for run $($candidate.runId)."
+            }
+            $probe = Get-Content -Raw artifacts/verification/reuse-probe/reuse.json | ConvertFrom-Json
+            if ($probe.executedShardIds.Count -eq 0) {
+              Write-Host "Direct green evidence is complete after run $($candidate.runId)."
+              break
+            }
+          }
+          exit 0
 
       - name: Select executed and reused shards
         id: reuse
-        run: node scripts/verification-ci.mjs reuse --plan artifacts/verification/ci-plan.json --source-run artifacts/verification/reusable-run.json --source-report artifacts/verification/prior-direct/latest-pr.json --source-shards artifacts/verification/prior-shards --output artifacts/verification/reuse/reuse.json --github-output $env:GITHUB_OUTPUT
+        run: node scripts/verification-ci.mjs reuse --plan artifacts/verification/ci-plan.json --source-runs artifacts/verification/reusable-runs.json --source-evidence artifacts/verification/reuse-candidates --output artifacts/verification/reuse/reuse.json --github-output $env:GITHUB_OUTPUT
 
       - name: Upload reused shard reports
         uses: actions/upload-artifact@v6
@@ -127,7 +149,7 @@ jobs:
   verification-shards:
     name: verification shard (${{ matrix.shard.id }})
     needs: [verification-plan, verification-evidence-reuse]
-    if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct'
+    if: needs.verification-plan.outputs.execution_mode != 'lightweight-direct' && needs.verification-evidence-reuse.outputs.executed_shards != ''
     runs-on: windows-latest
     timeout-minutes: 60
     strategy:
