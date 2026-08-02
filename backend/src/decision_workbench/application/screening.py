@@ -1051,7 +1051,7 @@ class ScreeningService:
         points = {item["index"]: item for item in run["points"]}
         requested_indices = list(payload.point_indices)
         missing = [index for index in requested_indices if index not in points]
-        if run.get("purpose") != "experiment_batch" and missing:
+        if missing:
             raise ScreeningNotFoundError(
                 f"スクリーニング点が見つかりません: {', '.join(map(str, missing))}"
             )
