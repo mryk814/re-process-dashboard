@@ -9,12 +9,13 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   const taskDefinitionRequests: string[] = [];
   const publishRequests: string[] = [];
   const projectCreateRequests: string[] = [];
+  let expectedCatalogFailure = false;
   page.on("request", (request) => {
     if (request.url().endsWith("/api/prediction-graphs/publish")) publishRequests.push(request.url());
     if (request.url().endsWith("/api/prediction-graphs/projects")) projectCreateRequests.push(request.url());
   });
   page.on("response", (response) => {
-    if (response.status() >= 500) {
+    if (response.status() >= 500 && !expectedCatalogFailure) {
       serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
     }
     if (response.url().includes("/task-definition")) taskDefinitionRequests.push(response.url());
@@ -39,16 +40,32 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await page.getByLabel("作成するProject名").fill("Graph Studio Project smoke");
   await page.getByRole("button", { name: "draftを保存" }).click();
   await expect(page.getByText("保存済み v1")).toBeVisible();
-  const draftId = await page.evaluate(() => window.localStorage.getItem(
-    "decision-workbench.prediction-graph-draft-id",
-  ));
+  await expect(page).toHaveURL(/#draft=/);
+  const draftId = new URLSearchParams(new URL(page.url()).hash.slice(1)).get("draft");
   expect(draftId).toBeTruthy();
+  const secondTab = await page.context().newPage();
+  await secondTab.goto(`/?view=chain-studio#draft=${draftId}`);
+  await expect(secondTab.getByLabel("Graph ID")).toHaveValue(graphId);
+  await expect(secondTab.getByText("保存済み v1")).toBeVisible();
+  await secondTab.close();
+  const missingDraftTab = await page.context().newPage();
+  await missingDraftTab.goto("/?view=chain-studio#draft=other-workspace-draft");
+  await expect(missingDraftTab.getByRole("alert").filter({ hasText: "保存済みdraftを再開できませんでした" })).toContainText(
+    "draft other-workspace-draft は現在のWorkspaceにありません。",
+  );
+  await expect(missingDraftTab).toHaveURL(/#draft=other-workspace-draft$/);
+  await expect(missingDraftTab.getByLabel("Graph ID")).toBeDisabled();
+  await expect(missingDraftTab.getByRole("button", { name: "新しいdraftを開始" })).toBeVisible();
+  await missingDraftTab.close();
   const draftResponse = await page.request.get(`${apiBaseUrl}/api/prediction-graph-drafts/${draftId}`);
   expect(draftResponse.status(), await draftResponse.text()).toBe(200);
   const serverDraft = await draftResponse.json() as {
     version: number;
     content: {
-      definition: { label: string };
+      definition: {
+        label: string;
+        stages: Array<{ stage_kind: string; contract_id: string }>;
+      };
       project_name: string;
     };
   };
@@ -67,11 +84,58 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await conflict.getByRole("button", { name: "手元版で上書き" }).click();
   await expect(page.getByText("保存済み v3")).toBeVisible();
 
+  expectedCatalogFailure = true;
+  await page.route("**/api/prediction-graphs/catalog", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "catalog maintenance", code: "subsystem_unavailable" }),
+    });
+  });
   await page.reload();
   await expect(heading).toBeVisible();
+  await expect(page.getByRole("heading", { name: "catalogなしで保持しているdraft" })).toBeVisible();
+  await expect(page.getByText(`${graphId}`)).toBeVisible();
+  await expect(page.getByText("1 Node · 2 Binding · 1 Decision Output")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Node catalogの取得に失敗しました" })).toContainText("catalog maintenance");
+  expectedCatalogFailure = false;
+  await page.unroute("**/api/prediction-graphs/catalog");
+  await page.getByRole("button", { name: "Node catalogだけを再取得" }).click();
   await expect(page.getByLabel("表示名／目的")).toHaveValue("手元で続けたGraph");
   await expect(page.getByLabel("作成するProject名")).toHaveValue("Graph Studio Project smoke");
   await expect(page.getByText("保存済み v3")).toBeVisible();
+
+  const catalogResponse = await page.request.get(`${apiBaseUrl}/api/prediction-graphs/catalog`);
+  expect(catalogResponse.status(), await catalogResponse.text()).toBe(200);
+  const unavailableCatalog = await catalogResponse.json() as {
+    stages: Array<{
+      stage_kind: string;
+      contract_id: string;
+      status: string;
+      reason: string | null;
+      surface: unknown;
+    }>;
+  };
+  const draftStage = serverDraft.content.definition.stages[0];
+  const unavailableItem = unavailableCatalog.stages.find((item) => (
+    item.stage_kind === draftStage.stage_kind && item.contract_id === draftStage.contract_id
+  ));
+  expect(unavailableItem).toBeTruthy();
+  unavailableItem!.status = "unavailable";
+  unavailableItem!.reason = "fixtureで一時利用不可";
+  unavailableItem!.surface = null;
+  await page.route("**/api/prediction-graphs/catalog", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(unavailableCatalog) });
+  });
+  await page.reload();
+  const unavailableReference = page.getByRole("alert").filter({ hasText: "現在利用できないNode参照があります" });
+  await expect(unavailableReference).toContainText(`${draftStage.stage_kind} · ${draftStage.contract_id}`);
+  await expect(unavailableReference).toContainText("input Binding 2件");
+  await expect(unavailableReference.getByRole("button", { name: "接続と判断出力を外して置換" })).toBeVisible();
+  await expect(unavailableReference.getByRole("button", { name: "参照と依存を削除" })).toBeVisible();
+  await page.unroute("**/api/prediction-graphs/catalog");
+  await unavailableReference.getByRole("button", { name: "Node catalogだけを再取得" }).click();
+  await expect(unavailableReference).toHaveCount(0);
 
   await page.locator(".model-node .chain-studio-node-title").click();
   await expect(page.locator(".chain-studio-inspector")).toContainText("contract digest");

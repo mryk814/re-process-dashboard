@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ApiProject,
@@ -35,6 +35,7 @@ import {
 import {
   predictionGraphDraftContent,
   predictionGraphDraftSummary,
+  unavailablePredictionGraphReferences,
 } from "./predictionGraphDraftPersistence";
 import { usePredictionGraphDraft } from "./usePredictionGraphDraft";
 
@@ -96,6 +97,7 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const [zoom, setZoom] = useState(1);
   const [compact, setCompact] = useState(false);
   const [linearCatalogKey, setLinearCatalogKey] = useState("");
+  const [replacementCatalogKeys, setReplacementCatalogKeys] = useState<Record<string, string>>({});
   const focusTargets = useRef(new Map<string, HTMLElement>());
   const canvasRef = useRef<HTMLDivElement>(null);
   const edgeAnchors = useRef(new Map<string, HTMLElement>());
@@ -106,29 +108,39 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const submissionPending = useRef(false);
   const completedProjectNavigation = useRef(false);
   const appliedResumeId = useRef<string | undefined>(undefined);
+  const catalogController = useRef<AbortController | undefined>(undefined);
   const draftPersistence = usePredictionGraphDraft();
 
-  useEffect(() => {
-    mounted.current = true;
+  const loadCatalog = useCallback(async () => {
+    catalogController.current?.abort();
     const controller = new AbortController();
-    void workbenchApi.predictionGraphCatalog(controller.signal).then((response) => {
+    catalogController.current = controller;
+    setLoading(true);
+    setCatalogError(undefined);
+    try {
+      const response = await workbenchApi.predictionGraphCatalog(controller.signal);
       if (controller.signal.aborted) return;
       setCatalog(response);
       setDefinition((current) => current ?? initializeGraph(response));
       const first = response.stages.find((item) => item.status === "available" && item.surface);
       if (first) setLinearCatalogKey(`${first.stage_kind}:${first.contract_id}`);
-      setLoading(false);
-    }).catch((reason: unknown) => {
+    } catch (reason) {
       if (controller.signal.aborted) return;
       setCatalogError(reason instanceof Error ? reason.message : "Prediction Graph catalogを取得できませんでした。");
-      setLoading(false);
-    });
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    void loadCatalog();
     return () => {
       mounted.current = false;
       requestGeneration.current += 1;
-      controller.abort();
+      catalogController.current?.abort();
     };
-  }, []);
+  }, [loadCatalog]);
 
   useEffect(() => registerNavigationGuard(async () => (
     completedProjectNavigation.current
@@ -262,6 +274,21 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     setPublished(undefined);
     setActionError(undefined);
     setHasEdited(false);
+  }
+
+  function replaceUnavailableStage(stageId: string) {
+    if (!definition) return;
+    const replacementKey = replacementCatalogKeys[stageId];
+    const replacement = catalog?.stages.find(
+      (item) => item.status === "available"
+        && item.surface
+        && `${item.stage_kind}:${item.contract_id}` === replacementKey,
+    );
+    if (!replacement) return;
+    const withoutUnavailable = removeStage(definition, stageId);
+    const added = addStage(withoutUnavailable, replacement);
+    change(added.definition);
+    setSelection({ kind: "stage", id: added.stageId });
   }
 
   function selectSource(option: SourceOption) {
@@ -406,25 +433,21 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     });
   }
 
-  if (loading || draftPersistence.phase === "loading") {
+  if (draftPersistence.phase === "loading" || (loading && !definition)) {
     return <section className="chain-studio-state" aria-live="polite">
       <span className="overline">PREDICTION GRAPH STUDIO</span>
-      <h2>利用できるNodeを読み込み中です</h2>
-    </section>;
-  }
-  if (!catalog || !definition) {
-    return <section className="chain-studio-state" role="alert">
-      <span className="overline">PREDICTION GRAPH STUDIO</span>
-      <h2>Graph Studioを開始できません</h2>
-      <p>{catalogError ?? "利用できるTask／Transformがありません。"}</p>
+      <h2>{draftPersistence.phase === "loading" ? "指定されたdraftを読み込み中です" : "利用できるNodeを読み込み中です"}</h2>
     </section>;
   }
 
-  const availableCatalog = catalog.stages.filter((item) => item.status === "available" && item.surface);
+  const availableCatalog = catalog?.stages.filter((item) => item.status === "available" && item.surface) ?? [];
+  const unavailableReferences = definition && catalog
+    ? unavailablePredictionGraphReferences(definition, catalog)
+    : [];
   const selectedStage = selection?.kind === "stage"
-    ? definition.stages.find((stage) => stage.stage_id === selection.id)
+    ? definition?.stages.find((stage) => stage.stage_id === selection.id)
     : undefined;
-  const selectedCatalog = selectedStage ? stageCatalogItem(catalog, selectedStage) : undefined;
+  const selectedCatalog = selectedStage && catalog ? stageCatalogItem(catalog, selectedStage) : undefined;
   const selectedOutput = selection?.kind === "output"
     ? definition?.decision_outputs.find((item) => item.output_id === selection.id)
     : undefined;
@@ -434,7 +457,9 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
   const conflictSummary = draftPersistence.conflict
     ? predictionGraphDraftSummary(draftPersistence.conflict.current)
     : undefined;
-  const editingLocked = submitting !== null || draftPersistence.phase === "saving";
+  const editingLocked = submitting !== null
+    || draftPersistence.phase === "saving"
+    || draftPersistence.resumeFailed;
 
   return <section className="chain-studio" aria-labelledby="chain-studio-heading">
     <header className="chain-studio-header">
@@ -443,16 +468,25 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
         <h2 id="chain-studio-heading" tabIndex={-1} ref={registerFocus("graph:draft")}>入力・Model・判断出力を直接つなぐ</h2>
         <p>依存関係からlayerを組み、同じdraftをCanvasと一覧のどちらからでも編集できます。固定参照は公開時にサーバが解決します。</p>
       </div>
-      <div className="chain-studio-scope">
-        <strong>{catalog.candidate_adapter_ids.join(" / ")}</strong>
-        <span>allow-list済みTask／Transformのみ。任意codeやclient指定lockは保存しません。</span>
-      </div>
+      {catalog
+        ? <div className="chain-studio-scope">
+            <strong>{catalog.candidate_adapter_ids.join(" / ")}</strong>
+            <span>allow-list済みTask／Transformのみ。任意codeやclient指定lockは保存しません。</span>
+          </div>
+        : <div className="chain-studio-scope unavailable">
+            <strong>Node catalogを利用できません</strong>
+            <span>保存済みdraftは保持したまま、catalogだけを再取得できます。</span>
+          </div>}
     </header>
 
     <section className="chain-studio-draft-bar" aria-labelledby="graph-draft-status">
       <div>
         <span className="overline">MUTABLE DRAFT</span>
-        <strong id="graph-draft-status">{savedSummary ? `保存済み v${savedSummary.version}` : "まだ保存されていません"}</strong>
+        <strong id="graph-draft-status">{savedSummary
+          ? `保存済み v${savedSummary.version} · ${savedSummary.graphLabel}`
+          : draftPersistence.requestedDraftId
+            ? `指定draft · ${draftPersistence.requestedDraftId}`
+            : "まだ保存されていません"}</strong>
         <small>{savedSummary
           ? `${new Date(savedSummary.updatedAt).toLocaleString("ja-JP")} · 不完全な状態でも再開できます`
           : "公開とは別に、作業途中のGraphとProject名を保存できます"}</small>
@@ -468,6 +502,7 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
     {draftPersistence.error && <section className="chain-studio-draft-error" role="alert">
       <div><strong>{draftPersistence.resumeFailed ? "保存済みdraftを再開できませんでした" : "draftを保存できませんでした"}</strong><span>{draftPersistence.error}</span></div>
       {draftPersistence.resumeFailed && <button type="button" onClick={() => void draftPersistence.retryResume()}>保存済みdraftを再読込</button>}
+      {draftPersistence.resumeFailed && <button type="button" onClick={draftPersistence.startNewDraft}>新しいdraftを開始</button>}
     </section>}
 
     {conflictSummary && <section className="chain-studio-draft-conflict" role="alert">
@@ -480,6 +515,81 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
         <button type="button" onClick={openServerDraft}>サーバー版を開く</button>
         <button type="button" className="danger-outline-button" onClick={() => void saveDraft(true)}>手元版で上書き</button>
       </div>
+    </section>}
+
+    {catalogError && <section className="chain-studio-catalog-error" role="alert">
+      <div>
+        <strong>Node catalogの取得に失敗しました</strong>
+        <span>{catalogError}</span>
+        <small>draftのidentityと保存内容は変更していません。</small>
+      </div>
+      <button type="button" disabled={loading} onClick={() => void loadCatalog()}>
+        {loading ? "catalog再取得中…" : "Node catalogだけを再取得"}
+      </button>
+    </section>}
+
+    {!catalog && definition && <section className="chain-studio-panel chain-studio-retained-draft" aria-labelledby="retained-draft-heading">
+      <div>
+        <span className="overline">RETAINED CONTENT</span>
+        <h3 id="retained-draft-heading">catalogなしで保持しているdraft</h3>
+        <p>Nodeの互換性は確認できないため編集・公開は止めています。保存内容は次の再取得までそのままです。</p>
+      </div>
+      <dl>
+        <div><dt>Graph ID</dt><dd>{definition.graph_id || "未入力"}</dd></div>
+        <div><dt>表示名</dt><dd>{definition.label || "未入力"}</dd></div>
+        <div><dt>Project名</dt><dd>{projectName || "未入力"}</dd></div>
+        <div><dt>内容</dt><dd>{definition.stages.length} Node · {definition.bindings.length} Binding · {definition.decision_outputs.length} Decision Output</dd></div>
+      </dl>
+      <ul>{definition.stages.map((stage) => <li key={stage.stage_id}>
+        <code>{stage.stage_id}</code>
+        <span>{stage.stage_kind} · {stage.contract_id}</span>
+      </li>)}</ul>
+      {definition.decision_outputs.length > 0 && <p>判断出力: {definition.decision_outputs.map(
+        (output) => `${output.label || output.output_id} ← ${output.source_stage_id}.${output.source_output_key}`,
+      ).join(" ／ ")}</p>}
+    </section>}
+
+    {!definition && <section className="chain-studio-panel chain-studio-empty" role="status">
+      <h3>編集するdraftを開けません</h3>
+      <p>指定draftまたはNode catalogを再取得してください。別Workspaceのdraft IDは自動で削除しません。</p>
+    </section>}
+
+    {catalog && definition && <>
+    {unavailableReferences.length > 0 && <section className="chain-studio-unavailable-references" role="alert" aria-labelledby="unavailable-reference-heading">
+      <div className="chain-studio-section-title">
+        <div>
+          <h3 id="unavailable-reference-heading">現在利用できないNode参照があります</h3>
+          <p>参照と接続概要はdraft内に保持しています。再取得するか、失われる接続・判断出力を確認して明示的に置換／削除してください。</p>
+        </div>
+        <button type="button" disabled={loading} onClick={() => void loadCatalog()}>
+          {loading ? "catalog再取得中…" : "Node catalogだけを再取得"}
+        </button>
+      </div>
+      <ul>{unavailableReferences.map((reference) => {
+        const replacementOptions = availableCatalog.filter(
+          (item) => item.stage_kind === reference.stage.stage_kind,
+        );
+        const replacementKey = replacementCatalogKeys[reference.stage.stage_id] ?? "";
+        return <li key={reference.stage.stage_id}>
+          <div>
+            <strong>{reference.stage.stage_id}</strong>
+            <code>{reference.stage.stage_kind} · {reference.stage.contract_id}</code>
+            <span>{reference.reason}</span>
+            <small>保持中: input Binding {reference.inboundBindingCount}件 · downstream Binding {reference.outboundBindingCount}件 · Decision Output {reference.decisionOutputCount}件</small>
+          </div>
+          <div>
+            <label>置換先<select value={replacementKey} onChange={(event) => setReplacementCatalogKeys((current) => ({
+              ...current,
+              [reference.stage.stage_id]: event.target.value,
+            }))}>
+              <option value="">選択してください</option>
+              {replacementOptions.map((item) => <option key={`${item.stage_kind}:${item.contract_id}`} value={`${item.stage_kind}:${item.contract_id}`}>{item.label}</option>)}
+            </select></label>
+            <button type="button" disabled={!replacementKey} onClick={() => replaceUnavailableStage(reference.stage.stage_id)}>接続と判断出力を外して置換</button>
+            <button type="button" className="danger-outline-button" onClick={() => change(removeStage(definition, reference.stage.stage_id))}>参照と依存を削除</button>
+          </div>
+        </li>;
+      })}</ul>
     </section>}
 
     <fieldset className="chain-studio-edit-lock" disabled={editingLocked} aria-busy={editingLocked}>
@@ -759,5 +869,6 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
       <button type="button" className="outline-button" disabled={submitting !== null} onClick={() => void validateDraft()}>{submitting === "validate" ? "検証中…" : "Graphを検証"}</button>
       <button type="button" className="primary-button" disabled={submitting !== null} onClick={() => void publishAndCreateProject()}>{submitting === "publish" ? "公開・作成中…" : published ? "Project作成を再試行" : "Revisionを公開してProjectを作成"}</button>
     </footer>
+    </>}
   </section>;
 }
