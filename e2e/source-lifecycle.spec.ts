@@ -387,7 +387,7 @@ test("source refresh stays separate from approval, training and activation", asy
   await page.unrouteAll({ behavior: "wait" });
 });
 
-test("late initial catalog cannot replace the selected connector", async ({ page, request }) => {
+test("pending previous connector detail does not block the selected connector", async ({ page, request }) => {
   const createConnector = async (name: string) => {
     const response = await request.post(`${apiBaseUrl}/api/data-lifecycle/connectors`, {
       data: {
@@ -410,54 +410,67 @@ test("late initial catalog cannot replace the selected connector", async ({ page
   };
   const slow = await createConnector(`遅い接続先-${Date.now()}`);
   const selected = await createConnector(`選択接続先-${Date.now()}`);
-  let releaseFirstCatalog = () => {};
-  const firstCatalogGate = new Promise<void>((resolve) => {
-    releaseFirstCatalog = resolve;
+  let releaseSlowDetail = () => {};
+  const slowDetailGate = new Promise<void>((resolve) => {
+    releaseSlowDetail = resolve;
   });
-  let markFirstCatalogStarted = () => {};
-  const firstCatalogStarted = new Promise<void>((resolve) => {
-    markFirstCatalogStarted = resolve;
+  let markSlowDetailStarted = () => {};
+  const slowDetailStarted = new Promise<void>((resolve) => {
+    markSlowDetailStarted = resolve;
   });
-  let catalogRequestCount = 0;
-  await page.route("**/api/data-lifecycle", async (route) => {
-    catalogRequestCount += 1;
-    if (catalogRequestCount !== 1) {
-      await route.continue();
-      return;
+  let slowDetailWasStarted = false;
+  let markSlowRouteSettled = () => {};
+  const slowRouteSettled = new Promise<void>((resolve) => {
+    markSlowRouteSettled = resolve;
+  });
+  await page.route(`**/api/data-lifecycle/connectors/${slow.id}`, async (route) => {
+    slowDetailWasStarted = true;
+    markSlowDetailStarted();
+    try {
+      await slowDetailGate;
+      await route.abort("aborted");
+    } finally {
+      markSlowRouteSettled();
     }
-    const response = await route.fetch();
-    markFirstCatalogStarted();
-    await firstCatalogGate;
-    await route.fulfill({ response });
   });
 
-  await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
-  await firstCatalogStarted;
-  await page.evaluate((connectorId) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("connector", connectorId);
-    window.history.pushState({}, "", url);
-  }, selected.id);
-  await page.goBack();
-  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(slow.id);
+  try {
+    await page.goto(`/?view=data-library&tab=update&connector=${slow.id}`);
+    await slowDetailStarted;
+    const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
+    const slowButton = connectorNav.getByRole("button").filter({ hasText: slow.name });
+    const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
+    const detailHeader = page.locator(".source-lifecycle-detail > header");
+    await expect(slowButton).toHaveClass(/active/);
+    await expect(selectedButton).toBeVisible();
 
-  const selectedDetailResponse = page.waitForResponse((response) => (
-    response.request().method() === "GET"
-    && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
-  ));
-  await page.goForward();
-  expect((await selectedDetailResponse).status()).toBe(200);
-  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+    const selectedDetailResponse = page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === `/api/data-lifecycle/connectors/${selected.id}`
+    ));
+    await page.evaluate((connectorId) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("connector", connectorId);
+      window.history.pushState({}, "", url);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+    }, selected.id);
+    expect((await selectedDetailResponse).status()).toBe(200);
+    await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+    await expect(detailHeader).toContainText(selected.name);
+    await expect(selectedButton).toHaveClass(/active/);
 
-  const detailHeader = page.locator(".source-lifecycle-detail > header");
-  await expect(detailHeader).toContainText(selected.name);
-  await expect(detailHeader).not.toContainText(slow.name);
-
-  releaseFirstCatalog();
-  const connectorNav = page.getByRole("navigation", { name: "接続先の選択" });
-  const selectedButton = connectorNav.getByRole("button").filter({ hasText: selected.name });
-  await expect(selectedButton).toHaveClass(/active/);
-  await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+    releaseSlowDetail();
+    await slowRouteSettled;
+    await expect(detailHeader).toContainText(selected.name);
+    await expect(selectedButton).toHaveClass(/active/);
+    await expect.poll(() => new URL(page.url()).searchParams.get("connector")).toBe(selected.id);
+  } finally {
+    releaseSlowDetail();
+    if (slowDetailWasStarted) {
+      await slowRouteSettled;
+    }
+    await page.unrouteAll({ behavior: "wait" });
+  }
 });
 
 test("reason audit loads a blocked row beyond the first hundred without quarantine", async ({ page, request }) => {
