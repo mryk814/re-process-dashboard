@@ -3,6 +3,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,10 +29,16 @@ import {
 import {
   aggregateVerificationShards,
   buildParallelAcceptanceReport,
+  boundDiagnosticLog,
   ciPlanSchemaVersion,
   createCiPlan,
+  diagnosticIdentity,
+  exitCodeForResult,
+  failureExcerpt,
   materializeReusedShardReport,
   planShardEvidenceReuse,
+  readDiagnosticTail,
+  runWithDiagnosticHandles,
   shardReportSchemaVersion,
   selectReusableWorkflowRun,
   validateCiPlan,
@@ -814,6 +821,26 @@ test("CI aggregation fails closed for missing, stale, and duplicate evidence", (
     missing.ci_aggregation.shards.some((shard) => shard.status === "not_run"),
   );
 
+  const diagnosticsUploadFailedReports = structuredClone(reports);
+  diagnosticsUploadFailedReports[0].status = "failed";
+  diagnosticsUploadFailedReports[0].gates[0].status = "failed";
+  diagnosticsUploadFailedReports[0].gates[0].exitCode = 1;
+  diagnosticsUploadFailedReports[0].diagnostics = {
+    upload: { required: true, attempted: true, outcome: "failure" },
+  };
+  const diagnosticsUploadFailed = aggregateVerificationShards({
+    ciPlan,
+    shardReports: diagnosticsUploadFailedReports,
+    catalog,
+    checkoutCommit: "abc123",
+    checkoutCatalogSha256: "catalog-sha",
+  });
+  assert.equal(diagnosticsUploadFailed.outcome, "failed");
+  assert.match(
+    diagnosticsUploadFailed.ci_aggregation.integrityFailures.join(" "),
+    /failed to upload its diagnostics artifact/,
+  );
+
   const staleReports = structuredClone(reports);
   staleReports[0].testedCommit = "stale-sha";
   const stale = aggregateVerificationShards({
@@ -1359,6 +1386,12 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(workflow, /verification-evidence-reuse/);
   assert.match(workflow, /name: direct-verification-report/);
   assert.match(workflow, /name: main-acceptance-diagnostics/);
+  assert.match(workflow, /name: Publish shard diagnostics summary/);
+  assert.match(workflow, /name: verification-shard-diagnostics-\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /PLAYWRIGHT_CI_DIAGNOSTICS: "1"/);
+  assert.match(workflow, /artifacts\/verification\/diagnostics\/\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /artifacts\/playwright\/\$\{\{ matrix\.shard\.id \}\}/);
+  assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/main-acceptance\/latest\.json/);
   assert.match(acceptanceRunner, /Tee-Object -FilePath \$logPath[\s\S]+Write-Host "\$_"/);
   assert.match(acceptanceRunner, /Select-Object -Last 200/);
@@ -1368,4 +1401,79 @@ test("verification workflow shards execution and preserves required check compat
   assert.match(failureStateRunner, /covered by default-playwright/);
   assert.equal(gateRunsOnPlatform("windows", "linux"), false);
   assert.equal(gateRunsOnPlatform("windows", "windows"), true);
+});
+
+test("CI shard diagnostics preserve success and failure identity without changing gate outcomes", () => {
+  const previousRunId = process.env.PLAYWRIGHT_E2E_RUN_ID;
+  process.env.PLAYWRIGHT_E2E_RUN_ID = "run-1-browser-standard";
+  try {
+    const success = diagnosticIdentity({ shardId: "contract-build", testedCommit: "abc123" });
+    assert.equal(success.testedMergeSha, "abc123");
+    assert.equal(success.shardId, "contract-build");
+    assert.equal(success.playwright.workers, "1");
+    assert.equal(success.playwright.retries, "0");
+    assert.equal(success.playwright.ports.api, "8875");
+    assert.equal(success.playwright.ports.web, "5199");
+    assert.match(success.playwright.workspace.database, /decision-workbench-e2e-run-1-browser-standard\.db$/);
+    assert.match(success.playwright.workspace.modelStore, /decision-workbench-e2e-models-run-1-browser-standard$/);
+  } finally {
+    if (previousRunId === undefined) delete process.env.PLAYWRIGHT_E2E_RUN_ID;
+    else process.env.PLAYWRIGHT_E2E_RUN_ID = previousRunId;
+  }
+
+  assert.equal(failureExcerpt("all green"), null);
+  assert.match(
+    failureExcerpt("1) source lifecycle\nError: synthetic failure\nExpected: ready"),
+    /source lifecycle[\s\S]+synthetic failure/,
+  );
+});
+
+test("CI shard diagnostics stream and bound logs without an in-memory runner buffer", () => {
+  const scratch = mkdtempSync(join(tmpdir(), "verification-diagnostics-"));
+  const logPath = join(scratch, "long.log");
+  try {
+    writeFileSync(logPath, "a".repeat(1024 * 1024));
+    assert.match(readDiagnosticTail(logPath, 64), /earlier .* bytes preserved/);
+    const omitted = boundDiagnosticLog(logPath, 256);
+    assert.equal(omitted, 1024 * 1024 - 256);
+    assert.ok(statSync(logPath).size < 512);
+    assert.match(readFileSync(logPath, "utf8"), /omitted to keep this diagnostic artifact bounded/);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+  assert.equal(exitCodeForResult({ status: null, signal: "SIGTERM" }), 1);
+  assert.equal(exitCodeForResult({ status: 0, signal: null }), 0);
+});
+
+test("CI shard diagnostics close stdout when stderr setup fails", () => {
+  const closed = [];
+  let opens = 0;
+  assert.throws(
+    () => runWithDiagnosticHandles({
+      stdoutPath: "stdout.log",
+      stderrPath: "stderr.log",
+      open: () => {
+        opens += 1;
+        if (opens === 1) return 42;
+        throw new Error("cannot open stderr");
+      },
+      close: (handle) => closed.push(handle),
+      run: () => assert.fail("runner must not start after stderr open failure"),
+    }),
+    /cannot open stderr/,
+  );
+  assert.deepEqual(closed, [42]);
+});
+
+test("CI workflow uploads diagnostics even when a shard fails or the workflow is cancelled", () => {
+  const workflow = readFileSync(resolve(import.meta.dirname, "../.github/workflows/verify.yml"), "utf8");
+  const diagnosticsUpload = workflow.slice(
+    workflow.indexOf("- name: Upload shard diagnostics and Playwright reports"),
+    workflow.indexOf("- name: Record diagnostics artifact upload outcome"),
+  );
+  assert.match(diagnosticsUpload, /if: failure\(\) \|\| cancelled\(\)/);
+  assert.match(diagnosticsUpload, /continue-on-error: true/);
+  assert.match(diagnosticsUpload, /if-no-files-found: warn/);
+  assert.match(diagnosticsUpload, /retention-days: 7/);
+  assert.match(diagnosticsUpload, /verification-shard-diagnostics-/);
 });

@@ -162,7 +162,73 @@ jobs:
       - name: Run verification shard
         env:
           PLAYWRIGHT_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard.id }}
+          PLAYWRIGHT_CI_DIAGNOSTICS: "1"
+          PLAYWRIGHT_OUTPUT_DIR: artifacts/playwright/${{ matrix.shard.id }}/test-results
+          PLAYWRIGHT_HTML_OUTPUT_DIR: artifacts/playwright/${{ matrix.shard.id }}/html
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: artifacts/playwright/${{ matrix.shard.id }}/blob
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: artifacts/playwright/${{ matrix.shard.id }}/junit.xml
         run: node scripts/verification-ci.mjs run-shard --plan artifacts/verification/ci-plan.json --shard ${{ matrix.shard.id }} --output artifacts/verification/shards/${{ matrix.shard.id }}.json
+
+      - name: Publish shard diagnostics summary
+        if: failure() || cancelled()
+        shell: pwsh
+        run: |
+          $reportPath = "artifacts/verification/shards/${{ matrix.shard.id }}.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            @(
+              "## $($report.shardId) diagnostics"
+              ""
+              "- tested merge SHA: ``$($report.testedCommit)``"
+              "- PR head SHA: ``$($report.diagnostics.identity.pullRequestHeadSha)``"
+              "- run/shard: $($report.diagnostics.identity.github.runId) / $($report.diagnostics.identity.github.runAttempt) / $($report.shardId)"
+              "- Playwright run/workers/retries: $($report.diagnostics.identity.playwright.e2eRunId) / $($report.diagnostics.identity.playwright.workers) / $($report.diagnostics.identity.playwright.retries)"
+              "- ports: api=$($report.diagnostics.identity.playwright.ports.api), web=$($report.diagnostics.identity.playwright.ports.web)"
+              "- workspace DB: ``$($report.diagnostics.identity.playwright.workspace.database)``"
+            ) | Add-Content $env:GITHUB_STEP_SUMMARY
+            foreach ($gate in @($report.diagnostics.failedGates)) {
+              @("", "### failed gate: $($gate.id)", "", '```text', $gate.failureExcerpt, '```') |
+                Add-Content $env:GITHUB_STEP_SUMMARY
+            }
+          } else {
+            "## ${{ matrix.shard.id }} diagnostics`n`nShard report was not written; inspect the uploaded runner diagnostics." |
+              Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload shard diagnostics and Playwright reports
+        id: upload-diagnostics
+        if: failure() || cancelled()
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-shard-diagnostics-${{ matrix.shard.id }}
+          path: |
+            artifacts/verification/diagnostics/${{ matrix.shard.id }}
+            artifacts/playwright/${{ matrix.shard.id }}
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Record diagnostics artifact upload outcome
+        if: always()
+        shell: pwsh
+        env:
+          DIAGNOSTICS_UPLOAD_OUTCOME: ${{ steps.upload-diagnostics.outcome }}
+        run: |
+          $reportPath = "artifacts/verification/shards/${{ matrix.shard.id }}.json"
+          if (Test-Path $reportPath) {
+            $report = Get-Content -Raw $reportPath | ConvertFrom-Json
+            $outcome = if ($env:DIAGNOSTICS_UPLOAD_OUTCOME) { $env:DIAGNOSTICS_UPLOAD_OUTCOME } else { "skipped" }
+            $report.diagnostics | Add-Member -NotePropertyName upload -NotePropertyValue ([ordered]@{
+              required = $report.status -ne "passed"
+              attempted = $outcome -ne "skipped"
+              outcome = $outcome
+            }) -Force
+            [IO.File]::WriteAllText(
+              (Resolve-Path $reportPath),
+              (($report | ConvertTo-Json -Depth 100) + "`n"),
+              [Text.UTF8Encoding]::new($false)
+            )
+          }
 
       - name: Upload verification shard report
         if: always()
