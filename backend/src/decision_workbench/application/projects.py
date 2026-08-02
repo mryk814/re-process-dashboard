@@ -13,6 +13,7 @@ from decision_workbench.contracts.candidate_project_contracts import (
     TargetRange,
     ProjectUpdateInput,
 )
+from decision_workbench.contracts.chain_contracts import ChainRevision
 from decision_workbench.contracts.evidence_contracts import ProjectHistoryResponse
 from decision_workbench.data.profile_family_registry import supported_task_ids
 from decision_workbench.persistence.store import (
@@ -280,6 +281,10 @@ class ProjectService:
             raise ProjectValidationError(
                 "プロジェクトに固定されたChain Revisionを読み込めません"
             )
+        if not isinstance(revision, ChainRevision):
+            raise ProjectValidationError(
+                "Prediction Graph Revisionは現行Chain Projectとして実行できません"
+            )
         task_stages = [
             stage for stage in revision.stages if stage.stage_kind == "task"
         ]
@@ -302,6 +307,10 @@ class ProjectService:
         if revision is None or revision.revision_digest != identity.chain_revision_digest:
             raise ProjectValidationError(
                 "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
+            )
+        if not isinstance(revision, ChainRevision):
+            raise ProjectValidationError(
+                "Prediction Graph Revisionは現行Chain Projectとして実行できません"
             )
         task_stages = [
             stage for stage in revision.stages if stage.stage_kind == "task"

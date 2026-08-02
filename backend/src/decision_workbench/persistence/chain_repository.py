@@ -6,8 +6,15 @@ from typing import Any, Mapping
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
     ChainRevision,
+    GraphDefinitionRef,
+    GraphRevisionRef,
+    PredictionGraphDefinition,
+    PredictionGraphRevision,
     StageContractSurface,
+    parse_graph_definition_json,
+    parse_graph_revision_json,
     validate_chain_revision,
+    validate_prediction_graph_revision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
@@ -25,7 +32,7 @@ from decision_workbench.persistence.store_support import (
 
 
 class ChainRepository:
-    def register_chain_definition(self, definition: ChainDefinition) -> str:
+    def register_chain_definition(self, definition: GraphDefinitionRef) -> str:
         record_id = (
             f"{definition.chain_id}@{definition.digest.removeprefix('sha256:')[:12]}"
         )
@@ -37,7 +44,7 @@ class ChainRepository:
             ).fetchone()
             if existing is not None:
                 if (
-                    ChainDefinition.model_validate_json(existing["definition_json"])
+                    parse_graph_definition_json(existing["definition_json"])
                     != definition
                 ):
                     raise ChainCatalogConflictError(
@@ -63,7 +70,7 @@ class ChainRepository:
         conn: sqlite3.Connection,
         *,
         record_id: str,
-        revision: ChainRevision,
+        revision: GraphRevisionRef,
         contracts: Mapping[tuple[str, str], StageContractSurface],
     ) -> None:
         """Keep the validation surface beside, never inside, immutable revision JSON."""
@@ -103,19 +110,19 @@ class ChainRepository:
             for row in rows
         }
 
-    def list_chain_definitions(self) -> list[ChainDefinition]:
+    def list_chain_definitions(self) -> list[GraphDefinitionRef]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT definition_json FROM chain_definitions "
                 "ORDER BY chain_id,created_at"
             ).fetchall()
         return [
-            ChainDefinition.model_validate_json(row["definition_json"]) for row in rows
+            parse_graph_definition_json(row["definition_json"]) for row in rows
         ]
 
     def get_chain_definition(
         self, chain_id: str, definition_digest: str
-    ) -> ChainDefinition | None:
+    ) -> GraphDefinitionRef | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT definition_json FROM chain_definitions "
@@ -123,14 +130,14 @@ class ChainRepository:
                 (chain_id, definition_digest),
             ).fetchone()
         return (
-            ChainDefinition.model_validate_json(row["definition_json"])
+            parse_graph_definition_json(row["definition_json"])
             if row is not None
             else None
         )
 
     def register_chain_revision(
         self,
-        revision: ChainRevision,
+        revision: GraphRevisionRef,
         *,
         contracts: Mapping[tuple[str, str], StageContractSurface],
     ) -> str:
@@ -145,27 +152,30 @@ class ChainRepository:
                 raise ChainCatalogConflictError(
                     "Chain Revisionが参照するDefinitionを先に登録してください"
                 )
-            definition = ChainDefinition.model_validate_json(
+            definition = parse_graph_definition_json(
                 definition_row["definition_json"]
             )
-            expected_stages = [
-                (stage.stage_id, stage.stage_kind, stage.contract_id)
-                for stage in definition.stages
-            ]
-            actual_stages = [
-                (stage.stage_id, stage.stage_kind, stage.contract_id)
-                for stage in revision.stages
-            ]
-            if actual_stages != expected_stages:
-                raise ChainCatalogConflictError(
-                    "Chain Revisionの順序付きStageがDefinitionと一致しません"
-                )
             try:
-                validate_chain_revision(
-                    definition,
-                    revision,
-                    contracts=contracts,
-                )
+                if isinstance(definition, ChainDefinition) and isinstance(
+                    revision, ChainRevision
+                ):
+                    validate_chain_revision(
+                        definition,
+                        revision,
+                        contracts=contracts,
+                    )
+                elif isinstance(
+                    definition, PredictionGraphDefinition
+                ) and isinstance(revision, PredictionGraphRevision):
+                    validate_prediction_graph_revision(
+                        definition,
+                        revision,
+                        contracts=contracts,
+                    )
+                else:
+                    raise ValueError(
+                        "DefinitionとRevisionのschema familyが一致しません"
+                    )
             except ValueError as exc:
                 raise ChainCatalogConflictError(str(exc)) from exc
             existing = conn.execute(
@@ -175,7 +185,7 @@ class ChainRepository:
             ).fetchone()
             if existing is not None:
                 if (
-                    ChainRevision.model_validate_json(existing["revision_json"])
+                    parse_graph_revision_json(existing["revision_json"])
                     != revision
                 ):
                     raise ChainCatalogConflictError(
@@ -203,21 +213,21 @@ class ChainRepository:
             )
         return record_id
 
-    def list_chain_revisions(self) -> list[ChainRevision]:
+    def list_chain_revisions(self) -> list[GraphRevisionRef]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT revision_json FROM chain_revisions ORDER BY chain_id,revision"
             ).fetchall()
-        return [ChainRevision.model_validate_json(row["revision_json"]) for row in rows]
+        return [parse_graph_revision_json(row["revision_json"]) for row in rows]
 
-    def get_chain_revision(self, revision_id: str) -> ChainRevision | None:
+    def get_chain_revision(self, revision_id: str) -> GraphRevisionRef | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT revision_json FROM chain_revisions WHERE id=?",
                 (revision_id,),
             ).fetchone()
         return (
-            ChainRevision.model_validate_json(row["revision_json"])
+            parse_graph_revision_json(row["revision_json"])
             if row is not None
             else None
         )

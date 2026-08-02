@@ -22,6 +22,7 @@ from decision_workbench.contracts.subsystem_availability import (
     SubsystemAvailability,
     SubsystemAvailabilityRegistry,
 )
+from decision_workbench.contracts.chain_contracts import ChainRevision
 from decision_workbench.contracts.task_contracts import ResolvedTaskDefinition
 from decision_workbench.modeling.model_lifecycle import validate_lifecycle_metadata
 from decision_workbench.modeling.packages.contracts import PREDICTOR_RUNTIME_TYPES
@@ -266,6 +267,10 @@ class TaskPackageCatalog:
         ):
             raise CatalogConflictError(
                 "プロジェクトに固定されたChain Revisionを読み込めません",
+            )
+        if not isinstance(revision, ChainRevision):
+            raise CatalogConflictError(
+                "Prediction Graph Revisionは現行Chain Task catalogでは解決できません",
             )
         task_stages = [
             stage for stage in revision.stages if stage.stage_kind == "task"

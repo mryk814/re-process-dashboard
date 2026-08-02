@@ -8,6 +8,7 @@ from decision_workbench.persistence.project_persistence_inventory import (
 )
 from decision_workbench.contracts.chain_contracts import (
     ChainProjectIdentity,
+    ChainRevision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
@@ -219,6 +220,10 @@ class WorkbenchUnitOfWork:
         ):
             raise ChainCatalogConflictError(
                 "選択したChain RevisionのIDまたはdigestが登録内容と一致しません"
+            )
+        if not isinstance(revision, ChainRevision):
+            raise ChainCatalogConflictError(
+                "Prediction Graph Revisionは現行Chain Projectとして保存できません"
             )
         project_id, now = str(uuid.uuid4()), _now()
         if (

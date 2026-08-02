@@ -3728,6 +3728,16 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /** CandidateGraphInputSource */
+        CandidateGraphInputSource: {
+            /** Candidate Path */
+            candidate_path: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "candidate";
+        };
         /** CandidateHistoryItem */
         CandidateHistoryItem: {
             /** Actuals */
@@ -4096,9 +4106,8 @@ export interface components {
             /** Label */
             label: string;
             /**
-             * Schema Version
-             * @default chain-definition/v1
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             schema_version: "chain-definition/v1";
             /** Stages */
@@ -4390,8 +4399,11 @@ export interface components {
         };
         /** ChainGraphResponse */
         ChainGraphResponse: {
-            definition: components["schemas"]["ChainDefinition"];
-            revision: components["schemas"]["ChainRevision"];
+            /** Definition */
+            definition: components["schemas"]["ChainDefinition"] | components["schemas"]["PredictionGraphDefinition"];
+            prediction_graph: components["schemas"]["PredictionGraphProjection"];
+            /** Revision */
+            revision: components["schemas"]["ChainRevision"] | components["schemas"]["PredictionGraphRevision"];
             /** Stage Contracts */
             stage_contracts: components["schemas"]["ChainGraphStageContract"][];
         };
@@ -4449,9 +4461,8 @@ export interface components {
             /** Revision Digest */
             revision_digest: string;
             /**
-             * Schema Version
-             * @default chain-revision/v1
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             schema_version: "chain-revision/v1";
             /** Stages */
@@ -4720,11 +4731,12 @@ export interface components {
         };
         /** ChainTemplateItem */
         ChainTemplateItem: {
-            definition: components["schemas"]["ChainDefinition"];
+            /** Definition */
+            definition: components["schemas"]["ChainDefinition"] | components["schemas"]["PredictionGraphDefinition"];
             /** Definition Id */
             definition_id: string;
             /** Revisions */
-            revisions: components["schemas"]["ChainRevision"][];
+            revisions: (components["schemas"]["ChainRevision"] | components["schemas"]["PredictionGraphRevision"])[];
         };
         /** ChangeGuideEntry */
         ChangeGuideEntry: {
@@ -5960,6 +5972,26 @@ export interface components {
             source_kind: "decision_activity";
             source_ref: components["schemas"]["DecisionActivityReference"];
         };
+        /** DecisionOutput */
+        DecisionOutput: {
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Output Id */
+            output_id: string;
+            /** Required For Complete Result */
+            required_for_complete_result: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary_objective" | "hard_constraint" | "secondary_outcome" | "diagnostic";
+            /** Source Output Key */
+            source_output_key: string;
+            /** Source Stage Id */
+            source_stage_id: string;
+        };
         /**
          * DesignPriorPackageReference
          * @description Explicit package identity resolved for one immutable Proposal Run.
@@ -6696,6 +6728,38 @@ export interface components {
             path: string;
             /** Value */
             value: string | number | boolean;
+        };
+        /** FixedGraphInputSource */
+        FixedGraphInputSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "fixed_value";
+            /** Value */
+            value: number | string;
+        };
+        /** GraphInput */
+        GraphInput: {
+            /** Default Presentation Group */
+            default_presentation_group: string;
+            /** Input Id */
+            input_id: string;
+            /** Label */
+            label: string;
+            port: components["schemas"]["ChainPort"];
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "design_variable" | "scenario_context" | "fixed_parameter";
+            /** Value Source */
+            value_source: components["schemas"]["CandidateGraphInputSource"] | components["schemas"]["ProjectGraphInputSource"] | components["schemas"]["FixedGraphInputSource"];
         };
         /** GroupCardinalityConstraint */
         GroupCardinalityConstraint: {
@@ -8176,6 +8240,100 @@ export interface components {
             /** Snapshot Id */
             snapshot_id: string;
         };
+        /** PredictionGraphDefinition */
+        PredictionGraphDefinition: {
+            /** Bindings */
+            bindings: components["schemas"]["ChainBinding"][];
+            /** Decision Outputs */
+            decision_outputs: components["schemas"]["DecisionOutput"][];
+            /** Graph Id */
+            graph_id: string;
+            /**
+             * Inputs
+             * @default []
+             */
+            inputs: components["schemas"]["GraphInput"][];
+            /** Label */
+            label: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "prediction-graph-definition/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStage"][];
+        };
+        /** PredictionGraphProjection */
+        PredictionGraphProjection: {
+            /** Decision Outputs */
+            decision_outputs: components["schemas"]["DecisionOutput"][];
+            /** Graph Id */
+            graph_id: string;
+            /** Inputs */
+            inputs: components["schemas"]["ProjectedGraphInput"][];
+            /**
+             * Limitations
+             * @default []
+             */
+            limitations: string[];
+            /**
+             * Schema Version
+             * @default prediction-graph-projection/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-projection/v1";
+            /**
+             * Source Schema Version
+             * @enum {string}
+             */
+            source_schema_version: "chain-definition/v1" | "prediction-graph-definition/v1";
+            topology: components["schemas"]["PredictionGraphTopology"];
+        };
+        /** PredictionGraphRevision */
+        PredictionGraphRevision: {
+            /** Binding Digest */
+            binding_digest: string;
+            /** Graph Definition Digest */
+            graph_definition_digest: string;
+            /** Graph Id */
+            graph_id: string;
+            /** Revision */
+            revision: number;
+            /** Revision Digest */
+            revision_digest: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            schema_version: "prediction-graph-revision/v1";
+            /** Stages */
+            stages: components["schemas"]["ChainStageRevision"][];
+            /** Topology Digest */
+            topology_digest: string;
+            /** Unit Conversion Digest */
+            unit_conversion_digest: string;
+        };
+        /** PredictionGraphTopology */
+        PredictionGraphTopology: {
+            /** Affected Nodes By Input */
+            affected_nodes_by_input: {
+                [key: string]: string[];
+            };
+            /** Ancestors */
+            ancestors: {
+                [key: string]: string[];
+            };
+            /** Descendants */
+            descendants: {
+                [key: string]: string[];
+            };
+            /** Direct Dependencies */
+            direct_dependencies: {
+                [key: string]: string[];
+            };
+            /** Topological Layers */
+            topological_layers: string[][];
+        };
         /** PredictionIntervalIdentity */
         PredictionIntervalIdentity: {
             /** Coverage */
@@ -8755,6 +8913,35 @@ export interface components {
              * @default
              */
             snapshot_id: string;
+        };
+        /** ProjectedGraphInput */
+        ProjectedGraphInput: {
+            /** Affected Node Ids */
+            affected_node_ids: string[];
+            /** Default Presentation Group */
+            default_presentation_group: string;
+            /** Input Id */
+            input_id: string;
+            /** Label */
+            label: string;
+            port: components["schemas"]["ChainPort"];
+            /** Required */
+            required: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "design_variable" | "scenario_context" | "fixed_parameter" | "legacy_unspecified";
+        };
+        /** ProjectGraphInputSource */
+        ProjectGraphInputSource: {
+            /** Binding Key */
+            binding_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "project_binding";
         };
         /** ProjectGroupMoveInput */
         ProjectGroupMoveInput: {
@@ -12107,7 +12294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChainRevision"];
+                    "application/json": components["schemas"]["ChainRevision"] | components["schemas"]["PredictionGraphRevision"];
                 };
             };
             /** @description Validation Error */
