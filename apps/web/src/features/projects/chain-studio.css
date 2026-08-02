@@ -1,1 +1,590 @@
-.chain-studio, .chain-studio-state { display: grid; gap: 14px; padding: 18px 24px 32px; color: #18202c; }.chain-studio-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .45fr); gap: 16px; align-items: start; }.chain-studio h2, .chain-studio-state h2 { margin: 3px 0 5px; color: #263d57; font-size: 20px; }.chain-studio-header p, .chain-studio-section-title p { margin: 0; color: #5d6775; font-size: 12px; line-height: 1.5; }.chain-studio-scope { display: grid; gap: 4px; border-left: 3px solid #91550d; background: #fff8e8; padding: 9px 10px; color: #68410a; font-size: 11px; }.chain-studio-scope strong { font-size: 12px; }.chain-studio-panel { display: grid; gap: 10px; border: 1px solid #d8e0ea; border-radius: 6px; background: #fff; padding: 12px; }.chain-studio-panel h3 { margin: 0; color: #263d57; font-size: 14px; }.chain-studio-fields { display: grid; grid-template-columns: minmax(180px, .55fr) minmax(240px, 1fr); gap: 10px; }.chain-studio-fields label { display: grid; gap: 4px; color: #40546b; font-size: 11px; font-weight: 700; }.chain-studio input, .chain-studio select { min-width: 0; border: 1px solid #b9c6d5; border-radius: 4px; background: #fff; padding: 6px 7px; color: #18202c; font: inherit; }.chain-studio input:focus-visible, .chain-studio select:focus-visible, .chain-studio button:focus-visible { outline: 3px solid #1f5fc4; outline-offset: 2px; }.chain-studio-section-title { display: flex; justify-content: space-between; gap: 10px; align-items: start; }.chain-studio-stages { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }.chain-studio-stages li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; border: 1px solid #d8e0ea; border-radius: 4px; padding: 7px; }.chain-studio-stages li > span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: #e8f1ff; color: #174f99; font-size: 11px; font-weight: 700; }.chain-studio-stages label { min-width: 0; }.chain-studio-stages select { width: 100%; }.chain-studio-authoring-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }.chain-studio-authoring-map article { min-width: 0; border: 1px solid #c9d9ef; border-radius: 5px; background: #f7faff; padding: 8px; }.chain-studio-authoring-map article > header { display: flex; gap: 7px; align-items: center; color: #263d57; font-size: 11px; }.chain-studio-authoring-map article > header b { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #dceaff; }.chain-studio-authoring-map article > div { display: grid; gap: 5px; margin-top: 7px; }.chain-studio-binding-rail { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 5px; align-items: center; border: 1px solid #b9cbe1; border-radius: 4px; background: #fff; padding: 6px; color: #294b70; text-align: left; font-size: 10px; cursor: pointer; }.chain-studio-binding-rail b { overflow-wrap: anywhere; }.chain-studio-binding-rail small { grid-column: 1 / -1; color: #607187; }.chain-studio-table-wrap { overflow-x: auto; }.chain-studio-table-wrap table { width: 100%; min-width: 790px; border-collapse: collapse; font-size: 11px; }.chain-studio-table-wrap th, .chain-studio-table-wrap td { border-top: 1px solid #e1e7ee; padding: 7px 8px; text-align: left; }.chain-studio-table-wrap thead th { border-top: 0; color: #5d6775; font-size: 10px; text-transform: uppercase; }.chain-studio-table-wrap tbody th, .chain-studio-table-wrap td:nth-child(2), .chain-studio-table-wrap td:last-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }.chain-studio-table-wrap select { width: 100%; min-width: 240px; font-size: 11px; }.chain-studio-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }.chain-studio-summary div { display: grid; gap: 3px; border: 1px solid #c9d9ef; border-radius: 5px; background: #f4f8fe; padding: 9px 10px; color: #375570; font-size: 11px; }.chain-studio-summary strong { color: #263d57; font-size: 12px; }.chain-studio-error, .chain-studio-success { margin: 0; border-radius: 5px; padding: 9px 10px; font-size: 12px; }.chain-studio-error { border: 1px solid #e4b8b3; background: #fff2f0; color: #9d2018; }.chain-studio-success { border: 1px solid #b7d8c9; background: #eef9f2; color: #166247; }.chain-studio-actions { display: flex; justify-content: end; gap: 8px; }.text-button { border: 0; background: transparent; color: #1f5fc4; cursor: pointer; font: inherit; font-size: 11px; }.text-button:disabled { color: #9aa8b6; cursor: not-allowed; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }@media (max-width: 820px) { .chain-studio, .chain-studio-state { padding: 14px; }.chain-studio-header, .chain-studio-fields, .chain-studio-summary { grid-template-columns: 1fr; }.chain-studio-section-title { display: grid; }.chain-studio-actions { justify-content: stretch; }.chain-studio-actions button { flex: 1; } }
+.chain-studio,
+.chain-studio-state {
+  display: grid;
+  gap: 14px;
+  padding: 18px 24px 32px;
+  color: #18202c;
+}
+
+.chain-studio-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, .42fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.chain-studio h2,
+.chain-studio-state h2 {
+  margin: 3px 0 5px;
+  color: #263d57;
+  font-size: 20px;
+}
+
+.chain-studio-header p,
+.chain-studio-section-title p {
+  margin: 0;
+  color: #5d6775;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chain-studio-scope {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid #1f5fc4;
+  background: #f0f6ff;
+  padding: 9px 10px;
+  color: #294b70;
+  font-size: 11px;
+}
+
+.chain-studio-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #fff;
+  padding: 12px;
+}
+
+.chain-studio-panel h3 {
+  margin: 0;
+  color: #263d57;
+  font-size: 14px;
+}
+
+.chain-studio-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(240px, 1fr) minmax(220px, .8fr);
+  gap: 10px;
+}
+
+.chain-studio label {
+  min-width: 0;
+  color: #40546b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chain-studio-fields label,
+.chain-studio-linear-row label {
+  display: grid;
+  gap: 4px;
+}
+
+.chain-studio input,
+.chain-studio select {
+  min-width: 0;
+  border: 1px solid #b9c6d5;
+  border-radius: 4px;
+  background: #fff;
+  padding: 6px 7px;
+  color: #18202c;
+  font: inherit;
+}
+
+.chain-studio input:focus-visible,
+.chain-studio select:focus-visible,
+.chain-studio button:focus-visible {
+  outline: 3px solid #1f5fc4;
+  outline-offset: 2px;
+}
+
+.chain-studio-section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.chain-studio-catalog {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.chain-studio-catalog-item {
+  display: grid;
+  flex: 0 0 220px;
+  gap: 3px;
+  border: 1px solid #c9d9ef;
+  border-radius: 5px;
+  background: #f7faff;
+  padding: 8px 10px;
+  color: #294b70;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chain-studio-catalog-item b {
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.chain-studio-catalog-item span {
+  color: #18202c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chain-studio-catalog-item small {
+  color: #607187;
+}
+
+.chain-studio-canvas-tools {
+  display: flex;
+  gap: 5px;
+}
+
+.chain-studio-canvas-tools button,
+.chain-studio-linear-row button,
+.chain-studio-output-add button {
+  border: 1px solid #b9c6d5;
+  border-radius: 4px;
+  background: #fff;
+  padding: 5px 7px;
+  color: #294b70;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.chain-studio-canvas-tools button[aria-pressed="true"] {
+  border-color: #1f5fc4;
+  background: #e8f1ff;
+}
+
+.chain-studio-connect-status {
+  margin: 0;
+  border-left: 3px solid #1f5fc4;
+  background: #eef5ff;
+  padding: 7px 9px;
+  color: #294b70;
+  font-size: 11px;
+}
+
+.chain-studio-canvas-viewport {
+  overflow: auto;
+  min-height: 300px;
+  border: 1px solid #d8e0ea;
+  border-radius: 5px;
+  background:
+    linear-gradient(#eef2f6 1px, transparent 1px),
+    linear-gradient(90deg, #eef2f6 1px, transparent 1px),
+    #f9fbfd;
+  background-size: 20px 20px;
+  padding: 14px;
+}
+
+.chain-studio-canvas {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  min-width: max-content;
+  transform-origin: top left;
+}
+
+.chain-studio-edges {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chain-studio-edges path {
+  fill: none;
+  stroke: #6f91bb;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chain-studio-edges path[data-edge-kind="decision_output"] {
+  stroke: #4f9278;
+  stroke-dasharray: 5 3;
+}
+
+.chain-studio-layer {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  width: 235px;
+}
+
+.chain-studio-edit-lock {
+  display: contents;
+}
+
+.chain-studio-layer-label {
+  color: #718096;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.chain-studio-node {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #b9cbe1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 2px 5px rgb(21 48 80 / 7%);
+}
+
+.chain-studio-node.selected {
+  border-color: #1f5fc4;
+  box-shadow: 0 0 0 2px #d8e8ff;
+}
+
+.chain-studio-node.transform-node {
+  border-style: dashed;
+  background: #fffaf0;
+}
+
+.chain-studio-node.decision-node {
+  border-color: #9dcab9;
+  background: #f3fbf6;
+}
+
+.chain-studio-node-title {
+  display: grid;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #263d57;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chain-studio-node-title small {
+  color: #607187;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.chain-studio-node-ports {
+  display: grid;
+  gap: 5px;
+}
+
+.chain-studio-port {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid #d0d9e4;
+  border-radius: 4px;
+  background: #fff;
+  padding: 5px 6px;
+  color: #375570;
+  text-align: left;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.chain-studio-port small {
+  overflow: hidden;
+  color: #718096;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chain-studio-port.output {
+  border-color: #9fb9db;
+  background: #f1f7ff;
+}
+
+.chain-studio-port.active,
+.chain-studio-port.compatible {
+  border-color: #1f5fc4;
+  background: #e2efff;
+  box-shadow: 0 0 0 2px #c7ddfa;
+}
+
+.chain-studio-port-error {
+  display: block;
+  margin-top: 3px;
+  color: #b42318;
+  font-size: 10px;
+}
+
+.chain-studio-terminal-source {
+  color: #386a58;
+  font-size: 10px;
+}
+
+.chain-studio-canvas.compact .chain-studio-node {
+  gap: 4px;
+  padding: 5px;
+}
+
+.chain-studio-canvas.compact .chain-studio-port {
+  padding: 3px 5px;
+}
+
+.chain-studio-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 12px;
+  align-items: start;
+}
+
+.chain-studio-linear fieldset {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #e1e7ee;
+  border-radius: 5px;
+  padding: 9px;
+}
+
+.chain-studio-linear legend {
+  padding: 0 5px;
+  color: #263d57;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chain-studio-linear-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(150px, .7fr) minmax(180px, 1fr) auto;
+  gap: 7px;
+  align-items: end;
+  border-top: 1px solid #edf0f4;
+  padding-top: 7px;
+  font-size: 10px;
+}
+
+.chain-studio-linear-row:first-of-type {
+  border-top: 0;
+}
+
+.chain-studio-linear-add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 7px;
+  align-items: end;
+}
+
+.chain-studio-linear-add label {
+  display: grid;
+  gap: 4px;
+}
+
+.chain-studio-linear-add button {
+  border: 1px solid #b9c6d5;
+  border-radius: 4px;
+  background: #fff;
+  padding: 6px 8px;
+  color: #294b70;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chain-studio-linear-row.output-row {
+  grid-template-columns: minmax(150px, 1fr) 120px 120px auto auto;
+}
+
+.chain-studio-row-select {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.chain-studio-check {
+  display: flex !important;
+  align-items: center;
+  align-self: center;
+  gap: 5px;
+}
+
+.chain-studio-check input {
+  width: auto;
+}
+
+.chain-studio-output-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chain-studio-empty {
+  margin: 0;
+  color: #718096;
+  font-size: 11px;
+}
+
+.chain-studio-inspector {
+  position: sticky;
+  top: 8px;
+}
+
+.chain-studio-inspector p {
+  margin: 0;
+  color: #718096;
+  font-size: 11px;
+}
+
+.chain-studio-inspector dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.chain-studio-inspector dl div {
+  display: grid;
+  gap: 2px;
+}
+
+.chain-studio-inspector dt {
+  color: #718096;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.chain-studio-inspector dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.chain-studio-findings {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #d8e0ea;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 11px;
+}
+
+.chain-studio-findings.valid {
+  border-color: #b7d8c9;
+  background: #eef9f2;
+  color: #166247;
+}
+
+.chain-studio-findings.invalid {
+  border-color: #e4b8b3;
+  background: #fff2f0;
+  color: #9d2018;
+}
+
+.chain-studio-findings ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chain-studio-findings li {
+  display: grid;
+  gap: 2px;
+}
+
+.chain-studio-findings li button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chain-studio-findings code {
+  overflow-wrap: anywhere;
+}
+
+.chain-studio-error,
+.chain-studio-success {
+  margin: 0;
+  border-radius: 5px;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+.chain-studio-error {
+  border: 1px solid #e4b8b3;
+  background: #fff2f0;
+  color: #9d2018;
+}
+
+.chain-studio-success {
+  border: 1px solid #b7d8c9;
+  background: #eef9f2;
+  color: #166247;
+}
+
+.chain-studio-actions {
+  display: flex;
+  justify-content: end;
+  gap: 8px;
+}
+
+.text-button {
+  border: 0 !important;
+  background: transparent !important;
+  color: #1f5fc4 !important;
+}
+
+.chain-studio button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .chain-studio,
+  .chain-studio-state {
+    padding: 14px;
+  }
+
+  .chain-studio-header,
+  .chain-studio-fields,
+  .chain-studio-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .chain-studio-inspector {
+    position: static;
+  }
+
+  .chain-studio-linear-row,
+  .chain-studio-linear-row.output-row,
+  .chain-studio-linear-add {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .chain-studio-section-title {
+    display: grid;
+  }
+
+  .chain-studio-actions {
+    justify-content: stretch;
+  }
+
+  .chain-studio-actions button {
+    flex: 1;
+  }
+}

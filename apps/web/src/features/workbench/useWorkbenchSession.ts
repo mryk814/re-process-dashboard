@@ -136,7 +136,7 @@ export function useWorkbenchSession({
     setApiState("loading");
     setLoadError(null);
     const project = projectsRef.current.find((item) => item.id === projectId);
-    if (project?.scientific_identity?.identity_kind === "chain") {
+    if (project && project.scientific_identity?.identity_kind !== "single_task") {
       activeProjectIdRef.current = projectId;
       setActiveProjectId(projectId);
       setTaskDefinition(null);
@@ -302,7 +302,8 @@ export function useWorkbenchSession({
     const currentProject = projectsRef.current.find((item) => item.id === projectId);
     if (
       projectId === activeProjectIdRef.current
-      && currentProject?.scientific_identity?.identity_kind === "chain"
+      && currentProject
+      && currentProject.scientific_identity?.identity_kind !== "single_task"
     ) {
       return true;
     }
@@ -833,6 +834,15 @@ export function useWorkbenchSession({
     await loadProject(project.id, selectedId || undefined);
   }
 
+  async function loadCreatedProject(project: ApiProject) {
+    const nextProjects = projectsRef.current.some((item) => item.id === project.id)
+      ? projectsRef.current.map((item) => item.id === project.id ? project : item)
+      : [...projectsRef.current, project];
+    projectsRef.current = nextProjects;
+    setProjects(nextProjects);
+    return loadProject(project.id);
+  }
+
   async function refreshAdminProject(project: ApiProject) {
     const nextProjects = projectsRef.current.map((item) => item.id === project.id ? project : item);
     projectsRef.current = nextProjects;
@@ -871,6 +881,7 @@ export function useWorkbenchSession({
     loadError,
     loadingRemainingPreviews,
     loadProject,
+    loadCreatedProject,
     loadRemainingPreviews,
     dismissNotice,
     notice,

@@ -46,6 +46,11 @@ export type ApiChainTemplate = components["schemas"]["ChainTemplateItem"];
 export type ApiChainStudioCatalog = components["schemas"]["ChainStudioCatalogResponse"];
 export type ApiChainStudioDraft = components["schemas"]["ChainStudioDraftRequest"];
 export type ApiChainStudioDraftValidation = components["schemas"]["ChainStudioDraftValidation"];
+export type ApiPredictionGraphCatalog = components["schemas"]["PredictionGraphCatalogResponse"];
+export type ApiPredictionGraphDefinition = components["schemas"]["PredictionGraphDefinition"];
+export type ApiPredictionGraphValidation = components["schemas"]["PredictionGraphDraftValidation"];
+export type ApiPredictionGraphPublishResponse = components["schemas"]["PredictionGraphPublishResponse"];
+export type ApiPredictionGraphProjectCreate = components["schemas"]["PredictionGraphProjectCreateRequest"];
 export type ApiChainGraph = components["schemas"]["ChainGraphResponse"];
 export type ApiChainDistributionCapability = components["schemas"]["ChainDistributionCapability"];
 export type ApiChainDistributionRun = components["schemas"]["ChainDistributionRun"];
@@ -275,6 +280,18 @@ export const workbenchApi = {
   },
   async publishChainStudioDraft(body: ApiChainStudioDraft) {
     return requireData(await apiClient.POST("/api/chains/studio/publish", { body }), "Chain Revisionを公開できませんでした。");
+  },
+  async predictionGraphCatalog(signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/catalog", { signal }), "Prediction Graph catalogを取得できませんでした。");
+  },
+  async validatePredictionGraph(definition: ApiPredictionGraphDefinition) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/validate", { body: { definition } }), "Prediction Graphを検証できませんでした。");
+  },
+  async publishPredictionGraph(definition: ApiPredictionGraphDefinition) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/publish", { body: { definition } }), "Prediction Graph Revisionを公開できませんでした。");
+  },
+  async createPredictionGraphProject(body: ApiPredictionGraphProjectCreate) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects", { body }), "Prediction Graph Projectを作成できませんでした。");
   },
   async executeChain(projectId: string, candidateId: string, candidateRevision: number, requestId: string, signal?: AbortSignal) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/chain/candidates/{candidate_id}/executions", {

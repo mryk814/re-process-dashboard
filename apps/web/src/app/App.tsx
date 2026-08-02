@@ -78,6 +78,15 @@ function ChainModeUnavailablePanel({ onOpenCandidates, stagePath }: { onOpenCand
   </div>;
 }
 
+function PredictionGraphModeUnavailablePanel({ onOpenOverview }: { onOpenOverview: () => void }) {
+  return <div className="page-panel task-unavailable-panel" role="status">
+    <span className="overline">PREDICTION GRAPH PROJECT</span>
+    <h2>この画面はPrediction Graph Projectでは利用できません</h2>
+    <p>このProjectは複数のTask／TransformとDecision Outputを一つの公開Revisionへ固定しています。単一Task向けの候補比較・範囲探索・データ探索は呼び出しません。</p>
+    <button type="button" className="primary-button" onClick={onOpenOverview}>Project概要へ戻る</button>
+  </div>;
+}
+
 function StartupBanner({ startedAt }: { startedAt: number }) {
   const [elapsed, setElapsed] = useState(() => Date.now() - startedAt);
   useEffect(() => {
@@ -301,6 +310,7 @@ function App() {
     () => candidateSettlementRef.current(),
   ), [registerNavigationGuard]);
   const chainProject = activeProject?.scientific_identity?.identity_kind === "chain";
+  const predictionGraphProject = activeProject?.scientific_identity?.identity_kind === "prediction_graph";
   const chainIdentity = activeProject?.scientific_identity?.identity_kind === "chain"
     ? activeProject.scientific_identity
     : null;
@@ -329,11 +339,15 @@ function App() {
   // instead of failing inside a single-task surface.
   const chainScopedTab = chainProject
     && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "candidate-review");
-  const dataExplorer = taskUnavailable ? null : resolvedTaskDefinition?.data_explorer;
+  const predictionGraphScopedTab = predictionGraphProject
+    && (tab === "candidates" || tab === "candidate-review" || tab === "explore"
+      || tab === "lineage" || tab === "quality" || tab === "chain-graph");
+  const dataExplorer = taskUnavailable || predictionGraphProject ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (!chainProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
+    (predictionGraphProject && (item.id === "project" || item.id === "project-settings"))
+      || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
   const workspaceLevelMode = tab === "data-library" || tab === "profile-workbench" || tab === "workspace" || tab === "chain-studio";
@@ -574,7 +588,7 @@ function App() {
           <div className="context-primary-row">
             <h1 title={activeProject?.name ?? undefined}>{activeProject?.name ?? "プロジェクトを読み込んでいます"}</h1>
             <div className="run-actions">
-              {tab !== "candidates" && !taskUnavailable && !chainProject && (
+              {tab !== "candidates" && !taskUnavailable && !chainProject && !predictionGraphProject && (
                 <button
                   type="button"
                   className="stock-button"
@@ -716,7 +730,14 @@ function App() {
           onOpenDataLibrary={() => navigate({ view: "data-library" })}
           onStartProject={startProjectForDataset}
         />}
-        {tab === "chain-studio" && <ChainStudioPage />}
+        {tab === "chain-studio" && <ChainStudioPage
+          registerNavigationGuard={registerNavigationGuard}
+          onProjectCreated={(project) => {
+            void session.loadCreatedProject(project).then((loaded) => {
+              if (loaded) navigate({ view: "project", projectId: project.id });
+            });
+          }}
+        />}
         {unavailableScopedTab && (
           <TaskUnavailablePanel
             message={taskAvailability?.message ?? "このタスクは現在利用できません。"}
@@ -733,6 +754,12 @@ function App() {
             projectId: activeProjectId,
             candidateId: selectedId || undefined,
           })} stagePath={chainStagePath(activeChainRevision)} />
+        )}
+        {predictionGraphScopedTab && (
+          <PredictionGraphModeUnavailablePanel onOpenOverview={() => navigate({
+            view: "project",
+            projectId: activeProjectId,
+          })} />
         )}
         {tab === "chain-graph" && chainProject && (
           <ChainGraphViewer
@@ -799,7 +826,7 @@ function App() {
             }, true)}
           />
         )}
-        {(tab === "candidates" || tab === "candidate-review" || tab === "explore") && !chainProject && !taskUnavailable &&
+        {(tab === "candidates" || tab === "candidate-review" || tab === "explore") && !chainProject && !predictionGraphProject && !taskUnavailable &&
           (selected ? (
             <WorkbenchPage
               mode={tab === "candidate-review" ? "review" : tab === "explore" ? "explore" : "comparison"}
@@ -918,7 +945,7 @@ function App() {
               onCreate={() => void session.createStarterCandidate()}
             />
           ))}
-        {tab === "quality" && !taskUnavailable && !chainProject && (qualityAvailable ? (
+        {tab === "quality" && !taskUnavailable && !chainProject && !predictionGraphProject && (qualityAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="quality" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LiveDataQualityPage
@@ -953,7 +980,7 @@ function App() {
             />
           </div>
         ) : <DataExploreUnavailable />)}
-        {tab === "lineage" && !taskUnavailable && !chainProject && (lineageAvailable ? (
+        {tab === "lineage" && !taskUnavailable && !chainProject && !predictionGraphProject && (lineageAvailable ? (
           <div className="data-explore-page">
             <DataExploreNavigation active="lineage" qualityAvailable={qualityAvailable} lineageAvailable={lineageAvailable} onNavigate={(view) => navigate(withView(navigationRef.current, view))} />
             <LineagePage
