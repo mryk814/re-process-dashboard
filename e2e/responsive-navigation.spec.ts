@@ -12,7 +12,7 @@ test("狭い画面でもホームの4導線を直接操作できる", async ({ p
   const navigation = page.getByRole("navigation", { name: "ホーム" });
   const buttons = navigation.getByRole("button");
   await expect(buttons).toHaveCount(4);
-  for (const name of ["プロジェクト", "データライブラリ", "Chain Studio", "ワークスペース"]) {
+  for (const name of ["プロジェクト", "データライブラリ", "Model Library", "ワークスペース"]) {
     const button = navigation.getByRole("button", { name });
     await expect(button).toBeVisible();
     await expect(button).toBeInViewport();
@@ -46,7 +46,7 @@ test("文字を200%へ拡大しても4導線の操作対象が画面内に残る
   });
 
   const navigation = page.getByRole("navigation", { name: "ホーム" });
-  for (const name of ["プロジェクト", "データライブラリ", "Chain Studio", "ワークスペース"]) {
+  for (const name of ["プロジェクト", "データライブラリ", "Model Library", "ワークスペース"]) {
     const button = navigation.getByRole("button", { name });
     await expect(button).toBeVisible();
     await expect(button).toBeInViewport();

@@ -109,6 +109,16 @@ class CandidateService:
             payload,
             project.design_space,
         )
+        if prepared.provenance.source_kind == "historical_observation":
+            candidate = self.store.create_or_get_historical_observation_candidate(
+                prepared,
+                project_id,
+            )
+            if candidate.archived_at is not None:
+                raise CandidateArchivedError(
+                    "この過去の実測recordから作成した候補はarchive済みです。復元してから使ってください"
+                )
+            return candidate
         return self.store.create_candidate(prepared, project_id)
 
     def import_xlsx(self, project_id: str, contents: bytes) -> CandidateImportResponse:
@@ -190,6 +200,13 @@ class CandidateService:
             raise CandidateValidationError(str(exc)) from exc
         if existing.provenance != candidate_input.provenance:
             raise CandidateProvenanceImmutableError("候補の作成元は変更できません")
+        if (
+            existing.provenance.source_kind == "historical_observation"
+            and existing.inputs != candidate_input.inputs
+        ):
+            raise CandidateProvenanceImmutableError(
+                "過去の実測recordから作成した候補の入力条件は変更できません"
+            )
         candidate_input = self._prepare(
             project.task_id,
             candidate_input,

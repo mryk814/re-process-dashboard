@@ -15,6 +15,9 @@ from decision_workbench.api.catalog import router as catalog_router
 from decision_workbench.api.data_exploration import (
     router as data_exploration_router,
 )
+from decision_workbench.api.historical_observations import (
+    router as historical_observations_router,
+)
 from decision_workbench.api.data_library import router as data_library_router
 from decision_workbench.api.csv_task_onboarding import router as csv_task_onboarding_router
 from decision_workbench.api.data_lifecycle import (
@@ -142,6 +145,7 @@ def create_app(
     app.include_router(projects_router)
     app.include_router(candidates_router)
     app.include_router(data_exploration_router)
+    app.include_router(historical_observations_router)
     app.include_router(screening_router)
     app.include_router(decision_activities_router)
     app.include_router(inference_router)

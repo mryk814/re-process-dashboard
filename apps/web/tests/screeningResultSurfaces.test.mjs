@@ -129,13 +129,20 @@ test("experiment batches have their own visible surface meaning and one-based or
     available: true,
   });
   assert.equal(initialScreeningResultSurface(run), "proposals");
-  const html = renderBatch({ result: run });
+  const html = renderBatch({
+    result: run,
+    stockedPointIndices: new Set(),
+    remainingCandidateCapacity: 1,
+    promotionPendingPointIndex: null,
+    onPromote() {},
+  });
   assert.match(html, /aria-label="実験バッチ"/);
   assert.match(html, /<h3>実験バッチ<\/h3>/);
   assert.match(html, /<th scope="row">1<\/th>/);
   assert.doesNotMatch(html, /<th scope="row">2<\/th>/);
   assert.match(html, />点 3</);
   assert.match(html, />多様性</);
+  assert.match(html, /この条件を候補にする/);
   assert.doesNotMatch(html, /提案候補に共通|代表点に共通/);
 });
 

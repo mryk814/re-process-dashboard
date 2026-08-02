@@ -418,11 +418,72 @@ class ScreeningReference(ContractModel):
     run_id: Annotated[str, Field(min_length=1)]
     point_id: Annotated[str, Field(min_length=1)]
     point_index: Annotated[int, Field(ge=0)] | None = None
+    # These fields are absent from candidates promoted by the original generic
+    # screening action.  They are populated only when a saved experiment-batch
+    # member is explicitly promoted, so that an ordinary screening point never
+    # masquerades as batch evidence.
+    source_run_id: Annotated[str, Field(min_length=1)] | None = None
+    batch_member_order: Annotated[int, Field(ge=1)] | None = None
+    batch_member_role: Literal[
+        "performance",
+        "exploration",
+        "boundary_check",
+        "diversity",
+        "coverage",
+        "control",
+        "replicate",
+    ] | None = None
+    task_id: Annotated[str, Field(min_length=1)] | None = None
+    dataset_view_revision_id: Annotated[str, Field(min_length=1)] | None = None
+    model_package_ref_id: Annotated[str, Field(min_length=1)] | None = None
+    model_package_manifest_digest: Annotated[str, Field(min_length=1)] | None = None
+    objective_definition_digest: Annotated[str, Field(min_length=1)] | None = None
+
+    @model_validator(mode="after")
+    def batch_promotion_identity_is_complete(self) -> "ScreeningReference":
+        batch_fields = (
+            self.source_run_id,
+            self.batch_member_order,
+            self.batch_member_role,
+            self.task_id,
+            self.dataset_view_revision_id,
+            self.model_package_ref_id,
+            self.model_package_manifest_digest,
+            self.objective_definition_digest,
+        )
+        if any(field is not None for field in batch_fields) and any(
+            field is None for field in batch_fields
+        ):
+            raise ValueError("experiment batch candidate provenance must be complete")
+        return self
 
 
 class ScreeningSourceRef(ContractModel):
     source_kind: Literal["screening"]
     source_ref: ScreeningReference
+
+
+class HistoricalObservationReference(ContractModel):
+    """A record in the Project-pinned flat Dataset, not material lineage."""
+
+    dataset_view_revision_id: Annotated[str, Field(min_length=1)]
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    observation_id: Annotated[str, Field(min_length=1)]
+    parent_key: Annotated[str, Field(min_length=1)]
+    source_label: Annotated[str, Field(min_length=1)]
+    actual_outputs: dict[str, StrictFloat]
+
+    @field_validator("actual_outputs")
+    @classmethod
+    def actual_outputs_are_finite(cls, value: dict[str, float]) -> dict[str, float]:
+        if any(not math.isfinite(item) for item in value.values()):
+            raise ValueError("historical actual outputs must be finite")
+        return value
+
+
+class HistoricalObservationSourceRef(ContractModel):
+    source_kind: Literal["historical_observation"]
+    source_ref: HistoricalObservationReference
 
 
 class SnapshotReference(ContractModel):
@@ -481,6 +542,7 @@ CandidateProvenance = Annotated[
     | DirectSourceRef
     | LineageSourceRef
     | ScreeningSourceRef
+    | HistoricalObservationSourceRef
     | SnapshotSourceRef
     | CopySourceRef
     | BlendOptimizationSourceRef

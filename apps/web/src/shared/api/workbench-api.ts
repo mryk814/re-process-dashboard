@@ -23,6 +23,9 @@ export type ApiResponseContour = components["schemas"]["ResponseContourResponse"
 export type ApiInferenceDiagnostics = components["schemas"]["InferenceDiagnosticsResponse"];
 export type ApiSimilarObservation = components["schemas"]["SimilarObservation"];
 export type ApiCandidateOriginEvidence = components["schemas"]["CandidateOriginEvidence"];
+export type ApiHistoricalObservationList = components["schemas"]["HistoricalObservationListResponse"];
+export type ApiHistoricalObservationEvidence = components["schemas"]["HistoricalObservationEvidence"];
+export type ApiHistoricalObservationCandidate = components["schemas"]["HistoricalObservationCandidateResponse"];
 export type ApiQuality = components["schemas"]["QualityResponse"];
 export type ApiLineage = components["schemas"]["LineageResponse"];
 export type ApiLineageCandidateOption = components["schemas"]["LineageCandidateOption"];
@@ -846,6 +849,23 @@ export const workbenchApi = {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
       signal,
     }), "作成元実測を取得できませんでした。");
+  },
+  async historicalObservations(projectId: string, signal?: AbortSignal): Promise<ApiHistoricalObservationList> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/historical-observations", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "過去の実測recordを取得できませんでした。");
+  },
+  async createCandidateFromHistoricalObservation(projectId: string, observationId: string): Promise<ApiHistoricalObservationCandidate> {
+    return requireData(await apiClient.POST("/api/projects/{project_id}/historical-observations/{observation_id}/candidate", {
+      params: { path: { project_id: projectId, observation_id: observationId } },
+    }), "過去の実測recordから候補を作成できませんでした。");
+  },
+  async historicalObservationEvidence(projectId: string, candidateId: string, signal?: AbortSignal): Promise<ApiHistoricalObservationEvidence> {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates/{candidate_id}/historical-evidence", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "候補化した過去の実測recordを取得できませんでした。");
   },
   async createCandidateFromLineage(entityKey: string, projectId: string, processKey?: string, meltKey?: string) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/lineage/{entity_key}/candidate", { params: { path: { project_id: projectId, entity_key: entityKey }, query: { process_key: processKey, melt_key: meltKey } } }), "候補を作成できませんでした。");

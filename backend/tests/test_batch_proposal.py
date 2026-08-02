@@ -409,12 +409,44 @@ def test_screening_api_persists_batch_and_promotes_only_selected_conditions(clie
             if item["point_index"] is not None
         )
     )
+    rejected_duplicate = client.post(
+        f"/api/screening/{run['id']}/candidates",
+        json={"point_indices": [point_indices[0], point_indices[0]]},
+    )
+    assert rejected_duplicate.status_code == 422
+    assert "重複" in rejected_duplicate.json()["message"]
+    non_member = next(
+        point["index"] for point in run["points"] if point["index"] not in point_indices
+    )
+    rejected_non_member = client.post(
+        f"/api/screening/{run['id']}/candidates",
+        json={"point_indices": [non_member]},
+    )
+    assert rejected_non_member.status_code == 422
+    assert "実験バッチに含まれない" in rejected_non_member.json()["message"]
     created = client.post(
         f"/api/screening/{run['id']}/candidates",
         json={"point_indices": point_indices},
     )
     assert created.status_code == 201, created.text
     assert len(created.json()["candidates"]) == len(point_indices)
+    promoted = created.json()["candidates"]
+    project = client.get("/api/projects/default").json()
+    selected_by_index = {
+        item["point_index"]: item for item in batch["selected"] if item["point_index"] is not None
+    }
+    for candidate in promoted:
+        reference = candidate["provenance"]["source_ref"]
+        selected = selected_by_index[reference["point_index"]]
+        assert reference["run_id"] == run["id"]
+        assert reference["source_run_id"] == run["source_run_id"]
+        assert reference["batch_member_order"] == selected["order"]
+        assert reference["batch_member_role"] == selected["role"]
+        assert reference["task_id"] == project["task_id"]
+        assert reference["objective_definition_digest"] == run["objective_definition_digest"]
+        assert reference["dataset_view_revision_id"] == project["dataset_view_revision_id"]
+        assert reference["model_package_ref_id"] == project["model_package_ref_id"]
+        assert reference["model_package_manifest_digest"] == project["model_package_manifest_digest"]
     restored = client.get(f"/api/screening/{run['id']}")
     assert restored.status_code == 200
     assert restored.json()["batch_proposal"] == batch

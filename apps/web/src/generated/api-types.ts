@@ -1354,6 +1354,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/candidates/{candidate_id}/historical-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historical Observation Evidence */
+        get: operations["historical_observation_evidence_api_projects__project_id__candidates__candidate_id__historical_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence": {
         parameters: {
             query?: never;
@@ -1973,6 +1990,40 @@ export interface paths {
         /** Move Project To Group */
         put: operations["moveProjectToGroup"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/historical-observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Historical Observations */
+        get: operations["list_historical_observations_api_projects__project_id__historical_observations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/historical-observations/{observation_id}/candidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Candidate From Historical Observation */
+        post: operations["create_candidate_from_historical_observation_api_projects__project_id__historical_observations__observation_id__candidate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3885,7 +3936,7 @@ export interface components {
             /** Project Id */
             project_id: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
             /** Revision */
             revision: number;
             /**
@@ -4013,7 +4064,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
         /** CandidateInputs */
         CandidateInputs: {
@@ -4075,7 +4126,7 @@ export interface components {
              */
             name: string;
             /** Provenance */
-            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
+            provenance?: components["schemas"]["ManualSourceRef"] | components["schemas"]["DirectSourceRef"] | components["schemas"]["LineageSourceRef"] | components["schemas"]["ScreeningSourceRef"] | components["schemas"]["HistoricalObservationSourceRef"] | components["schemas"]["SnapshotSourceRef"] | components["schemas"]["CopySourceRef"] | components["schemas"]["BlendOptimizationSourceRef"] | components["schemas"]["DecisionActivitySourceRef"];
         };
         /** CanonicalDatasetRevision */
         CanonicalDatasetRevision: {
@@ -7076,6 +7127,85 @@ export interface components {
             temperature_c: number;
             /** Time S */
             time_s: number;
+        };
+        /** HistoricalObservationCandidateResponse */
+        HistoricalObservationCandidateResponse: {
+            candidate: components["schemas"]["Candidate"];
+            evidence: components["schemas"]["HistoricalObservationEvidence"];
+        };
+        /** HistoricalObservationEvidence */
+        HistoricalObservationEvidence: {
+            /** Actual Outputs */
+            actual_outputs: {
+                [key: string]: number;
+            };
+            /** Candidate Id */
+            candidate_id: string;
+            inputs: components["schemas"]["CandidateInputs"];
+            reference: components["schemas"]["HistoricalObservationReference"];
+        };
+        /** HistoricalObservationListResponse */
+        HistoricalObservationListResponse: {
+            /** Available */
+            available: boolean;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Reason */
+            reason?: string | null;
+            /** Records */
+            records?: components["schemas"]["HistoricalObservationRecord"][];
+            /** Source Sha256 */
+            source_sha256: string;
+        };
+        /**
+         * HistoricalObservationRecord
+         * @description A selectable flat-table record resolved from the Project's fixed data.
+         */
+        HistoricalObservationRecord: {
+            /** Actual Outputs */
+            actual_outputs: {
+                [key: string]: number;
+            };
+            /** Candidate Eligible */
+            candidate_eligible: boolean;
+            /** Candidate Reason */
+            candidate_reason?: string | null;
+            inputs: components["schemas"]["CandidateInputs"];
+            /** Observation Id */
+            observation_id: string;
+            /** Parent Key */
+            parent_key: string;
+            /** Source Label */
+            source_label: string;
+        };
+        /**
+         * HistoricalObservationReference
+         * @description A record in the Project-pinned flat Dataset, not material lineage.
+         */
+        HistoricalObservationReference: {
+            /** Actual Outputs */
+            actual_outputs: {
+                [key: string]: number;
+            };
+            /** Dataset View Revision Id */
+            dataset_view_revision_id: string;
+            /** Observation Id */
+            observation_id: string;
+            /** Parent Key */
+            parent_key: string;
+            /** Source Label */
+            source_label: string;
+            /** Source Sha256 */
+            source_sha256: string;
+        };
+        /** HistoricalObservationSourceRef */
+        HistoricalObservationSourceRef: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source_kind: "historical_observation";
+            source_ref: components["schemas"]["HistoricalObservationReference"];
         };
         /** IdenticalDuplicateMerge */
         IdenticalDuplicateMerge: {
@@ -12001,12 +12131,28 @@ export interface components {
         };
         /** ScreeningReference */
         ScreeningReference: {
+            /** Batch Member Order */
+            batch_member_order?: number | null;
+            /** Batch Member Role */
+            batch_member_role?: ("performance" | "exploration" | "boundary_check" | "diversity" | "coverage" | "control" | "replicate") | null;
+            /** Dataset View Revision Id */
+            dataset_view_revision_id?: string | null;
+            /** Model Package Manifest Digest */
+            model_package_manifest_digest?: string | null;
+            /** Model Package Ref Id */
+            model_package_ref_id?: string | null;
+            /** Objective Definition Digest */
+            objective_definition_digest?: string | null;
             /** Point Id */
             point_id: string;
             /** Point Index */
             point_index?: number | null;
             /** Run Id */
             run_id: string;
+            /** Source Run Id */
+            source_run_id?: string | null;
+            /** Task Id */
+            task_id?: string | null;
         };
         /** ScreeningRequest */
         ScreeningRequest: {
@@ -16942,6 +17088,65 @@ export interface operations {
             };
         };
     };
+    historical_observation_evidence_api_projects__project_id__candidates__candidate_id__historical_evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalObservationEvidence"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     candidate_origin_evidence_api_projects__project_id__candidates__candidate_id__origin_evidence_get: {
         parameters: {
             query?: never;
@@ -18530,6 +18735,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_historical_observations_api_projects__project_id__historical_observations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalObservationListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Task Runtime Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_candidate_from_historical_observation_api_projects__project_id__historical_observations__observation_id__candidate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                observation_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoricalObservationCandidateResponse"];
                 };
             };
             /** @description Not Found */

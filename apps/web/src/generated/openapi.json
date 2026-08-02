@@ -3135,6 +3135,7 @@
                 "copy": "#/components/schemas/CopySourceRef",
                 "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
+                "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -3154,6 +3155,9 @@
               },
               {
                 "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/HistoricalObservationSourceRef"
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
@@ -3520,6 +3524,7 @@
                 "copy": "#/components/schemas/CopySourceRef",
                 "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
+                "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -3539,6 +3544,9 @@
               },
               {
                 "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/HistoricalObservationSourceRef"
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
@@ -3725,6 +3733,7 @@
                 "copy": "#/components/schemas/CopySourceRef",
                 "decision_activity": "#/components/schemas/DecisionActivitySourceRef",
                 "direct": "#/components/schemas/DirectSourceRef",
+                "historical_observation": "#/components/schemas/HistoricalObservationSourceRef",
                 "lineage": "#/components/schemas/LineageSourceRef",
                 "manual": "#/components/schemas/ManualSourceRef",
                 "screening": "#/components/schemas/ScreeningSourceRef",
@@ -3744,6 +3753,9 @@
               },
               {
                 "$ref": "#/components/schemas/ScreeningSourceRef"
+              },
+              {
+                "$ref": "#/components/schemas/HistoricalObservationSourceRef"
               },
               {
                 "$ref": "#/components/schemas/SnapshotSourceRef"
@@ -11755,6 +11767,214 @@
           "temperature_c"
         ],
         "title": "HeatPoint",
+        "type": "object"
+      },
+      "HistoricalObservationCandidateResponse": {
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/Candidate"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/HistoricalObservationEvidence"
+          }
+        },
+        "required": [
+          "candidate",
+          "evidence"
+        ],
+        "title": "HistoricalObservationCandidateResponse",
+        "type": "object"
+      },
+      "HistoricalObservationEvidence": {
+        "properties": {
+          "actual_outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Actual Outputs",
+            "type": "object"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/HistoricalObservationReference"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "reference",
+          "inputs",
+          "actual_outputs"
+        ],
+        "title": "HistoricalObservationEvidence",
+        "type": "object"
+      },
+      "HistoricalObservationListResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "dataset_view_revision_id": {
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/HistoricalObservationRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_view_revision_id",
+          "source_sha256",
+          "available"
+        ],
+        "title": "HistoricalObservationListResponse",
+        "type": "object"
+      },
+      "HistoricalObservationRecord": {
+        "description": "A selectable flat-table record resolved from the Project's fixed data.",
+        "properties": {
+          "actual_outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Actual Outputs",
+            "type": "object"
+          },
+          "candidate_eligible": {
+            "title": "Candidate Eligible",
+            "type": "boolean"
+          },
+          "candidate_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Reason"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CandidateInputs"
+          },
+          "observation_id": {
+            "minLength": 1,
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "parent_key": {
+            "minLength": 1,
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "parent_key",
+          "source_label",
+          "inputs",
+          "actual_outputs",
+          "candidate_eligible"
+        ],
+        "title": "HistoricalObservationRecord",
+        "type": "object"
+      },
+      "HistoricalObservationReference": {
+        "additionalProperties": false,
+        "description": "A record in the Project-pinned flat Dataset, not material lineage.",
+        "properties": {
+          "actual_outputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Actual Outputs",
+            "type": "object"
+          },
+          "dataset_view_revision_id": {
+            "minLength": 1,
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "observation_id": {
+            "minLength": 1,
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "parent_key": {
+            "minLength": 1,
+            "title": "Parent Key",
+            "type": "string"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_view_revision_id",
+          "source_sha256",
+          "observation_id",
+          "parent_key",
+          "source_label",
+          "actual_outputs"
+        ],
+        "title": "HistoricalObservationReference",
+        "type": "object"
+      },
+      "HistoricalObservationSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "historical_observation",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/HistoricalObservationReference"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_ref"
+        ],
+        "title": "HistoricalObservationSourceRef",
         "type": "object"
       },
       "IdenticalDuplicateMerge": {
@@ -24501,6 +24721,86 @@
       "ScreeningReference": {
         "additionalProperties": false,
         "properties": {
+          "batch_member_order": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Member Order"
+          },
+          "batch_member_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "performance",
+                  "exploration",
+                  "boundary_check",
+                  "diversity",
+                  "coverage",
+                  "control",
+                  "replicate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Member Role"
+          },
+          "dataset_view_revision_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset View Revision Id"
+          },
+          "model_package_manifest_digest": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Manifest Digest"
+          },
+          "model_package_ref_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Package Ref Id"
+          },
+          "objective_definition_digest": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Definition Digest"
+          },
           "point_id": {
             "minLength": 1,
             "title": "Point Id",
@@ -24522,6 +24822,30 @@
             "minLength": 1,
             "title": "Run Id",
             "type": "string"
+          },
+          "source_run_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Run Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
           }
         },
         "required": [
@@ -33162,6 +33486,84 @@
         "summary": "Get Candidate Derivation Chain"
       }
     },
+    "/api/projects/{project_id}/candidates/{candidate_id}/historical-evidence": {
+      "get": {
+        "operationId": "historical_observation_evidence_api_projects__project_id__candidates__candidate_id__historical_evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoricalObservationEvidence"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Historical Observation Evidence"
+      }
+    },
     "/api/projects/{project_id}/candidates/{candidate_id}/origin-evidence": {
       "get": {
         "operationId": "candidate_origin_evidence_api_projects__project_id__candidates__candidate_id__origin_evidence_get",
@@ -35570,6 +35972,153 @@
           }
         },
         "summary": "Move Project To Group"
+      }
+    },
+    "/api/projects/{project_id}/historical-observations": {
+      "get": {
+        "operationId": "list_historical_observations_api_projects__project_id__historical_observations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoricalObservationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "List Historical Observations"
+      }
+    },
+    "/api/projects/{project_id}/historical-observations/{observation_id}/candidate": {
+      "post": {
+        "operationId": "create_candidate_from_historical_observation_api_projects__project_id__historical_observations__observation_id__candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "observation_id",
+            "required": true,
+            "schema": {
+              "title": "Observation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoricalObservationCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Task Runtime Unavailable"
+          }
+        },
+        "summary": "Create Candidate From Historical Observation"
       }
     },
     "/api/projects/{project_id}/history": {

@@ -117,6 +117,61 @@ class CandidateRepository:
     ) -> Candidate:
         return self.create_candidates([payload], project_id)[0]
 
+    def create_or_get_historical_observation_candidate(
+        self,
+        payload: CandidateInput,
+        project_id: str,
+    ) -> Candidate:
+        """Atomically preserve one Candidate identity for one source observation."""
+        if payload.provenance.source_kind != "historical_observation":
+            raise ValueError("historical observation provenance is required")
+        reference = payload.provenance.source_ref
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if (
+                conn.execute(
+                    "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+                ).fetchone()
+                is None
+            ):
+                raise ProjectNotFoundError(project_id)
+            for row in conn.execute(
+                "SELECT * FROM candidates WHERE project_id = ?", (project_id,)
+            ):
+                existing = self._candidate(row)
+                if (
+                    existing.provenance.source_kind == "historical_observation"
+                    and existing.provenance.source_ref == reference
+                ):
+                    return existing
+            current = int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM candidates WHERE project_id = ? AND archived_at IS NULL",
+                    (project_id,),
+                ).fetchone()[0]
+            )
+            if current >= MAX_CANDIDATES_PER_PROJECT:
+                raise CandidateLimitError(
+                    f"候補は1プロジェクトにつき最大{MAX_CANDIDATES_PER_PROJECT}件です"
+                )
+            candidate_id, now = str(uuid.uuid4()), _now()
+            conn.execute(
+                "INSERT INTO candidates(id,project_id,name,payload,created_at,updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    candidate_id,
+                    project_id,
+                    payload.name,
+                    payload.model_dump_json(),
+                    now,
+                    now,
+                ),
+            )
+            created = conn.execute(
+                "SELECT * FROM candidates WHERE id = ?", (candidate_id,)
+            ).fetchone()
+            self._record_candidate_revision(conn, created)
+        return self._candidate(created)
+
     def create_candidates(
         self, payloads: list[CandidateInput], project_id: str = "default"
     ) -> list[Candidate]:

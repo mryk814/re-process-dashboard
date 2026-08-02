@@ -1049,18 +1049,89 @@ class ScreeningService:
         if run is None:
             raise ScreeningNotFoundError("スクリーニング結果が見つかりません")
         points = {item["index"]: item for item in run["points"]}
-        unique_indices = list(dict.fromkeys(payload.point_indices))
-        missing = [index for index in unique_indices if index not in points]
+        requested_indices = list(payload.point_indices)
+        missing = [index for index in requested_indices if index not in points]
         if missing:
-            raise ScreeningNotFoundError(f"スクリーニング点が見つかりません: {', '.join(map(str, missing))}")
-        candidate_payloads = [(index, CandidateInput.model_validate({
-            **points[index]["candidate"],
-            "name": f"Screen {run_id[:6]} #{index + 1}",
-            "provenance": {
-                "source_kind": "screening",
-                "source_ref": {"run_id": run_id, "point_id": str(index), "point_index": index},
-            },
-        })) for index in unique_indices]
+            raise ScreeningNotFoundError(
+                f"スクリーニング点が見つかりません: {', '.join(map(str, missing))}"
+            )
+        if run.get("purpose") == "experiment_batch":
+            if len(requested_indices) != len(set(requested_indices)):
+                raise ScreeningValidationError("同じ実験バッチmemberを重複して候補化できません")
+            batch = run.get("batch_proposal") or {}
+            acquisition_members = [
+                item
+                for item in batch.get("selected", [])
+                if item.get("source") == "acquisition_ranked"
+                and item.get("point_index") is not None
+            ]
+            member_indices = [item["point_index"] for item in acquisition_members]
+            if len(member_indices) != len(set(member_indices)):
+                raise ScreeningValidationError(
+                    "保存済み実験バッチに同じ評価点が重複しています"
+                )
+            members = {
+                item["point_index"]: item
+                for item in acquisition_members
+            }
+            outside_batch = [index for index in requested_indices if index not in members]
+            if outside_batch:
+                raise ScreeningValidationError(
+                    "保存済み実験バッチに含まれない評価点は候補化できません: "
+                    + ", ".join(map(str, outside_batch))
+                )
+            required_identity = {
+                "source_run_id": run.get("source_run_id"),
+                "dataset_view_revision_id": None,
+                "model_package_ref_id": None,
+                "model_package_manifest_digest": None,
+                "objective_definition_digest": run.get("objective_definition_digest"),
+            }
+            project = self.projects.require(project_id)
+            required_identity.update({
+                "dataset_view_revision_id": project.dataset_view_revision_id,
+                "model_package_ref_id": project.model_package_ref_id,
+                "model_package_manifest_digest": project.model_package_manifest_digest,
+            })
+            missing_identity = [key for key, value in required_identity.items() if not value]
+            if missing_identity:
+                raise ScreeningValidationError(
+                    "保存済み実験バッチのprovenanceが不完全です: "
+                    + ", ".join(missing_identity)
+                )
+            candidate_payloads = []
+            for index in requested_indices:
+                member = members[index]
+                candidate_payloads.append((index, CandidateInput.model_validate({
+                    **points[index]["candidate"],
+                    "name": f"Batch {run_id[:6]} #{member['order']}",
+                    "provenance": {
+                        "source_kind": "screening",
+                        "source_ref": {
+                            "run_id": run_id,
+                            "point_id": str(index),
+                            "point_index": index,
+                            "source_run_id": required_identity["source_run_id"],
+                            "batch_member_order": member["order"],
+                            "batch_member_role": member["role"],
+                            "task_id": project.task_id,
+                            "dataset_view_revision_id": required_identity["dataset_view_revision_id"],
+                            "model_package_ref_id": required_identity["model_package_ref_id"],
+                            "model_package_manifest_digest": required_identity["model_package_manifest_digest"],
+                            "objective_definition_digest": required_identity["objective_definition_digest"],
+                        },
+                    },
+                })))
+        else:
+            unique_indices = list(dict.fromkeys(requested_indices))
+            candidate_payloads = [(index, CandidateInput.model_validate({
+                **points[index]["candidate"],
+                "name": f"Screen {run_id[:6]} #{index + 1}",
+                "provenance": {
+                    "source_kind": "screening",
+                    "source_ref": {"run_id": run_id, "point_id": str(index), "point_index": index},
+                },
+            })) for index in unique_indices]
         project = self.projects.require(project_id)
         try:
             for _, candidate_payload in candidate_payloads:

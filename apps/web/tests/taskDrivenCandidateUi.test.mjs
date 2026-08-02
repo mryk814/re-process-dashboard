@@ -11,9 +11,11 @@ const bundle = await build({
       import React from "react";
       import { renderToStaticMarkup } from "react-dom/server";
       import { CandidateInspector, ComparisonTable } from "./features/candidates/CandidateUi.tsx";
+      import { HeatPattern } from "./features/workbench/HeatPatternPanel.tsx";
       import { similarObservationRowKey } from "./features/workbench/similarObservationIdentity.ts";
       export const element = (text) => React.createElement("div", null, text);
       export const renderInspector = (props) => renderToStaticMarkup(React.createElement(CandidateInspector, props));
+      export const renderHeatPattern = (props) => renderToStaticMarkup(React.createElement(HeatPattern, props));
       export { similarObservationRowKey };
       export const renderComparison = (props) => renderToStaticMarkup(React.createElement(ComparisonTable, {
         decisionCandidateId: "",
@@ -43,7 +45,7 @@ const bundle = await build({
 });
 const module = { exports: {} };
 new Function("module", "exports", "require", bundle.outputFiles[0].text)(module, module.exports, createRequire(import.meta.url));
-const { element, renderInspector, renderComparison, similarObservationRowKey } = module.exports;
+const { element, renderInspector, renderHeatPattern, renderComparison, similarObservationRowKey } = module.exports;
 
 const numberField = (path, label, order = 0) => ({ path, label, order, kind: "number", unit: path.startsWith("composition") ? "mass%" : "°C", required: true, editable: true, choices: [], allowed_range: { min: 0, max: 1500 }, training_range: { min: 1, max: 1000 } });
 const candidate = {
@@ -277,6 +279,57 @@ test("non-editable fields are disabled and goal probability remains visible", ()
   assert.match(comparison, /value="0.10000"/);
   assert.match(comparison, /パラメトリック予測区間（90%） 480.0–520.0/);
   assert.match(comparison, /title="パラメトリック予測区間（90%） 480.0–520.0 \/ モデル由来 ±12 \/ 測定由来 ±8"/);
+});
+
+test("historical-observation candidates keep every input surface read-only", () => {
+  const definition = {
+    input_groups: [{ key: "composition", order: 0, label: "組成", fields: [numberField("composition.C", "C")] }],
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa", goal_direction: "at_least" }],
+    display_decimals: { "composition.C": 5, "output.TS": 1 },
+    fixed_context: [],
+  };
+  const historical = {
+    ...candidate,
+    raw: {
+      ...candidate.raw,
+      provenance: {
+        source_kind: "historical_observation",
+        source_ref: {
+          observation_id: "OBS-42",
+          parent_key: "batch-42",
+          source_label: "historical.csv",
+          dataset_view_revision_id: "dataset-42",
+          source_sha256: "a".repeat(64),
+          actual_outputs: { TS: 500 },
+        },
+      },
+    },
+  };
+  const inspector = renderInspector({ candidate: historical, taskDefinition: definition, saveState: "idle", fieldErrors: [], onInput() {} });
+  const comparison = renderComparison({ candidates: [historical], selectedId: historical.id, taskDefinition: definition, previewsByCandidate: {}, targetValues: {}, onSelect() {}, onName() {}, onInput() {} });
+  assert.match(inspector, /過去の実測recordから作成した候補の入力条件は編集できません/);
+  assert.match(inspector, /class="candidate-input-readonly" disabled=""/);
+  assert.match(comparison, /<input disabled="" type="number"/);
+});
+
+test("historical-observation heat patterns disable pointer and form update entrances", () => {
+  const historical = {
+    ...candidate,
+    heatTimeBasis: "elapsed_time",
+    heat: [{ time: 10, temperature: 700, stageName: "均熱" }, { time: 30, temperature: 650, stageName: "冷却" }],
+    raw: {
+      ...candidate.raw,
+      provenance: { source_kind: "historical_observation", source_ref: { observation_id: "OBS-42" } },
+    },
+  };
+  const heat = renderHeatPattern({ candidates: [historical], candidate: historical, onTimeBasisChange() {}, onUpdate() {}, onAdd() {}, onDelete() {} });
+  assert.match(heat, /class="chart-panel heat-panel read-only"/);
+  assert.match(heat, /過去の実測recordから作成した候補のため編集できません/);
+  assert.match(heat, /<select aria-label="ヒートパターンの時間基準" disabled=""/);
+  assert.match(heat, /tabindex="-1" aria-disabled="true"/);
+  assert.match(heat, /<button class="text-button" disabled=""/);
+  assert.match(heat, /<input type="text" disabled=""/);
+  assert.match(heat, /<input type="number" step="0.01" disabled=""/);
 });
 
 test("physically implausible interval is marked on the interval without condemning an in-range point", () => {

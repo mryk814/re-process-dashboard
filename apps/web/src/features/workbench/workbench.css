@@ -299,6 +299,36 @@
   color: #245d55;
   font-variant-numeric: tabular-nums;
 }
+.candidate-origin-historical-identity {
+  flex: 1 1 220px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.candidate-input-readonly {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.candidate-historical-input-note,
+.candidate-origin-integrity-error {
+  display: block;
+  color: #8a4a14;
+}
+.candidate-origin-historical-identity small {
+  margin-left: 0;
+  white-space: normal;
+}
+.candidate-origin-historical-identity details {
+  max-width: 100%;
+}
+.candidate-origin-historical-identity code {
+  overflow-wrap: anywhere;
+}
 .workbench-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1589,6 +1619,10 @@
   cursor: ns-resize;
   stroke: #fff;
   stroke-width: 2px;
+}
+.heat-panel.read-only .heat-chart circle {
+  cursor: default;
+  opacity: .62;
 }
 .heat-chart .svg-chart-hit-target[fill="transparent"] { cursor: crosshair; stroke: transparent; stroke-width: 0; }
 .heat-edit {
