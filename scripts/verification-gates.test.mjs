@@ -24,6 +24,7 @@ import {
   resolveExecutable,
   verificationEvidenceMarkdown,
   verificationCatalogSha256,
+  verificationGateEnvironment,
   validateVerificationCatalog,
 } from "./verification-gates.mjs";
 import {
@@ -760,6 +761,33 @@ test("catalog-declared full pytest absorption removes every contained pytest gat
   assert.ok(!ciPlan.executionGateIds.includes("security-boundary-tests"));
   assert.ok(ciPlan.executionGateIds.includes("full-pytest"));
   validateCiPlan(ciPlan, { catalog });
+});
+
+test("local and CI gate execution skip failure-state specs already owned by default Playwright", () => {
+  assert.deepEqual(
+    verificationGateEnvironment(
+      { KEEP: "yes", VERIFICATION_SKIP_STANDARD_FAILURE_SPECS: "inherited" },
+      "failure-state-e2e",
+      ["failure-state-e2e", "default-playwright"],
+    ),
+    { KEEP: "yes", VERIFICATION_SKIP_STANDARD_FAILURE_SPECS: "1" },
+  );
+  assert.deepEqual(
+    verificationGateEnvironment(
+      { KEEP: "yes", VERIFICATION_SKIP_STANDARD_FAILURE_SPECS: "1" },
+      "failure-state-e2e",
+      ["failure-state-e2e"],
+    ),
+    { KEEP: "yes" },
+  );
+  assert.deepEqual(
+    verificationGateEnvironment(
+      { KEEP: "yes", VERIFICATION_SKIP_STANDARD_FAILURE_SPECS: "1" },
+      "default-playwright",
+      ["failure-state-e2e", "default-playwright"],
+    ),
+    { KEEP: "yes" },
+  );
 });
 
 test("CI aggregation restores the logical verification outcome", () => {

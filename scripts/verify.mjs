@@ -13,6 +13,7 @@ import {
   evaluateVerificationOutcome,
   verificationEvidenceMarkdown,
   verificationCatalogSha256,
+  verificationGateEnvironment,
 } from "./verification-gates.mjs";
 
 const argv = process.argv.slice(2);
@@ -131,8 +132,13 @@ for (const gateId of plan.selectedGateIds) {
   process.stdout.write(grouped ? `::group::${gateId}\n` : `\n== ${gateId} ==\n`);
   const gateStartedAt = new Date();
   const platformSupported = gateRunsOnPlatform(gate.platform, currentPlatform);
+  const gateEnvironment = verificationGateEnvironment(
+    process.env,
+    gateId,
+    plan.selectedGateIds,
+  );
   const result = platformSupported
-    ? spawnSync(executable.command, args, { stdio: "inherit", env: process.env })
+    ? spawnSync(executable.command, args, { stdio: "inherit", env: gateEnvironment })
     : {
         status: 1,
         error: new Error(

@@ -26,6 +26,7 @@ import {
   resolveRunner,
   verificationCatalogSha256,
   verificationEvidenceMarkdown,
+  verificationGateEnvironment,
 } from "./verification-gates.mjs";
 
 export const ciPlanSchemaVersion = "verification-ci-plan/v1";
@@ -654,9 +655,9 @@ function runnerFailureDiagnostics({ shardId, testedCommit, error }) {
 
 function runGateIds({
   gateIds,
+  allExecutionGateIds = gateIds,
   plan,
   catalog,
-  skipDefaultFailureSpecs = false,
   diagnosticsDirectory = null,
   diagnosticIdentity: shardIdentity = null,
 }) {
@@ -688,10 +689,11 @@ function runGateIds({
     });
     const executable = resolveExecutable(resolvedRunner.executable);
     const args = [...executable.prefix, ...resolvedRunner.args];
-    const gateEnvironment = { ...environment };
-    if (gateId === "failure-state-e2e" && skipDefaultFailureSpecs) {
-      gateEnvironment.VERIFICATION_SKIP_STANDARD_FAILURE_SPECS = "1";
-    }
+    const gateEnvironment = verificationGateEnvironment(
+      environment,
+      gateId,
+      allExecutionGateIds,
+    );
     process.stdout.write(`::group::${gateId}\n`);
     const gateStartedAt = new Date();
     const platformSupported = gateRunsOnPlatform(gate.platform, currentPlatform);
@@ -801,11 +803,9 @@ export function runVerificationShard({
   writeJson(resolve(diagnosticsDirectory, "identity.json"), diagnostics);
   const execution = runGateIds({
     gateIds: shard.gateIds,
+    allExecutionGateIds: ciPlan.executionGateIds,
     plan: ciPlan.originalPlan,
     catalog,
-    skipDefaultFailureSpecs: ciPlan.executionGateIds.includes(
-      "default-playwright",
-    ),
     diagnosticsDirectory,
     diagnosticIdentity: diagnostics,
   });
