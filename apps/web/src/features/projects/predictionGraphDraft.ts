@@ -22,6 +22,13 @@ export type SourceOption = {
   port: GraphPort;
 };
 
+export type GraphPresentationEdge = {
+  key: string;
+  kind: "binding" | "decision_output";
+  sourceKey: string;
+  targetKey: string;
+};
+
 export function stageCatalogItem(
   catalog: ApiPredictionGraphCatalog,
   stage: GraphStage,
@@ -127,7 +134,29 @@ export function moveStage(
 
 function candidatePath(port: GraphPort) {
   if (port.value_kind === "sparse_blend") return "blend";
+  if (port.path.startsWith("composition.") || port.path.startsWith("process.") || port.path.startsWith("categorical.")) {
+    return port.path;
+  }
   return `${port.value_kind === "categorical" ? "categorical" : "process"}.${port.quantity}`;
+}
+
+export function graphPresentationEdges(
+  definition: ApiPredictionGraphDefinition,
+): GraphPresentationEdge[] {
+  return [
+    ...definition.bindings.map((binding) => ({
+      key: `binding:${binding.target_stage_id}:${binding.target_input_path}:${sourceKey(binding.source)}`,
+      kind: "binding" as const,
+      sourceKey: `source:${sourceKey(binding.source)}`,
+      targetKey: `target:${binding.target_stage_id}:${binding.target_input_path}`,
+    })),
+    ...definition.decision_outputs.map((output) => ({
+      key: `decision:${output.output_id}:${output.source_stage_id}:${output.source_output_key}`,
+      kind: "decision_output" as const,
+      sourceKey: `source:stage:${output.source_stage_id}:${output.source_output_key}`,
+      targetKey: `decision:${output.output_id}`,
+    })),
+  ];
 }
 
 export function addInputAndBind(
@@ -192,7 +221,9 @@ export function setInputRole(
             }
           : {
               source_kind: "candidate" as const,
-              candidate_path: candidatePath(input.port),
+              candidate_path: input.value_source.source_kind === "candidate"
+                ? input.value_source.candidate_path
+                : candidatePath({ ...input.port, path: input.label }),
             },
       };
     }),

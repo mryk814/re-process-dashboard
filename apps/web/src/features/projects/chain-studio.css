@@ -179,6 +179,7 @@
 }
 
 .chain-studio-canvas {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 24px;
@@ -186,11 +187,39 @@
   transform-origin: top left;
 }
 
+.chain-studio-edges {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chain-studio-edges path {
+  fill: none;
+  stroke: #6f91bb;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chain-studio-edges path[data-edge-kind="decision_output"] {
+  stroke: #4f9278;
+  stroke-dasharray: 5 3;
+}
+
 .chain-studio-layer {
+  position: relative;
+  z-index: 1;
   display: grid;
   align-content: start;
   gap: 9px;
   width: 235px;
+}
+
+.chain-studio-edit-lock {
+  display: contents;
 }
 
 .chain-studio-layer-label {

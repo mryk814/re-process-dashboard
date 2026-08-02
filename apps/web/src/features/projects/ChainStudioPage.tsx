@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  ApiProject,
   ApiPredictionGraphCatalog,
   ApiPredictionGraphDefinition,
   ApiPredictionGraphPublishResponse,
@@ -13,6 +14,7 @@ import {
   addStage,
   compatibleSources,
   connectSource,
+  graphPresentationEdges,
   initializeGraph,
   moveStage,
   removeBinding,
@@ -32,7 +34,7 @@ import {
 } from "./predictionGraphDraft";
 
 type Props = {
-  onProjectCreated: (projectId: string) => void;
+  onProjectCreated: (project: ApiProject) => void;
 };
 
 function portLabel(port: GraphPort) {
@@ -88,6 +90,10 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
   const [compact, setCompact] = useState(false);
   const [linearCatalogKey, setLinearCatalogKey] = useState("");
   const focusTargets = useRef(new Map<string, HTMLElement>());
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const edgeAnchors = useRef(new Map<string, HTMLElement>());
+  const [edgePaths, setEdgePaths] = useState<Array<{ key: string; kind: "binding" | "decision_output"; d: string }>>([]);
+  // Draft lifetime stays screen-local in this PR. Cross-screen persistence is tracked by #716.
 
   useEffect(() => {
     const controller = new AbortController();
@@ -114,11 +120,64 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
     () => definition && catalog ? allSourceOptions(definition, catalog) : [],
     [catalog, definition],
   );
+  const presentationEdges = useMemo(
+    () => definition ? graphPresentationEdges(definition) : [],
+    [definition],
+  );
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const draw = () => {
+      const canvasRect = canvas.getBoundingClientRect();
+      const paths = presentationEdges.flatMap((edge) => {
+        const source = edgeAnchors.current.get(edge.sourceKey);
+        const target = edgeAnchors.current.get(edge.targetKey);
+        if (!source || !target) return [];
+        const sourceRect = source.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const x1 = (sourceRect.right - canvasRect.left) / zoom;
+        const y1 = (sourceRect.top + sourceRect.height / 2 - canvasRect.top) / zoom;
+        const x2 = (targetRect.left - canvasRect.left) / zoom;
+        const y2 = (targetRect.top + targetRect.height / 2 - canvasRect.top) / zoom;
+        const bend = Math.max(28, (x2 - x1) * .45);
+        return [{
+          key: edge.key,
+          kind: edge.kind,
+          d: `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`,
+        }];
+      });
+      setEdgePaths(paths);
+    };
+    const frame = window.requestAnimationFrame(draw);
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    window.addEventListener("resize", draw);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", draw);
+    };
+  }, [compact, presentationEdges, zoom]);
 
   function registerFocus(key: string) {
     return (element: HTMLElement | null) => {
       if (element) focusTargets.current.set(key, element);
       else focusTargets.current.delete(key);
+    };
+  }
+
+  function registerEdgeAnchor(key: string) {
+    return (element: HTMLElement | null) => {
+      if (element) edgeAnchors.current.set(key, element);
+      else edgeAnchors.current.delete(key);
+    };
+  }
+
+  function registerFocusAndEdge(focusKey: string, edgeKey: string) {
+    return (element: HTMLElement | null) => {
+      registerFocus(focusKey)(element);
+      registerEdgeAnchor(edgeKey)(element);
     };
   }
 
@@ -155,22 +214,27 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
     const target = finding.target;
     const key = target.target_kind === "binding"
       ? `binding:${target.target_id}:${target.port_path ?? ""}`
+      : target.target_kind === "stage" && target.port_path
+        ? `binding:${target.target_id}:${target.port_path}`
       : target.target_kind === "decision_output"
         ? `output:${target.target_id}`
         : `${target.target_kind}:${target.target_id}`;
     if (target.target_kind === "binding") {
       setSelection({ kind: "binding", id: target.target_id, port: target.port_path ?? "" });
+    } else if (target.target_kind === "stage" && target.port_path) {
+      setSelection({ kind: "binding", id: target.target_id, port: target.port_path });
     } else if (target.target_kind === "stage") {
-      setSelection({ kind: "stage", id: target.target_id, port: target.port_path ?? undefined });
+      setSelection({ kind: "stage", id: target.target_id });
     } else if (target.target_kind === "input") {
       setSelection({ kind: "input", id: target.target_id });
     } else if (target.target_kind === "decision_output") {
       setSelection({ kind: "output", id: target.target_id });
     }
-    window.requestAnimationFrame(() => (
-      focusTargets.current.get(key)?.focus()
-      ?? focusTargets.current.get("graph:draft")?.focus()
-    ));
+    window.requestAnimationFrame(() => {
+      const targetElement = focusTargets.current.get(key)
+        ?? focusTargets.current.get("graph:draft");
+      targetElement?.focus();
+    });
   }
 
   async function validateDraft() {
@@ -226,7 +290,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
         project_binding_revision: 1,
         project_binding_values: {},
       });
-      onProjectCreated(project.id);
+      onProjectCreated(project);
     } catch (reason) {
       setActionError(reason instanceof Error ? reason.message : "Revisionの公開またはProject作成に失敗しました。");
     } finally {
@@ -277,6 +341,8 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
       </div>
     </header>
 
+    <fieldset className="chain-studio-edit-lock" disabled={submitting !== null} aria-busy={submitting !== null}>
+      <legend className="sr-only">Prediction Graph draft編集</legend>
     <section className="chain-studio-panel chain-studio-identity" aria-labelledby="graph-identity">
       <h3 id="graph-identity">Graphの目的</h3>
       <div className="chain-studio-fields">
@@ -321,10 +387,19 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
       {connecting && <p className="chain-studio-connect-status" role="status">{connecting.label} の接続先を選択中。互換portだけが有効です。</p>}
       <div className="chain-studio-canvas-viewport">
         <div
+          ref={canvasRef}
           className={`chain-studio-canvas${compact ? " compact" : ""}`}
           style={{ transform: `scale(${zoom})` }}
           data-presentation-zoom={zoom}
         >
+          <svg className="chain-studio-edges" aria-hidden="true">
+            {edgePaths.map((edge) => <path
+              key={edge.key}
+              d={edge.d}
+              data-edge-kind={edge.kind}
+              data-edge-key={edge.key}
+            />)}
+          </svg>
           <div className="chain-studio-layer">
             <span className="chain-studio-layer-label">INPUT</span>
             {definition.inputs.map((input) => {
@@ -336,7 +411,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
                 <button type="button" className="chain-studio-node-title" ref={registerFocus(`input:${input.input_id}`)} onClick={() => setSelection({ kind: "input", id: input.input_id })}>
                   <b>{input.label}</b><small>{input.role.replaceAll("_", " ")}</small>
                 </button>
-                <button type="button" draggable className={`chain-studio-port output${connecting?.key === option.key ? " active" : ""}`} onDragStart={(event) => {
+                <button ref={registerEdgeAnchor(`source:${option.key}`)} type="button" draggable className={`chain-studio-port output${connecting?.key === option.key ? " active" : ""}`} onDragStart={(event) => {
                   event.dataTransfer.setData("text/plain", option.key);
                   selectSource(option);
                 }} onClick={() => selectSource(option)}>
@@ -366,7 +441,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
                     return <div key={key}>
                       <button
                         type="button"
-                        ref={registerFocus(`binding:${stageId}:${port.path}`)}
+                        ref={registerFocusAndEdge(`binding:${stageId}:${port.path}`, `target:${stageId}:${port.path}`)}
                         className={`chain-studio-port input${compatible ? " compatible" : ""}`}
                         aria-label={`${stageId}.${port.path} input。${current ? `${sourceLabel(current.source)}から接続済み` : "未接続"}`}
                         onDragOver={(event) => { if (compatible) event.preventDefault(); }}
@@ -382,7 +457,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
                 <div className="chain-studio-node-ports outputs">
                   {(surface?.output_ports ?? []).map((port) => {
                     const option = sourceOptions.find((entry) => entry.key === `stage:${stageId}:${port.path}`)!;
-                    return <button type="button" draggable className={`chain-studio-port output${connecting?.key === option.key ? " active" : ""}`} key={port.path} onDragStart={(event) => {
+                    return <button ref={registerEdgeAnchor(`source:${option.key}`)} type="button" draggable className={`chain-studio-port output${connecting?.key === option.key ? " active" : ""}`} key={port.path} onDragStart={(event) => {
                       event.dataTransfer.setData("text/plain", option.key);
                       selectSource(option);
                     }} onClick={() => selectSource(option)}>
@@ -396,7 +471,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
           <div className="chain-studio-layer">
             <span className="chain-studio-layer-label">DECISION OUTPUT</span>
             {definition.decision_outputs.map((output) => <article className={`chain-studio-node decision-node${selectionKey(selection) === `output:${output.output_id}` ? " selected" : ""}`} key={output.output_id}>
-              <button type="button" className="chain-studio-node-title" ref={registerFocus(`output:${output.output_id}`)} onClick={() => setSelection({ kind: "output", id: output.output_id })}>
+              <button type="button" className="chain-studio-node-title" ref={registerFocusAndEdge(`output:${output.output_id}`, `decision:${output.output_id}`)} onClick={() => setSelection({ kind: "output", id: output.output_id })}>
                 <b>{output.label}</b><small>{output.role.replaceAll("_", " ")} · {output.required_for_complete_result ? "required" : "optional"}</small>
               </button>
               <span className="chain-studio-terminal-source">← {output.source_stage_id}.{output.source_output_key}</span>
@@ -509,6 +584,7 @@ export function ChainStudioPage({ onProjectCreated }: Props) {
         })()}
       </aside>
     </section>
+    </fieldset>
 
     {validation && <section className={`chain-studio-findings ${validation.valid ? "valid" : "invalid"}`} aria-live="polite">
       <strong>{validation.valid ? `公開可能 · ${validation.candidate_adapter_id}` : `${validation.findings.length}件の修正が必要です`}</strong>

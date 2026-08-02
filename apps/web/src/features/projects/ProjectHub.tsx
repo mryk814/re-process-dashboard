@@ -396,8 +396,13 @@ export function ProjectHub({
   const chainIdentity = identityProject?.scientific_identity?.identity_kind === "chain"
     ? identityProject.scientific_identity
     : null;
+  const predictionGraphIdentity = identityProject?.scientific_identity?.identity_kind === "prediction_graph"
+    ? identityProject.scientific_identity
+    : null;
   const overviewScope = chainIdentity
     ? `${activeProjectId}:chain:${chainIdentity.chain_revision_id}`
+    : predictionGraphIdentity
+      ? `${activeProjectId}:prediction-graph:${predictionGraphIdentity.graph_revision_id}:${predictionGraphIdentity.graph_revision_digest}`
     : [
       activeProjectId,
       "single",
@@ -533,7 +538,7 @@ export function ProjectHub({
       workbenchApi.projectCreationOptions().then((item) => !controller.signal.aborted && setCreationOptions(item)),
       workbenchApi.listChainTemplates().then((items) => !controller.signal.aborted && setChainTemplates(items)),
     ];
-    if (!taskUnavailable && identityProject) {
+    if (!taskUnavailable && identityProject && !predictionGraphIdentity) {
       if (chainIdentity) {
         requests.push(
           workbenchApi.taskDefinition(activeProjectId).then((item) => {
@@ -571,6 +576,7 @@ export function ProjectHub({
     activeProjectId,
     overviewScope,
     identityProject?.id,
+    predictionGraphIdentity?.graph_revision_id,
     taskUnavailable,
     offline,
     overviewRevision,
@@ -734,7 +740,7 @@ export function ProjectHub({
   )
     ? candidate.id
     : activeCandidates[0]?.candidate.id;
-  const actionBlocked = Boolean(taskUnavailable || chainExecutionPending || offline);
+  const actionBlocked = Boolean(taskUnavailable || predictionGraphIdentity || chainExecutionPending || offline);
   const questionState = candidateQuestionState(actionCandidateId, actionBlocked);
   const copyTaskId = candidate ? projects.find((item) => item.id === candidate.raw.project_id)?.task_id : undefined;
   const outputLabels = useMemo(
@@ -829,7 +835,9 @@ export function ProjectHub({
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
   const persistedProject = projects.find((item) => item.id === activeProjectId);
   const unresolvedReferences = creationOptions && project
-    ? chainIdentity
+    ? predictionGraphIdentity
+      ? []
+      : chainIdentity
       ? [
           !fixedChain && "参照Chain",
           !fixedChainRevision && "Chain Revision",
@@ -847,7 +855,7 @@ export function ProjectHub({
       || requestedSettingsSection === "task"
       ? "scientific"
       : "general";
-  const effectiveSettingsCategory = chainIdentity && settingsCategory === "scientific"
+  const effectiveSettingsCategory = (chainIdentity || predictionGraphIdentity) && settingsCategory === "scientific"
     ? "general"
     : settingsCategory;
   const fixedSeries = creationOptions?.project_series.find((item) => item.id === project?.project_series_id);
@@ -1748,6 +1756,7 @@ export function ProjectHub({
               className="outline-button"
               disabled={offline
                 || taskUnavailable
+                || Boolean(predictionGraphIdentity)
                 || chainOperationsUnavailable}
               onClick={continueCurrentProject}
             >このプロジェクトの続き</button>
@@ -1767,6 +1776,11 @@ export function ProjectHub({
         <strong>この予測タスクは一時的に利用できません</strong>
         <span>{taskAvailability.message}</span>
         <small>保存済みの候補・予測・実測・判断履歴は参照できます。推論と変更操作は停止しています。</small>
+      </section>}
+      {predictionGraphIdentity && <section className="task-unavailable-banner chain-ready-banner" role="status">
+        <strong>Prediction Graph Revisionを固定したProjectです</strong>
+        <span>{predictionGraphIdentity.graph_revision_id} を判断根拠として読み込みました。</span>
+        <small>Graph実行Workbenchは未対応です。単一Task向け画面を代用せず、概要と固定参照だけを表示します。</small>
       </section>}
       {chainIdentity && <section className="task-unavailable-banner chain-ready-banner" role="status">
         <strong>Chain Revisionを固定したプロジェクトです</strong>
@@ -1815,7 +1829,11 @@ export function ProjectHub({
       </section>}
       {surface === "overview" && <section className="project-next-actions">
         <div className="panel-title"><h3>次の作業</h3><span>{activeCandidates.length ? `${activeCandidates.length}候補を検討中` : "まだ候補がありません"}</span></div>
-        {chainIdentity
+        {predictionGraphIdentity
+          ? <div className="project-action-grid">
+            <button className="project-action-card" disabled><strong>Graph候補の実行</strong><span>このProject surfaceでは現在利用できません</span></button>
+          </div>
+          : chainIdentity
           ? <div className="project-action-grid">
             <button className="project-action-card primary" disabled={projectOperationDisabled({ operation: "prediction", offline, pending: chainExecutionPending, subsystemUnavailable: chainOperationsUnavailable })} onClick={() => onNavigate("candidates")}><strong>Chain候補を開く</strong><span>条件を編集し、{fixedStagePath}を実行して固定します</span></button>
           </div>
@@ -1891,12 +1909,20 @@ export function ProjectHub({
       </section>}
       {surface === "settings" && <nav className="project-settings-category-nav" aria-label="Project設定カテゴリ">
         <button type="button" className={effectiveSettingsCategory === "general" ? "active" : ""} aria-current={effectiveSettingsCategory === "general" ? "page" : undefined} onClick={() => onOpenSettings("general")}>通常設定</button>
-        {!chainIdentity && <button type="button" className={effectiveSettingsCategory === "scientific" ? "active" : ""} aria-current={effectiveSettingsCategory === "scientific" ? "page" : undefined} onClick={() => onOpenSettings("scientific")}>科学設定</button>}
+        {!chainIdentity && !predictionGraphIdentity && <button type="button" className={effectiveSettingsCategory === "scientific" ? "active" : ""} aria-current={effectiveSettingsCategory === "scientific" ? "page" : undefined} onClick={() => onOpenSettings("scientific")}>科学設定</button>}
         <button type="button" className={effectiveSettingsCategory === "evidence" ? "active" : ""} aria-current={effectiveSettingsCategory === "evidence" ? "page" : undefined} onClick={() => onOpenSettings("evidence")}>証拠・管理</button>
       </nav>}
       {surface === "settings" && effectiveSettingsCategory === "evidence" && project && <details className="project-reference-details" open>
         <summary><span>固定参照・再現性</span><small>使用中のデータ・予測方法</small></summary>
-        {chainIdentity
+        {predictionGraphIdentity
+          ? <section className="project-reference-strip" aria-label="プロジェクトのPrediction Graph参照">
+            <div><span>参照Graph</span><strong>{predictionGraphIdentity.graph_revision_id}</strong><small>公開済みRevisionへ固定</small></div>
+            <div><span>Project binding</span><strong>r{predictionGraphIdentity.project_binding.revision}</strong><small>Project固有の入力値</small></div>
+            <ReferenceIdentityDetails items={[
+              ["Graph Revision", predictionGraphIdentity.graph_revision_digest],
+            ]} />
+          </section>
+          : chainIdentity
           ? <section className="project-reference-strip" aria-label="プロジェクトのChain参照と所属">
             <div><span>参照Chain</span><strong>{fixedChain?.definition.label ?? "Chain未解決"}</strong><small>{fixedStagePath}</small></div>
             <div><span>固定した版</span><strong>{fixedChainRevision ? `r${fixedChainRevision.revision}` : "—"}</strong><small>全Stageの参照をこの版に固定</small></div>

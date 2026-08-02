@@ -7,6 +7,8 @@ import {
   addStage,
   connectSource,
   emptyPredictionGraph,
+  graphPresentationEdges,
+  setInputRole,
   topologicalLayers,
 } from "../src/features/projects/predictionGraphDraft.ts";
 
@@ -83,6 +85,28 @@ test("builds parallel layers, branch/merge, and terminal intermediate output fro
   )).length, 2, "one Input fans out into two branches");
   assert.equal(definition.bindings.filter((binding) => binding.target_stage_id === merge.stageId).length, 2);
   assert.equal(definition.decision_outputs.some((output) => output.source_stage_id === source.stageId), true);
+  const edges = graphPresentationEdges(definition);
+  assert.equal(edges.filter((edge) => edge.kind === "binding").length, 4);
+  assert.equal(edges.filter((edge) => edge.kind === "decision_output").length, 2);
+  assert.equal(new Set(edges.map((edge) => edge.key)).size, edges.length);
+});
+
+test("preserves the catalog canonical candidate group and path for numeric inputs", () => {
+  const source = addStage(emptyPredictionGraph(), catalog.stages[0]);
+  const definition = addInputAndBind(
+    source.definition,
+    source.stageId,
+    port("composition.C", "C", "mass%"),
+  );
+
+  assert.deepEqual(definition.inputs[0].value_source, {
+    source_kind: "candidate",
+    candidate_path: "composition.C",
+  });
+  assert.deepEqual(
+    setInputRole(definition, definition.inputs[0].input_id, "scenario_context").inputs[0].value_source,
+    { source_kind: "candidate", candidate_path: "composition.C" },
+  );
 });
 
 test("rejects incompatible and cyclic edges without mutating the draft", () => {

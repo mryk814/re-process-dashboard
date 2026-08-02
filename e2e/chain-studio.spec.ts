@@ -6,10 +6,16 @@ import { apiBaseUrl } from "./helpers";
 test("Prediction Graph Studio completes the same draft through canvas and linear controls", async ({ page }) => {
   const graphId = `graph-studio-e2e-${Date.now()}`;
   const serverErrors: string[] = [];
+  const taskDefinitionRequests: string[] = [];
   page.on("response", (response) => {
     if (response.status() >= 500) {
       serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
     }
+    if (response.url().includes("/task-definition")) taskDefinitionRequests.push(response.url());
+  });
+  await page.route("**/api/prediction-graphs/validate", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await route.continue();
   });
   await page.goto("/?view=chain-studio");
 
@@ -19,6 +25,8 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await expect(page.locator(".chain-studio-canvas .model-node")).toHaveCount(1);
   await expect(page.locator(".chain-studio-canvas .decision-node")).toHaveCount(1);
   await expect(page.getByText("この一覧だけでnode追加、接続、削除、並べ替え、公開まで完了できます。")).toBeVisible();
+  await expect(page.locator(".chain-studio-edges path[data-edge-kind='binding']")).toHaveCount(2);
+  await expect(page.locator(".chain-studio-edges path[data-edge-kind='decision_output']")).toHaveCount(1);
 
   await page.getByLabel("Graph ID").fill(graphId);
   await page.getByLabel("表示名／目的").fill("Graph Studio keyboard smoke");
@@ -36,15 +44,19 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   const outputGroup = page.getByRole("group", { name: "Decision Output一覧" });
   await outputGroup.getByRole("button", { name: "削除" }).first().focus();
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "Graphを検証" }).click();
-  const finding = page.locator(".chain-studio-findings.invalid li button").first();
-  await expect(finding).toBeVisible();
-  await finding.click();
-  await expect(heading).toBeFocused();
-
   const addOutput = outputGroup.getByRole("button", { name: /Decision Outputへ追加/ }).first();
   await addOutput.focus();
   await page.keyboard.press("Enter");
+
+  const inputGroup = page.getByRole("group", { name: "Input一覧" });
+  await inputGroup.getByRole("button", { name: "削除" }).first().click();
+  await page.getByRole("button", { name: "Graphを検証" }).click();
+  await expect(page.getByLabel("Graph ID")).toBeDisabled();
+  const finding = page.locator(".chain-studio-findings.invalid li button").filter({ hasText: /unbound|required/ }).first();
+  await expect(finding).toBeVisible();
+  await finding.click();
+  await expect(page.locator(".model-node .chain-studio-port.input:focus")).toHaveCount(1);
+  await page.getByRole("group", { name: "Binding一覧" }).locator(".binding-row").first().getByRole("button", { name: "Inputを作成して接続" }).click();
   await page.getByRole("button", { name: "Graphを検証" }).click();
   await expect(page.locator(".chain-studio-findings.valid")).toContainText("公開可能");
   const digest = await page.locator(".chain-studio-findings code").textContent();
@@ -70,6 +82,8 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   await expect(page).toHaveURL(/view=project.*project=/);
   const projectId = new URL(page.url()).searchParams.get("project");
   expect(projectId).toBeTruthy();
+  await expect(page.getByRole("heading", { name: "Graph Studio Project smoke", exact: true })).toBeVisible();
+  await expect(page.getByText("Prediction Graph Revisionを固定したProjectです")).toBeVisible();
 
   const projectResponse = await page.request.get(`${apiBaseUrl}/api/projects/${projectId}`);
   expect(projectResponse.status(), await projectResponse.text()).toBe(200);
@@ -80,6 +94,9 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   expect(project.name).toBe("Graph Studio Project smoke");
   expect(project.scientific_identity.identity_kind).toBe("prediction_graph");
   expect(project.scientific_identity.graph_revision_id).toContain(`${graphId}:r1`);
+  await page.goto(`/?view=candidates&project=${projectId}`);
+  await expect(page.getByRole("heading", { name: "この画面はPrediction Graph Projectでは利用できません" })).toBeVisible();
+  expect(taskDefinitionRequests.filter((url) => url.includes(`/api/projects/${projectId}/task-definition`))).toEqual([]);
   await expectNoBlockingAxeViolations(page);
   expect(serverErrors).toEqual([]);
 });
