@@ -2,7 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test("Model Library compares assets and hands off without changing them", async ({ page }) => {
   test.setTimeout(60_000);
+  const catalogResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/model-library"
+  ));
   await page.goto("/?view=model-library&asset=packages");
+  expect((await catalogResponse).status()).toBe(200);
 
   await expect(page.getByRole("heading", { name: "モデル資産を確認する" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Model Library" })).toHaveAttribute("aria-current", "page");

@@ -16,7 +16,7 @@ test("similar evidence keeps candidate creation visible at narrow widths", async
   const actions = page.locator(".similar-evidence-panel").getByRole("button", { name: "候補にする" });
   await expect(actions.first()).toBeVisible();
   expect(await actions.count()).toBeGreaterThan(0);
-  await expect(actions.first()).toBeDisabled();
+  await expect(actions.first()).toBeEnabled();
   const before = await actions.first().boundingBox();
   const geometry = await scroll.evaluate((element) => ({
     clientWidth: element.clientWidth,

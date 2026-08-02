@@ -17,7 +17,7 @@ test("primary navigation follows the decision flow and separates developer admin
   await expect(page.locator(".topbar nav").getByRole("button")).toHaveText([
     "プロジェクト",
     "データライブラリ",
-    "Chain Studio",
+    "Model Library",
     "ワークスペース",
   ]);
   await expect(page.getByRole("navigation", { name: "プロジェクト内メニュー" }).getByRole("button")).toHaveText([
