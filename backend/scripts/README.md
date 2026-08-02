@@ -99,6 +99,7 @@ Profile inheritanceの展開は `operations/profile_workbench.py materialize`、
 | `experiments/compare_annealing_feature_pipelines.py` | Feature engineering | feature pipeline comparison JSONを再計算 | `docs/reports/annealing-feature-pipeline-v4-comparison.md` | `experiments/` |
 | `experiments/evaluate_sampling_strategies.py` | Screening sampling research | sampling strategy comparison JSONを再計算 | `docs/research/sampling-strategy-comparison.md` | `experiments/` |
 | `experiments/evaluate_gmr_inverse.py` | Inverse proposal research | GMR inverse evaluation JSONを再計算 | `docs/research/gmr-inverse-candidate-poc.md` | `experiments/` |
+| `experiments/run_generative_design_lab.py` | Generative design research | kNN／copula／diffusion候補生成の比較reportを再計算 | `docs/research/generative-design-lab-adoption-memo.md` | `experiments/` |
 | `experiments/evaluate_shared_multioutput_gp.py` | Multi-output research | shared multi-output GP評価JSONを再計算 | `docs/decisions/shared-multi-output.md` | `experiments/` |
 | `experiments/spikes/spike_case_a.py` | Extensibility research | case Aのtemp fixture／resultを再現 | `docs/architecture/extensibility-spikes.md` | `experiments/spikes/` |
 | `experiments/spikes/spike_case_b.py` | Extensibility research | case Bのtemp fixture／resultを再現 | `docs/architecture/extensibility-spikes.md` | `experiments/spikes/` |
