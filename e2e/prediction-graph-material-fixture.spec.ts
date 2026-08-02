@@ -16,6 +16,7 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
   const templates = await response.json() as Array<{
     definition: {
       graph_id?: string;
+      chain_id?: string;
       stages?: Array<{ stage_id: string; contract_id: string }>;
       decision_outputs?: Array<{
         output_id: string;
@@ -92,9 +93,59 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
   });
   expect(projectResponse.status(), await projectResponse.text()).toBe(201);
   const project = await projectResponse.json() as { id: string };
-  await page.goto(`/?view=chain-graph&project=${project.id}`);
+  const legacyTemplate = templates.find(({ definition }) => (
+    definition.chain_id === "welding-consumable-a-b-c-v1"
+  ));
+  const legacyRevision = legacyTemplate!.revisions[0];
+  const legacyProjectResponse = await page.request.post(`${apiBaseUrl}/api/projects`, {
+    data: {
+      name: "Prediction Graph fixture starter",
+      scientific_identity: {
+        identity_kind: "chain",
+        chain_revision_id: `${legacyTemplate!.definition.chain_id}:r${legacyRevision.revision}`,
+        chain_revision_digest: legacyRevision.revision_digest,
+      },
+    },
+  });
+  expect(legacyProjectResponse.status(), await legacyProjectResponse.text()).toBe(201);
+  const legacyProject = await legacyProjectResponse.json() as { id: string };
+  const contractResponse = await page.request.get(
+    `${apiBaseUrl}/api/projects/${legacyProject.id}/chain/candidate-contract`,
+  );
+  expect(contractResponse.status(), await contractResponse.text()).toBe(200);
+  const starter = (await contractResponse.json() as {
+    starter_candidate: {
+      inputs: { process: Record<string, number> };
+      [key: string]: unknown;
+    };
+  }).starter_candidate;
+  starter.inputs.process.wire_feed_speed_m_per_min = 7.5;
+  const candidateResponse = await page.request.post(
+    `${apiBaseUrl}/api/prediction-graphs/projects/${project.id}/candidates`,
+    { data: starter },
+  );
+  expect(candidateResponse.status(), await candidateResponse.text()).toBe(201);
+  const candidate = await candidateResponse.json() as { id: string; revision: number };
+  const executionResponse = await page.request.post(
+    `${apiBaseUrl}/api/prediction-graphs/projects/${project.id}/candidates/${candidate.id}/executions`,
+    { data: { candidate_revision: candidate.revision, request_id: "fixture-ui", debounce_ms: 0 } },
+  );
+  expect(executionResponse.status(), await executionResponse.text()).toBe(200);
+
+  const executionRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith(`/candidates/${candidate.id}/execution`)) {
+      executionRequests.push(request.url());
+    }
+  });
+  await page.goto(`/?view=chain-graph&project=${project.id}&candidate=${candidate.id}`);
   await expect(page.getByRole("heading", { name: "Decision Output summary" })).toBeVisible();
   await expect(page.locator(".chain-graph-output")).toHaveCount(5);
-  await expect(page.getByText("synthetic demonstration · production利用不可")).toHaveCount(5);
+  await expect(page.getByText("synthetic demonstration", { exact: true })).toHaveCount(5);
+  await expect(page.getByText("production利用: 不可", { exact: true })).toHaveCount(5);
+  await expect(page.locator(".chain-graph-node.latest")).toHaveCount(6);
+  expect(executionRequests).toEqual([
+    expect.stringContaining("/api/prediction-graphs/projects/"),
+  ]);
   await expect(page.locator(".chain-graph-output").filter({ hasText: "溶着効率proxy" })).toContainText("processability");
 });

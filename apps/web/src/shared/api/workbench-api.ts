@@ -81,6 +81,7 @@ export type ApiWorkspaceStorage = {
 export type ApiChainCandidateContract = components["schemas"]["ChainCandidateContractResponse"];
 export type ApiChainCandidateCapability = components["schemas"]["ChainCandidateCapability"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
+export type ApiPredictionGraphExecution = components["schemas"]["PredictionGraphExecution"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
 export type ApiActualConditionedVariant = components["schemas"]["ActualConditionedVariant"];
 export type ApiActualConditionedVariantInput = components["schemas"]["ActualConditionedVariantRequest"];
@@ -265,6 +266,12 @@ export const workbenchApi = {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
       signal,
     }), "Chain実行結果を取得できませんでした。");
+  },
+  async predictionGraphExecution(projectId: string, candidateId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/execution", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    }), "Prediction Graph実行結果を取得できませんでした。");
   },
   async chainGraph(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/graph", {

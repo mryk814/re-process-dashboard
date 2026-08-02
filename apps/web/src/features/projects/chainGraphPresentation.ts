@@ -1,4 +1,8 @@
-import type { ApiChainExecution, ApiChainGraph } from "../../shared/api/workbench-api";
+import type {
+  ApiChainExecution,
+  ApiChainGraph,
+  ApiPredictionGraphExecution,
+} from "../../shared/api/workbench-api";
 
 type ChainDefinition = ApiChainGraph["definition"];
 type ChainRevision = ApiChainGraph["revision"];
@@ -31,7 +35,9 @@ export function shortDigest(value: string | null | undefined): string {
   return value.length > 19 ? `${value.slice(0, 15)}…` : value;
 }
 
-export function stageStatus(execution: ApiChainExecution | null, stageId: string) {
+export type ApiGraphExecution = ApiChainExecution | ApiPredictionGraphExecution;
+
+export function stageStatus(execution: ApiGraphExecution | null, stageId: string) {
   return execution?.stages.find((item) => item.stage_id === stageId)?.status ?? "未実行";
 }
 

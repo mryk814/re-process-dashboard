@@ -520,8 +520,10 @@ export function ChainStudioPage({ onProjectCreated, registerNavigationGuard }: P
                 <b>{output.label}</b><small>{output.role.replaceAll("_", " ")} · {output.required_for_complete_result ? "required" : "optional"}</small>
               </button>
               <span className="chain-studio-terminal-source">← {output.source_stage_id}.{output.source_output_key}</span>
-              {output.evidence?.evidence_kind === "synthetic_demonstration"
-                && <span className="sample-source-kind synthetic">synthetic demonstration · production不可</span>}
+              {output.evidence && <>
+                <span className={`sample-source-kind ${output.evidence.evidence_kind === "synthetic_demonstration" ? "synthetic" : ""}`}>{output.evidence.evidence_kind.replaceAll("_", " ")}</span>
+                <span className="sample-source-kind">production {output.evidence.production_use}</span>
+              </>}
             </article>)}
           </div>
         </div>

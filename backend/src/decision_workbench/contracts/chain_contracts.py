@@ -176,24 +176,46 @@ class GraphInput(ChainContractModel):
         return self
 
 
+class DecisionOutputProvenance(ChainContractModel):
+    """Immutable measured-data references required for production use."""
+
+    dataset_view_revision_id: Annotated[str, Field(min_length=1)]
+    dataset_profile_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    source_snapshot_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+
+
 class DecisionOutputEvidence(ChainContractModel):
     """Reader-facing evidence boundary that is also part of Graph identity."""
 
-    evidence_kind: Literal["measured", "synthetic_demonstration"]
+    evidence_kind: Literal[
+        "measured",
+        "synthetic_demonstration",
+        "unverified",
+    ]
     unit_or_scale: Annotated[str, Field(min_length=1)]
     goal_direction: Literal["at_least", "at_most", "target", "none"]
     source_variables: Annotated[tuple[str, ...], Field(min_length=1)]
     causal_claim: Literal["none"] = "none"
     production_use: Literal["allowed", "prohibited"]
     limitation: Annotated[str, Field(min_length=1)]
+    provenance: DecisionOutputProvenance | None = None
 
     @model_validator(mode="after")
-    def synthetic_evidence_is_never_production_ready(self) -> "DecisionOutputEvidence":
-        if (
-            self.evidence_kind == "synthetic_demonstration"
-            and self.production_use != "prohibited"
+    def production_use_requires_pinned_measured_evidence(
+        self,
+    ) -> "DecisionOutputEvidence":
+        if self.production_use == "allowed" and (
+            self.evidence_kind != "measured" or self.provenance is None
         ):
-            raise ValueError("synthetic demonstration evidence prohibits production use")
+            raise ValueError(
+                "production use requires measured evidence with immutable provenance"
+            )
+        if self.evidence_kind != "measured" and self.provenance is not None:
+            raise ValueError("only measured evidence can claim measured provenance")
         if len(self.source_variables) != len(set(self.source_variables)):
             raise ValueError("Decision Output source variables must be unique")
         return self

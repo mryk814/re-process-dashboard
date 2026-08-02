@@ -9535,7 +9535,8 @@
           "evidence_kind": {
             "enum": [
               "measured",
-              "synthetic_demonstration"
+              "synthetic_demonstration",
+              "unverified"
             ],
             "title": "Evidence Kind",
             "type": "string"
@@ -9563,6 +9564,16 @@
             "title": "Production Use",
             "type": "string"
           },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionOutputProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source_variables": {
             "items": {
               "type": "string"
@@ -9586,6 +9597,34 @@
           "limitation"
         ],
         "title": "DecisionOutputEvidence",
+        "type": "object"
+      },
+      "DecisionOutputProvenance": {
+        "additionalProperties": false,
+        "description": "Immutable measured-data references required for production use.",
+        "properties": {
+          "dataset_profile_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Dataset Profile Digest",
+            "type": "string"
+          },
+          "dataset_view_revision_id": {
+            "minLength": 1,
+            "title": "Dataset View Revision Id",
+            "type": "string"
+          },
+          "source_snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Snapshot Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_view_revision_id",
+          "dataset_profile_digest",
+          "source_snapshot_digest"
+        ],
+        "title": "DecisionOutputProvenance",
         "type": "object"
       },
       "DesignPriorPackageReference": {

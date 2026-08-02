@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { ApiChainExecution, ApiChainGraph } from "../../shared/api/workbench-api";
+import type { ApiChainGraph } from "../../shared/api/workbench-api";
 import { workbenchApi } from "../../shared/api/workbench-api";
 import {
   buildChainGraph,
@@ -8,6 +8,7 @@ import {
   shortDigest,
   stageBindingCounts,
   stageStatus,
+  type ApiGraphExecution,
   type ChainGraphEdge,
 } from "./chainGraphPresentation";
 
@@ -27,7 +28,9 @@ type Props = {
 
 function freshnessLabel(status: ReturnType<typeof stageStatus>) {
   return status === "latest" ? "最新" : status === "running" ? "再計算中"
-    : status === "stale" ? "古い結果あり" : status === "failed" ? "失敗（保持結果あり）" : "実行結果なし";
+    : status === "stale" ? "古い結果あり" : status === "failed" ? "失敗（保持結果あり）"
+      : status === "blocked_by_upstream" ? "上流失敗で未実行"
+        : status === "unavailable" ? "利用不可" : "実行結果なし";
 }
 
 function portFields(prefix: string, port: ChainGraphEdge["sourcePort"] | ChainGraphEdge["targetPort"]) {
@@ -90,7 +93,7 @@ export function ChainGraphViewer({
 }: Props) {
   const [graph, setGraph] = useState<ApiChainGraph | null>(null);
   const [graphState, setGraphState] = useState<"loading" | "ready" | "unavailable">("loading");
-  const [execution, setExecution] = useState<ApiChainExecution | null>(null);
+  const [execution, setExecution] = useState<ApiGraphExecution | null>(null);
   const [executionState, setExecutionState] = useState<"loading" | "ready" | "unavailable">(candidateId ? "loading" : "unavailable");
   const edges = useMemo(() => graph ? buildChainGraph(graph) : [], [graph]);
   const selectedEdgeId = requestedInspection?.kind === "edge" ? requestedInspection.id : undefined;
@@ -113,16 +116,19 @@ export function ChainGraphViewer({
   }, [projectId]);
 
   useEffect(() => {
-    if (!candidateId) { setExecution(null); setExecutionState("unavailable"); return; }
+    if (!candidateId || !graph) { setExecution(null); setExecutionState("unavailable"); return; }
     const controller = new AbortController();
     setExecutionState("loading");
-    workbenchApi.chainExecution(projectId, candidateId, controller.signal).then((value) => {
+    const request = graph.definition.schema_version === "prediction-graph-definition/v1"
+      ? workbenchApi.predictionGraphExecution(projectId, candidateId, controller.signal)
+      : workbenchApi.chainExecution(projectId, candidateId, controller.signal);
+    request.then((value) => {
       if (!controller.signal.aborted) { setExecution(value); setExecutionState("ready"); }
     }).catch(() => {
       if (!controller.signal.aborted) { setExecution(null); setExecutionState("unavailable"); }
     });
     return () => controller.abort();
-  }, [candidateId, projectId]);
+  }, [candidateId, graph, projectId]);
 
   if (graphState === "loading") return <ChainGraphReadOnlyState loading message="" />;
   if (!graph) return <ChainGraphReadOnlyState message="APIへ接続できないか、固定したChain Revisionを解決できません。候補やRevisionをここから作成・変更することはできません。" />;
@@ -158,14 +164,17 @@ export function ChainGraphViewer({
     {graph.prediction_graph.decision_outputs.length > 0 && <section className="chain-graph-outputs" aria-labelledby="chain-outputs-heading">
       <div className="chain-graph-section-title"><div><h3 id="chain-outputs-heading">Decision Output summary</h3><p>判断軸を先に確認し、Stage／Packageの詳細はGraphへ下げています。</p></div></div>
       <div className="chain-graph-output-grid">{graph.prediction_graph.decision_outputs.map((output) => {
-        const status = stageStatus(execution, output.source_stage_id);
+        const terminal = execution?.schema_version === "prediction-graph-execution/v1"
+          ? execution.terminal_outputs.find((item) => item.output_id === output.output_id)
+          : undefined;
+        const status = terminal?.status ?? stageStatus(execution, output.source_stage_id);
         return <article className={`chain-graph-output ${status}`} key={output.output_id}>
           <div><span>{output.group}</span><em>{freshnessLabel(status)}</em></div>
           <strong>{output.label}</strong>
           <small>{output.source_stage_id}.{output.source_output_key} · {output.role}</small>
           {output.evidence && <div className="chain-graph-output-evidence">
-            {output.evidence.evidence_kind === "synthetic_demonstration"
-              && <b>synthetic demonstration · production利用不可</b>}
+            <b>{output.evidence.evidence_kind.replaceAll("_", " ")}</b>
+            <b>production利用: {output.evidence.production_use === "allowed" ? "可" : "不可"}</b>
             <span>{output.evidence.unit_or_scale} · goal {output.evidence.goal_direction} · causal claim {output.evidence.causal_claim}</span>
             <details><summary>証拠境界</summary><p>{output.evidence.limitation}</p><p>source: {output.evidence.source_variables.join(", ")}</p></details>
           </div>}

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from pydantic import ValidationError
+
 from decision_workbench.contracts.chain_contracts import (
     CandidateGraphInputSource,
     ChainBinding,
@@ -22,6 +24,7 @@ from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
 )
 from decision_workbench.persistence.store import Store
+from decision_workbench.persistence.store_support import ChainCatalogConflictError
 from decision_workbench.persistence.welding_chain_bootstrap import (
     STAGE_A_ID,
     STAGE_B_ID,
@@ -39,10 +42,14 @@ from decision_workbench.task_composition.builtin.welding import (
     WELDING_GRAPH_TENSILE_TASK_ID,
     WELDING_GRAPH_TOUGHNESS_TASK_ID,
 )
-from decision_workbench.tasks.task_registry import TaskRegistry
+from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 
 WELDING_MULTI_OUTPUT_GRAPH_ID = "welding-material-multi-output-demo-v1"
 WELDING_SPLIT_OUTPUT_GRAPH_ID = "welding-material-split-output-demo-v1"
+
+
+class WeldingPredictionGraphBootstrapError(ValueError):
+    """Bundled comparison fixtures could not be registered."""
 
 
 def _input(
@@ -482,53 +489,67 @@ def bootstrap_welding_prediction_graphs(
     task_registry: TaskRegistry,
     transform_catalog: DeterministicTransformCatalog,
 ) -> tuple[str, str]:
-    task_ids = (
-        STAGE_B_ID,
-        STAGE_C_ID,
-        WELDING_GRAPH_TENSILE_TASK_ID,
-        WELDING_GRAPH_TOUGHNESS_TASK_ID,
-        WELDING_GRAPH_CORROSION_TASK_ID,
-        WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
-    )
-    for task_id in task_ids:
-        task_registry.require_available(task_id)
-    surfaces = {
-        STAGE_A_ID: _stage_a_surface(transform_catalog),
-        **{task_id: _task_surface(task_registry, task_id) for task_id in task_ids},
-    }
-    contracts = {
-        (surface.stage_kind, surface.contract_id): surface
-        for surface in surfaces.values()
-    }
-    stage_a_entry = transform_catalog.entry(STAGE_A_ID)
-    definitions = welding_prediction_graph_definitions(surfaces)
-    revision_ids: list[str] = []
-    for definition in definitions:
-        locks = {
-            stage.stage_id: (
-                ChainStageLock(
-                    contract_digest=surfaces[stage.contract_id].contract_digest,
-                    package_manifest_digest=(
-                        f"sha256:{stage_a_entry.package.manifest_sha256}"
-                    ),
-                )
-                if stage.stage_kind == "deterministic_transform"
-                else _task_lock(
-                    workspace_catalog,
-                    task_registry,
-                    surfaces[stage.contract_id],
-                )
-            )
-            for stage in definition.stages
+    try:
+        task_ids = (
+            STAGE_B_ID,
+            STAGE_C_ID,
+            WELDING_GRAPH_TENSILE_TASK_ID,
+            WELDING_GRAPH_TOUGHNESS_TASK_ID,
+            WELDING_GRAPH_CORROSION_TASK_ID,
+            WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
+        )
+        for task_id in task_ids:
+            task_registry.require_available(task_id)
+        surfaces = {
+            STAGE_A_ID: _stage_a_surface(transform_catalog),
+            **{
+                task_id: _task_surface(task_registry, task_id)
+                for task_id in task_ids
+            },
         }
-        revision = build_prediction_graph_revision(
-            definition,
-            revision=1,
-            contracts=contracts,
-            stage_locks=locks,
-        )
-        store.register_chain_definition(definition)
-        revision_ids.append(
-            store.register_chain_revision(revision, contracts=contracts)
-        )
-    return revision_ids[0], revision_ids[1]
+        contracts = {
+            (surface.stage_kind, surface.contract_id): surface
+            for surface in surfaces.values()
+        }
+        stage_a_entry = transform_catalog.entry(STAGE_A_ID)
+        definitions = welding_prediction_graph_definitions(surfaces)
+        revision_ids: list[str] = []
+        for definition in definitions:
+            locks = {
+                stage.stage_id: (
+                    ChainStageLock(
+                        contract_digest=surfaces[
+                            stage.contract_id
+                        ].contract_digest,
+                        package_manifest_digest=(
+                            f"sha256:{stage_a_entry.package.manifest_sha256}"
+                        ),
+                    )
+                    if stage.stage_kind == "deterministic_transform"
+                    else _task_lock(
+                        workspace_catalog,
+                        task_registry,
+                        surfaces[stage.contract_id],
+                    )
+                )
+                for stage in definition.stages
+            }
+            revision = build_prediction_graph_revision(
+                definition,
+                revision=1,
+                contracts=contracts,
+                stage_locks=locks,
+            )
+            store.register_chain_definition(definition)
+            revision_ids.append(
+                store.register_chain_revision(revision, contracts=contracts)
+            )
+        return revision_ids[0], revision_ids[1]
+    except (
+        ChainCatalogConflictError,
+        KeyError,
+        TaskRegistryError,
+        ValidationError,
+        ValueError,
+    ) as exc:
+        raise WeldingPredictionGraphBootstrapError(str(exc)) from exc
