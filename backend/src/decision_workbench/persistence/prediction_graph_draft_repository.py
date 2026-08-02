@@ -73,7 +73,6 @@ class PredictionGraphDraftRepository:
             created_at=now,
             updated_at=now,
         )
-
     def get_prediction_graph_draft(
         self,
         draft_id: str,
@@ -146,4 +145,3 @@ class PredictionGraphDraftRepository:
             created_at=current.created_at,
             updated_at=now,
         )
-

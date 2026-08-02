@@ -76,4 +76,3 @@ def migrate_prediction_graph_drafts(database: str | Path) -> None:
         raise
     finally:
         connection.close()
-
