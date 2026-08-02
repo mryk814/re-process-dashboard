@@ -108,3 +108,38 @@ test("Data Library deep link keeps dataset and package focus", async () => {
     intent.modelLibraryData,
   );
 });
+
+test("a new Graph draft keeps the published Decision Output evidence boundary", async () => {
+  const { draftDefinitionFromCatalog } = await import("../src/shared/modelLibrary.ts");
+  const definition = {
+    schema_version: "prediction-graph-definition/v1",
+    graph_id: "graph-v1",
+    label: "根拠を持つGraph",
+    stages: [],
+    inputs: [],
+    bindings: [],
+    decision_outputs: [{
+      output_id: "strength",
+      source_stage_id: "stage-a",
+      source_output_key: "strength_mpa",
+      label: "強さ",
+      group: "mechanical",
+      role: "primary_objective",
+      required_for_complete_result: true,
+      evidence: {
+        evidence_kind: "synthetic_demonstration",
+        unit_or_scale: "MPa",
+        goal_direction: "at_least",
+        source_variables: ["candidate.composition"],
+        causal_claim: "none",
+        production_use: "prohibited",
+        limitation: "教育用の合成根拠です",
+      },
+    }],
+  };
+
+  assert.deepEqual(
+    draftDefinitionFromCatalog(definition).decision_outputs[0].evidence,
+    definition.decision_outputs[0].evidence,
+  );
+});

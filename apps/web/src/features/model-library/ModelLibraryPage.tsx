@@ -4,10 +4,11 @@ import {
   type ApiModelLibraryCatalog,
   type ApiPredictionGraphDefinition,
 } from "../../shared/api/workbench-api";
-import type {
-  ModelLibraryDataIntent,
-  ModelLibraryProjectIntent,
-  ModelLibraryTab,
+import {
+  draftDefinitionFromCatalog,
+  type ModelLibraryDataIntent,
+  type ModelLibraryProjectIntent,
+  type ModelLibraryTab,
 } from "../../shared/modelLibrary";
 
 type AssetState = ApiModelLibraryCatalog["tasks"][number]["state"];
@@ -87,18 +88,6 @@ function dataReferenceEntries(
     ["Training Snapshot", reference.training_snapshot_id ?? "記録なし"],
     ["Connector", reference.connector_id ?? "記録なし"],
   ];
-}
-
-function draftDefinitionFromCatalog(
-  definition: ApiPredictionGraphDefinition,
-): ApiPredictionGraphDefinition {
-  return {
-    ...definition,
-    decision_outputs: definition.decision_outputs.map((output) => {
-      const { evidence: _evidence, ...draftOutput } = output as typeof output & { evidence?: unknown };
-      return draftOutput;
-    }),
-  };
 }
 
 export function ModelLibraryPage({
@@ -379,6 +368,9 @@ export function ModelLibraryPage({
               onClick={() => studioDefinition && void openStudio(draftDefinitionFromCatalog(studioDefinition))}
             >{openingStudio ? "Graphを準備中…" : "Studioで新しいRevisionを作成"}</button>
           </div>
+          {studioAvailable && <p className="model-action-reason">
+            複製元のevidenceを保持します。公開前に根拠の種類・制約・利用範囲を確認してください。
+          </p>}
           {!studioAvailable && <p id={studioReasonId} className="model-action-reason">
             この既存Chain定義は参照専用です。固定RevisionのProject利用は上の操作から開始できます。
           </p>}

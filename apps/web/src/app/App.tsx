@@ -796,7 +796,7 @@ function App() {
           onTabChange={(modelLibraryTab) => navigate({
             view: "model-library",
             modelLibraryTab,
-          }, true)}
+          })}
           onOpenDataLibrary={(modelLibraryData) => navigate({
             view: "data-library",
             modelLibraryData,

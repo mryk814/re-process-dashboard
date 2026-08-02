@@ -16971,6 +16971,16 @@
       "PredictionGraphDraftDecisionOutput": {
         "additionalProperties": false,
         "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecisionOutputEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "group": {
             "title": "Group",
             "type": "string"

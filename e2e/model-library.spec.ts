@@ -36,6 +36,10 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page).toHaveURL(/view=model-library.*asset=packages/);
   await page.getByRole("tab", { name: /Prediction Graph/ }).click();
   await expect(page).toHaveURL(/view=model-library.*asset=graphs/);
+  await page.goBack();
+  await expect(page).toHaveURL(/view=model-library.*asset=packages/);
+  await page.goForward();
+  await expect(page).toHaveURL(/view=model-library.*asset=graphs/);
   const graph = page.locator(".model-graph-card").first();
   await graph.getByText(/件の固定Revision/).click();
   await expect(graph.getByText(/Branch layers:/)).toBeVisible();
@@ -53,6 +57,7 @@ test("Model Library compares assets and hands off without changing them", async 
   await expect(page).toHaveURL(/view=model-library.*asset=graphs/);
   let draftDefinition = page.locator("details.model-graph-detail:has(button.primary-button:not([disabled]))").first();
   await draftDefinition.locator("summary").click();
+  await expect(draftDefinition.getByText(/複製元のevidenceを保持/)).toBeVisible();
   await draftDefinition.locator(".model-graph-revision-actions button:not([disabled])").first().click();
   await expect(page).toHaveURL(/view=project.*model_project_kind=graph/);
   await expect(page.getByText("Immutable Revision", { exact: true })).toBeVisible();

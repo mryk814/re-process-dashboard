@@ -9022,6 +9022,7 @@ export interface components {
         };
         /** PredictionGraphDraftDecisionOutput */
         PredictionGraphDraftDecisionOutput: {
+            evidence?: components["schemas"]["DecisionOutputEvidence"] | null;
             /** Group */
             group: string;
             /** Label */
