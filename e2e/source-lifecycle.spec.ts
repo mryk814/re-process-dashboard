@@ -298,6 +298,14 @@ test("source refresh stays separate from approval, training and activation", asy
   });
   expect(secondFetch.ok()).toBeTruthy();
   const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
+  const repeatedCurationPanel = repeatedSection.locator("details.source-action-panel").filter({
+    hasText: "品質判定レシピとデータセットプロファイル",
+  });
+  if (await repeatedCurationPanel.getAttribute("open") === null) {
+    await repeatedCurationPanel.locator("summary").click();
+  }
+  await repeatedCurationPanel.getByLabel("品質判定レシピ").selectOption(recipe.id);
+  await repeatedCurationPanel.getByLabel("データセットプロファイル").selectOption(profile.id);
   await repeatedSection.getByRole("button", { name: "品質判定を実行" }).click();
   await repeatedSection.getByLabel(/^承認理由/).fill("定期更新として承認");
   const approvalResponse = page.waitForResponse((response) => (
