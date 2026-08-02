@@ -10,7 +10,14 @@ from decision_workbench.application.missing_completion_lab import (
     run_missing_completion_lab,
 )
 from decision_workbench.contracts.candidate_project_contracts import Candidate
-from decision_workbench.contracts.prediction_catalog_contracts import Prediction
+from decision_workbench.contracts.missingness_contracts import (
+    InputMissingnessEvidence,
+    MissingFieldEvidence,
+)
+from decision_workbench.contracts.prediction_catalog_contracts import (
+    Prediction,
+    PredictionResponse,
+)
 from decision_workbench.design_priors.builder import build_design_prior_package
 from decision_workbench.design_priors.contracts import (
     DesignPriorObservation,
@@ -220,6 +227,10 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
         task_id = "fixture"
         task_contract_digest = "sha256:" + "1" * 64
         canonical_input_schema_version = "candidate-v1"
+        model_package = SimpleNamespace(
+            manifest=SimpleNamespace(package_id="predictive-package"),
+            manifest_sha256="4" * 64,
+        )
         missing_policy_inputs = (
             _input("process.temperature"),
             _input("process.time"),
@@ -282,6 +293,12 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
     )
 
     assert report.missing_paths == ("process.time",)
+    assert report.predictive_package_id == "predictive-package"
+    assert report.predictive_manifest_digest == "sha256:" + "4" * 64
+    assert report.candidate_revision == 1
+    assert report.candidate_input_digest.startswith("sha256:")
+    assert not hasattr(report.summaries[0], "lower")
+    assert not hasattr(report.summaries[0], "upper")
     assert report.summaries[0].uncertainty.input_missingness > 0
     assert report.summaries[0].uncertainty.combined > (
         report.summaries[0].uncertainty.model
@@ -289,3 +306,72 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
     assert {
         item["manifest_digest"] for item in report.completion_evidence
     } == {f"sha256:{package.manifest_sha256}"}
+
+    unknown = _candidate(temperature=705.0, time=10.0)
+    unknown.inputs.categorical["route"] = "unknown-material"
+    with pytest.raises(ValueError, match="not_measured"):
+        run_missing_completion_lab(
+            Runtime(),
+            unknown,
+            package,
+            generator_id="empirical_rows",
+            sample_count=2,
+            seed=9,
+        )
+
+
+def test_missingness_contract_rejects_conflicting_status_and_uncertainty() -> None:
+    field = MissingFieldEvidence(
+        path="process.time",
+        kind="not_measured",
+        applied_policy="training_median_with_indicator",
+        imputed_value=20.0,
+        policy_digest="sha256:" + "a" * 64,
+    )
+    with pytest.raises(ValueError, match="explicit method"):
+        InputMissingnessEvidence(
+            input_completeness="imputed",
+            prediction_status="provisional",
+            operation="preview",
+            missingness_support="supported",
+            pattern_digest="sha256:" + "b" * 64,
+            support_policy_digest="sha256:" + "c" * 64,
+            fields=(field,),
+            uncertainty_propagated=True,
+        )
+
+    evidence = InputMissingnessEvidence(
+        input_completeness="imputed",
+        prediction_status="provisional",
+        operation="preview",
+        missingness_support="supported",
+        pattern_digest="sha256:" + "b" * 64,
+        support_policy_digest="sha256:" + "c" * 64,
+        fields=(field,),
+    )
+    response = {
+        "task_id": "fixture",
+        "candidate_id": "candidate",
+        "mode": "preview",
+        "predictions": {},
+        "support": {
+            "status": "supported",
+            "distance": 0.0,
+            "percentile": 0.0,
+            "message": "",
+            "components": {},
+            "reference_count": 1,
+            "supported_threshold": 1.0,
+            "caution_threshold": 2.0,
+        },
+        "warnings": [],
+        "model_meta": {},
+        "canonical_input": {},
+        "similar": [],
+        "heat_pattern": [],
+        "input_completeness": "complete",
+        "prediction_status": "final",
+        "input_missingness": evidence.model_dump(mode="json"),
+    }
+    with pytest.raises(ValueError, match="must match"):
+        PredictionResponse.model_validate(response)

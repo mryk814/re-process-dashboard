@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 MissingKind = Literal[
@@ -58,6 +58,30 @@ class InputMissingnessEvidence(BaseModel):
     pattern_evaluation_count: Annotated[int, Field(ge=0)] | None = None
     pattern_metrics: dict[str, dict[str, float]] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def status_and_uncertainty_are_consistent(self) -> "InputMissingnessEvidence":
+        if self.input_completeness == "complete":
+            if self.prediction_status != "final" or self.fields:
+                raise ValueError(
+                    "complete input requires final status and no missing fields"
+                )
+        elif self.input_completeness == "blocked":
+            if self.prediction_status != "blocked" or not self.fields:
+                raise ValueError(
+                    "blocked input requires blocked status and missing fields"
+                )
+        elif self.prediction_status != "provisional" or not self.fields:
+            raise ValueError(
+                "imputed or native-missing input requires provisional status "
+                "and missing fields"
+            )
+        if self.uncertainty_propagated != bool(self.uncertainty_method):
+            raise ValueError(
+                "uncertainty propagation requires an explicit method, and "
+                "a method cannot be recorded without propagation"
+            )
+        return self
+
 
 class CompletionUncertainty(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -72,8 +96,6 @@ class MissingCompletionSummary(BaseModel):
 
     target: Annotated[str, Field(min_length=1)]
     mean: float
-    lower: float
-    upper: float
     uncertainty: CompletionUncertainty
 
 
@@ -85,8 +107,21 @@ class MissingCompletionLabReport(BaseModel):
     generator_id: Literal["empirical_rows", "knn_local"]
     sample_count: Annotated[int, Field(ge=2, le=256)]
     seed: Annotated[int, Field(ge=0)]
+    task_id: Annotated[str, Field(min_length=1)]
+    task_contract_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    canonical_input_schema_version: Annotated[str, Field(min_length=1)]
+    predictive_package_id: Annotated[str, Field(min_length=1)]
+    predictive_manifest_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
     design_prior_package_id: Annotated[str, Field(min_length=1)]
     design_prior_manifest_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    candidate_revision: Annotated[int, Field(ge=1)]
+    candidate_input_digest: Annotated[
         str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
     ]
     missing_paths: Annotated[tuple[str, ...], Field(min_length=1)]

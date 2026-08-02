@@ -365,6 +365,28 @@ class PredictionResponse(BaseModel):
     prediction_status: Literal["final", "provisional", "blocked"] = "final"
     input_missingness: InputMissingnessEvidence | None = None
 
+    @model_validator(mode="after")
+    def missingness_status_has_one_authority(self) -> "PredictionResponse":
+        if self.input_missingness is None:
+            if (
+                self.input_completeness != "complete"
+                or self.prediction_status != "final"
+            ):
+                raise ValueError(
+                    "non-final prediction status requires input missingness evidence"
+                )
+            return self
+        if (
+            self.input_completeness
+            != self.input_missingness.input_completeness
+            or self.prediction_status
+            != self.input_missingness.prediction_status
+        ):
+            raise ValueError(
+                "prediction status must match input missingness evidence"
+            )
+        return self
+
 
 class RuntimeAvailability(BaseModel):
     runtime_type: str

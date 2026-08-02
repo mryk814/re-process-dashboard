@@ -15,6 +15,7 @@ from decision_workbench.design_priors.loader import VerifiedDesignPriorPackage
 from decision_workbench.design_priors.sampling import (
     sample_conditional_completions,
 )
+from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.missingness import missing_pattern
 
 
@@ -33,7 +34,7 @@ def _model_uncertainty(prediction: object) -> float:
 def _validate_runtime_binding(
     runtime: object,
     package: VerifiedDesignPriorPackage,
-) -> None:
+) -> tuple[str, str]:
     manifest = package.manifest
     task_id = getattr(runtime, "task_id", None)
     task_contract_digest = getattr(runtime, "task_contract_digest", None)
@@ -54,6 +55,18 @@ def _validate_runtime_binding(
         raise ValueError(
             "Design Prior Packageのcanonical inputがPredictive runtimeと一致しません"
         )
+    model_package = getattr(runtime, "model_package", None)
+    predictive_manifest = getattr(model_package, "manifest", None)
+    predictive_manifest_sha256 = getattr(model_package, "manifest_sha256", None)
+    predictive_package_id = getattr(predictive_manifest, "package_id", None)
+    if not predictive_package_id or not predictive_manifest_sha256:
+        raise ValueError(
+            "Completion Labには固定されたPredictive Model Package identityが必要です"
+        )
+    return (
+        str(predictive_package_id),
+        f"sha256:{predictive_manifest_sha256}",
+    )
 
 
 def run_missing_completion_lab(
@@ -67,14 +80,24 @@ def run_missing_completion_lab(
 ) -> MissingCompletionLabReport:
     if not 2 <= sample_count <= 256:
         raise ValueError("Completion Labのsample_countは2から256の範囲で指定してください")
-    _validate_runtime_binding(runtime, package)
+    predictive_package_id, predictive_manifest_digest = (
+        _validate_runtime_binding(runtime, package)
+    )
     profile_inputs = runtime.missing_policy_inputs  # type: ignore[attr-defined]
     pattern = missing_pattern(candidate, profile_inputs)
     missing_paths = tuple(
         path
         for path, kind in pattern
-        if kind in {"not_measured", "unknown_category"}
+        if kind == "not_measured"
     )
+    unsupported_missing = tuple(
+        path for path, kind in pattern if kind != "not_measured"
+    )
+    if unsupported_missing:
+        raise ValueError(
+            "Completion Labはnot_measuredだけを補完できます: "
+            + ", ".join(unsupported_missing)
+        )
     if not missing_paths:
         raise ValueError("Completion Labには補完対象の入力欠損が必要です")
     observed: dict[str, float | str] = {}
@@ -123,8 +146,6 @@ def run_missing_completion_lab(
             MissingCompletionSummary(
                 target=target,
                 mean=mean,
-                lower=mean - 1.6448536269514722 * combined,
-                upper=mean + 1.6448536269514722 * combined,
                 uncertainty=CompletionUncertainty(
                     model=model,
                     input_missingness=input_missingness,
@@ -137,8 +158,22 @@ def run_missing_completion_lab(
         generator_id=generator_id,
         sample_count=sample_count,
         seed=seed,
+        task_id=str(runtime.task_id),  # type: ignore[attr-defined]
+        task_contract_digest=str(  # type: ignore[attr-defined]
+            runtime.task_contract_digest
+        ),
+        canonical_input_schema_version=str(  # type: ignore[attr-defined]
+            runtime.canonical_input_schema_version
+        ),
+        predictive_package_id=predictive_package_id,
+        predictive_manifest_digest=predictive_manifest_digest,
         design_prior_package_id=package.manifest.package_id,
         design_prior_manifest_digest=f"sha256:{package.manifest_sha256}",
+        candidate_revision=candidate.revision,
+        candidate_input_digest=semantic_digest({
+            "inputs": candidate.inputs.model_dump(mode="json"),
+            "input_missing_kinds": candidate.input_missing_kinds,
+        }),
         missing_paths=missing_paths,
         summaries=tuple(summaries),
         completion_evidence=tuple(
