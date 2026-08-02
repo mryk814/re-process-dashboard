@@ -7,6 +7,10 @@ from pydantic import Field, model_validator
 
 from decision_workbench.contracts.task_contracts import ContractModel
 from decision_workbench.contracts.model_capability_contracts import CapabilityRequirement
+from decision_workbench.design_priors.contracts import (
+    DesignPriorPackageReference,
+    DesignPriorSampleEvidence,
+)
 
 
 AcquisitionRepresentation = Literal[
@@ -19,6 +23,7 @@ ProposalGeneratorId = Literal[
     "latin_hypercube",
     "sobol",
     "bounded_simplex_hit_and_run",
+    "design_prior",
 ]
 ProposalDistanceId = Literal[
     "scalar_axis_rms",
@@ -120,6 +125,8 @@ class ProposalStrategyRequest(ContractModel):
     diversity_weight: Annotated[
         float, Field(ge=0, le=10, allow_inf_nan=False)
     ] = 0.75
+    # Request-scoped by design: a new prior is never inferred for a Project.
+    design_prior: DesignPriorPackageReference | None = None
 
 
 class ProposalStrategyDefinition(ContractModel):
@@ -189,12 +196,14 @@ class ProposalCandidateEvaluation(ContractModel):
     support_status: Literal["supported", "caution", "extrapolated"]
     selected_rank: int | None = None
     exclusion_reason: str | None = None
+    design_prior_evidence: DesignPriorSampleEvidence | None = None
 
 
 class ProposalRejectedCandidate(ContractModel):
     pool_index: Annotated[int, Field(ge=0)]
     inputs: dict[str, float | str]
     reason: Annotated[str, Field(min_length=1)]
+    design_prior_evidence: DesignPriorSampleEvidence | None = None
 
 
 class ProposalSelectedPoint(ContractModel):

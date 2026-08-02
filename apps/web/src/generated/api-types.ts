@@ -5960,6 +5960,83 @@ export interface components {
             source_kind: "decision_activity";
             source_ref: components["schemas"]["DecisionActivityReference"];
         };
+        /**
+         * DesignPriorPackageReference
+         * @description Explicit package identity resolved for one immutable Proposal Run.
+         */
+        DesignPriorPackageReference: {
+            /**
+             * Generator Id
+             * @enum {string}
+             */
+            generator_id: "empirical_rows" | "knn_local";
+            /**
+             * Lane
+             * @enum {string}
+             */
+            lane: "conservative" | "balanced" | "frontier";
+            /** Lane Parameter Digest */
+            lane_parameter_digest?: string | null;
+            /** Locator */
+            locator: string;
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Package Id */
+            package_id: string;
+            /** Package Version */
+            package_version: string;
+        };
+        /** DesignPriorSampleEvidence */
+        DesignPriorSampleEvidence: {
+            /** Design Space Boundary Proximity */
+            design_space_boundary_proximity?: number | null;
+            /**
+             * Generator Id
+             * @enum {string}
+             */
+            generator_id: "empirical_rows" | "knn_local";
+            /**
+             * Generator Version
+             * @constant
+             */
+            generator_version: "1.0.0";
+            /**
+             * Lane
+             * @enum {string}
+             */
+            lane: "conservative" | "balanced" | "frontier";
+            /** Lane Parameter Digest */
+            lane_parameter_digest: string;
+            /** Manifest Digest */
+            manifest_digest: string;
+            /** Nearest Neighbor Distance */
+            nearest_neighbor_distance?: number | null;
+            /** Neighbor Sample Id */
+            neighbor_sample_id?: string | null;
+            /** Package Id */
+            package_id: string;
+            /** Package Version */
+            package_version: string;
+            /** Raw Sample Id */
+            raw_sample_id: string;
+            /** Seed */
+            seed: number;
+            /**
+             * Transformations
+             * @default []
+             */
+            transformations: string[];
+            /**
+             * Typicality Band
+             * @enum {string}
+             */
+            typicality_band: "typical" | "near_edge" | "low_density";
+            /**
+             * Unseen Category Combination
+             * @default false
+             */
+            unseen_category_combination: boolean;
+        };
         /** DesignSpaceDefinition */
         DesignSpaceDefinition: {
             /**
@@ -8852,6 +8929,7 @@ export interface components {
             };
             /** Acquisition Score */
             acquisition_score: number;
+            design_prior_evidence?: components["schemas"]["DesignPriorSampleEvidence"] | null;
             /** Exclusion Reason */
             exclusion_reason?: string | null;
             /** Inputs */
@@ -9200,6 +9278,7 @@ export interface components {
         };
         /** ProposalRejectedCandidate */
         ProposalRejectedCandidate: {
+            design_prior_evidence?: components["schemas"]["DesignPriorSampleEvidence"] | null;
             /** Inputs */
             inputs: {
                 [key: string]: number | string;
@@ -9333,7 +9412,7 @@ export interface components {
              * Generator Id
              * @enum {string}
              */
-            generator_id: "latin_hypercube" | "sobol" | "bounded_simplex_hit_and_run";
+            generator_id: "latin_hypercube" | "sobol" | "bounded_simplex_hit_and_run" | "design_prior";
             /** Generator Parameters */
             generator_parameters?: {
                 [key: string]: number | string | boolean;
@@ -9394,6 +9473,7 @@ export interface components {
         };
         /** ProposalStrategyRequest */
         ProposalStrategyRequest: {
+            design_prior?: components["schemas"]["DesignPriorPackageReference"] | null;
             /**
              * Diversity Weight
              * @default 0.75
@@ -10352,6 +10432,7 @@ export interface components {
             candidate: components["schemas"]["CandidateInput"];
             /** Color Value */
             color_value: number;
+            design_prior_evidence?: components["schemas"]["DesignPriorSampleEvidence"] | null;
             goal_evaluation: components["schemas"]["ScreeningGoalEvaluation"];
             /** Index */
             index: number;
@@ -10607,6 +10688,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            design_prior?: components["schemas"]["DesignPriorPackageReference"] | null;
             /** Design Space */
             design_space?: {
                 [key: string]: unknown;

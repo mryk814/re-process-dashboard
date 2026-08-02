@@ -58,6 +58,11 @@ from decision_workbench.persistence.store import CandidateLimitError, Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.modeling.model_lifecycle import runtime_capability_digest
+from decision_workbench.design_priors.loader import (
+    DesignPriorPackageLoader,
+    VerifiedDesignPriorPackage,
+)
+from decision_workbench.design_priors.sampling import lane_parameter_digest
 
 
 class ScreeningNotFoundError(LookupError):
@@ -320,6 +325,7 @@ class ScreeningService:
         strategy = None
         fallback_from = None
         incumbent_resolution = None
+        design_prior_package: VerifiedDesignPriorPackage | None = None
         try:
             if payload.purpose != "experiment_batch":
                 incumbent_resolution = self._resolve_incumbent(
@@ -354,6 +360,56 @@ class ScreeningService:
                     design_space=design_space,
                     capability_matrix=self.registry.capability_matrix_for(project.task_id),
                 )
+                if (
+                    strategy.generator_id != "design_prior"
+                    and proposal_request.design_prior is not None
+                ):
+                    raise ScreeningValidationError(
+                        "Design Prior Package参照はDesign Prior戦略でのみ指定できます"
+                    )
+                if strategy.generator_id == "design_prior":
+                    reference = proposal_request.design_prior
+                    if reference is None:
+                        raise ScreeningValidationError(
+                            "Design Prior戦略にはPackage参照を明示してください"
+                        )
+                    expected_lane_digest = lane_parameter_digest(
+                        reference.generator_id,
+                        reference.lane,
+                    )
+                    if (
+                        reference.lane_parameter_digest is not None
+                        and reference.lane_parameter_digest != expected_lane_digest
+                    ):
+                        raise ScreeningValidationError(
+                            "Design Prior lane parameter digestが実行契約と一致しません"
+                        )
+                    reference = reference.model_copy(
+                        update={"lane_parameter_digest": expected_lane_digest}
+                    )
+                    proposal_request = proposal_request.model_copy(
+                        update={"design_prior": reference}
+                    )
+                    payload = payload.model_copy(update={"proposal": proposal_request})
+                    design_prior_package = DesignPriorPackageLoader().load(reference.locator)
+                    manifest = design_prior_package.manifest
+                    if (
+                        manifest.package_id != reference.package_id
+                        or manifest.package_version != reference.package_version
+                        or f"sha256:{design_prior_package.manifest_sha256}" != reference.manifest_digest
+                    ):
+                        raise ScreeningValidationError("Design Prior Package参照のidentityが一致しません")
+                    if manifest.task_id != project.task_id or manifest.task_contract_digest != project.task_contract_digest:
+                        raise ScreeningValidationError("Design Prior PackageのTask契約がProjectと一致しません")
+                    sampled_paths = set(manifest.canonical_input_paths)
+                    design_paths = {
+                        *design_space.fixed_values,
+                        *(item.path for item in design_space.numeric_domains),
+                        *(item.path for item in design_space.heat_pattern_domains),
+                        *(item.path for item in design_space.categorical_domains),
+                    }
+                    if not design_paths <= sampled_paths:
+                        raise ScreeningValidationError("Design Prior PackageがProject Design Spaceの入力を満たしません")
             if payload.batch_definition is not None:
                 require_batch_selector(
                     payload.batch_definition.selector_id,
@@ -504,6 +560,17 @@ class ScreeningService:
                     design_space=design_space,
                     strategy=strategy,
                     batch_reference_candidates=batch_reference_candidates,
+                    design_prior_package=design_prior_package,
+                    design_prior_generator_id=(
+                        proposal_request.design_prior.generator_id
+                        if proposal_request.design_prior is not None
+                        else None
+                    ),
+                    design_prior_lane=(
+                        proposal_request.design_prior.lane
+                        if proposal_request.design_prior is not None
+                        else None
+                    ),
                 )
         except BatchSelectionError as exc:
             raise ScreeningBatchSelectionError(
@@ -529,6 +596,15 @@ class ScreeningService:
         result["purpose"] = payload.purpose
         result["source_run_id"] = payload.source_run_id
         result["schema_version"] = "screening-run/v8"
+        result["design_prior"] = (
+            proposal_request.design_prior.model_dump(mode="json")
+            if payload.purpose != "experiment_batch" and proposal_request.design_prior is not None
+            else (
+                source.design_prior.model_dump(mode="json")
+                if payload.purpose == "experiment_batch" and source.design_prior is not None
+                else None
+            )
+        )
         if payload.purpose != "experiment_batch":
             assert strategy is not None
             assert incumbent_resolution is not None

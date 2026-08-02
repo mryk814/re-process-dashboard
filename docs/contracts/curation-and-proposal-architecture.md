@@ -26,12 +26,18 @@ with reasons, and quality issues summarize both quarantine and target missingnes
 
 ## Proposal path
 
-`Task Definition → Design Space Definition → Proposal Strategy → Proposal Run → Prediction`
+`Task Definition → Design Space Definition + optional Design Prior Package → Proposal Strategy → Proposal Run → Prediction`
 
 - Task Definition is the absolute application contract.
 - Design Space Definition only narrows editable ranges/choices and adds
   conditional or composition-total constraints.
 - Proposal Strategy is allow-listed and records its version and seed.
+- Design Prior Package is an optional, data-only `p(x)` input-distribution
+  artifact.  It is not a Model Package and is never used as a feasibility or
+  predictive-support gate.  When selected, the Run pins its ID/version/
+  manifest digest, explicit generator and novelty lane, plus per-point source
+  sample and transformation evidence.  No active prior and no LHS/Sobol
+  fallback are inferred.
 - Objective Definition fixes what improvement means and which incumbent is used.
 - Proposal Run stores the complete generated/evaluated pool, bounded rejection
   reasons, acquisition components and selected candidates.

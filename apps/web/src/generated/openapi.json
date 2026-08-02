@@ -9304,6 +9304,196 @@
         "title": "DecisionActivitySourceRef",
         "type": "object"
       },
+      "DesignPriorPackageReference": {
+        "additionalProperties": false,
+        "description": "Explicit package identity resolved for one immutable Proposal Run.",
+        "properties": {
+          "generator_id": {
+            "enum": [
+              "empirical_rows",
+              "knn_local"
+            ],
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "conservative",
+              "balanced",
+              "frontier"
+            ],
+            "title": "Lane",
+            "type": "string"
+          },
+          "lane_parameter_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Parameter Digest"
+          },
+          "locator": {
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "package_id": {
+            "minLength": 1,
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_version": {
+            "minLength": 1,
+            "title": "Package Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "locator",
+          "package_id",
+          "package_version",
+          "manifest_digest",
+          "generator_id",
+          "lane"
+        ],
+        "title": "DesignPriorPackageReference",
+        "type": "object"
+      },
+      "DesignPriorSampleEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "design_space_boundary_proximity": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Design Space Boundary Proximity"
+          },
+          "generator_id": {
+            "enum": [
+              "empirical_rows",
+              "knn_local"
+            ],
+            "title": "Generator Id",
+            "type": "string"
+          },
+          "generator_version": {
+            "const": "1.0.0",
+            "title": "Generator Version",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "conservative",
+              "balanced",
+              "frontier"
+            ],
+            "title": "Lane",
+            "type": "string"
+          },
+          "lane_parameter_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Lane Parameter Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "nearest_neighbor_distance": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearest Neighbor Distance"
+          },
+          "neighbor_sample_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neighbor Sample Id"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "package_version": {
+            "title": "Package Version",
+            "type": "string"
+          },
+          "raw_sample_id": {
+            "title": "Raw Sample Id",
+            "type": "string"
+          },
+          "seed": {
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "transformations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Transformations",
+            "type": "array"
+          },
+          "typicality_band": {
+            "enum": [
+              "typical",
+              "near_edge",
+              "low_density"
+            ],
+            "title": "Typicality Band",
+            "type": "string"
+          },
+          "unseen_category_combination": {
+            "default": false,
+            "title": "Unseen Category Combination",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "package_id",
+          "package_version",
+          "manifest_digest",
+          "generator_id",
+          "generator_version",
+          "lane",
+          "lane_parameter_digest",
+          "seed",
+          "raw_sample_id",
+          "typicality_band"
+        ],
+        "title": "DesignPriorSampleEvidence",
+        "type": "object"
+      },
       "DesignSpaceDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -17015,6 +17205,16 @@
             "title": "Acquisition Score",
             "type": "number"
           },
+          "design_prior_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignPriorSampleEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "exclusion_reason": {
             "anyOf": [
               {
@@ -17982,6 +18182,16 @@
       "ProposalRejectedCandidate": {
         "additionalProperties": false,
         "properties": {
+          "design_prior_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignPriorSampleEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "inputs": {
             "additionalProperties": {
               "anyOf": [
@@ -18311,7 +18521,8 @@
             "enum": [
               "latin_hypercube",
               "sobol",
-              "bounded_simplex_hit_and_run"
+              "bounded_simplex_hit_and_run",
+              "design_prior"
             ],
             "title": "Generator Id",
             "type": "string"
@@ -18438,6 +18649,16 @@
       "ProposalStrategyRequest": {
         "additionalProperties": false,
         "properties": {
+          "design_prior": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignPriorPackageReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "diversity_weight": {
             "default": 0.75,
             "maximum": 10.0,
@@ -20721,6 +20942,16 @@
             "title": "Color Value",
             "type": "number"
           },
+          "design_prior_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignPriorSampleEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "goal_evaluation": {
             "$ref": "#/components/schemas/ScreeningGoalEvaluation"
           },
@@ -21375,6 +21606,16 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "design_prior": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DesignPriorPackageReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "design_space": {
             "anyOf": [
