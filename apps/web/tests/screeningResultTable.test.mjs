@@ -32,6 +32,10 @@ const prediction = (value) => ({
   upper: value + 5,
   unit: "MPa",
   target_kind: "continuous",
+  predictive_family: "empirical_quantiles",
+  quantiles: {},
+  interval_method: "conformal",
+  interval_coverage_level: 0.8,
 });
 
 test("representative points use labeled varying columns and one shared support message", () => {
@@ -87,7 +91,7 @@ test("representative points use labeled varying columns and one shared support m
   assert.match(html, /加熱温度 \(°C\)/);
   assert.doesNotMatch(html, /composition\.C|process\.internal_temperature/);
   assert.equal(html.split(commonMessage).length - 1, 1);
-  assert.match(html, /-5\.0–505\.0 MPa · ⚠ 範囲外含む/);
+  assert.match(html, /Conformal予測区間（80%） -5\.0–505\.0 MPa · ⚠ 範囲外含む/);
   assert.doesNotMatch(html, /class="implausible-output screening-prediction-cell"/);
   assert.doesNotMatch(html, /screening-results-table has-selection/);
 });
@@ -139,6 +143,35 @@ test("proposal surface renders only policy-selected points", () => {
   });
   assert.match(emptyHtml, /このRunでは提案条件を選べませんでした/);
   assert.doesNotMatch(emptyHtml, /screening-results-table/);
+});
+
+test("explicit zero-width intervals remain visible", () => {
+  const exact = prediction(500);
+  exact.lower = 500;
+  exact.upper = 500;
+  const html = renderTable({
+    result: {
+      target: "TS",
+      variables: { "composition.C": { mode: "range", min: 0.1, max: 0.2 } },
+      representative_points: [{
+        index: 0,
+        inputs: { "composition.C": 0.1 },
+        prediction: exact,
+        predictions: {},
+        support: { status: "supported", message: "範囲内", percentile: 20, reference_count: 12 },
+      }],
+    },
+    outputs: [{ key: "TS", label: "引張強さ", unit: "MPa" }],
+    options: [{ value: "composition.C", label: "C (mass%)" }],
+    baseCandidateLabel: "基準案A",
+    selectedPointIndices: [],
+    stockedPointIndices: new Set(),
+    selectionLimitReached: false,
+    selectionEnabled: false,
+    onToggle() {},
+  });
+
+  assert.match(html, /Conformal予測区間（80%） 500\.0–500\.0 MPa/);
 });
 
 test("sticky point column only offsets when the selection column is present", async () => {

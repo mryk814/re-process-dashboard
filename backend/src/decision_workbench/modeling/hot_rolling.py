@@ -39,6 +39,7 @@ from decision_workbench.modeling.hot_rolling_feature_pipeline import (
     candidate_from_observation,
 )
 from decision_workbench.modeling.packages.contracts import (
+    prediction_interval_semantics,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
@@ -120,6 +121,7 @@ class HotRollingRuntime:
         stats = json.loads(self.model_package.artifact_path(stats_path).read_text(encoding="utf-8"))
         self.composition_defaults = {name: float(value) for name, value in stats["composition_defaults"].items()}
         self.training_counts = {name: int(value) for name, value in stats["records"].items()}
+        self.predictor_specs = {spec.target: spec for spec in manifest.predictors}
         self.predictors = {spec.target: self.model_package.load_predictor(spec.id) for spec in manifest.predictors}
         self._verify_package_smoke()
         self._build_support_reference()
@@ -256,6 +258,9 @@ class HotRollingRuntime:
         predictions: dict[str, Prediction] = {}
         for target, predictor in self.predictors.items():
             summary = predictor.predict(values)
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             output = next(item for item in self.task_definition.outputs if item.key == target)
             lower, upper = predictive_interval(summary)
             goal = (target_values or {}).get(target)
@@ -275,6 +280,8 @@ class HotRollingRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution.get("family", "empirical_quantiles"),
                 quantiles={level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                interval_method=interval_method,
+                interval_coverage_level=interval_coverage_level,
                 categories=list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_lower=goal_lower,
@@ -510,6 +517,9 @@ class HotRollingRuntime:
             values = adjusted.inputs.composition if group == "composition" else adjusted.inputs.process
             values[name] = float(x_value)
             summary = predictor.predict(self._feature_builder(adjusted, self.composition_defaults).as_dict())
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             value = summary.point_estimate
             interval_lower, interval_upper = predictive_interval(summary)
             curve.append({
@@ -521,6 +531,8 @@ class HotRollingRuntime:
                 "point_statistic": summary.point_statistic,
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
                 "quantiles": {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "interval_method": interval_method,
+                "interval_coverage_level": interval_coverage_level,
                 "categories": list(summary.distribution.get("categories", [])),
             })
 

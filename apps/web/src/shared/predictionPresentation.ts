@@ -21,22 +21,39 @@ export function formatPredictionPoint(prediction: PredictionPoint, formatNumber:
 }
 
 export function predictionIntervalLabel(prediction: PredictionSemantics): string {
-  if (prediction.interval_method === "conformal") return `Conformal予測区間（${Math.round((prediction.interval_coverage_level ?? 0) * 100)}%）`;
-  if (prediction.interval_method === "quantile") return "予測分位点区間";
-  if (prediction.interval_method === "parametric") return "パラメトリック予測区間";
-  if (prediction.interval_method === "bayesian") return "Bayesian credible interval";
-  const levels = Object.keys(prediction.quantiles ?? {}).map(Number).sort((left, right) => left - right);
-  if (levels.length < 2 || levels.some((level) => !Number.isFinite(level))) return "利用不可";
-  const low = levels[0]!;
-  const high = levels.at(-1)!;
-  const coverage = Math.round((high - low) * 100);
-  if (prediction.target_kind === "binary") return `${Math.round(low * 100)}–${Math.round(high * 100)}%確率分位`;
-  if (prediction.target_kind === "ordinal") return `${Math.round(low * 100)}–${Math.round(high * 100)}%カテゴリ分位`;
-  return prediction.predictive_family === "empirical_quantiles"
-    ? `${Math.round(low * 100)}–${Math.round(high * 100)}%分位`
-    : `${coverage}%予測区間`;
+  const coverage = prediction.interval_coverage_level == null
+    ? "coverage未記録"
+    : `${Math.round(prediction.interval_coverage_level * 100)}%`;
+  if (prediction.interval_method === "conformal") return `Conformal予測区間（${coverage}）`;
+  if (prediction.interval_method === "quantile") {
+    const label = prediction.target_kind === "binary"
+      ? "確率分位点区間"
+      : prediction.target_kind === "ordinal"
+        ? "カテゴリ分位点区間"
+        : "予測分位点区間";
+    return `${label}（${coverage}）`;
+  }
+  if (prediction.interval_method === "parametric") return `パラメトリック予測区間（${coverage}）`;
+  if (prediction.interval_method === "bayesian") {
+    return prediction.target_kind === "binary"
+      ? `Bayesian確率区間（${coverage}）`
+      : `Bayesian予測区間（${coverage}）`;
+  }
+  return predictionHasInterval(prediction) ? "区間の意味は未記録" : "利用不可";
 }
 
 export function predictionHasInterval(prediction: PredictionSemantics): boolean {
   return prediction.interval_method != null || Object.keys(prediction.quantiles ?? {}).length >= 2;
+}
+
+export function formatPredictionInterval(
+  prediction: PredictionSemantics & { lower: number; upper: number },
+  formatNumber: (value: number) => string,
+): string | null {
+  if (
+    !predictionHasInterval(prediction)
+    || !Number.isFinite(prediction.lower)
+    || !Number.isFinite(prediction.upper)
+  ) return null;
+  return `${predictionIntervalLabel(prediction)} ${formatNumber(prediction.lower)}–${formatNumber(prediction.upper)}`;
 }

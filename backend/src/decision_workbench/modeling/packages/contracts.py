@@ -558,6 +558,40 @@ class PredictiveSummary(PackageModel):
     warnings: tuple[str, ...] = ()
 
 
+PredictionIntervalMethod = Literal["conformal", "quantile", "parametric", "bayesian"]
+
+
+def prediction_interval_semantics(
+    summary: PredictiveSummary,
+    predictor: PredictorSpec | None = None,
+) -> tuple[PredictionIntervalMethod | None, float | None]:
+    """Return declared or audited adapter interval meaning without shape inference."""
+    if summary.prediction_interval is not None:
+        return (
+            summary.prediction_interval.method,
+            summary.prediction_interval.coverage_level,
+        )
+    if predictor is None or len(summary.quantiles) < 2:
+        return None, None
+    runtime_type = predictor.runtime_type
+    family = predictor.predictive_family
+    if runtime_type in {
+        "builtin.exact_gp.v1",
+        "builtin.heteroscedastic_exact_gp.v1",
+        "gpytorch.static_exact_rbf.v1",
+    }:
+        return "bayesian", 0.9
+    if runtime_type == "builtin.linear.v1":
+        return "quantile", 0.9
+    if runtime_type == "builtin.quantile_linear.v1":
+        return "quantile", None
+    if runtime_type in {"builtin.additive_terms.v1", "lightgbm.booster.v1"}:
+        return ("parametric", 0.9) if family == "normal" else ("quantile", 0.9)
+    if runtime_type == "sklearn.skops.v1" and family == "poisson_log":
+        return "parametric", 0.9
+    return None, None
+
+
 def predictive_interval(summary: PredictiveSummary) -> tuple[float, float]:
     """Return an explicit interval before falling back to declared quantiles."""
     if summary.prediction_interval is not None:

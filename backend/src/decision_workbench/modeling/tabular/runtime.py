@@ -39,6 +39,7 @@ from decision_workbench.modeling.package_capabilities import package_capability_
 from decision_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
     PredictiveSummary,
+    prediction_interval_semantics,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
@@ -64,17 +65,6 @@ from .features import (
     candidate_from_observation,
     feature_definitions,
 )
-
-
-def _interval_method(summary: PredictiveSummary) -> str | None:
-    """Use declared interval semantics, not merely the presence of quantiles."""
-    if summary.prediction_interval is not None:
-        return summary.prediction_interval.method
-    if not summary.quantiles:
-        return None
-    if summary.distribution.get("family") in {"normal", "lognormal"}:
-        return "parametric"
-    return "quantile"
 
 
 def _missing_input_paths(
@@ -165,6 +155,7 @@ class TabularRegressionRuntime:
         )
         if tuple(manifest.feature_pipeline.output_features) != expected_features:
             raise ValueError("Tabular model package feature order is incompatible")
+        self.predictor_specs = {spec.target: spec for spec in manifest.predictors}
         self.predictors = {
             spec.target: self.model_package.load_predictor(spec.id)
             for spec in manifest.predictors
@@ -612,6 +603,9 @@ class TabularRegressionRuntime:
                 goal, self.output_definitions[target].goal_direction
             )
             interval = summary.prediction_interval
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             calibration = interval.calibration if interval is not None else None
             wrapper_identity = interval.conformal_wrapper if interval is not None else None
             predictions[target] = Prediction(
@@ -623,8 +617,8 @@ class TabularRegressionRuntime:
                 point_statistic=summary.point_statistic,
                 predictive_family=summary.distribution["family"],
                 quantiles={level: round(value, 6) for level, value in quantiles.items()},
-                interval_method=_interval_method(summary),
-                interval_coverage_level=(interval.coverage_level if interval is not None else None),
+                interval_method=interval_method,
+                interval_coverage_level=interval_coverage_level,
                 interval_calibration_dataset_digest=(
                     calibration.calibration_dataset_digest if calibration is not None else None
                 ),
@@ -967,6 +961,9 @@ class TabularRegressionRuntime:
             summary = self.predictors[target].predict(
                 self._feature_bundle(adjusted).as_dict()
             )
+            interval_method, interval_coverage_level = prediction_interval_semantics(
+                summary, self.predictor_specs[target],
+            )
             lower, upper = predictive_interval(summary)
             output_profile = next(item for item in self.profile.outputs if item.key == target)
             value = summary.point_estimate
@@ -986,6 +983,8 @@ class TabularRegressionRuntime:
                 "target_kind": summary.target_kind,
                 "point_statistic": summary.point_statistic,
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
+                "interval_method": interval_method,
+                "interval_coverage_level": interval_coverage_level,
                 "quantiles": (
                     {}
                     if summary.target_kind == "binary"

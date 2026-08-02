@@ -9,6 +9,7 @@ import numpy as np
 
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
+    PredictionInterval,
     PredictiveSummary,
     PredictorSpec,
 )
@@ -30,6 +31,15 @@ MAX_TENSOR_ELEMENTS = 4_000_000
 def _sigmoid(value: np.ndarray) -> np.ndarray:
     clipped = np.clip(value, -50, 50)
     return 1.0 / (1.0 + np.exp(-clipped))
+
+
+def _bayesian_interval(quantiles: dict[str, float]) -> PredictionInterval:
+    return PredictionInterval(
+        method="bayesian",
+        coverage_level=0.9,
+        lower=quantiles["0.05"],
+        upper=quantiles["0.95"],
+    )
 
 
 class _DensePosteriorPredictor:
@@ -81,11 +91,12 @@ class _DensePosteriorPredictor:
             quantiles = quantile_summary(samples)
             statistic = "median" if family == "lognormal" else "mean"
             point = float(np.median(samples) if statistic == "median" else np.mean(samples))
-            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"})
+            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"}, prediction_interval=_bayesian_interval(quantiles))
         if family == "bernoulli_logit":
             probabilities = _sigmoid(output[:, 0])
             probability = float(np.mean(probabilities))
-            return PredictiveSummary(target=self.spec.target, target_kind="binary", unit=self.spec.unit, point_statistic="probability", point_estimate=probability, quantiles=quantile_summary(probabilities), event_probability=probability, distribution={"family": family, "support": "{0,1}"})
+            quantiles = quantile_summary(probabilities)
+            return PredictiveSummary(target=self.spec.target, target_kind="binary", unit=self.spec.unit, point_statistic="probability", point_estimate=probability, quantiles=quantiles, event_probability=probability, distribution={"family": family, "support": "{0,1}"}, prediction_interval=_bayesian_interval(quantiles))
         rng = np.random.default_rng(seed)
         if family == "poisson_log":
             rate = np.exp(np.clip(output[:, 0], -30, 30))
@@ -125,7 +136,8 @@ class _DensePosteriorPredictor:
             point, distribution = float(np.mean(np.arange(probabilities.shape[1]) * probabilities.mean(axis=0))), {"family": family, "support": "ordered_categories", "categories": categories}
         else:
             raise PackageContractError(f"unsupported NumPyro likelihood: {family}")
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantile_summary(samples, discrete=True), distribution=distribution)
+        quantiles = quantile_summary(samples, discrete=True)
+        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantiles, distribution=distribution, prediction_interval=_bayesian_interval(quantiles))
 
 
 class NumpyroDensePosteriorAdapter:

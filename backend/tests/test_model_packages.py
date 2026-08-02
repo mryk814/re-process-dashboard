@@ -147,6 +147,11 @@ def test_numpyro_dense_posterior_likelihoods_are_deterministic_and_semantic(tmp_
     assert first == second
     assert first.target_kind == target_kind
     assert first.quantiles["0.05"] <= first.quantiles["0.50"] <= first.quantiles["0.95"]
+    assert first.prediction_interval is not None
+    assert first.prediction_interval.method == "bayesian"
+    assert first.prediction_interval.coverage_level == pytest.approx(0.9)
+    assert first.prediction_interval.lower == first.quantiles["0.05"]
+    assert first.prediction_interval.upper == first.quantiles["0.95"]
     if family == "bernoulli_logit":
         assert 0 <= first.point_estimate <= 1 and first.event_probability == first.point_estimate
     if family in {"lognormal", "poisson_log", "negative_binomial_log", "zero_inflated_poisson_log"}:

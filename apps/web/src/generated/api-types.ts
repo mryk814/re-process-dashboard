@@ -5645,6 +5645,10 @@ export interface components {
         CurvePoint: {
             /** Categories */
             categories?: string[];
+            /** Interval Coverage Level */
+            interval_coverage_level?: number | null;
+            /** Interval Method */
+            interval_method?: ("conformal" | "quantile" | "parametric" | "bayesian") | null;
             /** Lower */
             lower: number;
             /**

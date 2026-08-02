@@ -1,5 +1,6 @@
 import type { ApiScreeningRun } from "../../shared/api/workbench-api";
 import { assessOutputValues } from "../../shared/outputPresentation";
+import { formatPredictionInterval } from "../../shared/predictionPresentation";
 import { formatTaskNumber } from "../../shared/taskPresentation";
 import { supportStatusLabel } from "../../shared/supportPresentation";
 import type { TaskDefinitionContract } from "../candidates";
@@ -37,10 +38,14 @@ function predictionPointText(prediction: ScreeningPoint["prediction"], format: (
 }
 
 function predictionIntervalText(prediction: ScreeningPoint["prediction"], format: (value: number) => string) {
-  if (prediction.target_kind === "binary") return null;
-  if (!Number.isFinite(prediction.lower) || !Number.isFinite(prediction.upper) || prediction.lower === prediction.upper) return null;
-  const unit = prediction.unit === "1" ? "" : ` ${prediction.unit}`;
-  return `${format(prediction.lower)}–${format(prediction.upper)}${unit}`;
+  const unit = prediction.target_kind === "binary" || prediction.unit === "1" ? "" : ` ${prediction.unit}`;
+  const interval = formatPredictionInterval(
+    prediction,
+    prediction.target_kind === "binary"
+      ? (value) => `${number(value * 100, 1)}%`
+      : format,
+  );
+  return interval ? `${interval}${unit}` : null;
 }
 
 export function ScreeningRepresentativeTable({

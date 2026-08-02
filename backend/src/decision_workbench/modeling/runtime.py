@@ -53,6 +53,7 @@ from decision_workbench.modeling.feature_pipeline import (
     FEATURE_NAMES as METALLURGY_FEATURE_NAMES,
 )
 from decision_workbench.modeling.packages.contracts import (
+    prediction_interval_semantics,
     predictive_interval,
     validate_predictive_summary,
     validate_task_definition_canonical_inputs,
@@ -570,12 +571,21 @@ class ModelRuntime:
             elif goal is not None and model is not None:
                 goal_probability = empirical_goal_probability(value + model.oof_residuals, goal, "at_least")
             goal_value, goal_lower, goal_upper, goal_direction = goal_fields(goal, "at_least")
+            interval_method, interval_coverage_level = (
+                prediction_interval_semantics(
+                    summary, self.package_predictor_specs[label],
+                )
+                if summary is not None
+                else ("quantile", 0.9)
+            )
             predictions[label] = Prediction(
                 value=round(value, 3), lower=round(lower, 3), upper=round(upper, 3), unit=unit,
                 target_kind=summary.target_kind if summary is not None else "continuous",
                 point_statistic=summary.point_statistic if summary is not None else "mean",
                 predictive_family=summary.distribution.get("family", "empirical_quantiles") if summary is not None else "empirical_quantiles",
                 quantiles={} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                interval_method=interval_method,
+                interval_coverage_level=interval_coverage_level,
                 categories=[] if summary is None else list(summary.distribution.get("categories", [])),
                 goal_value=goal_value,
                 goal_lower=goal_lower,
@@ -933,6 +943,13 @@ class ModelRuntime:
             else:
                 value = model.predict(adjusted_vector)
                 lower, upper = value + lower_offset, value + upper_offset
+            interval_method, interval_coverage_level = (
+                prediction_interval_semantics(
+                    summary, self.package_predictor_specs[target],
+                )
+                if summary is not None
+                else ("quantile", 0.9)
+            )
             curve.append({
                 "x": round(float(x_value), 4),
                 "value": round(value, 3),
@@ -942,6 +959,8 @@ class ModelRuntime:
                 "point_statistic": summary.point_statistic if summary is not None else "mean",
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles") if summary is not None else "empirical_quantiles",
                 "quantiles": {"0.05": round(lower, 6), "0.95": round(upper, 6)} if summary is None else {level: round(float(item), 6) for level, item in summary.quantiles.items()},
+                "interval_method": interval_method,
+                "interval_coverage_level": interval_coverage_level,
                 "categories": [] if summary is None else list(summary.distribution.get("categories", [])),
             })
         return curve

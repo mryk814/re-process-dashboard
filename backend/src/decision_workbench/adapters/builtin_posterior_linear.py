@@ -7,6 +7,7 @@ import numpy as np
 
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
+    PredictionInterval,
     PredictiveSummary,
     PredictorSpec,
 )
@@ -40,13 +41,15 @@ class _PosteriorLinearPredictor:
             total_std = math.sqrt(epistemic_std**2 + aleatoric_std**2)
             mean = float(np.mean(latent))
             z90 = 1.6448536269514722
+            lower = mean - z90 * total_std
+            upper = mean + z90 * total_std
             return PredictiveSummary(
                 target=self.spec.target,
                 target_kind=self.spec.target_kind,
                 unit=self.spec.unit,
                 point_statistic="mean",
                 point_estimate=mean,
-                quantiles={"0.05": mean - z90 * total_std, "0.50": mean, "0.95": mean + z90 * total_std},
+                quantiles={"0.05": lower, "0.50": mean, "0.95": upper},
                 distribution={
                     "family": "normal",
                     "support": "real",
@@ -61,17 +64,24 @@ class _PosteriorLinearPredictor:
                     "aleatoric_std": aleatoric_std,
                     "total_predictive_std": total_std,
                 },
+                prediction_interval=PredictionInterval(
+                    method="bayesian",
+                    coverage_level=0.9,
+                    lower=lower,
+                    upper=upper,
+                ),
             )
         rng = np.random.default_rng(seed)
         samples = latent + np.sqrt(within_variance + between_variance) * rng.standard_normal(len(latent))
         total_std = float(np.std(samples))
+        quantiles = quantile_summary(samples)
         return PredictiveSummary(
             target=self.spec.target,
             target_kind=self.spec.target_kind,
             unit=self.spec.unit,
             point_statistic="mean",
             point_estimate=float(np.mean(latent)),
-            quantiles=quantile_summary(samples),
+            quantiles=quantiles,
             distribution={
                 "family": "empirical_quantiles",
                 "support": "real",
@@ -82,6 +92,12 @@ class _PosteriorLinearPredictor:
                 "epistemic_std": epistemic_std,
                 "aleatoric_std": aleatoric_std,
             },
+            prediction_interval=PredictionInterval(
+                method="bayesian",
+                coverage_level=0.9,
+                lower=quantiles["0.05"],
+                upper=quantiles["0.95"],
+            ),
         )
 
 

@@ -222,6 +222,11 @@ def test_checked_posterior_linear_example_is_deterministic_and_reported() -> Non
     assert first.quantiles["0.05"] < first.point_estimate < first.quantiles["0.95"]
     assert first.distribution["family"] == "empirical_quantiles"
     assert first.distribution["std_semantics"] == "posterior_predictive_samples"
+    assert first.prediction_interval is not None
+    assert first.prediction_interval.method == "bayesian"
+    assert first.prediction_interval.coverage_level == pytest.approx(0.9)
+    assert first.prediction_interval.lower == first.quantiles["0.05"]
+    assert first.prediction_interval.upper == first.quantiles["0.95"]
     assert first.uncertainty_components["epistemic_std"] >= 0
     assert first.uncertainty_components["aleatoric_std"] > 0
     assert report.quality_metrics["posterior_draw_count"] == 192
@@ -249,6 +254,9 @@ def test_posterior_linear_can_publish_a_deterministic_moment_matched_normal(tmp_
     assert first == second
     assert first.distribution["family"] == "normal"
     assert first.distribution["approximation"] == "posterior_predictive_moment_matched"
+    assert first.prediction_interval is not None
+    assert first.prediction_interval.method == "bayesian"
+    assert first.prediction_interval.coverage_level == pytest.approx(0.9)
     assert first.quantiles["0.05"] < first.point_estimate < first.quantiles["0.95"]
     assert first.uncertainty_components["total_predictive_std"] == pytest.approx(first.distribution["std"])
 

@@ -171,7 +171,7 @@ test("comparison panes keep candidate rows aligned after text enlargement", asyn
   await expect(readingView.getByRole("heading", { name: "ヒートパターン" })).toBeVisible();
   await expect(readingView.getByText("536.0 MPa", { exact: true })).toBeVisible();
   await expect(
-    readingView.getByText("90%予測区間: 533.2–538.8 MPa", { exact: true }),
+    readingView.getByText("Bayesian予測区間（90%）: 533.2–538.8 MPa", { exact: true }),
   ).toBeVisible();
   await expect(readingView.getByText(/分、\d+(?:\.\d+)? °C/).first()).toBeVisible();
   await expectNoBlockingAxeViolations(page, "expanded selected Candidate reading view");

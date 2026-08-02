@@ -5,6 +5,7 @@ from pathlib import Path
 
 from decision_workbench.app import app
 from decision_workbench.contracts.candidate_project_contracts import CandidateInput
+from decision_workbench.contracts.evidence_contracts import CurvePoint
 from decision_workbench.contracts.prediction_catalog_contracts import Prediction
 
 
@@ -18,7 +19,15 @@ def test_tracked_openapi_schema_matches_fastapi_contract() -> None:
     assert candidate_response["content"]["application/json"]["schema"]["items"]["$ref"].endswith("/Candidate")
     schemas = tracked["components"]["schemas"]
     assert {"target_kind", "point_statistic", "predictive_family", "quantiles", "categories"} <= schemas["Prediction"]["properties"].keys()
-    assert {"target_kind", "point_statistic", "predictive_family", "quantiles", "categories"} <= schemas["CurvePoint"]["properties"].keys()
+    assert {
+        "target_kind",
+        "point_statistic",
+        "predictive_family",
+        "quantiles",
+        "interval_method",
+        "interval_coverage_level",
+        "categories",
+    } <= schemas["CurvePoint"]["properties"].keys()
     assert {"revision", "archived_at"} <= schemas["Candidate"]["properties"].keys()
     assert "expected_revision" in schemas["CandidateUpdate"]["required"]
     assert {"revision_conflict", "candidate_archived", "candidate_limit", "data_integrity_error"} <= set(
@@ -114,6 +123,26 @@ def test_quantile_semantics_survive_prediction_and_snapshot_payload_round_trip()
     assert decoded.quantiles == {"0.05": 8.0, "0.5": 12.0, "0.95": 17.0}
 
 
+def test_non_90_interval_semantics_survive_curve_point_round_trip() -> None:
+    point = CurvePoint(
+        x=2.0,
+        value=2.0,
+        lower=1.6,
+        upper=2.4,
+        target_kind="continuous",
+        point_statistic="mean",
+        predictive_family="empirical_quantiles",
+        quantiles={},
+        interval_method="conformal",
+        interval_coverage_level=0.8,
+    )
+
+    decoded = CurvePoint.model_validate_json(point.model_dump_json())
+
+    assert decoded.interval_method == "conformal"
+    assert decoded.interval_coverage_level == 0.8
+
+
 def test_legacy_snapshot_prediction_gets_explicit_read_semantics() -> None:
     decoded = Prediction.model_validate({"value": 12.0, "lower": 8.0, "upper": 17.0, "unit": "MPa"})
 
@@ -121,3 +150,5 @@ def test_legacy_snapshot_prediction_gets_explicit_read_semantics() -> None:
     assert decoded.point_statistic == "mean"
     assert decoded.predictive_family == "empirical_quantiles"
     assert decoded.quantiles == {"0.05": 8.0, "0.95": 17.0}
+    assert decoded.interval_method is None
+    assert decoded.interval_coverage_level is None
