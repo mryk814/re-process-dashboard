@@ -75,11 +75,19 @@ class ChainPlanningUseCase:
         revision = self.store.get_chain_revision(identity.chain_revision_id)
         if revision is None or revision.revision_digest != identity.chain_revision_digest:
             raise ChainExecutionError("固定されたChain Revisionを解決できません")
+        if not isinstance(revision, ChainRevision):
+            raise ChainExecutionError(
+                "Prediction Graph Revisionは現行Chain実行経路では実行できません"
+            )
         definition = self.store.get_chain_definition(
             revision.chain_id, revision.chain_definition_digest
         )
         if definition is None:
             raise ChainExecutionError("固定されたChain Definitionを解決できません")
+        if not isinstance(definition, ChainDefinition):
+            raise ChainExecutionError(
+                "Prediction Graph Definitionは現行Chain実行経路では実行できません"
+            )
         return definition, revision, identity
 
     def candidate_adapter(self, project_id: str) -> ChainCandidateAdapter:

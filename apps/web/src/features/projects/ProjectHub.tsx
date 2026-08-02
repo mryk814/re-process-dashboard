@@ -33,8 +33,11 @@ import {
 import {
   chainAvailability,
   chainStagePath,
+  isExecutableChainDefinition,
+  isExecutableChainRevision,
   projectOperationDisabled,
   resolveFixedChain,
+  type ExecutableChainRevision,
 } from "./chainProjectMetadata";
 import type { ResolvedTaskDefinition } from "../candidates";
 import { ChainEvaluationPanel } from "./ChainEvaluationPanel";
@@ -534,9 +537,11 @@ export function ProjectHub({
   ), [creationOptions]);
   const chainDatasetPresentation = useMemo(() => {
     const labelsByView = new Map<string, Set<string>>();
-    const revisionById = new Map<string, ApiChainTemplate["revisions"][number]>();
+    const revisionById = new Map<string, ExecutableChainRevision>();
     for (const template of chainTemplates) {
+      if (!isExecutableChainDefinition(template.definition)) continue;
       for (const revision of template.revisions) {
+        if (!isExecutableChainRevision(revision)) continue;
         revisionById.set(`${revision.chain_id}:r${revision.revision}`, revision);
         for (const stage of revision.stages) {
           if (!stage.dataset_view_revision_id) continue;
@@ -586,16 +591,22 @@ export function ProjectHub({
     ? compatiblePackagesForDatasetTask(selectedDataset, newTaskId, creationOptions)
     : [];
   const availablePackageNames = modelPackageDisplayNames(availablePackages);
-  const availableChains = chainTemplates.filter((item) => item.revisions.some(
-    (revision) => revision.stages.some(
+  const availableChains = chainTemplates.filter((item) => (
+    isExecutableChainDefinition(item.definition)
+    && item.revisions.some(
+    (revision) => isExecutableChainRevision(revision) && revision.stages.some(
       (stage) => stage.dataset_view_revision_id === newDatasetViewId,
     ),
-  ));
+  )));
   const selectedChain = chainTemplates.find(
-    (item) => item.definition.chain_id === newChainId,
+    (item) => isExecutableChainDefinition(item.definition)
+      && item.definition.chain_id === newChainId,
   );
   const selectedChainRevision = selectedChain?.revisions.find(
-    (revision) => `${revision.chain_id}:r${revision.revision}` === newChainRevisionId,
+    (revision): revision is ExecutableChainRevision => (
+      isExecutableChainRevision(revision)
+      && `${revision.chain_id}:r${revision.revision}` === newChainRevisionId
+    ),
   );
   const fixedDataset = project?.dataset_view_revision_id ? datasetByView.get(project.dataset_view_revision_id) : undefined;
   const fixedPackage = creationOptions?.model_packages.find((item) => item.id === project?.model_package_ref_id);
@@ -1186,7 +1197,11 @@ export function ProjectHub({
       setNewDatasetViewId(datasetViewId);
       setNewTaskId("");
       setNewModelPackageRefId("");
-      setNewChainId(fixedChain?.definition.chain_id ?? "");
+      setNewChainId(
+        fixedChain && isExecutableChainDefinition(fixedChain.definition)
+          ? fixedChain.definition.chain_id
+          : "",
+      );
       setNewChainRevisionId(chainIdentity.chain_revision_id);
       setNewProjectGroupChoice(project.project_series_id ? "existing" : "none");
       setNewProjectSeriesId(project.project_series_id ?? "");
@@ -1263,7 +1278,10 @@ export function ProjectHub({
         if (itemIdentity?.identity_kind === "chain") {
           const revision = chainTemplates
             .flatMap((template) => template.revisions.map((value) => ({ template, revision: value })))
-            .find(({ revision }) => `${revision.chain_id}:r${revision.revision}` === itemIdentity.chain_revision_id);
+            .find(({ revision }) => (
+              isExecutableChainRevision(revision)
+              && `${revision.chain_id}:r${revision.revision}` === itemIdentity.chain_revision_id
+            ));
           return revision
             ? `${revision.template.definition.label} · r${revision.revision.revision} · ${revision.revision.stages.map((stage) => stage.stage_id).join(" → ")}`
             : `Chain Revision · ${itemIdentity.chain_revision_id}`;
@@ -1671,17 +1689,25 @@ export function ProjectHub({
             id: `task:${item.definition.task_definition.id}`,
             label: `${item.definition.task_definition.label}（単一Task）`,
           })),
-          ...availableChains.map((item) => ({
-            id: `chain:${item.definition.chain_id}`,
-            label: `${item.definition.label}（Chain）`,
-          })),
+          ...availableChains.flatMap((item) => (
+            isExecutableChainDefinition(item.definition)
+              ? [{
+                  id: `chain:${item.definition.chain_id}`,
+                  label: `${item.definition.label}（Chain）`,
+                }]
+              : []
+          )),
         ]}
-        chainRevisionChoices={(selectedChain?.revisions ?? []).map((revision) => ({
-          id: `${revision.chain_id}:r${revision.revision}`,
-          label: `r${revision.revision} · ${revision.stages.map(
-            (stage) => stage.stage_id,
-          ).join(" → ")}`,
-        }))}
+        chainRevisionChoices={(selectedChain?.revisions ?? []).flatMap((revision) => (
+          isExecutableChainRevision(revision)
+            ? [{
+                id: `${revision.chain_id}:r${revision.revision}`,
+                label: `r${revision.revision} · ${revision.stages.map(
+                  (stage) => stage.stage_id,
+                ).join(" → ")}`,
+              }]
+            : []
+        ))}
         modelPackageChoices={availablePackages.map((item) => ({
           id: item.id,
           label: availablePackageNames.get(item.id) ?? item.id,

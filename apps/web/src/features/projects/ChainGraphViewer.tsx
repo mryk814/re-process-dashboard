@@ -118,7 +118,7 @@ export function ChainGraphViewer({ projectId, candidateId }: Props) {
     <p className="chain-graph-live-state" role="status">{executionState === "loading" ? "選択中候補のStage状態を読み込み中です。" : executionState === "ready" ? "選択中候補の最新実行状態を表示しています。" : "候補を選ぶと、この位置でStageごとの実行状態を確認できます。"}</p>
 
     <section className="chain-graph-canvas" aria-label="固定したChainのStageと実際のbinding">
-      <div className="chain-graph-external" aria-label="外部入力"><strong>外部入力</strong>{graph.definition.external_inputs.map((port) => <span key={port.path} className="chain-graph-external-port">{port.path}<small>{port.value_kind} · {port.quantity} · {port.unit ?? "unitなし"}</small></span>)}</div>
+      <div className="chain-graph-external" aria-label="外部入力"><strong>外部入力</strong>{graph.prediction_graph.inputs.map((input) => <span key={input.input_id} className="chain-graph-external-port">{input.label}<small>{input.role} · {input.port.value_kind} · {input.port.quantity} · {input.port.unit ?? "unitなし"}</small></span>)}</div>
       <div className="chain-graph-stages">{graph.definition.stages.map((stage) => {
         const lock = revisionStage(graph.revision, stage.stage_id);
         const counts = stageBindingCounts(graph, stage.stage_id);

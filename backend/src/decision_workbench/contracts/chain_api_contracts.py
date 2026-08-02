@@ -11,8 +11,10 @@ from decision_workbench.contracts.blend_contracts import (
 )
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
-    ChainRevision,
     ChainStageLock,
+    GraphDefinitionRef,
+    GraphRevisionRef,
+    PredictionGraphProjection,
     StageContractSurface,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
@@ -28,8 +30,8 @@ class ChainApiModel(BaseModel):
 
 class ChainTemplateItem(ChainApiModel):
     definition_id: str
-    definition: ChainDefinition
-    revisions: tuple[ChainRevision, ...]
+    definition: GraphDefinitionRef
+    revisions: tuple[GraphRevisionRef, ...]
 
 
 class ChainStudioStageCatalogItem(ChainApiModel):
@@ -69,8 +71,9 @@ class ChainGraphStageContract(ChainApiModel):
 
 
 class ChainGraphResponse(ChainApiModel):
-    definition: ChainDefinition
-    revision: ChainRevision
+    definition: GraphDefinitionRef
+    revision: GraphRevisionRef
+    prediction_graph: PredictionGraphProjection
     stage_contracts: tuple[ChainGraphStageContract, ...]
 
 

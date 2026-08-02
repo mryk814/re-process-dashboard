@@ -17,7 +17,11 @@ from decision_workbench.application.chain.plan import (
     set_path,
 )
 from decision_workbench.application.chain.stage_execution import ChainStageExecutor
-from decision_workbench.contracts.chain_contracts import ChainBinding, ChainStageRevision
+from decision_workbench.contracts.chain_contracts import (
+    ChainBinding,
+    ChainRevision,
+    ChainStageRevision,
+)
 from decision_workbench.contracts.chain_uncertainty_contracts import (
     ChainDistributionCapability,
     ChainDistributionProvenance,
@@ -129,6 +133,10 @@ class ChainUncertaintyService:
         revision = self.store.get_chain_revision(identity.chain_revision_id)
         if revision is None or revision.revision_digest != identity.chain_revision_digest:
             raise ChainExecutionError("固定されたChain Revisionを解決できません")
+        if not isinstance(revision, ChainRevision):
+            raise ChainExecutionError(
+                "Prediction Graph Revisionは現行Chain不確かさ経路では実行できません"
+            )
         stages: list[ChainStageSamplingCapability] = []
         full_propagation_supported = True
         sampled_predictive_stages = 0

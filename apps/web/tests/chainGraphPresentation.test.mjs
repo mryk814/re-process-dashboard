@@ -19,6 +19,12 @@ const graph = {
     ],
   },
   revision: { stages: [{ stage_id: "gamma", contract_digest: "sha256:abc" }] },
+  prediction_graph: {
+    inputs: [{
+      input_id: "external.feed",
+      port: port("external.feed", "°C"),
+    }],
+  },
   stage_contracts: [
     surface("alpha", [port("feed", "°C")], [port("result")]),
     surface("beta", [port("feed")], [port("result")]),

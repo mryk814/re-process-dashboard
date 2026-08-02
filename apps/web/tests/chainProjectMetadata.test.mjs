@@ -8,8 +8,13 @@ import {
 } from "../src/features/projects/chainProjectMetadata.ts";
 
 const scalarTemplate = {
-  definition: { chain_id: "scalar-proof", label: "Scalar proof" },
+  definition: {
+    schema_version: "chain-definition/v1",
+    chain_id: "scalar-proof",
+    label: "Scalar proof",
+  },
   revisions: [{
+    schema_version: "chain-revision/v1",
     chain_id: "scalar-proof",
     revision: 2,
     revision_digest: "sha256:revision",

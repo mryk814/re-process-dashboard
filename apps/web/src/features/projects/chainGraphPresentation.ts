@@ -3,7 +3,7 @@ import type { ApiChainExecution, ApiChainGraph } from "../../shared/api/workbenc
 type ChainDefinition = ApiChainGraph["definition"];
 type ChainRevision = ApiChainGraph["revision"];
 type ChainBinding = ChainDefinition["bindings"][number];
-type ChainPort = ChainDefinition["external_inputs"][number];
+type ChainPort = ApiChainGraph["prediction_graph"]["inputs"][number]["port"];
 type StageSurface = NonNullable<ApiChainGraph["stage_contracts"][number]["surface"]>;
 type StagePort = StageSurface["input_ports"][number] | StageSurface["output_ports"][number];
 
@@ -49,7 +49,9 @@ function stagePort(graph: ApiChainGraph, stageId: string, direction: "input" | "
 
 export function buildChainGraph(graph: ApiChainGraph): ChainGraphEdge[] {
   const { definition } = graph;
-  const externalPorts = new Map(definition.external_inputs.map((port) => [port.path, port]));
+  const externalPorts = new Map(
+    graph.prediction_graph.inputs.map((input) => [input.input_id, input.port]),
+  );
   const raw = definition.bindings.map((binding, index) => {
     const source = binding.source.source_kind === "external"
       ? { kind: "external" as const, id: binding.source.path, label: binding.source.path }

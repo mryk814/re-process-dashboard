@@ -3328,6 +3328,27 @@
         "title": "CandidateDifferenceSummary",
         "type": "object"
       },
+      "CandidateGraphInputSource": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_path": {
+            "minLength": 1,
+            "title": "Candidate Path",
+            "type": "string"
+          },
+          "source_kind": {
+            "const": "candidate",
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind",
+          "candidate_path"
+        ],
+        "title": "CandidateGraphInputSource",
+        "type": "object"
+      },
       "CandidateHistoryItem": {
         "properties": {
           "actuals": {
@@ -5176,10 +5197,43 @@
         "additionalProperties": false,
         "properties": {
           "definition": {
-            "$ref": "#/components/schemas/ChainDefinition"
+            "discriminator": {
+              "mapping": {
+                "chain-definition/v1": "#/components/schemas/ChainDefinition",
+                "prediction-graph-definition/v1": "#/components/schemas/PredictionGraphDefinition"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainDefinition"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphDefinition"
+              }
+            ],
+            "title": "Definition"
+          },
+          "prediction_graph": {
+            "$ref": "#/components/schemas/PredictionGraphProjection"
           },
           "revision": {
-            "$ref": "#/components/schemas/ChainRevision"
+            "discriminator": {
+              "mapping": {
+                "chain-revision/v1": "#/components/schemas/ChainRevision",
+                "prediction-graph-revision/v1": "#/components/schemas/PredictionGraphRevision"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainRevision"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphRevision"
+              }
+            ],
+            "title": "Revision"
           },
           "stage_contracts": {
             "items": {
@@ -5192,6 +5246,7 @@
         "required": [
           "definition",
           "revision",
+          "prediction_graph",
           "stage_contracts"
         ],
         "title": "ChainGraphResponse",
@@ -6079,7 +6134,22 @@
         "additionalProperties": false,
         "properties": {
           "definition": {
-            "$ref": "#/components/schemas/ChainDefinition"
+            "discriminator": {
+              "mapping": {
+                "chain-definition/v1": "#/components/schemas/ChainDefinition",
+                "prediction-graph-definition/v1": "#/components/schemas/PredictionGraphDefinition"
+              },
+              "propertyName": "schema_version"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChainDefinition"
+              },
+              {
+                "$ref": "#/components/schemas/PredictionGraphDefinition"
+              }
+            ],
+            "title": "Definition"
           },
           "definition_id": {
             "title": "Definition Id",
@@ -6087,7 +6157,21 @@
           },
           "revisions": {
             "items": {
-              "$ref": "#/components/schemas/ChainRevision"
+              "discriminator": {
+                "mapping": {
+                  "chain-revision/v1": "#/components/schemas/ChainRevision",
+                  "prediction-graph-revision/v1": "#/components/schemas/PredictionGraphRevision"
+                },
+                "propertyName": "schema_version"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ChainRevision"
+                },
+                {
+                  "$ref": "#/components/schemas/PredictionGraphRevision"
+                }
+              ]
             },
             "title": "Revisions",
             "type": "array"
@@ -9304,6 +9388,61 @@
         "title": "DecisionActivitySourceRef",
         "type": "object"
       },
+      "DecisionOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "required_for_complete_result": {
+            "title": "Required For Complete Result",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "primary_objective",
+              "hard_constraint",
+              "secondary_outcome",
+              "diagnostic"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_output_key": {
+            "minLength": 1,
+            "title": "Source Output Key",
+            "type": "string"
+          },
+          "source_stage_id": {
+            "minLength": 1,
+            "title": "Source Stage Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output_id",
+          "source_stage_id",
+          "source_output_key",
+          "label",
+          "group",
+          "role",
+          "required_for_complete_result"
+        ],
+        "title": "DecisionOutput",
+        "type": "object"
+      },
       "DesignPriorPackageReference": {
         "additionalProperties": false,
         "description": "Explicit package identity resolved for one immutable Proposal Run.",
@@ -11237,6 +11376,102 @@
           "value"
         ],
         "title": "FixedContextDefinition",
+        "type": "object"
+      },
+      "FixedGraphInputSource": {
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "const": "fixed_value",
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "source_kind",
+          "value"
+        ],
+        "title": "FixedGraphInputSource",
+        "type": "object"
+      },
+      "GraphInput": {
+        "additionalProperties": false,
+        "properties": {
+          "default_presentation_group": {
+            "minLength": 1,
+            "title": "Default Presentation Group",
+            "type": "string"
+          },
+          "input_id": {
+            "minLength": 1,
+            "title": "Input Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "port": {
+            "$ref": "#/components/schemas/ChainPort"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "design_variable",
+              "scenario_context",
+              "fixed_parameter"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "value_source": {
+            "discriminator": {
+              "mapping": {
+                "candidate": "#/components/schemas/CandidateGraphInputSource",
+                "fixed_value": "#/components/schemas/FixedGraphInputSource",
+                "project_binding": "#/components/schemas/ProjectGraphInputSource"
+              },
+              "propertyName": "source_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CandidateGraphInputSource"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectGraphInputSource"
+              },
+              {
+                "$ref": "#/components/schemas/FixedGraphInputSource"
+              }
+            ],
+            "title": "Value Source"
+          }
+        },
+        "required": [
+          "input_id",
+          "label",
+          "port",
+          "role",
+          "value_source",
+          "default_presentation_group"
+        ],
+        "title": "GraphInput",
         "type": "object"
       },
       "GroupCardinalityConstraint": {
@@ -15295,6 +15530,258 @@
         "title": "PredictionComparison",
         "type": "object"
       },
+      "PredictionGraphDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/ChainBinding"
+            },
+            "minItems": 1,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "decision_outputs": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionOutput"
+            },
+            "minItems": 1,
+            "title": "Decision Outputs",
+            "type": "array"
+          },
+          "graph_id": {
+            "minLength": 1,
+            "title": "Graph Id",
+            "type": "string"
+          },
+          "inputs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GraphInput"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-definition/v1",
+            "default": "prediction-graph-definition/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStage"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "graph_id",
+          "label",
+          "stages",
+          "bindings",
+          "decision_outputs"
+        ],
+        "title": "PredictionGraphDefinition",
+        "type": "object"
+      },
+      "PredictionGraphProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_outputs": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionOutput"
+            },
+            "title": "Decision Outputs",
+            "type": "array"
+          },
+          "graph_id": {
+            "minLength": 1,
+            "title": "Graph Id",
+            "type": "string"
+          },
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectedGraphInput"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "prediction-graph-projection/v1",
+            "default": "prediction-graph-projection/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_schema_version": {
+            "enum": [
+              "chain-definition/v1",
+              "prediction-graph-definition/v1"
+            ],
+            "title": "Source Schema Version",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/PredictionGraphTopology"
+          }
+        },
+        "required": [
+          "source_schema_version",
+          "graph_id",
+          "topology",
+          "inputs",
+          "decision_outputs"
+        ],
+        "title": "PredictionGraphProjection",
+        "type": "object"
+      },
+      "PredictionGraphRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Binding Digest",
+            "type": "string"
+          },
+          "graph_definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Definition Digest",
+            "type": "string"
+          },
+          "graph_id": {
+            "minLength": 1,
+            "title": "Graph Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "prediction-graph-revision/v1",
+            "default": "prediction-graph-revision/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/ChainStageRevision"
+            },
+            "minItems": 1,
+            "title": "Stages",
+            "type": "array"
+          },
+          "topology_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Topology Digest",
+            "type": "string"
+          },
+          "unit_conversion_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Unit Conversion Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "graph_id",
+          "revision",
+          "graph_definition_digest",
+          "binding_digest",
+          "unit_conversion_digest",
+          "topology_digest",
+          "stages",
+          "revision_digest"
+        ],
+        "title": "PredictionGraphRevision",
+        "type": "object"
+      },
+      "PredictionGraphTopology": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_nodes_by_input": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Affected Nodes By Input",
+            "type": "object"
+          },
+          "ancestors": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Ancestors",
+            "type": "object"
+          },
+          "descendants": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Descendants",
+            "type": "object"
+          },
+          "direct_dependencies": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Direct Dependencies",
+            "type": "object"
+          },
+          "topological_layers": {
+            "items": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Topological Layers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "direct_dependencies",
+          "ancestors",
+          "descendants",
+          "topological_layers",
+          "affected_nodes_by_input"
+        ],
+        "title": "PredictionGraphTopology",
+        "type": "object"
+      },
       "PredictionIntervalIdentity": {
         "additionalProperties": true,
         "properties": {
@@ -16767,6 +17254,27 @@
         "title": "ProjectDecisionInput",
         "type": "object"
       },
+      "ProjectGraphInputSource": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_key": {
+            "minLength": 1,
+            "title": "Binding Key",
+            "type": "string"
+          },
+          "source_kind": {
+            "const": "project_binding",
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind",
+          "binding_key"
+        ],
+        "title": "ProjectGraphInputSource",
+        "type": "object"
+      },
       "ProjectGroupMoveInput": {
         "properties": {
           "expected_project_series_id": {
@@ -17138,6 +17646,61 @@
           }
         },
         "title": "ProjectUpdateInput",
+        "type": "object"
+      },
+      "ProjectedGraphInput": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Node Ids",
+            "type": "array"
+          },
+          "default_presentation_group": {
+            "minLength": 1,
+            "title": "Default Presentation Group",
+            "type": "string"
+          },
+          "input_id": {
+            "minLength": 1,
+            "title": "Input Id",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "port": {
+            "$ref": "#/components/schemas/ChainPort"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "design_variable",
+              "scenario_context",
+              "fixed_parameter",
+              "legacy_unspecified"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_id",
+          "label",
+          "port",
+          "role",
+          "required",
+          "affected_node_ids",
+          "default_presentation_group"
+        ],
+        "title": "ProjectedGraphInput",
         "type": "object"
       },
       "PropertySummary": {
@@ -25160,7 +25723,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChainRevision"
+                  "discriminator": {
+                    "mapping": {
+                      "chain-revision/v1": "#/components/schemas/ChainRevision",
+                      "prediction-graph-revision/v1": "#/components/schemas/PredictionGraphRevision"
+                    },
+                    "propertyName": "schema_version"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ChainRevision"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PredictionGraphRevision"
+                    }
+                  ],
+                  "title": "Response Getchainrevision"
                 }
               }
             },

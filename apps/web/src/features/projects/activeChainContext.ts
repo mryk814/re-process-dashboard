@@ -3,6 +3,9 @@ import type {
   ApiProject,
   ApiSubsystemAvailability,
 } from "../../shared/api/workbench-api";
+import type {
+  ExecutableChainRevision,
+} from "./chainProjectMetadata";
 
 type ChainIdentity = Extract<
   NonNullable<ApiProject["scientific_identity"]>,
@@ -17,11 +20,11 @@ export type ActiveChainContext =
   | { status: "unresolved"; chainRevisionId: string }
   | {
     status: "available";
-    revision: ApiChainTemplate["revisions"][number];
+    revision: ExecutableChainRevision;
   }
   | {
     status: "unavailable";
-    revision: ApiChainTemplate["revisions"][number];
+    revision: ExecutableChainRevision;
     availability: ApiSubsystemAvailability;
   };
 
@@ -48,8 +51,9 @@ export function resolveActiveChainContext({
   if (availabilityError) return { status: "error" };
   const revision = templates
     .flatMap((template) => template.revisions)
-    .find((item) => (
-      `${item.chain_id}:r${item.revision}` === identity.chain_revision_id
+    .find((item): item is ExecutableChainRevision => (
+      item.schema_version === "chain-revision/v1"
+      && `${item.chain_id}:r${item.revision}` === identity.chain_revision_id
     ));
   if (!revision) {
     return {

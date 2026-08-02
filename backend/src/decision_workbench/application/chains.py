@@ -23,10 +23,12 @@ from decision_workbench.application.chain_evaluation import (
 )
 from decision_workbench.contracts.chain_contracts import (
     ChainDefinition,
-    ChainRevision,
     ChainStageLock,
+    GraphDefinitionRef,
+    GraphRevisionRef,
     StageContractSurface,
     build_chain_revision,
+    project_prediction_graph,
     task_contract_surface,
     validate_chain_definition,
 )
@@ -100,7 +102,7 @@ class ChainCandidateRevisionError(ChainConflictError):
         self.current = current
 
 
-def _definition_id(definition: ChainDefinition) -> str:
+def _definition_id(definition: GraphDefinitionRef) -> str:
     return f"{definition.chain_id}@{definition.digest.removeprefix('sha256:')[:12]}"
 
 
@@ -124,7 +126,7 @@ def list_chain_templates(store: Store) -> list[ChainTemplateItem]:
 def get_chain_revision(
     revision_id: str,
     store: Store,
-) -> ChainRevision:
+) -> GraphRevisionRef:
     revision = store.get_chain_revision(revision_id)
     if revision is None:
         raise ChainNotFoundError("Chain Revisionが見つかりません")
@@ -354,7 +356,16 @@ def get_project_chain_graph(project_id: str, store: Store) -> ChainGraphResponse
                 surface=surface,
             ))
     return ChainGraphResponse(
-        definition=definition, revision=revision, stage_contracts=tuple(resolved)
+        definition=definition,
+        revision=revision,
+        prediction_graph=project_prediction_graph(
+            definition,
+            contracts={
+                (surface.stage_kind, surface.contract_id): surface
+                for surface in surfaces.values()
+            },
+        ),
+        stage_contracts=tuple(resolved),
     )
 
 
@@ -749,7 +760,7 @@ class ChainUseCases:
     def list_templates(self) -> list[ChainTemplateItem]:
         return list_chain_templates(self.store)
 
-    def get_revision(self, revision_id: str) -> ChainRevision:
+    def get_revision(self, revision_id: str) -> GraphRevisionRef:
         return get_chain_revision(revision_id, self.store)
 
     def studio_catalog(self) -> ChainStudioCatalogResponse:

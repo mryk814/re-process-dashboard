@@ -10,12 +10,17 @@ const identity = {
   chain_revision_digest: "sha256:revision",
 };
 const revision = {
+  schema_version: "chain-revision/v1",
   chain_id: "scalar-proof",
   revision: 2,
   stages: [{ stage_id: "prepare" }, { stage_id: "score" }],
 };
 const templates = [{
-  definition: { chain_id: "scalar-proof", label: "Scalar proof" },
+  definition: {
+    schema_version: "chain-definition/v1",
+    chain_id: "scalar-proof",
+    label: "Scalar proof",
+  },
   revisions: [revision],
 }];
 

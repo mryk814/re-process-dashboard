@@ -22,7 +22,7 @@ from decision_workbench.contracts.chain_api_contracts import (
     ChainStudioDraftValidation,
     ChainTemplateItem,
 )
-from decision_workbench.contracts.chain_contracts import ChainRevision
+from decision_workbench.contracts.chain_contracts import GraphRevisionRef
 from decision_workbench.contracts.chain_evaluation_contracts import (
     ResolvedChainEvaluation,
 )
@@ -124,13 +124,13 @@ def publish_chain_studio_draft(
 
 @router.get(
     "/revisions/{revision_id}",
-    response_model=ChainRevision,
+    response_model=GraphRevisionRef,
     operation_id="getChainRevision",
 )
 def get_chain_revision(
     revision_id: str,
     use_cases: ChainDependency,
-) -> ChainRevision:
+) -> GraphRevisionRef:
     return _call(lambda: use_cases.get_revision(revision_id))
 
 
