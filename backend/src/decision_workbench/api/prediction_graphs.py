@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 
 from decision_workbench.application.chains import (
     ChainCandidateRevisionError,
@@ -34,10 +35,12 @@ from decision_workbench.contracts.chain_execution_contracts import (
     PredictionGraphSnapshot,
 )
 from decision_workbench.contracts.prediction_graph_draft_contracts import (
+    PredictionGraphDraftConflictResponse,
     PredictionGraphDraftCreateRequest,
     PredictionGraphDraftDocument,
     PredictionGraphDraftUpdateRequest,
 )
+from decision_workbench.contracts.evidence_contracts import ApiError
 from decision_workbench.persistence.prediction_graph_draft_repository import (
     PredictionGraphDraftConflictError,
     PredictionGraphDraftNotFoundError,
@@ -82,14 +85,18 @@ def _call_draft(operation: Callable[[], T]) -> T:
         return operation()
     except PredictionGraphDraftNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
-    except PredictionGraphDraftConflictError as exc:
-        raise HTTPException(
-            409,
-            {
-                "code": "revision_conflict",
-                "message": str(exc),
-            },
-        ) from exc
+
+
+DRAFT_NOT_FOUND_RESPONSE = {
+    404: {"model": ApiError, "description": "Prediction Graph Draft Not Found"},
+}
+DRAFT_UPDATE_RESPONSES = {
+    **DRAFT_NOT_FOUND_RESPONSE,
+    409: {
+        "model": PredictionGraphDraftConflictResponse,
+        "description": "Prediction Graph Draft Revision Conflict",
+    },
+}
 
 
 @draft_router.post(
@@ -108,6 +115,7 @@ def create_draft(
 @draft_router.get(
     "/{draft_id}",
     response_model=PredictionGraphDraftDocument,
+    responses=DRAFT_NOT_FOUND_RESPONSE,
     operation_id="getPredictionGraphDraft",
 )
 def get_draft(
@@ -120,14 +128,25 @@ def get_draft(
 @draft_router.put(
     "/{draft_id}",
     response_model=PredictionGraphDraftDocument,
+    responses=DRAFT_UPDATE_RESPONSES,
     operation_id="updatePredictionGraphDraft",
 )
 def update_draft(
     draft_id: str,
     payload: PredictionGraphDraftUpdateRequest,
     use_cases: GraphDependency,
-) -> PredictionGraphDraftDocument:
-    return _call_draft(lambda: use_cases.update_draft(draft_id, payload))
+) -> PredictionGraphDraftDocument | JSONResponse:
+    try:
+        return _call_draft(lambda: use_cases.update_draft(draft_id, payload))
+    except PredictionGraphDraftConflictError as exc:
+        conflict = PredictionGraphDraftConflictResponse(
+            message=str(exc),
+            current=exc.current,
+        )
+        return JSONResponse(
+            status_code=409,
+            content=conflict.model_dump(mode="json"),
+        )
 
 
 @router.get(

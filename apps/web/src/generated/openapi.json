@@ -15994,6 +15994,30 @@
         "title": "PredictionGraphDefinition",
         "type": "object"
       },
+      "PredictionGraphDraftConflictResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "revision_conflict",
+            "default": "revision_conflict",
+            "title": "Code",
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/PredictionGraphDraftDocument"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "current"
+        ],
+        "title": "PredictionGraphDraftConflictResponse",
+        "type": "object"
+      },
       "PredictionGraphDraftContent": {
         "additionalProperties": false,
         "properties": {
@@ -28942,6 +28966,16 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Not Found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -28991,6 +29025,26 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDraftConflictResponse"
+                }
+              }
+            },
+            "description": "Prediction Graph Draft Revision Conflict"
           },
           "422": {
             "content": {

@@ -88,3 +88,8 @@ class PredictionGraphDraftUpdateRequest(PredictionGraphDraftModel):
     expected_version: int = Field(ge=1)
     content: PredictionGraphDraftContent
 
+
+class PredictionGraphDraftConflictResponse(PredictionGraphDraftModel):
+    code: Literal["revision_conflict"] = "revision_conflict"
+    message: str
+    current: PredictionGraphDraftDocument

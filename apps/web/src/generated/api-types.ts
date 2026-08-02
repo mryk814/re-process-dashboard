@@ -8605,6 +8605,18 @@ export interface components {
             /** Stages */
             stages: components["schemas"]["ChainStage"][];
         };
+        /** PredictionGraphDraftConflictResponse */
+        PredictionGraphDraftConflictResponse: {
+            /**
+             * Code
+             * @default revision_conflict
+             * @constant
+             */
+            code: "revision_conflict";
+            current: components["schemas"]["PredictionGraphDraftDocument"];
+            /** Message */
+            message: string;
+        };
         /** PredictionGraphDraftContent */
         PredictionGraphDraftContent: {
             definition: components["schemas"]["PredictionGraphDraftDefinition"];
@@ -14332,6 +14344,15 @@ export interface operations {
                     "application/json": components["schemas"]["PredictionGraphDraftDocument"];
                 };
             };
+            /** @description Prediction Graph Draft Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -14365,6 +14386,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionGraphDraftDocument"];
+                };
+            };
+            /** @description Prediction Graph Draft Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Prediction Graph Draft Revision Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDraftConflictResponse"];
                 };
             };
             /** @description Validation Error */

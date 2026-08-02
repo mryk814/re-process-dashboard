@@ -61,6 +61,14 @@ def _request_content(*, label: str = "途中のGraph") -> dict[str, object]:
 def test_draft_api_retains_incomplete_and_unavailable_references(
     client: TestClient,
 ) -> None:
+    missing_response = client.get("/api/prediction-graph-drafts/missing-draft")
+    assert missing_response.status_code == 404
+    assert missing_response.json() == {
+        "code": "not_found",
+        "message": "Prediction Graph draftが見つかりません: missing-draft",
+        "field_errors": [],
+    }
+
     created_response = client.post(
         "/api/prediction-graph-drafts",
         json={"content": _request_content()},
@@ -108,8 +116,25 @@ def test_draft_api_rejects_stale_expected_version_without_overwriting(
         },
     )
     assert conflict_response.status_code == 409
-    assert conflict_response.json()["code"] == "revision_conflict"
+    conflict = conflict_response.json()
+    assert conflict["code"] == "revision_conflict"
+    assert conflict["current"] == saved
     assert client.get(draft_url).json() == saved
+
+    openapi = client.get("/openapi.json").json()
+    draft_path = openapi["paths"]["/api/prediction-graph-drafts/{draft_id}"]
+    assert (
+        draft_path["get"]["responses"]["404"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        == "#/components/schemas/ApiError"
+    )
+    assert (
+        draft_path["put"]["responses"]["409"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        == "#/components/schemas/PredictionGraphDraftConflictResponse"
+    )
 
 
 def _published_graph() -> tuple[
