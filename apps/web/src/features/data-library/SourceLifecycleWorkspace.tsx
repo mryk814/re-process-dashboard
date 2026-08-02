@@ -12,11 +12,86 @@ import {
   trainingRecipeIdForRevision,
 } from "./trainingSnapshotPresentation";
 import type { DataLibraryLocation } from "./location";
+import {
+  beginSourceLifecycleResourceLoad,
+  initialSourceLifecycleResourceState,
+  rejectSourceLifecycleResourceLoad,
+  resolveSourceLifecycleResourceLoad,
+  type SourceLifecycleResourceState,
+} from "./sourceLifecycleResourceState";
 
 const shortDigest = (value: string) => value.replace("sha256:", "").slice(0, 12);
 const formatTimestamp = (value: string) => new Date(value).toLocaleString("ja-JP");
 const splitFields = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
 type LifecycleStage = "raw" | "curation" | "approval" | "training";
+type LifecycleCommandOwner =
+  | "connector"
+  | "raw"
+  | "curation"
+  | "approval"
+  | "training";
+
+const resourceLoadedAt = (value: string | null) => value
+  ? new Date(value).toLocaleString("ja-JP")
+  : "";
+
+function LifecycleResourceRecovery({
+  state,
+  label,
+  retained,
+  onRetry,
+}: {
+  state: SourceLifecycleResourceState;
+  label: string;
+  retained: string;
+  onRetry: () => void;
+}) {
+  const loading = state.phase === "loading";
+  const failed = state.phase === "stale" || state.phase === "error";
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
+  useEffect(() => {
+    if (!loading && restoreFocusRef.current) {
+      restoreFocusRef.current = false;
+      retryButtonRef.current?.focus();
+    }
+  }, [loading]);
+  return <div
+    className={failed ? "data-library-resource-error" : "source-resource-recovery"}
+    role={failed ? "alert" : "status"}
+  >
+    <div>
+      {loading
+        ? <strong>{label}を読み込んでいます</strong>
+        : failed
+          ? <strong>{state.phase === "stale"
+            ? `${label}を更新できませんでした`
+            : `${label}を取得できませんでした`}</strong>
+          : <strong>{label}は取得済みです</strong>}
+      {loading && state.loadedAt && <>
+        <p>{retained}を表示したまま更新しています。</p>
+        <small>表示中の内容の取得時刻: {resourceLoadedAt(state.loadedAt)}</small>
+      </>}
+      {state.phase === "stale" && <>
+        <p>{retained}は保持しています。最新情報として扱わないでください。</p>
+        <small>この画面での取得時刻: {resourceLoadedAt(state.loadedAt)}</small>
+      </>}
+      {state.phase === "error" && (
+        <p>{retained}は未確認です。ほかの取得済みstageはそのまま利用できます。</p>
+      )}
+    </div>
+    <button
+      ref={retryButtonRef}
+      type="button"
+      className="outline-button"
+      disabled={loading}
+      onClick={() => {
+        restoreFocusRef.current = true;
+        onRetry();
+      }}
+    >{loading ? `${label}を読込中…` : failed ? `${label}を再試行` : `${label}を更新`}</button>
+  </div>;
+}
 
 function lifecycleDigest(item: object): string {
   if ("snapshot_digest" in item && typeof item.snapshot_digest === "string") return item.snapshot_digest;
@@ -52,8 +127,35 @@ export function SourceLifecycleWorkspace({
   const [overridePage, setOverridePage] = useState<ApiCurationRunRowPage | null>(null);
   const [reasonPage, setReasonPage] = useState<ApiCurationRunRowPage | null>(null);
   const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
+  const [catalogResource, setCatalogResource] = useState(
+    () => initialSourceLifecycleResourceState("catalog"),
+  );
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [detailResource, setDetailResource] = useState(
+    () => initialSourceLifecycleResourceState(selectedId),
+  );
+  const [detailRevision, setDetailRevision] = useState(0);
+  const [rawResource, setRawResource] = useState(
+    () => initialSourceLifecycleResourceState(""),
+  );
+  const [rawRevision, setRawRevision] = useState(0);
+  const [curationResource, setCurationResource] = useState(
+    () => initialSourceLifecycleResourceState(""),
+  );
+  const [curationRevision, setCurationRevision] = useState(0);
+  const [quarantineResource, setQuarantineResource] = useState(
+    () => initialSourceLifecycleResourceState(""),
+  );
+  const [quarantineRevision, setQuarantineRevision] = useState(0);
+  const [reasonResource, setReasonResource] = useState(
+    () => initialSourceLifecycleResourceState(""),
+  );
+  const [reasonRevision, setReasonRevision] = useState(0);
+  const [commandErrors, setCommandErrors] = useState<
+    Partial<Record<LifecycleCommandOwner, string>>
+  >({});
   const [notice, setNotice] = useState("");
+  const [noticeScope, setNoticeScope] = useState("");
   const [connectorName, setConnectorName] = useState("");
   const [sourceLocator, setSourceLocator] = useState("");
   const [primaryKey, setPrimaryKey] = useState("");
@@ -74,7 +176,37 @@ export function SourceLifecycleWorkspace({
   const [trainingFolds, setTrainingFolds] = useState("2");
   const [overrideRowKeys, setOverrideRowKeys] = useState<string[]>([]);
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
-  const selectedIdRef = useRef("");
+  const selectedIdRef = useRef(selectedId);
+  const connectorRequestGenerationRef = useRef({
+    connectorId: selectedId,
+    generation: 0,
+  });
+  const selectedResourceGenerationRef = useRef({
+    key: `${selectedId}:${selectedStage}:${selectedVersionId}`,
+    generation: 0,
+  });
+  const selectedResourceKey = `${selectedId}:${selectedStage}:${selectedVersionId}`;
+  if (selectedResourceGenerationRef.current.key !== selectedResourceKey) {
+    selectedResourceGenerationRef.current = {
+      key: selectedResourceKey,
+      generation: selectedResourceGenerationRef.current.generation + 1,
+    };
+  }
+  if (connectorRequestGenerationRef.current.connectorId !== selectedId) {
+    connectorRequestGenerationRef.current = {
+      connectorId: selectedId,
+      generation: connectorRequestGenerationRef.current.generation + 1,
+    };
+  }
+  const isCurrentConnectorRequest = (connectorId: string, generation: number) => (
+    selectedIdRef.current === connectorId
+    && connectorRequestGenerationRef.current.connectorId === connectorId
+    && connectorRequestGenerationRef.current.generation === generation
+  );
+  const isCurrentSelectedResourceRequest = (key: string, generation: number) => (
+    selectedResourceGenerationRef.current.key === key
+    && selectedResourceGenerationRef.current.generation === generation
+  );
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
@@ -83,6 +215,12 @@ export function SourceLifecycleWorkspace({
     // A slow response for the previous connector can otherwise win the
     // click-to-render race and briefly replace the newly selected detail.
     selectedIdRef.current = connectorId;
+    if (connectorRequestGenerationRef.current.connectorId !== connectorId) {
+      connectorRequestGenerationRef.current = {
+        connectorId,
+        generation: connectorRequestGenerationRef.current.generation + 1,
+      };
+    }
     onNavigate({ tab: "update", connectorId });
   }, [onNavigate]);
 
@@ -96,28 +234,87 @@ export function SourceLifecycleWorkspace({
   }, [datasets]);
 
   const refreshCatalog = useCallback(async () => {
-    const next = await workbenchApi.dataLifecycleCatalog();
-    setCatalog(next);
-    setRecipeId((current) => next.recipes.some((item) => item.id === current) ? current : next.recipes.at(-1)?.id ?? "");
+    return workbenchApi.dataLifecycleCatalog();
   }, []);
 
   const refreshDetail = useCallback(async (
     connectorId: string,
     signal?: AbortSignal,
+    generation?: number,
   ) => {
     if (!connectorId) {
       setDetail(null);
       return;
     }
     const loaded = await workbenchApi.sourceConnectorDetail(connectorId, signal);
-    if (!signal?.aborted && selectedIdRef.current === connectorId) {
+    if (
+      !signal?.aborted
+      && selectedIdRef.current === connectorId
+      && (
+        generation === undefined
+        || (
+          connectorRequestGenerationRef.current.connectorId === connectorId
+          && connectorRequestGenerationRef.current.generation === generation
+        )
+      )
+    ) {
       setDetail(loaded);
     }
+    return loaded;
   }, []);
 
+  const refreshDetailForCommand = async (
+    connectorId: string,
+    generation: number,
+  ) => {
+    setDetailResource((current) => beginSourceLifecycleResourceLoad(
+      current,
+      connectorId,
+    ));
+    try {
+      const loaded = await refreshDetail(connectorId, undefined, generation);
+      if (!isCurrentConnectorRequest(connectorId, generation) || !loaded) return false;
+      setDetailResource(resolveSourceLifecycleResourceLoad(connectorId));
+      return true;
+    } catch {
+      if (isCurrentConnectorRequest(connectorId, generation)) {
+        setDetailResource((current) => rejectSourceLifecycleResourceLoad(
+          current,
+          connectorId,
+          "操作は完了しましたが、接続先履歴を更新できませんでした。",
+        ));
+      }
+      return false;
+    }
+  };
+
   useEffect(() => {
-    refreshCatalog().catch((cause) => setError(cause instanceof Error ? cause.message : "データ更新履歴を取得できませんでした。"));
-  }, [refreshCatalog]);
+    let active = true;
+    setCatalogResource((current) => beginSourceLifecycleResourceLoad(current, "catalog"));
+    void refreshCatalog().then((next) => {
+      if (active) {
+        setCatalog(next);
+        setRecipeId((current) => (
+          next.recipes.some((item) => item.id === current)
+            ? current
+            : next.recipes.at(-1)?.id ?? ""
+        ));
+        setCatalogResource(resolveSourceLifecycleResourceLoad(
+          "catalog",
+          next.connectors.length === 0,
+        ));
+      }
+    }).catch(() => {
+      if (active) {
+        setCatalogResource((current) => rejectSourceLifecycleResourceLoad(
+          current,
+          "catalog",
+          "接続先一覧を取得できませんでした。",
+        ));
+      }
+    });
+    return () => { active = false; };
+  }, [catalogRevision, refreshCatalog]);
 
   useEffect(() => {
     if (!catalog) return;
@@ -127,7 +324,7 @@ export function SourceLifecycleWorkspace({
   }, [catalog, onNavigate, selectedId]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    setBusy("");
     setCredential("");
     setExpectedContentDigest("");
     setExpectedRowCount("");
@@ -142,13 +339,37 @@ export function SourceLifecycleWorkspace({
     setReasonPage(null);
     setTrainingGroupField("");
     setTrainingFolds("2");
-    refreshDetail(selectedId, controller.signal).catch((cause) => {
-      if (!controller.signal.aborted && selectedIdRef.current === selectedId) {
-        setError(cause instanceof Error ? cause.message : "接続先を取得できませんでした。");
+    setCommandErrors({});
+  }, [selectedId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const scope = selectedId;
+    if (!scope) {
+      setDetail(null);
+      return () => controller.abort();
+    }
+    setDetail((current) => current?.connector.id === scope ? current : null);
+    setDetailResource((current) => beginSourceLifecycleResourceLoad(current, scope));
+    refreshDetail(scope, controller.signal).then((loaded) => {
+      if (
+        !controller.signal.aborted
+        && selectedIdRef.current === scope
+        && loaded
+      ) {
+        setDetailResource(resolveSourceLifecycleResourceLoad(scope));
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted && selectedIdRef.current === scope) {
+        setDetailResource((current) => rejectSourceLifecycleResourceLoad(
+          current,
+          scope,
+          "接続先履歴を取得できませんでした。",
+        ));
       }
     });
     return () => controller.abort();
-  }, [refreshDetail, selectedId]);
+  }, [detailRevision, refreshDetail, selectedId]);
 
   useEffect(() => {
     if (!detail || !selectedStage) return;
@@ -173,21 +394,43 @@ export function SourceLifecycleWorkspace({
     if (!profileId && profiles[0]) setProfileId(profiles[0].id);
   }, [profileId, profiles]);
 
-  async function act(label: string, action: () => Promise<void>) {
+  async function act(
+    owner: LifecycleCommandOwner,
+    label: string,
+    action: () => Promise<void>,
+  ) {
+    const requestConnectorId = selectedIdRef.current;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
     setBusy(label);
-    setError("");
+    setCommandErrors((current) => ({ ...current, [owner]: "" }));
     setNotice("");
+    setNoticeScope("");
     try {
       await action();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "処理を完了できませんでした。");
+      if (owner === "connector" || isCurrentConnectorRequest(
+        requestConnectorId,
+        requestGeneration,
+      )) {
+        setCommandErrors((current) => ({
+          ...current,
+          [owner]: cause instanceof Error ? cause.message : "処理を完了できませんでした。",
+        }));
+      }
     } finally {
-      setBusy("");
+      if (owner === "connector" || isCurrentConnectorRequest(
+        requestConnectorId,
+        requestGeneration,
+      )) {
+        setBusy("");
+      }
     }
   }
 
   const latestRaw = detail?.raw_snapshots.at(-1);
   const latestRun = detail?.curation_runs.at(-1);
+  const latestRunIdRef = useRef(latestRun?.id ?? "");
+  latestRunIdRef.current = latestRun?.id ?? "";
   const latestRevision = detail?.canonical_revisions.at(-1);
   const latestTraining = detail?.training_snapshots.at(-1);
   const latestRawNeedsCuration = Boolean(
@@ -216,17 +459,27 @@ export function SourceLifecycleWorkspace({
       setRawPage(null);
       return () => controller.abort();
     }
+    const scope = selectedRaw.id;
+    setRawPage((current) => current?.resource_id === scope ? current : null);
+    setRawResource((current) => beginSourceLifecycleResourceLoad(current, scope));
     workbenchApi.rawSnapshotRows(selectedRaw.id, 0, 50, controller.signal)
       .then((page) => {
-        if (!controller.signal.aborted) setRawPage(page);
-      })
-      .catch((cause) => {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "取得行を読み込めませんでした。");
+          setRawPage(page);
+          setRawResource(resolveSourceLifecycleResourceLoad(scope, page.total === 0));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setRawResource((current) => rejectSourceLifecycleResourceLoad(
+            current,
+            scope,
+            "取得行を読み込めませんでした。",
+          ));
         }
       });
     return () => controller.abort();
-  }, [selectedRaw]);
+  }, [rawRevision, selectedRaw?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -234,17 +487,27 @@ export function SourceLifecycleWorkspace({
       setCurationPage(null);
       return () => controller.abort();
     }
+    const scope = selectedRun.id;
+    setCurationPage((current) => current?.resource_id === scope ? current : null);
+    setCurationResource((current) => beginSourceLifecycleResourceLoad(current, scope));
     workbenchApi.curationRunRows(selectedRun.id, 0, 100, controller.signal)
       .then((page) => {
-        if (!controller.signal.aborted) setCurationPage(page);
-      })
-      .catch((cause) => {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "品質判定行を読み込めませんでした。");
+          setCurationPage(page);
+          setCurationResource(resolveSourceLifecycleResourceLoad(scope, page.total === 0));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setCurationResource((current) => rejectSourceLifecycleResourceLoad(
+            current,
+            scope,
+            "品質判定行を読み込めませんでした。",
+          ));
         }
     });
     return () => controller.abort();
-  }, [selectedRun]);
+  }, [curationRevision, selectedRun?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -252,6 +515,9 @@ export function SourceLifecycleWorkspace({
       setOverridePage(null);
       return () => controller.abort();
     }
+    const scope = latestRun.id;
+    setOverridePage((current) => current?.resource_id === scope ? current : null);
+    setQuarantineResource((current) => beginSourceLifecycleResourceLoad(current, scope));
     workbenchApi.curationRunRows(
       latestRun.id,
       0,
@@ -260,15 +526,27 @@ export function SourceLifecycleWorkspace({
       "quarantined",
     )
       .then((page) => {
-        if (!controller.signal.aborted) setOverridePage(page);
-      })
-      .catch((cause) => {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "隔離行を読み込めませんでした。");
+          setOverridePage(page);
+          setQuarantineResource(resolveSourceLifecycleResourceLoad(scope, page.total === 0));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setQuarantineResource((current) => rejectSourceLifecycleResourceLoad(
+            current,
+            scope,
+            "隔離行を読み込めませんでした。",
+          ));
         }
       });
     return () => controller.abort();
-  }, [latestRun?.id, latestRun?.quality.quarantined, latestRunNeedsApproval]);
+  }, [
+    latestRun?.id,
+    latestRun?.quality.quarantined,
+    latestRunNeedsApproval,
+    quarantineRevision,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -281,6 +559,9 @@ export function SourceLifecycleWorkspace({
       setReasonPage(null);
       return () => controller.abort();
     }
+    const scope = latestRun.id;
+    setReasonPage((current) => current?.resource_id === scope ? current : null);
+    setReasonResource((current) => beginSourceLifecycleResourceLoad(current, scope));
     workbenchApi.curationRunRows(
       latestRun.id,
       0,
@@ -290,11 +571,18 @@ export function SourceLifecycleWorkspace({
       true,
     )
       .then((page) => {
-        if (!controller.signal.aborted) setReasonPage(page);
-      })
-      .catch((cause) => {
         if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "理由付きの行を読み込めませんでした。");
+          setReasonPage(page);
+          setReasonResource(resolveSourceLifecycleResourceLoad(scope, page.total === 0));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setReasonResource((current) => rejectSourceLifecycleResourceLoad(
+            current,
+            scope,
+            "理由付きの行を読み込めませんでした。",
+          ));
         }
       });
     return () => controller.abort();
@@ -303,6 +591,7 @@ export function SourceLifecycleWorkspace({
     latestRun?.quality.blocked,
     latestRun?.quality.quarantined,
     latestRun?.quality.warning,
+    reasonRevision,
   ]);
   const trainingRecipeId = trainingRecipeIdForRevision(
     latestRevision?.curation_run_id,
@@ -355,7 +644,7 @@ export function SourceLifecycleWorkspace({
   };
 
   async function createConnector() {
-    await act("connector", async () => {
+    await act("connector", "connector", async () => {
       const created = await workbenchApi.createSourceConnector({
         schema_version: "source-connector/v1",
         name: connectorName.trim(),
@@ -370,15 +659,18 @@ export function SourceLifecycleWorkspace({
         trigger_policy: "manual_only",
         schedule: null,
       });
-      await refreshCatalog();
+      setCatalogRevision((value) => value + 1);
       onNavigate({ tab: "update", connectorId: created.id });
+      setNoticeScope(created.id);
       setNotice("接続先を登録しました。データ取得はまだ実行していません。");
     });
   }
 
   async function fetchRaw(ingress: "inline" | "source_locator") {
     if (!selectedId) return;
-    await act("fetch", async () => {
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    await act("raw", "fetch", async () => {
       const oneTimeCredential = credential;
       setCredential("");
       const fetched = await workbenchApi.fetchSourceConnector(selectedId, {
@@ -395,15 +687,25 @@ export function SourceLifecycleWorkspace({
           ? Number(expectedRowCount)
           : null,
       }, oneTimeCredential);
-      await refreshDetail(selectedId);
-      setNotice(fetched.attempt.reused_existing_snapshot
-        ? "同じ内容のため既存の取得スナップショットへ統合しました。"
-        : "不変の取得スナップショットを作成しました。承認や学習はまだ行っていません。");
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      const refreshed = await refreshDetailForCommand(
+        requestConnectorId,
+        requestGeneration,
+      );
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      setNoticeScope(requestConnectorId);
+      setNotice(refreshed
+        ? fetched.attempt.reused_existing_snapshot
+          ? "同じ内容のため既存の取得スナップショットへ統合しました。"
+          : "不変の取得スナップショットを作成しました。承認や学習はまだ行っていません。"
+        : "取得スナップショットは作成しましたが、接続先履歴を更新できませんでした。履歴だけを再試行してください。");
     });
   }
 
   async function createRecipe() {
-    await act("recipe", async () => {
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    await act("curation", "recipe", async () => {
       const numeric = splitFields(numberFields);
       const required = splitFields(requiredFields);
       const targets = splitFields(targetFields);
@@ -421,28 +723,42 @@ export function SourceLifecycleWorkspace({
           { kind: "target_eligibility_v1", fields: targets },
         ],
       });
-      await refreshCatalog();
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      setCatalogRevision((value) => value + 1);
       setRecipeId(recipe.id);
+      setNoticeScope(requestConnectorId);
       setNotice("版管理された品質判定レシピを登録しました。");
     });
   }
 
   async function curate() {
     if (!latestRaw || !selectedProfile || !recipeId || !selectedId) return;
-    await act("curate", async () => {
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    await act("curation", "curate", async () => {
       await workbenchApi.curateRawSnapshot(latestRaw.id, {
         recipe_resource_id: recipeId,
         profile_revision_id: selectedProfile.id,
         profile_digest: selectedProfile.profile_digest,
       });
-      await refreshDetail(selectedId);
-      setNotice("品質判定済みの候補を作成しました。承認前のため学習には使われません。");
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      const refreshed = await refreshDetailForCommand(
+        requestConnectorId,
+        requestGeneration,
+      );
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      setNoticeScope(requestConnectorId);
+      setNotice(refreshed
+        ? "品質判定済みの候補を作成しました。承認前のため学習には使われません。"
+        : "品質判定は完了しましたが、接続先履歴を更新できませんでした。履歴だけを再試行してください。");
     });
   }
 
   async function approve() {
     if (!latestRun || !selectedId) return;
-    await act("approve", async () => {
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    await act("approval", "approve", async () => {
       await workbenchApi.approveCurationRun(latestRun.id, {
         reason: approvalReason.trim(),
         overrides: overrideRowKeys.map((rowKey) => ({
@@ -450,14 +766,24 @@ export function SourceLifecycleWorkspace({
           reason: overrideReasons[rowKey].trim(),
         })),
       });
-      await refreshDetail(selectedId);
-      setNotice("正規データセットの版を承認しました。再学習・有効化は行っていません。");
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      const refreshed = await refreshDetailForCommand(
+        requestConnectorId,
+        requestGeneration,
+      );
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      setNoticeScope(requestConnectorId);
+      setNotice(refreshed
+        ? "正規データセットの版を承認しました。再学習・有効化は行っていません。"
+        : "承認は完了しましたが、接続先履歴を更新できませんでした。履歴だけを再試行してください。");
     });
   }
 
   async function createTraining() {
     if (!latestRevision || !selectedId) return;
-    await act("training", async () => {
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    await act("training", "training", async () => {
       await workbenchApi.createApprovedTrainingSnapshot(latestRevision.id, {
         purpose: trainingPurpose.trim() || "モデル候補の再評価",
         targets: trainingTargetFields.map((field) => ({
@@ -470,8 +796,16 @@ export function SourceLifecycleWorkspace({
           folds: resolvedTrainingFolds,
         },
       });
-      await refreshDetail(selectedId);
-      setNotice("学習用スナップショットを明示作成しました。モデルパッケージは変更していません。");
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      const refreshed = await refreshDetailForCommand(
+        requestConnectorId,
+        requestGeneration,
+      );
+      if (!isCurrentConnectorRequest(requestConnectorId, requestGeneration)) return;
+      setNoticeScope(requestConnectorId);
+      setNotice(refreshed
+        ? "学習用スナップショットを明示作成しました。モデルパッケージは変更していません。"
+        : "学習用スナップショットは作成しましたが、接続先履歴を更新できませんでした。履歴だけを再試行してください。");
     });
   }
 
@@ -483,50 +817,131 @@ export function SourceLifecycleWorkspace({
 
   const loadMoreCurationRows = async () => {
     if (!curationPage?.has_more) return;
-    const next = await workbenchApi.curationRunRows(
-      curationPage.resource_id,
-      curationPage.offset + curationPage.rows.length,
-      curationPage.limit,
-    );
-    setCurationPage({
-      ...next,
-      offset: 0,
-      rows: [...curationPage.rows, ...next.rows],
-    });
+    const scope = curationPage.resource_id;
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    const requestResourceKey = selectedResourceGenerationRef.current.key;
+    const requestResourceGeneration = selectedResourceGenerationRef.current.generation;
+    setCurationResource((current) => beginSourceLifecycleResourceLoad(current, scope));
+    try {
+      const next = await workbenchApi.curationRunRows(
+        scope,
+        curationPage.offset + curationPage.rows.length,
+        curationPage.limit,
+      );
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || !isCurrentSelectedResourceRequest(requestResourceKey, requestResourceGeneration)
+      ) return;
+      setCurationPage({
+        ...next,
+        offset: 0,
+        rows: [...curationPage.rows, ...next.rows],
+      });
+      setCurationResource(resolveSourceLifecycleResourceLoad(scope, next.total === 0));
+    } catch {
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || !isCurrentSelectedResourceRequest(requestResourceKey, requestResourceGeneration)
+      ) return;
+      setCurationResource((current) => rejectSourceLifecycleResourceLoad(
+        current,
+        scope,
+        "品質判定行の続きを読み込めませんでした。",
+      ));
+    }
   };
 
   const loadMoreOverrideRows = async () => {
     if (!overridePage?.has_more) return;
-    const next = await workbenchApi.curationRunRows(
-      overridePage.resource_id,
-      overridePage.offset + overridePage.rows.length,
-      overridePage.limit,
-      undefined,
-      "quarantined",
-    );
-    setOverridePage({
-      ...next,
-      offset: 0,
-      rows: [...overridePage.rows, ...next.rows],
-    });
+    const scope = overridePage.resource_id;
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    setQuarantineResource((current) => beginSourceLifecycleResourceLoad(current, scope));
+    try {
+      const next = await workbenchApi.curationRunRows(
+        scope,
+        overridePage.offset + overridePage.rows.length,
+        overridePage.limit,
+        undefined,
+        "quarantined",
+      );
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || latestRunIdRef.current !== scope
+      ) return;
+      setOverridePage({
+        ...next,
+        offset: 0,
+        rows: [...overridePage.rows, ...next.rows],
+      });
+      setQuarantineResource(resolveSourceLifecycleResourceLoad(scope, next.total === 0));
+    } catch {
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || latestRunIdRef.current !== scope
+      ) return;
+      setQuarantineResource((current) => rejectSourceLifecycleResourceLoad(
+        current,
+        scope,
+        "隔離行の続きを読み込めませんでした。",
+      ));
+    }
   };
 
   const loadMoreReasonRows = async () => {
     if (!reasonPage?.has_more) return;
-    const next = await workbenchApi.curationRunRows(
-      reasonPage.resource_id,
-      reasonPage.offset + reasonPage.rows.length,
-      reasonPage.limit,
-      undefined,
-      undefined,
-      true,
-    );
-    setReasonPage({
-      ...next,
-      offset: 0,
-      rows: [...reasonPage.rows, ...next.rows],
-    });
+    const scope = reasonPage.resource_id;
+    const requestConnectorId = selectedId;
+    const requestGeneration = connectorRequestGenerationRef.current.generation;
+    setReasonResource((current) => beginSourceLifecycleResourceLoad(current, scope));
+    try {
+      const next = await workbenchApi.curationRunRows(
+        scope,
+        reasonPage.offset + reasonPage.rows.length,
+        reasonPage.limit,
+        undefined,
+        undefined,
+        true,
+      );
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || latestRunIdRef.current !== scope
+      ) return;
+      setReasonPage({
+        ...next,
+        offset: 0,
+        rows: [...reasonPage.rows, ...next.rows],
+      });
+      setReasonResource(resolveSourceLifecycleResourceLoad(scope, next.total === 0));
+    } catch {
+      if (
+        !isCurrentConnectorRequest(requestConnectorId, requestGeneration)
+        || latestRunIdRef.current !== scope
+      ) return;
+      setReasonResource((current) => rejectSourceLifecycleResourceLoad(
+        current,
+        scope,
+        "理由付きの行の続きを読み込めませんでした。",
+      ));
+    }
   };
+
+  const currentDetailResource = detailResource.scope === selectedId
+    ? detailResource
+    : initialSourceLifecycleResourceState(selectedId);
+  const currentRawResource = rawResource.scope === (selectedRaw?.id ?? "")
+    ? rawResource
+    : initialSourceLifecycleResourceState(selectedRaw?.id ?? "");
+  const currentCurationResource = curationResource.scope === (selectedRun?.id ?? "")
+    ? curationResource
+    : initialSourceLifecycleResourceState(selectedRun?.id ?? "");
+  const currentQuarantineResource = quarantineResource.scope === (latestRun?.id ?? "")
+    ? quarantineResource
+    : initialSourceLifecycleResourceState(latestRun?.id ?? "");
+  const currentReasonResource = reasonResource.scope === (latestRun?.id ?? "")
+    ? reasonResource
+    : initialSourceLifecycleResourceState(latestRun?.id ?? "");
 
   return <section className="data-library-section source-lifecycle-section">
     <div className="panel-title">
@@ -537,11 +952,19 @@ export function SourceLifecycleWorkspace({
         <label>データの場所<input value={sourceLocator} onChange={(event) => setSourceLocator(event.target.value)} /></label>
         <label>行識別キー<input value={primaryKey} onChange={(event) => setPrimaryKey(event.target.value)} /></label>
         <button className="primary-button" type="button" disabled={!connectorName.trim() || !sourceLocator.trim() || busy === "connector"} onClick={() => void createConnector()}>登録</button>
+        {commandErrors.connector && <p className="panel-error" role="alert">{commandErrors.connector}</p>}
       </details>
     </div>
     <div className="source-trust-note">データ取得・承認・再学習・有効化は、それぞれ別の操作です</div>
-    {error && <p className="panel-error" role="alert">{error}</p>}
-    {notice && <p className="source-notice" role="status">{notice}</p>}
+    {notice && noticeScope === selectedId && (
+      <p className="source-notice" role="status">{notice}</p>
+    )}
+    <LifecycleResourceRecovery
+      state={catalogResource}
+      label="接続先一覧"
+      retained="取得済みの接続先と品質判定レシピ"
+      onRetry={() => setCatalogRevision((value) => value + 1)}
+    />
     <div className="source-lifecycle-layout">
       <nav aria-label="接続先の選択">
         {catalog?.connectors.map((connector) => <button type="button" key={connector.id} className={connector.id === selectedId ? "active" : ""} onClick={() => selectConnector(connector.id)}>
@@ -549,6 +972,13 @@ export function SourceLifecycleWorkspace({
         </button>)}
         {catalog?.connectors.length === 0 && <p>接続先はまだありません。</p>}
       </nav>
+      <div className="source-lifecycle-resource-pane">
+      {selectedId && <LifecycleResourceRecovery
+        state={currentDetailResource}
+        label="接続先履歴"
+        retained="取得済みのConnectorと各stageの版"
+        onRetry={() => setDetailRevision((value) => value + 1)}
+      />}
       {detail ? <div className="source-lifecycle-detail">
         <header><div><strong>{detail.connector.name}</strong><span>{detail.connector.source_locator}</span></div><code>{shortDigest(detail.connector.configuration_digest)}</code></header>
         <ol className="source-stage-rail" aria-label="データ更新の信頼境界">
@@ -582,12 +1012,24 @@ export function SourceLifecycleWorkspace({
             {selectedRaw && <>
               <header><strong>取得スナップショット v{detail.raw_snapshots.indexOf(selectedRaw) + 1}</strong><code>{shortDigest(selectedRaw.snapshot_digest)}</code></header>
               <dl><div><dt>取得日時</dt><dd>{formatTimestamp(selectedRaw.captured_at)}</dd></div><div><dt>Source版</dt><dd>{selectedRaw.object_version}</dd></div><div><dt>行数</dt><dd>{selectedRaw.row_count}</dd></div><div><dt>差分</dt><dd>追加 +{selectedRaw.diff.added_rows} / 変更 {selectedRaw.diff.changed_rows} / 消失 -{selectedRaw.diff.removed_rows}</dd></div></dl>
+              <LifecycleResourceRecovery
+                state={currentRawResource}
+                label="取得行"
+                retained="取得済みのRaw Snapshot行"
+                onRetry={() => setRawRevision((value) => value + 1)}
+              />
               {rawPage?.resource_id === selectedRaw.id && <p>{rawPage.rows.length} / {rawPage.total}行を遅延取得済み</p>}
             </>}
             {selectedRun && <>
               <header><strong>品質判定 v{detail.curation_runs.indexOf(selectedRun) + 1}</strong><code>{shortDigest(selectedRun.curation_digest)}</code></header>
               <div className="source-history-quality"><span>採用 <b>{selectedRun.quality.accepted}</b></span><span>注意 <b>{selectedRun.quality.warning}</b></span><span>隔離 <b>{selectedRun.quality.quarantined}</b></span><span>停止 <b>{selectedRun.quality.blocked}</b></span></div>
               <p className="source-quality-meaning"><b>隔離</b>は該当行を除いて次へ進めます。<b>停止</b>は入力として成立せず、その行を承認候補にしません。</p>
+              <LifecycleResourceRecovery
+                state={currentCurationResource}
+                label="品質判定行"
+                retained="取得済みの品質判定行"
+                onRetry={() => setCurationRevision((value) => value + 1)}
+              />
               <div className="source-history-rows">{curationPage?.resource_id === selectedRun.id && curationPage.rows.filter((row) => row.reason_codes.length).map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止" : row.status === "quarantined" ? "隔離" : row.status === "warning" ? "注意" : "採用"} · {row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span></p>)}</div>
               {curationPage?.resource_id === selectedRun.id && curationPage.has_more && <button className="outline-button" type="button" onClick={() => void loadMoreCurationRows()}>次の行を読み込む</button>}
             </>}
@@ -653,6 +1095,7 @@ export function SourceLifecycleWorkspace({
           <label>JSONデータ<textarea rows={5} value={objectContent} onChange={(event) => setObjectContent(event.target.value)} /></label>
           <button className="outline-button" type="button" disabled={!objectVersion.trim() || !objectContent.trim() || busy === "fetch"} onClick={() => void fetchRaw("inline")}>{busy === "fetch" ? "取得中…" : "検証データを取得"}</button>
         </details>
+        {commandErrors.raw && <p className="panel-error" role="alert">{commandErrors.raw}</p>}
         {latestRaw && <div className="source-snapshot-summary">
           <div><span>最新の取得版</span><strong>{latestRaw.row_count}行</strong><code>{shortDigest(latestRaw.snapshot_digest)}</code>{latestRaw.source_byte_count && <small>{latestRaw.source_byte_count.toLocaleString("ja-JP")} bytes</small>}</div>
           <dl><div><dt>追加</dt><dd>+{latestRaw.diff.added_rows}</dd></div><div><dt>変更</dt><dd>{latestRaw.diff.changed_rows}</dd></div><div><dt>消失</dt><dd>-{latestRaw.diff.removed_rows}</dd></div></dl>
@@ -671,18 +1114,33 @@ export function SourceLifecycleWorkspace({
             <button className="outline-button" type="button" disabled={!recipeName.trim()} onClick={() => void createRecipe()}>レシピを登録</button>
           </div>}
           <button className="outline-button" type="button" disabled={!latestRaw || !recipeId || !selectedProfile || busy === "curate"} onClick={() => void curate()}>{busy === "curate" ? "判定中…" : "品質判定を実行"}</button>
+          {commandErrors.curation && <p className="panel-error" role="alert">{commandErrors.curation}</p>}
         </details>
         {latestRun && <div className="source-quality-summary">
           <div><span>採用</span><strong>{latestRun.quality.accepted}</strong></div>
           <div><span>注意</span><strong>{latestRun.quality.warning}</strong></div>
           <div><span>隔離</span><strong>{latestRun.quality.quarantined}</strong></div>
           <div><span>停止</span><strong>{latestRun.quality.blocked}</strong></div>
-          <details><summary>理由付きの行</summary>{reasonPage?.resource_id === latestRun.id && reasonPage.rows.map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止 · " : row.status === "quarantined" ? "隔離 · " : row.status === "warning" ? "注意 · " : ""}{row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span><em>{row.target_eligible ? "目的変数として利用可" : "目的変数として利用不可"}</em></p>)}
+          {(latestRun.quality.warning + latestRun.quality.quarantined + latestRun.quality.blocked) > 0
+            && <LifecycleResourceRecovery
+              state={currentReasonResource}
+              label="理由付きの行"
+              retained="取得済みの理由監査"
+              onRetry={() => setReasonRevision((value) => value + 1)}
+            />}
+          <details><summary>理由付きの行</summary>
+            {reasonPage?.resource_id === latestRun.id && reasonPage.rows.map((row) => <p key={row.row_key}><b>{row.row_key}</b><span>{row.status === "blocked" ? "停止 · " : row.status === "quarantined" ? "隔離 · " : row.status === "warning" ? "注意 · " : ""}{row.reason_codes.map((code) => reasonLabel(code)).join(" / ")}</span><em>{row.target_eligible ? "目的変数として利用可" : "目的変数として利用不可"}</em></p>)}
             {reasonPage?.resource_id === latestRun.id && reasonPage.has_more && <button className="outline-button" type="button" onClick={() => void loadMoreReasonRows()}>次の理由付き行を読み込む</button>}
           </details>
           {latestRun.quality_delta.comparable && <p className="source-quality-delta">前回比　採用 {latestRun.quality_delta.accepted_delta >= 0 ? "+" : ""}{latestRun.quality_delta.accepted_delta} / 注意 {latestRun.quality_delta.warning_delta >= 0 ? "+" : ""}{latestRun.quality_delta.warning_delta} / 隔離 {latestRun.quality_delta.quarantined_delta >= 0 ? "+" : ""}{latestRun.quality_delta.quarantined_delta}</p>}
         </div>}
         {latestRunNeedsApproval && latestRun && <div className="source-approval-block">
+          {latestRun.quality.quarantined > 0 && <LifecycleResourceRecovery
+            state={currentQuarantineResource}
+            label="隔離行"
+            retained="取得済みの隔離行"
+            onRetry={() => setQuarantineRevision((value) => value + 1)}
+          />}
           {overrideCandidates.length > 0 && <details className="source-override-panel">
             <summary>判定を上書きして採用する行を選ぶ</summary>
             <p>上書きする場合は、行ごとの根拠と全体の承認理由が必須です。</p>
@@ -696,6 +1154,7 @@ export function SourceLifecycleWorkspace({
             <div className="source-actor"><span>記録される主体</span><strong>{currentActor?.label ?? "確認中…"}</strong><small>{currentActor?.id}</small></div>
             <label>承認理由{overrideRowKeys.length > 0 && "（必須）"}<input value={approvalReason} onChange={(event) => setApprovalReason(event.target.value)} placeholder={overrideRowKeys.length > 0 ? "上書きを含めて承認する根拠" : "任意"} /></label>
             <button className="primary-button" type="button" disabled={approvalBlocked} onClick={() => void approve()}>{overrideRowKeys.length > 0 ? "上書きを含めて承認" : latestRun.quality.quarantined ? "隔離行を除いて承認" : "正規データセットを承認"}</button>
+            {commandErrors.approval && <p className="panel-error" role="alert">{commandErrors.approval}</p>}
           </div>
         </div>}
         {latestRevisionNeedsTraining && latestRevision && <div className="source-approval-action">
@@ -704,9 +1163,13 @@ export function SourceLifecycleWorkspace({
           <label>分割group field<input value={trainingGroupField} onChange={(event) => setTrainingGroupField(event.target.value)} placeholder={detail.connector.selection.primary_key ?? "例: lot_id"} /></label>
           <label>fold数<input type="number" min="2" step="1" value={trainingFolds} onChange={(event) => setTrainingFolds(event.target.value)} /></label>
           <button className="primary-button" type="button" disabled={busy === "training" || trainingTargetFields.length === 0 || !resolvedTrainingGroupField || !Number.isInteger(resolvedTrainingFolds) || resolvedTrainingFolds < 2} onClick={() => void createTraining()}>学習用スナップショットを作成</button>
+          {commandErrors.training && <p className="panel-error" role="alert">{commandErrors.training}</p>}
         </div>}
         {latestTraining && <div className="source-training-ready"><strong>学習用スナップショット作成済み</strong><span>{latestTraining.row_count}行 · {latestTraining.purpose}</span><code>{shortDigest(latestTraining.snapshot_digest)}</code><small>再学習・モデル検証・有効化は別の操作です。</small></div>}
-      </div> : <div className="source-empty">接続先を登録すると、更新履歴と承認状態をここで確認できます。</div>}
+      </div> : <div className="source-empty">{selectedId
+        ? "この接続先の更新履歴はまだ確認できていません。"
+        : "接続先を登録すると、更新履歴と承認状態をここで確認できます。"}</div>}
+      </div>
     </div>
   </section>;
 }
