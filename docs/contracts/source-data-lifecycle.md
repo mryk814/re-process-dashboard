@@ -171,11 +171,18 @@ Curationはstatus別／理由行positionも持つため、承認画面は先頭p
 
 Object storage transportは、sidecarや外部取得処理が渡したobject contentをallow-list parserで解釈する境界である。
 S3／Azure／Snowflake SDK、credential vault、scheduler、汎用query editorは含まない。
-承認済みTraining Snapshotを特定のPackage builderへ渡すadapterは、Taskごとの縦スライスで追加する。
+承認済みTraining Snapshotは、Profile familyごとの固定allow-list registryを通して
+Package builder入力へmaterializeする。registryはProfile Revision、Prediction Task、
+Training Snapshotを明示解決し、raw→curation→approval→snapshotのdigest chainを
+再検証する。未対応familyは理由付き`unavailable`を返し、別Profileや別sourceへ
+fallbackしない。
 
-最初の縦スライスは
+表形式familyは、Snapshotが固定したtarget cohortとsplit assignmentを再計算せず
+materialization resultへ保持する。最初の実データ縦スライスは
 [CALCE電池データのSourceから実測評価までの参照ループ](reference-data-loop.md)
-である。複合row identityを明示し、承認済みTraining Snapshotから作った
+である。battery固有の複合row identityとversioned source adapterはexact
+allow-list entryで維持し、汎用表形式adapterへ暗黙降格しない。
+承認済みTraining Snapshotから作った
 materialized asset、Package、Project、予測Snapshot、Actualまで同じdigest chainを保持する。
 品質とは無関係な評価用holdoutはCurationのquarantineにせず、
 Training Snapshotのversioned selection policyへ記録する。

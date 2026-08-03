@@ -29,9 +29,11 @@ from decision_workbench.application.training_snapshot_adapter import (
     BATTERY_SOURCE_ADAPTER_ID,
     BATTERY_SOURCE_ADAPTER_VERSION,
     BATTERY_SOURCE_ROW_KEY,
-    BatteryTrainingSnapshotAdapter,
+    TrainingSnapshotMaterializationAvailable,
+    TrainingSnapshotMaterializationRequest,
     battery_source_json,
     battery_source_records,
+    training_snapshot_materializer_registry,
 )
 from decision_workbench.contracts.design_space_contracts import (
     DesignSpaceDefinition,
@@ -277,11 +279,20 @@ def _build_and_register(
         / "training-snapshots"
         / f"battery-{snapshot_suffix}-adapter-{adapter_suffix}.csv"
     )
-    adapter = BatteryTrainingSnapshotAdapter(
+    resolution = training_snapshot_materializer_registry(
         DataLifecycleRepository(database),
-        PROFILE,
+        WorkspaceCatalog(database),
+    ).materialize(
+        TrainingSnapshotMaterializationRequest(
+            task_id=TASK_ID,
+            profile_revision_id=lifecycle["curation"]["profile_revision_id"],
+            training_snapshot_id=snapshot["id"],
+            destination=materialized,
+        )
     )
-    artifact = adapter.materialize(snapshot["id"], materialized)
+    if not isinstance(resolution, TrainingSnapshotMaterializationAvailable):
+        raise RuntimeError(resolution.reason)
+    artifact = resolution.builder_input
     data_suffix = artifact.source_sha256[:12]
     builder_revision = tabular_training_code_revision(
         load_tabular_profile(PROFILE).model_family

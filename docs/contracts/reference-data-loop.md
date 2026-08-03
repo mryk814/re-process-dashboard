@@ -19,7 +19,9 @@ CALCE派生CSV（読取専用）
 ```
 
 これは汎用ETL、アプリ内学習、自動再学習、active Packageの自動切替ではない。
-承認済みTraining Snapshotを既存のtabular Package builderへ渡す、Task固有の受入経路である。
+承認済みTraining SnapshotをProfile family materializer registry経由で既存のtabular
+Package builder入力へ渡す代表受入経路である。CALCE Profileはbattery exact entryへ
+解決し、source adapter identityが一致しない場合に汎用tabular entryへfallbackしない。
 
 ## データと責任境界
 
@@ -118,3 +120,5 @@ Training Snapshot、Decision Activity Run、Prediction Snapshot、Actualの件�
 materialization adapter version、Training Snapshot digest、materialized SHA、
 training builder revisionのいずれかが変われば新しい保存先とPackage identityになる。
 adapterやbuilderの挙動を変える変更では、対応するversion／revisionを必ず更新する。
+Profile RevisionとTaskを明示解決し、Snapshotのtarget cohort／split assignmentは
+materialization resultへそのまま引き渡す。
