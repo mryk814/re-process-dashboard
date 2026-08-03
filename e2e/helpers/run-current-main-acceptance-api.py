@@ -8,6 +8,7 @@ composition remains untouched.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,7 @@ def create_acceptance_app(
     profile_store: Path,
     task_store: Path,
 ) -> Any:
+    os.environ["WORKBENCH_PROFILE_STORE_PATH"] = str(profile_store.resolve())
     app = create_app(
         db_path=database,
         data_library_path=data_library,
