@@ -40,6 +40,8 @@ def standard_predictor_capability(
         predictive = (("rate",), False, True, True, False, "unavailable")
     elif estimator_id == "exact-gp-rbf.v1":
         predictive = (("mean",), True, True, True, True, "distribution")
+    elif estimator_id == "bayesian-additive-spline.v1":
+        predictive = (("mean",), True, True, True, True, "unavailable")
     elif estimator_id == "lightgbm-regression.v1" and predictor.predictive_family == "normal":
         predictive = (("mean",), True, True, True, True, "unavailable")
     elif estimator_id in {"ridge.v1", "lightgbm-regression.v1"}:
@@ -49,7 +51,7 @@ def standard_predictor_capability(
             f"standard predictor declares unknown estimator recipe: {estimator_id}"
         )
     points, std, quantiles, distribution, components, goal = predictive
-    return task_capability.model_copy(update={
+    update = {
         "target": predictor.target,
         "target_kind": predictor.target_kind,
         "point_statistics": points,
@@ -59,7 +61,10 @@ def standard_predictor_capability(
         "parametric_distribution": distribution,
         "uncertainty_components": components,
         "goal_probability": goal,
-    })
+    }
+    if estimator_id == "bayesian-additive-spline.v1":
+        update["explanation"] = True
+    return task_capability.model_copy(update=update)
 
 
 def package_capability_matrix(

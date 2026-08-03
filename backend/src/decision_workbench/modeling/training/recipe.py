@@ -28,6 +28,37 @@ class ExactGPEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class BayesianAdditiveSplineEstimatorRecipe(ContractModel):
+    estimator_id: Literal["bayesian-additive-spline.v1"] = (
+        "bayesian-additive-spline.v1"
+    )
+    spline_degree: Annotated[int, Field(ge=1, le=3)] = 2
+    max_basis_per_feature: Annotated[int, Field(ge=4, le=12)] = 6
+    min_unique_values_for_smooth: Annotated[int, Field(ge=4, le=50)] = 6
+    smoothness_precision: Annotated[float, Field(gt=0, le=1_000_000)] = 10.0
+    linear_precision: Annotated[float, Field(gt=0, le=1_000_000)] = 1.0
+    intercept_precision: Annotated[float, Field(ge=0, le=1_000_000)] = 1e-8
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    knot_policy: Literal["training_quantiles"] = "training_quantiles"
+    smoothing_policy: Literal["fixed_gaussian_prior"] = "fixed_gaussian_prior"
+    noise_policy: Literal["plugin_training_residual"] = "plugin_training_residual"
+    categorical_term_policy: Literal[
+        "feature_recipe_encoded_centered_linear_terms"
+    ] = "feature_recipe_encoded_centered_linear_terms"
+    term_centering_policy: Literal[
+        "training_cohort_mean_to_intercept"
+    ] = "training_cohort_mean_to_intercept"
+    extrapolation_policy: Literal[
+        "constant_boundary_with_support_warning"
+    ] = "constant_boundary_with_support_warning"
+    capacity_policy_version: Literal[
+        "bayesian-additive-capacity/v1"
+    ] = "bayesian-additive-capacity/v1"
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
 class LightGBMRegressionEstimatorRecipe(ContractModel):
     estimator_id: Literal["lightgbm-regression.v1"] = "lightgbm-regression.v1"
     num_boost_round: Annotated[int, Field(ge=1, le=5_000)] = 200
@@ -74,6 +105,7 @@ class PoissonEstimatorRecipe(ContractModel):
 ConcreteEstimatorRecipe = (
     RidgeEstimatorRecipe
     | ExactGPEstimatorRecipe
+    | BayesianAdditiveSplineEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -87,6 +119,7 @@ _RECIPE_ADAPTER = TypeAdapter(EstimatorRecipe)
 ESTIMATOR_IDS = (
     "ridge.v1",
     "exact-gp-rbf.v1",
+    "bayesian-additive-spline.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -326,19 +359,29 @@ def validate_recipe_capability(
                     f"{target.target}: normal LightGBM cannot provide goal probability"
                 )
         else:
+            label = (
+                "Bayesian additive"
+                if recipe.estimator_id == "bayesian-additive-spline.v1"
+                else "exact GP"
+            )
             if not target.standard_deviation:
-                errors.append(f"{target.target}: exact GP exposes standard deviation")
+                errors.append(f"{target.target}: {label} exposes standard deviation")
             if not target.quantiles:
-                errors.append(f"{target.target}: exact GP exposes quantiles")
+                errors.append(f"{target.target}: {label} exposes quantiles")
             if target.samples:
-                errors.append(f"{target.target}: exact GP exposes no samples")
+                errors.append(f"{target.target}: {label} exposes no samples")
             if not target.parametric_distribution:
-                errors.append(f"{target.target}: exact GP exposes a normal distribution")
+                errors.append(f"{target.target}: {label} exposes a normal distribution")
             if not target.uncertainty_components:
-                errors.append(f"{target.target}: exact GP exposes uncertainty components")
-            if target.goal_probability != "distribution":
+                errors.append(f"{target.target}: {label} exposes uncertainty components")
+            expected_goal = (
+                "unavailable"
+                if recipe.estimator_id == "bayesian-additive-spline.v1"
+                else "distribution"
+            )
+            if target.goal_probability != expected_goal:
                 errors.append(
-                    f"{target.target}: exact GP requires distribution goal probability"
+                    f"{target.target}: {label} requires {expected_goal} goal probability"
                 )
     if errors:
         raise ValueError(

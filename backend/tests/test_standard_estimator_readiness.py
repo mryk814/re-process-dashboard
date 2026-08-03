@@ -302,6 +302,38 @@ def test_contract_resolver_bounds_legacy_canonical_ridge_and_lightgbm_paths() ->
     assert "feature count 2049 exceeds 2048" in lightgbm.reasons
 
 
+def test_bayesian_additive_capacity_dimensions_fail_before_build() -> None:
+    output = OutputDefinition(
+        key="strength",
+        label="強度",
+        unit="MPa",
+        goal_direction="at_least",
+        plausibility_range={"min": 0, "max": 2_000},
+        preferred_display_range={"min": 200, "max": 1_000},
+    )
+    validation = ValidationPlan(
+        strategy="grouped_kfold",
+        folds=5,
+        group_key="parent_key",
+    )
+    resolution = resolve_estimator_contract_readiness(
+        estimator_id="bayesian-additive-spline.v1",
+        output=output,
+        validation_plan=validation,
+        feature_recipe=None,
+        canonical_feature_count=48,
+        smooth_term_count=48,
+        total_basis_columns=289,
+        maximum_categorical_levels=49,
+        row_count=100,
+        independent_group_count=20,
+    )
+
+    assert resolution.status == "out_of_scope"
+    assert "basis columns 289 exceed 288" in resolution.reasons
+    assert "categorical levels 49 exceed 48" in resolution.reasons
+
+
 def test_catalog_artifact_is_current() -> None:
     expected = standard_estimator_catalog().model_dump(mode="json")
     spec = importlib.util.spec_from_file_location(

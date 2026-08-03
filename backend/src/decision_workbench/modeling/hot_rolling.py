@@ -299,6 +299,13 @@ class HotRollingRuntime:
                 uncertainty_components=None if summary.uncertainty_components is None else {
                     name: round(float(value), 6) for name, value in summary.uncertainty_components.items()
                 },
+                latent_mean_credible_interval=(
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
             )
         process = {**candidate.inputs.process}
         is_horseshoe = any(
@@ -541,6 +548,13 @@ class HotRollingRuntime:
                 "quantiles": {level: round(float(item), 6) for level, item in summary.quantiles.items()},
                 "interval_method": interval_method,
                 "interval_coverage_level": interval_coverage_level,
+                "latent_mean_credible_interval": (
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
                 "categories": list(summary.distribution.get("categories", [])),
             })
 

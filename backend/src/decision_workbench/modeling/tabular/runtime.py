@@ -689,6 +689,13 @@ class TabularRegressionRuntime:
                         for name, component in summary.uncertainty_components.items()
                     }
                 ),
+                latent_mean_credible_interval=(
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
                 sampling_identity=summary.sampling_identity,
             )
             warnings.extend(summary.warnings)
@@ -1041,6 +1048,13 @@ class TabularRegressionRuntime:
                 "predictive_family": summary.distribution.get("family", "empirical_quantiles"),
                 "interval_method": interval_method,
                 "interval_coverage_level": interval_coverage_level,
+                "latent_mean_credible_interval": (
+                    None
+                    if summary.latent_mean_credible_interval is None
+                    else summary.latent_mean_credible_interval.model_dump(
+                        mode="json"
+                    )
+                ),
                 "quantiles": (
                     {}
                     if summary.target_kind == "binary"

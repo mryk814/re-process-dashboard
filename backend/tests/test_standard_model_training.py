@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime
 import csv
 import json
 import sys
@@ -11,9 +12,11 @@ import pytest
 from pydantic import ValidationError
 
 from decision_workbench.modeling.model_lifecycle import canonical_training_dataset
+from decision_workbench.contracts.candidate_project_contracts import Candidate
 from decision_workbench.modeling.model_lifecycle import ACTIVE_PACKAGES_PATH
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.training.estimators import exact_gp
+from decision_workbench.modeling.training.estimators import bayesian_additive
 from decision_workbench.modeling.training.estimators import lightgbm
 from decision_workbench.modeling.training.estimators import ridge
 from decision_workbench.modeling.training.feature_dataset import (
@@ -21,6 +24,15 @@ from decision_workbench.modeling.training.feature_dataset import (
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
 from decision_workbench.modeling.training.recipe import validate_recipe_capability
+from decision_workbench.adapters.builtin_additive_terms import (
+    BuiltinAdditiveTermsAdapter,
+)
+from decision_workbench.modeling.packages.contracts import (
+    PackageContractError,
+    PredictionInterval,
+    PredictorSpec,
+    validate_predictive_summary,
+)
 from decision_workbench.modeling.training.package_assembler import (
     _target_point_error,
 )
@@ -174,6 +186,193 @@ def test_exact_gp_outer_fold_does_not_observe_held_out_targets() -> None:
         rtol=0,
         atol=1e-10,
     )
+
+
+def test_bayesian_additive_is_fold_honest_and_separates_interval_estimands(
+    tmp_path: Path,
+) -> None:
+    data = _training_set(
+        "heat-treatment-tradeoff-v1",
+        "hardness_hv",
+        "HV",
+    )
+    recipe = estimator_recipe(
+        "bayesian-additive-spline.v1",
+        {
+            "folds": 4,
+            "min_unique_values_for_smooth": 4,
+            "max_basis_per_feature": 5,
+        },
+    )
+    predictions, variances = bayesian_additive._honest_predictions(
+        data, recipe
+    )
+    held_out = data.fold_ids == 0
+    changed_y = data.y.copy()
+    changed_y[held_out] += 10_000
+    changed_predictions, changed_variances = (
+        bayesian_additive._honest_predictions(
+            replace(data, y=changed_y),
+            recipe,
+        )
+    )
+    np.testing.assert_allclose(
+        changed_predictions[held_out],
+        predictions[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        changed_variances[held_out],
+        variances[held_out],
+        rtol=0,
+        atol=1e-10,
+    )
+
+    artifact = tmp_path / "bayesian-additive.npz"
+    trained = bayesian_additive.train(data, recipe, artifact)
+
+    class _Artifacts:
+        def artifact_path(self, _: str) -> Path:
+            return artifact
+
+    predictor = BuiltinAdditiveTermsAdapter().load(
+        _Artifacts(),  # type: ignore[arg-type]
+        PredictorSpec.model_validate(trained.predictor),
+    )
+    features = {
+        name: float(value)
+        for name, value in zip(data.feature_names, data.x[0], strict=True)
+    }
+    summary = predictor.predict(features)
+    explanation = predictor.explain(features)
+
+    assert summary.prediction_interval is not None
+    assert summary.prediction_interval.method == "bayesian"
+    assert summary.latent_mean_credible_interval is not None
+    assert (
+        summary.latent_mean_credible_interval.upper
+        - summary.latent_mean_credible_interval.lower
+        < summary.prediction_interval.upper
+        - summary.prediction_interval.lower
+    )
+    assert summary.uncertainty_components is not None
+    assert summary.uncertainty_components[
+        "predictive_standard_deviation"
+    ] ** 2 == pytest.approx(
+        summary.uncertainty_components[
+            "latent_mean_standard_deviation"
+        ] ** 2
+        + summary.uncertainty_components[
+            "observation_standard_deviation"
+        ] ** 2
+    )
+    assert explanation.intercept + sum(
+        term.contribution for term in explanation.terms
+    ) == pytest.approx(summary.point_estimate)
+    cohort_contributions = np.asarray([
+        [
+            term.contribution
+            for term in predictor.explain({
+                name: float(value)
+                for name, value in zip(
+                    data.feature_names,
+                    row,
+                    strict=True,
+                )
+            }).terms
+        ]
+        for row in data.x
+    ])
+    np.testing.assert_allclose(
+        cohort_contributions.mean(axis=0),
+        0.0,
+        rtol=0,
+        atol=1e-8,
+    )
+
+    incompatible = summary.model_copy(update={
+        "prediction_interval": PredictionInterval(
+            method="bayesian",
+            coverage_level=0.8,
+            lower=summary.prediction_interval.lower,
+            upper=summary.prediction_interval.upper,
+        )
+    })
+    with pytest.raises(PackageContractError, match="same-coverage"):
+        validate_predictive_summary(
+            incompatible,
+            PredictorSpec.model_validate(trained.predictor),
+        )
+
+    with np.load(artifact, allow_pickle=False) as stored:
+        arrays = {name: stored[name] for name in stored.files}
+    covariance = arrays["posterior_covariance"].copy()
+    covariance[0, 0] = -1.0
+    arrays["posterior_covariance"] = covariance
+    np.savez(artifact, **arrays)
+    with pytest.raises(PackageContractError, match="covariance is invalid"):
+        BuiltinAdditiveTermsAdapter().load(
+            _Artifacts(),  # type: ignore[arg-type]
+            PredictorSpec.model_validate(trained.predictor),
+        )
+
+
+def test_bayesian_additive_recovers_main_effects_and_exposes_interaction_limit() -> None:
+    recipe = estimator_recipe(
+        "bayesian-additive-spline.v1",
+        {
+            "min_unique_values_for_smooth": 4,
+            "max_basis_per_feature": 6,
+            "smoothness_precision": 0.5,
+        },
+    )
+    x = np.linspace(-1.0, 1.0, 81)
+    category = (x > 0).astype(float)
+    values = np.column_stack([x, category, np.ones(len(x))])
+    target = 1.2 + 2.0 * x + 1.5 * x**2 + 0.6 * category
+    fitted = bayesian_additive._fit(
+        values,
+        target,
+        recipe,
+        observation_variance_floor=1e-8,
+    )
+    recovered, _ = fitted.predict(values)
+
+    assert [term.kind for term in fitted.terms] == [
+        "bspline_univariate",
+        "linear",
+    ]
+    assert np.sqrt(np.mean((target - recovered) ** 2)) < 0.08
+    for term in fitted.terms:
+        np.testing.assert_allclose(
+            (term.basis(values) - term.center).mean(axis=0),
+            0.0,
+            rtol=0,
+            atol=1e-12,
+        )
+
+    grid = np.linspace(-1.0, 1.0, 17)
+    interaction_values = np.asarray([
+        [left, right]
+        for left in grid
+        for right in grid
+    ])
+    interaction_target = (
+        interaction_values[:, 0] * interaction_values[:, 1]
+    )
+    interaction_fit = bayesian_additive._fit(
+        interaction_values,
+        interaction_target,
+        recipe,
+        observation_variance_floor=1e-8,
+    )
+    interaction_prediction, _ = interaction_fit.predict(
+        interaction_values
+    )
+    assert np.sqrt(np.mean(
+        (interaction_target - interaction_prediction) ** 2
+    )) > 0.25
 
 
 def test_ridge_outer_prediction_does_not_observe_held_out_targets() -> None:
@@ -595,6 +794,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
         HOT_ROLLING_TASK: [
             "ridge.v1",
             "exact-gp-rbf.v1",
+            "bayesian-additive-spline.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -602,6 +802,7 @@ def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
         "heat-treatment-tradeoff-v1": [
             "ridge.v1",
             "exact-gp-rbf.v1",
+            "bayesian-additive-spline.v1",
             "lightgbm-regression.v1",
         ]
     }
@@ -820,20 +1021,30 @@ def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
 ) -> None:
     active_before = ACTIVE_PACKAGES_PATH.read_bytes()
     result = compare_estimators(
-        "heat-treatment-tradeoff-v1",
-        HEAT_SOURCE,
+        HOT_ROLLING_TASK,
+        SOURCE,
         tmp_path / "comparison",
         tmp_path / "feature-dataset.json",
-        estimators=("ridge.v1", "lightgbm-regression.v1"),
+        estimators=(
+            "ridge.v1",
+            "bayesian-additive-spline.v1",
+            "exact-gp-rbf.v1",
+            "lightgbm-regression.v1",
+        ),
         estimator_options={
+            "bayesian-additive-spline.v1": {
+                "min_unique_values_for_smooth": 4,
+                "max_basis_per_feature": 5,
+            },
+            "exact-gp-rbf.v1": {"restarts": 1},
             "lightgbm-regression.v1": {"num_boost_round": 2},
         },
-        package_prefix="heat-treatment-comparison",
+        package_prefix="hot-rolling-comparison",
         package_version="1.0.0",
     )
 
     assert result["selection"] is None
-    assert len(result["models"]) == 2
+    assert len(result["models"]) == 4
     for target, identity in result["evaluation"].items():
         assert target
         assert identity["cohort_digest"].startswith("sha256:")
@@ -843,3 +1054,90 @@ def test_explicit_comparison_uses_one_feature_dataset_and_fold_plan(
             for model in result["models"]
         } == {identity["fold_digest"]}
     assert ACTIVE_PACKAGES_PATH.read_bytes() == active_before
+
+
+def test_model_workflow_builds_bayesian_additive_with_typed_intervals(
+    tmp_path: Path,
+) -> None:
+    package = tmp_path / "heat-treatment-bayesian-additive"
+    result = build_package(
+        "heat-treatment-tradeoff-v1",
+        HEAT_SOURCE,
+        package,
+        tmp_path / "heat-treatment-feature-dataset.json",
+        package_id="heat-treatment-bayesian-additive-test",
+        package_version="1.0.0",
+        replace=False,
+        estimator="bayesian-additive-spline.v1",
+        estimator_options={
+            "min_unique_values_for_smooth": 4,
+            "max_basis_per_feature": 5,
+        },
+    )
+
+    loaded = ModelPackageLoader().load(package)
+    manifest = loaded.manifest
+    assert result["package"]["task_id"] == "heat-treatment-tradeoff-v1"
+    assert {
+        predictor.runtime_type for predictor in manifest.predictors
+    } == {"builtin.additive_terms.v1"}
+    assert all(
+        predictor.config["posterior"]["conditioning"]
+        == "fixed_basis_fixed_smoothing_plugin_noise"
+        for predictor in manifest.predictors
+    )
+    dataset = json.loads(
+        (tmp_path / "heat-treatment-feature-dataset.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    features = dataset["rows"][0]["features"]
+    for predictor_spec in manifest.predictors:
+        summary = loaded.load_predictor(predictor_spec.id).predict(
+            {
+                name: float(features[name])
+                for name in predictor_spec.feature_names
+            }
+        )
+        assert summary.prediction_interval is not None
+        assert summary.prediction_interval.method == "bayesian"
+        assert summary.latent_mean_credible_interval is not None
+        assert summary.latent_mean_credible_interval.estimand == "latent_mean"
+
+    module = task_module("heat-treatment-tradeoff-v1")
+    runtime = module.runtime_factory(
+        module.data_loader(HEAT_SOURCE, None),
+        loaded,
+    )
+    contract = load_task_contracts()["heat-treatment-tradeoff-v1"]
+    raw = contract.canonical_candidate
+    now = datetime.now(UTC)
+    candidate = Candidate(
+        id="bayesian-additive-smoke",
+        project_id="bayesian-additive-test",
+        revision=1,
+        created_at=now,
+        updated_at=now,
+        name="Bayesian additive smoke",
+        inputs={
+            "composition": dict(raw.composition),
+            "process": dict(raw.process),
+            "categorical": dict(raw.categorical),
+            "heat_pattern": None,
+        },
+        provenance=raw.provenance,
+    )
+    prediction = runtime.predict(candidate)["predictions"]["hardness_hv"]
+    assert prediction.latent_mean_credible_interval is not None
+    variable = contract.task_definition.response_curve_variables[0].path
+    assert variable is not None
+    curve = runtime.response_curve_result(
+        candidate,
+        "hardness_hv",
+        variable,
+        9,
+    )
+    assert all(
+        point["latent_mean_credible_interval"]["estimand"] == "latent_mean"
+        for point in curve["points"]
+    )

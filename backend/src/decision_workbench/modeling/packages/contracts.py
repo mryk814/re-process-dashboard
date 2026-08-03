@@ -549,6 +549,26 @@ class PredictionInterval(PackageModel):
         return self
 
 
+class LatentMeanCredibleInterval(PackageModel):
+    """Posterior uncertainty for the fitted mean, not a new observation."""
+
+    method: Literal["bayesian"] = "bayesian"
+    estimand: Literal["latent_mean"] = "latent_mean"
+    coverage_level: Annotated[float, Field(gt=0, lt=1)]
+    lower: float
+    upper: float
+
+    @model_validator(mode="after")
+    def ordered_finite_bounds(self) -> "LatentMeanCredibleInterval":
+        if not all(math.isfinite(item) for item in (self.lower, self.upper)):
+            raise ValueError("credible interval bounds must be finite")
+        if self.lower > self.upper:
+            raise ValueError(
+                "credible interval lower bound must not exceed upper bound"
+            )
+        return self
+
+
 class PredictiveSummary(PackageModel):
     target: str
     target_kind: Literal["continuous", "continuous_positive", "binary", "count", "ordinal"]
@@ -559,6 +579,7 @@ class PredictiveSummary(PackageModel):
     event_probability: float | None = None
     distribution: dict[str, Any]
     uncertainty_components: dict[str, float] | None = None
+    latent_mean_credible_interval: LatentMeanCredibleInterval | None = None
     prediction_interval: PredictionInterval | None = None
     sampling_identity: SamplingIdentity | None = None
     warnings: tuple[str, ...] = ()
@@ -691,6 +712,21 @@ def validate_predictive_summary(
     elif summary.sampling_identity is not None:
         raise PackageContractError(
             f"deterministic predictor {spec.id!r} must not claim a sampling identity"
+        )
+    credible = summary.latent_mean_credible_interval
+    if credible is not None and (
+        summary.prediction_interval is None
+        or summary.prediction_interval.method != "bayesian"
+        or not math.isclose(
+            credible.coverage_level,
+            summary.prediction_interval.coverage_level,
+            rel_tol=0,
+            abs_tol=1e-12,
+        )
+    ):
+        raise PackageContractError(
+            f"predictor {spec.id!r} latent mean interval requires a "
+            "same-coverage Bayesian prediction interval"
         )
     if capability is None:
         return

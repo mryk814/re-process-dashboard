@@ -148,6 +148,26 @@ class ActualMeasurement(ActualMeasurementInput):
     created_at: datetime
 
 
+class LatentMeanCredibleInterval(BaseModel):
+    method: Literal["bayesian"] = "bayesian"
+    estimand: Literal["latent_mean"] = "latent_mean"
+    coverage_level: float = Field(gt=0, lt=1)
+    lower: float
+    upper: float
+
+    @model_validator(mode="after")
+    def ordered_finite_bounds(self) -> "LatentMeanCredibleInterval":
+        if (
+            not math.isfinite(self.lower)
+            or not math.isfinite(self.upper)
+            or self.lower > self.upper
+        ):
+            raise ValueError(
+                "latent mean credible interval bounds must be finite and ordered"
+            )
+        return self
+
+
 class Prediction(BaseModel):
     value: float
     lower: float
@@ -178,6 +198,7 @@ class Prediction(BaseModel):
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most", "between"] | None = None
     uncertainty_components: dict[str, float] | None = None
+    latent_mean_credible_interval: LatentMeanCredibleInterval | None = None
     sampling_identity: SamplingEvidence | None = None
 
     @model_validator(mode="before")

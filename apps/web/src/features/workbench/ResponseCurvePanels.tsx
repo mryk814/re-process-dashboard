@@ -699,6 +699,9 @@ function ResponseCurveMiniChart({
   const y = (value: number) => 128 - ((clampToRange(value, visibleRange) - minValue) / Math.max(1e-9, maxValue - minValue)) * 96;
   const xTicks = [minX, (minX + maxX) / 2, maxX];
   const declaredQuantiles = [...new Set(points.flatMap((point) => Object.keys(point.quantiles ?? {})))].sort((left, right) => Number(left) - Number(right));
+  const hasLatentMeanBand = points.some(
+    (point) => point.latent_mean_credible_interval != null,
+  );
   const quantileLabel = binary
     ? "校正済み点確率"
     : declaredQuantiles.length
@@ -729,7 +732,7 @@ function ResponseCurveMiniChart({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   return (
     <article className="response-curve-card">
-      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{hasExtrapolation && <span className="curve-extrapolation-summary"><i aria-hidden="true" />網掛けは学習範囲外</span>}{outsideCurrentCandidates.length > 0 && <span className="curve-current-outside">{outsideCurrentCandidates.length}候補の現在値は計算範囲外</span>}{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
+      <header><b>{output.label}</b><span>{prediction ? `${yText(prediction.value)} / ${quantileLabel}` : "読み込み中"}</span>{hasLatentMeanBand && <span>濃い帯: 平均の信用区間 · 薄い帯: 新しい観測の予測区間</span>}{hasExtrapolation && <span className="curve-extrapolation-summary"><i aria-hidden="true" />網掛けは学習範囲外</span>}{outsideCurrentCandidates.length > 0 && <span className="curve-current-outside">{outsideCurrentCandidates.length}候補の現在値は計算範囲外</span>}{clippedPoints.length > 0 && <span className="curve-clipped-summary" title="表示範囲外の実値は各点の詳細で確認できます">表示外 {clippedPoints.length}点</span>}</header>
       {series.length ? <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`${output.label}の応答曲線、${quantileLabel}`}>
         {yTicks.map((tick) => <g key={tick}><line x1="28" y1={y(tick)} x2="284" y2={y(tick)} stroke="#e3e9f0" /><text x="25" y={y(tick) + 3} textAnchor="end" fontSize="9" fill="#617087">{binary ? number(tick * 100, 0) : number(tick, yDigits)}</text></g>)}
         {xTicks.map((tick) => <line key={`grid-${tick}`} x1={x(tick)} y1="32" x2={x(tick)} y2="128" stroke="#edf1f6" />)}
@@ -741,10 +744,13 @@ function ResponseCurveMiniChart({
           const color = candidateColor(item.candidate.id, selectedId);
           const line = item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.value)}`).join(" ");
           const band = `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.lower)}`).join(" ")} Z`;
+          const credibleBand = item.points.every((point) => point.latent_mean_credible_interval)
+            ? `${item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.latent_mean_credible_interval!.upper)}`).join(" ")} ${[...item.points].reverse().map((point) => `L${x(point.x)} ${y(point.latent_mean_credible_interval!.lower)}`).join(" ")} Z`
+            : null;
           const quantileLines = declaredQuantiles.map((level) => item.points.every((point) => point.quantiles?.[level] != null)
             ? <path key={level} data-quantile={level} d={item.points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.quantiles[level])}`).join(" ")} fill="none" stroke={color} strokeWidth=".75" strokeDasharray={Number(level) === 0.5 ? "none" : "3 2"} opacity=".55" />
             : null);
-          return <g key={item.candidate.id}><path d={band} fill={color} opacity={item.candidate.id === selectedId ? ".18" : ".08"} />{quantileLines}<path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
+          return <g key={item.candidate.id}><path data-uncertainty-band="posterior-predictive" d={band} fill={color} opacity={item.candidate.id === selectedId ? ".10" : ".05"} />{credibleBand && <path data-uncertainty-band="latent-mean" d={credibleBand} fill={color} opacity={item.candidate.id === selectedId ? ".24" : ".12"} />}{quantileLines}<path d={line} fill="none" stroke={color} strokeWidth={item.candidate.id === selectedId ? "2.5" : "1.5"} opacity={item.candidate.id === selectedId ? "1" : ".78"} />{item.points.map((point) => <circle
             className="svg-chart-hit-target" role="img" tabIndex={-1} key={`${item.candidate.id}-${point.x}`} cx={x(point.x)} cy={y(point.value)} r="5" fill="transparent"
             aria-label={`${item.candidate.label}, ${xLabel} ${number(point.x, xDigits)}, ${output.label} ${yText(point.value)}${intervalText(point) ? `, ${intervalText(point)}` : ""}`}
             onMouseEnter={() => setHoveredPoint({ x: x(point.x), y: y(point.value), lines: [item.candidate.label, `${xLabel} ${number(point.x, xDigits)} ${xUnit}`.trim(), `${output.label} ${yText(point.value)}`, intervalText(point) ?? (binary ? "校正済み点確率" : "区間は利用不可")] })}

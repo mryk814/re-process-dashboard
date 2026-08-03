@@ -8,7 +8,9 @@ import numpy as np
 
 from decision_workbench.modeling.packages.contracts import (
     AdditiveExplanation,
+    LatentMeanCredibleInterval,
     PackageContractError,
+    PredictionInterval,
     PredictiveSummary,
     PredictorSpec,
     TermContribution,
@@ -50,24 +52,53 @@ class _Term:
     feature_index: int
     arrays: tuple[np.ndarray, ...]
     degree: int | None = None
+    center: np.ndarray | None = None
 
-    def evaluate(self, value: float) -> float:
+    def basis(self, value: float) -> np.ndarray:
         if self.kind == "linear":
-            return float(self.arrays[0][0] * value)
+            raw = np.asarray([value], dtype=float)
+            return raw if self.center is None else raw - self.center
         if self.kind == "bspline_univariate":
-            knots, coefficients = self.arrays
+            knots, _ = self.arrays
             assert self.degree is not None
-            return float(bspline_basis(value, knots, self.degree) @ coefficients)
-        categories, scores = self.arrays
+            raw = bspline_basis(value, knots, self.degree)
+            return raw if self.center is None else raw - self.center
+        categories, _ = self.arrays
         matches = np.flatnonzero(np.isclose(categories, value, rtol=0, atol=1e-12))
         if len(matches) != 1:
             raise PackageContractError(f"unknown category value for additive term {self.id!r}")
-        return float(scores[int(matches[0])])
+        basis = np.zeros(len(categories), dtype=float)
+        basis[int(matches[0])] = 1.0
+        return basis if self.center is None else basis - self.center
+
+    def evaluate(self, value: float) -> float:
+        coefficients = self.arrays[-1]
+        return float(self.basis(value) @ coefficients)
 
 
 class _AdditivePredictor:
-    def __init__(self, spec: PredictorSpec, intercept: float, terms: tuple[_Term, ...], residual_scale: float | None) -> None:
-        self.spec, self.intercept, self.terms, self.residual_scale = spec, intercept, terms, residual_scale
+    def __init__(
+        self,
+        spec: PredictorSpec,
+        intercept: float,
+        terms: tuple[_Term, ...],
+        residual_scale: float | None,
+        posterior_covariance: np.ndarray | None,
+    ) -> None:
+        self.spec = spec
+        self.intercept = intercept
+        self.terms = terms
+        self.residual_scale = residual_scale
+        self.posterior_covariance = posterior_covariance
+
+    def _posterior_design(self, vector: np.ndarray) -> np.ndarray:
+        return np.concatenate((
+            np.ones(1, dtype=float),
+            *(
+                term.basis(float(vector[term.feature_index]))
+                for term in self.terms
+            ),
+        ))
 
     def explain(self, values: dict[str, float]) -> AdditiveExplanation:
         vector = feature_vector(self.spec, values)
@@ -102,7 +133,41 @@ class _AdditivePredictor:
                 point_estimate=score,
                 distribution={"family": "empirical_quantiles", "support": "real"},
             )
-        spread = _NORMAL_90_Z * self.residual_scale
+        predictive_scale = self.residual_scale
+        uncertainty_components = None
+        prediction_interval = None
+        credible_interval = None
+        if self.posterior_covariance is not None:
+            vector = feature_vector(self.spec, values)
+            design = self._posterior_design(vector)
+            latent_variance = max(
+                float(design @ self.posterior_covariance @ design),
+                0.0,
+            )
+            observation_variance = self.residual_scale**2
+            predictive_scale = float(
+                np.sqrt(latent_variance + observation_variance)
+            )
+            uncertainty_components = {
+                "latent_mean_standard_deviation": float(
+                    np.sqrt(latent_variance)
+                ),
+                "observation_standard_deviation": self.residual_scale,
+                "predictive_standard_deviation": predictive_scale,
+            }
+            prediction_interval = PredictionInterval(
+                method="bayesian",
+                coverage_level=0.9,
+                lower=score - _NORMAL_90_Z * predictive_scale,
+                upper=score + _NORMAL_90_Z * predictive_scale,
+            )
+            latent_scale = float(np.sqrt(latent_variance))
+            credible_interval = LatentMeanCredibleInterval(
+                coverage_level=0.9,
+                lower=score - _NORMAL_90_Z * latent_scale,
+                upper=score + _NORMAL_90_Z * latent_scale,
+            )
+        spread = _NORMAL_90_Z * predictive_scale
         return PredictiveSummary(
             target=self.spec.target,
             target_kind=self.spec.target_kind,
@@ -110,7 +175,14 @@ class _AdditivePredictor:
             point_statistic="mean",
             point_estimate=score,
             quantiles={"0.05": score - spread, "0.5": score, "0.95": score + spread},
-            distribution={"family": "normal", "support": "real", "std": self.residual_scale},
+            distribution={
+                "family": "normal",
+                "support": "real",
+                "std": predictive_scale,
+            },
+            uncertainty_components=uncertainty_components,
+            latent_mean_credible_interval=credible_interval,
+            prediction_interval=prediction_interval,
         )
 
 
@@ -125,7 +197,8 @@ class BuiltinAdditiveTermsAdapter:
         raw_terms = predictor.config.get("terms")
         if not isinstance(raw_terms, list) or not raw_terms:
             raise PackageContractError("additive terms config must be a nonempty list")
-        arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=32)
+        arrays = safe_npz_arrays(package.artifact_path(predictor.artifact), max_entries=160)
+        posterior_config = predictor.config.get("posterior")
         expected_keys = {"intercept"}
         terms: list[_Term] = []
         ids: set[str] = set()
@@ -164,19 +237,115 @@ class BuiltinAdditiveTermsAdapter:
                 categories, scores = term_arrays
                 if categories.ndim != 1 or scores.shape != categories.shape or not len(categories) or len(np.unique(categories)) != len(categories):
                     raise PackageContractError("categorical lookup arrays are invalid")
-            terms.append(_Term(term_id, kind, feature_index, term_arrays, degree))
+            center = None
+            if posterior_config is not None:
+                center_key = f"{prefix}_center"
+                expected_keys.add(center_key)
+                try:
+                    center = np.asarray(arrays[center_key], dtype=float)
+                except KeyError as exc:
+                    raise PackageContractError(
+                        "Bayesian additive artifact requires term centers"
+                    ) from exc
+                if center.shape != term_arrays[-1].shape:
+                    raise PackageContractError(
+                        "Bayesian additive term center shape is invalid"
+                    )
+            terms.append(
+                _Term(
+                    term_id,
+                    kind,
+                    feature_index,
+                    term_arrays,
+                    degree,
+                    center,
+                )
+            )
         residual_scale = None
+        posterior_covariance = None
         if predictor.predictive_family == "normal":
-            expected_keys.add("residual_scale")
-            if "residual_scale" not in arrays:
-                raise PackageContractError("normal additive artifact requires residual_scale")
-            scale = np.asarray(arrays["residual_scale"], dtype=float)
-            if scale.shape not in {(), (1,)} or float(scale.reshape(-1)[0]) <= 0:
-                raise PackageContractError("normal additive residual_scale must be positive scalar")
-            residual_scale = float(scale.reshape(-1)[0])
+            posterior = posterior_config
+            if posterior is not None:
+                if posterior != {
+                    "representation": "analytic_gaussian_coefficients_v1",
+                    "coefficient_order": "intercept_then_terms_in_config_order",
+                    "conditioning": "fixed_basis_fixed_smoothing_plugin_noise",
+                    "interval_level": 0.9,
+                }:
+                    raise PackageContractError(
+                        "Bayesian additive posterior identity is invalid"
+                    )
+                expected_keys.update({
+                    "posterior_covariance",
+                    "observation_noise_variance",
+                })
+                try:
+                    posterior_covariance = np.asarray(
+                        arrays["posterior_covariance"],
+                        dtype=float,
+                    )
+                    observation_variance = np.asarray(
+                        arrays["observation_noise_variance"],
+                        dtype=float,
+                    )
+                except KeyError as exc:
+                    raise PackageContractError(
+                        "Bayesian additive artifact requires posterior tensors"
+                    ) from exc
+                if (
+                    observation_variance.shape not in {(), (1,)}
+                    or float(observation_variance.reshape(-1)[0]) <= 0
+                ):
+                    raise PackageContractError(
+                        "Bayesian additive observation variance must be positive scalar"
+                    )
+                residual_scale = float(
+                    np.sqrt(observation_variance.reshape(-1)[0])
+                )
+                coefficient_count = 1 + sum(
+                    len(term.arrays[-1]) for term in terms
+                )
+                if (
+                    posterior_covariance.shape
+                    != (coefficient_count, coefficient_count)
+                    or not np.allclose(
+                        posterior_covariance,
+                        posterior_covariance.T,
+                        rtol=1e-10,
+                        atol=1e-12,
+                    )
+                    or float(
+                        np.min(np.linalg.eigvalsh(posterior_covariance))
+                    )
+                    < -1e-10
+                ):
+                    raise PackageContractError(
+                        "Bayesian additive posterior covariance is invalid"
+                    )
+            else:
+                expected_keys.add("residual_scale")
+                if "residual_scale" not in arrays:
+                    raise PackageContractError(
+                        "normal additive artifact requires residual_scale"
+                    )
+                scale = np.asarray(arrays["residual_scale"], dtype=float)
+                if (
+                    scale.shape not in {(), (1,)}
+                    or float(scale.reshape(-1)[0]) <= 0
+                ):
+                    raise PackageContractError(
+                        "normal additive residual_scale must be positive scalar"
+                    )
+                residual_scale = float(scale.reshape(-1)[0])
         if set(arrays) != expected_keys:
             raise PackageContractError("additive artifact has an unexpected tensor schema")
         intercept = np.asarray(arrays["intercept"], dtype=float)
         if intercept.shape not in {(), (1,)}:
             raise PackageContractError("additive intercept must be scalar")
-        return _AdditivePredictor(predictor, float(intercept.reshape(-1)[0]), tuple(terms), residual_scale)
+        return _AdditivePredictor(
+            predictor,
+            float(intercept.reshape(-1)[0]),
+            tuple(terms),
+            residual_scale,
+            posterior_covariance,
+        )

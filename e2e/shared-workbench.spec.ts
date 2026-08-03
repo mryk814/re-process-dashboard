@@ -7,6 +7,50 @@ const tasks = [
 ] as const;
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 
+test("Bayesian additive response curves distinguish mean and observation uncertainty", async ({ page }) => {
+  await page.route("**/response-curve?**", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    if (!Array.isArray(payload.points)) {
+      await route.fulfill({ response, json: payload });
+      return;
+    }
+    payload.points = payload.points.map((point: {
+      value: number;
+      lower: number;
+      upper: number;
+      [key: string]: unknown;
+    }) => ({
+      ...point,
+      interval_method: "bayesian",
+      interval_coverage_level: 0.9,
+      latent_mean_credible_interval: {
+        method: "bayesian",
+        estimand: "latent_mean",
+        coverage_level: 0.9,
+        lower: point.value - (point.value - point.lower) * 0.45,
+        upper: point.value + (point.upper - point.value) * 0.45,
+      },
+    }));
+    await route.fulfill({ response, json: payload });
+  });
+
+  await page.goto("/?view=candidates&project=hot-rolling-default");
+  await expect(
+    page.getByText(
+      "濃い帯: 平均の信用区間 · 薄い帯: 新しい観測の予測区間",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  const chart = page.getByRole("group", { name: /引張強さの応答曲線/ });
+  await expect(
+    chart.locator('[data-uncertainty-band="latent-mean"]').first(),
+  ).toBeVisible();
+  await expect(
+    chart.locator('[data-uncertainty-band="posterior-predictive"]').first(),
+  ).toBeVisible();
+});
+
 test("engineered material features are inspectable for annealing and hot rolling", async ({ page }, testInfo) => {
   await page.goto("/?view=candidates&project=default");
   const annealing = page.locator(".feature-engineering-panel");
