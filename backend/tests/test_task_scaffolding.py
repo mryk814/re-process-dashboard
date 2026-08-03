@@ -691,7 +691,8 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
     task_id = "csv-ui-strength-v1"
     task_store = tmp_path / "personal-tasks"
     model_store = tmp_path / "personal-models"
-    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(task_store))
+    default_task_store = tmp_path / "unexpected-default-tasks"
+    monkeypatch.setenv("WORKBENCH_TASK_STORE_PATH", str(default_task_store))
     resources = prepare_app_resources(task_ids=frozenset({ANNEALED_TASK_ID}))
 
     def unavailable_chain(**_kwargs):
@@ -702,6 +703,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         db_path=tmp_path / "workspace.db",
         data_library_path=tmp_path / "data-library",
         model_store_path=model_store,
+        task_store_path=task_store,
         _resources=resources,
     )
     source = _source(tmp_path / "new-source.csv")
@@ -805,6 +807,7 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         assert response["source_sha256"]
         assert response["reused_existing"] is False
         assert (task_store / task_id).is_dir()
+        assert not (default_task_store / task_id).exists()
         health = client.get("/api/health")
         assert health.status_code == 200, health.text
         storage = health.json()["storage"]

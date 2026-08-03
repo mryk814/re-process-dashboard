@@ -239,7 +239,7 @@ def test_runtime_factory_failure_keeps_package_diagnostics(
     monkeypatch.setattr(
         resources_module,
         "registered_task_modules",
-        lambda: modules,
+        lambda _personal_task_store=None: modules,
     )
 
     resources = prepare_app_resources()

@@ -14,12 +14,14 @@ from decision_workbench.task_composition.descriptors import TaskModule
 TASK_MODULES: Mapping[str, TaskModule] = MappingProxyType(BUILTIN_TASK_MODULES)
 
 
-def registered_task_modules() -> Mapping[str, TaskModule]:
+def registered_task_modules(
+    personal_task_store: Path | None = None,
+) -> Mapping[str, TaskModule]:
     from decision_workbench.task_composition.external_tasks import (
         external_task_modules,
     )
 
-    external = external_task_modules()
+    external = external_task_modules(personal_task_store)
     duplicates = sorted(set(TASK_MODULES) & set(external))
     if duplicates:
         raise ValueError(
