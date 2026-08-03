@@ -348,6 +348,7 @@ def test_personal_duplicate_never_replaces_the_bundled_package(
             bundled["id"],
         )
         assert internal_bundled is not None
+        bundled_locator = internal_bundled.locator
         shutil.copytree(Path(internal_bundled.locator), copied_package)
         available = personal_store / "available-packages.json"
         available.write_text(
@@ -369,6 +370,13 @@ def test_personal_duplicate_never_replaces_the_bundled_package(
             if item["id"] == bundled["id"]
         )
         assert duplicate["storage_scope"] == "bundled"
+        after_refresh = (
+            client.app.state.workspace_catalog.get_model_package_ref(
+                bundled["id"],
+            )
+        )
+        assert after_refresh is not None
+        assert after_refresh.locator == bundled_locator
         assert "locator" not in bundled
         assert "locator" not in duplicate
 

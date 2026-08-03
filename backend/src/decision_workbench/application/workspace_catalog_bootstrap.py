@@ -181,11 +181,15 @@ def register_runtime_resources(
     registry: TaskRegistry,
     *,
     package_origins: dict[str, str] | None = None,
+    personal_model_store_paths: Iterable[Path] = (),
 ) -> dict[str, ProjectBinding]:
     """Register every currently configured task runtime as immutable catalog records."""
 
     bindings: dict[str, ProjectBinding] = {}
     views_by_dataset: dict[str, str] = {}
+    personal_model_stores = {
+        Path(item).resolve() for item in personal_model_store_paths
+    }
     for task_id in registry.available_task_ids:
         entry = registry.entry_for(task_id)
         data = entry.predictor_runtime.data
@@ -214,7 +218,15 @@ def register_runtime_resources(
             manifest_json=_catalog_manifest(package),
         ))
         if package_origins is not None:
-            package_origins[package_ref.id] = "bundled"
+            package_root = package.root.resolve()
+            package_origins[package_ref.id] = (
+                "personal"
+                if any(
+                    store == package_root or store in package_root.parents
+                    for store in personal_model_stores
+                )
+                else "bundled"
+            )
         bindings[task_id] = ProjectBinding(
             task_id=task_id,
             dataset_view_revision_id=views_by_dataset[registered.dataset_revision_id],
@@ -671,17 +683,26 @@ def bootstrap_workspace_catalog(
 ) -> WorkspaceCatalog:
     catalog = WorkspaceCatalog(database)
     origins = package_origins if package_origins is not None else {}
+    available_paths = tuple(
+        dict.fromkeys(Path(item).resolve() for item in available_packages_paths)
+    )
+    personal_available_paths = tuple(
+        dict.fromkeys(
+            Path(item).resolve()
+            for item in personal_available_packages_paths
+        )
+    )
     bindings = register_runtime_resources(
         catalog,
         registry,
         package_origins=origins,
+        personal_model_store_paths=(
+            path.parent for path in personal_available_paths
+        ),
     )
     register_primary_datasets(catalog)
-    personal_paths = {
-        Path(item).resolve()
-        for item in personal_available_packages_paths
-    }
-    for path in dict.fromkeys(Path(item).resolve() for item in available_packages_paths):
+    personal_paths = set(personal_available_paths)
+    for path in available_paths:
         is_personal = path in personal_paths
         register_available_packages(
             catalog,
