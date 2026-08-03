@@ -157,6 +157,11 @@ class SamplingIdentity(BaseModel):
         "central-90-linear-quantiles/v1",
         "central-90-inverted-cdf-quantiles/v1",
     ]
+    model_inference_policy_id: str | None = None
+    model_inference_identity_digest: Annotated[
+        str | None,
+        Field(pattern=r"^sha256:[0-9a-f]{64}$"),
+    ] = None
     approximation: str | None = None
     fallback: str | None = None
     parameter_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -175,6 +180,8 @@ class SamplingIdentity(BaseModel):
             "seeded_with_replacement",
         ],
         family: str,
+        model_inference_policy_id: str | None = None,
+        model_inference_identity_digest: str | None = None,
     ) -> "SamplingIdentity":
         if requested_sample_count != request.requested_sample_count:
             raise ValueError(
@@ -212,6 +219,12 @@ class SamplingIdentity(BaseModel):
             "approximation": None,
             "fallback": None,
         }
+        if model_inference_policy_id is not None:
+            parameters["model_inference_policy_id"] = model_inference_policy_id
+        if model_inference_identity_digest is not None:
+            parameters["model_inference_identity_digest"] = (
+                model_inference_identity_digest
+            )
         digest = hashlib.sha256(
             json.dumps(
                 parameters,
@@ -232,7 +245,22 @@ class SamplingIdentity(BaseModel):
             and self.effective_sample_count != self.posterior_draw_count
         ):
             raise ValueError("all-posterior-draw selection requires matching counts")
-        parameters = self.model_dump(mode="json", exclude={"parameter_digest"})
+        parameters = self.model_dump(
+            mode="json",
+            exclude={
+                "parameter_digest",
+                *(
+                    {"model_inference_policy_id"}
+                    if self.model_inference_policy_id is None
+                    else set()
+                ),
+                *(
+                    {"model_inference_identity_digest"}
+                    if self.model_inference_identity_digest is None
+                    else set()
+                ),
+            },
+        )
         expected = "sha256:" + hashlib.sha256(
             json.dumps(
                 parameters,
@@ -244,6 +272,12 @@ class SamplingIdentity(BaseModel):
         ).hexdigest()
         if self.parameter_digest != expected:
             raise ValueError("sampling identity parameter digest does not match")
+        if (self.model_inference_policy_id is None) != (
+            self.model_inference_identity_digest is None
+        ):
+            raise ValueError(
+                "sampling identity requires both model inference policy and digest"
+            )
         return self
 
 

@@ -14964,6 +14964,80 @@
             ],
             "title": "Architecture Id"
           },
+          "inference_approximation_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Approximation Kind"
+          },
+          "inference_approximation_limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Inference Approximation Limitations",
+            "type": "array"
+          },
+          "inference_diagnostics_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "not_applicable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Diagnostics Status"
+          },
+          "inference_identity_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Identity Digest"
+          },
+          "inference_policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Policy Id"
+          },
+          "inference_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "sampling",
+                  "approximation",
+                  "initializer"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Role"
+          },
           "predictive_family": {
             "minLength": 1,
             "title": "Predictive Family",
@@ -26034,6 +26108,29 @@
             "const": "1.0.0",
             "title": "Method Version",
             "type": "string"
+          },
+          "model_inference_identity_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Inference Identity Digest"
+          },
+          "model_inference_policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Inference Policy Id"
           },
           "operation": {
             "minLength": 1,

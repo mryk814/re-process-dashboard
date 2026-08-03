@@ -91,6 +91,21 @@ class ModelLibraryPredictorFamily(ModelLibraryContract):
     runtime_type: Annotated[str, Field(min_length=1)]
     predictive_family: Annotated[str, Field(min_length=1)]
     architecture_id: str | None = None
+    inference_policy_id: str | None = None
+    inference_role: Literal[
+        "exact",
+        "sampling",
+        "approximation",
+        "initializer",
+    ] | None = None
+    inference_identity_digest: str | None = None
+    inference_approximation_kind: str | None = None
+    inference_approximation_limitations: tuple[str, ...] = ()
+    inference_diagnostics_status: Literal[
+        "passed",
+        "failed",
+        "not_applicable",
+    ] | None = None
 
 
 class ModelLibraryVersionedIdentity(ModelLibraryContract):

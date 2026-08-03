@@ -74,6 +74,12 @@ def test_model_library_lists_four_asset_families_without_local_locators(
             "runtime_type",
             "predictive_family",
             "architecture_id",
+            "inference_policy_id",
+            "inference_role",
+            "inference_identity_digest",
+            "inference_approximation_kind",
+            "inference_approximation_limitations",
+            "inference_diagnostics_status",
         }
         == set(family)
         for item in predictive_packages

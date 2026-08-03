@@ -8552,6 +8552,21 @@ export interface components {
         ModelLibraryPredictorFamily: {
             /** Architecture Id */
             architecture_id?: string | null;
+            /** Inference Approximation Kind */
+            inference_approximation_kind?: string | null;
+            /**
+             * Inference Approximation Limitations
+             * @default []
+             */
+            inference_approximation_limitations: string[];
+            /** Inference Diagnostics Status */
+            inference_diagnostics_status?: ("passed" | "failed" | "not_applicable") | null;
+            /** Inference Identity Digest */
+            inference_identity_digest?: string | null;
+            /** Inference Policy Id */
+            inference_policy_id?: string | null;
+            /** Inference Role */
+            inference_role?: ("exact" | "sampling" | "approximation" | "initializer") | null;
             /** Predictive Family */
             predictive_family: string;
             /** Predictor Id */
@@ -12836,6 +12851,10 @@ export interface components {
              * @constant
              */
             method_version: "1.0.0";
+            /** Model Inference Identity Digest */
+            model_inference_identity_digest?: string | null;
+            /** Model Inference Policy Id */
+            model_inference_policy_id?: string | null;
             /** Operation */
             operation: string;
             /** Parameter Digest */

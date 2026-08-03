@@ -4,6 +4,11 @@
 Model Packageはposterior artifactとruntime configurationを固定し、operation policyは
 seedとsample budgetを要求し、runtime adapterが実効identityを返します。
 
+Model fitに使ったalgorithmは別契約の
+[Inference Policy](inference-policy.md)／`inference-identity/v1`が正本です。
+新しいPackageがInference Identityを宣言する場合、Sampling Identityはそのpolicy IDと
+identity digestを参照します。既存Packageで欠落している値は推測しません。
+
 ## Sampling Request
 
 sample-based runtimeの全呼出は、operationごとにversion固定された
