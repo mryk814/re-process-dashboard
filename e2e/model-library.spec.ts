@@ -96,7 +96,12 @@ test("Model Library and Data Library preserve Dataset context bidirectionally", 
   await expect(page).toHaveURL(/view=data-library.*focus_dataset_revision=.+focus_package=.+/);
   expect((await datasetsResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "データライブラリ" })).toBeVisible();
+  const reloadedCatalogResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/model-library"
+  ));
   await page.getByRole("button", { name: "利用中のモデル資産を見る" }).click();
   await expect(page).toHaveURL(/view=model-library.*asset=packages.*focus_dataset_revision=.+/);
+  expect((await reloadedCatalogResponse).status()).toBe(200);
   await expect(page.getByRole("status")).toContainText(/Package \d+件 \/ Graph \d+件/);
 });
