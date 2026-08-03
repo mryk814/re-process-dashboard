@@ -305,6 +305,8 @@ def dataset_profile_digest(path: Path | Any = DATASET_PROFILE_PATH) -> str:
     # active profile does not use them.
     if payload.get("curation_recipe") is None:
         payload.pop("curation_recipe", None)
+    if payload.get("missingness_operation_capability") is None:
+        payload.pop("missingness_operation_capability", None)
     for item in payload.get("inputs", []):
         if item.get("numeric_missing") == {
             "strategy": "reject",

@@ -83,6 +83,19 @@ class InputMissingnessEvidence(BaseModel):
         return self
 
 
+class MissingnessOperationCapability(BaseModel):
+    """Package-owned permission envelope for incomplete candidate operations."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    preview: Literal["allow", "warn", "block"]
+    comparison: Literal["allow", "warn", "block"]
+    snapshot: Literal["allow", "explicit_override", "block"]
+    proposal: Literal["allow_with_quota", "block"]
+    export: Literal["require_complete", "allow_provisional"]
+    completion_uncertainty: Literal["available", "unavailable"]
+
+
 class CompletionUncertainty(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

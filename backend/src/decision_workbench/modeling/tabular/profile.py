@@ -10,6 +10,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from decision_workbench.contracts.missingness_contracts import (
+    MissingnessOperationCapability,
+)
 
 MISSING_CATEGORY = "__missing__"
 
@@ -266,6 +269,7 @@ class TabularDatasetProfile(BaseModel):
     monotone_decreasing_paths: tuple[str, ...] = ()
     inputs: tuple[TabularInput, ...] = Field(min_length=1)
     outputs: tuple[TabularOutput, ...] = Field(min_length=1)
+    missingness_operation_capability: MissingnessOperationCapability | None = None
     quality_rules: tuple[TabularQualityRule, ...] = ()
     curation_recipe: CurationRecipe | None = None
 

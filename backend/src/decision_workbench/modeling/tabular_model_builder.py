@@ -494,6 +494,17 @@ def build_tabular_package_from_data(
                 }
                 for item in profile.inputs
             },
+            **(
+                {
+                    "operation_capability": (
+                        profile.missingness_operation_capability.model_dump(
+                            mode="json"
+                        )
+                    )
+                }
+                if profile.missingness_operation_capability is not None
+                else {}
+            ),
         }
         if has_explicit_missing_policy
         else None

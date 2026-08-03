@@ -7,13 +7,15 @@ from decision_workbench.contracts.missingness_contracts import (
     InputMissingnessEvidence,
     MissingFieldEvidence,
     MissingnessOperation,
+    MissingnessOperationCapability,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
 
 
 PATTERN_SUPPORT_POLICY_ID = "evaluated-missing-pattern"
-PATTERN_SUPPORT_POLICY_VERSION = "1.0.0"
+PATTERN_SUPPORT_POLICY_VERSION = "1.1.0"
 PATTERN_SUPPORT_POLICY_CONFIG = {
+    "minimum_training_count": 2,
     "minimum_evaluation_count": 2,
     "maximum_prediction_failure_rate": 0.0,
 }
@@ -29,6 +31,83 @@ def pattern_support_policy_document() -> dict[str, Any]:
         **identity,
         "policy_digest": semantic_digest(identity),
     }
+
+
+def resolve_missingness_operation_capability(
+    package_missing_policy: Any | None,
+) -> MissingnessOperationCapability | None:
+    """Resolve only an explicitly declared verified-Package capability."""
+
+    if package_missing_policy is None:
+        return None
+    if hasattr(package_missing_policy, "operation_capability"):
+        return package_missing_policy.operation_capability
+    if not isinstance(package_missing_policy, Mapping):
+        raise TypeError("Package missing policy must be a mapping or contract")
+    raw = package_missing_policy.get("operation_capability")
+    return (
+        None
+        if raw is None
+        else MissingnessOperationCapability.model_validate(raw)
+    )
+
+
+def classify_missingness_pattern_support(
+    pattern_evidence: Mapping[str, Any] | None,
+    *,
+    support_policy: Mapping[str, Any] | None = None,
+) -> str:
+    """Apply the shared Package/runtime support threshold to fixed evidence."""
+
+    if pattern_evidence is None:
+        return "unseen"
+    policy = support_policy or pattern_support_policy_document()
+    expected = pattern_support_policy_document()
+    if policy != expected:
+        raise ValueError("Package missing-pattern support policy is incompatible")
+    metrics = pattern_evidence.get("metrics_by_target") or {}
+    if (
+        int(pattern_evidence.get("training_count", 0))
+        >= int(policy["config"]["minimum_training_count"])
+        and int(pattern_evidence.get("evaluation_count", 0))
+        >= int(policy["config"]["minimum_evaluation_count"])
+        and metrics
+        and all(
+            float(item.get("prediction_failure_rate", 1.0))
+            <= float(policy["config"]["maximum_prediction_failure_rate"])
+            for item in metrics.values()
+        )
+    ):
+        return "supported"
+    return "sparse"
+
+
+def _operation_capability_blocks(
+    capability: MissingnessOperationCapability | None,
+    *,
+    operation: MissingnessOperation,
+    support: str,
+) -> bool:
+    if capability is None:
+        return (
+            operation == "detailed_prediction" and support != "supported"
+        ) or operation in {"snapshot", "proposal", "export"}
+    if operation == "preview":
+        return capability.preview == "block"
+    if operation == "detailed_prediction":
+        return capability.comparison == "block" or support != "supported"
+    if operation == "snapshot":
+        return capability.snapshot != "allow" or support != "supported"
+    if operation == "proposal":
+        # allow_with_quota requires a quota-bearing proposal request.  The
+        # current request contract has no such proof, so it remains blocked.
+        return True
+    if operation == "export":
+        return (
+            capability.export == "require_complete"
+            or support != "supported"
+        )
+    return False
 
 
 def _value(candidate: CandidateInput, path: str) -> object:
@@ -67,6 +146,7 @@ def assess_input_missingness(
     training_stats: Mapping[str, Any],
     *,
     operation: MissingnessOperation,
+    operation_capability: MissingnessOperationCapability | None = None,
 ) -> InputMissingnessEvidence:
     pattern = missing_pattern(candidate, inputs)
     digest = pattern_digest(pattern)
@@ -155,29 +235,20 @@ def assess_input_missingness(
         support = "incompatible"
     elif not effective_missing:
         support = "supported"
-    elif pattern_evidence is None:
-        support = "unseen"
-    elif (
-        int(pattern_evidence.get("evaluation_count", 0))
-        >= int(support_policy["config"]["minimum_evaluation_count"])
-        and bool(pattern_evidence.get("metrics_by_target"))
-        and all(
-            float(metrics.get("prediction_failure_rate", 1.0))
-            <= float(
-                support_policy["config"]["maximum_prediction_failure_rate"]
-            )
-            for metrics in pattern_evidence.get(
-                "metrics_by_target", {}
-            ).values()
-        )
-    ):
-        support = "supported"
     else:
-        support = "sparse"
+        support = classify_missingness_pattern_support(
+            pattern_evidence,
+            support_policy=support_policy,
+        )
 
     blocked = incompatible or (
-        operation == "detailed_prediction" and support != "supported"
-    ) or (operation in {"snapshot", "proposal", "export"} and effective_missing)
+        effective_missing
+        and _operation_capability_blocks(
+            operation_capability,
+            operation=operation,
+            support=support,
+        )
+    )
     return InputMissingnessEvidence(
         input_completeness=(
             "blocked"
