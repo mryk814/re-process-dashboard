@@ -24,6 +24,7 @@
     "test:e2e:degraded-task": "node scripts/run-degraded-task-e2e.mjs",
     "test:e2e:failure-states": "node scripts/run-failure-state-e2e.mjs",
     "test:e2e:sample-gallery": "playwright test --config playwright.sample-gallery.config.ts",
+    "test:e2e:current-main-acceptance": "node scripts/run-current-main-acceptance.mjs",
     "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
     "smoke:packaged": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-windows-delivery.ps1",
     "clean": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-generated.ps1",

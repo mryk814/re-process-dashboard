@@ -21,16 +21,18 @@ function waitForDataLibraryCatalog(
 
 async function gotoDataLibraryAfterCatalog(
   page: import("@playwright/test").Page,
+  datasetRevisionId: string,
 ) {
   await Promise.all([
     waitForDataLibraryCatalog(page),
-    page.goto("/?view=data-library"),
+    page.goto(`/?view=data-library&focus_dataset_revision=${encodeURIComponent(datasetRevisionId)}`),
   ]);
 }
 
 async function reloadSourceLifecycleAfterReady(
   page: import("@playwright/test").Page,
   connectorId: string,
+  profileId?: string,
 ) {
   const connectorPath = `/api/data-lifecycle/connectors/${connectorId}`;
   const readyResponses = [
@@ -44,17 +46,21 @@ async function reloadSourceLifecycleAfterReady(
       && new URL(response.url()).pathname === connectorPath
       && response.status() === 200
     )),
-    page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return response.request().method() === "GET"
-        && url.pathname === "/api/data-library/datasets"
-        && url.searchParams.get("include_archived") === "true"
-        && response.status() === 200;
-    }),
   ];
   await Promise.all([...readyResponses, page.reload()]);
 
-  return page.locator(".source-lifecycle-section");
+  const section = page.locator(".source-lifecycle-section");
+  if (profileId) {
+    await expect(section.getByLabel("品質判定レシピ")).not.toHaveValue("", {
+      timeout: 30_000,
+    });
+    const profileSelect = section.getByLabel("データセットプロファイル");
+    await expect(profileSelect.locator(`option[value="${profileId}"]`)).toHaveCount(1, {
+      timeout: 30_000,
+    });
+    await profileSelect.selectOption(profileId);
+  }
+  return section;
 }
 
 test("source refresh stays separate from approval, training and activation", async ({ page, request }) => {
@@ -62,7 +68,20 @@ test("source refresh stays separate from approval, training and activation", asy
   // between them; CI evidence shows the default 45s budget expires in that second hydration.
   test.slow();
   const optionsBefore = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
-  const profile = optionsBefore.datasets[0].profile_revision;
+  const datasetsBeforeResponse = await request.get(
+    `${apiBaseUrl}/api/data-library/datasets?include_archived=true`,
+  );
+  expect(datasetsBeforeResponse.ok()).toBeTruthy();
+  const datasetsBefore = await datasetsBeforeResponse.json() as Array<{
+    data_asset: { locator_kind: string };
+    profile_available: boolean;
+    profile_revision: { id: string };
+  }>;
+  const bundledProfileDataset = datasetsBefore.find((item) => (
+    item.data_asset.locator_kind === "bundled" && item.profile_available
+  ));
+  expect(bundledProfileDataset).toBeTruthy();
+  const profile = bundledProfileDataset!.profile_revision;
 
   await page.goto("/?view=data-library");
   await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
@@ -263,6 +282,15 @@ test("source refresh stays separate from approval, training and activation", asy
     `${apiBaseUrl}/api/data-library/model-packages?include_archived=true`,
   );
   expect(packageListResponse.ok()).toBeTruthy();
+  const datasetListResponse = await request.get(
+    `${apiBaseUrl}/api/data-library/datasets?include_archived=true`,
+  );
+  expect(datasetListResponse.ok()).toBeTruthy();
+  const datasets = await datasetListResponse.json() as Array<{
+    data_asset: { sha256: string };
+    dataset_revision: { id: string };
+    profile_revision: { profile_digest: string };
+  }>;
   const linkedPackages = (await packageListResponse.json()).map(
     (item: { manifest_json: Record<string, unknown> }) => {
         const provenance = item.manifest_json.provenance;
@@ -283,10 +311,28 @@ test("source refresh stays separate from approval, training and activation", asy
         };
       },
   );
+  const linkedDataset = datasets.find((dataset) => linkedPackages.some(
+    (item: { manifest_json: Record<string, unknown> }) => {
+      const provenance = item.manifest_json.provenance;
+      if (!provenance || typeof provenance !== "object") return false;
+      const trainingDataId = "training_data_id" in provenance
+        ? provenance.training_data_id
+        : undefined;
+      const profileDigest = "dataset_profile_id" in provenance
+        ? provenance.dataset_profile_id
+        : undefined;
+      return trainingDataId === `sha256:${dataset.data_asset.sha256}`
+        && (
+          typeof profileDigest !== "string"
+          || profileDigest === dataset.profile_revision.profile_digest
+        );
+    },
+  ));
+  expect(linkedDataset).toBeTruthy();
   await page.route("**/api/data-library/model-packages?include_archived=true", async (route) => {
     await route.fulfill({ json: linkedPackages });
   });
-  await gotoDataLibraryAfterCatalog(page);
+  await gotoDataLibraryAfterCatalog(page, linkedDataset!.dataset_revision.id);
   const snapshotLink = page.getByRole("button", { name: "固定した学習Snapshotを見る" }).first();
   await snapshotLink.waitFor();
   await snapshotLink.click();
@@ -312,7 +358,7 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(secondFetch.ok()).toBeTruthy();
-  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
+  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id, profile.id);
   await expect(repeatedSection.getByRole("button", { name: "品質判定を実行" })).toBeEnabled();
   const repeatedCurationPanel = repeatedSection.locator("details.source-action-panel").filter({
     hasText: "品質判定レシピとデータセットプロファイル",

@@ -30,6 +30,7 @@ export default defineConfig({
     {
       command: `uv run python backend/scripts/acceptance/run_chain_degraded_e2e.py --db "${database}" --port ${apiPort} --broken-transform "${brokenTransform}" --broken-evaluation "${brokenEvaluation}"`,
       port: apiPort,
+      timeout: 120_000,
       reuseExistingServer: false,
       env: { PYTHONPATH: resolve("backend", "src") },
     },

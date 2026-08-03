@@ -14,14 +14,16 @@ test("broken Chain evaluation is isolated and explained without hiding Projects"
       failedApiResponses.push(`${response.status()} ${response.url()}`);
     }
   });
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 }),
-  ).toBeVisible();
 
   const readiness = await request.get(`${apiBase}/api/readiness`);
   expect(readiness.ok()).toBeTruthy();
   const readinessBody = await readiness.json();
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "焼鈍条件の候補検討", level: 1 }),
+  ).toBeVisible({ timeout: 15_000 });
+
   const evaluation = readinessBody.optional_subsystems.find(
     (item: { subsystem_id: string }) => (
       item.subsystem_id === "chain_evaluation:welding-consumable-a-b-c-v1"

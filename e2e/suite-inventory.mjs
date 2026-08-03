@@ -70,6 +70,16 @@ export const suiteInventory = {
     cleanupOwner: "fresh DB disposal",
     reason: "専用Chain ProjectとCandidateを作成し、目標値と判断履歴を更新する。",
   },
+  "current-main-acceptance-prediction-graph.spec.ts": {
+    kind: "dedicated-runtime",
+    cleanupOwner: "run-current-main-acceptance.mjs",
+    reason: "Atlas digestを固定し、Stage Bの一度だけのfailure injectionを持つfresh専用processでGraph受入を行う。",
+  },
+  "current-main-acceptance-single-task.spec.ts": {
+    kind: "dedicated-runtime",
+    cleanupOwner: "run-current-main-acceptance.mjs",
+    reason: "Atlas digestを固定したfresh専用processで通常判断の全受入journeyとreceiptを生成する。",
+  },
   "chain-studio.spec.ts": {
     kind: "serial-journey",
     cleanupOwner: "seeded DB disposal",

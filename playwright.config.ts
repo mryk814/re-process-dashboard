@@ -74,6 +74,8 @@ export default defineConfig({
     "chain-degraded.spec.ts",
     "startup-diagnostic.spec.ts",
     "sample-gallery.spec.ts",
+    "current-main-acceptance-single-task.spec.ts",
+    "current-main-acceptance-prediction-graph.spec.ts",
     ...(includeParallelDedicated ? [] : parallelDedicatedSpecs),
   ],
   timeout: 45_000,
