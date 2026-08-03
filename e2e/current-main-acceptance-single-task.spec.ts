@@ -293,7 +293,7 @@ test("current main Journey A onboards one public CSV and preserves its decision 
   await page.reload();
   await expect(page).toHaveURL(new RegExp(`candidate=${promoted.id}.*candidate_section=actuals`));
   await expect(panel.getByRole("columnheader", { name: "固定予測" })).toBeVisible();
-  await expect(panel.getByRole("columnheader", { name: "実測" })).toBeVisible();
+  await expect(panel.getByRole("columnheader", { name: "実測", exact: true })).toBeVisible();
   await page.goBack();
   await page.goForward();
   await expect(page).toHaveURL(new RegExp(`candidate=${promoted.id}.*candidate_section=actuals`));
