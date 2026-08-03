@@ -173,6 +173,74 @@ def test_data_library_exposes_semantic_dataset_records_and_creation_options(clie
     )
 
 
+def test_new_task_onboarding_selection_reveals_only_its_bundled_dataset(
+    client,
+) -> None:
+    gallery = client.get(
+        "/api/data-library/datasets",
+        params={"include_gallery": True},
+    ).json()
+    initially_visible_ids = {
+        item["dataset_revision"]["id"]
+        for item in client.get("/api/data-library/datasets").json()
+    }
+    initial_options = client.get("/api/project-creation-options").json()
+    initially_visible_package_ids = {
+        item["id"] for item in initial_options["model_packages"]
+    }
+    gallery_packages = client.get(
+        "/api/data-library/model-packages",
+        params={"include_gallery": True},
+    ).json()
+    hidden = [
+        item
+        for item in gallery
+        if item["dataset_revision"]["id"] not in initially_visible_ids
+    ]
+    assert len(hidden) >= 2
+    selected, selected_package = next(
+        (dataset, package)
+        for dataset in hidden
+        for package in gallery_packages
+        if (
+            package["id"] not in initially_visible_package_ids
+            and package["task_id"] in initial_options["task_contract_digests"]
+            and package["manifest_json"]["provenance"]["training_data_id"]
+            == f"sha256:{dataset['data_asset']['sha256']}"
+            and package["manifest_json"]["provenance"]["dataset_profile_id"]
+            == dataset["profile_revision"]["profile_digest"]
+        )
+    )
+    selected_id = selected["dataset_revision"]["id"]
+    untouched = next(
+        item
+        for item in hidden
+        if item["dataset_revision"]["id"] != selected_id
+    )
+    untouched_id = untouched["dataset_revision"]["id"]
+
+    selected_view = client.app.state.workspace_catalog.ensure_single_dataset_view(
+        selected_id,
+        name="明示onboarding Dataset",
+        view_id="explicit-new-task-onboarding",
+        member_provenance={"lineage_kind": "new_task_tabular_onboarding"},
+    )
+
+    visible_ids = {
+        item["dataset_revision"]["id"]
+        for item in client.get("/api/data-library/datasets").json()
+    }
+    assert selected_id in visible_ids
+    assert untouched_id not in visible_ids
+    options = client.get("/api/project-creation-options").json()
+    assert selected_package["id"] in {
+        item["id"] for item in options["model_packages"]
+    }
+    assert selected_view.id in {
+        item["id"] for item in options["dataset_views"]
+    }
+
+
 def test_available_package_manifest_can_be_reloaded_without_restart(client) -> None:
     projects = client.get("/api/projects", params={"include_archived": True}).json()
     referenced_ids = {

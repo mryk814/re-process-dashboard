@@ -143,11 +143,19 @@ def _visible_dataset_ids(catalog: WorkspaceCatalog, store: Store) -> set[str]:
         if view.id in referenced_view_ids
         for member in view.members
     }
+    explicitly_selected_dataset_ids = {
+        member.dataset_revision_id
+        for view in catalog.list_dataset_view_revisions()
+        for member in view.members
+        if member.provenance_json.get("lineage_kind")
+        == "new_task_tabular_onboarding"
+    }
     return {
         dataset.id
         for dataset in catalog.list_dataset_revisions(include_archived=True)
         if (
             dataset.id in referenced_dataset_ids
+            or dataset.id in explicitly_selected_dataset_ids
             or (
                 (asset := catalog.get_data_asset(
                     dataset.data_asset_id,
