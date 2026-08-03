@@ -31,6 +31,7 @@ def _bundled_graphs(client: TestClient) -> dict[str, PredictionGraphDefinition]:
         for item in response.json()
         if item["definition"]["schema_version"]
         == "prediction-graph-definition/v1"
+        and item["is_default"]
     }
 
 
@@ -78,6 +79,95 @@ def test_bundled_material_graphs_keep_terminal_identity_and_package_boundaries(
         "candidate.welding_context.gas_flow_l_per_min",
         "candidate.welding_context.wire_feed_speed_m_per_min",
     )
+    for graph in (multi, split):
+        response = client.post(
+            "/api/prediction-graphs/validate",
+            json={"definition": graph.model_dump(mode="json")},
+        )
+        assert response.status_code == 200, response.text
+        validation = response.json()
+        assert validation["valid"] is True, validation["findings"]
+        assert validation["candidate_adapter_id"] == "sparse_blend/v1"
+
+
+def test_canonical_fixture_is_additive_and_keeps_revision_one_immutable(
+    client: TestClient,
+) -> None:
+    before = client.get("/api/chains")
+    assert before.status_code == 200, before.text
+    templates = before.json()
+    for graph_id in (
+        WELDING_MULTI_OUTPUT_GRAPH_ID,
+        WELDING_SPLIT_OUTPUT_GRAPH_ID,
+    ):
+        graph_templates = [
+            item
+            for item in templates
+            if item["definition"].get("graph_id") == graph_id
+        ]
+        assert graph_templates[0]["is_default"] is True
+        assert sum(item["is_default"] for item in graph_templates) == 1
+        assert {
+            item["default_revision_id"] for item in graph_templates
+        } == {f"{graph_id}:r2"}
+        assert {
+            item["latest_revision_id"] for item in graph_templates
+        } == {f"{graph_id}:r2"}
+        assert {
+            revision["revision"]
+            for item in graph_templates
+            for revision in item["revisions"]
+        } == {1, 2}
+        legacy = next(
+            item
+            for item in graph_templates
+            if any(revision["revision"] == 1 for revision in item["revisions"])
+        )
+        canonical = next(
+            item
+            for item in graph_templates
+            if item["is_default"]
+        )
+        legacy_heat = next(
+            item
+            for item in legacy["definition"]["inputs"]
+            if item["input_id"]
+            == "candidate.welding_context.heat_input_kj_per_mm"
+        )
+        canonical_heat = next(
+            item
+            for item in canonical["definition"]["inputs"]
+            if item["input_id"]
+            == "candidate.welding_context.heat_input_kj_per_mm"
+        )
+        assert legacy_heat["value_source"]["candidate_path"] == (
+            "welding_context.heat_input_kj_per_mm"
+        )
+        assert canonical_heat["value_source"]["candidate_path"] == (
+            "process.heat_input_kj_per_mm"
+        )
+
+    revision_one_before = {
+        graph_id: client.app.state.store.get_chain_revision(f"{graph_id}:r1")
+        for graph_id in (
+            WELDING_MULTI_OUTPUT_GRAPH_ID,
+            WELDING_SPLIT_OUTPUT_GRAPH_ID,
+        )
+    }
+    revision_ids = bootstrap_welding_prediction_graphs(
+        store=client.app.state.store,
+        workspace_catalog=client.app.state.workspace_catalog,
+        task_registry=client.app.state.task_registry,
+        transform_catalog=client.app.state.deterministic_transform_catalog,
+    )
+    assert revision_ids == (
+        f"{WELDING_MULTI_OUTPUT_GRAPH_ID}:r2",
+        f"{WELDING_SPLIT_OUTPUT_GRAPH_ID}:r2",
+    )
+    assert {
+        graph_id: client.app.state.store.get_chain_revision(f"{graph_id}:r1")
+        for graph_id in revision_one_before
+    } == revision_one_before
 
 
 def test_split_fixture_recomputes_only_the_scientifically_affected_branch(
@@ -188,7 +278,11 @@ def test_fixture_bundle_rolls_back_when_second_definition_insert_fails(
     assert revisions == 0
 
 
-def _graph_project(client: TestClient) -> tuple[dict, dict]:
+def _graph_project(
+    client: TestClient,
+    *,
+    revision_number: int = 2,
+) -> tuple[dict, dict]:
     templates = client.get("/api/chains")
     assert templates.status_code == 200, templates.text
     items = templates.json()
@@ -196,8 +290,17 @@ def _graph_project(client: TestClient) -> tuple[dict, dict]:
         item
         for item in items
         if item["definition"].get("graph_id") == WELDING_SPLIT_OUTPUT_GRAPH_ID
+        and (
+            item["is_default"]
+            if revision_number == 2
+            else not item["is_default"]
+        )
     )
-    graph_revision = split["revisions"][0]
+    graph_revision = next(
+        revision
+        for revision in split["revisions"]
+        if revision["revision"] == revision_number
+    )
     project_response = client.post(
         "/api/prediction-graphs/projects",
         json={
@@ -240,9 +343,23 @@ def _graph_project(client: TestClient) -> tuple[dict, dict]:
     assert starter_response.status_code == 200, starter_response.text
     candidate_payload = starter_response.json()["starter_candidate"]
     candidate_payload["name"] = "Split fixture candidate"
-    candidate_payload["inputs"]["process"][
-        "wire_feed_speed_m_per_min"
-    ] = 7.5
+    candidate_payload["inputs"]["process"].update(
+        {
+            "heat_input_kj_per_mm": 1.43,
+            "voltage_v": 28.36,
+            "gas_flow_l_per_min": 25.4,
+            "wire_feed_speed_m_per_min": 7.5,
+            "preheat_temp_c": 80.0,
+            "test_temperature_c": -20.0,
+        }
+    )
+    candidate_payload["inputs"]["categorical"].update(
+        {
+            "shielding_gas": "100%CO2",
+            "welding_position": "下向",
+            "test_solution": "5%H2SO4",
+        }
+    )
     candidate_response = client.post(
         f"/api/prediction-graphs/projects/{project['id']}/candidates",
         json=candidate_payload,
@@ -283,6 +400,27 @@ def _candidate_update(candidate: dict) -> dict:
             "input_missing_kinds",
         )
     } | {"expected_revision": candidate["revision"]}
+
+
+@pytest.mark.parametrize("revision_number", [1, 2])
+def test_legacy_and_canonical_revisions_execute_the_same_typed_candidate(
+    client: TestClient,
+    revision_number: int,
+) -> None:
+    project, candidate = _graph_project(
+        client,
+        revision_number=revision_number,
+    )
+    execution = _execute_graph(
+        client,
+        project,
+        candidate,
+        f"fixture-revision-{revision_number}",
+    )
+    assert execution["status"] == "complete"
+    assert execution["graph_revision_id"] == (
+        f"{WELDING_SPLIT_OUTPUT_GRAPH_ID}:r{revision_number}"
+    )
 
 
 def test_split_fixture_api_preserves_branches_and_failure_evidence(

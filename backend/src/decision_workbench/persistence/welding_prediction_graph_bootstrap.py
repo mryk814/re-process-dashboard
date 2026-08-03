@@ -96,8 +96,11 @@ def _input(
     )
 
 
-def _inputs() -> tuple[GraphInput, ...]:
-    return (
+def _inputs(
+    *,
+    canonical_candidate_paths: bool,
+) -> tuple[GraphInput, ...]:
+    inputs = (
         _input(
             "candidate.blend",
             label="原料配合",
@@ -188,6 +191,26 @@ def _inputs() -> tuple[GraphInput, ...]:
             role="scenario_context",
             group="test",
         ),
+    )
+    if not canonical_candidate_paths:
+        return inputs
+    return tuple(
+        item.model_copy(
+            update={
+                "value_source": CandidateGraphInputSource(
+                    source_kind="candidate",
+                    candidate_path=(
+                        "blend"
+                        if item.port.value_kind == "sparse_blend"
+                        else (
+                            f"{'process' if item.port.value_kind == 'number' else 'categorical'}."
+                            f"{item.port.quantity}"
+                        )
+                    ),
+                )
+            }
+        )
+        for item in inputs
     )
 
 
@@ -425,6 +448,8 @@ def _outputs(property_stage: Mapping[str, str]) -> tuple[DecisionOutput, ...]:
 
 def welding_prediction_graph_definitions(
     surfaces: Mapping[str, StageContractSurface],
+    *,
+    canonical_candidate_paths: bool = True,
 ) -> tuple[PredictionGraphDefinition, PredictionGraphDefinition]:
     stage_a = surfaces[STAGE_A_ID]
     stage_b = surfaces[STAGE_B_ID]
@@ -450,7 +475,9 @@ def welding_prediction_graph_definitions(
                 contract_id=WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
             ),
         ),
-        inputs=_inputs(),
+        inputs=_inputs(
+            canonical_candidate_paths=canonical_candidate_paths,
+        ),
         bindings=tuple(shared_bindings),
         decision_outputs=_outputs(
             {"TS": "C", "CHARPY_ENERGY": "C", "CORROSION_RATE": "C"}
@@ -488,7 +515,9 @@ def welding_prediction_graph_definitions(
                 contract_id=WELDING_GRAPH_DEPOSITION_EFFICIENCY_TASK_ID,
             ),
         ),
-        inputs=_inputs(),
+        inputs=_inputs(
+            canonical_candidate_paths=canonical_candidate_paths,
+        ),
         bindings=tuple(split_bindings),
         decision_outputs=_outputs(
             {"TS": "T", "CHARPY_ENERGY": "U", "CORROSION_RATE": "R"}
@@ -543,11 +572,19 @@ def bootstrap_welding_prediction_graphs(
             for surface in surfaces.values()
         }
         stage_a_entry = transform_catalog.entry(STAGE_A_ID)
+        legacy_definitions = welding_prediction_graph_definitions(
+            surfaces,
+            canonical_candidate_paths=False,
+        )
         definitions = welding_prediction_graph_definitions(surfaces)
         bundle: list[
             tuple[PredictionGraphDefinition, PredictionGraphRevision]
         ] = []
-        for definition in definitions:
+        for legacy_definition, definition in zip(
+            legacy_definitions,
+            definitions,
+            strict=True,
+        ):
             locks = {
                 stage.stage_id: (
                     ChainStageLock(
@@ -565,20 +602,31 @@ def bootstrap_welding_prediction_graphs(
                         surfaces[stage.contract_id],
                     )
                 )
-                for stage in definition.stages
+                for stage in legacy_definition.stages
             }
-            revision = build_prediction_graph_revision(
-                definition,
+            legacy_revision = build_prediction_graph_revision(
+                legacy_definition,
                 revision=1,
                 contracts=contracts,
                 stage_locks=locks,
             )
-            bundle.append((definition, revision))
+            revision = build_prediction_graph_revision(
+                definition,
+                revision=2,
+                contracts=contracts,
+                stage_locks=locks,
+            )
+            bundle.extend(
+                (
+                    (legacy_definition, legacy_revision),
+                    (definition, revision),
+                )
+            )
         revision_ids = store.register_prediction_graph_bundle(
             tuple(bundle),
             contracts=contracts,
         )
-        return revision_ids[0], revision_ids[1]
+        return revision_ids[1], revision_ids[3]
     except (
         ChainCatalogConflictError,
         KeyError,
