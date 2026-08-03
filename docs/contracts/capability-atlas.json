@@ -6,7 +6,9 @@
     "docs/contracts/standard-estimator-readiness.json authority",
     "bundled Model Package manifests",
     "decision activity and proposal strategy registries",
-    "bundled Prediction Graph definitions"
+    "bundled Prediction Graph definitions",
+    "fixed real-Task Design Prior replay report",
+    "fixed promotion evidence reports"
   ],
   "project_modes": [
     {
@@ -362,6 +364,32 @@
       }
     ],
     "scope": "The reusable route authors new external single-table repeated observations; it does not rewrite bundled specialized Tasks."
+  },
+  "design_prior_promotion": {
+    "status": "evaluated_no_production_promotion",
+    "task_id": "mpea-room-tensile-v1",
+    "report_schema_version": "real-task-design-prior-replay/v1",
+    "report_digest": "sha256:056d9f52f5b290d7255e903c0ff315cb3269a5670122f5e3dc1da745998ebcb6",
+    "design_prior_identity": "mpea-room-tensile-replay-observations/v1",
+    "design_prior_manifest_digest": "sha256:535334f040fee9a5399479fea8725b3cad0e4cea36cca153d262d4a13f610619",
+    "generator_decisions": {
+      "knn_local": {
+        "status": "experimental",
+        "reason": "composition-preserving local interpolation is feasible and plausible, but one public Task does not establish cross-Task production value"
+      },
+      "gaussian_rank_copula": {
+        "status": "no_adopt",
+        "reason": "rank dependence alone does not preserve the 14-component composition constraint; rejection/shortfall is material"
+      }
+    },
+    "production_promotion": false,
+    "proposal_registry_changed": false,
+    "limitations": [
+      "nearest held-out outcome is an offline historical proxy, not a new experiment",
+      "one public Task cannot establish cross-domain generator safety",
+      "wall-clock measurements are environment-specific and excluded from result_digest",
+      "no saved Proposal Run or production registry was changed"
+    ]
   },
   "standard_estimator_catalog": {
     "schema_version": "standard-estimator-readiness/v1",
@@ -2851,7 +2879,70 @@
           "supported",
           "incompatible"
         ],
-        "native_missing_supported": false
+        "native_missing_supported": false,
+        "promotion_evidence": {
+          "status": "evaluated_not_promoted",
+          "report": "docs/reports/mpea-missingness-promotion.json",
+          "report_digest": "sha256:0e593c9c38bbb050cc897dee6709a485f4a9756f28ad7f7850ce17b1d42bb719",
+          "protocol_version": "mpea-missingness-promotion/v1",
+          "target": "TYS",
+          "active_package_reference": {
+            "package_id": "mpea-room-tensile-ridge-v2",
+            "package_version": "2.0.0",
+            "manifest_digest": "sha256:a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
+            "reason_not_used_for_holdout": "active Package was trained on the full public source"
+          },
+          "evaluation_package_authority": {
+            "package_id": "mpea-room-tensile-missingness-evaluation-v1",
+            "package_version": "1.0.0",
+            "manifest_digest": "sha256:e61c5b99f70df0b9a747933d2a0b9268b779675aa538c23b5d2b467504aa784f",
+            "capability_source": "feature-pipeline/pipeline.json#missing_policy.operation_capability",
+            "verified": true
+          },
+          "operation_policy": {
+            "authority": "evaluation_package_feature_pipeline_artifact",
+            "authority_digest": "sha256:908fbeb1038ade0a195eb944fc26daf32af3861f800400c3231ebc0080471f97",
+            "preview": "block",
+            "comparison": "block",
+            "snapshot": "block",
+            "proposal": "block",
+            "export": "require_complete",
+            "completion_uncertainty": "available"
+          },
+          "pattern_support": {
+            "classifier": {
+              "policy_id": "evaluated-missing-pattern",
+              "policy_version": "1.1.0",
+              "config": {
+                "minimum_training_count": 2,
+                "minimum_evaluation_count": 2,
+                "maximum_prediction_failure_rate": 0.0
+              },
+              "policy_digest": "sha256:07034978ed9b51f80e24b2d5a0cfdc8125d621bd2374c397df3b30e33c913371"
+            },
+            "by_status": {
+              "supported": [
+                "frequent-process-multi"
+              ],
+              "sparse": [
+                "sparse-process-multi"
+              ],
+              "unseen": [
+                "correlated-process-pair",
+                "high-impact-numeric-single",
+                "low-impact-numeric-single",
+                "unseen-mixed-mode"
+              ],
+              "incompatible": []
+            },
+            "evidence_rule": "support uses observed training-pattern evidence; masking and completion simulation do not promote unseen patterns"
+          },
+          "limitations": [
+            "evaluation Profile and Package are not the active recipe",
+            "single-numeric and selected mixed masks have zero observed matching training patterns",
+            "sparse, unseen, structural, and unknown patterns remain blocked"
+          ]
+        }
       },
       "historical_candidate_supported": {
         "status": "eligible_record_required",
@@ -2867,7 +2958,8 @@
         "source": "bundled_reference"
       },
       "known_limitations": [
-        "actual_measurement_unavailable"
+        "actual_measurement_unavailable",
+        "missingness_evaluation_not_promoted"
       ]
     },
     {

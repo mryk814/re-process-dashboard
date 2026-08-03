@@ -34,6 +34,7 @@ from decision_workbench.modeling.curve_grid import (
 from decision_workbench.modeling.missingness import (
     assess_input_missingness,
     require_operation_allowed,
+    resolve_missingness_operation_capability,
 )
 from decision_workbench.modeling.package_capabilities import package_capability_matrix
 from decision_workbench.modeling.packages.contracts import (
@@ -133,6 +134,11 @@ class TabularRegressionRuntime:
             self.model_package.artifact_path(
                 manifest.feature_pipeline.spec
             ).read_text(encoding="utf-8")
+        )
+        self.missingness_operation_capability = (
+            resolve_missingness_operation_capability(
+                pipeline_document.missing_policy
+            )
         )
         self.feature_recipe = None
         self.feature_recipe_state = None
@@ -563,6 +569,7 @@ class TabularRegressionRuntime:
                 _missingness_operation  # type: ignore[arg-type]
                 or ("detailed_prediction" if detailed else "preview")
             ),
+            operation_capability=self.missingness_operation_capability,
         )
         require_operation_allowed(missingness)
         values = _prepared_values or self._feature_bundle(candidate).as_dict()

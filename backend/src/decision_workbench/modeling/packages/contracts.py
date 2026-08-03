@@ -11,6 +11,9 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from decision_workbench.contracts.missingness_contracts import (
+    MissingnessOperationCapability,
+)
 from decision_workbench.contracts.series_contracts import SeriesFeatureContract
 
 if TYPE_CHECKING:
@@ -133,6 +136,7 @@ class PipelineMissingPolicySpec(PackageModel):
         str,
         Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)],
     ] = Field(default_factory=dict)
+    operation_capability: MissingnessOperationCapability | None = None
 
 
 class FeatureRecipeArtifactSpec(PackageModel):

@@ -105,6 +105,13 @@ Project、保存済みRunを変更しない。正本の数値証拠と再生成c
 [`Generative Design Lab adoption memo`](../research/generative-design-lab-adoption-memo.md)
 に置く。
 
+代表実Taskへの昇格判断は、同じ5 generatorを公開MPEA文献データの固定group
+holdoutへ適用した
+[`MPEA room-tensile Design Prior replay`](../research/real-task-design-prior-replay.md)
+を正本とする。このreplayではkNNを`experimental`、Gaussian rank copulaを
+`no_adopt`とし、production registryへ昇格しない。単一Taskのhistorical proxyを
+cross-domainの安全証拠へ読み替えず、既存Proposal RunとLHS／Sobol identityも変更しない。
+
 UCB/LCB and EI require the typed `normal_mean_std` acquisition representation:
 the Runtime output must declare a mean point statistic and predictive standard
 deviation on an unconstrained continuous target. A median, probability, rate,

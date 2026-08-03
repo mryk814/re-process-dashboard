@@ -110,6 +110,76 @@ def summarize_missingness_policy(
     }
 
 
+def summarize_missingness_promotion(
+    report: Mapping[str, Any],
+    *,
+    report_ref: str,
+    report_digest: str,
+) -> dict[str, Any]:
+    """Project fixed promotion evidence without changing active capability."""
+
+    if report.get("schema_version") != "missingness-promotion-report/v2":
+        raise ValueError("unsupported missingness promotion report")
+    decision = report["decision"]
+    promotion = str(decision["production_promotion"])
+    if promotion not in {"not_promoted", "promoted"}:
+        raise ValueError(
+            f"unsupported missingness promotion decision: {promotion}"
+        )
+    status = (
+        "evaluated_not_promoted"
+        if promotion == "not_promoted"
+        else "promoted"
+    )
+    patterns = [
+        item
+        for item in report["patterns"]
+        if item["pattern_id"] != "complete"
+    ]
+    by_support = {
+        support: sorted(
+            item["pattern_id"]
+            for item in patterns
+            if item["support"] == support
+        )
+        for support in ("supported", "sparse", "unseen", "incompatible")
+    }
+    operation = dict(report["operation_capability"])
+    authority_digest = operation.pop("authority_digest")
+    evaluation_package = report["package_authority"]["evaluation_package"]
+    return {
+        "status": status,
+        "report": report_ref,
+        "report_digest": report_digest,
+        "protocol_version": report["fixed_protocol"]["protocol_version"],
+        "target": report["task"]["target"],
+        "active_package_reference": report["package_authority"][
+            "active_recipe_reference_only"
+        ],
+        "evaluation_package_authority": {
+            "package_id": evaluation_package["package_id"],
+            "package_version": evaluation_package["package_version"],
+            "manifest_digest": evaluation_package["manifest_digest"],
+            "capability_source": evaluation_package["capability_source"],
+            "verified": evaluation_package["verified"],
+        },
+        "operation_policy": {
+            "authority": "evaluation_package_feature_pipeline_artifact",
+            "authority_digest": authority_digest,
+            **operation,
+        },
+        "pattern_support": {
+            "classifier": report["fixed_protocol"]["support_policy"],
+            "by_status": by_support,
+            "evidence_rule": (
+                "support uses observed training-pattern evidence; masking and "
+                "completion simulation do not promote unseen patterns"
+            ),
+        },
+        "limitations": list(decision["reasons"]),
+    }
+
+
 def capability_atlas_read_model(atlas: Mapping[str, Any]) -> dict[str, Any]:
     """Return the compact technical detail shown in Developer Control Center."""
 
@@ -151,6 +221,8 @@ def build_capability_atlas(
     decision_activities: Iterable[Mapping[str, Any]],
     proposal_strategies: Iterable[Mapping[str, Any]],
     graph_capability: Mapping[str, Any],
+    design_prior_promotion: Mapping[str, Any] | None = None,
+    promotion_evidence: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic, bundled-only projection of capability facts."""
 
@@ -162,6 +234,13 @@ def build_capability_atlas(
     strategies = sorted(proposal_strategies, key=lambda item: item["strategy_id"])
     tasks: list[dict[str, Any]] = []
     graph_task_ids = set(graph_capability["task_ids"])
+    promotions = dict(promotion_evidence or {})
+    task_ids = {
+        str(item["task_id"])
+        for item in task_inventory["tasks"]
+    }
+    if set(promotions) - task_ids:
+        raise ValueError("promotion evidence references an unknown Task")
 
     for task in sorted(task_inventory["tasks"], key=lambda item: item["task_id"]):
         task_id = task["task_id"]
@@ -181,7 +260,12 @@ def build_capability_atlas(
             known_limitations.append("actual_measurement_unavailable")
         if source_status == "research_or_fixture":
             known_limitations.append("research_or_fixture_source")
+        if task_id in promotions and promotions[task_id]["status"] != "promoted":
+            known_limitations.append("missingness_evaluation_not_promoted")
 
+        missingness = dict(package["missingness"])
+        if task_id in promotions:
+            missingness["promotion_evidence"] = promotions[task_id]
         tasks.append({
             "task_id": task_id,
             "label": task["label"],
@@ -210,7 +294,7 @@ def build_capability_atlas(
             },
             "graph_compatible": task_id in graph_task_ids,
             "actual_supported": runtime_operations.get("actual_measurement", False),
-            "missingness_modes": package["missingness"],
+            "missingness_modes": missingness,
             "historical_candidate_supported": {
                 "status": "eligible_record_required",
                 "provenance": ["historical_observation", "experiment_batch"],
@@ -233,6 +317,12 @@ def build_capability_atlas(
             "bundled Model Package manifests",
             "decision activity and proposal strategy registries",
             "bundled Prediction Graph definitions",
+            "fixed real-Task Design Prior replay report",
+            *(
+                ["fixed promotion evidence reports"]
+                if promotions
+                else []
+            ),
         ],
         "project_modes": [
             {
@@ -262,6 +352,14 @@ def build_capability_atlas(
             "support": ["supported", "sparse", "unseen", "incompatible"],
         },
         "complex_data_authoring": complex_data_authoring_capability(),
+        "design_prior_promotion": (
+            dict(design_prior_promotion)
+            if design_prior_promotion is not None
+            else {
+                "status": "not_evaluated",
+                "production_promotion": False,
+            }
+        ),
         "standard_estimator_catalog": standard_estimator_catalog,
         "global_catalogs": {
             "decision_activities": activities,

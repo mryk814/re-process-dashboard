@@ -1,0 +1,826 @@
+{
+  "schema_version": "missingness-promotion-report/v2",
+  "task": {
+    "task_id": "mpea-room-tensile-v1",
+    "target": "TYS",
+    "selection_reason": [
+      "public actual tensile outcomes support a source-paper group holdout",
+      "22 numeric and 4 categorical inputs exercise mixed completion",
+      "source aliases are curated to canonical category values"
+    ]
+  },
+  "fixed_protocol": {
+    "protocol_version": "mpea-missingness-promotion/v1",
+    "source_digest": "sha256:a3b4230ff150e32ed51050a4813fc3fbad01b2bc2fc61b5d4fb8a5be3cc5e476",
+    "base_profile_digest": "sha256:38ffb401a6d25bac3bd9f8a1d1dffca8dddae3ef91c8fb4619d82af608895f2f",
+    "evaluation_profile_digest": "sha256:60dd2a95773e600259ba83090f52749fb4c483d527bae81b4d00eda2add72a68",
+    "holdout_policy": "sha256(File_Name) prefix modulo 5 equals 0",
+    "train_rows": 75,
+    "train_groups": 30,
+    "holdout_rows": 24,
+    "holdout_groups": 9,
+    "train_group_digest": "sha256:f9a0fce15206c71bae1563684033104d5ed6601d10cfd5d08e2bb1e828c1a559",
+    "holdout_group_digest": "sha256:91a9f57387b7ffa0e8812ec11f3ea2b4bcc71306e165af5f270273f2fb4fcccb",
+    "same_holdout_for_masked_patterns": true,
+    "target_excluded_from_completion": true,
+    "seed": 20260803,
+    "completion_sample_count": 16,
+    "support_policy": {
+      "policy_id": "evaluated-missing-pattern",
+      "policy_version": "1.1.0",
+      "config": {
+        "minimum_training_count": 2,
+        "minimum_evaluation_count": 2,
+        "maximum_prediction_failure_rate": 0.0
+      },
+      "policy_digest": "sha256:07034978ed9b51f80e24b2d5a0cfdc8125d621bd2374c397df3b30e33c913371"
+    }
+  },
+  "package_authority": {
+    "active_recipe_reference_only": {
+      "package_id": "mpea-room-tensile-ridge-v2",
+      "package_version": "2.0.0",
+      "manifest_digest": "sha256:a2c8c125d1b9faf41188e0bebe56f8347db02991f1c3fb45a8a6392d5f019c45",
+      "reason_not_used_for_holdout": "active Package was trained on the full public source"
+    },
+    "evaluation_package": {
+      "package_id": "mpea-room-tensile-missingness-evaluation-v1",
+      "package_version": "1.0.0",
+      "manifest_digest": "sha256:e61c5b99f70df0b9a747933d2a0b9268b779675aa538c23b5d2b467504aa784f",
+      "training_data_id": "sha256:66dd232ae287da55978feffaad95f6fc67b0b33da338d76d9d6df076d8637fa1",
+      "feature_dataset_id": "sha256:a34ddf27757f5f6cdbc6edea0d64b51a54247778f5bc525c777dd78eec4589a1",
+      "training_code_revision": "standard-model-training/v1:ridge.v1",
+      "verified": true,
+      "verification_task_id": "mpea-room-tensile-v1",
+      "runtime_class": "TabularRegressionRuntime",
+      "capability_source": "feature-pipeline/pipeline.json#missing_policy.operation_capability"
+    }
+  },
+  "design_prior_authority": {
+    "package_id": "mpea-room-tensile-completion-prior-v1",
+    "package_version": "1.0.0",
+    "manifest_digest": "sha256:66e53a951ee6789534b310494f65ec1a668cd3c8e94586fe8b5e076567c952bd",
+    "dataset_view_digest": "sha256:23b2a47cee422234d9baac45d5b52b7e2bb4ae56c6f1c64fac328c8a617c0112",
+    "training_code_revision": "mpea-missingness-completion-train-only-v1",
+    "rows": 75,
+    "generators": [
+      {
+        "id": "empirical_rows",
+        "version": "1.0.0",
+        "max_neighbors": 8
+      },
+      {
+        "id": "knn_local",
+        "version": "1.0.0",
+        "max_neighbors": 8
+      }
+    ]
+  },
+  "patterns": [
+    {
+      "pattern_id": "complete",
+      "paths": [],
+      "pattern_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "masking_cohort_count": 75,
+      "masking_holdout_evaluation_count": 24,
+      "observed_training_pattern_count": 16,
+      "observed_pattern_evaluation_count": 0,
+      "support": "supported",
+      "metrics": {
+        "complete": {
+          "evaluation_count": 24,
+          "failure_rate": 0.0,
+          "rmse": 375.0657445848757,
+          "calibration_bias": 295.82497129698845,
+          "interval_coverage_90": 0.8333333333333334
+        }
+      }
+    },
+    {
+      "pattern_id": "low-impact-numeric-single",
+      "paths": [
+        "composition.Fe"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:4ae78f7472c1619b4e542bb7155057f245d1ff913159bbe4b1df0372221e36a4",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "all TYS training rows",
+        "category_predicate": {},
+        "digest": "sha256:ad704ee78c55c98c4d0e9f0d591081a37a78bd91a3dc6067e07883460bc3cc74"
+      },
+      "masking_cohort_count": 75,
+      "masking_holdout_evaluation_count": 24,
+      "observed_training_pattern_count": 0,
+      "observed_pattern_evaluation_count": 0,
+      "support": "unseen",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 24,
+          "successful_count": 24,
+          "failure_rate": 0.0,
+          "rmse": 375.48767708881337,
+          "calibration_bias": 296.1015045746905,
+          "interval_coverage_90": 0.8333333333333334,
+          "point_shift_vs_complete": 0.27653327770205277,
+          "mean_absolute_point_shift_vs_complete": 0.6716350634198704,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 390.2476089686563,
+            "calibration_bias": 313.82624291111233,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.17037821261682237,
+            "conditional_sample_coverage": 0.8181818181818182,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 1.0733585387649927
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7848477834679
+            },
+            "point_shift_vs_complete": 0.45566436858876036,
+            "provisional_overvaluation_rate": 0.8636363636363636,
+            "completion_sample_identity_count": 108,
+            "completion_sample_identity_digest": "sha256:3e1eaccf05aff9a4c0bf89d66e96817278d4800ce189d7a72654f5e4790e10d9"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 390.21173959301507,
+            "calibration_bias": 313.765668752637,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.14984546981794658,
+            "conditional_sample_coverage": 0.8636363636363636,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 0.7619887841696878
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7841128368915
+            },
+            "point_shift_vs_complete": 0.3950902101134685,
+            "provisional_overvaluation_rate": 0.8181818181818182,
+            "completion_sample_identity_count": 327,
+            "completion_sample_identity_digest": "sha256:315ddd6519b7293a4e7762377d677655d386c25320742ba13c4220a4c78bb5e4"
+          }
+        }
+      }
+    },
+    {
+      "pattern_id": "high-impact-numeric-single",
+      "paths": [
+        "process.aging_time_h"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:073e4d15d7b57dcb317076fe148fe69ed7b46e98dc4027451e207c07f9b9d5ce",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "categorical.aged=yes",
+        "category_predicate": {
+          "aged": "yes"
+        },
+        "digest": "sha256:5950bc3538a98bd9f5815735649787c0b0e5e8784851bec729964a0745dbb88a"
+      },
+      "masking_cohort_count": 35,
+      "masking_holdout_evaluation_count": 11,
+      "observed_training_pattern_count": 0,
+      "observed_pattern_evaluation_count": 0,
+      "support": "unseen",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 11,
+          "successful_count": 11,
+          "failure_rate": 0.0,
+          "rmse": 236.2221379960407,
+          "calibration_bias": 159.7768104599296,
+          "interval_coverage_90": 1.0,
+          "point_shift_vs_complete": -7.729507950050654,
+          "mean_absolute_point_shift_vs_complete": 7.729507950050654,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 11,
+            "successful_count": 9,
+            "failure_rate": 0.18181818181818182,
+            "rmse": 258.6751683782889,
+            "calibration_bias": 181.32205315327167,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.1259645061728395,
+            "conditional_sample_coverage": 0.7777777777777778,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 1.516892093281793
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.78632528560485
+            },
+            "point_shift_vs_complete": -0.5582712153481503,
+            "provisional_overvaluation_rate": 0.3333333333333333,
+            "completion_sample_identity_count": 24,
+            "completion_sample_identity_digest": "sha256:cd51eb9f8039a734e1785c32f200e0027c41da8dccdb152aeddba1a9ed53a84a"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 11,
+            "successful_count": 9,
+            "failure_rate": 0.18181818181818182,
+            "rmse": 258.8072019336897,
+            "calibration_bias": 181.37120322653632,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.1055288504167617,
+            "conditional_sample_coverage": 0.7777777777777778,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 1.2592902498447236
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7854055637825
+            },
+            "point_shift_vs_complete": -0.5091211420834598,
+            "provisional_overvaluation_rate": 0.3333333333333333,
+            "completion_sample_identity_count": 74,
+            "completion_sample_identity_digest": "sha256:866f766dfbb1bd28bf56c9f36bf451bf16b959667af3f1d9eb830a2c228c0b82"
+          }
+        }
+      }
+    },
+    {
+      "pattern_id": "correlated-process-pair",
+      "paths": [
+        "process.rolling_temp_c",
+        "process.rolling_reduction_pct"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:a273f5f6ab690d351991c6ccd3df91a0fb551394d68a208241a7cd3009dbf217",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "categorical.rolled=yes",
+        "category_predicate": {
+          "rolled": "yes"
+        },
+        "digest": "sha256:39e63350070ea0089958d5c9090ff10773d960c246f858424bd1afa728f818e5"
+      },
+      "masking_cohort_count": 44,
+      "masking_holdout_evaluation_count": 13,
+      "observed_training_pattern_count": 0,
+      "observed_pattern_evaluation_count": 0,
+      "support": "unseen",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 13,
+          "successful_count": 13,
+          "failure_rate": 0.0,
+          "rmse": 270.951100030323,
+          "calibration_bias": 198.73751881061855,
+          "interval_coverage_90": 1.0,
+          "point_shift_vs_complete": -34.34266387981308,
+          "mean_absolute_point_shift_vs_complete": 34.34266387981308,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 13,
+            "successful_count": 11,
+            "failure_rate": 0.15384615384615385,
+            "rmse": 319.00139547666896,
+            "calibration_bias": 258.98033621356956,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.12379476584022037,
+            "conditional_sample_coverage": 1.0,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 4.225632141547174
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.8063293395018
+            },
+            "point_shift_vs_complete": 2.2170824150781527,
+            "provisional_overvaluation_rate": 0.7272727272727273,
+            "completion_sample_identity_count": 54,
+            "completion_sample_identity_digest": "sha256:05d06e97d74ad13d8391336a54ac33d34648897e7bfb67849da3879ccaac71d7"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 13,
+            "successful_count": 11,
+            "failure_rate": 0.15384615384615385,
+            "rmse": 318.0616925235841,
+            "calibration_bias": 258.1043349149898,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.09913036183173815,
+            "conditional_sample_coverage": 1.0,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 2.7665830876641055
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.79320949502505
+            },
+            "point_shift_vs_complete": 1.3410811164984167,
+            "provisional_overvaluation_rate": 0.7272727272727273,
+            "completion_sample_identity_count": 161,
+            "completion_sample_identity_digest": "sha256:15a45888d8f9f7e47b3569a6addd8f79abcf55879ba8da95e0d5515e3d3b3ce2"
+          }
+        }
+      }
+    },
+    {
+      "pattern_id": "frequent-process-multi",
+      "paths": [
+        "process.aging_temp_c",
+        "process.aging_time_h"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:396577dee98ce15958318e3742548bc53b0036460641b12356760d2461519c21",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "all TYS training rows",
+        "category_predicate": {},
+        "digest": "sha256:94e5a3fe268912c02f332892f804780eca4efa4d4c2b76ba8f3c3363df984e28"
+      },
+      "masking_cohort_count": 75,
+      "masking_holdout_evaluation_count": 24,
+      "observed_training_pattern_count": 8,
+      "observed_pattern_evaluation_count": 8,
+      "support": "supported",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 24,
+          "successful_count": 24,
+          "failure_rate": 0.0,
+          "rmse": 358.46646017193154,
+          "calibration_bias": 276.6175208540806,
+          "interval_coverage_90": 0.875,
+          "point_shift_vs_complete": -19.20745044290778,
+          "mean_absolute_point_shift_vs_complete": 19.20745044290778,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 389.3520134848404,
+            "calibration_bias": 313.0345971207568,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.05804229797979796,
+            "conditional_sample_coverage": 0.9318181818181818,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 0.8862702845719889
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7843762839228
+            },
+            "point_shift_vs_complete": -0.3359814217668031,
+            "provisional_overvaluation_rate": 0.09090909090909091,
+            "completion_sample_identity_count": 88,
+            "completion_sample_identity_digest": "sha256:85970826daa44260c452d1fcd562c6b3f198298bce278bac458b5365e5f65096"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 389.4212707695784,
+            "calibration_bias": 313.1055055818983,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.04380228328873275,
+            "conditional_sample_coverage": 0.9318181818181818,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 0.6855696072229548
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7839705712517
+            },
+            "point_shift_vs_complete": -0.2650729606252288,
+            "provisional_overvaluation_rate": 0.09090909090909091,
+            "completion_sample_identity_count": 267,
+            "completion_sample_identity_digest": "sha256:48c1d1bfb051469a0983fdca3ae88b2aff852ad95657f33b2c95563a1787e6c9"
+          }
+        }
+      }
+    },
+    {
+      "pattern_id": "sparse-process-multi",
+      "paths": [
+        "process.aging_temp_c",
+        "process.aging_time_h",
+        "process.recrystallization_temp_c",
+        "process.recrystallization_time_min"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:d985509b7c50e2f92f1fe73ac3acc05e2635575f84213e89b7b267fc96140bc3",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "all TYS training rows",
+        "category_predicate": {},
+        "digest": "sha256:3ac922c0ab4bfa04e21a84cfc4093d9624a9f28d26e2c90277c421f35c03912b"
+      },
+      "masking_cohort_count": 75,
+      "masking_holdout_evaluation_count": 24,
+      "observed_training_pattern_count": 1,
+      "observed_pattern_evaluation_count": 1,
+      "support": "sparse",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 24,
+          "successful_count": 24,
+          "failure_rate": 0.0,
+          "rmse": 328.04676235697184,
+          "calibration_bias": 238.1275823947415,
+          "interval_coverage_90": 0.9166666666666666,
+          "point_shift_vs_complete": -57.69738890224695,
+          "mean_absolute_point_shift_vs_complete": 57.69738890224695,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 392.93032450870936,
+            "calibration_bias": 316.88529909131364,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.05835438861268938,
+            "conditional_sample_coverage": 0.875,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 3.75911587748099
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.80153898826313
+            },
+            "point_shift_vs_complete": 3.514720548790086,
+            "provisional_overvaluation_rate": 0.5,
+            "completion_sample_identity_count": 88,
+            "completion_sample_identity_digest": "sha256:c38c2f34d6de0e49edbb4e6e4525bab789a03b0af03e30eefadff15cad4e00ee"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 24,
+            "successful_count": 22,
+            "failure_rate": 0.08333333333333333,
+            "rmse": 393.12904877815976,
+            "calibration_bias": 316.8755185728787,
+            "model_interval_coverage_90": 0.8181818181818182,
+            "combined_interval_coverage_90": 0.8181818181818182,
+            "normalized_reconstruction_error": 0.04940868799693871,
+            "conditional_sample_coverage": 0.9090909090909091,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468035
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 3.1929483972270063
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7964772048853
+            },
+            "point_shift_vs_complete": 3.504940030355122,
+            "provisional_overvaluation_rate": 0.5,
+            "completion_sample_identity_count": 267,
+            "completion_sample_identity_digest": "sha256:1bca59cc1e7b9e83eff41ad21ef75d6b69500879e3d18c2072c60c8de5ffab89"
+          }
+        }
+      }
+    },
+    {
+      "pattern_id": "unseen-mixed-mode",
+      "paths": [
+        "categorical.homogenized",
+        "process.homogenization_temp_c",
+        "process.homogenization_time_h"
+      ],
+      "missing_kind": "not_measured",
+      "pattern_digest": "sha256:ba07375b1665f60f7990eef030ec090be3e93732505351cd13f6a6b19179f833",
+      "generation_policy": {
+        "version": "mpea-realistic-mask/v1",
+        "predicate": "category tuple=(no,yes,no,yes) is a mask trigger only",
+        "category_predicate": {
+          "homogenized": "no",
+          "rolled": "yes",
+          "recrystallized": "no",
+          "aged": "yes"
+        },
+        "digest": "sha256:bc124869a5406046df6f2136bfa7bde8fbdc0d25034ccb5804864f3194d6d27a"
+      },
+      "masking_cohort_count": 0,
+      "masking_holdout_evaluation_count": 2,
+      "observed_training_pattern_count": 0,
+      "observed_pattern_evaluation_count": 0,
+      "support": "unseen",
+      "support_evidence_source": "verified evaluation Package training_stats.pattern_evidence",
+      "simulation_prediction_failure_rate": 0.0,
+      "metrics": {
+        "package_imputation": {
+          "evaluation_count": 2,
+          "successful_count": 2,
+          "failure_rate": 0.0,
+          "rmse": 132.2412245687771,
+          "calibration_bias": 102.1401457867072,
+          "interval_coverage_90": 1.0,
+          "point_shift_vs_complete": -0.6831458093951142,
+          "mean_absolute_point_shift_vs_complete": 0.6831458093951142,
+          "uncertainty_limit": "Package interval excludes between-completion uncertainty"
+        },
+        "conditional_completion": {
+          "empirical_rows": {
+            "generator_id": "empirical_rows",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:a7df32e49c1ed3c4a75f83d275cf33d7b6c46c9aedf8760ff3c34b106ab3a8f1",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 2,
+            "successful_count": 2,
+            "failure_rate": 0.0,
+            "rmse": 115.3133070867973,
+            "calibration_bias": 79.00649781615488,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.7673506944444445,
+            "conditional_sample_coverage": 0.0,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 2.405354728822582
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7908068599783
+            },
+            "point_shift_vs_complete": -23.81679377994743,
+            "provisional_overvaluation_rate": 0.0,
+            "completion_sample_identity_count": 5,
+            "completion_sample_identity_digest": "sha256:d5889575254dd66a5fe3348b5b3544f692f3453d1d68359c07cdfb7152042114"
+          },
+          "knn_local": {
+            "generator_id": "knn_local",
+            "generator_version": "1.0.0",
+            "generator_parameter_digest": "sha256:7b1e02126bfa28ee9f9704b30ddda6ba6dbe39da715c51c315d9ff6af73d0725",
+            "seed": 20260803,
+            "sample_count": 16,
+            "evaluation_count": 2,
+            "successful_count": 2,
+            "failure_rate": 0.0,
+            "rmse": 114.98470711450521,
+            "calibration_bias": 78.52611524893234,
+            "model_interval_coverage_90": 1.0,
+            "combined_interval_coverage_90": 1.0,
+            "normalized_reconstruction_error": 0.7830325417689262,
+            "conditional_sample_coverage": 0.0,
+            "model_uncertainty": {
+              "available": true,
+              "method": "verified Package grouped-OOF residual interval",
+              "mean_sigma_approximation": 388.78336611468023
+            },
+            "input_missingness_uncertainty": {
+              "available": true,
+              "method": "between-completion point standard deviation",
+              "mean_standard_deviation": 1.8344947838052903
+            },
+            "combined_uncertainty": {
+              "method": "root-sum-of-squares diagnostic",
+              "mean_standard_deviation": 388.7876941707046
+            },
+            "point_shift_vs_complete": -24.297176347169966,
+            "provisional_overvaluation_rate": 0.0,
+            "completion_sample_identity_count": 14,
+            "completion_sample_identity_digest": "sha256:e09f5efde17cf1a62a4c447712076462ba2d6b16724ae7141dec75db9927c3ab"
+          }
+        }
+      }
+    }
+  ],
+  "category_semantics": {
+    "alias": {
+      "source_alias_count": 45,
+      "examples_by_path": {
+        "categorical.homogenized": [
+          "Yes (1)",
+          "Tube-sealed homogenization",
+          "Solution treatment"
+        ],
+        "categorical.rolled": [
+          "Yes (cold rolling)",
+          "Cold Rolling: Yes (1)",
+          "Yes (Cold Rolling)"
+        ],
+        "categorical.recrystallized": [
+          "Annealing (recrystallization) step",
+          "Annealing",
+          "1 (yes – an annealing treatment applied to achieve a uniform grain structure)"
+        ],
+        "categorical.aged": []
+      },
+      "canonical_values_after_curation": {
+        "categorical.homogenized": [
+          "no",
+          "yes"
+        ],
+        "categorical.rolled": [
+          "no",
+          "yes"
+        ],
+        "categorical.recrystallized": [
+          "no",
+          "yes"
+        ],
+        "categorical.aged": [
+          "no",
+          "yes"
+        ]
+      },
+      "status": "alias_resolved",
+      "observed_training_missing_pattern_count": 0,
+      "semantics": "raw category spelling normalization, not missingness",
+      "unknown_category_coercion": false
+    },
+    "structural_inactive": {
+      "paths": [
+        "process.aging_temp_c",
+        "process.aging_time_h"
+      ],
+      "masking_cohort_count": 40,
+      "observed_training_pattern_count": 0,
+      "observed_pattern_kind": "structural_not_applicable",
+      "source_semantics": "inactive raw blanks are normalized to canonical zero; they are not evidence for a not_measured prediction",
+      "support": "incompatible",
+      "prediction_status": "blocked"
+    },
+    "true_unknown": {
+      "path": "categorical.aged",
+      "value": "sometimes",
+      "masking_cohort_count": 75,
+      "observed_training_pattern_count": 0,
+      "support": "incompatible",
+      "prediction_status": "blocked",
+      "applied_policy": "reject",
+      "coerced_to_missing": false
+    }
+  },
+  "operation_capability": {
+    "preview": "block",
+    "comparison": "block",
+    "snapshot": "block",
+    "proposal": "block",
+    "export": "require_complete",
+    "completion_uncertainty": "available",
+    "authority_digest": "sha256:908fbeb1038ade0a195eb944fc26daf32af3861f800400c3231ebc0080471f97"
+  },
+  "decision": {
+    "production_promotion": "not_promoted",
+    "reasons": [
+      "evaluation Profile and Package are not the active recipe",
+      "single-numeric and selected mixed masks have zero observed matching training patterns",
+      "sparse, unseen, structural, and unknown patterns remain blocked"
+    ],
+    "proposal_rejects_unsafe_missingness": true,
+    "export_requires_complete_input": true
+  }
+}

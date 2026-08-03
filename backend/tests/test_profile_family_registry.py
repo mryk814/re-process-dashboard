@@ -47,7 +47,7 @@ FAMILY_CASES: tuple[dict[str, Any], ...] = (
         "profile_id": "external-heat-treatment-v1",
         "task_ids": ("heat-treatment-tradeoff-v1",),
         "profile_digest": "sha256:0d0a123ce03bc7a7e339b3e3e13b7d241d89dfa71fe518dcd9c65bb62d7a6424",
-        "effective_profile_digest": "sha256:c1a6f589d0f374a88c2b9fc4a77c6bd0280efb73434714c5394c1f1c561c01ac",
+        "effective_profile_digest": "sha256:016bae1a43971754d28588e629b30c0cdae7b58819c308dd39fda0b3b6e64366",
         "profile_revision_id": "profile-revision-233521a8bcae40a8538e6284",
         "dataset_revision_id": "dataset-revision-8e55e6374c62853e46cf0e24",
         "dataset_view_revision_id": "dataset-view-revision-45065c068d1b37331200c004",

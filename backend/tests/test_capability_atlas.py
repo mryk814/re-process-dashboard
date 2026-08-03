@@ -11,6 +11,7 @@ from decision_workbench.developer_experience.capability_atlas import (
     build_capability_atlas,
     source_support_status,
     summarize_missingness_policy,
+    summarize_missingness_promotion,
 )
 from decision_workbench.modeling.model_lifecycle import (
     ACTIVE_PACKAGES_PATH,
@@ -31,6 +32,9 @@ from decision_workbench.tasks.task_registry import load_task_contracts
 ROOT = Path(__file__).resolve().parents[2]
 ATLAS_PATH = ROOT / "docs" / "contracts" / "capability-atlas.json"
 TASK_INVENTORY_PATH = ROOT / "docs" / "contracts" / "task-inventory.json"
+MISSINGNESS_REPORT_PATH = (
+    ROOT / "docs" / "reports" / "mpea-missingness-promotion.json"
+)
 TASK_DEFINITIONS_ROOT = (
     ROOT / "backend" / "src" / "decision_workbench" / "tasks" / "task_definitions"
 )
@@ -196,6 +200,52 @@ def test_generated_atlas_tracks_bundled_package_and_graph_authorities(
         "runtime_contract_not_exposed",
     }
     assert all(task["missingness_modes"]["policy_digest"].startswith("sha256:") for task in tasks.values())
+    design_prior_promotion = atlas["design_prior_promotion"]
+    replay = json.loads(
+        (
+            ROOT
+            / "docs"
+            / "research"
+            / "real-task-design-prior-replay-report.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert design_prior_promotion["status"] == "evaluated_no_production_promotion"
+    assert design_prior_promotion["task_id"] == "mpea-room-tensile-v1"
+    assert design_prior_promotion["report_digest"] == replay["result_digest"]
+    assert design_prior_promotion["production_promotion"] is False
+    assert design_prior_promotion["proposal_registry_changed"] is False
+    assert design_prior_promotion["generator_decisions"] == {
+        "knn_local": replay["decisions"]["knn_local"],
+        "gaussian_rank_copula": replay["decisions"]["gaussian_rank_copula"],
+    }
+    mpea = tasks["mpea-room-tensile-v1"]["missingness_modes"]
+    assert mpea["status"] == "reject_only"
+    promotion = mpea["promotion_evidence"]
+    assert promotion["status"] == "evaluated_not_promoted"
+    assert promotion["report"] == (
+        "docs/reports/mpea-missingness-promotion.json"
+    )
+    assert promotion["evaluation_package_authority"]["verified"] is True
+    assert promotion["operation_policy"]["authority"] == (
+        "evaluation_package_feature_pipeline_artifact"
+    )
+    assert promotion["operation_policy"]["preview"] == "block"
+    assert promotion["operation_policy"]["proposal"] == "block"
+    assert promotion["operation_policy"]["export"] == "require_complete"
+    assert promotion["pattern_support"]["by_status"] == {
+        "supported": ["frequent-process-multi"],
+        "sparse": ["sparse-process-multi"],
+        "unseen": [
+            "correlated-process-pair",
+            "high-impact-numeric-single",
+            "low-impact-numeric-single",
+            "unseen-mixed-mode",
+        ],
+        "incompatible": [],
+    }
+    assert "missingness_evaluation_not_promoted" in tasks[
+        "mpea-room-tensile-v1"
+    ]["known_limitations"]
 
 
 def test_source_scope_tracks_real_fixture_and_synthetic_authorities() -> None:
@@ -257,3 +307,28 @@ def test_missingness_summary_digest_tracks_profile_policy_changes() -> None:
     assert imputed["support_outcomes"] == ["supported", "sparse", "unseen"]
     assert reject["policy_digest"] != imputed["policy_digest"]
     assert reject["projection_digest"] != imputed["projection_digest"]
+
+
+def test_missingness_promotion_projection_keeps_evaluation_separate() -> None:
+    report = json.loads(
+        MISSINGNESS_REPORT_PATH.read_text(encoding="utf-8")
+    )
+    projection = summarize_missingness_promotion(
+        report,
+        report_ref="docs/reports/mpea-missingness-promotion.json",
+        report_digest="sha256:" + "d" * 64,
+    )
+
+    assert projection["status"] == "evaluated_not_promoted"
+    assert projection["active_package_reference"]["package_id"] == (
+        "mpea-room-tensile-ridge-v2"
+    )
+    assert projection["evaluation_package_authority"]["package_id"] == (
+        "mpea-room-tensile-missingness-evaluation-v1"
+    )
+    assert projection["operation_policy"]["completion_uncertainty"] == (
+        "available"
+    )
+    assert "simulation do not promote unseen patterns" in projection[
+        "pattern_support"
+    ]["evidence_rule"]

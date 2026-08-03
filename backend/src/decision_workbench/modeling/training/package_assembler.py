@@ -60,6 +60,22 @@ def _source_missing_pattern(
     pattern: list[tuple[str, str]] = []
     for item in profile.inputs:
         source_state = (policies.get(item.column) or {}).get("source_state")
+        if source_state == "unknown_category":
+            rule = (
+                None
+                if profile.curation_recipe is None
+                else profile.curation_recipe.columns.get(item.column)
+            )
+            _, key = item.path.split(".", 1)
+            normalized = (observation.get("categorical") or {}).get(key)
+            if (
+                rule is not None
+                and rule.parser == "reported_flag"
+                and normalized in item.choices
+            ):
+                # reported_flag owns source spelling normalization.  A raw
+                # alias such as "Yes (1)" is not an unknown runtime category.
+                continue
         if source_state not in {
             "missing",
             "unknown_category",
@@ -341,6 +357,17 @@ def _build(
                 }
                 for item in profile_inputs
             },
+            **(
+                {
+                    "operation_capability": (
+                        data.profile.missingness_operation_capability.model_dump(
+                            mode="json"
+                        )
+                    )
+                }
+                if data.profile.missingness_operation_capability is not None
+                else {}
+            ),
         }
     artifacts_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
