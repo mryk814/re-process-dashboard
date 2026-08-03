@@ -68,7 +68,20 @@ test("source refresh stays separate from approval, training and activation", asy
   // between them; CI evidence shows the default 45s budget expires in that second hydration.
   test.slow();
   const optionsBefore = await (await request.get(`${apiBaseUrl}/api/project-creation-options`)).json();
-  const profile = optionsBefore.datasets[0].profile_revision;
+  const datasetsBeforeResponse = await request.get(
+    `${apiBaseUrl}/api/data-library/datasets?include_archived=true`,
+  );
+  expect(datasetsBeforeResponse.ok()).toBeTruthy();
+  const datasetsBefore = await datasetsBeforeResponse.json() as Array<{
+    data_asset: { locator_kind: string };
+    profile_available: boolean;
+    profile_revision: { id: string };
+  }>;
+  const bundledProfileDataset = datasetsBefore.find((item) => (
+    item.data_asset.locator_kind === "bundled" && item.profile_available
+  ));
+  expect(bundledProfileDataset).toBeTruthy();
+  const profile = bundledProfileDataset!.profile_revision;
 
   await page.goto("/?view=data-library");
   await expect(page.getByRole("tab", { name: "閲覧" })).toHaveAttribute("aria-selected", "true");
