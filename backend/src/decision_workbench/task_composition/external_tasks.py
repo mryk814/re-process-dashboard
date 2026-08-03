@@ -147,6 +147,9 @@ def external_task_bundles(
                 estimator_ids=declared_estimator_ids,
                 default_estimator_id=declared_estimator,
                 package_path=resolved_package,
+                actual_measurement=(
+                    fixture.runtime_capability.operations.actual_measurement
+                ),
             ),
             fixture,
         )

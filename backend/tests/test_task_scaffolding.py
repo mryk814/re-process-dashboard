@@ -894,6 +894,20 @@ def test_csv_onboarding_api_creates_a_reloadable_personal_task(
         project = created.json()
         assert project["dataset_view_revision_id"] == response["dataset_view_revision_id"]
         assert project["model_package_ref_id"] == lightgbm_payload["model_package_ref_id"]
+        task_contract = client.get(
+            f"/api/projects/{project['id']}/task-definition"
+        )
+        assert task_contract.status_code == 200, task_contract.text
+        assert (
+            task_contract.json()["runtime_capability"]["operations"][
+                "actual_measurement"
+            ]
+            is True
+        )
+        assert "actual_measurement" in {
+            item["kind"]
+            for item in task_contract.json()["application"]["workbench_surfaces"]
+        }
         snapshot_candidate = client.post(
             f"/api/projects/{project['id']}/candidates",
             json={
