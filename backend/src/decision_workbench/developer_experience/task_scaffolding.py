@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import json
 import math
@@ -33,6 +35,10 @@ TASK_ID_PATTERN = r"^[a-z][a-z0-9-]{2,79}-v[1-9][0-9]*$"
 TASK_ID_MIN_LENGTH = 6
 TASK_ID_EXAMPLE = "concrete-slump-v1"
 _TASK_ID = re.compile(TASK_ID_PATTERN)
+_PERSONAL_TASK_STORE_OVERRIDE: ContextVar[Path | None] = ContextVar(
+    "personal_task_store_override",
+    default=None,
+)
 _KEY = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 _WINDOWS_REPLACE_RETRY_ENABLED = os.name == "nt"
 _WINDOWS_REPLACE_MAX_RETRIES = 5
@@ -88,6 +94,9 @@ class TaskScaffoldResult:
 
 
 def personal_task_store_path() -> Path:
+    overridden = _PERSONAL_TASK_STORE_OVERRIDE.get()
+    if overridden is not None:
+        return overridden
     configured = os.getenv("WORKBENCH_TASK_STORE_PATH", "").strip()
     if configured:
         return Path(configured).expanduser()
@@ -95,6 +104,17 @@ def personal_task_store_path() -> Path:
     if local:
         return Path(local) / "Material Decision Workbench" / "tasks"
     return Path.home() / ".material-decision-workbench" / "tasks"
+
+
+@contextmanager
+def use_personal_task_store(path: Path):
+    """Bind one app's configured Task store across async request work."""
+
+    token = _PERSONAL_TASK_STORE_OVERRIDE.set(path.expanduser().resolve())
+    try:
+        yield
+    finally:
+        _PERSONAL_TASK_STORE_OVERRIDE.reset(token)
 
 
 def validate_personal_task_store_path(path: Path | None = None) -> Path:

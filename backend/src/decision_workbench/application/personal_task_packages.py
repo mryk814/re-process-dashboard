@@ -153,8 +153,9 @@ def promote_personal_package(
     store: Path,
     *,
     profile: Path | None = None,
+    task_store: Path,
 ) -> dict[str, Any]:
-    validate_personal_task_store_path()
+    validated_task_store = validate_personal_task_store_path(task_store)
     package = package.resolve(strict=True)
     source = resolve_task_source(task_id, source)
     verify_model_package(package, task_id=task_id, source=source, profile=profile)
@@ -175,7 +176,7 @@ def promote_personal_package(
         promoted = True
     report = verify_model_package(destination, task_id=task_id, source=source, profile=profile)
     available = register_available_package(destination, config_path=available_config)
-    link_promoted_package(task_id, destination)
+    link_promoted_package(task_id, destination, store=validated_task_store)
     return {
         "task_id": task_id,
         "promoted": promoted,

@@ -78,7 +78,11 @@ class DataExplorerEntry:
     capability: DataExplorerCapability
 
 
-def load_task_contracts(root: Path | None = None) -> dict[str, TaskContractFixture]:
+def load_task_contracts(
+    root: Path | None = None,
+    *,
+    personal_task_store: Path | None = None,
+) -> dict[str, TaskContractFixture]:
     contract_root = root or Path(__file__).with_name("task_definitions")
     contracts: dict[str, TaskContractFixture] = {}
     for path in sorted(contract_root.glob("*.json")):
@@ -96,7 +100,7 @@ def load_task_contracts(root: Path | None = None) -> dict[str, TaskContractFixtu
             external_task_contracts,
         )
 
-        external = external_task_contracts()
+        external = external_task_contracts(personal_task_store)
         duplicates = sorted(set(contracts) & set(external))
         if duplicates:
             raise TaskRegistryError(
@@ -116,9 +120,17 @@ class TaskRegistry:
         modules: Mapping[str, TaskModule] | None = None,
         unavailable: Mapping[str, TaskAvailability] | None = None,
         degrade_invalid_runtimes: bool = False,
+        personal_task_store: Path | None = None,
     ) -> None:
-        self._contracts = load_task_contracts(contract_root)
-        self._modules = dict(registered_task_modules() if modules is None else modules)
+        self._contracts = load_task_contracts(
+            contract_root,
+            personal_task_store=personal_task_store,
+        )
+        self._modules = dict(
+            registered_task_modules(personal_task_store)
+            if modules is None
+            else modules
+        )
         explorers = data_explorers or {}
         unavailable_tasks = dict(unavailable or {})
         registered = set(self._modules)

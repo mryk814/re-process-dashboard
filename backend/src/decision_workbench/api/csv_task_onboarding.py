@@ -142,6 +142,7 @@ class CsvPrepareResponse(BaseModel):
 
 @dataclass(frozen=True)
 class OnboardingReservation:
+    task_store: Path
     task_root: Path
     model_store: Path
     package_id: str
@@ -562,6 +563,7 @@ def _new_onboarding_paths(
                 "Data Library → 新しい予測問題で別のTask IDを入力し、準備を再試行してください。",
             ) from exc
         return OnboardingReservation(
+            task_store=task_store,
             task_root=task_root,
             model_store=model_store,
             package_id=package_id,
@@ -569,6 +571,7 @@ def _new_onboarding_paths(
             reusable_package=package_is_available,
         )
     return OnboardingReservation(
+        task_store=task_store,
         task_root=task_root,
         model_store=model_store,
         package_id=package_id,
@@ -769,6 +772,7 @@ async def prepare_csv_task(
                         relation_confirmation=relation_confirmation,
                         estimator_id=estimator_id,
                         sheet=sheet_name,
+                        store=reservation.task_store,
                     )
                 if result.state != "ready" or result.profile_path is None:
                     raise ValueError("CSV onboarding requires a complete Task definition")
@@ -805,6 +809,7 @@ async def prepare_csv_task(
                         result.source_path,
                         model_store,
                         profile=result.profile_path,
+                        task_store=reservation.task_store,
                     )
                 stage = "dataset"
                 registration_checkpoint = await run_in_threadpool(

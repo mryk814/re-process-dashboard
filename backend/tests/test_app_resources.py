@@ -111,14 +111,21 @@ def test_deferred_resource_promotion_keeps_default_data_projection(
     """The initial subset and promoted generation select the same Task data."""
 
     monkeypatch.setenv("WORKBENCH_DEFER_RESOURCES", "1")
+    configured_task_store = tmp_path / "configured-tasks"
+    monkeypatch.setenv(
+        "WORKBENCH_TASK_STORE_PATH",
+        str(tmp_path / "unexpected-default-tasks"),
+    )
     original_prepare = startup_module.prepare_app_resources
     promotion_prepare_started = Event()
     allow_promotion_prepare = Event()
     calls = 0
+    observed_task_stores = []
 
     def staged_prepare(*args, **kwargs):
         nonlocal calls
         calls += 1
+        observed_task_stores.append(kwargs.get("task_store_path"))
         if calls == 2:
             promotion_prepare_started.set()
             assert allow_promotion_prepare.wait(timeout=60)
@@ -128,6 +135,7 @@ def test_deferred_resource_promotion_keeps_default_data_projection(
     app = create_app(
         db_path=tmp_path / "deferred.db",
         data_library_path=tmp_path / "data-library",
+        task_store_path=configured_task_store,
     )
 
     try:
@@ -137,6 +145,10 @@ def test_deferred_resource_promotion_keeps_default_data_projection(
             assert app.state.data is app.state.task_registry.runtime_for(
                 ANNEALED_TASK_ID
             ).data
+            assert observed_task_stores == [
+                configured_task_store.resolve(),
+                configured_task_store.resolve(),
+            ]
 
             allow_promotion_prepare.set()
             deadline = time.monotonic() + 60

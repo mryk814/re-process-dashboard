@@ -54,6 +54,9 @@ from decision_workbench.bootstrap.resources import (
     default_personal_model_store_path,
 )
 from decision_workbench.bootstrap.startup import create_lifespan
+from decision_workbench.developer_experience.task_scaffolding import (
+    use_personal_task_store,
+)
 
 if TYPE_CHECKING:
     from decision_workbench.application.ai_review_provider import AiReviewProvider
@@ -91,6 +94,11 @@ def create_app(
         lifespan=lifespan,
         responses={422: PROJECT_API_ERRORS[422]},
     )
+
+    @app.middleware("http")
+    async def bind_personal_task_store(request: Request, call_next):
+        with use_personal_task_store(request.app.state.task_store_path):
+            return await call_next(request)
 
     @app.middleware("http")
     async def gate_resource_promotion(request: Request, call_next):

@@ -113,6 +113,7 @@ def prepare_app_resources(
     package_roots: Mapping[str, str | Path] | None = None,
     active_packages_path: str | Path | None = None,
     task_ids: frozenset[str] | None = None,
+    task_store_path: str | Path | None = None,
 ) -> AppResources:
     """Load workbook and package resources that callers treat as read-only."""
 
@@ -122,7 +123,11 @@ def prepare_app_resources(
     )
     injected = dict(package_roots or {})
     injected_sources = dict(source_overrides or {})
-    modules = dict(registered_task_modules())
+    modules = dict(
+        registered_task_modules(
+            Path(task_store_path) if task_store_path is not None else None
+        )
+    )
     default_data_task_id = _default_data_task_id(modules)
     unknown_source_tasks = set(injected_sources) - set(modules)
     if unknown_source_tasks:
@@ -234,6 +239,9 @@ def prepare_app_resources(
         modules=modules,
         unavailable=unavailable,
         degrade_invalid_runtimes=True,
+        personal_task_store=(
+            Path(task_store_path) if task_store_path is not None else None
+        ),
     )
     default_data = data_by_task.get(default_data_task_id)
     return AppResources(

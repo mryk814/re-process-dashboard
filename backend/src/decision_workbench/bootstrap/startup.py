@@ -266,6 +266,7 @@ def create_lifespan(
                 source_overrides=source_overrides,
                 package_roots=package_roots,
                 active_packages_path=active_packages_path,
+                task_store_path=personal_task_store,
                 task_ids=(
                     frozenset(
                         {
@@ -383,6 +384,7 @@ def create_lifespan(
                     source_overrides=source_overrides,
                     package_roots=package_roots,
                     active_packages_path=active_packages_path,
+                    task_store_path=personal_task_store,
                 )
                 refresh_warnings: list[Any] = []
                 refreshed_origins = dict(model_package_origins)
@@ -508,6 +510,7 @@ def create_lifespan(
                         source_overrides=source_overrides,
                         package_roots=package_roots,
                         active_packages_path=active_packages_path,
+                        task_store_path=personal_task_store,
                     )
 
                     def promote() -> RuntimeContext:
