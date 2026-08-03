@@ -25,6 +25,17 @@ from decision_workbench.task_composition.ports import (
 )
 
 
+def _canonical_option(value: Any) -> Any:
+    if isinstance(value, dict):
+        return tuple(
+            (key, _canonical_option(item))
+            for key, item in sorted(value.items())
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_canonical_option(item) for item in value)
+    return value
+
+
 @dataclass(frozen=True)
 class StandardModelAuthoring:
     candidate_builder: TrainingCandidateBuilder
@@ -32,9 +43,39 @@ class StandardModelAuthoring:
     positive_targets: frozenset[str] = frozenset()
     default_estimator_id: str | None = None
     default_estimator_options: tuple[tuple[str, Any], ...] = ()
+    recipe_policy: Literal["catalog_compatible", "specialized_constraints"] = (
+        "catalog_compatible"
+    )
+    required_estimator_options: tuple[tuple[str, Any], ...] = ()
+    specialization_reason: str | None = None
 
     def default_options(self) -> dict[str, Any]:
         return dict(self.default_estimator_options)
+
+    def allowed_estimator_ids(
+        self,
+        compatible_catalog_ids: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        if self.recipe_policy == "specialized_constraints":
+            return self.estimator_ids
+        return compatible_catalog_ids
+
+    def resolved_options(
+        self,
+        options: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        resolved = dict(options or {})
+        for key, required in self.required_estimator_options:
+            if (
+                key in resolved
+                and _canonical_option(resolved[key])
+                != _canonical_option(required)
+            ):
+                raise ValueError(
+                    f"standard recipe option {key} is fixed by Task scientific constraints"
+                )
+            resolved[key] = required
+        return resolved
 
 
 @dataclass(frozen=True)

@@ -41,6 +41,9 @@ from decision_workbench.modeling.training.package_assembler import (
     build_standard_model_package,
 )
 from decision_workbench.modeling.training.recipe import estimator_recipe
+from decision_workbench.modeling.training.readiness import (
+    compatible_standard_estimator_ids,
+)
 from decision_workbench.task_composition.catalog import resolve_task_source, task_module
 from decision_workbench.tasks.task_registry import load_task_contracts
 
@@ -92,11 +95,26 @@ def build_standard_package(
     selected_options = estimator_options
     if estimator is None and authoring is not None:
         selected_options = authoring.default_options()
-    if selected_estimator is None or authoring is None or selected_estimator not in authoring.estimator_ids:
-        supported = ", ".join(authoring.estimator_ids) if authoring else "none"
-        raise ValueError(f"{task_id} does not support standard estimator {selected_estimator}; supported: {supported}")
-    data = _load_task_data(task_id, source, profile)
+    if selected_estimator is None or authoring is None:
+        raise ValueError(
+            f"{task_id} has no standard model authoring seam for "
+            f"{selected_estimator or 'an unspecified estimator'}"
+        )
     contract = load_task_contracts()[task_id]
+    allowed = authoring.allowed_estimator_ids(
+        compatible_standard_estimator_ids(contract.task_definition.outputs)
+    )
+    if selected_estimator not in allowed:
+        reason = (
+            f": {authoring.specialization_reason}"
+            if authoring.specialization_reason
+            else ""
+        )
+        raise ValueError(
+            f"{selected_estimator} is outside the Task recipe policy{reason}"
+        )
+    selected_options = authoring.resolved_options(selected_options)
+    data = _load_task_data(task_id, source, profile)
     feature_recipe = (
         FeatureRecipe.model_validate_json(
             feature_recipe_path.read_text(encoding="utf-8")

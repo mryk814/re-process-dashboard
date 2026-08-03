@@ -50,6 +50,7 @@ from decision_workbench.modeling.packages.contracts import (
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
+from decision_workbench.modeling.package_capabilities import standard_predictor_capability
 from decision_workbench.tasks.task_registry import load_task_contracts
 
 
@@ -259,9 +260,6 @@ class ObservationRegressionRuntime:
         self.output_definitions = {
             item.key: item for item in self.task_definition.outputs
         }
-        self.runtime_capabilities = {
-            item.target: item for item in contract.runtime_capability.targets
-        }
         validate_task_definition_canonical_inputs(self.task_definition, manifest)
         if manifest.task_id != self.task_id:
             raise ValueError(
@@ -271,6 +269,16 @@ class ObservationRegressionRuntime:
             raise ValueError("Observation package feature pipeline is incompatible")
         specs = {item.target: item for item in manifest.predictors}
         self.predictor_specs = specs
+        declared_capabilities = {
+            item.target: item for item in contract.runtime_capability.targets
+        }
+        self.runtime_capabilities = {
+            target: standard_predictor_capability(
+                predictor,
+                declared_capabilities[target],
+            )
+            for target, predictor in specs.items()
+        }
         if set(specs) != set(self.spec.target_family):
             raise ValueError("Observation package predictors are incomplete")
         for target, expected in self.spec.target_features.items():
