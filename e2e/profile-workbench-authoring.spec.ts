@@ -14,14 +14,6 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   expect(built.status, built.stderr || built.stdout).toBe(0);
 
   await page.goto("/?view=profile-workbench");
-  const profileSelect = page.getByLabel("データセットプロファイル");
-  const bundledProcessProfile = profileSelect.locator("option").filter({
-    hasText: "process-v1",
-    hasNotText: "自分のProfile",
-  }).first();
-  const bundledProcessProfileDigest = await bundledProcessProfile.getAttribute("value");
-  expect(bundledProcessProfileDigest).toBeTruthy();
-  await profileSelect.selectOption(bundledProcessProfileDigest!);
   await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
   const inspectionResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -89,14 +81,6 @@ test("renamed optional image evidence does not block registration", async ({ pag
   expect(built.status, built.stderr || built.stdout).toBe(0);
 
   await page.goto("/?view=profile-workbench");
-  const profileSelect = page.getByLabel("データセットプロファイル");
-  const bundledProcessProfile = profileSelect.locator("option").filter({
-    hasText: "process-v1",
-    hasNotText: "自分のProfile",
-  }).first();
-  const bundledProcessProfileDigest = await bundledProcessProfile.getAttribute("value");
-  expect(bundledProcessProfileDigest).toBeTruthy();
-  await profileSelect.selectOption(bundledProcessProfileDigest!);
   await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
   const profileSelect = page.getByLabel("データセットプロファイル");
   const bundledProcessProfile = profileSelect.locator("option").filter({
