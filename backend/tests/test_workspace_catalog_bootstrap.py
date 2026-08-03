@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+import shutil
 import sqlite3
 
 from fastapi.testclient import TestClient
@@ -24,6 +26,7 @@ from decision_workbench.application.workspace_catalog_bootstrap import (
     register_available_packages,
 )
 import decision_workbench.application.workspace_catalog_bootstrap as catalog_bootstrap
+from decision_workbench.persistence.store import Store
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -141,6 +144,81 @@ def test_startup_registers_runtime_resources_and_binds_projects(
         )
     with pytest.raises(WorkspaceCatalogBootstrapError, match="Project Series"):
         audit_project_bindings(database)
+
+
+def test_runtime_package_inside_personal_store_keeps_personal_origin(
+    tmp_path: Path,
+    app_resources: AppResources,
+    monkeypatch,
+) -> None:
+    registry = app_resources.task_registry
+    task_id = "annealed-properties-v1"
+    original_entry_for = registry.entry_for
+    original_entry = original_entry_for(task_id)
+    personal_store = tmp_path / "personal-models"
+    personal_package_id = (
+        f"{original_entry.model_package.manifest.package_id}-personal-runtime-test"
+    )
+    package_root = (
+        personal_store
+        / "packages"
+        / personal_package_id
+    )
+    shutil.copytree(original_entry.model_package.root, package_root)
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["package_id"] = personal_package_id
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    personal_package = ModelPackageLoader().load(package_root)
+    available = personal_store / "available-packages.json"
+    available.write_text(
+        json.dumps({
+            "schema_version": "available-model-packages/v1",
+            "packages": [
+                f"packages/{personal_package.manifest.package_id}",
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    def entry_for(selected_task_id: str):
+        entry = original_entry_for(selected_task_id)
+        return (
+            replace(entry, model_package=personal_package)
+            if selected_task_id == task_id
+            else entry
+        )
+
+    monkeypatch.setattr(registry, "entry_for", entry_for)
+    origins: dict[str, str] = {}
+    database = tmp_path / "workbench.db"
+    Store(database)
+    catalog = catalog_bootstrap.bootstrap_workspace_catalog(
+        database,
+        registry,
+        available_packages_paths=(
+            ROOT / "models" / "available-packages.json",
+            available,
+        ),
+        personal_available_packages_paths=(available,),
+        package_origins=origins,
+    )
+
+    personal_ref = next(
+        item
+        for item in catalog.list_model_package_refs()
+        if item.package_id == personal_package.manifest.package_id
+    )
+    bundled_ref = next(
+        item
+        for item in catalog.list_model_package_refs()
+        if item.package_id == "hot-rolled-tutorial-v2"
+    )
+    assert origins[personal_ref.id] == "personal"
+    assert origins[bundled_ref.id] == "bundled"
 
 
 def test_bootstrap_is_idempotent_and_preserves_first_binding(
