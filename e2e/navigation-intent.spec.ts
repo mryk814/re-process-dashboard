@@ -152,7 +152,7 @@ test("developer guide continues through Profile Workbench to project creation", 
   await expect(steps).toContainText("対応付け");
   await expect(steps).toContainText("Project作成");
 
-  await page.locator('input[type="file"]').setInputFiles(
+  await page.locator('input[accept^=".xlsx"]').setInputFiles(
     join(process.cwd(), "data", "source", "material_workbench_tutorial_v1.xlsx"),
   );
   await page.getByRole("button", { name: "内容を確認" }).click();

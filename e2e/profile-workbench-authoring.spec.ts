@@ -14,7 +14,7 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   expect(built.status, built.stderr || built.stdout).toBe(0);
 
   await page.goto("/?view=profile-workbench");
-  await page.locator('input[type="file"]').setInputFiles(workbook);
+  await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
   await page.getByRole("button", { name: "内容を確認" }).click();
 
   const editor = page.getByRole("region", { name: "Excel側の名前を対応付ける" });
