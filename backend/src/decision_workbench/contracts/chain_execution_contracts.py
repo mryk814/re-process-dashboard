@@ -1,7 +1,7 @@
 """Execution and immutable evidence contracts for a fixed Chain Revision."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import math
 from typing import Annotated, Any, Literal
 
@@ -453,6 +453,56 @@ class PredictionGraphSnapshot(ChainContractModel):
                 f"outputs: {incomplete}"
             )
         return self
+
+
+class PredictionGraphCandidateInputDefinition(ChainCandidateInputDefinition):
+    """Typed editor authority for one Prediction Graph candidate input."""
+
+    input_id: Annotated[str, Field(min_length=1)]
+    role: Literal["design_variable", "scenario_context"]
+    basis: str | None = None
+    affected_output_ids: tuple[Annotated[str, Field(min_length=1)], ...] = ()
+
+
+class PredictionGraphDecisionOutputActualInput(ChainContractModel):
+    """Observed evidence attached to one immutable Graph Decision Output."""
+
+    snapshot_id: Annotated[str, Field(min_length=1)]
+    output_id: Annotated[str, Field(min_length=1)]
+    mean: Annotated[float, Field(allow_inf_nan=False)]
+    std: Annotated[float, Field(default=0, ge=0, allow_inf_nan=False)] = 0
+    replicates: Annotated[int, Field(default=1, ge=1, le=999)] = 1
+    unit: Annotated[str, Field(min_length=1)]
+    measurement_id: Annotated[str, Field(min_length=1, max_length=160)]
+    measured_at: date | None = None
+    context: dict[str, str | float | bool] = Field(default_factory=dict)
+    note: str = ""
+
+
+class PredictionGraphDecisionOutputActual(
+    PredictionGraphDecisionOutputActualInput
+):
+    """Immutable read model carrying the complete prediction/actual join."""
+
+    schema_version: Literal["prediction-graph-decision-output-actual/v1"] = (
+        "prediction-graph-decision-output-actual/v1"
+    )
+    actual_id: Annotated[str, Field(min_length=1)]
+    project_id: Annotated[str, Field(min_length=1)]
+    candidate_id: Annotated[str, Field(min_length=1)]
+    candidate_revision: Annotated[int, Field(ge=1)]
+    graph_revision_id: Annotated[str, Field(min_length=1)]
+    graph_revision_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    project_binding_revision: Annotated[int, Field(ge=1)]
+    project_binding_digest: Annotated[
+        str, Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    ]
+    source_stage_id: Annotated[str, Field(min_length=1)]
+    source_output_key: Annotated[str, Field(min_length=1)]
+    prediction_value: Any
+    created_at: datetime
 
 
 SnapshotRef = Annotated[

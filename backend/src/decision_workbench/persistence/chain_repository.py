@@ -20,6 +20,7 @@ from decision_workbench.contracts.chain_execution_contracts import (
     ActualConditionedVariant,
     ChainExecution,
     ChainSnapshot,
+    PredictionGraphDecisionOutputActual,
     PredictionGraphExecution,
     PredictionGraphSnapshot,
     parse_execution_json,
@@ -715,6 +716,106 @@ class ChainRepository:
             snapshot
             for snapshot in snapshots
             if isinstance(snapshot, PredictionGraphSnapshot)
+        ]
+
+    def insert_prediction_graph_decision_output_actual(
+        self,
+        actual: PredictionGraphDecisionOutputActual,
+    ) -> PredictionGraphDecisionOutputActual:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = conn.execute(
+                "SELECT revision,archived_at FROM candidates "
+                "WHERE id=? AND project_id=?",
+                (actual.candidate_id, actual.project_id),
+            ).fetchone()
+            if (
+                candidate is None
+                or candidate["archived_at"] is not None
+                or int(candidate["revision"]) != actual.candidate_revision
+            ):
+                raise StoreDataIntegrityError(
+                    "Graph Actualのcandidate revisionは現在値ではありません"
+                )
+            snapshot_row = conn.execute(
+                "SELECT payload_json FROM chain_snapshot_records "
+                "WHERE id=? AND project_id=? AND candidate_id=? "
+                "AND candidate_revision=?",
+                (
+                    actual.snapshot_id,
+                    actual.project_id,
+                    actual.candidate_id,
+                    actual.candidate_revision,
+                ),
+            ).fetchone()
+            if snapshot_row is None:
+                raise StoreDataIntegrityError(
+                    "Graph Actualの比較元snapshotを固定できません"
+                )
+            snapshot = parse_snapshot_json(snapshot_row["payload_json"])
+            if not isinstance(snapshot, PredictionGraphSnapshot):
+                raise StoreDataIntegrityError(
+                    "Graph ActualはPrediction Graph snapshotだけを参照できます"
+                )
+            snapshot_output = next(
+                (
+                    item
+                    for item in snapshot.terminal_outputs
+                    if item.output_id == actual.output_id
+                ),
+                None,
+            )
+            if (
+                snapshot.identity.graph_revision_id != actual.graph_revision_id
+                or snapshot.identity.graph_revision_digest
+                != actual.graph_revision_digest
+                or snapshot.identity.project_binding_revision
+                != actual.project_binding_revision
+                or snapshot.identity.project_binding_digest
+                != actual.project_binding_digest
+                or snapshot_output is None
+                or snapshot_output.status != "latest"
+                or snapshot_output.source_stage_id != actual.source_stage_id
+                or snapshot_output.source_output_key != actual.source_output_key
+                or snapshot_output.value != actual.prediction_value
+            ):
+                raise StoreDataIntegrityError(
+                    "Graph Actual identityが比較元snapshotと一致しません"
+                )
+            conn.execute(
+                "INSERT INTO prediction_graph_decision_output_actuals("
+                "id,project_id,candidate_id,snapshot_id,output_id,"
+                "payload_json,created_at) VALUES (?,?,?,?,?,?,?)",
+                (
+                    actual.actual_id,
+                    actual.project_id,
+                    actual.candidate_id,
+                    actual.snapshot_id,
+                    actual.output_id,
+                    actual.model_dump_json(),
+                    actual.created_at.isoformat(),
+                ),
+            )
+        return actual
+
+    def list_prediction_graph_decision_output_actuals(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> list[PredictionGraphDecisionOutputActual]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json "
+                "FROM prediction_graph_decision_output_actuals "
+                "WHERE project_id=? AND candidate_id=? "
+                "ORDER BY created_at DESC,id DESC",
+                (project_id, candidate_id),
+            ).fetchall()
+        return [
+            PredictionGraphDecisionOutputActual.model_validate_json(
+                row["payload_json"]
+            )
+            for row in rows
         ]
 
     def insert_chain_analysis_variant(

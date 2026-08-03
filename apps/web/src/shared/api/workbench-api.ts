@@ -92,6 +92,13 @@ export type ApiChainCandidateContract = components["schemas"]["ChainCandidateCon
 export type ApiChainCandidateCapability = components["schemas"]["ChainCandidateCapability"];
 export type ApiChainExecution = components["schemas"]["ChainExecution"];
 export type ApiPredictionGraphExecution = components["schemas"]["PredictionGraphExecution"];
+export type ApiPredictionGraphCandidateInput =
+  components["schemas"]["PredictionGraphCandidateInputDefinition"];
+export type ApiPredictionGraphSnapshot = components["schemas"]["PredictionGraphSnapshot"];
+export type ApiPredictionGraphDecisionOutputActual =
+  components["schemas"]["PredictionGraphDecisionOutputActual"];
+export type ApiPredictionGraphDecisionOutputActualInput =
+  components["schemas"]["PredictionGraphDecisionOutputActualInput"];
 export type ApiChainSnapshot = components["schemas"]["ChainSnapshot"];
 export type ApiActualConditionedVariant = components["schemas"]["ActualConditionedVariant"];
 export type ApiActualConditionedVariantInput = components["schemas"]["ActualConditionedVariantRequest"];
@@ -285,6 +292,74 @@ export const workbenchApi = {
       params: { path: { project_id: projectId, candidate_id: candidateId } },
       signal,
     }), "Prediction Graph実行結果を取得できませんでした。");
+  },
+  async predictionGraphExecutionResource(projectId: string, candidateId: string, signal?: AbortSignal) {
+    const result = await apiClient.GET("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/execution", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      signal,
+    });
+    if (result.response.status === 404) return null;
+    return requireData(result, "Prediction Graph実行結果を取得できませんでした。");
+  },
+  async createPredictionGraphCandidate(projectId: string, body: ApiCandidateInput) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/candidates", {
+      params: { path: { project_id: projectId } },
+      body,
+    }), "Prediction Graph候補を作成できませんでした。");
+  },
+  async predictionGraphStarterCandidate(projectId: string) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/starter-candidate", {
+      params: { path: { project_id: projectId } },
+    }), "Prediction Graphの基準候補を取得できませんでした。");
+  },
+  async predictionGraphCandidateInputs(projectId: string, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/candidate-inputs", {
+      params: { path: { project_id: projectId } },
+      signal,
+    }), "Prediction Graph候補入力契約を取得できませんでした。");
+  },
+  async updatePredictionGraphCandidate(projectId: string, candidateId: string, body: ApiCandidateUpdate) {
+    const result = await apiClient.PUT("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body,
+    });
+    if (result.response.status === 409) return { status: "conflict" as const };
+    return {
+      status: "saved" as const,
+      candidate: requireData(result, "Prediction Graph候補を保存できませんでした。"),
+    };
+  },
+  async executePredictionGraph(projectId: string, candidateId: string, candidateRevision: number, requestId: string) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/executions", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body: { candidate_revision: candidateRevision, request_id: requestId, debounce_ms: 0 },
+    }), "Prediction Graphを実行できませんでした。");
+  },
+  async listPredictionGraphSnapshots(projectId: string, candidateId: string) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/snapshots", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+    }), "Prediction Graph Snapshotを取得できませんでした。");
+  },
+  async createPredictionGraphSnapshot(projectId: string, candidateId: string, candidateRevision: number) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/snapshots", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body: { candidate_revision: candidateRevision, debounce_ms: 0 },
+    }), "Prediction Graph Snapshotを保存できませんでした。");
+  },
+  async listPredictionGraphActuals(projectId: string, candidateId: string) {
+    return requireData(await apiClient.GET("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+    }), "Decision Output Actualを取得できませんでした。");
+  },
+  async createPredictionGraphActual(
+    projectId: string,
+    candidateId: string,
+    body: ApiPredictionGraphDecisionOutputActualInput,
+  ) {
+    return requireData(await apiClient.POST("/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals", {
+      params: { path: { project_id: projectId, candidate_id: candidateId } },
+      body,
+    }), "Decision Output Actualを保存できませんでした。");
   },
   async chainGraph(projectId: string, signal?: AbortSignal) {
     return requireData(await apiClient.GET("/api/projects/{project_id}/chain/graph", {
@@ -728,8 +803,11 @@ export const workbenchApi = {
       signal,
     }), "入力空間の位置を取得できませんでした。");
   },
-  async listCandidates(projectId: string, includeArchived = false) {
-    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId }, query: { include_archived: includeArchived } } }), "候補を取得できませんでした。");
+  async listCandidates(projectId: string, includeArchived = false, signal?: AbortSignal) {
+    return requireData(await apiClient.GET("/api/projects/{project_id}/candidates", {
+      params: { path: { project_id: projectId }, query: { include_archived: includeArchived } },
+      signal,
+    }), "候補を取得できませんでした。");
   },
   async createCandidate(projectId: string, body: ApiCandidateInput) {
     return requireData(await apiClient.POST("/api/projects/{project_id}/candidates", { params: { path: { project_id: projectId } }, body }), "候補を作成できませんでした。");

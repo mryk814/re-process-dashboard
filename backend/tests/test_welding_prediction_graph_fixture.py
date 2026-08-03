@@ -11,7 +11,6 @@ from decision_workbench.contracts.chain_contracts import (
     PredictionGraphDefinition,
 )
 from decision_workbench.persistence.store import Store
-from decision_workbench.persistence.welding_chain_bootstrap import WELDING_CHAIN_ID
 from decision_workbench.persistence.welding_prediction_graph_bootstrap import (
     WELDING_MULTI_OUTPUT_GRAPH_ID,
     WELDING_SPLIT_OUTPUT_GRAPH_ID,
@@ -314,34 +313,28 @@ def _graph_project(
     )
     assert project_response.status_code == 201, project_response.text
     project = project_response.json()
+    input_response = client.get(
+        f"/api/prediction-graphs/projects/{project['id']}/candidate-inputs"
+    )
+    assert input_response.status_code == 200, input_response.text
+    input_contract = input_response.json()
+    assert any(
+        item["role"] == "design_variable"
+        and item["kind"] == "number"
+        and item["affected_output_ids"]
+        for item in input_contract
+    )
+    assert any(item["role"] == "scenario_context" for item in input_contract)
+    assert all(
+        item["role"] in {"design_variable", "scenario_context"}
+        for item in input_contract
+    )
 
-    legacy = next(
-        item
-        for item in items
-        if item["definition"].get("chain_id") == WELDING_CHAIN_ID
-    )
-    legacy_revision = legacy["revisions"][0]
-    legacy_project_response = client.post(
-        "/api/projects",
-        json={
-            "name": "Starter candidate source",
-            "scientific_identity": {
-                "identity_kind": "chain",
-                "chain_revision_id": (
-                    f"{legacy_revision['chain_id']}:r"
-                    f"{legacy_revision['revision']}"
-                ),
-                "chain_revision_digest": legacy_revision["revision_digest"],
-            },
-        },
-    )
-    assert legacy_project_response.status_code == 201, legacy_project_response.text
     starter_response = client.get(
-        f"/api/projects/{legacy_project_response.json()['id']}"
-        "/chain/candidate-contract"
+        f"/api/prediction-graphs/projects/{project['id']}/starter-candidate"
     )
     assert starter_response.status_code == 200, starter_response.text
-    candidate_payload = starter_response.json()["starter_candidate"]
+    candidate_payload = starter_response.json()
     candidate_payload["name"] = "Split fixture candidate"
     candidate_payload["inputs"]["process"].update(
         {

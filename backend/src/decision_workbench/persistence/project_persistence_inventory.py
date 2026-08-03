@@ -28,6 +28,7 @@ class ProjectPersistenceInventory:
 PROJECT_PERSISTENCE = ProjectPersistenceInventory(
     # Purge order: dependent rows precede candidates and the Project root.
     direct_tables=(
+        "prediction_graph_decision_output_actuals",
         "chain_analysis_variant_records",
         "chain_distribution_runs",
         "chain_snapshot_records",

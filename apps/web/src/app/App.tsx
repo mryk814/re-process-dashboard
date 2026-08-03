@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { provenanceNavigation } from "./candidateProvenance";
 import { navigationLocationNeedsNormalization, navigationUrl, readNavigationIntent, withView, type NavigationIntent, type WorkbenchView } from "./navigation";
-import { ChainWorkbenchPage, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
+import { ChainWorkbenchPage, PredictionGraphDecisionWorkspace, WorkbenchEmptyState, WorkbenchPage, apiStartupWaitText, useWorkbenchSession, type StartupDiagnostic } from "../features/workbench";
 import {
   ChainGraphViewer,
   ChainStudioPage,
@@ -367,13 +367,13 @@ function App() {
   const chainScopedTab = chainProject
     && (tab === "explore" || tab === "lineage" || tab === "quality" || tab === "candidate-review");
   const predictionGraphScopedTab = predictionGraphProject
-    && (tab === "candidates" || tab === "candidate-review" || tab === "explore"
+    && (tab === "candidate-review" || tab === "explore"
       || tab === "lineage" || tab === "quality");
   const dataExplorer = taskUnavailable || predictionGraphProject ? null : resolvedTaskDefinition?.data_explorer;
   const qualityAvailable = dataExplorer?.quality === true;
   const lineageAvailable = dataExplorer?.lineage === true;
   const visibleProjectNavItems = projectNavItems.filter((item) => (
-    (predictionGraphProject && (item.id === "project" || item.id === "chain-graph" || item.id === "project-settings"))
+    (predictionGraphProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
       || (!chainProject && !predictionGraphProject && (!taskUnavailable || item.id === "project" || item.id === "project-settings"))
       || (chainProject && (item.id === "project" || item.id === "candidates" || item.id === "chain-graph" || item.id === "project-settings"))
   ) && (!item.requiresDataExplorer || qualityAvailable || lineageAvailable));
@@ -901,6 +901,39 @@ function App() {
               ? `固定したChain Revisionを解決できません（${activeChainContext.chainRevisionId}）。`
               : null}
             onCreate={() => undefined}
+          />
+        )}
+        {tab === "candidates" && predictionGraphProject && (
+          <PredictionGraphDecisionWorkspace
+            key={activeProjectId}
+            projectId={activeProjectId}
+            initialCandidateId={navigation.candidateId}
+            requestedSnapshotId={navigation.chainSnapshotId}
+            registerNavigationGuard={registerNavigationGuard}
+            onCandidateSelected={(candidateId) => {
+              const current = navigationRef.current;
+              const changedCandidate = Boolean(
+                current.candidateId && current.candidateId !== candidateId,
+              );
+              navigate({
+                ...current,
+                view: "candidates",
+                projectId: activeProjectId,
+                candidateId,
+                chainSnapshotId: changedCandidate ? undefined : current.chainSnapshotId,
+              }, true);
+            }}
+            onSnapshotSelected={(chainSnapshotId) => navigate({
+              ...navigationRef.current,
+              view: "candidates",
+              projectId: activeProjectId,
+              chainSnapshotId,
+            }, true)}
+            onOpenInspector={(candidateId) => navigate({
+              view: "chain-graph",
+              projectId: activeProjectId,
+              candidateId,
+            })}
           />
         )}
         {tab === "candidates" && chainProject

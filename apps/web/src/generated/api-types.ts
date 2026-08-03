@@ -798,6 +798,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/prediction-graphs/projects/{project_id}/candidate-inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Candidate Inputs */
+        get: operations["getPredictionGraphCandidateInputs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/prediction-graphs/projects/{project_id}/candidates": {
         parameters: {
             query?: never;
@@ -826,6 +843,24 @@ export interface paths {
         /** Update Candidate */
         put: operations["updatePredictionGraphCandidate"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Output Actuals */
+        get: operations["listPredictionGraphDecisionOutputActuals"];
+        put?: never;
+        /** Create Decision Output Actual */
+        post: operations["createPredictionGraphDecisionOutputActual"];
         delete?: never;
         options?: never;
         head?: never;
@@ -893,6 +928,23 @@ export interface paths {
         };
         /** Get Snapshot */
         get: operations["getPredictionGraphSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/prediction-graphs/projects/{project_id}/starter-candidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Starter Candidate */
+        get: operations["getPredictionGraphStarterCandidate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9279,12 +9331,177 @@ export interface components {
             /** Snapshot Id */
             snapshot_id: string;
         };
+        /**
+         * PredictionGraphCandidateInputDefinition
+         * @description Typed editor authority for one Prediction Graph candidate input.
+         */
+        PredictionGraphCandidateInputDefinition: {
+            /**
+             * Affected Output Ids
+             * @default []
+             */
+            affected_output_ids: string[];
+            /** Affected Stage Ids */
+            affected_stage_ids: string[];
+            allowed_range?: components["schemas"]["NumericRange"] | null;
+            /** Basis */
+            basis?: string | null;
+            /** Candidate Path */
+            candidate_path: string;
+            /**
+             * Choices
+             * @default []
+             */
+            choices: string[];
+            default_range?: components["schemas"]["NumericRange"] | null;
+            /** Display Decimals */
+            display_decimals?: number | null;
+            /** Editable */
+            editable: boolean;
+            /** External Path */
+            external_path: string;
+            /** First Affected Stage Id */
+            first_affected_stage_id: string;
+            /** Input Id */
+            input_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "number" | "categorical" | "sparse_blend";
+            /** Label */
+            label: string;
+            /** Order */
+            order: number;
+            /** Read Only Reason */
+            read_only_reason?: string | null;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "design_variable" | "scenario_context";
+            training_range?: components["schemas"]["NumericRange"] | null;
+            /** Unit */
+            unit?: string | null;
+        };
         /** PredictionGraphCatalogResponse */
         PredictionGraphCatalogResponse: {
             /** Candidate Adapter Ids */
             candidate_adapter_ids: ("scalar/v1" | "sparse_blend/v1")[];
             /** Stages */
             stages: components["schemas"]["PredictionGraphStageCatalogItem"][];
+        };
+        /**
+         * PredictionGraphDecisionOutputActual
+         * @description Immutable read model carrying the complete prediction/actual join.
+         */
+        PredictionGraphDecisionOutputActual: {
+            /** Actual Id */
+            actual_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Revision */
+            candidate_revision: number;
+            /** Context */
+            context?: {
+                [key: string]: string | number | boolean;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Graph Revision Digest */
+            graph_revision_digest: string;
+            /** Graph Revision Id */
+            graph_revision_id: string;
+            /** Mean */
+            mean: number;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Measurement Id */
+            measurement_id: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Output Id */
+            output_id: string;
+            /** Prediction Value */
+            prediction_value: unknown;
+            /** Project Binding Digest */
+            project_binding_digest: string;
+            /** Project Binding Revision */
+            project_binding_revision: number;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Replicates
+             * @default 1
+             */
+            replicates: number;
+            /**
+             * Schema Version
+             * @default prediction-graph-decision-output-actual/v1
+             * @constant
+             */
+            schema_version: "prediction-graph-decision-output-actual/v1";
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Source Output Key */
+            source_output_key: string;
+            /** Source Stage Id */
+            source_stage_id: string;
+            /**
+             * Std
+             * @default 0
+             */
+            std: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * PredictionGraphDecisionOutputActualInput
+         * @description Observed evidence attached to one immutable Graph Decision Output.
+         */
+        PredictionGraphDecisionOutputActualInput: {
+            /** Context */
+            context?: {
+                [key: string]: string | number | boolean;
+            };
+            /** Mean */
+            mean: number;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Measurement Id */
+            measurement_id: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Output Id */
+            output_id: string;
+            /**
+             * Replicates
+             * @default 1
+             */
+            replicates: number;
+            /** Snapshot Id */
+            snapshot_id: string;
+            /**
+             * Std
+             * @default 0
+             */
+            std: number;
+            /** Unit */
+            unit: string;
         };
         /** PredictionGraphDefinition */
         PredictionGraphDefinition: {
@@ -15362,6 +15579,37 @@ export interface operations {
             };
         };
     };
+    getPredictionGraphCandidateInputs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphCandidateInputDefinition"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     createPredictionGraphCandidate: {
         parameters: {
             query?: never;
@@ -15420,6 +15668,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Candidate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listPredictionGraphDecisionOutputActuals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDecisionOutputActual"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createPredictionGraphDecisionOutputActual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PredictionGraphDecisionOutputActualInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictionGraphDecisionOutputActual"];
                 };
             };
             /** @description Validation Error */
@@ -15588,6 +15904,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictionGraphSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPredictionGraphStarterCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateInput"];
                 };
             };
             /** @description Validation Error */

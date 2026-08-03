@@ -17397,6 +17397,184 @@
         "title": "PredictionComparison",
         "type": "object"
       },
+      "PredictionGraphCandidateInputDefinition": {
+        "additionalProperties": false,
+        "description": "Typed editor authority for one Prediction Graph candidate input.",
+        "properties": {
+          "affected_output_ids": {
+            "default": [],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Affected Output Ids",
+            "type": "array"
+          },
+          "affected_stage_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected Stage Ids",
+            "type": "array"
+          },
+          "allowed_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "candidate_path": {
+            "pattern": "^blend$|^(composition|process|categorical)\\.[A-Za-z][A-Za-z0-9_]*$",
+            "title": "Candidate Path",
+            "type": "string"
+          },
+          "choices": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "default_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_decimals": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Decimals"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "external_path": {
+            "minLength": 1,
+            "title": "External Path",
+            "type": "string"
+          },
+          "first_affected_stage_id": {
+            "minLength": 1,
+            "title": "First Affected Stage Id",
+            "type": "string"
+          },
+          "input_id": {
+            "minLength": 1,
+            "title": "Input Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "number",
+              "categorical",
+              "sparse_blend"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "read_only_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Only Reason"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "design_variable",
+              "scenario_context"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "training_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NumericRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "external_path",
+          "order",
+          "candidate_path",
+          "kind",
+          "label",
+          "editable",
+          "affected_stage_ids",
+          "first_affected_stage_id",
+          "input_id",
+          "role"
+        ],
+        "title": "PredictionGraphCandidateInputDefinition",
+        "type": "object"
+      },
       "PredictionGraphCatalogResponse": {
         "additionalProperties": false,
         "properties": {
@@ -17424,6 +17602,256 @@
           "stages"
         ],
         "title": "PredictionGraphCatalogResponse",
+        "type": "object"
+      },
+      "PredictionGraphDecisionOutputActual": {
+        "additionalProperties": false,
+        "description": "Immutable read model carrying the complete prediction/actual join.",
+        "properties": {
+          "actual_id": {
+            "minLength": 1,
+            "title": "Actual Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_revision": {
+            "minimum": 1.0,
+            "title": "Candidate Revision",
+            "type": "integer"
+          },
+          "context": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Context",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "graph_revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Graph Revision Digest",
+            "type": "string"
+          },
+          "graph_revision_id": {
+            "minLength": 1,
+            "title": "Graph Revision Id",
+            "type": "string"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "measurement_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Measurement Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "prediction_value": {
+            "title": "Prediction Value"
+          },
+          "project_binding_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Project Binding Digest",
+            "type": "string"
+          },
+          "project_binding_revision": {
+            "minimum": 1.0,
+            "title": "Project Binding Revision",
+            "type": "integer"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replicates": {
+            "default": 1,
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Replicates",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "prediction-graph-decision-output-actual/v1",
+            "default": "prediction-graph-decision-output-actual/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "minLength": 1,
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "source_output_key": {
+            "minLength": 1,
+            "title": "Source Output Key",
+            "type": "string"
+          },
+          "source_stage_id": {
+            "minLength": 1,
+            "title": "Source Stage Id",
+            "type": "string"
+          },
+          "std": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Std",
+            "type": "number"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "output_id",
+          "mean",
+          "unit",
+          "measurement_id",
+          "actual_id",
+          "project_id",
+          "candidate_id",
+          "candidate_revision",
+          "graph_revision_id",
+          "graph_revision_digest",
+          "project_binding_revision",
+          "project_binding_digest",
+          "source_stage_id",
+          "source_output_key",
+          "prediction_value",
+          "created_at"
+        ],
+        "title": "PredictionGraphDecisionOutputActual",
+        "type": "object"
+      },
+      "PredictionGraphDecisionOutputActualInput": {
+        "additionalProperties": false,
+        "description": "Observed evidence attached to one immutable Graph Decision Output.",
+        "properties": {
+          "context": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Context",
+            "type": "object"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "measurement_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Measurement Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "output_id": {
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "replicates": {
+            "default": 1,
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Replicates",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "minLength": 1,
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "std": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Std",
+            "type": "number"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "output_id",
+          "mean",
+          "unit",
+          "measurement_id"
+        ],
+        "title": "PredictionGraphDecisionOutputActualInput",
         "type": "object"
       },
       "PredictionGraphDefinition": {
@@ -31038,6 +31466,52 @@
         ]
       }
     },
+    "/api/prediction-graphs/projects/{project_id}/candidate-inputs": {
+      "get": {
+        "operationId": "getPredictionGraphCandidateInputs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PredictionGraphCandidateInputDefinition"
+                  },
+                  "title": "Response Getpredictiongraphcandidateinputs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Candidate Inputs",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
     "/api/prediction-graphs/projects/{project_id}/candidates": {
       "post": {
         "operationId": "createPredictionGraphCandidate",
@@ -31146,6 +31620,120 @@
           }
         },
         "summary": "Update Candidate",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals": {
+      "get": {
+        "operationId": "listPredictionGraphDecisionOutputActuals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PredictionGraphDecisionOutputActual"
+                  },
+                  "title": "Response Listpredictiongraphdecisionoutputactuals",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Output Actuals",
+        "tags": [
+          "prediction-graphs"
+        ]
+      },
+      "post": {
+        "operationId": "createPredictionGraphDecisionOutputActual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionGraphDecisionOutputActualInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionGraphDecisionOutputActual"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision Output Actual",
         "tags": [
           "prediction-graphs"
         ]
@@ -31423,6 +32011,48 @@
           }
         },
         "summary": "Get Snapshot",
+        "tags": [
+          "prediction-graphs"
+        ]
+      }
+    },
+    "/api/prediction-graphs/projects/{project_id}/starter-candidate": {
+      "get": {
+        "operationId": "getPredictionGraphStarterCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateInput"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Starter Candidate",
         "tags": [
           "prediction-graphs"
         ]

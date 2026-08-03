@@ -176,4 +176,45 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
     expect.stringContaining("/api/prediction-graphs/projects/"),
   ]);
   await expect(page.locator(".chain-graph-output").filter({ hasText: "溶着効率proxy" })).toContainText("processability");
+
+  await page.goto(`/?view=candidates&project=${project.id}&candidate=${candidate.id}`);
+  await expect(page.getByRole("heading", { name: "候補とDecision Outputを一つの面で比較" })).toBeVisible();
+  await expect(page.locator(".graph-decision-workspace textarea")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "設計変数" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /評価context/ })).toBeVisible();
+  await expect(page.getByText(/primary_objective/).first()).toBeVisible();
+  await expect(page.getByText(/synthetic_demonstration/).first()).toBeVisible();
+  await expect(page.getByRole("row", { name: /引張強さ/ })).toContainText(/\d/);
+  await page.getByLabel(/電圧/).fill("28.37");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Graph inspector" }).click();
+  await expect(page.getByRole("heading", { name: "候補とDecision Outputを一つの面で比較" })).toBeVisible();
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByText("候補条件を保存しました。実行はまだ行っていません。")).toBeVisible();
+  await page.getByRole("button", { name: "実行", exact: true }).click();
+  await expect(page.getByText("Prediction Graphを実行しました。")).toBeVisible();
+  await page.getByRole("button", { name: "Snapshotを固定" }).click();
+  await expect(page.getByText("現在のPrediction Graph結果をSnapshotとして固定しました。")).toBeVisible();
+  await page.getByLabel("Output").selectOption("tensile-strength");
+  await page.getByLabel("実測値").fill("720");
+  await expect(page.getByLabel("単位")).toHaveValue("MPa");
+  await page.getByLabel("測定ID").fill("fixture-actual-001");
+  await page.getByRole("button", { name: "Actualを記録" }).click();
+  await expect(page.getByText("実測を固定Prediction Snapshotへ記録しました。")).toBeVisible();
+  await expect(page.getByText(/tensile-strength: 720 MPa/)).toBeVisible();
+
+  const candidatesResponse = await page.request.get(`${apiBaseUrl}/api/projects/${project.id}/candidates`);
+  const currentCandidate = (await candidatesResponse.json() as Array<Record<string, any>>)
+    .find((item) => item.id === candidate.id)!;
+  const externalUpdate = await page.request.put(
+    `${apiBaseUrl}/api/prediction-graphs/projects/${project.id}/candidates/${candidate.id}`,
+    { data: { ...currentCandidate, expected_revision: currentCandidate.revision } },
+  );
+  expect(externalUpdate.status(), await externalUpdate.text()).toBe(200);
+  await page.getByLabel(/電圧/).fill("28.38");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByRole("button", { name: "最新revisionを再読込" })).toBeVisible();
+  await page.getByRole("button", { name: "最新revisionを再読込" }).click();
+  await expect(page.getByText(/過去のcandidate revision/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Actualを記録" })).toBeDisabled();
 });

@@ -21,6 +21,13 @@ from decision_workbench.application.chain.graph_plan import (
     PredictionGraphPlanningUseCase,
 )
 from decision_workbench.application.chain.plan import ChainExecutionError, set_path
+from decision_workbench.application.chains import (
+    ChainConflictError,
+    ChainValidationError,
+)
+from decision_workbench.application.prediction_graphs import (
+    PredictionGraphUseCases,
+)
 from decision_workbench.contracts.candidate_project_contracts import (
     CandidateInput,
     CandidateInputs,
@@ -46,13 +53,18 @@ from decision_workbench.contracts.chain_contracts import (
 )
 from decision_workbench.contracts.chain_execution_contracts import (
     ChainExecution,
+    PredictionGraphDecisionOutputActualInput,
     PredictionGraphExecution,
     PredictionGraphSnapshot,
     parse_execution_json,
     parse_snapshot_json,
 )
 from decision_workbench.execution.inference_work_graph import semantic_digest
-from decision_workbench.persistence.store import ChainCatalogConflictError, Store
+from decision_workbench.persistence.store import (
+    ChainCatalogConflictError,
+    Store,
+    StoreDataIntegrityError,
+)
 
 
 def _port(path: str, quantity: str) -> ChainPort:
@@ -540,6 +552,97 @@ def test_snapshot_requires_complete_required_outputs_and_round_trips(
             project_id=project.id,
             candidate_id=candidate.id,
             candidate_revision=candidate.revision,
+        )
+
+
+def test_decision_output_actual_is_fixed_to_graph_snapshot_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, project, candidate, _executor, execution, snapshots = _workspace(
+        tmp_path
+    )
+    execution.execute(
+        project_id=project.id,
+        candidate_id=candidate.id,
+        candidate_revision=candidate.revision,
+        request_id="actual-source",
+        debounce_ms=0,
+    )
+    snapshot = snapshots.snapshot(
+        project_id=project.id,
+        candidate_id=candidate.id,
+        candidate_revision=candidate.revision,
+    )
+    use_cases = PredictionGraphUseCases.__new__(PredictionGraphUseCases)
+    use_cases.store = store
+    use_cases.planning = _Planning(store)
+
+    actual = use_cases.create_decision_output_actual(
+        project.id,
+        candidate.id,
+        PredictionGraphDecisionOutputActualInput(
+            snapshot_id=snapshot.snapshot_id,
+            output_id="required-result",
+            mean=5.2,
+            std=0.1,
+            replicates=3,
+            unit="unit",
+            measurement_id="measurement-001",
+        ),
+    )
+
+    assert actual.prediction_value == 5
+    assert actual.graph_revision_id == snapshot.identity.graph_revision_id
+    assert actual.graph_revision_digest == snapshot.identity.graph_revision_digest
+    assert actual.source_stage_id == "C"
+    assert actual.source_output_key == "result"
+    assert store.list_prediction_graph_decision_output_actuals(
+        project.id,
+        candidate.id,
+    ) == [actual]
+    with pytest.raises(StoreDataIntegrityError, match="snapshot"):
+        store.insert_prediction_graph_decision_output_actual(
+            actual.model_copy(
+                update={
+                    "actual_id": "tampered-actual",
+                    "prediction_value": 999,
+                }
+            )
+        )
+
+    with pytest.raises(ChainValidationError, match="単位"):
+        use_cases.create_decision_output_actual(
+            project.id,
+            candidate.id,
+            PredictionGraphDecisionOutputActualInput(
+                snapshot_id=snapshot.snapshot_id,
+                output_id="required-result",
+                mean=5.3,
+                unit="wrong",
+                measurement_id="measurement-002",
+            ),
+        )
+
+    def reject_actual(_actual) -> None:
+        raise StoreDataIntegrityError("injected Actual integrity conflict")
+
+    monkeypatch.setattr(
+        store,
+        "insert_prediction_graph_decision_output_actual",
+        reject_actual,
+    )
+    with pytest.raises(ChainConflictError, match="integrity conflict"):
+        use_cases.create_decision_output_actual(
+            project.id,
+            candidate.id,
+            PredictionGraphDecisionOutputActualInput(
+                snapshot_id=snapshot.snapshot_id,
+                output_id="required-result",
+                mean=5.3,
+                unit="unit",
+                measurement_id="measurement-002",
+            ),
         )
 
 
