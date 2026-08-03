@@ -182,7 +182,7 @@ class ModelHypothesisCard(ContractModel):
         Field(min_length=1),
     ]
     lifecycle_status: Literal["standard", "shared_specialized", "research"]
-    recipe_identity: HypothesisRecipeIdentity
+    recipe_identity: HypothesisRecipeIdentity | None = None
 
     @model_validator(mode="after")
     def separates_observation_and_latent_meaning(
@@ -209,6 +209,10 @@ class ModelHypothesisCatalog(ContractModel):
         identities = [(card.id, card.version) for card in self.cards]
         if len(identities) != len(set(identities)):
             raise ValueError("model hypothesis card identities must be unique")
+        if any(card.recipe_identity is None for card in self.cards):
+            raise ValueError(
+                "bundled allow-list cards require a reviewed recipe identity"
+            )
         return self
 
 
@@ -233,10 +237,11 @@ class ModelPlaygroundHandoff(ContractModel):
     current_action: Literal["inspect_fixed_packages"] = "inspect_fixed_packages"
     future_surface: Literal["model_playground"] = "model_playground"
     future_status: Literal["not_implemented"] = "not_implemented"
-    blocked_reason: Literal["model_exploration_run_contract_unavailable"] = (
-        "model_exploration_run_contract_unavailable"
-    )
-    recipe_identity: HypothesisRecipeIdentity
+    blocked_reason: Literal[
+        "model_exploration_run_contract_unavailable",
+        "hypothesis_not_promoted_to_recipe",
+    ]
+    recipe_identity: HypothesisRecipeIdentity | None = None
 
 
 class ModelHypothesisPresentation(ContractModel):

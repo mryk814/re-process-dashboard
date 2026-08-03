@@ -440,5 +440,12 @@ def present_model_hypothesis(
         required_data=tuple(item for item in required_data if item is not None),
         missing_contracts=missing,
         incompatibility_reasons=tuple(reasons),
-        handoff=ModelPlaygroundHandoff(recipe_identity=card.recipe_identity),
+        handoff=ModelPlaygroundHandoff(
+            blocked_reason=(
+                "model_exploration_run_contract_unavailable"
+                if card.recipe_identity is not None
+                else "hypothesis_not_promoted_to_recipe"
+            ),
+            recipe_identity=card.recipe_identity,
+        ),
     )

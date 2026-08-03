@@ -21,6 +21,10 @@ Card内の文字列ではなく、アプリ本体のallow-list済みrecipe／spe
 model名だけのCard、観測値と潜在量を同一記述にしたCard、識別性riskやdiagnosticが
 空のCardは受理しません。
 
+未採用の仮説Cardは`recipe_identity`を持たずに検証できます。ただしbundled
+allow-list catalogへ載せるCardはreview済みrecipe identityを必須とします。
+これにより仮説作成と実行可能recipeへの昇格を混同しません。
+
 ## Evidence
 
 全Cardは次を`required`として宣言します。

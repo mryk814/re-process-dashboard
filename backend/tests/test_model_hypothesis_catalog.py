@@ -86,6 +86,11 @@ def test_llm_card_validation_rejects_code_and_under_specified_cards() -> None:
     with pytest.raises(ValidationError, match="at least 1 item"):
         validate_model_hypothesis_card(under_specified)
 
+    unpromoted = dict(valid)
+    unpromoted.pop("recipe_identity")
+    proposed = validate_model_hypothesis_card(unpromoted)
+    assert proposed.recipe_identity is None
+
     conflated = dict(valid)
     conflated["latent_process"] = {
         **valid["latent_process"],
