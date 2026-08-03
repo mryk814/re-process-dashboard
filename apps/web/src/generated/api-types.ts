@@ -6724,6 +6724,7 @@ export interface components {
             available_package_count: number;
             /** Graph Count */
             graph_count: number;
+            model_hypothesis_catalog: components["schemas"]["DeveloperModelHypothesisCatalog"];
             /** Project Modes */
             project_modes: ("single_task" | "chain" | "prediction_graph")[];
             /**
@@ -6804,6 +6805,67 @@ export interface components {
              * @enum {string}
              */
             platform: "cross-platform" | "windows" | "powershell";
+        };
+        /** DeveloperModelHypothesisCard */
+        DeveloperModelHypothesisCard: {
+            /**
+             * Comparison Role
+             * @enum {string}
+             */
+            comparison_role: "baseline" | "candidate";
+            /** Data Grain */
+            data_grain: ("source_row" | "individual_observation" | "parent_condition_mean" | "replicate_context_mean" | "grouped_observation_family")[];
+            /**
+             * Execution Status
+             * @enum {string}
+             */
+            execution_status: "available" | "specialized_only";
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Lifecycle Status
+             * @enum {string}
+             */
+            lifecycle_status: "standard" | "shared_specialized" | "research";
+            /**
+             * Recipe Id
+             * @enum {string}
+             */
+            recipe_id: "ridge.v1" | "bayesian-additive-spline.v1" | "exact-gp-rbf.v1" | "stage-c-family-ridge-grouped-v1";
+            /** Required Capabilities */
+            required_capabilities: ("point" | "quantiles" | "standard_deviation" | "parametric_distribution" | "support_warning" | "grouped_validation" | "response_curve")[];
+            /** Target Support */
+            target_support: ("continuous" | "continuous_positive" | "binary" | "count" | "ordinal")[];
+            /** Version */
+            version: string;
+        };
+        /** DeveloperModelHypothesisCatalog */
+        DeveloperModelHypothesisCatalog: {
+            /**
+             * Authority
+             * @constant
+             */
+            authority: "bundled_allow_list";
+            /** Card Count */
+            card_count: number;
+            /** Cards */
+            cards: components["schemas"]["DeveloperModelHypothesisCard"][];
+            /** Lifecycle Counts */
+            lifecycle_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Playground Handoff Status
+             * @constant
+             */
+            playground_handoff_status: "not_implemented";
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "model-hypothesis-catalog/v1";
         };
         /** DeveloperOverview */
         DeveloperOverview: {

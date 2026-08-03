@@ -9,6 +9,9 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from decision_workbench.contracts.model_hypothesis_contracts import (
+    ModelHypothesisCatalog,
+)
 from decision_workbench.data.observation_authoring import (
     complex_data_authoring_capability,
 )
@@ -199,6 +202,8 @@ def capability_atlas_read_model(atlas: Mapping[str, Any]) -> dict[str, Any]:
     """Return the compact technical detail shown in Developer Control Center."""
 
     tasks = list(atlas["tasks"])
+    hypothesis_catalog = atlas["model_hypothesis_catalog"]
+    hypothesis_cards = list(hypothesis_catalog["cards"])
     graph_mode = next(
         mode for mode in atlas["project_modes"] if mode["mode"] == "prediction_graph"
     )
@@ -212,6 +217,36 @@ def capability_atlas_read_model(atlas: Mapping[str, Any]) -> dict[str, Any]:
             len(task["available_packages"]) for task in tasks
         ),
         "graph_count": len(graph_mode["bundled_graphs"]),
+        "model_hypothesis_catalog": {
+            "schema_version": hypothesis_catalog["schema_version"],
+            "authority": hypothesis_catalog["authority"],
+            "card_count": len(hypothesis_cards),
+            "lifecycle_counts": {
+                status: sum(
+                    card["lifecycle_status"] == status
+                    for card in hypothesis_cards
+                )
+                for status in ("standard", "shared_specialized", "research")
+            },
+            "playground_handoff_status": "not_implemented",
+            "cards": [
+                {
+                    "id": card["id"],
+                    "version": card["version"],
+                    "label": card["label"],
+                    "comparison_role": card["comparison_role"],
+                    "lifecycle_status": card["lifecycle_status"],
+                    "data_grain": card["data_grain"],
+                    "target_support": card["target_support"],
+                    "required_capabilities": card["required_capabilities"],
+                    "recipe_id": card["recipe_identity"]["recipe_id"],
+                    "execution_status": card["recipe_identity"][
+                        "execution_status"
+                    ],
+                }
+                for card in hypothesis_cards
+            ],
+        },
         "tasks": [
             {
                 "task_id": task["task_id"],
@@ -233,6 +268,7 @@ def build_capability_atlas(
     task_inventory: Mapping[str, Any],
     readiness_inventory: Mapping[str, Any],
     standard_estimator_catalog: Mapping[str, Any],
+    model_hypothesis_catalog: Mapping[str, Any],
     package_details: Mapping[str, Mapping[str, Any]],
     decision_activities: Iterable[Mapping[str, Any]],
     proposal_strategies: Iterable[Mapping[str, Any]],
@@ -242,6 +278,9 @@ def build_capability_atlas(
 ) -> dict[str, Any]:
     """Return a deterministic, bundled-only projection of capability facts."""
 
+    hypothesis_catalog = ModelHypothesisCatalog.model_validate(
+        model_hypothesis_catalog
+    ).model_dump(mode="json")
     readiness_by_task = {
         item["task_id"]: item
         for item in readiness_inventory["tasks"]
@@ -330,6 +369,7 @@ def build_capability_atlas(
             "docs/contracts/task-inventory.json authority",
             "docs/contracts/readiness-inventory.json authority",
             "docs/contracts/standard-estimator-readiness.json authority",
+            "model-hypothesis-catalog/v1 bundled allow-list",
             "bundled Model Package manifests",
             "decision activity and proposal strategy registries",
             "bundled Prediction Graph definitions",
@@ -379,6 +419,7 @@ def build_capability_atlas(
             }
         ),
         "standard_estimator_catalog": standard_estimator_catalog,
+        "model_hypothesis_catalog": hypothesis_catalog,
         "global_catalogs": {
             "decision_activities": activities,
             "proposal_strategies": strategies,

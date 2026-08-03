@@ -19,6 +19,9 @@ from decision_workbench.modeling.model_lifecycle import (
     MODELS_ROOT,
     load_active_packages,
 )
+from decision_workbench.modeling.model_hypothesis_catalog import (
+    model_hypothesis_catalog,
+)
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.transform_catalog import (
     load_deterministic_transform_catalog,
@@ -64,6 +67,9 @@ def test_atlas_joins_authorities_without_personal_workspace_state() -> None:
             "standard_authoring": False,
         }]},
         standard_estimator_catalog={"entries": []},
+        model_hypothesis_catalog=model_hypothesis_catalog().model_dump(
+            mode="json"
+        ),
         package_details={"task-a": {
             "targets": [{"key": "strength", "kind": "continuous", "unit": "MPa"}],
             "validation_plans": [{"strategy": "grouped_kfold"}],
@@ -84,6 +90,18 @@ def test_atlas_joins_authorities_without_personal_workspace_state() -> None:
     assert atlas["stochastic_reproducibility"] == (
         stochastic_reproducibility_capability()
     )
+    assert atlas["model_hypothesis_catalog"]["schema_version"] == (
+        "model-hypothesis-catalog/v1"
+    )
+    assert {
+        card["id"]
+        for card in atlas["model_hypothesis_catalog"]["cards"]
+    } >= {
+        "ridge-linear-baseline",
+        "bayesian-additive-spline",
+        "exact-rbf-gaussian-process",
+        "welding-charpy-observation-family",
+    }
     assert [mode["mode"] for mode in atlas["project_modes"]] == [
         "single_task", "chain", "prediction_graph",
     ]
@@ -153,6 +171,9 @@ def test_generated_atlas_tracks_bundled_package_and_graph_authorities(
             "legacy_evidence_sampling_conditions_unavailable",
         ],
     }
+    assert atlas["model_hypothesis_catalog"]["authority"] == (
+        "bundled_allow_list"
+    )
     assert {
         task_id
         for task_id, task in tasks.items()

@@ -40,6 +40,9 @@ from decision_workbench.modeling.packages.contracts import (  # noqa: E402
     FeaturePipelineDocument,
 )
 from decision_workbench.modeling.training.readiness import standard_estimator_catalog  # noqa: E402
+from decision_workbench.modeling.model_hypothesis_catalog import (  # noqa: E402
+    model_hypothesis_catalog,
+)
 from decision_workbench.execution.inference_work_graph import semantic_digest  # noqa: E402
 from decision_workbench.modeling.transform_catalog import (  # noqa: E402
     load_deterministic_transform_catalog,
@@ -326,6 +329,7 @@ def build_atlas() -> dict[str, Any]:
         ),
         readiness_inventory=build_readiness_inventory().model_dump(mode="json"),
         standard_estimator_catalog=standard_estimator_catalog().model_dump(mode="json"),
+        model_hypothesis_catalog=model_hypothesis_catalog().model_dump(mode="json"),
         package_details=package_details,
         decision_activities=[item.definition.model_dump(mode="json") for item in build_registry().values()],
         proposal_strategies=[item.model_dump(mode="json") for item in STRATEGIES],

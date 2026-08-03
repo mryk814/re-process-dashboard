@@ -34,6 +34,7 @@ from decision_workbench.tasks.task_registry import load_task_contracts
 
 
 PACKAGE_ID = "welding-stage-c-ridge-v1"
+TRAINING_CODE_REVISION = "stage-c-family-ridge-grouped-v1"
 
 
 def _digest(path: Path) -> str:
@@ -224,7 +225,7 @@ def _build(
         "provenance": {
             "training_data_id": f"sha256:{data.source_sha256}",
             "feature_dataset_id": canonical_training_dataset_digest(canonical),
-            "training_code_revision": "stage-c-family-ridge-grouped-v1",
+            "training_code_revision": TRAINING_CODE_REVISION,
             "dataset_profile_id": dataset_profile_digest(data.profile),
         },
         "artifacts": [_artifact(destination, path) for path in files],
