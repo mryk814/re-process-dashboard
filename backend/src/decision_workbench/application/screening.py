@@ -58,6 +58,9 @@ from decision_workbench.persistence.store import CandidateLimitError, Store
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.modeling.model_lifecycle import runtime_capability_digest
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 from decision_workbench.design_priors.loader import (
     DesignPriorPackageLoader,
     VerifiedDesignPriorPackage,
@@ -335,6 +338,7 @@ class ScreeningService:
                     output.unit,
                     objective_provenance,
                     request_override=payload.proposal.incumbent_value,
+                    prediction_seed=payload.seed,
                 )
                 proposal_request = payload.proposal.model_copy(
                     update={
@@ -849,6 +853,7 @@ class ScreeningService:
         objective_source: str,
         *,
         request_override: float | None = None,
+        prediction_seed: int | None = None,
     ) -> ProposalIncumbentResolution:
         target_term = next(
             (term for term in objective.terms if term.output_key == target),
@@ -962,9 +967,18 @@ class ScreeningService:
         )
         if candidate is None:
             raise ValueError("incumbent候補が見つかりません")
-        prediction = self.resolver.runtime_for(project).predict(
+        runtime = self.resolver.runtime_for(project)
+        sampling_request = sampling_request_for_operation(
+            runtime, "screening_proposal", seed=prediction_seed
+        )
+        prediction = runtime.predict(
             candidate,
             detailed=False,
+            **(
+                {"sampling_request": sampling_request}
+                if sampling_request is not None
+                else {}
+            ),
         )
         target_prediction = prediction["predictions"].get(target)
         if target_prediction is None:

@@ -297,6 +297,7 @@ def test_empirical_completion_lab_separates_model_and_input_uncertainty(
     assert report.predictive_manifest_digest == "sha256:" + "4" * 64
     assert report.candidate_revision == 1
     assert report.candidate_input_digest.startswith("sha256:")
+    assert report.prediction_sampling_identities == {}
     assert not hasattr(report.summaries[0], "lower")
     assert not hasattr(report.summaries[0], "upper")
     assert report.summaries[0].uncertainty.input_missingness > 0

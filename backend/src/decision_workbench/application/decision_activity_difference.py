@@ -149,10 +149,16 @@ def compute(
     outputs = {item.key: item for item in definition.outputs}
 
     base_result = runtime.predict_core(
-        context.candidate, detailed=False, target_values=project.target_values
+        context.candidate,
+        detailed=False,
+        target_values=project.target_values,
+        **context.prediction_sampling_kwargs(),
     )
     comparison_result = runtime.predict_core(
-        prepared.comparison, detailed=False, target_values=project.target_values
+        prepared.comparison,
+        detailed=False,
+        target_values=project.target_values,
+        **context.prediction_sampling_kwargs(),
     )
     base_predictions = {
         key: Prediction.model_validate(value)
@@ -189,7 +195,10 @@ def compute(
                 f"{path}だけを置き換えた条件がTask制約を満たしません: {exc}"
             ) from exc
         substituted_result = runtime.predict_core(
-            substituted_candidate, detailed=False, target_values=project.target_values
+            substituted_candidate,
+            detailed=False,
+            target_values=project.target_values,
+            **context.prediction_sampling_kwargs(),
         )
         for key in outputs:
             value = Prediction.model_validate(substituted_result["predictions"][key]).value

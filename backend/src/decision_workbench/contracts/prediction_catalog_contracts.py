@@ -13,6 +13,7 @@ from decision_workbench.contracts.proposal_contracts import ProposalStrategyRequ
 from decision_workbench.contracts.missingness_contracts import (
     InputMissingnessEvidence,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingEvidence
 
 class ScreeningVariable(BaseModel):
     mode: Literal["fixed", "range", "list"]
@@ -177,6 +178,7 @@ class Prediction(BaseModel):
     goal_probability: Annotated[float | None, Field(ge=0, le=1)] = None
     goal_direction: Literal["at_least", "at_most", "between"] | None = None
     uncertainty_components: dict[str, float] | None = None
+    sampling_identity: SamplingEvidence | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -263,6 +265,7 @@ class PackageIdentity(BaseModel):
     version: str = ""
     manifest_sha256: str = ""
     runtime_types: list[str] = Field(default_factory=list)
+    predictor_runtime_types: dict[str, str] = Field(default_factory=dict)
 
 
 class FeaturePipelineIdentity(BaseModel):

@@ -26,6 +26,9 @@ from decision_workbench.contracts.candidate_project_contracts import (
 from decision_workbench.contracts.task_contracts import persisted_task_definition_payload
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import DeterministicTransformCatalog
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 from decision_workbench.tasks.task_registry import TaskRegistry
 
 
@@ -173,7 +176,20 @@ class ChainStageExecutor:
             },
         )
         runtime = self.registry.entry_for(stage.contract_id).predictor_runtime
-        payload = plain_payload(runtime.predict_core(stage_candidate, detailed=False))
+        sampling_request = sampling_request_for_operation(
+            runtime, "prediction_graph_stage"
+        )
+        payload = plain_payload(
+            runtime.predict_core(
+                stage_candidate,
+                detailed=False,
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
+            )
+        )
         predictions = payload.get("predictions")
         if not isinstance(predictions, dict):
             raise ChainExecutionError(
@@ -221,6 +237,27 @@ class ChainStageExecutor:
                 "contract_digest": stage.contract_digest,
                 "package_manifest_digest": stage.package_manifest_digest,
                 "canonical_input_digest": input_digest,
+            }
+        )
+
+    def input_digest(
+        self,
+        stage: ChainStageRevision,
+        canonical_input: Mapping[str, Any],
+    ) -> str:
+        if stage.stage_kind == "deterministic_transform":
+            sampling_request = None
+        else:
+            runtime = self.registry.entry_for(stage.contract_id).predictor_runtime
+            sampling_request = sampling_request_for_operation(
+                runtime, "prediction_graph_stage"
+            )
+        if sampling_request is None:
+            return semantic_digest(canonical_input)
+        return semantic_digest(
+            {
+                "canonical_input": canonical_input,
+                "sampling_request": sampling_request.model_dump(mode="json"),
             }
         )
 

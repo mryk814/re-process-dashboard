@@ -19,6 +19,7 @@ from decision_workbench.contracts.candidate_project_contracts import (
     Project,
 )
 from decision_workbench.contracts.prediction_catalog_contracts import ModelMetadata
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.contracts.task_contracts import TaskDefinition
 from decision_workbench.task_composition.candidate_family_adapters import (
     CandidateFamilyAdapter,
@@ -49,6 +50,14 @@ class ActivityContext:
     parameters: Any
     validate_candidate: Callable[[Candidate], None]
     resolve_candidate: Callable[[str, int], Candidate]
+    sampling_request: SamplingRequest | None = None
+
+    def prediction_sampling_kwargs(self) -> dict[str, SamplingRequest]:
+        return (
+            {}
+            if self.sampling_request is None
+            else {"sampling_request": self.sampling_request}
+        )
 
 
 @dataclass(frozen=True)

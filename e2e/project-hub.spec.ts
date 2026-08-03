@@ -469,7 +469,51 @@ test("project hub separates current revision from fixed snapshot and restores a 
   await expect(card.getByText("現在のpreview", { exact: true })).toBeVisible();
   await expect(card.getByText("固定した予測", { exact: true }).first()).toBeVisible();
 
+  await page.route(/\/api\/projects\/[^/]+\/snapshots\/[^/]+$/, async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const body = await response.json() as {
+      payload: {
+        prediction: {
+          predictions: Record<string, { sampling_identity?: unknown }>;
+        };
+      };
+    };
+    const firstPrediction = Object.values(body.payload.prediction.predictions)[0];
+    firstPrediction.sampling_identity = {
+      schema_version: "sampling-identity/v1",
+      runtime_type: "numpyro.dense_posterior.v1",
+      method_id: "numpyro-posterior-predictive",
+      method_version: "1.0.0",
+      operation: "detailed_prediction",
+      request_policy_id: "detailed-prediction/v1",
+      request_policy_digest: `sha256:${"1".repeat(64)}`,
+      seed: 17,
+      requested_sample_count: 512,
+      effective_sample_count: 512,
+      posterior_draw_count: 1000,
+      draw_selection_policy: "seeded_without_replacement",
+      predictive_resampling_policy: "numpy-default-rng-likelihood/v1",
+      aggregation_policy: "central-90-linear-quantiles/v1",
+      approximation: null,
+      fallback: null,
+      parameter_digest: `sha256:${"2".repeat(64)}`,
+    };
+    await route.fulfill({ response, json: body });
+  });
   await card.getByRole("button", { name: "詳細" }).first().click();
+  const samplingDetail = page.locator(".sampling-identity-details");
+  await expect(samplingDetail.getByText("17", { exact: true })).not.toBeVisible();
+  await samplingDetail.locator("> summary").click();
+  await expect(samplingDetail).toContainText("sampling-identity/v1");
+  await expect(samplingDetail).toContainText("numpyro.dense_posterior.v1");
+  await expect(samplingDetail).toContainText("numpyro-posterior-predictive / 1.0.0");
+  await expect(samplingDetail).toContainText(`sha256:${"1".repeat(64)}`);
+  await expect(samplingDetail).toContainText("requested 512 / effective 512");
+  await expect(samplingDetail).toContainText("seeded_without_replacement");
   await page.getByLabel("判断理由").fill("r1時点の予測根拠を採用");
   const decisionResponse = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname.endsWith("/decision"));
   await page.getByRole("button", { name: "採用判断として固定" }).click();

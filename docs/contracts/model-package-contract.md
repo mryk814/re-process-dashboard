@@ -117,8 +117,12 @@ NumPyro adapterは学習用Python関数を復元しない。許可likelihoodは
 - Poisson、Negative Binomial、ZIP：負にならない個数の分位点
 - Ordinal logit：`config.thresholds` で定義する有限個の順序カテゴリ
 
-事後予測サンプリングは `seed` で決定的に再現します。
-現在の詳細予測スナップショットは、`seed`やサンプリング方針を独立した項目として保存しません。
+事後予測サンプリングはoperation別にversion固定されたSampling Requestで決定的に再現します。
+sample-based runtimeは暗黙のseed／sample数を受け付けません。
+`numpyro.dense_posterior.v1`は実際に使用したoperation、request policy digest、seed、
+sample数、posterior draw選択、likelihood family別のpredictive resampling、集約policyを
+[`sampling-identity/v1`](sampling-identity.md)として返します。詳細予測Snapshotは
+request値ではなくこの実効identityをcanonical Predictionへ保存します。
 
 npzはentry数、展開後総量、圧縮率、posterior draw数、layer数、tensor要素数に固定上限を設ける。圧縮後のartifact sizeだけを信頼しない。
 

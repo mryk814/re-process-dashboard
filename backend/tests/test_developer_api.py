@@ -95,6 +95,15 @@ def test_capability_atlas_exposes_bundled_technical_detail(
     atlas = response.json()
     assert atlas["schema_version"] == "capability-atlas/v1"
     assert atlas["authority"] == "bundled"
+    assert atlas["stochastic_reproducibility"] == {
+        "status": "effective_sampling_identity_recorded",
+        "identity_schema_version": "sampling-identity/v1",
+        "runtime_types": ["numpyro.dense_posterior.v1"],
+        "limitations": [
+            "response_curve_sampling_identity_unavailable",
+            "legacy_evidence_sampling_conditions_unavailable",
+        ],
+    }
     assert atlas["project_modes"] == [
         "single_task",
         "chain",

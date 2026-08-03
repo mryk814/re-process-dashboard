@@ -14,6 +14,21 @@ from decision_workbench.data.observation_authoring import (
 )
 
 from decision_workbench.execution.inference_work_graph import semantic_digest
+from decision_workbench.modeling.sampling_identity import SAMPLE_BASED_RUNTIME_TYPES
+
+
+def stochastic_reproducibility_capability() -> dict[str, Any]:
+    """Describe the bundled sample-based evidence contract and its limits."""
+
+    return {
+        "status": "effective_sampling_identity_recorded",
+        "identity_schema_version": "sampling-identity/v1",
+        "runtime_types": sorted(SAMPLE_BASED_RUNTIME_TYPES),
+        "limitations": [
+            "response_curve_sampling_identity_unavailable",
+            "legacy_evidence_sampling_conditions_unavailable",
+        ],
+    }
 
 
 def source_support_status(source: Mapping[str, Any]) -> str:
@@ -190,6 +205,7 @@ def capability_atlas_read_model(atlas: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": atlas["schema_version"],
         "authority": "bundled",
+        "stochastic_reproducibility": atlas["stochastic_reproducibility"],
         "project_modes": [mode["mode"] for mode in atlas["project_modes"]],
         "task_count": len(tasks),
         "available_package_count": sum(
@@ -323,7 +339,9 @@ def build_capability_atlas(
                 if promotions
                 else []
             ),
+            "sampling-identity/v1 contract",
         ],
+        "stochastic_reproducibility": stochastic_reproducibility_capability(),
         "project_modes": [
             {
                 "mode": "single_task",

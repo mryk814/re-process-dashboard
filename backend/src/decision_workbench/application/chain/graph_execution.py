@@ -196,7 +196,7 @@ class PredictionGraphExecutionUseCase:
                 evidence_by_stage[stage_id] = failed
                 continue
 
-            input_digest = semantic_digest(canonical_input)
+            input_digest = self.stage_executor.input_digest(stage, canonical_input)
             previous_stage = previous_by_stage.get(stage_id)
             running = self._retained(
                 previous_stage,
@@ -417,7 +417,7 @@ class PredictionGraphExecutionUseCase:
                     external,
                     outputs,
                 )
-                input_digest = semantic_digest(canonical_input)
+                input_digest = self.stage_executor.input_digest(stage, canonical_input)
                 if (
                     previous_stage is not None
                     and previous_stage.result is not None

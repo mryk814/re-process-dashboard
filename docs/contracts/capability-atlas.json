@@ -8,8 +8,20 @@
     "decision activity and proposal strategy registries",
     "bundled Prediction Graph definitions",
     "fixed real-Task Design Prior replay report",
-    "fixed promotion evidence reports"
+    "fixed promotion evidence reports",
+    "sampling-identity/v1 contract"
   ],
+  "stochastic_reproducibility": {
+    "status": "effective_sampling_identity_recorded",
+    "identity_schema_version": "sampling-identity/v1",
+    "runtime_types": [
+      "numpyro.dense_posterior.v1"
+    ],
+    "limitations": [
+      "response_curve_sampling_identity_unavailable",
+      "legacy_evidence_sampling_conditions_unavailable"
+    ]
+  },
   "project_modes": [
     {
       "mode": "single_task",

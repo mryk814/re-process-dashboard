@@ -29,6 +29,7 @@ from decision_workbench.modeling.packages.contracts import (
     PredictionInterval,
     PredictiveSummary,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.modeling.packages.ports import LoadedPredictor
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
 
@@ -263,8 +264,18 @@ class ConformalPredictor:
         self._base = base
         self._wrapper = wrapper
 
-    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
-        summary = self._base.predict(values, seed=seed)
+    def predict(
+        self,
+        values: dict[str, float],
+        *,
+        seed: int = 0,
+        sampling_request: SamplingRequest | None = None,
+    ) -> PredictiveSummary:
+        summary = (
+            self._base.predict(values, sampling_request=sampling_request)  # type: ignore[call-arg]
+            if sampling_request is not None
+            else self._base.predict(values, seed=seed)
+        )
         manifest = self._wrapper.manifest
         if summary.target != manifest.target or summary.unit != manifest.unit:
             raise PackageContractError("base predictor output does not match conformal wrapper target/unit")

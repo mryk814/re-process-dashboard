@@ -10,6 +10,7 @@ from decision_workbench.application.workspace_catalog_bootstrap import (
 from decision_workbench.developer_experience.capability_atlas import (
     build_capability_atlas,
     source_support_status,
+    stochastic_reproducibility_capability,
     summarize_missingness_policy,
     summarize_missingness_promotion,
 )
@@ -80,6 +81,9 @@ def test_atlas_joins_authorities_without_personal_workspace_state() -> None:
 
     task = atlas["tasks"][0]
     assert atlas["schema_version"] == "capability-atlas/v1"
+    assert atlas["stochastic_reproducibility"] == (
+        stochastic_reproducibility_capability()
+    )
     assert [mode["mode"] for mode in atlas["project_modes"]] == [
         "single_task", "chain", "prediction_graph",
     ]
@@ -140,6 +144,15 @@ def test_generated_atlas_tracks_bundled_package_and_graph_authorities(
         )["tasks"]
     }
     assert len(tasks) == 17
+    assert atlas["stochastic_reproducibility"] == {
+        "status": "effective_sampling_identity_recorded",
+        "identity_schema_version": "sampling-identity/v1",
+        "runtime_types": ["numpyro.dense_posterior.v1"],
+        "limitations": [
+            "response_curve_sampling_identity_unavailable",
+            "legacy_evidence_sampling_conditions_unavailable",
+        ],
+    }
     assert {
         task_id
         for task_id, task in tasks.items()

@@ -17,9 +17,14 @@ from decision_workbench.contracts.model_example_contracts import ExampleQualityR
 from decision_workbench.modeling.packages.contracts import (
     MissingOptionalDependency,
     PackageContractError,
+    PredictiveSummary,
     validate_predictive_summary,
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
+from decision_workbench.modeling.sampling_identity import (
+    package_verification_sampling_request,
+    predict_with_sampling_identity,
+)
 from decision_workbench.tasks.task_registry import load_task_contracts
 from decision_workbench.task_composition.catalog import resolve_task_source, task_module
 from decision_workbench.data.profile_family_registry import (
@@ -51,9 +56,13 @@ class ModelPackageVerificationError(PackageContractError):
 def _smoke_outputs_equivalent(actual: Any, expected: Any) -> bool:
     """Compare smoke evidence exactly except for platform-scale float noise."""
 
-    if isinstance(actual, BaseModel):
+    if isinstance(actual, PredictiveSummary):
+        actual = actual.model_dump(mode="json", exclude={"sampling_identity"})
+    elif isinstance(actual, BaseModel):
         actual = actual.model_dump(mode="json")
-    if isinstance(expected, BaseModel):
+    if isinstance(expected, PredictiveSummary):
+        expected = expected.model_dump(mode="json", exclude={"sampling_identity"})
+    elif isinstance(expected, BaseModel):
         expected = expected.model_dump(mode="json")
     if isinstance(actual, dict) and isinstance(expected, dict):
         return actual.keys() == expected.keys() and all(
@@ -251,7 +260,15 @@ def verify_model_package_example(package_root: str | Path) -> ExamplePackageVeri
     spec = next((item for item in package.manifest.predictors if item.id == smoke_input.predictor_id), None)
     if spec is None:
         raise ModelPackageVerificationError(f"unknown smoke predictor: {smoke_input.predictor_id}")
-    actual = package.load_predictor(spec.id).predict(smoke_input.features, seed=smoke_input.seed)
+    predictor = package.load_predictor(spec.id)
+    actual = predict_with_sampling_identity(
+        predictor,
+        spec,
+        smoke_input.features,
+        package_verification_sampling_request(
+            predictor, spec, seed=smoke_input.seed
+        ),
+    )
     validate_predictive_summary(actual, spec, expected.capability)
     if not _smoke_outputs_equivalent(actual, expected.summary):
         raise ModelPackageVerificationError("example smoke output differs from expected summary")

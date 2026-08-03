@@ -5,6 +5,7 @@ import { assessPrediction, resolveOutputDefinition } from "../../shared/outputPr
 import { CandidateAddButton } from "../../shared/ui/CandidateAddButton";
 import { hasValidTargetGoal, isTargetRange, targetGoalText, type TargetGoal } from "../../shared/targetGoals";
 import { formatNumberAtDecimals, formatTaskNumber, orderedTaskEntries } from "../../shared/taskPresentation";
+import { SamplingIdentityDetails } from "../../shared/SamplingIdentityDetails";
 import {
   compatiblePackagesForDatasetTask,
   compatibleTaskIdsForDataset,
@@ -2394,6 +2395,16 @@ export function ProjectHub({
         <p>{formatDate(visibleSelectedSnapshot.created_at)} / {history?.candidates.find((item) => item.candidate.id === visibleSelectedSnapshot.candidate_id)?.candidate.name ?? "保存時の候補"}</p>
         <span className="decision-snapshot-badge">{!visibleSelectedSnapshot.payload.provenance?.package?.manifest_sha256 || !modelPackage ? "予測モデル情報を確認できません" : visibleSelectedSnapshot.payload.provenance.package.manifest_sha256 === modelPackage.manifest_sha256 ? "現在と同じ予測モデル" : "現在とは別の予測モデル"}</span>
         <table className="quality-table"><thead><tr><th>特性</th><th>固定予測</th><th>区間・分位</th><th>目標達成</th></tr></thead><tbody>{orderedPredictions(visibleSelectedSnapshot.payload.prediction.predictions).map(([key, value]) => { const assessment = assessPrediction(outputDefinition(key), value); return <tr className={assessment.implausible ? "implausible-output" : undefined} key={key}><th>{outputLabels.get(key) ?? key}{assessment.implausible && <small className="output-warning-badge">⚠ 物理範囲外</small>}</th><td title={assessment.warning ?? undefined}>{formatPredictionPoint(value, (numberValue) => formatOutputNumber(key, numberValue))}</td><td>{predictionHasInterval(value) ? <>{formatOutputNumber(key, value.lower)}–{formatOutputNumber(key, value.upper)} <small>{predictionIntervalLabel(value)}</small></> : "利用不可"}</td><td>{value.goal_probability == null ? value.goal_value == null ? "目標未設定" : "利用不可" : `${formatNumber(value.goal_probability * 100, 0)}%`}</td></tr>; })}</tbody></table>
+        <SamplingIdentityDetails
+          entries={orderedPredictions(visibleSelectedSnapshot.payload.prediction.predictions).map(([target, prediction]) => ({
+            target,
+            label: outputLabels.get(target) ?? target,
+            prediction,
+          }))}
+          snapshotLegacyStatus={visibleSelectedSnapshot.payload.sampling_identity_status}
+          runtimeTypesByTarget={visibleSelectedSnapshot.payload.provenance?.package?.predictor_runtime_types}
+          packageRuntimeTypes={visibleSelectedSnapshot.payload.provenance?.package?.runtime_types}
+        />
         <div className="snapshot-decision-form">
           <label>判断理由<textarea disabled={taskUnavailable || offline || decisionPending} value={decisionNote} onChange={(event) => { decisionDraftRef.current.dirty = true; setDecisionError(""); setDecisionNote(event.target.value); }} placeholder="この時点の予測を採用判断に使う理由" /></label>
           <button className="outline-button" disabled={taskUnavailable || offline || decisionPending} onClick={() => void saveDecision(false)}>{decisionPending ? "保存中…" : "採用判断として固定"}</button>

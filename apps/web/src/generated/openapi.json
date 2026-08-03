@@ -10150,6 +10150,9 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "stochastic_reproducibility": {
+            "$ref": "#/components/schemas/DeveloperStochasticReproducibility"
+          },
           "task_count": {
             "title": "Task Count",
             "type": "integer"
@@ -10165,6 +10168,7 @@
         "required": [
           "schema_version",
           "authority",
+          "stochastic_reproducibility",
           "project_modes",
           "task_count",
           "available_package_count",
@@ -10554,6 +10558,47 @@
           "validation_status"
         ],
         "title": "DeveloperOverviewItem",
+        "type": "object"
+      },
+      "DeveloperStochasticReproducibility": {
+        "additionalProperties": false,
+        "properties": {
+          "identity_schema_version": {
+            "const": "sampling-identity/v1",
+            "title": "Identity Schema Version",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "enum": [
+                "response_curve_sampling_identity_unavailable",
+                "legacy_evidence_sampling_conditions_unavailable"
+              ],
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "runtime_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Runtime Types",
+            "type": "array"
+          },
+          "status": {
+            "const": "effective_sampling_identity_recorded",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "identity_schema_version",
+          "runtime_types",
+          "limitations"
+        ],
+        "title": "DeveloperStochasticReproducibility",
         "type": "object"
       },
       "DifferenceContribution": {
@@ -12934,6 +12979,26 @@
           "values"
         ],
         "title": "IntermediateActualRecord",
+        "type": "object"
+      },
+      "LegacySamplingIdentityUnavailable": {
+        "additionalProperties": false,
+        "description": "Read projection for immutable sample-based evidence written before v1.",
+        "properties": {
+          "reason": {
+            "const": "not_recorded",
+            "default": "not_recorded",
+            "title": "Reason",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "sampling-identity/unavailable-legacy",
+            "default": "sampling-identity/unavailable-legacy",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "title": "LegacySamplingIdentityUnavailable",
         "type": "object"
       },
       "LineageCandidateOption": {
@@ -16889,6 +16954,13 @@
             "title": "Manifest Sha256",
             "type": "string"
           },
+          "predictor_runtime_types": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Predictor Runtime Types",
+            "type": "object"
+          },
           "runtime_types": {
             "items": {
               "type": "string"
@@ -17217,6 +17289,20 @@
             },
             "title": "Quantiles",
             "type": "object"
+          },
+          "sampling_identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SamplingIdentity"
+              },
+              {
+                "$ref": "#/components/schemas/LegacySamplingIdentityUnavailable"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Identity"
           },
           "target_kind": {
             "enum": [
@@ -24371,6 +24457,218 @@
         "title": "SampleGalleryOutput",
         "type": "object"
       },
+      "SamplingIdentity": {
+        "additionalProperties": false,
+        "description": "Effective sampling conditions returned by the runtime that used them.",
+        "properties": {
+          "aggregation_policy": {
+            "enum": [
+              "central-90-linear-quantiles/v1",
+              "central-90-inverted-cdf-quantiles/v1"
+            ],
+            "title": "Aggregation Policy",
+            "type": "string"
+          },
+          "approximation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approximation"
+          },
+          "draw_selection_policy": {
+            "enum": [
+              "all_posterior_draws",
+              "seeded_without_replacement",
+              "seeded_with_replacement"
+            ],
+            "title": "Draw Selection Policy",
+            "type": "string"
+          },
+          "effective_sample_count": {
+            "maximum": 4096.0,
+            "minimum": 2.0,
+            "title": "Effective Sample Count",
+            "type": "integer"
+          },
+          "fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback"
+          },
+          "method_id": {
+            "const": "numpyro-posterior-predictive",
+            "title": "Method Id",
+            "type": "string"
+          },
+          "method_version": {
+            "const": "1.0.0",
+            "title": "Method Version",
+            "type": "string"
+          },
+          "operation": {
+            "minLength": 1,
+            "title": "Operation",
+            "type": "string"
+          },
+          "parameter_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Parameter Digest",
+            "type": "string"
+          },
+          "posterior_draw_count": {
+            "maximum": 4096.0,
+            "minimum": 2.0,
+            "title": "Posterior Draw Count",
+            "type": "integer"
+          },
+          "predictive_resampling_policy": {
+            "enum": [
+              "numpy-default-rng-likelihood/v1",
+              "none-posterior-probability-summary/v1"
+            ],
+            "title": "Predictive Resampling Policy",
+            "type": "string"
+          },
+          "request_policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Policy Digest",
+            "type": "string"
+          },
+          "request_policy_id": {
+            "minLength": 1,
+            "title": "Request Policy Id",
+            "type": "string"
+          },
+          "requested_sample_count": {
+            "maximum": 4096.0,
+            "minimum": 2.0,
+            "title": "Requested Sample Count",
+            "type": "integer"
+          },
+          "runtime_type": {
+            "const": "numpyro.dense_posterior.v1",
+            "title": "Runtime Type",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "sampling-identity/v1",
+            "default": "sampling-identity/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runtime_type",
+          "method_id",
+          "method_version",
+          "operation",
+          "request_policy_id",
+          "request_policy_digest",
+          "seed",
+          "requested_sample_count",
+          "effective_sample_count",
+          "posterior_draw_count",
+          "draw_selection_policy",
+          "predictive_resampling_policy",
+          "aggregation_policy",
+          "parameter_digest"
+        ],
+        "title": "SamplingIdentity",
+        "type": "object"
+      },
+      "SamplingRequest": {
+        "additionalProperties": false,
+        "description": "Versioned operation policy requested from a sample-based runtime.",
+        "properties": {
+          "method_id": {
+            "const": "numpyro-posterior-predictive",
+            "default": "numpyro-posterior-predictive",
+            "title": "Method Id",
+            "type": "string"
+          },
+          "method_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Method Version",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "preview",
+              "detailed_prediction",
+              "response_surface",
+              "prediction_graph_stage",
+              "decision_activity",
+              "screening_proposal",
+              "missing_completion",
+              "candidate_export",
+              "package_verification"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "policy_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Policy Digest",
+            "type": "string"
+          },
+          "policy_id": {
+            "minLength": 1,
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "requested_sample_count": {
+            "anyOf": [
+              {
+                "maximum": 4096.0,
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Sample Count"
+          },
+          "schema_version": {
+            "const": "sampling-request/v1",
+            "default": "sampling-request/v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation",
+          "policy_id",
+          "policy_digest"
+        ],
+        "title": "SamplingRequest",
+        "type": "object"
+      },
       "ScreeningCandidateBatchRequest": {
         "properties": {
           "point_indices": {
@@ -25375,6 +25673,16 @@
             "title": "Points",
             "type": "array"
           },
+          "prediction_sampling_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SamplingRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "project_design_space_binding_provenance": {
             "default": "unbound_legacy",
             "enum": [
@@ -26360,6 +26668,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ModelMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sampling_identity_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacySamplingIdentityUnavailable"
               },
               {
                 "type": "null"

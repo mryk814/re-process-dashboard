@@ -31,6 +31,10 @@ test("developer overview uses a semantic staged flow and collapsible filtered pr
   assert.match(content, /Bundled Capability Atlas/);
   assert.match(content, /現在のWorkspaceを読むModel Libraryとは別のauthority/);
   assert.match(content, /task\.missingness_policy_digest/);
+  assert.match(content, /capabilityAtlas\.stochastic_reproducibility\.runtime_types/);
+  assert.match(content, /実効Sampling Identityを記録/);
+  assert.match(content, /Response Curveはsample-based Runtimeに未対応/);
+  assert.match(content, /Legacy evidenceはsampling条件が未記録/);
   assert.match(content, /role="alert"/);
 });
 

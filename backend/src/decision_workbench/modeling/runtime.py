@@ -21,6 +21,7 @@ from decision_workbench.contracts.prediction_catalog_contracts import (
     Prediction,
     Support,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.contracts.task_contracts import (
     persisted_task_definition_payload,
 )
@@ -62,6 +63,10 @@ from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
 from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveTrainingRangeUnavailableError,
+)
+from decision_workbench.modeling.sampling_identity import (
+    package_verification_sampling_request,
+    predict_with_sampling_identity,
 )
 from decision_workbench.tasks.task_registry import load_task_contracts
 
@@ -171,6 +176,8 @@ class SupportReference:
 
 
 class ModelRuntime:
+    supports_effective_sampling_identity = True
+
     task_id = TASK_ID
     support_policy_id = SIMILARITY_VERSION
     task_contract_digest = semantic_digest(
@@ -285,7 +292,17 @@ class ModelRuntime:
         values = self._feature_builder(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
         capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
-        summaries = {target: predictor.predict(values, seed=0) for target, predictor in self.package_predictors.items()}
+        summaries = {
+            target: predict_with_sampling_identity(
+                predictor,
+                specs[target],
+                values,
+                package_verification_sampling_request(
+                    predictor, specs[target], seed=0
+                ),
+            )
+            for target, predictor in self.package_predictors.items()
+        }
         for target, summary in summaries.items():
             validate_predictive_summary(summary, specs[target], capabilities[target])
         actual = {target: summary.point_estimate for target, summary in summaries.items()}
@@ -509,7 +526,18 @@ class ModelRuntime:
         }
         if self.model_package:
             manifest = self.model_package.manifest
-            meta["package"] = {"id": manifest.package_id, "version": manifest.package_version, "manifest_sha256": self.model_package.manifest_sha256, "runtime_types": sorted({item.runtime_type for item in manifest.predictors})}
+            meta["package"] = {
+                "id": manifest.package_id,
+                "version": manifest.package_version,
+                "manifest_sha256": self.model_package.manifest_sha256,
+                "runtime_types": sorted(
+                    {item.runtime_type for item in manifest.predictors}
+                ),
+                "predictor_runtime_types": {
+                    item.target: item.runtime_type
+                    for item in manifest.predictors
+                },
+            }
             meta["model"] = {
                 "id": manifest.package_id,
                 "version": manifest.package_version,
@@ -526,7 +554,13 @@ class ModelRuntime:
                 }
         return meta
 
-    def predict_core(self, candidate: Candidate, detailed: bool = False, target_values: dict[str, TargetValue] | None = None) -> dict[str, Any]:
+    def predict_core(
+        self,
+        candidate: Candidate,
+        detailed: bool = False,
+        target_values: dict[str, TargetValue] | None = None,
+        sampling_request: SamplingRequest | None = None,
+    ) -> dict[str, Any]:
         x = self.vector_for_candidate(candidate)
         predictions: dict[str, Prediction] = {}
         warnings: list[str] = []
@@ -535,7 +569,15 @@ class ModelRuntime:
             model = self.models.get(label)
             summary = None
             if label in self.package_predictors:
-                summary = self.package_predictors[label].predict({name: float(value) for name, value in zip(self.feature_names, x)}, seed=0)
+                summary = predict_with_sampling_identity(
+                    self.package_predictors[label],
+                    self.package_predictor_specs[label],
+                    {
+                        name: float(value)
+                        for name, value in zip(self.feature_names, x)
+                    },
+                    sampling_request,
+                )
                 value = summary.point_estimate
                 lower, upper = predictive_interval(summary)
                 unit = summary.unit
@@ -596,6 +638,9 @@ class ModelRuntime:
                     name: round(float(component), 6)
                     for name, component in summary.uncertainty_components.items()
                 },
+                sampling_identity=(
+                    None if summary is None else summary.sampling_identity
+                ),
             )
         if candidate.inputs.composition.get("C", self.data.medians["C"]) > 1:
             warnings.append("C量が参照データの通常域から大きく外れています")
@@ -626,8 +671,20 @@ class ModelRuntime:
     def similarity(self, candidate: Candidate, limit: int = 6, target: str | None = None) -> list[dict[str, Any]]:
         return self.evidence(candidate)[1][:limit]
 
-    def predict(self, candidate: Candidate, detailed: bool = False, include_curve: bool = False, target_values: dict[str, TargetValue] | None = None) -> dict[str, Any]:
-        result = self.predict_core(candidate, detailed=detailed, target_values=target_values)
+    def predict(
+        self,
+        candidate: Candidate,
+        detailed: bool = False,
+        include_curve: bool = False,
+        target_values: dict[str, TargetValue] | None = None,
+        sampling_request: SamplingRequest | None = None,
+    ) -> dict[str, Any]:
+        result = self.predict_core(
+            candidate,
+            detailed=detailed,
+            target_values=target_values,
+            sampling_request=sampling_request,
+        )
         support, similar = self.evidence(candidate)
         result["model_support"] = self.support_by_target(candidate)
         if support.status != "supported":

@@ -6591,6 +6591,7 @@ export interface components {
              * @constant
              */
             schema_version: "capability-atlas/v1";
+            stochastic_reproducibility: components["schemas"]["DeveloperStochasticReproducibility"];
             /** Task Count */
             task_count: number;
             /** Tasks */
@@ -6729,6 +6730,23 @@ export interface components {
              * @enum {string}
              */
             validation_status: "ok" | "warning" | "error";
+        };
+        /** DeveloperStochasticReproducibility */
+        DeveloperStochasticReproducibility: {
+            /**
+             * Identity Schema Version
+             * @constant
+             */
+            identity_schema_version: "sampling-identity/v1";
+            /** Limitations */
+            limitations: ("response_curve_sampling_identity_unavailable" | "legacy_evidence_sampling_conditions_unavailable")[];
+            /** Runtime Types */
+            runtime_types: string[];
+            /**
+             * Status
+             * @constant
+             */
+            status: "effective_sampling_identity_recorded";
         };
         /**
          * DifferenceContribution
@@ -7656,6 +7674,24 @@ export interface components {
             values: {
                 [key: string]: number;
             };
+        };
+        /**
+         * LegacySamplingIdentityUnavailable
+         * @description Read projection for immutable sample-based evidence written before v1.
+         */
+        LegacySamplingIdentityUnavailable: {
+            /**
+             * Reason
+             * @default not_recorded
+             * @constant
+             */
+            reason: "not_recorded";
+            /**
+             * Schema Version
+             * @default sampling-identity/unavailable-legacy
+             * @constant
+             */
+            schema_version: "sampling-identity/unavailable-legacy";
         };
         /** LineageCandidateOption */
         LineageCandidateOption: {
@@ -9106,6 +9142,10 @@ export interface components {
              * @default
              */
             manifest_sha256: string;
+            /** Predictor Runtime Types */
+            predictor_runtime_types?: {
+                [key: string]: string;
+            };
             /** Runtime Types */
             runtime_types?: string[];
             /**
@@ -9206,6 +9246,8 @@ export interface components {
             quantiles: {
                 [key: string]: number;
             };
+            /** Sampling Identity */
+            sampling_identity?: components["schemas"]["SamplingIdentity"] | components["schemas"]["LegacySamplingIdentityUnavailable"] | null;
             /**
              * Target Kind
              * @enum {string}
@@ -12054,6 +12096,108 @@ export interface components {
              */
             unit: string;
         };
+        /**
+         * SamplingIdentity
+         * @description Effective sampling conditions returned by the runtime that used them.
+         */
+        SamplingIdentity: {
+            /**
+             * Aggregation Policy
+             * @enum {string}
+             */
+            aggregation_policy: "central-90-linear-quantiles/v1" | "central-90-inverted-cdf-quantiles/v1";
+            /** Approximation */
+            approximation?: string | null;
+            /**
+             * Draw Selection Policy
+             * @enum {string}
+             */
+            draw_selection_policy: "all_posterior_draws" | "seeded_without_replacement" | "seeded_with_replacement";
+            /** Effective Sample Count */
+            effective_sample_count: number;
+            /** Fallback */
+            fallback?: string | null;
+            /**
+             * Method Id
+             * @constant
+             */
+            method_id: "numpyro-posterior-predictive";
+            /**
+             * Method Version
+             * @constant
+             */
+            method_version: "1.0.0";
+            /** Operation */
+            operation: string;
+            /** Parameter Digest */
+            parameter_digest: string;
+            /** Posterior Draw Count */
+            posterior_draw_count: number;
+            /**
+             * Predictive Resampling Policy
+             * @enum {string}
+             */
+            predictive_resampling_policy: "numpy-default-rng-likelihood/v1" | "none-posterior-probability-summary/v1";
+            /** Request Policy Digest */
+            request_policy_digest: string;
+            /** Request Policy Id */
+            request_policy_id: string;
+            /** Requested Sample Count */
+            requested_sample_count: number;
+            /**
+             * Runtime Type
+             * @constant
+             */
+            runtime_type: "numpyro.dense_posterior.v1";
+            /**
+             * Schema Version
+             * @default sampling-identity/v1
+             * @constant
+             */
+            schema_version: "sampling-identity/v1";
+            /** Seed */
+            seed: number;
+        };
+        /**
+         * SamplingRequest
+         * @description Versioned operation policy requested from a sample-based runtime.
+         */
+        SamplingRequest: {
+            /**
+             * Method Id
+             * @default numpyro-posterior-predictive
+             * @constant
+             */
+            method_id: "numpyro-posterior-predictive";
+            /**
+             * Method Version
+             * @default 1.0.0
+             * @constant
+             */
+            method_version: "1.0.0";
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "preview" | "detailed_prediction" | "response_surface" | "prediction_graph_stage" | "decision_activity" | "screening_proposal" | "missing_completion" | "candidate_export" | "package_verification";
+            /** Policy Digest */
+            policy_digest: string;
+            /** Policy Id */
+            policy_id: string;
+            /** Requested Sample Count */
+            requested_sample_count?: number | null;
+            /**
+             * Schema Version
+             * @default sampling-request/v1
+             * @constant
+             */
+            schema_version: "sampling-request/v1";
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+        };
         /** ScreeningCandidateBatchRequest */
         ScreeningCandidateBatchRequest: {
             /** Point Indices */
@@ -12391,6 +12535,7 @@ export interface components {
             objective_execution?: components["schemas"]["ProposalObjectiveExecution"] | null;
             /** Points */
             points: components["schemas"]["ScreeningPoint"][];
+            prediction_sampling_request?: components["schemas"]["SamplingRequest"] | null;
             /**
              * Project Design Space Binding Provenance
              * @default unbound_legacy
@@ -12728,6 +12873,7 @@ export interface components {
             /** Project Design Space Digest */
             project_design_space_digest?: string | null;
             provenance?: components["schemas"]["ModelMetadata"] | null;
+            sampling_identity_status?: components["schemas"]["LegacySamplingIdentityUnavailable"] | null;
         } & {
             [key: string]: unknown;
         };

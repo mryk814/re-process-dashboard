@@ -36,6 +36,10 @@ from decision_workbench.design_priors.sampling import sample_prior
 from decision_workbench.application.runtime_missingness import (
     require_candidate_operation_allowed,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 from decision_workbench.domain.proposal_selection import select_proposal_shortlist
 from decision_workbench.domain.screening_score import (
     evaluate_screening_goal,
@@ -249,6 +253,7 @@ def _evaluate_proposal_pool(
     candidates: list[Candidate],
     *,
     target_values: dict[str, Any],
+    sampling_request: SamplingRequest | None = None,
 ) -> list[dict[str, Any]]:
     """Evaluate a generated pool without building discarded similarity rows."""
 
@@ -271,6 +276,11 @@ def _evaluate_proposal_pool(
             evaluation_candidates,
             detailed=False,
             target_values=target_values,
+            **(
+                {"sampling_request": sampling_request}
+                if sampling_request is not None
+                else {}
+            ),
         )
         if (
             isinstance(runtime, BatchPredictionRuntime)
@@ -281,6 +291,11 @@ def _evaluate_proposal_pool(
                 candidate,
                 detailed=False,
                 target_values=target_values,
+                **(
+                    {"sampling_request": sampling_request}
+                    if sampling_request is not None
+                    else {}
+                ),
             )
             for candidate in evaluation_candidates
         ]
@@ -351,7 +366,18 @@ def run_proposal(
         )
     points: list[dict[str, Any]] = []
     require_candidate_operation_allowed(runtime, base, operation="proposal")
-    base_prediction = runtime.predict(base, detailed=False)
+    sampling_request = sampling_request_for_operation(
+        runtime, "screening_proposal", seed=request.seed
+    )
+    base_prediction = runtime.predict(
+        base,
+        detailed=False,
+        **(
+            {"sampling_request": sampling_request}
+            if sampling_request is not None
+            else {}
+        ),
+    )
     valid_candidates, rejected_by_reason, proposal_rejections = (
         _validate_screening_pool(
             generated,
@@ -386,6 +412,7 @@ def run_proposal(
         runtime,
         proposal_candidates,
         target_values=target_values,
+        sampling_request=sampling_request,
     )
     evaluation_runtime_ms = (perf_counter() - evaluation_started) * 1000
     for (
@@ -647,6 +674,11 @@ def run_proposal(
         "purpose": request.purpose,
         "source_run_id": request.source_run_id,
         "seed": request.seed,
+        "prediction_sampling_request": (
+            None
+            if sampling_request is None
+            else sampling_request.model_dump(mode="json")
+        ),
         "base_candidate_id": base.id,
         "base_inputs": base.inputs.model_dump(mode="json"),
         "base_canonical_input": base_prediction["canonical_input"],

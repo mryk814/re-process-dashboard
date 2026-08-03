@@ -857,3 +857,13 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
 }
 .svg-chart-hit-target { cursor: crosshair; outline: none; pointer-events: all; }
 .svg-chart-hit-target:focus-visible { stroke: #0f172a; stroke-width: 2; }
+.sampling-identity-details { margin-top: 10px; border: 1px solid #d8e0ea; border-radius: 5px; background: #f8fafc; padding: 8px 10px; }
+.sampling-identity-details > summary { cursor: pointer; color: #29445f; font-size: 12px; font-weight: 700; }
+.sampling-identity-details > p { margin: 8px 0; color: #5d6775; font-size: 11px; }
+.sampling-identity-target { border-top: 1px solid #e1e7ef; padding: 8px 0 2px; }
+.sampling-identity-target h4 { margin: 0 0 6px; color: #20344b; font-size: 12px; }
+.sampling-identity-target dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px 12px; margin: 0; }
+.sampling-identity-target dl div { min-width: 0; }
+.sampling-identity-target dt { color: #64748b; font-size: 10px; }
+.sampling-identity-target dd { margin: 2px 0 0; overflow-wrap: anywhere; color: #29445f; font-size: 11px; }
+.sampling-identity-legacy { margin: 0; color: #7a5b19; font-size: 11px; }

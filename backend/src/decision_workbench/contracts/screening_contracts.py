@@ -25,6 +25,7 @@ from decision_workbench.contracts.proposal_contracts import (
     ProposalRejectedCandidate,
     ProposalSelectionEvidence,
 )
+from decision_workbench.contracts.sampling_identity_contracts import SamplingRequest
 from decision_workbench.design_priors.contracts import (
     DesignPriorPackageReference,
     DesignPriorSampleEvidence,
@@ -162,6 +163,7 @@ class ScreeningRunResponse(BaseModel):
     ] | None = None
     source_run_id: str | None = None
     seed: int
+    prediction_sampling_request: SamplingRequest | None = None
     base_candidate_id: str
     base_inputs: CandidateInputs | None = None
     base_canonical_input: dict[str, object]

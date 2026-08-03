@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from decision_workbench.contracts.sampling_identity_contracts import (
+    SamplingIdentity,
+    SamplingRequest,
+)
 from decision_workbench.modeling.packages.contracts import (
     PackageContractError,
     PredictionInterval,
@@ -56,55 +60,96 @@ class _DensePosteriorPredictor:
                 values = np.tanh(values) if activation == "tanh" else np.maximum(values, 0)
         return values
 
-    def _scale(self, name: str, default: float) -> np.ndarray:
+    def _scale(
+        self, name: str, default: float, draw_indices: np.ndarray
+    ) -> np.ndarray:
         if name in self.extras:
             value = np.asarray(self.extras[name], dtype=float).reshape(-1)
             if len(value) not in {1, self.draws}:
                 raise PackageContractError(f"{name} must have one value or one value per posterior draw")
-            return np.broadcast_to(value, (self.draws,))
-        return np.full(self.draws, scalar_config(self.spec, name, default), dtype=float)
+            return np.broadcast_to(value, (self.draws,))[draw_indices]
+        return np.full(len(draw_indices), scalar_config(self.spec, name, default), dtype=float)
 
-    def _continuous_samples(self, output: np.ndarray, seed: int) -> tuple[np.ndarray, str]:
+    def _continuous_samples(
+        self,
+        output: np.ndarray,
+        rng: np.random.Generator,
+        draw_indices: np.ndarray,
+    ) -> tuple[np.ndarray, str]:
         family = self.spec.predictive_family
-        rng = np.random.default_rng(seed)
         location = output[:, 0]
         if family == "normal":
-            return location + self._scale("obs_scale", 1.0) * rng.standard_normal(self.draws), family
+            return location + self._scale("obs_scale", 1.0, draw_indices) * rng.standard_normal(len(draw_indices)), family
         if family == "student_t":
-            df = self._scale("df", 5.0)
+            df = self._scale("df", 5.0, draw_indices)
             if (df <= 2).any():
                 raise PackageContractError("student_t df must be greater than 2")
             draws = np.asarray([rng.standard_t(float(item)) for item in df])
-            return location + self._scale("obs_scale", 1.0) * draws, family
+            return location + self._scale("obs_scale", 1.0, draw_indices) * draws, family
         if family == "lognormal":
-            return np.exp(np.clip(location + self._scale("obs_scale", 1.0) * rng.standard_normal(self.draws), -50, 50)), family
+            return np.exp(np.clip(location + self._scale("obs_scale", 1.0, draw_indices) * rng.standard_normal(len(draw_indices)), -50, 50)), family
         raise PackageContractError(f"not a continuous likelihood: {family}")
 
-    def predict(self, values: dict[str, float], *, seed: int = 0) -> PredictiveSummary:
-        output = self._forward(feature_vector(self.spec, values))
+    def predict(
+        self,
+        values: dict[str, float],
+        *,
+        sampling_request: SamplingRequest,
+    ) -> PredictiveSummary:
+        if sampling_request.method_id != "numpyro-posterior-predictive":
+            raise PackageContractError("sampling request method does not match NumPyro")
+        seed = sampling_request.seed
+        requested_sample_count = sampling_request.requested_sample_count
+        assert requested_sample_count is not None
+        if requested_sample_count < 2 or requested_sample_count > MAX_POSTERIOR_DRAWS:
+            raise PackageContractError(
+                f"sample_count must be between 2 and {MAX_POSTERIOR_DRAWS}"
+            )
+        rng = np.random.default_rng(seed)
+        if requested_sample_count == self.draws:
+            draw_indices = np.arange(self.draws)
+            draw_selection_policy = "all_posterior_draws"
+        elif requested_sample_count < self.draws:
+            draw_indices = rng.choice(
+                self.draws, size=requested_sample_count, replace=False
+            )
+            draw_selection_policy = "seeded_without_replacement"
+        else:
+            draw_indices = rng.choice(
+                self.draws, size=requested_sample_count, replace=True
+            )
+            draw_selection_policy = "seeded_with_replacement"
+        output = self._forward(feature_vector(self.spec, values))[draw_indices]
         family = self.spec.predictive_family
         expected_kind = _KINDS.get(family)
         if expected_kind != self.spec.target_kind:
             raise PackageContractError(f"{family} requires target_kind={expected_kind}")
+        sampling_identity = SamplingIdentity.create(
+            request=sampling_request,
+            requested_sample_count=requested_sample_count,
+            effective_sample_count=len(draw_indices),
+            posterior_draw_count=self.draws,
+            draw_selection_policy=draw_selection_policy,
+            family=family,
+        )
         if family in {"normal", "student_t", "lognormal"}:
-            samples, family = self._continuous_samples(output, seed)
+            samples, family = self._continuous_samples(output, rng, draw_indices)
             quantiles = quantile_summary(samples)
             statistic = "median" if family == "lognormal" else "mean"
             point = float(np.median(samples) if statistic == "median" else np.mean(samples))
-            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"}, prediction_interval=_bayesian_interval(quantiles))
+            return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic=statistic, point_estimate=point, quantiles=quantiles, distribution={"family": family, "support": "positive" if family == "lognormal" else "real"}, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
         if family == "bernoulli_logit":
             probabilities = _sigmoid(output[:, 0])
             probability = float(np.mean(probabilities))
             quantiles = quantile_summary(probabilities)
-            return PredictiveSummary(target=self.spec.target, target_kind="binary", unit=self.spec.unit, point_statistic="probability", point_estimate=probability, quantiles=quantiles, event_probability=probability, distribution={"family": family, "support": "{0,1}"}, prediction_interval=_bayesian_interval(quantiles))
-        rng = np.random.default_rng(seed)
+            return PredictiveSummary(target=self.spec.target, target_kind="binary", unit=self.spec.unit, point_statistic="probability", point_estimate=probability, quantiles=quantiles, event_probability=probability, distribution={"family": family, "support": "{0,1}"}, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
         if family == "poisson_log":
             rate = np.exp(np.clip(output[:, 0], -30, 30))
             samples = rng.poisson(rate)
             point, distribution = float(np.mean(rate)), {"family": family, "support": "nonnegative_integers"}
         elif family == "negative_binomial_log":
             mean = np.exp(np.clip(output[:, 0], -30, 30))
-            dispersion = self._scale("dispersion", 5.0)
+            dispersion = self._scale("dispersion", 5.0, draw_indices)
             if (dispersion <= 0).any():
                 raise PackageContractError("negative binomial dispersion must be positive")
             samples = rng.poisson(rng.gamma(shape=dispersion, scale=mean / dispersion))
@@ -137,7 +182,7 @@ class _DensePosteriorPredictor:
         else:
             raise PackageContractError(f"unsupported NumPyro likelihood: {family}")
         quantiles = quantile_summary(samples, discrete=True)
-        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantiles, distribution=distribution, prediction_interval=_bayesian_interval(quantiles))
+        return PredictiveSummary(target=self.spec.target, target_kind=self.spec.target_kind, unit=self.spec.unit, point_statistic="expected_category" if family == "ordinal_logit" else "rate", point_estimate=point, quantiles=quantiles, distribution=distribution, prediction_interval=_bayesian_interval(quantiles), sampling_identity=sampling_identity)
 
 
 class NumpyroDensePosteriorAdapter:

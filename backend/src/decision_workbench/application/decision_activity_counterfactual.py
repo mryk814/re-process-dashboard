@@ -309,6 +309,7 @@ def _predict(
         candidate,
         detailed=False,
         target_values=context.project.target_values,
+        **context.prediction_sampling_kwargs(),
     )
     predictions = {
         key: Prediction.model_validate(value)

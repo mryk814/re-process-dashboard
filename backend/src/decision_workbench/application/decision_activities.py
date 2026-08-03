@@ -45,6 +45,9 @@ from decision_workbench.persistence.store import Store
 from decision_workbench.application.project_runtime import ProjectRuntimeResolver
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
 from decision_workbench.modeling.package_capabilities import resolve_capabilities
+from decision_workbench.modeling.sampling_identity import (
+    sampling_request_for_operation,
+)
 
 
 class DecisionActivityService:
@@ -197,6 +200,11 @@ class DecisionActivityService:
             candidate_family=self.registry.candidate_family_for(project.task_id),
             runtime=runtime,  # type: ignore[arg-type]
             parameters=parameters,
+            sampling_request=sampling_request_for_operation(
+                runtime,
+                "decision_activity",
+                seed=getattr(parameters, "seed", None),
+            ),
             validate_candidate=validate_candidate,
             resolve_candidate=resolve_candidate,
         )
@@ -241,6 +249,14 @@ class DecisionActivityService:
         if candidate.blend is not None:
             canonical["blend"] = candidate.blend.model_input_payload()
         parameter_payload = payload.parameters.model_dump(mode="json")
+        operation_parameters = {
+            **parameter_payload,
+            "prediction_sampling_request": (
+                None
+                if context.sampling_request is None
+                else context.sampling_request.model_dump(mode="json")
+            ),
+        }
         provenance_identity = {
             "project_id": project.id,
             "task_id": project.task_id,
@@ -254,7 +270,7 @@ class DecisionActivityService:
             "activity_version": definition.version,
             "project_design_space_digest": project.design_space_digest,
             "objective_definition_digest": project.objective_definition_digest,
-            "parameters": parameter_payload,
+            "parameters": operation_parameters,
         }
         semantic_identity = semantic_digest(provenance_identity)
         existing = self.store.get_decision_activity_run_by_identity(semantic_identity)
@@ -268,7 +284,7 @@ class DecisionActivityService:
             pipeline_digest=identity.pipeline_digest,
             support_digest=identity.support_digest,
             operation=definition.activity_id,
-            operation_parameters=parameter_payload,
+            operation_parameters=operation_parameters,
         )
         computed = self.graph.execute(key, lambda: handler.compute(context, prepared))
         if computed.result.schema_version != definition.result_kind:
@@ -285,7 +301,7 @@ class DecisionActivityService:
             feature_pipeline_digest=identity.pipeline_digest,
             activity_id=definition.activity_id,
             activity_version=definition.version,
-            parameters_digest=semantic_digest(parameter_payload),
+            parameters_digest=semantic_digest(operation_parameters),
             project_design_space_digest=project.design_space_digest,
             objective_definition_digest=project.objective_definition_digest,
             project_design_space_binding_provenance=(

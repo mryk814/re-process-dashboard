@@ -174,11 +174,26 @@ class DeveloperCapabilityAtlasTask(BaseModel):
     missingness_policy_digest: str
 
 
+class DeveloperStochasticReproducibility(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["effective_sampling_identity_recorded"]
+    identity_schema_version: Literal["sampling-identity/v1"]
+    runtime_types: list[str]
+    limitations: list[
+        Literal[
+            "response_curve_sampling_identity_unavailable",
+            "legacy_evidence_sampling_conditions_unavailable",
+        ]
+    ]
+
+
 class DeveloperCapabilityAtlas(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["capability-atlas/v1"]
     authority: Literal["bundled"]
+    stochastic_reproducibility: DeveloperStochasticReproducibility
     project_modes: list[
         Literal["single_task", "chain", "prediction_graph"]
     ]
