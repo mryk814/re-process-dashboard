@@ -26,6 +26,13 @@ from decision_workbench.contracts.data_library_contracts import (
     ProfileWorkbenchValidation,
 )
 from decision_workbench.data.file_integrity import file_sha256
+from decision_workbench.data.observation_authoring import (
+    ObservationAuthoringRequest,
+    ObservationAuthoringResult,
+    ObservationAuthoringTask,
+    author_observation_profile,
+    observation_authoring_tasks,
+)
 from decision_workbench.data.profile_workbench import (
     create_source_binding_draft,
     inspect_workbook,
@@ -118,8 +125,9 @@ def _best_binding_draft(source: Path) -> dict[str, Any] | None:
 @asynccontextmanager
 async def _uploaded_workbook(file: UploadFile) -> AsyncIterator[Path]:
     filename = Path(file.filename or "").name
-    if not filename or Path(filename).suffix.lower() != ".xlsx":
-        raise HTTPException(422, "Excel .xlsx ファイルを選択してください")
+    suffix = Path(filename).suffix.lower()
+    if not filename or suffix not in {".csv", ".xlsx"}:
+        raise HTTPException(422, "CSVまたはExcel .xlsx ファイルを選択してください")
     temporary = TemporaryDirectory(prefix="material-workbench-profile-")
     target = Path(temporary.name) / filename
     size = 0
@@ -130,13 +138,14 @@ async def _uploaded_workbook(file: UploadFile) -> AsyncIterator[Path]:
                 if size > MAX_WORKBOOK_BYTES:
                     raise HTTPException(413, "Excelファイルは100 MB以下にしてください")
                 stream.write(chunk)
-        try:
-            with ZipFile(target) as archive:
-                members = archive.infolist()
-                if len(members) > MAX_ARCHIVE_MEMBERS or sum(item.file_size for item in members) > MAX_EXPANDED_WORKBOOK_BYTES:
-                    raise HTTPException(413, "展開後のExcelファイルが大きすぎます")
-        except BadZipFile as exc:
-            raise HTTPException(422, "Excelファイルを読み取れません。壊れていない.xlsxファイルか確認してください") from exc
+        if suffix == ".xlsx":
+            try:
+                with ZipFile(target) as archive:
+                    members = archive.infolist()
+                    if len(members) > MAX_ARCHIVE_MEMBERS or sum(item.file_size for item in members) > MAX_EXPANDED_WORKBOOK_BYTES:
+                        raise HTTPException(413, "展開後のExcelファイルが大きすぎます")
+            except BadZipFile as exc:
+                raise HTTPException(422, "Excelファイルを読み取れません。壊れていない.xlsxファイルか確認してください") from exc
         yield target
     finally:
         await file.close()
@@ -345,6 +354,41 @@ def export_profile(profile_digest: str) -> FileResponse:
         media_type="application/json",
         filename=f"dataset-profile-{profile_digest[:12]}.json",
     )
+
+
+@router.get(
+    "/observation-authoring/tasks",
+    response_model=list[ObservationAuthoringTask],
+    responses=PROFILE_WORKBENCH_API_ERRORS,
+)
+def list_observation_authoring_tasks() -> tuple[ObservationAuthoringTask, ...]:
+    return observation_authoring_tasks()
+
+
+@router.post(
+    "/observation-authoring",
+    response_model=ObservationAuthoringResult,
+    responses=PROFILE_WORKBENCH_API_ERRORS,
+)
+async def author_repeated_measurement_profile(
+    file: UploadFile = File(...),
+    contract_json: str = Form(...),
+) -> ObservationAuthoringResult:
+    try:
+        request = ObservationAuthoringRequest.model_validate_json(contract_json)
+        store = validate_personal_profile_store_path()
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    async with _uploaded_workbook(file) as source:
+        try:
+            return await run_in_threadpool(
+                author_observation_profile,
+                source,
+                request,
+                store_path=store,
+            )
+        except (ProfileFamilyUnavailableError, OSError, ValueError) as exc:
+            raise _validation_error(exc) from exc
 
 
 @router.post(

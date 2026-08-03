@@ -104,6 +104,24 @@ def test_atlas_joins_authorities_without_personal_workspace_state() -> None:
         "direct", "lineage", "screening", "historical_observation",
         "experiment_batch", "copy", "snapshot", "manual",
     ]
+    authoring = atlas["complex_data_authoring"]
+    assert authoring["selected_family"] == {
+        "family": "repeated_measurements",
+        "status": "available",
+        "profile_family": "observation-dataset-profile/v1",
+        "source_contract": "single_visible_table",
+        "validation_plan": "grouped_kfold",
+        "feature_recipe": "observation-identity-v1",
+        "estimator": "ridge.v1",
+        "ui_entry": "profile_workbench",
+    }
+    assert {
+        item["family"]: item["status"]
+        for item in authoring["unselected_families"]
+    } == {
+        "longitudinal_curve": "specialized_only",
+        "relational_workbook": "specialized_only",
+    }
 
 
 def test_generated_atlas_tracks_bundled_package_and_graph_authorities(

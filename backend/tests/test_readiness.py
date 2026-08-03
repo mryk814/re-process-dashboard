@@ -35,7 +35,8 @@ def test_preflight_keeps_group_time_and_technical_roles_out_of_candidate_inputs(
     curve = preflight_source(FIXTURES / "cell-curve.csv", target_columns=("capacity_percent",))
 
     assert repeated.source_shape == "repeated_measurements"
-    assert repeated.route == "profile_workbench"
+    assert repeated.route == "observation_authoring"
+    assert any("観測IDの一意性" in item for item in repeated.ambiguities)
     assert {column.name for column in repeated.columns if column.suggested_role == "grouping"} == {"run_id"}
     assert curve.source_shape == "longitudinal_curve"
     assert curve.route == "profile_workbench"

@@ -56,6 +56,9 @@ def _build(
 ) -> None:
     data = load_observation_data(source, declaration, profile)
     spec = data.spec
+    authoring = data.profile.authoring
+    ridge_alpha = authoring.estimator.alpha if authoring is not None else 1.0
+    validation_folds = authoring.validation_plan.folds if authoring is not None else 5
     contract = load_task_contracts()[spec.task_id]
     artifact_dir = destination / "model-artifacts"
     feature_dir = destination / "feature-pipeline"
@@ -98,8 +101,10 @@ def _build(
         ])
         y = np.asarray([float(row["outputs"][target]) for row in rows])
         groups = [str(row["parent_key"]) for row in rows]
-        residuals, fold_ids, folds = _grouped_oof(x, y, groups, 1.0)
-        mean, scale, weights = _fit(x, y, 1.0)
+        residuals, fold_ids, folds = _grouped_oof(
+            x, y, groups, ridge_alpha, folds=validation_folds
+        )
+        mean, scale, weights = _fit(x, y, ridge_alpha)
         raw_weights = weights[1:] / scale
         raw_bias = float(weights[0] - np.sum(weights[1:] * mean / scale))
         lower, upper = np.quantile(residuals, (0.05, 0.95))
@@ -133,7 +138,17 @@ def _build(
                 "training_rows": len(rows),
                 "evaluation_groups": len(set(groups)),
                 "profile_digest": data.profile_digest,
-                "ridge_alpha": 1.0,
+                "ridge_alpha": ridge_alpha,
+                "validation_plan": (
+                    authoring.validation_plan.model_dump(mode="json")
+                    if authoring is not None
+                    else {"strategy": "grouped-k-fold", "folds": 5}
+                ),
+                "feature_recipe": (
+                    authoring.feature_recipe.model_dump(mode="json")
+                    if authoring is not None
+                    else {"id": "observation-identity-v1", "version": "1.0.0"}
+                ),
             },
         })
         metrics.append(TargetQualityMetric(
@@ -168,7 +183,7 @@ def _build(
     quality_path.write_text(QualityReport(
         schema_version="model-quality-report/v1",
         split="grouped-parent-condition-k-fold",
-        folds=5,
+        folds=validation_folds,
         targets=tuple(metrics),
     ).model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
     files.append(quality_path)

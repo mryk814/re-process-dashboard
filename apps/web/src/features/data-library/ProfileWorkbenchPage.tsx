@@ -8,6 +8,7 @@ import {
   type ApiProfileWorkbenchDraft,
   type ApiDataLibraryDataset,
 } from "../../shared/api/workbench-api";
+import { ObservationAuthoringPanel } from "./ObservationAuthoringPanel";
 
 type ProfileBindingSlot = NonNullable<ApiProfileWorkbenchInspection["binding_draft"]>["slots"][number];
 
@@ -460,6 +461,11 @@ export function ProfileWorkbenchPage({
       <strong>ここで登録するのは参照・探索用Datasetです</strong>
       <span>登録だけならModel Packageの再構築は不要です。学習データとして採用するときは、別途Packageを作成・検証します。</span>
     </aside>
+
+    {onboardingMode === "mapping" && !registration && <ObservationAuthoringPanel onRegistered={(value) => {
+      setRegistration(value);
+      void reloadProfiles();
+    }} />}
 
     <section className="profile-workbench-inputs" aria-label="ExcelとDataset Profileの選択">
       <label className={file ? "profile-file-picker selected" : "profile-file-picker"}>

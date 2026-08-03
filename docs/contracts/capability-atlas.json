@@ -338,6 +338,31 @@
       "incompatible"
     ]
   },
+  "complex_data_authoring": {
+    "selected_family": {
+      "family": "repeated_measurements",
+      "status": "available",
+      "profile_family": "observation-dataset-profile/v1",
+      "source_contract": "single_visible_table",
+      "validation_plan": "grouped_kfold",
+      "feature_recipe": "observation-identity-v1",
+      "estimator": "ridge.v1",
+      "ui_entry": "profile_workbench"
+    },
+    "unselected_families": [
+      {
+        "family": "longitudinal_curve",
+        "status": "specialized_only",
+        "limitation": "axis, series-boundary, extrapolation, and Candidate semantics remain Task-specific"
+      },
+      {
+        "family": "relational_workbook",
+        "status": "specialized_only",
+        "limitation": "table keys, join direction, entity grain, and Candidate authority remain Task-specific"
+      }
+    ],
+    "scope": "The reusable route authors new external single-table repeated observations; it does not rewrite bundled specialized Tasks."
+  },
   "standard_estimator_catalog": {
     "schema_version": "standard-estimator-readiness/v1",
     "promotion_policy": "explicit_only",

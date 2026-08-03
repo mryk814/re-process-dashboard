@@ -2822,6 +2822,25 @@
         "title": "BlendValidationState",
         "type": "object"
       },
+      "Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post": {
+        "properties": {
+          "contract_json": {
+            "title": "Contract Json",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "contract_json"
+        ],
+        "title": "Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post",
+        "type": "object"
+      },
       "Body_import_candidates_api_projects__project_id__candidates_import_post": {
         "properties": {
           "file": {
@@ -15820,6 +15839,133 @@
         "title": "ObjectiveTerm",
         "type": "object"
       },
+      "ObservationAuthoringField": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "kind"
+        ],
+        "title": "ObservationAuthoringField",
+        "type": "object"
+      },
+      "ObservationAuthoringResult": {
+        "additionalProperties": false,
+        "properties": {
+          "eligible_observations": {
+            "title": "Eligible Observations",
+            "type": "integer"
+          },
+          "groups": {
+            "title": "Groups",
+            "type": "integer"
+          },
+          "observations": {
+            "title": "Observations",
+            "type": "integer"
+          },
+          "profile_digest": {
+            "title": "Profile Digest",
+            "type": "string"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_locator": {
+            "title": "Profile Locator",
+            "type": "string"
+          },
+          "quality_findings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Quality Findings",
+            "type": "array"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_digest",
+          "profile_locator",
+          "source_sha256",
+          "task_id",
+          "observations",
+          "eligible_observations",
+          "groups",
+          "quality_findings"
+        ],
+        "title": "ObservationAuthoringResult",
+        "type": "object"
+      },
+      "ObservationAuthoringTask": {
+        "additionalProperties": false,
+        "properties": {
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/ObservationAuthoringField"
+            },
+            "title": "Inputs",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ObservationAuthoringField"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "label",
+          "inputs",
+          "targets"
+        ],
+        "title": "ObservationAuthoringTask",
+        "type": "object"
+      },
       "ObservationGroup": {
         "properties": {
           "count": {
@@ -22907,6 +23053,7 @@
           "route": {
             "enum": [
               "standard_onboarding",
+              "observation_authoring",
               "profile_workbench",
               "task_slice",
               "unsupported"
@@ -31074,6 +31221,122 @@
           }
         },
         "summary": "Inspect Uploaded Workbook",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/observation-authoring": {
+      "post": {
+        "operationId": "author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_author_repeated_measurement_profile_api_profile_workbench_observation_authoring_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationAuthoringResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Author Repeated Measurement Profile",
+        "tags": [
+          "profile-workbench"
+        ]
+      }
+    },
+    "/api/profile-workbench/observation-authoring/tasks": {
+      "get": {
+        "operationId": "list_observation_authoring_tasks_api_profile_workbench_observation_authoring_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ObservationAuthoringTask"
+                  },
+                  "title": "Response List Observation Authoring Tasks Api Profile Workbench Observation Authoring Tasks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Payload Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Observation Authoring Tasks",
         "tags": [
           "profile-workbench"
         ]
