@@ -34,7 +34,6 @@ async function reloadSourceLifecycleAfterReady(
 ) {
   const connectorPath = `/api/data-lifecycle/connectors/${connectorId}`;
   const readyResponses = [
-    waitForDataLibraryCatalog(page),
     page.waitForResponse((response) => (
       response.request().method() === "GET"
       && new URL(response.url()).pathname === "/api/data-lifecycle"
