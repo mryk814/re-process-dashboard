@@ -146,12 +146,12 @@
       "runner": {"executable": "npm", "args": ["run", "build", "-w", "apps/web"]}
     },
     "verification-policy-tests": {
-      "command": "node --test scripts/verification-gates.test.mjs scripts/run-main-acceptance.test.mjs e2e/suite-inventory.test.mjs",
+      "command": "node --test scripts/verification-gates.test.mjs scripts/run-main-acceptance.test.mjs scripts/run-isolated-e2e.test.mjs e2e/suite-inventory.test.mjs",
       "purpose": "risk分類、gate選択、acceptance重複排除、focused test authority、E2E suite inventoryの契約を検証する。",
       "estimatedMinutes": "<1",
       "platform": "any",
       "riskCategories": ["verification-tooling"],
-      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs", "scripts/run-main-acceptance.test.mjs", "e2e/suite-inventory.test.mjs"]}
+      "runner": {"executable": "node", "args": ["--test", "scripts/verification-gates.test.mjs", "scripts/run-main-acceptance.test.mjs", "scripts/run-isolated-e2e.test.mjs", "e2e/suite-inventory.test.mjs"]}
     },
     "checkpoint-acceptance": {
       "command": "npm run verify:checkpoint",
@@ -178,12 +178,12 @@
       "runner": {"executable": "npm", "args": ["run", "test:e2e:failure-states"]}
     },
     "default-playwright": {
-      "command": "npx playwright test",
-      "purpose": "通常の主要画面経路をisolated DBで検証する。",
+      "command": "node scripts/run-isolated-e2e.mjs --default-suite",
+      "purpose": "通常の主要画面経路と長尺Source Lifecycleを別processのisolated DBで並行検証し、結果を集約する。",
       "estimatedMinutes": "4-8",
       "platform": "any",
       "riskCategories": ["frontend", "backend", "persistence"],
-      "runner": {"executable": "npx", "args": ["playwright", "test"]}
+      "runner": {"executable": "node", "args": ["scripts/run-isolated-e2e.mjs", "--default-suite"]}
     },
     "chain-degraded-e2e": {
       "command": "npx playwright test --config playwright.chain-degraded.config.ts",
@@ -310,6 +310,7 @@
     {"risk": "model-runtime", "minimumLevel": "release", "higherLevelDisposition": "follow_up", "followUpOwner": "release-checkpoint", "requiredGates": ["focused-pytest", "model-package-contract-tests", "model-package-release-evidence", "chain-degraded-e2e"], "checkpointOnly": ["windows-delivery"]},
     {"risk": "security", "minimumLevel": "release", "higherLevelDisposition": "direct", "requiredGates": ["security-boundary-tests", "dependency-audit"], "checkpointOnly": ["default-playwright"]},
     {"risk": "electron-distribution", "minimumLevel": "release", "higherLevelDisposition": "direct", "requiredGates": ["dependency-audit", "desktop-unit", "application-build", "windows-delivery"], "checkpointOnly": []},
+    {"risk": "browser-standard-orchestration", "minimumLevel": "pr", "higherLevelDisposition": "direct", "requiredGates": ["verification-policy-tests", "default-playwright"], "checkpointOnly": []},
     {"risk": "e2e-test-infrastructure", "minimumLevel": "checkpoint", "higherLevelDisposition": "follow_up", "followUpOwner": "epic-checkpoint", "requiredGates": ["failure-state-e2e"], "checkpointOnly": ["default-playwright"]},
     {"risk": "chain-degraded-test-infrastructure", "minimumLevel": "checkpoint", "higherLevelDisposition": "follow_up", "followUpOwner": "epic-checkpoint", "requiredGates": ["chain-degraded-e2e"], "checkpointOnly": []},
     {"risk": "shared-recovery-test-infrastructure", "minimumLevel": "checkpoint", "higherLevelDisposition": "follow_up", "followUpOwner": "epic-checkpoint", "requiredGates": ["failure-state-e2e", "chain-degraded-e2e"], "checkpointOnly": ["default-playwright"]},
@@ -331,7 +332,8 @@
       {"risk": "electron-distribution", "matches": ["prefix:apps/desktop/", "prefix:packaging/", "exact:backend/src/sidecar.py", "exact:package.json", "exact:package-lock.json", "exact:uv.lock", "contains:package-windows", "contains:smoke-windows", "contains:smoke-packaged", "contains:installer"]},
       {"risk": "shared-recovery-test-infrastructure", "matches": ["exact:e2e/axe.ts"]},
       {"risk": "chain-degraded-test-infrastructure", "matches": ["exact:playwright.chain-degraded.config.ts", "exact:e2e/chain-degraded.spec.ts", "prefix:e2e/fixtures/"]},
-      {"risk": "e2e-test-infrastructure", "matches": ["exact:playwright.config.ts", "exact:playwright.startup-diagnostic.config.ts", "exact:e2e/api-offline.spec.ts", "exact:e2e/accessibility-smoke.spec.ts", "exact:e2e/degraded-task.spec.ts", "exact:e2e/startup-diagnostic.spec.ts", "exact:e2e/global-teardown.mjs", "exact:e2e/helpers.ts", "exact:e2e/helpers/seed-degraded-task.py", "exact:e2e/owned-database-cleanup.mjs", "exact:e2e/owned-database-cleanup.test.mjs", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
+      {"risk": "browser-standard-orchestration", "matches": ["exact:scripts/run-isolated-e2e.mjs", "exact:scripts/run-isolated-e2e.test.mjs"]},
+      {"risk": "e2e-test-infrastructure", "matches": ["exact:playwright.config.ts", "exact:playwright.startup-diagnostic.config.ts", "exact:e2e/api-offline.spec.ts", "exact:e2e/accessibility-smoke.spec.ts", "exact:e2e/degraded-task.spec.ts", "exact:e2e/startup-diagnostic.spec.ts", "exact:e2e/global-teardown.mjs", "exact:e2e/helpers.ts", "exact:e2e/helpers/seed-degraded-task.py", "exact:e2e/owned-database-cleanup.mjs", "exact:e2e/owned-database-cleanup.test.mjs", "exact:scripts/run-isolated-e2e.mjs", "exact:scripts/run-isolated-e2e.test.mjs", "contains:run-failure-state-e2e", "contains:run-degraded-task-e2e"]},
       {"risk": "verification-tooling", "matches": ["exact:.gitignore", "exact:AGENTS.md", "exact:e2e/suite-inventory.mjs", "exact:e2e/suite-inventory.test.mjs", "exact:scripts/verify.mjs", "exact:scripts/verification-ci.mjs", "exact:scripts/verification-follow-up.mjs", "exact:scripts/verification-gates.mjs", "exact:scripts/verification-gates.json", "exact:scripts/verification-gates.test.mjs", "exact:scripts/run-main-acceptance.ps1", "exact:scripts/run-main-acceptance.test.mjs", "exact:scripts/run-parallel-e2e.mjs", "exact:scripts/check-doc-links.mjs", "exact:scripts/check-doc-structure.mjs", "exact:scripts/check-doc-structure.test.mjs", "exact:scripts/check-current-contract.mjs", "exact:scripts/check-current-contract.test.mjs"]},
       {"risk": "compose-shared-lab", "matches": ["prefix:compose.", "prefix:infrastructure/compose/", "contains:/shared_lab/", "contains:run-shared-lab", "contains:run-compose"]},
       {"risk": "frontend-presentation", "matches": ["prefix:apps/web/", "prefix:e2e/"]},

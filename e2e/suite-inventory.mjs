@@ -3,9 +3,11 @@
  *
  * `shared-read-only` may share the seeded default workspace and therefore run
  * with Playwright workers. `isolated` gets a whole fresh server, DB, and stores
- * per spec process through `test:e2e:isolated`. `serial-journey` deliberately
- * keeps one worker because its assertions mutate the seeded Project or carry a
- * UI journey across phases. `dedicated-runtime` has a separate process contract.
+ * per spec process through the focused isolated runner. `serial-journey`
+ * deliberately keeps one worker because its assertions mutate the seeded
+ * Project or carry a UI journey across phases. `parallel-dedicated` runs beside
+ * the remaining default suite with its own fresh process. `dedicated-runtime`
+ * has a separate runtime contract.
  */
 export const suiteInventory = {
   "accessibility-smoke.spec.ts": {
@@ -194,9 +196,9 @@ export const suiteInventory = {
     reason: "default Candidateとsimilar responseを更新・注入する。",
   },
   "source-lifecycle.spec.ts": {
-    kind: "serial-journey",
-    cleanupOwner: "fresh DB disposal",
-    reason: "Connector、Raw Snapshot、Curation Runを相互参照しながら作成する。",
+    kind: "parallel-dedicated",
+    cleanupOwner: "fresh dedicated process teardown",
+    reason: "長尺journeyがConnector、Raw Snapshot、Curation Runを相互参照するため、remaining default suiteとprocessを分離する。",
   },
   "source-lifecycle-resource-failure.spec.ts": {
     kind: "serial-journey",
@@ -223,9 +225,14 @@ export const isolatedSpecs = Object.entries(suiteInventory)
   .filter(([, entry]) => entry.kind === "isolated")
   .map(([filename]) => filename);
 
+export const parallelDedicatedSpecs = Object.entries(suiteInventory)
+  .filter(([, entry]) => entry.kind === "parallel-dedicated")
+  .map(([filename]) => filename);
+
 export const suiteKinds = new Set([
   "shared-read-only",
   "isolated",
+  "parallel-dedicated",
   "serial-journey",
   "dedicated-runtime",
   "blocked",

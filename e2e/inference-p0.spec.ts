@@ -89,9 +89,12 @@ test("inference runs only for changed candidates and visible selected curves", a
 
   await page.getByRole("button", { name: "候補を追加" }).click();
   await expect.poll(() => previewHeld).toBe(true);
-  await expect.poll(() => new URL(page.url()).searchParams.get("candidate")).not.toBe(selectedCandidateId);
-  const createdCandidateId = new URL(page.url()).searchParams.get("candidate");
-  expect(createdCandidateId).toBeTruthy();
+  let createdCandidateId = "";
+  await expect.poll(() => {
+    const candidateId = new URL(page.url()).searchParams.get("candidate");
+    createdCandidateId = candidateId && candidateId !== selectedCandidateId ? candidateId : "";
+    return Boolean(createdCandidateId);
+  }).toBe(true);
   const successfulCreatedPreviews = () => inferenceResponses.filter(
     (item) => item.kind === "preview" && item.candidateId === createdCandidateId && item.status === 200,
   ).length;

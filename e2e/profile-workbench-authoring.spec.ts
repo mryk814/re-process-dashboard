@@ -15,7 +15,12 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
 
   await page.goto("/?view=profile-workbench");
   await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
+  const inspectionResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/profile-workbench/inspect"
+  ));
   await page.getByRole("button", { name: "内容を確認" }).click();
+  expect((await inspectionResponse).status()).toBe(200);
 
   const editor = page.getByRole("region", { name: "Excel側の名前を対応付ける" });
   await expect(editor).toBeVisible();
@@ -77,7 +82,20 @@ test("renamed optional image evidence does not block registration", async ({ pag
 
   await page.goto("/?view=profile-workbench");
   await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
+  const profileSelect = page.getByLabel("データセットプロファイル");
+  const bundledProcessProfile = profileSelect.locator("option").filter({
+    hasText: "process-v1",
+    hasNotText: "自分のProfile",
+  }).first();
+  const bundledProcessProfileDigest = await bundledProcessProfile.getAttribute("value");
+  expect(bundledProcessProfileDigest).toBeTruthy();
+  await profileSelect.selectOption(bundledProcessProfileDigest!);
+  const inspectionResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/profile-workbench/inspect"
+  ));
   await page.getByRole("button", { name: "内容を確認" }).click();
+  expect((await inspectionResponse).status()).toBe(200);
 
   const editor = page.getByRole("region", { name: "Excel側の名前を対応付ける" });
   await expect(editor).toBeVisible();

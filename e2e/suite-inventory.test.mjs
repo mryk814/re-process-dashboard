@@ -3,6 +3,7 @@ import { readdirSync } from "node:fs";
 import test from "node:test";
 import {
   isolatedSpecs,
+  parallelDedicatedSpecs,
   sharedReadOnlySpecs,
   suiteInventory,
   suiteKinds,
@@ -35,5 +36,8 @@ test("parallel selections contain only deliberately isolated or read-only specs"
     "chain-input-contract.spec.ts",
     "profile-workbench-authoring.spec.ts",
     "screening-workbench.spec.ts",
+  ]);
+  assert.deepEqual(parallelDedicatedSpecs, [
+    "source-lifecycle.spec.ts",
   ]);
 });

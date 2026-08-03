@@ -14,6 +14,7 @@ source-of-truth: e2e/suite-inventory.mjs
 | --- | --- | --- |
 | `shared-read-only` | `npx playwright test --config playwright.read-only.config.ts` | seeded Workspaceを読むだけ。spec単位で2 workerまで許可する |
 | `isolated` | `node scripts/run-isolated-e2e.mjs` | specごとにfresh API、Web、SQLite、Model/Profile/Task storeを持つ |
+| `parallel-dedicated` | default gate内の`node scripts/run-isolated-e2e.mjs --default-suite` | remaining default suiteと並行するfresh専用processを持つ |
 | `serial-journey` | `npx playwright test` | `default` Projectのmutationまたは文脈継続を意図して検証するためworkers: 1 |
 | `dedicated-runtime` | 個別config／runner | degraded、startup、sample galleryなど専用process条件を持つ |
 | `blocked` | default serial suiteのまま | fresh実行でも既存failureがある。retryやparallel化で隠さず、先にfailureを直す |
@@ -23,12 +24,14 @@ source-of-truth: e2e/suite-inventory.mjs
 ```powershell
 npx playwright test --config playwright.read-only.config.ts
 node scripts/run-isolated-e2e.mjs
+node scripts/run-isolated-e2e.mjs --parallel-dedicated
 ```
 
 この二つはdefault E2E全体の代替ではない。
 前者は`shared-read-only`だけ、後者は`isolated`だけを実行するfocused runnerであり、
 `serial-journey`と`dedicated-runtime`を含まない。
-通常の全体gateは引き続き`npx playwright test`と専用runnerで構成する。
+通常の全体gateは`node scripts/run-isolated-e2e.mjs --default-suite`で、
+remaining default suiteと`parallel-dedicated` specを並行実行して結果を集約する。
 
 read-only configはPlaywright worker 2で実行する。spec内のlarge lineage readは順序を保つので、`fullyParallel`にはしない。
 isolated runnerはmutableでもProject／Candidate／Runをspec外へ漏らせるものを、別API/Web processとして最大2本動かす。
@@ -40,6 +43,7 @@ isolated runnerは各specをOSから別々に取得したAPI/Web portで実行�
 mutable specはretryを許可しない。runnerは`PLAYWRIGHT_ISOLATED_RETRIES`が`0`以外ならserverを起動する前に停止し、run IDをreportへ残す。これにより、失敗した最初のmutationを同じresource identityへ二重適用するretryを「たまたま通る」結果にしない。
 
 cleanupはglobal teardownの終了時に行う。DB、WAL/SHM、Model/Profile/Task storeの結果は各runの`owned-e2e-cleanup-*.jsonl`に`removed`、`busy`、`failed`として残す。cleanup問題をserver stderrだけで判断しない。
+各processには既定30分の監督deadlineがあり、超過時はprocess treeの終了を確認してから親runnerが同じ4資源をcleanupする。強制cleanupも`owned-e2e-cleanup-forced.jsonl`へ記録し、終了不能またはcleanup不完了を成功扱いしない。
 
 ## assertion owner
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { defineConfig } from "@playwright/test";
+import { parallelDedicatedSpecs } from "./e2e/suite-inventory.mjs";
 
 const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? 8875);
 const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 5199);
@@ -38,6 +39,7 @@ const taskStore = process.env.PLAYWRIGHT_TASK_STORE_PATH
 if (ownsTaskStore) process.env.PLAYWRIGHT_OWNED_TASK_STORE_PATH = taskStore;
 const outputDir = process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results";
 const ciDiagnostics = process.env.PLAYWRIGHT_CI_DIAGNOSTICS === "1";
+const includeParallelDedicated = process.env.PLAYWRIGHT_INCLUDE_PARALLEL_DEDICATED === "1";
 const reporter = ciDiagnostics
   ? [
       ["list"],
@@ -65,7 +67,15 @@ export default defineConfig({
   // chain-degraded.spec.ts needs the broken evaluation fixtures and ports of
   // playwright.chain-degraded.config.ts. Running it here only produces a
   // connection error against a server this config never starts.
-  testIgnore: ["chain-degraded.spec.ts", "startup-diagnostic.spec.ts", "sample-gallery.spec.ts"],
+  testIgnore: [
+    // Node contract tests live beside the specs but belong to `node --test`,
+    // never to either Playwright process.
+    "**/*.test.mjs",
+    "chain-degraded.spec.ts",
+    "startup-diagnostic.spec.ts",
+    "sample-gallery.spec.ts",
+    ...(includeParallelDedicated ? [] : parallelDedicatedSpecs),
+  ],
   timeout: 45_000,
   outputDir,
   reporter,
