@@ -14,8 +14,52 @@ from decision_workbench.contracts.model_capability_contracts import (
     ModelPackageCapabilityMatrix,
     TargetCapabilityMatrix,
 )
-from decision_workbench.contracts.task_contracts import RuntimeCapability
-from decision_workbench.modeling.packages.contracts import ModelPackageManifest
+from decision_workbench.contracts.task_contracts import (
+    RuntimeCapability,
+    TargetRuntimeCapability,
+)
+from decision_workbench.modeling.packages.contracts import (
+    ModelPackageManifest,
+    PredictorSpec,
+)
+
+
+def standard_predictor_capability(
+    predictor: PredictorSpec,
+    task_capability: TargetRuntimeCapability,
+) -> TargetRuntimeCapability:
+    """Project a standard builder predictor's actual prediction semantics."""
+
+    training = predictor.config.get("training")
+    estimator_id = training.get("estimator_id") if isinstance(training, dict) else None
+    if not isinstance(estimator_id, str):
+        return task_capability
+    if estimator_id in {"logistic.v1", "lightgbm-binary.v1"}:
+        predictive = (("probability",), False, False, True, False, "unavailable")
+    elif estimator_id == "poisson.v1":
+        predictive = (("rate",), False, True, True, False, "unavailable")
+    elif estimator_id == "exact-gp-rbf.v1":
+        predictive = (("mean",), True, True, True, True, "distribution")
+    elif estimator_id == "lightgbm-regression.v1" and predictor.predictive_family == "normal":
+        predictive = (("mean",), True, True, True, True, "unavailable")
+    elif estimator_id in {"ridge.v1", "lightgbm-regression.v1"}:
+        predictive = (("mean",), False, True, False, False, "unavailable")
+    else:
+        raise ValueError(
+            f"standard predictor declares unknown estimator recipe: {estimator_id}"
+        )
+    points, std, quantiles, distribution, components, goal = predictive
+    return task_capability.model_copy(update={
+        "target": predictor.target,
+        "target_kind": predictor.target_kind,
+        "point_statistics": points,
+        "standard_deviation": std,
+        "quantiles": quantiles,
+        "samples": False,
+        "parametric_distribution": distribution,
+        "uncertainty_components": components,
+        "goal_probability": goal,
+    })
 
 
 def package_capability_matrix(
@@ -33,9 +77,13 @@ def package_capability_matrix(
         raise ValueError("model package predictors do not match runtime capability targets")
     targets = []
     for target, predictor in predictors.items():
-        item = declared[target]
-        if "target_kind" in item.model_fields_set and item.target_kind != predictor.target_kind:
+        declared_item = declared[target]
+        if (
+            "target_kind" in declared_item.model_fields_set
+            and declared_item.target_kind != predictor.target_kind
+        ):
             raise ValueError("model package target kind does not match runtime capability")
+        item = standard_predictor_capability(predictor, declared_item)
         targets.append(TargetCapabilityMatrix(
             target=target, target_kind=predictor.target_kind,
             predictive_family=predictor.predictive_family,

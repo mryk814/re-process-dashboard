@@ -37,7 +37,10 @@ from decision_workbench.modeling.missingness import (
     require_operation_allowed,
     resolve_missingness_operation_capability,
 )
-from decision_workbench.modeling.package_capabilities import package_capability_matrix
+from decision_workbench.modeling.package_capabilities import (
+    package_capability_matrix,
+    standard_predictor_capability,
+)
 from decision_workbench.modeling.packages.contracts import (
     FeaturePipelineDocument,
     PredictiveSummary,
@@ -128,7 +131,7 @@ class TabularRegressionRuntime:
         self.output_definitions = {
             item.key: item for item in self.task_definition.outputs
         }
-        self.runtime_capabilities = {
+        declared_capabilities = {
             item.target: item
             for item in load_task_contracts()[
                 self.task_id
@@ -169,6 +172,13 @@ class TabularRegressionRuntime:
         if tuple(manifest.feature_pipeline.output_features) != expected_features:
             raise ValueError("Tabular model package feature order is incompatible")
         self.predictor_specs = {spec.target: spec for spec in manifest.predictors}
+        self.runtime_capabilities = {
+            target: standard_predictor_capability(
+                predictor,
+                declared_capabilities[target],
+            )
+            for target, predictor in self.predictor_specs.items()
+        }
         self.predictors = {
             spec.target: self.model_package.load_predictor(spec.id)
             for spec in manifest.predictors

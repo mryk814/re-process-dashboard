@@ -11,6 +11,7 @@ from decision_workbench.modeling.package_capabilities import (
     CapabilityRequirement,
     package_capability_matrix,
     resolve_capabilities,
+    standard_predictor_capability,
 )
 from decision_workbench.modeling.packages.contracts import ModelPackageManifest
 
@@ -62,6 +63,32 @@ def test_matrix_rejects_target_declaration_mismatch() -> None:
     capability = _capability().model_copy(update={"targets": _capability().targets[:-1]})
     with pytest.raises(ValueError, match="predictors do not match"):
         package_capability_matrix(_manifest(), capability, manifest_digest="a" * 64)
+
+
+def test_standard_predictor_projects_actual_capability_instead_of_active_package_shape() -> None:
+    predictor = _manifest().predictors[2].model_copy(
+        update={
+            "runtime_type": "builtin.linear.v1",
+            "architecture_id": None,
+            "predictive_family": "empirical_quantiles",
+            "config": {"training": {"estimator_id": "ridge.v1"}},
+        }
+    )
+    active_gp_capability = _capability().targets[2]
+    projected = standard_predictor_capability(predictor, active_gp_capability)
+
+    assert projected.quantiles is True
+    assert projected.standard_deviation is False
+    assert projected.parametric_distribution is False
+    assert projected.goal_probability == "unavailable"
+
+
+def test_standard_predictor_rejects_unknown_recipe_metadata() -> None:
+    predictor = _manifest().predictors[0].model_copy(
+        update={"config": {"training": {"estimator_id": "arbitrary.v1"}}}
+    )
+    with pytest.raises(ValueError, match="unknown estimator recipe"):
+        standard_predictor_capability(predictor, _capability().targets[0])
 
 
 def test_matrix_contract_rejects_duplicate_targets_and_invalid_joint_samples() -> None:

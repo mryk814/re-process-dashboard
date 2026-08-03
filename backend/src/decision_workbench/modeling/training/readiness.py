@@ -179,6 +179,26 @@ class EstimatorReadinessResolution(ContractModel):
     promotes_package: Literal[False] = False
 
 
+def compatible_standard_estimator_ids(
+    outputs: tuple[OutputDefinition, ...],
+) -> tuple[str, ...]:
+    """Return shipped recipes whose target semantics cover every Task output.
+
+    This is deliberately a contract-only candidate resolver. Row, group,
+    feature, validation, dependency, and capacity checks remain owned by
+    ``resolve_estimator_contract_readiness`` once a concrete Training Snapshot
+    is selected.
+    """
+
+    target_kinds = {output.target_kind for output in outputs}
+    return tuple(
+        entry.estimator_id
+        for entry in _CATALOG.entries
+        if entry.builder_status == "standard_builder"
+        and target_kinds.issubset(set(entry.target_kinds))
+    )
+
+
 def _implementation_fields(estimator_id: str) -> dict[str, str]:
     implementation = estimator_implementation(estimator_id)
     return {

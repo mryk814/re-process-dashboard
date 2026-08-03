@@ -52,6 +52,9 @@ from decision_workbench.data.profile_family_registry import (  # noqa: E402
     profile_task_ids,
 )
 from decision_workbench.tasks.task_registry import load_task_contracts  # noqa: E402
+from decision_workbench.modeling.training.readiness import (  # noqa: E402
+    compatible_standard_estimator_ids,
+)
 from decision_workbench.task_composition.builtin.sources import PRIMARY_DEFAULT_SOURCE  # noqa: E402
 from decision_workbench.task_composition.catalog import registered_task_modules, resolve_task_source, task_module  # noqa: E402
 from decision_workbench.developer_experience.task_scaffolding import (  # noqa: E402
@@ -234,16 +237,27 @@ def build_package(
         selected_estimator = authoring.default_estimator_id
         selected_options = authoring.default_options()
     if selected_estimator is not None:
-        if authoring is None or selected_estimator not in authoring.estimator_ids:
-            supported = (
-                ", ".join(authoring.estimator_ids)
-                if authoring is not None
-                else "none"
+        if authoring is None:
+            raise ValueError(
+                f"{task_id} has no standard model authoring seam for "
+                f"{selected_estimator}"
+            )
+        contract = load_task_contracts()[task_id]
+        allowed = authoring.allowed_estimator_ids(
+            compatible_standard_estimator_ids(
+                contract.task_definition.outputs
+            )
+        )
+        if selected_estimator not in allowed:
+            reason = (
+                f": {authoring.specialization_reason}"
+                if authoring.specialization_reason
+                else ""
             )
             raise ValueError(
-                f"{task_id} does not support standard estimator {selected_estimator}; "
-                f"supported: {supported}"
+                f"{selected_estimator} is outside the Task recipe policy{reason}"
             )
+        selected_options = authoring.resolved_options(selected_options)
         recipe = estimator_recipe(selected_estimator, selected_options)
     dataset = export_dataset(
         task_id,
@@ -313,16 +327,20 @@ def compare_estimators(
     if len(estimators) < 2 or len(set(estimators)) != len(estimators):
         raise ValueError("comparison requires at least two unique estimators")
     authoring = task_module(task_id).standard_model_authoring
-    unsupported = (
-        set(estimators)
-        - set(authoring.estimator_ids if authoring is not None else ())
-    )
+    if authoring is None:
+        raise ValueError(
+            f"{task_id} has no standard model authoring seam for comparison"
+        )
+    contract = load_task_contracts()[task_id]
+    allowed = set(authoring.allowed_estimator_ids(
+        compatible_standard_estimator_ids(contract.task_definition.outputs)
+    ))
+    unsupported = set(estimators) - allowed
     if unsupported:
         raise ValueError(
-            f"{task_id} does not support comparison estimators: "
+            "comparison estimators are outside the Task recipe policy: "
             + ", ".join(sorted(unsupported))
         )
-    output.mkdir(parents=True, exist_ok=True)
     options = estimator_options or {}
     unknown_options = set(options) - set(estimators)
     if unknown_options:
@@ -332,6 +350,12 @@ def compare_estimators(
         )
     if any(not isinstance(value, dict) for value in options.values()):
         raise ValueError("each comparison estimator option must be a JSON object")
+    for estimator_id in estimators:
+        estimator_recipe(
+            estimator_id,
+            authoring.resolved_options(options.get(estimator_id)),
+        )
+    output.mkdir(parents=True, exist_ok=True)
 
     entries: list[dict[str, Any]] = []
     common_feature_dataset_id: str | None = None
@@ -554,18 +578,28 @@ def package_status(config: Path) -> dict[str, Any]:
 
 def estimator_inventory(task_id: str | None = None) -> dict[str, Any]:
     selected = (task_id,) if task_id else TASKS
+    contracts = load_task_contracts()
     return {
         "schema_version": "standard-estimator-inventory/v1",
         "tasks": {
-            item: list(
-                task_module(item).standard_model_authoring.estimator_ids
+            item: (
+                list(
+                    task_module(item).standard_model_authoring.allowed_estimator_ids(
+                        compatible_standard_estimator_ids(
+                            contracts[item].task_definition.outputs
+                        )
+                    )
+                )
                 if task_module(item).standard_model_authoring is not None
-                else ()
+                else []
             )
             for item in selected
         },
         "note": (
-            "Estimator IDs are allow-listed training recipes. "
+            "Estimator IDs are resolved from target semantics and the bounded "
+            "standard recipe catalog. Concrete Training Snapshot readiness "
+            "still checks rows, groups, features, validation, dependencies, "
+            "and capacity. "
             "Omitting --estimator uses the Task's default Training Recipe when "
             "one is declared; advanced Tasks keep their specialized workflow."
         ),

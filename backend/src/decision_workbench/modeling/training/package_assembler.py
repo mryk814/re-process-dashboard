@@ -36,10 +36,7 @@ from decision_workbench.modeling.training.feature_recipe import (
     transform_feature_recipe,
     validate_recipe_canonical_inputs,
 )
-from decision_workbench.modeling.training.recipe import (
-    ConcreteEstimatorRecipe,
-    validate_recipe_capability,
-)
+from decision_workbench.modeling.training.recipe import ConcreteEstimatorRecipe
 from decision_workbench.modeling.training.readiness import (
     resolve_estimator_contract_readiness,
 )
@@ -297,7 +294,6 @@ def _build(
     positive_targets: frozenset[str],
     feature_recipe: FeatureRecipe | None,
 ) -> None:
-    validate_recipe_capability(recipe, contract.runtime_capability)
     canonical_paths = tuple(
         field.path
         for group in sorted(

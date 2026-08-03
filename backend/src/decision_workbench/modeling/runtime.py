@@ -61,6 +61,7 @@ from decision_workbench.modeling.packages.contracts import (
 )
 from decision_workbench.modeling.packages.loader import ModelPackageLoader
 from decision_workbench.modeling.packages.verification import VerifiedModelPackage
+from decision_workbench.modeling.package_capabilities import standard_predictor_capability
 from decision_workbench.modeling.response_curve_errors import (
     ResponseCurveTrainingRangeUnavailableError,
 )
@@ -291,7 +292,14 @@ class ModelRuntime:
         expected = json.loads(self.model_package.artifact_path(smoke.expected).read_text(encoding="utf-8"))
         values = self._feature_builder(candidate, self.composition_defaults).as_dict()
         specs = {spec.target: spec for spec in self.model_package.manifest.predictors}
-        capabilities = {item.target: item for item in load_task_contracts()[TASK_ID].runtime_capability.targets}
+        declared = {
+            item.target: item
+            for item in load_task_contracts()[TASK_ID].runtime_capability.targets
+        }
+        capabilities = {
+            target: standard_predictor_capability(spec, declared[target])
+            for target, spec in specs.items()
+        }
         summaries = {
             target: predict_with_sampling_identity(
                 predictor,

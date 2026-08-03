@@ -569,33 +569,44 @@ def test_exact_gp_row_limit_fails_without_a_partial_package(
     assert not package.exists()
 
 
-def test_task_rejects_an_estimator_that_cannot_meet_runtime_capability(
+def test_task_can_build_a_standard_baseline_without_matching_active_package_capabilities(
     tmp_path: Path,
 ) -> None:
     dataset = tmp_path / "feature-dataset.json"
-    with pytest.raises(ValueError, match="does not support standard estimator ridge.v1"):
-        build_package(
-            HOT_ROLLING_TASK,
-            SOURCE,
-            tmp_path / "invalid-package",
-            dataset,
-            package_id="invalid-ridge",
-            package_version="1.0.0",
-            replace=False,
-            estimator="ridge.v1",
-        )
-    assert not dataset.exists()
+    package = tmp_path / "ridge-baseline"
+    build_package(
+        HOT_ROLLING_TASK,
+        SOURCE,
+        package,
+        dataset,
+        package_id="hot-rolling-ridge-baseline",
+        package_version="1.0.0",
+        replace=False,
+        estimator="ridge.v1",
+    )
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["predictors"][0]["config"]["training"]["estimator_id"] == "ridge.v1"
+    assert manifest["predictors"][0]["predictive_family"] == "empirical_quantiles"
+    assert dataset.is_file()
 
 
 def test_estimator_inventory_exposes_only_compatible_task_choices() -> None:
     assert estimator_inventory(HOT_ROLLING_TASK)["tasks"] == {
-        HOT_ROLLING_TASK: ["exact-gp-rbf.v1"]
+        HOT_ROLLING_TASK: [
+            "ridge.v1",
+            "exact-gp-rbf.v1",
+            "lightgbm-regression.v1",
+        ]
     }
     assert estimator_inventory("heat-treatment-tradeoff-v1")["tasks"] == {
         "heat-treatment-tradeoff-v1": [
             "ridge.v1",
+            "exact-gp-rbf.v1",
             "lightgbm-regression.v1",
         ]
+    }
+    assert estimator_inventory("battery-degradation-v1")["tasks"] == {
+        "battery-degradation-v1": ["lightgbm-regression.v1"]
     }
 
 
@@ -732,6 +743,41 @@ def test_standard_lightgbm_regression_keeps_monotonicity_in_the_recipe(
     ]
     assert manifest["predictors"][0]["predictive_family"] == "normal"
     assert manifest["predictors"][0]["config"]["residual_std"] > 0
+
+
+def test_battery_recipe_policy_rejects_dropping_scientific_monotonicity(
+    tmp_path: Path,
+) -> None:
+    task_id = "battery-degradation-v1"
+    with pytest.raises(ValueError, match="fixed by Task scientific constraints"):
+        build_package(
+            task_id,
+            resolve_task_source(task_id),
+            tmp_path / "battery-invalid",
+            tmp_path / "battery-invalid-dataset.json",
+            package_id="battery-invalid",
+            package_version="1.0.0",
+            replace=False,
+            estimator="lightgbm-regression.v1",
+            estimator_options={"monotone_decreasing_features": []},
+        )
+
+
+def test_battery_recipe_policy_rejects_unconstrained_standard_baseline(
+    tmp_path: Path,
+) -> None:
+    task_id = "battery-degradation-v1"
+    with pytest.raises(ValueError, match="outside the Task recipe policy"):
+        build_package(
+            task_id,
+            resolve_task_source(task_id),
+            tmp_path / "battery-ridge",
+            tmp_path / "battery-ridge-dataset.json",
+            package_id="battery-ridge",
+            package_version="1.0.0",
+            replace=False,
+            estimator="ridge.v1",
+        )
 
 
 def test_standard_lightgbm_empirical_adapter_returns_fitted_interval(
