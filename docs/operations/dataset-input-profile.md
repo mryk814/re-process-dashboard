@@ -19,6 +19,9 @@
 ```
 
 宣言のないroleでは画像を探しに行きません。
+`evidence_image` はentity identity、relation、モデル入力、実測targetではなく補助証拠なので、
+列が無くてもDataset登録を止めません。列名が異なる場合はProfile Workbenchで明示対応し、
+対応した列はLineage／Evidence参照として保持します。
 
 画像パスは元データ由来で信頼できないため、解決は次のとおり狭く固定しています
 （[data/evidence_images.py](../../backend/src/decision_workbench/data/evidence_images.py)）。

@@ -11,7 +11,9 @@ from openpyxl import Workbook, load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data" / "source" / "material_workbench_tutorial_v2.xlsx"
+PROCESS_SOURCE = ROOT / "data" / "source" / "material_workbench_process_v1.xlsx"
 PROFILE_SOURCE_NAME = "dataset-input-profile-tutorial"
+PROCESS_PROFILE_SOURCE_NAME = "dataset-input-profile-process-v1"
 MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -22,6 +24,24 @@ def _file_payload(contents: bytes, name: str = "new-source.xlsx") -> dict[str, t
 def _workbook_copy_with_new_digest() -> bytes:
     workbook = load_workbook(SOURCE)
     workbook.properties.title = "Profile Workbench API test"
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
+def _process_workbook_with_one_renamed_evidence_image_column() -> bytes:
+    workbook = load_workbook(PROCESS_SOURCE)
+    hot_sheet = workbook["熱延組織"]
+    hot_headers = [cell.value for cell in hot_sheet[1]]
+    hot_sheet.delete_cols(hot_headers.index("画像リンク先") + 1)
+    anneal_sheet = workbook["焼鈍板組織"]
+    anneal_headers = [cell.value for cell in anneal_sheet[1]]
+    anneal_sheet.cell(
+        row=1,
+        column=anneal_headers.index("画像リンク名") + 1,
+        value="焼鈍顕微鏡ファイル",
+    )
     output = BytesIO()
     workbook.save(output)
     workbook.close()
@@ -491,6 +511,82 @@ def test_binding_draft_saves_standalone_profile_and_registers_in_same_session(
     )
     assert registered_dataset["profile_available"] is True
     assert "profile_locator" not in registered_dataset
+
+
+def test_renamed_optional_evidence_can_be_mapped_without_other_image_column(
+    client: TestClient,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "personal-profiles"
+    monkeypatch.setenv("WORKBENCH_PROFILE_STORE_PATH", str(store))
+    contents = _process_workbook_with_one_renamed_evidence_image_column()
+    profile = next(
+        item
+        for item in client.get("/api/profile-workbench/profiles").json()
+        if item["source_name"] == PROCESS_PROFILE_SOURCE_NAME
+    )
+
+    inspection = client.post(
+        "/api/profile-workbench/inspect",
+        data={"profile_digest": profile["profile_digest"]},
+        files=_file_payload(contents, "process-partial-images.xlsx"),
+    )
+
+    assert inspection.status_code == 200, inspection.text
+    draft = inspection.json()["binding_draft"]
+    slots = {item["slot_id"]: item for item in draft["slots"]}
+    missing_slot = slots["column:hot_microstructure:画像リンク先"]
+    renamed_slot = slots["column:anneal_microstructure:画像リンク名"]
+    assert missing_slot["required"] is False
+    assert missing_slot["state"] == "unresolved"
+    assert renamed_slot["required"] is False
+    assert renamed_slot["state"] in {"suggested", "unresolved"}
+    assert draft["complete"] is True
+
+    saved = client.post(
+        "/api/profile-workbench/profiles/drafts",
+        data={
+            "base_profile_digest": profile["profile_digest"],
+            "expected_source_sha256": sha256(contents).hexdigest(),
+            "bindings_json": json.dumps(
+                [
+                    {
+                        "slot_id": slot_id,
+                        "state": "confirmed",
+                        "source_name": source_name,
+                    }
+                    for slot_id, source_name in {
+                        "column:anneal_microstructure:画像リンク名": "焼鈍顕微鏡ファイル",
+                    }.items()
+                ],
+                ensure_ascii=False,
+            ),
+        },
+        files=_file_payload(contents, "process-partial-images.xlsx"),
+    )
+
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["validation"]["registration_ready"] is True
+    effective = json.loads(
+        Path(saved.json()["profile_locator"]).read_text(encoding="utf-8")
+    )
+    assert effective["shared"]["column_aliases"]["anneal_microstructure"][
+        "画像リンク名"
+    ] == "焼鈍顕微鏡ファイル"
+
+    registered = client.post(
+        "/api/profile-workbench/register",
+        data={
+            "profile_digest": saved.json()["profile_digest"],
+            "expected_source_sha256": sha256(contents).hexdigest(),
+            "name": "画像証拠なし工程データ",
+        },
+        files=_file_payload(contents, "process-partial-images.xlsx"),
+    )
+
+    assert registered.status_code == 200, registered.text
+    assert registered.json()["profile_id"] == "material-workbench-process-v1"
 
 
 def test_binding_draft_keeps_ambiguous_column_unresolved(

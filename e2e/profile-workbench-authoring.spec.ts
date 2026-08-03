@@ -56,3 +56,46 @@ test("unknown workbook names become a saved Profile and registered Dataset", asy
   await expect(page.getByRole("heading", { name: "新しいプロジェクト" })).toBeVisible();
   await expect(page.getByLabel("Dataset")).not.toHaveValue("");
 });
+
+
+test("renamed optional image evidence does not block registration", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const workbook = testInfo.outputPath("process-partial-images.xlsx");
+  const built = spawnSync(
+    process.platform === "win32" ? "uv.exe" : "uv",
+    [
+      "run",
+      "python",
+      "e2e/helpers/build-profile-workbench-fixture.py",
+      workbook,
+      "--fixture",
+      "partial-evidence",
+    ],
+    { cwd: process.cwd(), encoding: "utf8" },
+  );
+  expect(built.status, built.stderr || built.stdout).toBe(0);
+
+  await page.goto("/?view=profile-workbench");
+  await page.locator('input[accept^=".xlsx"]').setInputFiles(workbook);
+  await page.getByRole("button", { name: "内容を確認" }).click();
+
+  const editor = page.getByRole("region", { name: "Excel側の名前を対応付ける" });
+  await expect(editor).toBeVisible();
+  await expect(editor.getByText("登録に必要な対応は確定")).toBeVisible();
+  await editor
+    .getByLabel("画像リンク名のExcel側列")
+    .selectOption("焼鈍顕微鏡ファイル");
+  await expect(editor.getByLabel("画像リンク先のExcel側列")).toHaveValue("");
+
+  await editor.getByRole("button", { name: "Profileを保存して再検査" }).click();
+  await expect(page.getByRole("status")).toContainText("自分のProfileとして保存しました");
+  await expect(page.getByRole("heading", { name: "Canonical preview" })).toBeVisible();
+
+  const registrationResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/profile-workbench/register"
+  ));
+  await page.getByRole("button", { name: "この内容で登録" }).click();
+  expect((await registrationResponse).status()).toBe(200);
+  await expect(page.getByRole("button", { name: "このDatasetでプロジェクト作成" })).toBeVisible();
+});

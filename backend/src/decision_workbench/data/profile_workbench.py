@@ -13,6 +13,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from decision_workbench.data.evidence_images import technical_field_is_optional
 from decision_workbench.data.file_integrity import file_sha256
 from decision_workbench.data.importer import detect_dataset_profile_path
 from decision_workbench.data.profiles.canonicalization import canonicalize_workbook
@@ -253,7 +254,11 @@ def _profile_column_requirements(
             role,
             [str(technical.get("column", ""))],
             "technical",
-            required=f"{role}.{name}" not in optional_technical,
+            required=not technical_field_is_optional(
+                role,
+                name,
+                optional_technical,
+            ),
         )
 
     for task in dict(document.get("tasks", {})).values():

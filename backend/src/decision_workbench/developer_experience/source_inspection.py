@@ -8,6 +8,7 @@ from typing import Iterable
 
 from openpyxl import load_workbook
 
+from decision_workbench.data.evidence_images import technical_field_is_optional
 from decision_workbench.data.profile_workbench import validate_workbook_profile
 from decision_workbench.data.profiles.canonicalization import canonicalize_workbook
 from decision_workbench.data.profiles.loading import load_dataset_profile
@@ -71,7 +72,11 @@ def _profile_columns(
     for policy in profile.shared.eligibility:
         add(policy.role, (policy.column,))
     for technical in profile.shared.technical:
-        if technical.name in optional_technical or f"{technical.role}.{technical.name}" in optional_technical:
+        if technical_field_is_optional(
+            technical.role,
+            technical.name,
+            optional_technical,
+        ):
             continue
         add(technical.role, (technical.column,))
     for task in profile.tasks.values():

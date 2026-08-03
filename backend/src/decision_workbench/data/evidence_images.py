@@ -15,6 +15,7 @@ Nothing here reads the file's content beyond its bytes; no image library runs.
 """
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
@@ -25,6 +26,25 @@ ALLOWED_SUFFIXES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/j
 
 class EvidenceImageError(ValueError):
     """The declared image pointer cannot be served."""
+
+
+def technical_field_is_optional(
+    role: str,
+    name: str,
+    declared_optional_fields: Collection[str] = (),
+) -> bool:
+    """Apply one requiredness contract to Profile technical fields.
+
+    A micrograph pointer is optional evidence by meaning. Existing Profiles can
+    continue declaring other auxiliary fields through
+    ``optional_technical_fields``.
+    """
+
+    return (
+        name == EVIDENCE_IMAGE_FIELD
+        or name in declared_optional_fields
+        or f"{role}.{name}" in declared_optional_fields
+    )
 
 
 @dataclass(frozen=True)
