@@ -358,9 +358,13 @@ class SparseBlendChainAdapter:
         if candidate.blend is not None:
             values["candidate.blend"] = candidate.blend.model_input_payload()
         for key, value in candidate.inputs.process.items():
+            values[f"candidate.process.{key}"] = value
+            # Immutable welding Graph r1 revisions address the same typed value
+            # through their historical context aliases.
             values[f"candidate.welding_context.{key}"] = value
             values[f"candidate.test_context.{key}"] = value
         for key, value in candidate.inputs.categorical.items():
+            values[f"candidate.categorical.{key}"] = value
             values[f"candidate.welding_context.{key}"] = value
             values[f"candidate.test_context.{key}"] = value
         return values

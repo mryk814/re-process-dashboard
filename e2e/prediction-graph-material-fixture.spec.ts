@@ -34,12 +34,17 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
       graph_id: string;
       revision: number;
     }>;
+    is_default: boolean;
+    default_revision_id: string | null;
+    latest_revision_id: string | null;
   }>;
-  const multiTemplate = templates.find(({ definition }) => (
+  const multiTemplate = templates.find(({ definition, is_default }) => (
     definition.graph_id === "welding-material-multi-output-demo-v1"
+    && is_default
   ));
-  const splitTemplate = templates.find(({ definition }) => (
+  const splitTemplate = templates.find(({ definition, is_default }) => (
     definition.graph_id === "welding-material-split-output-demo-v1"
+    && is_default
   ));
   const multi = multiTemplate?.definition;
   const split = splitTemplate?.definition;
@@ -68,7 +73,15 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
     }),
   }));
 
-  const revision = splitTemplate!.revisions[0];
+  expect(splitTemplate?.default_revision_id).toBe(
+    "welding-material-split-output-demo-v1:r2",
+  );
+  expect(splitTemplate?.latest_revision_id).toBe(
+    splitTemplate?.default_revision_id,
+  );
+  const revision = splitTemplate!.revisions.find(
+    ({ graph_id, revision }) => `${graph_id}:r${revision}` === splitTemplate!.default_revision_id,
+  )!;
   const projectResponse = await page.request.post(`${apiBaseUrl}/api/prediction-graphs/projects`, {
     data: {
       project: {
@@ -115,11 +128,26 @@ test("material Graph fixtures expose split Packages and synthetic evidence", asy
   expect(contractResponse.status(), await contractResponse.text()).toBe(200);
   const starter = (await contractResponse.json() as {
     starter_candidate: {
-      inputs: { process: Record<string, number> };
+      inputs: {
+        process: Record<string, number>;
+        categorical: Record<string, string>;
+      };
       [key: string]: unknown;
     };
   }).starter_candidate;
-  starter.inputs.process.wire_feed_speed_m_per_min = 7.5;
+  Object.assign(starter.inputs.process, {
+    heat_input_kj_per_mm: 1.43,
+    voltage_v: 28.36,
+    gas_flow_l_per_min: 25.4,
+    wire_feed_speed_m_per_min: 7.5,
+    preheat_temp_c: 80,
+    test_temperature_c: -20,
+  });
+  Object.assign(starter.inputs.categorical, {
+    shielding_gas: "100%CO2",
+    welding_position: "下向",
+    test_solution: "5%H2SO4",
+  });
   const candidateResponse = await page.request.post(
     `${apiBaseUrl}/api/prediction-graphs/projects/${project.id}/candidates`,
     { data: starter },

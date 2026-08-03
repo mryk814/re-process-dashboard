@@ -5075,10 +5075,16 @@ export interface components {
         };
         /** ChainTemplateItem */
         ChainTemplateItem: {
+            /** Default Revision Id */
+            default_revision_id?: string | null;
             /** Definition */
             definition: components["schemas"]["ChainDefinition"] | components["schemas"]["PredictionGraphDefinition"];
             /** Definition Id */
             definition_id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Latest Revision Id */
+            latest_revision_id?: string | null;
             /** Revisions */
             revisions: (components["schemas"]["ChainRevision"] | components["schemas"]["PredictionGraphRevision"])[];
         };

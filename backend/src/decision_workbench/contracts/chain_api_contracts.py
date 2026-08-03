@@ -37,6 +37,9 @@ class ChainTemplateItem(ChainApiModel):
     definition_id: str
     definition: GraphDefinitionRef
     revisions: tuple[GraphRevisionRef, ...]
+    is_default: bool
+    default_revision_id: str | None = None
+    latest_revision_id: str | None = None
 
 
 class ChainStudioStageCatalogItem(ChainApiModel):

@@ -108,19 +108,54 @@ def _definition_id(definition: GraphDefinitionRef) -> str:
 
 def list_chain_templates(store: Store) -> list[ChainTemplateItem]:
     revisions = store.list_chain_revisions()
-    return [
-        ChainTemplateItem(
-            definition_id=_definition_id(definition),
-            definition=definition,
-            revisions=tuple(
+    latest_by_chain = {
+        chain_id: max(
+            (
                 revision
                 for revision in revisions
-                if revision.chain_id == definition.chain_id
-                and revision.chain_definition_digest == definition.digest
+                if revision.chain_id == chain_id
             ),
+            key=lambda revision: revision.revision,
         )
-        for definition in store.list_chain_definitions()
-    ]
+        for chain_id in {revision.chain_id for revision in revisions}
+    }
+    templates: list[ChainTemplateItem] = []
+    for definition in store.list_chain_definitions():
+        latest = latest_by_chain.get(definition.chain_id)
+        templates.append(
+            ChainTemplateItem(
+                definition_id=_definition_id(definition),
+                definition=definition,
+                revisions=tuple(
+                    revision
+                    for revision in revisions
+                    if revision.chain_id == definition.chain_id
+                    and revision.chain_definition_digest == definition.digest
+                ),
+                is_default=(
+                    latest is not None
+                    and latest.chain_definition_digest == definition.digest
+                ),
+                default_revision_id=(
+                    f"{latest.chain_id}:r{latest.revision}"
+                    if latest is not None
+                    else None
+                ),
+                latest_revision_id=(
+                    f"{latest.chain_id}:r{latest.revision}"
+                    if latest is not None
+                    else None
+                ),
+            )
+        )
+    return sorted(
+        templates,
+        key=lambda item: (
+            item.definition.chain_id,
+            not item.is_default,
+            item.definition_id,
+        ),
+    )
 
 
 def get_chain_revision(
@@ -315,6 +350,9 @@ def publish_scalar_chain_draft(
         definition_id=_definition_id(payload.definition),
         definition=payload.definition,
         revisions=(revision,),
+        is_default=True,
+        default_revision_id=f"{revision.chain_id}:r{revision.revision}",
+        latest_revision_id=f"{revision.chain_id}:r{revision.revision}",
     )
 
 

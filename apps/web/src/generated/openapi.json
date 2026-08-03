@@ -6203,6 +6203,17 @@
       "ChainTemplateItem": {
         "additionalProperties": false,
         "properties": {
+          "default_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Revision Id"
+          },
           "definition": {
             "discriminator": {
               "mapping": {
@@ -6224,6 +6235,21 @@
           "definition_id": {
             "title": "Definition Id",
             "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "latest_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Revision Id"
           },
           "revisions": {
             "items": {
@@ -6250,7 +6276,8 @@
         "required": [
           "definition_id",
           "definition",
-          "revisions"
+          "revisions",
+          "is_default"
         ],
         "title": "ChainTemplateItem",
         "type": "object"
