@@ -12,6 +12,10 @@ import {
   type ApiPredictionGraphSnapshot,
 } from "../../shared/api/workbench-api";
 import { BlendEditorPanel } from "./BlendEditorPanel";
+import {
+  isPredictionGraphActualWritable,
+  resolvePredictionGraphActualOutputId,
+} from "./predictionGraphActualState";
 
 type ExecutionResource =
   | { status: "loading" }
@@ -93,9 +97,7 @@ export function PredictionGraphDecisionWorkspace({
   const selectedResource = selected ? executions[selected.id] : undefined;
   const selectedExecution = selectedResource?.status === "ready" ? selectedResource.data : null;
   const selectedSnapshot = snapshots.find((item) => item.snapshot_id === snapshotId) ?? null;
-  const actualWritable = Boolean(
-    selected && selectedSnapshot && selectedSnapshot.identity.candidate_revision === selected.revision,
-  );
+  const actualWritable = isPredictionGraphActualWritable(selected, selectedSnapshot);
   const graphDefinition = graph?.definition.schema_version === "prediction-graph-definition/v1"
     ? graph.definition
     : null;
@@ -186,6 +188,13 @@ export function PredictionGraphDecisionWorkspace({
     setDirty(false);
     setSaveState("idle");
     setFieldErrors({});
+    setSnapshots([]);
+    setActuals([]);
+    setSnapshotId("");
+    setActualOutputId("");
+    setActualMean("");
+    setActualUnit("");
+    setMeasurementId("");
     let cancelled = false;
     void Promise.all([
       workbenchApi.listPredictionGraphSnapshots(projectId, selected.id),
@@ -198,7 +207,6 @@ export function PredictionGraphDecisionWorkspace({
         ? requestedSnapshotId
         : nextSnapshots[0]?.snapshot_id ?? "";
       setSnapshotId(preferred);
-      setActualOutputId(nextSnapshots[0]?.terminal_outputs.find((item) => item.status === "latest")?.output_id ?? "");
     }).catch((cause) => {
       if (!cancelled) setMessage(cause instanceof Error ? cause.message : "証拠履歴を読み込めませんでした");
     });
@@ -252,6 +260,12 @@ export function PredictionGraphDecisionWorkspace({
       ?.output_definitions.find((output) => output.key === definition.source_output_key)
       ?.unit ?? "";
   };
+  useEffect(() => {
+    setActualOutputId((current) => (
+      resolvePredictionGraphActualOutputId(current, selectedSnapshot)
+    ));
+  }, [selectedSnapshot]);
+
   useEffect(() => {
     setActualUnit(actualOutputId ? snapshotOutputUnit(actualOutputId) : "");
     // Unit is derived from the selected immutable Snapshot's Stage contract.

@@ -637,11 +637,18 @@ class PredictionGraphUseCases:
                 "external_path": graph_input.input_id,
                 "input_id": graph_input.input_id,
                 "order": order,
-                "candidate_path": candidate_path_for_revision(
-                    revision,
-                    graph_input.input_id,
-                    graph_input.port.value_kind,
-                    graph_input.port.quantity,
+                "candidate_path": (
+                    source.candidate_path
+                    if source.candidate_path == "blend"
+                    or source.candidate_path.startswith(
+                        ("composition.", "process.", "categorical.")
+                    )
+                    else candidate_path_for_revision(
+                        revision,
+                        graph_input.input_id,
+                        graph_input.port.value_kind,
+                        graph_input.port.quantity,
+                    )
                 ),
                 "kind": graph_input.port.value_kind,
                 "label": graph_input.label,

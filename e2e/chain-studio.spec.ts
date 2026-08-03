@@ -225,7 +225,10 @@ test("Prediction Graph Studio completes the same draft through canvas and linear
   expect(project.scientific_identity.identity_kind).toBe("prediction_graph");
   expect(project.scientific_identity.graph_revision_id).toContain(`${graphId}:r1`);
   await page.goto(`/?view=candidates&project=${projectId}`);
-  await expect(page.getByRole("heading", { name: "この画面はPrediction Graph Projectでは利用できません" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "候補とDecision Outputを一つの面で比較" })).toBeVisible();
+  await page.getByRole("button", { name: "＋ 基準候補を追加" }).click();
+  await expect(page.getByRole("heading", { name: "基準候補" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "設計変数" })).toBeVisible();
   expect(taskDefinitionRequests.filter((url) => url.includes(`/api/projects/${projectId}/task-definition`))).toEqual([]);
   await expectNoBlockingAxeViolations(page);
 

@@ -928,6 +928,19 @@ def test_prediction_graph_api_and_runtime_are_composed(client) -> None:
         "prediction_graph"
     )
     project_id = response.json()["id"]
+    candidate_inputs_response = client.get(
+        f"/api/prediction-graphs/projects/{project_id}/candidate-inputs"
+    )
+    assert candidate_inputs_response.status_code == 200, (
+        candidate_inputs_response.text
+    )
+    assert {
+        item["input_id"]: item["candidate_path"]
+        for item in candidate_inputs_response.json()
+    } == {
+        item["input_id"]: item["value_source"]["candidate_path"]
+        for item in graph_inputs
+    }
     task_definition_response = client.get(
         f"/api/projects/{project_id}/task-definition"
     )

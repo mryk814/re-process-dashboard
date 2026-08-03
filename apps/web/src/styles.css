@@ -718,6 +718,10 @@ table input[type="number"] { text-align: right; font-variant-numeric: tabular-nu
   background: #edf4ff;
 }
 
+.graph-decision-candidates > button.active small {
+  color: #526276;
+}
+
 .graph-decision-candidates small,
 .graph-actual-history span,
 .graph-actual-history small {
