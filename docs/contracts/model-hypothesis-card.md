@@ -47,6 +47,24 @@ Model PlaygroundのRun contractへ接続した後に実装します。
 研究候補だけを選びbaselineを含めない比較は拒否せず、比較不能を避ける警告を返します。
 単一scoreやautomatic winnerは生成しません。
 
+## LLM／開発者workflow
+
+LLMまたは開発者は、Cardをmodel名の提案へ短絡させず、次の順序で扱います。
+
+1. entity、observation、replicate、group、timeを特定する
+2. 観測値と潜在量を分離する
+3. measurement protocolとtarget supportを確認する
+4. 共有構造とconstraintを列挙する
+5. baselineを含む2〜4件のHypothesis Cardを生成する
+6. synthetic recoveryとcounterexampleを作成する
+7. compatibleなValidation Planで比較する
+8. adoption memoを保存する
+9. 採用候補だけをversioned recipeへ昇格する
+
+現在のCard validatorとcatalogは1〜7の契約を表します。8〜9の保存と昇格は
+Model Playground Run ownerへ接続した後に実行し、Card validationをadoption済みの
+証拠として扱いません。
+
 ## Handoffの現在地
 
 現行の実在surfaceはModel Libraryの固定Package確認です。#800の
