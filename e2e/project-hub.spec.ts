@@ -62,8 +62,26 @@ async function gotoProjectAfterCreationOptions(
   ]);
 }
 
+async function gotoProjectAfterSessionReady(
+  page: import("@playwright/test").Page,
+  projectId: string,
+  expectedName: string,
+) {
+  await Promise.all([
+    page.waitForResponse((response) => (
+      response.request().method() === "GET"
+      && new URL(response.url()).pathname === "/api/projects"
+      && response.status() === 200
+    )),
+    page.goto(`/?view=project&project=${projectId}`),
+  ]);
+  const projectName = page.getByRole("textbox", { name: "プロジェクト名" });
+  await expect(projectName).toBeEnabled();
+  await expect(projectName).toHaveValue(expectedName);
+}
+
 test("project series keep the active series open and let other series expand", async ({ page }) => {
-  await page.goto("/?view=project&project=default");
+  await gotoProjectAfterSessionReady(page, "default", "焼鈍条件の候補検討");
 
   const toggles = page.locator(".project-list-group-toggle");
   // How many projects exist depends on what earlier specs created, so read the
@@ -92,7 +110,7 @@ test("project series keep the active series open and let other series expand", a
 
 test("long bundled dataset names stay inside the project list on the overview", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto("/?view=project&project=default");
+  await gotoProjectAfterSessionReady(page, "default", "焼鈍条件の候補検討");
 
   const projectList = page.getByRole("complementary", { name: "プロジェクト一覧" });
   await expect(projectList).toBeVisible();
