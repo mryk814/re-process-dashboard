@@ -131,6 +131,16 @@ class _DensePosteriorPredictor:
             posterior_draw_count=self.draws,
             draw_selection_policy=draw_selection_policy,
             family=family,
+            model_inference_policy_id=(
+                self.spec.inference_identity.algorithm_id
+                if self.spec.inference_identity is not None
+                else None
+            ),
+            model_inference_identity_digest=(
+                self.spec.inference_identity.identity_digest
+                if self.spec.inference_identity is not None
+                else None
+            ),
         )
         if family in {"normal", "student_t", "lognormal"}:
             samples, family = self._continuous_samples(output, rng, draw_indices)

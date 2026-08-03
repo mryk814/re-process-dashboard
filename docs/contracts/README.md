@@ -11,6 +11,7 @@ ownerは各backend／frontend／modeling領域で、schema、保存意味、exec
 - [特徴量パイプライン](feature-engineering.md)
 - [Feature Recipe](feature-recipe.md)
 - [推論実行](inference-execution.md)
+- [Inference Policy](inference-policy.md)
 - [Model Package契約](model-package-contract.md)
 - [Model Hypothesis Card](model-hypothesis-card.md)
 - [Objective Definition](objective-definition.md)

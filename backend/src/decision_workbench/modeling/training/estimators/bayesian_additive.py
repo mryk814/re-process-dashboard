@@ -7,6 +7,11 @@ from typing import Any
 import numpy as np
 
 from decision_workbench.adapters.builtin_additive_terms import bspline_basis
+from decision_workbench.contracts.inference_policy_contracts import (
+    InferenceDiagnostics,
+    InferenceIdentity,
+)
+from decision_workbench.modeling.inference_policy import inference_policy
 from decision_workbench.modeling.model_lifecycle import TargetQualityMetric
 from decision_workbench.modeling.training.feature_dataset import (
     TargetTrainingSet,
@@ -314,6 +319,17 @@ def train(
         },
         exclude_none=True,
     )
+    inference_identity = InferenceIdentity.create(
+        policy=inference_policy("analytic-gaussian"),
+        parameterization="penalized-spline-coefficient-posterior/v1",
+        diagnostics=InferenceDiagnostics(status="not_applicable"),
+        resource_limits={
+            "coefficient_count": int(fitted.covariance.shape[0]),
+        },
+        convergence_criteria={
+            "linear_solver": "positive-definite penalized precision",
+        },
+    )
     predictor = {
         "id": f"{data.target.lower()}-bayesian-additive",
         "target": data.target,
@@ -324,6 +340,7 @@ def train(
         "artifact": artifact_path.as_posix(),
         "predictive_family": "normal",
         "feature_names": list(data.feature_names),
+        "inference_identity": inference_identity.model_dump(mode="json"),
         "config": {
             "link_id": "identity",
             "extrapolation": "constant_boundary",

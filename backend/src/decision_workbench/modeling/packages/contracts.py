@@ -11,11 +11,12 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from decision_workbench.contracts.inference_policy_contracts import InferenceIdentity
 from decision_workbench.contracts.missingness_contracts import (
     MissingnessOperationCapability,
 )
-from decision_workbench.contracts.series_contracts import SeriesFeatureContract
 from decision_workbench.contracts.sampling_identity_contracts import SamplingIdentity
+from decision_workbench.contracts.series_contracts import SeriesFeatureContract
 
 if TYPE_CHECKING:
     from decision_workbench.contracts.task_contracts import (
@@ -203,6 +204,7 @@ class PredictorSpec(PackageModel):
     predictive_family: str
     architecture_id: str | None = None
     feature_names: Annotated[tuple[str, ...], Field(min_length=1)]
+    inference_identity: InferenceIdentity | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("runtime_type")
@@ -228,6 +230,63 @@ class PredictorSpec(PackageModel):
 
     @model_validator(mode="after")
     def static_architecture_only(self) -> PredictorSpec:
+        if self.inference_identity is not None:
+            from decision_workbench.modeling.inference_policy import (
+                inference_policy_by_identity,
+            )
+
+            try:
+                policy = inference_policy_by_identity(
+                    self.inference_identity.algorithm_id,
+                    self.inference_identity.algorithm_version,
+                    self.inference_identity.policy_digest,
+                )
+            except KeyError as exc:
+                raise ValueError(
+                    "predictor inference identity does not match a historical "
+                    "allow-listed policy"
+                ) from exc
+            allowed_algorithms = {
+                ("builtin.additive_terms.v1", "additive_terms_v1"): {
+                    "analytic-gaussian",
+                },
+                ("builtin.posterior_linear.v1", "posterior_linear_v1"): {
+                    "analytic-gaussian",
+                    "nuts",
+                    "gibbs",
+                    "smc-particle",
+                    "bounded-variational",
+                },
+                (
+                    "builtin.posterior_linear.v1",
+                    "hierarchical_parent_random_intercept_v1",
+                ): {
+                    "analytic-gaussian",
+                    "nuts",
+                    "gibbs",
+                    "bounded-variational",
+                },
+                ("numpyro.dense_posterior.v1", "dense_mlp_v1"): {
+                    "nuts",
+                    "gibbs",
+                    "smc-particle",
+                    "bounded-variational",
+                },
+            }.get((self.runtime_type, self.architecture_id), set())
+            if self.inference_identity.algorithm_id not in allowed_algorithms:
+                raise ValueError(
+                    "predictor runtime and architecture do not support the "
+                    "declared inference algorithm"
+                )
+            if (
+                policy.role == "approximation"
+                and not set(policy.limitations).issubset(
+                    self.inference_identity.approximation_limitations
+                )
+            ):
+                raise ValueError(
+                    "predictor approximation identity omits policy limitations"
+                )
         if self.runtime_type == "numpyro.dense_posterior.v1" and self.architecture_id != "dense_mlp_v1":
             raise ValueError("numpyro adapter only permits architecture_id=dense_mlp_v1")
         if self.runtime_type == "gpytorch.static_exact_rbf.v1" and self.architecture_id != "exact_rbf_v1":

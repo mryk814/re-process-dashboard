@@ -921,6 +921,36 @@ class ModelLibraryCatalogService:
                         runtime_type=predictor.runtime_type,
                         predictive_family=predictor.predictive_family,
                         architecture_id=predictor.architecture_id,
+                        inference_policy_id=(
+                            predictor.inference_identity.algorithm_id
+                            if predictor.inference_identity is not None
+                            else None
+                        ),
+                        inference_role=(
+                            predictor.inference_identity.role
+                            if predictor.inference_identity is not None
+                            else None
+                        ),
+                        inference_identity_digest=(
+                            predictor.inference_identity.identity_digest
+                            if predictor.inference_identity is not None
+                            else None
+                        ),
+                        inference_approximation_kind=(
+                            predictor.inference_identity.approximation_kind
+                            if predictor.inference_identity is not None
+                            else None
+                        ),
+                        inference_approximation_limitations=(
+                            predictor.inference_identity.approximation_limitations
+                            if predictor.inference_identity is not None
+                            else ()
+                        ),
+                        inference_diagnostics_status=(
+                            predictor.inference_identity.diagnostics.status
+                            if predictor.inference_identity is not None
+                            else None
+                        ),
                     )
                     for predictor in typed_manifest.predictors
                 )

@@ -1086,6 +1086,14 @@ def test_model_workflow_builds_bayesian_additive_with_typed_intervals(
         == "fixed_basis_fixed_smoothing_plugin_noise"
         for predictor in manifest.predictors
     )
+    assert all(
+        predictor.inference_identity is not None
+        and predictor.inference_identity.algorithm_id == "analytic-gaussian"
+        and predictor.inference_identity.role == "exact"
+        and predictor.inference_identity.fallback_policy
+        == "forbid_implicit_switch"
+        for predictor in manifest.predictors
+    )
     dataset = json.loads(
         (tmp_path / "heat-treatment-feature-dataset.json").read_text(
             encoding="utf-8"

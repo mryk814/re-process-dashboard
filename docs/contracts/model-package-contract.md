@@ -185,6 +185,13 @@ qualityをfold比較に使う場合、外側foldの目的値をmodel fit、hyper
 残差bank、確率calibratorのいずれにも含めない。最終artifactだけを全cohortでfitし、
 deploy用校正値は各行を未観測にしたouter OOF予測から作る。
 
+Bayesian／posterior modelの学習algorithmはmodel recipeから分離した
+[`inference-identity/v1`](inference-policy.md)をpredictorへ保存できる。
+algorithm ID、version、parameterization、effective seed／draw／particle数、
+resource limit、diagnostics、approximation limitationを固定し、sampler failure後に
+別algorithmへ同名fallbackしない。fieldを持たない既存Packageはそのまま読み、
+学習algorithmをarchitecture名やartifact shapeから推測しない。
+
 `feature_pipeline.output_features` はPackage全体で生成可能な特徴量の和集合とする。各predictorの`feature_names`はその部分列でよく、pipelineで宣言された順序を保つ。これにより、同じTaskの出力ごとに観測ファミリーや試験条件が異なる場合も、不要な特徴量を別の予測器へ渡さない。
 
 標準Tabular Packageが`feature-recipe/v1`を使う場合、pipeline documentの
