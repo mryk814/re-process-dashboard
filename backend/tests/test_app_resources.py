@@ -53,7 +53,7 @@ def test_default_data_projection_requires_exactly_one_task_owner(
     monkeypatch.setattr(
         resources_module,
         "registered_task_modules",
-        lambda: {"personal-a-v1": unselected},
+        lambda _personal_task_store=None: {"personal-a-v1": unselected},
     )
     with pytest.raises(ValueError, match="none declared"):
         resources_module.prepare_app_resources()
@@ -66,7 +66,7 @@ def test_default_data_projection_requires_exactly_one_task_owner(
     monkeypatch.setattr(
         resources_module,
         "registered_task_modules",
-        lambda: {
+        lambda _personal_task_store=None: {
             "personal-a-v1": ANNEALED_TASK_MODULE,
             "personal-b-v1": second,
         },

@@ -1045,7 +1045,7 @@ def test_invalid_workbook_disables_affected_tasks_before_their_runtime_initializ
     monkeypatch.setattr(
         resources_module,
         "registered_task_modules",
-        lambda: guarded_modules,
+        lambda _personal_task_store=None: guarded_modules,
     )
     app = create_app(
         database,
