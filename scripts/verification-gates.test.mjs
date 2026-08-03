@@ -181,9 +181,11 @@ test("focused product E2E specs stay at PR level while E2E infrastructure requir
   assert.ok(selectedIds(infrastructure).includes("failure-state-e2e"));
 
   const parallelRunner = planFor(["scripts/run-isolated-e2e.mjs"]);
-  assert.deepEqual(parallelRunner.riskCategories, ["e2e-test-infrastructure"]);
-  assert.equal(parallelRunner.selectedLevel, "checkpoint");
-  assert.ok(selectedIds(parallelRunner).includes("failure-state-e2e"));
+  assert.deepEqual(parallelRunner.riskCategories, ["browser-standard-orchestration"]);
+  assert.equal(parallelRunner.selectedLevel, "pr");
+  assert.equal(parallelRunner.completion, "ready");
+  assert.ok(selectedIds(parallelRunner).includes("verification-policy-tests"));
+  assert.ok(selectedIds(parallelRunner).includes("default-playwright"));
 });
 
 test("backend plan resolves authority-map focused tests and CI owns the full suite", () => {
