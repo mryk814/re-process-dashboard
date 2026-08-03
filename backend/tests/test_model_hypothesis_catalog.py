@@ -88,8 +88,19 @@ def test_llm_card_validation_rejects_code_and_under_specified_cards() -> None:
 
     unpromoted = dict(valid)
     unpromoted.pop("recipe_identity")
+    unpromoted["id"] = "research-proposal"
+    unpromoted["comparison_role"] = "candidate"
+    unpromoted["lifecycle_status"] = "research"
     proposed = validate_model_hypothesis_card(unpromoted)
     assert proposed.recipe_identity is None
+
+    unreviewed_standard = dict(unpromoted)
+    unreviewed_standard["lifecycle_status"] = "standard"
+    with pytest.raises(
+        ValidationError,
+        match="without a reviewed recipe must remain research",
+    ):
+        validate_model_hypothesis_card(unreviewed_standard)
 
     conflated = dict(valid)
     conflated["latent_process"] = {

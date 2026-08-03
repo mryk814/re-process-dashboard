@@ -194,6 +194,15 @@ class ModelHypothesisCard(ContractModel):
             raise ValueError(
                 "observation role and latent quantity must be described separately"
             )
+        if self.recipe_identity is None:
+            if self.lifecycle_status != "research":
+                raise ValueError(
+                    "a Card without a reviewed recipe must remain research"
+                )
+            if self.comparison_role != "candidate":
+                raise ValueError(
+                    "an unpromoted research Card cannot be a baseline"
+                )
         return self
 
 
