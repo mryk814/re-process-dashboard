@@ -49,7 +49,7 @@ test("current main Journey A onboards one public CSV and preserves its decision 
     "data/source/external/battery_calce_cs2_cycles.csv",
   );
   await onboarding.getByRole("button", { name: "CSVをプレビュー" }).click();
-  await expect(onboarding).toContainText("3,131行・8列・relations 0件");
+  await expect(onboarding).toContainText("3131行・8列・relations 0件");
   await onboarding.getByLabel("Task ID").fill(TASK_ID);
   await onboarding.getByLabel("表示名").first().fill("Current-main CALCE容量維持率");
   await expect(onboarding.getByLabel("標準Estimator")).toHaveValue("ridge.v1");

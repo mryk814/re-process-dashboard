@@ -49,12 +49,23 @@ test("current main Journey B preserves authored Graph identity through failure, 
       graph_id?: string; chain_id?: string; revision: number; revision_digest: string;
       definition: Record<string, unknown>;
     }>;
+    is_default: boolean;
+    default_revision_id: string | null;
+    latest_revision_id: string | null;
   }>;
-  const graphTemplate = templates.find(({ definition }) => definition.graph_id === GRAPH_ID);
+  const graphTemplate = templates.find(({ definition, is_default }) => (
+    definition.graph_id === GRAPH_ID && is_default
+  ));
   const legacyTemplate = templates.find(({ definition }) => definition.chain_id === "welding-consumable-a-b-c-v1");
   expect(graphTemplate).toBeTruthy();
   expect(legacyTemplate).toBeTruthy();
-  const sourceRevision = graphTemplate!.revisions.at(-1)!;
+  expect(graphTemplate!.default_revision_id).toBe(`${GRAPH_ID}:r2`);
+  expect(graphTemplate!.latest_revision_id).toBe(graphTemplate!.default_revision_id);
+  const sourceRevision = graphTemplate!.revisions.find(
+    ({ graph_id, revision }) => (
+      `${graph_id}:r${revision}` === graphTemplate!.default_revision_id
+    ),
+  )!;
   const sourceRevisionId = `${GRAPH_ID}:r${sourceRevision.revision}`;
   await page.goto("/?view=model-library&asset=graphs");
   await expect(page.getByRole("heading", { name: "モデル資産を確認する" })).toBeVisible();
@@ -105,8 +116,9 @@ test("current main Journey B preserves authored Graph identity through failure, 
   expect(validationResponse.status(), await validationResponse.text()).toBe(200);
   const validation = await validationResponse.json() as {
     valid: boolean; definition_digest: string; candidate_adapter_id: string;
+    findings: Array<{ code: string; message: string }>;
   };
-  expect(validation.valid).toBe(true);
+  expect(validation.valid, JSON.stringify(validation.findings)).toBe(true);
   const publishResponse = await request.post(`${apiBaseUrl}/api/prediction-graphs/publish`, {
     data: { definition: loadedDraft.content.definition },
   });
@@ -153,11 +165,28 @@ test("current main Journey B preserves authored Graph identity through failure, 
   expect(starterResponse.status(), await starterResponse.text()).toBe(200);
   const starter = (await starterResponse.json() as {
     starter_candidate: {
-      name: string; inputs: { process: Record<string, number> }; [key: string]: unknown;
+      name: string;
+      inputs: {
+        process: Record<string, number>;
+        categorical: Record<string, string>;
+      };
+      [key: string]: unknown;
     };
   }).starter_candidate;
   starter.name = "Journey B Graph candidate";
-  starter.inputs.process.wire_feed_speed_m_per_min = 7.5;
+  Object.assign(starter.inputs.process, {
+    heat_input_kj_per_mm: 1.43,
+    voltage_v: 28.36,
+    gas_flow_l_per_min: 25.4,
+    wire_feed_speed_m_per_min: 7.5,
+    preheat_temp_c: 80,
+    test_temperature_c: -20,
+  });
+  Object.assign(starter.inputs.categorical, {
+    shielding_gas: "100%CO2",
+    welding_position: "下向",
+    test_solution: "5%H2SO4",
+  });
   const candidateResponse = await request.post(
     `${apiBaseUrl}/api/prediction-graphs/projects/${project.id}/candidates`,
     { data: starter },
