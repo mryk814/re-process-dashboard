@@ -1085,7 +1085,10 @@ def build_report() -> dict[str, Any]:
                 "production_promotion": "not_promoted",
                 "reasons": [
                     "evaluation Profile and Package are not the active recipe",
-                    "simulated missing indicators have no observed missing training events",
+                    (
+                        "single-numeric and selected mixed masks have zero "
+                        "observed matching training patterns"
+                    ),
                     "sparse, unseen, structural, and unknown patterns remain blocked",
                 ],
                 "proposal_rejects_unsafe_missingness": True,

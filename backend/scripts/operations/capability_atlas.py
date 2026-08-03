@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from tempfile import TemporaryDirectory
@@ -23,6 +24,7 @@ from decision_workbench.bootstrap.resources import prepare_app_resources  # noqa
 from decision_workbench.developer_experience.capability_atlas import (  # noqa: E402
     build_capability_atlas,
     summarize_missingness_policy,
+    summarize_missingness_promotion,
 )
 from decision_workbench.application.decision_activity_registry import build_registry  # noqa: E402
 from decision_workbench.application.proposal_strategy_registry import STRATEGIES  # noqa: E402
@@ -60,6 +62,9 @@ DESIGN_PRIOR_REPLAY_REPORT = (
     / "docs"
     / "research"
     / "real-task-design-prior-replay-report.json"
+)
+PROMOTION_REPORTS = (
+    REPOSITORY_ROOT / "docs" / "reports" / "mpea-missingness-promotion.json",
 )
 
 
@@ -266,12 +271,54 @@ def _design_prior_promotion() -> dict[str, Any]:
     }
 
 
+def _promotion_evidence(
+    package_details: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    promotions: dict[str, dict[str, Any]] = {}
+    for path in PROMOTION_REPORTS:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        task_id = str(report["task"]["task_id"])
+        if task_id in promotions or task_id not in package_details:
+            raise ValueError(
+                f"missingness promotion report Task is duplicate or unknown: {task_id}"
+            )
+        active = next(
+            item
+            for item in package_details[task_id]["available_packages"]
+            if item["is_active"]
+        )
+        reference = report["package_authority"][
+            "active_recipe_reference_only"
+        ]
+        if (
+            reference["package_id"] != active["package_id"]
+            or reference["package_version"] != active["version"]
+            or reference["manifest_digest"]
+            != f"sha256:{active['manifest_sha256']}"
+        ):
+            raise ValueError(
+                f"missingness promotion active Package reference drifted: {task_id}"
+            )
+        promotions[task_id] = summarize_missingness_promotion(
+            report,
+            report_ref=path.relative_to(REPOSITORY_ROOT).as_posix(),
+            report_digest=(
+                f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+            ),
+        )
+    return promotions
+
+
 def build_atlas() -> dict[str, Any]:
     resources = _bundled_resources()
     packages_by_task = {
         task_id: resources.task_registry.entry_for(task_id).model_package
         for task_id in BUILTIN_TASK_MODULES
     }
+    package_details = _package_details(
+        dict(resources.data_by_task),
+        resources.task_registry,
+    )
     return build_capability_atlas(
         task_inventory=build_inventory_from_data(
             dict(resources.data_by_task),
@@ -279,14 +326,12 @@ def build_atlas() -> dict[str, Any]:
         ),
         readiness_inventory=build_readiness_inventory().model_dump(mode="json"),
         standard_estimator_catalog=standard_estimator_catalog().model_dump(mode="json"),
-        package_details=_package_details(
-            dict(resources.data_by_task),
-            resources.task_registry,
-        ),
+        package_details=package_details,
         decision_activities=[item.definition.model_dump(mode="json") for item in build_registry().values()],
         proposal_strategies=[item.model_dump(mode="json") for item in STRATEGIES],
         graph_capability=_graph_capability(),
         design_prior_promotion=_design_prior_promotion(),
+        promotion_evidence=_promotion_evidence(package_details),
     )
 
 
