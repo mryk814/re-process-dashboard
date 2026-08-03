@@ -103,10 +103,16 @@ test("current main Journey B preserves authored Graph identity through failure, 
       await route.continue();
     },
   );
+  const catalogResponsePromise = resumedDraft.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/prediction-graphs/catalog"
+  ));
   const draftNavigation = resumedDraft.goto(`/?view=chain-studio&draft=${createdDraft.draft_id}`);
   await expect(resumedDraft.getByRole("heading", { name: "指定されたdraftを読み込み中です" })).toBeVisible();
   releaseDraft();
   await draftNavigation;
+  const catalogResponse = await catalogResponsePromise;
+  expect(catalogResponse.status(), await catalogResponse.text()).toBe(200);
   await expect(resumedDraft.getByLabel("Graph ID")).toHaveValue(GRAPH_ID);
   await resumedDraft.close();
 
