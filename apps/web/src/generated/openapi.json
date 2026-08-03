@@ -29139,6 +29139,12 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
                 }
               ]
             },
@@ -29208,6 +29214,7 @@
               "interpretable_baseline",
               "interpretable_nonlinear_candidate",
               "nonlinear_candidate",
+              "distribution_candidate",
               "specialized_path"
             ],
             "title": "Role",

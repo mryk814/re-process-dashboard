@@ -180,8 +180,19 @@ class TargetQualityMetric(LifecycleModel):
         "temporal-holdout-normal-scale",
         "temporal-holdout-predictive-interval",
         "posterior-predictive-interval",
+        "outer-fold-conditional-quantiles",
     ] | None = None
     interval_coverage_observations: Annotated[int, Field(ge=1)] | None = None
+    quantile_pinball_losses: dict[str, Annotated[float, Field(ge=0, allow_inf_nan=False)]] | None = None
+    mean_interval_width: Annotated[float, Field(ge=0, allow_inf_nan=False)] | None = None
+    quantile_crossing_count: Annotated[int, Field(ge=0)] | None = None
+    quantile_crossing_observed_feature_bounds: dict[
+        str,
+        tuple[float, float],
+    ] | None = None
+    quantile_crossing_scope: Literal[
+        "observed_outer_fold_rows_not_full_input_domain"
+    ] | None = None
 
 
 class TargetValidationEvidence(LifecycleModel):

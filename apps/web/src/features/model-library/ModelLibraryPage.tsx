@@ -6,6 +6,7 @@ import {
 } from "../../shared/api/workbench-api";
 import {
   draftDefinitionFromCatalog,
+  packagePredictiveMeaning,
   type ModelLibraryDataIntent,
   type ModelLibraryProjectIntent,
   type ModelLibraryTab,
@@ -285,6 +286,7 @@ export function ModelLibraryPage({
         return <article className="model-asset-card" key={item.reference_id}>
           <header><div><span className="model-asset-kind">PACKAGE · {item.storage_scope === "personal" ? "PERSONAL" : "BUNDLED"}</span><h2>{item.package_id}</h2><span>{taskLabels.get(item.task_id) ?? item.task_id} · {item.version}</span></div><AssetStateSummary state={item.state} /></header>
           <p>{item.predictor_families.map((predictor) => `${predictor.target}: ${predictor.predictive_family}`).join(" · ") || "predictor identityなし"}</p>
+          {packagePredictiveMeaning(item.predictor_families) && <p>{packagePredictiveMeaning(item.predictor_families)}</p>}
           <div className="model-asset-actions">
             <button type="button" className="outline-button" onClick={() => onOpenDataLibrary({
               datasetRevisionId,

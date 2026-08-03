@@ -82,6 +82,25 @@ def test_standard_predictor_projects_actual_capability_instead_of_active_package
     assert projected.parametric_distribution is False
     assert projected.goal_probability == "unavailable"
 
+    quantile_predictor = _manifest().predictors[4].model_copy(
+        update={
+            "config": {
+                "crossing_policy": "reject",
+                "training": {
+                    "estimator_id": "quantile-linear-regression.v1",
+                },
+            }
+        }
+    )
+    projected_quantile = standard_predictor_capability(
+        quantile_predictor,
+        active_gp_capability,
+    )
+    assert projected_quantile.point_statistics == ("median",)
+    assert projected_quantile.quantiles is True
+    assert projected_quantile.standard_deviation is False
+    assert projected_quantile.parametric_distribution is False
+
 
 def test_standard_predictor_rejects_unknown_recipe_metadata() -> None:
     predictor = _manifest().predictors[0].model_copy(

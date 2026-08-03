@@ -572,6 +572,67 @@
         ]
       },
       {
+        "estimator_id": "quantile-linear-regression.v1",
+        "label": "Linear quantile regression",
+        "target_kinds": [
+          "continuous"
+        ],
+        "role": "distribution_candidate",
+        "builder_status": "standard_builder",
+        "runtime_status": "ready",
+        "runtime_type": "builtin.quantile_linear.v1",
+        "artifact_status": "ready",
+        "artifact_format": "bounded-npz",
+        "required_dependency": null,
+        "limits": {
+          "min_rows": 6,
+          "max_rows": 100000,
+          "min_independent_groups": 4,
+          "max_features": 512,
+          "max_smooth_terms": null,
+          "max_basis_columns": null,
+          "max_categorical_levels": null
+        },
+        "categorical_support": "feature_recipe",
+        "missing_support": "feature_recipe",
+        "validation_strategies": [
+          "kfold",
+          "grouped_kfold",
+          "temporal_holdout",
+          "grouped_temporal"
+        ],
+        "predictive_capabilities": [
+          "point",
+          "quantiles"
+        ],
+        "quality_metrics": [
+          "mae",
+          "rmse",
+          "pinball_loss_by_quantile",
+          "interval_coverage_90",
+          "mean_interval_width",
+          "quantile_crossing_count"
+        ],
+        "fixed_parameters": {
+          "quantile_levels": [
+            0.05,
+            0.5,
+            0.95
+          ],
+          "penalty": 0.01,
+          "folds": 5,
+          "seed": 20260730,
+          "crossing_policy": "reject"
+        },
+        "training_cost": "moderate",
+        "known_limitations": [
+          "q05, q50, and q95 are fitted independently and can cross; crossing is reported and prediction rejects it instead of sorting.",
+          "q05-q95 is a conditional quantile interval, not a normal distribution or a guarantee of 90 percent observed coverage.",
+          "Mean, standard deviation, CDF, joint samples, and goal probability are unavailable.",
+          "Additive quantile regression remains a separate unimplemented candidate."
+        ]
+      },
+      {
         "estimator_id": "numpyro-lognormal-external.v1",
         "label": "Verified lognormal Package",
         "target_kinds": [

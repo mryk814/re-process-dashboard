@@ -59,6 +59,23 @@ class BayesianAdditiveSplineEstimatorRecipe(ContractModel):
     validation_plans_by_target: dict[str, ValidationPlan] | None = None
 
 
+class QuantileLinearRegressionEstimatorRecipe(ContractModel):
+    estimator_id: Literal["quantile-linear-regression.v1"] = (
+        "quantile-linear-regression.v1"
+    )
+    quantile_levels: tuple[
+        Literal[0.05],
+        Literal[0.5],
+        Literal[0.95],
+    ] = (0.05, 0.5, 0.95)
+    penalty: Annotated[float, Field(ge=0, le=1_000)] = 0.01
+    folds: Annotated[int, Field(ge=2, le=20)] = 5
+    seed: Annotated[int, Field(ge=0, le=2**32 - 1)] = 20260730
+    crossing_policy: Literal["reject"] = "reject"
+    validation_plan: ValidationPlan | None = None
+    validation_plans_by_target: dict[str, ValidationPlan] | None = None
+
+
 class LightGBMRegressionEstimatorRecipe(ContractModel):
     estimator_id: Literal["lightgbm-regression.v1"] = "lightgbm-regression.v1"
     num_boost_round: Annotated[int, Field(ge=1, le=5_000)] = 200
@@ -106,6 +123,7 @@ ConcreteEstimatorRecipe = (
     RidgeEstimatorRecipe
     | ExactGPEstimatorRecipe
     | BayesianAdditiveSplineEstimatorRecipe
+    | QuantileLinearRegressionEstimatorRecipe
     | LightGBMRegressionEstimatorRecipe
     | LightGBMBinaryEstimatorRecipe
     | LogisticEstimatorRecipe
@@ -120,6 +138,7 @@ ESTIMATOR_IDS = (
     "ridge.v1",
     "exact-gp-rbf.v1",
     "bayesian-additive-spline.v1",
+    "quantile-linear-regression.v1",
     "lightgbm-regression.v1",
     "lightgbm-binary.v1",
     "logistic.v1",
@@ -309,6 +328,28 @@ def validate_recipe_capability(
             if target.goal_probability != "unavailable":
                 errors.append(
                     f"{target.target}: Poisson standard path cannot provide goal probability"
+                )
+            continue
+        if recipe.estimator_id == "quantile-linear-regression.v1":
+            if tuple(target.point_statistics) != ("median",):
+                errors.append(
+                    f"{target.target}: quantile linear point statistic must be median"
+                )
+            if target.standard_deviation or target.samples:
+                errors.append(
+                    f"{target.target}: quantile linear exposes learned quantiles only"
+                )
+            if not target.quantiles:
+                errors.append(
+                    f"{target.target}: quantile linear exposes learned quantiles"
+                )
+            if target.parametric_distribution or target.uncertainty_components:
+                errors.append(
+                    f"{target.target}: quantile linear has no parametric distribution"
+                )
+            if target.goal_probability != "unavailable":
+                errors.append(
+                    f"{target.target}: quantile linear cannot provide goal probability"
                 )
             continue
         if tuple(target.point_statistics) != ("mean",):

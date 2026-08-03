@@ -1,5 +1,33 @@
 import { expect, test } from "@playwright/test";
 
+test("Model Library states learned quantile semantics and crossing policy", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.route("**/api/model-library", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    const first = payload.packages?.[0];
+    if (first) {
+      first.predictor_families = first.predictor_families.map((predictor: Record<string, unknown>) => ({
+        ...predictor,
+        runtime_type: "builtin.quantile_linear.v1",
+        predictive_family: "empirical_quantiles",
+      }));
+    }
+    await route.fulfill({ response, json: payload });
+  });
+
+  const catalogResponse = page.waitForResponse((response) => (
+    response.request().method() === "GET"
+    && new URL(response.url()).pathname === "/api/model-library"
+  ));
+  await page.goto("/?view=model-library&asset=packages");
+  expect((await catalogResponse).status()).toBe(200);
+  const quantilePackage = page.locator(".model-asset-card").first();
+  await expect(quantilePackage).toContainText("中央値とq05／q95を直接学習");
+  await expect(quantilePackage).toContainText("正規分布の90%区間ではありません");
+  await expect(quantilePackage).toContainText("分位点交差は補正せず利用不能");
+});
+
 test("Model Library compares assets and hands off without changing them", async ({ page }) => {
   test.setTimeout(60_000);
   const catalogResponse = page.waitForResponse((response) => (
