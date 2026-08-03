@@ -112,6 +112,31 @@ def test_capability_atlas_exposes_bundled_technical_detail(
     assert atlas["task_count"] == len(atlas["tasks"]) == 17
     assert atlas["graph_count"] == 2
     assert atlas["available_package_count"] >= atlas["task_count"]
+    hypothesis_catalog = atlas["model_hypothesis_catalog"]
+    assert hypothesis_catalog["schema_version"] == (
+        "model-hypothesis-catalog/v1"
+    )
+    assert hypothesis_catalog["authority"] == "bundled_allow_list"
+    assert hypothesis_catalog["card_count"] == len(
+        hypothesis_catalog["cards"]
+    ) == 4
+    assert hypothesis_catalog["lifecycle_counts"] == {
+        "standard": 3,
+        "shared_specialized": 1,
+        "research": 0,
+    }
+    assert hypothesis_catalog["playground_handoff_status"] == (
+        "not_implemented"
+    )
+    assert {
+        card["recipe_id"]
+        for card in hypothesis_catalog["cards"]
+    } == {
+        "ridge.v1",
+        "bayesian-additive-spline.v1",
+        "exact-gp-rbf.v1",
+        "stage-c-family-ridge-grouped-v1",
+    }
     assert {task["missingness_status"] for task in atlas["tasks"]} == {
         "reject_only",
         "runtime_contract_not_exposed",

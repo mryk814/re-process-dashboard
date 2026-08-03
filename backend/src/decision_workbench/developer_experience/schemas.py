@@ -188,6 +188,66 @@ class DeveloperStochasticReproducibility(BaseModel):
     ]
 
 
+class DeveloperModelHypothesisCard(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    version: str
+    label: str
+    comparison_role: Literal["baseline", "candidate"]
+    lifecycle_status: Literal["standard", "shared_specialized", "research"]
+    data_grain: list[
+        Literal[
+            "source_row",
+            "individual_observation",
+            "parent_condition_mean",
+            "replicate_context_mean",
+            "grouped_observation_family",
+        ]
+    ]
+    target_support: list[
+        Literal[
+            "continuous",
+            "continuous_positive",
+            "binary",
+            "count",
+            "ordinal",
+        ]
+    ]
+    required_capabilities: list[
+        Literal[
+            "point",
+            "quantiles",
+            "standard_deviation",
+            "parametric_distribution",
+            "support_warning",
+            "grouped_validation",
+            "response_curve",
+        ]
+    ]
+    recipe_id: Literal[
+        "ridge.v1",
+        "bayesian-additive-spline.v1",
+        "exact-gp-rbf.v1",
+        "stage-c-family-ridge-grouped-v1",
+    ]
+    execution_status: Literal["available", "specialized_only"]
+
+
+class DeveloperModelHypothesisCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["model-hypothesis-catalog/v1"]
+    authority: Literal["bundled_allow_list"]
+    card_count: int
+    lifecycle_counts: dict[
+        Literal["standard", "shared_specialized", "research"],
+        int,
+    ]
+    playground_handoff_status: Literal["not_implemented"]
+    cards: list[DeveloperModelHypothesisCard]
+
+
 class DeveloperCapabilityAtlas(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -200,6 +260,7 @@ class DeveloperCapabilityAtlas(BaseModel):
     task_count: int
     available_package_count: int
     graph_count: int
+    model_hypothesis_catalog: DeveloperModelHypothesisCatalog
     tasks: list[DeveloperCapabilityAtlasTask]
 
 

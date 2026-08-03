@@ -10155,6 +10155,9 @@
             "title": "Graph Count",
             "type": "integer"
           },
+          "model_hypothesis_catalog": {
+            "$ref": "#/components/schemas/DeveloperModelHypothesisCatalog"
+          },
           "project_modes": {
             "items": {
               "enum": [
@@ -10195,6 +10198,7 @@
           "task_count",
           "available_package_count",
           "graph_count",
+          "model_hypothesis_catalog",
           "tasks"
         ],
         "title": "DeveloperCapabilityAtlas",
@@ -10355,6 +10359,171 @@
           "display_text"
         ],
         "title": "DeveloperCommand",
+        "type": "object"
+      },
+      "DeveloperModelHypothesisCard": {
+        "additionalProperties": false,
+        "properties": {
+          "comparison_role": {
+            "enum": [
+              "baseline",
+              "candidate"
+            ],
+            "title": "Comparison Role",
+            "type": "string"
+          },
+          "data_grain": {
+            "items": {
+              "enum": [
+                "source_row",
+                "individual_observation",
+                "parent_condition_mean",
+                "replicate_context_mean",
+                "grouped_observation_family"
+              ],
+              "type": "string"
+            },
+            "title": "Data Grain",
+            "type": "array"
+          },
+          "execution_status": {
+            "enum": [
+              "available",
+              "specialized_only"
+            ],
+            "title": "Execution Status",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lifecycle_status": {
+            "enum": [
+              "standard",
+              "shared_specialized",
+              "research"
+            ],
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "recipe_id": {
+            "enum": [
+              "ridge.v1",
+              "bayesian-additive-spline.v1",
+              "exact-gp-rbf.v1",
+              "stage-c-family-ridge-grouped-v1"
+            ],
+            "title": "Recipe Id",
+            "type": "string"
+          },
+          "required_capabilities": {
+            "items": {
+              "enum": [
+                "point",
+                "quantiles",
+                "standard_deviation",
+                "parametric_distribution",
+                "support_warning",
+                "grouped_validation",
+                "response_curve"
+              ],
+              "type": "string"
+            },
+            "title": "Required Capabilities",
+            "type": "array"
+          },
+          "target_support": {
+            "items": {
+              "enum": [
+                "continuous",
+                "continuous_positive",
+                "binary",
+                "count",
+                "ordinal"
+              ],
+              "type": "string"
+            },
+            "title": "Target Support",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "label",
+          "comparison_role",
+          "lifecycle_status",
+          "data_grain",
+          "target_support",
+          "required_capabilities",
+          "recipe_id",
+          "execution_status"
+        ],
+        "title": "DeveloperModelHypothesisCard",
+        "type": "object"
+      },
+      "DeveloperModelHypothesisCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "bundled_allow_list",
+            "title": "Authority",
+            "type": "string"
+          },
+          "card_count": {
+            "title": "Card Count",
+            "type": "integer"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/DeveloperModelHypothesisCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "lifecycle_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "standard",
+                "shared_specialized",
+                "research"
+              ]
+            },
+            "title": "Lifecycle Counts",
+            "type": "object"
+          },
+          "playground_handoff_status": {
+            "const": "not_implemented",
+            "title": "Playground Handoff Status",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "model-hypothesis-catalog/v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "authority",
+          "card_count",
+          "lifecycle_counts",
+          "playground_handoff_status",
+          "cards"
+        ],
+        "title": "DeveloperModelHypothesisCatalog",
         "type": "object"
       },
       "DeveloperOverview": {
