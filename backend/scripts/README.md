@@ -32,6 +32,7 @@ Migrationは任意実行する薄いCLIではなく、Workspace読込やshared-l
 | Command / entrypoint | Owner | Purpose / output | Docs / test | Retention |
 |---|---|---|---|---|
 | `operations/capability_atlas.py` | Developer experience | Task／Package／Project mode capability台帳の生成・drift検出 | `npm run capability:atlas`, `backend/tests/test_capability_atlas.py` | `operations/` |
+| `operations/missingness_promotion_report.py` | Missingness research | MPEA実Taskで欠損patternと補完候補のproduction昇格可否を再評価 | `docs/reports/mpea-missingness-promotion.json`, `backend/tests/test_missingness_promotion.py` | `operations/` |
 | `operations/profile_workbench.py` | Data/Profile contracts | Profile検証・登録、JSON／Dataset registration | `docs/operations/data-contributor-start-here.md` | `operations/` |
 | `operations/model_workflow.py` | Model lifecycle | Model診断・build・切替、外部Package／status JSON | `npm run model:*` | `operations/` |
 | `operations/task_scaffold.py` | Personal Task onboarding | data-only Task／Profile／recipe scaffold | `npm run task:scaffold` | `operations/` |
@@ -101,6 +102,7 @@ Profile inheritanceの展開は `operations/profile_workbench.py materialize`、
 | `experiments/evaluate_sampling_strategies.py` | Screening sampling research | sampling strategy comparison JSONを再計算 | `docs/research/sampling-strategy-comparison.md` | `experiments/` |
 | `experiments/evaluate_gmr_inverse.py` | Inverse proposal research | GMR inverse evaluation JSONを再計算 | `docs/research/gmr-inverse-candidate-poc.md` | `experiments/` |
 | `experiments/run_generative_design_lab.py` | Generative design research | kNN／copula／diffusion候補生成の比較reportを再計算 | `docs/research/generative-design-lab-adoption-memo.md` | `experiments/` |
+| `experiments/run_real_task_design_prior_replay.py` | Design-prior research | MPEA実Taskで候補生成priorのproduction昇格可否をreplay | `docs/research/real-task-design-prior-replay.md`, `backend/tests/test_real_task_design_prior_replay.py` | `experiments/` |
 | `experiments/evaluate_shared_multioutput_gp.py` | Multi-output research | shared multi-output GP評価JSONを再計算 | `docs/decisions/shared-multi-output.md` | `experiments/` |
 | `experiments/spikes/spike_case_a.py` | Extensibility research | case Aのtemp fixture／resultを再現 | `docs/architecture/extensibility-spikes.md` | `experiments/spikes/` |
 | `experiments/spikes/spike_case_b.py` | Extensibility research | case Bのtemp fixture／resultを再現 | `docs/architecture/extensibility-spikes.md` | `experiments/spikes/` |
