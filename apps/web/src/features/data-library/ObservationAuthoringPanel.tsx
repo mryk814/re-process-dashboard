@@ -5,6 +5,7 @@ import {
   type ApiObservationAuthoringTask,
   type ApiProfileWorkbenchRegistration,
 } from "../../shared/api/workbench-api";
+import { resolveObservationAuthoringTaskId } from "./observationAuthoringState";
 
 function suggestedColumn(key: string, label: string, columns: string[]): string {
   return columns.find((column) => column === key)
@@ -39,7 +40,7 @@ export function ObservationAuthoringPanel({
     workbenchApi.listObservationAuthoringTasks()
       .then((items) => {
         setTasks(items);
-        setTaskId(items[0]?.task_id ?? "");
+        setTaskId((current) => resolveObservationAuthoringTaskId(current, items));
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "対応Taskを取得できませんでした。"));
   }, []);

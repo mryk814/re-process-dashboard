@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -37,6 +38,7 @@ from decision_workbench.application.chain_candidate_adapters import (
 from decision_workbench.contracts.candidate_project_contracts import (
     Candidate,
     CandidateInput,
+    CandidateInputs,
     CandidateUpdate,
     Project,
     ProjectCreateInput,
@@ -63,6 +65,9 @@ from decision_workbench.contracts.chain_contracts import (
     build_prediction_graph_revision,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
+    PredictionGraphCandidateInputDefinition,
+    PredictionGraphDecisionOutputActual,
+    PredictionGraphDecisionOutputActualInput,
     PredictionGraphExecution,
     PredictionGraphSnapshot,
 )
@@ -74,6 +79,7 @@ from decision_workbench.contracts.prediction_graph_draft_contracts import (
 from decision_workbench.contracts.subsystem_availability import (
     WELDING_TRANSFORM_RESOURCE_ID,
 )
+from decision_workbench.contracts.task_contracts import NumericRange
 from decision_workbench.execution.inference_work_graph import semantic_digest
 from decision_workbench.modeling.transform_catalog import (
     DeterministicTransformCatalog,
@@ -82,6 +88,7 @@ from decision_workbench.persistence.store import (
     CandidateRevisionConflictError,
     ChainCatalogConflictError,
     Store,
+    StoreDataIntegrityError,
 )
 from decision_workbench.persistence.workspace_catalog import WorkspaceCatalog
 from decision_workbench.tasks.task_registry import TaskRegistry, TaskRegistryError
@@ -513,6 +520,237 @@ class PredictionGraphUseCases:
             raise ChainValidationError(str(exc)) from exc
         return self.store.create_candidate(prepared, project_id)
 
+    def starter_candidate(self, project_id: str) -> CandidateInput:
+        """Build one valid starter from the Graph's pinned candidate inputs."""
+
+        try:
+            definition, revision, _identity, adapter = (
+                self.planning._resolve_project(project_id)
+            )
+            domain_payload = adapter.initial_domain_payload()
+        except (ChainExecutionError, ChainCandidateAdapterError) as exc:
+            raise ChainValidationError(str(exc)) from exc
+        composition: dict[str, float] = {}
+        process: dict[str, float] = {}
+        categorical: dict[str, str] = {}
+        stages = {stage.stage_id: stage for stage in definition.stages}
+        for graph_input in definition.inputs:
+            source = graph_input.value_source
+            if source.source_kind != "candidate":
+                continue
+            if graph_input.port.value_kind == "sparse_blend":
+                continue
+            fields = []
+            for binding in definition.bindings:
+                if (
+                    binding.source.source_kind != "external"
+                    or binding.source.path != graph_input.input_id
+                ):
+                    continue
+                stage = stages[binding.target_stage_id]
+                if stage.stage_kind != "task":
+                    continue
+                task = self.task_registry.contract_for(
+                    stage.contract_id
+                ).task_definition
+                field = next(
+                    (
+                        item
+                        for group in task.input_groups
+                        for item in group.fields
+                        if item.path == binding.target_input_path
+                    ),
+                    None,
+                )
+                if field is not None:
+                    fields.append(field)
+            if not fields:
+                raise ChainValidationError(
+                    "Graph候補入力の既定値をTask契約から解決できません: "
+                    f"{graph_input.input_id}"
+                )
+            group, key = source.candidate_path.split(".", 1)
+            if graph_input.port.value_kind == "number":
+                numeric_range = fields[0].default_range
+                if numeric_range is None:
+                    raise ChainValidationError(
+                        "Graph候補入力の既定範囲がありません: "
+                        f"{graph_input.input_id}"
+                    )
+                value = (numeric_range.min + numeric_range.max) / 2
+                target = composition if group == "composition" else process
+                target[key] = value
+            else:
+                if not fields[0].choices:
+                    raise ChainValidationError(
+                        "Graph候補入力の選択肢がありません: "
+                        f"{graph_input.input_id}"
+                    )
+                categorical[key] = fields[0].choices[0]
+        try:
+            return self.planning.prepare_candidate(
+                project_id,
+                CandidateInput(
+                    name="基準候補",
+                    inputs=CandidateInputs(
+                        composition=composition,
+                        process=process,
+                        categorical=categorical,
+                        heat_pattern=None,
+                        heat_time_basis="line_speed",
+                    ),
+                    **domain_payload,
+                ),
+            )
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+
+    def candidate_inputs(
+        self, project_id: str
+    ) -> tuple[PredictionGraphCandidateInputDefinition, ...]:
+        try:
+            definition, revision, _identity, _adapter = (
+                self.planning._resolve_project(project_id)
+            )
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+        stage_order = {
+            stage_id: index
+            for index, layer in enumerate(definition.topology.topological_layers)
+            for stage_id in layer
+        }
+        stages = {stage.stage_id: stage for stage in definition.stages}
+        resolved: list[PredictionGraphCandidateInputDefinition] = []
+        for order, graph_input in enumerate(definition.inputs):
+            source = graph_input.value_source
+            if source.source_kind != "candidate":
+                continue
+            affected = definition.topology.affected_nodes_by_input[
+                graph_input.input_id
+            ]
+            affected_outputs = tuple(
+                item.output_id
+                for item in definition.decision_outputs
+                if item.source_stage_id in affected
+            )
+            common = {
+                "external_path": graph_input.input_id,
+                "input_id": graph_input.input_id,
+                "order": order,
+                "candidate_path": (
+                    source.candidate_path
+                    if source.candidate_path == "blend"
+                    or source.candidate_path.startswith(
+                        ("composition.", "process.", "categorical.")
+                    )
+                    else candidate_path_for_revision(
+                        revision,
+                        graph_input.input_id,
+                        graph_input.port.value_kind,
+                        graph_input.port.quantity,
+                    )
+                ),
+                "kind": graph_input.port.value_kind,
+                "label": graph_input.label,
+                "unit": graph_input.port.unit,
+                "basis": graph_input.port.basis,
+                "role": graph_input.role,
+                "required": graph_input.required,
+                "editable": True,
+                "affected_stage_ids": tuple(
+                    sorted(affected, key=lambda item: stage_order[item])
+                ),
+                "first_affected_stage_id": min(
+                    affected, key=lambda item: stage_order[item]
+                ),
+                "affected_output_ids": affected_outputs,
+            }
+            if graph_input.port.value_kind == "sparse_blend":
+                resolved.append(
+                    PredictionGraphCandidateInputDefinition(**common)
+                )
+                continue
+            fields = []
+            for binding in definition.bindings:
+                if (
+                    binding.source.source_kind != "external"
+                    or binding.source.path != graph_input.input_id
+                ):
+                    continue
+                stage = stages[binding.target_stage_id]
+                if stage.stage_kind != "task":
+                    continue
+                task = self.task_registry.contract_for(
+                    stage.contract_id
+                ).task_definition
+                field = next(
+                    (
+                        item
+                        for group in task.input_groups
+                        for item in group.fields
+                        if item.path == binding.target_input_path
+                    ),
+                    None,
+                )
+                if field is not None:
+                    fields.append((field, task))
+            if not fields:
+                raise ChainValidationError(
+                    "Graph candidate inputのTask fieldを解決できません: "
+                    f"{graph_input.input_id}"
+                )
+            editable = all(field.editable for field, _task in fields)
+            common["editable"] = editable
+            if not editable:
+                common["read_only_reason"] = (
+                    "固定されたStage契約で編集不可に設定されています"
+                )
+            if graph_input.port.value_kind == "number":
+                default_ranges = [
+                    field.default_range for field, _task in fields
+                ]
+                allowed_ranges = [
+                    field.allowed_range for field, _task in fields
+                ]
+                training_ranges = [
+                    field.training_range
+                    for field, _task in fields
+                    if field.training_range is not None
+                ]
+                if any(item is None for item in (*default_ranges, *allowed_ranges)):
+                    raise ChainValidationError(
+                        "Graph numeric inputの範囲を解決できません"
+                    )
+                def intersect(items):
+                    return NumericRange(
+                        min=max(item.min for item in items),
+                        max=min(item.max for item in items),
+                    )
+
+                resolved.append(PredictionGraphCandidateInputDefinition(
+                    **common,
+                    default_range=intersect(default_ranges),
+                    allowed_range=intersect(allowed_ranges),
+                    training_range=(
+                        intersect(training_ranges) if training_ranges else None
+                    ),
+                    display_decimals=max(
+                        task.display_decimals[field.path]
+                        for field, task in fields
+                    ),
+                ))
+            else:
+                choices = tuple(
+                    value
+                    for value in fields[0][0].choices
+                    if all(value in field.choices for field, _task in fields[1:])
+                )
+                resolved.append(PredictionGraphCandidateInputDefinition(
+                    **common,
+                    choices=choices,
+                ))
+        return tuple(resolved)
+
     def update_candidate(
         self,
         project_id: str,
@@ -620,3 +858,134 @@ class PredictionGraphUseCases:
         if result is None:
             raise ChainNotFoundError("Prediction Graph snapshotが見つかりません")
         return result
+
+    def create_decision_output_actual(
+        self,
+        project_id: str,
+        candidate_id: str,
+        payload: PredictionGraphDecisionOutputActualInput,
+    ) -> PredictionGraphDecisionOutputActual:
+        snapshot = self.store.get_prediction_graph_snapshot(
+            payload.snapshot_id,
+            project_id=project_id,
+        )
+        if snapshot is None or snapshot.identity.candidate_id != candidate_id:
+            raise ChainValidationError(
+                "比較元Prediction Graph snapshotが候補に属していません"
+            )
+        try:
+            _, definition, revision, identity, _, _ = self.planning.resolve(
+                project_id,
+                candidate_id,
+                snapshot.identity.candidate_revision,
+            )
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+        output_definition = next(
+            (
+                item
+                for item in definition.decision_outputs
+                if item.output_id == payload.output_id
+            ),
+            None,
+        )
+        snapshot_output = next(
+            (
+                item
+                for item in snapshot.terminal_outputs
+                if item.output_id == payload.output_id
+            ),
+            None,
+        )
+        if output_definition is None or snapshot_output is None:
+            raise ChainValidationError(
+                "指定したDecision OutputがGraph snapshotにありません"
+            )
+        if snapshot_output.status != "latest":
+            raise ChainValidationError(
+                "latestでないDecision OutputへActualは記録できません"
+            )
+        if (
+            snapshot_output.source_stage_id
+            != output_definition.source_stage_id
+            or snapshot_output.source_output_key
+            != output_definition.source_output_key
+        ):
+            raise ChainValidationError(
+                "Decision Outputのsource identityが一致しません"
+            )
+        if (
+            snapshot.identity.graph_revision_id
+            != identity.graph_revision_id
+            or snapshot.identity.graph_revision_digest
+            != revision.revision_digest
+            or snapshot.identity.project_binding_revision
+            != identity.project_binding.revision
+            or snapshot.identity.project_binding_digest
+            != identity.project_binding.digest
+        ):
+            raise ChainValidationError(
+                "Graph Actualのsnapshot identityが現在のProjectと一致しません"
+            )
+        surfaces = self.store.get_chain_stage_contract_surfaces(
+            identity.graph_revision_id
+        )
+        surface = surfaces.get(output_definition.source_stage_id)
+        port = next(
+            (
+                item
+                for item in surface.output_ports
+                if item.path == output_definition.source_output_key
+            ),
+            None,
+        ) if surface is not None else None
+        if port is None or port.value_kind != "number" or port.unit is None:
+            raise ChainValidationError(
+                "数値単位を持つDecision OutputだけActualを記録できます"
+            )
+        if payload.unit != port.unit:
+            raise ChainValidationError(
+                f"Actualの単位はDecision Outputと一致する必要があります: {port.unit}"
+            )
+        actual = PredictionGraphDecisionOutputActual(
+            **payload.model_dump(),
+            actual_id=str(uuid.uuid4()),
+            project_id=project_id,
+            candidate_id=candidate_id,
+            candidate_revision=snapshot.identity.candidate_revision,
+            graph_revision_id=snapshot.identity.graph_revision_id,
+            graph_revision_digest=snapshot.identity.graph_revision_digest,
+            project_binding_revision=(
+                snapshot.identity.project_binding_revision
+            ),
+            project_binding_digest=snapshot.identity.project_binding_digest,
+            source_stage_id=snapshot_output.source_stage_id,
+            source_output_key=snapshot_output.source_output_key,
+            prediction_value=snapshot_output.value,
+            created_at=datetime.now(UTC),
+        )
+        try:
+            return self.store.insert_prediction_graph_decision_output_actual(
+                actual
+            )
+        except StoreDataIntegrityError as exc:
+            raise ChainConflictError(str(exc)) from exc
+
+    def list_decision_output_actuals(
+        self,
+        project_id: str,
+        candidate_id: str,
+    ) -> list[PredictionGraphDecisionOutputActual]:
+        try:
+            self.planning._resolve_project(project_id)
+        except ChainExecutionError as exc:
+            raise ChainValidationError(str(exc)) from exc
+        candidate = self.store.get_candidate(candidate_id, project_id)
+        if candidate is None:
+            raise ChainNotFoundError(
+                "Prediction Graph candidateが見つかりません"
+            )
+        return self.store.list_prediction_graph_decision_output_actuals(
+            project_id,
+            candidate_id,
+        )

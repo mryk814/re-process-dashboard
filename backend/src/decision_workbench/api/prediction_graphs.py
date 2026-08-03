@@ -31,6 +31,9 @@ from decision_workbench.contracts.chain_api_contracts import (
     PredictionGraphProjectCreateRequest,
 )
 from decision_workbench.contracts.chain_execution_contracts import (
+    PredictionGraphCandidateInputDefinition,
+    PredictionGraphDecisionOutputActual,
+    PredictionGraphDecisionOutputActualInput,
     PredictionGraphExecution,
     PredictionGraphSnapshot,
 )
@@ -212,6 +215,30 @@ def create_candidate(
     return _call(lambda: use_cases.create_candidate(project_id, payload))
 
 
+@router.get(
+    "/projects/{project_id}/starter-candidate",
+    response_model=CandidateInput,
+    operation_id="getPredictionGraphStarterCandidate",
+)
+def get_starter_candidate(
+    project_id: str,
+    use_cases: GraphDependency,
+) -> CandidateInput:
+    return _call(lambda: use_cases.starter_candidate(project_id))
+
+
+@router.get(
+    "/projects/{project_id}/candidate-inputs",
+    response_model=list[PredictionGraphCandidateInputDefinition],
+    operation_id="getPredictionGraphCandidateInputs",
+)
+def get_candidate_inputs(
+    project_id: str,
+    use_cases: GraphDependency,
+) -> tuple[PredictionGraphCandidateInputDefinition, ...]:
+    return _call(lambda: use_cases.candidate_inputs(project_id))
+
+
 @router.put(
     "/projects/{project_id}/candidates/{candidate_id}",
     response_model=Candidate,
@@ -296,3 +323,42 @@ def get_snapshot(
     use_cases: GraphDependency,
 ) -> PredictionGraphSnapshot:
     return _call(lambda: use_cases.snapshot(project_id, snapshot_id))
+
+
+@router.post(
+    "/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals",
+    response_model=PredictionGraphDecisionOutputActual,
+    status_code=201,
+    operation_id="createPredictionGraphDecisionOutputActual",
+)
+def create_decision_output_actual(
+    project_id: str,
+    candidate_id: str,
+    payload: PredictionGraphDecisionOutputActualInput,
+    use_cases: GraphDependency,
+) -> PredictionGraphDecisionOutputActual:
+    return _call(
+        lambda: use_cases.create_decision_output_actual(
+            project_id,
+            candidate_id,
+            payload,
+        )
+    )
+
+
+@router.get(
+    "/projects/{project_id}/candidates/{candidate_id}/decision-output-actuals",
+    response_model=list[PredictionGraphDecisionOutputActual],
+    operation_id="listPredictionGraphDecisionOutputActuals",
+)
+def list_decision_output_actuals(
+    project_id: str,
+    candidate_id: str,
+    use_cases: GraphDependency,
+) -> list[PredictionGraphDecisionOutputActual]:
+    return _call(
+        lambda: use_cases.list_decision_output_actuals(
+            project_id,
+            candidate_id,
+        )
+    )
