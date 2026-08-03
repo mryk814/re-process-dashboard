@@ -32,6 +32,7 @@ async function gotoDataLibraryAfterCatalog(
 async function reloadSourceLifecycleAfterReady(
   page: import("@playwright/test").Page,
   connectorId: string,
+  profileId?: string,
 ) {
   const connectorPath = `/api/data-lifecycle/connectors/${connectorId}`;
   const readyResponses = [
@@ -49,12 +50,16 @@ async function reloadSourceLifecycleAfterReady(
   await Promise.all([...readyResponses, page.reload()]);
 
   const section = page.locator(".source-lifecycle-section");
-  await expect(section.getByLabel("品質判定レシピ")).not.toHaveValue("", {
-    timeout: 30_000,
-  });
-  await expect(section.getByLabel("データセットプロファイル")).not.toHaveValue("", {
-    timeout: 30_000,
-  });
+  if (profileId) {
+    await expect(section.getByLabel("品質判定レシピ")).not.toHaveValue("", {
+      timeout: 30_000,
+    });
+    const profileSelect = section.getByLabel("データセットプロファイル");
+    await expect(profileSelect.locator(`option[value="${profileId}"]`)).toHaveCount(1, {
+      timeout: 30_000,
+    });
+    await profileSelect.selectOption(profileId);
+  }
   return section;
 }
 
@@ -340,7 +345,7 @@ test("source refresh stays separate from approval, training and activation", asy
     },
   });
   expect(secondFetch.ok()).toBeTruthy();
-  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id);
+  const repeatedSection = await reloadSourceLifecycleAfterReady(page, connector.id, profile.id);
   await expect(repeatedSection.getByRole("button", { name: "品質判定を実行" })).toBeEnabled();
   const repeatedCurationPanel = repeatedSection.locator("details.source-action-panel").filter({
     hasText: "品質判定レシピとデータセットプロファイル",
