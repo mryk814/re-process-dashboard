@@ -246,7 +246,9 @@ jobs:
               "- run/shard: $($report.diagnostics.identity.github.runId) / $($report.diagnostics.identity.github.runAttempt) / $($report.shardId)"
               "- Playwright run/workers/retries: $($report.diagnostics.identity.playwright.e2eRunId) / $($report.diagnostics.identity.playwright.workers) / $($report.diagnostics.identity.playwright.retries)"
               "- ports: api=$($report.diagnostics.identity.playwright.ports.api), web=$($report.diagnostics.identity.playwright.ports.web)"
-              "- workspace DB: ``$($report.diagnostics.identity.playwright.workspace.database)``"
+              "- workspace isolation: $($report.diagnostics.identity.playwright.workspace.kind)"
+              "- workspace report: ``$($report.diagnostics.identity.playwright.workspace.reportPath)``"
+              "- single-process workspace DB: ``$($report.diagnostics.identity.playwright.workspace.database)``"
             ) | Add-Content $env:GITHUB_STEP_SUMMARY
             foreach ($gate in @($report.diagnostics.failedGates)) {
               @("", "### failed gate: $($gate.id)", "", '```text', $gate.failureExcerpt, '```') |

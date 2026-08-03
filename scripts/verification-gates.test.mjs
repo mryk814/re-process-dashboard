@@ -179,6 +179,11 @@ test("focused product E2E specs stay at PR level while E2E infrastructure requir
   assert.equal(infrastructure.completion, "follow_up");
   assert.equal(infrastructure.followUpOwner, "epic-checkpoint");
   assert.ok(selectedIds(infrastructure).includes("failure-state-e2e"));
+
+  const parallelRunner = planFor(["scripts/run-isolated-e2e.mjs"]);
+  assert.deepEqual(parallelRunner.riskCategories, ["e2e-test-infrastructure"]);
+  assert.equal(parallelRunner.selectedLevel, "checkpoint");
+  assert.ok(selectedIds(parallelRunner).includes("failure-state-e2e"));
 });
 
 test("backend plan resolves authority-map focused tests and CI owns the full suite", () => {
@@ -1808,15 +1813,19 @@ test("CI shard diagnostics preserve success and failure identity without changin
   const previousRunId = process.env.PLAYWRIGHT_E2E_RUN_ID;
   process.env.PLAYWRIGHT_E2E_RUN_ID = "run-1-browser-standard";
   try {
-    const success = diagnosticIdentity({ shardId: "contract-build", testedCommit: "abc123" });
+    const success = diagnosticIdentity({ shardId: "browser-standard", testedCommit: "abc123" });
     assert.equal(success.testedMergeSha, "abc123");
-    assert.equal(success.shardId, "contract-build");
+    assert.equal(success.shardId, "browser-standard");
     assert.equal(success.playwright.workers, "1");
     assert.equal(success.playwright.retries, "0");
     assert.equal(success.playwright.ports.api, "8875");
     assert.equal(success.playwright.ports.web, "5199");
-    assert.match(success.playwright.workspace.database, /decision-workbench-e2e-run-1-browser-standard\.db$/);
-    assert.match(success.playwright.workspace.modelStore, /decision-workbench-e2e-models-run-1-browser-standard$/);
+    assert.equal(success.playwright.workspace.kind, "per-process-report");
+    assert.equal(success.playwright.workspace.database, null);
+    assert.match(
+      success.playwright.workspace.reportPath,
+      /test-results[\\/]run-1-browser-standard[\\/]report\.json$/,
+    );
   } finally {
     if (previousRunId === undefined) delete process.env.PLAYWRIGHT_E2E_RUN_ID;
     else process.env.PLAYWRIGHT_E2E_RUN_ID = previousRunId;

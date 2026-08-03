@@ -580,6 +580,7 @@ function diagnosticRoot(shardId) {
 
 export function diagnosticIdentity({ shardId, testedCommit }) {
   const e2eRunId = process.env.PLAYWRIGHT_E2E_RUN_ID ?? null;
+  const delegatesWorkspaceIdentity = shardId === "browser-standard";
   const database = process.env.PLAYWRIGHT_DB_PATH
     ?? (e2eRunId ? resolve(tmpdir(), `decision-workbench-e2e-${e2eRunId}.db`) : null);
   const modelStore = process.env.PLAYWRIGHT_MODEL_STORE_PATH
@@ -609,10 +610,18 @@ export function diagnosticIdentity({ shardId, testedCommit }) {
         web: process.env.PLAYWRIGHT_WEB_PORT ?? "5199",
       },
       workspace: {
-        database,
-        modelStore,
-        profileStore,
-        taskStore,
+        kind: delegatesWorkspaceIdentity ? "per-process-report" : "single-process",
+        reportPath: delegatesWorkspaceIdentity && e2eRunId
+          ? resolve(
+              process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results",
+              e2eRunId,
+              "report.json",
+            )
+          : null,
+        database: delegatesWorkspaceIdentity ? null : database,
+        modelStore: delegatesWorkspaceIdentity ? null : modelStore,
+        profileStore: delegatesWorkspaceIdentity ? null : profileStore,
+        taskStore: delegatesWorkspaceIdentity ? null : taskStore,
       },
     },
   };
@@ -735,9 +744,17 @@ function runGateIds({
     "PLAYWRIGHT_REUSE_SERVER",
     "PLAYWRIGHT_DB_PATH",
     "PLAYWRIGHT_OWNED_DB_PATH",
+    "PLAYWRIGHT_MODEL_STORE_PATH",
+    "PLAYWRIGHT_OWNED_MODEL_STORE_PATH",
+    "PLAYWRIGHT_PROFILE_STORE_PATH",
+    "PLAYWRIGHT_OWNED_PROFILE_STORE_PATH",
+    "PLAYWRIGHT_TASK_STORE_PATH",
+    "PLAYWRIGHT_OWNED_TASK_STORE_PATH",
+    "PLAYWRIGHT_CLEANUP_REPORT_PATH",
     "PLAYWRIGHT_API_PORT",
     "PLAYWRIGHT_WEB_PORT",
     "PLAYWRIGHT_BROKEN_TASK_PACKAGE",
+    "PLAYWRIGHT_INCLUDE_PARALLEL_DEDICATED",
     "VERIFICATION_SKIP_STANDARD_FAILURE_SPECS",
   ]) {
     if (environment[key] !== undefined) {
