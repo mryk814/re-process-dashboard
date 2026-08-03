@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping
 
+from decision_workbench.data.evidence_images import technical_field_is_optional
 from decision_workbench.data.profiles.requirements import task_data_requirements
 from decision_workbench.data.profiles.schema import (
     DatasetInputProfile,
@@ -492,6 +493,7 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     workbook = _profile_workbook(workbook, profile)
     errors: list[str] = []
     task_requirements = task_data_requirements(profile)
+    optional_technical = set(profile.shared.optional_technical_fields)
     required: dict[str, set[str]] = {}
     fallback_series_roles = {
         mapping.role
@@ -509,7 +511,14 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
     for item in profile.shared.eligibility:
         require(item.role, item.column)
     for item in profile.shared.technical:
-        if item.role not in fallback_series_roles:
+        if (
+            item.role not in fallback_series_roles
+            and not technical_field_is_optional(
+                item.role,
+                item.name,
+                optional_technical,
+            )
+        ):
             require(item.role, item.column)
     for task in profile.tasks.values():
         for mapping in task.mappings:
@@ -675,6 +684,11 @@ def preflight_workbook(workbook: Any, profile: DatasetInputProfile) -> None:
                             item.column
                             for item in profile.shared.technical
                             if item.role == mapping.role
+                            and not technical_field_is_optional(
+                                item.role,
+                                item.name,
+                                optional_technical,
+                            )
                         ),
                     }
                     missing_existing_columns = sorted(
